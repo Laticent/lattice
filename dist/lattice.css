@@ -18369,9 +18369,10 @@ section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([cl
 }
 
 /* off — the white-label control: drop the prominent section-edge / divider bar. It touches
-   ONLY the bar; the structural accents (table rails, list-steps spine, hr) keep the current
-   STYLE, so `off` never kills a structural rule (it does NOT redefine --spectrum). This is
-   the backward-compatible white-label behavior (2026-07-03-spectrum-register-white-label.md). */
+   ONLY the bar (it does NOT redefine --spectrum). The structural accents read
+   --spectrum-structure — quiet by default, or the deck's spectrum under `spectrum-trim: on` —
+   so `off` neither adds nor removes a structural rule; the two axes are independent
+   (2026-07-03-spectrum-register-white-label.md, 2026-07-16-spectrum-structure-default.md). */
 section.spectrum-off { border-top: none; }
 section.dark.spectrum-off { background: var(--bg); }
 section.divider:not(.light).spectrum-off { background: var(--surface-inverse); }

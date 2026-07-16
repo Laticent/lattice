@@ -141,7 +141,7 @@
 /* Code panel — uses the tokenised --code-bg (defaults to var(--surface-inverse)
  * in lattice.css). Spectrum hairline anchors the bottom edge. */
 section pre.hljs {
-  background: var(--spectrum) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
+  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
 }
 
 /* Completion tokens — band-text pairs, line, gantt state, note, error.

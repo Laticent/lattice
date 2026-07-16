@@ -282,6 +282,25 @@ describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
     // …while the section-edge BAR still reads --spectrum directly (unchanged).
     assert.match(elements, /border-image-source:\s*var\(--spectrum\)/);
   });
+
+  // Theme-layer guard (maker-checker finding): a theme may OVERRIDE a structural accent (e.g.
+  // `section pre.hljs` — its code-panel strip) and, being source-ordered AFTER the inlined base,
+  // its `var(--spectrum)` read would WIN, silently re-painting the spectrum on structure
+  // regardless of `spectrum-trim`. Themes DEFINE `--spectrum:` (a definition, `-` colon) but must
+  // never READ the raw `var(--spectrum)` for a structural accent — they read `--spectrum-structure`
+  // (or `--spectrum-vertical`/`-end`/`-solid`, which are longer tokens the exact match below skips).
+  test('no theme reads the raw `var(--spectrum)` for a structural accent (would defeat spectrum-trim)', () => {
+    const themesDir = path.join(__dirname, '../../../themes');
+    const offenders = [];
+    for (const f of fs.readdirSync(themesDir)) {
+      if (!f.endsWith('.css')) continue;
+      const css = fs.readFileSync(path.join(themesDir, f), 'utf8');
+      // Exact `var(--spectrum)` — the trailing `)` excludes `--spectrum-vertical/-end/-solid/-structure`.
+      if (/var\(--spectrum\)/.test(css)) offenders.push(f);
+    }
+    assert.deepEqual(offenders, [],
+      `these themes read raw var(--spectrum) for a structural accent — redirect to var(--spectrum-structure): ${offenders.join(', ')}`);
+  });
 });
 
 describe('resolve-spectrum — the sub-registers partition cleanly', () => {

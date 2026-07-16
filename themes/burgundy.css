@@ -149,7 +149,7 @@
 }
 
 section pre.hljs {
-  background: var(--spectrum) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
+  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
 }
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */
