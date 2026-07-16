@@ -125,9 +125,12 @@ visible consequence so it is not mistaken for a regression.
   every chart family must prove the `probeSectionOverflow` verdict + autosplit decisions
   are unchanged pre/post. Re-run the §6 **self-scaling test** per chart family: an SVG
   chart (pie/radar/map/quadrant/funnel/word-cloud) self-scales like diagram → `flex:1`,
-  no pin; a **list/table chart** (progress/gantt/kanban/timeline-list/roadmap/state-chart/
-  journey) has content-height rows that can overflow → it likely needs `flex:0 0 auto`
-  like contact/wifi to keep the probe honest. Classify each before wrapping.
+  no pin; a **vertical-list chart** (progress/gantt/kanban/timeline-list/roadmap/
+  state-chart) grows in content-height ROWS that can overflow → it needs `flex:0 0 auto`
+  like contact/wifi to keep the probe honest. **`journey` is NOT pinned** — it is
+  horizontally-oriented (adding stages/tasks adds `1fr` columns, never vertical rows), so
+  its height is bounded and it never vertically overflows; pinning it forced natural
+  height that pushed the mood legend past the stage (see §8). Classify each before wrapping.
 
 ## 6. Staging + verification
 
@@ -186,3 +189,16 @@ Tracked (not blocking):
   an h2), so it gets no band and no stage — an inconsistency, but pre-existing (charts
   have always needed a title) and graceful (falls back to the section-level overflow
   probe, no silent-clip). Not actionable for this PR; noted for completeness.
+- **`journey` mis-classified as a vertical-list chart — caught by the full-deck export
+  render (owner-requested).** The initial pin set included `journey`, but journey is
+  HORIZONTALLY-oriented: adding stages/tasks adds `1fr` columns (thinner), never vertical
+  rows, so its height is bounded — it never vertically overflows. Pinning it (`flex:0 0
+  auto`) forced its natural height, which under the cell-partitioned stage pushed the mood
+  legend past the stage bottom → the densest journey (the coverage deck's `journey curve`
+  with board + curve + two legends + running header on 4K) clipped. Rendering the actual
+  `examples/chart-family-coverage.md` export surfaced it (the synthetic gate + trio, which
+  probed vertical overstuffing, did not — journey's overstuffing is HORIZONTAL, its own
+  pre-existing timeline-scroll behavior). Fix: remove `journey` from the pin (it self-scales
+  like the SVG charts). Coverage deck then exports with ZERO overflow. Lesson reinforcing
+  Munger #4: the manual `:is()` classification needs the per-family overflow matrix, and a
+  real-deck export render is a distinct check from the synthetic probe.

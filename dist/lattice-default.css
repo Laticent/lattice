@@ -15539,19 +15539,25 @@ section.chart-frame .chart-body {
   overflow: hidden;
 }
 
-/* .viz-frame §5 — the self-scaling test, per chart family. A truly SVG-bodied chart
- * (piechart/radar/quadrant/funnel/map/word-cloud) self-scales inside the `.cell-stage`
- * clip: its `<svg>` is sized to the box and letterboxes, so a squeezed box SCALES it —
- * `flex:1 1 auto` (above) is right, the clip never loses content. But a chart with
- * CONTENT-HEIGHT DOM has rows that genuinely exceed the stage: under `flex:1 1 auto` an
- * overstuffed chart flex-SHRINKS and `overflow:hidden` clips the excess SILENTLY —
- * invisible to the overflow probe (the QR-card silent-overflow class,
- * 2026-07-15-viz-frame-merge.md §5). That set is progress/gantt/kanban/timeline-list/
- * roadmap/journey AND state-chart (its body is `<ol class="state-nodes">` content-height
- * HTML nodes — the `<svg>` is only a JS-sized edge overlay, NOT a scaling container).
- * Pin those bodies to natural height so an overstuffed chart SPILLS the stage clip and
- * the probe catches it (proven by chart-overflow-preserved.test.js). */
-section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap, .journey, .state-chart) > .cell-stage > .chart-body {
+/* .viz-frame §5 — the self-scaling test, per chart family. Two groups keep `flex:1 1
+ * auto` (above) because their body's height is BOUNDED — a squeezed box scales it, the
+ * clip never loses content:
+ *   · SVG-bodied charts (piechart/radar/quadrant/funnel/map/word-cloud) — the `<svg>` is
+ *     sized to the box and letterboxes.
+ *   · JOURNEY — horizontally-oriented: adding stages/tasks adds `1fr` COLUMNS (thinner),
+ *     never vertical rows, so its height is bounded and it never vertically overflows
+ *     (an overstuffed journey scrolls horizontally via its own timeline indicator — a
+ *     pre-existing behavior, not a vertical silent-clip). Pinning it was WRONG: the pin
+ *     forced natural height that pushed the mood legend past the stage bottom.
+ * But a chart with CONTENT-HEIGHT DOM that grows in VERTICAL ROWS genuinely exceeds the
+ * stage: under `flex:1 1 auto` an overstuffed chart flex-SHRINKS and `overflow:hidden`
+ * clips the excess rows SILENTLY — invisible to the overflow probe (the QR-card
+ * silent-overflow class, 2026-07-15-viz-frame-merge.md §5). That set is progress/gantt/
+ * kanban/timeline-list/roadmap AND state-chart (its body is `<ol class="state-nodes">`
+ * content-height HTML nodes — the `<svg>` is only a JS-sized edge overlay, NOT a scaling
+ * container). Pin those bodies to natural height so an overstuffed chart SPILLS the stage
+ * clip and the probe catches it (proven by chart-overflow-preserved.test.js). */
+section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap, .state-chart) > .cell-stage > .chart-body {
   flex: 0 0 auto;
 }
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural
