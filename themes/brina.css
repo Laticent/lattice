@@ -156,30 +156,30 @@ section pre.hljs {
 }
 
 :root {
-  --cat-1-fill:  light-dark(#DAE6EE, #00668D);
-  --cat-1-mark:   light-dark(#DAE6EE, #00668D);
-  --cat-2-fill:  light-dark(#B5CDDA, #A03314);
-  --cat-2-mark:   light-dark(#B5CDDA, #A03314);
-  --cat-3-fill:  light-dark(#F0ECD5, #4B6900);
-  --cat-3-mark:   light-dark(#F0ECD5, #4B6900);
-  --cat-4-fill:  light-dark(#E0D8EC, #8D357F);
-  --cat-4-mark:   light-dark(#E0D8EC, #8D357F);
-  --cat-5-fill:  light-dark(#F0DDE0, #4951B0);
-  --cat-5-mark:   light-dark(#F0DDE0, #4951B0);
-  --cat-6-fill:  light-dark(#E8E0EE, #9E2D50);
-  --cat-6-mark:   light-dark(#E8E0EE, #9E2D50);
-  --cat-7-fill:  light-dark(#D8E0EA, #006C67);
-  --cat-7-mark:   light-dark(#D8E0EA, #006C67);
-  --cat-8-fill:  light-dark(#E5EAF0, #864E00);
-  --cat-8-mark:   light-dark(#E5EAF0, #864E00);
-  --cat-9-fill:  light-dark(#D5E5E8, #6F43A2);
-  --cat-9-mark:   light-dark(#D5E5E8, #6F43A2);
-  --cat-10-fill: light-dark(#F2E5D5, #007043);
-  --cat-10-mark:  light-dark(#F2E5D5, #007043);
-  --cat-11-fill: light-dark(#DAE6EE, #0060A4);
-  --cat-11-mark:  light-dark(#DAE6EE, #0060A4);
-  --cat-12-fill: light-dark(#D0E5E8, #6F5D00);
-  --cat-12-mark:  light-dark(#D0E5E8, #6F5D00);
+  --cat-1-fill:  light-dark(#c7b8ea, #450dc9);
+  --cat-1-mark:  light-dark(#3f1c92, #cdc3e4);
+  --cat-2-fill:  light-dark(#dbeab8, #3e5606);
+  --cat-2-mark:  light-dark(#6f921c, #dae4c3);
+  --cat-3-fill:  light-dark(#eab8c2, #9e0a28);
+  --cat-3-mark:  light-dark(#921c34, #e4c3ca);
+  --cat-4-fill:  light-dark(#b8eae1, #065648);
+  --cat-4-mark:  light-dark(#1c927d, #c3e4de);
+  --cat-5-fill:  light-dark(#eac8b8, #863109);
+  --cat-5-mark:  light-dark(#92421c, #e4cec3);
+  --cat-6-fill:  light-dark(#b8eac7, #065b1f);
+  --cat-6-mark:  light-dark(#1c923f, #c3e4cd);
+  --cat-7-fill:  light-dark(#b8c2ea, #0d33c9);
+  --cat-7-mark:  light-dark(#1c3492, #c3cae4);
+  --cat-8-fill:  light-dark(#e0b8ea, #800a9e);
+  --cat-8-mark:  light-dark(#7a1c92, #ddc3e4);
+  --cat-9-fill:  light-dark(#c2eab8, #175b06);
+  --cat-9-mark:  light-dark(#34921c, #cae4c3);
+  --cat-10-fill:  light-dark(#eab8db, #940a6b);
+  --cat-10-mark:  light-dark(#921c6f, #e4c3da);
+  --cat-11-fill:  light-dark(#b8dbea, #075373);
+  --cat-11-mark:  light-dark(#1c6f92, #c3dae4);
+  --cat-12-fill:  light-dark(#eae1b8, #5b4c06);
+  --cat-12-mark:  light-dark(#927d1c, #e4dec3);
 
   --cat-on-fill: var(--text-heading);
   --cat-on-mark:  var(--text-heading);

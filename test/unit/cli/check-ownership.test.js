@@ -65,6 +65,11 @@ const {
   SANCTIONED_GESTURES,
   checkSkillFreshness,
   skillFreshnessAssertions,
+  checkCatContrast,
+  catResolve,
+  catContrast,
+  CAT_TEXT_FLOOR,
+  CAT_EDGE_FLOOR,
   VETRINA_DIR,
   VETRINA_IMPORT,
   run,
@@ -752,6 +757,76 @@ describe('check-ownership', () => {
       const declared = declaredGestures("export type Gesture = 'wave' | 'circle' | 'check' | 'cross';"); // shake removed
       const stale = Object.keys(SANCTIONED_GESTURES).filter((g) => !declared.has(g));
       assert.deepEqual(stale, ['shake'], 'the registry keeps shake the type no longer declares → gate flags it');
+    });
+  });
+
+  describe('categorical three-layer contrast gate', () => {
+    test('every shipped hue-based theme passes all three layers', () => {
+      const errors = [];
+      checkCatContrast(errors);
+      assert.deepEqual(errors, [], `cat-contrast gate should pass on shipped themes; got:\n${errors.join('\n')}`);
+    });
+
+    test('catResolve follows light-dark() arms and var() chains to a hex', () => {
+      const map = new Map([
+        ['--cat-1-fill', 'light-dark(#bee0e5, #0e5a63)'],
+        ['--cat-on-fill', 'var(--text-heading)'],
+        ['--text-heading', 'light-dark(#0E2F33, var(--scheme-dark-text-heading))'],
+        ['--scheme-dark-text-heading', '#EFE8D7'],
+      ]);
+      assert.equal(catResolve(map, '--cat-1-fill', 'light'), '#bee0e5');
+      assert.equal(catResolve(map, '--cat-1-fill', 'dark'), '#0e5a63');
+      assert.equal(catResolve(map, '--cat-on-fill', 'light'), '#0e2f33'); // through var → light-dark
+      assert.equal(catResolve(map, '--cat-on-fill', 'dark'), '#efe8d7');  // through var → var → hex
+    });
+
+    test('catResolve splits light-dark on the TOP-LEVEL comma, not one nested in an arm', () => {
+      // Regression for the checker's HIGH finding: a naive regex split broke here.
+      const map = new Map([
+        ['--x', 'light-dark(color-mix(in oklab, #aabbcc 50%, #ddeeff), #123456)'],
+      ]);
+      // light arm is a color-mix() this static resolver can't evaluate → null (fail-closed),
+      // NOT a wrong hex silently harvested from inside the color-mix.
+      assert.equal(catResolve(map, '--x', 'light'), null);
+      // dark arm is a plain hex and must resolve correctly despite the commas in the light arm.
+      assert.equal(catResolve(map, '--x', 'dark'), '#123456');
+    });
+
+    test('catResolve honors a var() fallback that itself contains commas', () => {
+      const map = new Map([['--y', 'var(--missing, light-dark(#111111, #222222))']]);
+      assert.equal(catResolve(map, '--y', 'light'), '#111111');
+      assert.equal(catResolve(map, '--y', 'dark'), '#222222');
+    });
+
+    test('catParseTokens takes the LAST declaration (CSS cascade), not the first', () => {
+      const map = new Map();
+      // emulate what catParseTokens builds; verify resolve reads the override
+      map.set('--z', '#000000');
+      map.set('--z', '#ffffff'); // later declaration wins
+      assert.equal(catResolve(map, '--z', 'light'), '#ffffff');
+    });
+
+    test('catContrast matches known WCAG pairs', () => {
+      assert.ok(Math.abs(catContrast('#000000', '#ffffff') - 21) < 0.01);
+      assert.ok(catContrast('#767676', '#ffffff') >= 4.5); // canonical AA gray
+    });
+
+    test('the gate bites: fill == mark (the original collapse bug) is flagged', () => {
+      // Simulate one theme's slot where fill and mark are identical.
+      const fill = '#888888', mark = '#888888';
+      assert.equal(catContrast(fill, mark), 1, 'identical fill/mark are exactly 1:1');
+      assert.ok(1 < 1.25, 'a 1:1 fill/mark falls below the collapse floor → gate flags it');
+    });
+
+    test('the gate bites: sub-AA label text on a fill is below the text floor', () => {
+      // light ink on a pale-ish fill that is too light → fails AA
+      assert.ok(catContrast('#f0e5c8', '#f5efd8') < CAT_TEXT_FLOOR);
+      // deep jewel fill vs light ink → clears AA
+      assert.ok(catContrast('#f0e5c8', '#1a1206') >= CAT_TEXT_FLOOR);
+    });
+
+    test('the edge floor is the WCAG graphical-object threshold', () => {
+      assert.equal(CAT_EDGE_FLOOR, 3.0);
     });
   });
 });

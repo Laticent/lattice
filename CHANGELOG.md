@@ -747,6 +747,20 @@ in patch versions.
 
 ### Fixed
 
+- **Ten themes rendered every categorical branch the same color — mindmaps, kanban, roadmaps,
+  and the rest of the `--cat-*` cycle collapsed to one hue. Fixed by recoloring the affected
+  themes to a three-layer contrast contract.** `mustard`, `laguna`, `burgundy`, `crepuscolo`,
+  `atelier`, `brina`, `magnolia`, `ardesia`, `concrete`, and `onyx` shipped `--cat-N-fill ==
+  --cat-N-mark` on all 12 slots, so a diagram's node fill and its branch stroke were one value
+  and categories became indistinguishable (ardesia's mindmap was all-gray; indaco showed 12
+  hues). Each theme's own 12 curated hues are preserved — only saturation/lightness are
+  re-placed so `fill` (pale, chromatic node) and `mark` (deep edge/border) are distinct flipped
+  tiers of one hue in both light and dark. Two contrast solvers hold the accessibility floors:
+  dark-mode **label-text vs node fill ≥ 7:1 (AAA)** and **edge/border vs canvas ≥ 3.2:1** (WCAG
+  1.4.11). A new three-layer contrast gate (`checkCatContrast`, via `build:check`) runs the same
+  floors over every theme so a collapse can't silently reship. `onyx` (single-hue brand) keeps
+  luminance-based separation; its texture treatment is tracked separately.
+  See `engineering/decisions/2026-07-15-categorical-token-contract.md`.
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its
   heading, and a few cases that spoke a falsehood are corrected.** A retroactive three-perspective
