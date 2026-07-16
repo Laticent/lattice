@@ -244,9 +244,17 @@ body[data-view='read'] .pg-pane-label {
 	/* Transparent until a deck renders so the skeleton shows through the empty
 	   iframe; the rendered srcdoc paints its own opaque background over it. */
 	background: transparent;
+	/* HIDDEN until the frame goes live (its FIT agent has revealed the slides). The
+	   srcdoc paints an opaque body (a black box in dark mode) the moment it loads, well
+	   BEFORE FIT scales + reveals the sections; keeping the iframe itself invisible until
+	   then lets the dark skeleton / instant-shell behind it cover that window instead of a
+	   black flash. `visibility` (not display) preserves layout so FIT can still measure the
+	   pane. The render loop adds `is-live` only once `.lattice` is visible. */
+	visibility: hidden;
 }
 .pg-preview-wrap.is-live #preview {
 	background: var(--bg-alt);
+	visibility: visible;
 }
 
 /* ── Instant-shell (anti cold-load flash) ──────────────────────────────────

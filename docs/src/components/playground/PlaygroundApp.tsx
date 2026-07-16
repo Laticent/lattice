@@ -228,6 +228,40 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// post-first-render capture without a use-before-declaration cycle.
 	const captureFirstSlideRef = React.useRef<() => void>(() => {});
 
+	// Defer the "live" transition until the in-frame slides are actually VISIBLE. The
+	// engine writes the srcdoc, then the in-iframe FIT agent scales the sections and only
+	// THEN flips `.lattice` visible — for a ~900ms window on a cold load the iframe has
+	// painted its own opaque body (a black box in dark mode) with the slides still hidden.
+	// Going live at srcdoc-set (the old behavior) tore down the covering skeleton during
+	// exactly that window → the black flash the returning-editor shell never masked. Poll
+	// the same-origin frame for the FIT reveal and only then go live: add `is-live` (CSS
+	// reveals #preview + drops the skeleton) and dismiss the instant-shell, so the dark
+	// placeholder covers the whole gap and the hand-off is a single skeleton→slides step.
+	// A fallback timeout guarantees a stuck/again-0-width FIT can't hide the preview forever.
+	const markLiveWhenSlidesVisible = React.useCallback((frame: HTMLIFrameElement) => {
+		const wrap = frame.parentElement;
+		if (!wrap || wrap.classList.contains('is-live')) return; // already live (patch renders)
+		const start = Date.now();
+		const goLive = () => {
+			wrap.classList.add('is-live');
+			setShellHtml(null);
+			document.documentElement.removeAttribute('data-pg-shell');
+		};
+		const check = () => {
+			let ready = false;
+			try {
+				const win = frame.contentWindow;
+				const lat = frame.contentDocument?.querySelector('.lattice') as HTMLElement | null;
+				ready = !!(lat && win && win.getComputedStyle(lat).visibility === 'visible');
+			} catch {
+				ready = true; // a same-origin srcdoc shouldn't throw; if it does, don't get stuck
+			}
+			if (ready || Date.now() - start > 4000) goLive();
+			else requestAnimationFrame(check);
+		};
+		check();
+	}, []);
+
 	// ── Source accessors (prefer the live editor; safe before it mounts) ────────
 	const getSource = React.useCallback(() => editorRef.current?.getValue() ?? starter, [starter]);
 	const setSource = React.useCallback((text: string) => editorRef.current?.setValue(text), []);
@@ -359,14 +393,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				}
 				// Land the walk position after a fresh paint (instant; stepping smooths).
 				if (viewRef.current === 'read') scrollWalkRef.current(false);
-				// Drop the loading skeleton once real slides have painted (the iframe
-				// is opaque and covers the host; this removes the placeholder behind it).
-				frame.parentElement?.classList.add('is-live');
-				// Dismiss the pre-paint instant-shell on the first live render: the live
-				// filmstrip now paints over it, so clear the static slide (and its flag) to
-				// avoid a stale double-paint. Idempotent — React bails on the null no-op.
-				setShellHtml(null);
-				document.documentElement.removeAttribute('data-pg-shell');
+				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
+				// so the skeleton / instant-shell covers the FIT window instead of the iframe
+				// flashing its opaque black body. This adds `is-live` (CSS reveals #preview +
+				// drops the skeleton) and dismisses the shell when the frame is ready.
+				markLiveWhenSlidesVisible(frame);
 				// One capture ~after the first render (async chart/mermaid draws settle),
 				// so the NEXT cold load has this slide to replay. Mirrors the Studio's
 				// onPreviewFirstRender; ref-indirected past the capture callback's TDZ.
@@ -388,7 +419,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				return { heavy: !r.patched };
 			}
 		},
-		[getSource, setStatusLine, palettes],
+		[getSource, setStatusLine, palettes, markLiveWhenSlidesVisible],
 	);
 
 	// Latest render closure — the frame scheduler reaches it via this ref so it always
