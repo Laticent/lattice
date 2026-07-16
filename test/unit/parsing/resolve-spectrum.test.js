@@ -30,6 +30,13 @@ const {
   spectrumEdgeClass,
   spectrumEdgeClassFromSource,
   isSpectrumEdgeToken,
+  SPECTRUM_CARD_NAMES,
+  SPECTRUM_CARD_TOKENS,
+  readFrontMatterSpectrumCard,
+  isKnownSpectrumCard,
+  spectrumCardClass,
+  spectrumCardClassFromSource,
+  isSpectrumCardToken,
 } = require('../../../lib/core/resolve-spectrum');
 
 describe('resolve-spectrum — STYLE (`spectrum:`)', () => {
@@ -132,6 +139,66 @@ describe('resolve-spectrum — EDGE (`spectrum-edge:`)', () => {
     assert.equal(readFrontMatterSpectrumEdge('---\nspectrum-edge: "off"\n---\n'), 'off');
     assert.equal(spectrumEdgeClassFromSource('---\nspectrum-edge: right\n---\n'), 'spectrum-edge-right');
     assert.equal(readFrontMatterSpectrumEdge('---\nspectrum: solid\n---\n'), null);
+  });
+});
+
+describe('resolve-spectrum — CARD (`spectrum-card:`)', () => {
+  test('on → spectrum-card token; off/empty/unknown → no token (the default)', () => {
+    assert.equal(spectrumCardClass('on'), 'spectrum-card');
+    assert.equal(spectrumCardClass('off'), '');
+    assert.equal(spectrumCardClass(''), '');
+    assert.equal(spectrumCardClass('yes'), '');
+    assert.equal(spectrumCardClass(undefined), '');
+    assert.equal(spectrumCardClass('  ON '), 'spectrum-card');
+  });
+
+  test('isKnownSpectrumCard recognizes on / off only', () => {
+    assert.ok(isKnownSpectrumCard('on'));
+    assert.ok(isKnownSpectrumCard('off'));
+    assert.ok(!isKnownSpectrumCard('yes'));
+    assert.ok(!isKnownSpectrumCard(''));
+  });
+
+  test('SPECTRUM_CARD_NAMES / TOKENS list the recognized set + per-slide override tokens', () => {
+    assert.deepEqual([...SPECTRUM_CARD_NAMES], ['on', 'off']);
+    assert.deepEqual([...SPECTRUM_CARD_TOKENS], ['spectrum-card', 'spectrum-card-off']);
+  });
+
+  test('isSpectrumCardToken matches card tokens but NOT style/edge tokens', () => {
+    assert.ok(isSpectrumCardToken('spectrum-card'));
+    assert.ok(isSpectrumCardToken('spectrum-card-off'));
+    assert.ok(!isSpectrumCardToken('spectrum-off'), 'style off is not a card token');
+    assert.ok(!isSpectrumCardToken('spectrum-edge-off'), 'edge off is not a card token');
+  });
+
+  test('the three sub-registers partition cleanly — no token is claimed by two guards', () => {
+    for (const t of ['spectrum-solid', 'spectrum-duo', 'spectrum-mono', 'spectrum-off']) {
+      assert.ok(isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t), t);
+    }
+    for (const t of ['spectrum-edge-left', 'spectrum-edge-off']) {
+      assert.ok(!isSpectrumStyleToken(t) && isSpectrumEdgeToken(t) && !isSpectrumCardToken(t), t);
+    }
+    for (const t of ['spectrum-card', 'spectrum-card-off']) {
+      assert.ok(!isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && isSpectrumCardToken(t), t);
+    }
+  });
+
+  test('readFrontMatterSpectrumCard extracts the value; quotes + absence', () => {
+    assert.equal(readFrontMatterSpectrumCard('---\nspectrum-card: on\n---\n'), 'on');
+    assert.equal(readFrontMatterSpectrumCard('---\nspectrum-card: "off"\n---\n'), 'off');
+    assert.equal(spectrumCardClassFromSource('---\nspectrum-card: on\n---\n'), 'spectrum-card');
+    assert.equal(readFrontMatterSpectrumCard('---\nspectrum: solid\n---\n'), null);
+  });
+
+  test('CSS contract — the card rail targets card surfaces (both .card and li forms)', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
+    assert.match(css, /section\.spectrum-card \.card/);
+    assert.match(css, /section\.spectrum-card\.cards-grid > \.cell-stage > :is\(ul, ol\) > li/);
+    assert.match(css, /section\.spectrum-card\.pricing > \.cell-stage > ul > li/);
+    // Painted as a background-IMAGE layer (no layout shift), reading the shared token.
+    const rule = css.slice(css.indexOf('SPECTRUM CARD'));
+    assert.match(rule, /background-image:\s*var\(--spectrum-vertical/);
+    assert.ok(!/section\.spectrum-card[^{]*\{[^}]*margin/.test(css), 'card rail must not use margin');
   });
 });
 

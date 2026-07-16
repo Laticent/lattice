@@ -708,8 +708,23 @@ bar-off deck keeps its table rails and `---` rules.
 | `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
 | `off` | `spectrum-edge-off` | No section-edge bar (structural accents survive). |
 
-The two compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left with
-the duo gradient flowing to every accent. `spectrum:` also composes with `accent` /
+**`spectrum-card:` — a spectrum rail on CARD surfaces (opt-in).** Off by default; `on` paints
+a left rail on every card (the `cards-grid` / `cards-stack` / `compare-prose` `.card`, and the
+`stats` / `pricing` / `verdict-grid` tiles). The rail reads the shared token, so it inherits the
+deck's STYLE. Per-slide: `_class: spectrum-card` opts one slide in, `_class: spectrum-card-off`
+opts one out of a deck-wide `on`. A typo is caught as `unknown-spectrum-card`.
+
+| `spectrum-card:` value | Token | Effect |
+|---|---|---|
+| `off` | *(none)* | No card rail. **The default** (omit the key). |
+| `on` | `spectrum-card` | A spectrum left rail on every card surface, deck-wide. |
+
+Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
+it on where it earns its place.
+
+The three keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left
+with the duo gradient flowing to every accent, and `spectrum-card: on` extends that same duo
+into a rail on each card. `spectrum:` also composes with `accent` /
 `tone: edge` (per-slide bar recolors), which win over the deck register where they apply. On
 a dark bookend a dark client accent reads faint — pick a theme accent that reads on dark, or
 `spectrum: off` there. *(The old narrow `spectrum: on/off/solid` register — bar-only — is

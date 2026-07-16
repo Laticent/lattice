@@ -270,8 +270,18 @@ describe('deck linter', () => {
     }
   });
 
-  test('per-slide accent tokens (spectrum-edge-*, rule-*, eyebrow-*) are known classes', () => {
-    for (const t of ['spectrum-duo', 'spectrum-edge-left', 'rule-short', 'eyebrow-dot']) {
+  test('warns on an unrecognized `spectrum-card:` value; accepts on/off', () => {
+    const bad = lintText('---\ntheme: indaco\nspectrum-card: yes\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum-card');
+    assert.ok(bad, 'unknown spectrum-card should warn');
+    assert.equal(bad.classToken, 'yes');
+    for (const v of ['on', 'off']) {
+      const src = `---\ntheme: indaco\nspectrum-card: ${v}\n---\n\n## H.\n`;
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-spectrum-card').length, 0, v);
+    }
+  });
+
+  test('per-slide accent tokens (spectrum-edge-*, spectrum-card*, rule-*, eyebrow-*) are known classes', () => {
+    for (const t of ['spectrum-duo', 'spectrum-edge-left', 'spectrum-card', 'spectrum-card-off', 'rule-short', 'eyebrow-dot']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${t} -->\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-class').length, 0, t);
     }

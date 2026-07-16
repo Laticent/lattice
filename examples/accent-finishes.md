@@ -105,6 +105,23 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 
 ---
 
+<!-- _class: cards-grid spectrum-card -->
+
+`Spectrum · cards`
+
+## Opt a spectrum rail onto card surfaces
+
+- Deck-wide or per slide
+  - `spectrum-card: on` rails every card; `_class: spectrum-card` opts in one slide.
+- Follows the chosen style
+  - Reads the same token, so it inherits `duo` — no per-card edit.
+- Off by default
+  - No card gets a rail unless you ask — restraint over a stripe on everything.
+- Palette-blind
+  - The rail recolors with the theme and `dark` automatically.
+
+---
+
 <!-- _class: closing -->
 
 `Accent finishes`

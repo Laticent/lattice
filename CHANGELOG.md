@@ -176,6 +176,11 @@ in patch versions.
   - **`spectrum-edge:` — the section-edge bar PLACEMENT.** `top` (default) / `left` / `right` /
     `bottom` / `off`. Moves or removes only the bar (per-side `border-image`); the structural
     accents are untouched.
+  - **`spectrum-card:` — an opt-in spectrum rail on card surfaces.** `off` (default) / `on`;
+    per-slide `_class: spectrum-card` / `spectrum-card-off`. Paints a left rail on the `.card`
+    primitive (cards-grid / cards-stack / compare-prose) and the stats / pricing / verdict-grid
+    tiles, reading the shared token so it inherits the deck's spectrum style. Off by default —
+    no card gets a rail unless asked.
   - **`rule:` — the heading underline.** `auto` (default) / `full` / `short` / `accent` / `none`,
     controlling the masthead / split-panel heading rule.
   - **`eyebrow:` — the mono-caps kicker decoration.** `plain` (default) / `dot` / `bar` / `arrow`

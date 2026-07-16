@@ -101,3 +101,29 @@ section.eyebrow-underline
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.2em;
 }
+
+/* ── SPECTRUM CARD (`spectrum-card:`) ── a spectrum rail on card surfaces ──────────────────
+ * OPT-IN: a card carries no rail unless the deck sets `spectrum-card: on` or a slide opts in
+ * with `_class: spectrum-card` (drop one slide out with `_class: spectrum-card-off`). Paints a
+ * left rail on the shared `.card` primitive (cards-grid / cards-stack / compare-prose) and the
+ * li-based card tiles (stats / pricing / verdict-grid). Drawn as a background-IMAGE layer over
+ * the card's own `--bg-alt` fill — so it adds no layout (no box-shift, HARD RULE #20), respects
+ * the card's border-radius (the fill is clipped to it), and preserves the card background
+ * without needing to know its token. Reads the shared `--spectrum` token, so it inherits the
+ * deck's `spectrum:` STYLE (rainbow / duo / mono / …) automatically. */
+/* Card surfaces come in two forms: the post-processed `.card` div AND the native
+ * nested-list `> .cell-stage > ul|ol > li` tile (cards-grid / cards-stack). Cover both,
+ * plus the li-based tiles of stats / pricing / verdict-grid. Each is the boxed
+ * `--bg-alt` + border + border-radius card signature; the `>` combinators keep the rail on
+ * the top-level card, never its body sub-items. */
+section.spectrum-card .card,
+section.spectrum-card.cards-grid > .cell-stage > :is(ul, ol) > li,
+section.spectrum-card.cards-stack > .cell-stage > :is(ul, ol) > li,
+section.spectrum-card.stats > .cell-stage > ol > li,
+section.spectrum-card.pricing > .cell-stage > ul > li,
+section.spectrum-card.verdict-grid > .cell-stage > ul > li {
+  background-image: var(--spectrum-vertical, var(--spectrum));
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: calc(var(--_sec-1cqi, 1cqi) * 0.35) 100%; /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
+}

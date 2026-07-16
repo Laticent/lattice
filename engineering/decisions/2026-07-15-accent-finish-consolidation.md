@@ -271,3 +271,23 @@ The confirmation round resolved all three forks:
 - **Delivery — one cohesive PR.** The three registers ship together as the "Accent
   finishes" family: three commits, one demo deck (`examples/accent-finishes.md`),
   one doc, one review; maker-checker on the diff, then dual-engine export sign-off.
+
+## Follow-up (2026-07-16) — `spectrum-card:` opt-in card rail
+
+Review question: the spectrum STYLE *recolors accents that already exist* (via the
+shared token) but does not *paint a spectrum border on a card that never had one*.
+So the consolidation reached only the ~9 components + section edge + `hr` that
+already read `--spectrum` — a generic card (`cards-grid`, `stats`, `pricing`, …)
+got nothing. Added a fourth spectrum sub-register to close that gap:
+
+- **`spectrum-card:`** (`off` default / `on`) + per-slide `spectrum-card` /
+  `spectrum-card-off`, modeled on `lift:`. **Opt-in** — a card carries no rail unless
+  asked (a rail on every card by default is the ransom-note look).
+- The rail is a **left `background-image` layer** on the card surface — adds no
+  layout (no box-shift, HARD RULE #20), respects the card's `border-radius`, and
+  preserves its `--bg-alt` fill without needing its token. It reads the shared
+  `--spectrum` token, so it inherits the deck's STYLE automatically.
+- Covers both card forms — the post-processed `.card` div AND the native
+  nested-list `> .cell-stage > ul|ol > li` tile — across cards-grid / cards-stack /
+  compare-prose / stats / pricing / verdict-grid. A card component added later opts
+  in by extending the selector list (documented in `base.accent-finish.css`).

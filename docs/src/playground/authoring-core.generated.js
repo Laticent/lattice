@@ -660,6 +660,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
       if (vocab.spectrumNames) findings.push(...findUnknownSpectrum(source, vocab.spectrumNames));
       if (vocab.spectrumEdgeNames) findings.push(...findUnknownSpectrumEdge(source, vocab.spectrumEdgeNames));
+      if (vocab.spectrumCardNames) findings.push(...findUnknownSpectrumCard(source, vocab.spectrumCardNames));
       if (vocab.ruleNames) findings.push(...findUnknownRule(source, vocab.ruleNames));
       if (vocab.eyebrowNames) findings.push(...findUnknownEyebrow(source, vocab.eyebrowNames));
       if (vocab.liftNames) findings.push(...findUnknownLift(source, vocab.liftNames));
@@ -1059,6 +1060,24 @@ ${indent}   - ${body.trim()}`;
         fix: `Set front-matter \`spectrum-edge:\` to one of: ${[...spectrumEdgeNames].join(", ")}.`
       }];
     }
+    function findUnknownSpectrumCard(source, spectrumCardNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmCard = fmBlock[1].match(/^\s*spectrum-card:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmCard) return [];
+      const value = fmCard[1].trim();
+      const known = new Set([...spectrumCardNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-spectrum-card",
+        severity: "warning",
+        classToken: value,
+        line: fmCard[0].trim(),
+        message: `'${value}' is not a known spectrum-card value \u2014 the deck would silently render no card rail`,
+        fix: `Set front-matter \`spectrum-card:\` to one of: ${[...spectrumCardNames].join(", ")}.`
+      }];
+    }
     function findUnknownRule(source, ruleNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
@@ -1254,6 +1273,7 @@ ${indent}   - ${body.trim()}`;
       findUnknownToneStyle,
       findUnknownSpectrum,
       findUnknownSpectrumEdge,
+      findUnknownSpectrumCard,
       findUnknownRule,
       findUnknownEyebrow,
       findSingleLetterLexiconKeys,
