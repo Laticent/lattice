@@ -161,7 +161,7 @@ section pre.hljs {
   --cat-1-fill:  light-dark(#DFDDDD, #6A4E4E);
   --cat-1-mark:  light-dark(#6A4E4E, #DFDDDD);
   --cat-2-fill:  light-dark(#DDDFDE, #4F685C);
-  --cat-2-mark:  light-dark(#4F685C, #DDDFDE);
+  --cat-2-mark:  light-dark(#4b6257, #DDDFDE);
   --cat-3-fill:  light-dark(#DDDEDF, #4F5C68);
   --cat-3-mark:  light-dark(#4F5C68, #DDDEDF);
   --cat-4-fill:  light-dark(#DFDEDD, #685C4F);
@@ -169,17 +169,17 @@ section pre.hljs {
   --cat-5-fill:  light-dark(#DFDDDE, #684F5C);
   --cat-5-mark:  light-dark(#684F5C, #DFDDDE);
   --cat-6-fill:  light-dark(#DDDFDF, #4F6868);
-  --cat-6-mark:  light-dark(#4F6868, #DDDFDF);
+  --cat-6-mark:  light-dark(#4b6262, #DDDFDF);
   --cat-7-fill:  light-dark(#DFDFDD, #676751);
-  --cat-7-mark:  light-dark(#676751, #DFDFDD);
+  --cat-7-mark:  light-dark(#5e5e4a, #DFDFDD);
   --cat-8-fill:  light-dark(#DDDFDD, #516751);
-  --cat-8-mark:  light-dark(#516751, #DDDFDD);
+  --cat-8-mark:  light-dark(#4e634e, #DDDFDD);
   --cat-9-fill:  light-dark(#DDDDDF, #515167);
   --cat-9-mark:  light-dark(#515167, #DDDDDF);
   --cat-10-fill:  light-dark(#DFDDDF, #675167);
   --cat-10-mark:  light-dark(#675167, #DFDDDF);
   --cat-11-fill:  light-dark(#DEDFDD, #5C6751);
-  --cat-11-mark:  light-dark(#5C6751, #DEDFDD);
+  --cat-11-mark:  light-dark(#57614d, #DEDFDD);
   --cat-12-fill:  light-dark(#DEDDDF, #5C5167);
   --cat-12-mark:  light-dark(#5C5167, #DEDDDF);
 

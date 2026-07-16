@@ -1896,6 +1896,112 @@ function skillFreshnessAssertions() {
   ];
 }
 
+// ─── Categorical three-layer contrast gate (HARD-RULE-adjacent) ──────────────
+// The `--cat-*` cycle shipped 10 themes with `fill == mark` on all 12 slots, so
+// every categorical branch rendered one color (ardesia's mindmap was all-gray).
+// The real contract is three contrast layers on the diagram node ("leaf"):
+//   ① edge/border (mark) vs canvas  ≥ 3.0  (WCAG 1.4.11 graphical object)
+//   ② leaf fill vs canvas           — intentionally LOW; the ① border delineates
+//   ③ label text (on-fill ink) vs leaf fill ≥ 4.5 (WCAG AA normal text)
+// plus an anti-collapse floor: fill and mark must differ (the original bug set
+// them equal → contrast 1.0). Runs over EVERY hue-based theme, both modes, so a
+// collapse or a sub-AA recolor can't silently reship. a11y-* themes are the
+// sanctioned exception (luminance + texture, not hue) and are skipped.
+// See engineering/decisions/2026-07-15-categorical-token-contract.md.
+const CAT_TEXT_FLOOR = 4.5;      // ③ AA normal text
+const CAT_EDGE_FLOOR = 3.0;      // ① WCAG 1.4.11 graphical
+const CAT_COLLAPSE_FLOOR = 1.25; // fill vs mark — catches fill==mark (1.0)
+
+function catStripComments(s) { return s.replace(/\/\*[\s\S]*?\*\//g, ''); }
+function catParseTokens(css) {
+  const m = new Map();
+  for (const x of catStripComments(css).matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+    if (!m.has(x[1])) m.set(x[1], x[2].trim());
+  }
+  return m;
+}
+function catPickLightDark(v, mode) {
+  const md = v.match(/^light-dark\(\s*([\s\S]+?)\s*,\s*([\s\S]+?)\s*\)$/);
+  return md ? (mode === 'light' ? md[1] : md[2]).trim() : v;
+}
+// Resolve a token (or literal) to a #rrggbb hex in the given mode, following
+// light-dark() arms and one-level var() references (with fallback). Null if it
+// doesn't reduce to a hex — such tokens are skipped, not failed.
+function catResolve(map, tokenOrVal, mode, depth = 0) {
+  if (depth > 8) return null;
+  let v = tokenOrVal.startsWith('--') ? map.get(tokenOrVal) : tokenOrVal;
+  if (!v) return null;
+  v = catPickLightDark(v.trim(), mode).trim();
+  const vm = v.match(/^var\(\s*(--[\w-]+)\s*(?:,\s*([\s\S]+))?\)$/);
+  if (vm) {
+    const r = catResolve(map, vm[1], mode, depth + 1);
+    if (r) return r;
+    return vm[2] ? catResolve(map, vm[2].trim(), mode, depth + 1) : null;
+  }
+  const hx = v.match(/#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})/);
+  if (!hx) return null;
+  const h = hx[1].length === 3 ? hx[1].split('').map((c) => c + c).join('') : hx[1];
+  return `#${h.toLowerCase()}`;
+}
+function catRelLum(hex) {
+  const n = hex.replace('#', '');
+  const ch = [0, 2, 4].map((i) => {
+    const c = parseInt(n.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+function catContrast(a, b) {
+  if (!a || !b) return null;
+  const x = catRelLum(a), y = catRelLum(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+function checkCatContrast(errors) {
+  let scanned = 0;
+  for (const file of fs.readdirSync(THEMES_DIR).sort()) {
+    if (!file.endsWith('.css')) continue;
+    const name = file.replace(/\.css$/, '');
+    if (/^a11y-/.test(name)) continue; // sanctioned luminance+texture exception
+    const css = fs.readFileSync(path.join(THEMES_DIR, file), 'utf8');
+    if (!/@import\s+['"]lattice['"]/.test(css)) continue;
+    const map = catParseTokens(css);
+    if (!map.has('--cat-1-fill')) continue; // theme without the hue-based cycle
+    scanned += 1;
+    const inkTok = map.has('--cat-on-fill') ? '--cat-on-fill' : '--text-heading';
+    for (const mode of ['light', 'dark']) {
+      const ink = catResolve(map, inkTok, mode);
+      const bg = catResolve(map, '--bg', mode);
+      for (let n = 1; n <= 12; n += 1) {
+        const fill = catResolve(map, `--cat-${n}-fill`, mode);
+        const mark = catResolve(map, `--cat-${n}-mark`, mode);
+        const edge = catContrast(mark, bg);
+        const text = catContrast(ink, fill);
+        const collapse = catContrast(fill, mark);
+        if (edge != null && edge < CAT_EDGE_FLOOR) {
+          errors.push(
+            `theme "${name}" ${mode}: --cat-${n}-mark (edge/border) vs --bg is ${edge.toFixed(2)}:1, ` +
+            `below the ${CAT_EDGE_FLOOR}:1 graphical floor (WCAG 1.4.11). The branch/border must read against the canvas.`,
+          );
+        }
+        if (text != null && text < CAT_TEXT_FLOOR) {
+          errors.push(
+            `theme "${name}" ${mode}: label ink (${inkTok}) vs --cat-${n}-fill is ${text.toFixed(2)}:1, ` +
+            `below the ${CAT_TEXT_FLOOR}:1 AA floor. The node label must be legible on its fill.`,
+          );
+        }
+        if (collapse != null && collapse < CAT_COLLAPSE_FLOOR) {
+          errors.push(
+            `theme "${name}" ${mode}: --cat-${n}-fill and --cat-${n}-mark are ${collapse.toFixed(2)}:1 apart — ` +
+            `the categorical-collapse bug (fill == mark → node and branch one color). Fill and mark must be distinct tiers of the hue.`,
+          );
+        }
+      }
+    }
+  }
+  if (!scanned) errors.push('checkCatContrast found no hue-based themes to verify — the theme scan is broken.');
+}
+
 function checkSkillFreshness(errors) {
   if (!fs.existsSync(SKILLS_DIR)) return; // skills not present — nothing to guard
   for (const a of skillFreshnessAssertions()) {
@@ -1965,6 +2071,7 @@ function run() {
   checkLenteBoundary(errors);
   checkAudioPlaybackBoundary(errors);
   checkSanctionedGestures(errors);
+  checkCatContrast(errors);
   checkSkillFreshness(errors);
   return {
     errors,
@@ -2061,6 +2168,12 @@ module.exports = {
   SANCTIONED_GESTURES,
   checkSkillFreshness,
   skillFreshnessAssertions,
+  checkCatContrast,
+  catResolve,
+  catContrast,
+  CAT_TEXT_FLOOR,
+  CAT_EDGE_FLOOR,
+  CAT_COLLAPSE_FLOOR,
   VETRINA_DIR,
   VETRINA_ADAPTER,
   VETRINA_IMPORT,
