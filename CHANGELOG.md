@@ -866,8 +866,10 @@ in patch versions.
   filmstrip takes over with no visible swap. The replay paints only when the app will boot into
   Edit showing the same draft (palette + mode + rendered-source-hash match), so a wrong deck can
   never flash; a newcomer or any mismatch shows the solid brand fill.
-  The **Studio** got the same first-paint fix (1) — the shared `<ColorSchemeSeed>` — so its cold
-  load no longer flashes a white canvas before the dark theme lands.
+  The **Studio** got the same first-paint fix (1) — the shared `<ColorSchemeSeed>` — plus the
+  single-slide preview `iframe.live` now carries the brand `--bg`: an `<iframe>` is opaque WHITE
+  by default until its `srcdoc` paints (a white flash on a cold load, worst on iOS Safari), so
+  giving the element the brand background keeps that gap on-brand instead of white.
   (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`, `ColorSchemeSeed.astro`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its

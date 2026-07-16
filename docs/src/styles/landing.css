@@ -335,6 +335,15 @@ code {
 .pg-preview-wrap,
 .studio-preview-host { position: relative; }
 
+/* Single-slide preview iframe (Studio DeckPreview, landing showcases, specimens):
+   an <iframe> is OPAQUE WHITE by default until its srcdoc paints — a white flash on a
+   cold load, worst on iOS Safari where the iframe fills before its content renders.
+   Give it the brand background so that gap is on-brand, never white; the slide's own
+   canvas is `--bg` too, so this also underlies any transparent slide area seamlessly. */
+iframe.live {
+	background: var(--bg);
+}
+
 @media (prefers-reduced-motion: no-preference) {
 	.live-host:not(.is-live)::after,
 	.studio-preview-host:not(.is-live)::after,
