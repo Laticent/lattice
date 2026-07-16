@@ -842,25 +842,29 @@ in patch versions.
 - **The Playground live preview no longer flashes white→black→slides on a cold load.** On a
   first (cold) load of `/playground` — reported on mobile Safari in dark mode — the preview pane
   flashed white, then black, then popped the slides in ~0.6–1.0 s after paint, while the on-demand
-  engine bundle loaded. Four causes, all fixed:
+  engine bundle loaded. The whole loading window is now a SOLID on-brand surface — the theme's
+  `--bg-alt` for the active palette + mode — with the slides fading in over the identical color, so
+  there is nothing to flicker. Four causes, all fixed:
   (1) **First-paint white canvas** — the browser paints a blank (white) canvas while the
   render-blocking stylesheets load; a `<meta name="color-scheme">` + a seed-script `color-scheme`
-  pinned to the resolved app mode now tint that canvas dark for a dark-mode visitor.
-  (2) **Skeleton light fallback** — the loading placeholder fell back to a light `#e7e7ea` before
-  `--bg-alt` resolved; it's now dark-mode-aware (keyed on the pre-paint `data-mode`).
+  pinned to the resolved app mode now tint that canvas to the brand's mode from the first frame.
+  (2) **Pulsing gray skeleton** — the on-demand engine load (#962) left a ~1–2 s empty window
+  covered by a *pulsing* gradient placeholder that read as flicker on mobile and never matched the
+  brand. The Playground preview now drops that skeleton entirely and shows its solid brand `--bg-alt`
+  fill; the filmstrip is letterboxed in the same `--bg-alt` (not the engine's generic `#0c0c0c`/
+  `#e7e7ea`), so the slide surround is one continuous brand color before and after the reveal.
   (3) **Black preview box** — the engine writes the iframe srcdoc (which paints an opaque black
-  body) and the old code went "live" (tore down the skeleton) at srcdoc-set, ~900 ms before the
-  in-frame FIT agent revealed the slides → a black flash. The iframe now stays `visibility:hidden`
-  and the skeleton/instant-shell holds until `.lattice` is actually visible, so the hand-off is a
-  single skeleton→slides step.
+  body) and the old code went "live" at srcdoc-set, ~900 ms before the in-frame FIT agent revealed
+  the slides → a black flash. The iframe now stays `visibility:hidden` and only goes live once
+  `.lattice` is actually visible, then fades in — the brand fill covers the whole gap.
   (4) **No instant-shell** — the anti-flash last-slide snapshot the Studio already has was never
   wired in. A returning editor's real first slide is now captured (the first filmstrip section,
   sanitized at the #22 chokepoint, under the Playground's own `lattice-docs-pg-last-slide` key) and
   replayed pre-hydration — so the preview paints a real themed slide immediately, then the live
   filmstrip takes over with no visible swap. The replay paints only when the app will boot into
   Edit showing the same draft (palette + mode + rendered-source-hash match), so a wrong deck can
-  never flash; a newcomer or any mismatch falls back to the now-dark skeleton.
-  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `landing.css`, `playground.css`.)
+  never flash; a newcomer or any mismatch shows the solid brand fill.
+  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its
   heading, and a few cases that spoke a falsehood are corrected.** A retroactive three-perspective

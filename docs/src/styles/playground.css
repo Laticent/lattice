@@ -232,7 +232,20 @@ body[data-view='read'] .pg-pane-label {
 .pg-preview-wrap {
 	flex: 1;
 	min-height: 0;
+	/* The loading surface IS the brand background for the active palette + mode
+	   (`--bg-alt` resolves per `[data-palette][data-mode]`) — a SOLID on-brand fill,
+	   never a pulsing gray skeleton. On a cold load the engine bundle streams in for
+	   ~1–2 s; a pulsing placeholder over that window reads as flicker on mobile, and
+	   its gray never matched the brand. Now the pane is just the brand color the whole
+	   time, and the slides fade in over the SAME color — nothing to flicker. */
 	background: var(--bg-alt);
+}
+/* Kill the shared animated skeleton for the Playground preview (see .pg-preview-wrap
+   above): the pane's own brand fill is the placeholder. `!important` overrides the
+   landing.css `::after` (which lists this wrap among its hosts) regardless of its
+   mode-qualified specificity. The landing figures + Studio keep their skeleton. */
+.pg-preview-wrap::after {
+	content: none !important;
 }
 #preview {
 	width: 100%;
@@ -240,21 +253,28 @@ body[data-view='read'] .pg-pane-label {
 	border: 0;
 	display: block;
 	position: relative;
-	z-index: 1; /* above the loading skeleton (.pg-preview-wrap::after, z-index 0) */
-	/* Transparent until a deck renders so the skeleton shows through the empty
-	   iframe; the rendered srcdoc paints its own opaque background over it. */
+	z-index: 1; /* above the instant-shell (.pg-ssr-shell, z-index 0) */
 	background: transparent;
 	/* HIDDEN until the frame goes live (its FIT agent has revealed the slides). The
 	   srcdoc paints an opaque body (a black box in dark mode) the moment it loads, well
-	   BEFORE FIT scales + reveals the sections; keeping the iframe itself invisible until
-	   then lets the dark skeleton / instant-shell behind it cover that window instead of a
-	   black flash. `visibility` (not display) preserves layout so FIT can still measure the
-	   pane. The render loop adds `is-live` only once `.lattice` is visible. */
+	   BEFORE FIT scales + reveals the sections; keeping the iframe invisible until then
+	   lets the solid brand pane / instant-shell behind it cover that window instead of a
+	   black flash. `visibility` (not display) preserves layout so FIT can still measure
+	   the pane. The render loop adds `is-live` only once `.lattice` is visible, then the
+	   iframe fades in over the identical brand background — a seamless, flicker-free swap. */
 	visibility: hidden;
+	opacity: 0;
+	transition: opacity 0.2s ease;
 }
 .pg-preview-wrap.is-live #preview {
 	background: var(--bg-alt);
 	visibility: visible;
+	opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+	#preview {
+		transition: none;
+	}
 }
 
 /* ── Instant-shell (anti cold-load flash) ──────────────────────────────────
@@ -270,19 +290,10 @@ body[data-view='read'] .pg-pane-label {
 .pg-ssr-shell {
 	position: absolute;
 	inset: 0;
-	z-index: 0; /* under #preview (z-index 1). NB the skeleton ::after is also z-index 0 but LATER in tree order, so it would paint over this — the data-pg-shell rule below suppresses it. */
+	z-index: 0; /* under #preview (z-index 1); the pane's solid brand fill is behind it */
 	display: none;
 	overflow: hidden;
 	pointer-events: none;
-}
-/* When the instant-shell is painting a REAL cached slide, suppress the loading
-   skeleton on the same box. The skeleton ::after is generated AFTER the shell div, so
-   at the same z-index:0 it paints ON TOP of the slide (CSS 2.1 §E, tree order) — the
-   returning visitor would see the pulsing placeholder, not their slide. The skeleton is
-   redundant here anyway (a real slide is available), so drop it; a newcomer with no
-   shell keeps it (the dark fallback). Verified by pixel-sampling the shell window. */
-:root[data-pg-shell='on'] .pg-preview-wrap:not(.is-live)::after {
-	content: none;
 }
 :root[data-pg-shell='on'] .pg-ssr-shell {
 	display: flex;
