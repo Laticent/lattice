@@ -228,6 +228,17 @@ in patch versions.
 
 ### Changed
 
+- **Categorical TEXTURE is now a universal token channel (`--cat-N-texture`), not per-theme
+  wiring — and it fixes a11y mindmaps + textures every categorical diagram.** Texture (the
+  non-color channel that lets monochrome/CVD/print decks tell categories apart) had been copied
+  as `.section-N`/`.pieCircle` wiring in four places (a11y, onyx, concrete, print), each drifting
+  and, for a11y mindmaps, silently losing to `mermaid.css` on specificity. Now `mermaid.css` and
+  the pie rule paint `var(--cat-N-texture, var(--cat-N-fill))`, so a theme with no texture is
+  byte-identical (fallback to color) and a theme that needs texture just declares 12
+  `--cat-N-texture: url(#…)` tokens — texturing mindmap, **pie, kanban, timeline, treemap, C4,
+  actors** at once (the old wiring only did mindmap+pie). ~150 lines of duplicated wiring deleted;
+  the a11y mindmap bug is fixed structurally; the print band adopts via a token override. Pattern
+  defs unchanged. See `engineering/decisions/2026-07-16-universal-texture-channel.md`.
 - **Breaking: the spectrum paints the brand BAR only by default — structural accents go quiet.**
   The in-content accents that read the spectrum (table-header rails, the `list-steps` timeline
   spine, code-panel strips, the `hr` rule, split-card underlines) now render a quiet

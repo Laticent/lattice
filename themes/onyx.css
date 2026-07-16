@@ -248,81 +248,25 @@ section pre.hljs {
   --chart-state-fail: light-dark(#C71F2D, #E5484D);  /* blocked — signature red */
   --chart-state-info: light-dark(#384C81, #85A1D9);  /* decision — slate        */
   --chart-state-mute: light-dark(#B4AEB4, #6E6E6E);  /* deferred — gray         */
+
+  /* ── Categorical TEXTURE — adopt the universal channel ─────────────────
+   * onyx is monochrome (pure black↔white), so color can't separate categories.
+   * Opt into the scheme-aware onyx texture set: the canonical mermaid.css /
+   * chart rules paint var(--cat-N-texture, …) so declaring these tokens textures
+   * every categorical diagram (mindmap, pie, kanban, timeline, …) at once — no
+   * per-selector wiring. Patterns emitted by lib/core/accessibility-textures.js;
+   * they flip light chips + dark ink ⟷ dark chips + light ink with the deck scheme.
+   * See engineering/decisions/2026-07-16-universal-texture-channel.md. */
+  --cat-1-texture: url(#latt-onyx-tex-1);
+  --cat-2-texture: url(#latt-onyx-tex-2);
+  --cat-3-texture: url(#latt-onyx-tex-3);
+  --cat-4-texture: url(#latt-onyx-tex-4);
+  --cat-5-texture: url(#latt-onyx-tex-5);
+  --cat-6-texture: url(#latt-onyx-tex-6);
+  --cat-7-texture: url(#latt-onyx-tex-7);
+  --cat-8-texture: url(#latt-onyx-tex-8);
+  --cat-9-texture: url(#latt-onyx-tex-9);
+  --cat-10-texture: url(#latt-onyx-tex-10);
+  --cat-11-texture: url(#latt-onyx-tex-11);
+  --cat-12-texture: url(#latt-onyx-tex-12);
 }
-/* ── Categorical TEXTURE (onyx is monochrome — color can't separate categories) ──
- * A single-hue brand distinguishes only ~1-2 categories by luminance alone, so the
- * categorical cycle gets a second, non-color channel: a distinct repeating texture per
- * slot, from the SCHEME-AWARE latt-onyx-tex-* patterns (lib/core/accessibility-textures.js):
- * light chips + dark ink (light mode) ⟷ dark chips + light ink (dark mode), so each mode
- * stays a true inverse (onyx's black↔white identity). The --cat-N-fill/-mark luminance
- * ramp above is retained as the REDUNDANT channel (and the surface the contrast gate
- * verifies); texture is the primary separator. Mermaid mindmap fill lands on the
- * .node-bkg path inside a g.node.mindmap-node.section-N; mermaid.css already paints it
- * !important at (0,2,2), so these rules add the .node class the group also carries →
- * (0,3,2), winning on specificity (order-independent). Pie uses .pieCircle. See
- * engineering/decisions/2026-07-16-onyx-categorical-texture.md. */
-:is(section, figure) .node.mindmap-node[class*="section-root"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-root"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-root"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-root"] path { fill: url(#latt-onyx-tex-1) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-0"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-0"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-0"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-0"] path { fill: url(#latt-onyx-tex-1) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-1"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-1"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-1"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-1"] path { fill: url(#latt-onyx-tex-2) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-2"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-2"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-2"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-2"] path { fill: url(#latt-onyx-tex-3) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-3"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-3"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-3"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-3"] path { fill: url(#latt-onyx-tex-4) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-4"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-4"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-4"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-4"] path { fill: url(#latt-onyx-tex-5) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-5"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-5"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-5"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-5"] path { fill: url(#latt-onyx-tex-6) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-6"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-6"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-6"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-6"] path { fill: url(#latt-onyx-tex-7) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-7"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-7"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-7"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-7"] path { fill: url(#latt-onyx-tex-8) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-8"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-8"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-8"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-8"] path { fill: url(#latt-onyx-tex-9) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-9"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-9"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-9"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-9"] path { fill: url(#latt-onyx-tex-10) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-10"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-10"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-10"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-10"] path { fill: url(#latt-onyx-tex-11) !important; }
-:is(section, figure) .node.mindmap-node[class*="section-11"] rect,
-:is(section, figure) .node.mindmap-node[class*="section-11"] circle,
-:is(section, figure) .node.mindmap-node[class*="section-11"] polygon,
-:is(section, figure) .node.mindmap-node[class*="section-11"] path { fill: url(#latt-onyx-tex-12) !important; }
-/* Mermaid pie — path.pieCircle from the --cat ramp; a pieOuterCircle <circle> precedes them. */
-:is(section, figure) .pieCircle:nth-of-type(12n+1) { fill: url(#latt-onyx-tex-1) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+2) { fill: url(#latt-onyx-tex-2) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+3) { fill: url(#latt-onyx-tex-3) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+4) { fill: url(#latt-onyx-tex-4) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+5) { fill: url(#latt-onyx-tex-5) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+6) { fill: url(#latt-onyx-tex-6) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+7) { fill: url(#latt-onyx-tex-7) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+8) { fill: url(#latt-onyx-tex-8) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+9) { fill: url(#latt-onyx-tex-9) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+10) { fill: url(#latt-onyx-tex-10) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n+11) { fill: url(#latt-onyx-tex-11) !important; }
-:is(section, figure) .pieCircle:nth-of-type(12n) { fill: url(#latt-onyx-tex-12) !important; }

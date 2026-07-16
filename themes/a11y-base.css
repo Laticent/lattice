@@ -90,6 +90,28 @@
   --chart-cat6: #737373;
   --chart-cat7: #838383;
   --chart-cat8: #929292;
+
+  /* ── Categorical TEXTURE — adopt the universal channel ─────────────────
+   * CVD viewers can distinguish only ~1-2 categories by colour, so opt into the
+   * literal a11y texture set. The canonical mermaid.css / chart rules paint
+   * var(--cat-N-texture, …), so these tokens texture EVERY categorical diagram
+   * (mindmap, pie, kanban, timeline, treemap, …) at once — replacing the former
+   * per-selector wiring, and fixing mindmaps (which the old .section-N rules lost
+   * to mermaid.css on specificity). Chart-family (--chart-cat wedges/funnel/radar)
+   * keeps its own wiring below. See
+   * engineering/decisions/2026-07-16-universal-texture-channel.md. */
+  --cat-1-texture: url(#latt-a11y-tex-1);
+  --cat-2-texture: url(#latt-a11y-tex-2);
+  --cat-3-texture: url(#latt-a11y-tex-3);
+  --cat-4-texture: url(#latt-a11y-tex-4);
+  --cat-5-texture: url(#latt-a11y-tex-5);
+  --cat-6-texture: url(#latt-a11y-tex-6);
+  --cat-7-texture: url(#latt-a11y-tex-7);
+  --cat-8-texture: url(#latt-a11y-tex-8);
+  --cat-9-texture: url(#latt-a11y-tex-9);
+  --cat-10-texture: url(#latt-a11y-tex-10);
+  --cat-11-texture: url(#latt-a11y-tex-11);
+  --cat-12-texture: url(#latt-a11y-tex-12);
 }
 
 /* (The texture <defs> no longer read any token — they paint LITERAL greyscale
@@ -110,35 +132,6 @@ section .chart-status[data-s="pilot"]::before,
 section .chart-status[data-s="decision"]::before { content: "\25C6\00a0"; }
 section .chart-status[data-s="deferred"]::before { content: "\2013\00a0"; }
 section .chart-status::before { font-weight: 700; speak: never; }
-section .section--1 path, section .section--1 circle { fill: url(#latt-a11y-tex-1) !important; }
-section .cluster.section-0 rect, section .section-0 rect, section .section-0 path, section .section-0 circle { fill: url(#latt-a11y-tex-1) !important; }
-section .cluster.section-1 rect, section .section-1 rect, section .section-1 path, section .section-1 circle { fill: url(#latt-a11y-tex-2) !important; }
-section .cluster.section-2 rect, section .section-2 rect, section .section-2 path, section .section-2 circle { fill: url(#latt-a11y-tex-3) !important; }
-section .cluster.section-3 rect, section .section-3 rect, section .section-3 path, section .section-3 circle { fill: url(#latt-a11y-tex-4) !important; }
-section .cluster.section-4 rect, section .section-4 rect, section .section-4 path, section .section-4 circle { fill: url(#latt-a11y-tex-5) !important; }
-section .cluster.section-5 rect, section .section-5 rect, section .section-5 path, section .section-5 circle { fill: url(#latt-a11y-tex-6) !important; }
-section .cluster.section-6 rect, section .section-6 rect, section .section-6 path, section .section-6 circle { fill: url(#latt-a11y-tex-7) !important; }
-section .cluster.section-7 rect, section .section-7 rect, section .section-7 path, section .section-7 circle { fill: url(#latt-a11y-tex-8) !important; }
-section .cluster.section-8 rect, section .section-8 rect, section .section-8 path, section .section-8 circle { fill: url(#latt-a11y-tex-9) !important; }
-section .cluster.section-9 rect, section .section-9 rect, section .section-9 path, section .section-9 circle { fill: url(#latt-a11y-tex-10) !important; }
-section .cluster.section-10 rect, section .section-10 rect, section .section-10 path, section .section-10 circle { fill: url(#latt-a11y-tex-11) !important; }
-section .cluster.section-11 rect, section .section-11 rect, section .section-11 path, section .section-11 circle { fill: url(#latt-a11y-tex-12) !important; }
-/* Mermaid pie — slices are `path.pieCircle` painted from the --cat ramp (not
- * the chart-cat set), so map them to the diagram texture set, cycling mod-12
- * like the colour. A pieOuterCircle <circle> precedes them, so :nth-of-type on
- * `path` lines up 1:1 with slice order. */
-section .pieCircle:nth-of-type(12n+1) { fill: url(#latt-a11y-tex-1) !important; }
-section .pieCircle:nth-of-type(12n+2) { fill: url(#latt-a11y-tex-2) !important; }
-section .pieCircle:nth-of-type(12n+3) { fill: url(#latt-a11y-tex-3) !important; }
-section .pieCircle:nth-of-type(12n+4) { fill: url(#latt-a11y-tex-4) !important; }
-section .pieCircle:nth-of-type(12n+5) { fill: url(#latt-a11y-tex-5) !important; }
-section .pieCircle:nth-of-type(12n+6) { fill: url(#latt-a11y-tex-6) !important; }
-section .pieCircle:nth-of-type(12n+7) { fill: url(#latt-a11y-tex-7) !important; }
-section .pieCircle:nth-of-type(12n+8) { fill: url(#latt-a11y-tex-8) !important; }
-section .pieCircle:nth-of-type(12n+9) { fill: url(#latt-a11y-tex-9) !important; }
-section .pieCircle:nth-of-type(12n+10) { fill: url(#latt-a11y-tex-10) !important; }
-section .pieCircle:nth-of-type(12n+11) { fill: url(#latt-a11y-tex-11) !important; }
-section .pieCircle:nth-of-type(12n)    { fill: url(#latt-a11y-tex-12) !important; }
 /* Native chart-family (SVG) — texture the categorical fills (chart-cat set,
  * which paints --chart-cat-N-fill so value + legend stay matched). */
 section.piechart .wedge:nth-of-type(6n+1) { fill: url(#latt-a11y-chart-tex-1) !important; }
