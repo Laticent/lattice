@@ -1,0 +1,27 @@
+---
+// Emitted HIGH in <head> (before the render-blocking stylesheets): pin `color-scheme`
+// to the RESOLVED app mode — localStorage `lattice-docs-mode`, else the OS preference —
+// so the browser's BLANK canvas, shown while those stylesheets load, is the theme's mode
+// from the first frame instead of white.
+//
+// Why not a static `<meta name="color-scheme" content="light dark">`: that can only
+// follow the OS, so a dark-app visitor on a light-OS device still gets a white blank
+// canvas until a later script catches up — a visible white flash on a cold mobile load
+// (the render-blocking CSS stretches that window out). Setting both the root
+// `color-scheme` AND an app-mode-accurate meta here, as early as possible, closes it for
+// every OS/app-mode combination. The page's own seed script still owns data-mode/palette.
+---
+<script is:inline>
+	(function () {
+		try {
+			var m = localStorage.getItem('lattice-docs-mode');
+			var dark = m === 'dark' || (m !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+			var scheme = dark ? 'dark' : 'light';
+			document.documentElement.style.colorScheme = scheme;
+			var mt = document.createElement('meta');
+			mt.name = 'color-scheme';
+			mt.content = scheme;
+			document.head.appendChild(mt);
+		} catch (e) {}
+	})();
+</script>

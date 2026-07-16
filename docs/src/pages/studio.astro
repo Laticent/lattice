@@ -10,6 +10,7 @@ import '../styles/landing.css';
 import StudioShell from '../components/studio/StudioShell.tsx';
 import VizDiagnosticsOverlay from '../components/studio/VizDiagnosticsOverlay.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
+import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
@@ -168,11 +169,11 @@ const REPLAY_JS = shell
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		{/* Kill the first-paint WHITE canvas: the browser paints a blank (white) canvas while
-		    the render-blocking stylesheets load — a white flash before the dark theme applies on
-		    a cold load. This tells the UA the page supports both schemes so it tints that canvas
-		    to the user's OS preference; the seed script below refines it to the app mode. */}
-		<meta name="color-scheme" content="light dark" />
+		{/* FIRST thing after the charset/viewport metas: pin color-scheme to the app mode so the
+		    blank canvas (shown while the render-blocking CSS loads) is never a white flash — even
+		    for a dark-app visitor on a light-OS device. Must precede ResourceHints + the inline
+		    CSS below, which would otherwise delay it. */}
+		<ColorSchemeSeed />
 		<ResourceHints />
 		<title>Lattice Studio — one workspace</title>
 		<meta name="description" content="The Lattice Studio: compose, present, and fabricate decks in one workspace. A live prototype of the app redesign." />
@@ -204,10 +205,7 @@ const REPLAY_JS = shell
 					var mode = 'light';
 					if (m === 'light' || m === 'dark') { r.setAttribute('data-mode', m); mode = m; }
 					else if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) { r.setAttribute('data-mode', 'dark'); mode = 'dark'; }
-					// Pin color-scheme to the RESOLVED app mode (not just the OS the meta above used)
-					// so the pre-CSS canvas + native controls match a returning dark-app / light-OS
-					// visitor too — no white flash before the theme CSS lands.
-					r.style.colorScheme = mode;
+					// (color-scheme is pinned earlier, by <ColorSchemeSeed> at the top of <head>.)
 					// Gate the SSG instant-shell (below): show it ONLY to a first-time visitor on
 					// the default look — the shell bakes DECKS[0]'s title slide in indaco·light,
 					// exactly what a newcomer lands on. A returning user (any saved deck → the

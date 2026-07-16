@@ -846,8 +846,10 @@ in patch versions.
   `--bg-alt` for the active palette + mode — with the slides fading in over the identical color, so
   there is nothing to flicker. Four causes, all fixed:
   (1) **First-paint white canvas** — the browser paints a blank (white) canvas while the
-  render-blocking stylesheets load; a `<meta name="color-scheme">` + a seed-script `color-scheme`
-  pinned to the resolved app mode now tint that canvas to the brand's mode from the first frame.
+  render-blocking stylesheets load. A shared `<ColorSchemeSeed>` (emitted high in `<head>`, before
+  those stylesheets) pins `color-scheme` to the *resolved app mode* — so the blank canvas is the
+  theme's mode from the first frame, including for a dark-app visitor on a light-OS device that a
+  static `content="light dark"` meta would still flash white on.
   (2) **Pulsing gray skeleton** — the on-demand engine load (#962) left a ~1–2 s empty window
   covered by a *pulsing* gradient placeholder that read as flicker on mobile and never matched the
   brand. The Playground preview now drops that skeleton entirely and shows its solid brand `--bg-alt`
@@ -864,9 +866,9 @@ in patch versions.
   filmstrip takes over with no visible swap. The replay paints only when the app will boot into
   Edit showing the same draft (palette + mode + rendered-source-hash match), so a wrong deck can
   never flash; a newcomer or any mismatch shows the solid brand fill.
-  The **Studio** got the same first-paint fix (2) — a `<meta name="color-scheme">` + seed-script
-  `color-scheme` — so its cold load no longer flashes a white canvas before the dark theme lands.
-  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`.)
+  The **Studio** got the same first-paint fix (1) — the shared `<ColorSchemeSeed>` — so its cold
+  load no longer flashes a white canvas before the dark theme lands.
+  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`, `ColorSchemeSeed.astro`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its
   heading, and a few cases that spoke a falsehood are corrected.** A retroactive three-perspective

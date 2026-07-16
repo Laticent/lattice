@@ -19,6 +19,7 @@ import '../styles/deck-config.css';
 import '../styles/chart-interact.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
+import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import PlaygroundApp from '../components/playground/PlaygroundApp.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
 import { joinBase } from '../lib/base-url.mjs';
@@ -135,12 +136,10 @@ const pgData = {
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		{/* Kill the first-paint WHITE canvas: the browser paints a blank canvas while the
-		    render-blocking stylesheets load, and its default is white — a white flash before
-		    the dark theme applies on a cold load. This tells the UA the page supports both
-		    schemes so it tints that blank canvas to the user's OS preference (dark → dark
-		    canvas). The seed script below refines it to the actual app mode. */}
-		<meta name="color-scheme" content="light dark" />
+		{/* FIRST thing after the charset/viewport metas: pin color-scheme to the app mode so the
+		    blank canvas (shown while the render-blocking CSS loads) is never a white flash — even
+		    for a dark-app visitor on a light-OS device. Must precede ResourceHints + the seed. */}
+		<ColorSchemeSeed />
 		<ResourceHints />
 		<title>Lattice playground — try it in the browser</title>
 		<meta name="description" content="Write Lattice Markdown and watch it render to boardroom slides live in your browser. Start from any component template." />
@@ -160,10 +159,7 @@ const pgData = {
 					var m = localStorage.getItem('lattice-docs-mode');
 					if (m === 'light' || m === 'dark') r.setAttribute('data-mode', m);
 					else if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) r.setAttribute('data-mode', 'dark');
-					// Pin color-scheme to the RESOLVED app mode (not just the OS, which the meta
-					// above used) so the pre-CSS canvas + native controls match a returning
-					// dark-app / light-OS visitor too — no white flash before the theme CSS lands.
-					r.style.colorScheme = r.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
+					// (color-scheme is pinned earlier, by <ColorSchemeSeed> at the top of <head>.)
 					// Focus mode (toolbar hidden) — seeded on <html> before the island
 					// hydrates so a returning focus-mode visitor never sees the SSR toolbar
 					// flash then vanish. PlaygroundApp owns the attribute after hydration.
