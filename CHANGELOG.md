@@ -869,7 +869,11 @@ in patch versions.
   The **Studio** got the same first-paint fix (1) — the shared `<ColorSchemeSeed>` — plus the
   single-slide preview `iframe.live` now carries the brand `--bg`: an `<iframe>` is opaque WHITE
   by default until its `srcdoc` paints (a white flash on a cold load, worst on iOS Safari), so
-  giving the element the brand background keeps that gap on-brand instead of white.
+  giving the element the brand background keeps that gap on-brand instead of white. And the
+  Studio instant-shell's cached last slide now renders at the right scale: it was sized
+  `width:100%`, but the engine pins its container-query font basis to 1280 — so the cached slide
+  came out oversized + clipped (unrecognizable). It now keeps the slide at its intrinsic box and
+  transform-scales it to fit (the same fix the Playground shell uses), measured in the replay.
   (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`, `ColorSchemeSeed.astro`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its

@@ -126,9 +126,10 @@ const firstDeck = DECKS[0];
 // at /studio/, and the SSG slide uses the real faces, matching the live render).
 const shell = firstDeck?.slides?.[0] ? await renderFirstSlideShell(firstDeck.slides[0], SSR_PALETTE, join(process.cwd(), '..'), options.themeBase) : null;
 // Chrome + responsive-scale CSS for the instant shell. Keyed under
-// #studio-ssr-shell so it never touches the hydrated island; the slide scales
-// fluidly via its own container queries (fixed 1280×720 → width:100% + the deck's
-// aspect box), so no JS measure is needed and there is no layout shift.
+// #studio-ssr-shell so it never touches the hydrated island. The slide is kept at its
+// intrinsic @size box and transform-scaled to fit (like the live FIT agent): the engine
+// pins its container-query font basis to 1280, so a `width:100%` box would render the
+// fonts oversized + clipped. The replay measures the stage and sets --ssr-w/h/scale.
 const SHELL_CHROME_CSS = shell
 	? `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:#e7e7ea;color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
 :root[data-mode="dark"] #studio-ssr-shell{background:#0c0c0c;color:#e8e8e8;}
@@ -140,10 +141,10 @@ const SHELL_CHROME_CSS = shell
 #studio-ssr-shell .ssr-welcome strong{color:#1a1a1a;font-weight:600;}
 #studio-ssr-shell .ssr-welcome[hidden]{display:none;}
 #studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,4vw,32px);}
-#studio-ssr-shell .ssr-slidebox{width:100%;max-width:min(960px,100%);box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
-#studio-ssr-shell .ssr-slidebox:empty{aspect-ratio:${shell.width}/${shell.height};}
-#studio-ssr-shell .ssr-slidebox .lattice{width:100%;}
-#studio-ssr-shell .ssr-slidebox .lattice>section{width:100%!important;height:auto!important;max-width:100%;aspect-ratio:${shell.width}/${shell.height};}`
+#studio-ssr-shell .ssr-slidebox{width:calc(var(--ssr-w,${shell.width}px)*var(--ssr-scale,1));max-width:100%;box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
+#studio-ssr-shell .ssr-slidebox:empty{width:min(960px,100%);aspect-ratio:${shell.width}/${shell.height};}
+#studio-ssr-shell .ssr-slidebox .lattice{width:calc(var(--ssr-w,${shell.width}px)*var(--ssr-scale,1));height:calc(var(--ssr-h,${shell.height}px)*var(--ssr-scale,1));overflow:hidden;visibility:visible!important;}
+#studio-ssr-shell .ssr-slidebox .lattice>section{width:var(--ssr-w,${shell.width}px)!important;height:var(--ssr-h,${shell.height}px)!important;max-width:none!important;margin:0!important;transform:scale(var(--ssr-scale,1));transform-origin:top left;}`
 	: '';
 
 // Pre-paint replay: pick what the instant-shell shows. (1) A RETURNING visitor with
@@ -160,7 +161,7 @@ const SHELL_CHROME_CSS = shell
 // banner. (3) Otherwise the shell stays hidden. Runs inline during body parse, so the
 // choice is committed before first paint.
 const REPLAY_JS = shell
-	? `(function(){var root=document.documentElement,box=document.getElementById('ssr-slidebox');if(!box)return;var palette=root.getAttribute('data-palette')||'indaco';var mode=root.getAttribute('data-mode')==='dark'?'dark':'light';var idx=[];try{var pi=JSON.parse(localStorage.getItem('lattice-studio-deck-index')||'[]');if(Array.isArray(pi))idx=pi;}catch(e){}var bootId=(idx[0]&&idx[0].id)||${JSON.stringify(firstDeck.id)};var shown=false;try{var raw=localStorage.getItem('lattice-studio-last-slide');if(raw){var snap=JSON.parse(raw);if(snap&&snap.v===1&&snap.palette===palette&&snap.mode===mode&&snap.html&&snap.css&&snap.deckId===bootId){var st=document.createElement('style');st.id='ssr-snap-css';st.textContent=snap.css;document.head.appendChild(st);box.innerHTML=snap.html;shown=true;var title=(idx[0]&&idx[0].title);if(title){var t=document.getElementById('ssr-deck-title');if(t)t.textContent=title;}}}}catch(e){}if(!shown&&root.getAttribute('data-ssr-shell')==='on'){var nc=document.getElementById('ssr-newcomer-css');if(nc)nc.media='all';var tpl=document.getElementById('ssr-newcomer');if(tpl)box.innerHTML=tpl.innerHTML;var wb=document.getElementById('ssr-welcome');if(wb)wb.hidden=false;shown=true;}if(shown)root.setAttribute('data-ssr-shell','on');})();`
+	? `(function(){var root=document.documentElement,box=document.getElementById('ssr-slidebox');if(!box)return;function setScale(sw,sh){try{var vw=window.innerWidth||390;var pad=Math.min(32,Math.max(12,0.04*vw));var target=Math.min(960,vw-2*pad);var sc=sw?target/sw:1;box.style.setProperty('--ssr-w',sw+'px');box.style.setProperty('--ssr-h',sh+'px');box.style.setProperty('--ssr-scale',String(sc));}catch(e){}}var palette=root.getAttribute('data-palette')||'indaco';var mode=root.getAttribute('data-mode')==='dark'?'dark':'light';var idx=[];try{var pi=JSON.parse(localStorage.getItem('lattice-studio-deck-index')||'[]');if(Array.isArray(pi))idx=pi;}catch(e){}var bootId=(idx[0]&&idx[0].id)||${JSON.stringify(firstDeck.id)};var shown=false;try{var raw=localStorage.getItem('lattice-studio-last-slide');if(raw){var snap=JSON.parse(raw);if(snap&&snap.v===1&&snap.palette===palette&&snap.mode===mode&&snap.html&&snap.css&&snap.deckId===bootId){var st=document.createElement('style');st.id='ssr-snap-css';st.textContent=snap.css;document.head.appendChild(st);box.innerHTML=snap.html;setScale(snap.w||${shell.width},snap.h||${shell.height});shown=true;var title=(idx[0]&&idx[0].title);if(title){var t=document.getElementById('ssr-deck-title');if(t)t.textContent=title;}}}}catch(e){}if(!shown&&root.getAttribute('data-ssr-shell')==='on'){var nc=document.getElementById('ssr-newcomer-css');if(nc)nc.media='all';var tpl=document.getElementById('ssr-newcomer');if(tpl)box.innerHTML=tpl.innerHTML;setScale(${shell.width},${shell.height});var wb=document.getElementById('ssr-welcome');if(wb)wb.hidden=false;shown=true;}if(shown)root.setAttribute('data-ssr-shell','on');})();`
 	: '';
 ---
 
