@@ -37,6 +37,13 @@ const {
   spectrumCardClass,
   spectrumCardClassFromSource,
   isSpectrumCardToken,
+  SPECTRUM_CARD_EDGE_NAMES,
+  SPECTRUM_CARD_EDGE_TOKENS,
+  readFrontMatterSpectrumCardEdge,
+  isKnownSpectrumCardEdge,
+  spectrumCardEdgeClass,
+  spectrumCardEdgeClassFromSource,
+  isSpectrumCardEdgeToken,
 } = require('../../../lib/core/resolve-spectrum');
 
 describe('resolve-spectrum — STYLE (`spectrum:`)', () => {
@@ -142,75 +149,140 @@ describe('resolve-spectrum — EDGE (`spectrum-edge:`)', () => {
   });
 });
 
-describe('resolve-spectrum — CARD (`spectrum-card:`)', () => {
-  test('on → spectrum-card token; off/empty/unknown → no token (the default)', () => {
-    assert.equal(spectrumCardClass('on'), 'spectrum-card');
+describe('resolve-spectrum — CARD STYLE (`spectrum-card:`)', () => {
+  test('auto → spectrum-card; solid/duo/mono/rainbow → spectrum-card-<v>; off/empty/unknown → no token', () => {
+    assert.equal(spectrumCardClass('auto'), 'spectrum-card');
+    assert.equal(spectrumCardClass('solid'), 'spectrum-card-solid');
+    assert.equal(spectrumCardClass('duo'), 'spectrum-card-duo');
+    assert.equal(spectrumCardClass('mono'), 'spectrum-card-mono');
+    assert.equal(spectrumCardClass('rainbow'), 'spectrum-card-rainbow');
     assert.equal(spectrumCardClass('off'), '');
     assert.equal(spectrumCardClass(''), '');
     assert.equal(spectrumCardClass('yes'), '');
     assert.equal(spectrumCardClass(undefined), '');
-    assert.equal(spectrumCardClass('  ON '), 'spectrum-card');
+    assert.equal(spectrumCardClass('  AUTO '), 'spectrum-card');
   });
 
-  test('isKnownSpectrumCard recognizes on / off only', () => {
-    assert.ok(isKnownSpectrumCard('on'));
-    assert.ok(isKnownSpectrumCard('off'));
+  test('isKnownSpectrumCard recognizes the full style set (off/auto/solid/duo/mono/rainbow)', () => {
+    for (const v of ['off', 'auto', 'solid', 'duo', 'mono', 'rainbow']) assert.ok(isKnownSpectrumCard(v), v);
+    assert.ok(!isKnownSpectrumCard('on'), 'legacy `on` was never shipped — dropped for `auto`');
     assert.ok(!isKnownSpectrumCard('yes'));
     assert.ok(!isKnownSpectrumCard(''));
   });
 
   test('SPECTRUM_CARD_NAMES / TOKENS list the recognized set + per-slide override tokens', () => {
-    assert.deepEqual([...SPECTRUM_CARD_NAMES], ['on', 'off']);
-    assert.deepEqual([...SPECTRUM_CARD_TOKENS], ['spectrum-card', 'spectrum-card-off']);
+    assert.deepEqual([...SPECTRUM_CARD_NAMES], ['off', 'auto', 'solid', 'duo', 'mono', 'rainbow']);
+    assert.deepEqual([...SPECTRUM_CARD_TOKENS], [
+      'spectrum-card', 'spectrum-card-solid', 'spectrum-card-duo',
+      'spectrum-card-mono', 'spectrum-card-rainbow', 'spectrum-card-off',
+    ]);
   });
 
-  test('isSpectrumCardToken matches card tokens but NOT style/edge tokens', () => {
-    assert.ok(isSpectrumCardToken('spectrum-card'));
-    assert.ok(isSpectrumCardToken('spectrum-card-off'));
+  test('isSpectrumCardToken matches every card STYLE token but NOT style/edge/card-edge tokens', () => {
+    for (const t of SPECTRUM_CARD_TOKENS) assert.ok(isSpectrumCardToken(t), t);
     assert.ok(!isSpectrumCardToken('spectrum-off'), 'style off is not a card token');
     assert.ok(!isSpectrumCardToken('spectrum-edge-off'), 'edge off is not a card token');
+    assert.ok(!isSpectrumCardToken('spectrum-card-edge-top'), 'card-edge is not a card STYLE token');
   });
 
-  test('the three sub-registers partition cleanly — no token is claimed by two guards', () => {
+  test('readFrontMatterSpectrumCard extracts the value; quotes + absence; not confused by -edge', () => {
+    assert.equal(readFrontMatterSpectrumCard('---\nspectrum-card: auto\n---\n'), 'auto');
+    assert.equal(readFrontMatterSpectrumCard('---\nspectrum-card: "duo"\n---\n'), 'duo');
+    assert.equal(spectrumCardClassFromSource('---\nspectrum-card: mono\n---\n'), 'spectrum-card-mono');
+    assert.equal(readFrontMatterSpectrumCard('---\nspectrum: solid\n---\n'), null);
+    // `spectrum-card-edge:` alone must NOT read as a `spectrum-card:` value.
+    assert.equal(readFrontMatterSpectrumCard('---\nspectrum-card-edge: top\n---\n'), null);
+  });
+});
+
+describe('resolve-spectrum — CARD EDGE (`spectrum-card-edge:`)', () => {
+  test('left → no token (default); top/right/bottom → spectrum-card-edge-<v>; unknown → no token', () => {
+    assert.equal(spectrumCardEdgeClass('left'), '');
+    assert.equal(spectrumCardEdgeClass('top'), 'spectrum-card-edge-top');
+    assert.equal(spectrumCardEdgeClass('right'), 'spectrum-card-edge-right');
+    assert.equal(spectrumCardEdgeClass('bottom'), 'spectrum-card-edge-bottom');
+    assert.equal(spectrumCardEdgeClass(''), '');
+    assert.equal(spectrumCardEdgeClass('sideways'), '');
+    assert.equal(spectrumCardEdgeClass('  TOP '), 'spectrum-card-edge-top');
+  });
+
+  test('isKnownSpectrumCardEdge recognizes left/top/right/bottom', () => {
+    for (const v of ['left', 'top', 'right', 'bottom']) assert.ok(isKnownSpectrumCardEdge(v), v);
+    assert.ok(!isKnownSpectrumCardEdge('center'));
+    assert.ok(!isKnownSpectrumCardEdge(''));
+  });
+
+  test('SPECTRUM_CARD_EDGE_NAMES / TOKENS list the recognized set + override tokens', () => {
+    assert.deepEqual([...SPECTRUM_CARD_EDGE_NAMES], ['left', 'top', 'right', 'bottom']);
+    assert.deepEqual([...SPECTRUM_CARD_EDGE_TOKENS], [
+      'spectrum-card-edge-top', 'spectrum-card-edge-right', 'spectrum-card-edge-bottom',
+    ]);
+  });
+
+  test('readFrontMatterSpectrumCardEdge extracts the value; quotes + absence', () => {
+    assert.equal(readFrontMatterSpectrumCardEdge('---\nspectrum-card-edge: top\n---\n'), 'top');
+    assert.equal(readFrontMatterSpectrumCardEdge('---\nspectrum-card-edge: "right"\n---\n'), 'right');
+    assert.equal(spectrumCardEdgeClassFromSource('---\nspectrum-card-edge: bottom\n---\n'), 'spectrum-card-edge-bottom');
+    assert.equal(readFrontMatterSpectrumCardEdge('---\nspectrum-card: auto\n---\n'), null);
+  });
+});
+
+describe('resolve-spectrum — the four sub-registers partition cleanly', () => {
+  test('no token is claimed by two guards', () => {
     for (const t of ['spectrum-solid', 'spectrum-duo', 'spectrum-mono', 'spectrum-off']) {
-      assert.ok(isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t), t);
+      assert.ok(isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t), t);
     }
     for (const t of ['spectrum-edge-left', 'spectrum-edge-off']) {
-      assert.ok(!isSpectrumStyleToken(t) && isSpectrumEdgeToken(t) && !isSpectrumCardToken(t), t);
+      assert.ok(!isSpectrumStyleToken(t) && isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t), t);
     }
-    for (const t of ['spectrum-card', 'spectrum-card-off']) {
-      assert.ok(!isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && isSpectrumCardToken(t), t);
+    for (const t of SPECTRUM_CARD_TOKENS) {
+      assert.ok(!isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && isSpectrumCardToken(t) && !isSpectrumCardEdgeToken(t), t);
+    }
+    for (const t of SPECTRUM_CARD_EDGE_TOKENS) {
+      assert.ok(!isSpectrumStyleToken(t) && !isSpectrumEdgeToken(t) && !isSpectrumCardToken(t) && isSpectrumCardEdgeToken(t), t);
     }
   });
+});
 
-  test('readFrontMatterSpectrumCard extracts the value; quotes + absence', () => {
-    assert.equal(readFrontMatterSpectrumCard('---\nspectrum-card: on\n---\n'), 'on');
-    assert.equal(readFrontMatterSpectrumCard('---\nspectrum-card: "off"\n---\n'), 'off');
-    assert.equal(spectrumCardClassFromSource('---\nspectrum-card: on\n---\n'), 'spectrum-card');
-    assert.equal(readFrontMatterSpectrumCard('---\nspectrum: solid\n---\n'), null);
-  });
+describe('resolve-spectrum — CARD CSS contract (base.accent-finish.css)', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
+  const block = css.slice(css.indexOf('SPECTRUM CARD'));
 
-  test('CSS contract — the card rail targets card surfaces (both .card and li forms)', () => {
-    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
+  test('the card rail targets card surfaces (both .card and li forms), reading the geometry tokens', () => {
     // `.card` is scoped to cards-grid/cards-stack (NOT bare) so it never reaches compare-prose.
-    assert.match(css, /section\.spectrum-card:is\(\.cards-grid, \.cards-stack\) \.card/);
+    assert.match(block, /:is\(\.cards-grid, \.cards-stack\) \.card/);
     assert.doesNotMatch(css, /section\.spectrum-card \.card\b/, 'the bare `.card` selector would over-reach compare-prose');
-    assert.match(css, /section\.spectrum-card\.cards-grid > \.cell-stage > :is\(ul, ol\) > li/);
-    assert.match(css, /section\.spectrum-card\.pricing > \.cell-stage > ul > li/);
-    // Painted as a background-IMAGE layer (no layout shift), reading the shared token.
-    const rule = css.slice(css.indexOf('SPECTRUM CARD'));
-    assert.match(rule, /background-image:\s*var\(--spectrum-vertical/);
-    assert.ok(!/section\.spectrum-card[^{]*\{[^}]*margin/.test(css), 'card rail must not use margin');
+    assert.match(block, /:is\(\.cards-grid, \.cards-stack\) > \.cell-stage > :is\(ul, ol\) > li/);
+    assert.match(block, /\.pricing > \.cell-stage > ul > li/);
+    // Painted as a background-IMAGE layer (no layout shift), reading the inherited fill token.
+    assert.match(block, /background-image:\s*var\(--sp-card-img\)/);
+    assert.ok(!/spectrum-card[^{]*\{[^}]*[^-]margin/.test(block), 'card rail must not use margin');
   });
 
-  // Rot-guard (adversarial-review): the card-rail covered-component set is HARDCODED in the
-  // CSS. Lock it so adding/removing a component is a deliberate, reviewed edit — a silent drift
-  // (a new card component that gets no rail, or a removed one) fails here. If you intentionally
-  // change the set, update this list in the same commit and say why in the PR.
+  test('every CARD STYLE value has a fill mapping (auto follows the bar; the rest pin a fill)', () => {
+    assert.match(block, /section\.spectrum-card\s*\{[^}]*--sp-card-v:\s*var\(--spectrum-vertical/);
+    assert.match(block, /section\.spectrum-card-solid\s*\{[^}]*--sp-fill-solid-v/);
+    assert.match(block, /section\.spectrum-card-duo\s*\{[^}]*--sp-fill-duo-v/);
+    assert.match(block, /section\.spectrum-card-mono\s*\{[^}]*--sp-fill-mono-v/);
+    assert.match(block, /section\.spectrum-card-rainbow\s*\{[^}]*--sp-fill-rainbow-v/);
+  });
+
+  test('every CARD EDGE placement sets the geometry tokens', () => {
+    assert.match(block, /section\.spectrum-card-edge-right\s*\{[^}]*right center/);
+    assert.match(block, /section\.spectrum-card-edge-top\s*\{[^}]*center top/);
+    assert.match(block, /section\.spectrum-card-edge-bottom\s*\{[^}]*center bottom/);
+  });
+
+  // Rot-guard (adversarial-review): the card-rail covered-component set is HARDCODED in the CSS.
+  // Lock it so adding/removing a component is a deliberate, reviewed edit — a silent drift (a new
+  // card component that gets no rail, or a removed one) fails here. If you intentionally change
+  // the set, update this list in the same commit and say why in the PR.
   test('spectrum-card covered-component set is locked (extend deliberately, not by accident)', () => {
-    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
-    const block = css.slice(css.indexOf('SPECTRUM CARD'));
-    const covered = new Set([...block.matchAll(/section\.spectrum-card\.([a-z-]+)\b/g)].map((m) => m[1]));
+    // The paint rule (the one carrying `.cell-stage`) names each covered component.
+    const paint = block.slice(block.indexOf('.cell-stage'));
+    const covered = new Set([...paint.matchAll(/\)\.([a-z-]+) >/g)].map((m) => m[1]));
+    // cards-grid/cards-stack are matched via `:is(.cards-grid, .cards-stack)`, add them explicitly.
+    for (const c of ['cards-grid', 'cards-stack']) covered.add(c);
     assert.deepEqual([...covered].sort(), ['cards-grid', 'cards-stack', 'pricing', 'stats', 'verdict-grid'],
       'the spectrum-card rail covers exactly these card components — update this list AND the docs if you change the CSS');
   });

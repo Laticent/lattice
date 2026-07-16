@@ -120,7 +120,8 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 |---|---|---|
 | **Spectrum** | `spectrum:` | the accent-gradient STYLE (`on`/`solid`/`duo`/`mono`/`off`) — flows to every accent via the shared `--spectrum` token |
 | **Spectrum edge** | `spectrum-edge:` | the section-edge bar PLACEMENT (`top`/`left`/`right`/`bottom`/`off`) |
-| **Spectrum card** | `spectrum-card:` | an opt-in spectrum rail on card surfaces (`off`/`on`) |
+| **Spectrum card** | `spectrum-card:` | an INDEPENDENT spectrum rail on card surfaces (`off`/`auto`/`solid`/`duo`/`mono`/`rainbow`) |
+| **Spectrum card edge** | `spectrum-card-edge:` | where the card rail sits (`left`/`top`/`right`/`bottom`) |
 | **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
 | **Eyebrow** | `eyebrow:` | the mono-caps kicker decoration (`plain`/`dot`/`bar`/`arrow`/`underline`) |
 

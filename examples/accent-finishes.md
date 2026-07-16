@@ -112,13 +112,45 @@ An `arrow` eyebrow points into the title. Pick one treatment deck-wide so every 
 ## Opt a spectrum rail onto card surfaces
 
 - Deck-wide or per slide
-  - `spectrum-card: on` rails every card; `_class: spectrum-card` opts in one slide.
-- Follows the chosen style
-  - Reads the same token, so it inherits `duo` — no per-card edit.
+  - `spectrum-card: auto` rails every card; `_class: spectrum-card` opts in one slide.
+- Follows the bar by default
+  - `auto` inherits the deck's `duo` — no per-card edit.
 - Off by default
   - No card gets a rail unless you ask — restraint over a stripe on everything.
 - Palette-blind
   - The rail recolors with the theme and `dark` automatically.
+
+---
+
+<!-- _class: cards-grid spectrum-card-solid -->
+
+`Spectrum · cards`
+
+## The rail tunes independently of the bar
+
+- Pin any variant
+  - `spectrum-card: solid` here, while the bar stays `duo` — all variants are on-brand.
+- Its own placement
+  - `spectrum-card-edge: top|right|bottom` moves the rail; `left` is the default.
+- Independent axes
+  - Style and placement each override per slide without touching the deck bar.
+- Same restraint
+  - One curated look per deck — the rail is a signature, not a stripe on everything.
+
+---
+
+<!-- _class: cards-grid spectrum-card-rainbow spectrum-card-edge-top -->
+
+`Spectrum · cards`
+
+## Rainbow rail, on top
+
+- A pinned rainbow
+  - `spectrum-card: rainbow` shows the full theme ribbon even when the bar is quieter.
+- Moved to the top edge
+  - `spectrum-card-edge: top` runs the rail across the card's head.
+- Boardroom-safe
+  - Solid or two-tone fills — no rainbow-alpha hazard in the exported PDF.
 
 ---
 

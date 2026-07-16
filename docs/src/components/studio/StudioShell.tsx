@@ -58,6 +58,7 @@ import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { importComments } from './slide-comments';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
+import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
@@ -822,6 +823,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const setSpectrumEdge = (value: string) => settingsWrite(`Bar placement → ${value}`, (s) => setFrontMatter(s, 'spectrum-edge', value === 'top' ? null : value));
 	const spectrumCard = getFrontMatter(source, 'spectrum-card') || 'off';
 	const setSpectrumCard = (value: string) => settingsWrite(`Card rail → ${value}`, (s) => setFrontMatter(s, 'spectrum-card', value === 'off' ? null : value));
+	// Card rail PLACEMENT (`spectrum-card-edge:`) — left is the default (no key); only meaningful
+	// when the card rail is on, so the picker is shown only then.
+	const spectrumCardEdge = getFrontMatter(source, 'spectrum-card-edge') || 'left';
+	const setSpectrumCardEdge = (value: string) => settingsWrite(`Card rail placement → ${value}`, (s) => setFrontMatter(s, 'spectrum-card-edge', value === 'left' ? null : value));
 	const headingRule = getFrontMatter(source, 'rule') || 'auto';
 	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => setFrontMatter(s, 'rule', value === 'auto' ? null : value));
 	const eyebrow = getFrontMatter(source, 'eyebrow') || 'plain';
@@ -1744,9 +1749,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<Field label="Bar placement" desc="Which edge the brand bar sits on — top (default), left, right, bottom, or off. Off drops only the bar; table rails and rules keep their color.">
 							<CatalogSelect ariaLabel="Choose bar placement" value={activeSpectrumEdge(spectrumEdge).name} onValueChange={setSpectrumEdge} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_EDGES) }]} />
 						</Field>
-						<Field label="Card rail" desc="Opt a spectrum rail onto card surfaces. Off by default; the rail follows the Brand bar style.">
+						<Field label="Card rail" desc="A spectrum rail on card surfaces, tunable independently of the Brand bar. Off by default; Auto follows the bar, or pin Solid / Duo / Mono / Rainbow.">
 							<CatalogSelect ariaLabel="Choose card rail" value={activeSpectrumCard(spectrumCard).name} onValueChange={setSpectrumCard} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_CARDS) }]} />
 						</Field>
+						{spectrumCard !== 'off' && (
+							<Field label="Card rail placement" desc="Which edge of each card the rail sits on — left (default), top, right, or bottom.">
+								<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES) }]} />
+							</Field>
+						)}
 						<Field label="Heading rule" desc="The underline beneath a slide's heading — a full hairline, a short rule, an accent segment, or none.">
 							<CatalogSelect ariaLabel="Choose heading rule" value={activeRule(headingRule).name} onValueChange={setHeadingRule} className="min-w-[116px]" groups={[{ options: catalogOptions(RULES) }]} />
 						</Field>

@@ -147,26 +147,38 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
    See engineering/decisions/2026-07-03-spectrum-register-white-label.md (original register)
    and 2026-07-15-accent-finish-consolidation.md (this expansion). */
 
-/* STYLE — redefine the shared token; every accent follows. */
-section.spectrum-solid {
-  /* The theme's DISTINCTIVE solid hue. Defaults to --accent (the brand primary), which is
-     right for most themes; a theme whose accent is too dark/muted to read as a bar (onyx,
-     concrete — a near-black accent) sets --spectrum-solid to its distinctive pop instead. */
-  --spectrum: linear-gradient(90deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
-  --spectrum-vertical: linear-gradient(180deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
+/* Reusable spectrum FILL tokens — each variant's gradient, derived from theme PRIMITIVES
+   (--accent / --spectrum-solid / --spectrum-end), INDEPENDENT of the currently-selected
+   --spectrum. Defined once so BOTH the section-bar STYLE (just below) and the orthogonal card
+   rail (base.accent-finish.css) reference a variant without recomputing it — and so the card
+   rail can PIN a variant the section bar isn't showing (card independence,
+   2026-07-15-accent-finish-consolidation.md). Suffix: -h horizontal (a top/bottom bar), -v
+   vertical (a left/right rail). Rainbow is the theme's own --spectrum, captured at :root — the
+   one scope a section-level STYLE override can never clobber, so `spectrum-card: rainbow`
+   survives a `spectrum: solid` deck. */
+:root {
+  --sp-fill-rainbow-h: var(--spectrum);
+  --sp-fill-rainbow-v: var(--spectrum-vertical);
 }
-section.spectrum-duo {
-  /* accent → the theme's own curated spectrum ENDPOINT (--spectrum-end, its distinctive hue:
-     indaco green, onyx red, cuoio gold, laguna coral). Derived from what each theme already
-     curated in --spectrum — never a categorical color. Falls back to --accent (a quiet mono)
-     for any theme that hasn't named an endpoint. */
-  --spectrum: linear-gradient(90deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
-  --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
+section {
+  /* solid: the theme's DISTINCTIVE hue — --accent for most, a --spectrum-solid override for a
+     near-black-accent theme (onyx, concrete) whose accent can't read as a bar. */
+  --sp-fill-solid-h: linear-gradient(90deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
+  --sp-fill-solid-v: linear-gradient(180deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
+  /* duo: accent → the theme's curated endpoint (--spectrum-end: indaco green, onyx red, cuoio
+     gold, laguna coral). Derived from what the theme already curated, never a categorical
+     color. Falls back to --accent (a quiet mono) for a theme that names no endpoint. */
+  --sp-fill-duo-h: linear-gradient(90deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
+  --sp-fill-duo-v: linear-gradient(180deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
+  /* mono: a quiet accent tint ramp — accent fading toward the canvas. */
+  --sp-fill-mono-h: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
+  --sp-fill-mono-v: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
 }
-section.spectrum-mono {
-  --spectrum: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
-  --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
-}
+
+/* STYLE — redefine the shared token from the matching fill; every accent follows. */
+section.spectrum-solid { --spectrum: var(--sp-fill-solid-h); --spectrum-vertical: var(--sp-fill-solid-v); }
+section.spectrum-duo   { --spectrum: var(--sp-fill-duo-h);   --spectrum-vertical: var(--sp-fill-duo-v); }
+section.spectrum-mono  { --spectrum: var(--sp-fill-mono-h);  --spectrum-vertical: var(--sp-fill-mono-v); }
 /* Explicit styles (solid/duo/mono) paint a full-thickness top bar on EVERY non-divider slide —
    including the title/closing/dark bookends whose default edge is bar-less or a 1px line — so a
    deliberately-chosen brand style reads consistently across the deck (this matches the

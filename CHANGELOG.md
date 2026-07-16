@@ -176,11 +176,13 @@ in patch versions.
   - **`spectrum-edge:` — the section-edge bar PLACEMENT.** `top` (default) / `left` / `right` /
     `bottom` / `off`. Moves or removes only the bar (per-side `border-image`); the structural
     accents are untouched.
-  - **`spectrum-card:` — an opt-in spectrum rail on card surfaces.** `off` (default) / `on`;
-    per-slide `_class: spectrum-card` / `spectrum-card-off`. Paints a left rail on the `.card`
-    primitive (cards-grid / cards-stack / compare-prose) and the stats / pricing / verdict-grid
-    tiles, reading the shared token so it inherits the deck's spectrum style. Off by default —
-    no card gets a rail unless asked.
+  - **`spectrum-card:` — an INDEPENDENT spectrum rail on card surfaces.** `off` (default) /
+    `auto` (follow the deck bar) / `solid` / `duo` / `mono` / `rainbow`, with a companion
+    **`spectrum-card-edge:`** placement register (`left` default / `top` / `right` / `bottom`).
+    The rail tunes orthogonally to the section bar — pin any on-brand variant on a `duo` deck,
+    move it to any edge — via per-slide `_class: spectrum-card-solid` / `spectrum-card-edge-top` /
+    `spectrum-card-off`. Paints on the `.card` primitive (cards-grid / cards-stack) and the
+    stats / pricing / verdict-grid tiles. Off by default — no card gets a rail unless asked.
   - **`rule:` — the heading underline.** `auto` (default) / `full` / `short` / `accent` / `none`,
     controlling the masthead / split-panel heading rule.
   - **`eyebrow:` — the mono-caps kicker decoration.** `plain` (default) / `dot` / `bar` / `arrow`

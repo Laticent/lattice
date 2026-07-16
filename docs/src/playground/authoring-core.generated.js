@@ -661,6 +661,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.spectrumNames) findings.push(...findUnknownSpectrum(source, vocab.spectrumNames));
       if (vocab.spectrumEdgeNames) findings.push(...findUnknownSpectrumEdge(source, vocab.spectrumEdgeNames));
       if (vocab.spectrumCardNames) findings.push(...findUnknownSpectrumCard(source, vocab.spectrumCardNames));
+      if (vocab.spectrumCardEdgeNames) findings.push(...findUnknownSpectrumCardEdge(source, vocab.spectrumCardEdgeNames));
       if (vocab.ruleNames) findings.push(...findUnknownRule(source, vocab.ruleNames));
       if (vocab.eyebrowNames) findings.push(...findUnknownEyebrow(source, vocab.eyebrowNames));
       if (vocab.liftNames) findings.push(...findUnknownLift(source, vocab.liftNames));
@@ -1078,6 +1079,24 @@ ${indent}   - ${body.trim()}`;
         fix: `Set front-matter \`spectrum-card:\` to one of: ${[...spectrumCardNames].join(", ")}.`
       }];
     }
+    function findUnknownSpectrumCardEdge(source, spectrumCardEdgeNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmEdge = fmBlock[1].match(/^\s*spectrum-card-edge:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmEdge) return [];
+      const value = fmEdge[1].trim();
+      const known = new Set([...spectrumCardEdgeNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-spectrum-card-edge",
+        severity: "warning",
+        classToken: value,
+        line: fmEdge[0].trim(),
+        message: `'${value}' is not a known spectrum-card-edge value \u2014 the deck would silently render the left rail`,
+        fix: `Set front-matter \`spectrum-card-edge:\` to one of: ${[...spectrumCardEdgeNames].join(", ")}.`
+      }];
+    }
     function findUnknownRule(source, ruleNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
@@ -1274,6 +1293,7 @@ ${indent}   - ${body.trim()}`;
       findUnknownSpectrum,
       findUnknownSpectrumEdge,
       findUnknownSpectrumCard,
+      findUnknownSpectrumCardEdge,
       findUnknownRule,
       findUnknownEyebrow,
       findSingleLetterLexiconKeys,

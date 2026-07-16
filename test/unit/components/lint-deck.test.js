@@ -270,18 +270,30 @@ describe('deck linter', () => {
     }
   });
 
-  test('warns on an unrecognized `spectrum-card:` value; accepts on/off', () => {
+  test('warns on an unrecognized `spectrum-card:` value; accepts off/auto/solid/duo/mono/rainbow', () => {
     const bad = lintText('---\ntheme: indaco\nspectrum-card: yes\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum-card');
     assert.ok(bad, 'unknown spectrum-card should warn');
     assert.equal(bad.classToken, 'yes');
-    for (const v of ['on', 'off']) {
+    // `on` was never shipped — it is now an unknown value and warns.
+    assert.ok(lintText('---\ntheme: indaco\nspectrum-card: on\n---\n\n## H.\n', { vocab }).some((x) => x.rule === 'unknown-spectrum-card'), 'on is retired');
+    for (const v of ['off', 'auto', 'solid', 'duo', 'mono', 'rainbow']) {
       const src = `---\ntheme: indaco\nspectrum-card: ${v}\n---\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-spectrum-card').length, 0, v);
     }
   });
 
+  test('warns on an unrecognized `spectrum-card-edge:` value; accepts left/top/right/bottom', () => {
+    const bad = lintText('---\ntheme: indaco\nspectrum-card-edge: sideways\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum-card-edge');
+    assert.ok(bad, 'unknown spectrum-card-edge should warn');
+    assert.equal(bad.classToken, 'sideways');
+    for (const v of ['left', 'top', 'right', 'bottom']) {
+      const src = `---\ntheme: indaco\nspectrum-card-edge: ${v}\n---\n\n## H.\n`;
+      assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-spectrum-card-edge').length, 0, v);
+    }
+  });
+
   test('per-slide accent tokens (spectrum-edge-*, spectrum-card*, rule-*, eyebrow-*) are known classes', () => {
-    for (const t of ['spectrum-duo', 'spectrum-edge-left', 'spectrum-card', 'spectrum-card-off', 'rule-short', 'eyebrow-dot']) {
+    for (const t of ['spectrum-duo', 'spectrum-edge-left', 'spectrum-card', 'spectrum-card-solid', 'spectrum-card-off', 'spectrum-card-edge-top', 'rule-short', 'eyebrow-dot']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${t} -->\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-class').length, 0, t);
     }

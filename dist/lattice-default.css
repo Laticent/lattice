@@ -18323,26 +18323,38 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
    See engineering/decisions/2026-07-03-spectrum-register-white-label.md (original register)
    and 2026-07-15-accent-finish-consolidation.md (this expansion). */
 
-/* STYLE — redefine the shared token; every accent follows. */
-section.spectrum-solid {
-  /* The theme's DISTINCTIVE solid hue. Defaults to --accent (the brand primary), which is
-     right for most themes; a theme whose accent is too dark/muted to read as a bar (onyx,
-     concrete — a near-black accent) sets --spectrum-solid to its distinctive pop instead. */
-  --spectrum: linear-gradient(90deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
-  --spectrum-vertical: linear-gradient(180deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
+/* Reusable spectrum FILL tokens — each variant's gradient, derived from theme PRIMITIVES
+   (--accent / --spectrum-solid / --spectrum-end), INDEPENDENT of the currently-selected
+   --spectrum. Defined once so BOTH the section-bar STYLE (just below) and the orthogonal card
+   rail (base.accent-finish.css) reference a variant without recomputing it — and so the card
+   rail can PIN a variant the section bar isn't showing (card independence,
+   2026-07-15-accent-finish-consolidation.md). Suffix: -h horizontal (a top/bottom bar), -v
+   vertical (a left/right rail). Rainbow is the theme's own --spectrum, captured at :root — the
+   one scope a section-level STYLE override can never clobber, so `spectrum-card: rainbow`
+   survives a `spectrum: solid` deck. */
+:root {
+  --sp-fill-rainbow-h: var(--spectrum);
+  --sp-fill-rainbow-v: var(--spectrum-vertical);
 }
-section.spectrum-duo {
-  /* accent → the theme's own curated spectrum ENDPOINT (--spectrum-end, its distinctive hue:
-     indaco green, onyx red, cuoio gold, laguna coral). Derived from what each theme already
-     curated in --spectrum — never a categorical color. Falls back to --accent (a quiet mono)
-     for any theme that hasn't named an endpoint. */
-  --spectrum: linear-gradient(90deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
-  --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
+section {
+  /* solid: the theme's DISTINCTIVE hue — --accent for most, a --spectrum-solid override for a
+     near-black-accent theme (onyx, concrete) whose accent can't read as a bar. */
+  --sp-fill-solid-h: linear-gradient(90deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
+  --sp-fill-solid-v: linear-gradient(180deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
+  /* duo: accent → the theme's curated endpoint (--spectrum-end: indaco green, onyx red, cuoio
+     gold, laguna coral). Derived from what the theme already curated, never a categorical
+     color. Falls back to --accent (a quiet mono) for a theme that names no endpoint. */
+  --sp-fill-duo-h: linear-gradient(90deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
+  --sp-fill-duo-v: linear-gradient(180deg, var(--accent) 0%, var(--spectrum-end, var(--accent)) 100%);
+  /* mono: a quiet accent tint ramp — accent fading toward the canvas. */
+  --sp-fill-mono-h: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
+  --sp-fill-mono-v: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
 }
-section.spectrum-mono {
-  --spectrum: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
-  --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
-}
+
+/* STYLE — redefine the shared token from the matching fill; every accent follows. */
+section.spectrum-solid { --spectrum: var(--sp-fill-solid-h); --spectrum-vertical: var(--sp-fill-solid-v); }
+section.spectrum-duo   { --spectrum: var(--sp-fill-duo-h);   --spectrum-vertical: var(--sp-fill-duo-v); }
+section.spectrum-mono  { --spectrum: var(--sp-fill-mono-h);  --spectrum-vertical: var(--sp-fill-mono-v); }
 /* Explicit styles (solid/duo/mono) paint a full-thickness top bar on EVERY non-divider slide —
    including the title/closing/dark bookends whose default edge is bar-less or a 1px line — so a
    deliberately-chosen brand style reads consistently across the deck (this matches the
@@ -19312,33 +19324,64 @@ section.eyebrow-underline
   padding-bottom: 0.2em;
 }
 
-/* ── SPECTRUM CARD (`spectrum-card:`) ── a spectrum rail on card surfaces ──────────────────
- * OPT-IN: a card carries no rail unless the deck sets `spectrum-card: on` or a slide opts in
- * with `_class: spectrum-card` (drop one slide out with `_class: spectrum-card-off`). Paints a
- * left rail on the cards-grid / cards-stack `.card` primitive and the li-based card tiles
- * (stats / pricing / verdict-grid). Drawn as a background-IMAGE layer over
- * the card's own `--bg-alt` fill — so it adds no layout (no box-shift, HARD RULE #20), respects
- * the card's border-radius (the fill is clipped to it), and preserves the card background
- * without needing to know its token. Reads the shared `--spectrum` token, so it inherits the
- * deck's `spectrum:` STYLE (rainbow / duo / mono / …) automatically. */
-/* Card surfaces come in two forms: the post-processed `.card` div AND the native
- * nested-list `> .cell-stage > ul|ol > li` tile. Cover both for cards-grid / cards-stack,
- * plus the li-based tiles of stats / pricing / verdict-grid. Each is the boxed
- * `--bg-alt` + border + border-radius card signature; the `>` combinators keep the rail on
- * the top-level card, never its body sub-items. The `.card` selector is scoped to
- * cards-grid / cards-stack (NOT a bare `.card`) so it never reaches compare-prose's prose
- * columns, whose higher-specificity `background:` shorthand would swallow the rail anyway. A
- * card component added later opts in by extending this list. */
-section.spectrum-card:is(.cards-grid, .cards-stack) .card,
-section.spectrum-card.cards-grid > .cell-stage > :is(ul, ol) > li,
-section.spectrum-card.cards-stack > .cell-stage > :is(ul, ol) > li,
-section.spectrum-card.stats > .cell-stage > ol > li,
-section.spectrum-card.pricing > .cell-stage > ul > li,
-section.spectrum-card.verdict-grid > .cell-stage > ul > li {
-  background-image: var(--spectrum-vertical, var(--spectrum));
+/* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
+ * surfaces ────────────────────────────────────────────────────────────────────────────────
+ * OPT-IN and INDEPENDENT of the deck's section-bar STYLE — all spectrum variants are on-brand,
+ * so the card rail can pin its own. Two orthogonal keys:
+ *   CARD STYLE (`spectrum-card:` off/auto/solid/duo/mono/rainbow) — the rail's gradient. `off`
+ *     (default) paints nothing; `auto` follows the deck bar (--spectrum); the rest PIN a
+ *     variant, derived from the theme's --sp-fill-* primitives (base.variants.css) so a pin is
+ *     independent of whatever the bar shows.
+ *   CARD EDGE (`spectrum-card-edge:` left/top/right/bottom) — WHERE the rail sits. `left`
+ *     (default) and `right` draw a vertical rail (the -v fill); `top`/`bottom` a horizontal one
+ *     (the -h fill).
+ * Drawn as a background-IMAGE layer over the card's own `--bg-alt` fill — so it adds no layout
+ * (no box-shift, HARD RULE #20), respects the card's border-radius (the fill is clipped to it),
+ * and preserves the card background without needing its token. Per-slide `_class:
+ * spectrum-card-duo` / `spectrum-card-edge-top` override each axis. */
+
+/* CARD STYLE — enable the rail and source its fill (both orientations, -h/-v). `auto` follows
+ * the section bar via --spectrum(-vertical); the pins read the orientation-independent fills. */
+section.spectrum-card         { --sp-card-h: var(--spectrum); --sp-card-v: var(--spectrum-vertical, var(--spectrum)); }
+section.spectrum-card-solid   { --sp-card-h: var(--sp-fill-solid-h);   --sp-card-v: var(--sp-fill-solid-v); }
+section.spectrum-card-duo     { --sp-card-h: var(--sp-fill-duo-h);     --sp-card-v: var(--sp-fill-duo-v); }
+section.spectrum-card-mono    { --sp-card-h: var(--sp-fill-mono-h);    --sp-card-v: var(--sp-fill-mono-v); }
+section.spectrum-card-rainbow { --sp-card-h: var(--sp-fill-rainbow-h); --sp-card-v: var(--sp-fill-rainbow-v); }
+
+/* CARD EDGE — the rail geometry the painting rule reads (inherited to the card). Default LEFT
+ * (a vertical rail on the left edge); every enabling class shares it, a spectrum-card-edge-*
+ * class overrides. `--sp-card-w` is the rail thickness (section-OWN cqi via --_sec-1cqi). */
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow) {
+  --sp-card-w: calc(var(--_sec-1cqi, 1cqi) * 0.35);
+  --sp-card-img: var(--sp-card-v);
+  --sp-card-pos: left center;
+  --sp-card-size: var(--sp-card-w) 100%;
+}
+section.spectrum-card-edge-right  { --sp-card-img: var(--sp-card-v); --sp-card-pos: right center; --sp-card-size: var(--sp-card-w) 100%; }
+section.spectrum-card-edge-top    { --sp-card-img: var(--sp-card-h); --sp-card-pos: center top;    --sp-card-size: 100% var(--sp-card-w); }
+section.spectrum-card-edge-bottom { --sp-card-img: var(--sp-card-h); --sp-card-pos: center bottom; --sp-card-size: 100% var(--sp-card-w); }
+
+/* Print flattens the rail to a gray hairline (toner-saving, matching the section bar). Placed
+ * last so it wins the equal-specificity tie over the fill/placement rules above. */
+section.print { --sp-card-img: var(--print-border); }
+
+/* Paint — one rule reading the inherited geometry tokens. Card surfaces come in two forms: the
+ * post-processed `.card` div AND the native nested-list `> .cell-stage > ul|ol > li` tile.
+ * Cover both for cards-grid / cards-stack, plus the li-based tiles of stats / pricing /
+ * verdict-grid. The `>` combinators keep the rail on the top-level card, never its body
+ * sub-items. The `.card` selector is scoped to cards-grid / cards-stack (NOT a bare `.card`) so
+ * it never reaches compare-prose's prose columns, whose higher-specificity `background:`
+ * shorthand would swallow the rail anyway. A card component added later opts in by extending
+ * this list. */
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow):is(.cards-grid, .cards-stack) .card,
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow):is(.cards-grid, .cards-stack) > .cell-stage > :is(ul, ol) > li,
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).stats > .cell-stage > ol > li,
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).pricing > .cell-stage > ul > li,
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).verdict-grid > .cell-stage > ul > li {
+  background-image: var(--sp-card-img);
   background-repeat: no-repeat;
-  background-position: left center;
-  background-size: calc(var(--_sec-1cqi, 1cqi) * 0.35) 100%; /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
+  background-position: var(--sp-card-pos);
+  background-size: var(--sp-card-size);
 }
 
 /* === lib/integrations/mermaid/mermaid.css === */

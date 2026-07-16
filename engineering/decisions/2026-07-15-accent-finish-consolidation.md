@@ -335,3 +335,42 @@ The red team + Munger found real issues, corrected here:
 
 Value breadth (all 19 values) and the representative-sample verification depth were
 **confirmed by the human** after the trio.
+
+## Follow-up (2026-07-16) — card rail INDEPENDENCE
+
+Human call: *"card rail should be independent. it should default to brand bar rail and
+placement but it should be tunable independently given that all spectrum variants are on
+brand."* The first `spectrum-card:` cut was a bare on/off toggle that only ever followed the
+deck bar (read `--spectrum` directly). Expanded it into a two-axis, fully independent control:
+
+- **CARD STYLE** (`spectrum-card:`) grows from `off/on` to **`off` / `auto` / `solid` / `duo` /
+  `mono` / `rainbow`** (`auto` replaces `on` — confirmed *"auto is better than on"*; `on` was
+  never shipped, so no alias is carried). `auto` follows the deck bar; the rest **pin** a variant
+  regardless of what the bar shows.
+- **CARD PLACEMENT** (`spectrum-card-edge:`) is a new sibling register — **`left` (default) /
+  `top` / `right` / `bottom`** — confirmed *"Default LEFT, overridable"*. Orthogonal to STYLE.
+- Both axes override per slide independently (`_class: spectrum-card-duo` / `spectrum-card-edge-top`
+  / `spectrum-card-off`), guarded separately in both render paths (the exact-set `isSpectrumCardToken`
+  never matches a `spectrum-card-edge-*` token — a clean four-way partition, locked by test).
+
+**The enabling refactor — reusable FILL tokens.** To pin a card variant *independent of* the
+section bar, the variant gradients had to stop being locked inside the STYLE classes' `--spectrum`
+redefinition. `base.variants.css` now defines `--sp-fill-{solid,duo,mono,rainbow}-{h,v}` once
+(derived from theme primitives `--accent` / `--spectrum-solid` / `--spectrum-end`), and the
+section STYLE classes point `--spectrum` at them (DRY; byte-identical bar render, verified). The
+card rail reads its own `--sp-card-{h,v}` (auto → `--spectrum(-vertical)`; a pin → the matching
+fill), so a pinned card variant is fully decoupled from the bar.
+
+- **Rainbow-pin needs the untouched theme ribbon.** A section-level STYLE override clobbers
+  `--spectrum` for that section's whole subtree, so `--sp-fill-rainbow-*` is captured at **`:root`**
+  — the one scope STYLE never reaches. `spectrum-card: rainbow` therefore survives a `spectrum: duo`
+  deck (verified on the real PDF: cards show the full ribbon while the bar stays duo).
+- **`section.print`** flattens the card rail to `--print-border` (last rule wins the equal-specificity
+  tie), matching the bar's toner-saving behavior.
+- Studio: `spectrum-card-catalog` grows to all six styles, a new `spectrum-card-edge-catalog`
+  (+ rot-guards); deck + per-slide pickers gain the placement control (shown only when the rail is
+  on), the STYLE picker is provenance-aware across all six values.
+- Demo `examples/accent-finishes.md` gains two slides (a `solid` pin on a `duo` deck; a `rainbow`
+  pin on the top edge). PDF re-rendered and reviewed framed.
+
+Confirmed values: STYLE `off/auto/solid/duo/mono/rainbow`, PLACEMENT `left/top/right/bottom`.

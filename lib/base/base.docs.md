@@ -708,23 +708,40 @@ bar-off deck keeps its table rails and `---` rules.
 | `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
 | `off` | `spectrum-edge-off` | No section-edge bar (structural accents survive). |
 
-**`spectrum-card:` — a spectrum rail on CARD surfaces (opt-in).** Off by default; `on` paints
-a left rail on every card (the `cards-grid` / `cards-stack` / `compare-prose` `.card`, and the
-`stats` / `pricing` / `verdict-grid` tiles). The rail reads the shared token, so it inherits the
-deck's STYLE. Per-slide: `_class: spectrum-card` opts one slide in, `_class: spectrum-card-off`
-opts one out of a deck-wide `on`. A typo is caught as `unknown-spectrum-card`.
+**`spectrum-card:` — an INDEPENDENT spectrum rail on CARD surfaces (opt-in).** Off by default.
+Paints a rail on every card (the `cards-grid` / `cards-stack` `.card`, and the `stats` /
+`pricing` / `verdict-grid` tiles). Unlike the section bar, the card rail tunes on its OWN two
+axes — a STYLE and a PLACEMENT — because every spectrum variant is on-brand: `auto` follows the
+deck bar, or PIN `solid` / `duo` / `mono` / `rainbow` regardless of what the bar shows. Per-slide:
+`_class: spectrum-card-duo` pins one slide, `_class: spectrum-card-off` opts one out. A typo is
+caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
 
 | `spectrum-card:` value | Token | Effect |
 |---|---|---|
 | `off` | *(none)* | No card rail. **The default** (omit the key). |
-| `on` | `spectrum-card` | A spectrum left rail on every card surface, deck-wide. |
+| `auto` | `spectrum-card` | A rail that follows the deck's spectrum STYLE. |
+| `solid` | `spectrum-card-solid` | Pin the rail to the theme's distinctive solid accent. |
+| `duo` | `spectrum-card-duo` | Pin the rail to the accent → endpoint two-tone. |
+| `mono` | `spectrum-card-mono` | Pin the rail to a quiet accent tint ramp. |
+| `rainbow` | `spectrum-card-rainbow` | Pin the rail to the full theme ribbon. |
+
+**`spectrum-card-edge:` — WHERE the card rail sits.** `left` (default) / `top` / `right` /
+`bottom`. Independent of the STYLE axis; overridable per slide (`_class: spectrum-card-edge-top`).
+
+| `spectrum-card-edge:` value | Token | Effect |
+|---|---|---|
+| `left` | *(none)* | A rail on the card's left edge. **The default** (omit the key). |
+| `top` | `spectrum-card-edge-top` | A rail across the card's top edge. |
+| `right` | `spectrum-card-edge-right` | A rail on the card's right edge. |
+| `bottom` | `spectrum-card-edge-bottom` | A rail across the card's bottom edge. |
 
 Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
 it on where it earns its place.
 
-The three keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left
-with the duo gradient flowing to every accent, and `spectrum-card: on` extends that same duo
-into a rail on each card. `spectrum:` also composes with `accent` /
+The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left with
+the duo gradient flowing to every accent, and `spectrum-card: auto` extends that same duo into a
+rail on each card — or `spectrum-card: rainbow` overrides the cards to the full ribbon while the
+bar stays duo. `spectrum:` also composes with `accent` /
 `tone: edge` (per-slide bar recolors), which win over the deck register where they apply. On
 a dark bookend a dark client accent reads faint — pick a theme accent that reads on dark, or
 `spectrum: off` there. *(The old narrow `spectrum: on/off/solid` register — bar-only — is

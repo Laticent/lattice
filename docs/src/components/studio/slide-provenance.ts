@@ -260,28 +260,57 @@ export function setEyebrow(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'eyebrow-', EYEBROW_VALUES, name);
 }
 
-// ── spectrum-card (card rail) ──────────────────────────────────────────────────────────────
-// On/off with an explicit opt-out token, mirroring `lift:`: deck `spectrum-card: on` appends
-// `spectrum-card` to every slide; a per-slide `spectrum-card` opts one IN, `spectrum-card-off`
-// opts one OUT of a deck-wide on. Provenance: inherited (deck on) / on / off.
-const isSpectrumCardToken = (t: string) => t === 'spectrum-card' || t === 'spectrum-card-off';
+// ── spectrum-card (card rail STYLE) ──────────────────────────────────────────────────────────
+// An INDEPENDENT card-rail accent, tunable orthogonally to the section bar. Deck values:
+// off (default, no rail) / auto (follow the bar) / solid / duo / mono / rainbow. The per-slide
+// token map is irregular: `auto` → `spectrum-card` (bare), the pins → `spectrum-card-<v>`, and
+// the opt-out → `spectrum-card-off`. A per-slide token overrides the deck; provenance is
+// inherited (deck non-off) / on (this slide) / off (default or opted-out).
+const CARD_STYLE_VALUES = ['auto', 'solid', 'duo', 'mono', 'rainbow', 'off'];
+/** token → bare card-STYLE value, or null if it isn't a card-STYLE token (excludes the
+ *  sibling `spectrum-card-edge-*` placement tokens). */
+function cardTokenToValue(t: string): string | null {
+	if (t === 'spectrum-card') return 'auto';
+	if (t === 'spectrum-card-off') return 'off';
+	const m = /^spectrum-card-(solid|duo|mono|rainbow)$/.exec(t);
+	return m ? m[1] : null;
+}
+/** bare value → its per-slide token (auto → the bare `spectrum-card`), or null for unknown. */
+function cardValueToToken(v: string): string | null {
+	if (v === 'auto') return 'spectrum-card';
+	if (v === 'off') return 'spectrum-card-off';
+	return /^(solid|duo|mono|rainbow)$/.test(v) ? `spectrum-card-${v}` : null;
+}
+const isSpectrumCardToken = (t: string) => cardTokenToValue(t) !== null;
 
 export function spectrumCardProvenance(chunk: string, source: string): Provenance {
-	const tokens = getClassTokens(chunk);
-	const deckOn = (getFrontMatter(source, 'spectrum-card') || '').trim().toLowerCase() === 'on';
-	const deckValue = deckOn ? 'on' : undefined;
-	const inheritable = deckOn;
-	if (tokens.includes('spectrum-card-off')) return { state: 'off', deckValue, inheritable };
-	if (tokens.includes('spectrum-card')) return { state: 'on', value: 'on', deckValue, inheritable };
-	if (deckOn) return { state: 'inherited', value: 'on', deckValue, inheritable: true };
+	const ownToken = getClassTokens(chunk).find(isSpectrumCardToken);
+	const ownValue = ownToken ? cardTokenToValue(ownToken) : undefined;
+	const deck = (getFrontMatter(source, 'spectrum-card') || '').trim().toLowerCase();
+	const deckValue = deck && deck !== 'off' && CARD_STYLE_VALUES.includes(deck) ? deck : undefined; // off/unset → no rail
+	const inheritable = deckValue !== undefined;
+	if (ownValue === 'off') return { state: 'off', deckValue, inheritable };
+	if (ownValue) return { state: 'on', value: ownValue, deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
 
-/** Set the slide's card rail. `'on'` → opt in; `'off'` → the `spectrum-card-off` opt-out;
- *  `null` → inherit (clear both). */
-export function setSpectrumCard(chunk: string, value: 'on' | 'off' | null): string {
+/** Set the slide's card-rail STYLE. A value (auto/solid/duo/mono/rainbow) → its token;
+ *  `'off'` → the `spectrum-card-off` opt-out; `null` → inherit (clear any card-STYLE token). */
+export function setSpectrumCard(chunk: string, value: string | null): string {
 	const kept = getClassTokens(chunk).filter((t) => !isSpectrumCardToken(t));
-	if (value === 'on') kept.push('spectrum-card');
-	else if (value === 'off') kept.push('spectrum-card-off');
+	const token = value ? cardValueToToken(value) : null;
+	if (token) kept.push(token);
 	return setClassTokens(chunk, kept);
+}
+
+// ── spectrum-card-edge (card rail PLACEMENT) ─────────────────────────────────────────────────
+// A uniform-prefix override axis (like spectrum-edge): `spectrum-card-edge-<v>` overrides the
+// deck; `left` is the no-token default.
+const CARD_EDGE_VALUES = ['top', 'right', 'bottom'];
+export function spectrumCardEdgeProvenance(chunk: string, source: string): Provenance {
+	return overrideProvenance(chunk, source, 'spectrum-card-edge', 'spectrum-card-edge-', CARD_EDGE_VALUES, 'left');
+}
+export function setSpectrumCardEdge(chunk: string, name: string | null): string {
+	return setOverride(chunk, 'spectrum-card-edge-', CARD_EDGE_VALUES, name);
 }

@@ -22,6 +22,9 @@ describe('spectrum-card-catalog ↔ SPECTRUM_CARD_NAMES', () => {
 	it('activeSpectrumCard falls back to the off default for unknown / empty', () => {
 		expect(activeSpectrumCard('nonsense').name).toBe('off');
 		expect(activeSpectrumCard('').name).toBe('off');
-		expect(activeSpectrumCard('on').name).toBe('on');
+		expect(activeSpectrumCard('auto').name).toBe('auto');
+		expect(activeSpectrumCard('duo').name).toBe('duo');
+		// `on` was never shipped — it is now unknown and falls back to the off default.
+		expect(activeSpectrumCard('on').name).toBe('off');
 	});
 });

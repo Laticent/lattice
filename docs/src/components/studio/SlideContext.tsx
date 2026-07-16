@@ -30,8 +30,9 @@ import { getCaption, setCaption } from './slide-caption';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setRule, setSpectrum, setSpectrumCard, setSpectrumEdge, setStampStyle, setToneStyle, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
-import { activeSpectrumCard } from './spectrum-card-catalog';
+import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
+import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { deckOutputLang } from './studio-language';
@@ -328,18 +329,27 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const eyebrowProv = React.useMemo(() => eyebrowProvenance(chunk, source), [chunk, source]);
 	const eyebrowOpt = overrideAxis(eyebrowProv, EYEBROWS, 'plain', activeEyebrow);
 	const onEyebrow = (v: string) => onMutate((c) => setEyebrow(c, v === '__inherit__' ? null : v));
-	// Card rail — on/off with an explicit opt-out (mirrors lift). Inherit follows the deck. A
-	// Picker (not a Seg) keeps it consistent with the other accent pickers and previews the rail.
+	// Card rail STYLE — a full off/auto/solid/duo/mono/rainbow axis, INDEPENDENT of the bar.
+	// Inherit follows the deck; every catalog value is an explicit per-slide choice (auto/off
+	// included). A Picker (not a Seg) keeps it consistent with the other accent pickers and
+	// previews each fill.
 	const cardProv = React.useMemo(() => spectrumCardProvenance(chunk, source), [chunk, source]);
-	const cardValue: string = has('spectrum-card') ? 'on' : has('spectrum-card-off') ? 'off' : '__inherit__';
+	const cardValue: string = cardProv.state === 'on'
+		? (cardProv.value ?? '__inherit__')
+		: has('spectrum-card-off') ? 'off' : '__inherit__';
 	const cardOptions: CatalogOption[] = [
 		cardProv.inheritable
-			? { label: 'Inherit — Rail', value: '__inherit__', swatch: activeSpectrumCard('on').swatch }
+			? { label: `Inherit — ${cap(cardProv.deckValue ?? '')}`, value: '__inherit__', swatch: activeSpectrumCard(cardProv.deckValue).swatch }
 			: { label: 'Inherit — None', value: '__inherit__', swatch: activeSpectrumCard('off').swatch },
-		{ label: 'Rail', value: 'on', swatch: activeSpectrumCard('on').swatch },
-		{ label: 'None', value: 'off', swatch: activeSpectrumCard('off').swatch },
+		...SPECTRUM_CARDS.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
-	const onCard = (v: string) => onMutate((c) => setSpectrumCard(c, v === '__inherit__' ? null : (v as 'on' | 'off')));
+	const onCard = (v: string) => onMutate((c) => setSpectrumCard(c, v === '__inherit__' ? null : v));
+	// Card rail PLACEMENT — a clean override axis (left default). Only meaningful when the rail
+	// is on (own non-off OR inherited), so the Row is shown only then.
+	const cardEdgeProv = React.useMemo(() => spectrumCardEdgeProvenance(chunk, source), [chunk, source]);
+	const cardEdge = overrideAxis(cardEdgeProv, SPECTRUM_CARD_EDGES, 'left', activeSpectrumCardEdge);
+	const onCardEdge = (v: string) => onMutate((c) => setSpectrumCardEdge(c, v === '__inherit__' ? null : v));
+	const cardRailOn = cardProv.state === 'on' || cardProv.state === 'inherited';
 
 	// Decoration — the featured tint / mark phrases from the generated group. Each is a
 	// single-select; applying one clears the other members of its kind (tints also clear
@@ -567,9 +577,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<Row label="Bar placement" hint={edgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge the brand bar sits on for this slide — top, left, right, bottom, or off.">
 								<Picker ariaLabel="Bar placement" value={edge.value} onChange={onEdge} options={edge.options} />
 							</Row>
-							<Row label="Card rail" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A spectrum rail on this slide's card surfaces. Inherit follows the deck.">
+							<Row label="Card rail" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A spectrum rail on this slide's card surfaces, tunable independently of the brand bar. Inherit follows the deck; Auto follows the bar, or pin a variant.">
 								<Picker ariaLabel="Card rail" value={cardValue} onChange={onCard} options={cardOptions} />
 							</Row>
+							{cardRailOn && (
+								<Row label="Card rail placement" hint={cardEdgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge of each card the rail sits on — left, top, right, or bottom.">
+									<Picker ariaLabel="Card rail placement" value={cardEdge.value} onChange={onCardEdge} options={cardEdge.options} />
+								</Row>
+							)}
 							<Row label="Heading rule" hint={ruleProv.state === 'inherited' ? 'from deck' : undefined} desc="The underline beneath this slide's heading — full, short, an accent segment, or none.">
 								<Picker ariaLabel="Heading rule" value={ruleOpt.value} onChange={onRule} options={ruleOpt.options} />
 							</Row>
