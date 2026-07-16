@@ -123,6 +123,64 @@ section .cluster.section-8 rect, section .section-8 rect, section .section-8 pat
 section .cluster.section-9 rect, section .section-9 rect, section .section-9 path, section .section-9 circle { fill: url(#latt-a11y-tex-10) !important; }
 section .cluster.section-10 rect, section .section-10 rect, section .section-10 path, section .section-10 circle { fill: url(#latt-a11y-tex-11) !important; }
 section .cluster.section-11 rect, section .section-11 rect, section .section-11 path, section .section-11 circle { fill: url(#latt-a11y-tex-12) !important; }
+/* Mindmap nodes need HIGHER specificity: the fill lands on the .node-bkg path
+ * inside g.node.mindmap-node.section-N, and mermaid.css paints it !important at
+ * (0,2,2) — outweighing the generic .section-N rules above (0,1,2), which left
+ * a11y MINDMAP texturing silently dead. Adding the .node class the group carries
+ * → (0,3,2) wins, order-independent. (The .cluster.section-N rules above still
+ * serve non-mindmap diagrams.) See engineering/decisions/2026-07-16-a11y-mindmap-texture.md. */
+:is(section, figure) .node.mindmap-node[class*="section-root"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-root"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-root"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-root"] path { fill: url(#latt-a11y-tex-1) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-0"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-0"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-0"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-0"] path { fill: url(#latt-a11y-tex-1) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-1"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-1"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-1"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-1"] path { fill: url(#latt-a11y-tex-2) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-2"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-2"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-2"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-2"] path { fill: url(#latt-a11y-tex-3) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-3"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-3"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-3"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-3"] path { fill: url(#latt-a11y-tex-4) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-4"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-4"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-4"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-4"] path { fill: url(#latt-a11y-tex-5) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-5"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-5"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-5"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-5"] path { fill: url(#latt-a11y-tex-6) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-6"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-6"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-6"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-6"] path { fill: url(#latt-a11y-tex-7) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-7"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-7"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-7"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-7"] path { fill: url(#latt-a11y-tex-8) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-8"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-8"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-8"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-8"] path { fill: url(#latt-a11y-tex-9) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-9"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-9"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-9"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-9"] path { fill: url(#latt-a11y-tex-10) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-10"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-10"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-10"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-10"] path { fill: url(#latt-a11y-tex-11) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-11"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-11"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-11"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-11"] path { fill: url(#latt-a11y-tex-12) !important; }
 /* Mermaid pie — slices are `path.pieCircle` painted from the --cat ramp (not
  * the chart-cat set), so map them to the diagram texture set, cycling mod-12
  * like the colour. A pieOuterCircle <circle> precedes them, so :nth-of-type on

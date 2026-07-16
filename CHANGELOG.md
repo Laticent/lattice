@@ -804,6 +804,15 @@ in patch versions.
 
 ### Fixed
 
+- **a11y (color-blind) themes weren't texturing MINDMAPS — the accessibility feature was a
+  silent no-op there.** The CVD categorical textures wire `--cat` slots to per-slot patterns so
+  color-blind viewers can tell categories apart, but on mindmaps the `a11y-base.css` rule
+  (`.section-N`, specificity 0,1,2) lost to `mermaid.css`'s `.mindmap-node[class*="section-N"]`
+  `!important` (0,2,2), so nodes painted the flat gray ramp with no texture. Fixed by adding
+  `.node.mindmap-node[class*="section-N"]` rules (0,3,2) that win, pointing at the same literal
+  texture set (defs untouched; pies/charts were already fine). All four CVD themes share
+  `a11y-base.css`, so all are fixed. See
+  `engineering/decisions/2026-07-16-a11y-mindmap-texture.md`.
 - **concrete's categorical diagrams collapsed in light mode — the 12 chips are near-identical
   grays. Fixed with a BESPOKE raw-concrete texture per category.** Like onyx (below), concrete
   is near-monochrome; its light-mode `--cat-*` fills are all ~`#DDD`, so categories leaned

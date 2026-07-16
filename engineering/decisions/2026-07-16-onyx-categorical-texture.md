@@ -119,9 +119,10 @@ substring / pie mechanics are correct.
 
 ## Follow-ups
 
-- **a11y mindmap texturing is dead** (specificity loses to `mermaid.css`). Off the
-  path of this change; logged for a separate fix that raises the a11y wiring the same
-  way (or refactors both onto a shared partial).
+- **a11y mindmap texturing is dead** (specificity loses to `mermaid.css`). ~~Off the
+  path of this change; logged for a separate fix~~ — **FIXED** in
+  `2026-07-16-a11y-mindmap-texture.md` (adds the same `.node.mindmap-node` specificity
+  boost to `a11y-base.css`).
 - **Native chart-family texturing** (`--chart-cat` wedges/funnel/radar) for onyx +
   concrete is not covered here — a bounded follow-up.
 - **Per-slide scheme correctness** and **print-band symmetry** — the per-scheme
