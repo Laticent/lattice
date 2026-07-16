@@ -804,6 +804,27 @@ in patch versions.
 
 ### Fixed
 
+- **concrete's categorical diagrams collapsed in light mode — the 12 chips are near-identical
+  grays. Fixed with a BESPOKE raw-concrete texture per category.** Like onyx (below), concrete
+  is near-monochrome; its light-mode `--cat-*` fills are all ~`#DDD`, so categories leaned
+  entirely on subtle edge tints and any fill-only component collapsed. concrete now gets its
+  own scheme-aware texture set (`latt-concrete-tex-*`) with material motifs — board-form plank
+  lines, shutter diagonals, form-tie holes, fluted ribs, herringbone, waffle coffers, rebar
+  grid, aggregate speckle — mirroring concrete's own ramp (near-white chips + dark ink ⟷
+  muted-tint chips + light ink). Dark mode is now double-encoded (hue + texture). Same
+  deck-wide-scheme / iOS caveats as onyx. See
+  `engineering/decisions/2026-07-16-onyx-categorical-texture.md`.
+- **onyx's categorical diagrams were 12 near-identical grays — a single-hue brand can't
+  separate categories by color. Fixed by adding a distinct TEXTURE per category.** onyx is
+  pure black↔white by design, so its `--cat-*` cycle packed 12 grays into a narrow luminance
+  band that blurred at any size. Categories now get a second, non-color channel: a repeating
+  texture per slot (diagonal / vertical / horizontal / dots / cross-hatch …) on mindmaps and
+  pies, reusing the CVD texture machinery (`lib/core/accessibility-textures.js`) via a new
+  SCHEME-AWARE set (`latt-onyx-tex-*`) that flips with the deck color-scheme — light chips +
+  dark ink (light mode) ⟷ dark chips + light ink (dark mode), true to onyx's inversion. The
+  luminance ramp is retained as a redundant channel. The a11y CVD texture sets are byte-for-byte
+  unchanged. iOS Safari is UNVERIFIED (the `light-dark()`-in-`<defs>` flip is confirmed only in
+  Chromium/PDF). See `engineering/decisions/2026-07-16-onyx-categorical-texture.md`.
 - **Ten themes rendered every categorical branch the same color — mindmaps, kanban, roadmaps,
   and the rest of the `--cat-*` cycle collapsed to one hue. Fixed by recoloring the affected
   themes to a three-layer contrast contract.** `mustard`, `laguna`, `burgundy`, `crepuscolo`,

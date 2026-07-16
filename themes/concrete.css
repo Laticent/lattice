@@ -255,3 +255,78 @@ section pre.hljs {
   --chart-state-info: light-dark(#2F567F, #79A6D6); /* deep slate     */
   --chart-state-mute: light-dark(#68675B, #A69882); /* warm greige    */
 }
+
+/* ── Categorical TEXTURE (concrete is near-monochrome — light chips are near-identical) ──
+ * concrete distinguishes categories by hue only in dark mode; in light mode the chips are
+ * all ~#DDD. A second, non-color channel — a distinct BESPOKE raw-concrete motif per slot
+ * (board-form / shutter / tie-holes / fluted / herringbone / waffle …) — carries the
+ * distinction, from the SCHEME-AWARE latt-concrete-tex-* patterns
+ * (lib/core/accessibility-textures.js): near-white chips + dark ink (light) ⟷ muted-tint
+ * chips + light ink (dark). Retains the --cat ramp as a redundant channel. Selectors add
+ * the .node class the mindmap group carries → (0,3,2), beating mermaid.css (0,2,2). Pie via
+ * .pieCircle. See engineering/decisions/2026-07-16-onyx-categorical-texture.md. */
+:is(section, figure) .node.mindmap-node[class*="section-root"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-root"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-root"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-root"] path { fill: url(#latt-concrete-tex-1) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-0"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-0"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-0"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-0"] path { fill: url(#latt-concrete-tex-1) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-1"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-1"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-1"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-1"] path { fill: url(#latt-concrete-tex-2) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-2"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-2"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-2"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-2"] path { fill: url(#latt-concrete-tex-3) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-3"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-3"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-3"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-3"] path { fill: url(#latt-concrete-tex-4) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-4"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-4"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-4"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-4"] path { fill: url(#latt-concrete-tex-5) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-5"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-5"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-5"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-5"] path { fill: url(#latt-concrete-tex-6) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-6"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-6"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-6"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-6"] path { fill: url(#latt-concrete-tex-7) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-7"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-7"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-7"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-7"] path { fill: url(#latt-concrete-tex-8) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-8"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-8"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-8"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-8"] path { fill: url(#latt-concrete-tex-9) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-9"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-9"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-9"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-9"] path { fill: url(#latt-concrete-tex-10) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-10"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-10"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-10"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-10"] path { fill: url(#latt-concrete-tex-11) !important; }
+:is(section, figure) .node.mindmap-node[class*="section-11"] rect,
+:is(section, figure) .node.mindmap-node[class*="section-11"] circle,
+:is(section, figure) .node.mindmap-node[class*="section-11"] polygon,
+:is(section, figure) .node.mindmap-node[class*="section-11"] path { fill: url(#latt-concrete-tex-12) !important; }
+/* Mermaid pie — path.pieCircle from the --cat ramp; a pieOuterCircle <circle> precedes them. */
+:is(section, figure) .pieCircle:nth-of-type(12n+1) { fill: url(#latt-concrete-tex-1) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+2) { fill: url(#latt-concrete-tex-2) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+3) { fill: url(#latt-concrete-tex-3) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+4) { fill: url(#latt-concrete-tex-4) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+5) { fill: url(#latt-concrete-tex-5) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+6) { fill: url(#latt-concrete-tex-6) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+7) { fill: url(#latt-concrete-tex-7) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+8) { fill: url(#latt-concrete-tex-8) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+9) { fill: url(#latt-concrete-tex-9) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+10) { fill: url(#latt-concrete-tex-10) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+11) { fill: url(#latt-concrete-tex-11) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n) { fill: url(#latt-concrete-tex-12) !important; }
