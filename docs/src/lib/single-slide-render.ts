@@ -456,7 +456,28 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					fr.style.width = geom.width + 'px';
 					fr.style.height = geom.height + 'px';
 					fr.style.transformOrigin = 'top left';
+					// Hidden until the FIRST srcdoc actually paints (revealed in onload below).
+					// A freshly-appended iframe with no srcdoc is `about:blank`, which iOS
+					// Safari paints as an OPAQUE WHITE document ON TOP OF the element's CSS
+					// `background` — so `iframe.live{background:var(--bg)}` can't cover it and
+					// a cold load flashed a white slide card (device report). Keeping the
+					// element `visibility:hidden` until its document has painted means the
+					// dark pane behind it (the host's `bg-background` / the instant-shell)
+					// covers that window instead of white. This is the single-slide twin of
+					// the Playground filmstrip's `#preview` visibility gate.
+					fr.style.visibility = 'hidden';
 					host.appendChild(fr);
+					// Safety net for the visibility gate: the reveal above rides the srcdoc's
+					// `onload`, which is reliable but not guaranteed (a teardown race, a
+					// pathological document). Without a fallback a missed `onload` would hide
+					// the slide FOREVER — a worse failure than the white flash the gate fixes.
+					// Force-reveal after a generous ceiling so the gate can only ever DELAY the
+					// slide, never hide it; the normal onload reveal fires first (~sub-500ms)
+					// and makes this a no-op. Mirrors the Playground `#preview` gate's 4s fallback.
+					const revealFr = fr;
+					setTimeout(() => {
+						if (revealFr.style.visibility === 'hidden') revealFr.style.visibility = 'visible';
+					}, 4000);
 					if (typeof ResizeObserver !== 'undefined') {
 						// The callback honors the module-level drag gate above; the host is
 						// registered so a resume can re-fit it once, authoritatively.
@@ -490,6 +511,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					(host as LiveHost).__latticePendingLoad = false;
 					const tFit = performance.now();
 					scaleFrame(host);
+					// Reveal now that the srcdoc has painted (and is scaled) — closes the
+					// white-`about:blank` window without ever showing an unscaled or blank
+					// frame. Idempotent: later full-writes re-fire onload but it's already
+					// visible; patches don't reload, so the frame stays put.
+					fr.style.visibility = 'visible';
 					const fitMs = performance.now() - tFit;
 					applyDebug(fr, { force: null });
 					// Parent-hosted video playback: tap a video poster in a Studio preview

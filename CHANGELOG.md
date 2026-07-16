@@ -839,6 +839,67 @@ in patch versions.
   floors over every theme so a collapse can't silently reship. `onyx` (single-hue brand) keeps
   luminance-based separation; its texture treatment is tracked separately.
   See `engineering/decisions/2026-07-15-categorical-token-contract.md`.
+- **The Playground live preview no longer flashes white→black→slides on a cold load.** On a
+  first (cold) load of `/playground` — reported on mobile Safari in dark mode — the preview pane
+  flashed white, then black, then popped the slides in ~0.6–1.0 s after paint, while the on-demand
+  engine bundle loaded. The whole loading window is now a SOLID on-brand surface — the theme's
+  `--bg-alt` for the active palette + mode — with the slides fading in over the identical color, so
+  there is nothing to flicker. Four causes, all fixed:
+  (1) **First-paint white canvas** — the browser paints a blank (white) canvas while the
+  render-blocking stylesheets load. A shared `<ColorSchemeSeed>` (emitted high in `<head>`, before
+  those stylesheets) pins `color-scheme` to the *resolved app mode* — so the blank canvas is the
+  theme's mode from the first frame, including for a dark-app visitor on a light-OS device that a
+  static `content="light dark"` meta would still flash white on.
+  (2) **Pulsing gray skeleton** — the on-demand engine load (#962) left a ~1–2 s empty window
+  covered by a *pulsing* gradient placeholder that read as flicker on mobile and never matched the
+  brand. The Playground preview now drops that skeleton entirely and shows its solid brand `--bg-alt`
+  fill; the filmstrip is letterboxed in the same `--bg-alt` (not the engine's generic `#0c0c0c`/
+  `#e7e7ea`), so the slide surround is one continuous brand color before and after the reveal.
+  (3) **Black preview box** — the engine writes the iframe srcdoc (which paints an opaque black
+  body) and the old code went "live" at srcdoc-set, ~900 ms before the in-frame FIT agent revealed
+  the slides → a black flash. The iframe now stays `visibility:hidden` and only goes live once
+  `.lattice` is actually visible, then fades in — the brand fill covers the whole gap.
+  (4) **No instant-shell** — the anti-flash last-slide snapshot the Studio already has was never
+  wired in. A returning editor's real first slide is now captured (the first filmstrip section,
+  sanitized at the #22 chokepoint, under the Playground's own `lattice-docs-pg-last-slide` key) and
+  replayed pre-hydration — so the preview paints a real themed slide immediately, then the live
+  filmstrip takes over with no visible swap. The replay paints only when the app will boot into
+  Edit showing the same draft (palette + mode + rendered-source-hash match), so a wrong deck can
+  never flash; a newcomer or any mismatch shows the solid brand fill.
+  The **Studio** got the same first-paint fix (1) — the shared `<ColorSchemeSeed>` — plus the
+  single-slide preview `iframe.live` now carries the brand `--bg`: an `<iframe>` is opaque WHITE
+  by default until its `srcdoc` paints (a white flash on a cold load, worst on iOS Safari), so
+  giving the element the brand background keeps that gap on-brand instead of white. And the
+  Studio instant-shell's cached last slide now renders at the right scale: it was sized
+  `width:100%`, but the engine pins its container-query font basis to 1280 — so the cached slide
+  came out oversized + clipped (unrecognizable). It now keeps the slide at its intrinsic box and
+  transform-scales it to fit (the same fix the Playground shell uses), measured in the replay.
+  (5) **The white fallback palette was the deepest root** — the site's `:root` color tokens
+  (`--bg`, `--bg-alt`, …) default to indaco *light* (white `--bg`), and the dark values only arrive
+  from the generated `html[data-palette][data-mode]` block once the inline seed sets those attributes.
+  That fallback governs every `var(--bg)`/`var(--bg-alt)` surface — the preview pane, the iframe
+  letterbox, a bare slide face — during the pre-seed / pre-CSS window; the seed runs before the
+  stylesheet on Chromium (so it never showed there), but iOS Safari paints the root background more
+  eagerly and flashed the white fallback. The `:root` fallback is now keyed to the OS scheme via
+  `@media (prefers-color-scheme: dark)` — a dark visitor's fallback is on-brand dark (`#001d33` /
+  `#002847`), never white, on any browser and independent of seed timing; the exact per-palette
+  values still win the instant the generated block applies (lower specificity than the attribute
+  rules). The Playground preview `iframe` element also drops its `background: transparent` for a
+  solid `var(--bg-alt)`, so the one frame iOS composites the element before its srcdoc paints is the
+  brand letterbox color, never the iframe's default white.
+  (6) **The single-slide preview iframe was a visible white `about:blank`** — the deepest cause of the
+  Studio slide-card white flash. The DeckPreview iframe (Studio main preview + every landing/showcase
+  specimen) is created and appended to the DOM *before* its `srcdoc` is assigned; a bare iframe is
+  `about:blank`, which iOS Safari paints as an OPAQUE WHITE document *on top of* the element's CSS
+  `background` — so `iframe.live{background:var(--bg)}` (fix above) sat behind that white and couldn't
+  cover it. The iframe element now stays `visibility:hidden` from creation until its first `srcdoc`
+  actually paints (revealed in the frame's `onload`, after fit), so the dark host pane / instant-shell
+  covers the `about:blank` window instead of white — the single-slide twin of the Playground filmstrip's
+  `#preview` visibility gate. The reveal runs before the instant-shell dismissal (both fire on the same
+  load event, reveal first), so the live dark slide is showing before the shell goes away — no gap.
+  A 4s force-reveal fallback backs the gate so a missed `onload` (a teardown race) can only ever
+  DELAY the slide, never hide it forever — the safety net the Playground `#preview` gate already had.
+  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`, `ColorSchemeSeed.astro`, `landing.css`, `single-slide-render.ts`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its
   heading, and a few cases that spoke a falsehood are corrected.** A retroactive three-perspective

@@ -45,7 +45,7 @@ const {
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,
-  SNAPSHOT_KEY_LITERAL,
+  SNAPSHOT_KEY_LITERALS,
   referencesSnapshot,
   checkOpenRouterBudget,
   SANCTIONED_OPENROUTER_SPENDERS,
@@ -456,13 +456,27 @@ describe('check-ownership', () => {
       assert.deepEqual(errors, [], errors.join('\n'));
     });
 
-    test('the allowlist is truthful: producer sanitizes, both sanctioned files reference the snapshot', () => {
+    test('the allowlist is truthful: producer sanitizes, every sanctioned file references the snapshot', () => {
       const producer = SANCTIONED_SNAPSHOT_SINKS.find((s) => s.role === 'producer');
       const psrc = fs.readFileSync(path.join(ROOT, producer.file), 'utf8');
       assert.ok(SANITIZE_CALL.test(psrc), `${producer.file} (sole writer) must call sanitizeSlideHtml`);
       for (const s of SANCTIONED_SNAPSHOT_SINKS) {
         assert.ok(referencesSnapshot(fs.readFileSync(path.join(ROOT, s.file), 'utf8')), `${s.file} should reference the snapshot`);
       }
+    });
+
+    test('the React injection sink (PlaygroundApp) is on-path via the capture/save API, not just key literals', () => {
+      // The sink reads the HTML INDIRECTLY (window.__pgShellHtml), so it names no key
+      // literal and no loader — only the capture/save import. referencesSnapshot must still
+      // see it (else its dangerouslySetInnerHTML snapshot sink is invisible to #22).
+      const indirectSink = "import { captureFirstSectionFromFrame, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';\nreturn <div dangerouslySetInnerHTML={{ __html: window.__pgShellHtml }} />;";
+      assert.ok(!SNAPSHOT_KEY_LITERALS.some((k) => indirectSink.includes(k)), 'names no raw key');
+      assert.ok(referencesSnapshot(indirectSink), 'still on the snapshot path via the capture/save API');
+      assert.ok(SNAPSHOT_INJECT_MARKER.test(indirectSink), 'dangerouslySetInnerHTML detected → an unsanctioned sink would be flagged');
+      // And the Studio writer (captureFromFrame/saveSnapshot, no inject) stays OFF-path, so
+      // its unrelated localStorage.setItem calls never false-positive the write marker.
+      const studioWriter = "import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';\nlocalStorage.setItem('lattice-studio-palette', p);";
+      assert.ok(!referencesSnapshot(studioWriter), 'the Studio capture/save importer is not roped in');
     });
 
     test('the gate bites: producer dropping sanitize is flagged', () => {
@@ -473,19 +487,24 @@ describe('check-ownership', () => {
       assert.ok(!SANITIZE_CALL.test(stripped), 'sanitize gone → gate would flag it');
     });
 
-    test('the gate bites: a NEW writer of the key (setItem) is on the snapshot path + write-marked', () => {
-      // A poisoned second writer — the actual trust-boundary attack.
-      const evil = `export function poison(html) { localStorage.setItem('${SNAPSHOT_KEY_LITERAL}', JSON.stringify({ v: 1, html })); }`;
-      assert.ok(referencesSnapshot(evil), 'writer is on the snapshot path (raw key)');
-      assert.ok(SNAPSHOT_WRITE_MARKER.test(evil), 'setItem write is detected → an unsanctioned writer would be flagged');
+    test('the gate bites: a NEW writer of EITHER key (setItem) is on the snapshot path + write-marked', () => {
+      // A poisoned second writer — the actual trust-boundary attack — for BOTH the Studio
+      // and the Playground key (each an independent main-document injection sink).
+      for (const key of SNAPSHOT_KEY_LITERALS) {
+        const evil = `export function poison(html) { localStorage.setItem('${key}', JSON.stringify({ v: 1, html })); }`;
+        assert.ok(referencesSnapshot(evil), `writer of ${key} is on the snapshot path (raw key)`);
+        assert.ok(SNAPSHOT_WRITE_MARKER.test(evil), 'setItem write is detected → an unsanctioned writer would be flagged');
+      }
     });
 
-    test('the gate bites: a reader via the imported loadSnapshot API (no literal) is still seen + inject-marked', () => {
-      // The idiomatic evasion the literal-only check missed.
-      const evil = "import { loadSnapshot } from '../playground/snapshot-cache.js';\nel.innerHTML = loadSnapshot().html;";
-      assert.ok(!evil.includes(SNAPSHOT_KEY_LITERAL), 'never names the raw key');
-      assert.ok(referencesSnapshot(evil), 'still on the snapshot path via the imported API');
-      assert.ok(SNAPSHOT_INJECT_MARKER.test(evil), 'innerHTML inject detected → an unsanctioned sink would be flagged');
+    test('the gate bites: a reader via the imported loader API (no literal) is still seen + inject-marked', () => {
+      // The idiomatic evasion the literal-only check missed — for both surfaces' loaders.
+      for (const loader of ['loadSnapshot', 'loadPlaygroundSnapshot']) {
+        const evil = `import { ${loader} } from '../playground/snapshot-cache.js';\nel.innerHTML = ${loader}().html;`;
+        assert.ok(!SNAPSHOT_KEY_LITERALS.some((k) => evil.includes(k)), 'never names a raw key');
+        assert.ok(referencesSnapshot(evil), `still on the snapshot path via the imported ${loader} API`);
+        assert.ok(SNAPSHOT_INJECT_MARKER.test(evil), 'innerHTML inject detected → an unsanctioned sink would be flagged');
+      }
     });
 
     test('the injection marker covers the non-innerHTML idioms too', () => {

@@ -1203,20 +1203,30 @@ function checkPreviewHtmlSinks(errors) {
 // guarantee is the sole-sanitizing-writer rule + `saveSnapshot`'s storage-boundary sanitize,
 // NOT sink enumeration. Same allowlist + anti-rot shape as the srcdoc gate above.
 // See engineering/decisions/2026-07-11-preview-performance-diagnosis.md.
-const SNAPSHOT_KEY_LITERAL = 'lattice-studio-last-slide';
+// BOTH snapshot keys: the Studio's single-slide store and the Playground's first-section
+// store. Same trust boundary (untrusted main-document HTML injected pre-paint) → same gate.
+const SNAPSHOT_KEY_LITERALS = ['lattice-studio-last-slide', 'lattice-docs-pg-last-slide'];
 // A wide main-document injection verb set (the srcdoc gate's `.innerHTML=|set:html` misses most).
 const SNAPSHOT_INJECT_MARKER = /\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHTML|document\.write|createContextualFragment|dangerouslySetInnerHTML|set:html/;
 const SNAPSHOT_WRITE_MARKER = /\.setItem\s*\(/;
 const SANCTIONED_SNAPSHOT_SINKS = [
-  { file: 'docs/src/playground/snapshot-cache.js', role: 'producer', why: 'The SOLE writer of the snapshot key — saveSnapshot sanitizes at the storage boundary AND captureFromFrame at the capture chokepoint, so the stored value is always clean.' },
-  { file: 'docs/src/pages/studio.astro', role: 'sink', why: 'REPLAY_JS pre-paint injects the already-sanitized snapshot into the instant-shell; safe because the producer is the only writer.' },
+  { file: 'docs/src/playground/snapshot-cache.js', role: 'producer', why: 'The SOLE writer of BOTH snapshot keys — saveSnapshotTo sanitizes at the storage boundary AND captureFromFrame / captureFirstSectionFromFrame at the capture chokepoint, so every stored value is clean.' },
+  { file: 'docs/src/pages/studio.astro', role: 'sink', why: 'REPLAY_JS pre-paint injects the already-sanitized Studio snapshot into the instant-shell; safe because the producer is the only writer.' },
+  { file: 'docs/src/pages/playground.astro', role: 'sink', why: 'The pre-paint replay injects the already-sanitized Playground first-section snapshot into #pg-ssr-slidebox; safe because the producer is the only writer.' },
+  { file: 'docs/src/components/playground/PlaygroundApp.tsx', role: 'sink', why: 'React adopts the pre-painted shell via dangerouslySetInnerHTML; the value flows only from window.__pgShellHtml, set by the sanctioned playground.astro replay from the sanitized snapshot (the producer is the only writer).' },
 ];
 
-// A file is "part of the snapshot path" if it names the raw key OR pulls the key/loader symbol
-// from snapshot-cache (the exported API — the idiomatic reader the literal-only test missed).
+// A file is "part of the snapshot path" if it names a raw key OR pulls a key/loader/
+// capture/save symbol from snapshot-cache — the exported API. The capture/save symbols
+// matter because a SINK can source the HTML INDIRECTLY (React reads window.__pgShellHtml,
+// not loadSnapshot), so keying only on the reader symbols left the real injection sink
+// (PlaygroundApp's dangerouslySetInnerHTML) invisible to the gate (red-team finding). The
+// two symbols added are PLAYGROUND-specific on purpose: the Studio's captureFromFrame/
+// saveSnapshot importer (StudioShell) is a writer-via-producer with no inject marker, and
+// roping it in would false-positive on its unrelated localStorage.setItem calls.
 function referencesSnapshot(src) {
-  if (src.includes(SNAPSHOT_KEY_LITERAL)) return true;
-  return /from\s+['"][^'"]*snapshot-cache/.test(src) && /\b(?:SNAPSHOT_KEY|loadSnapshot)\b/.test(src);
+  if (SNAPSHOT_KEY_LITERALS.some((k) => src.includes(k))) return true;
+  return /from\s+['"][^'"]*snapshot-cache/.test(src) && /\b(?:SNAPSHOT_KEY|PG_SNAPSHOT_KEY|loadSnapshot|loadPlaygroundSnapshot|captureFirstSectionFromFrame|savePlaygroundSnapshot)\b/.test(src);
 }
 
 function listSnapshotFiles(dir, out = []) {
@@ -1253,9 +1263,9 @@ function checkSnapshotHtmlSinks(errors) {
     // Unsanctioned file on the snapshot path: a WRITER (poisons the value) or a SINK (injects it).
     if (SNAPSHOT_WRITE_MARKER.test(src)) {
       errors.push(
-        `${rel} writes the '${SNAPSHOT_KEY_LITERAL}' snapshot key but is not the sanctioned producer (HARD RULE #22) — ` +
+        `${rel} writes a snapshot key (${SNAPSHOT_KEY_LITERALS.join(' / ')}) but is not the sanctioned producer (HARD RULE #22) — ` +
         `only the sanitizing producer (snapshot-cache.js) may store it; a second writer could store unsanitized HTML the ` +
-        `pre-paint replay injects into the top document (#616 XSS). Route the write through saveSnapshot, or add this file to ` +
+        `pre-paint replay injects into the top document (#616 XSS). Route the write through saveSnapshot / savePlaygroundSnapshot, or add this file to ` +
         `SANCTIONED_SNAPSHOT_SINKS with a justification.`,
       );
     } else if (SNAPSHOT_INJECT_MARKER.test(src)) {
@@ -2182,7 +2192,7 @@ module.exports = {
   SANCTIONED_SNAPSHOT_SINKS,
   SNAPSHOT_INJECT_MARKER,
   SNAPSHOT_WRITE_MARKER,
-  SNAPSHOT_KEY_LITERAL,
+  SNAPSHOT_KEY_LITERALS,
   listSnapshotFiles,
   referencesSnapshot,
   checkOpenRouterBudget,

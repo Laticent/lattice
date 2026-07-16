@@ -126,6 +126,17 @@ export function createEngineBridge(
 			const theme = resolveThemeName(deckPalette, deckMode, PGref.hasTheme(deckPalette + '-dark'));
 			const out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase });
 			const geom = { w: out.width || 1280, h: out.height || 720 };
+			// Letterbox the filmstrip in the BRAND background (the pane's `--bg-alt` for the
+			// active palette + mode), not the engine's generic `#0c0c0c`/`#e7e7ea` default: the
+			// preview pane shows solid `--bg-alt` while the engine loads, so matching the iframe
+			// body to it makes the slide surround the SAME color before and after the reveal —
+			// the fade-in has no background color shift (no flicker).
+			let paneBg = '';
+			try {
+				paneBg = getComputedStyle(document.documentElement).getPropertyValue('--bg-alt').trim();
+			} catch {
+				/* SSR / no DOM — fall through to the engine default */
+			}
 			const r = DPref.renderDeck({
 				frame,
 				html: out.html,
@@ -138,6 +149,7 @@ export function createEngineBridge(
 				runtimeUrl,
 				...(assets.mermaidUrl ? { mermaidUrl: assets.mermaidUrl } : {}),
 				...(assets.katexUrl ? { katexUrl: assets.katexUrl } : {}),
+				...(paneBg ? { background: () => paneBg } : {}),
 				gap: 16,
 				contentVisibility: true,
 				center: true,

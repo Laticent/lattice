@@ -232,7 +232,20 @@ body[data-view='read'] .pg-pane-label {
 .pg-preview-wrap {
 	flex: 1;
 	min-height: 0;
+	/* The loading surface IS the brand background for the active palette + mode
+	   (`--bg-alt` resolves per `[data-palette][data-mode]`) — a SOLID on-brand fill,
+	   never a pulsing gray skeleton. On a cold load the engine bundle streams in for
+	   ~1–2 s; a pulsing placeholder over that window reads as flicker on mobile, and
+	   its gray never matched the brand. Now the pane is just the brand color the whole
+	   time, and the slides fade in over the SAME color — nothing to flicker. */
 	background: var(--bg-alt);
+}
+/* Kill the shared animated skeleton for the Playground preview (see .pg-preview-wrap
+   above): the pane's own brand fill is the placeholder. `!important` overrides the
+   landing.css `::after` (which lists this wrap among its hosts) regardless of its
+   mode-qualified specificity. The landing figures + Studio keep their skeleton. */
+.pg-preview-wrap::after {
+	content: none !important;
 }
 #preview {
 	width: 100%;
@@ -240,13 +253,93 @@ body[data-view='read'] .pg-pane-label {
 	border: 0;
 	display: block;
 	position: relative;
-	z-index: 1; /* above the loading skeleton (.pg-preview-wrap::after, z-index 0) */
-	/* Transparent until a deck renders so the skeleton shows through the empty
-	   iframe; the rendered srcdoc paints its own opaque background over it. */
-	background: transparent;
+	z-index: 1; /* above the instant-shell (.pg-ssr-shell, z-index 0) */
+	/* On-brand at ALL times — never `transparent`. iOS Safari paints an iframe
+	   ELEMENT's own backing (default white) for a frame or two before its srcdoc
+	   document composites in; a transparent element lets that white leak. A solid
+	   `--bg-alt` backing means the worst case is the brand letterbox color, never
+	   white. (The element is still `visibility:hidden` until `.is-live`, so this
+	   only matters at the reveal instant.) */
+	background: var(--bg-alt);
+	/* HIDDEN until the frame goes live (its FIT agent has revealed the slides). The
+	   srcdoc paints an opaque body (a black box in dark mode) the moment it loads, well
+	   BEFORE FIT scales + reveals the sections; keeping the iframe invisible until then
+	   lets the solid brand pane / instant-shell behind it cover that window instead of a
+	   black flash. `visibility` (not display) preserves layout so FIT can still measure
+	   the pane. The render loop adds `is-live` only once `.lattice` is visible, then the
+	   iframe fades in over the identical brand background — a seamless, flicker-free swap. */
+	visibility: hidden;
+	opacity: 0;
+	transition: opacity 0.2s ease;
 }
 .pg-preview-wrap.is-live #preview {
 	background: var(--bg-alt);
+	visibility: visible;
+	opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+	#preview {
+		transition: none;
+	}
+}
+
+/* ── Instant-shell (anti cold-load flash) ──────────────────────────────────
+   A returning visitor's cached first slide, painted by playground.astro's
+   pre-paint replay BEFORE the island hydrates + the on-demand engine bundle
+   loads — so the preview shows a real themed slide immediately instead of the
+   white→black→slides flash. Sits behind the transparent #preview iframe (same
+   z-index as the skeleton); hidden until the replay flips data-pg-shell="on",
+   and dismissed the moment the live filmstrip paints (.is-live). The captured
+   snapshot CSS is scoped under .pg-ssr-shell and injected at runtime, so the
+   box-layout rules below win via the data-pg-shell qualifier (higher specificity
+   than the re-targeted `body{…}` the capture folds onto the box). */
+.pg-ssr-shell {
+	position: absolute;
+	inset: 0;
+	z-index: 0; /* under #preview (z-index 1); the pane's solid brand fill is behind it */
+	display: none;
+	overflow: hidden;
+	pointer-events: none;
+}
+:root[data-pg-shell='on'] .pg-ssr-shell {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	min-height: 0;
+	padding: 16px; /* matches the live filmstrip's body padding (deck-preview gap/padding) */
+	background: var(--bg-alt);
+}
+.pg-preview-wrap.is-live .pg-ssr-shell {
+	display: none;
+}
+/* The captured critical CSS carries the filmstrip's `.lattice{visibility:hidden}`
+   gate (the live doc's FIT agent flips it — the shell has none) and
+   `content-visibility:auto` virtualization; force both visible so the single shell
+   slide actually paints. !important beats the (scoped, non-important) captured rules.
+   Size the .lattice to the SCALED slide box (via the vars the replay measures) so the
+   flex centering lands on the visible slide, not the un-scaled 1280×720 layout box. */
+.pg-ssr-shell .lattice {
+	visibility: visible !important;
+	width: calc(var(--pg-ssr-w, 1280px) * var(--pg-ssr-scale, 1));
+	height: calc(var(--pg-ssr-h, 720px) * var(--pg-ssr-scale, 1));
+	overflow: hidden;
+}
+/* Mirror the live FIT agent EXACTLY: keep the section at its intrinsic @size box and
+   `transform: scale()` it to the pane, so the engine's 1280-basis container-query fonts
+   render identically to the live filmstrip (a `width:100%` box would size fonts for the
+   pane width and read oversized). The replay measures the pane and sets the vars.
+   margin:0 is a bare reset (the FIT margin-bottom was stripped at capture). */
+.pg-ssr-shell .lattice > section {
+	width: var(--pg-ssr-w, 1280px) !important;
+	height: var(--pg-ssr-h, 720px) !important;
+	margin: 0 !important;
+	content-visibility: visible !important;
+	transform: scale(var(--pg-ssr-scale, 1));
+	transform-origin: top left;
+	box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+	border-radius: 6px;
+	overflow: hidden;
 }
 .pg-status {
 	flex: 0 1 auto;

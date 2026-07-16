@@ -1,0 +1,29 @@
+---
+// Kills the first-paint WHITE canvas on a cold load.
+//
+// The browser shows a blank canvas while the render-blocking stylesheets download, and a
+// blank canvas defaults to WHITE unless the page declares `color-scheme`. Since #962 the
+// only `color-scheme` lives inside the per-palette token CSS (`html[data-palette][data-mode]`),
+// which is exactly that late-loading render-blocking CSS — so during the cold-load window the
+// browser has no dark signal and paints white. (The on-demand engine load widened that window,
+// which is why it became visible.)
+//
+// The load-bearing fix is the STATIC `<meta>` below: it's in the server-rendered HTML, so the
+// browser honors it for the blank canvas IMMEDIATELY (no JS, no CSS wait) — Safari included.
+// `content="light dark"` tracks the OS, so a dark-OS visitor gets a dark canvas from frame one.
+// The inline script then refines it to the *app* mode (localStorage) so a dark-app visitor on a
+// light-OS device is corrected too, as early as script can run.
+---
+<meta name="color-scheme" content="light dark" />
+<script is:inline>
+	(function () {
+		try {
+			var m = localStorage.getItem('lattice-docs-mode');
+			var dark = m === 'dark' || (m !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+			var scheme = dark ? 'dark' : 'light';
+			document.documentElement.style.colorScheme = scheme;
+			var mt = document.querySelector('meta[name="color-scheme"]');
+			if (mt) mt.setAttribute('content', scheme);
+		} catch (e) {}
+	})();
+</script>
