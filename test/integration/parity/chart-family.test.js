@@ -102,15 +102,19 @@ describe('chart-family', () => {
     assert.equal(labels, 5, `expected 5 legend labels, got ${labels}`);
   });
 
-  test('header/body/caption skeleton extracts eyebrow, subtitle, italic caption', { timeout: 180000 }, () => {
+  test('chrome/body/caption skeleton extracts eyebrow, subtitle, italic caption', { timeout: 180000 }, () => {
     const html = getHtml();
     const firstProgress = html.match(/<section[^>]*class="progress chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(firstProgress);
-    // Eyebrow extracted from the leading <p><code>...</code></p>
-    assert.match(firstProgress[0], /<div class="chart-header">[\s\S]*<p class="chart-eyebrow"><code>H1 2026 · Phase 1 readiness<\/code><\/p>/);
+    // Under the .viz-frame model (2026-07-15-viz-frame-merge) the chrome is
+    // emitted flat — no .chart-header wrapper. Eyebrow, h2, and subtitle sit
+    // top-level in section order; with Form on they hoist into .masthead-lede,
+    // but this fixture pins form: off so they stay flat. Eyebrow is the leading
+    // <p><code>...</code></p>, ahead of the h2.
+    assert.match(firstProgress[0], /<p class="chart-eyebrow"><code>H1 2026 · Phase 1 readiness<\/code><\/p>\s*<h2>/);
     // Subtitle is the first paragraph after h2
     assert.match(firstProgress[0], /<p class="chart-subtitle">Snapshot taken at 14:00 UTC[^<]*<\/p>/);
-    // Caption is the trailing italic paragraph, stripped of the <em> wrapper
-    assert.match(firstProgress[0], /<p class="chart-caption">Source: Linear · refreshed 2026-05-07<\/p>/);
+    // Body wraps the chart payload; caption trails it, stripped of the <em> wrapper
+    assert.match(firstProgress[0], /<div class="chart-body">[\s\S]*<\/div><p class="chart-caption">Source: Linear · refreshed 2026-05-07<\/p>/);
   });
 });
