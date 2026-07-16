@@ -322,9 +322,11 @@ The red team + Munger found real issues, corrected here:
 **Honest gate status** (correcting this doc's own "gates honored" over-claim):
 
 - `design-system.md` §2.5 register table — **updated** (was skipped in the first cut).
-- Studio catalogs — only the `spectrum:` STYLE catalog ships; `spectrum-edge:` /
-  `spectrum-card:` / `rule:` / `eyebrow:` are **front-matter-only for now**, picker UI
-  **explicitly deferred** (tracked follow-up), not silently dropped.
+- Studio catalogs + pickers — **shipped (2026-07-16)**. All five accent registers now
+  have a display catalog (+ catalog↔register rot-guard) and a picker in BOTH the deck
+  inspector and the per-slide inspector, responsive across desktop / tablet / mobile
+  (verified in the real Studio at 390 / 820 / 1440). Reuses the shared `CatalogSelect`
+  primitive (HARD RULE #15); per-slide controls are provenance-aware ("Inherit — <deck>").
 - Theme AA/visual verification — a **representative sample** (indaco / carta / burgundy
   / carbone, light + dark) was reviewed, not the full 16-family fan-out (per the
   human's cost call). Any theme outside the sample is UNVERIFIED for the new gradients.
