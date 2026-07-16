@@ -864,7 +864,9 @@ in patch versions.
   filmstrip takes over with no visible swap. The replay paints only when the app will boot into
   Edit showing the same draft (palette + mode + rendered-source-hash match), so a wrong deck can
   never flash; a newcomer or any mismatch shows the solid brand fill.
-  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`.)
+  The **Studio** got the same first-paint fix (2) — a `<meta name="color-scheme">` + seed-script
+  `color-scheme` — so its cold load no longer flashes a white canvas before the dark theme lands.
+  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its
   heading, and a few cases that spoke a falsehood are corrected.** A retroactive three-perspective
