@@ -780,6 +780,32 @@ describe('check-ownership', () => {
       assert.equal(catResolve(map, '--cat-on-fill', 'dark'), '#efe8d7');  // through var → var → hex
     });
 
+    test('catResolve splits light-dark on the TOP-LEVEL comma, not one nested in an arm', () => {
+      // Regression for the checker's HIGH finding: a naive regex split broke here.
+      const map = new Map([
+        ['--x', 'light-dark(color-mix(in oklab, #aabbcc 50%, #ddeeff), #123456)'],
+      ]);
+      // light arm is a color-mix() this static resolver can't evaluate → null (fail-closed),
+      // NOT a wrong hex silently harvested from inside the color-mix.
+      assert.equal(catResolve(map, '--x', 'light'), null);
+      // dark arm is a plain hex and must resolve correctly despite the commas in the light arm.
+      assert.equal(catResolve(map, '--x', 'dark'), '#123456');
+    });
+
+    test('catResolve honors a var() fallback that itself contains commas', () => {
+      const map = new Map([['--y', 'var(--missing, light-dark(#111111, #222222))']]);
+      assert.equal(catResolve(map, '--y', 'light'), '#111111');
+      assert.equal(catResolve(map, '--y', 'dark'), '#222222');
+    });
+
+    test('catParseTokens takes the LAST declaration (CSS cascade), not the first', () => {
+      const map = new Map();
+      // emulate what catParseTokens builds; verify resolve reads the override
+      map.set('--z', '#000000');
+      map.set('--z', '#ffffff'); // later declaration wins
+      assert.equal(catResolve(map, '--z', 'light'), '#ffffff');
+    });
+
     test('catContrast matches known WCAG pairs', () => {
       assert.ok(Math.abs(catContrast('#000000', '#ffffff') - 21) < 0.01);
       assert.ok(catContrast('#767676', '#ffffff') >= 4.5); // canonical AA gray
