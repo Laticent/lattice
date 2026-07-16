@@ -607,7 +607,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const frame = frameRef.current;
 		const stage = frame?.parentElement;
 		if (!frame || !stage) return;
-		const ci = createChartInteract({ stage, getFrame: () => frameRef.current ?? frame, hoverAny: true, onDetail: setChartDetail });
+		const ci = createChartInteract({
+			stage,
+			getFrame: () => frameRef.current ?? frame,
+			hoverAny: true,
+			// chart-interact types the hook as `(detail: object|null) => void`; the
+			// payload it emits IS the ChartDetail shape, so coerce at the boundary.
+			onDetail: (detail) => setChartDetail(detail as ChartDetail | null),
+		});
 		chartInteractRef.current = ci;
 		// Parent-hosted video playback: plays an embedded clip OVER the preview poster
 		// (never an iframe inside the slide — #22 + the iOS scaled-iframe traps).
