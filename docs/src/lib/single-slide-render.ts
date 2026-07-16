@@ -467,6 +467,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// the Playground filmstrip's `#preview` visibility gate.
 					fr.style.visibility = 'hidden';
 					host.appendChild(fr);
+					// Safety net for the visibility gate: the reveal above rides the srcdoc's
+					// `onload`, which is reliable but not guaranteed (a teardown race, a
+					// pathological document). Without a fallback a missed `onload` would hide
+					// the slide FOREVER — a worse failure than the white flash the gate fixes.
+					// Force-reveal after a generous ceiling so the gate can only ever DELAY the
+					// slide, never hide it; the normal onload reveal fires first (~sub-500ms)
+					// and makes this a no-op. Mirrors the Playground `#preview` gate's 4s fallback.
+					const revealFr = fr;
+					setTimeout(() => {
+						if (revealFr.style.visibility === 'hidden') revealFr.style.visibility = 'visible';
+					}, 4000);
 					if (typeof ResizeObserver !== 'undefined') {
 						// The callback honors the module-level drag gate above; the host is
 						// registered so a resume can re-fit it once, authoritatively.

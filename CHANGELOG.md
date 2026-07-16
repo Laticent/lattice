@@ -897,6 +897,8 @@ in patch versions.
   covers the `about:blank` window instead of white — the single-slide twin of the Playground filmstrip's
   `#preview` visibility gate. The reveal runs before the instant-shell dismissal (both fire on the same
   load event, reveal first), so the live dark slide is showing before the shell goes away — no gap.
+  A 4s force-reveal fallback backs the gate so a missed `onload` (a teardown race) can only ever
+  DELAY the slide, never hide it forever — the safety net the Playground `#preview` gate already had.
   (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`, `ColorSchemeSeed.astro`, `landing.css`, `single-slide-render.ts`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its
