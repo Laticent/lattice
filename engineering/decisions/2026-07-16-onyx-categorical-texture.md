@@ -9,7 +9,8 @@ summary: >
   dark chips + light ink with the deck color-scheme, keeping onyx's pure-inversion
   identity. The luminance ramp stays as a redundant channel (and the surface the
   contrast gate verifies). Tracked follow-up from the 2026-07-15 categorical
-  token-contract fix, where onyx was explicitly deferred.
+  token-contract fix, where onyx was explicitly deferred. concrete (also near-
+  monochrome) rides the same mechanism with a BESPOKE raw-concrete motif set.
 companion:
   - ./2026-07-15-categorical-token-contract.md
   - ./2026-06-16-cvd-redundant-encoding.md
@@ -69,24 +70,59 @@ on specificity, order-independent. Pie slices (`.pieCircle`) have no competing
 categorical cycle (mindmap + pie); the native chart-family (`--chart-cat` wedges /
 funnel) is not textured here.
 
+## concrete — same mechanism, bespoke motifs
+
+**concrete** hit the same wall from the other side: its light-mode chips are 12
+near-identical greys (`#DFDDDD…`, distinguishable only by the muted edge tint), so a
+fill-only component collapses and even the mindmap leans entirely on subtle edge
+hues. It gets the SAME scheme-aware treatment — a separate `latt-concrete-tex-*` set
+mirroring concrete's own ramp (near-white chips ⟷ muted-tint dark chips) — but with a
+**bespoke raw-concrete motif vocabulary** instead of the generic geometric set:
+board-form plank lines, shutter diagonals, form-tie holes, fluted ribs, herringbone,
+waffle coffers, rebar grid, control joints, aggregate speckle, bush-hammered stipple.
+Ordered so the common first-6 differ maximally. `schemeAwarePatternSet` was
+parameterized to accept a geometry array so onyx keeps the generic set and concrete
+gets its own. In dark mode concrete is now DOUBLE-encoded (muted hue + texture).
+
+## Graceful degradation (folded from maker-checker)
+
+The scheme-aware sets reintroduce a CSS-function (`light-dark()`) dependency into the
+page-level `<defs>` — the exact class of thing the literal a11y sets avoid. To keep
+the all-black-pie regression from returning, the CSS class now carries ONLY the
+colour flip; every static attribute AND a **literal light-mode fallback** live in
+presentation attributes on the rect/`<g>`. A renderer without `light-dark()` drops
+the class and paints the fallback — a light chip, never black.
+
 ## Verification
 
-Rendered to PDF, both modes: mindmap + pie categories are texture-distinct; the set
-flips correctly (light chips + dark ink ⟷ dark chips + light ink). `checkCatContrast`
-still passes onyx (luminance-ramp tokens unchanged). Unit tests cover the new set
-(scheme-aware `light-dark()` in a `<style>`, 12 slots) and re-assert the a11y sets
-stay literal.
+Rendered to PDF, both modes, onyx + concrete: mindmap + pie categories are
+texture-distinct and the sets flip correctly. `checkCatContrast` still passes both
+(luminance-ramp tokens unchanged). Unit tests cover both new sets, the literal
+fallback attribute, and re-assert the a11y sets stay byte-literal. An independent
+maker-checker pass confirmed the a11y sets are untouched and the specificity /
+substring / pie mechanics are correct.
 
-**iOS Safari is UNVERIFIED here** — `light-dark()` in an SVG `<defs>` `<style>` could
-behave differently on WebKit (the reason the a11y sets avoid it). The literal a11y
-sets remain the belt-and-suspenders path for accessibility themes; onyx is a brand
-theme whose primary target (Chromium / PDF export) is confirmed. Re-verify on a real
-iPhone before relying on onyx categorical texture there.
+**Known limitations (from the checker):**
+- **iOS Safari UNVERIFIED** — `light-dark()` in an SVG `<defs>` `<style>` may behave
+  differently on WebKit; it now degrades to (light chips, no flip) rather than black,
+  but re-verify on a real iPhone before relying on it. (HARD RULE #23.)
+- **Deck-wide scheme only.** The pattern resolves `color-scheme` from `:root`, so a
+  per-slide `<!-- _class: dark/light -->` override (or `color-system`/`auto`) flips
+  that slide's canvas + labels but NOT the texture polarity — use theme `onyx` /
+  `onyx-dark` (and light/dark concrete decks) for correct polarity. Documented in the
+  module comment; a full fix would emit per-scheme literal sets selected by the
+  `.dark`/`.light` section class.
+- **Print band asymmetry.** In the `class: print` band the onyx/concrete mindmap
+  wiring (0,3,2) out-specifies the literal `section.print .section-N` set (0,2,2)
+  (pies defer correctly). Practical impact is small — the scheme-aware light chips are
+  themselves B&W-safe — but the two paths are not symmetric.
 
 ## Follow-ups
 
 - **a11y mindmap texturing is dead** (specificity loses to `mermaid.css`). Off the
   path of this change; logged for a separate fix that raises the a11y wiring the same
   way (or refactors both onto a shared partial).
-- **Native chart-family texturing for onyx** (`--chart-cat` wedges/funnel/radar) is
-  not covered here — a bounded follow-up if onyx charts need it.
+- **Native chart-family texturing** (`--chart-cat` wedges/funnel/radar) for onyx +
+  concrete is not covered here — a bounded follow-up.
+- **Per-slide scheme correctness** and **print-band symmetry** — the per-scheme
+  literal-set variant above, if mixed-scheme onyx/concrete decks become common.

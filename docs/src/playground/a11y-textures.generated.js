@@ -55,6 +55,32 @@ var require_accessibility_textures = __commonJS({
       { mode: "fill", svg: '<rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/>' }
       // 12 checker
     ];
+    var CONCRETE_GEOMETRIES = [
+      { mode: "stroke", svg: '<path d="M0 2.5 H8 M0 5.5 H8"/>' },
+      // 1 board-form (plank lines)
+      { mode: "stroke", svg: '<path d="M0 8 L8 0"/>' },
+      // 2 shutter diagonal /
+      { mode: "fill", svg: '<circle cx="4" cy="4" r="1.5"/>' },
+      // 3 form-tie holes (sparse)
+      { mode: "fill", svg: '<rect x="1.2" y="0" width="1.5" height="8"/><rect x="5.3" y="0" width="1.5" height="8"/>' },
+      // 4 fluted ribs
+      { mode: "stroke", svg: '<path d="M0 6 L4 2 L8 6"/>' },
+      // 5 herringbone chevron
+      { mode: "fill", svg: '<rect x="0" y="0" width="4" height="4"/><rect x="4" y="4" width="4" height="4"/>' },
+      // 6 waffle coffer
+      { mode: "stroke", svg: '<path d="M0 0 L8 8"/>' },
+      // 7 shutter diagonal \
+      { mode: "stroke", svg: '<path d="M0 4 H8 M4 0 V8"/>' },
+      // 8 rebar grid (mesh)
+      { mode: "stroke", svg: '<path d="M0 8 L8 0 M0 0 L8 8"/>' },
+      // 9 cross-hatch scoring
+      { mode: "stroke", svg: '<path d="M0 4 H8" stroke-dasharray="2 2"/>' },
+      // 10 control joints (dashed)
+      { mode: "fill", svg: '<circle cx="2" cy="2.4" r="1"/><circle cx="6.1" cy="1.9" r="0.7"/><circle cx="3.3" cy="6" r="1.2"/><circle cx="6.4" cy="5.9" r="0.8"/>' },
+      // 11 aggregate speckle (irregular)
+      { mode: "fill", svg: '<circle cx="2" cy="2" r="0.6"/><circle cx="6" cy="2" r="0.6"/><circle cx="4" cy="4" r="0.6"/><circle cx="2" cy="6" r="0.6"/><circle cx="6" cy="6" r="0.6"/>' }
+      // 12 bush-hammered stipple (fine)
+    ];
     var CAT_FILLS = [
       "#e8e8e8",
       "#dedede",
@@ -88,6 +114,36 @@ var require_accessibility_textures = __commonJS({
     ];
     var CAT_INK_DARK = "#f5f5f5";
     var CAT_INK_ONYX_LIGHT = "#8a8a8a";
+    var CONCRETE_FILLS_LIGHT = [
+      "#DFDDDD",
+      "#DDDFDE",
+      "#DDDEDF",
+      "#DFDEDD",
+      "#DFDDDE",
+      "#DDDFDF",
+      "#DFDFDD",
+      "#DDDFDD",
+      "#DDDDDF",
+      "#DFDDDF",
+      "#DEDFDD",
+      "#DEDDDF"
+    ];
+    var CONCRETE_FILLS_DARK = [
+      "#6A4E4E",
+      "#4F685C",
+      "#4F5C68",
+      "#685C4F",
+      "#684F5C",
+      "#4F6868",
+      "#676751",
+      "#516751",
+      "#515167",
+      "#675167",
+      "#5C6751",
+      "#5C5167"
+    ];
+    var CONCRETE_INK_LIGHT = "#8f8f8c";
+    var CONCRETE_INK_DARK = "#EDEBE8";
     function patternSet(prefix, fills, ink) {
       return GEOMETRIES.slice(0, fills.length).map(({ mode, svg }, i) => {
         const n = i + 1;
@@ -95,13 +151,14 @@ var require_accessibility_textures = __commonJS({
         return `<pattern id="${prefix}-${n}" patternUnits="userSpaceOnUse" width="8" height="8"><rect width="8" height="8" fill="${fills[i]}"/><g ${inkAttr}>${svg}</g></pattern>`;
       }).join("");
     }
-    function schemeAwarePatternSet(prefix, lightFills, darkFills, lightInk, darkInk) {
+    function schemeAwarePatternSet(prefix, lightFills, darkFills, lightInk, darkInk, geometries = GEOMETRIES) {
       const rules = [];
-      const patterns = GEOMETRIES.slice(0, lightFills.length).map(({ mode, svg }, i) => {
+      const patterns = geometries.slice(0, lightFills.length).map(({ mode, svg }, i) => {
         const n = i + 1;
         rules.push(`.${prefix}-r${n}{fill:light-dark(${lightFills[i]},${darkFills[i]})}`);
-        rules.push(mode === "fill" ? `.${prefix}-i${n}{fill:light-dark(${lightInk},${darkInk});fill-opacity:.40}` : `.${prefix}-i${n}{fill:none;stroke:light-dark(${lightInk},${darkInk});stroke-opacity:.45;stroke-width:1;stroke-linecap:square}`);
-        return `<pattern id="${prefix}-${n}" patternUnits="userSpaceOnUse" width="8" height="8"><rect class="${prefix}-r${n}" width="8" height="8"/><g class="${prefix}-i${n}">${svg}</g></pattern>`;
+        rules.push(mode === "fill" ? `.${prefix}-i${n}{fill:light-dark(${lightInk},${darkInk})}` : `.${prefix}-i${n}{stroke:light-dark(${lightInk},${darkInk})}`);
+        const inkAttr = mode === "fill" ? `fill="${lightInk}" fill-opacity="0.40"` : `fill="none" stroke="${lightInk}" stroke-opacity="0.45" stroke-width="1" stroke-linecap="square"`;
+        return `<pattern id="${prefix}-${n}" patternUnits="userSpaceOnUse" width="8" height="8"><rect class="${prefix}-r${n}" fill="${lightFills[i]}" width="8" height="8"/><g class="${prefix}-i${n}" ${inkAttr}>${svg}</g></pattern>`;
       }).join("");
       return `<style>${rules.join("")}</style>${patterns}`;
     }
@@ -109,7 +166,15 @@ var require_accessibility_textures = __commonJS({
       const cat = patternSet("latt-a11y-tex", CAT_FILLS, CAT_INK);
       const chart = patternSet("latt-a11y-chart-tex", CHART_FILLS, CHART_INK);
       const onyx = schemeAwarePatternSet("latt-onyx-tex", CAT_FILLS, CAT_FILLS_DARK, CAT_INK_ONYX_LIGHT, CAT_INK_DARK);
-      return `<svg width="0" height="0" aria-hidden="true" style="position:absolute" class="latt-a11y-defs"><defs>${cat}${chart}${onyx}</defs></svg>`;
+      const concrete = schemeAwarePatternSet(
+        "latt-concrete-tex",
+        CONCRETE_FILLS_LIGHT,
+        CONCRETE_FILLS_DARK,
+        CONCRETE_INK_LIGHT,
+        CONCRETE_INK_DARK,
+        CONCRETE_GEOMETRIES
+      );
+      return `<svg width="0" height="0" aria-hidden="true" style="position:absolute" class="latt-a11y-defs"><defs>${cat}${chart}${onyx}${concrete}</defs></svg>`;
     }
     module.exports = { texturePatternDefs: texturePatternDefs2 };
   }

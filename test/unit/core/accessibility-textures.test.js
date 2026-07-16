@@ -35,9 +35,33 @@ test('onyx scheme-aware set flips fill + ink via light-dark() in a <style>', () 
   assert.doesNotMatch(defs, /var\(/, 'the whole defs block must avoid var() (light-dark is a function, not a token)');
 });
 
-test('texturePatternDefs emits all pattern families (12 a11y cat + 8 a11y chart + 12 onyx)', () => {
+// Graceful degradation: on a renderer WITHOUT light-dark(), the CSS class is dropped
+// and the LITERAL light-mode fallback in the presentation attribute paints — a light
+// chip, NEVER SVG's default black. This is what keeps the scheme-aware sets from
+// re-triggering the all-black-pie regression on old WebKit.
+test('scheme-aware patterns carry a literal light-mode fallback presentation attribute', () => {
+  const defs = texturePatternDefs();
+  // onyx slot-1 rect: class for the flip AND fill="#e8e8e8" fallback attribute.
+  assert.match(defs, /<rect class="latt-onyx-tex-r1" fill="#e8e8e8" width="8" height="8"\/>/);
+  // concrete slot-1 rect: fallback to its near-white light chip.
+  assert.match(defs, /<rect class="latt-concrete-tex-r1" fill="#DFDDDD" width="8" height="8"\/>/);
+});
+
+// concrete gets a SEPARATE scheme-aware set with BESPOKE raw-concrete motifs and its
+// own ramp (near-white chips ⟷ muted-tint dark chips).
+test('concrete scheme-aware set flips its own ramp with bespoke motifs', () => {
+  const defs = texturePatternDefs();
+  assert.equal((defs.match(/id="latt-concrete-tex-\d+"/g) || []).length, 12);
+  // slot 1 rect flips concrete's #DFDDDD (light) ↔ #6A4E4E (dark), mirroring its ramp.
+  assert.match(defs, /\.latt-concrete-tex-r1\{fill:light-dark\(#DFDDDD,#6A4E4E\)\}/);
+  // slot 1 motif is board-form plank lines (two horizontals) — bespoke, NOT the onyx/a11y diagonal.
+  assert.match(defs, /<pattern id="latt-concrete-tex-1"[^>]*>[\s\S]*?<path d="M0 2\.5 H8 M0 5\.5 H8"\/>/);
+});
+
+test('texturePatternDefs emits all pattern families (12 a11y cat + 8 a11y chart + 12 onyx + 12 concrete)', () => {
   const defs = texturePatternDefs();
   assert.equal((defs.match(/id="latt-a11y-tex-\d+"/g) || []).length, 12);
   assert.equal((defs.match(/id="latt-a11y-chart-tex-\d+"/g) || []).length, 8);
   assert.equal((defs.match(/id="latt-onyx-tex-\d+"/g) || []).length, 12);
+  assert.equal((defs.match(/id="latt-concrete-tex-\d+"/g) || []).length, 12);
 });
