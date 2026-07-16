@@ -5,8 +5,8 @@ paginate: true
 # Form is ON by default (2026-06-26). This fixture pins the chart-frame DOM
 # *skeleton* parity contract (progress-bars / wedges / timeline-spine), which is
 # identical with or without Form — Form only lifts the eyebrow+title into the
-# masthead band. Pin it off so the section-class and chart-header assertions stay
-# isolated from the default chrome. Charts-under-Form are covered by the visual sweep.
+# masthead band. Pin it off so the section-class and flat-chrome assertions stay
+# isolated from the masthead hoist. Charts-under-Form are covered by the visual sweep.
 form: off
 ---
 

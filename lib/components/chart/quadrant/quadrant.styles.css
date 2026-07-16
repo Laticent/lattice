@@ -78,24 +78,10 @@
  * surface panel matches every other chart's size and inset — no
  * quadrant-specific override. */
 
-/* Title area: drop the lucent gradient strip and use the .minimal
- * treatment instead — a centred header with a short accent hairline.
- * The lucent strip on a scatter chart compresses the visible plot
- * area and the gradient reads as heavy chrome at small render sizes.
- * chart-family-experiment.md explicitly documents both treatments
- * (`Treatment A` lucent vs `Treatment B` .minimal); quadrant picks
- * the cleaner one for its baseline. The `.minimal` modifier on
- * quadrant now controls the quadrant tints / bubble fills only —
- * the header treatment is shared between default and minimal. */
-section.quadrant.chart-frame .chart-header {
-  background: none;
-  padding: var(--sp-2xl) var(--sp-2xl) var(--sp-md);
-}
-section.quadrant.chart-frame .chart-header::after {
-  width: 7.5cqi;
-  height: var(--chart-hairline);
-  background: color-mix(in oklab, var(--accent) 50%, transparent);
-}
+/* .viz-frame merge: quadrant's title now hoists into the standard `.masthead-lede`
+ * band (the masthead cell owns the header treatment for every chart), so the old
+ * `.chart-header` background/hairline overrides here are retired — the element no
+ * longer exists. */
 
 :is(section.quadrant, figure.chart-frame) .quadrant-figure {
   display: flex;

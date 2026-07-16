@@ -67,18 +67,22 @@ describe('masthead-lift — HTML-string kernel', () => {
   // engine↔web parity gap and reviving the claim-hero/claim-bleed bottom-shelf
   // treatment built on `.chart-header h2` (model-driven-frame-render doc §6). A
   // WRAPPED strict component (wifi) likewise leaves its own in-card h2 unlifted.
-  test('scoping: a chart-frame canvas keeps its nested h2 in .chart-header (no band); a WRAPPED strict component does not lift its in-card h2', () => {
+  test('.viz-frame: a chart-frame section hoists its top-level chrome into the masthead band + wraps its body; a WRAPPED strict component does not lift its in-card h2', () => {
+    // .viz-frame merge: the chart-family transform now emits eyebrow + h2 + subtitle as
+    // TOP-LEVEL chrome (no `.chart-header`), and `chart-frame` is a wrapping Form, so the
+    // masthead transform hoists the chrome into `.masthead-lede` and wraps the figure +
+    // caption into `.cell-stage` — the same Frame/Cell structure diagram uses.
     const chart = kernel.transformMastheadSection(
-      '<div class="chart-header"><p class="chart-eyebrow"><code>Kicker</code></p><h2>Chart title</h2><p class="chart-subtitle">Sub</p></div><div class="chart-body"></div>',
-      'progress form chart-frame', // chart-frame canvas → depth-aware → no lift
+      '<p class="chart-eyebrow"><code>Kicker</code></p><h2>Chart title</h2><p class="chart-subtitle">Sub</p><div class="chart-body"></div>',
+      'progress form chart-frame',
     );
-    assert.doesNotMatch(chart, /cell-masthead/, 'a chart builds NO masthead band — its title nests in .chart-header');
-    assert.doesNotMatch(chart, /cell-stage/, 'a chart canvas is not stage-wrapped');
+    assert.match(chart, /cell-masthead/, 'a chart now builds a masthead band');
     assert.match(
       chart,
-      /<div class="chart-header"><p class="chart-eyebrow"><code>Kicker<\/code><\/p><h2>Chart title<\/h2><p class="chart-subtitle">Sub<\/p><\/div>/,
-      'eyebrow + title + subtitle stay together in .chart-header, in order',
+      /<div class="masthead-lede"><p class="chart-eyebrow"><code>Kicker<\/code><\/p><h2>Chart title<\/h2><p class="chart-subtitle">Sub<\/p><\/div>/,
+      'eyebrow + title + subtitle hoist together into masthead-lede, in order',
     );
+    assert.match(chart, /<div class="cell-stage"><div class="chart-body"><\/div><\/div>/, 'the chart body wraps into the stage cell');
 
     const wifi = kernel.transformMastheadSection(
       '<div class="qr-card"><div class="qr-head"><h2>In-card title</h2></div></div>',
@@ -415,22 +419,24 @@ describe('masthead-lift — stage-wrap eligibility', () => {
   });
 });
 
-describe('chart title convergence (Option 1) — engine↔web parity (HARD RULE #1)', () => {
-  // Chart-title convergence (engineering/decisions/2026-07-15-model-driven-frame-
-  // render.md §6): the engine masthead lift is now DEPTH-AWARE for `chart-frame`
-  // components, so it no longer lifts the chart's nested `.chart-header > h2` into
-  // a `.cell-masthead` band. Both render paths — the HTML-string engine
-  // (chart-family.applyToHtml → masthead-lift.applyToHtml) AND the runtime DOM walk
-  // (chart-family.applyToDom → masthead-lift.applyToDom) — now keep eyebrow + title
-  // + subtitle together in `.chart-header` with NO band, so they agree byte-for-byte.
-  // This closes the pre-existing HARD RULE #1 gap where the engine built a band the
-  // DOM mirror (`:scope > h2`, always depth-aware) never did.
+describe('chart .viz-frame hoist — engine↔web parity (HARD RULE #1)', () => {
+  // .viz-frame merge (engineering/decisions/2026-07-15-viz-frame-merge.md): the
+  // chart-family transform emits eyebrow + h2 + subtitle as TOP-LEVEL chrome, and
+  // `chart-frame` is a wrapping Form, so the masthead lift hoists the chrome into a
+  // `.cell-masthead > .masthead-lede` band and wraps the figure into `.cell-stage` —
+  // the same Frame/Cell structure diagram uses. Both render paths — the HTML-string
+  // engine (chart-family.applyToHtml → masthead-lift.applyToHtml) AND the runtime DOM
+  // walk (chart-family.applyToDom → masthead-lift.applyToDom) — must agree byte-for-byte
+  // on the resulting cell DOM (the depth-aware lift + `:scope > h2` DOM mirror converge).
 
-  // Form-ON chart carrying an eyebrow + title + subtitle — the exact case that
-  // used to diverge (engine lifted the h2 → stranded eyebrow/subtitle in
-  // .chart-header AND a .cell-masthead band; the DOM path built no band).
+  // Form-ON chart carrying an eyebrow + title + PLAIN-TEXT subtitle — hoisted into the
+  // band. The subtitle is deliberately plain text (not code-wrapped): chart-family wraps
+  // it as a plain `.chart-subtitle`, the common authoring case, which the DOM mirror only
+  // hoists via the .viz-frame `.chart-subtitle` branch — so this case gates the engine↔web
+  // parity of that branch (a code-wrapped subtitle would pass via the pre-existing
+  // code-only path and leave the plain-text branch untested).
   const CHART_INNER =
-    '<p><code>H1 2026</code></p><h2>Chart title</h2><p><code>A subtitle</code></p>' +
+    '<p><code>H1 2026</code></p><h2>Chart title</h2><p>A subtitle</p>' +
     '<ul><li>Alpha <code>92</code> <code>on-track</code></li>' +
     '<li>Beta <code>40</code> <code>at-risk</code></li></ul>';
   const SECTION = `<section id="1" class="progress form" data-lattice-slide="1">${CHART_INNER}</section>`;
@@ -453,16 +459,18 @@ describe('chart title convergence (Option 1) — engine↔web parity (HARD RULE 
       'the engine (HTML-string) and runtime (DOM-walk) paths must converge on identical chart DOM');
   });
 
-  test('neither path builds a masthead band; eyebrow + title + subtitle stay in .chart-header, in order', () => {
+  test('both paths hoist chrome into masthead-lede + wrap the body in cell-stage, in order', () => {
     for (const [label, out] of [['engine', engineOut()], ['runtime', runtimeOut()]]) {
       const sec = dom(out).querySelector('section');
-      assert.equal(sec.querySelector('.cell-masthead'), null, `${label}: no masthead band for a chart`);
-      const header = sec.querySelector(':scope > .chart-header');
-      assert.ok(header, `${label}: .chart-header is a direct section child`);
-      const kinds = [...header.children].map((el) => el.tagName + '.' + el.className);
+      const lede = sec.querySelector('.cell-masthead .masthead-lede');
+      assert.ok(lede, `${label}: a masthead band is built for a chart`);
+      const kinds = [...lede.children].map((el) => el.tagName + '.' + el.className);
       assert.deepEqual(kinds, ['P.chart-eyebrow', 'H2.', 'P.chart-subtitle'],
-        `${label}: eyebrow → title → subtitle, together in .chart-header`);
-      assert.ok(sec.querySelector(':scope > .chart-body'), `${label}: .chart-body present`);
+        `${label}: eyebrow → title → subtitle, hoisted together into masthead-lede`);
+      assert.equal(sec.querySelector('.chart-header'), null, `${label}: no leftover .chart-header wrapper`);
+      const stage = sec.querySelector(':scope > .cell-stage');
+      assert.ok(stage, `${label}: the body is wrapped in a stage cell`);
+      assert.ok(stage.querySelector('.chart-body'), `${label}: .chart-body lives inside the stage cell`);
       assert.ok(sec.classList.contains('chart-frame'), `${label}: chart-frame class applied`);
     }
   });

@@ -173,7 +173,11 @@ describe('chart-family transformer', () => {
       '<li>Migrations <code>40</code> <code>at-risk</code></li>' +
       '</ul>';
     const { html, cls } = chartEngine.transformChartSection(inner, 'progress');
-    assert.match(html, /<div class="chart-header">/);
+    // .viz-frame merge: chrome (h2 + subtitle) is emitted top-level (no `.chart-header`)
+    // so the masthead transform hoists it into the band.
+    assert.doesNotMatch(html, /<div class="chart-header">/);
+    assert.match(html, /<h2>Q3 progress<\/h2>/);
+    assert.match(html, /<p class="chart-subtitle">Five workstreams\.<\/p>/);
     assert.match(html, /<div class="chart-body">/);
     assert.match(html, /<div class="progress-bars">/);
     assert.ok(cls.split(/\s+/).includes('chart-frame'),

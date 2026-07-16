@@ -438,7 +438,9 @@ describe('quadrant', () => {
     const { html, cls, transformed } = transformChartSection(inner, 'quadrant');
     assert.equal(transformed, true);
     assert.match(cls, /\bchart-frame\b/);
-    assert.match(html, /<div class="chart-header">/);
+    // .viz-frame merge: chrome is emitted top-level (no `.chart-header`) for the masthead lift.
+    assert.doesNotMatch(html, /<div class="chart-header">/);
+    assert.match(html, /<h2>Where to put the next dollar\.<\/h2>/);
     assert.match(html, /<div class="chart-body"><div class="quadrant-figure"/);
   });
 

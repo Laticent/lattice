@@ -35,7 +35,12 @@ describe('chart-family.applyToDom', () => {
     const sec = doc.querySelector('section.progress');
     assert.ok(sec.classList.contains('chart-frame'),
       'chart-frame class added to section.progress');
-    assert.ok(sec.querySelector('.chart-header'), 'chart-header wrapper present');
+    // .viz-frame merge: the chrome (eyebrow/h2/subtitle) is emitted TOP-LEVEL, not in a
+    // `.chart-header` wrapper, so the masthead transform (run later in the real pipeline)
+    // hoists it into the masthead band. This transform-only output therefore has NO
+    // `.chart-header` and a top-level <h2>.
+    assert.ok(!sec.querySelector('.chart-header'), 'no .chart-header wrapper (chrome is top-level)');
+    assert.ok(sec.querySelector('h2'), 'h2 emitted (top-level chrome)');
     assert.ok(sec.querySelector('.chart-body .progress-bars'),
       'progress-bars container in chart-body');
   });

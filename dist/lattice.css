@@ -9592,24 +9592,10 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
  * surface panel matches every other chart's size and inset — no
  * quadrant-specific override. */
 
-/* Title area: drop the lucent gradient strip and use the .minimal
- * treatment instead — a centred header with a short accent hairline.
- * The lucent strip on a scatter chart compresses the visible plot
- * area and the gradient reads as heavy chrome at small render sizes.
- * chart-family-experiment.md explicitly documents both treatments
- * (`Treatment A` lucent vs `Treatment B` .minimal); quadrant picks
- * the cleaner one for its baseline. The `.minimal` modifier on
- * quadrant now controls the quadrant tints / bubble fills only —
- * the header treatment is shared between default and minimal. */
-section.quadrant.chart-frame .chart-header {
-  background: none;
-  padding: var(--sp-2xl) var(--sp-2xl) var(--sp-md);
-}
-section.quadrant.chart-frame .chart-header::after {
-  width: 7.5cqi;
-  height: var(--chart-hairline);
-  background: color-mix(in oklab, var(--accent) 50%, transparent);
-}
+/* .viz-frame merge: quadrant's title now hoists into the standard `.masthead-lede`
+ * band (the masthead cell owns the header treatment for every chart), so the old
+ * `.chart-header` background/hairline overrides here are retired — the element no
+ * longer exists. */
 
 :is(section.quadrant, figure.chart-frame) .quadrant-figure {
   display: flex;
@@ -15472,38 +15458,14 @@ section.chart-frame,
   --chart-accent-lg: clamp(6px, 0.46cqi, 9px);   /* heavy accent stripe (roadmap milestone) */
 }
 
-section.chart-frame .chart-header {
-  /* Plain header — eyebrow + h2 + subtitle on the section background.
-   * Decoration is opt-in via the universal `tint-*` / `mark-*`
-   * treatments, not baked in here. A short hairline below the header
-   * keeps the chart body visually separated; that is the only chrome. */
-  flex: 0 0 auto;
-  /* flex column so the eyebrow/title/subtitle centre via align-items and stack via `gap`
-   * instead of each carrying its own `margin: 0 auto …` (HARD RULE #20). The ::after
-   * hairline is absolutely positioned, so it is unaffected. */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-xs);
-  position: relative;
-  box-sizing: border-box;
-  width: 100%;
-  padding: var(--sp-2xl) var(--sp-2xl) var(--sp-md);
-  text-align: center;
-  background: none;
-}
-
-section.chart-frame .chart-header::after {
-  /* Short hairline — soft frame edge between header and chart body. */
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 7.5cqi;
-  height: var(--chart-hairline);
-  background: color-mix(in oklab, var(--accent) 50%, transparent);
-}
+/* .viz-frame merge (2026-07-15-viz-frame-merge.md): the chart chrome (eyebrow + h2 +
+ * subtitle) now HOISTS into the standard `.cell-masthead > .masthead-lede` band — charts
+ * are standard, so the masthead cell owns the header layout (flex column, centering,
+ * spacing) exactly as for every other component. The old in-flow `.chart-header`
+ * container and its decorative `::after` hairline are retired (the element no longer
+ * exists). The per-role chrome styling that remains distinct to charts (eyebrow
+ * mono/uppercase, title max-width, subtitle italic) survives via the descendant
+ * selectors below, which still match once the elements live inside `.masthead-lede`. */
 
 section.chart-frame .chart-eyebrow {
   margin: 0;
@@ -15521,12 +15483,8 @@ section.chart-frame .chart-eyebrow > code {
   text-transform: uppercase;
 }
 
-section.chart-frame .chart-header h2 {
-  margin: 0;
+section.chart-frame .masthead-lede h2 {
   max-width: 70.3125cqi;
-  font-size: var(--fs-h2);
-  line-height: var(--lh-tight);
-  text-align: center;
 }
 
 section.chart-frame .chart-subtitle {
@@ -15538,43 +15496,11 @@ section.chart-frame .chart-subtitle {
   line-height: var(--lh-relaxed);
 }
 
-/* Under the Form, a chart-frame keeps its eyebrow + title + subtitle TOGETHER in
- * the in-flow .chart-header — the masthead kernel does NOT lift them (the engine
- * converges with the runtime's `:scope > h2`, which never matched the nested chart
- * h2; model-driven-frame-render §6). No masthead band is built for charts; the full
- * hoist to a masthead-lede band is deferred to the .viz-frame/strict migration.
- * Three things follow:
- *   1. Drop the tall top padding (--sp-2xl, sized for a stand-alone centered header)
- *      that wasted ~5cqi and STARVED the chart Cell — the donut collapse on dense
- *      slides was this, not the svg sizing.
- *   2. Left-align the header to the frame's edge (drop the centered flow + the
- *      --sp-2xl horizontal inset) so the title reads flush like every other layout.
- *   3. Retire the decorative ::after hairline under the Form: the header sits
- *      directly above the chart body and the section gap is the divider, so the
- *      hairline would be a redundant rule (this also drops a stray rule when there
- *      is no subtitle).
- * Scoped to section.form; non-form chart headers keep their full centered breathing
- * room and their hairline. */
-section.form.chart-frame .chart-header {
-  padding-top: 0;
-  padding-inline: 0;
-  align-items: flex-start;
-  text-align: left;
-}
-section.form.chart-frame .chart-header::after { content: none; }
-
-/* Header→body clearance is conditional on there BEING a subtitle. The default
- * section gap gives the header↔chart-body a deliberate separation that reads right
- * when the body leads with chart content. But a subtitle belongs to the headline
- * unit and must HUG the title, not sit a full clearance from the body. When (and
- * only when) a .chart-subtitle leads, tighten the section gap so the subtitle stays
- * with the header. (The engine no longer lifts a chart title, so there is no
- * masthead band to clear — the tighten now lives entirely on the section gap.) */
-/* Guard against claim-hero/bleed: there the subtitle is display:none but stays in
- * the DOM, so :has(.chart-subtitle) still matches — the hug would tighten with no
- * visible dek. The plain :not() guards are fine (HARD RULE #12 bans only the
- * :not(:has())/:is(:has()) compound forms, and only in themes/). */
-section.form.chart-frame:has(.chart-subtitle):not(.claim-hero):not(.claim-bleed) { gap: var(--sp-xs); }
+/* .viz-frame merge: the chart chrome now hoists into the standard `.masthead-lede`
+ * band, so the old in-flow `.chart-header` Form overrides (top-padding reset,
+ * left-align, ::after retirement) and the section-gap subtitle-hug are retired — the
+ * masthead cell owns header layout + spacing for charts as for every component, and
+ * the stage cell owns the body. */
 
 section.chart-frame .chart-body {
   /* Pin to slide-internal width (1280 − 2× horizontal padding), same
@@ -15597,6 +15523,32 @@ section.chart-frame .chart-body {
   min-height: 0;
   overflow: hidden;
 }
+
+/* .viz-frame §5 — the self-scaling test, per chart family. Two groups keep `flex:1 1
+ * auto` (above) because their body's height is BOUNDED — a squeezed box scales it, the
+ * clip never loses content:
+ *   · SVG-bodied charts (piechart/radar/quadrant/funnel/map/word-cloud) — the `<svg>` is
+ *     sized to the box and letterboxes.
+ *   · JOURNEY — horizontally-oriented: adding stages/tasks adds `1fr` COLUMNS (thinner),
+ *     never vertical rows, so its height is bounded and it never vertically overflows
+ *     (an overstuffed journey scrolls horizontally via its own timeline indicator — a
+ *     pre-existing behavior, not a vertical silent-clip). Pinning it was WRONG: the pin
+ *     forced natural height that pushed the mood legend past the stage bottom.
+ * But a chart with CONTENT-HEIGHT DOM that grows in VERTICAL ROWS genuinely exceeds the
+ * stage: under `flex:1 1 auto` an overstuffed chart flex-SHRINKS and `overflow:hidden`
+ * clips the excess rows SILENTLY — invisible to the overflow probe (the QR-card
+ * silent-overflow class, 2026-07-15-viz-frame-merge.md §5). That set is progress/gantt/
+ * kanban/timeline-list/roadmap AND state-chart (its body is `<ol class="state-nodes">`
+ * content-height HTML nodes — the `<svg>` is only a JS-sized edge overlay, NOT a scaling
+ * container). Pin those bodies to natural height so an overstuffed chart SPILLS the stage
+ * clip and the probe catches it (proven by chart-overflow-preserved.test.js). */
+section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap, .state-chart) > .cell-stage > .chart-body {
+  flex: 0 0 auto;
+}
+/* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural
+ * height) would otherwise sit at the stage top; an SVG body (flex:1) already fills the
+ * stage, so this is a no-op for it. An `align-*` modifier overrides at higher specificity. */
+section.chart-frame > .cell-stage { justify-content: center; }
 
 /* ── Box-local: reclaim horizontal room for the figure on a tall/narrow box. The
  * default body reserves --sp-2xl on EACH side in both the width calc and the
@@ -15920,11 +15872,10 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort {
 }
 
 
-/* At hero/bleed the chart title lifts into the masthead Cell, vacating the
- * chart-header — but its decorative divider (`.chart-header::after`, a short
- * centered rule) and any residual eyebrow/subtitle would then float orphaned in
- * the empty band. Hide them on EVERY chart type at hero/bleed. */
-section.chart-frame:is(.claim-hero, .claim-bleed) .chart-header::after,
+/* At hero/bleed the chart title lifts into the masthead Cell; the eyebrow + subtitle
+ * would then float in the band competing with the full-bleed chart, so hide them on
+ * EVERY chart type at hero/bleed. (.viz-frame: the old `.chart-header::after` divider is
+ * gone — the header hoisted, so there is no orphaned rule left to hide.) */
 section.chart-frame:is(.claim-hero, .claim-bleed) .chart-eyebrow,
 section.chart-frame:is(.claim-hero, .claim-bleed) .chart-subtitle {
   display: none;
@@ -15957,11 +15908,12 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-e
 section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-subtitle {
   display: none;
 }
-/* chart-header → display:contents so its h2 becomes a direct flex child the
- * caption rules below can order into the bottom band. */
-section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-header {
-  display: contents;
-}
+/* .viz-frame merge: the chart title now HOISTS into `.masthead-lede` (the masthead
+ * handling block below), so the old `.chart-header` bottom-shelf sheen-shelf title
+ * treatment is retired — the element no longer exists. The full-bleed chart body +
+ * receded meta below are kept; claim-hero/claim-bleed are now "full-bleed chart, clean
+ * masthead title, receded deck meta". (A distinct hero-title treatment on the hoisted
+ * masthead title, if wanted, is a separate design pass — owner sign-off.) */
 /* The diagram fills the space above the caption (order 0, grows). The repeated
  * .chart-frame out-specifies the shared surface-panel rule, stripping the panel
  * background/border for a true bleed. position:relative makes it the containing
@@ -15981,50 +15933,6 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-b
   border: none;
   border-radius: 0;
   box-shadow: none;
-}
-/* CAPTION · TITLE — the heading becomes a bottom-anchored sheen shelf. The
- * chart bleeds, so the band already spans the full slide (no breakout needed).
- * margin:auto pins it to the bottom; the chart-frame skeleton measure-caps the
- * title at higher specificity, so re-assert measure / align / size here. */
-section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .chart-header h2 {
-  /* order:1 puts the title last; the flex:1 chart-body above it fills the column and
-   * pushes this bottom shelf to the foot — no margin-top:auto needed (#20). */
-  order: 1;
-  margin: 0;
-  z-index: 2;
-  max-width: none;
-  box-sizing: border-box;
-  padding: 1.8cqi var(--cover-gutter) 0.4cqi;
-  background: radial-gradient(150% 200% at 50% -25%,
-    color-mix(in oklab, var(--text-heading) 15%, var(--bg)) 0%,
-    color-mix(in oklab, var(--text-heading) 8%, var(--bg)) 55%,
-    color-mix(in oklab, var(--text-heading) 5%, var(--bg)) 100%);
-  border-top: var(--chart-hairline) solid color-mix(in oklab, var(--text-heading) 13%, transparent);
-  color: var(--text-heading);
-  font-family: var(--font-display);
-  font-size: var(--fs-h3);
-  font-weight: 700;
-  line-height: 1.1;
-  text-align: left;
-}
-/* CAPTION · NOTE — the trailing paragraph (a bare class-less <p>, direct
- * section child); flat base of the sheen, content ink, clamped to two lines. */
-section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) > p:last-of-type {
-  order: 2;
-  margin: 0;
-  z-index: 2;
-  box-sizing: border-box;
-  padding: 0 var(--cover-gutter) 1.4cqi;
-  background: color-mix(in oklab, var(--text-heading) 5%, var(--bg));
-  color: var(--text-body);
-  font-family: var(--font-body);
-  font-size: var(--fs-body);
-  line-height: 1.3;
-  text-align: left;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
 }
 /* Pagination reads through the band — lifted above it and recoloured. */
 section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed)::after {
@@ -18056,13 +17964,10 @@ section.sketch.quote blockquote p {
   font-style: normal;
 }
 
-/* Chart-frame slides draw a straight 1px rule under the heading
- * (.chart-header::after). The sketch h2 already carries the drawn wavy
- * underline, so that rule is a redundant SECOND rule — and a machine-straight
- * one next to hand type. Suppress it (the hand underline stays). */
-section.sketch.chart-frame .chart-header::after {
-  display: none;
-}
+/* .viz-frame merge: charts no longer draw a `.chart-header::after` hairline under the
+ * heading (the header hoisted into the standard masthead band), so the sketch override
+ * that suppressed that straight rule next to the hand-drawn wavy underline is retired —
+ * the element no longer exists. */
 
 /* The full-bleed / contain image caption is clamped to ~2 lines via a tuned
  * `max-height` calibrated for the clean body face. The hand sans sets a
