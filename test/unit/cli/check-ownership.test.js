@@ -456,13 +456,27 @@ describe('check-ownership', () => {
       assert.deepEqual(errors, [], errors.join('\n'));
     });
 
-    test('the allowlist is truthful: producer sanitizes, both sanctioned files reference the snapshot', () => {
+    test('the allowlist is truthful: producer sanitizes, every sanctioned file references the snapshot', () => {
       const producer = SANCTIONED_SNAPSHOT_SINKS.find((s) => s.role === 'producer');
       const psrc = fs.readFileSync(path.join(ROOT, producer.file), 'utf8');
       assert.ok(SANITIZE_CALL.test(psrc), `${producer.file} (sole writer) must call sanitizeSlideHtml`);
       for (const s of SANCTIONED_SNAPSHOT_SINKS) {
         assert.ok(referencesSnapshot(fs.readFileSync(path.join(ROOT, s.file), 'utf8')), `${s.file} should reference the snapshot`);
       }
+    });
+
+    test('the React injection sink (PlaygroundApp) is on-path via the capture/save API, not just key literals', () => {
+      // The sink reads the HTML INDIRECTLY (window.__pgShellHtml), so it names no key
+      // literal and no loader — only the capture/save import. referencesSnapshot must still
+      // see it (else its dangerouslySetInnerHTML snapshot sink is invisible to #22).
+      const indirectSink = "import { captureFirstSectionFromFrame, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';\nreturn <div dangerouslySetInnerHTML={{ __html: window.__pgShellHtml }} />;";
+      assert.ok(!SNAPSHOT_KEY_LITERALS.some((k) => indirectSink.includes(k)), 'names no raw key');
+      assert.ok(referencesSnapshot(indirectSink), 'still on the snapshot path via the capture/save API');
+      assert.ok(SNAPSHOT_INJECT_MARKER.test(indirectSink), 'dangerouslySetInnerHTML detected → an unsanctioned sink would be flagged');
+      // And the Studio writer (captureFromFrame/saveSnapshot, no inject) stays OFF-path, so
+      // its unrelated localStorage.setItem calls never false-positive the write marker.
+      const studioWriter = "import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';\nlocalStorage.setItem('lattice-studio-palette', p);";
+      assert.ok(!referencesSnapshot(studioWriter), 'the Studio capture/save importer is not roped in');
     });
 
     test('the gate bites: producer dropping sanitize is flagged', () => {
