@@ -292,18 +292,18 @@ describe('deck linter', () => {
     }
   });
 
-  test('warns on an unrecognized `spectrum-trim:` value; accepts on/off', () => {
+  test('warns on an unrecognized `spectrum-trim:` value; accepts off/restrained/on', () => {
     const bad = lintText('---\ntheme: indaco\nspectrum-trim: yes\n---\n\n## H.\n', { vocab }).find((x) => x.rule === 'unknown-spectrum-trim');
     assert.ok(bad, 'unknown spectrum-trim should warn');
     assert.equal(bad.classToken, 'yes');
-    for (const v of ['on', 'off']) {
+    for (const v of ['off', 'restrained', 'on']) {
       const src = `---\ntheme: indaco\nspectrum-trim: ${v}\n---\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-spectrum-trim').length, 0, v);
     }
   });
 
   test('per-slide accent tokens (spectrum-edge-*, spectrum-card*, spectrum-trim*, rule-*, eyebrow-*) are known classes', () => {
-    for (const t of ['spectrum-duo', 'spectrum-edge-left', 'spectrum-card', 'spectrum-card-solid', 'spectrum-card-off', 'spectrum-card-edge-top', 'spectrum-trim', 'spectrum-trim-off', 'rule-short', 'eyebrow-dot']) {
+    for (const t of ['spectrum-duo', 'spectrum-edge-left', 'spectrum-card', 'spectrum-card-solid', 'spectrum-card-off', 'spectrum-card-edge-top', 'spectrum-trim', 'spectrum-trim-restrained', 'spectrum-trim-off', 'rule-short', 'eyebrow-dot']) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${t} -->\n\n## H.\n`;
       assert.equal(lintText(src, { vocab }).filter((x) => x.rule === 'unknown-class').length, 0, t);
     }

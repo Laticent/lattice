@@ -741,16 +741,18 @@ caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
 Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
 it on where it earns its place.
 
-**`spectrum-trim:` — flow the spectrum onto the STRUCTURAL accents.** Off by default — the
-in-content accents (table-header rails, the `list-steps` timeline spine, code-panel strips, the
-`hr` rule, split-card underlines) render a quiet accent-tinted hairline, so the spectrum stays on the
-brand bar alone (elegant, low-noise). `on` points those accents at `--spectrum`, so they follow
-the deck's STYLE. Per-slide `_class: spectrum-trim` opts one slide in, `spectrum-trim-off` out.
+**`spectrum-trim:` — how much the STRUCTURAL accents carry the spectrum.** Three tiers of
+increasing presence on the in-content accents (table-header rails, the `list-steps` timeline
+spine, code-panel strips, the `hr` rule, split-card underlines). Off by default — those accents
+stay a quiet accent-tinted hairline, so the spectrum stays on the brand bar alone (elegant,
+low-noise). Per-slide `_class: spectrum-trim` / `spectrum-trim-restrained` opts one slide in at a
+tier, `spectrum-trim-off` out.
 
 | `spectrum-trim:` value | Token | Effect |
 |---|---|---|
-| `off` | *(none)* | Structural accents stay a quiet accent-tinted hairline. **The default** (omit the key). |
-| `on` | `spectrum-trim` | The deck's spectrum flows onto the table rails, timeline spine, code strips, and `hr`. |
+| `off` | *(none)* | A quiet accent-tint hairline (`--spectrum-quiet`). **The default** (omit the key). |
+| `restrained` | `spectrum-trim-restrained` | A single-hue accent ramp (`--sp-fill-mono-h`) — present but quiet, held constant regardless of the bar (a two-tier look that never clashes). |
+| `on` | `spectrum-trim` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` STYLE). |
 
 The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left; add
 `spectrum-trim: on` to flow that duo onto the table rails and rules too, and `spectrum-card: auto`

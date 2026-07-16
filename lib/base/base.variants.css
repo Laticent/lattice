@@ -192,11 +192,15 @@ section {
   --spectrum-structure: linear-gradient(var(--spectrum-quiet), var(--spectrum-quiet));
 }
 
-/* TRIM — the opt-in that flows the deck's spectrum STYLE onto the structural accents. Reads
-   --spectrum, so it follows whatever the `spectrum:` STYLE resolved to (rainbow / solid / duo /
-   mono). A per-slide `spectrum-trim-off` needs no rule: dropping the `spectrum-trim` class
-   leaves the neutral default above. */
+/* TRIM — three tiers of structural presence above the quiet default.
+   `on` (`spectrum-trim`) flows the deck's full spectrum STYLE onto the structure (reads
+   --spectrum, so it follows whatever `spectrum:` resolved to). `restrained`
+   (`spectrum-trim-restrained`) holds a single-hue accent ramp (--sp-fill-mono-h) regardless of
+   the bar's STYLE — the "two-tier" middle: present but quiet, and it never clashes with a
+   rainbow/duo bar. A per-slide `spectrum-trim-off` needs no rule: dropping the class leaves the
+   quiet tint default above. */
 section.spectrum-trim { --spectrum-structure: var(--spectrum); }
+section.spectrum-trim-restrained { --spectrum-structure: var(--sp-fill-mono-h); }
 
 /* STYLE — redefine the shared token from the matching fill; every accent follows. */
 section.spectrum-solid { --spectrum: var(--sp-fill-solid-h); --spectrum-vertical: var(--sp-fill-solid-v); }

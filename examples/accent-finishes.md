@@ -34,18 +34,19 @@ The `spectrum:` key picks the gradient identity — the ribbon on the **brand ba
 
 ---
 
-<!-- _class: code spectrum-trim -->
+<!-- _class: code spectrum-trim-restrained -->
 
 `Spectrum · trim`
 
-## Flow it onto the structure — when you want to
+## Three tiers on the structure — quiet by default
 
-By default the code strip, table rails, and rules stay a quiet neutral hairline — no rainbow repeated on every line. `spectrum-trim: on` flows the deck's spectrum onto them; this slide opts in, so the panel strip below runs `duo`.
+By default the code strip, table rails, and rules stay a quiet accent-tint hairline — no rainbow repeated on every line. `spectrum-trim:` dials the presence up in three tiers; this slide runs `restrained`, so the panel strip below is a quiet single-hue ramp.
 
 ```js
-// spectrum-trim: on → the structural accents read var(--spectrum)
-const structure = ['table rails', 'timeline spine', 'code strip', 'hr'];
-structure.forEach((a) => paint(a, 'var(--spectrum)'));
+// spectrum-trim: off → a quiet accent-tint hairline (the default)
+//                restrained → a single-hue accent ramp (this slide)
+//                on → the deck's full spectrum flows onto the structure
+const tiers = ['off', 'restrained', 'on'];
 ```
 
 ---

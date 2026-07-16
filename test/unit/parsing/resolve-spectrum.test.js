@@ -235,33 +235,39 @@ describe('resolve-spectrum — CARD EDGE (`spectrum-card-edge:`)', () => {
 });
 
 describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
-  test('on → spectrum-trim token; off/empty/unknown → no token (the quiet default)', () => {
+  test('on → spectrum-trim; restrained → spectrum-trim-restrained; off/empty/unknown → no token', () => {
     assert.equal(spectrumTrimClass('on'), 'spectrum-trim');
+    assert.equal(spectrumTrimClass('restrained'), 'spectrum-trim-restrained');
     assert.equal(spectrumTrimClass('off'), '');
     assert.equal(spectrumTrimClass(''), '');
     assert.equal(spectrumTrimClass('yes'), '');
     assert.equal(spectrumTrimClass(undefined), '');
     assert.equal(spectrumTrimClass('  ON '), 'spectrum-trim');
+    assert.equal(spectrumTrimClass(' Restrained '), 'spectrum-trim-restrained');
   });
 
-  test('isKnownSpectrumTrim recognizes on / off only', () => {
-    assert.ok(isKnownSpectrumTrim('on'));
-    assert.ok(isKnownSpectrumTrim('off'));
+  test('isKnownSpectrumTrim recognizes off / restrained / on', () => {
+    for (const v of ['off', 'restrained', 'on']) assert.ok(isKnownSpectrumTrim(v), v);
     assert.ok(!isKnownSpectrumTrim('yes'));
     assert.ok(!isKnownSpectrumTrim(''));
   });
 
   test('SPECTRUM_TRIM_NAMES / TOKENS list the recognized set + per-slide override tokens', () => {
-    assert.deepEqual([...SPECTRUM_TRIM_NAMES], ['off', 'on']);
-    assert.deepEqual([...SPECTRUM_TRIM_TOKENS], ['spectrum-trim', 'spectrum-trim-off']);
+    assert.deepEqual([...SPECTRUM_TRIM_NAMES], ['off', 'restrained', 'on']);
+    assert.deepEqual([...SPECTRUM_TRIM_TOKENS], ['spectrum-trim', 'spectrum-trim-restrained', 'spectrum-trim-off']);
   });
 
-  test('isSpectrumTrimToken matches trim tokens but NOT the other spectrum axes', () => {
-    assert.ok(isSpectrumTrimToken('spectrum-trim'));
-    assert.ok(isSpectrumTrimToken('spectrum-trim-off'));
+  test('isSpectrumTrimToken matches every trim token but NOT the other spectrum axes', () => {
+    for (const t of SPECTRUM_TRIM_TOKENS) assert.ok(isSpectrumTrimToken(t), t);
     assert.ok(!isSpectrumTrimToken('spectrum-off'));
     assert.ok(!isSpectrumTrimToken('spectrum-card'));
     assert.ok(!isSpectrumTrimToken('spectrum-edge-off'));
+  });
+
+  test('CSS contract — the restrained tier holds a single-hue accent ramp (--sp-fill-mono-h)', () => {
+    const variants = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
+    assert.match(variants, /section\.spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum\)/);
+    assert.match(variants, /section\.spectrum-trim-restrained\s*\{\s*--spectrum-structure:\s*var\(--sp-fill-mono-h\)/);
   });
 
   test('readFrontMatterSpectrumTrim extracts the value; quotes + absence', () => {

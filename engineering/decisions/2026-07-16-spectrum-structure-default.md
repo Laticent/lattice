@@ -93,5 +93,16 @@ brand accent** — `--spectrum-quiet: color-mix(in oklab, var(--accent) 60%, var
 The hairline now echoes the accent-toned labels above it (reads intentional + on-brand), survives
 dark canvases, and stays clearly secondary to the full-spectrum bar. Palette-blind, one dial,
 theme-overridable via `--spectrum-quiet`. Verified light + dark (indaco, indaco-dark, ardesia-dark).
-The granularity axis is deliberately NOT added — the one toggle plus this treatment is the whole
-answer to "tune each type."
+
+**The one value added — `restrained`, a fixed middle tier (NOT the rejected style axis).** The
+human then asked to *"add restrained itself as an option that holds the restrained line."* This is
+precisely what the Munger inversion had endorsed: the value authors want from a two-tier look is
+real, but it should be a **de-saturated derivation computed once**, not a per-structure STYLE axis
+the author composes (the C/B/D the trio rejected). So `spectrum-trim:` grows from `off/on` to
+**three tiers of increasing presence**: `off` (the quiet accent-tint hairline) / `restrained` (a
+single-hue accent ramp, `--sp-fill-mono-h`, held constant regardless of the bar's STYLE so it never
+clashes — the two-tier look as ONE curated value) / `on` (the full spectrum follows the bar). A
+single value on the existing register — no new token (reuses `--sp-fill-mono-h`), no new axis, no
+per-element control. It threads the needle the trio drew: two-tier elegance without the clash risk
+or knob sprawl. The granularity *axis* is still deliberately NOT added — one register, three tiers,
+is the whole answer to "tune each type."

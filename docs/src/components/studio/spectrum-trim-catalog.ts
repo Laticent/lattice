@@ -29,8 +29,13 @@ export const SPECTRUM_TRIMS: SpectrumTrimEntry[] = [
 		swatch: { background: RULE('linear-gradient(color-mix(in oklab, var(--accent) 60%, var(--border)), color-mix(in oklab, var(--accent) 60%, var(--border)))') },
 	},
 	{
+		name: 'restrained', label: 'Restrained',
+		blurb: 'A single-hue accent ramp on the structure — present but quiet, held constant regardless of the bar (a two-tier look that never clashes).',
+		swatch: { background: RULE('linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 35%, var(--bg)))') },
+	},
+	{
 		name: 'on', label: 'Spectrum',
-		blurb: 'Flow the deck’s spectrum onto the structural accents — table rails, the timeline spine, code strips, and hr.',
+		blurb: 'Flow the deck’s full spectrum onto the structural accents — table rails, the timeline spine, code strips, and hr.',
 		swatch: { background: RULE('var(--spectrum, linear-gradient(var(--accent), var(--accent)))') },
 	},
 ];

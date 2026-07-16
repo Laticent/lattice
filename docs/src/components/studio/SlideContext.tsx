@@ -35,7 +35,7 @@ import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
-import { activeSpectrumTrim } from './spectrum-trim-catalog';
+import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang } from './studio-language';
 
 type CatalogEntry = { name: string; effectiveVariants?: string[]; familyModifiers?: string[] };
@@ -351,17 +351,19 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const cardEdge = overrideAxis(cardEdgeProv, SPECTRUM_CARD_EDGES, 'left', activeSpectrumCardEdge);
 	const onCardEdge = (v: string) => onMutate((c) => setSpectrumCardEdge(c, v === '__inherit__' ? null : v));
 	const cardRailOn = cardProv.state === 'on' || cardProv.state === 'inherited';
-	// Structural trim — on/off with an explicit opt-out (mirrors lift). Inherit follows the deck.
+	// Structural trim — a three-tier axis (Quiet / Restrained / Spectrum) with an explicit
+	// opt-out. Inherit follows the deck; every catalog value is an explicit per-slide choice.
 	const trimProv = React.useMemo(() => spectrumTrimProvenance(chunk, source), [chunk, source]);
-	const trimValue: string = has('spectrum-trim') ? 'on' : has('spectrum-trim-off') ? 'off' : '__inherit__';
+	const trimValue: string = trimProv.state === 'on'
+		? (trimProv.value ?? '__inherit__')
+		: has('spectrum-trim-off') ? 'off' : '__inherit__';
 	const trimOptions: CatalogOption[] = [
 		trimProv.inheritable
-			? { label: 'Inherit — Spectrum', value: '__inherit__', swatch: activeSpectrumTrim('on').swatch }
+			? { label: `Inherit — ${activeSpectrumTrim(trimProv.deckValue).label}`, value: '__inherit__', swatch: activeSpectrumTrim(trimProv.deckValue).swatch }
 			: { label: 'Inherit — Quiet', value: '__inherit__', swatch: activeSpectrumTrim('off').swatch },
-		{ label: 'Spectrum', value: 'on', swatch: activeSpectrumTrim('on').swatch },
-		{ label: 'Quiet', value: 'off', swatch: activeSpectrumTrim('off').swatch },
+		...SPECTRUM_TRIMS.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
 	];
-	const onTrim = (v: string) => onMutate((c) => setSpectrumTrim(c, v === '__inherit__' ? null : (v as 'on' | 'off')));
+	const onTrim = (v: string) => onMutate((c) => setSpectrumTrim(c, v === '__inherit__' ? null : v));
 
 	// Decoration — the featured tint / mark phrases from the generated group. Each is a
 	// single-select; applying one clears the other members of its kind (tints also clear

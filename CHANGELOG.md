@@ -187,12 +187,13 @@ in patch versions.
     controlling the masthead / split-panel heading rule.
   - **`eyebrow:` — the mono-caps kicker decoration.** `plain` (default) / `dot` / `bar` / `arrow`
     / `underline` — a leading accent mark or a hairline, one treatment deck-wide.
-  - **`spectrum-trim:` — flow the spectrum onto the structural accents.** `off` (default) / `on`;
-    per-slide `_class: spectrum-trim` / `spectrum-trim-off`. By default the spectrum lives on the
-    brand bar alone and the in-content accents (table-header rails, the `list-steps` timeline
-    spine, code-panel strips, the `hr` rule, split-card underlines) render a quiet accent-tinted
-    hairline — elegant, low-noise. `spectrum-trim: on` flows the deck's spectrum STYLE back onto
-    that structure. See the Breaking note below.
+  - **`spectrum-trim:` — how much the structural accents carry the spectrum.** `off` (default) /
+    `restrained` / `on`; per-slide `_class: spectrum-trim` / `spectrum-trim-restrained` /
+    `spectrum-trim-off`. By default the spectrum lives on the brand bar alone and the in-content
+    accents (table-header rails, the `list-steps` timeline spine, code-panel strips, the `hr` rule,
+    split-card underlines) render a quiet accent-tinted hairline — elegant, low-noise. `restrained`
+    holds a single-hue accent ramp (a two-tier look that never clashes with the bar); `on` flows the
+    deck's full spectrum STYLE onto the structure. See the Breaking note below.
 
   Demo deck `examples/accent-finishes.md` (+ committed PDF); author reference in
   `lib/base/base.docs.md`; design in
