@@ -14,11 +14,18 @@
  *     its `<svg>` is sized to its box and letterboxes via preserveAspectRatio — so
  *     the stage clip SCALES it, never loses content. A fitting SVG chart → not over.
  *
- *   · A LIST/TABLE chart (progress/gantt/kanban/timeline-list/…) has content-height
+ *   · A LIST/TABLE chart (progress/gantt/kanban/timeline-list/roadmap) has content-height
  *     rows: too many rows genuinely exceed the stage. That overflow MUST be caught by
  *     probeSectionOverflow via the clip cell, NOT silently clipped. This is the exact
  *     silent-overflow class the QR-card `flex:0 0 auto` pin guards against — so this
  *     gate proves an overstuffed list chart still reports `over: true`.
+ *
+ *   · state-chart is a SELF-SCALING chart in the pie/SVG class (2026-07-16-state-chart-self-scale.md):
+ *     its figure is a flex viewport and an inner `.state-chart-scale` box letterbox-fits the
+ *     content — nodes + edges together — so it ALWAYS fits, squeezing down when the machine is
+ *     tall and filling up when there's room. It NEVER overflows: an overstuffed machine just gets
+ *     cramped (the author's stress test), not flagged. Both a fitting and an overstuffed machine
+ *     are gated as `over:false` below.
  *
  * Needs Chromium + the emulator (renders the deck, probes the laid-out DOM).
  */
@@ -83,17 +90,42 @@ const OVER_TALL_LIST = `<!-- _class: progress -->
 ${OVER_ROWS}
 `;
 
-// state-chart is the trap the trio flagged: its body is `<ol class="state-nodes">`
-// content-height HTML nodes (the <svg> is a JS-sized edge overlay, NOT a scaling
-// container), so despite the SVG element it must be PINNED like a list chart. Too many
-// states must spill the stage and be caught, not silently clipped.
+// state-chart is a SELF-SCALING chart (pie/SVG class): its inner `.state-chart-scale`
+// box letterbox-fits into the flex-viewport figure, so it ALWAYS fits and never overflows
+// (2026-07-16-state-chart-self-scale.md).
+// A fitting state-chart: four states WITH a caption — the exact shape that regressed after
+// .viz-frame (the then-pinned node column couldn't shrink into the caption-compressed stage
+// and clipped the caption). It must self-scale to fit and NOT report overflow.
+const FITTING_STATE = `<!-- _class: state-chart -->
+
+\`Lifecycle\`
+
+## How a document moves to archive.
+
+1. Draft
+   - \`submit => 2\`
+2. Submitted
+   - \`review => 3\`
+3. Approved
+   - \`archive => 4\`
+4. Archived
+
+_Source: workflow engine_
+`;
+
+// A DENSE but valid machine: 10 states (the state-chart's practical ceiling) with
+// long labels + a full-span back-edge. This is the "overstuffed author stress test"
+// within the parseable range — it must self-scale (cramped) to fit, NOT overflow.
+// (Beyond ~10 states the markdown ordered list splits upstream and the extra items
+// leak as siblings — a pre-existing limit tracked in 2026-07-16-state-chart-self-scale.md
+// §Follow-ups, orthogonal to the self-scale contract gated here.)
 const OVER_STATES = Array.from(
-  { length: 30 },
-  (_v, i) => `${i + 1}. State number ${i + 1} with a reasonably long descriptive name\n   - \`=> ${((i + 1) % 30) + 1}\``,
+  { length: 10 },
+  (_v, i) => `${i + 1}. State ${i + 1} with a reasonably long descriptive name\n   - \`=> ${i < 9 ? i + 2 : 1}\``,
 ).join('\n');
 const OVER_TALL_STATE = `<!-- _class: state-chart -->
 
-## An overstuffed state chart with far too many states.
+## A dense ten-state machine with long labels.
 
 ${OVER_STATES}
 `;
@@ -154,15 +186,28 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
     );
   });
 
-  test('an overstuffed state-chart DOES overflow — content-height nodes are pinned, not swallowed', async () => {
+  test('a fitting captioned state-chart does NOT overflow — it self-scales, caption kept', async () => {
+    const v = await probeFirstSection(FITTING_STATE, 'chart-overflow-fitting-state');
+    assert.equal(v.hasStage, true);
+    assert.equal(
+      v.over,
+      false,
+      'REGRESSION: a normal 4-state captioned state-chart reported overflow — the self-scale letterbox ' +
+        'is not fitting it into the caption-compressed stage, so the caption is clipped off the slide ' +
+        '(2026-07-16-state-chart-self-scale.md).',
+    );
+  });
+
+  test('an overstuffed state-chart does NOT overflow — it self-scales to fit (cramped, not clipped)', async () => {
     const v = await probeFirstSection(OVER_TALL_STATE, 'chart-overflow-over-states');
     assert.equal(v.hasStage, true);
     assert.equal(
       v.over,
-      true,
-      'REGRESSION: an overstuffed state-chart was silently clipped — its `<ol class="state-nodes">` body is ' +
-        'content-height (the <svg> is only an edge overlay), so state-chart MUST be in the flex:0 0 auto pin ' +
-        'group with the list charts, not the self-scaling SVG group (viz-frame §5).',
+      false,
+      'REGRESSION: an overstuffed state-chart reported overflow — state-chart is a SELF-SCALING chart (pie/SVG ' +
+        'class), so it always squeezes to fit, never overflows. Overstuffing just makes it cramped (the author ' +
+        "stress test); the engine does not flag it. If this trips, the letterbox scale isn't fitting a dense " +
+        'machine (2026-07-16-state-chart-self-scale.md).',
     );
   });
 });

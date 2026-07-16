@@ -17,6 +17,17 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **State-chart is now a self-scaling chart, like the pie — it always fits, and never clips its
+  caption.** After the `.viz-frame` merge a normal state-chart (even 4 states) with a `_Source: …_`
+  caption overflowed: the pinned node column — tall from its bow-gutter padding — couldn't shrink
+  into the caption-compressed stage, so it spilled and clipped the caption (and pushed the detail
+  popover into that zone). The state-chart now behaves exactly like the SVG charts: its figure fills
+  the container and an inner `.state-chart-scale` box — nodes **and** edges together — letterbox-scales
+  to fit, sized purely by the parent (crisp from ~400px to 8K). It **always fits**: it squeezes down
+  when the machine is tall and fills up when there's room. Over-stuffing just makes it cramped — the
+  author's stress test; the house rule is a simple boardroom chart, not an architect's diagram — so it
+  no longer trips the overflow probe. (`state-chart.transform.js` + `.styles.css`,
+  `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
 - **Read-aloud no longer says "arrow", and expands "mo" to "months".** A `→` in prose was voiced
   as the literal word "arrow" ("Q1 arrow Q2"); it now reads as the transition it means — rightward
   `→`/`⇒` → "to" ("Q1 to Q2", "auto to clean"), bidirectional `↔` → "and" ("red and green"),
