@@ -839,6 +839,21 @@ in patch versions.
   floors over every theme so a collapse can't silently reship. `onyx` (single-hue brand) keeps
   luminance-based separation; its texture treatment is tracked separately.
   See `engineering/decisions/2026-07-15-categorical-token-contract.md`.
+- **The Playground live preview no longer flashes white→black→slides on a cold load.** On a
+  first (cold) load of `/playground` — reported on mobile Safari in dark mode — the preview pane
+  flashed white, then black, then popped the slides in ~0.6–1.0 s after paint, while the on-demand
+  engine bundle loaded. Two causes, both fixed: (1) the loading skeleton's fallback color was a
+  light `#e7e7ea` that painted white before the theme's `--bg-alt` resolved — it now has a
+  dark-mode-aware fallback (keyed on the pre-paint `data-mode`, so a light-OS/dark-app visitor is
+  covered too); and (2) the anti-flash instant-shell + last-slide snapshot the Studio already has
+  was never wired into the Playground. A returning editor's real first slide is now captured (the
+  first filmstrip section, sanitized at the #22 chokepoint, under the Playground's own
+  `lattice-docs-pg-last-slide` key) and replayed pre-hydration into an instant-shell — so the
+  preview paints a real themed slide immediately, then the live filmstrip takes over with no
+  visible swap. The replay paints only when the app will boot into Edit showing the same draft
+  (palette + mode + source-hash match), so a wrong deck can never flash; a newcomer or any
+  mismatch falls back to the now-dark skeleton. (`snapshot-cache.js`, `PlaygroundApp.tsx`,
+  `playground.astro`, `landing.css`, `playground.css`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its
   heading, and a few cases that spoke a falsehood are corrected.** A retroactive three-perspective

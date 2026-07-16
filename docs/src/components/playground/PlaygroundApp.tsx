@@ -46,6 +46,7 @@ import { createChartInteract } from '@/playground/chart-interact.js';
 import { applyDebug } from '@/playground/debug-overlay.js';
 import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
+import { captureFirstSectionFromFrame, savePlaygroundSnapshot } from '@/playground/snapshot-cache.js';
 import { createVideoOverlay } from '@/playground/video-overlay.js';
 import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
@@ -195,6 +196,30 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
 	const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+	// ── Instant-shell (anti cold-load flash) ────────────────────────────────────
+	// A returning visitor's real first slide, painted BEFORE hydration by the
+	// pre-paint replay in playground.astro (which stashes the chosen HTML on the
+	// global below). React ADOPTS that node via dangerouslySetInnerHTML so neither
+	// hydration nor a later render wipes the pre-painted slide; it's cleared on the
+	// first live render. `null` = nothing to show (newcomer / no match → the dark
+	// skeleton covers the window). See engineering/decisions/2026-07-11-preview-performance-diagnosis.md.
+	const [shellHtml, setShellHtml] = React.useState<string | null>(() => {
+		try {
+			return (window as unknown as { __pgShellHtml?: string }).__pgShellHtml ?? null;
+		} catch {
+			return null;
+		}
+	});
+	// Last resolved `@size` geometry, so a capture stamps the shell with THIS deck's
+	// aspect (a `size: 4K` / portrait deck shouldn't replay at 16:9). Updated each render.
+	const lastGeomRef = React.useRef<{ w: number; h: number }>({ w: 1280, h: 720 });
+	// Capture dedupe + one-shot-after-first-render bookkeeping (mirrors the Studio).
+	const lastPgCaptureRef = React.useRef(0);
+	const firstCaptureDoneRef = React.useRef(false);
+	// Ref-indirected so `render` (defined above the capture callback) can fire the
+	// post-first-render capture without a use-before-declaration cycle.
+	const captureFirstSlideRef = React.useRef<() => void>(() => {});
+
 	// ── Source accessors (prefer the live editor; safe before it mounts) ────────
 	const getSource = React.useCallback(() => editorRef.current?.getValue() ?? starter, [starter]);
 	const setSource = React.useCallback((text: string) => editorRef.current?.setValue(text), []);
@@ -313,6 +338,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				setStatusLine(r.message, true);
 			} else {
 				previewStateRef.current = r.state;
+				lastGeomRef.current = r.geom;
 				setStatusLine(`Rendered ${r.count} slide(s).`);
 				// A full-deck walk learns its slide count from the render itself
 				// (no plan exists for authored gallery decks — slide-index positions).
@@ -325,6 +351,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// Drop the loading skeleton once real slides have painted (the iframe
 				// is opaque and covers the host; this removes the placeholder behind it).
 				frame.parentElement?.classList.add('is-live');
+				// Dismiss the pre-paint instant-shell on the first live render: the live
+				// filmstrip now paints over it, so clear the static slide (and its flag) to
+				// avoid a stale double-paint. Idempotent — React bails on the null no-op.
+				setShellHtml(null);
+				document.documentElement.removeAttribute('data-pg-shell');
+				// One capture ~after the first render (async chart/mermaid draws settle),
+				// so the NEXT cold load has this slide to replay. Mirrors the Studio's
+				// onPreviewFirstRender; ref-indirected past the capture callback's TDZ.
+				if (!firstCaptureDoneRef.current) {
+					firstCaptureDoneRef.current = true;
+					setTimeout(() => captureFirstSlideRef.current(), 1500);
+				}
 				// Re-bind the hover layer to the (possibly new) iframe document.
 				chartInteractRef.current?.rebind();
 				// Re-install the parent-hosted video playback bridge on the (possibly new) frame.
@@ -346,6 +384,64 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// renders CURRENT state without re-creating the scheduler on every edit.
 	const renderRef = React.useRef(render);
 	renderRef.current = render;
+
+	// ── Instant-shell capture (mirrors StudioShell.captureLastSlide) ─────────────
+	// Snapshot the FIRST section of the live filmstrip so the NEXT cold load paints it
+	// pre-hydration (killing the white→black→slides flash). Captured on leave (pagehide /
+	// tab-hide) and once shortly after the first render — never per-keystroke.
+	//
+	// EDIT-VIEW ONLY. The preview shows the draft in Edit, but a gallery/plan deck in
+	// Explore — which has no stable draft-source identity, so replaying it could flash
+	// the WRONG deck. So capture (and, in playground.astro, replay) only when the draft
+	// is on screen, keyed by a hash of the persisted source. Explore/newcomer cold loads
+	// fall back to the (now dark) loading skeleton.
+	const captureFirstSlide = React.useCallback(() => {
+		try {
+			if (viewRef.current !== 'edit') return;
+			const fr = frameRef.current;
+			if (!fr) return;
+			// Dedupe back-to-back captures: pagehide + visibilitychange both fire on a
+			// mobile nav, and the post-first-render timer can overlap.
+			const now = Date.now();
+			if (now - lastPgCaptureRef.current < 500) return;
+			lastPgCaptureRef.current = now;
+			const root = document.documentElement;
+			let src = '';
+			try {
+				src = localStorage.getItem(SOURCE_KEY) || '';
+			} catch {
+				/* private mode */
+			}
+			// captureFirstSectionFromFrame sanitizes at the chokepoint (#22) before the HTML
+			// can be stored + replayed into the top document — nothing to do here.
+			const snap = captureFirstSectionFromFrame(fr, {
+				w: lastGeomRef.current.w,
+				h: lastGeomRef.current.h,
+				palette: root.getAttribute('data-palette') || 'indaco',
+				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
+				// The replay recomputes this hash of the persisted source and only paints on a
+				// match — so an edited draft (or a different deck) never flashes a stale slide.
+				srcHash: fingerprint(src),
+				themeUrlBase: themeBase,
+				ts: now,
+			});
+			if (snap) savePlaygroundSnapshot(snap);
+		} catch {
+			/* best-effort — a failed capture just means the next visit uses the skeleton */
+		}
+	}, [themeBase]);
+	captureFirstSlideRef.current = captureFirstSlide;
+	React.useEffect(() => {
+		const onHide = () => {
+			if (document.visibilityState === 'hidden') captureFirstSlide();
+		};
+		window.addEventListener('pagehide', captureFirstSlide);
+		document.addEventListener('visibilitychange', onHide);
+		return () => {
+			window.removeEventListener('pagehide', captureFirstSlide);
+			document.removeEventListener('visibilitychange', onHide);
+		};
+	}, [captureFirstSlide]);
 
 	// Adaptive frame-aligned scheduler (Playground-owned) — replaces the fixed 220ms
 	// trailing debounce with a render loop that fires a cheap patch on the next frame
@@ -1341,6 +1437,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 						)}
 					</div>
 					<div className="pg-preview-wrap">
+						{/* Instant-shell box — SSR'd empty; the pre-paint replay (playground.astro)
+						    injects a returning visitor's cached first slide into it before hydration,
+						    and React adopts that HTML here (dangerouslySetInnerHTML) so nothing wipes
+						    it. Sits behind the transparent #preview iframe (like the skeleton) and is
+						    dismissed on first live render. Empty + display:none when there's no snapshot. */}
+						<div
+							id="pg-ssr-slidebox"
+							className="pg-ssr-shell"
+							aria-hidden="true"
+							suppressHydrationWarning
+							{...(shellHtml != null ? { dangerouslySetInnerHTML: { __html: shellHtml } } : {})}
+						/>
 						<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} />
 					</div>
 				</section>

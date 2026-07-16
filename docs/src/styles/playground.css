@@ -248,6 +248,65 @@ body[data-view='read'] .pg-pane-label {
 .pg-preview-wrap.is-live #preview {
 	background: var(--bg-alt);
 }
+
+/* ── Instant-shell (anti cold-load flash) ──────────────────────────────────
+   A returning visitor's cached first slide, painted by playground.astro's
+   pre-paint replay BEFORE the island hydrates + the on-demand engine bundle
+   loads — so the preview shows a real themed slide immediately instead of the
+   white→black→slides flash. Sits behind the transparent #preview iframe (same
+   z-index as the skeleton); hidden until the replay flips data-pg-shell="on",
+   and dismissed the moment the live filmstrip paints (.is-live). The captured
+   snapshot CSS is scoped under .pg-ssr-shell and injected at runtime, so the
+   box-layout rules below win via the data-pg-shell qualifier (higher specificity
+   than the re-targeted `body{…}` the capture folds onto the box). */
+.pg-ssr-shell {
+	position: absolute;
+	inset: 0;
+	z-index: 0; /* under #preview (z-index 1) and over the skeleton ::after (also 0, earlier) */
+	display: none;
+	overflow: hidden;
+	pointer-events: none;
+}
+:root[data-pg-shell='on'] .pg-ssr-shell {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	min-height: 0;
+	padding: 16px; /* matches the live filmstrip's body padding (deck-preview gap/padding) */
+	background: var(--bg-alt);
+}
+.pg-preview-wrap.is-live .pg-ssr-shell {
+	display: none;
+}
+/* The captured critical CSS carries the filmstrip's `.lattice{visibility:hidden}`
+   gate (the live doc's FIT agent flips it — the shell has none) and
+   `content-visibility:auto` virtualization; force both visible so the single shell
+   slide actually paints. !important beats the (scoped, non-important) captured rules.
+   Size the .lattice to the SCALED slide box (via the vars the replay measures) so the
+   flex centering lands on the visible slide, not the un-scaled 1280×720 layout box. */
+.pg-ssr-shell .lattice {
+	visibility: visible !important;
+	width: calc(var(--pg-ssr-w, 1280px) * var(--pg-ssr-scale, 1));
+	height: calc(var(--pg-ssr-h, 720px) * var(--pg-ssr-scale, 1));
+	overflow: hidden;
+}
+/* Mirror the live FIT agent EXACTLY: keep the section at its intrinsic @size box and
+   `transform: scale()` it to the pane, so the engine's 1280-basis container-query fonts
+   render identically to the live filmstrip (a `width:100%` box would size fonts for the
+   pane width and read oversized). The replay measures the pane and sets the vars.
+   margin:0 is a bare reset (the FIT margin-bottom was stripped at capture). */
+.pg-ssr-shell .lattice > section {
+	width: var(--pg-ssr-w, 1280px) !important;
+	height: var(--pg-ssr-h, 720px) !important;
+	margin: 0 !important;
+	content-visibility: visible !important;
+	transform: scale(var(--pg-ssr-scale, 1));
+	transform-origin: top left;
+	box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+	border-radius: 6px;
+	overflow: hidden;
+}
 .pg-status {
 	flex: 0 1 auto;
 	min-width: 0;

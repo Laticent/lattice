@@ -329,6 +329,51 @@ code {
 	background-size: 220% 100%;
 	pointer-events: none;
 }
+/* Dark-mode fallback for the pre-theme window. The gradient above falls back to the
+   LIGHT `#e7e7ea` when `--bg-alt` hasn't resolved yet (the on-demand engine bundle +
+   theme CSS land after first paint) — on a dark-mode phone that painted the skeleton
+   WHITE for ~0.6s (the cold-load flash). Dark stops (the engine's own `#0c0c0c`
+   `DARK_BG` family) keep the fallback dark until the token resolves; once it does, the
+   `var(--bg-alt)` value wins, so this only governs the FALLBACK.
+   Keyed on `:root[data-mode="dark"]` — the pages' synchronous <head> seed script sets
+   it (from localStorage, else prefers-color-scheme) BEFORE the body paints, so it is
+   the app's real resolved mode, covering a light-OS / dark-app visitor the bare media
+   query would miss. The media query is a belt for the pre-seed instant. */
+:root[data-mode="dark"] .live-host:not(.is-live)::after,
+:root[data-mode="dark"] .studio-preview-host:not(.is-live)::after,
+:root[data-mode="dark"] .pg-preview-wrap:not(.is-live)::after {
+	background:
+		linear-gradient(115deg,
+			color-mix(in srgb, var(--bg-alt, #141414) 88%, var(--border, #2a2a2a)) 0%,
+			color-mix(in srgb, var(--bg-alt, #141414) 70%, var(--border, #2a2a2a)) 45%,
+			color-mix(in srgb, var(--bg-alt, #141414) 88%, var(--border, #2a2a2a)) 90%);
+	background-size: 220% 100%;
+}
+@media (prefers-color-scheme: dark) {
+	.live-host:not(.is-live)::after,
+	.studio-preview-host:not(.is-live)::after,
+	.pg-preview-wrap:not(.is-live)::after {
+		background:
+			linear-gradient(115deg,
+				color-mix(in srgb, var(--bg-alt, #141414) 88%, var(--border, #2a2a2a)) 0%,
+				color-mix(in srgb, var(--bg-alt, #141414) 70%, var(--border, #2a2a2a)) 45%,
+				color-mix(in srgb, var(--bg-alt, #141414) 88%, var(--border, #2a2a2a)) 90%);
+		background-size: 220% 100%;
+	}
+}
+/* Explicit light-app override: a dark-OS visitor who chose LIGHT mode must keep the
+   light skeleton — the media query above would otherwise darken it. data-mode is set
+   pre-paint, so this wins cleanly over the OS default. */
+:root[data-mode="light"] .live-host:not(.is-live)::after,
+:root[data-mode="light"] .studio-preview-host:not(.is-live)::after,
+:root[data-mode="light"] .pg-preview-wrap:not(.is-live)::after {
+	background:
+		linear-gradient(115deg,
+			color-mix(in srgb, var(--bg-alt, #e7e7ea) 88%, var(--border, #c9c9cf)) 0%,
+			color-mix(in srgb, var(--bg-alt, #e7e7ea) 70%, var(--border, #c9c9cf)) 45%,
+			color-mix(in srgb, var(--bg-alt, #e7e7ea) 88%, var(--border, #c9c9cf)) 90%);
+	background-size: 220% 100%;
+}
 /* The playground/workbench wraps aren't `position: relative` by default — the
    ::after is absolutely positioned, so anchor it. Harmless on the landing
    figures (already relative). */

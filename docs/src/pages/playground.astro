@@ -186,6 +186,87 @@ const pgData = {
 		     host, and the preview iframe. -->
 		<PlaygroundApp client:load data={pgData} />
 
+		<!-- Instant-shell pre-paint replay (kill the cold-load preview flash). Runs
+		     inline during body parse — BEFORE the island hydrates + the on-demand engine
+		     bundle loads — so a returning visitor's real first slide paints immediately
+		     instead of white→black→slides. Reads the Playground's OWN snapshot key and
+		     paints ONLY when the app will boot into Edit showing the SAME draft: it
+		     mirrors resolveStartupView (a handoff, an explicit/persisted Explore view, or
+		     a pristine draft all boot different content), and matches palette + mode +
+		     a hash of the persisted source. Any mismatch paints nothing — the dark
+		     loading skeleton covers the window — so a wrong deck can never flash.
+		     Injects the cached slide HTML (already sanitized at the #22 capture + storage
+		     chokepoints in snapshot-cache.js) into the SSR'd #pg-ssr-slidebox, and stashes
+		     it on window.__pgShellHtml for React to adopt. HARD RULE #22 sink: sanctioned
+		     in SANCTIONED_SNAPSHOT_SINKS (tools/check-ownership.js). -->
+		<script is:inline>
+			(function () {
+				var root = document.documentElement;
+				var box = document.getElementById('pg-ssr-slidebox');
+				if (!box) return;
+				var palette = root.getAttribute('data-palette') || 'indaco';
+				var mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
+				// djb2 hex — byte-identical to `fingerprint` in playground-controller.ts, the
+				// same hash the capture stamps, so the two agree on the draft's identity.
+				function fp(t) {
+					var h = 5381;
+					for (var i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+					return (h >>> 0).toString(16);
+				}
+				try {
+					var src = '';
+					try { src = localStorage.getItem('lattice-docs-pg-source') || ''; } catch (e) {}
+					// Mirror resolveStartupView: only an Edit boot shows the draft. A handoff
+					// forces Edit but REPLACES the draft (so its post-apply content differs) →
+					// don't paint; an explicit/persisted Explore view boots a gallery deck; a
+					// pristine draft opens Explore. Paint only on a genuine Edit-of-this-draft.
+					var hasHandoff = false;
+					try {
+						var hv = JSON.parse(localStorage.getItem('lattice-docs-pg-handoff') || 'null');
+						hasHandoff = !!(hv && typeof hv.md === 'string' && hv.md);
+					} catch (e) {}
+					var rawView = new URLSearchParams(location.search || '').get('view');
+					var urlView = rawView === 'read' || rawView === 'explore' ? 'read' : rawView === 'edit' ? 'edit' : null;
+					var savedView = null;
+					try { savedView = localStorage.getItem('lattice-docs-pg-view'); } catch (e) {}
+					var ih = null;
+					try { ih = localStorage.getItem('lattice-docs-pg-inserted-hash'); } catch (e) {}
+					var pristine = !src || !src.trim() ? true : ih != null && fp(src) === ih;
+					var view;
+					if (hasHandoff) view = 'handoff';
+					else if (urlView === 'read' || urlView === 'edit') view = urlView;
+					else if (savedView === 'read' || savedView === 'edit') view = savedView;
+					else view = pristine ? 'read' : 'edit';
+					if (view !== 'edit') return;
+					var raw = localStorage.getItem('lattice-docs-pg-last-slide');
+					if (!raw) return;
+					var snap = JSON.parse(raw);
+					if (snap && snap.v === 1 && snap.palette === palette && snap.mode === mode && snap.html && snap.css && snap.srcHash === fp(src)) {
+						var st = document.createElement('style');
+						st.id = 'pg-ssr-snap-css';
+						st.textContent = snap.css;
+						document.head.appendChild(st);
+						// Measure the preview pane and set the scale vars the shell CSS uses to
+						// transform-scale the intrinsic-size slide (mirroring the live FIT agent, so
+						// the container-query fonts match). Set as custom props on the box (not on a
+						// child) so React's dangerouslySetInnerHTML re-parse can't wipe them. Padding
+						// (16px) matches the shell box + the live filmstrip body padding.
+						var sw = snap.w || 1280;
+						var sh = snap.h || 720;
+						var wrap = box.parentElement;
+						var avail = ((wrap ? wrap.clientWidth : box.clientWidth) || sw + 32) - 32;
+						var sc = avail > 0 ? avail / sw : 1;
+						box.style.setProperty('--pg-ssr-w', sw + 'px');
+						box.style.setProperty('--pg-ssr-h', sh + 'px');
+						box.style.setProperty('--pg-ssr-scale', String(sc));
+						box.innerHTML = snap.html;
+						window.__pgShellHtml = snap.html;
+						root.setAttribute('data-pg-shell', 'on');
+					}
+				} catch (e) {}
+			})();
+		</script>
+
 		<!-- Guided tour: first-visit walkthrough + replay button (driver.js). The
 		     tour targets the live DOM by selector, so it runs after the island
 		     hydrates; it's unchanged from the vanilla surface. -->
