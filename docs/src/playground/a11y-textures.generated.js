@@ -72,6 +72,22 @@ var require_accessibility_textures = __commonJS({
     var CHART_FILLS = ["#2e2e2e", "#3b3b3b", "#484848", "#565656", "#656565", "#737373", "#838383", "#929292"];
     var CAT_INK = "#1a1a1a";
     var CHART_INK = "#f5f5f5";
+    var CAT_FILLS_DARK = [
+      "#2e2e2e",
+      "#333333",
+      "#383838",
+      "#3d3d3d",
+      "#424242",
+      "#484848",
+      "#4d4d4d",
+      "#525252",
+      "#585858",
+      "#5d5d5d",
+      "#636363",
+      "#696969"
+    ];
+    var CAT_INK_DARK = "#f5f5f5";
+    var CAT_INK_ONYX_LIGHT = "#8a8a8a";
     function patternSet(prefix, fills, ink) {
       return GEOMETRIES.slice(0, fills.length).map(({ mode, svg }, i) => {
         const n = i + 1;
@@ -79,10 +95,21 @@ var require_accessibility_textures = __commonJS({
         return `<pattern id="${prefix}-${n}" patternUnits="userSpaceOnUse" width="8" height="8"><rect width="8" height="8" fill="${fills[i]}"/><g ${inkAttr}>${svg}</g></pattern>`;
       }).join("");
     }
+    function schemeAwarePatternSet(prefix, lightFills, darkFills, lightInk, darkInk) {
+      const rules = [];
+      const patterns = GEOMETRIES.slice(0, lightFills.length).map(({ mode, svg }, i) => {
+        const n = i + 1;
+        rules.push(`.${prefix}-r${n}{fill:light-dark(${lightFills[i]},${darkFills[i]})}`);
+        rules.push(mode === "fill" ? `.${prefix}-i${n}{fill:light-dark(${lightInk},${darkInk});fill-opacity:.40}` : `.${prefix}-i${n}{fill:none;stroke:light-dark(${lightInk},${darkInk});stroke-opacity:.45;stroke-width:1;stroke-linecap:square}`);
+        return `<pattern id="${prefix}-${n}" patternUnits="userSpaceOnUse" width="8" height="8"><rect class="${prefix}-r${n}" width="8" height="8"/><g class="${prefix}-i${n}">${svg}</g></pattern>`;
+      }).join("");
+      return `<style>${rules.join("")}</style>${patterns}`;
+    }
     function texturePatternDefs2() {
       const cat = patternSet("latt-a11y-tex", CAT_FILLS, CAT_INK);
       const chart = patternSet("latt-a11y-chart-tex", CHART_FILLS, CHART_INK);
-      return `<svg width="0" height="0" aria-hidden="true" style="position:absolute" class="latt-a11y-defs"><defs>${cat}${chart}</defs></svg>`;
+      const onyx = schemeAwarePatternSet("latt-onyx-tex", CAT_FILLS, CAT_FILLS_DARK, CAT_INK_ONYX_LIGHT, CAT_INK_DARK);
+      return `<svg width="0" height="0" aria-hidden="true" style="position:absolute" class="latt-a11y-defs"><defs>${cat}${chart}${onyx}</defs></svg>`;
     }
     module.exports = { texturePatternDefs: texturePatternDefs2 };
   }
