@@ -11790,18 +11790,41 @@ section.state-chart.chart-frame .chart-body {
   align-items: center;
   justify-content: center;
   gap: var(--sp-sm);
+  /* Fill the stage by GROW with a ZERO basis — not `auto`, whose content-basis
+   * the absolutely-positioned scale box (its natural height can be many times the
+   * stage) confuses into collapsing the body to its padding. Basis 0 makes the
+   * body take its full flex share = the stage height, so the figure viewport below
+   * is definite and the letterbox scale has a real box to fit into. */
+  flex: 1 1 0;
+  min-height: 0;
 }
 
-/* Figure shell — a positioning context for the absolutely-placed SVG
- * overlay. width:fit-content sizes it to the padded node column so the
- * gutters (the .state-nodes padding below) are real space inside the
- * figure box, not an overflow the slide can clip. */
+/* Figure = the flex VIEWPORT + the positioning context for the scale box. It fills
+ * the available stage height (flex:1 1 auto in .chart-body's column) so the caption +
+ * status legend keep their space. It must NOT size to the content — the scale box is
+ * `position:absolute` (out of flow) precisely so a tall machine's natural height can't
+ * flow into the flex basis and collapse the chain; the figure fills the stage by grow,
+ * and draw() scales the absolute box to fit here (2026-07-16-state-chart-self-scale.md). */
 section.state-chart .state-chart-figure {
   position: relative;
+  flex: 1 1 0;             /* zero basis: fill the body by grow, not by content */
+  min-height: 0;
+  width: 100%;
+}
+
+/* Scale box — the NATURAL-SIZE geometry root (nodes + the absolutely-placed SVG
+ * overlay), width:fit-content sized to the padded node column (the bow-gutter padding
+ * is real space inside it). OUT OF FLOW (absolute, centred via top/left 50% +
+ * translate) so the flex viewport above never inherits its height. draw() reads its
+ * natural box, routes the edges into it, then appends `scale()` to letterbox it into
+ * the viewport — like the pie's <svg>, but for HTML content. */
+section.state-chart .state-chart-scale {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   width: fit-content;
-  max-width: 100%;
-  /* Centred by .chart-body's flex-direction:column + align-items:center (was
-   * margin: 0 auto — redundant, and auto margins sit outside the flex box). */
+  transform-origin: center center;
+  transform: translate(-50%, -50%);   /* centred; draw() appends the fit scale() */
 }
 
 /* Node column (TB, default) — centred, content-sized HTML nodes. The
@@ -12016,7 +12039,13 @@ section.state-chart .state-edge {
  * the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md §10. */
 @container lattice (aspect-ratio <= 0.9) {
-  section.state-chart .state-chart-figure { height: 100%; }
+  /* The figure viewport already fills the stage (flex:1). The SCALE BOX must also
+   * take the full height so `.state-nodes { height:100% }` below resolves against a
+   * DEFINITE height and `space-evenly` has room to distribute — otherwise the box's
+   * default auto height collapses the fill (the node column strands in the middle).
+   * At full height the natural column ≈ the viewport, so the landscape self-scale is
+   * a no-op here (raw ≈ 1); portrait fills by distribution, landscape by letterbox. */
+  section.state-chart .state-chart-scale { height: 100%; }
   section.state-chart .state-nodes {
     height: 100%;
     justify-content: space-evenly;
@@ -15538,11 +15567,15 @@ section.chart-frame .chart-body {
  * stage: under `flex:1 1 auto` an overstuffed chart flex-SHRINKS and `overflow:hidden`
  * clips the excess rows SILENTLY — invisible to the overflow probe (the QR-card
  * silent-overflow class, 2026-07-15-viz-frame-merge.md §5). That set is progress/gantt/
- * kanban/timeline-list/roadmap AND state-chart (its body is `<ol class="state-nodes">`
- * content-height HTML nodes — the `<svg>` is only a JS-sized edge overlay, NOT a scaling
- * container). Pin those bodies to natural height so an overstuffed chart SPILLS the stage
- * clip and the probe catches it (proven by chart-overflow-preserved.test.js). */
-section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap, .state-chart) > .cell-stage > .chart-body {
+ * kanban/timeline-list/roadmap. Pin those bodies to natural height so an overstuffed chart
+ * SPILLS the stage clip and the probe catches it (proven by chart-overflow-preserved.test.js).
+ *
+ * state-chart is NOT in this set: pinning it clipped a NORMAL chart's caption off the slide
+ * (its node column carries a tall bow-gutter, so even 4 nodes exceed a caption-compressed
+ * stage). It self-scales instead — a flex viewport that fills the stage (caption keeps its
+ * space) with a JS-fitted `.state-chart-scale` box, FLOORED so an overstuffed machine still
+ * spills + the probe catches it. See 2026-07-16-state-chart-self-scale.md + state-chart.styles.css. */
+section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap) > .cell-stage > .chart-body {
   flex: 0 0 auto;
 }
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural

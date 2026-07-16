@@ -17,6 +17,25 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **The chart detail reveal is now the real shadcn Popover, and it appears at the cursor.** Hovering
+  or tapping a chart mark (pie wedge, funnel band, state node, …) previously popped a hand-rolled card
+  anchored under the chart's centre. It now (a) renders as the actual shadcn `Popover` in the Playground
+  — Radix positioning, the site's popover tokens, dark/light aware — and (b) anchors to the **cursor
+  point** that opened it, so the detail sits right where you're looking. The parent-hosted
+  `chart-interact` layer stays the geometry/data engine but hands the reveal (content + cursor point) to
+  the React host via a new `onDetail` hook; the frozen Drawing Board keeps its vanilla card (now also
+  cursor-anchored). (`chart-interact.js`, `PlaygroundApp.tsx`.)
+- **State-chart is now a self-scaling chart, like the pie — it always fits, and never clips its
+  caption.** After the `.viz-frame` merge a normal state-chart (even 4 states) with a `_Source: …_`
+  caption overflowed: the pinned node column — tall from its bow-gutter padding — couldn't shrink
+  into the caption-compressed stage, so it spilled and clipped the caption (and pushed the detail
+  popover into that zone). The state-chart now behaves exactly like the SVG charts: its figure fills
+  the container and an inner `.state-chart-scale` box — nodes **and** edges together — letterbox-scales
+  to fit, sized purely by the parent (crisp from ~400px to 8K). It **always fits**: it squeezes down
+  when the machine is tall and fills up when there's room. Over-stuffing just makes it cramped — the
+  author's stress test; the house rule is a simple boardroom chart, not an architect's diagram — so it
+  no longer trips the overflow probe. (`state-chart.transform.js` + `.styles.css`,
+  `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
 - **Read-aloud no longer says "arrow", and expands "mo" to "months".** A `→` in prose was voiced
   as the literal word "arrow" ("Q1 arrow Q2"); it now reads as the transition it means — rightward
   `→`/`⇒` → "to" ("Q1 to Q2", "auto to clean"), bidirectional `↔` → "and" ("red and green"),
