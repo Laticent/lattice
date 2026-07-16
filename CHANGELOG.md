@@ -874,7 +874,20 @@ in patch versions.
   `width:100%`, but the engine pins its container-query font basis to 1280 — so the cached slide
   came out oversized + clipped (unrecognizable). It now keeps the slide at its intrinsic box and
   transform-scales it to fit (the same fix the Playground shell uses), measured in the replay.
-  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`, `ColorSchemeSeed.astro`.)
+  (5) **The white fallback palette was the deepest root** — the site's `:root` color tokens
+  (`--bg`, `--bg-alt`, …) default to indaco *light* (white `--bg`), and the dark values only arrive
+  from the generated `html[data-palette][data-mode]` block once the inline seed sets those attributes.
+  That fallback governs every `var(--bg)`/`var(--bg-alt)` surface — the preview pane, the iframe
+  letterbox, a bare slide face — during the pre-seed / pre-CSS window; the seed runs before the
+  stylesheet on Chromium (so it never showed there), but iOS Safari paints the root background more
+  eagerly and flashed the white fallback. The `:root` fallback is now keyed to the OS scheme via
+  `@media (prefers-color-scheme: dark)` — a dark visitor's fallback is on-brand dark (`#001d33` /
+  `#002847`), never white, on any browser and independent of seed timing; the exact per-palette
+  values still win the instant the generated block applies (lower specificity than the attribute
+  rules). The Playground preview `iframe` element also drops its `background: transparent` for a
+  solid `var(--bg-alt)`, so the one frame iOS composites the element before its srcdoc paints is the
+  brand letterbox color, never the iframe's default white.
+  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`, `ColorSchemeSeed.astro`, `landing.css`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its
   heading, and a few cases that spoke a falsehood are corrected.** A retroactive three-perspective

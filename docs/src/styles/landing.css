@@ -94,6 +94,32 @@
 	--icon-wand-sparkles: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72'/%3e%3cpath d='m14 7 3 3'/%3e%3cpath d='M5 6v4'/%3e%3cpath d='M19 14v4'/%3e%3cpath d='M10 2v2'/%3e%3cpath d='M7 8H3'/%3e%3cpath d='M21 16h-4'/%3e%3cpath d='M11 3H9'/%3e%3c/svg%3e");
 }
 
+/* Dark fallback palette (indaco dark) — the load-bearing anti-white-flash guard.
+ * The `:root` block above is indaco LIGHT (white --bg). Everything that paints a
+ * large surface during the cold window — the preview pane, the iframe letterbox,
+ * a bare `var(--bg)` face — reads these fallback tokens UNTIL the generated
+ * `html[data-palette][data-mode]` block wins (once the seed sets the attributes).
+ * That window is razor-thin on Chromium (the seed runs before the stylesheet),
+ * but iOS Safari paints the root background more eagerly, so a dark visitor got a
+ * white flash from the LIGHT fallback. Keying the fallback to the OS scheme makes
+ * a dark-OS visitor's fallback on-brand dark — no white, on any browser, at any
+ * point in the load. Lower specificity than the generated attribute rules, so the
+ * exact per-palette values still win the instant they apply. */
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #001d33;
+		--bg-alt: #002847;
+		--border: #0f3a5f;
+		--text-heading: #ffffff;
+		--text-body: #cbd9e8;
+		--text-muted: #6b7f9a;
+		--accent: #82c8e5;
+		--accent-soft: #002847;
+		--on-accent: #003d66;
+		--surface-inverse: #003d66;
+	}
+}
+
 /* .ico — site-wide inline icon. Drop <span class="ico ico-NAME"> anywhere and it
  * paints a Lucide glyph in the current text colour via a mask, so it tracks the
  * palette + light/dark like the toggles. Mark it aria-hidden when decorative. */

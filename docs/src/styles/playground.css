@@ -254,7 +254,13 @@ body[data-view='read'] .pg-pane-label {
 	display: block;
 	position: relative;
 	z-index: 1; /* above the instant-shell (.pg-ssr-shell, z-index 0) */
-	background: transparent;
+	/* On-brand at ALL times — never `transparent`. iOS Safari paints an iframe
+	   ELEMENT's own backing (default white) for a frame or two before its srcdoc
+	   document composites in; a transparent element lets that white leak. A solid
+	   `--bg-alt` backing means the worst case is the brand letterbox color, never
+	   white. (The element is still `visibility:hidden` until `.is-live`, so this
+	   only matters at the reveal instant.) */
+	background: var(--bg-alt);
 	/* HIDDEN until the frame goes live (its FIT agent has revealed the slides). The
 	   srcdoc paints an opaque body (a black box in dark mode) the moment it loads, well
 	   BEFORE FIT scales + reveals the sections; keeping the iframe invisible until then
