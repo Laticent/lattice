@@ -72,13 +72,22 @@ still skips re-routing while the figure carries a live reveal transform.
 
 ## Follow-ups (tracked, off-path for this change)
 
-- **The ~10-state ceiling.** A machine authored with more than ~10 states parses only the
-  first ten; the surplus list items leak as siblings into the stage and overflow. This is
-  a pre-existing upstream limit (the markdown ordered list splits), independent of the
-  self-scale, and consistent with the docs' "a machine of >8 states stops reading as a
-  machine." The self-scale contract is gated within the parseable range (≤10). Removing the
-  ceiling — so an over-stuffed machine renders all states scaled tiny rather than leaking —
-  is a separate parser change.
+- **The ~10-state ceiling — RESOLVED (2026-07-16, this branch's follow-up).** The "ceiling"
+  was never a count limit: it was an *indentation* trap. The house convention is to author
+  ordered items with the auto-number form (every marker `1.`) where the nested body clears
+  the `1. ` marker with 3 spaces — robust for any count. But a state machine is naturally
+  authored with *ascending* markers (`1. 2. … 10.`) because transitions point at targets by
+  number (`=> 5`). At item 10 the marker widens (`10. ` starts its text at column 4), so the
+  3-space nested transition no longer nests; markdown-it ejects it and restarts every later
+  state as its own `<ol start="N">`. The old "first `<ol>` only" read then silently dropped
+  every state past 9. Fixed in `state-chart.transform.js` §`extractStateList`, which
+  reassembles the leaked `<ol start>` / orphan `<ul>` run into one logical list before
+  parsing — so any state count works at any indentation, states identified by position and
+  targeted by number exactly as authored. Gated by a unit block (real markdown-it split →
+  14 states recovered) and the integration overflow gate (14-node render + self-scale, no
+  overflow). Note this is orthogonal to the editorial guidance that a >8-state machine stops
+  *reading* as a boardroom machine — the engine no longer *corrupts* a dense one; whether to
+  author one is still the deck author's call.
 
 ## Alternatives considered
 

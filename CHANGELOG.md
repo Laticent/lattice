@@ -36,6 +36,14 @@ in patch versions.
   author's stress test; the house rule is a simple boardroom chart, not an architect's diagram — so it
   no longer trips the overflow probe. (`state-chart.transform.js` + `.styles.css`,
   `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
+- **State-charts with more than 9 states no longer silently lose the tail.** A machine authored
+  with ascending numbers (`1. 2. … 10. 11.`) and the house 3-space nested-transition indent was
+  split by Markdown at item 10 — `10. ` is one character wider than `1. `, so the transition no
+  longer nested and every state past 9 leaked off the machine as loose bullets. The engine now
+  reassembles that split back into one list before parsing (`extractStateList`), so any number of
+  states renders, each identified by its position and targeted by number exactly as written — no
+  indentation counting required. (`state-chart.transform.js`, `_chart-family/chart-family.js`;
+  `engineering/decisions/2026-07-16-state-chart-self-scale.md` §Follow-ups.)
 - **Read-aloud no longer says "arrow", and expands "mo" to "months".** A `→` in prose was voiced
   as the literal word "arrow" ("Q1 arrow Q2"); it now reads as the transition it means — rightward
   `→`/`⇒` → "to" ("Q1 to Q2", "auto to clean"), bidirectional `↔` → "and" ("red and green"),

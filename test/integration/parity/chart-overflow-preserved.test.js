@@ -113,15 +113,16 @@ const FITTING_STATE = `<!-- _class: state-chart -->
 _Source: workflow engine_
 `;
 
-// A DENSE but valid machine: 10 states (the state-chart's practical ceiling) with
-// long labels + a full-span back-edge. This is the "overstuffed author stress test"
-// within the parseable range — it must self-scale (cramped) to fit, NOT overflow.
-// (Beyond ~10 states the markdown ordered list splits upstream and the extra items
-// leak as siblings — a pre-existing limit tracked in 2026-07-16-state-chart-self-scale.md
-// §Follow-ups, orthogonal to the self-scale contract gated here.)
+// A DENSE machine: 14 ascending-numbered states with long labels + a full-span
+// back-edge. This is the "overstuffed author stress test" AND a regression guard
+// for the two-digit-marker split: states 10–14 use `10.`–`14.` markers whose
+// wider content column ejects the 3-space nested transitions, so markdown-it
+// splits the list — extractStateList must reassemble it (all 14 states rendered,
+// not lost as siblings) and the self-scale must still fit it without overflow.
+// See 2026-07-16-state-chart-self-scale.md §Follow-ups (the "ceiling" is retired).
 const OVER_STATES = Array.from(
-  { length: 10 },
-  (_v, i) => `${i + 1}. State ${i + 1} with a reasonably long descriptive name\n   - \`=> ${i < 9 ? i + 2 : 1}\``,
+  { length: 14 },
+  (_v, i) => `${i + 1}. State ${i + 1} with a reasonably long descriptive name\n   - \`=> ${i < 13 ? i + 2 : 1}\``,
 ).join('\n');
 const OVER_TALL_STATE = `<!-- _class: state-chart -->
 
@@ -156,8 +157,9 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
     const hasStage = await page.$eval('section', (s) => !!s.querySelector('.cell-stage'));
     const bodyInStage = await page.$eval('section', (s) => !!s.querySelector('.cell-stage > .chart-body'));
     const titleHoisted = await page.$eval('section', (s) => !!s.querySelector('.cell-masthead .masthead-lede > h2'));
+    const stateNodes = await page.$eval('section', (s) => s.querySelectorAll('.state-node').length);
     await page.close();
-    return { over: v.over, hasStage, bodyInStage, titleHoisted };
+    return { over: v.over, hasStage, bodyInStage, titleHoisted, stateNodes };
   }
 
   test('a fitting SVG chart does NOT overflow (body in stage, title hoisted)', async () => {
@@ -201,6 +203,15 @@ describe('chart overflow detection is preserved after the .viz-frame stage wrap'
   test('an overstuffed state-chart does NOT overflow — it self-scales to fit (cramped, not clipped)', async () => {
     const v = await probeFirstSection(OVER_TALL_STATE, 'chart-overflow-over-states');
     assert.equal(v.hasStage, true);
+    // Reassembly guard (real pipeline): the 14-state machine uses two-digit markers
+    // that split the markdown list; extractStateList must recover every state, so
+    // all 14 nodes render — none lost as leaked siblings.
+    assert.equal(
+      v.stateNodes,
+      14,
+      'REGRESSION: states past 9 were lost to the two-digit-marker list split — extractStateList ' +
+        'must reassemble the leaked <ol start>/orphan <ul> fragments (state-chart.transform.js §extractStateList).',
+    );
     assert.equal(
       v.over,
       false,
