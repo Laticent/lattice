@@ -164,6 +164,39 @@ in patch versions.
 
 ### Added
 
+- **Accent finishes — the spectrum, heading rule, and eyebrow are now selectable finishes.**
+  Three baked-in details graduate to first-class registers on the Finish axis (the *accent*
+  sub-family, distinct from `finish:` backdrops), each deck-wide or per-slide, palette-blind,
+  defaulting to today's render:
+  - **`spectrum:` — the accent gradient STYLE.** `on` (rainbow, default) / `solid` / `duo`
+    (accent → the theme's duotone partner) / `mono` (a tint ramp) / `off`. The value redefines
+    the shared `--spectrum` token, so **every** spectrum-derived accent follows as one system —
+    the section-edge bar, table-header rails, the `list-steps` timeline spine, code-panel strips,
+    an author's `---` rule.
+  - **`spectrum-edge:` — the section-edge bar PLACEMENT.** `top` (default) / `left` / `right` /
+    `bottom` / `off`. Moves or removes only the bar (per-side `border-image`); the structural
+    accents are untouched.
+  - **`rule:` — the heading underline.** `auto` (default) / `full` / `short` / `accent` / `none`,
+    controlling the masthead / split-panel heading rule.
+  - **`eyebrow:` — the mono-caps kicker decoration.** `plain` (default) / `dot` / `bar` / `arrow`
+    / `underline` — a leading accent mark or a hairline, one treatment deck-wide.
+
+  Demo deck `examples/accent-finishes.md` (+ committed PDF); author reference in
+  `lib/base/base.docs.md`; design in
+  `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
+
+### Changed
+
+- **Breaking: `spectrum:` now controls the whole accent system, not just the brand bar.** The
+  register was a narrow bar-only toggle (`on`/`off`/`solid` targeting the three brand-bar paint
+  sites); it now sets the shared `--spectrum` token so a style choice flows to every accent.
+  Two behavior changes for existing decks: `spectrum: solid` recolors the structural accents
+  (table rails, timeline spines, code strips), not just the bar; and `spectrum: off` flattens
+  those accents to a neutral `--border` hairline (previously they kept the rainbow) as well as
+  dropping the bar. To remove or move the *bar alone* while leaving structure intact, use the new
+  `spectrum-edge:` register (`spectrum-edge: off`, or `left`/`right`/`bottom`). White-label decks
+  generally want the fuller de-brand `spectrum: off` now gives.
+
 - **`design/skills/` — seven self-contained "create a killer X from scratch" skill files.** One
   skill each for authoring a **deck**, a **theme**, a **component**, a **chart component**, a
   **finish**, a **lens**, and **speaker notes / reviews / captions**. Each stands alone — the

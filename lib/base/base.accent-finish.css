@@ -1,0 +1,103 @@
+/* ── ACCENT FINISHES ── heading-rule + eyebrow — the `rule:` / `eyebrow:` registers.
+ *
+ * The Finish axis's ACCENT sub-family: small, palette-blind marks on chrome that already
+ * exists (the masthead hairline, the mono-caps kicker), selected deck-wide or per slide and
+ * defaulting to today's render. Bundled at the TAIL (after the Form Cell CSS that draws the
+ * masthead hairline, and after base.modifiers' eyebrow rule) so these overrides win by
+ * source order as well as specificity. Spectrum — the third accent finish — lives in
+ * base.variants.css beside its white-label siblings.
+ *
+ * No `margin` (HARD RULE #20 — a measuring layout reads border/padding, not margin); no
+ * hex (HARD RULE #3 — every color is a `var(--token)`); nothing full-bleed, so no export
+ * dual is needed. See engineering/decisions/2026-07-15-accent-finish-consolidation.md. */
+
+/* ── HEADING RULE (`rule:`) ── the underline beneath a slide's heading ───────────────────
+ * Governs the canonical heading underline: the `form` masthead hairline
+ * (lib/forms/cell/masthead/masthead.css) and the split-panel right-column kicker rule
+ * (lib/components/statement/split-panel/split-panel.styles.css). `auto` (the default, no
+ * class) leaves today's render untouched. A non-form slide with no underline is a graceful
+ * no-op. */
+
+/* full — an explicit full-width hairline (also the masthead default; stated for parity). */
+section.rule-full.form .cell-masthead { border-bottom: 1px solid var(--border); }
+
+/* none — drop the heading underline entirely. */
+section.rule-none.form .cell-masthead { border-bottom: none; }
+section.rule-none.split-panel .panel-right h3 { border-bottom: none; }
+
+/* short / accent — replace the full hairline with a short left-aligned segment, drawn as a
+ * pseudo so it does not span the masthead grid. `short` is neutral (--border); `accent`
+ * paints it in the deck's --accent so it reads as a signature. The segment sits at the
+ * band's padding edge (bottom:0), exactly where the border-bottom used to. */
+section:is(.rule-short, .rule-accent).form .cell-masthead {
+  border-bottom: none;
+  position: relative;
+}
+section:is(.rule-short, .rule-accent).form .cell-masthead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 8cqi;
+  height: 0.22cqi;
+  border-radius: 0.11cqi;
+  background: var(--border);
+}
+section.rule-accent.form .cell-masthead::after { background: var(--accent); }
+
+/* accent — recolor the split-panel kicker rule to match; none already handled above. */
+section.rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }
+
+/* ── EYEBROW (`eyebrow:`) ── decoration on the mono-caps kicker ───────────────────────────
+ * Targets the eyebrow `<code>` — a code-only `<p>` that precedes a heading/list (the same
+ * pattern base.modifiers.css styles, and the element the masthead lift relocates unchanged,
+ * so one rule covers the plain and `form` cases). `plain` (default, no class) is the bare
+ * label. Leading marks (dot/bar/arrow) ride an inline-flex `> code` with a `gap` — never a
+ * `margin` — so the mark sits before the text and measures cleanly. */
+
+/* Shared: give the kicker an inline-flex box so a leading ::before mark spaces via gap. */
+section:is(.eyebrow-dot, .eyebrow-bar, .eyebrow-arrow)
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+/* dot — a small filled accent disc. */
+section.eyebrow-dot
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
+  content: "";
+  flex: none;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* bar — a short vertical accent tick. */
+section.eyebrow-bar
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
+  content: "";
+  flex: none;
+  width: 0.22em;
+  height: 1em;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+/* arrow — a leading chevron glyph in the accent color. */
+section.eyebrow-arrow
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
+  content: "\203A"; /* › SINGLE RIGHT-POINTING ANGLE QUOTATION MARK */
+  flex: none;
+  color: var(--accent);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* underline — a hairline rule beneath the kicker (padding, not margin, for the gap). */
+section.eyebrow-underline
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.2em;
+}

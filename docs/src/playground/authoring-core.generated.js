@@ -659,6 +659,9 @@ ${indent}   - ${body.trim()}`;
       if (vocab.stampStyleNames) findings.push(...findUnknownStamp(source, vocab.stampStyleNames));
       if (vocab.toneStyleNames) findings.push(...findUnknownToneStyle(source, vocab.toneStyleNames));
       if (vocab.spectrumNames) findings.push(...findUnknownSpectrum(source, vocab.spectrumNames));
+      if (vocab.spectrumEdgeNames) findings.push(...findUnknownSpectrumEdge(source, vocab.spectrumEdgeNames));
+      if (vocab.ruleNames) findings.push(...findUnknownRule(source, vocab.ruleNames));
+      if (vocab.eyebrowNames) findings.push(...findUnknownEyebrow(source, vocab.eyebrowNames));
       if (vocab.liftNames) findings.push(...findUnknownLift(source, vocab.liftNames));
       findings.push(...findRetiredBackdrop(source));
       findings.push(...findSingleLetterLexiconKeys(source));
@@ -1038,6 +1041,60 @@ ${indent}   - ${body.trim()}`;
         fix: `Set front-matter \`spectrum:\` to one of: ${[...spectrumNames].join(", ")}.`
       }];
     }
+    function findUnknownSpectrumEdge(source, spectrumEdgeNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmEdge = fmBlock[1].match(/^\s*spectrum-edge:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmEdge) return [];
+      const value = fmEdge[1].trim();
+      const known = new Set([...spectrumEdgeNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-spectrum-edge",
+        severity: "warning",
+        classToken: value,
+        line: fmEdge[0].trim(),
+        message: `'${value}' is not a known spectrum-edge value \u2014 the deck would silently render the top bar`,
+        fix: `Set front-matter \`spectrum-edge:\` to one of: ${[...spectrumEdgeNames].join(", ")}.`
+      }];
+    }
+    function findUnknownRule(source, ruleNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmRule = fmBlock[1].match(/^\s*rule:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmRule) return [];
+      const value = fmRule[1].trim();
+      const known = new Set([...ruleNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-rule",
+        severity: "warning",
+        classToken: value,
+        line: fmRule[0].trim(),
+        message: `'${value}' is not a known rule value \u2014 the deck would silently render the default heading underline`,
+        fix: `Set front-matter \`rule:\` to one of: ${[...ruleNames].join(", ")}.`
+      }];
+    }
+    function findUnknownEyebrow(source, eyebrowNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmEyebrow = fmBlock[1].match(/^\s*eyebrow:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmEyebrow) return [];
+      const value = fmEyebrow[1].trim();
+      const known = new Set([...eyebrowNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-eyebrow",
+        severity: "warning",
+        classToken: value,
+        line: fmEyebrow[0].trim(),
+        message: `'${value}' is not a known eyebrow value \u2014 the deck would silently render the bare label`,
+        fix: `Set front-matter \`eyebrow:\` to one of: ${[...eyebrowNames].join(", ")}.`
+      }];
+    }
     function findUnknownLift(source, liftNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
@@ -1196,6 +1253,9 @@ ${indent}   - ${body.trim()}`;
       findUnknownStamp,
       findUnknownToneStyle,
       findUnknownSpectrum,
+      findUnknownSpectrumEdge,
+      findUnknownRule,
+      findUnknownEyebrow,
       findSingleLetterLexiconKeys,
       nearestRegion,
       editDistance,

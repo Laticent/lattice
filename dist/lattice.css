@@ -18289,29 +18289,75 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
   border-image: none;
 }
 
-/* ── SPECTRUM register ── the white-label brand-bar control (`spectrum:` front matter).
-   The rainbow brand BAR is painted in three sites — the top border-image (base.elements),
-   the `.dark`-canvas top background line (base.modifiers), and the divider left rail
-   (divider.styles). The register targets exactly those three; it deliberately does NOT
-   touch the `--spectrum` token, which is ALSO reused by non-brand decorations (author
-   `---` rules, the list-steps spine, table header rails) that must not vanish when a deck
-   opts out of the brand bar. `off` removes the bar; `solid` repaints it in the single
-   brand `--accent` (white-label: set the theme accent to the client color).
-   See engineering/decisions/2026-07-03-spectrum-register-white-label.md. */
-section.spectrum-off { border-top: none; }
+/* ── SPECTRUM registers ── the accent-gradient controls, two orthogonal keys.
+   The rainbow accent is one token (`--spectrum` / `--spectrum-vertical`, defined per theme)
+   read by every accent site: the section-edge BAR (top border-image, base.elements; the
+   `.dark` top line, base.modifiers; the divider left rail, divider.styles) AND the STRUCTURE
+   (author `---` rules, the list-steps spine, table-header rails, code-panel strips, split-
+   card underlines). Two registers:
+
+   STYLE (`spectrum:` → spectrum-solid/duo/mono/off) redefines the shared TOKEN, so every
+   accent — bar and structure — follows as ONE system (the consolidation). All values are
+   palette-blind (`--accent` / `--tag-bg` / `--border`, color-mix only) and export-safe
+   (solid or two-tone gradients, no rainbow-alpha PDF hazard). `off` flattens the token to a
+   quiet `--border` hairline (the print convention) AND drops the prominent edge bar.
+
+   EDGE (`spectrum-edge:` → spectrum-edge-left/right/bottom/off) moves/removes ONLY the
+   section-edge bar via a per-side border-image — it never touches the structural accents, so
+   a bar-off deck keeps its table rails and `---` rules (the white-label invariant preserved).
+   See engineering/decisions/2026-07-03-spectrum-register-white-label.md (original register)
+   and 2026-07-15-accent-finish-consolidation.md (this expansion). */
+
+/* STYLE — redefine the shared token; every accent follows. */
+section.spectrum-solid {
+  --spectrum: linear-gradient(90deg, var(--accent), var(--accent));
+  --spectrum-vertical: linear-gradient(180deg, var(--accent), var(--accent));
+}
+section.spectrum-duo {
+  /* accent → the theme's duotone partner (--tag-bg, universally set in base.tokens.css). */
+  --spectrum: linear-gradient(90deg, var(--accent) 0%, var(--tag-bg) 100%);
+  --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, var(--tag-bg) 100%);
+}
+section.spectrum-mono {
+  --spectrum: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
+  --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
+}
+/* off — flatten every accent to a quiet --border hairline AND drop the prominent edge bar. */
+section.spectrum-off {
+  --spectrum: linear-gradient(var(--border), var(--border));
+  --spectrum-vertical: linear-gradient(var(--border), var(--border));
+  border-top: none;
+}
 section.dark.spectrum-off { background: var(--bg); }
 section.divider:not(.light).spectrum-off { background: var(--surface-inverse); }
 
-section.spectrum-solid {
-  border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid var(--accent); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
-  border-image: none;
+/* EDGE — move the section-edge bar to a chosen side (per-side border-image, export-safe).
+   The bar width matches base.elements' top border: (--_sec-1cqi * 0.3125). A `divider`
+   carries its OWN signature rail on the section background (divider.styles.css), so it is
+   EXEMPT from the per-side border rail — placing a second rail on it would double the bar.
+   The deck-wide "no bar" value (`spectrum-edge: off`) still clears the divider rail below. */
+section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off) {
+  border-top: none;
 }
-section.dark.spectrum-solid {
-  background: linear-gradient(var(--accent), var(--accent)) top / 100% 1px no-repeat, var(--bg);
+section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom):not(.divider) { border-image-slice: 1; }
+section.spectrum-edge-left:not(.divider) {
+  border-left: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid; /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
+  border-image-source: var(--spectrum-vertical, var(--spectrum));
 }
-section.divider:not(.light).spectrum-solid {
-  background: linear-gradient(var(--accent), var(--accent)) left / 0.46875cqi 100% no-repeat, var(--surface-inverse);
+section.spectrum-edge-right:not(.divider) {
+  border-right: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
+  border-image-source: var(--spectrum-vertical, var(--spectrum));
 }
+section.spectrum-edge-bottom:not(.divider) {
+  border-bottom: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
+  border-image-source: var(--spectrum);
+}
+/* dark slides paint the top bar as a background line; drop it when an edge is chosen. */
+section.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(.divider) {
+  background: var(--bg);
+}
+/* the divider's default is a left rail; edge:off clears it deck-wide. */
+section.divider:not(.light).spectrum-edge-off { background: var(--surface-inverse); }
 
 /* ── STATE ── meta indicators about the slide itself ────────────────── */
 
@@ -19127,6 +19173,111 @@ section.form .tile-watermark {
 }
 section.form.dark .tile-watermark,
 section.dark.form .tile-watermark { color: var(--on-dark-watermark); }
+
+/* === lib/base/base.accent-finish.css === */
+/* ── ACCENT FINISHES ── heading-rule + eyebrow — the `rule:` / `eyebrow:` registers.
+ *
+ * The Finish axis's ACCENT sub-family: small, palette-blind marks on chrome that already
+ * exists (the masthead hairline, the mono-caps kicker), selected deck-wide or per slide and
+ * defaulting to today's render. Bundled at the TAIL (after the Form Cell CSS that draws the
+ * masthead hairline, and after base.modifiers' eyebrow rule) so these overrides win by
+ * source order as well as specificity. Spectrum — the third accent finish — lives in
+ * base.variants.css beside its white-label siblings.
+ *
+ * No `margin` (HARD RULE #20 — a measuring layout reads border/padding, not margin); no
+ * hex (HARD RULE #3 — every color is a `var(--token)`); nothing full-bleed, so no export
+ * dual is needed. See engineering/decisions/2026-07-15-accent-finish-consolidation.md. */
+
+/* ── HEADING RULE (`rule:`) ── the underline beneath a slide's heading ───────────────────
+ * Governs the canonical heading underline: the `form` masthead hairline
+ * (lib/forms/cell/masthead/masthead.css) and the split-panel right-column kicker rule
+ * (lib/components/statement/split-panel/split-panel.styles.css). `auto` (the default, no
+ * class) leaves today's render untouched. A non-form slide with no underline is a graceful
+ * no-op. */
+
+/* full — an explicit full-width hairline (also the masthead default; stated for parity). */
+section.rule-full.form .cell-masthead { border-bottom: 1px solid var(--border); }
+
+/* none — drop the heading underline entirely. */
+section.rule-none.form .cell-masthead { border-bottom: none; }
+section.rule-none.split-panel .panel-right h3 { border-bottom: none; }
+
+/* short / accent — replace the full hairline with a short left-aligned segment, drawn as a
+ * pseudo so it does not span the masthead grid. `short` is neutral (--border); `accent`
+ * paints it in the deck's --accent so it reads as a signature. The segment sits at the
+ * band's padding edge (bottom:0), exactly where the border-bottom used to. */
+section:is(.rule-short, .rule-accent).form .cell-masthead {
+  border-bottom: none;
+  position: relative;
+}
+section:is(.rule-short, .rule-accent).form .cell-masthead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 8cqi;
+  height: 0.22cqi;
+  border-radius: 0.11cqi;
+  background: var(--border);
+}
+section.rule-accent.form .cell-masthead::after { background: var(--accent); }
+
+/* accent — recolor the split-panel kicker rule to match; none already handled above. */
+section.rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }
+
+/* ── EYEBROW (`eyebrow:`) ── decoration on the mono-caps kicker ───────────────────────────
+ * Targets the eyebrow `<code>` — a code-only `<p>` that precedes a heading/list (the same
+ * pattern base.modifiers.css styles, and the element the masthead lift relocates unchanged,
+ * so one rule covers the plain and `form` cases). `plain` (default, no class) is the bare
+ * label. Leading marks (dot/bar/arrow) ride an inline-flex `> code` with a `gap` — never a
+ * `margin` — so the mark sits before the text and measures cleanly. */
+
+/* Shared: give the kicker an inline-flex box so a leading ::before mark spaces via gap. */
+section:is(.eyebrow-dot, .eyebrow-bar, .eyebrow-arrow)
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+/* dot — a small filled accent disc. */
+section.eyebrow-dot
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
+  content: "";
+  flex: none;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* bar — a short vertical accent tick. */
+section.eyebrow-bar
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
+  content: "";
+  flex: none;
+  width: 0.22em;
+  height: 1em;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+/* arrow — a leading chevron glyph in the accent color. */
+section.eyebrow-arrow
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
+  content: "\203A"; /* › SINGLE RIGHT-POINTING ANGLE QUOTATION MARK */
+  flex: none;
+  color: var(--accent);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* underline — a hairline rule beneath the kicker (padding, not margin, for the gap). */
+section.eyebrow-underline
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.2em;
+}
 
 /* === lib/integrations/mermaid/mermaid.css === */
 /* _diagram-overrides.css — Mermaid SVG selectors, palette-blind.
