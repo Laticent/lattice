@@ -273,8 +273,10 @@ describe('resolve-spectrum — TRIM (`spectrum-trim:`)', () => {
 
   test('CSS contract — structural accents read --spectrum-structure; the opt-in flows --spectrum', () => {
     const variants = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.variants.css'), 'utf8');
-    // The token defaults to a quiet neutral hairline, and the opt-in points it at --spectrum.
-    assert.match(variants, /--spectrum-structure:\s*linear-gradient\(var\(--border\), var\(--border\)\)/);
+    // The token defaults to a quiet ACCENT-TINT hairline (--spectrum-quiet, a low-intensity blend
+    // of --accent + --border), NOT flat neutral; the opt-in points it at the full --spectrum.
+    assert.match(variants, /--spectrum-quiet:\s*color-mix\(in oklab, var\(--accent\) \d+%, var\(--border\)\)/);
+    assert.match(variants, /--spectrum-structure:\s*linear-gradient\(var\(--spectrum-quiet\), var\(--spectrum-quiet\)\)/);
     assert.match(variants, /section\.spectrum-trim\s*\{\s*--spectrum-structure:\s*var\(--spectrum\)/);
     // A representative structural site now reads the STRUCTURE token, not --spectrum directly.
     const elements = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.elements.css'), 'utf8');

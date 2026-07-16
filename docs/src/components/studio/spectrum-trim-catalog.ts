@@ -25,8 +25,8 @@ const RULE = (fill: string) => `${fill} center / 70% 2px no-repeat, var(--bg)`;
 export const SPECTRUM_TRIMS: SpectrumTrimEntry[] = [
 	{
 		name: 'off', label: 'Quiet',
-		blurb: 'Structural accents stay a quiet neutral hairline — the default. The spectrum lives on the brand bar alone.',
-		swatch: { background: RULE('linear-gradient(var(--border), var(--border))') },
+		blurb: 'Structural accents stay a quiet accent-tinted hairline — the default. The full spectrum lives on the brand bar alone.',
+		swatch: { background: RULE('linear-gradient(color-mix(in oklab, var(--accent) 60%, var(--border)), color-mix(in oklab, var(--accent) 60%, var(--border)))') },
 	},
 	{
 		name: 'on', label: 'Spectrum',

@@ -18354,11 +18354,19 @@ section {
 /* The STRUCTURE accent token — read by the in-content accent lines (table-header rails, the
    list-steps timeline spine, code-panel strips, the `hr` rule, split-card underlines), as
    opposed to the brand BAR (section edge / dark line / divider rail, which read --spectrum
-   directly). Defaults to a QUIET neutral hairline so a default deck stays elegant — the
-   spectrum lives on the brand bar alone, not repeated on every rule. The opt-in
-   `spectrum-trim: on` register (→ section.spectrum-trim) points this at --spectrum to flow the
-   deck's gradient onto the structure too. See 2026-07-16-spectrum-structure-default.md. */
-section { --spectrum-structure: linear-gradient(var(--border), var(--border)); }
+   directly). Defaults to a QUIET hairline so a default deck stays elegant — the spectrum lives
+   on the brand bar alone, not repeated on every rule. That quiet hairline is a LOW-INTENSITY
+   TINT of the brand accent (`--spectrum-quiet`), not flat neutral gray: it reads as an
+   intentional, on-brand detail (echoing the accent-toned labels above it) and stays legible on
+   dark canvases, while remaining clearly secondary to the full-spectrum bar. The tint strength
+   is a single dial; a theme may override `--spectrum-quiet`. The opt-in `spectrum-trim: on`
+   register (→ section.spectrum-trim) points --spectrum-structure at --spectrum to flow the deck's
+   full gradient onto the structure too. Design-trio treatment refinement — see
+   2026-07-16-spectrum-structure-default.md. */
+section {
+  --spectrum-quiet: color-mix(in oklab, var(--accent) 60%, var(--border));
+  --spectrum-structure: linear-gradient(var(--spectrum-quiet), var(--spectrum-quiet));
+}
 
 /* TRIM — the opt-in that flows the deck's spectrum STYLE onto the structural accents. Reads
    --spectrum, so it follows whatever the `spectrum:` STYLE resolved to (rainbow / solid / duo /

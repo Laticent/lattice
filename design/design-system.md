@@ -118,11 +118,11 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 
 | Register (human) | Key | What it sets |
 |---|---|---|
-| **Spectrum** | `spectrum:` | the accent-gradient STYLE (`on`/`solid`/`duo`/`mono`/`off`) — flows to every accent via the shared `--spectrum` token |
+| **Spectrum** | `spectrum:` | the accent-gradient STYLE (`on`/`solid`/`duo`/`mono`/`off`) — drives the brand bar (and the structure under `spectrum-trim: on`) |
 | **Spectrum edge** | `spectrum-edge:` | the section-edge bar PLACEMENT (`top`/`left`/`right`/`bottom`/`off`) |
 | **Spectrum card** | `spectrum-card:` | an INDEPENDENT spectrum rail on card surfaces (`off`/`auto`/`solid`/`duo`/`mono`/`rainbow`) |
 | **Spectrum card edge** | `spectrum-card-edge:` | where the card rail sits (`left`/`top`/`right`/`bottom`) |
-| **Spectrum trim** | `spectrum-trim:` | flow the spectrum onto the structural accents (`off`/`on`) — off = quiet neutral by default |
+| **Spectrum trim** | `spectrum-trim:` | flow the spectrum onto the structural accents (`off`/`on`) — off = quiet accent-tinted hairline by default |
 | **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
 | **Eyebrow** | `eyebrow:` | the mono-caps kicker decoration (`plain`/`dot`/`bar`/`arrow`/`underline`) |
 

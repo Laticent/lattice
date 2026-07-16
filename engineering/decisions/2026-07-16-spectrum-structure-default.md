@@ -4,7 +4,7 @@ summary: >
   Pull the spectrum back to the brand BAR by default. The in-content structural
   accents (table-header rails, the list-steps timeline spine, code-panel strips,
   the hr rule, split-card underlines) now read a new --spectrum-structure token
-  that defaults to a quiet neutral --border hairline, so a no-config deck stays
+  that defaults to a quiet accent-tinted hairline, so a no-config deck stays
   elegant and low-noise instead of repeating the rainbow on every rule. A new
   opt-in register `spectrum-trim:` (off default / on) points that token at
   --spectrum to flow the deck's STYLE back onto the structure. Breaking vs main
@@ -38,10 +38,10 @@ onto the structure is an **opt-in finish**, `spectrum-trim:`.
 - **Brand bar family** (keeps `--spectrum` directly): the section-edge bar (`base.elements.css`),
   the `section.dark` top line (`base.modifiers.css`), the divider left rail
   (`divider.styles.css`).
-- **Structure family** (now reads `--spectrum-structure`, a NEW token that defaults to a neutral
-  `linear-gradient(var(--border), var(--border))` hairline): table-header rails (compare-table,
-  glossary, obligation-matrix, statute-stack, roadmap), the `list-steps` timeline spine, code
-  strips (code, compare-code, hljs), the `hr` rule, the split-cover-compare underline.
+- **Structure family** (now reads `--spectrum-structure`, a NEW token that defaults to a quiet
+  accent-tint hairline — see "Design-trio treatment refinement" below): table-header rails
+  (compare-table, glossary, obligation-matrix, statute-stack, roadmap), the `list-steps` timeline
+  spine, code strips (code, compare-code, hljs), the `hr` rule, the split-cover-compare underline.
 - **`spectrum-trim:` register** (`off` default / `on`) → `section.spectrum-trim { --spectrum-structure: var(--spectrum); }`, so the opt-in flows whatever the `spectrum:` STYLE resolved to
   (rainbow / solid / duo / mono) onto the structure. Per-slide `_class: spectrum-trim` opts one
   slide in, `spectrum-trim-off` out of a deck-wide `on`. Mirrors the `lift:` shape.
@@ -67,3 +67,31 @@ same change.
 `spectrum-trim` (human pick over `spectrum-structure` / `spectrum-rules`) — "trim" = the accent
 detailing on the content, distinct from the brand bar. It joins `spectrum:` / `spectrum-edge:` /
 `spectrum-card:` / `spectrum-card-edge:` as the fifth spectrum axis.
+
+## Design-trio treatment refinement (2026-07-16)
+
+Human asked: *"i assume we will still be able to tune each type of spectrum right"* — then requested
+a **red team + Munger inversion + independent checker, from a UI/UX + visual-artist lens**, on the
+granularity question (should `spectrum-trim` be one toggle, per-element, structure-own-style, or all
+of it?). All three reviewed real rendered specimens (quiet default / trim-on / a two-tier mock).
+
+**Verdict — keep the single `spectrum-trim` toggle. Reject per-element and per-structure-style
+control.** Convergent reasoning: more granularity multiplies the ways to build an incoherent,
+theme-fragile, patchwork deck (the exact "ransom-note" the whole change fought); a two-tier
+independent-style axis tends to *clash* (a mono structure rail under a rainbow bar reads "these
+don't match," not "primary vs quiet tier"), costs a second resolver + a per-theme audit, and the
+trim effect is nearly invisible on the most common components (code panels, cards) — so sub-toggles
+would ship controls a viewer can't see. One toggle stays coherent by construction with the lowest
+author burden.
+
+**But the trio's more valuable finding — the lever is the COLOR TREATMENT, not the knob count.**
+Two reviewers independently flagged that the first-cut quiet default (a flat *neutral* `--border`
+hairline) reads slightly "half-applied" on light (accent-toned labels over a de-branded gray rule)
+and thins out on dark. Refinement adopted: the quiet default is now a **low-intensity tint of the
+brand accent** — `--spectrum-quiet: color-mix(in oklab, var(--accent) 60%, var(--border))`, and
+`--spectrum-structure` defaults to `linear-gradient(var(--spectrum-quiet), var(--spectrum-quiet))`.
+The hairline now echoes the accent-toned labels above it (reads intentional + on-brand), survives
+dark canvases, and stays clearly secondary to the full-spectrum bar. Palette-blind, one dial,
+theme-overridable via `--spectrum-quiet`. Verified light + dark (indaco, indaco-dark, ardesia-dark).
+The granularity axis is deliberately NOT added — the one toggle plus this treatment is the whole
+answer to "tune each type."

@@ -680,7 +680,7 @@ one slide's "Confidential" marker as a notch while the rest of the deck seals.
 The SPECTRUM is the accent gradient. **By default it paints the brand BAR only** — the section
 edge, the `section.dark` top line, and the divider left rail. The in-content structural accents
 (table-header rails, the `list-steps` timeline spine, code-panel strips, an author's `---` rule,
-split-card underlines) render a **quiet neutral hairline** by default, so a no-config deck stays
+split-card underlines) render a **quiet accent-tinted hairline** by default, so a no-config deck stays
 elegant and low-noise. `spectrum-trim: on` flows the spectrum onto that structure too. The keys
 are siblings of the registers above (`lib/core/resolve-spectrum.js`), propagated to every section
 and overridable per slide; a typo is caught as `unknown-spectrum` / `unknown-spectrum-edge` /
@@ -743,13 +743,13 @@ it on where it earns its place.
 
 **`spectrum-trim:` — flow the spectrum onto the STRUCTURAL accents.** Off by default — the
 in-content accents (table-header rails, the `list-steps` timeline spine, code-panel strips, the
-`hr` rule, split-card underlines) render a quiet neutral hairline, so the spectrum stays on the
+`hr` rule, split-card underlines) render a quiet accent-tinted hairline, so the spectrum stays on the
 brand bar alone (elegant, low-noise). `on` points those accents at `--spectrum`, so they follow
 the deck's STYLE. Per-slide `_class: spectrum-trim` opts one slide in, `spectrum-trim-off` out.
 
 | `spectrum-trim:` value | Token | Effect |
 |---|---|---|
-| `off` | *(none)* | Structural accents stay a quiet `--border` hairline. **The default** (omit the key). |
+| `off` | *(none)* | Structural accents stay a quiet accent-tinted hairline. **The default** (omit the key). |
 | `on` | `spectrum-trim` | The deck's spectrum flows onto the table rails, timeline spine, code strips, and `hr`. |
 
 The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left; add

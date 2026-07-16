@@ -190,7 +190,7 @@ in patch versions.
   - **`spectrum-trim:` — flow the spectrum onto the structural accents.** `off` (default) / `on`;
     per-slide `_class: spectrum-trim` / `spectrum-trim-off`. By default the spectrum lives on the
     brand bar alone and the in-content accents (table-header rails, the `list-steps` timeline
-    spine, code-panel strips, the `hr` rule, split-card underlines) render a quiet neutral
+    spine, code-panel strips, the `hr` rule, split-card underlines) render a quiet accent-tinted
     hairline — elegant, low-noise. `spectrum-trim: on` flows the deck's spectrum STYLE back onto
     that structure. See the Breaking note below.
 
@@ -202,9 +202,10 @@ in patch versions.
 
 - **Breaking: the spectrum paints the brand BAR only by default — structural accents go quiet.**
   The in-content accents that read the spectrum (table-header rails, the `list-steps` timeline
-  spine, code-panel strips, the `hr` rule, split-card underlines) now render a quiet neutral
-  `--border` hairline by default instead of the spectrum gradient; the spectrum lives on the
-  brand bar (section edge / dark line / divider rail) alone. This keeps a default deck elegant
+  spine, code-panel strips, the `hr` rule, split-card underlines) now render a quiet
+  accent-tinted `--spectrum-quiet` hairline by default (a low-intensity blend of `--accent` +
+  `--border`) instead of the spectrum gradient; the spectrum lives on the brand bar (section
+  edge / dark line / divider rail) alone. This keeps a default deck elegant
   and low-noise (no rainbow repeated on every rule). Decks that want the prior look — the
   spectrum on every accent — add **`spectrum-trim: on`** (deck-wide or per slide). Mechanically,
   the structural sites now read a new `--spectrum-structure` token (neutral default; the opt-in
