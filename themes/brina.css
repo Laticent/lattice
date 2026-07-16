@@ -106,6 +106,7 @@
   /* ── Spectrum — graphite → steel → silver ──────────────────────────── */
   --spectrum: linear-gradient(90deg, #0C141C 0%, #3D6A82 55%, #C0D2DC 100%);
   --spectrum-vertical: linear-gradient(180deg, #0C141C 0%, #3D6A82 55%, #C0D2DC 100%);
+  --spectrum-end: #C0D2DC; /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens ──────────────────────────────────────────── */
   --scheme-dark-bg:           #0C141C;
@@ -136,7 +137,7 @@
 }
 
 section pre.hljs {
-  background: var(--spectrum) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
+  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
 }
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */

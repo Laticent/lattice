@@ -274,7 +274,7 @@ section.statute-stack.lane table {
   flex:1; font-size:var(--fs-body);
   table-layout:auto;
 }
-section.statute-stack.lane thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.statute-stack.lane thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.statute-stack.lane thead th {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);

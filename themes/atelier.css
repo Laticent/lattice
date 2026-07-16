@@ -111,6 +111,7 @@
   /* ── Spectrum — black → oat → amber pop ─────────────────────────────── */
   --spectrum: linear-gradient(90deg, #0F0E0C 0%, #75705F 55%, var(--brand-alt) 100%);
   --spectrum-vertical: linear-gradient(180deg, #0F0E0C 0%, #75705F 55%, var(--brand-alt) 100%);
+  --spectrum-end: var(--brand-alt); /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens ──────────────────────────────────────────── */
   --scheme-dark-bg:           #0F0E0C;
@@ -137,7 +138,7 @@
 }
 
 section pre.hljs {
-  background: var(--spectrum) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
+  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
 }
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */

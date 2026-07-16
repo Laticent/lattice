@@ -7,7 +7,7 @@
  */
 section.compare-table h2 { font-size:var(--fs-emphasis); }
 section.compare-table table { width:100%; table-layout:auto; border-collapse:collapse; font-size:var(--fs-meta); flex:1; }
-section.compare-table thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.compare-table thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.compare-table thead th { font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); padding:0.625cqi var(--sp-xs) 0.78125cqi; text-align:left; word-wrap:break-word; overflow-wrap:break-word; }
 section.compare-table td { padding:0.625cqi var(--sp-xs); border-bottom:1px solid var(--border); color:var(--text-body); vertical-align:top; font-size:var(--fs-body-compact); word-wrap:break-word; overflow-wrap:break-word; }
 section.compare-table td:first-child { font-weight:600; color:var(--text-heading); white-space:nowrap; }
@@ -21,7 +21,7 @@ section.compare-table td:first-child { font-weight:600; color:var(--text-heading
  * See engineering/decisions/2026-06-25-retire-landscape-locks-portrait-everything.md. */
 section.compare-table.lat-split-cards .ct-cards { display:flex; flex-direction:column; gap:var(--sp-sm); flex:1; justify-content:center; }
 section.compare-table.lat-split-cards .ct-card { border:1px solid var(--border); border-radius:var(--radius-sm); padding:var(--sp-sm) var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); }
-section.compare-table.lat-split-cards .ct-card-title { font-size:var(--fs-emphasis); font-weight:600; color:var(--text-heading); padding-bottom:var(--sp-xs); background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.compare-table.lat-split-cards .ct-card-title { font-size:var(--fs-emphasis); font-weight:600; color:var(--text-heading); padding-bottom:var(--sp-xs); background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.compare-table.lat-split-cards .ct-card-fields { display:grid; grid-template-columns:max-content 1fr; gap:0.4em var(--sp-md); margin:0; }
 section.compare-table.lat-split-cards .ct-field { display:contents; }
 section.compare-table.lat-split-cards .ct-field dt { font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); }

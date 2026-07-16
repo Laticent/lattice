@@ -675,31 +675,136 @@ signature); pick a different shape deck-wide with the register, or per-slide wit
 the token. `stamp: seal` + `<!-- _class: confidential stamp-notch -->` renders that
 one slide's "Confidential" marker as a notch while the rest of the deck seals.
 
-#### The `spectrum:` front-matter register (white-label brand bar)
+#### The `spectrum:` / `spectrum-edge:` registers (the spectrum accent finish)
 
-`spectrum:` is the **white-label control** for the SPECTRUM — the rainbow gradient bar
-every section carries on its top border, and that a `divider` carries as a left rail. A
-deck rendered under a **client's** brand can drop the Lattice rainbow or replace it with
-the client's single color. Sibling of the registers above (`lib/core/resolve-spectrum.js`),
-propagated to every section, overridable per slide with a `spectrum-<value>` token; a typo
-is caught as `unknown-spectrum`.
+The SPECTRUM is the accent gradient. **By default it paints the brand BAR only** — the section
+edge, the `section.dark` top line, and the divider left rail. The in-content structural accents
+(table-header rails, the `list-steps` timeline spine, code-panel strips, an author's `---` rule,
+split-card underlines) render a **quiet accent-tinted hairline** by default, so a no-config deck stays
+elegant and low-noise. `spectrum-trim: on` flows the spectrum onto that structure too. The keys
+are siblings of the registers above (`lib/core/resolve-spectrum.js`), propagated to every section
+and overridable per slide; a typo is caught as `unknown-spectrum` / `unknown-spectrum-edge` /
+`unknown-spectrum-trim`.
+
+**`spectrum:` — the STYLE (the gradient identity).** Redefines the `--spectrum` token at the
+section level. It always drives the brand bar; with `spectrum-trim: on` it drives the structural
+accents too. White-label lives here: pick a client's single color with `solid` and set the
+theme's `--accent` to their brand.
 
 | `spectrum:` value | Token | Effect |
 |---|---|---|
-| `on` | *(none)* | The rainbow spectrum. **The default** (omit the key). |
-| `off` | `spectrum-off` | No brand bar — a clean top edge (and no divider rail). |
-| `solid` | `spectrum-solid` | A single **`--accent`** bar. White-label: set the theme's accent to the client brand and the whole bar follows. |
+| `on` | *(none)* | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
+| `solid` | `spectrum-solid` | A single **`--accent`** — everywhere. |
+| `duo` | `spectrum-duo` | Two-tone: accent → the theme's duotone partner (`--tag-bg`). |
+| `mono` | `spectrum-mono` | A quiet single-hue tint ramp (accent → canvas). |
+| `off` | `spectrum-off` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline). |
 
-The bar is painted in three places (the top `border-image`, the `dark`-canvas top line,
-the divider left rail) and the register targets exactly those — it does **not** touch the
-`--spectrum` token, which non-brand decorations (an author's `---` rule, the `list-steps`
-spine, table header rails) also read and which must not vanish on `spectrum: off`. A deck
-that wants *every* spectrum-derived accent recolored sets `--spectrum` directly at the
-theme level; that is the token's job, orthogonal to this register. `spectrum:` composes
-with `accent` / `tone: edge` (both per-slide brand-bar recolors), which win over the deck
-register where they apply. `on` is the baseline (omit the key); there is no per-slide
-"back to rainbow" token over a deck `off`/`solid`. On a dark bookend a dark client accent
-reads faint — pick a theme accent that reads on dark, or use `spectrum: off` there.
+**`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
+ONLY the bar, via a per-side `border-image`; it never touches the structural accents, so a
+bar-off deck keeps its table rails and `---` rules.
+
+| `spectrum-edge:` value | Token | Effect |
+|---|---|---|
+| `top` | *(none)* | The top border. **The default** (omit the key). |
+| `left` | `spectrum-edge-left` | A left rail (the divider look, generalized). |
+| `right` | `spectrum-edge-right` | A right rail. |
+| `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
+| `off` | `spectrum-edge-off` | No section-edge bar (structural accents survive). |
+
+**`spectrum-card:` — an INDEPENDENT spectrum rail on CARD surfaces (opt-in).** Off by default.
+Paints a rail on every card (the `cards-grid` / `cards-stack` `.card`, and the `stats` /
+`pricing` / `verdict-grid` tiles). Unlike the section bar, the card rail tunes on its OWN two
+axes — a STYLE and a PLACEMENT — because every spectrum variant is on-brand: `auto` follows the
+deck bar, or PIN `solid` / `duo` / `mono` / `rainbow` regardless of what the bar shows. Per-slide:
+`_class: spectrum-card-duo` pins one slide, `_class: spectrum-card-off` opts one out. A typo is
+caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
+
+| `spectrum-card:` value | Token | Effect |
+|---|---|---|
+| `off` | *(none)* | No card rail. **The default** (omit the key). |
+| `auto` | `spectrum-card` | A rail that follows the deck's spectrum STYLE. |
+| `solid` | `spectrum-card-solid` | Pin the rail to the theme's distinctive solid accent. |
+| `duo` | `spectrum-card-duo` | Pin the rail to the accent → endpoint two-tone. |
+| `mono` | `spectrum-card-mono` | Pin the rail to a quiet accent tint ramp. |
+| `rainbow` | `spectrum-card-rainbow` | Pin the rail to the full theme ribbon. |
+
+**`spectrum-card-edge:` — WHERE the card rail sits.** `left` (default) / `top` / `right` /
+`bottom`. Independent of the STYLE axis; overridable per slide (`_class: spectrum-card-edge-top`).
+
+| `spectrum-card-edge:` value | Token | Effect |
+|---|---|---|
+| `left` | *(none)* | A rail on the card's left edge. **The default** (omit the key). |
+| `top` | `spectrum-card-edge-top` | A rail across the card's top edge. |
+| `right` | `spectrum-card-edge-right` | A rail on the card's right edge. |
+| `bottom` | `spectrum-card-edge-bottom` | A rail across the card's bottom edge. |
+
+Kept opt-in on purpose: a rail on *every* card by default would be the ransom-note look — turn
+it on where it earns its place.
+
+**`spectrum-trim:` — how much the STRUCTURAL accents carry the spectrum.** Three tiers of
+increasing presence on the in-content accents (table-header rails, the `list-steps` timeline
+spine, code-panel strips, the `hr` rule, split-card underlines). Off by default — those accents
+stay a quiet accent-tinted hairline, so the spectrum stays on the brand bar alone (elegant,
+low-noise). Per-slide `_class: spectrum-trim` / `spectrum-trim-restrained` opts one slide in at a
+tier, `spectrum-trim-off` out.
+
+| `spectrum-trim:` value | Token | Effect |
+|---|---|---|
+| `off` | *(none)* | A quiet accent-tint hairline (`--spectrum-quiet`). **The default** (omit the key). |
+| `restrained` | `spectrum-trim-restrained` | A single-hue accent ramp (`--sp-fill-mono-h`) — present but quiet, held constant regardless of the bar (a two-tier look that never clashes). |
+| `on` | `spectrum-trim` | The deck's **full** spectrum flows onto the structure (follows the `spectrum:` STYLE). |
+
+The keys compose: `spectrum: duo` + `spectrum-edge: left` is a two-tone rail on the left; add
+`spectrum-trim: on` to flow that duo onto the table rails and rules too, and `spectrum-card: auto`
+to extend it into a rail on each card — or `spectrum-card: rainbow` to override the cards to the
+full ribbon while the bar stays duo. `spectrum:` also composes with `accent` /
+`tone: edge` (per-slide bar recolors), which win over the deck register where they apply. On
+a dark bookend a dark client accent reads faint — pick a theme accent that reads on dark, or
+`spectrum: off` there. *(History: `spectrum:` started as a narrow bar-only white-label toggle,
+then `solid`/`duo`/`mono` were consolidated to drive every accent
+(`2026-07-15-accent-finish-consolidation.md`); the default was then pulled back to the brand bar
+alone, with `spectrum-trim:` as the structure opt-in
+(`2026-07-16-spectrum-structure-default.md`).)*
+
+#### The `rule:` front-matter register (heading underline)
+
+`rule:` is the **heading-underline** accent finish — the line beneath a slide's heading (the
+`form` masthead hairline; the split-panel kicker rule). Sibling register
+(`lib/core/resolve-rule.js`), propagated to every section, overridable per slide; a typo is
+caught as `unknown-rule`. Palette-blind; defaults to today's render.
+
+| `rule:` value | Token | Effect |
+|---|---|---|
+| `auto` | *(none)* | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
+| `full` | `rule-full` | An explicit full-width hairline. |
+| `short` | `rule-short` | A short left-aligned rule under the heading. |
+| `accent` | `rule-accent` | A short rule painted in `--accent` — a signature without shouting. |
+| `none` | `rule-none` | No heading underline. |
+
+`rule:` governs the `form` masthead hairline — the canonical heading underline. The
+split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
+masthead-scoped. On a slide with no heading underline, `rule:` is a graceful no-op.
+
+#### The `eyebrow:` front-matter register (kicker decoration)
+
+`eyebrow:` decorates the mono-caps **eyebrow** kicker (the code-only line above a heading —
+see *Eyebrow labels* above). Sibling register (`lib/core/resolve-eyebrow.js`), propagated to
+every section, overridable per slide; a typo is caught as `unknown-eyebrow`. Palette-blind;
+defaults to the bare label. Leading marks space with `gap` (never `margin`), so they measure
+cleanly.
+
+| `eyebrow:` value | Token | Effect |
+|---|---|---|
+| `plain` | *(none)* | The bare mono-caps label. **The default** (omit the key). |
+| `dot` | `eyebrow-dot` | A small filled `--accent` disc before the label. |
+| `bar` | `eyebrow-bar` | A short vertical `--accent` tick before the label. |
+| `arrow` | `eyebrow-arrow` | A leading chevron (`›`) in the accent color. |
+| `underline` | `eyebrow-underline` | A hairline rule beneath the label. |
+
+Pick **one** eyebrow treatment deck-wide so every kicker reads as one family — mixing marks
+per slide reads as a ransom note. Together `spectrum:` / `rule:` / `eyebrow:` are the Finish
+axis's **accent** sub-family (marks on chrome), distinct from `finish:` (backdrops behind
+content).
 
 #### The `lift:` front-matter register (card elevation)
 

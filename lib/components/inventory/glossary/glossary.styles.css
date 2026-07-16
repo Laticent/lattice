@@ -17,7 +17,7 @@
  * for line-break safety.
  */
 section.glossary table { width:100%; border-collapse:collapse; table-layout:auto; font-feature-settings:'tnum' 1; }
-section.glossary thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.glossary thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.glossary thead th { padding:0.46875cqi var(--sp-sm) 0.78125cqi; text-align:left; font-weight:700; color:var(--text-secondary); font-size:var(--fs-meta); letter-spacing:0.08em; text-transform:uppercase; }
 section.glossary td { padding:0.46875cqi var(--sp-sm); color:var(--text-body); vertical-align:top; font-size:var(--fs-body-compact); word-wrap:break-word; overflow-wrap:break-word; border-bottom:none; }
 section.glossary tbody tr:nth-child(odd) { background:var(--bg-alt); }

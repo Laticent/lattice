@@ -1,0 +1,163 @@
+/* ── ACCENT FINISHES ── heading-rule + eyebrow — the `rule:` / `eyebrow:` registers.
+ *
+ * The Finish axis's ACCENT sub-family: small, palette-blind marks on chrome that already
+ * exists (the masthead hairline, the mono-caps kicker), selected deck-wide or per slide and
+ * defaulting to today's render. Bundled at the TAIL (after the Form Cell CSS that draws the
+ * masthead hairline, and after base.modifiers' eyebrow rule) so these overrides win by
+ * source order as well as specificity. Spectrum — the third accent finish — lives in
+ * base.variants.css beside its white-label siblings.
+ *
+ * No `margin` (HARD RULE #20 — a measuring layout reads border/padding, not margin); no
+ * hex (HARD RULE #3 — every color is a `var(--token)`); nothing full-bleed, so no export
+ * dual is needed. See engineering/decisions/2026-07-15-accent-finish-consolidation.md. */
+
+/* ── HEADING RULE (`rule:`) ── the underline beneath a slide's heading ───────────────────
+ * Governs the canonical heading underline: the `form` masthead hairline
+ * (lib/forms/cell/masthead/masthead.css) and the split-panel right-column kicker rule
+ * (lib/components/statement/split-panel/split-panel.styles.css). `auto` (the default, no
+ * class) leaves today's render untouched. A non-form slide with no underline is a graceful
+ * no-op. */
+
+/* full — an explicit full-width hairline (also the masthead default; stated for parity). */
+section.rule-full.form .cell-masthead { border-bottom: 1px solid var(--border); }
+
+/* none — drop the heading underline entirely. */
+section.rule-none.form .cell-masthead { border-bottom: none; }
+section.rule-none.split-panel .panel-right h3 { border-bottom: none; }
+
+/* short / accent — replace the full hairline with a short left-aligned segment, drawn as a
+ * pseudo so it does not span the masthead grid. `short` is neutral (--border); `accent`
+ * paints it in the deck's --accent so it reads as a signature. The segment sits at the
+ * band's padding edge (bottom:0), exactly where the border-bottom used to. */
+section:is(.rule-short, .rule-accent).form .cell-masthead {
+  border-bottom: none;
+  position: relative;
+}
+section:is(.rule-short, .rule-accent).form .cell-masthead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 8cqi;
+  height: 0.22cqi;
+  border-radius: 0.11cqi;
+  background: var(--border);
+}
+section.rule-accent.form .cell-masthead::after { background: var(--accent); }
+
+/* accent — recolor the split-panel kicker rule to match; none already handled above. */
+section.rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }
+
+/* ── EYEBROW (`eyebrow:`) ── decoration on the mono-caps kicker ───────────────────────────
+ * Targets the eyebrow `<code>` — a code-only `<p>` that precedes a heading/list (the same
+ * pattern base.modifiers.css styles, and the element the masthead lift relocates unchanged,
+ * so one rule covers the plain and `form` cases). `plain` (default, no class) is the bare
+ * label. Leading marks (dot/bar/arrow) ride an inline-flex `> code` with a `gap` — never a
+ * `margin` — so the mark sits before the text and measures cleanly. */
+
+/* Shared: give the kicker an inline-flex box so a leading ::before mark spaces via gap. */
+section:is(.eyebrow-dot, .eyebrow-bar, .eyebrow-arrow)
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+/* dot — a small filled accent disc. */
+section.eyebrow-dot
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
+  content: "";
+  flex: none;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* bar — a short vertical accent tick. */
+section.eyebrow-bar
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
+  content: "";
+  flex: none;
+  width: 0.22em;
+  height: 1em;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+/* arrow — a leading chevron glyph in the accent color. */
+section.eyebrow-arrow
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code::before {
+  content: "\203A"; /* › SINGLE RIGHT-POINTING ANGLE QUOTATION MARK */
+  flex: none;
+  color: var(--accent);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* underline — a hairline rule beneath the kicker (padding, not margin, for the gap). */
+section.eyebrow-underline
+  p:has(> code:only-child):is(:has(+ h1), :has(+ h2), :has(+ h3), :has(+ h4), :has(+ h5), :has(+ ul), :has(+ ol), :has(+ pre)) > code {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.2em;
+}
+
+/* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
+ * surfaces ────────────────────────────────────────────────────────────────────────────────
+ * OPT-IN and INDEPENDENT of the deck's section-bar STYLE — all spectrum variants are on-brand,
+ * so the card rail can pin its own. Two orthogonal keys:
+ *   CARD STYLE (`spectrum-card:` off/auto/solid/duo/mono/rainbow) — the rail's gradient. `off`
+ *     (default) paints nothing; `auto` follows the deck bar (--spectrum); the rest PIN a
+ *     variant, derived from the theme's --sp-fill-* primitives (base.variants.css) so a pin is
+ *     independent of whatever the bar shows.
+ *   CARD EDGE (`spectrum-card-edge:` left/top/right/bottom) — WHERE the rail sits. `left`
+ *     (default) and `right` draw a vertical rail (the -v fill); `top`/`bottom` a horizontal one
+ *     (the -h fill).
+ * Drawn as a background-IMAGE layer over the card's own `--bg-alt` fill — so it adds no layout
+ * (no box-shift, HARD RULE #20), respects the card's border-radius (the fill is clipped to it),
+ * and preserves the card background without needing its token. Per-slide `_class:
+ * spectrum-card-duo` / `spectrum-card-edge-top` override each axis. */
+
+/* CARD STYLE — enable the rail and source its fill (both orientations, -h/-v). `auto` follows
+ * the section bar via --spectrum(-vertical); the pins read the orientation-independent fills. */
+section.spectrum-card         { --sp-card-h: var(--spectrum); --sp-card-v: var(--spectrum-vertical, var(--spectrum)); }
+section.spectrum-card-solid   { --sp-card-h: var(--sp-fill-solid-h);   --sp-card-v: var(--sp-fill-solid-v); }
+section.spectrum-card-duo     { --sp-card-h: var(--sp-fill-duo-h);     --sp-card-v: var(--sp-fill-duo-v); }
+section.spectrum-card-mono    { --sp-card-h: var(--sp-fill-mono-h);    --sp-card-v: var(--sp-fill-mono-v); }
+section.spectrum-card-rainbow { --sp-card-h: var(--sp-fill-rainbow-h); --sp-card-v: var(--sp-fill-rainbow-v); }
+
+/* CARD EDGE — the rail geometry the painting rule reads (inherited to the card). Default LEFT
+ * (a vertical rail on the left edge); every enabling class shares it, a spectrum-card-edge-*
+ * class overrides. `--sp-card-w` is the rail thickness (section-OWN cqi via --_sec-1cqi). */
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow) {
+  --sp-card-w: calc(var(--_sec-1cqi, 1cqi) * 0.35);
+  --sp-card-img: var(--sp-card-v);
+  --sp-card-pos: left center;
+  --sp-card-size: var(--sp-card-w) 100%;
+}
+section.spectrum-card-edge-right  { --sp-card-img: var(--sp-card-v); --sp-card-pos: right center; --sp-card-size: var(--sp-card-w) 100%; }
+section.spectrum-card-edge-top    { --sp-card-img: var(--sp-card-h); --sp-card-pos: center top;    --sp-card-size: 100% var(--sp-card-w); }
+section.spectrum-card-edge-bottom { --sp-card-img: var(--sp-card-h); --sp-card-pos: center bottom; --sp-card-size: 100% var(--sp-card-w); }
+
+/* Print flattens the rail to a gray hairline (toner-saving, matching the section bar). Placed
+ * last so it wins the equal-specificity tie over the fill/placement rules above. */
+section.print { --sp-card-img: var(--print-border); }
+
+/* Paint — one rule reading the inherited geometry tokens. Card surfaces come in two forms: the
+ * post-processed `.card` div AND the native nested-list `> .cell-stage > ul|ol > li` tile.
+ * Cover both for cards-grid / cards-stack, plus the li-based tiles of stats / pricing /
+ * verdict-grid. The `>` combinators keep the rail on the top-level card, never its body
+ * sub-items. The `.card` selector is scoped to cards-grid / cards-stack (NOT a bare `.card`) so
+ * it never reaches compare-prose's prose columns, whose higher-specificity `background:`
+ * shorthand would swallow the rail anyway. A card component added later opts in by extending
+ * this list. */
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow):is(.cards-grid, .cards-stack) .card,
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow):is(.cards-grid, .cards-stack) > .cell-stage > :is(ul, ol) > li,
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).stats > .cell-stage > ol > li,
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).pricing > .cell-stage > ul > li,
+section:is(.spectrum-card, .spectrum-card-solid, .spectrum-card-duo, .spectrum-card-mono, .spectrum-card-rainbow).verdict-grid > .cell-stage > ul > li {
+  background-image: var(--sp-card-img);
+  background-repeat: no-repeat;
+  background-position: var(--sp-card-pos);
+  background-size: var(--sp-card-size);
+}

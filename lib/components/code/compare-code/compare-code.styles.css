@@ -27,7 +27,7 @@ section.compare-code h2 ~ p:has(> code:only-child) > code {
   color:var(--accent);
   background:none; border:none; padding:0; border-radius:0;
 }
-section.compare-code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
+section.compare-code pre { flex:1; margin:0; border-radius:var(--radius-md); overflow:hidden; background:var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg); padding:var(--sp-sm) var(--sp-md); padding-bottom:calc(var(--sp-sm) + 0.234375cqi); box-sizing:border-box; }
 section.compare-code pre > code { font-family:var(--font-mono); font-size:var(--fs-meta); line-height:var(--lh-base); color:var(--code-text); background:none; padding:0; display:block; }
 
 /* ── COMPARE-CODE fallback ───────────────────────────────────────────────────
@@ -113,7 +113,7 @@ section.compare-code-block .split-runhead {
 section.compare-code-block pre {
   margin: 0; max-width: 100%; box-sizing: border-box;
   border-radius: var(--radius-md); overflow: hidden;
-  background: var(--spectrum) bottom / 100% 3px no-repeat, var(--code-bg);
+  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--code-bg);
   padding: var(--sp-md) var(--sp-lg);
   padding-bottom: calc(var(--sp-md) + 0.234375cqi);
 }

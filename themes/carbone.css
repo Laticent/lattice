@@ -123,6 +123,7 @@
   /* ── Spectrum — black → graphite → lime ────────────────────────────── */
   --spectrum: linear-gradient(90deg, #0E0E10 0%, #3A3A3F 55%, var(--brand-accent) 100%);
   --spectrum-vertical: linear-gradient(180deg, #0E0E10 0%, #3A3A3F 55%, var(--brand-accent) 100%);
+  --spectrum-end: var(--brand-accent); /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens — kept for any explicit consumer (Marp chrome,
    * theming code paths). Carbone resolves to these whether color-scheme is
@@ -170,7 +171,7 @@
 }
 
 section pre.hljs {
-  background: var(--spectrum) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
+  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
 }
 
 :root {

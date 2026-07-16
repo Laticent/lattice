@@ -167,6 +167,11 @@ const TAIL_SOURCES = [
   'lib/base/base.variants.css',
   ...FORMS_CELL_CSS_SOURCES,
   ...FORMS_TILE_CSS_SOURCES,
+  // Accent finishes (`rule:` heading underline + `eyebrow:` kicker) — bundled AFTER the
+  // Form Cell CSS (which draws the masthead hairline) and base.modifiers' eyebrow rule, so
+  // these overrides win by source order as well as specificity. See base.accent-finish.css
+  // and engineering/decisions/2026-07-15-accent-finish-consolidation.md.
+  'lib/base/base.accent-finish.css',
   'lib/integrations/mermaid/mermaid.css',
   // Print-mode categorical TEXTURE fills — after mermaid + chart CSS so the
   // `fill: url(#latt-a11y-tex-N) !important` overrides win (incl. Mermaid's baked

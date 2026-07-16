@@ -26,7 +26,7 @@ section.obligation-matrix table {
   flex:1;
   table-layout:auto;
 }
-section.obligation-matrix thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+section.obligation-matrix thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.obligation-matrix thead th {
   font-family:var(--font-label);
   font-size:var(--fs-meta);

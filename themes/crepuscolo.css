@@ -115,6 +115,7 @@
   /* ── Spectrum — deep-plum → mid-violet → mauve ─────────────────────── */
   --spectrum: linear-gradient(90deg, #2A1B45 0%, #5B3D8C 55%, #B07FB5 100%);
   --spectrum-vertical: linear-gradient(180deg, #2A1B45 0%, #5B3D8C 55%, #B07FB5 100%);
+  --spectrum-end: #B07FB5; /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens (referenced by light-dark() above) ───────── */
   --scheme-dark-bg:           #1A0F2D;
@@ -140,7 +141,7 @@
 /* Code panel — uses the tokenised --code-bg (defaults to var(--surface-inverse)
  * in lattice.css). Spectrum hairline anchors the bottom edge. */
 section pre.hljs {
-  background: var(--spectrum) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
+  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
 }
 
 /* Completion tokens — band-text pairs, line, gantt state, note, error.

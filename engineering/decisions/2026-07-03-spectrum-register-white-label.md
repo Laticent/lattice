@@ -3,6 +3,15 @@ status: in-progress
 summary: A deck `spectrum:` register (on / off / solid) to white-label the rainbow brand bar — redefine the --spectrum / --spectrum-vertical tokens so all three paint sites follow; off removes it, solid repaints it in --accent
 ---
 
+> **Extended 2026-07-16 by `2026-07-15-accent-finish-consolidation.md`.** The `spectrum:`
+> register is now the accent-gradient STYLE and gained siblings (`spectrum-edge:` bar
+> placement, `spectrum-card:` card rail). `solid` (and new `duo`/`mono`) now flow to EVERY
+> spectrum-derived accent via the shared token — the consolidation this doc's "bar-only scope"
+> deliberately deferred. **This doc's do-not-regress line still holds: `spectrum: off` remains
+> bar-only** (drops the section-edge bar; structural rails/spine/`hr` keep their style) — an
+> earlier draft of the consolidation broke that and was corrected. Read the newer doc for the
+> current model.
+
 # The `spectrum:` register — white-label the brand bar
 
 **Follows:** `2026-07-03-status-marker-style-variants.md` §9 (which deferred this)

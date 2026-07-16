@@ -112,7 +112,7 @@
    * chart-body's overflow:hidden clipping the last row. */
   font-size:var(--fs-body-compact); flex:1;
 }
-:is(section.roadmap, figure.roadmap) thead tr { background:var(--spectrum) bottom / 100% 2px no-repeat; }
+:is(section.roadmap, figure.roadmap) thead tr { background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 :is(section.roadmap, figure.roadmap) thead th {
   font-family:var(--font-mono);
   font-size:var(--fs-meta);

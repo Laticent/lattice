@@ -183,6 +183,7 @@
     #D08C42,
     #B8A032
   );
+  --spectrum-end: #B8A032; /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Derived on-dark tints ────────────────────────────────────────── */
   --on-dark-primary:   color-mix(in srgb, white 90%, transparent);

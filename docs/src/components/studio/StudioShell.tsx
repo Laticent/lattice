@@ -36,6 +36,7 @@ import { listStudioComponents, type StudioComponent } from './component-library'
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { Editor, type EditorHandle } from './Editor';
+import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
@@ -52,10 +53,15 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
+import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { importComments } from './slide-comments';
+import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
+import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
+import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
+import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, SETTINGS_EVENT, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
@@ -811,6 +817,30 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// writes no key; off / solid write the register.
 	const spectrum = getFrontMatter(source, 'spectrum') || 'on';
 	const setSpectrum = (value: string) => settingsWrite(`Brand bar → ${value}`, (s) => setFrontMatter(s, 'spectrum', value === 'on' ? null : value));
+	// The accent sub-family — siblings of the brand bar (spectrum STYLE). Each defaults to a
+	// no-token value (bar on top / no card rail / auto rule / plain eyebrow), so a default deck
+	// writes no key. See lib/core/resolve-spectrum.js / resolve-rule.js / resolve-eyebrow.js.
+	const spectrumEdge = getFrontMatter(source, 'spectrum-edge') || 'top';
+	const setSpectrumEdge = (value: string) => settingsWrite(`Bar placement → ${value}`, (s) => setFrontMatter(s, 'spectrum-edge', value === 'top' ? null : value));
+	const spectrumCard = getFrontMatter(source, 'spectrum-card') || 'off';
+	const setSpectrumCard = (value: string) => settingsWrite(`Card rail → ${value}`, (s) => {
+		const out = setFrontMatter(s, 'spectrum-card', value === 'off' ? null : value);
+		// Turning the rail off drops the placement too — a `spectrum-card-edge:` with no rail is
+		// dead front matter the (now-hidden) placement picker could no longer clear.
+		return value === 'off' ? setFrontMatter(out, 'spectrum-card-edge', null) : out;
+	});
+	// Card rail PLACEMENT (`spectrum-card-edge:`) — left is the default (no key); only meaningful
+	// when the card rail is on, so the picker is shown only then.
+	const spectrumCardEdge = getFrontMatter(source, 'spectrum-card-edge') || 'left';
+	const setSpectrumCardEdge = (value: string) => settingsWrite(`Card rail placement → ${value}`, (s) => setFrontMatter(s, 'spectrum-card-edge', value === 'left' ? null : value));
+	const headingRule = getFrontMatter(source, 'rule') || 'auto';
+	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => setFrontMatter(s, 'rule', value === 'auto' ? null : value));
+	const eyebrow = getFrontMatter(source, 'eyebrow') || 'plain';
+	const setEyebrow = (value: string) => settingsWrite(`Eyebrow → ${value}`, (s) => setFrontMatter(s, 'eyebrow', value === 'plain' ? null : value));
+	// Structural trim (`spectrum-trim:`) — off by default (quiet); `on` flows the spectrum onto
+	// the in-content accents. On writes the key; off clears it.
+	const spectrumTrim = getFrontMatter(source, 'spectrum-trim') || 'off';
+	const setSpectrumTrim = (value: string) => settingsWrite(`Structural trim → ${value}`, (s) => setFrontMatter(s, 'spectrum-trim', value === 'off' ? null : value));
 	// The layout DEBUG overlay — a real deck setting (`debug:` front matter), so it
 	// rides in previewFm to the render and is stripped from every export. Off is the
 	// default; the reveal modes are on-hover / on-always, each with an optional
@@ -1723,6 +1753,28 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
 							    the theme accent to a client's brand and Solid follows. */}
 							<CatalogSelect ariaLabel="Choose brand bar" value={activeSpectrum(spectrum).name} onValueChange={setSpectrum} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRA) }]} />
+						</Field>
+						{/* The accent sub-family (spectrum siblings + heading rule + eyebrow). Each reads
+						    the shared --spectrum token where relevant, so it follows the Brand bar style. */}
+						<Field label="Bar placement" desc="Which edge the brand bar sits on — top (default), left, right, bottom, or off. Off drops only the bar; table rails and rules keep their color.">
+							<CatalogSelect ariaLabel="Choose bar placement" value={activeSpectrumEdge(spectrumEdge).name} onValueChange={setSpectrumEdge} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_EDGES) }]} />
+						</Field>
+						<Field label="Card rail" desc="A spectrum rail on card surfaces, tunable independently of the Brand bar. Off by default; Auto follows the bar, or pin Solid / Duo / Mono / Rainbow.">
+							<CatalogSelect ariaLabel="Choose card rail" value={activeSpectrumCard(spectrumCard).name} onValueChange={setSpectrumCard} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_CARDS) }]} />
+						</Field>
+						{spectrumCard !== 'off' && (
+							<Field label="Card rail placement" desc="Which edge of each card the rail sits on — left (default), top, right, or bottom.">
+								<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES) }]} />
+							</Field>
+						)}
+						<Field label="Structural trim" desc="Whether the spectrum flows onto the in-content accents — table rails, the timeline spine, code strips, hr. Quiet by default (a neutral hairline); the spectrum stays on the brand bar.">
+							<CatalogSelect ariaLabel="Choose structural trim" value={activeSpectrumTrim(spectrumTrim).name} onValueChange={setSpectrumTrim} className="min-w-[116px]" groups={[{ options: catalogOptions(SPECTRUM_TRIMS) }]} />
+						</Field>
+						<Field label="Heading rule" desc="The underline beneath a slide's heading — a full hairline, a short rule, an accent segment, or none.">
+							<CatalogSelect ariaLabel="Choose heading rule" value={activeRule(headingRule).name} onValueChange={setHeadingRule} className="min-w-[116px]" groups={[{ options: catalogOptions(RULES) }]} />
+						</Field>
+						<Field label="Eyebrow" desc="The mark on the mono-caps kicker above a heading — a dot, a bar, an arrow, an underline, or plain.">
+							<CatalogSelect ariaLabel="Choose eyebrow" value={activeEyebrow(eyebrow).name} onValueChange={setEyebrow} className="min-w-[116px]" groups={[{ options: catalogOptions(EYEBROWS) }]} />
 						</Field>
 						{/* Card lift — the opt-in "Struck" elevation. A deck-wide visual toggle
 						    alongside Finish / Brand bar; per-slide `_class: lifted`/`flat` override. */}

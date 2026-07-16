@@ -164,6 +164,63 @@ in patch versions.
 
 ### Added
 
+- **Accent finishes — the spectrum, heading rule, and eyebrow are now selectable finishes.**
+  Three baked-in details graduate to first-class registers on the Finish axis (the *accent*
+  sub-family, distinct from `finish:` backdrops), each deck-wide or per-slide, palette-blind,
+  defaulting to today's render:
+  - **`spectrum:` — the accent gradient STYLE.** `on` (rainbow, default) / `solid` / `duo`
+    (accent → the theme's duotone partner) / `mono` (a tint ramp) / `off`. The value redefines
+    the shared `--spectrum` token, so **every** spectrum-derived accent follows as one system —
+    the section-edge bar, table-header rails, the `list-steps` timeline spine, code-panel strips,
+    an author's `---` rule.
+  - **`spectrum-edge:` — the section-edge bar PLACEMENT.** `top` (default) / `left` / `right` /
+    `bottom` / `off`. Moves or removes only the bar (per-side `border-image`); the structural
+    accents are untouched.
+  - **`spectrum-card:` — an INDEPENDENT spectrum rail on card surfaces.** `off` (default) /
+    `auto` (follow the deck bar) / `solid` / `duo` / `mono` / `rainbow`, with a companion
+    **`spectrum-card-edge:`** placement register (`left` default / `top` / `right` / `bottom`).
+    The rail tunes orthogonally to the section bar — pin any on-brand variant on a `duo` deck,
+    move it to any edge — via per-slide `_class: spectrum-card-solid` / `spectrum-card-edge-top` /
+    `spectrum-card-off`. Paints on the `.card` primitive (cards-grid / cards-stack) and the
+    stats / pricing / verdict-grid tiles. Off by default — no card gets a rail unless asked.
+  - **`rule:` — the heading underline.** `auto` (default) / `full` / `short` / `accent` / `none`,
+    controlling the masthead / split-panel heading rule.
+  - **`eyebrow:` — the mono-caps kicker decoration.** `plain` (default) / `dot` / `bar` / `arrow`
+    / `underline` — a leading accent mark or a hairline, one treatment deck-wide.
+  - **`spectrum-trim:` — how much the structural accents carry the spectrum.** `off` (default) /
+    `restrained` / `on`; per-slide `_class: spectrum-trim` / `spectrum-trim-restrained` /
+    `spectrum-trim-off`. By default the spectrum lives on the brand bar alone and the in-content
+    accents (table-header rails, the `list-steps` timeline spine, code-panel strips, the `hr` rule,
+    split-card underlines) render a quiet accent-tinted hairline — elegant, low-noise. `restrained`
+    holds a single-hue accent ramp (a two-tier look that never clashes with the bar); `on` flows the
+    deck's full spectrum STYLE onto the structure. See the Breaking note below.
+
+  Demo deck `examples/accent-finishes.md` (+ committed PDF); author reference in
+  `lib/base/base.docs.md`; design in
+  `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
+
+### Changed
+
+- **Breaking: the spectrum paints the brand BAR only by default — structural accents go quiet.**
+  The in-content accents that read the spectrum (table-header rails, the `list-steps` timeline
+  spine, code-panel strips, the `hr` rule, split-card underlines) now render a quiet
+  accent-tinted `--spectrum-quiet` hairline by default (a low-intensity blend of `--accent` +
+  `--border`) instead of the spectrum gradient; the spectrum lives on the brand bar (section
+  edge / dark line / divider rail) alone. This keeps a default deck elegant
+  and low-noise (no rainbow repeated on every rule). Decks that want the prior look — the
+  spectrum on every accent — add **`spectrum-trim: on`** (deck-wide or per slide). Mechanically,
+  the structural sites now read a new `--spectrum-structure` token (neutral default; the opt-in
+  points it at `--spectrum`). See `engineering/decisions/2026-07-16-spectrum-structure-default.md`.
+
+- **`spectrum: solid` now flows to every accent, not just the brand bar.** The register's
+  `solid` value was bar-only (the three brand-bar paint sites); it now sets the shared
+  `--spectrum` token, so an existing `spectrum: solid` deck's structural accents (table-header
+  rails, `list-steps` timeline spine, code-panel strips, `hr`) recolor from the rainbow to the
+  single accent along with the bar — the intended consolidation. `spectrum: off` is **unchanged**
+  (drops the section-edge/divider bar only; structural accents keep their style), so
+  `spectrum: off` decks render as before. New `duo`/`mono` styles and the `spectrum-edge:` bar
+  placement are additive.
+
 - **`design/skills/` — seven self-contained "create a killer X from scratch" skill files.** One
   skill each for authoring a **deck**, a **theme**, a **component**, a **chart component**, a
   **finish**, a **lens**, and **speaker notes / reviews / captions**. Each stands alone — the

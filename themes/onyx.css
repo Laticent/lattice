@@ -112,6 +112,8 @@
   /* ── Spectrum — black → mid-gray → saturated red pop ──────────────── */
   --spectrum: linear-gradient(90deg, #000000 0%, #666666 55%, var(--brand-alt) 100%);
   --spectrum-vertical: linear-gradient(180deg, #000000 0%, #666666 55%, var(--brand-alt) 100%);
+  --spectrum-end: var(--brand-alt);
+  --spectrum-solid: var(--spectrum-end); /* distinctive solid — accent is near-black; use the red pop */ /* the curated spectrum endpoint — the theme's distinctive hue, for spectrum: duo */
 
   /* ── Dark-variant tokens ──────────────────────────────────────────── */
   --scheme-dark-bg:           #000000;
@@ -138,7 +140,7 @@
 }
 
 section pre.hljs {
-  background: var(--spectrum) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
+  background: var(--spectrum-structure) bottom / 100% 3px no-repeat, var(--bg-warm-mid);
 }
 
 /* ── highlight.js syntax tokens ────────────────────────────────────────── */

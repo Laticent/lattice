@@ -1332,5 +1332,5 @@ section.lat-split-cover.split-cover-compare-table .split-feat-h {
 }
 section.lat-split-cover.split-cover-compare-table .split-feat-h::after {
   content: ""; display: block; height: 2px; width: 42%; min-width: 7em;
-  background: var(--spectrum);
+  background: var(--spectrum-structure);
 }
