@@ -822,7 +822,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const spectrumEdge = getFrontMatter(source, 'spectrum-edge') || 'top';
 	const setSpectrumEdge = (value: string) => settingsWrite(`Bar placement → ${value}`, (s) => setFrontMatter(s, 'spectrum-edge', value === 'top' ? null : value));
 	const spectrumCard = getFrontMatter(source, 'spectrum-card') || 'off';
-	const setSpectrumCard = (value: string) => settingsWrite(`Card rail → ${value}`, (s) => setFrontMatter(s, 'spectrum-card', value === 'off' ? null : value));
+	const setSpectrumCard = (value: string) => settingsWrite(`Card rail → ${value}`, (s) => {
+		const out = setFrontMatter(s, 'spectrum-card', value === 'off' ? null : value);
+		// Turning the rail off drops the placement too — a `spectrum-card-edge:` with no rail is
+		// dead front matter the (now-hidden) placement picker could no longer clear.
+		return value === 'off' ? setFrontMatter(out, 'spectrum-card-edge', null) : out;
+	});
 	// Card rail PLACEMENT (`spectrum-card-edge:`) — left is the default (no key); only meaningful
 	// when the card rail is on, so the picker is shown only then.
 	const spectrumCardEdge = getFrontMatter(source, 'spectrum-card-edge') || 'left';
