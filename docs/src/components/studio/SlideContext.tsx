@@ -22,14 +22,18 @@ import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
+import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
+import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
 import { getCaption, setCaption } from './slide-caption';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { type Canvas, canvasProvenance, deckDefaults, finishProvenance, setCanvas, setFinish, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setRule, setSpectrum, setSpectrumCard, setSpectrumEdge, setStampStyle, setToneStyle, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { activeSpectrumCard } from './spectrum-card-catalog';
 import { activeSpectrum } from './spectrum-catalog';
+import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { deckOutputLang } from './studio-language';
 
 type CatalogEntry = { name: string; effectiveVariants?: string[]; familyModifiers?: string[] };
@@ -293,10 +297,49 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		spectrum.inheritable
 			? { label: `Inherit — ${cap(spectrum.deckValue ?? '')}`, value: '__inherit__', swatch: activeSpectrum(spectrum.deckValue ?? 'on').swatch }
 			: { label: 'Rainbow', value: '__inherit__', swatch: activeSpectrum('on').swatch },
-		{ label: 'None', value: 'off', swatch: activeSpectrum('off').swatch },
 		{ label: 'Solid accent', value: 'solid', swatch: activeSpectrum('solid').swatch },
+		{ label: 'Duo', value: 'duo', swatch: activeSpectrum('duo').swatch },
+		{ label: 'Mono', value: 'mono', swatch: activeSpectrum('mono').swatch },
+		{ label: 'None', value: 'off', swatch: activeSpectrum('off').swatch },
 	];
 	const onSpectrum = (v: string) => onMutate((c) => setSpectrum(c, v === '__inherit__' ? null : v));
+
+	// The accent sub-family (bar placement / heading rule / eyebrow) — each an "override"
+	// axis: a per-slide token wins over the deck; the DEFAULT value is the inherit/absence,
+	// so it maps to the "__inherit__" head. Built from the same catalogs the deck picker uses.
+	const overrideAxis = (
+		prov: ReturnType<typeof spectrumEdgeProvenance>,
+		entries: { name: string; label: string; swatch: CatalogOption['swatch'] }[],
+		defaultName: string,
+		active: (v: string | null | undefined) => { label: string; swatch: NonNullable<CatalogOption['swatch']> },
+	): { value: string; options: CatalogOption[] } => {
+		const head: CatalogOption = prov.inheritable
+			? { label: `Inherit — ${cap(prov.deckValue ?? '')}`, value: '__inherit__', swatch: active(prov.deckValue).swatch }
+			: { label: `Inherit — ${active(defaultName).label}`, value: '__inherit__', swatch: active(defaultName).swatch };
+		const options = [head, ...entries.filter((e) => e.name !== defaultName).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }))];
+		return { value: prov.state === 'on' ? (prov.value ?? '__inherit__') : '__inherit__', options };
+	};
+	const edgeProv = React.useMemo(() => spectrumEdgeProvenance(chunk, source), [chunk, source]);
+	const edge = overrideAxis(edgeProv, SPECTRUM_EDGES, 'top', activeSpectrumEdge);
+	const onEdge = (v: string) => onMutate((c) => setSpectrumEdge(c, v === '__inherit__' ? null : v));
+	const ruleProv = React.useMemo(() => ruleProvenance(chunk, source), [chunk, source]);
+	const ruleOpt = overrideAxis(ruleProv, RULES, 'auto', activeRule);
+	const onRule = (v: string) => onMutate((c) => setRule(c, v === '__inherit__' ? null : v));
+	const eyebrowProv = React.useMemo(() => eyebrowProvenance(chunk, source), [chunk, source]);
+	const eyebrowOpt = overrideAxis(eyebrowProv, EYEBROWS, 'plain', activeEyebrow);
+	const onEyebrow = (v: string) => onMutate((c) => setEyebrow(c, v === '__inherit__' ? null : v));
+	// Card rail — on/off with an explicit opt-out (mirrors lift). Inherit follows the deck. A
+	// Picker (not a Seg) keeps it consistent with the other accent pickers and previews the rail.
+	const cardProv = React.useMemo(() => spectrumCardProvenance(chunk, source), [chunk, source]);
+	const cardValue: string = has('spectrum-card') ? 'on' : has('spectrum-card-off') ? 'off' : '__inherit__';
+	const cardOptions: CatalogOption[] = [
+		cardProv.inheritable
+			? { label: 'Inherit — Rail', value: '__inherit__', swatch: activeSpectrumCard('on').swatch }
+			: { label: 'Inherit — None', value: '__inherit__', swatch: activeSpectrumCard('off').swatch },
+		{ label: 'Rail', value: 'on', swatch: activeSpectrumCard('on').swatch },
+		{ label: 'None', value: 'off', swatch: activeSpectrumCard('off').swatch },
+	];
+	const onCard = (v: string) => onMutate((c) => setSpectrumCard(c, v === '__inherit__' ? null : (v as 'on' | 'off')));
 
 	// Decoration — the featured tint / mark phrases from the generated group. Each is a
 	// single-select; applying one clears the other members of its kind (tints also clear
@@ -518,8 +561,20 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<Row label="Finish" hint={finish.state === 'inherited' ? 'inherited' : undefined} desc="A backdrop texture behind the content — a soft gradient or grain. Inherited from the deck unless you override it here.">
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} />
 							</Row>
-							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The colored strip on the slide's top edge (a divider shows it as a left rail). None removes it; Solid repaints it in the theme's accent.">
+							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The colored strip on the slide's top edge (a divider shows it as a left rail). None removes it; Solid/Duo/Mono repaint it in the theme's accent.">
 								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />
+							</Row>
+							<Row label="Bar placement" hint={edgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge the brand bar sits on for this slide — top, left, right, bottom, or off.">
+								<Picker ariaLabel="Bar placement" value={edge.value} onChange={onEdge} options={edge.options} />
+							</Row>
+							<Row label="Card rail" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A spectrum rail on this slide's card surfaces. Inherit follows the deck.">
+								<Picker ariaLabel="Card rail" value={cardValue} onChange={onCard} options={cardOptions} />
+							</Row>
+							<Row label="Heading rule" hint={ruleProv.state === 'inherited' ? 'from deck' : undefined} desc="The underline beneath this slide's heading — full, short, an accent segment, or none.">
+								<Picker ariaLabel="Heading rule" value={ruleOpt.value} onChange={onRule} options={ruleOpt.options} />
+							</Row>
+							<Row label="Eyebrow" hint={eyebrowProv.state === 'inherited' ? 'from deck' : undefined} desc="The mark on this slide's mono-caps kicker — a dot, bar, arrow, underline, or plain.">
+								<Picker ariaLabel="Eyebrow" value={eyebrowOpt.value} onChange={onEyebrow} options={eyebrowOpt.options} />
 							</Row>
 							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
 							{accepts('compact') && (
