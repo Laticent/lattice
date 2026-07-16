@@ -26,6 +26,7 @@ const {
   parseTransitionToken,
   parseStateLi,
   parseStateChart,
+  extractStateList,
   buildStateChart,
   matchEyebrowText,
   STATE_CHART_BROWSER_JS,
@@ -256,6 +257,74 @@ describe('parseStateChart', () => {
     assert.equal(model.states[1].isTerminal, true);
     // C has no outgoing edges but isn't marked terminal because an explicit end exists.
     assert.equal(model.states[2].isTerminal, false);
+  });
+});
+
+// ── Split-list reassembly (the two-digit-marker indent trap) ──────────────
+// A numbered machine authored with ascending markers (1. 2. … 10. 11.) and the
+// house 3-space nested-transition indent is SPLIT by markdown-it at item 10:
+// `10. ` is one char wider than `1. `, so the 3-space child no longer nests, the
+// transition <ul> is ejected, and every later state restarts as its own
+// <ol start="N">. extractStateList must reassemble that run into one list so no
+// state is lost. Driven through real markdown-it — the actual upstream producer
+// of the split — so a markdown-it change that reshapes the split is caught here.
+describe('extractStateList — reassembles markdown-it split lists', () => {
+  const MarkdownIt = require('markdown-it');
+  const md = new MarkdownIt({ html: true });
+  const machine = (n, marker) => {
+    let src = '';
+    for (let i = 1; i <= n; i++) {
+      src += `${marker(i)}. State ${i}\n   - \`go => ${i < n ? i + 1 : 1}\`\n`;
+    }
+    return md.render(src);
+  };
+
+  test('14 ascending-numbered states survive the split, edges intact', () => {
+    const html = machine(14, (i) => i);
+    // Sanity: markdown-it really did split this into multiple <ol> fragments.
+    assert.ok((html.match(/<ol/g) || []).length > 1, 'fixture must actually split');
+
+    const ext = extractStateList(html);
+    const model = parseStateChart(ext.inner);
+    assert.equal(model.states.length, 14, 'every state past 9 is recovered');
+    assert.equal(model.transitions.length, 14, 'every transition resolves');
+    assert.equal(model.states[13].label, 'State 14');
+    // The boundary that used to break (9→10) and the back-edge from the last state.
+    assert.equal(model.transitions.find((t) => t.from === 10)?.to, 11);
+    assert.equal(model.transitions.find((t) => t.from === 14)?.to, 1);
+    assert.equal(model.transitions.filter((t) => t.to < 1 || t.to > 14).length, 0);
+  });
+
+  test('the reassembled region spans the whole run (splice replaces all fragments)', () => {
+    const html = `<p>lead</p>${machine(12, (i) => i)}<p>tail</p>`;
+    const ext = extractStateList(html);
+    // start at the first <ol>, end after the LAST leaked fragment — nothing of the
+    // machine is left behind in html.slice(ext.end) to leak onto the slide.
+    assert.equal(html.slice(0, ext.start).endsWith('<p>lead</p>'), true);
+    // Only inter-block whitespace (markdown-it's trailing newline) may remain
+    // before the tail — no leaked list fragment.
+    assert.equal(html.slice(ext.end).trimStart().startsWith('<p>tail</p>'), true);
+  });
+
+  test('the all-`1.` house form (no split) is unchanged', () => {
+    const model = parseStateChart(extractStateList(machine(14, () => 1)).inner);
+    assert.equal(model.states.length, 14);
+    assert.equal(model.transitions.length, 14);
+  });
+
+  test('a normal ≤9-state machine is untouched by the extractor', () => {
+    const model = parseStateChart(extractStateList(machine(4, (i) => i)).inner);
+    assert.equal(model.states.length, 4);
+    assert.equal(model.transitions.length, 4);
+  });
+
+  test('a genuinely separate trailing <ol> (no start=) is NOT swallowed', () => {
+    // Only markdown-it\'s resumed `<ol start="N">` is a split continuation; an
+    // unrelated fresh list must stay out of the machine.
+    const html = '<ol><li>A<ul><li><code>=&gt; 2</code></li></ul></li><li>B</li></ol>' +
+      '<ol><li>unrelated</li></ol>';
+    const model = parseStateChart(extractStateList(html).inner);
+    assert.equal(model.states.length, 2, 'the second plain <ol> is left alone');
   });
 });
 
