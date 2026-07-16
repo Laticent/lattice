@@ -18325,8 +18325,11 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge {
 
 /* STYLE — redefine the shared token; every accent follows. */
 section.spectrum-solid {
-  --spectrum: linear-gradient(90deg, var(--accent), var(--accent));
-  --spectrum-vertical: linear-gradient(180deg, var(--accent), var(--accent));
+  /* The theme's DISTINCTIVE solid hue. Defaults to --accent (the brand primary), which is
+     right for most themes; a theme whose accent is too dark/muted to read as a bar (onyx,
+     concrete — a near-black accent) sets --spectrum-solid to its distinctive pop instead. */
+  --spectrum: linear-gradient(90deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
+  --spectrum-vertical: linear-gradient(180deg, var(--spectrum-solid, var(--accent)), var(--spectrum-solid, var(--accent)));
 }
 section.spectrum-duo {
   /* accent → the theme's own curated spectrum ENDPOINT (--spectrum-end, its distinctive hue:
