@@ -126,11 +126,11 @@ site that reads the token (bar, rails, spine, strips, hr) follows automatically 
 
 | Value | Gradient | Notes |
 |---|---|---|
-| `rainbow` | today's 3-stop theme ribbon | **default** (omit the key) |
-| `solid` | a single `--accent` bar | today's `solid`, now token-level so it flows everywhere |
-| `duo` | two-tone `--brand-bright → --brand-alt` | quieter than rainbow, still gradient |
-| `mono` | `--accent → --accent-soft` tint ramp | most restrained |
-| `off` | no accent | see interaction note |
+| `on` | today's 3-stop theme ribbon (the rainbow) | **default** (omit the key) |
+| `solid` | a single `--accent` | now token-level so it flows to every accent |
+| `duo` | two-tone `--accent → --tag-bg` (the theme's duotone partner) | quieter than rainbow |
+| `mono` | `--accent →` a tint toward the canvas | most restrained |
+| `off` | drops the section-edge bar only — see the corrected `off` semantics below | white-label |
 
 ### 1b. `spectrum-edge:` = **PLACEMENT** (where the section-edge bar sits)
 
@@ -190,15 +190,17 @@ model's Tile name "kicker" stays the internal structural word — no new synonym
 |---|---|
 | `plain` | today's bare mono-caps label. **Default.** |
 | `dot` | a small filled `--accent` dot before the label |
-| `bar` | a short leading `--accent` bar (vertical tick) before the label |
-| `tick` | a leading `›`/chevron glyph |
-| `bracket` | a hairline underline or side-rule framing the label |
+| `bar` | a short leading `--accent` vertical bar before the label |
+| `arrow` | a leading `›`/chevron glyph in the accent color |
+| `underline` | a hairline rule beneath the label |
+
+*(Shipped value names: `plain/dot/bar/arrow/underline` — an earlier draft of this doc
+listed `tick/bracket`, renamed for clarity before implementation.)*
 
 Mechanism: a `section.eyebrow-<v>` class drives the eyebrow `<code>`'s `::before`
-(dot/bar/tick) or `border`/`padding` (bracket). The existing `:has()` selector
+(dot/bar/arrow) or `border`/`padding` (underline). The existing `:has()` selector
 already matches the relocated masthead eyebrow, so one rule covers both the plain
-and `form` cases; split-panel's `.panel-eyebrow` can opt in in the same change.
-Glyph marks (`tick`) use a CSS `content` string, never a `url()`.
+and `form` cases. Glyph marks (`arrow`) use a CSS `content` string, never a `url()`.
 
 ---
 
@@ -258,14 +260,13 @@ The confirmation round resolved all three forks:
 - **Consolidation — all accents follow.** A `spectrum:` STYLE change redefines the
   shared `--spectrum` / `--spectrum-vertical` token at the section level, so every
   spectrum-derived accent (bar, table rails, timeline spine, code strips, hr)
-  follows as one system. `spectrum: off` flattens them to a quiet `var(--border)`
-  hairline (matching the established print convention) **and** removes the prominent
-  section-edge/divider bar — a full, tasteful de-brand. The separate
-  `spectrum-edge:` register touches ONLY the section-edge bar (top/left/right/
-  bottom/off), so removing or moving the bar never disturbs structural accents.
-  *This widens `solid`'s blast radius (it now flows to structure, not just the bar)
-  and changes `off` (structure goes neutral, not rainbow) — logged **Breaking** in
-  the CHANGELOG.*
+  follows as one system. The separate `spectrum-edge:` register touches ONLY the
+  section-edge bar (top/left/right/bottom/off), so removing or moving the bar never
+  disturbs structural accents. *This widens `solid`'s blast radius (it now flows to
+  structure, not just the bar).* **⚠ Superseded on the `off` semantics** — the first
+  cut had `spectrum: off` flatten structural accents to `var(--border)`; that was
+  corrected to bar-only (see "Post-review corrections" below), so `off` is
+  backward-compatible and NOT breaking.
 - **Breadth — curated small set.** 4–5 values per register, each defaulting to
   today's render; no combinatorial franklin-stone surface.
 - **Delivery — one cohesive PR.** The three registers ship together as the "Accent
@@ -289,5 +290,46 @@ got nothing. Added a fourth spectrum sub-register to close that gap:
   `--spectrum` token, so it inherits the deck's STYLE automatically.
 - Covers both card forms — the post-processed `.card` div AND the native
   nested-list `> .cell-stage > ul|ol > li` tile — across cards-grid / cards-stack /
-  compare-prose / stats / pricing / verdict-grid. A card component added later opts
-  in by extending the selector list (documented in `base.accent-finish.css`).
+  stats / pricing / verdict-grid. A card component added later opts in by extending
+  the selector list (documented in `base.accent-finish.css`).
+
+## Post-review corrections (2026-07-16) — the adversarial trio
+
+Ran the full adversarial trio (red team + Munger inversion + independent checker,
+HARD RULE #25) on the shipping diff. The checker confirmed the core logic correct
+(render-path parity, the three-way spectrum guard partition, regex, lint, gates).
+The red team + Munger found real issues, corrected here:
+
+- **`spectrum: off` reverted to BAR-ONLY.** The first cut made `spectrum: off`
+  flatten every structural accent to `var(--border)` — which contradicted the
+  confirmed option ("off touches only the section-edge bar, never kills a structural
+  rule") AND re-opened the exact regression `2026-07-03-spectrum-register-white-label.md`
+  deliberately closed. `spectrum: off` now drops only the section-edge / divider bar;
+  structural accents keep the current style. **This removes the breaking change** —
+  existing `spectrum: off` decks render as before. The remaining behavior change is
+  `spectrum: solid` (and now duo/mono) flowing to structural accents, which is the
+  intended consolidation.
+- **Dark-bookend bar restored.** The token-only rewrite dropped the visible top bar
+  on `.title`/`.closing`/dark slides for `solid`/`duo`/`mono` (their default edge is
+  bar-less or a 1px line), regressing the `white-label-spectrum` demo. A gated rule
+  now paints a full-thickness bar for explicit styles on those slides (excluded when
+  a `spectrum-edge:` placement is set). Both demo PDFs re-rendered.
+- **Card rail scoped off `compare-prose`.** The bare `.card` selector reached
+  compare-prose's prose columns (whose higher-specificity `background:` shorthand
+  swallowed the rail anyway, and whose accent verdict card is a solid fill). Scoped to
+  `:is(.cards-grid, .cards-stack) .card`; compare-prose dropped from the covered set.
+
+**Honest gate status** (correcting this doc's own "gates honored" over-claim):
+
+- `design-system.md` §2.5 register table — **updated** (was skipped in the first cut).
+- Studio catalogs — only the `spectrum:` STYLE catalog ships; `spectrum-edge:` /
+  `spectrum-card:` / `rule:` / `eyebrow:` are **front-matter-only for now**, picker UI
+  **explicitly deferred** (tracked follow-up), not silently dropped.
+- Theme AA/visual verification — a **representative sample** (indaco / carta / burgundy
+  / carbone, light + dark) was reviewed, not the full 16-family fan-out (per the
+  human's cost call). Any theme outside the sample is UNVERIFIED for the new gradients.
+- A **rot-guard test** binds the `spectrum-card` covered-component list so it can't
+  silently drift as card components are added.
+
+Value breadth (all 19 values) and the representative-sample verification depth were
+**confirmed by the human** after the trio.

@@ -422,6 +422,54 @@ describe('markdown-it-plugins', () => {
       `slide 2 should keep its own off, not inherit solid; got [${sections[1].join(', ')}]`);
   });
 
+  // ── accent-finish registers: spectrum-edge / spectrum-card / rule / eyebrow ────────────
+  test('deckClassPropagate: the four new accent registers each propagate their mapped token', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const md = ['---',
+      'spectrum-edge: left', 'spectrum-card: on', 'rule: short', 'eyebrow: dot',
+      '---', '', '# Slide 1', '', '---', '', '<!-- _class: cards-grid -->', '# Slide 2'].join('\n');
+    const sections = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    for (const cls of sections) {
+      for (const t of ['spectrum-edge-left', 'spectrum-card', 'rule-short', 'eyebrow-dot']) {
+        assert.ok(cls.includes(t), `missing '${t}'; got [${cls.join(', ')}]`);
+      }
+    }
+  });
+
+  test('deckClassPropagate: the three spectrum sub-registers are guarded INDEPENDENTLY (edge/card override does not suppress the deck STYLE)', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const md = ['---',
+      'spectrum: duo', 'spectrum-card: on',
+      '---', '',
+      '# Slide 1 (deck duo + card)', '',
+      '---', '',
+      '<!-- _class: content spectrum-edge-left -->',  // a per-slide EDGE token…
+      '# Slide 2', '',
+      '---', '',
+      '<!-- _class: content spectrum-card-off -->',   // …and a per-slide CARD opt-out
+      '# Slide 3',
+    ].join('\n');
+    const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    // Slide 2: its own EDGE token must NOT suppress the deck STYLE (duo) or the deck card.
+    assert.ok(s[1].includes('spectrum-duo'), `slide 2 lost deck STYLE 'spectrum-duo'; got [${s[1].join(', ')}]`);
+    assert.ok(s[1].includes('spectrum-edge-left'), `slide 2 missing its edge; got [${s[1].join(', ')}]`);
+    assert.ok(s[1].includes('spectrum-card'), `slide 2 lost deck card rail; got [${s[1].join(', ')}]`);
+    // Slide 3: its CARD opt-out drops the deck card, but keeps the deck STYLE (duo).
+    assert.ok(s[2].includes('spectrum-card-off') && !s[2].includes('spectrum-card') , `slide 3 should opt out of the card rail; got [${s[2].join(', ')}]`);
+    assert.ok(s[2].includes('spectrum-duo'), `slide 3 lost deck STYLE 'spectrum-duo'; got [${s[2].join(', ')}]`);
+  });
+
+  test('deckClassPropagate: a per-slide rule/eyebrow token overrides the deck register', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const md = ['---', 'rule: accent', 'eyebrow: dot', '---', '',
+      '# Slide 1 (deck accent+dot)', '', '---', '',
+      '<!-- _class: content rule-none eyebrow-arrow -->', '# Slide 2'].join('\n');
+    const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    assert.ok(s[0].includes('rule-accent') && s[0].includes('eyebrow-dot'), `slide 1; got [${s[0].join(', ')}]`);
+    assert.ok(s[1].includes('rule-none') && !s[1].includes('rule-accent'), `slide 2 rule override; got [${s[1].join(', ')}]`);
+    assert.ok(s[1].includes('eyebrow-arrow') && !s[1].includes('eyebrow-dot'), `slide 2 eyebrow override; got [${s[1].join(', ')}]`);
+  });
+
   // The meta, progress and watermark Tiles are self-contained Form Tiles (issue
   // #356): each owns its kernel + cross-path parity pin in test/unit/forms/
   // <id>-tile.test.js, so their coverage is no longer here.

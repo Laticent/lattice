@@ -694,7 +694,7 @@ the theme's `--accent` to their brand.
 | `solid` | `spectrum-solid` | A single **`--accent`** — everywhere. |
 | `duo` | `spectrum-duo` | Two-tone: accent → the theme's duotone partner (`--tag-bg`). |
 | `mono` | `spectrum-mono` | A quiet single-hue tint ramp (accent → canvas). |
-| `off` | `spectrum-off` | De-brand: every accent flattens to a neutral `--border` hairline **and** the prominent edge bar drops. |
+| `off` | `spectrum-off` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline). |
 
 **`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
 ONLY the bar, via a per-side `border-image`; it never touches the structural accents, so a
@@ -728,7 +728,7 @@ into a rail on each card. `spectrum:` also composes with `accent` /
 `tone: edge` (per-slide bar recolors), which win over the deck register where they apply. On
 a dark bookend a dark client accent reads faint — pick a theme accent that reads on dark, or
 `spectrum: off` there. *(The old narrow `spectrum: on/off/solid` register — bar-only — is
-superseded: `solid` now flows to every accent, and `off` de-brands the structure too. See
+superseded: `solid` now flows to every accent (but `off` stays bar-only). See
 `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.)*
 
 #### The `rule:` front-matter register (heading underline)

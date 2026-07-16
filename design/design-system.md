@@ -113,6 +113,20 @@ its own front-matter key — no single key does two jobs:**
 | **Mode** | `mode:` | the rendering *mode* — the typographic hand: `boardroom` (clean default) / `sketch` / `sketch-clean` |
 | **Backdrop** | `finish:` | the layer stack painted *behind* content: `none` / `atrium` … `gallery` |
 
+The Finish axis also carries an **accent** sub-family — small marks on chrome (not
+backdrops), each its own front-matter key, palette-blind, defaulting to today's render:
+
+| Register (human) | Key | What it sets |
+|---|---|---|
+| **Spectrum** | `spectrum:` | the accent-gradient STYLE (`on`/`solid`/`duo`/`mono`/`off`) — flows to every accent via the shared `--spectrum` token |
+| **Spectrum edge** | `spectrum-edge:` | the section-edge bar PLACEMENT (`top`/`left`/`right`/`bottom`/`off`) |
+| **Spectrum card** | `spectrum-card:` | an opt-in spectrum rail on card surfaces (`off`/`on`) |
+| **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
+| **Eyebrow** | `eyebrow:` | the mono-caps kicker decoration (`plain`/`dot`/`bar`/`arrow`/`underline`) |
+
+The accent registers are documented for authors in `lib/base/base.docs.md`; design in
+`engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
+
 They compose: `theme: indaco` + `mode: sketch` + `finish: atrium` is a
 hand-drawn deck in indaco's blue on an atrium backdrop. *(The key is `mode:`,
 not `style:` — Marp already owns `style:` for inline-CSS injection — and the

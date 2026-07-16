@@ -25,12 +25,12 @@ Three baked-in details — the **spectrum** ribbon, the heading **rule**, and th
 
 The `spectrum:` key sets the gradient identity — and because every accent reads the same `--spectrum` token, the whole system follows at once.
 
-- `rainbow`
-  - The default 3-stop theme ribbon.
+- `on`
+  - The default 3-stop rainbow ribbon (omit the key).
 - `solid` / `duo` / `mono`
   - A single accent, a two-tone pair, or a quiet tint — this deck runs `duo`.
 - `off`
-  - Flattens every accent to a neutral hairline and drops the edge bar.
+  - Drops the section-edge bar; structural accents keep the style.
 
 ---
 

@@ -192,13 +192,27 @@ describe('resolve-spectrum — CARD (`spectrum-card:`)', () => {
 
   test('CSS contract — the card rail targets card surfaces (both .card and li forms)', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
-    assert.match(css, /section\.spectrum-card \.card/);
+    // `.card` is scoped to cards-grid/cards-stack (NOT bare) so it never reaches compare-prose.
+    assert.match(css, /section\.spectrum-card:is\(\.cards-grid, \.cards-stack\) \.card/);
+    assert.doesNotMatch(css, /section\.spectrum-card \.card\b/, 'the bare `.card` selector would over-reach compare-prose');
     assert.match(css, /section\.spectrum-card\.cards-grid > \.cell-stage > :is\(ul, ol\) > li/);
     assert.match(css, /section\.spectrum-card\.pricing > \.cell-stage > ul > li/);
     // Painted as a background-IMAGE layer (no layout shift), reading the shared token.
     const rule = css.slice(css.indexOf('SPECTRUM CARD'));
     assert.match(rule, /background-image:\s*var\(--spectrum-vertical/);
     assert.ok(!/section\.spectrum-card[^{]*\{[^}]*margin/.test(css), 'card rail must not use margin');
+  });
+
+  // Rot-guard (adversarial-review): the card-rail covered-component set is HARDCODED in the
+  // CSS. Lock it so adding/removing a component is a deliberate, reviewed edit — a silent drift
+  // (a new card component that gets no rail, or a removed one) fails here. If you intentionally
+  // change the set, update this list in the same commit and say why in the PR.
+  test('spectrum-card covered-component set is locked (extend deliberately, not by accident)', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
+    const block = css.slice(css.indexOf('SPECTRUM CARD'));
+    const covered = new Set([...block.matchAll(/section\.spectrum-card\.([a-z-]+)\b/g)].map((m) => m[1]));
+    assert.deepEqual([...covered].sort(), ['cards-grid', 'cards-stack', 'pricing', 'stats', 'verdict-grid'],
+      'the spectrum-card rail covers exactly these card components — update this list AND the docs if you change the CSS');
   });
 });
 
@@ -217,11 +231,13 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
     }
   });
 
-  test('off flattens accents to --border AND drops the prominent edge bar', () => {
+  test('off is BAR-ONLY — drops the edge bar but does NOT redefine the shared token', () => {
     const rule = block.match(/section\.spectrum-off\s*\{[^}]*\}/)[0];
-    assert.match(rule, /--spectrum\s*:\s*linear-gradient\(var\(--border\)/);
+    assert.doesNotMatch(rule, /--spectrum\s*:/, 'off must NOT redefine --spectrum (structural accents keep their style — the white-label baseline)');
     assert.match(rule, /border-top:\s*none/);
     assert.match(block, /section\.divider:not\(\.light\)\.spectrum-off\s*\{\s*background:\s*var\(--surface-inverse\)/);
+    // explicit styles restore a full-thickness bar on bookends/dark, gated off when an edge is set.
+    assert.match(block, /section:is\(\.spectrum-solid, \.spectrum-duo, \.spectrum-mono\):not\(\.divider\):not\(\[class\*="spectrum-edge-"\]\)/);
   });
 
   test('EDGE tokens paint a per-side bar and drop the top border', () => {

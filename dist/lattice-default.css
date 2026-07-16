@@ -18337,12 +18337,24 @@ section.spectrum-mono {
   --spectrum: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
   --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
 }
-/* off — flatten every accent to a quiet --border hairline AND drop the prominent edge bar. */
-section.spectrum-off {
-  --spectrum: linear-gradient(var(--border), var(--border));
-  --spectrum-vertical: linear-gradient(var(--border), var(--border));
-  border-top: none;
+/* Explicit styles (solid/duo/mono) paint a full-thickness top bar on EVERY non-divider slide —
+   including the title/closing/dark bookends whose default edge is bar-less or a 1px line — so a
+   deliberately-chosen brand style reads consistently across the deck (this matches the
+   pre-consolidation `solid` behavior; the rainbow default's bookend treatment is unchanged).
+   Reads the redefined token, so duo/mono follow. Excluded when a `spectrum-edge:` placement is
+   set (the EDGE rules own the bar then) and on the divider (its --spectrum-vertical left rail
+   already follows the style). */
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]) {
+  border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
+  border-image-source: var(--spectrum);
+  border-image-slice: 1;
 }
+
+/* off — the white-label control: drop the prominent section-edge / divider bar. It touches
+   ONLY the bar; the structural accents (table rails, list-steps spine, hr) keep the current
+   STYLE, so `off` never kills a structural rule (it does NOT redefine --spectrum). This is
+   the backward-compatible white-label behavior (2026-07-03-spectrum-register-white-label.md). */
+section.spectrum-off { border-top: none; }
 section.dark.spectrum-off { background: var(--bg); }
 section.divider:not(.light).spectrum-off { background: var(--surface-inverse); }
 
@@ -19297,18 +19309,21 @@ section.eyebrow-underline
 /* ── SPECTRUM CARD (`spectrum-card:`) ── a spectrum rail on card surfaces ──────────────────
  * OPT-IN: a card carries no rail unless the deck sets `spectrum-card: on` or a slide opts in
  * with `_class: spectrum-card` (drop one slide out with `_class: spectrum-card-off`). Paints a
- * left rail on the shared `.card` primitive (cards-grid / cards-stack / compare-prose) and the
- * li-based card tiles (stats / pricing / verdict-grid). Drawn as a background-IMAGE layer over
+ * left rail on the cards-grid / cards-stack `.card` primitive and the li-based card tiles
+ * (stats / pricing / verdict-grid). Drawn as a background-IMAGE layer over
  * the card's own `--bg-alt` fill — so it adds no layout (no box-shift, HARD RULE #20), respects
  * the card's border-radius (the fill is clipped to it), and preserves the card background
  * without needing to know its token. Reads the shared `--spectrum` token, so it inherits the
  * deck's `spectrum:` STYLE (rainbow / duo / mono / …) automatically. */
 /* Card surfaces come in two forms: the post-processed `.card` div AND the native
- * nested-list `> .cell-stage > ul|ol > li` tile (cards-grid / cards-stack). Cover both,
+ * nested-list `> .cell-stage > ul|ol > li` tile. Cover both for cards-grid / cards-stack,
  * plus the li-based tiles of stats / pricing / verdict-grid. Each is the boxed
  * `--bg-alt` + border + border-radius card signature; the `>` combinators keep the rail on
- * the top-level card, never its body sub-items. */
-section.spectrum-card .card,
+ * the top-level card, never its body sub-items. The `.card` selector is scoped to
+ * cards-grid / cards-stack (NOT a bare `.card`) so it never reaches compare-prose's prose
+ * columns, whose higher-specificity `background:` shorthand would swallow the rail anyway. A
+ * card component added later opts in by extending this list. */
+section.spectrum-card:is(.cards-grid, .cards-stack) .card,
 section.spectrum-card.cards-grid > .cell-stage > :is(ul, ol) > li,
 section.spectrum-card.cards-stack > .cell-stage > :is(ul, ol) > li,
 section.spectrum-card.stats > .cell-stage > ol > li,

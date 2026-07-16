@@ -192,15 +192,14 @@ in patch versions.
 
 ### Changed
 
-- **Breaking: `spectrum:` now controls the whole accent system, not just the brand bar.** The
-  register was a narrow bar-only toggle (`on`/`off`/`solid` targeting the three brand-bar paint
-  sites); it now sets the shared `--spectrum` token so a style choice flows to every accent.
-  Two behavior changes for existing decks: `spectrum: solid` recolors the structural accents
-  (table rails, timeline spines, code strips), not just the bar; and `spectrum: off` flattens
-  those accents to a neutral `--border` hairline (previously they kept the rainbow) as well as
-  dropping the bar. To remove or move the *bar alone* while leaving structure intact, use the new
-  `spectrum-edge:` register (`spectrum-edge: off`, or `left`/`right`/`bottom`). White-label decks
-  generally want the fuller de-brand `spectrum: off` now gives.
+- **`spectrum: solid` now flows to every accent, not just the brand bar.** The register's
+  `solid` value was bar-only (the three brand-bar paint sites); it now sets the shared
+  `--spectrum` token, so an existing `spectrum: solid` deck's structural accents (table-header
+  rails, `list-steps` timeline spine, code-panel strips, `hr`) recolor from the rainbow to the
+  single accent along with the bar — the intended consolidation. `spectrum: off` is **unchanged**
+  (drops the section-edge/divider bar only; structural accents keep their style), so
+  `spectrum: off` decks render as before. New `duo`/`mono` styles and the `spectrum-edge:` bar
+  placement are additive.
 
 - **`design/skills/` — seven self-contained "create a killer X from scratch" skill files.** One
   skill each for authoring a **deck**, a **theme**, a **component**, a **chart component**, a

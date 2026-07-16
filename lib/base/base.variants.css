@@ -161,12 +161,24 @@ section.spectrum-mono {
   --spectrum: linear-gradient(90deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
   --spectrum-vertical: linear-gradient(180deg, var(--accent) 0%, color-mix(in oklab, var(--accent) 35%, var(--bg)) 100%);
 }
-/* off — flatten every accent to a quiet --border hairline AND drop the prominent edge bar. */
-section.spectrum-off {
-  --spectrum: linear-gradient(var(--border), var(--border));
-  --spectrum-vertical: linear-gradient(var(--border), var(--border));
-  border-top: none;
+/* Explicit styles (solid/duo/mono) paint a full-thickness top bar on EVERY non-divider slide —
+   including the title/closing/dark bookends whose default edge is bar-less or a 1px line — so a
+   deliberately-chosen brand style reads consistently across the deck (this matches the
+   pre-consolidation `solid` behavior; the rainbow default's bookend treatment is unchanged).
+   Reads the redefined token, so duo/mono follow. Excluded when a `spectrum-edge:` placement is
+   set (the EDGE rules own the bar then) and on the divider (its --spectrum-vertical left rail
+   already follows the style). */
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]) {
+  border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
+  border-image-source: var(--spectrum);
+  border-image-slice: 1;
 }
+
+/* off — the white-label control: drop the prominent section-edge / divider bar. It touches
+   ONLY the bar; the structural accents (table rails, list-steps spine, hr) keep the current
+   STYLE, so `off` never kills a structural rule (it does NOT redefine --spectrum). This is
+   the backward-compatible white-label behavior (2026-07-03-spectrum-register-white-label.md). */
+section.spectrum-off { border-top: none; }
 section.dark.spectrum-off { background: var(--bg); }
 section.divider:not(.light).spectrum-off { background: var(--surface-inverse); }
 

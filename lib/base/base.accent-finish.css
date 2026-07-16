@@ -105,18 +105,21 @@ section.eyebrow-underline
 /* ── SPECTRUM CARD (`spectrum-card:`) ── a spectrum rail on card surfaces ──────────────────
  * OPT-IN: a card carries no rail unless the deck sets `spectrum-card: on` or a slide opts in
  * with `_class: spectrum-card` (drop one slide out with `_class: spectrum-card-off`). Paints a
- * left rail on the shared `.card` primitive (cards-grid / cards-stack / compare-prose) and the
- * li-based card tiles (stats / pricing / verdict-grid). Drawn as a background-IMAGE layer over
+ * left rail on the cards-grid / cards-stack `.card` primitive and the li-based card tiles
+ * (stats / pricing / verdict-grid). Drawn as a background-IMAGE layer over
  * the card's own `--bg-alt` fill — so it adds no layout (no box-shift, HARD RULE #20), respects
  * the card's border-radius (the fill is clipped to it), and preserves the card background
  * without needing to know its token. Reads the shared `--spectrum` token, so it inherits the
  * deck's `spectrum:` STYLE (rainbow / duo / mono / …) automatically. */
 /* Card surfaces come in two forms: the post-processed `.card` div AND the native
- * nested-list `> .cell-stage > ul|ol > li` tile (cards-grid / cards-stack). Cover both,
+ * nested-list `> .cell-stage > ul|ol > li` tile. Cover both for cards-grid / cards-stack,
  * plus the li-based tiles of stats / pricing / verdict-grid. Each is the boxed
  * `--bg-alt` + border + border-radius card signature; the `>` combinators keep the rail on
- * the top-level card, never its body sub-items. */
-section.spectrum-card .card,
+ * the top-level card, never its body sub-items. The `.card` selector is scoped to
+ * cards-grid / cards-stack (NOT a bare `.card`) so it never reaches compare-prose's prose
+ * columns, whose higher-specificity `background:` shorthand would swallow the rail anyway. A
+ * card component added later opts in by extending this list. */
+section.spectrum-card:is(.cards-grid, .cards-stack) .card,
 section.spectrum-card.cards-grid > .cell-stage > :is(ul, ol) > li,
 section.spectrum-card.cards-stack > .cell-stage > :is(ul, ol) > li,
 section.spectrum-card.stats > .cell-stage > ol > li,
