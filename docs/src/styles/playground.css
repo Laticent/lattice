@@ -262,10 +262,19 @@ body[data-view='read'] .pg-pane-label {
 .pg-ssr-shell {
 	position: absolute;
 	inset: 0;
-	z-index: 0; /* under #preview (z-index 1) and over the skeleton ::after (also 0, earlier) */
+	z-index: 0; /* under #preview (z-index 1). NB the skeleton ::after is also z-index 0 but LATER in tree order, so it would paint over this — the data-pg-shell rule below suppresses it. */
 	display: none;
 	overflow: hidden;
 	pointer-events: none;
+}
+/* When the instant-shell is painting a REAL cached slide, suppress the loading
+   skeleton on the same box. The skeleton ::after is generated AFTER the shell div, so
+   at the same z-index:0 it paints ON TOP of the slide (CSS 2.1 §E, tree order) — the
+   returning visitor would see the pulsing placeholder, not their slide. The skeleton is
+   redundant here anyway (a real slide is available), so drop it; a newcomer with no
+   shell keeps it (the dark fallback). Verified by pixel-sampling the shell window. */
+:root[data-pg-shell='on'] .pg-preview-wrap:not(.is-live)::after {
+	content: none;
 }
 :root[data-pg-shell='on'] .pg-ssr-shell {
 	display: flex;

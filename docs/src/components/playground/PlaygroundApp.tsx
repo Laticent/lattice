@@ -216,6 +216,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Capture dedupe + one-shot-after-first-render bookkeeping (mirrors the Studio).
 	const lastPgCaptureRef = React.useRef(0);
 	const firstCaptureDoneRef = React.useRef(false);
+	// The Edit-view source that produced the CURRENT frame (last COMPLETED render). The
+	// snapshot's identity hash must describe the same bytes as the captured html — NOT the
+	// synchronously-persisted SOURCE_KEY, which races ahead on every keystroke. Hashing the
+	// live SOURCE_KEY would stamp `{ html: render(old), srcHash: fp(new) }`; the next load
+	// re-reads SOURCE_KEY(new), the hashes match, and the STALE (or pasted-then-left: WRONG)
+	// slide flashes. Stamping from the rendered source instead makes a mid-edit exit fail the
+	// replay's srcHash gate → the dark skeleton shows, never a wrong paint. (inversion finding)
+	const lastRenderedEditSrcRef = React.useRef<string | null>(null);
 	// Ref-indirected so `render` (defined above the capture callback) can fire the
 	// post-first-render capture without a use-before-declaration cycle.
 	const captureFirstSlideRef = React.useRef<() => void>(() => {});
@@ -339,6 +347,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} else {
 				previewStateRef.current = r.state;
 				lastGeomRef.current = r.geom;
+				// Record the source THIS frame renders, so a capture stamps the snapshot's
+				// identity from the bytes actually on screen (see lastRenderedEditSrcRef).
+				if (viewRef.current === 'edit') lastRenderedEditSrcRef.current = src;
 				setStatusLine(`Rendered ${r.count} slide(s).`);
 				// A full-deck walk learns its slide count from the render itself
 				// (no plan exists for authored gallery decks — slide-index positions).
@@ -393,7 +404,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// EDIT-VIEW ONLY. The preview shows the draft in Edit, but a gallery/plan deck in
 	// Explore — which has no stable draft-source identity, so replaying it could flash
 	// the WRONG deck. So capture (and, in playground.astro, replay) only when the draft
-	// is on screen, keyed by a hash of the persisted source. Explore/newcomer cold loads
+	// is on screen, keyed by a hash of the RENDERED source. Explore/newcomer cold loads
 	// fall back to the (now dark) loading skeleton.
 	const captureFirstSlide = React.useCallback(() => {
 		try {
@@ -404,14 +415,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// mobile nav, and the post-first-render timer can overlap.
 			const now = Date.now();
 			if (now - lastPgCaptureRef.current < 500) return;
+			// Stamp the identity from the source that produced THIS frame, not the live
+			// SOURCE_KEY (which races ahead of the async render on every keystroke). Null →
+			// no Edit render has landed yet → nothing trustworthy to snapshot; skip.
+			const renderedSrc = lastRenderedEditSrcRef.current;
+			if (renderedSrc == null) return;
 			lastPgCaptureRef.current = now;
 			const root = document.documentElement;
-			let src = '';
-			try {
-				src = localStorage.getItem(SOURCE_KEY) || '';
-			} catch {
-				/* private mode */
-			}
 			// captureFirstSectionFromFrame sanitizes at the chokepoint (#22) before the HTML
 			// can be stored + replayed into the top document — nothing to do here.
 			const snap = captureFirstSectionFromFrame(fr, {
@@ -419,9 +429,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				h: lastGeomRef.current.h,
 				palette: root.getAttribute('data-palette') || 'indaco',
 				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
-				// The replay recomputes this hash of the persisted source and only paints on a
-				// match — so an edited draft (or a different deck) never flashes a stale slide.
-				srcHash: fingerprint(src),
+				// Hash the RENDERED source (matches the captured html). The replay recomputes
+				// fp(SOURCE_KEY) next load; if the user edited after this render, the hashes
+				// differ → it refuses and shows the skeleton, never a stale/wrong-deck flash.
+				srcHash: fingerprint(renderedSrc),
 				themeUrlBase: themeBase,
 				ts: now,
 			});
