@@ -887,7 +887,17 @@ in patch versions.
   rules). The Playground preview `iframe` element also drops its `background: transparent` for a
   solid `var(--bg-alt)`, so the one frame iOS composites the element before its srcdoc paints is the
   brand letterbox color, never the iframe's default white.
-  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`, `ColorSchemeSeed.astro`, `landing.css`.)
+  (6) **The single-slide preview iframe was a visible white `about:blank`** — the deepest cause of the
+  Studio slide-card white flash. The DeckPreview iframe (Studio main preview + every landing/showcase
+  specimen) is created and appended to the DOM *before* its `srcdoc` is assigned; a bare iframe is
+  `about:blank`, which iOS Safari paints as an OPAQUE WHITE document *on top of* the element's CSS
+  `background` — so `iframe.live{background:var(--bg)}` (fix above) sat behind that white and couldn't
+  cover it. The iframe element now stays `visibility:hidden` from creation until its first `srcdoc`
+  actually paints (revealed in the frame's `onload`, after fit), so the dark host pane / instant-shell
+  covers the `about:blank` window instead of white — the single-slide twin of the Playground filmstrip's
+  `#preview` visibility gate. The reveal runs before the instant-shell dismissal (both fire on the same
+  load event, reveal first), so the live dark slide is showing before the shell goes away — no gap.
+  (`snapshot-cache.js`, `PlaygroundApp.tsx`, `playground.astro`, `playground.css`, `playground-engine.ts`, `studio.astro`, `ColorSchemeSeed.astro`, `landing.css`, `single-slide-render.ts`.)
 - **Read-aloud narration of Mermaid `pie`, `class`, `state`, `erDiagram`, and C4 diagrams is
   hardened — accessibility statements and common syntax no longer silently drop a diagram to its
   heading, and a few cases that spoke a falsehood are corrected.** A retroactive three-perspective

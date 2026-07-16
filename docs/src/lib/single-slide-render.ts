@@ -456,6 +456,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					fr.style.width = geom.width + 'px';
 					fr.style.height = geom.height + 'px';
 					fr.style.transformOrigin = 'top left';
+					// Hidden until the FIRST srcdoc actually paints (revealed in onload below).
+					// A freshly-appended iframe with no srcdoc is `about:blank`, which iOS
+					// Safari paints as an OPAQUE WHITE document ON TOP OF the element's CSS
+					// `background` — so `iframe.live{background:var(--bg)}` can't cover it and
+					// a cold load flashed a white slide card (device report). Keeping the
+					// element `visibility:hidden` until its document has painted means the
+					// dark pane behind it (the host's `bg-background` / the instant-shell)
+					// covers that window instead of white. This is the single-slide twin of
+					// the Playground filmstrip's `#preview` visibility gate.
+					fr.style.visibility = 'hidden';
 					host.appendChild(fr);
 					if (typeof ResizeObserver !== 'undefined') {
 						// The callback honors the module-level drag gate above; the host is
@@ -490,6 +500,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					(host as LiveHost).__latticePendingLoad = false;
 					const tFit = performance.now();
 					scaleFrame(host);
+					// Reveal now that the srcdoc has painted (and is scaled) — closes the
+					// white-`about:blank` window without ever showing an unscaled or blank
+					// frame. Idempotent: later full-writes re-fire onload but it's already
+					// visible; patches don't reload, so the frame stays put.
+					fr.style.visibility = 'visible';
 					const fitMs = performance.now() - tFit;
 					applyDebug(fr, { force: null });
 					// Parent-hosted video playback: tap a video poster in a Studio preview
