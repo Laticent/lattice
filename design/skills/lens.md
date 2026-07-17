@@ -46,6 +46,7 @@ interface LensDef {
   base: 'none' | 'all';  // additive vs subtractive (see below)
   single?: boolean;  // render only the first member in author order (the "ask")
   hidden?: boolean;  // defined + suggestible but kept out of the reader's picker (staging)
+  order?: number;    // picker position; default = registry order
   approved?: string; // a content hash "sha256:…" written on human Approve — the reader gate
 }
 ```

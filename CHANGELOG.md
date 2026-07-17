@@ -191,6 +191,36 @@ in patch versions.
 
 ### Added
 
+- **Callout eyebrows are now renamable — `insight-*` modifiers on the slide `_class`.** The
+  universal Key Insight panel and the split-compare verdict tag both emit their eyebrow through one
+  shared `--insight-label` seam, so a curated modifier swaps the word to a boardroom heading
+  (`insight-takeaway` → TAKEAWAY, `insight-verdict` → VERDICT, `insight-so-what` → SO WHAT,
+  `insight-bottom-line` → BOTTOM LINE, `insight-the-ask` → THE ASK, `insight-our-view` → OUR VIEW,
+  `insight-implication` → IMPLICATION, `insight-next-step` → NEXT STEP, `insight-why` → WHY IT
+  MATTERS) while the panel chrome, color,
+  and sizing stay put. Both surfaces read the *same* token — each with its own default via the
+  `var()` fallback, and both defaults exposed as explicit modifiers (`insight-key` → KEY INSIGHT,
+  `insight-recommendation` → RECOMMENDATION) — so the recommendation is a Key Insight variant, not a
+  split-compare special, and either word can move onto the other surface. Set per slide or deck-wide
+  via a frontmatter `class:`. Defaults never move, so every existing deck renders identically. Same
+  custom-property-as-content idiom as the `stamp-*` state markers. See `examples/insight-labels.md`
+  and `engineering/decisions/2026-07-17-insight-label-vocabulary.md`.
+- **Two author-time `lint:deck` rules catch silent mis-renders you'd otherwise only see on a render.**
+  Both are `lib/authoring/lint-core.js` warnings (shared by the CLI, `validate()`, and the Drawing
+  Board), and both are covered by the `--all --strict` corpus sweep:
+  - **`big-number-hero-heading`** — a `big-number` slide whose giant number is authored as a `#`/`##`
+    heading instead of the required first list item (`ul > li:first-child`). The number slot renders
+    empty and the hero vanishes; the rule points you to the list-item shape. (This surfaced and fixed a
+    latent invisible-hero in `examples/accessible-descriptions.md`.)
+  - **`bookend-finish-contrast`** — a `title`/`closing` bookend under a deck-wide `finish:` with no
+    `finish-none` opt-out. The finish paints its backdrop over the bookend's inverse surface, washing
+    out its display text on a light canvas; the rule points you to the house pattern (`finish-none` on
+    bookends, or an explicit `finish-<name>` if intended).
+- **`new:component` scaffold checklist now warns about the two CSS footguns and the roster tests.**
+  `tools/new-component.js` prints reminders to keep the component CSS UNLAYERED (Lattice's `@layer
+  components` is inert — `engineering/cascade.md`), to check `base.modifiers.css` for base-modifier
+  bleed into generic elements, and to update the enumerative roster tests (`stage-catalog`,
+  `component-manifest` partition) a new component is designed to trip.
 - **Accent finishes — the spectrum, heading rule, and eyebrow are now selectable finishes.**
   Three baked-in details graduate to first-class registers on the Finish axis (the *accent*
   sub-family, distinct from `finish:` backdrops), each deck-wide or per-slide, palette-blind,
@@ -228,6 +258,80 @@ in patch versions.
 
 ### Changed
 
+- **The performance overlay's FPS now rates against your display's refresh ceiling, not a fixed 60.**
+  A steady 30fps on a 30Hz panel — or under an iOS/tablet power-saver or a backgrounded-tab throttle —
+  is the device's ceiling, not jank, but the overlay was colouring it "poor" and sending people
+  hunting for a bug that wasn't there. FPS is now rated as a fraction of the highest rate seen this
+  session (the way MEM rates against the heap limit), so it reads healthy at the ceiling and only
+  flags when the rate DROPS below it while you interact; the metric's explanation says so. Born from
+  an investigation that measured the live preview and **disproved** a suspected runtime-oscillation
+  cause: it settles to zero at-rest DOM mutations on every slide tested (rAF a full 60/sec), so the
+  reported "FPS pinned at 30" was environmental. A new on-demand guard, `npm run settle:check`
+  (`docs/scripts/runtime-settle-check.mjs`), locks that in — it fails if any representative slide
+  churns at rest, catching a future oscillation regression the runtime's own change-gates prevent.
+  (`perf-metrics.ts`, `PerfOverlay.tsx`; `engineering/decisions/2026-07-17-preview-accumulation-leaks.md`.)
+- **The Studio is now one reversible posture dial — Read · Write · Build — instead of a one-way
+  "graduation" that nagged you out of the calm surface.** The old model put a newcomer behind a
+  hidden `onboarded` flag plus a first-run welcome banner whose only job was to push them to
+  *graduate out*; `graduate()` flipped that flag permanently, with no way back ("banner jail"). It's
+  replaced by a single always-visible, reversible dial whose stops are named for what you're *doing*,
+  never who you are: **Read** — the sample deck full-bleed with one "Edit this slide" verb (the
+  non-technical newcomer's home); **Write** — the calm editor + preview (the promoted Focus body);
+  **Build** — every panel. You move between them freely; nothing is a mode you must escape, and no
+  stop reads as a rank. The dial is persisted and written *only* by an explicit move (never by
+  engagement, so the surface never drifts); ⌘. still quiets to Write for a moment without touching
+  your saved stop; and every faculty stays one keystroke away from every stop (Library + Workspace
+  joined the ⌘K palette). Read, Write and Build share one mounted editor + preview, so switching —
+  including a newcomer's first "Edit this slide" — never reloads the preview or jumps the slide. The
+  retired `onboarded` localStorage flag migrates automatically to a posture; the phone newcomer gets
+  a first-class mobile Read; a screen-reader announces each stop change. Write keeps deck navigation —
+  its slim header carries the real deck switcher (Switch · Rename · New deck), not a dead title label,
+  and New deck joined the ⌘K palette — so switching decks and creating one are reachable at Write, never
+  stranded in Build. Read stays a calm label (managing decks is a Write-and-up concern). The full-bleed
+  preview (Read, and editor-collapsed) now *contains* the slide — the whole slide is visible, letterboxed,
+  never cropped — instead of covering the pane width and clipping the slide's header / footer / page
+  number off the top and bottom when the pane was wider than the slide's aspect ratio. In Read the
+  slide navigator labels each slide by its **title** (its first heading) rather than its component
+  class — `big-number` / `split-compare` is jargon the newcomer can't read; the class label stays in
+  Write / Build, where the author wants it. Full design +
+  adversarial hardening: `engineering/decisions/2026-07-17-studio-persona-dial.md`.
+- **The live preview no longer accumulates leaked observers/iframes over a session, or stale
+  cached assets across refreshes.** An adversarial-trio investigation (red-team leak hunt +
+  Munger inversion + across-refresh storage audit) into "the preview degrades the longer I work
+  and the more I refresh" found three real accumulation vectors, all fixed: (1) the single-slide
+  renderer had **no `dispose()`**, so a remounting preview host (the landing hero's Preview↔Source
+  tab flip, the Slide Overview's one-host-per-slide, the Studio overlays) leaked a fully-parsed
+  ~560KB theme iframe each cycle — the per-host `ResizeObserver` was never disconnected and its
+  host stayed rooted in a module-level Map; `dispose()` now releases all of it and every host
+  calls it on unmount. (2) A component-page specimen's `MutationObserver` on the permanent
+  `document.documentElement` (which can never be garbage-collected) was never torn down;
+  `onThemeChange` now returns an unsubscribe and the specimen disposes on `pagehide`. (3) The
+  service worker never version-evicted old content-hashed `playground/v/<hash>/` assets, so each
+  deploy's engine bundle + theme sheets piled up in Cache Storage; it now drops an asset's
+  older-hash copies when it caches the current one, bounding the cache to one deploy. A likely
+  cause of the FPS-pinned-at-30 symptom — a runtime rAF/observer loop that never idles if a
+  per-frame geometry write oscillates — was traced but is a *guarded* risk needing on-device
+  confirmation before the (export-sensitive) shared runtime is touched, so it's a scoped
+  follow-up. (`single-slide-render.ts`, `DeckPreview.tsx`, `FieldCardsLive.tsx`,
+  `RestyleShowcase.tsx`, `specimen.js`, `sw.js`;
+  `engineering/decisions/2026-07-17-preview-accumulation-leaks.md`.)
+- **The first live preview render after a page load no longer waits on a cold runtime fetch.**
+  The Studio/Playground preview iframe needs `lattice-runtime.js` before it can paint, but that
+  bundle was the one preview asset nobody warmed — the parent page never loads it, so the iframe
+  cold-fetched it the first time it wrote its `srcdoc`, *after* the engine bundle had finished
+  loading. On a cold/first/post-deploy load the two heavy fetches ran back-to-back and the runtime
+  landed squarely on the first-render critical path — it was the bulk of the perf overlay's red
+  **FRAME REBUILD** needle even for a tiny slide (measured cold, mid-tier phone profile: the runtime
+  request didn't even *start* until ~7s in, and the first render's frame took ~3.8s). The app pages
+  now drop a low-priority `<link rel="prefetch" as="script">` for the runtime in `<head>`, so its
+  fetch starts at HTML-parse time and overlaps island hydration + the engine load instead of queuing
+  behind them (same-cache-entry as the iframe's own `<script src>`, content-hash-versioned together).
+  Applied on every page that live-renders a slide on load — the app pages (Studio, Playground), the
+  landing hero, and every component page's specimen. Measured post-fix (Studio): the runtime request
+  starts at ~0.2s (was ~7s) and FRAME REBUILD drops ~0.85s. The residual cold-load cost is the engine
+  bundle + hydration + the 563KB CSS parse, which the SSG instant-shell is designed to mask.
+  (`RuntimeWarm.astro`, `studio.astro`, `playground.astro`, `index.astro`, `ComponentsLayout.astro`;
+  `engineering/decisions/2026-07-11-preview-performance-diagnosis.md` §B④.)
 - **Categorical TEXTURE is now a universal token channel (`--cat-N-texture`), not per-theme
   wiring — and it fixes a11y mindmaps + textures every categorical diagram.** Texture (the
   non-color channel that lets monochrome/CVD/print decks tell categories apart) had been copied
@@ -858,6 +962,23 @@ in patch versions.
   `engineering/decisions/2026-06-14-deck-print-styling.md`.
 
 ### Fixed
+
+- **The Studio now reopens on the deck (and slide) you left off on — closing a blank-preview
+  stare on return, verified on real WebKit.** The Studio always booted deck #1, even after you'd
+  switched to another deck. That also broke the returning-visitor instant-shell: its pre-paint
+  replay only paints your last slide when the snapshot's deck matches the deck about to boot, so
+  leaving from any non-first deck failed the match and dropped you onto the raw ~4s cold-boot
+  blank (the exact "leave and come back on mobile → blank slide" report; iOS memory-reclaim
+  discards the tab, so return is a full reload). The Studio now persists the last-active
+  `{deckId, slideIndex}` (`lattice-studio-active`) and boots from it, and `studio.astro`'s inline
+  `bootId` derives from the SAME key (last-active → index[0] → `DECKS[0]`, validated against the
+  index ∪ built-ins) so the instant-shell and the hydrated app agree on which deck leads. The
+  wrong-deck-flash guard is preserved (a dangling/foreign pointer still suppresses the replay
+  rather than paint the wrong deck; the pointer is forgotten on delete/clear). Reproduced and
+  fixed against the real WebKit engine via Playwright (Safari 26 UA) — the "boots the wrong deck
+  on return" bug and the blank both close; real-device iOS *discard timing* remains the one
+  unverifiable piece from a headless sandbox (#23). (`studio-store.ts`, `StudioShell.tsx`,
+  `studio.astro`; `engineering/decisions/2026-07-11-preview-performance-diagnosis.md` § A.)
 
 - **concrete's categorical diagrams collapsed in light mode — the 12 chips are near-identical
   grays. Fixed with a BESPOKE raw-concrete texture per category.** Like onyx (below), concrete

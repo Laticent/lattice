@@ -197,7 +197,13 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
 }
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not([class*="layout-"]) > blockquote::before,
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote::before {
-  content:'KEY INSIGHT';
+  /* Default 'KEY INSIGHT'; an `insight-*` modifier on the slide _class (or a
+   * deck-wide frontmatter `class:`) overrides via the shared --insight-label
+   * seam — the same custom-property idiom the stamp-* markers use
+   * (base.variants.css § INSIGHT LABEL). The split-compare verdict tag reads
+   * the SAME token (default 'RECOMMENDATION'), so one vocabulary drives both:
+   * the recommendation is a Key Insight variant, not a split-compare special. */
+  content:var(--insight-label, 'KEY INSIGHT');
   font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;

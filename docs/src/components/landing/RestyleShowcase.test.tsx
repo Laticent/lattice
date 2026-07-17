@@ -13,9 +13,10 @@ vi.mock('@/lib/single-slide-render', () => ({
 		ready: () => true,
 		whenReady: () => Promise.resolve(),
 		renderInto,
-		onThemeChange: vi.fn(),
+		onThemeChange: vi.fn(() => () => {}),
 		scaleFrame: vi.fn(),
 		prefetchTheme: vi.fn(),
+		dispose: vi.fn(),
 	}),
 }));
 

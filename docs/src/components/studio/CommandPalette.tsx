@@ -1,10 +1,10 @@
-import { Columns2, FileText, Focus, MessageSquareHeart, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Share2, Sparkles } from 'lucide-react';
+import { Columns2, FileBox, FileText, Focus, MessageSquareHeart, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Settings2, Share2, Sparkles } from 'lucide-react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import type { StudioDeck } from './decks';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
-	open, onOpenChange, decks, palettes, onPickDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback,
+	open, onOpenChange, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
 	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit,
 }: {
 	open: boolean;
@@ -12,6 +12,9 @@ export function CommandPalette({
 	decks: StudioDeck[];
 	palettes: string[];
 	onPickDeck: (d: StudioDeck) => void;
+	// New deck — the slim Write header's switcher carries it too, but ⌘K is the
+	// header's stated "reaches every feature" path, so it must be reachable here.
+	onNewDeck: () => void;
 	onPalette: (p: string) => void;
 	onPresent: () => void;
 	onShare: () => void;
@@ -21,6 +24,11 @@ export function CommandPalette({
 	onInsert?: () => void;
 	onFocus?: () => void;
 	onFeedback?: () => void;
+	// Library + Workspace open as overlays (not docked panels), so they render at
+	// ANY stop — making "every faculty is one keystroke away from every stop" true
+	// even where the activity bar isn't shown (Read/Write). (2026-07-17-studio-persona-dial.md)
+	onLibrary?: () => void;
+	onWorkspace?: () => void;
 	// The editor|preview split (2026-07-02 decision) — each handler is passed
 	// only while it applies (e.g. no Expand without a collapsed pane), so the
 	// palette never lists a dead command.
@@ -45,6 +53,8 @@ export function CommandPalette({
 					{onInsert && <CommandItem onSelect={run(onInsert)}><Plus />Insert a component…</CommandItem>}
 					{onFocus && <CommandItem onSelect={run(onFocus)}><Focus />Focus mode — just editor &amp; preview</CommandItem>}
 					<CommandItem onSelect={run(onFabricate)}><PencilRuler />Fabricate — Theme &amp; Component Studio</CommandItem>
+					{onLibrary && <CommandItem onSelect={run(onLibrary)}><FileBox />Library — saved themes &amp; components</CommandItem>}
+					{onWorkspace && <CommandItem onSelect={run(onWorkspace)}><Settings2 />Workspace settings</CommandItem>}
 					{onWatchDemo && <CommandItem onSelect={run(onWatchDemo)}><MonitorPlay />Watch demo — the Studio drives itself</CommandItem>}
 					{onFeedback && <CommandItem onSelect={run(onFeedback)}><MessageSquareHeart />Send feedback</CommandItem>}
 				</CommandGroup>
@@ -64,6 +74,7 @@ export function CommandPalette({
 					{decks.map((d) => (
 						<CommandItem key={d.id} onSelect={run(() => onPickDeck(d))}><FileText />{d.title}</CommandItem>
 					))}
+					<CommandItem onSelect={run(onNewDeck)}><Plus />New deck</CommandItem>
 				</CommandGroup>
 				<CommandSeparator />
 				<CommandGroup heading="Theme">

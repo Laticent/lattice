@@ -137,9 +137,18 @@ export const VITALS: MetricMeta[] = [
 export const RUNTIME: MetricMeta[] = [
 	{
 		key: 'FPS', label: 'FPS', title: 'Frames per second', group: 'runtime',
-		format: ms, unit: 'fps', bands: { good: 50, ni: 30, dir: 'higher' },
-		what: 'Frames drawn per second right now.',
-		why: 'Below ~50 feels choppy — scrolling and animation start to stutter.',
+		format: ms, unit: 'fps',
+		// Rate against the display's OWN ceiling (the max FPS seen this session, passed
+		// as `extra` = current/ceiling), the way MEM rates against the heap limit — NOT a
+		// fixed 60 band. A steady 30 on a 30Hz panel or under a power-saver / background
+		// throttle is the device's ceiling, not jank; only a value that falls BELOW that
+		// ceiling is a real drop. Falls back to an absolute band before a ceiling is known.
+		rate: (v, frac) => {
+			if (typeof frac === 'number' && Number.isFinite(frac)) return frac >= 0.9 ? 'good' : frac >= 0.6 ? 'needs-improvement' : 'poor';
+			return v >= 50 ? 'good' : v >= 30 ? 'needs-improvement' : 'poor';
+		},
+		what: 'Frames the browser painted this second.',
+		why: 'A steady low value (≈30) usually just means the display refresh rate — or a power-saver / background-tab throttle — capping the frame loop, not jank. Real preview stutter shows in INP and the RENDER group below; the signal here is FPS DROPPING relative to its own ceiling while you interact.',
 	},
 	{
 		key: 'MEM', label: 'MEM', title: 'JavaScript heap', group: 'runtime',

@@ -82,7 +82,7 @@
     "verdict": {
       "selector": "blockquote",
       "required": true,
-      "description": "The recommendation — one short sentence in a blockquote."
+      "description": "The recommendation — one short sentence in a blockquote. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow."
     }
   },
   "skeleton": "<!-- _class: split-compare -->\n\n`Decision Required`\n\n## Headline that frames the choice.\n\nOne-sentence context paragraph explaining the stakes.\n\n- Alternative option\n  - First fact about the alternative\n  - Second fact about the alternative\n- Preferred option\n  - First fact about the preferred path\n  - Second fact about the preferred path\n\n> The recommendation in one decisive sentence.\n",

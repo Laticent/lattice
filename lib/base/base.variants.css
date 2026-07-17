@@ -418,6 +418,32 @@ section.stamp-pin::before {
   background: var(--stamp-color); width: 2cqi; height: 2.9cqi;
 }
 
+/* ── INSIGHT LABEL ── rename the callout eyebrow via the slide _class.
+   The universal Key Insight panel (base.modifiers.css) and the split-compare
+   verdict tag (split-compare.styles.css) both emit their eyebrow as
+   `content: var(--insight-label, <default>)`. Setting --insight-label on the
+   section — through one of the curated `insight-*` modifiers below, or a
+   deck-wide frontmatter `class:` — swaps the word while every default stays put
+   (the var() fallback). Same custom-property-as-content idiom as the stamp-*
+   markers above; the vocabulary is deliberately small and curated (a highly
+   edited boardroom heading, not free text). The two defaults are themselves
+   modifiers (insight-key / insight-recommendation), so either word can move to
+   the other surface — the recommendation is a Key Insight variant, not a
+   split-compare special. Add a word here to grow the set; keep it uppercase to
+   match the eyebrow's text-transform and the label voice.
+   See engineering/decisions/2026-07-17-insight-label-vocabulary.md. */
+section.insight-key          { --insight-label: 'KEY INSIGHT'; }
+section.insight-recommendation { --insight-label: 'RECOMMENDATION'; }
+section.insight-takeaway     { --insight-label: 'TAKEAWAY'; }
+section.insight-verdict      { --insight-label: 'VERDICT'; }
+section.insight-so-what      { --insight-label: 'SO WHAT'; }
+section.insight-bottom-line  { --insight-label: 'BOTTOM LINE'; }
+section.insight-the-ask      { --insight-label: 'THE ASK'; }
+section.insight-our-view     { --insight-label: 'OUR VIEW'; }
+section.insight-implication  { --insight-label: 'IMPLICATION'; }
+section.insight-next-step    { --insight-label: 'NEXT STEP'; }
+section.insight-why          { --insight-label: 'WHY IT MATTERS'; }
+
 /* The Form (`section.form`) chrome — the root Frame box, the masthead / stage /
  * footer Cells, and the stage fill discipline — used to live here. It is now
  * self-contained per Cell under lib/forms/cell/<id>/<id>.css (stage · masthead ·

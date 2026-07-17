@@ -144,6 +144,13 @@ var require_lint_core = __commonJS({
       }
       return null;
     }
+    function findBigNumberHeroInHeading(slide) {
+      if (!slide) return false;
+      const body = slide.replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, "");
+      const hasHeading = /^#{1,6}\s+\S/m.test(body);
+      if (!hasHeading) return false;
+      return countPrimaryCollection(slide, "item") === 0;
+    }
     function countPrimaryCollection(slide, axis) {
       if (!slide || !axis) return 0;
       if (axis === "line") {
@@ -350,6 +357,10 @@ ${indent}   - ${body.trim()}`;
       const deckClaimRaw = fmClaimBlock && (fmClaimBlock[1].match(/^\s*claim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1];
       const deckClaimName = deckClaimRaw ? deckClaimRaw.trim().toLowerCase() : "";
       const deckClaimToken = ["quiet", "hero", "bleed"].includes(deckClaimName) ? `claim-${deckClaimName}` : null;
+      const deckFinishRaw = fmClaimBlock && (fmClaimBlock[1].match(/^\s*finish:\s*["']?([\w-]+)/m) || [])[1];
+      const deckFinishName = deckFinishRaw ? deckFinishRaw.trim().toLowerCase() : "";
+      const deckFinishKnown = vocab.finishNames ? new Set([...vocab.finishNames].map((n) => String(n).toLowerCase())) : null;
+      const deckHasFinish = !!deckFinishName && deckFinishName !== "none" && (!deckFinishKnown || deckFinishKnown.has(deckFinishName));
       slides.forEach((slide, idx) => {
         const m = slide.match(CLASS_DIRECTIVE);
         if (!m) return;
@@ -604,6 +615,32 @@ ${indent}   - ${body.trim()}`;
               line: offending.trim(),
               message: "a kpi/stats item with no nested label \u2014 the number won't render in display type (the lift needs a nested body to fire)",
               fix: "Use the nested shape:\n    1. 73%\n       - faster close"
+            });
+          }
+        }
+        if (tokens.includes("big-number") && findBigNumberHeroInHeading(slide)) {
+          findings.push({
+            slide: idx - fm + 1,
+            rule: "big-number-hero-heading",
+            severity: "warning",
+            classToken: "big-number",
+            line: m[0],
+            message: "the big-number hero must be a list item, not a heading \u2014 a `#`/`##` heading leaves the required number slot empty, so the giant number renders blank",
+            fix: "Author the number as the first list item (optionally with a nested caption):\n    - 92%\n      - of the audience remembers one number."
+          });
+        }
+        if (deckHasFinish && tokens.some((t) => t === "title" || t === "closing")) {
+          const hasFinishToken = tokens.some((t) => /^finish(-|$)/.test(t));
+          if (!hasFinishToken) {
+            const bookend = tokens.find((t) => t === "title" || t === "closing");
+            findings.push({
+              slide: idx - fm + 1,
+              rule: "bookend-finish-contrast",
+              severity: "warning",
+              classToken: bookend,
+              line: m[0],
+              message: `deck-wide \`finish: ${deckFinishName}\` paints its backdrop over this ${bookend} bookend's inverse surface \u2014 its display text can wash out on a light canvas`,
+              fix: "Add `finish-none` to the bookend to keep its own surface (the house pattern), or an explicit `finish-<name>` if you intend the finish here."
             });
           }
         }
@@ -1298,6 +1335,7 @@ ${indent}   - ${body.trim()}`;
       findOrderedInlineTitleBodyLine,
       findBoldOrderedStatement,
       findSplitBodylessItem,
+      findBigNumberHeroInHeading,
       countPrimaryCollection,
       axisNoun,
       capacityFix,

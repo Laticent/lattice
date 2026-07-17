@@ -498,6 +498,19 @@ describe('markdown-it-plugins', () => {
     assert.ok(s[1].includes('eyebrow-arrow') && !s[1].includes('eyebrow-dot'), `slide 2 eyebrow override; got [${s[1].join(', ')}]`);
   });
 
+  test('deckClassPropagate: a per-slide `insight-*` token overrides the deck-wide callout label', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    // Deck default THE ASK; one slide pins TAKEAWAY. Both classes share
+    // specificity, so without the override guard the deck token would ride
+    // along and win by CSS source order (the-ask sits later than takeaway).
+    const md = ['---', 'class: insight-the-ask', '---', '',
+      '# Slide 1 (deck default)', '', '---', '',
+      '<!-- _class: insight-takeaway -->', '# Slide 2'].join('\n');
+    const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    assert.ok(s[0].includes('insight-the-ask'), `slide 1 deck default; got [${s[0].join(', ')}]`);
+    assert.ok(s[1].includes('insight-takeaway') && !s[1].includes('insight-the-ask'), `slide 2 override; got [${s[1].join(', ')}]`);
+  });
+
   // The meta, progress and watermark Tiles are self-contained Form Tiles (issue
   // #356): each owns its kernel + cross-path parity pin in test/unit/forms/
   // <id>-tile.test.js, so their coverage is no longer here.

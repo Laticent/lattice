@@ -18,10 +18,12 @@ TOTAL in the red on mobile; "I'm not feeling the performance numbers."
 | **C1. Metrics honesty** — regime-split FRAME/TOTAL panel (§C) | **SHIPPED** #917 | panel rates patch vs rebuild honestly |
 | **C2. Browser FRAME/LCP bench** (`npm run perf:frame`, §C) | **SHIPPED** #921 | the measurement surface for all of the above |
 | **D. RENDER** — memoized theme→CSS composition (§D) | **SHIPPED** #924 | warm edit RENDER ~141ms → ~9ms (4×) |
+| **B④. Warm the runtime** — `<link rel=prefetch>` off the first-render path (§B) | **SHIPPED** | cold runtime request ~7000ms → ~200ms; first-render FRAME −~850ms (4×/4Mbps) |
 | **A5. Dark-mode NEWCOMER shell** | **OPEN** | first-time dark-OS visitor gets no build-time shell (returning dark users are covered) |
 | **B①. CSS scoping / per-component composition** | **PARKED** | dominated by the existing `player-prune` kernel; ~2× ceiling; low ROI post-B③ |
 | **B⑤. Map-basemap runtime split** | **REVERTED** | would blank maps in the Export-to-Marp path (runtime is the sole map renderer there) |
-| Follow-ups (gates/cleanups) | **OPEN** | #22-gate → `.astro`/snapshot sinks; boot-last-active-deck; scope captured CSS under `#studio-ssr-shell` |
+| **boot-last-active-deck + slide** (§A follow-up) | **SHIPPED** 2026-07-17 | closes the non-first-deck return BLANK (not just a flash); WebKit-verified. See §A follow-ups |
+| Follow-ups (gates/cleanups) | **OPEN** | #22-gate → `.astro`/snapshot sinks; scope captured CSS under `#studio-ssr-shell` |
 
 **Trigger:** the live PERFORMANCE overlay on `lattice.style` showed LCP, FRAME, and
 TOTAL in the red on mobile; "I'm not feeling the performance numbers."
@@ -238,11 +240,32 @@ the correct anti-breakout choice) and surfaced two more robustness fixes, folded
   scoping the captured CSS under `#studio-ssr-shell` is the logged hardening.
 **Logged follow-ups (#18):** extend the #22 gate to `.astro` main-document sinks; scope
 captured CSS under `#studio-ssr-shell`; add the browser-side FRAME/LCP perf gate (§C.2);
-and boot the most-recently-*active* deck **and slide** (persist a last-active id + index —
-the `slideIndex` already stamped into the snapshot is the data for it) so the instant-shell
-and the hydrated app agree on both which deck AND which slide leads (today the app always
-boots slide 0, so a returning user who left on slide 3 sees a brief intra-deck slide flash —
-pre-existing, same class as the wrong-deck flash but within a deck).
+and ~~boot the most-recently-*active* deck **and slide**~~ — **SHIPPED (2026-07-17).**
+
+**Boot-last-active-deck — SHIPPED (2026-07-17), and it was worse than a flash.** The
+follow-up was framed as an intra-deck *slide* flash, but driving the real returning-visitor
+path on the **actual WebKit engine** (Playwright `webkit`, Safari 26 UA — not Chromium mobile
+emulation) showed the deck-level case is a hard **blank**, not a flash: the replay gates on
+`snap.deckId === bootId` with `bootId = loadDeckList()[0]`, so leaving from ANY non-first deck
+failed the gate and fell through to the raw ~4s cold-boot blank (the user report: "leave the
+Studio on mobile, come back, stare at a blank slide for 4s"; iOS memory-reclaim discards the
+tab → return is a full reload). Fix: persist `{deckId, slideIndex}` under `lattice-studio-active`
+(`saveActiveDeck`/`loadActiveDeck`/`loadBootDeck`/`loadBootSlide` in `studio-store.ts`), boot the
+shell from it (`StudioShell.tsx`), and derive the inline `bootId` from the **same** key in
+`studio.astro` (last-active → index[0] → `DECKS[0]`, validated against index ∪ built-ins so the
+two resolutions can't diverge). The wrong-deck-flash invariant is preserved: a dangling/foreign
+pointer still **suppresses** the replay (never paints the wrong deck), and the pointer is forgotten
+on `deleteDeck`/`clearAllDecks`. **Verified (WebKit, production `dist` via `astro preview`,
+iPhone 13 descriptor):** before → engaged user on a non-first deck returns to a blank preview
+(screenshot); after → the instant-shell paints the real last slide AND the app boots that same
+deck+slide (reproduced across repeated runs; newcomer welcome-shell and wrong-deck suppression
+both still hold). **Still UNVERIFIED (#23):** real-device iOS memory-reclaim *discard timing* —
+WebKit-on-Linux runs Safari's engine and page-lifecycle events (so the replay/gate logic is
+genuinely exercised) but not iOS's OS-level tab discard, so whether the leave-capture always
+lands under real backgrounding still wants a physical device. The gate bug, though, is proven.
+
+Remaining logged follow-ups (#18): extend the #22 gate to `.astro` main-document sinks; scope
+captured CSS under `#studio-ssr-shell`; add the browser-side FRAME/LCP perf gate (§C.2).
 
 **Maker-checker.** An independent checker reviewed the diff before merge; its findings
 were folded back: css-tree was a phantom (transitive-only) dependency whose top-level
@@ -278,8 +301,32 @@ uses the real faces; and the decorative overlay is `pointer-events:none` from th
    full-writes, but front A's instant-shell already masks that behind a painted slide.
    Since the multi-slide filmstrip (`deck-preview.js`) already patched, both preview
    paths now avoid the per-edit reparse.
-4. **Warm the runtime** (preload) so the cold network fetch is off the first-render
-   critical path.
+4. **Warm the runtime** so the cold network fetch is off the first-render critical path.
+   **— SHIPPED.** The engine bundle is warmed (EngineWarm / loaded on mount), but the
+   runtime (`lattice-runtime.js`) was the one preview asset nobody fetched until the first
+   iframe wrote its `srcdoc` — *after* the engine finished loading. On a cold load the two
+   heavy fetches were serial and the runtime landed on the first-render path: measured (built
+   `dist`, headless Chrome, CPU 4× + 4Mbps/150ms, a mid-tier phone) the runtime request didn't
+   **start** until ~7000ms in (done ~8100ms), and the first live `write` render's FRAME was
+   ~3846ms — reproducing the field report's red FRAME REBUILD 3647ms on a 270-byte slide.
+   Fix: a static `<link rel="prefetch" as="script" href={runtimeUrl}>` in the `<head>` of every
+   page that live-renders a slide on load (`RuntimeWarm.astro`, on `studio.astro` + `playground.astro`
+   + the landing `index.astro` (its hero preview) + `ComponentsLayout.astro` (each component page's
+   eager specimen); the frozen Drawing Board/Workbench are left out). The same red FRAME REBUILD showed
+   on the landing (~794ms, field report) and component pages, since their previews cold-fetch the same
+   runtime. `prefetch` (not `preload`) keeps it at the browser's
+   lowest priority so it never competes with the render-blocking CSS / LCP element — the same
+   reason A2 demoted the *engine* warm from eager — and, being used only inside a subframe, it
+   sidesteps preload's "unused" warning. The URL is the SAME content-hash-versioned
+   `assetBase()+'lattice-runtime.js'` the pages' `options.runtimeUrl` resolves to, so the
+   prefetch and the iframe's own `<script src>` share one cache entry (a content change bumps
+   the hash and busts both). **Measured post-fix:** the runtime request starts at ~200ms (done
+   ~380ms) and the first-render FRAME drops ~850ms. It does NOT move time-to-first-slide much:
+   that is gated by the engine bundle download+parse + hydration + the 563KB CSS reparse, which
+   the SSG instant-shell (front A) is designed to mask; re-warming the *engine* eagerly is the
+   remaining lever and stays closed (A2 — bandwidth contention on slow links), so the runtime
+   warm is the safe, non-speculative slice. Locked by `RuntimeWarm.test.ts` (prefetch present +
+   URL can't drift from the pages' `runtimeUrl`).
 5. **Split the map basemaps out of the runtime bundle — ATTEMPTED, REVERTED (the naive
    cut breaks a shipping host).** The three pre-projected GeoJSON basemaps (`map.basemap*.json`)
    are inlined into `dist/lattice-runtime.min.js` by `map.transform.js`'s top-level `require`s

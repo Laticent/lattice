@@ -9,6 +9,9 @@ import {
 	deleteDeck,
 	exportStudioState,
 	importStudioState,
+	loadActiveDeck,
+	loadBootDeck,
+	loadBootSlide,
 	loadChat,
 	loadChatDraft,
 	loadCheckpoints,
@@ -20,6 +23,7 @@ import {
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
 	renameDeck,
+	saveActiveDeck,
 	saveChat,
 	saveChatDraft,
 	saveCheckpoint,
@@ -115,10 +119,26 @@ describe('studio-store — titleFromSource', () => {
 
 describe('studio-store — settings', () => {
 	it('defaults then round-trips', () => {
-		expect(loadSettings()).toMatchObject({ validation: true, pageNumbers: true, headerFooter: false, onboarded: false });
+		expect(loadSettings()).toMatchObject({ validation: true, pageNumbers: true, headerFooter: false, posture: 'read' });
 		saveSettings({ pageNumbers: false });
 		expect(loadSettings().pageNumbers).toBe(false);
 		expect(loadSettings().validation).toBe(true); // untouched keys keep defaults
+	});
+
+	it('derives the boot posture across the three populations, and drops the legacy flag', () => {
+		// (1) A legacy engaged user (onboarded:true) reached the full surface → keep it → Build.
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ onboarded: true }));
+		expect(loadSettings().posture).toBe('build');
+		// The retired flag is not re-persisted — no stale second source of truth beside posture.
+		saveSettings({ pageNumbers: false });
+		expect('onboarded' in JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}')).toBe(false);
+		// (2) Prior Studio use but no full surface (a saved deck index) → the calm middle → Write.
+		localStorage.clear();
+		localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'x', title: 'X', builtin: true }]));
+		expect(loadSettings().posture).toBe('write');
+		// (3) A true first visit (nothing stored) → the gentlest home → Read.
+		localStorage.clear();
+		expect(loadSettings().posture).toBe('read');
 	});
 
 	it('seeds language from the browser the first time, then honors the saved pick', () => {
@@ -306,6 +326,88 @@ describe('studio-store — Privacy & Data (clearAllDecks / deckContentStats)', (
 			window.removeEventListener(DECKS_CLEARED_EVENT, onCleared);
 		}
 		expect(seen).toEqual(['fired']);
+	});
+});
+
+describe('studio-store — last-active deck (boot where you left off)', () => {
+	it('round-trips the active deck + slide, clamping a negative index to 0', () => {
+		expect(loadActiveDeck()).toBeNull();
+		saveActiveDeck('q3-board', 3);
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 3 });
+		saveActiveDeck('q3-board', -5);
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 0 });
+	});
+
+	it('a malformed active record reads back as null (never throws)', () => {
+		localStorage.setItem('lattice-studio-active', '{"deckId":""}'); // empty id
+		expect(loadActiveDeck()).toBeNull();
+		localStorage.setItem('lattice-studio-active', 'not json');
+		expect(loadActiveDeck()).toBeNull();
+	});
+
+	it('loadBootDeck returns the last-active deck when it still exists, else the first', () => {
+		// No pointer → first deck (the historical behavior).
+		expect(loadBootDeck().id).toBe(DECKS[0].id);
+		// A pointer at a real built-in → that deck boots.
+		saveActiveDeck('q3-board', 2);
+		expect(loadBootDeck().id).toBe('q3-board');
+		expect(loadBootSlide()).toBe(2);
+		// A pointer at a user deck → that deck boots.
+		const d = createDeck('Working deck');
+		saveActiveDeck(d.id, 1);
+		expect(loadBootDeck().id).toBe(d.id);
+	});
+
+	it('a dangling pointer (deck no longer in the list) falls back to the first deck + slide 0', () => {
+		saveActiveDeck('does-not-exist', 4);
+		expect(loadBootDeck().id).toBe(DECKS[0].id);
+		expect(loadBootSlide()).toBe(0); // slide only restored when the pointer matches the boot deck
+	});
+
+	it('deleteDeck forgets a pointer that names the deleted deck (no dangling boot target)', () => {
+		const d = createDeck('Temp active');
+		saveActiveDeck(d.id, 2);
+		deleteDeck(d.id);
+		expect(loadActiveDeck()).toBeNull();
+		expect(loadBootDeck().id).toBe(DECKS[0].id);
+	});
+
+	it('deleteDeck keeps a pointer that names a DIFFERENT deck', () => {
+		const keep = createDeck('Keep');
+		const drop = createDeck('Drop');
+		saveActiveDeck(keep.id, 1);
+		deleteDeck(drop.id);
+		expect(loadActiveDeck()).toEqual({ deckId: keep.id, slideIndex: 1 });
+	});
+
+	it('clearAllDecks removes the active pointer (it is deck content state)', () => {
+		saveActiveDeck('q3-board', 1);
+		clearAllDecks();
+		expect(loadActiveDeck()).toBeNull();
+	});
+
+	// Maker-checker Finding 1: the boot resolver's membership must match studio.astro's
+	// inline `isKnown` EXACTLY, or the instant-shell paints a deck the app doesn't boot
+	// (a wrong-deck flash). loadDeckList()=loadIndex() is the PERSISTED index when one
+	// exists — a built-in DELETED from it is NOT a boot target. studio.astro mirrors this
+	// by gating its all-built-ins fallback on an empty index. This pins that contract.
+	it('a built-in absent from a PERSISTED index is not a valid boot target (guards the astro parity)', () => {
+		// A saved index that omits the built-in `q3-board` (e.g. it was deleted), plus an
+		// active pointer that still names it (a stale cross-tab write).
+		localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'welcome', title: 'Welcome to Lattice', builtin: true }]));
+		saveActiveDeck('q3-board', 2);
+		// Not in the persisted list → falls back to index[0], NOT the deleted built-in.
+		expect(loadBootDeck().id).toBe('welcome');
+		expect(loadBootSlide()).toBe(0);
+	});
+
+	it('a built-in IS a valid boot target when NO index is persisted (the switched-to-before-any-mutation case)', () => {
+		// No persisted index → loadIndex() seeds from all built-ins, so a switched-to
+		// built-in boots. studio.astro accepts it via BD in exactly this (idx empty) case.
+		expect(localStorage.getItem('lattice-studio-deck-index')).toBeNull();
+		saveActiveDeck('q3-board', 1);
+		expect(loadBootDeck().id).toBe('q3-board');
+		expect(loadBootSlide()).toBe(1);
 	});
 });
 

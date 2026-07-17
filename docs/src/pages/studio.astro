@@ -12,6 +12,7 @@ import VizDiagnosticsOverlay from '../components/studio/VizDiagnosticsOverlay.as
 import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
+import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
 import { DECKS } from '../components/studio/decks';
@@ -118,6 +119,16 @@ try {
 // engineering/decisions/2026-07-11-preview-performance-diagnosis.md (front A).
 const SSR_PALETTE = 'indaco';
 const firstDeck = DECKS[0];
+// Built-in deck {id,title} pairs, injected into the pre-paint replay so its bootId
+// resolution matches the app's loadBootDeck() EXACTLY. loadBootDeck resolves the active
+// id against loadDeckList() = loadIndex(), which is the persisted index WHEN ONE EXISTS,
+// else the full built-in DECKS seed (studio-store loadIndex). So the inline `isKnown`
+// accepts a built-in via this list ONLY when no index is persisted (idx empty) — gating
+// it on a non-empty index would wrongly accept a built-in the user has since DELETED from
+// their index (cross-tab), painting its snapshot while the app boots the fallback deck (a
+// wrong-deck flash the maker-checker caught). The list also resolves the topbar title for
+// a built-in in the no-index case.
+const builtinDecks = DECKS.map((d) => ({ id: d.id, title: d.title }));
 // process.cwd() is docs/ under `astro build` (the same basis the lintVocab read
 // below uses); repo root is one up. NOT an import.meta.url walk — the bundled
 // frontmatter chunk doesn't sit at src/pages/.
@@ -137,9 +148,6 @@ const SHELL_CHROME_CSS = shell
 :root[data-mode="dark"] #studio-ssr-shell .ssr-topbar{background:#161616;border-bottom-color:rgba(255,255,255,.08);}
 #studio-ssr-shell .ssr-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 45deg,#1a3a5c,#3f6d9c,#1a3a5c);flex:0 0 auto;}
 #studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-#studio-ssr-shell .ssr-welcome{flex:0 0 auto;margin:0;padding:12px 16px;font-size:13px;line-height:1.5;color:#41403c;background:#f2efe9;border-bottom:1px solid rgba(0,0,0,.06);}
-#studio-ssr-shell .ssr-welcome strong{color:#1a1a1a;font-weight:600;}
-#studio-ssr-shell .ssr-welcome[hidden]{display:none;}
 #studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,4vw,32px);}
 #studio-ssr-shell .ssr-slidebox{width:calc(var(--ssr-w,${shell.width}px)*var(--ssr-scale,1));max-width:100%;box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
 #studio-ssr-shell .ssr-slidebox:empty{width:min(960px,100%);aspect-ratio:${shell.width}/${shell.height};}
@@ -149,19 +157,22 @@ const SHELL_CHROME_CSS = shell
 
 // Pre-paint replay: pick what the instant-shell shows. (1) A RETURNING visitor with
 // a cached last-slide snapshot (matching palette+mode AND whose deckId is the deck the
-// app will boot) → paint their real slide. The deckId gate is load-bearing: the app
-// boots the FIRST deck, not the most-recently-viewed one, so a snapshot of a different
-// deck would flash the wrong slide before the island hydrates (adversarial-trio inversion
-// finding). `bootId` mirrors the app's `loadDeckList()[0] ?? DECKS[0]` EXACTLY: the
-// persisted deck-index[0].id when present, else the built-in first deck's id — so a
-// source-only returning user (edited the built-in, never persisted an index) still gets
-// their same-deck snapshot instead of a blank shell (checker finding). The index parse is
-// Array-guarded so a corrupt `"null"` value can't throw and abort the newcomer fallback.
+// app will boot) → paint their real slide. The deckId gate is load-bearing: a snapshot
+// of a different deck would flash the wrong slide before the island hydrates (adversarial-
+// trio inversion finding). `bootId` mirrors the app's `loadBootDeck()` EXACTLY: the
+// LAST-ACTIVE deck id (the deck+slide the user left off on, `lattice-studio-active`) when
+// it's a known deck — a built-in OR present in the persisted index — else the persisted
+// deck-index[0].id, else the built-in first deck's id. Booting where the user left off is
+// what makes the snapshot's deckId match again: before this, the app always booted deck #1
+// while the snapshot was of whatever deck was actually in view, so leaving from any non-
+// first deck fell through to a blank cold boot (verified on real WebKit; see
+// engineering/decisions/2026-07-11-preview-performance-diagnosis.md § A). The index parse
+// is Array-guarded so a corrupt `"null"` value can't throw and abort the newcomer fallback.
 // (2) A NEWCOMER (seed flagged data-ssr-shell="on") → the build-time welcome slide +
 // banner. (3) Otherwise the shell stays hidden. Runs inline during body parse, so the
 // choice is committed before first paint.
 const REPLAY_JS = shell
-	? `(function(){var root=document.documentElement,box=document.getElementById('ssr-slidebox');if(!box)return;function setScale(sw,sh){try{var vw=window.innerWidth||390;var pad=Math.min(32,Math.max(12,0.04*vw));var target=Math.min(960,vw-2*pad);var sc=sw?target/sw:1;box.style.setProperty('--ssr-w',sw+'px');box.style.setProperty('--ssr-h',sh+'px');box.style.setProperty('--ssr-scale',String(sc));}catch(e){}}var palette=root.getAttribute('data-palette')||'indaco';var mode=root.getAttribute('data-mode')==='dark'?'dark':'light';var idx=[];try{var pi=JSON.parse(localStorage.getItem('lattice-studio-deck-index')||'[]');if(Array.isArray(pi))idx=pi;}catch(e){}var bootId=(idx[0]&&idx[0].id)||${JSON.stringify(firstDeck.id)};var shown=false;try{var raw=localStorage.getItem('lattice-studio-last-slide');if(raw){var snap=JSON.parse(raw);if(snap&&snap.v===1&&snap.palette===palette&&snap.mode===mode&&snap.html&&snap.css&&snap.deckId===bootId){var st=document.createElement('style');st.id='ssr-snap-css';st.textContent=snap.css;document.head.appendChild(st);box.innerHTML=snap.html;setScale(snap.w||${shell.width},snap.h||${shell.height});shown=true;var title=(idx[0]&&idx[0].title);if(title){var t=document.getElementById('ssr-deck-title');if(t)t.textContent=title;}}}}catch(e){}if(!shown&&root.getAttribute('data-ssr-shell')==='on'){var nc=document.getElementById('ssr-newcomer-css');if(nc)nc.media='all';var tpl=document.getElementById('ssr-newcomer');if(tpl)box.innerHTML=tpl.innerHTML;setScale(${shell.width},${shell.height});var wb=document.getElementById('ssr-welcome');if(wb)wb.hidden=false;shown=true;}if(shown)root.setAttribute('data-ssr-shell','on');})();`
+	? `(function(){var root=document.documentElement,box=document.getElementById('ssr-slidebox');if(!box)return;function setScale(sw,sh){try{var vw=window.innerWidth||390;var pad=Math.min(32,Math.max(12,0.04*vw));var target=Math.min(960,vw-2*pad);var sc=sw?target/sw:1;box.style.setProperty('--ssr-w',sw+'px');box.style.setProperty('--ssr-h',sh+'px');box.style.setProperty('--ssr-scale',String(sc));}catch(e){}}var palette=root.getAttribute('data-palette')||'indaco';var mode=root.getAttribute('data-mode')==='dark'?'dark':'light';var idx=[];try{var pi=JSON.parse(localStorage.getItem('lattice-studio-deck-index')||'[]');if(Array.isArray(pi))idx=pi;}catch(e){}var BD=${JSON.stringify(builtinDecks)};var activeId=null;try{var a=JSON.parse(localStorage.getItem('lattice-studio-active')||'null');if(a&&typeof a.deckId==='string'&&a.deckId)activeId=a.deckId;}catch(e){}var isKnown=function(id){if(!id)return false;for(var i=0;i<idx.length;i++)if(idx[i]&&idx[i].id===id)return true;if(idx.length)return false;for(var j=0;j<BD.length;j++)if(BD[j].id===id)return true;return false;};var bootId=(activeId&&isKnown(activeId)?activeId:(idx[0]&&idx[0].id))||${JSON.stringify(firstDeck.id)};var bootTitle=function(id){for(var i=0;i<idx.length;i++)if(idx[i]&&idx[i].id===id)return idx[i].title;for(var j=0;j<BD.length;j++)if(BD[j].id===id)return BD[j].title;return null;};var shown=false;try{var raw=localStorage.getItem('lattice-studio-last-slide');if(raw){var snap=JSON.parse(raw);if(snap&&snap.v===1&&snap.palette===palette&&snap.mode===mode&&snap.html&&snap.css&&snap.deckId===bootId){var st=document.createElement('style');st.id='ssr-snap-css';st.textContent=snap.css;document.head.appendChild(st);box.innerHTML=snap.html;setScale(snap.w||${shell.width},snap.h||${shell.height});shown=true;var title=bootTitle(bootId);if(title){var t=document.getElementById('ssr-deck-title');if(t)t.textContent=title;}}}}catch(e){}if(!shown&&root.getAttribute('data-ssr-shell')==='on'){var nc=document.getElementById('ssr-newcomer-css');if(nc)nc.media='all';var tpl=document.getElementById('ssr-newcomer');if(tpl)box.innerHTML=tpl.innerHTML;setScale(${shell.width},${shell.height});shown=true;}if(shown)root.setAttribute('data-ssr-shell','on');})();`
 	: '';
 ---
 
@@ -176,6 +187,10 @@ const REPLAY_JS = shell
 		    CSS below, which would otherwise delay it. */}
 		<ColorSchemeSeed />
 		<ResourceHints />
+		{/* Prefetch the preview runtime at parse time so the first live render's
+		    iframe finds it warm instead of cold-fetching it on the critical path
+		    (the FRAME REBUILD cost). Overlaps island hydration + the engine load. */}
+		<RuntimeWarm />
 		<title>Lattice Studio — one workspace</title>
 		<meta name="description" content="The Lattice Studio: compose, present, and fabricate decks in one workspace. A live prototype of the app redesign." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
@@ -212,14 +227,14 @@ const REPLAY_JS = shell
 					// exactly what a newcomer lands on. A returning user (any saved deck → the
 					// deck-index key exists) or a non-default palette/mode would see wrong
 					// content/theme, so they keep the prior island-gated first paint.
-					// Returning-user test mirrors the app's hasPriorStudioUse()+onboarded: a deck
-					// index, ANY edited-source key, or a persisted onboarded flag. Editing the
-					// welcome deck or dismissing the banner writes src-/settings but NOT the index,
-					// so keying on the index alone would wrongly show a newcomer the stale welcome
-					// slide + "New here?" banner on every later visit.
+					// Returning-user test mirrors the app: a deck index, ANY edited-source key, or
+					// a persisted posture past the newcomer Read stop (write/build — or the legacy
+					// onboarded flag, for one migration cycle). A fresh visitor persists posture
+					// 'read' (R1), so keying on posture!=='read' correctly still treats them as a
+					// newcomer and paints the calm instant shell.
 					var returning = !!localStorage.getItem('lattice-studio-deck-index');
 					if (!returning) for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('lattice-studio-src-') === 0) { returning = true; break; } }
-					if (!returning) { try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || '{}'); if (st && st.onboarded) returning = true; } catch (e2) {} }
+					if (!returning) { try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || '{}'); if (st && (st.onboarded || (st.posture && st.posture !== 'read'))) returning = true; } catch (e2) {} }
 					if (!returning && palette === 'indaco' && mode === 'light') r.setAttribute('data-ssr-shell', 'on');
 					// Pre-paint seed for the editor|preview split ratio: the Studio grid
 					// consumes these as var() fallbacks, so a returning resizer's saved
@@ -248,10 +263,9 @@ const REPLAY_JS = shell
 						<span class="ssr-logo"></span>
 						<span class="ssr-deck-title" id="ssr-deck-title">{firstDeck.title}</span>
 					</div>
-					{/* Newcomer-only welcome banner — hidden until the replay script picks
-					    the newcomer path; it's the largest above-the-fold text a first-time
-					    visitor sees, so it becomes their LCP element. */}
-					<p class="ssr-welcome" id="ssr-welcome" hidden><strong>New here?</strong> This is a sample deck about Lattice — edit any slide to make it yours. Your AI Coach and deck settings are one tap away.</p>
+					{/* The first-run "banner jail" is gone (2026-07-17-studio-persona-dial.md):
+					    the newcomer lands on the Read stop — the beautiful sample deck itself —
+					    with an in-app "Edit this slide" affordance, no banner nagging them out. */}
 					<div class="ssr-stage">
 						<div class="ssr-slidebox" id="ssr-slidebox"></div>
 					</div>

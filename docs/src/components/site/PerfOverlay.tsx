@@ -108,7 +108,7 @@ function Overlay() {
 	const ltSupported = React.useMemo(hasLongTasks, []);
 
 	const [vitals, setVitals] = React.useState<Record<string, number>>(() => ({ ...vitalsCache }));
-	const [runtime, setRuntime] = React.useState<{ FPS?: number; MEM?: number; memFrac?: number; CPU?: number }>({});
+	const [runtime, setRuntime] = React.useState<{ FPS?: number; fpsFrac?: number; MEM?: number; memFrac?: number; CPU?: number }>({});
 	const [sample, setSample] = React.useState<RenderSample | null>(() => latestRenderSample());
 
 	// ── WEB VITALS: start the once-per-page collector (lazy) and subscribe. Seeds
@@ -128,13 +128,17 @@ function Overlay() {
 		let rafId = 0;
 		let frames = 0;
 		let last = performance.now();
+		let maxFps = 0; // the display's serviced-rAF ceiling (30Hz panel / throttle / 60Hz), learned live
 		const tick = (t: number) => {
 			frames++;
 			if (t - last >= 1000) {
 				const fps = Math.round((frames * 1000) / (t - last));
 				frames = 0;
 				last = t;
-				setRuntime((r) => ({ ...r, FPS: fps }));
+				maxFps = Math.max(maxFps, fps);
+				// fpsFrac = current / ceiling, so FPS is rated against THIS device's ceiling
+				// (perf-metrics FPS.rate) — a steady 30 on a 30Hz/throttled panel reads healthy.
+				setRuntime((r) => ({ ...r, FPS: fps, fpsFrac: maxFps ? fps / maxFps : undefined }));
 			}
 			rafId = requestAnimationFrame(tick);
 		};
@@ -199,7 +203,7 @@ function Overlay() {
 			}
 			if (m.group === 'runtime') {
 				const value = (runtime as Record<string, number | undefined>)[m.key] ?? null;
-				const frac = m.key === 'MEM' ? runtime.memFrac : undefined;
+				const frac = m.key === 'MEM' ? runtime.memFrac : m.key === 'FPS' ? runtime.fpsFrac : undefined;
 				return { value, rating: value == null ? null : rateMetric(m, value, frac), extra: frac };
 			}
 			const asRec = sample as unknown as Record<string, number> | null;

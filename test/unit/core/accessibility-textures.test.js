@@ -1,6 +1,22 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { texturePatternDefs } = require('../../../lib/core/accessibility-textures.js');
+
+// GOLDEN BYTE-LOCK — the texture supply side is a shared kernel (every render calls
+// texturePatternDefs()); its output must stay byte-for-byte stable across internal
+// refactors (naming, comments, structure). The structural tests below are readable
+// guards, but only this full-string compare catches attribute reordering, whitespace
+// drift, or a set-ordering change. If this fails on an INTENTIONAL change, re-bless:
+//   node -e "require('fs').writeFileSync('test/unit/core/texture-defs.golden.svg', \
+//     require('./lib/core/accessibility-textures.js').texturePatternDefs())"
+// and justify the diff in the PR. See engineering/textures.md.
+test('texturePatternDefs() output is byte-identical to the committed golden', () => {
+  const golden = fs.readFileSync(path.join(__dirname, 'texture-defs.golden.svg'), 'utf8');
+  assert.equal(texturePatternDefs(), golden,
+    'texture defs drifted from the golden — re-bless only with an intentional, justified change');
+});
 
 // The a11y LITERAL sets (latt-a11y-tex-*, latt-a11y-chart-tex-*) are the regression
 // guard for the all-black-pie-on-Safari saga: they MUST paint with LITERAL hex and

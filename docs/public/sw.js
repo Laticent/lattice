@@ -39,6 +39,13 @@ const OFFLINE_URL = '/offline/';
 const SKIP_EXTENSIONS = /\.(pdf|pptx|zip)$/i;
 // Per-cache entry caps — a coarse FIFO trim keeps storage bounded.
 const CAP = { [PAGES]: 60, [ASSETS]: 300, [FONTS]: 40 };
+// Content-hashed asset path: `/…/playground/v/<hash>/<suffix>`. The engine
+// bundle, runtime, every theme CSS, fonts, KaTeX and Mermaid all live here
+// (asset-version.mjs). Capture <suffix> so a fresh-hash copy can evict every
+// OLDER-hash copy of the SAME logical asset — otherwise each deploy's versions
+// accumulate forever in the ASSETS cache (the FIFO cap is the only bound, and
+// `activate` can't help: it runs on a SW-strategy VERSION bump, not per deploy).
+const VERSIONED = /\/playground\/v\/[0-9a-f]{8,}\/(.+)$/;
 
 self.addEventListener('install', (event) => {
 	event.waitUntil(
@@ -73,6 +80,30 @@ async function put(cacheName, request, response) {
 	if (!response?.ok) return;
 	const cache = await caches.open(cacheName);
 	await cache.put(request, response);
+
+	// VERSION EVICTION: a content-hashed asset supersedes every OTHER-hash copy of
+	// the same logical asset (same <suffix>). The live page only ever references
+	// the CURRENT deploy's hash, so a stale-hash sibling is dead weight the moment
+	// we cache the current one — drop it. This bounds the versioned-asset footprint
+	// to ~one deploy's worth no matter how many deploys the browser has seen, so
+	// Cache Storage can't bloat with dead engine bundles / theme sheets across the
+	// lifetime a returning user actually spans. Runs before the FIFO cap so the cap
+	// is a backstop for un-versioned entries, not the only bound on versioned ones.
+	//
+	// LAST-WRITER-WINS across tabs: the "current" hash is whichever a put() saw most
+	// recently, not a globally-pinned deploy. Two tabs straddling a deploy can evict
+	// each other's same-suffix copies (SWR re-puts on the next request, so no break —
+	// just a little cross-deploy churn). Acceptable: a tab's in-use assets are already
+	// loaded, and a page only ever references ONE hash dir (asset-version.mjs).
+	const cur = new URL(request.url).pathname.match(VERSIONED);
+	if (cur) {
+		for (const key of await cache.keys()) {
+			if (key.url === request.url) continue;
+			const stale = new URL(key.url).pathname.match(VERSIONED);
+			if (stale && stale[1] === cur[1]) await cache.delete(key);
+		}
+	}
+
 	const keys = await cache.keys();
 	let excess = keys.length - (CAP[cacheName] || 100);
 	for (const key of keys) {

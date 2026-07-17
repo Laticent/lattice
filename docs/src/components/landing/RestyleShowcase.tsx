@@ -125,6 +125,11 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 		};
 	}, [renderAt]);
 
+	// Release the renderer's per-host ResizeObserver + scaleTargets entry on unmount
+	// (mount-once). Page-lifetime like FieldCardsLive — doesn't churn — but disposing
+	// keeps the renderer from rooting its iframe past unmount. Matches DeckPreview.
+	React.useEffect(() => () => engineRef.current.dispose(), []);
+
 	const active = palettes[idx];
 
 	// Pause the auto-cycle while the pointer is over the live stage; resume on

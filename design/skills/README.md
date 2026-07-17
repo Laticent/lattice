@@ -8,7 +8,9 @@ what to do, and what not to do.
 
 **What "hold the 10/10 bar" means here.** Following a skill gets you an artifact
 that clears the gates and the *falsifiable* bar — the rules you can check (a
-heading that's a sentence, ≤ 4 cards, L≈87/L≈32 tiers, an opaque export mirror).
+heading that's a sentence, ≤ 4 cards, a categorical palette that holds the
+three-layer contrast contract — mark-vs-canvas ≥ 3:1, low-contrast fill,
+label-ink-vs-fill ≥ 4.5:1 — an opaque export mirror).
 The last mile to a genuine 10/10 is **taste** — rhythm, restraint, whether it
 *sings* — and prose can't fully transfer that. Every skill ends its recipe at the
 same place for exactly this reason: **render it and actually look** (the QUALITY

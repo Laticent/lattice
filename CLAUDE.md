@@ -359,6 +359,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | Running the render pipeline (PDF/HTML/PPTX) | `engineering/pipeline.md` |
 | Authoring/rendering Mermaid diagrams | `engineering/mermaid.md` |
 | Adding a `tint-*` / `mark-*` treatment | `engineering/treatments.md` |
+| Categorical **texture** (a11y/onyx/concrete/print patterns, the `--cat-N-texture` channel) | `engineering/textures.md` |
 | Palette tokens, Mermaid contract | `design/theming.md` |
 | Core visual design principles (hierarchy, restraint) | `design/design-principles.md` |
 | How a slide is composed — the Form vocabulary | `design/forms.md` |

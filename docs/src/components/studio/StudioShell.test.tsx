@@ -1,13 +1,13 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import StudioShell from './StudioShell';
 
 // Most flows here exercise the FULL-density Studio against the original deck set
 // (the 6-slide "Q3 Board Review" active). Seed a returning-user state — the saved
-// deck index without the newcomer welcome deck, plus onboarded:true — which is the
-// real shape for anyone who has used the Studio before. The fresh first-run state
-// (welcome deck + reduced density + welcome banner) is covered separately below.
+// deck index without the newcomer welcome deck, plus the Build posture — which is
+// the real shape for anyone who works with every panel docked. The fresh first-run
+// state (welcome deck, calm Write surface, no banner) is covered separately below.
 function seedReturningUser() {
 	localStorage.setItem('lattice-studio-deck-index', JSON.stringify([
 		{ id: 'q3-board', title: 'Q3 Board Review', builtin: true },
@@ -15,7 +15,7 @@ function seedReturningUser() {
 	]));
 	// lensDefaults:false so these manual-add / approval flows (written before workspace inheritance) start
 	// from an EMPTY reader-view slate — the inherited-starters behavior gets its own block below.
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true, lensDefaults: false }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'build', lensDefaults: false }));
 }
 
 // The live preview loads the real engine by polling `window.LatticePlayground`
@@ -87,6 +87,9 @@ function setup() {
 describe('StudioShell — smoke', () => {
 	it('renders the lean bar, the active deck, and the three Compose panes', () => {
 		setup();
+		// Panels start closed at every stop (Build shows the activity-bar launcher; panels
+		// open on demand — posture never force-opens one). Dock the Coach to assert its cards.
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' }));
 		expect(screen.getByText('Lattice')).toBeInTheDocument();
 		expect(screen.getByText('Q3 Board Review')).toBeInTheDocument();
 		expect(screen.getByText('Architect')).toBeInTheDocument();
@@ -101,50 +104,108 @@ describe('StudioShell — smoke', () => {
 	});
 });
 
-describe('StudioShell — newcomer first run', () => {
-	it('opens on the welcome deck with reduced density and a one-time cue', () => {
+describe('StudioShell — the posture dial (persona experiences)', () => {
+	it('a fresh visitor lands on the Read home — the sample deck + one "Edit this slide", no banner', () => {
 		localStorage.clear(); // a true fresh visitor — no seed, no prior use
 		render(<StudioShell options={options} />);
-		// The crafted intro deck is the active deck.
+		// The crafted intro deck is the active deck, shown full-bleed.
 		expect(screen.getByText('Welcome to Lattice')).toBeInTheDocument();
-		// Reduced density: the Architect coach is NOT open by default.
+		// Read is calm: no docked coach, no activity-bar launcher.
 		expect(screen.queryByText('Board-ready')).not.toBeInTheDocument();
-		// A one-time welcome cue points the way.
-		expect(screen.getByText(/New here\?/)).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
+		// The one primary verb + the one-time element-attached hint (NOT a recurring banner nag).
+		expect(screen.getByRole('button', { name: 'Edit this slide' })).toBeInTheDocument();
+		expect(screen.getByText(/This sample deck is/)).toBeInTheDocument();
+		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
+		// The dial is present with Read the lit stop; the boot stop is persisted once (R1).
+		expect(screen.getByRole('group', { name: 'Workspace density' })).toBeInTheDocument();
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('read');
 	});
 
-	it('dismissing the welcome graduates the user and persists it', async () => {
+	it('"Edit this slide" steps the newcomer from Read into Write and retires the hint', async () => {
 		localStorage.clear();
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		await user.click(screen.getByRole('button', { name: 'Got it' }));
-		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
-		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').onboarded).toBe(true);
+		await user.click(screen.getByRole('button', { name: 'Edit this slide' }));
+		// Now at Write: the editor|preview surface, no "Edit this slide" overlay, hint gone for good.
+		expect(screen.queryByRole('button', { name: 'Edit this slide' })).not.toBeInTheDocument();
+		expect(screen.queryByText(/This sample deck is/)).not.toBeInTheDocument();
+		const saved = JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}');
+		expect(saved.posture).toBe('write');
+		expect(saved.readHintSeen).toBe(true);
 	});
 
-	it('treats a returning user (prior Studio use) as already onboarded — no cue', () => {
-		// beforeEach already seeded a returning-user state.
-		render(<StudioShell options={options} />);
-		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
-		expect(screen.getByText('Board-ready')).toBeInTheDocument();
-		// A returning user sees the full topbar (advanced surfaces present).
-		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
-	});
-
-	it('hides the advanced topbar cluster for a newcomer, revealing it on graduation', async () => {
-		localStorage.clear(); // fresh visitor
+	it('moving the dial to Build raises the chrome ceiling (activity-bar launcher) and persists the stop', async () => {
+		localStorage.clear();
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		// Advanced surfaces are out of the way on first run.
+		// Write hides the activity-bar launcher (its globals render only in Build).
 		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Workspace settings' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Enter focus mode' })).not.toBeInTheDocument();
-		// Engaging (dismissing the welcome) graduates them → the cluster appears.
-		await user.click(screen.getByRole('button', { name: 'Got it' }));
+		await user.click(screen.getByRole('button', { name: 'Build — every panel' }));
+		// Build reveals the launcher — every panel is now reachable (panels open on demand;
+		// the dial raises the ceiling, it doesn't force a panel open — T2 §4.5 orthogonality).
 		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Enter focus mode' })).toBeInTheDocument();
+		// The choice is persisted (written only by the explicit dial move).
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('build');
+	});
+
+	it('the move is reversible — Build back to Write returns to the calm surface, no ceremony', async () => {
+		localStorage.clear();
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		await user.click(screen.getByRole('button', { name: 'Build — every panel' }));
+		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Write — editor + preview' }));
+		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+	});
+
+	it('Write keeps deck navigation — the switcher (Switch + New deck) rides the slim header; Read stays a calm label', async () => {
+		localStorage.clear();
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// Read (fresh boot): the deck is a calm label, not a switcher — no deck-CRUD affordance.
+		expect(document.querySelector('[data-demo="deck-switcher"]')).toBeNull();
+		// Dial to Write: the switcher appears. Deck-switching + New deck are the Write persona's
+		// most basic navigation — not strippable chrome (they used to be reachable NOWHERE in Write:
+		// not the slim header, and New deck wasn't even in ⌘K).
+		await user.click(screen.getByRole('button', { name: 'Write — editor + preview' }));
+		const switcher = document.querySelector('[data-demo="deck-switcher"]') as HTMLElement | null;
+		expect(switcher).not.toBeNull();
+		await user.click(switcher as HTMLElement);
+		expect(screen.getByRole('menuitem', { name: 'New deck' })).toBeInTheDocument();
+	});
+
+	it('mobile: a fresh phone visitor gets Read — "Edit this slide" swaps to the editor + persists Write', async () => {
+		localStorage.clear();
+		setViewport('mobile');
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// The phone newcomer (persona A on their most-likely device) gets the Read verb + hint.
+		const edit = screen.getByRole('button', { name: 'Edit this slide' });
+		expect(edit).toBeInTheDocument();
+		expect(screen.getByText(/This sample deck is/)).toBeInTheDocument();
+		await user.click(edit);
+		// Tapping it steps Read→Write (persisted) AND swaps to the editor pane — assert the
+		// swap directly (the button vanishing alone would follow from the posture change).
+		expect(screen.queryByRole('button', { name: 'Edit this slide' })).not.toBeInTheDocument();
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+		const editorWrap = document.getElementById('studio-pane-editor')?.parentElement;
+		const previewWrap = document.getElementById('studio-pane-preview')?.parentElement;
+		expect(editorWrap?.className).not.toContain('invisible'); // editor pane now active
+		expect(previewWrap?.className).toContain('invisible'); // preview pane swapped out
+	});
+
+	it('a returning user boots straight into Build — the full surface, no cue', () => {
+		// beforeEach seeds the Build posture (the migration target for a legacy engaged
+		// user; the onboarded→posture migration itself is covered in studio-store.test.ts).
+		render(<StudioShell options={options} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' }));
+		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
+		expect(screen.getByText('Board-ready')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
 	});
 });
 
@@ -302,6 +363,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 
 	it('shows a live, deck-reactive Architect scorecard', () => {
 		setup();
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' }));
 		// The default deck is clean + varied + titled → the readiness rows reflect it.
 		expect(screen.getByText('Board-ready')).toBeInTheDocument();
 		expect(screen.getByText('Components valid')).toBeInTheDocument();
@@ -325,6 +387,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('previewing a reader view reshapes the Compose preview, and clears back to full', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} components={q3Catalog} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // dock the Coach — Lenses live in it
 		expect(screen.getByText('Slide 1 / 6')).toBeInTheDocument();
 		// Build a Bottom-line view (suggester-proposed members) and preview it — the Compose preview
 		// reshapes to that view's slides (a strict subset). Author-side preview needs no approval.
@@ -347,6 +410,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('the human-in-the-loop gate: Present offers a reader view ONLY after the author approves it', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} components={q3Catalog} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // dock the Coach — Lenses live in it
 
 		// Add a Bottom-line reader view and accept the suggester's proposal (it becomes a DRAFT).
 		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
@@ -617,8 +681,8 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('a fresh deck inherits both starter views as rows, and the Add menu no longer offers them', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		// Lenses is its own Architect tab now — open it.
-		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the Architect
+		await user.click(screen.getByRole('tab', { name: 'Lenses' })); // Lenses is its own tab
 		// Both inherited starters appear in the Lenses panel without the author adding anything.
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();
 		expect(screen.getByText('The evidence')).toBeInTheDocument();
@@ -635,7 +699,8 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('the empty inherited "Bottom line" cannot be previewed (no blank-rail flash / lying toast)', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the Architect
+		await user.click(screen.getByRole('tab', { name: 'Lenses' })); // Lenses is its own tab
 		// Expand Bottom line (base:none, 0 members) — its Preview button is disabled until a slide is tagged.
 		await user.click(screen.getByText('Bottom line'));
 		const preview = screen.getAllByRole('button', { name: /^Preview$/ }).at(-1) as HTMLButtonElement;
@@ -645,7 +710,8 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('an inherited view is reader-invisible until approved — the same human gate (fail closed)', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the Architect
+		await user.click(screen.getByRole('tab', { name: 'Lenses' })); // Lenses is its own tab
 		// The inherited "The evidence" (base:all) already has every slide as a member, but it is UNAPPROVED,
 		// so Present must not offer it to a reader.
 		await user.click(screen.getByRole('button', { name: 'Present' }));
@@ -673,7 +739,8 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 		// the shape loadSource reads).
 		localStorage.setItem('lattice-studio-src-q3-board', JSON.stringify('<!-- _class: title -->\n<!-- _lens: +brief -->\n\n# Q3\n\n---\n\n## Detail'));
 		render(<StudioShell options={options} />);
-		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the Architect
+		await user.click(screen.getByRole('tab', { name: 'Lenses' })); // Lenses is its own tab
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();
 		expect(screen.getByText('The evidence')).toBeInTheDocument();
 		// brief is tagged → no longer an untouched Starter; only the untouched evidence keeps its badge.

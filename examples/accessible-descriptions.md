@@ -19,9 +19,8 @@ paginate: true
 
 `Invisible without alt text`
 
-# 100%
-
-`of an image-per-slide PPTX, to a screen reader`
+- 100%
+  - of an image-per-slide PPTX, to a screen reader
 
 <!-- describe: A big-number slide. The figure 100%, captioned "of an image-per-slide PPTX, to a screen reader." -->
 

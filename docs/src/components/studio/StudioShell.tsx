@@ -1,6 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, MessageSquareText, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Paintbrush, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, Frame, History, Layers, ListChecks, MessageSquareHeart, MessageSquareText, Monitor, MonitorPlay, Moon, MoreHorizontal, Paintbrush, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -51,7 +50,7 @@ import { LensesPanel, type TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
-import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
+import { type PresentLens, presentationSet, scoreDeck, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
 import { activeRule, RULES } from './rule-catalog';
@@ -65,7 +64,7 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { listFindings } from './studio-lint';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasPriorStudioUse, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, renameDeck as renameDeckStore, SETTINGS_EVENT, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, renameDeck as renameDeckStore, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
@@ -160,13 +159,14 @@ function timeAgo(ts: number): string {
 // side's pane+handle tracks drop to 0px and its 46px rail (the Inspector-rail
 // geometry) takes the edge.
 //
-// INVARIANT — pair-space ≥ 2×minB (560px): the sum-2 flex pair guarantees zero
-// grid void only while the editor+preview space is at least twice the larger
-// minimum. Worst case today: 1100 (desktop threshold) − 232 (Architect) − 300
-// (Inspector) − 1 (handle) = 567px — SEVEN px of headroom. Widening either
-// flank by ≥8px total, raising the preview minimum, or padding the grid
-// silently reopens a hairline void band near ratio 0.5 (issue #721; the
-// near-0.5 case is asserted by the 1100px e2e in docs/e2e/split.spec.ts).
+// INVARIANT — the editor+preview pair keeps its 560px (2×minB) zero-void minimum.
+// This is ENFORCED, not merely observed: `panelBudget = gridW − handle − PAIR_MIN
+// (560) − FOLD_SAFETY (12)`, where `gridW` excludes the 52px activity bar, and the
+// two docked panels' effective widths (setEff/archEff, below) are each clamped so
+// their sum ≤ panelBudget. So the pair always retains ≥ 560 + 12px no matter how
+// wide the panels are dragged — the hairline void band near ratio 0.5 (issue #721)
+// cannot reopen. The near-0.5 case is asserted by the 1100px e2e in
+// docs/e2e/split.spec.ts (whose comment carries the full bar+panels width model).
 function splitTracks(collapsed: SplitSide | null): string[] {
 	if (collapsed === 'a') return ['46px', '0px', '0px', 'minmax(0,1fr)', '0px'];
 	if (collapsed === 'b') return ['0px', 'minmax(0,1fr)', '0px', '0px', '46px'];
@@ -205,16 +205,22 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Persisted deck list (seeded from the built-ins), the active deck, and its
 	// source — restored from localStorage so edits survive a switch AND a reload.
 	const [decks, setDecks] = React.useState<StudioDeck[]>(() => loadDeckList());
-	const [deck, setDeck] = React.useState<StudioDeck>(() => loadDeckList()[0] ?? DECKS[0]);
+	// Boot the deck (and slide) you LAST left off on — not always deck #1. loadBootDeck
+	// mirrors studio.astro's inline bootId (last-active id → index[0] → DECKS[0]) so the
+	// pre-paint instant-shell and this hydrated app agree on which deck leads; otherwise
+	// a returning user who left from a non-first deck falls through to a blank cold boot
+	// (the snapshot's deckId never matches). engineering/decisions/2026-07-11-preview-
+	// performance-diagnosis.md § A (returning-visitor shell).
+	const [deck, setDeck] = React.useState<StudioDeck>(() => loadBootDeck());
 	const [source, setSource] = React.useState(() => {
-		const first = loadDeckList()[0] ?? DECKS[0];
+		const first = loadBootDeck();
 		return loadSource(first.id) ?? deckSource(first);
 	});
 	// Always-current mirror of `source`, so a settings write can snapshot the exact
 	// pre-change text for one-click Undo without threading it through every setter.
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
-	const [activeSlide, setActiveSlide] = React.useState(0); // 0-based; index into the VIEWED set
+	const [activeSlide, setActiveSlide] = React.useState(() => loadBootSlide()); // 0-based index into the VIEWED set; boot at the slide you left on (clamped below)
 	// Live mirrors of the active deck id + slide index, so the leave-capture (a stable
 	// callback that must NOT re-subscribe its pagehide listener per deck/slide change)
 	// can stamp WHICH deck/slide it snapshotted without taking them as deps.
@@ -223,24 +229,54 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const activeSlideRef = React.useRef(0);
 	activeSlideRef.current = activeSlide;
 	const [composeLens, setComposeLens] = React.useState<PresentLens>('full'); // reader lens for the preview
-	// First-run state. A newcomer (never engaged) gets a reduced-density shell —
-	// side panels closed, a one-time welcome cue — so the killer intro deck and the
-	// editor lead, not 35+ controls. `onboarded` flips true the moment they engage
-	// (dismiss the welcome, edit, or open a panel) and persists, so it's one-time.
-	// Newcomer = never engaged AND no prior Studio activity. The `onboarded` flag
-	// postdates pre-existing users (it defaults false for them), so fall back to
-	// hasPriorStudioUse() — a saved deck index or any edited source — to treat
-	// returning users as already-onboarded and never show them the first-run cue.
-	const [onboarded, setOnboarded] = React.useState(() => loadSettings().onboarded || hasPriorStudioUse());
-	const onboardedRef = React.useRef(onboarded);
-	onboardedRef.current = onboarded;
+	// Persona posture — the always-visible, reversible density stop that replaced the
+	// one-way `onboarded` ratchet + welcome banner (2026-07-17-studio-persona-dial.md).
+	// Persisted, and written ONLY by an explicit dial move (never by engagement), so a
+	// user boots where they left off and the surface never drifts. `'write'` is the
+	// calm editor|preview surface (the old Focus body, promoted to a home); `'build'`
+	// is the full desktop. `'read'` is the full-bleed newcomer home (a beautiful deck
+	// + one "Edit this slide" button); it renders inside the SAME spine with the editor
+	// track at 0px but MOUNTED, so a newcomer's first edit (Read→Write) never remounts.
+	const [posture, setPostureState] = React.useState<Posture>(() => loadSettings().posture);
+	const postureRef = React.useRef(posture);
+	postureRef.current = posture;
+	const setPosture = React.useCallback((p: Posture) => { setPostureState(p); saveSettings({ posture: p }); }, []);
+	// Persist a fresh visitor's DERIVED boot stop exactly once (R1). Without this, a
+	// first-session action that trips hasPriorStudioUse() (creating a deck) would
+	// silently re-derive Read→Write next boot — the ratchet, relocated. Posture then
+	// only ever moves by an explicit dial interaction, as promised.
+	React.useEffect(() => {
+		if (!hasStoredPosture()) saveSettings({ posture: postureRef.current });
+	}, []);
+	// The one-time Read orientation hint ("this deck is yours → Edit this slide"),
+	// shown until the newcomer edits or dismisses it. Content on the button, not a banner.
+	const [readHintSeen, setReadHintSeenState] = React.useState(() => loadSettings().readHintSeen);
+	const dismissReadHint = React.useCallback(() => { setReadHintSeenState(true); saveSettings({ readHintSeen: true }); }, []);
+	// `quietened` — the transient "quiet the noise" overlay (heir to the old Focus
+	// toggle, 2026-06-30-studio-focus-mode.md). Shows the calm Write surface for the
+	// session WITHOUT touching the saved `posture`; ⌘. toggles it, Esc clears it, and
+	// moving the dial clears it. The actually-rendered stop is `effectiveStop`.
+	const [quietened, setQuietened] = React.useState(false);
+	const quietenedRef = React.useRef(quietened);
+	quietenedRef.current = quietened;
+	const effectiveStop: Posture = quietened ? 'write' : posture;
+	// Move the dial: clear any transient quiet and persist the stop. Panel open/close is
+	// ORTHOGONAL to posture (T2 §4.5) — the dial changes the chrome CEILING (Build shows
+	// the activity-bar launcher; Write hides the docked columns), never forcing a panel
+	// open or shut. Your open/closed panels are preserved across moves — they simply
+	// aren't rendered on the calmer Write surface — so a Build↔Write dip never thrashes
+	// the coach. (The mount + breakpoint-flip defaults still seed the arrangement.)
+	const changePosture = React.useCallback((p: Posture) => {
+		setQuietened(false);
+		setPosture(p);
+	}, [setPosture]);
 	// Panel state — TWO independent, nullable, per-group slots (the activity-bar
 	// model, engineering/decisions/2026-07-06-studio-activity-bar.md). NOT one
 	// global `activePanel`: the Architect (Assistants group) and the settings scope
 	// (Settings group) are independent, so the coach stays up while you tune.
 	// Merging the old inspectorOpen + inspectorScope into ONE nullable enum makes
 	// the illegal "open with no scope" state unrepresentable.
-	const [activeAssistant, setActiveAssistant] = React.useState<'architect' | null>(() => (onboarded ? 'architect' : null)); // newcomers start calm
+	const [activeAssistant, setActiveAssistant] = React.useState<'architect' | null>(null); // panels start closed at every stop; Build shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
 	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
@@ -262,20 +298,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	}, []);
 	const setInspectorScope = React.useCallback((s: 'slide' | 'deck') => setActiveSettings(s), []);
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
-	// One-time welcome banner — shown only to a newcomer; dismiss graduates them.
-	const [welcomeOpen, setWelcomeOpen] = React.useState(() => !onboarded);
-	// First contextual reveal of the Architect fires once per session.
-	const firstEditRef = React.useRef(false);
-	// After the Coach reveals, a one-time gentle pulse on the Inspector toggle so a
-	// newcomer discovers it — no panel hijack; cleared the moment they open it.
-	const [inspectorPulse, setInspectorPulse] = React.useState(false);
-	// Focus mode — a transient "quiet the noise" posture (2026-06-30-studio-focus-mode.md):
-	// hides the Architect + Inspector columns and most of the topbar, leaving just
-	// Editor + Preview + slide nav. Nothing is removed — ⌘K stays live, so every
-	// feature is one keystroke away. Opt-in per session (not sticky, not a default).
-	const [focus, setFocus] = React.useState(false);
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate'>('compose');
+	const viewRef = React.useRef(view);
+	viewRef.current = view;
 	const [shareOpen, setShareOpen] = React.useState(false);
 	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
@@ -293,7 +319,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
 	// §"Deck inspector: NOT tabbed" — see 2026-07-17-panel-drawer-cohesion.)
 	const [deckTab, setDeckTab] = React.useState<DeckTab>('look');
-	const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(() => loadCheckpoints((loadDeckList()[0] ?? DECKS[0]).id));
+	const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(() => loadCheckpoints(loadBootDeck().id));
 	// One-click Undo for the LAST panel settings change — a light complement to ⌘Z /
 	// Version history. Each change captures the pre-change source; Undo restores it.
 	// `prev` = source before the change (what Undo restores); `next` = source right
@@ -549,13 +575,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		return () => window.removeEventListener('resize', on);
 	}, []);
 	// px available for the two docked panels combined, leaving the pair its 560px
-	// zero-void minimum (+ a small safety). gridW excludes the 52px bar.
-	const gridW = vw - (desktop ? BAR_W : 0);
+	// zero-void minimum (+ a small safety). The 52px bar and the panels exist ONLY
+	// at Build, so all three gate on `effectiveStop === 'build'` — one predicate
+	// governs the bar deduction, the effective widths, AND the grid tracks/children,
+	// so they can never drift (M2 red-team: don't deduct the bar on a barless Write).
+	const barShown = desktop && effectiveStop === 'build';
+	const gridW = vw - (barShown ? BAR_W : 0);
 	const panelBudget = Math.max(0, gridW - HANDLE_W - PAIR_MIN - FOLD_SAFETY);
 	// Effective (rendered) widths: the Architect keeps priority (the coach you're
-	// reading), Settings yields first; both floored at their mins. Zero unless open.
-	const archEff = desktop && architectOpen ? Math.max(ARCH_MIN, Math.min(archPanel.width, panelBudget - (inspectorOpen ? SET_MIN : 0))) : 0;
-	const setEff = desktop && inspectorOpen ? Math.max(SET_MIN, Math.min(setPanel.width, panelBudget - archEff)) : 0;
+	// reading), Settings yields first; both floored at their mins. Zero unless open at Build.
+	const archEff = barShown && architectOpen ? Math.max(ARCH_MIN, Math.min(archPanel.width, panelBudget - (inspectorOpen ? SET_MIN : 0))) : 0;
+	const setEff = barShown && inspectorOpen ? Math.max(SET_MIN, Math.min(setPanel.width, panelBudget - archEff)) : 0;
 
 	// Deck-level front-matter (size / paginate / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
@@ -666,23 +696,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Panels are persistent columns on desktop, on-demand sheets below it. Reset
 	// their open state to the right default whenever the breakpoint flips so a
 	// compact load never auto-pops a sheet and a return to desktop re-docks them.
-	// A newcomer (read via ref so graduating mid-session doesn't slam panels) keeps
-	// the Architect closed on desktop too — reduced density until they engage.
+	// Panels close on a breakpoint flip and open on demand — posture never
+	// force-opens the coach (T2 §4.5 orthogonality); Build's signal is the visible
+	// activity-bar launcher, not an auto-docked panel.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the breakpoint flip itself — the body reads no reactive value, but the RESET must fire whenever `compact` changes (a stranded sheet on resize is the bug this closes).
 	React.useEffect(() => {
-		if (compact) { setActiveAssistant(null); setActiveSettings(null); }
-		else { setActiveAssistant(onboardedRef.current ? 'architect' : null); setActiveSettings(null); }
+		setActiveAssistant(null); setActiveSettings(null);
 		// The "⋯ More" overflow only exists on compact; close it across any tier flip
 		// so a menu opened on a phone doesn't strand open after a resize to desktop
 		// (where its trigger unmounts) — red-team H4.
 		setMoreOpen(false);
 	}, [compact]);
-
-	// Graduate a newcomer to the full-density shell — one-time, persisted. Called
-	// when they dismiss the welcome, make their first edit, or open a panel.
-	const graduate = React.useCallback(() => {
-		setOnboarded((was) => { if (!was) saveSettings({ onboarded: true }); return true; });
-		setWelcomeOpen(false);
-	}, []);
 
 	// Privacy & Data's "Decks" / "Delete everything" clear reloads the Studio
 	// shortly after — but the editor stays visible and interactive right up
@@ -722,6 +746,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		window.addEventListener(FLUSH_EVENT, flush);
 		return () => window.removeEventListener(FLUSH_EVENT, flush);
 	}, [source, deck.id, saveSourceGuarded]);
+
+	// Record the deck + slide currently in view, so a reload (or an iOS memory-reclaim
+	// tab discard) boots back here instead of on deck #1 — and so studio.astro's pre-paint
+	// replay, which reads the SAME key for its bootId, matches the leave-snapshot's deckId
+	// and paints your real slide instead of a blank cold boot. Guarded by decksClearedRef
+	// for the same reason saveSource is: a keystroke in the still-live editor during the
+	// Privacy&Data clear→reload window must not re-persist a just-cleared pointer.
+	React.useEffect(() => {
+		if (decksClearedRef.current) return;
+		saveActiveDeck(deck.id, activeSlide);
+	}, [deck.id, activeSlide]);
 
 	// Persist the editor preference as it changes.
 	React.useEffect(() => {
@@ -1199,8 +1234,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		mutateSlide: (fn: (chunk: string) => string) => mutateSlideRef.current(fn),
 		fixAll: () => editorRef.current?.fixAll(),
 		setActiveSlide,
-		setFocus,
-		setWelcomeOpen,
+		setFocus: setQuietened,
+		setPosture: changePosture,
 		setCmdOpen,
 		notify,
 		setMobilePane,
@@ -1241,24 +1276,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			document.querySelector<HTMLButtonElement>(`[data-studio-split] [data-slot='split-rail'][data-side='${side}']`)?.focus();
 		});
 	}, []);
-
-	// Contextual reveal: the FIRST genuine authoring edit a newcomer makes opens the
-	// Architect (desktop) so the coach appears exactly when they start writing — then
-	// graduate. Fired by the editor's onUserEdit (a real keystroke/paste/delete), NOT
-	// by any `source` change — so a programmatic write (speaker note, AI apply,
-	// checkpoint restore, deck switch) never triggers this misleading cue. (Defined
-	// after `notify` so it isn't referenced in the TDZ.)
-	const onFirstUserEdit = React.useCallback(() => {
-		if (onboardedRef.current || firstEditRef.current) return;
-		firstEditRef.current = true;
-		if (!compact) setActiveAssistant('architect');
-		// Now that they're authoring, nudge them toward the settings — a one-time pulse
-		// on the bar's Deck icon (desktop) / the tablet Settings toggle — gentler than
-		// auto-opening it.
-		setInspectorPulse(true);
-		notify('Your AI Coach reviews the deck as you write — it just opened next to the editor.');
-		graduate();
-	}, [compact, notify, graduate]);
 
 	// ── Architect (AI) ───────────────────────────────────────────────────────
 	const ai = useArchitectStatus();
@@ -1433,9 +1450,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		notify('Fix applied — ⌘Z or restore from History to undo.');
 	}, [fixProposal, source, deck.id, notify]);
 
-	// ⌘K (command palette), ⌘. (toggle Focus), Esc (leave Focus). Radix
-	// popovers/sheets/dialogs handle Escape first and stop its propagation, so
-	// `Esc` only reaches here — and only leaves Focus — when nothing is open.
+	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
+	// popovers/sheets/dialogs handle Escape first and stop its propagation, so `Esc`
+	// only reaches here — and only clears `quietened` — when nothing is open. Neither
+	// key ever writes the persisted `posture`: quieting the noise for a moment must
+	// not mutate a user's saved home (2026-07-17-studio-persona-dial.md, rule R2/R3).
 	React.useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -1443,16 +1462,41 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				setCmdOpen((v) => !v);
 			} else if ((e.metaKey || e.ctrlKey) && e.key === '.') {
 				e.preventDefault();
-				setFocus((v) => !v);
+				// Not while Fabricate is up — a full-screen surface with no compose body
+				// behind it. Toggling quiet there would silently arm a state you never see
+				// and desync the suspend/restore (M4 red-team finding 2).
+				if (viewRef.current !== 'fabricate') setQuietened((v) => !v);
 			} else if (e.key === 'Escape') {
-				setFocus((v) => (v ? false : v));
+				if (viewRef.current !== 'fabricate') setQuietened((v) => (v ? false : v));
 			}
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, []);
-	// Fabricate is its own full-screen surface; never sit "focused" behind it.
-	React.useEffect(() => { if (view === 'fabricate') setFocus(false); }, [view]);
+	// Fabricate is its own full-screen surface; never sit quietened behind it, but
+	// SUSPEND-and-RESTORE that transient quiet so exiting Fabricate returns you to the
+	// exact surface you left — not a posture you didn't choose (R5). Present is an
+	// overlay (it doesn't swap the compose body), so it needs no such dance.
+	const suspendedQuietRef = React.useRef(false);
+	React.useEffect(() => {
+		if (view === 'fabricate') {
+			suspendedQuietRef.current = quietenedRef.current;
+			if (quietenedRef.current) setQuietened(false);
+		} else if (suspendedQuietRef.current) {
+			suspendedQuietRef.current = false;
+			setQuietened(true);
+		}
+	}, [view]);
+	// Assistive-tech stop announcement. Held in state that starts EMPTY and updates
+	// only on a real change (a React island mounts after load, so a pre-filled live
+	// region can announce on some SR/browser pairs — M4 red-team finding 3), and never
+	// while Fabricate is up (its full-screen surface isn't a compose stop — finding 1).
+	const [stopAnnounce, setStopAnnounce] = React.useState('');
+	const announceMountRef = React.useRef(false);
+	React.useEffect(() => {
+		if (!announceMountRef.current) { announceMountRef.current = true; return; }
+		if (view !== 'fabricate') setStopAnnounce(POSTURE_ANNOUNCE[effectiveStop]);
+	}, [effectiveStop, view]);
 
 	// Track the document's light/dark mode reactively so exports + the preview
 	// follow a mode flip while Studio is open (the topbar writes <html data-mode>).
@@ -1500,6 +1544,32 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// portrait shapes bind to height so they fit the pane, landscape to width.
 	const previewRatio = sizeRatio(deckSize);
 	const previewPortrait = previewRatio[1] > previewRatio[0];
+	// When the preview FILLS the pane (Read full-bleed, or editor collapsed) the card
+	// must CONTAIN the slide — the whole slide visible, never cropped — not cover the
+	// width and clip the slide's header / footer / page number off the top and bottom
+	// (the Read bug: a 16:9 slide in a pane wider than 16:9 derived a height taller
+	// than the pane). A slide is a fixed-aspect artifact; cropping it hides content.
+	// So bind the AXIS that fits: pane wider than the slide → bind height (letterbox
+	// the sides); pane taller → bind width (letterbox top/bottom). Measured, because
+	// no single static class contains both pane orientations without distorting.
+	const previewHolderRef = React.useRef<HTMLDivElement>(null);
+	const [previewFitByHeight, setPreviewFitByHeight] = React.useState(true);
+	const slideRatio = previewRatio[0] / previewRatio[1];
+	React.useEffect(() => {
+		const holder = previewHolderRef.current;
+		if (!holder) return;
+		const measure = () => {
+			const cs = getComputedStyle(holder);
+			const cw = holder.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+			const ch = holder.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+			if (cw <= 0 || ch <= 0) return;
+			setPreviewFitByHeight(cw / ch >= slideRatio);
+		};
+		measure();
+		const ro = new ResizeObserver(measure);
+		ro.observe(holder);
+		return () => ro.disconnect();
+	}, [slideRatio]);
 	// Touch swipe (mobile) + horizontal wheel (trackpad) change the viewed slide.
 	// goToSlide(slideNo) is next, goToSlide(slideNo - 2) is prev (both clamp).
 	const swipeRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -1930,7 +2000,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const editorPane = (
 		<section
 			id="studio-pane-editor"
-			inert={!mobile && split.collapsed === 'a' ? true : undefined}
+			// Non-interactive whenever the editor is collapsed to 0px — the split's
+			// preview-only state, OR the Read stop (editor mounted at 0px for no-remount).
+			// Without this, a keyboard / screen-reader user could Tab into an invisible
+			// editable region in the newcomer's first view (M3 Munger a11y finding).
+			inert={!mobile && (effectiveStop === 'read' || split.collapsed === 'a') ? true : undefined}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-arming=a]/split:opacity-60 group-data-[split-dragging]/split:select-none"
 		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -1978,7 +2052,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Tip label="Collapse editor — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse editor" onClick={() => collapseFromHeader('a')}><PanelLeftClose className="size-4" /></Button></Tip>
 				)}
 			</div>
-			<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} onUserEdit={onFirstUserEdit} className="flex-1" />
+			<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
 		</section>
 	);
 
@@ -1989,14 +2063,19 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const previewPane = (
 		<section
 			id="studio-pane-preview"
-			inert={!mobile && split.collapsed === 'b' ? true : undefined}
+			inert={!mobile && split.collapsed === 'b' && effectiveStop !== 'read' ? true : undefined}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity group-data-[split-arming=b]/split:opacity-60 group-data-[split-dragging]/split:select-none"
 		>
+			{/* At the Read stop the preview is the whole surface — strip its editorial
+			    chrome (header, lens, slide counter, the Collapse trap, the op rail, the
+			    debug footer) so it reads as "just the slides" (M3 red-team). Only the
+			    live deck + the "Edit this slide" overlay remain. */}
+			{effectiveStop !== 'read' && (
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
 				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { graduate(); setArchitectOpen(true); setArchitectTab('lenses'); notify('Reader views live in the Architect’s Lenses tab — add one there.'); }} />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { setArchitectOpen(true); setArchitectTab('lenses'); notify('Reader views live in the Architect’s Lenses tab — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
@@ -2008,9 +2087,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Tip label="Collapse preview — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse preview" onClick={() => collapseFromHeader('b')}><PanelRightClose className="size-4" /></Button></Tip>
 				)}
 			</div>
+			)}
 			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
 			    aspect ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-card p-4 sm:p-5" onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
+			<div ref={previewHolderRef} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-card p-4 sm:p-5" onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -2018,13 +2098,20 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{/* The 760px comfort cap LIFTS while the editor is collapsed — otherwise
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
-				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
+				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]',
+					// Fill cases (Read full-bleed, or editor collapsed) CONTAIN via the measured
+					// axis so the whole slide shows, uncropped. Otherwise the pane is width-bound
+					// with the 760px comfort cap (portrait binds to height).
+					split.collapsed === 'a' || effectiveStop === 'read'
+						? (previewFitByHeight ? 'h-full w-auto' : 'h-auto w-full')
+						: previewPortrait ? 'h-full w-auto' : 'h-auto w-full max-w-[760px]')}
+					style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || effectiveStop === 'read' || split.collapsed !== 'b'} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}
 			<div className="flex items-center gap-1.5 border-t border-border bg-background px-3 py-2">
-				{composeLens === 'full' && (
+				{composeLens === 'full' && effectiveStop !== 'read' && (
 					<div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
 						<RailOp label="Add slide" onClick={opAddSlide}><Plus className="size-3.5" /></RailOp>
 						<RailOp label="Duplicate slide" onClick={opDuplicate}><Copy className="size-3.5" /></RailOp>
@@ -2036,6 +2123,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			<nav className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
 				{viewSlides.map((s, i) => {
 					const on = i === slideNo - 1;
+					// Read is the newcomer's stop — label each slide by its TITLE (its first
+					// heading), not its component class (`big-number`/`split-compare` is jargon
+					// they can't read). Write/Build keep the class label — the author wants it.
+					const readTitle = slideTitle(s);
+					const label = effectiveStop === 'read' ? readTitle || `Slide ${i + 1}` : slideClass(s);
 					return (
 						<button
 							type="button"
@@ -2043,21 +2135,23 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							key={i}
 							onClick={() => goToSlide(i)}
 							aria-current={on}
-							aria-label={`Slide ${i + 1} — ${slideClass(s)}`}
+							aria-label={effectiveStop === 'read' ? `Slide ${i + 1}${readTitle ? ` — ${readTitle}` : ''}` : `Slide ${i + 1} — ${slideClass(s)}`}
 							className={cn('flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
 						>
 							<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{i + 1}</span>
-							<span className={cn('font-mono text-[11px]', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{slideClass(s)}</span>
+							<span className={cn('text-[11px]', effectiveStop === 'read' ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{label}</span>
 						</button>
 					);
 				})}
 			</nav>
 			</div>
+			{effectiveStop !== 'read' && (
 			<div className="flex items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
 				<span className="inline-flex items-center gap-1 text-[var(--chart-3,#2e6f00)]">● Live</span>
 				<span className="truncate">{palette} · {mode}</span>
 				<span className="flex-1" /><span className="hidden sm:inline">{ratioText(previewRatio)} · {viewSlides.length} slide{viewSlides.length === 1 ? '' : 's'}</span>
 			</div>
+			)}
 		</section>
 	);
 
@@ -2090,35 +2184,95 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const activityBar = (
 		<nav aria-label="Studio panels" className="flex w-[52px] shrink-0 flex-col items-center gap-0.5 border-r border-border bg-card py-2">
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">AI</span>
-			<BarIcon label="Toggle Architect" hint="Architect — AI coach &amp; chat" caption="Coach" active={architectOpen} onClick={() => { graduate(); setActiveAssistant((p) => (p ? null : 'architect')); }}><Sparkles className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Architect" hint="Architect — AI coach &amp; chat" caption="Coach" active={architectOpen} onClick={() => setActiveAssistant((p) => (p ? null : 'architect'))}><Sparkles className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />
 			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
-			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={activeSettings === 'slide'} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p === 'slide' ? null : 'slide')); }}><FileSliders className="size-[18px]" /></BarIcon>
-			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={activeSettings === 'deck'} pulse={inspectorPulse} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p === 'deck' ? null : 'deck')); }}><SlidersHorizontal className="size-[18px]" /></BarIcon>
+			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={activeSettings === 'slide'} onClick={() => setActiveSettings((p) => (p === 'slide' ? null : 'slide'))}><FileSliders className="size-[18px]" /></BarIcon>
+			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={activeSettings === 'deck'} onClick={() => setActiveSettings((p) => (p === 'deck' ? null : 'deck'))}><SlidersHorizontal className="size-[18px]" /></BarIcon>
 			<span className="flex-1" />
 			<Separator className="my-1 w-6" />
-			{onboarded && <BarIcon label="Open Library" hint="Library — saved themes &amp; components" caption="Library" onClick={() => setLibraryOpen(true)}><FileBox className="size-[18px]" /></BarIcon>}
-			{onboarded && <BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={() => setWorkspaceOpen(true)}><Settings2 className="size-[18px]" /></BarIcon>}
+			<BarIcon label="Open Library" hint="Library — saved themes &amp; components" caption="Library" onClick={() => setLibraryOpen(true)}><FileBox className="size-[18px]" /></BarIcon>
+			<BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={() => setWorkspaceOpen(true)}><Settings2 className="size-[18px]" /></BarIcon>
 			<span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-[var(--surface-inverse)] text-[12px] font-bold text-white">SA</span>
 		</nav>
 	);
 
+	// The deck switcher — deck identity + CRUD (Switch / Rename / New). SHARED by the
+	// full header (Build / compact) AND the slim Write header: deck-switching and
+	// New deck are the Write persona's most basic navigation, not strippable chrome,
+	// so Write gets the real switcher, not a dead title label. Read stays a calm label
+	// (one sample deck; managing decks is a Write-and-up concern — dial up to reach it).
+	const deckSwitcher = (
+		<DropdownMenu open={deckMenuOpen} onOpenChange={setDeckMenuOpen}>
+			<DropdownMenuTrigger asChild>
+				{/* No width cap on phones — the deck title is the user's orientation, so
+				    it absorbs the bar's free width (siblings are shrink-0; this pill is
+				    the one shrinkable item, truncating only when the title outgrows the
+				    actual free space instead of a fixed 150px). */}
+				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
+					<span className="size-2 shrink-0 rounded-full bg-primary" />
+					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
+					<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
+					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start" className="w-72">
+				<DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Switch deck</DropdownMenuLabel>
+				{decks.map((d) => (
+					<DropdownMenuItem key={d.id} onSelect={() => loadDeck(d)} className="group">
+						<span className={cn('size-2 rounded-full', d.id === deck.id ? 'bg-[var(--accent)]' : 'bg-primary')} />
+						<span className="truncate font-semibold text-[var(--text-heading)]">{d.title}</span>
+						<span className="ml-auto flex items-center gap-1.5">
+							<span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{d.meta}</span>
+							{decks.length > 1 && (
+								<button type="button" aria-label={`Delete ${d.title}`} className="hidden rounded p-0.5 text-muted-foreground hover:text-[var(--fail,#b3261e)] group-hover:block" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeDeck(d.id); }}><Trash2 className="size-3.5" /></button>
+							)}
+						</span>
+					</DropdownMenuItem>
+				))}
+				<DropdownMenuSeparator />
+				<DropdownMenuItem onSelect={() => { const t = window.prompt('Rename deck', deck.title); if (t != null) renameActiveDeck(t); }}><PencilLine className="size-4" />Rename “{deck.title}”</DropdownMenuItem>
+				<DropdownMenuItem data-demo="new-deck" onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+
 	return (
 		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
+			{/* Announce a stop change to assistive tech — the surface can change from a
+			    keystroke (⌘.) or the "Edit this slide" reveal, which would otherwise be
+			    silent (M3/M4 a11y). `stopAnnounce` starts empty and is updated only on a
+			    real change (never on mount, never behind Fabricate) by the effect above. */}
+			<div role="status" aria-live="polite" className="sr-only">{stopAnnounce}</div>
 			{/* ── Top bar ─────────────────────────────────────────────── */}
-			{/* Focus mode: a slim header — deck title · ⌘K · Exit. Most of the
-			    control cluster is gone; ⌘K still reaches every feature. */}
-			{focus ? (
+			{/* Read + Write stops (DESKTOP only): a slim header — deck title · ⌘K · Present ·
+			    Share · the dial. Most of the control cluster is gone; ⌘K still reaches
+			    every feature, and the dial is the always-visible way to any stop (no
+			    "exit" — you are never in a mode, only at a stop). On COMPACT widths the
+			    full header stays (its ⋯ overflow carries deck-switch / theme / tours),
+			    since a slim header would strand those; the dial rides the full header. */}
+			{effectiveStop !== 'build' && !compact ? (
 			<header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
 				<LatticeMark mode={mode} className="size-7 shrink-0" />
-				<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
-				<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
+				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
+				    switching / New deck is a Write-and-up concern). Write gets the real
+				    switcher: deck navigation is not strippable chrome. */}
+				{effectiveStop === 'read' ? (
+					<>
+						<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
+						<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
+					</>
+				) : deckSwitcher}
 				<div className="flex-1" />
 				<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex" aria-label="Search or run a command">
 					<Search className="size-4" />Search or run…
 					<Kbd className="ml-2">⌘K</Kbd>
 				</button>
-				<Tip label="Exit focus (Esc)"><Button variant="outline" size="sm" onClick={() => setFocus(false)} className="gap-1.5" aria-label="Exit focus mode"><Minimize2 className="size-4" /><span className="hidden sm:inline">Exit focus</span></Button></Tip>
+				{/* Present + Share are deliverable verbs — they stay reachable at EVERY stop,
+				    never hidden behind a posture (2026-07-17-studio-persona-dial.md, T5 graft). */}
+				<Tip label="Present"><Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
+				<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
+				<PostureDial posture={posture} quietened={quietened} onChange={changePosture} />
 			</header>
 			) : (
 			<header className="flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 sm:gap-3 sm:px-3.5">
@@ -2136,8 +2290,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<DropdownMenuContent align="start" className="w-60">
 						<DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Workspace</DropdownMenuLabel>
 						<DropdownMenuItem onSelect={() => setView('compose')}><Layers className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Decks</div><div className="text-[11px] text-muted-foreground">Your saved decks</div></div></DropdownMenuItem>
-						{/* Fabricate is advanced (theme/component authoring) — hidden until a newcomer engages. */}
-						{onboarded && <DropdownMenuItem onSelect={() => setView('fabricate')}><PencilRuler className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Fabricate</div><div className="text-[11px] text-muted-foreground">Theme &amp; Component Studio</div></div></DropdownMenuItem>}
+						<DropdownMenuItem onSelect={() => setView('fabricate')}><PencilRuler className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Fabricate</div><div className="text-[11px] text-muted-foreground">Theme &amp; Component Studio</div></div></DropdownMenuItem>
 						<DropdownMenuSeparator />
 						{/* Deck CRUD lives in the deck switcher (New deck is there) — the
 						    launcher keeps app navigation + Import only, so the two adjacent
@@ -2148,38 +2301,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 
 				<Separator orientation="vertical" className="hidden h-5 sm:block" />
 
-				<DropdownMenu open={deckMenuOpen} onOpenChange={setDeckMenuOpen}>
-					<DropdownMenuTrigger asChild>
-						{/* No width cap on phones — the deck title is the user's orientation, so
-						    it absorbs the bar's free width (siblings are shrink-0; this pill is
-						    the one shrinkable item, truncating only when the title outgrows the
-						    actual free space instead of a fixed 150px). */}
-						<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
-							<span className="size-2 shrink-0 rounded-full bg-primary" />
-							<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
-							<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
-							<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-						</button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="start" className="w-72">
-						<DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Switch deck</DropdownMenuLabel>
-						{decks.map((d) => (
-							<DropdownMenuItem key={d.id} onSelect={() => loadDeck(d)} className="group">
-								<span className={cn('size-2 rounded-full', d.id === deck.id ? 'bg-[var(--accent)]' : 'bg-primary')} />
-								<span className="truncate font-semibold text-[var(--text-heading)]">{d.title}</span>
-								<span className="ml-auto flex items-center gap-1.5">
-									<span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{d.meta}</span>
-									{decks.length > 1 && (
-										<button type="button" aria-label={`Delete ${d.title}`} className="hidden rounded p-0.5 text-muted-foreground hover:text-[var(--fail,#b3261e)] group-hover:block" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeDeck(d.id); }}><Trash2 className="size-3.5" /></button>
-									)}
-								</span>
-							</DropdownMenuItem>
-						))}
-						<DropdownMenuSeparator />
-						<DropdownMenuItem onSelect={() => { const t = window.prompt('Rename deck', deck.title); if (t != null) renameActiveDeck(t); }}><PencilLine className="size-4" />Rename “{deck.title}”</DropdownMenuItem>
-						<DropdownMenuItem data-demo="new-deck" onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
+				{deckSwitcher}
 
 				<div className="flex-1" />
 
@@ -2246,8 +2368,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{!mobile && <Tip label="Share"><Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 
 				<Separator orientation="vertical" className="hidden h-5 sm:block" />
-				{/* Focus — drop to Editor + Preview, hide the panels, quiet the noise (desktop only; tablet/mobile already collapse panels). Advanced — revealed once a newcomer engages. */}
-				{!compact && onboarded && <Tip label="Focus — hide panels, just write (⌘.)"><Button variant="ghost" size="icon-sm" onClick={() => setFocus(true)} aria-label="Enter focus mode"><Focus className="size-[18px]" /></Button></Tip>}
+				{/* The posture dial — the always-visible, reversible way to any stop. Present
+				    at every stop (never a buried setting), so no stop can read as a room you
+				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} onChange={changePosture} />}
 				{/* Feedback — a persistent, one-tap entry point (not gated on onboarded — first
 				    impressions matter too). Opens a pre-filled GitHub issue; no token, no backend. */}
 				{!compact && <Tip label="Send feedback"><Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback"><MessageSquareHeart className="size-[18px]" /></Button></Tip>}
@@ -2257,8 +2381,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    they ride the pane bar below with Present + Share. */}
 				{/* Architect + Settings openers — TABLET only. Desktop launches both from the
 				    left activity bar; mobile from the pane bar below. */}
-				{bp === 'tablet' && <Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setActiveAssistant((p) => (p ? null : 'architect')); }} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>}
-				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p ? null : 'deck')); }} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => setActiveAssistant((p) => (p ? null : 'architect'))} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
 				{!compact && <Separator orientation="vertical" className="h-5" />}
 
 				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
@@ -2294,8 +2418,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 										<DropdownMenuSeparator />
 									</>
 								)}
-								{onboarded && <DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>}
-								{onboarded && <DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>}
+								<DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>
+								<DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<Kbd className="ml-auto text-[10px]">⌘K</Kbd></DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setFeedbackOpen(true)}><MessageSquareHeart className="size-4" />Send feedback</DropdownMenuItem>
 								<DropdownMenuSeparator />
@@ -2309,19 +2433,6 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    bar's Globals group; on compact they're in the ⋯ overflow (above). So the
 				    top bar carries neither here. */}
 			</header>
-			)}
-
-			{/* ── First-run welcome (newcomers only; dismiss graduates) ──── */}
-			{welcomeOpen && view === 'compose' && (
-				<div className="flex shrink-0 items-center gap-2.5 border-b border-border bg-[var(--accent-soft)] px-3.5 py-2 text-[13px] text-[var(--text-heading)]">
-					<Sparkles className="hidden size-4 shrink-0 text-[var(--accent)] sm:block" />
-					<p className="min-w-0 flex-1 leading-snug">
-						<span className="font-semibold">New here?</span> This is a sample deck <span className="hidden sm:inline">about Lattice</span> — edit any slide to make it yours. Your AI Coach <Sparkles className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> and deck settings <SlidersHorizontal className="inline size-3.5 align-text-bottom text-[var(--accent)]" /> are one tap away.
-					</p>
-					{!demoActive && <button type="button" onClick={() => startDemo()} aria-label="Watch demo" className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2 py-1 text-[12px] font-semibold text-[var(--on-accent)] hover:opacity-90 sm:px-2.5"><MonitorPlay className="size-3.5" /><span className="hidden sm:inline">Watch demo</span></button>}
-					<button type="button" onClick={graduate} className="shrink-0 rounded-md border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-background px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]">Got it</button>
-					<button type="button" onClick={graduate} aria-label="Dismiss welcome" className="shrink-0 rounded p-1 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button>
-				</div>
 			)}
 
 			{/* ── Body ─────────────────────────────────────────────────── */}
@@ -2342,7 +2453,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
 						    and still fit 390px. */}
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
+							<PaneBtn active={mobilePane === 'edit'} onClick={() => { setMobilePane('edit'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
 							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" demo="pane-preview" />
 						</div>
 						<span className="flex-1" />
@@ -2353,8 +2464,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						{mobilePane === 'preview' && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
 						<Tip label="Present"><Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button></Tip>
 						<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /></Button></Tip>
-						<Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => { graduate(); setArchitectOpen((v) => !v); }} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>
-						<Tip label="Settings — deck & slide"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => { graduate(); setInspectorPulse(false); setActiveSettings((p) => (p ? null : 'deck')); }} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]', inspectorPulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>
+						<Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => setArchitectOpen((v) => !v)} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>
+						<Tip label="Settings — deck & slide"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>
 					</div>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
 					    its full size, so the preview keeps rendering the live deck and a swap to it is
@@ -2364,62 +2475,69 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<div className="relative min-h-0 flex-1">
 						<div className={cn('absolute inset-0 flex', mobilePane === 'edit' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'edit' ? true : undefined}>{editorPane}</div>
 						<div className={cn('absolute inset-0 flex', mobilePane === 'preview' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'preview' ? true : undefined}>{previewPane}</div>
+						{/* Mobile Read — the phone newcomer the brief centers (M5). The preview pane
+						    already renders chromeless full-bleed at the Read stop; this adds the one
+						    "Edit this slide" verb + the one-time hint. Tapping it swaps to the edit
+						    pane AND steps the dial to Write — the same Read→Write step as desktop. */}
+						{effectiveStop === 'read' && mobilePane === 'preview' && (
+							<div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-2.5 px-4">
+								{!readHintSeen && (
+									<div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
+										<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
+										<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
+									</div>
+								)}
+								<button type="button" onClick={() => { dismissReadHint(); setMobilePane('edit'); changePosture('write'); }} className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-[var(--on-accent)] shadow-lg">
+									<PencilLine className="size-4" />Edit this slide
+								</button>
+							</div>
+						)}
 					</div>
 				</div>
-			) : focus ? (
-				/* Focus: Editor | Preview only — Architect/Inspector hidden, ⌘K still
-				   reaches everything (2026-06-30-studio-focus-mode.md). */
-				<div
-					className="group/split grid min-h-0 flex-1"
-					data-studio-split=""
-					data-split-collapsed={split.collapsed ?? undefined}
-					style={{ ...split.gridVars, gridTemplateColumns: splitTracks(split.collapsed).join(' ') }}
-					{...split.containerProps}
-				>
-					{splitRailA}
-					{editorPane}
-					{splitHandle}
-					{previewPane}
-					{splitRailB}
-				</div>
 			) : (
-				/* Desktop: [ bar ][ Settings ][ Architect ][ split ] — every panel launches
-				   from the ONE left activity bar and docks beside it, Settings next the bar,
-				   Architect next the editor (2026-07-06-studio-activity-bar.md). Tablet keeps
-				   the Inspector docked on the RIGHT (no bar; Architect is a sheet). The split
-				   always contributes FIVE children (rail | editor | handle | preview | rail)
-				   via splitTracks() so track lists can't drift. */
-				<div className={cn('flex min-h-0 flex-1', desktop && 'flex-row')}>
-					{desktop && activityBar}
+				/* Unified compose spine (M2 spine hoist + M3 Read, 2026-07-17-studio-persona-dial.md).
+				   Read, Write and Build share ONE structure so editor + preview mount ONCE and
+				   never remount across a dial move — the srcdoc iframe never reloads and the
+				   visible slide never jumps. The editor/preview/rails sit at FIXED child indices;
+				   only the surrounding chrome + the split track weights change. BUILD gates the
+				   chrome on (activity bar + docked Settings/Architect on desktop, right Inspector
+				   on tablet). WRITE is the bare editor|preview split. READ collapses the editor
+				   track to 0px (the pane stays MOUNTED) for a full-bleed preview + the "Edit this
+				   slide" overlay, so the newcomer's first edit (Read→Write) is a track re-weight,
+				   never a remount. The split always contributes FIVE children so track lists can't
+				   drift (#721 zero-void invariant). */
+				<div className={cn('relative flex min-h-0 flex-1', desktop && 'flex-row')}>
+					{desktop && effectiveStop === 'build' && activityBar}
 					<div
 						className="group/split grid min-h-0 flex-1"
 						data-studio-split=""
 						data-split-collapsed={split.collapsed ?? undefined}
 						style={{
 							...split.gridVars,
-							// Track count MUST match the rendered children. Desktop docks Settings +
-							// Architect LEFT (before the split), at the FOLD-clamped effective widths
-							// so both-open never overflows (#721/#720 acceptance); tablet docks the
-							// Inspector RIGHT (after) at a fixed 296px. Open panels only → their
-							// tracks only (a fixed '0px' would collapse the editor into it).
+							// Track count MUST match the rendered children (always 5 split tracks +
+							// the Build-gated panel tracks). Desktop-Build docks Settings + Architect
+							// LEFT at the FOLD-clamped widths (#721/#720); tablet-Build docks the
+							// Inspector RIGHT at 296px. READ uses an all-zero-but-preview five-track
+							// list (editor pane kept mounted at 0px → full-bleed preview, no remount).
+							// At Write every panel condition is false → the bare five tracks.
 							gridTemplateColumns: [
-								...(desktop && inspectorOpen ? [`${setEff}px`] : []),
-								...(desktop && architectOpen ? [`${archEff}px`] : []),
-								...splitTracks(split.collapsed),
-								...(bp === 'tablet' && inspectorOpen ? ['296px'] : []),
+								...(desktop && effectiveStop === 'build' && inspectorOpen ? [`${setEff}px`] : []),
+								...(desktop && effectiveStop === 'build' && architectOpen ? [`${archEff}px`] : []),
+								...(effectiveStop === 'read' ? ['0px', '0px', '0px', 'minmax(0,1fr)', '0px'] : splitTracks(split.collapsed)),
+								...(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? ['296px'] : []),
 							].join(' '),
 						}}
 						{...split.containerProps}
 					>
-						{/* Settings — docks next to the bar (desktop). Resizable; close = gone. */}
-						{desktop && inspectorOpen && (
+						{/* Settings — docks next to the bar (desktop-Build). Resizable; close = gone. */}
+						{desktop && effectiveStop === 'build' && inspectorOpen && (
 							<aside className="relative flex min-h-0 flex-col border-r border-border bg-background">
 								{inspectorScopeContent}
 								<PanelGrip dragging={setPanel.dragging} {...setPanel.gripProps} aria-label="Resize settings panel" />
 							</aside>
 						)}
-						{/* Architect — docks next to the editor (desktop). Resizable; close = gone. */}
-						{desktop && architectOpen && (
+						{/* Architect — docks next to the editor (desktop-Build). Resizable; close = gone. */}
+						{desktop && effectiveStop === 'build' && architectOpen && (
 							<aside className="relative flex min-h-0 flex-col overflow-hidden border-r border-border bg-card">
 								<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Architect</div>
 								{architectBody}
@@ -2427,21 +2545,45 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							</aside>
 						)}
 
+						{/* The stationary spine — fixed child indices across Write and Build. */}
 						{splitRailA}
 						{editorPane}
 						{splitHandle}
 						{previewPane}
 						{splitRailB}
 
-						{/* Tablet: the Inspector docks on the RIGHT (no bar below desktop; the
-						    in-panel Slide/Deck segment is its scope switch). The deck stays
-						    visible; no dimming modal. */}
-						{bp === 'tablet' && inspectorOpen && (
+						{/* Tablet-Build: the Inspector docks on the RIGHT (no bar below desktop; the
+						    in-panel Slide/Deck segment is its scope switch). The deck stays visible. */}
+						{bp === 'tablet' && effectiveStop === 'build' && inspectorOpen && (
 							<aside className="flex min-h-0 flex-col border-l border-border bg-background">
 								{inspectorScopeContent}
 							</aside>
 						)}
 					</div>
+
+					{/* READ overlay — the one primary verb over the full-bleed preview. Absolutely
+					    positioned in the (relative) spine wrapper, so it is NOT a grid item and
+					    can't affect the #721 track/child count. "Edit this slide" is the single,
+					    unmissable, non-hover-gated action (hover fails on touch); it steps the dial
+					    to Write. The one-time hint carries the banner's one true job (the deck is
+					    yours) as element-attached content that never recurs. */}
+					{effectiveStop === 'read' && (
+						<div className="pointer-events-none absolute inset-x-0 bottom-20 z-20 flex flex-col items-center gap-2.5 px-4">
+							{!readHintSeen && (
+								<div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
+									<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
+									<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
+								</div>
+							)}
+							<button
+								type="button"
+								onClick={() => { dismissReadHint(); changePosture('write'); }}
+								className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-[var(--on-accent)] shadow-lg transition-transform hover:scale-[1.02]"
+							>
+								<PencilLine className="size-4" />Edit this slide
+							</button>
+						</div>
+					)}
 				</div>
 			)}
 
@@ -2527,15 +2669,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				decks={decks}
 				palettes={BUILTIN_PALETTES}
 				onPickDeck={loadDeck}
+				onNewDeck={() => newDeck()}
 				onPalette={applyPalette}
 				onPresent={() => setPresentOpen(true)}
 				onShare={() => setShareOpen(true)}
 				onFeedback={() => setFeedbackOpen(true)}
 				onFabricate={() => setView('fabricate')}
-				onReshape={() => { setFocus(false); setArchitectOpen(true); setArchitectTab('lenses'); }}
+				onLibrary={() => setLibraryOpen(true)}
+				onWorkspace={() => setWorkspaceOpen(true)}
+				onReshape={() => { setQuietened(false); setPosture('build'); setArchitectOpen(true); setArchitectTab('lenses'); }}
 				onWatchDemo={startDemo}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
-				onFocus={() => setFocus(true)}
+				onFocus={posture === 'build' ? () => setQuietened(true) : undefined}
 				onCollapseEditor={splitUsable && split.collapsed !== 'a' ? () => collapseFromHeader('a') : undefined}
 				onCollapsePreview={splitUsable && split.collapsed !== 'b' ? () => collapseFromHeader('b') : undefined}
 				onExpandPane={split.collapsed ? () => { const c = splitApiRef.current.collapsed; if (c) splitApiRef.current.expand(c); } : undefined}
@@ -2587,6 +2732,37 @@ function ScrollFade({ children, className }: { children: React.ReactNode; classN
 // Icon-only segmented button (Edit / Preview). The label rides `aria-label`/`title`
 // (+ aria-pressed for the active side) rather than visible text, so the toggle stays
 // compact — that reclaimed width keeps the deck actions inline instead of behind a ⋯.
+// The posture dial — the one always-visible, reversible control that replaced the
+// one-way graduation ratchet (2026-07-17-studio-persona-dial.md). Stops are named for
+// what you DO, never who you are, so no stop reads as a rank; the lit segment is the
+// surface you're on (the transient `quietened` overlay lights Write without moving the
+// saved posture). Matches the segmented-control idiom (bordered group, card-lift active).
+// Assistive-tech announcement per stop (the aria-live region at the shell root).
+const POSTURE_ANNOUNCE: Record<Posture, string> = {
+	read: 'Read — just the slides',
+	write: 'Write — editor and preview',
+	build: 'Build — every panel',
+};
+const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.ReactNode }[] = [
+	{ id: 'read', label: 'Read', hint: 'Read — just the slides', icon: <BookOpen className="size-4" /> },
+	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },
+	{ id: 'build', label: 'Build', hint: 'Build — every panel', icon: <Layers className="size-4" /> },
+];
+function PostureDial({ posture, quietened, onChange }: { posture: Posture; quietened: boolean; onChange: (p: Posture) => void }) {
+	const shown: Posture = quietened ? 'write' : posture;
+	return (
+		<fieldset className="m-0 inline-flex shrink-0 items-center rounded-lg border border-border bg-background p-[3px]">
+			<legend className="sr-only">Workspace density</legend>
+			{POSTURE_STOPS.map((s) => (
+				<Tip key={s.id} label={s.hint}>
+					<button type="button" aria-label={s.hint} aria-pressed={shown === s.id} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', shown === s.id ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
+						{s.icon}<span className="hidden sm:inline">{s.label}</span>
+					</button>
+				</Tip>
+			))}
+		</fieldset>
+	);
+}
 function PaneBtn({ active, onClick, icon, label, demo }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; demo?: string }) {
 	return (
 		<Tip label={label}><button type="button" onClick={onClick} data-demo={demo} aria-label={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button></Tip>
@@ -2597,7 +2773,7 @@ function PaneBtn({ active, onClick, icon, label, demo }: { active: boolean; onCl
 // leave a newcomer facing mystery glyphs; 2026-07-06-studio-activity-bar.md).
 // `active` is passed only for the panel toggles (Coach/Slide/Deck) → aria-pressed;
 // the globals (Library/Workspace) open dialogs, so they get no pressed state.
-function BarIcon({ label, hint, caption, active, pulse, onClick, children }: { label: string; hint: string; caption: string; active?: boolean; pulse?: boolean; onClick: () => void; children: React.ReactNode }) {
+function BarIcon({ label, hint, caption, active, onClick, children }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode }) {
 	return (
 		<Tip label={hint}><button
 			type="button"
@@ -2607,7 +2783,6 @@ function BarIcon({ label, hint, caption, active, pulse, onClick, children }: { l
 			className={cn(
 				'group/bar relative flex w-11 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[8.5px] font-semibold leading-none transition-colors',
 				active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
-				pulse && 'text-[var(--accent)] ring-2 ring-[var(--accent)] animate-pulse',
 			)}
 		>
 			{/* Active-marker rail, VSCode-style, on the bar's inner edge. */}

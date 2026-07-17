@@ -155,6 +155,7 @@ describe('Studio — every top-bar control responds', () => {
 describe('Studio — Architect + editor controls respond', () => {
 	it('"Fix all" clears an unknown component flagged inline', async () => {
 		const user = setup();
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — the Architect "Fix all" banner needs the coach open
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste('<!-- _class: bogus-zzz -->\n# Oops\n\n---\n\n');
@@ -167,6 +168,7 @@ describe('Studio — Architect + editor controls respond', () => {
 
 	it('the Lenses panel adds a reader view and gates it behind approval (deterministic, real)', async () => {
 		const user = setup();
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the architect
 		// The Architect's "Lenses" tab: add a Bottom-line reader view…
 		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
@@ -183,6 +185,7 @@ describe('Studio — Architect + editor controls respond', () => {
 
 	it('the Architect Chat thread sends a message and degrades honestly offline', async () => {
 		const user = setup();
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the coach
 		// Switch the Architect panel to the Chat tab.
 		await user.click(screen.getByRole('tab', { name: 'Chat' }));
 		const box = await screen.findByRole('textbox', { name: 'Message the Architect' });
@@ -196,6 +199,7 @@ describe('Studio — Architect + editor controls respond', () => {
 
 	it('the Architect actions degrade honestly with no model connected', async () => {
 		const user = setup();
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the coach
 		// With no model (floor) the AI actions do NOT fake an edit — they point the
 		// author at Workspace to connect, rather than toasting a change that did not
 		// happen. (A connected model would apply a real edit instead.)

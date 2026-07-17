@@ -15,6 +15,7 @@ import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
 
 const INDEX_LS = 'lattice-studio-deck-index'; // [{id,title,builtin}]
 const SRC_PREFIX = 'lattice-studio-src-'; // + deckId → edited source
+const ACTIVE_LS = 'lattice-studio-active'; // { deckId, slideIndex } — the deck+slide last viewed, so a reload boots where you left off
 const SETTINGS_LS = 'lattice-studio-settings'; // { validation, pageNumbers, headerFooter, language }
 const INSTRUCTIONS_LS = 'lattice-studio-instructions'; // CLOUD standing instructions (free text)
 const ONDEVICE_INSTRUCTIONS_LS = 'lattice-studio-ondevice-instructions'; // ON-DEVICE standing instructions (free text, capped)
@@ -94,9 +95,12 @@ function saveIndex(index: IndexEntry[]): void {
 
 /**
  * Has this browser used the Studio before? True if a deck index was ever saved
- * (new/rename/delete) or any deck source was edited. Used to treat pre-existing
- * users as already-onboarded, so the first-run welcome shows only to true
- * newcomers (the `onboarded` flag predates none of their prior activity).
+ * (new/rename/delete) or any deck source was edited.
+ *
+ * Feeds the posture migration: `derivePosture` consults this to route a
+ * prior-use-but-not-onboarded browser to `'write'` rather than the fresh-visitor
+ * `'read'` (the hardened three-population form, R4/R6). It formerly gated the
+ * retired `onboarded` runtime check, before the dial replaced it.
  */
 export function hasPriorStudioUse(): boolean {
 	try {
@@ -146,6 +150,60 @@ export function loadDeckList(): StudioDeck[] {
 	});
 }
 
+// ── Last-active deck + slide (boot where you left off) ──────────────────────
+// The Studio historically ALWAYS booted loadDeckList()[0] (the first deck), even
+// when you'd switched to another one — so a reload (or an iOS memory-reclaim tab
+// discard) dropped you back on deck #1. Worse: the returning-visitor instant-shell
+// (studio.astro's pre-paint replay) gates its snapshot on `snap.deckId === bootId`
+// with bootId = index[0].id, so leaving from any non-first deck meant the snapshot
+// never matched and the user stared at a blank cold-boot preview — verified on real
+// WebKit (engineering/decisions/2026-07-11-preview-performance-diagnosis.md logged
+// this "boot the last-active deck + slide" follow-up; this is it). We now persist the
+// deck+slide last viewed and boot from it, and studio.astro derives its bootId from
+// the SAME key so the shell and the hydrated app agree on which deck (and slide) leads.
+
+export type ActiveDeck = { deckId: string; slideIndex: number };
+
+/** The deck + slide last viewed, or null if never recorded. */
+export function loadActiveDeck(): ActiveDeck | null {
+	const v = read<Partial<ActiveDeck>>(ACTIVE_LS);
+	if (!v || typeof v.deckId !== 'string' || !v.deckId) return null;
+	return { deckId: v.deckId, slideIndex: typeof v.slideIndex === 'number' && v.slideIndex >= 0 ? v.slideIndex : 0 };
+}
+/** Record the deck + slide currently in view (called on every deck/slide change). */
+export function saveActiveDeck(deckId: string, slideIndex: number): void {
+	write(ACTIVE_LS, { deckId, slideIndex: Math.max(0, slideIndex | 0) });
+}
+/** Forget the last-active pointer if it names `deckId` (a deck being deleted) — so it
+ *  can never dangle at a deck that no longer exists, which would make the app boot the
+ *  fallback while the instant-shell still trusts the stale id (a wrong-deck flash). */
+function clearActiveDeckIf(deckId: string): void {
+	if (loadActiveDeck()?.deckId === deckId) remove(ACTIVE_LS);
+}
+
+/**
+ * The deck to boot: the last-active deck when it still exists in the list, else the
+ * first deck, else the built-in first deck. Mirrors studio.astro's inline bootId
+ * resolution EXACTLY (last-active id → index[0].id → DECKS[0].id) so the pre-paint
+ * instant-shell and the hydrated app never disagree on which deck leads.
+ */
+export function loadBootDeck(): StudioDeck {
+	const list = loadDeckList();
+	const active = loadActiveDeck();
+	if (active) {
+		const hit = list.find((d) => d.id === active.deckId);
+		if (hit) return hit;
+	}
+	return list[0] ?? DECKS[0];
+}
+/** The slide index to boot at — the last-active slide when it belongs to the boot deck
+ *  (else 0). Clamping to the deck's real slide count is left to the shell (it already
+ *  clamps activeSlide against the viewed set, which can be lens-reshaped). */
+export function loadBootSlide(): number {
+	const active = loadActiveDeck();
+	return active && active.deckId === loadBootDeck().id ? active.slideIndex : 0;
+}
+
 /**
  * Create + persist a new deck. With `source` given (a deck import) the deck is
  * seeded with that content; otherwise the blank starter. Returns the new deck.
@@ -182,6 +240,7 @@ export function deleteDeck(id: string): void {
 	remove(CHAT_PREFIX + id);
 	remove(CHAT_DRAFT_PREFIX + id);
 	clearComments(id);
+	clearActiveDeckIf(id); // don't leave the boot pointer dangling at a deleted deck
 }
 
 // ── Privacy & Data (Workspace → Privacy & Data tab) ─────────────────────────
@@ -202,7 +261,7 @@ export function deckContentStats(): { count: number; bytes: number } {
 			if (!k) continue;
 			// 'lattice-studio-comments-' is slide-comments.ts's PREFIX — kept in sync
 			// by hand, the same way hasPriorStudioUse above scans SRC_PREFIX directly.
-			if (k === INDEX_LS || k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-')) {
+			if (k === INDEX_LS || k === ACTIVE_LS || k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-')) {
 				bytes += k.length + (localStorage.getItem(k)?.length ?? 0);
 			}
 		}
@@ -257,6 +316,7 @@ export function clearAllDecks(): void {
 		/* storage unavailable — non-fatal, matches the read-side scan above */
 	}
 	remove(INDEX_LS);
+	remove(ACTIVE_LS); // the boot pointer is deck CONTENT state — clear it with the rest
 	// The live editor has no other way to learn its in-memory deck/source state
 	// just went stale — without this, the user could keep typing in the still-
 	// focused editor and the existing 400ms debounced autosave (StudioShell)
@@ -328,10 +388,12 @@ export function saveChatDraft(deckId: string, draft: string): void {
 }
 
 // `language` is the BCP-47 output locale for AI deck content (see studio-language).
-// `onboarded` flips true the first time a newcomer engages (dismisses the
-// welcome, makes an edit, or opens a panel). It gates the reduced-density
-// first-run shell: while false, the side panels start closed and a one-time
-// welcome cue shows; once true, the Studio opens at full density as before.
+// `posture` is the persisted density stop — the always-visible, reversible dial
+// that replaced the one-way `onboarded` ratchet + welcome banner (2026-07-17-studio-persona-dial.md).
+// It is written ONLY by an explicit dial interaction (never by engagement), so a
+// user boots where they left off and the surface never drifts. `'write'` = today's
+// Focus body (editor + preview), `'build'` = the full desktop. (The `'read'`
+// newcomer home lands in a later milestone; the union widens then.)
 // `handleStyle` — how the Fabricate finish designer draws its on-canvas placement
 // handles (wash hotspot / mark / spotlight). 'knob' is the familiar slider-thumb (the
 // default, most obviously grabbable); 'reticle' is a precise, see-through crosshair for
@@ -347,15 +409,54 @@ export type PdfPages = 'png' | 'jpeg';
 // workspace-lenses.ts). ON by default: a fresh deck shows the two starter views in its Lenses panel
 // without baking anything into its source (the delta model — see workspace-lenses.ts). Turning it off
 // drops the inherited starters from every deck that never materialized (approved/edited/dropped) one.
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; onboarded: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; lensDefaults: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, onboarded: false, handleStyle: 'knob', pdfPages: 'png', lensDefaults: true };
+// The persisted density stop. (`'read'` — the full-bleed newcomer home — widens
+// this union in a later milestone; today's two stops map to the existing surfaces.)
+export type Posture = 'read' | 'write' | 'build';
+const POSTURES: readonly Posture[] = ['read', 'write', 'build'];
+const isPosture = (v: unknown): v is Posture => POSTURES.includes(v as Posture);
+// `readHintSeen` — the one-time "this sample deck is yours → Edit this slide"
+// orientation hint on the Read stop is shown until the newcomer edits or dismisses
+// it, then never again. (It is content attached to the Edit button, not a banner —
+// it points INTO the app, never recurs, and blocks nothing.)
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; lensDefaults: boolean };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: 'read', readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', lensDefaults: true };
+
+// Derive the boot stop for a browser with no explicitly-stored posture — the
+// hardened three-population form (R4/R6, prior-use-first so an actively-editing
+// user is never demoted): an explicit legacy `onboarded:true` (they reached the
+// full surface) → keep it → 'build'; a browser with prior Studio use but no full
+// surface → the calm middle 'write'; a true first visit → the gentlest home,
+// 'read'. Once derived for a fresh visitor, the boot stop is persisted ONCE (see
+// hasStoredPosture + the mount effect in StudioShell) so a first-session action
+// like creating a deck can never silently re-derive it upward.
+function derivePosture(legacyOnboarded: boolean | undefined): Posture {
+	if (legacyOnboarded === true) return 'build';
+	if (hasPriorStudioUse()) return 'write';
+	return 'read';
+}
+// True only when a posture was EXPLICITLY written to storage (not merely derived).
+// The mount effect uses this to persist a fresh visitor's derived stop exactly once.
+export function hasStoredPosture(): boolean {
+	try {
+		return isPosture(read<Partial<StudioSettings>>(SETTINGS_LS)?.posture);
+	} catch {
+		return false;
+	}
+}
 
 export function loadSettings(): StudioSettings {
-	const saved = read<Partial<StudioSettings>>(SETTINGS_LS) ?? {};
+	// `onboarded` is read for one migration cycle then dropped from the persisted
+	// object (excluded from the spread below), so it never lingers as a stale second
+	// source of truth beside `posture`.
+	const { onboarded: legacyOnboarded, ...saved } = (read<Partial<StudioSettings> & { onboarded?: boolean }>(SETTINGS_LS) ?? {});
 	// Seed the language from the browser the FIRST time only (no saved value); the
 	// user's explicit pick wins forever after. detectLanguage falls back to en-US.
 	const language = saved.language ?? detectLanguage();
-	return { ...DEFAULT_SETTINGS, ...saved, language };
+	// Validate rather than trust: an unknown stored value (corruption, or a `'read'`
+	// written by a later build then rolled back) must fall back to the derived stop,
+	// never flow through to leave the dial lighting no segment.
+	const posture = isPosture(saved.posture) ? saved.posture : derivePosture(legacyOnboarded);
+	return { ...DEFAULT_SETTINGS, ...saved, language, posture };
 }
 // Notify same-tab listeners a setting changed (the native `storage` event only fires in
 // OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace

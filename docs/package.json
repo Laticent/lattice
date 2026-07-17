@@ -21,6 +21,7 @@
     "perf:collect": "node scripts/perf-collect.mjs",
     "perf:compare": "node scripts/perf-regression.mjs",
     "perf:frame": "node scripts/frame-bench.mjs",
+    "settle:check": "node scripts/runtime-settle-check.mjs",
     "check:overflow": "node scripts/check-overflow.mjs",
     "check:preview": "node scripts/check-preview-render.mjs",
     "check:modulepreload-coverage": "node scripts/check-modulepreload-coverage.mjs",

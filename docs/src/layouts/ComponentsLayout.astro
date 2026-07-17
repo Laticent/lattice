@@ -19,6 +19,7 @@ import SiteHeader from '../components/site/SiteHeader.astro';
 import ComponentNav from '../components/ComponentNav.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
+import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
 
 const { title, description, palettes = [], catalog = [], lenses = [], navGroups = [], current = null } = Astro.props;
@@ -33,6 +34,10 @@ const url = (p) => joinBase(base, p);
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<ResourceHints />
+		{/* Each component page's live specimen renders on load (specimen.js →
+		    whenReady → render), so warm the preview runtime at parse time — off the
+		    first-render critical path (FRAME REBUILD), like the app + landing pages. */}
+		<RuntimeWarm />
 		<title>{title}</title>
 		<meta name="description" content={description} />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />

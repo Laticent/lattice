@@ -269,6 +269,35 @@ paragraph register (below-note OR annotation), in that order. See
 `examples/gallery.md` slide 21 for key-insight + below-note,
 slide 22 for key-insight + annotation.
 
+#### Renaming the eyebrow — `insight-*` modifiers
+
+The eyebrow word is not fixed. The Key Insight panel emits its eyebrow as
+`content: var(--insight-label, 'KEY INSIGHT')`, so an `insight-*` modifier on
+the slide `_class` (or a deck-wide frontmatter `class:`) swaps the word to a
+curated boardroom heading — the panel chrome, color, and sizing are untouched.
+Defaults never move (the `var()` fallback), so every existing deck renders
+identically; the vocabulary is a small, edited set, not free text.
+
+The **split-compare verdict tag** reads the *same* `--insight-label` seam
+(default `RECOMMENDATION`), so one vocabulary drives both surfaces — the
+recommendation is a Key Insight variant, not a split-compare special. See
+`examples/insight-labels.md` and
+`engineering/decisions/2026-07-17-insight-label-vocabulary.md`.
+
+| Modifier | Eyebrow | Modifier | Eyebrow |
+|---|---|---|---|
+| `insight-key` | KEY INSIGHT | `insight-verdict` | VERDICT |
+| `insight-recommendation` | RECOMMENDATION | `insight-so-what` | SO WHAT |
+| `insight-takeaway` | TAKEAWAY | `insight-bottom-line` | BOTTOM LINE |
+| `insight-the-ask` | THE ASK | `insight-our-view` | OUR VIEW |
+| `insight-implication` | IMPLICATION | `insight-next-step` | NEXT STEP |
+| `insight-why` | WHY IT MATTERS | | |
+
+`insight-key` / `insight-recommendation` are the two defaults as explicit
+modifiers, so either word can move onto the other surface. Grow the set in
+`base.variants.css` § INSIGHT LABEL — keep new words uppercase to match the
+eyebrow's `text-transform` and the label voice.
+
 ### Labeled Corner Tag
 
 The named-slot sibling of the numbered corner tag. On `compare-prose` (incl. the

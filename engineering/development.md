@@ -502,7 +502,8 @@ gotchas.md → "Editing a manifest `sample` staled the bucket survey."
 
 ### Editing deck-lint rules
 The footgun checks (card-style inline-title, ordered-list bold, split/number
-bodyless items, unknown `_class`, …) live in **one place**:
+bodyless items, big-number hero-as-heading, bookend-under-finish contrast,
+unknown `_class`, …) live in **one place**:
 `lib/authoring/lint-core.js` — a pure, `fs`-free, dependency-free module. Three
 consumers share it, so edit the rule THERE, never duplicate it:
 1. `lib/authoring/lint.js` — the Node binding (`npm run lint:deck`); builds the
