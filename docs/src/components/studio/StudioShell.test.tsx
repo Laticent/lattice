@@ -5,9 +5,9 @@ import StudioShell from './StudioShell';
 
 // Most flows here exercise the FULL-density Studio against the original deck set
 // (the 6-slide "Q3 Board Review" active). Seed a returning-user state — the saved
-// deck index without the newcomer welcome deck, plus onboarded:true — which is the
-// real shape for anyone who has used the Studio before. The fresh first-run state
-// (welcome deck + reduced density + welcome banner) is covered separately below.
+// deck index without the newcomer welcome deck, plus the Build posture — which is
+// the real shape for anyone who works with every panel docked. The fresh first-run
+// state (welcome deck, calm Write surface, no banner) is covered separately below.
 function seedReturningUser() {
 	localStorage.setItem('lattice-studio-deck-index', JSON.stringify([
 		{ id: 'q3-board', title: 'Q3 Board Review', builtin: true },
@@ -15,7 +15,7 @@ function seedReturningUser() {
 	]));
 	// lensDefaults:false so these manual-add / approval flows (written before workspace inheritance) start
 	// from an EMPTY reader-view slate — the inherited-starters behavior gets its own block below.
-	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, onboarded: true, lensDefaults: false }));
+	localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'build', lensDefaults: false }));
 }
 
 // The live preview loads the real engine by polling `window.LatticePlayground`
@@ -101,50 +101,54 @@ describe('StudioShell — smoke', () => {
 	});
 });
 
-describe('StudioShell — newcomer first run', () => {
-	it('opens on the welcome deck with reduced density and a one-time cue', () => {
+describe('StudioShell — the posture dial (persona experiences)', () => {
+	it('a fresh visitor opens on the welcome deck at the calm Write stop — no banner, no nag', () => {
 		localStorage.clear(); // a true fresh visitor — no seed, no prior use
 		render(<StudioShell options={options} />);
 		// The crafted intro deck is the active deck.
 		expect(screen.getByText('Welcome to Lattice')).toBeInTheDocument();
-		// Reduced density: the Architect coach is NOT open by default.
+		// Write is calm: the Architect coach is NOT docked by default.
 		expect(screen.queryByText('Board-ready')).not.toBeInTheDocument();
-		// A one-time welcome cue points the way.
-		expect(screen.getByText(/New here\?/)).toBeInTheDocument();
+		// The retired "banner jail" is gone — no welcome nag.
+		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
+		// The dial is the always-visible way to any stop.
+		expect(screen.getByRole('group', { name: 'Workspace density' })).toBeInTheDocument();
 	});
 
-	it('dismissing the welcome graduates the user and persists it', async () => {
+	it('moving the dial to Build raises the chrome ceiling (activity-bar launcher) and persists the stop', async () => {
 		localStorage.clear();
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		await user.click(screen.getByRole('button', { name: 'Got it' }));
-		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
-		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').onboarded).toBe(true);
+		// Write hides the activity-bar launcher (its globals render only in Build).
+		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Build — every panel' }));
+		// Build reveals the launcher — every panel is now reachable (panels open on demand;
+		// the dial raises the ceiling, it doesn't force a panel open — T2 §4.5 orthogonality).
+		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
+		// The choice is persisted (written only by the explicit dial move).
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('build');
 	});
 
-	it('treats a returning user (prior Studio use) as already onboarded — no cue', () => {
-		// beforeEach already seeded a returning-user state.
+	it('the move is reversible — Build back to Write returns to the calm surface, no ceremony', async () => {
+		localStorage.clear();
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		await user.click(screen.getByRole('button', { name: 'Build — every panel' }));
+		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Write — editor + preview' }));
+		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+	});
+
+	it('a returning user boots straight into Build — the full surface, no cue', () => {
+		// beforeEach seeds the Build posture (the migration target for a legacy engaged
+		// user; the onboarded→posture migration itself is covered in studio-store.test.ts).
 		render(<StudioShell options={options} />);
 		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
 		expect(screen.getByText('Board-ready')).toBeInTheDocument();
-		// A returning user sees the full topbar (advanced surfaces present).
 		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
-	});
-
-	it('hides the advanced topbar cluster for a newcomer, revealing it on graduation', async () => {
-		localStorage.clear(); // fresh visitor
-		const user = userEvent.setup();
-		render(<StudioShell options={options} />);
-		// Advanced surfaces are out of the way on first run.
-		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Workspace settings' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'Enter focus mode' })).not.toBeInTheDocument();
-		// Engaging (dismissing the welcome) graduates them → the cluster appears.
-		await user.click(screen.getByRole('button', { name: 'Got it' }));
-		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Enter focus mode' })).toBeInTheDocument();
 	});
 });
 

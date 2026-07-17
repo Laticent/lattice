@@ -115,10 +115,23 @@ describe('studio-store — titleFromSource', () => {
 
 describe('studio-store — settings', () => {
 	it('defaults then round-trips', () => {
-		expect(loadSettings()).toMatchObject({ validation: true, pageNumbers: true, headerFooter: false, onboarded: false });
+		expect(loadSettings()).toMatchObject({ validation: true, pageNumbers: true, headerFooter: false, posture: 'write' });
 		saveSettings({ pageNumbers: false });
 		expect(loadSettings().pageNumbers).toBe(false);
 		expect(loadSettings().validation).toBe(true); // untouched keys keep defaults
+	});
+
+	it('migrates the retired one-way `onboarded` flag to a posture, then drops it', () => {
+		// A legacy engaged user (onboarded:true) reached the full surface → keep it.
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ onboarded: true }));
+		expect(loadSettings().posture).toBe('build');
+		// The retired flag is not re-persisted — no stale second source of truth beside posture.
+		saveSettings({ pageNumbers: false });
+		expect('onboarded' in JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}')).toBe(false);
+		// A legacy non-engaged user (onboarded:false) → the calm middle stop.
+		localStorage.clear();
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ onboarded: false }));
+		expect(loadSettings().posture).toBe('write');
 	});
 
 	it('seeds language from the browser the first time, then honors the saved pick', () => {

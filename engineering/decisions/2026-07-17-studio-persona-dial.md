@@ -88,6 +88,17 @@ the slides," "Write — editor + preview," "Build — every panel." The words
 the surface. There is no "Exit" control anywhere, because you are never *in* a
 mode — you are *at* a stop.
 
+**Deliverable verbs vs. density panels — the line the dial draws.** **Present**
+and **Share/Export** are top-level controls on *every* stop's header (Write's
+slim header included) — they are why the app exists and never hide behind a
+posture (T5's "deliverable verbs always present"). They are *also* ⌘K-reachable;
+being both is fine for a primary verb. Authoring **panels** (the coach, the
+inspector) are the opposite: dial-gated chrome, opened on demand, never forced
+open by a posture change. So the rule is: **output actions are always present;
+authoring panels are arranged by the dial** — and moving the dial changes only
+the chrome *ceiling* (Build shows the activity-bar launcher), never the
+open/closed state of a panel (T2 §4.5 orthogonality).
+
 ### The load-bearing rule — two values, strictly separate
 
 This is the discipline that makes the dial safe and kills the founding bug:

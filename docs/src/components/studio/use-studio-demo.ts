@@ -47,7 +47,9 @@ export type StudioDemoBindings = {
 	fixAll: () => void;
 	setActiveSlide: (index: number) => void;
 	setFocus: (on: boolean) => void;
-	setWelcomeOpen: (open: boolean) => void;
+	/** Set the persisted posture. The tour runs on the full surface (Build), where the
+	 *  deck switcher + activity bar it anchors on live. */
+	setPosture: (p: 'write' | 'build') => void;
 	setCmdOpen: (open: boolean) => void;
 	notify: (message: string) => void;
 };
@@ -83,8 +85,10 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 
 		// Clear the shell to a clean compose canvas before the cursor appears.
 		b.setCmdOpen(false);
-		b.setWelcomeOpen(false);
 		b.setFocus(false);
+		// The tour anchors on the deck switcher + activity bar, which render only in Build;
+		// establish the full surface so no beat resolves a missing selector to a no-op.
+		b.setPosture('build');
 		b.setView('compose');
 		b.setPresentOpen(false);
 		b.setShareOpen(false);

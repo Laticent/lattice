@@ -94,9 +94,13 @@ function saveIndex(index: IndexEntry[]): void {
 
 /**
  * Has this browser used the Studio before? True if a deck index was ever saved
- * (new/rename/delete) or any deck source was edited. Used to treat pre-existing
- * users as already-onboarded, so the first-run welcome shows only to true
- * newcomers (the `onboarded` flag predates none of their prior activity).
+ * (new/rename/delete) or any deck source was edited.
+ *
+ * Retained for the M3 posture migration: once the `'read'` newcomer home ships,
+ * `derivePosture` widens to the hardened three-population form and consults this
+ * to route a prior-use-but-not-onboarded browser to `'write'` rather than the
+ * fresh-visitor `'read'`. No current caller (the `onboarded` runtime check it
+ * used to feed was retired with the dial) — kept deliberately, not dead.
  */
 export function hasPriorStudioUse(): boolean {
 	try {
@@ -328,10 +332,12 @@ export function saveChatDraft(deckId: string, draft: string): void {
 }
 
 // `language` is the BCP-47 output locale for AI deck content (see studio-language).
-// `onboarded` flips true the first time a newcomer engages (dismisses the
-// welcome, makes an edit, or opens a panel). It gates the reduced-density
-// first-run shell: while false, the side panels start closed and a one-time
-// welcome cue shows; once true, the Studio opens at full density as before.
+// `posture` is the persisted density stop — the always-visible, reversible dial
+// that replaced the one-way `onboarded` ratchet + welcome banner (2026-07-17-studio-persona-dial.md).
+// It is written ONLY by an explicit dial interaction (never by engagement), so a
+// user boots where they left off and the surface never drifts. `'write'` = today's
+// Focus body (editor + preview), `'build'` = the full desktop. (The `'read'`
+// newcomer home lands in a later milestone; the union widens then.)
 // `handleStyle` — how the Fabricate finish designer draws its on-canvas placement
 // handles (wash hotspot / mark / spotlight). 'knob' is the familiar slider-thumb (the
 // default, most obviously grabbable); 'reticle' is a precise, see-through crosshair for
@@ -347,15 +353,39 @@ export type PdfPages = 'png' | 'jpeg';
 // workspace-lenses.ts). ON by default: a fresh deck shows the two starter views in its Lenses panel
 // without baking anything into its source (the delta model — see workspace-lenses.ts). Turning it off
 // drops the inherited starters from every deck that never materialized (approved/edited/dropped) one.
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; onboarded: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; lensDefaults: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, onboarded: false, handleStyle: 'knob', pdfPages: 'png', lensDefaults: true };
+// The persisted density stop. (`'read'` — the full-bleed newcomer home — widens
+// this union in a later milestone; today's two stops map to the existing surfaces.)
+export type Posture = 'write' | 'build';
+const POSTURES: readonly Posture[] = ['write', 'build'];
+const isPosture = (v: unknown): v is Posture => POSTURES.includes(v as Posture);
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; handleStyle: HandleStyle; pdfPages: PdfPages; lensDefaults: boolean };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: 'write', handleStyle: 'knob', pdfPages: 'png', lensDefaults: true };
+
+// Migrate the retired one-way `onboarded` boolean to a posture. An explicit
+// `onboarded:true` (they reached the full surface) → keep it → 'build'; everyone
+// else → the calm middle 'write'. While the 'read' newcomer home does not yet
+// exist, the fresh-visitor and the prior-use-but-not-onboarded cohorts collapse
+// onto 'write', so this is two-way today. When 'read' ships (M3) this WIDENS to
+// the hardened three-population form (R4/R6): fresh → 'read', prior-use-only →
+// 'write', onboarded → 'build' — so `derivePosture` must consult
+// `hasPriorStudioUse()` at that point. Pre-GA, no real cohort is affected.
+function derivePosture(legacyOnboarded: boolean | undefined): Posture {
+	return legacyOnboarded === true ? 'build' : 'write';
+}
 
 export function loadSettings(): StudioSettings {
-	const saved = read<Partial<StudioSettings>>(SETTINGS_LS) ?? {};
+	// `onboarded` is read for one migration cycle then dropped from the persisted
+	// object (excluded from the spread below), so it never lingers as a stale second
+	// source of truth beside `posture`.
+	const { onboarded: legacyOnboarded, ...saved } = (read<Partial<StudioSettings> & { onboarded?: boolean }>(SETTINGS_LS) ?? {});
 	// Seed the language from the browser the FIRST time only (no saved value); the
 	// user's explicit pick wins forever after. detectLanguage falls back to en-US.
 	const language = saved.language ?? detectLanguage();
-	return { ...DEFAULT_SETTINGS, ...saved, language };
+	// Validate rather than trust: an unknown stored value (corruption, or a `'read'`
+	// written by a later build then rolled back) must fall back to the derived stop,
+	// never flow through to leave the dial lighting no segment.
+	const posture = isPosture(saved.posture) ? saved.posture : derivePosture(legacyOnboarded);
+	return { ...DEFAULT_SETTINGS, ...saved, language, posture };
 }
 // Notify same-tab listeners a setting changed (the native `storage` event only fires in
 // OTHER tabs). The Fabricate designer listens so a handle-style switch in the Workspace
