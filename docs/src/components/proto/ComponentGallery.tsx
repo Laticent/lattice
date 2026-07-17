@@ -1,21 +1,20 @@
 import * as React from 'react';
 import DeckPreview from '@/components/DeckPreview';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 
-// ISOLATED PROTOTYPE — the "Add component" visual gallery. The button the user
-// asked for: like the present-mode slide picker, a grid of LIVE previews of
-// every available component (rendered by the real engine, not screenshots), so
-// you pick by SEEING, not by remembering a name. Grouped by bucket, searchable.
+// ISOLATED PROTOTYPE — the "Add component" DRAWER. A side panel (like the
+// present-mode slide picker) of LIVE mini previews of every component, grouped by
+// bucket, searchable. Search is NOT auto-focused — the drawer opens calm, you scan
+// by eye first. Picking inserts the component's text into the rich-markdown editor.
 
 export type GalleryComponent = { name: string; bucket: string; description: string; skeleton: string };
 
 const BUCKET_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery', 'chart', 'diagram', 'math', 'code', 'legal', 'connect'];
 
-// Live thumbnail, lazily mounted the first time it scrolls into view — so
-// opening the gallery doesn't spin up 56 engine renderers at once. Once mounted
-// it stays mounted (re-mount churn on scroll would be worse than the memory).
+// Live thumbnail, lazily mounted the first time it scrolls into view — so opening
+// the drawer doesn't spin up 56 engine renderers at once. Once mounted it stays.
 function LazyThumb({ options, sample, ratio }: { options: SingleSlideOptions; sample: string; ratio: [number, number] }) {
 	const ref = React.useRef<HTMLDivElement>(null);
 	const [show, setShow] = React.useState(false);
@@ -64,18 +63,18 @@ export function ComponentGallery({ open, onOpenChange, options, components, onPi
 	}, [components, q]);
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[85vh] w-[min(92vw,1040px)] max-w-none overflow-hidden p-0 sm:max-w-none">
-				<DialogHeader className="border-b border-[var(--rule,rgba(0,0,0,0.1))] px-5 pb-3 pt-4">
-					<DialogTitle className="text-base">Add a component</DialogTitle>
-					<Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${components.length} components — pick by seeing it`} className="mt-2" />
-				</DialogHeader>
-				<div className="max-h-[calc(85vh-96px)] overflow-auto px-5 py-4">
+		<Sheet open={open} onOpenChange={onOpenChange}>
+			<SheetContent side="right" className="flex w-[min(94vw,560px)] flex-col gap-0 p-0 sm:max-w-none" onOpenAutoFocus={(e) => e.preventDefault()}>
+				<SheetHeader className="border-b border-[var(--rule,rgba(0,0,0,0.1))] px-5 pb-3 pt-4">
+					<SheetTitle className="text-base">Add a component</SheetTitle>
+					<Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${components.length} components — or just scan`} className="mt-2" />
+				</SheetHeader>
+				<div className="flex-1 overflow-auto px-5 py-4">
 					{groups.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No matching component.</p>}
 					{groups.map(({ bucket, list }) => (
 						<section key={bucket} className="mb-6">
 							<h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{bucket}</h3>
-							<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+							<div className="grid grid-cols-2 gap-3">
 								{list.map((c) => (
 									<button
 										key={c.name}
@@ -94,7 +93,7 @@ export function ComponentGallery({ open, onOpenChange, options, components, onPi
 						</section>
 					))}
 				</div>
-			</DialogContent>
-		</Dialog>
+			</SheetContent>
+		</Sheet>
 	);
 }

@@ -11,7 +11,6 @@ import { ListItemNode, ListNode } from '@lexical/list';
 import { TRANSFORMERS } from '@lexical/markdown';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import type { Klass, LexicalNode } from 'lexical';
-import { KPI_TRANSFORMER, KpiNode } from './KpiNode';
 
 // The node set the editor registers. It MUST cover every node the markdown
 // transformers can produce (heading/quote/list/code/link) or importing a
@@ -27,15 +26,15 @@ export const LATTICE_NODES: ReadonlyArray<Klass<LexicalNode>> = [
 	CodeNode,
 	CodeHighlightNode,
 	LinkNode,
-	KpiNode,
 ];
 
-// The transformer set. The default set handles PROSE — headings, bold/italic,
-// bullet + numbered lists, blockquote, inline code, links, fenced code. KPI_TRANSFORMER
-// is prepended so a typed KpiNode compiles to its own nested grammar BEFORE the
-// generic list transformer (which would flatten it). The `<!-- _class -->` directive
-// is never typed; it's a structured chip (see composeSlide).
-export const LATTICE_TRANSFORMERS = [KPI_TRANSFORMER, ...TRANSFORMERS];
+// The transformer set. The default set handles the rich-markdown grammar the
+// toolbar assembles — headings, bold/italic, bullet + numbered lists, blockquote,
+// inline code, links, fenced code. The `<!-- _class -->` directive is never typed;
+// it's a structured chip (see composeSlide). NOTE: nested-list fidelity (a KPI's
+// indented detail lines) is the open serialization item — the default list
+// transformer flattens indentation; a custom nested-list transformer is next.
+export const LATTICE_TRANSFORMERS = TRANSFORMERS;
 
 const CLASS_RE = /<!--\s*_class:\s*([^>]*?)\s*-->/;
 // A per-slide directive comment: `<!-- _paginate: false -->`, `_header`, `_footer`,

@@ -10,7 +10,7 @@ import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { MarkdownShortcutPlugin } from '@lexical/react/LexicalMarkdownShortcutPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
+import { $createHeadingNode, $createQuoteNode, $isHeadingNode } from '@lexical/rich-text';
 import { $setBlocksType } from '@lexical/selection';
 import {
 	$createParagraphNode,
@@ -22,37 +22,9 @@ import {
 	REDO_COMMAND,
 	UNDO_COMMAND,
 } from 'lexical';
-import { Bold, Heading1, Heading2, Italic, Lightbulb, List, ListOrdered, Quote, Redo2, StickyNote, Tag, Undo2 } from 'lucide-react';
+import { Baseline, Bold, Heading1, Heading2, Italic, Lightbulb, List, ListOrdered, Quote, Redo2, StickyNote, Tag, Undo2 } from 'lucide-react';
 import * as React from 'react';
-import { $createKpiNode, parseKpi } from './KpiNode';
 import { COMPOSE_THEME, LATTICE_NODES, LATTICE_TRANSFORMERS } from './lexical-lattice';
-
-// Component-aware seed. Prose components import through the markdown transformers;
-// a STRUCTURED component (kpi) is built directly into typed nodes so its nesting is
-// never round-tripped away. The pattern extends: add a branch per structured family.
-function $seedDoc(componentName: string, body: string): void {
-	if (componentName === 'kpi') {
-		const { eyebrow, heading, items } = parseKpi(body);
-		const root = $getRoot();
-		root.clear();
-		if (eyebrow) {
-			const p = $createParagraphNode();
-			const code = $createTextNode(eyebrow);
-			code.setFormat('code');
-			p.append(code);
-			root.append(p);
-		}
-		if (heading) {
-			const h = $createHeadingNode('h2');
-			h.append($createTextNode(heading));
-			root.append(h);
-		}
-		root.append($createKpiNode(items.length ? items : [{ value: '0', label: 'Metric', note: '' }]));
-		root.append($createParagraphNode()); // trailing caret target below the block
-		return;
-	}
-	$convertFromMarkdownString(body, LATTICE_TRANSFORMERS);
-}
 
 // ISOLATED PROTOTYPE — the rich-text "Compose" surface (Lexical). A person who
 // has never heard of "markdown" types here: headings, bold/italic, lists,
@@ -131,6 +103,18 @@ function Toolbar() {
 			p.selectEnd();
 		});
 	}, [editor]);
+	const addSubtitle = React.useCallback(() => {
+		editor.update(() => {
+			const p = $createParagraphNode();
+			const code = $createTextNode('One-line subtitle that frames the slide.');
+			code.setFormat('code'); // inline-code BELOW a heading → subtitle register
+			p.append(code);
+			const heading = $getRoot().getChildren().find((n) => $isHeadingNode(n));
+			if (heading) heading.insertAfter(p);
+			else $getRoot().append(p);
+			p.selectEnd();
+		});
+	}, [editor]);
 	return (
 		<div className="flex flex-wrap items-center gap-0.5 border-b border-[var(--rule,rgba(0,0,0,0.1))] px-2 py-1.5">
 			<ToolbarButton title="Undo" onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}><Undo2 className="size-4" /></ToolbarButton>
@@ -147,9 +131,10 @@ function Toolbar() {
 			<ToolbarButton title="Numbered list" onClick={() => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)}><ListOrdered className="size-4" /></ToolbarButton>
 			<span className="mx-1 h-5 w-px bg-[var(--rule,rgba(0,0,0,0.12))]" />
 			<span className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Add</span>
+			<LabeledButton title="Add a Subtitle — inline-code line below the heading" onClick={addSubtitle}><Baseline className="size-3.5" />Subtitle</LabeledButton>
+			<LabeledButton title="Add an Eyebrow label — sits above the heading" onClick={addEyebrow}><Tag className="size-3.5" />Eyebrow</LabeledButton>
 			<LabeledButton title="Add a Key Insight panel — placed at the slide's end" onClick={addKeyInsight}><Lightbulb className="size-3.5" />Key insight</LabeledButton>
 			<LabeledButton title="Add a Note — rides below the slide" onClick={addNote}><StickyNote className="size-3.5" />Note</LabeledButton>
-			<LabeledButton title="Add an Eyebrow label — sits above the heading" onClick={addEyebrow}><Tag className="size-3.5" />Eyebrow</LabeledButton>
 		</div>
 	);
 }
@@ -171,20 +156,20 @@ function LabeledButton({ onClick, title, children }: { onClick: () => void; titl
 // Re-import the seed markdown into the editor when a new component is picked
 // (token bump). Keyed on the token, NOT the markdown string, so a normal edit
 // (which flows OUT through OnChange) never triggers a re-seed loop.
-function SeedPlugin({ markdown, token, componentName }: { markdown: string; token: number; componentName: string }) {
+function SeedPlugin({ markdown, token }: { markdown: string; token: number }) {
 	const [editor] = useLexicalComposerContext();
 	const last = React.useRef(-1);
 	React.useEffect(() => {
 		if (token === last.current) return;
 		last.current = token;
 		editor.update(() => {
-			$seedDoc(componentName, markdown);
+			$convertFromMarkdownString(markdown, LATTICE_TRANSFORMERS);
 		});
-	}, [token, markdown, componentName, editor]);
+	}, [token, markdown, editor]);
 	return null;
 }
 
-export function ComposeEditor({ seedMarkdown, seedToken, componentName, onMarkdownChange }: { seedMarkdown: string; seedToken: number; componentName: string; onMarkdownChange: (md: string) => void }) {
+export function ComposeEditor({ seedMarkdown, seedToken, onMarkdownChange }: { seedMarkdown: string; seedToken: number; onMarkdownChange: (md: string) => void }) {
 	const onChangeRef = React.useRef(onMarkdownChange);
 	onChangeRef.current = onMarkdownChange;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once — seedMarkdown seeds only the first mount; later seeds flow through SeedPlugin.
@@ -195,7 +180,7 @@ export function ComposeEditor({ seedMarkdown, seedToken, componentName, onMarkdo
 			nodes: LATTICE_NODES as never,
 			editorState: () => {
 				// Seed the very first mount inside the composer's own update scope.
-				$seedDoc(componentName, seedMarkdown);
+				$convertFromMarkdownString(seedMarkdown, LATTICE_TRANSFORMERS);
 			},
 			onError: (e: Error) => {
 				// Surface, don't swallow — a transform gap is a real finding for this spike.
@@ -220,7 +205,7 @@ export function ComposeEditor({ seedMarkdown, seedToken, componentName, onMarkdo
 					<ListPlugin />
 					<LinkPlugin />
 					<MarkdownShortcutPlugin transformers={LATTICE_TRANSFORMERS} />
-					<SeedPlugin markdown={seedMarkdown} token={seedToken} componentName={componentName} />
+					<SeedPlugin markdown={seedMarkdown} token={seedToken} />
 					<OnChangePlugin
 						onChange={(editorState) => {
 							editorState.read(() => {
