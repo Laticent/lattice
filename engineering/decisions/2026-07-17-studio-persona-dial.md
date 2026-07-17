@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   The Studio sorts people into a reduced newcomer surface vs. the full surface
   with a hidden one-way boolean (`onboarded`) plus a welcome banner whose only
