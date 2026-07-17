@@ -147,13 +147,14 @@ function timeAgo(ts: number): string {
 // side's pane+handle tracks drop to 0px and its 46px rail (the Inspector-rail
 // geometry) takes the edge.
 //
-// INVARIANT — pair-space ≥ 2×minB (560px): the sum-2 flex pair guarantees zero
-// grid void only while the editor+preview space is at least twice the larger
-// minimum. Worst case today: 1100 (desktop threshold) − 232 (Architect) − 300
-// (Inspector) − 1 (handle) = 567px — SEVEN px of headroom. Widening either
-// flank by ≥8px total, raising the preview minimum, or padding the grid
-// silently reopens a hairline void band near ratio 0.5 (issue #721; the
-// near-0.5 case is asserted by the 1100px e2e in docs/e2e/split.spec.ts).
+// INVARIANT — the editor+preview pair keeps its 560px (2×minB) zero-void minimum.
+// This is ENFORCED, not merely observed: `panelBudget = gridW − handle − PAIR_MIN
+// (560) − FOLD_SAFETY (12)`, where `gridW` excludes the 52px activity bar, and the
+// two docked panels' effective widths (setEff/archEff, below) are each clamped so
+// their sum ≤ panelBudget. So the pair always retains ≥ 560 + 12px no matter how
+// wide the panels are dragged — the hairline void band near ratio 0.5 (issue #721)
+// cannot reopen. The near-0.5 case is asserted by the 1100px e2e in
+// docs/e2e/split.spec.ts (whose comment carries the full bar+panels width model).
 function splitTracks(collapsed: SplitSide | null): string[] {
 	if (collapsed === 'a') return ['46px', '0px', '0px', 'minmax(0,1fr)', '0px'];
 	if (collapsed === 'b') return ['0px', 'minmax(0,1fr)', '0px', '0px', '46px'];
@@ -534,13 +535,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		return () => window.removeEventListener('resize', on);
 	}, []);
 	// px available for the two docked panels combined, leaving the pair its 560px
-	// zero-void minimum (+ a small safety). gridW excludes the 52px bar.
-	const gridW = vw - (desktop ? BAR_W : 0);
+	// zero-void minimum (+ a small safety). The 52px bar and the panels exist ONLY
+	// at Build, so all three gate on `effectiveStop === 'build'` — one predicate
+	// governs the bar deduction, the effective widths, AND the grid tracks/children,
+	// so they can never drift (M2 red-team: don't deduct the bar on a barless Write).
+	const barShown = desktop && effectiveStop === 'build';
+	const gridW = vw - (barShown ? BAR_W : 0);
 	const panelBudget = Math.max(0, gridW - HANDLE_W - PAIR_MIN - FOLD_SAFETY);
 	// Effective (rendered) widths: the Architect keeps priority (the coach you're
-	// reading), Settings yields first; both floored at their mins. Zero unless open.
-	const archEff = desktop && architectOpen ? Math.max(ARCH_MIN, Math.min(archPanel.width, panelBudget - (inspectorOpen ? SET_MIN : 0))) : 0;
-	const setEff = desktop && inspectorOpen ? Math.max(SET_MIN, Math.min(setPanel.width, panelBudget - archEff)) : 0;
+	// reading), Settings yields first; both floored at their mins. Zero unless open at Build.
+	const archEff = barShown && architectOpen ? Math.max(ARCH_MIN, Math.min(archPanel.width, panelBudget - (inspectorOpen ? SET_MIN : 0))) : 0;
+	const setEff = barShown && inspectorOpen ? Math.max(SET_MIN, Math.min(setPanel.width, panelBudget - archEff)) : 0;
 
 	// Deck-level front-matter (size / paginate / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
