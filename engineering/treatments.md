@@ -2,6 +2,8 @@
 
 `tint-*` and `mark-*` classes apply peripheral atmospheric accents to slides — 12 tints (gradient washes) and 11 marks (SVG accent shapes), plus a `treatment-none` reset. They are loaded automatically — no imports, no theme switching. Add a class name to any `<!-- _class: -->` directive alongside the layout class.
 
+> These are **color** treatments. Categorical **texture** — the non-color `<pattern>` channel that lets monochrome/CVD/print decks tell categories apart (`--cat-N-texture`) — is a separate mechanism documented in `engineering/textures.md`.
+
 A note on naming: this library was called the **Background Library** before 2026-05-17, with classes prefixed `bg-*`. The rename split decorations into two semantic families (tints and marks) and added a placement axis. See `engineering/decisions/2026-05-17-treatments-rename.md` for the rationale, the rename mapping table, and the architectural lessons from the catalog rebuild.
 
 ---
