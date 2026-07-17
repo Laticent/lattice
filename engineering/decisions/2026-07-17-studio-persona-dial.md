@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: in-progress
 summary: >
   The Studio sorts people into a reduced newcomer surface vs. the full surface
   with a hidden one-way boolean (`onboarded`) plus a welcome banner whose only
@@ -507,7 +507,8 @@ commit per milestone, the adversarial trio after each. Status:
   that mobile uses the Edit/Preview pane toggle instead of the dial). Dial fit at
   tablet confirmed at 820px.
 - **M6 shipped (docs + e2e sweep).** `CHANGELOG` `## Unreleased` records the
-  change; this doc is `status: accepted`. The `docs/e2e` selector sweep is
+  change; this doc is `status: in-progress` (design accepted + implemented on the
+  branch; flips to `shipped` at merge). The `docs/e2e` selector sweep is
   **clean by inspection**: zero references remain to any removed control (no
   "focus mode" / "Got it" / "New here" / "graduate" / "onboarded" anywhere under
   `docs/e2e`), and every spec that drives the full surface resolves because

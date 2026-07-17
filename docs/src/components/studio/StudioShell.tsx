@@ -2335,7 +2335,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
 						    and still fit 390px. */}
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							<PaneBtn active={mobilePane === 'edit'} onClick={() => { setMobilePane('edit'); if (postureRef.current === 'read') changePosture('write'); }} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
+							<PaneBtn active={mobilePane === 'edit'} onClick={() => { setMobilePane('edit'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
 							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" demo="pane-preview" />
 						</div>
 						<span className="flex-1" />

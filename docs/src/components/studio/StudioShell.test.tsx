@@ -168,9 +168,14 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(edit).toBeInTheDocument();
 		expect(screen.getByText(/This sample deck is/)).toBeInTheDocument();
 		await user.click(edit);
-		// Tapping it steps Read→Write (persisted) and swaps to the editor pane.
+		// Tapping it steps Read→Write (persisted) AND swaps to the editor pane — assert the
+		// swap directly (the button vanishing alone would follow from the posture change).
 		expect(screen.queryByRole('button', { name: 'Edit this slide' })).not.toBeInTheDocument();
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+		const editorWrap = document.getElementById('studio-pane-editor')?.parentElement;
+		const previewWrap = document.getElementById('studio-pane-preview')?.parentElement;
+		expect(editorWrap?.className).not.toContain('invisible'); // editor pane now active
+		expect(previewWrap?.className).toContain('invisible'); // preview pane swapped out
 	});
 
 	it('a returning user boots straight into Build — the full surface, no cue', () => {
