@@ -66,6 +66,20 @@ export function slideClass(slideSrc: string): string {
 	return CLASS_RE.exec(String(slideSrc ?? ''))?.[1] ?? 'text';
 }
 
+const HEADING_RE = /^[ \t]{0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/m;
+/** The slide's human title — its first Markdown ATX heading, stripped of inline
+ *  emphasis/code/link syntax — for a READER-facing navigator (the Read stop, where
+ *  a component-class label like `big-number` is jargon the newcomer can't read).
+ *  Empty string when the slide has no heading; the caller falls back to "Slide N". */
+export function slideTitle(slideSrc: string): string {
+	const m = HEADING_RE.exec(String(slideSrc ?? ''));
+	if (!m) return '';
+	return m[1]
+		.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1') // [text](url) → text
+		.replace(/[*_`~]/g, '') // emphasis / code / strike marks
+		.trim();
+}
+
 /** Zero-based index of the slide containing character offset `pos` — the count of
  *  `---` fences before it. Pairs with splitSlides() to sync editor cursor ↔ preview. */
 export function slideIndexAt(src: string, pos: number): number {
