@@ -22,7 +22,8 @@ TOTAL in the red on mobile; "I'm not feeling the performance numbers."
 | **A5. Dark-mode NEWCOMER shell** | **OPEN** | first-time dark-OS visitor gets no build-time shell (returning dark users are covered) |
 | **B①. CSS scoping / per-component composition** | **PARKED** | dominated by the existing `player-prune` kernel; ~2× ceiling; low ROI post-B③ |
 | **B⑤. Map-basemap runtime split** | **REVERTED** | would blank maps in the Export-to-Marp path (runtime is the sole map renderer there) |
-| Follow-ups (gates/cleanups) | **OPEN** | #22-gate → `.astro`/snapshot sinks; boot-last-active-deck; scope captured CSS under `#studio-ssr-shell` |
+| **boot-last-active-deck + slide** (§A follow-up) | **SHIPPED** 2026-07-17 | closes the non-first-deck return BLANK (not just a flash); WebKit-verified. See §A follow-ups |
+| Follow-ups (gates/cleanups) | **OPEN** | #22-gate → `.astro`/snapshot sinks; scope captured CSS under `#studio-ssr-shell` |
 
 **Trigger:** the live PERFORMANCE overlay on `lattice.style` showed LCP, FRAME, and
 TOTAL in the red on mobile; "I'm not feeling the performance numbers."
@@ -239,11 +240,32 @@ the correct anti-breakout choice) and surfaced two more robustness fixes, folded
   scoping the captured CSS under `#studio-ssr-shell` is the logged hardening.
 **Logged follow-ups (#18):** extend the #22 gate to `.astro` main-document sinks; scope
 captured CSS under `#studio-ssr-shell`; add the browser-side FRAME/LCP perf gate (§C.2);
-and boot the most-recently-*active* deck **and slide** (persist a last-active id + index —
-the `slideIndex` already stamped into the snapshot is the data for it) so the instant-shell
-and the hydrated app agree on both which deck AND which slide leads (today the app always
-boots slide 0, so a returning user who left on slide 3 sees a brief intra-deck slide flash —
-pre-existing, same class as the wrong-deck flash but within a deck).
+and ~~boot the most-recently-*active* deck **and slide**~~ — **SHIPPED (2026-07-17).**
+
+**Boot-last-active-deck — SHIPPED (2026-07-17), and it was worse than a flash.** The
+follow-up was framed as an intra-deck *slide* flash, but driving the real returning-visitor
+path on the **actual WebKit engine** (Playwright `webkit`, Safari 26 UA — not Chromium mobile
+emulation) showed the deck-level case is a hard **blank**, not a flash: the replay gates on
+`snap.deckId === bootId` with `bootId = loadDeckList()[0]`, so leaving from ANY non-first deck
+failed the gate and fell through to the raw ~4s cold-boot blank (the user report: "leave the
+Studio on mobile, come back, stare at a blank slide for 4s"; iOS memory-reclaim discards the
+tab → return is a full reload). Fix: persist `{deckId, slideIndex}` under `lattice-studio-active`
+(`saveActiveDeck`/`loadActiveDeck`/`loadBootDeck`/`loadBootSlide` in `studio-store.ts`), boot the
+shell from it (`StudioShell.tsx`), and derive the inline `bootId` from the **same** key in
+`studio.astro` (last-active → index[0] → `DECKS[0]`, validated against index ∪ built-ins so the
+two resolutions can't diverge). The wrong-deck-flash invariant is preserved: a dangling/foreign
+pointer still **suppresses** the replay (never paints the wrong deck), and the pointer is forgotten
+on `deleteDeck`/`clearAllDecks`. **Verified (WebKit, production `dist` via `astro preview`,
+iPhone 13 descriptor):** before → engaged user on a non-first deck returns to a blank preview
+(screenshot); after → the instant-shell paints the real last slide AND the app boots that same
+deck+slide (reproduced across repeated runs; newcomer welcome-shell and wrong-deck suppression
+both still hold). **Still UNVERIFIED (#23):** real-device iOS memory-reclaim *discard timing* —
+WebKit-on-Linux runs Safari's engine and page-lifecycle events (so the replay/gate logic is
+genuinely exercised) but not iOS's OS-level tab discard, so whether the leave-capture always
+lands under real backgrounding still wants a physical device. The gate bug, though, is proven.
+
+Remaining logged follow-ups (#18): extend the #22 gate to `.astro` main-document sinks; scope
+captured CSS under `#studio-ssr-shell`; add the browser-side FRAME/LCP perf gate (§C.2).
 
 **Maker-checker.** An independent checker reviewed the diff before merge; its findings
 were folded back: css-tree was a phantom (transitive-only) dependency whose top-level

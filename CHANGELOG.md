@@ -943,6 +943,23 @@ in patch versions.
 
 ### Fixed
 
+- **The Studio now reopens on the deck (and slide) you left off on — closing a blank-preview
+  stare on return, verified on real WebKit.** The Studio always booted deck #1, even after you'd
+  switched to another deck. That also broke the returning-visitor instant-shell: its pre-paint
+  replay only paints your last slide when the snapshot's deck matches the deck about to boot, so
+  leaving from any non-first deck failed the match and dropped you onto the raw ~4s cold-boot
+  blank (the exact "leave and come back on mobile → blank slide" report; iOS memory-reclaim
+  discards the tab, so return is a full reload). The Studio now persists the last-active
+  `{deckId, slideIndex}` (`lattice-studio-active`) and boots from it, and `studio.astro`'s inline
+  `bootId` derives from the SAME key (last-active → index[0] → `DECKS[0]`, validated against the
+  index ∪ built-ins) so the instant-shell and the hydrated app agree on which deck leads. The
+  wrong-deck-flash guard is preserved (a dangling/foreign pointer still suppresses the replay
+  rather than paint the wrong deck; the pointer is forgotten on delete/clear). Reproduced and
+  fixed against the real WebKit engine via Playwright (Safari 26 UA) — the "boots the wrong deck
+  on return" bug and the blank both close; real-device iOS *discard timing* remains the one
+  unverifiable piece from a headless sandbox (#23). (`studio-store.ts`, `StudioShell.tsx`,
+  `studio.astro`; `engineering/decisions/2026-07-11-preview-performance-diagnosis.md` § A.)
+
 - **concrete's categorical diagrams collapsed in light mode — the 12 chips are near-identical
   grays. Fixed with a BESPOKE raw-concrete texture per category.** Like onyx (below), concrete
   is near-monochrome; its light-mode `--cat-*` fills are all ~`#DDD`, so categories leaned

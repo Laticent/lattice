@@ -15,6 +15,7 @@ import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
 
 const INDEX_LS = 'lattice-studio-deck-index'; // [{id,title,builtin}]
 const SRC_PREFIX = 'lattice-studio-src-'; // + deckId → edited source
+const ACTIVE_LS = 'lattice-studio-active'; // { deckId, slideIndex } — the deck+slide last viewed, so a reload boots where you left off
 const SETTINGS_LS = 'lattice-studio-settings'; // { validation, pageNumbers, headerFooter, language }
 const INSTRUCTIONS_LS = 'lattice-studio-instructions'; // CLOUD standing instructions (free text)
 const ONDEVICE_INSTRUCTIONS_LS = 'lattice-studio-ondevice-instructions'; // ON-DEVICE standing instructions (free text, capped)
@@ -149,6 +150,60 @@ export function loadDeckList(): StudioDeck[] {
 	});
 }
 
+// ── Last-active deck + slide (boot where you left off) ──────────────────────
+// The Studio historically ALWAYS booted loadDeckList()[0] (the first deck), even
+// when you'd switched to another one — so a reload (or an iOS memory-reclaim tab
+// discard) dropped you back on deck #1. Worse: the returning-visitor instant-shell
+// (studio.astro's pre-paint replay) gates its snapshot on `snap.deckId === bootId`
+// with bootId = index[0].id, so leaving from any non-first deck meant the snapshot
+// never matched and the user stared at a blank cold-boot preview — verified on real
+// WebKit (engineering/decisions/2026-07-11-preview-performance-diagnosis.md logged
+// this "boot the last-active deck + slide" follow-up; this is it). We now persist the
+// deck+slide last viewed and boot from it, and studio.astro derives its bootId from
+// the SAME key so the shell and the hydrated app agree on which deck (and slide) leads.
+
+export type ActiveDeck = { deckId: string; slideIndex: number };
+
+/** The deck + slide last viewed, or null if never recorded. */
+export function loadActiveDeck(): ActiveDeck | null {
+	const v = read<Partial<ActiveDeck>>(ACTIVE_LS);
+	if (!v || typeof v.deckId !== 'string' || !v.deckId) return null;
+	return { deckId: v.deckId, slideIndex: typeof v.slideIndex === 'number' && v.slideIndex >= 0 ? v.slideIndex : 0 };
+}
+/** Record the deck + slide currently in view (called on every deck/slide change). */
+export function saveActiveDeck(deckId: string, slideIndex: number): void {
+	write(ACTIVE_LS, { deckId, slideIndex: Math.max(0, slideIndex | 0) });
+}
+/** Forget the last-active pointer if it names `deckId` (a deck being deleted) — so it
+ *  can never dangle at a deck that no longer exists, which would make the app boot the
+ *  fallback while the instant-shell still trusts the stale id (a wrong-deck flash). */
+function clearActiveDeckIf(deckId: string): void {
+	if (loadActiveDeck()?.deckId === deckId) remove(ACTIVE_LS);
+}
+
+/**
+ * The deck to boot: the last-active deck when it still exists in the list, else the
+ * first deck, else the built-in first deck. Mirrors studio.astro's inline bootId
+ * resolution EXACTLY (last-active id → index[0].id → DECKS[0].id) so the pre-paint
+ * instant-shell and the hydrated app never disagree on which deck leads.
+ */
+export function loadBootDeck(): StudioDeck {
+	const list = loadDeckList();
+	const active = loadActiveDeck();
+	if (active) {
+		const hit = list.find((d) => d.id === active.deckId);
+		if (hit) return hit;
+	}
+	return list[0] ?? DECKS[0];
+}
+/** The slide index to boot at — the last-active slide when it belongs to the boot deck
+ *  (else 0). Clamping to the deck's real slide count is left to the shell (it already
+ *  clamps activeSlide against the viewed set, which can be lens-reshaped). */
+export function loadBootSlide(): number {
+	const active = loadActiveDeck();
+	return active && active.deckId === loadBootDeck().id ? active.slideIndex : 0;
+}
+
 /**
  * Create + persist a new deck. With `source` given (a deck import) the deck is
  * seeded with that content; otherwise the blank starter. Returns the new deck.
@@ -185,6 +240,7 @@ export function deleteDeck(id: string): void {
 	remove(CHAT_PREFIX + id);
 	remove(CHAT_DRAFT_PREFIX + id);
 	clearComments(id);
+	clearActiveDeckIf(id); // don't leave the boot pointer dangling at a deleted deck
 }
 
 // ── Privacy & Data (Workspace → Privacy & Data tab) ─────────────────────────
@@ -205,7 +261,7 @@ export function deckContentStats(): { count: number; bytes: number } {
 			if (!k) continue;
 			// 'lattice-studio-comments-' is slide-comments.ts's PREFIX — kept in sync
 			// by hand, the same way hasPriorStudioUse above scans SRC_PREFIX directly.
-			if (k === INDEX_LS || k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-')) {
+			if (k === INDEX_LS || k === ACTIVE_LS || k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-')) {
 				bytes += k.length + (localStorage.getItem(k)?.length ?? 0);
 			}
 		}
@@ -260,6 +316,7 @@ export function clearAllDecks(): void {
 		/* storage unavailable — non-fatal, matches the read-side scan above */
 	}
 	remove(INDEX_LS);
+	remove(ACTIVE_LS); // the boot pointer is deck CONTENT state — clear it with the rest
 	// The live editor has no other way to learn its in-memory deck/source state
 	// just went stale — without this, the user could keep typing in the still-
 	// focused editor and the existing 400ms debounced autosave (StudioShell)
