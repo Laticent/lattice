@@ -73,24 +73,39 @@ Was five stacked groups (Look was a 14-control grab-bag). Now pill-tabs by reach
 
 The Brand tab collects the whole `--spectrum`-token family that used to bloat Look.
 
-## IA backlog for the remaining surfaces (from the grouping audit)
+## IA regrouping — shipped (from the grouping audit)
 
-Regroup (each fails "one idea per tab" today):
-- **Workspace › General** is a grab-bag of four clusters — deck/output prefs,
-  data-durability (Backup & restore, Where decks live → belong with Privacy & Data),
-  app install (PWA), and dev diagnostics (overlay switches). Split accordingly.
-- **Slide settings › Look** repeats the deck-Inspector problem (~12 controls incl.
-  the full spectrum family) → extract a Brand tab to match the deck IA.
-- **Slide settings › Notes** mixes three output channels (speaker note / caption /
-  a11y description) — split or relabel.
-- **Architect › Coach** is overloaded/mis-named (score + linter + one tip + the
-  whole Lenses manager) → separate Lenses from AI critique.
-- **Library** filter axis is sound but Docs breaks the asset contract (no select/
-  share/bulk, different add button) → treat Docs distinctly.
+Each surface below failed "one idea per tab" and was regrouped:
+- **Workspace → General / AI / Data.** The General grab-bag lost its data-durability
+  cluster: "Where decks live" + "Backup & restore" moved into a renamed **Data** tab
+  (with the storage-governance rows + delete-everything), so it reads
+  where-it-lives → back-it-up → manage/clear → delete. General keeps prefs + install.
+- **Slide settings → a Brand tab**, mirroring the deck Inspector — the spectrum/accent
+  family (brand bar, placements, card rails, trim, heading rule, eyebrow) left the
+  overloaded Look tab. (Notes already carries clearly-labeled Note/Caption/Description
+  sub-sections, so it was left as-is.)
+- **Architect → Coach / Chat / Lenses** pill-tabs. Lenses (the reader-view membership
+  + approval workflow) left the overloaded Coach card stack for its own peer tab; the
+  hand-rolled Coach/Chat toggle became PillTabs. "Reshape for a reader" + the preview
+  LensPicker now land on the Lenses tab.
 
-Already coherent (leave): Share (artifact vs source), Lenses, GalleriesSheet,
-DeckSetupSheet, ComponentPicker, Version history, Slide-settings Status/Decoration/
-Chrome/Comments, MetricDetail (dense on the RENDER row but single-idea).
+Left coherent by the audit: Share (artifact vs source), Library (Docs is a noted minor
+outlier, deferred), GalleriesSheet, DeckSetupSheet, ComponentPicker, Version history,
+Slide-settings Status/Decoration/Chrome/Comments, MetricDetail.
+
+## Also shipped
+- The **touch-scroll fix** now rides every drawer/panel scroll body (Inspector,
+  Architect, History, Share, Workspace, Library, Slide settings, Playground sheets).
+- The Inspector scope-echo close is **desktop-only**, so the mobile Settings sheet
+  shows one X, not two.
+- Drawer **headers unified** to the 15px-title + accent-icon + bottom-border grammar
+  (the two 17px sheets and the Playground micro-label headers were normalized).
+
+## Deferred
+- **Library** Docs-vs-assets distinction (Docs breaks the select/share/bulk contract) —
+  a smaller follow-up, tracked here.
+- Full `PanelSheet`/`PanelHeader` component migration of every sheet (Feedback is the
+  pilot); the rest were normalized in place this pass and can adopt the primitive later.
 
 ## Do-not-regress
 
