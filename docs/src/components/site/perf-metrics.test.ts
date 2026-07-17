@@ -8,6 +8,24 @@ import { bandLabel, METRIC_BY_KEY, rateMetric } from './perf-metrics';
 
 const FRAME = METRIC_BY_KEY.frameMs;
 const TOTAL = METRIC_BY_KEY.totalMs;
+const FPS = METRIC_BY_KEY.FPS;
+
+describe('FPS is rated against the display ceiling, not a fixed 60', () => {
+	it('reads healthy at (or near) the device ceiling — a steady 30 on a 30Hz/throttled panel is good', () => {
+		// extra = current/ceiling. At the ceiling → frac 1.0 → good, regardless of the
+		// absolute number (this is the fix for "30fps flagged as poor on a 30Hz device").
+		expect(rateMetric(FPS, 30, 1.0)).toBe('good');
+		expect(rateMetric(FPS, 60, 1.0)).toBe('good');
+	});
+	it('flags FPS that DROPS below its own ceiling (a real frame problem)', () => {
+		expect(rateMetric(FPS, 42, 0.7)).toBe('needs-improvement'); // 42 of a 60 ceiling
+		expect(rateMetric(FPS, 24, 0.4)).toBe('poor'); // 24 of a 60 ceiling — genuine jank
+	});
+	it('falls back to an absolute band before a ceiling is known (no frac)', () => {
+		expect(rateMetric(FPS, 60)).toBe('good');
+		expect(rateMetric(FPS, 20)).toBe('poor');
+	});
+});
 
 describe('FRAME rating is regime-aware', () => {
 	it('rates a warm patch against the tight frame budget', () => {

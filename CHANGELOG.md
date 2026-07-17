@@ -240,6 +240,18 @@ in patch versions.
 
 ### Changed
 
+- **The performance overlay's FPS now rates against your display's refresh ceiling, not a fixed 60.**
+  A steady 30fps on a 30Hz panel — or under an iOS/tablet power-saver or a backgrounded-tab throttle —
+  is the device's ceiling, not jank, but the overlay was colouring it "poor" and sending people
+  hunting for a bug that wasn't there. FPS is now rated as a fraction of the highest rate seen this
+  session (the way MEM rates against the heap limit), so it reads healthy at the ceiling and only
+  flags when the rate DROPS below it while you interact; the metric's explanation says so. Born from
+  an investigation that measured the live preview and **disproved** a suspected runtime-oscillation
+  cause: it settles to zero at-rest DOM mutations on every slide tested (rAF a full 60/sec), so the
+  reported "FPS pinned at 30" was environmental. A new on-demand guard, `npm run settle:check`
+  (`docs/scripts/runtime-settle-check.mjs`), locks that in — it fails if any representative slide
+  churns at rest, catching a future oscillation regression the runtime's own change-gates prevent.
+  (`perf-metrics.ts`, `PerfOverlay.tsx`; `engineering/decisions/2026-07-17-preview-accumulation-leaks.md`.)
 - **The live preview no longer accumulates leaked observers/iframes over a session, or stale
   cached assets across refreshes.** An adversarial-trio investigation (red-team leak hunt +
   Munger inversion + across-refresh storage audit) into "the preview degrades the longer I work
