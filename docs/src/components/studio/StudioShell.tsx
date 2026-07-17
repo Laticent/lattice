@@ -239,6 +239,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// session WITHOUT touching the saved `posture`; ⌘. toggles it, Esc clears it, and
 	// moving the dial clears it. The actually-rendered stop is `effectiveStop`.
 	const [quietened, setQuietened] = React.useState(false);
+	const quietenedRef = React.useRef(quietened);
+	quietenedRef.current = quietened;
 	const effectiveStop: Posture = quietened ? 'write' : posture;
 	// Move the dial: clear any transient quiet and persist the stop. Panel open/close is
 	// ORTHOGONAL to posture (T2 §4.5) — the dial changes the chrome CEILING (Build shows
@@ -1432,7 +1434,20 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		return () => window.removeEventListener('keydown', onKey);
 	}, []);
 	// Fabricate is its own full-screen surface; never sit quietened behind it.
-	React.useEffect(() => { if (view === 'fabricate') setQuietened(false); }, [view]);
+	// Fabricate is its own full-screen surface; never sit quietened behind it, but
+	// SUSPEND-and-RESTORE that transient quiet so exiting Fabricate returns you to the
+	// exact surface you left — not a posture you didn't choose (R5). Present is an
+	// overlay (it doesn't swap the compose body), so it needs no such dance.
+	const suspendedQuietRef = React.useRef(false);
+	React.useEffect(() => {
+		if (view === 'fabricate') {
+			suspendedQuietRef.current = quietenedRef.current;
+			if (quietenedRef.current) setQuietened(false);
+		} else if (suspendedQuietRef.current) {
+			suspendedQuietRef.current = false;
+			setQuietened(true);
+		}
+	}, [view]);
 
 	// Track the document's light/dark mode reactively so exports + the preview
 	// follow a mode flip while Studio is open (the topbar writes <html data-mode>).
@@ -2068,6 +2083,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 
 	return (
 		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
+			{/* Announce a stop change to assistive tech — the surface can change from a
+			    keystroke (⌘.) or the "Edit this slide" reveal, which would otherwise be
+			    silent (M3/M4 a11y). aria-live regions don't fire on initial mount, only
+			    on change, so this is quiet until the user moves between stops. */}
+			<div role="status" aria-live="polite" className="sr-only">{POSTURE_ANNOUNCE[effectiveStop]}</div>
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* Read + Write stops (DESKTOP only): a slim header — deck title · ⌘K · Present ·
 			    Share · the dial. Most of the control cluster is gone; ⌘K still reaches
@@ -2505,6 +2525,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onShare={() => setShareOpen(true)}
 				onFeedback={() => setFeedbackOpen(true)}
 				onFabricate={() => setView('fabricate')}
+				onLibrary={() => setLibraryOpen(true)}
+				onWorkspace={() => setWorkspaceOpen(true)}
 				onReshape={() => { setQuietened(false); setPosture('build'); setArchitectOpen(true); }}
 				onWatchDemo={startDemo}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
@@ -2565,6 +2587,12 @@ function ScrollFade({ children, className }: { children: React.ReactNode; classN
 // what you DO, never who you are, so no stop reads as a rank; the lit segment is the
 // surface you're on (the transient `quietened` overlay lights Write without moving the
 // saved posture). Matches the segmented-control idiom (bordered group, card-lift active).
+// Assistive-tech announcement per stop (the aria-live region at the shell root).
+const POSTURE_ANNOUNCE: Record<Posture, string> = {
+	read: 'Read — just the slides',
+	write: 'Write — editor and preview',
+	build: 'Build — every panel',
+};
 const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.ReactNode }[] = [
 	{ id: 'read', label: 'Read', hint: 'Read — just the slides', icon: <BookOpen className="size-4" /> },
 	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },

@@ -482,6 +482,18 @@ commit per milestone, the adversarial trio after each. Status:
     Write-first" needs a real-user A/B not runnable in this sandbox — flagged, not
     proven. Calm-first is backed by the competition + the 2026-06-30 onboarding
     decision; the *specific* Read-vs-Write choice awaits real users.
-  - **⌘K reachability, full-screen suspend/restore, `aria-live` on the reveal,
-    dial-never-icon-only → M4.** Responsive clamp matrix + dial fit at tablet →
-    M5. e2e CHROME/selector sweep + CHANGELOG → M6.
+- **M4 shipped (reachability + a11y + suspend-restore).** Library + Workspace
+  added to ⌘K so every faculty is one keystroke away even from Read/Write where
+  the activity bar isn't shown (C7 closed — verified on the real surface from the
+  Read stop); an `aria-live` status region announces stop changes to assistive
+  tech (the ⌘. dip and the "Edit this slide" reveal are no longer silent);
+  Fabricate now suspend-and-restores the transient `quietened` so exiting it
+  returns you to the exact surface you left (R5). **Deferred from M4:** the
+  general *transient dock* (invoke a Build-only panel — Inspector, or `onReshape`'s
+  Architect — from Read/Write without persisting Build) needs a small third
+  transient state (`revealBuild`, symmetric to `quietened`) and its own trio;
+  until then `onReshape` lands you in Build (a sanctioned exception — Reshape is
+  an authoring action that needs the coach). The **dial-never-icon-only** rule
+  and dial-fit-at-tablet fold into M5 (responsive), where they belong.
+- Responsive clamp matrix + dial fit at tablet + first-class mobile Read → M5.
+  e2e CHROME/selector sweep + CHANGELOG → M6.
