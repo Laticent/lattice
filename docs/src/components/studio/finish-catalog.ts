@@ -124,6 +124,16 @@ export const FINISHES: FinishEntry[] = [
 				+ `radial-gradient(70% 70% at 50% 50%, ${A(30)}, transparent 65%)`,
 		},
 	},
+	{
+		name: 'hanami', label: 'Hanami', group: 'finish', nature: 'parametric', zone: 'field',
+		blurb: 'A sakura haze + a new-leaf whisper + drifting petals + a settling vignette.',
+		swatch: {
+			background:
+				`radial-gradient(135% 78% at 50% 0%, ${A(16)}, transparent 60%), `
+				+ `radial-gradient(96% 62% at 6% 100%, ${A(12)}, transparent 58%), `
+				+ `repeating-radial-gradient(circle at 20% 30%, ${A(14)} 0 1.5px, transparent 1.5px 10px)`,
+		},
+	},
 ];
 
 export const FINISH_BY_NAME: Record<string, FinishEntry> = Object.fromEntries(

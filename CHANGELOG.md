@@ -191,6 +191,18 @@ in patch versions.
 
 ### Added
 
+- **`sakura` theme — a Japanese-spring palette.** Warm washi paper under sumi ink, a single
+  sakura-rose accent (`--brand-accent`), and a twelve-hue spring categorical cycle (blossom, new
+  leaf, spring sky, wisteria, plum, canola, spring water, coral, willow, lavender, apricot, moss)
+  built on the three-layer categorical contrast contract — each `--cat-N` fill/mark is a flipping
+  `light-dark()` tier, so the inks flip with them. Dark mode is dusk over the blossoms: a deep-plum
+  canvas. Ships with the standard `sakura-dark` scheme-locked sibling; clears `checkCatContrast`,
+  91-token parity, and the contrast audit in both modes. (`themes/sakura.css`, `themes/sakura-dark.css`.)
+- **`hanami` finish — a sakura backdrop for the Finish axis.** A soft sakura-haze wash, a new-leaf
+  whisper from the lower corner, a drifting-petal texture, and a settling vignette — palette-blind,
+  RICH on screen with the mandatory OPAQUE export mirror. Selectable deck-wide via `finish: hanami`
+  or per-slide via `_class: finish finish-hanami`. Brings the shipped finish register to 11.
+  (`lib/base/base.finish.css`, `lib/core/resolve-finish.js`, the Studio finish catalog.)
 - **Accent finishes — the spectrum, heading rule, and eyebrow are now selectable finishes.**
   Three baked-in details graduate to first-class registers on the Finish axis (the *accent*
   sub-family, distinct from `finish:` backdrops), each deck-wide or per-slide, palette-blind,

@@ -98,6 +98,8 @@ files. See the repo `README.md` for the full entry-point table.
 | `themes/mustard.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `themes/onyx-dark.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 | `themes/onyx.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
+| `themes/sakura-dark.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
+| `themes/sakura.min.css` | **TODO: describe this artifact in tools/build-dist-readme.js.** | — |
 
 > Regression-baseline PDFs and `*.gallery.md` files are **not** part of the
 > distribution — they stay in git but are excluded from the npm tarball. See

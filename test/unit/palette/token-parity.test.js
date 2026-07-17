@@ -26,7 +26,7 @@ const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
 
 const THEMES = [
   'cuoio', 'indaco', 'onyx', 'ardesia', 'atelier', 'brina', 'burgundy',
-  'carbone', 'concrete', 'crepuscolo', 'laguna', 'magnolia', 'mustard',
+  'carbone', 'concrete', 'crepuscolo', 'laguna', 'magnolia', 'mustard', 'sakura',
 ];
 
 const CONTRACT = [

@@ -17371,6 +17371,56 @@ section.finish-gallery {
     inset 0 0 0 2.82cqi color-mix(in srgb, var(--accent) 40%, var(--bg));
 }
 
+/* ── hanami — Japanese spring: a blossom-viewing backdrop ──────────────────────
+ * A sakura-pink haze from the sky and a new-leaf whisper from the ground, with
+ * drifting petals (two offset dot fields) and a soft settling vignette. Atmosphere,
+ * not ornament — accent alpha stays low so text-on-paper AA survives with no scrim.
+ * Palette-blind: every color is a color-mix of --accent / --brand-alt / --bg. Every
+ * full-bleed fade carries an OPAQUE mirror ending on --bg (the PDF-safety dual);
+ * layer counts match across both faces. Pairs with the `sakura` theme but recolors
+ * to any palette. */
+section.finish-hanami {
+  /* wash (z1) — sakura haze from above, new-leaf whisper rising from the lower left */
+  --fin-wash:
+    radial-gradient(ellipse 135% 78% at 50% -12%,
+      color-mix(in srgb, var(--accent) 15%, transparent) 0%, transparent 60%),
+    radial-gradient(ellipse 96% 62% at 6% 112%,
+      color-mix(in srgb, var(--brand-alt, var(--accent)) 12%, transparent) 0%, transparent 58%);
+  --fin-wash-opaque:
+    radial-gradient(ellipse 135% 78% at 50% -12%,
+      color-mix(in srgb, var(--accent) 12%, var(--bg)) 0%, var(--bg) 58%),
+    radial-gradient(ellipse 96% 62% at 6% 112%,
+      color-mix(in srgb, var(--brand-alt, var(--accent)) 9%, var(--bg)) 0%, var(--bg) 56%);
+  /* texture (z2) — drifting petals: two offset dot fields at low alpha */
+  --fin-texture:
+    repeating-radial-gradient(circle at 18% 28%,
+      color-mix(in srgb, var(--accent) 13%, transparent) 0 2.2px, transparent 2.2px 72px),
+    repeating-radial-gradient(circle at 66% 62%,
+      color-mix(in srgb, var(--accent) 10%, transparent) 0 1.6px, transparent 1.6px 108px);
+  --fin-texture-opaque:
+    repeating-radial-gradient(circle at 18% 28%,
+      color-mix(in srgb, var(--accent) 10%, var(--bg)) 0 2.2px, transparent 2.2px 72px),
+    repeating-radial-gradient(circle at 66% 62%,
+      color-mix(in srgb, var(--accent) 8%, var(--bg)) 0 1.6px, transparent 1.6px 108px);
+  /* mark (z3) — empty by default; the author personalizes a glyph per slide */
+  --fin-mark: none;
+  --fin-mark-opaque: none;
+  --fin-mark-text: "";
+  /* edge (z4) — petals settling: a whisper-soft warm vignette weighted to the base */
+  --fin-edge:
+    radial-gradient(ellipse 120% 66% at 50% 116%,
+      color-mix(in srgb, var(--accent) 8%, transparent) 0%, transparent 52%);
+  --fin-edge-opaque:
+    radial-gradient(ellipse 120% 66% at 50% 116%,
+      color-mix(in srgb, var(--accent) 6%, var(--bg)) 0%, var(--bg) 52%);
+  --fin-edge-position: center;
+  --fin-edge-size: cover;
+  /* compositor bookkeeping — 4 background layers on .backdrop: petals ×2, wash ×2 */
+  --fin-size: auto, auto, cover, cover;
+  --fin-position: top left, top left, top center, bottom left;
+  --fin-repeat: repeat, repeat, no-repeat, no-repeat;
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
  * THE OPAQUE FLIP — the export fallback (the load-bearing PDF-safety swap).
  * Re-points every full-bleed slot to its preset's `--fin-*-opaque` mirror, so a

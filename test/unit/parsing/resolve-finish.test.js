@@ -84,7 +84,7 @@ describe('resolve-finish', () => {
   test('FINISH_NAMES lists exactly the registered names (backdrops + none)', () => {
     assert.deepEqual(
       [...FINISH_NAMES].sort(),
-      ['atrium', 'gallery', 'halo', 'ledger', 'loom', 'meridian', 'nimbus', 'none', 'savile', 'strata'],
+      ['atrium', 'gallery', 'halo', 'hanami', 'ledger', 'loom', 'meridian', 'nimbus', 'none', 'savile', 'strata'],
     );
   });
 

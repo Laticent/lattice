@@ -1,0 +1,180 @@
+/* @theme sakura
+ * @size hd       1280px 720px
+ * @size HD       1280px 720px
+ * @size 4K       3840px 2160px
+ * @size 4k       3840px 2160px
+ * @size standard 960px  720px
+ * @size 16:9     1280px 720px
+ * @size square   1080px 1080px
+ * @size 1:1      1080px 1080px
+ * @size portrait 1080px 1350px
+ * @size 4:5      1080px 1350px
+ * @size story    1080px 1920px
+ * @size reel     1080px 1920px
+ * @size 9:16     1080px 1920px
+ * @size mobile   1080px 2340px
+ */
+
+/* Lattice · Sakura palette — Japanese spring.
+ * ────────────────────────────────────────────────────────────────────────
+ * Warm washi paper under sumi ink, with a sakura-rose accent and a spring
+ * hue set (blossom, new leaf, sky, wisteria, plum, canola). The deck reads
+ * like a hanami scroll: pale petals, dark ink, one cherry-pink emphasis.
+ * Dark mode is dusk over the blossoms — a deep plum canvas.
+ *
+ * Categorical cycle: the three-layer contrast contract (#1022) — each
+ * `--cat-N-fill` / `--cat-N-mark` is a FLIPPING light-dark() tier of one
+ * spring hue (fill: pale petal ↔ jewel; mark: deep edge ↔ pale tint), and the
+ * inks `--cat-on-fill` / `--cat-on-mark` flip with them. mark-vs-bg ≥ 3:1,
+ * label-ink-vs-fill ≥ 4.5:1, fill ≠ mark — gated by checkCatContrast in both
+ * modes. See design/skills/theme.md + engineering/decisions/2026-07-15-categorical-token-contract.md.
+ */
+
+@import 'lattice';
+
+:where(:root) { color-scheme: light; }
+
+:root {
+  /* ── Brand axis — the sakura hue, single source of truth ── */
+  --brand-canvas: #3A2230;  /* deep plum dusk — dark surface / divider */
+  --brand-accent: #B0396A;  /* sakura rose — AA on paper (text-label, accent) */
+  --brand-bright: #E486AA;  /* blossom pink — decorative spectrum */
+  --brand-alt:    #7FA352;  /* new-leaf green — spectrum endpoint */
+
+  /* ── Surfaces — light-dark() pairs ── */
+  --bg:              light-dark(#FCF7F3, var(--scheme-dark-bg));      /* warm washi paper */
+  --bg-alt:          light-dark(#F6EAE5, var(--scheme-dark-bg-alt));  /* blossom-cream card */
+  --surface-inverse: var(--brand-canvas);
+  --border:          light-dark(#EBD8D2, var(--scheme-dark-border));
+
+  /* ── Ink ramp — sumi on paper; ratios in comments ── */
+  --text-display:   #FFFFFF;
+  --text-heading:   light-dark(#2A1C22, var(--scheme-dark-text-heading));    /* 15:1 */
+  --text-body:      light-dark(#42323A, var(--scheme-dark-text-body));       /* 9:1  */
+  --text-label:     light-dark(var(--brand-accent), var(--scheme-dark-text-label)); /* AA */
+  --text-secondary: light-dark(#6A5059, var(--scheme-dark-text-secondary));  /* AA content */
+  --text-muted:     light-dark(#9C8790, var(--scheme-dark-text-muted));      /* chrome only, WCAG-exempt */
+
+  /* ── Accent — sakura rose; clears AA on --bg and on --accent-soft ── */
+  --accent:      light-dark(var(--brand-accent), #F0A6C2);
+  --accent-soft: light-dark(#FBE7EF, #4A2838);
+  --code-inline-fg: light-dark(#A22F5C, var(--accent));
+  --on-accent:   light-dark(#FFFFFF, #2A1C22);
+
+  /* ── Semantic signals — spring-tuned (leaf / canola / plum) ── */
+  --pass: light-dark(#4E7A1E, #9BD46A);
+  --warn: light-dark(#986600, #E7BB55);
+  --fail: light-dark(#B02A44, #F2899B);
+  --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
+  --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
+  --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
+
+  --seq-500: var(--brand-accent);
+
+  --bg-warm-mid: #4A2838;
+  --code-text:   #E8D8DE;
+
+  /* ── Spectrum ribbon — plum dusk → blossom → new leaf ── */
+  --spectrum: linear-gradient(90deg, var(--brand-canvas) 0%, var(--brand-bright) 55%, var(--brand-alt) 100%);
+  --spectrum-vertical: linear-gradient(180deg, var(--brand-canvas) 0%, var(--brand-bright) 55%, var(--brand-alt) 100%);
+  --spectrum-end: var(--brand-alt);
+}
+
+/* ── Dark-variant inputs — dusk over the blossoms ── */
+:root {
+  --scheme-dark-bg:             #291921;
+  --scheme-dark-bg-alt:         #392430;
+  --scheme-dark-border:         #4E3543;
+  --scheme-dark-text-heading:   #FBEEF2;
+  --scheme-dark-text-body:      #E5CFD8;
+  --scheme-dark-text-muted:     #A88F99;
+  --scheme-dark-text-secondary: #C2A7B1;
+  --scheme-dark-text-label:     #F0B6CA;
+  --scheme-dark-text-display:   #FFFFFF;
+}
+
+/* ── highlight.js syntax tokens — Night Owl, legible on the plum code panel ── */
+:root {
+  --hljs-comment:    #8A7D84;
+  --hljs-keyword:    #d08cc6;
+  --hljs-built_in:   #b6cf7a;
+  --hljs-number:     #f0956c;
+  --hljs-literal:    #f47a94;
+  --hljs-string:     #e8c07d;
+  --hljs-title:      #ddd39a;
+  --hljs-type:       #b79cf0;
+  --hljs-variable:   #b6cf7a;
+  --hljs-params:     #7fd8c4;
+  --hljs-tag:        #7fd8c4;
+  --hljs-punctuation:#e0d3da;
+}
+
+/* ── Diagram structural tokens ── */
+:root {
+  --diagram-stroke: #A8365E;  /* sakura-rose stroke — reads on every pale petal incl white */
+  --diagram-line:   light-dark(#2A1C22, var(--scheme-dark-text-body));
+  --diagram-accent-warm: #C2762E;  /* apricot warm — radar's second curve */
+}
+
+:root {
+  /* ── Categorical cycle — 12 spring hues, three-layer contract, flipping tiers.
+   * fill: light-dark(pale petal, jewel); mark: light-dark(deep edge, pale tint). ── */
+  --cat-1-fill:  light-dark(#F2CAD8, #A8325F);  /* sakura pink */
+  --cat-2-fill:  light-dark(#CFE3BE, #4E7A1E);  /* new leaf */
+  --cat-3-fill:  light-dark(#C3DAEC, #1E6A9E);  /* spring sky */
+  --cat-4-fill:  light-dark(#D9CFE8, #6A4AA0);  /* wisteria */
+  --cat-5-fill:  light-dark(#E8C6CE, #9C3550);  /* plum */
+  --cat-6-fill:  light-dark(#EDDBA6, #7C5E00);  /* canola gold */
+  --cat-7-fill:  light-dark(#B9E1D9, #16706A);  /* spring water */
+  --cat-8-fill:  light-dark(#F3CCBD, #A8492D);  /* coral */
+  --cat-9-fill:  light-dark(#D2E0B4, #526C1E);  /* willow */
+  --cat-10-fill: light-dark(#DACFE6, #7248A0);  /* lavender */
+  --cat-11-fill: light-dark(#F5D3BF, #9C4E1E);  /* apricot */
+  --cat-12-fill: light-dark(#C8DCC0, #4A7038);  /* moss */
+
+  --cat-1-mark:  light-dark(#9A335E, #F2CAD8);
+  --cat-2-mark:  light-dark(#4E721E, #CFE3BE);
+  --cat-3-mark:  light-dark(#2A6088, #C3DAEC);
+  --cat-4-mark:  light-dark(#5B3E96, #D9CFE8);
+  --cat-5-mark:  light-dark(#8E2F48, #E8C6CE);
+  --cat-6-mark:  light-dark(#7A6010, #EDDBA6);
+  --cat-7-mark:  light-dark(#1E6E64, #B9E1D9);
+  --cat-8-mark:  light-dark(#9A4526, #F3CCBD);
+  --cat-9-mark:  light-dark(#5A7228, #D2E0B4);
+  --cat-10-mark: light-dark(#634196, #DACFE6);
+  --cat-11-mark: light-dark(#9E5220, #F5D3BF);
+  --cat-12-mark: light-dark(#48702F, #C8DCC0);
+
+  --cat-on-fill: var(--text-heading);          /* flips with the fill tier */
+  --cat-on-mark: light-dark(#FFFFFF, #2A1C22);
+
+  /* ── Universal semantic diagram palette — spring roles ── */
+  --diagram-active:  light-dark(#F0CBA6, #91560E);
+  --diagram-active-mark:  var(--diagram-stroke);
+  --diagram-done:  light-dark(#CFE3BE, #4E7A1E);
+  --diagram-done-mark:  var(--diagram-stroke);
+  --diagram-critical:       light-dark(#A91C2A, #F87171);
+  --diagram-critical-mark:  var(--diagram-stroke);
+  --diagram-today:        light-dark(#D8B81E, #7A6300);
+  --diagram-note:        light-dark(#E7DCB0, #6E5A0B);
+
+  /* ── Containment tiers — barely-tinted nested surfaces ── */
+  --c-container:    light-dark(#F5EBE7, #322028);
+  --c-subcontainer: light-dark(#EADCD7, #43303A);
+
+  /* ── Chart palette — spring pigment spectrum ── */
+  --chart-cat1: light-dark(#B0396A, color-mix(in oklab, #B0396A, white 30%));  /* sakura  */
+  --chart-cat2: light-dark(#4E7A1E, color-mix(in oklab, #4E7A1E, white 30%));  /* leaf    */
+  --chart-cat3: light-dark(#1E6A9E, color-mix(in oklab, #1E6A9E, white 30%));  /* sky     */
+  --chart-cat4: light-dark(#6A4AA0, color-mix(in oklab, #6A4AA0, white 30%));  /* wisteria*/
+  --chart-cat5: light-dark(#8A6A00, color-mix(in oklab, #8A6A00, white 30%));  /* canola  */
+  --chart-cat6: light-dark(#16706A, color-mix(in oklab, #16706A, white 30%));  /* teal    */
+  --chart-cat7: light-dark(#A8492D, color-mix(in oklab, #A8492D, white 30%));  /* coral   */
+  --chart-cat8: light-dark(#9C3550, color-mix(in oklab, #9C3550, white 30%));  /* plum    */
+
+  --chart-state-pass: light-dark(#4E7A1E, #9BD46A);  /* leaf green */
+  --chart-state-warn: light-dark(#8A5E00, #E3A93C);  /* canola amber */
+  --chart-state-fail: light-dark(#B02A44, #F2899B);  /* plum red */
+  --chart-state-info: light-dark(#1E6A9E, #7FC3E5);  /* spring sky */
+  --chart-state-mute: light-dark(#8A7680, #A89098);  /* petal gray */
+}
