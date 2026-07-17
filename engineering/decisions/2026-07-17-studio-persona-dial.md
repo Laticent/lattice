@@ -93,10 +93,17 @@ mode — you are *at* a stop.
 This is the discipline that makes the dial safe and kills the founding bug:
 
 1. **`posture` — the persisted boot stop.** Written to storage **only** by an
-   explicit dial interaction: a click on a segment, or `⌘1/⌘2/⌘3`, or `⌘.`.
-   **Nothing else ever writes it** — no action, no gesture, no timer, no ⌘K
-   command. Because engagement never ratchets it, a Write-parked user who edits
-   all session still boots into Write tomorrow. The dial does not drift.
+   explicit dial interaction: a click on a segment or `⌘1/⌘2/⌘3`. **Nothing else
+   ever writes it** — no action, no gesture, no timer, no ⌘K command, and *not*
+   `⌘.` (see item 2). Because engagement never ratchets it, a Write-parked user
+   who edits all session still boots into Write tomorrow. The dial does not
+   drift. **(Hardening fix R1 — the first-visit case:** the adaptive first paint
+   **must persist `posture='read'` once** on first boot, or the stop is silently
+   re-derived from engagement every session and the ratchet returns — a Read
+   user who creates a deck flips `hasPriorStudioUse()` and boots into Write
+   unasked. First-paint persistence is the one non-dial write, and it happens
+   exactly once; "returning → last stop" then means last *persisted* stop, which
+   is honest.)
 2. **A transient, session-only *reveal* (`quietened`, heir to today's `focus`)
    — never persisted, steps down as readily as up.** A direct in-canvas gesture
    may momentarily show more/less chrome than your saved stop (you press "Edit
@@ -105,23 +112,42 @@ This is the discipline that makes the dial safe and kills the founding bug:
    it; `Esc` clears it (its exact job today). Moving the dial writes `posture`
    and clears any `quietened` overlay.
 
-**The bright line for ⌘K:** a ⌘K command **never moves the dial** — not the
-persisted `posture`, not even a transient reveal. Running a command changes
-*what you did*, never *what the room looks like*. An expert parked at Write who
-⌘K-opens a component gets the component, at Write, with Write's chrome — never
-yanked into Build density unasked. (Grafted from T2 §4.8 / T3; this is the
-single rule that prevents "using the command bar teleported my panels.")
+**The bright line for ⌘K (narrowed per hardening R3):** a ⌘K command **never
+moves the persisted `posture`.** An expert parked at Write who ⌘K-opens a
+component gets the component, at Write, with Write's chrome — never yanked into
+Build *as their saved home* unasked. A command **may** change the *transient*
+surface (open a panel, `⌘.`-quieten, Enter Focus, Reshape, collapse/expand a
+pane) — that is `quietened`/split state, not `posture`, and it recedes. The
+original spec overstated this as "never moves the dial, not even a transient
+reveal," which is false: `onFocus`, `onReshape`, `onCollapseEditor/Preview`,
+`onExpandPane`, `onResetSplit` are already wired into the palette
+(`StudioShell.tsx:2484-2495`) and legitimately reshape the surface. The holdable
+invariant is the persisted-posture one. (Grafted from T2 §4.8 / T3.)
 
 ### Reachability ≠ arrangement (grafted from T5 §2)
 
 The dial changes **what is docked**, never **what is reachable.** ⌘K reaches
 *every* capability from *every* stop — including Build-only faculties (Library,
-Workspace, Fabricate, Inspector). Invoking a Build-only faculty from Read or
-Write does **not** switch posture — it **transiently docks that one panel** and
-recedes on dismissal, exactly today's Focus + ⌘K behavior. So the `onboarded`
-gate is removed from **all ⌘K / command surfaces**, and a density gate remains
-only on **docked** chrome. "One keystroke away in every home" is then literally
-true, and reaching Library from Read is not escaping to a different room.
+Workspace, Fabricate, Inspector). Invoking one from Read or Write does **not**
+switch posture; it either **transiently docks that one panel** (Inspector,
+Architect) and recedes on dismissal, or — for the **full-screen faculties
+(Fabricate, Present)** — **suspends and restores the caller's posture** on exit.
+Both are session-transient, never a posture write.
+
+**Two hardening corrections here (C7, R5), because the original overstated
+reality:**
+- There is **no `onboarded` gate on the command surface today** — `CommandPalette`
+  exposes Fabricate unconditionally, and Library/Workspace **are not in ⌘K at
+  all**. So "reachable from every stop" is not achieved by *removing* a gate; it
+  requires **adding** `onLibrary` / `onWorkspace` (and Inspector) commands to the
+  palette. That is new work, not un-gating — the honesty caveat below stands, and
+  the build cost is real.
+- "Transiently docks that one panel" is **factually wrong for Fabricate and
+  Present** — they are full-screen views / overlays, not dockable columns, and
+  today entering Fabricate force-clears `focus` (`StudioShell.tsx:1437`). The
+  spec therefore needs an explicit **suspend-and-restore** rule: a full-screen
+  faculty records the caller's `posture`/`quietened` on entry and restores it on
+  exit, rather than dumping the user at Build.
 
 Honest caveat carried from T3: "nothing removed, only un-docked" is true, but a
 non-technical newcomer in Read won't *know* the keybinding and won't see a
@@ -233,16 +259,25 @@ tours) and is where this doc's honesty budget is spent.
 
 **State + migration** (`studio-store.ts`):
 - Add `posture: 'read' | 'write' | 'build'` to `StudioSettings`.
-- Migration on load: legacy `onboarded === false` → `'read'`; legacy
-  `onboarded === true` **or** `hasPriorStudioUse()` → **`'write'`** — the
-  friendly middle default for the existing engaged cohort. Rationale (grafted
-  from T5): `onboarded` truthiness is over-eager (it trips on a single edit or
-  panel open), so mapping it to Build would dump one-character users into the
-  firehose. Write is one dial-click from Build for the true experts. **This
-  migration cannot recover each user's ideal stop** — nothing in storage today
-  distinguishes a Focus-lover from an expert (`focus` is transient/unpersisted);
-  it picks one friendly default for the whole cohort. Stated limitation, not an
-  implied guarantee.
+- Migration on load — **three populations, evaluated prior-use-first (hardening
+  R4/R6 reorders this; the original two-clause version overlapped and demoted an
+  actively-editing user into Read):**
+  1. `onboarded === true` (explicitly reached the full surface) → **`'build'`** —
+     *keep the surface they already had.* The original mapped this cohort to
+     Write, which **hides their docked Inspector/Architect on first boot** — it
+     reads as "my workspace was wiped," with the banner (their only explainer)
+     now deleted. An explicit `onboarded:true` is a real signal of the full
+     surface; honor it.
+  2. `hasPriorStudioUse() && onboarded !== true` (edited a deck but never
+     explicitly graduated) → **`'write'`** — the friendly middle. `hasPriorStudioUse()`
+     truthiness *is* over-eager (it trips on a single edit), so this cohort
+     should not be dumped at Build; Write is one dial-click away.
+  3. neither signal → **`'read'`**.
+  **This still cannot recover each user's ideal stop** — nothing in storage
+  distinguishes a Focus-lover from an expert (`focus` is transient/unpersisted).
+  It picks the *safest* default per population. Stated limitation, not a
+  guarantee. The `studio.astro` pre-paint derive **must apply this exact
+  precedence** or first-paint and hydrated stop disagree (flash).
 - **Migration-flash fix (grafted from T4):** the `studio.astro` pre-paint script
   reads raw localStorage and cannot read a `posture` field never written, so on
   the first post-deploy load it must **derive** the stop from the legacy signals
@@ -273,12 +308,33 @@ never mount/unmount; chrome does.
 - Re-key `onboarded`-gated **docked** chrome (Library/Workspace icons, Fabricate
   launcher, Focus button) on `posture`; keep all of them in ⌘K unconditionally.
 
-**Selector / fixture / tour migration (the part that bites e2e):** stable
-`aria-label` / `data-tour` contracts break — "Enter/Exit focus mode," "Watch
-demo," "Dismiss welcome," "Got it" — referenced by `studio-fixture.ts` CHROME,
-tour-kit `SEL`, and Vetrina `TOURS`. Every renamed/removed selector is aliased
-or migrated **in the same change**, and the "Show me around" tours re-confirmed
-to resolve on the built docs site. Not done until they do.
+**Selector / test migration (hardening C14 corrects the target map — the
+original pointed at the wrong files):** the strings that break are the removed
+chrome's labels/text — "Enter/Exit focus mode," "Watch demo," "Dismiss welcome,"
+"Got it." Their **actual consumers** are: `StudioShell.test.tsx` (unit assertions
+on "Enter focus mode"), the `studio-fixture.ts` *body* (`getByRole('Got it')`,
+~L111 — **not** the CHROME map, which references none of them), and
+`CommandPalette.tsx` (the "Watch demo" item). The tour-kit `SEL` set and the
+Studio `TOURS` registry (`tours/index.ts`, built on Vetrina) do **not** reference
+the focus/welcome selectors, so the tour breakage is smaller than first stated —
+but re-confirm the "Show me around" tours resolve on the built docs site anyway.
+Migrate these in the same change; not done until the unit suite is green.
+
+**`onboarded` *reads*, not just `graduate()` writes, must re-point (hardening
+R7).** The "delete ~10 `graduate()` sites, don't rewire" plan omits non-write
+`onboarded` reads that dangle when the field is removed — notably the
+breakpoint-flip auto-dock `setActiveAssistant(onboardedRef.current ? …)`
+(`StudioShell.tsx:655`) and the docked-chrome gates (`:2053-2054`, `:2093`,
+`:2250-2251`). Every `onboarded` *read* re-points to `posture`; leaving
+`onboarded` in place beside `posture` would re-create the two-sources-of-truth
+bug the single-writer rule exists to kill.
+
+**Accessibility (hardening R8).** The transient reveal must fire an `aria-live`
+announcement (a silent context change strands a screen-reader user; contrast the
+deliberate focus re-homing at `:1218-1225`). And the dial **never degrades to
+icon-only** — at tight widths, yield *other* chrome (Present/Share overflow)
+before the dial's labels, since the newcomer who most needs the labels is
+disproportionately on tablet/mobile.
 
 **Untouched (safety):** the preview `srcdoc` iframe content and the
 `sanitizeSlideHtml` chokepoint — the dial changes *chrome*, never preview
@@ -316,9 +372,53 @@ Colors via `var(--token)` only (HARD RULE #3); spacing via `padding`/`gap`
 - **Two stops instead of three** — loses the distinct middle the brief's
   "familiar / stuck in the old days" persona needs a *home* for, not a gesture.
 
-## Status
+## Adversarial hardening (2026-07-17) — outcome
 
-Proposed. Design consolidated from the 2026-07-17 competition (winner T3 +
-grafts). Next: adversarial hardening of this spec (red team + Munger inversion +
-independent checker, HARD RULE #25 tier 2 — novel core UX + blast radius), fold
-findings, then a build plan. No Studio code until the plan is agreed.
+The spec ran the HARD RULE #25 tier-2 trio (red team + Munger inversion +
+independent checker), each in a fresh context against this doc + the real code.
+**Outcome: architecture validated, spec tightened, sequencing revised.**
+
+- **Validated:** no fabrications (107 claims confirmed, 0 refuted); the
+  spine-hoist premise is real (the `focus` and desktop branches place the split
+  grid at different React tree depths, so a naive swap remounts the iframe); the
+  no-picker / ⌘K-everywhere / banned-rank-words decisions survive.
+- **Fixed in-place (above):** R1 first-visit persistence, R2 `⌘.` is
+  `quietened`-only, R3 the ⌘K invariant narrowed to persisted-posture, R4/R6 the
+  three-population migration (engaged→Build, not wiped-to-Write), R5
+  suspend-and-restore for full-screen faculties, R7 `onboarded`-reads re-point,
+  R8 a11y + never-icon-only dial, C7 Library/Workspace must be *added* to ⌘K, C14
+  the corrected test-migration map.
+- **Still owed before build (cross-cutting red-team ask):** an explicit
+  **state-transition matrix** — rows = every input (segment click, `⌘1-3`, `⌘.`,
+  `Esc`, each ⌘K command, Fabricate/Present enter+exit, breakpoint clamp,
+  first-boot derive); columns = effect on `posture` / `quietened` / rendered
+  layout. Most contradictions above fall out of this table being unwritten.
+- **The strategic finding (Munger, reinforced by the red-team scope work):**
+  the "banner jail" the user actually reported is a **small, certain** fix; the
+  full persisted three-stop dial is a **larger, partly-unverified** bet (spine
+  hoist, migration regression, the Read newcomer home, adding palette commands,
+  the 9-cell responsive surface). DEFAULT OP MODE #3 and HARD RULE #17 favor
+  **un-bundling**.
+
+## Status & recommended sequencing
+
+**Proposed — awaiting a scope decision (see below), then a build plan. No Studio
+code yet.** Recommended path, un-bundled into two independently-shippable slices
+(HARD RULE #17):
+
+- **Slice 1 — kill the jail (certain, low-risk, ships first).** Persist the
+  Focus/quiet choice (sticky + reversible), surface an always-visible reversible
+  control so there's a seen way in and out, make the welcome banner
+  dismiss-forever, and **delete the one-way ratchet + the auto-`graduate()`
+  engagement side-effects**. This delivers exactly what was reported as annoying,
+  adds no spine-hoist or Read-home risk, and demotes no existing user.
+- **Slice 2 — the newcomer Read home + verb naming + spine hoist
+  (evidence-gated).** The full Read/Write/Build experience, gated on the three
+  UNVERIFIED questions the trio sharpened: (a) does a non-technical user find and
+  read the dial; (b) does Read-first activate better or worse than Write-first;
+  (c) does the spine hoist actually prevent iframe remount on the real surface
+  (HARD RULE #23). Each is cheap to test on the built docs site.
+
+The alternative — build the whole dial in one branch — remains on the table if
+the destination is wanted in one move; it carries the migration + continuity risk
+above and a larger single review. **This scope choice is the open decision.**
