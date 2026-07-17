@@ -203,6 +203,22 @@ in patch versions.
   via a frontmatter `class:`. Defaults never move, so every existing deck renders identically. Same
   custom-property-as-content idiom as the `stamp-*` state markers. See `examples/insight-labels.md`
   and `engineering/decisions/2026-07-17-insight-label-vocabulary.md`.
+- **Two author-time `lint:deck` rules catch silent mis-renders you'd otherwise only see on a render.**
+  Both are `lib/authoring/lint-core.js` warnings (shared by the CLI, `validate()`, and the Drawing
+  Board), and both are covered by the `--all --strict` corpus sweep:
+  - **`big-number-hero-heading`** — a `big-number` slide whose giant number is authored as a `#`/`##`
+    heading instead of the required first list item (`ul > li:first-child`). The number slot renders
+    empty and the hero vanishes; the rule points you to the list-item shape. (This surfaced and fixed a
+    latent invisible-hero in `examples/accessible-descriptions.md`.)
+  - **`bookend-finish-contrast`** — a `title`/`closing` bookend under a deck-wide `finish:` with no
+    `finish-none` opt-out. The finish paints its backdrop over the bookend's inverse surface, washing
+    out its display text on a light canvas; the rule points you to the house pattern (`finish-none` on
+    bookends, or an explicit `finish-<name>` if intended).
+- **`new:component` scaffold checklist now warns about the two CSS footguns and the roster tests.**
+  `tools/new-component.js` prints reminders to keep the component CSS UNLAYERED (Lattice's `@layer
+  components` is inert — `engineering/cascade.md`), to check `base.modifiers.css` for base-modifier
+  bleed into generic elements, and to update the enumerative roster tests (`stage-catalog`,
+  `component-manifest` partition) a new component is designed to trip.
 - **Accent finishes — the spectrum, heading rule, and eyebrow are now selectable finishes.**
   Three baked-in details graduate to first-class registers on the Finish axis (the *accent*
   sub-family, distinct from `finish:` backdrops), each deck-wide or per-slide, palette-blind,

@@ -120,5 +120,21 @@ process.stdout.write(
 		`     docs/src/playground/data-sources.js — the parity test enforces the pair).\n` +
 		`  7. slots — name the structural slots: { "title": { "selector": "h2",\n` +
 		`     "required": true, "description": "…" } }.\n\n` +
-		`Then: npm run build (regenerates docs + galleries) and npm test.\n`,
+		`Two CSS footguns this stub is shaped to avoid — keep them in mind as you fill it:\n` +
+			`  • Keep ${name}.styles.css UNLAYERED (the stub already is). Lattice's\n` +
+			`    \`@layer components\` is INERT — an unlayered base rule beats a layered\n` +
+			`    component rule regardless of specificity, so wrapping your CSS in\n` +
+			`    \`@layer components { … }\` silently loses. See engineering/cascade.md.\n` +
+			`  • Base modifiers (KEY INSIGHT, eyebrow, …) style GENERIC elements — a bare\n` +
+			`    blockquote / first paragraph inside your section can inherit their\n` +
+			`    treatment. If yours renders wrong, check lib/base/base.modifiers.css and\n` +
+			`    exclude \`.${name}\` from the offending arm (or use a descendant selector).\n\n` +
+			`Then: npm run build (regenerates docs + galleries) and npm test. A new component\n` +
+			`is a CONSCIOUS roster change, so a couple of enumerative tests are DESIGNED to\n` +
+			`fail until you acknowledge it — update the ones that fire:\n` +
+			`  • test/unit/forms/stage-catalog.test.js — add \`${name}\` to EXPECTED_FLOW /\n` +
+			`    CANVAS / SOVEREIGN to match your manifest \`stage\`.\n` +
+			`  • test/unit/components/component-manifest.test.js — only if your bucket is\n` +
+			`    bucket-divergent (chart / diagram / math / code / legal / connect): bump\n` +
+			`    that bucket's partition count.\n`,
 );
