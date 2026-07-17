@@ -101,11 +101,26 @@ recommendation is a Key Insight variant, not a split-compare special.
 
 ---
 
+<!-- _class: insight-our-view -->
+<!-- _footer: "insight-our-view · the board-slide follow-ons" -->
+
+## An analyst deck signs with OUR VIEW.
+
+The vocabulary grew with the words a board or analyst slide reaches for.
+
+- `insight-implication` — IMPLICATION
+- `insight-next-step` — NEXT STEP
+- `insight-why` — WHY IT MATTERS
+
+> The re-rate is priced in; the surprise is the margin path, not the top line.
+
+---
+
 <!-- _class: title silent -->
 
 # One seam, one vocabulary
 
-`insight-key · insight-recommendation · insight-takeaway · insight-verdict · insight-so-what · insight-bottom-line · insight-the-ask`
+`insight-key · insight-recommendation · insight-takeaway · insight-verdict · insight-so-what · insight-bottom-line · insight-the-ask · insight-our-view · insight-implication · insight-next-step · insight-why`
 
 Set `--insight-label` per slide via a modifier, or deck-wide via a
 frontmatter `class:`. Defaults never move; the word is a curated choice.

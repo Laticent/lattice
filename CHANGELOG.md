@@ -195,7 +195,9 @@ in patch versions.
   universal Key Insight panel and the split-compare verdict tag both emit their eyebrow through one
   shared `--insight-label` seam, so a curated modifier swaps the word to a boardroom heading
   (`insight-takeaway` → TAKEAWAY, `insight-verdict` → VERDICT, `insight-so-what` → SO WHAT,
-  `insight-bottom-line` → BOTTOM LINE, `insight-the-ask` → THE ASK) while the panel chrome, color,
+  `insight-bottom-line` → BOTTOM LINE, `insight-the-ask` → THE ASK, `insight-our-view` → OUR VIEW,
+  `insight-implication` → IMPLICATION, `insight-next-step` → NEXT STEP, `insight-why` → WHY IT
+  MATTERS) while the panel chrome, color,
   and sizing stay put. Both surfaces read the *same* token — each with its own default via the
   `var()` fallback, and both defaults exposed as explicit modifiers (`insight-key` → KEY INSIGHT,
   `insight-recommendation` → RECOMMENDATION) — so the recommendation is a Key Insight variant, not a

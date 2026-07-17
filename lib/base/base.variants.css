@@ -439,6 +439,10 @@ section.insight-verdict      { --insight-label: 'VERDICT'; }
 section.insight-so-what      { --insight-label: 'SO WHAT'; }
 section.insight-bottom-line  { --insight-label: 'BOTTOM LINE'; }
 section.insight-the-ask      { --insight-label: 'THE ASK'; }
+section.insight-our-view     { --insight-label: 'OUR VIEW'; }
+section.insight-implication  { --insight-label: 'IMPLICATION'; }
+section.insight-next-step    { --insight-label: 'NEXT STEP'; }
+section.insight-why          { --insight-label: 'WHY IT MATTERS'; }
 
 /* The Form (`section.form`) chrome — the root Frame box, the masthead / stage /
  * footer Cells, and the stage fill discipline — used to live here. It is now

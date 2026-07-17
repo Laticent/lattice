@@ -289,7 +289,9 @@ recommendation is a Key Insight variant, not a split-compare special. See
 | `insight-key` | KEY INSIGHT | `insight-verdict` | VERDICT |
 | `insight-recommendation` | RECOMMENDATION | `insight-so-what` | SO WHAT |
 | `insight-takeaway` | TAKEAWAY | `insight-bottom-line` | BOTTOM LINE |
-| `insight-the-ask` | THE ASK | | |
+| `insight-the-ask` | THE ASK | `insight-our-view` | OUR VIEW |
+| `insight-implication` | IMPLICATION | `insight-next-step` | NEXT STEP |
+| `insight-why` | WHY IT MATTERS | | |
 
 `insight-key` / `insight-recommendation` are the two defaults as explicit
 modifiers, so either word can move onto the other surface. Grow the set in

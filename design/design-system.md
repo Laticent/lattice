@@ -339,7 +339,7 @@ state-bearing layouts, "canvas" for charts); some are strictly per-layout
 ("watermark" for split-panel, "four" for cards-grid). The manifest model
 recognises four tiers:
 
-**Tier 1 — Universal (42 variants).** Apply to every component. Added
+**Tier 1 — Universal (46 variants).** Apply to every component. Added
 automatically by `effectiveVariants()`; manifests must NOT list them. The
 canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Nine
 categories:
@@ -353,7 +353,7 @@ categories:
 | Social (1) | `safe` |
 | State (8) | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
 | Tone (4) | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
-| Insight (7) | `insight-key`, `insight-recommendation`, `insight-takeaway`, `insight-verdict`, `insight-so-what`, `insight-bottom-line`, `insight-the-ask` |
+| Insight (11) | `insight-key`, `insight-recommendation`, `insight-takeaway`, `insight-verdict`, `insight-so-what`, `insight-bottom-line`, `insight-the-ask`, `insight-our-view`, `insight-implication`, `insight-next-step`, `insight-why` |
 | Claim (3) | `claim-quiet`, `claim-hero`, `claim-framed` (the last is the no-op per-slide opt-out marker) |
 
 The State variants are the team-collaboration vocabulary — visible
