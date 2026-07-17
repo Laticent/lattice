@@ -232,9 +232,18 @@ auto-opened.
    times with the current one lit. A jail hides its exits; a dial *is* the exit
    map.
 2. **Nothing is unreachable, and ⌘K never moves the room.** (Rule above.)
-3. **Continuity = safety.** Editor + preview mount once and never unmount; the
-   slide you're viewing stays fixed through every transition. You rearrange one
-   desk, you don't move buildings. **(UNVERIFIED — see Risks.)**
+3. **Continuity = safety.** Editor + preview mount once and stay mounted across
+   every **in-breakpoint** transition — the dial (Write↔Build), the `⌘.` quiet
+   dip, and a tablet↔desktop resize all keep the same nodes, so the iframe never
+   reloads and the editor's scroll/cursor never jump. You rearrange one desk, you
+   don't move buildings. **(VERIFIED — M2 spine hoist: a real-surface puppeteer
+   run confirms the editor node + editor scroll + preview iframe node + its
+   `contentWindow` all survive a Write↔Build↔Write cycle.)** The one deliberate
+   remount seam is the **mobile↔tablet** boundary (~768px), where the whole
+   layout model changes to the single-pane mobile structure — mobile has its own
+   both-panes-mounted swap, and a remount when the DOM model itself changes is
+   acceptable. Read stays *inside* the spine (see below), so even the newcomer's
+   first "Edit this slide" (Read→Write) is a track change, not a remount.
 4. **Persist choices, never judge people, never ratchet.** `posture` moves only
    on an explicit dial interaction.
 5. **No ranking, in pixels or words.** No stop is "the real one." Banned-words
@@ -307,6 +316,19 @@ only surrounding periphery and re-weights `splitTracks()` (kept as the single
 source of truth for `gridTemplateColumns`, extended per-`posture`). The panes
 never mount/unmount; chrome does.
 
+**Done in M2** (commit `spine hoist`): the Write and Build bodies are merged into
+one structure with `editorPane`/`previewPane` at fixed child indices; each
+conditional grid track shares its exact boolean gate with its child, so
+track-count === child-count by construction (the #721 invariant is
+unrepresentable-to-break, enumerated across all 48 states). **Read must stay in
+this same spine (M3), NOT a new branch** — otherwise the newcomer's first "Edit
+this slide" (Read→Write) would cross a branch boundary and remount the iframe at
+persona A's most fragile moment. It fits cleanly: `splitTracks` already collapses
+the editor to `0px` *while keeping it mounted* (that is how today's
+preview-collapse works), so Read = the spine with the editor track at `0px` +
+full-bleed preview + the "Edit this slide" affordance; Edit just re-weights the
+editor track back open — a track change, no remount.
+
 **Deletions & re-keys:**
 - Delete the welcome banner JSX + `welcomeOpen`, the `inspectorPulse`, and the
   first-edit auto-`graduate()` (keep the editor callback; drop the graduate /
@@ -358,10 +380,13 @@ Colors via `var(--token)` only (HARD RULE #3); spacing via `padding`/`gap`
 
 ## Risks & what stays UNVERIFIED (HARD RULE #23)
 
-- **No-remount / fixed-slide continuity** is a claim about the real `srcdoc`
-  iframe under real React reconciliation. **UNVERIFIED until driven on the built
-  docs Studio** — switch stops on the real surface, confirm the iframe does not
-  reload and the visible slide does not jump.
+- **No-remount / fixed-slide continuity** — **VERIFIED (M2).** A real-surface
+  puppeteer run on the built dev Studio confirms the `iframe.live` node + its
+  `contentWindow`, and the CodeMirror editor node + its scroll offset, all
+  survive a Write↔Build↔Write cycle (no remount, no reload). Holds for every
+  in-breakpoint transition; the mobile↔tablet seam is the one intended remount
+  (different layout model). Byte-identical Write/Build screenshots vs. M1
+  separately confirm zero static regression.
 - **Dial fits the top-bar budget at tablet** — **UNVERIFIED** until captured at
   1440 / 820 / 390 with `tools/screenshot.js`.
 - **A newcomer reads the dial and finds it when curious** is a usability claim,
