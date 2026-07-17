@@ -4,6 +4,8 @@ import { ListItemNode, ListNode } from '@lexical/list';
 import { TRANSFORMERS } from '@lexical/markdown';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import type { Klass, LexicalNode } from 'lexical';
+import { frontMatterBlock, stripFrontMatter } from './front-matter';
+import { splitSlides } from './lint';
 import { fenceRanges } from './slide-directives';
 
 // The Lattice ⟷ Lexical bridge for the Compose editing mode (the rich-markdown
@@ -11,9 +13,24 @@ import { fenceRanges } from './slide-directives';
 // owns PROSE — headings, bold/italic, lists, blockquote, inline code, links; a
 // slide's `<!-- _class -->` (and sibling `<!-- _x -->`) directives are NEVER typed —
 // they're split off, preserved, and re-emitted on compile (splitSlideDirectives /
-// composeSlideChunk). NOTE (known limit, tracked): the default list transformer
-// flattens nested-list indentation, so a structured slide's `- ` detail lines don't
-// yet round-trip losslessly — a custom nested-list transformer is the next slice.
+// composeSlideChunk).
+//
+// KNOWN LIMITS — the Lexical round-trip is NOT the identity on every Lattice
+// construct, so editing a slide can degrade it. These bite ONLY a slide the user
+// actually EDITS (untouched slides emit their `raw` bytes verbatim; a re-import for
+// display never writes back — see ComposeSurface reconcilingRef). Tracked by the
+// adversarial-trio review; the fix is the round-trip work of the next slices:
+//   • Nested lists — the default list transformer FLATTENS `- ` detail indentation,
+//     so a kpi/stats/cards slide loses its card structure on edit. (Trio: the top
+//     blocker; a custom nested-list transformer or a typed component node fixes it.)
+//   • Non-`_` HTML comments — speaker notes / `<!-- annotation: … -->` / captions
+//     stay in prose and can be re-flowed or escaped by Lexical on edit.
+//   • Blank "spacer" slides — splitSlides drops empty chunks, so a blank slide is
+//     lost from `source` on the first edit of any slide.
+//   • Indented (non-fenced) code blocks and bare flag directives (`<!-- _build -->`,
+//     colon-less) are not specially handled.
+// Until these are addressed, Compose is trustworthy for PROSE slides; structured
+// slides should be edited in Markdown mode (or Compose gated) — see the decision doc.
 
 export const COMPOSE_NODES: ReadonlyArray<Klass<LexicalNode>> = [
 	HeadingNode,
@@ -59,6 +76,31 @@ export function composeSlideChunk(directives: string[], prose: string): string {
 	const body = prose.trim();
 	if (!head) return body;
 	return body ? `${head}\n\n${body}` : head;
+}
+
+export type ParsedSlide = SlideChunk & { raw: string };
+
+/** CRLF → LF. The shared separator `\n-{3,}\n` doesn't match `\r\n---\r\n`, so a CRLF
+ *  deck must be normalized before splitting or it collapses to one slide (red-team #1). */
+export function normalizeSource(source: string): string {
+	return source.replace(/\r\n?/g, '\n');
+}
+
+/** Parse a deck source into front-matter (held aside) + per-slide { directives, prose,
+ *  raw }. `raw` is the original chunk verbatim, for byte-preserving untouched slides. */
+export function parseDeck(source: string): { fm: string; slides: ParsedSlide[] } {
+	const src = normalizeSource(source);
+	const fm = frontMatterBlock(src);
+	const slides = splitSlides(stripFrontMatter(src)).map((raw) => ({ ...splitSlideDirectives(raw), raw }));
+	return { fm, slides };
+}
+
+/** Rebuild deck source with ONE slide's prose replaced — every OTHER slide keeps its
+ *  exact original bytes (`raw`), so an edit is a minimal diff (modulo the deck's
+ *  canonical `\n\n---\n\n` join + front-matter, which normalize on first edit). */
+export function recompileDeck(slides: ParsedSlide[], fm: string, editedIndex: number, editedProse: string): string {
+	const body = slides.map((c, i) => (i === editedIndex ? composeSlideChunk(c.directives, editedProse) : c.raw)).join('\n\n---\n\n');
+	return fm ? fm + body : body;
 }
 
 /** The `_class` component name of a slide chunk (first token), for the break label. */
