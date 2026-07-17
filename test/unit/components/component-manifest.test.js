@@ -792,7 +792,7 @@ describe('component-manifest', () => {
       }
     });
 
-    test('shipped manifests partition the 22 known bucket-divergent components correctly', () => {
+    test('shipped manifests partition the 23 known bucket-divergent components correctly', () => {
       const ms = loadAll();
       const g = groupByBucket(ms);
       // chart = 13: funnel, gantt, journey, kanban, map, piechart, progress, quadrant, radar, roadmap, state-chart, timeline-list, word-cloud
@@ -810,15 +810,15 @@ describe('component-manifest', () => {
       // code = 2: code, compare-code (anything that uses syntax highlighting)
       assert.equal(g.code.length, 2, 'code bucket has 2 components');
       assert.deepEqual(g.code.map((m) => m.name).sort(), ['code', 'compare-code']);
-      // legal = 5: statute-stack, regulatory-update, authority-chain, citation-card, obligation-matrix
-      assert.equal(g.legal.length, 5, 'legal bucket has 5 components');
+      // legal = 6: statute-stack, regulatory-update, authority-chain, citation-card, obligation-matrix, policy-recommendation
+      assert.equal(g.legal.length, 6, 'legal bucket has 6 components');
       assert.deepEqual(
         g.legal.map((m) => m.name).sort(),
-        ['authority-chain', 'citation-card', 'obligation-matrix', 'regulatory-update', 'statute-stack'],
+        ['authority-chain', 'citation-card', 'obligation-matrix', 'policy-recommendation', 'regulatory-update', 'statute-stack'],
       );
     });
 
-    test('the 22 bucket-divergent components keep their function field unchanged', () => {
+    test('the 23 bucket-divergent components keep their function field unchanged', () => {
       const ms = loadAll();
       const byName = Object.fromEntries(ms.map((m) => [m.name, m]));
       // Substance divergence — chart + diagram + math + code buckets,
@@ -841,13 +841,14 @@ describe('component-manifest', () => {
         'roadmap keeps progression function despite living in chart bucket');
       assert.equal(byName['compare-code'].function, 'comparison',
         'compare-code keeps comparison function despite living in code bucket');
-      // Domain divergence (legal bucket — components span 4 different
+      // Domain divergence (legal bucket — components span 5 different
       // function families, all kept):
       assert.equal(byName['statute-stack'].function, 'inventory');
       assert.equal(byName['regulatory-update'].function, 'progression');
       assert.equal(byName['authority-chain'].function, 'progression');
       assert.equal(byName['citation-card'].function, 'evidence');
       assert.equal(byName['obligation-matrix'].function, 'comparison');
+      assert.equal(byName['policy-recommendation'].function, 'statement');
     });
   });
 

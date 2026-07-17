@@ -8826,6 +8826,163 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
 :is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n+5) { fill: var(--chart-cat-5-fill); stroke: var(--chart-cat-5-ink); }
 :is(section.piechart, figure.chart-frame) .wedge:nth-of-type(6n)   { fill: var(--chart-cat-6-fill); stroke: var(--chart-cat-6-ink); }
 
+/* === lib/components/legal/policy-recommendation/policy-recommendation.styles.css === */
+/* policy-recommendation — legal · statement · panel · structure
+ *
+ * A legislative recommendation: a stance VERDICT badge in the masthead bay, the
+ * recommendation as the hoisted title, then the argument in the stage — impact
+ * lede, evidence-grounded reasons, and the closing legislative ASK.
+ *
+ * Palette-blind (var(--token) only, no hex) and margin-free (padding / gap).
+ * The stance variant (`adopt` / `amend` / `oppose` / `defer`) sets three seams —
+ * --stance (the strong color), --stance-bg (its tint), --stance-label (the badge
+ * text) — and the badge, the masthead rule, the stage rail, the reason borders,
+ * and the ask bar all read from them, so one variant recolors the whole brief.
+ *
+ * Rules are UNLAYERED (no `@layer components` wrapper) to match every other
+ * component file — broad @layer activation is blocked, and an unlayered base rule
+ * beats a layered one regardless of specificity (engineering/cascade.md).
+ */
+
+  /* ── Stance seams. Base = a neutral recommendation with no verdict. ────────── */
+  section.policy-recommendation {
+    --stance: var(--accent);
+    --stance-bg: var(--accent-soft);
+    --stance-label: "Recommendation";
+  }
+  section.policy-recommendation.adopt  { --stance: var(--pass); --stance-bg: var(--pass-bg); --stance-label: "Adopt"; }
+  section.policy-recommendation.amend  { --stance: var(--warn); --stance-bg: var(--warn-bg); --stance-label: "Amend"; }
+  section.policy-recommendation.oppose { --stance: var(--fail); --stance-bg: var(--fail-bg); --stance-label: "Oppose"; }
+  section.policy-recommendation.defer  { --stance: var(--text-secondary); --stance-bg: var(--bg-alt); --stance-label: "Defer"; }
+
+  /* ── Masthead: the legislative letterhead. A stance hairline under the band, and
+   *    the verdict badge docked in the reserved right bay. ───────────────────── */
+  section.policy-recommendation > .cell-masthead {
+    border-bottom: 2px solid var(--stance);
+    padding-bottom: var(--sp-xs);
+  }
+  section.policy-recommendation > .cell-masthead > .masthead-bay::before {
+    content: var(--stance-label);
+    font-family: var(--font-label);
+    font-size: var(--fs-meta);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--stance);
+    background: var(--stance-bg);
+    border: 1px solid var(--stance);
+    border-radius: var(--radius-sm);
+    padding: var(--sp-3xs) var(--sp-sm);
+    white-space: nowrap;
+  }
+
+  /* ── Stage: the argument. A stance rail ties the body to the verdict above. ─── */
+  section.policy-recommendation > .cell-stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    padding-left: var(--sp-lg);
+    border-left: 4px solid var(--stance);
+  }
+
+  /* Impact — the one-line framing of the stakes. */
+  section.policy-recommendation > .cell-stage > p {
+    font-size: var(--fs-message);
+    color: var(--text-secondary);
+    line-height: var(--lh-snug);
+    padding: 0;
+  }
+
+  /* Rationale — evidence-grounded reasons; the reason bold, its evidence nested. */
+  section.policy-recommendation > .cell-stage > ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    flex: 1;
+    justify-content: center;
+  }
+  section.policy-recommendation > .cell-stage > ul > li {
+    padding-left: var(--sp-md);
+    border-left: 3px solid var(--stance);
+    font-size: var(--fs-message);
+    line-height: var(--lh-snug);
+    font-weight: 700;
+    color: var(--text-heading);
+  }
+  /* Nested evidence line — resets to body weight/color; the citation rides a chip. */
+  section.policy-recommendation > .cell-stage > ul > li > ul {
+    list-style: none;
+    padding: var(--sp-3xs) 0 0 0;
+  }
+  section.policy-recommendation > .cell-stage > ul > li > ul > li {
+    font-weight: 400;
+    color: var(--text-body);
+    font-size: var(--fs-body);
+    line-height: var(--lh-base);
+  }
+  /* Element siblings of the bolded lead don't inherit its weight (matches the
+   * CARD_STYLE_LAYOUTS hardening in cards-grid). */
+  section.policy-recommendation > .cell-stage > ul > li > :is(ul, ol) { font-weight: 400; }
+
+  /* Citation chip — the trailing inline-code on an evidence line. */
+  section.policy-recommendation > .cell-stage > ul > li > ul > li > code {
+    font-family: var(--pill-font);
+    font-size: var(--pill-fs);
+    font-weight: var(--pill-weight);
+    letter-spacing: var(--pill-tracking);
+    border-radius: var(--pill-radius);
+    padding: var(--pill-pad-y) var(--pill-pad-x);
+    white-space: nowrap;
+    background: var(--bg-alt);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  /* The ask — the closing legislative call to action, a filled stance bar.
+   * The trailing blockquote renders as a DIRECT `section > blockquote` on some
+   * paths and inside `.cell-stage` on others, so match it with a descendant
+   * combinator (this component has exactly one blockquote). policy-recommendation
+   * is excluded from the base KEY INSIGHT treatment (base.modifiers.css), so these
+   * rules own the blockquote uncontested. */
+  section.policy-recommendation blockquote {
+    background: var(--stance-bg);
+    border: 1px solid var(--stance);
+    border-left: 4px solid var(--stance);
+    border-radius: var(--radius-md);
+    padding: var(--sp-sm) var(--sp-md);
+    flex-shrink: 0;
+  }
+  section.policy-recommendation blockquote::before {
+    content: "The ask";
+    display: block;
+    font-family: var(--font-label);
+    font-size: var(--fs-meta);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--stance);
+    padding-bottom: var(--sp-3xs);
+  }
+  section.policy-recommendation blockquote p {
+    font-family: var(--font-body);
+    font-size: var(--fs-message);
+    color: var(--text-heading);
+    line-height: var(--lh-snug);
+    padding: 0;
+  }
+
+  /* ── Portrait / square reflow (adapt.mode: reflow). Tighten the rhythm and let
+   *    the reasons pack from the top instead of centering in a tall box. ─────── */
+  @container lattice (aspect-ratio <= 1.05) {
+    section.policy-recommendation > .cell-stage { gap: var(--sp-sm); }
+    section.policy-recommendation > .cell-stage > ul {
+      flex: 0 0 auto;
+      justify-content: flex-start;
+    }
+  }
+
 /* === lib/components/comparison/pricing/pricing.styles.css === */
 /* pricing — plan tiers with prices, feature checklists, and one recommended
  * column. See lib/components/comparison/pricing/pricing.manifest.json.
@@ -13931,8 +14088,8 @@ section.dark p:has(> code:only-child):has(+ pre) > code { color: var(--on-dark-s
  * BELOW-NOTE fallback note below), so each ancestor must be its own
  * comma-separated selector — same pattern as the UNIVERSAL PILL rule above.
  */
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote {
   background:var(--accent-soft);
   border:1px solid var(--accent);
   border-radius:var(--radius-md);
@@ -13941,8 +14098,8 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
    * (the stage cell under Form), not a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
 }
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not([class*="layout-"]) > blockquote::before,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote::before {
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::before,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::before {
   content:'KEY INSIGHT';
   font-family:var(--font-label);
   font-size:var(--fs-meta);
@@ -13953,8 +14110,8 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   display:block;
   padding-bottom:0.46875cqi; /* label→quote gap, inside the no-bg pseudo (HARD RULE #20) */
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote p,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote p {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote p,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote p {
   font-family:var(--font-body);
   /* Body tier, NOT --fs-message (the 21pt slide-statement tier). A Key Insight
    * SUMMARIZES the body above it, so it must not out-shout the very content it
@@ -13966,14 +14123,14 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   line-height:var(--lh-snug);
   margin:0;
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote ul,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote ul {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote ul,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote ul {
   list-style:none;
   padding:0; margin:0;
   display:flex; flex-direction:column; gap:0.46875cqi;
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote li,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote li {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote li,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote li {
   font-family:var(--font-body);
   /* Body tier — see the blockquote-p rule above. A bulleted Key Insight is still
    * a summary of the body; its items match body prose, not the statement tier. */
@@ -13983,8 +14140,8 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   padding-left:var(--sp-md);
   position:relative;
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote li::before,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote li::before {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote li::before,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote li::before {
   content:'—';
   position:absolute; left:0;
   color:var(--accent);

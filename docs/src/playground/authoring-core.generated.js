@@ -59,7 +59,8 @@ var require_lint_core = __commonJS({
       "decision",
       "citation-card",
       "pricing",
-      "q-and-a"
+      "q-and-a",
+      "policy-recommendation"
     ]);
     var STATEMENT_OL_LAYOUTS = Object.freeze(["principles"]);
     var LEDGER_OL_LAYOUTS = Object.freeze([

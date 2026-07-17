@@ -602,6 +602,28 @@
     ],
     "description": "Pie or donut chart with legend — proportional wedges."
   },
+  "lattice: policy-recommendation": {
+    "prefix": "lattice-policy-recommendation",
+    "body": [
+      "<!-- _class: policy-recommendation adopt -->",
+      "",
+      "`Bill reference · Domain`",
+      "",
+      "## The recommendation as a complete sentence.",
+      "",
+      "One line naming the problem or the stakes.",
+      "",
+      "- First reason",
+      "  - The evidence for it, with a `Citation` chip.",
+      "- Second reason",
+      "  - The evidence for it, with a `Citation` chip.",
+      "- Third reason",
+      "  - The evidence for it, with a `Citation` chip.",
+      "",
+      "> The specific legislative ask — sponsor, vote, or amend, with the section."
+    ],
+    "description": "A legislative recommendation — a stance verdict beside the recommendation, its evidence, and the specific ask to lawmakers."
+  },
   "lattice: pricing": {
     "prefix": "lattice-pricing",
     "body": [

@@ -55,7 +55,7 @@
       "degradesTo": "code-block"
     }
   },
-  "count": 56,
+  "count": 57,
   "components": [
     {
       "name": "actors",
@@ -2613,6 +2613,90 @@
       "familyModifiers": [
         "canvas"
       ],
+      "readsStateMarkers": false
+    },
+    {
+      "name": "policy-recommendation",
+      "classToken": "policy-recommendation",
+      "bucket": "legal",
+      "substance": "structure",
+      "skeleton": "<!-- _class: policy-recommendation adopt -->\n\n`Bill reference · Domain`\n\n## The recommendation as a complete sentence.\n\nOne line naming the problem or the stakes.\n\n- First reason\n  - The evidence for it, with a `Citation` chip.\n- Second reason\n  - The evidence for it, with a `Citation` chip.\n- Third reason\n  - The evidence for it, with a `Citation` chip.\n\n> The specific legislative ask — sponsor, vote, or amend, with the section.\n",
+      "slots": {
+        "eyebrow": {
+          "selector": "p:first-of-type > code",
+          "required": false,
+          "description": "Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`)."
+        },
+        "recommendation": {
+          "selector": "h2",
+          "required": true,
+          "description": "The recommendation as a complete declarative sentence — the action you want taken, not a topic label."
+        },
+        "impact": {
+          "selector": "p",
+          "required": false,
+          "description": "One-sentence framing of the problem or stakes the recommendation addresses."
+        },
+        "rationale": {
+          "selector": "ul > li",
+          "required": true,
+          "description": "Two-to-four evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip."
+        },
+        "ask": {
+          "selector": "blockquote",
+          "required": false,
+          "description": "The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar."
+        }
+      },
+      "requiredSlots": [
+        "recommendation",
+        "rationale"
+      ],
+      "modifiers": [
+        "accent",
+        "adopt",
+        "amend",
+        "archived",
+        "claim-bleed",
+        "claim-framed",
+        "claim-hero",
+        "claim-quiet",
+        "compact",
+        "confidential",
+        "dark",
+        "defer",
+        "draft",
+        "form",
+        "mark-orbit",
+        "mark-threads",
+        "no-footer",
+        "no-form",
+        "no-header",
+        "no-paginate",
+        "no-period",
+        "no-progress",
+        "oppose",
+        "pinned",
+        "redacted",
+        "revised",
+        "safe",
+        "scale-2xl",
+        "scale-l",
+        "scale-xl",
+        "silent",
+        "tbd",
+        "tint-corner at-tl",
+        "tint-edge at-right",
+        "tint-vignette",
+        "tone-fail",
+        "tone-pass",
+        "tone-skip",
+        "tone-warn",
+        "treatment-none",
+        "wip",
+        "with-period"
+      ],
+      "familyModifiers": [],
       "readsStateMarkers": false
     },
     {
