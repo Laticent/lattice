@@ -30,14 +30,13 @@
  *      inversion logic is relied upon; every text variable below is
  *      set explicitly.
  *
- *   2. Two lightness bands for fills:
- *        Tinted band (L≈83)    — --diagram-band-1..12, used directly by
- *                                 flowchart, sequence, class, state, ER,
- *                                 quadrant, and most layouts.
- *        Mid-tone band (L≈60)  — --cat-*, fed at L≈60 because Mermaid's
- *                                 kanban renderer applies a lighten step
- *                                 that brings emitted fills to L≈68-73
- *                                 (pale enough for dark text).
+ *   2. Categorical cycle — 12 flipping tiers of ONE hue each, canvas-mode
+ *      selected via light-dark(). --cat-N-fill is the leaf/area (light: pale
+ *      chromatic; dark: jewel tone); --cat-N-mark is the stroke/border (the
+ *      opposite tier). The paired inks --cat-on-fill / --cat-on-mark FLIP with
+ *      the fill tier. Holds the three-layer contrast contract (mark-vs-bg
+ *      >=3:1, ink-vs-fill >=4.5:1, fill != mark), gated by checkCatContrast.
+ *      See engineering/decisions/2026-07-15-categorical-token-contract.md.
  *
  *   3. Saturation reserved for two purposes:
  *        a. Borders. Saturated brand navy #1F4A6E reads on every fill.
@@ -45,7 +44,7 @@
  *           critical and diagram-error-bg — never on routine fills.
  *
  *   4. Every text-bearing token clears WCAG AA (4.5:1) against the
- *      surface it appears on, asserted by test/unit/contrast.test.js.
+ *      surface it appears on, asserted by test/unit/palette/contrast.test.js.
  *      Decorative tokens (borders, hairlines, muted chrome, spectrum
  *      gradient) are WCAG-exempt per design.
  *

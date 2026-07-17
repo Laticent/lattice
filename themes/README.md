@@ -81,10 +81,10 @@ The engine reads the file once. Authors edit one file.
 │                                                                                    │
 │ :root {                                                                            │
 │   /* categorical palette */                                                        │
-│     --cat-1-fill..--cat-12-fill ─ 12 pale fills, L≈87                              │
-│     --cat-1-mark ..--cat-12-mark  ─ 12 deep strokes/inks, L≈32                     │
-│     --cat-on-fill           ─ dark text on cat-N-fill, fixed hex                   │
-│     --cat-on-mark            ─ light text on cat-N-mark, default #FFF              │
+│     --cat-1-fill..--cat-12-fill ─ fills: light-dark(pale, jewel)                   │
+│     --cat-1-mark ..--cat-12-mark  ─ marks: light-dark(deep, pale)                  │
+│     --cat-on-fill  ─ label ink on the fill, FLIPS with tier                        │
+│     --cat-on-mark  ─ ink on the mark, FLIPS with tier                              │
 │                                                                                    │
 │   /* structural */                                                                 │
 │     --diagram-stroke              ─ universal saturated stroke                     │
@@ -111,50 +111,39 @@ up.
 
 ---
 
-### The lightness contract
+### The categorical contrast contract
 
-Categorical fills come in two lightness tiers. Status signals (warm /
-cool / alarm / mark / note) live in `lattice.css` as universal defaults
-that themes can override:
+Each categorical slot is a **flipping** pair of one hue: `--cat-N-fill` (the
+leaf/area) and `--cat-N-mark` (the stroke/border) swap lightness tiers when the
+canvas flips, and the paired inks flip with them. Status signals live in
+`lattice.css` as universal defaults that themes can override:
 
 ```
-   L ≈ 87  ┃ █ █ █ █ █ █ █ █ █ █ █ █  pale fills (12 slots)
-   pale    ┃                          --cat-1-fill..--cat-12-fill — every
-   tier    ┃                          coloured fill Mermaid can paint
-           ┃                          (flowchart, sequence, pie, journey,
-           ┃                          mindmap, kanban, c4, treemap,
-           ┃                          gitgraph label pills, decision
-           ┃                          accents, roadmap horizons)
-           ┃                          → paired --cat-on-fill is a fixed
-           ┃                            dark hex, ≥10:1 contrast
-   ─────── ╋ ──────────────────────────────────────────────────────
-   L ≈ 32  ┃ ▓ ▓ ▓ ▓ ▓ ▓ ▓ ▓ ▓ ▓ ▓ ▓  deep strokes/inks (12 slots)
-   deep    ┃                          --cat-1-mark..--cat-12-mark — saturated
-   tier    ┃                          marks: decision-list deep accents,
-           ┃                          piechart wedges, gitgraph branch
-           ┃                          dots, sankey nodes, kpi trajectory
-           ┃                          borders, xy-chart plot palette
-           ┃                          → paired --cat-on-mark is white
-           ┃                            (themes can override to a warm
-           ┃                            off-white)
-   ─────── ╋ ──────────────────────────────────────────────────────
-           ┃ universal semantic palette (lattice.css defaults)
-   status  ┃ --diagram-active + --diagram-active-mark   in-progress / warn pair
-   signals ┃ --diagram-done + --diagram-done-mark   done / muted / grid pair
-           ┃ --diagram-critical + --diagram-critical-mark       saturated red, alarm pair
-           ┃ --diagram-today                         saturated yellow highlight
-           ┃ --diagram-note                         pale yellow aside surface
+   light mode           ┃ --cat-N-fill: pale chromatic   → --cat-on-fill: dark ink
+   ⇅ canvas flips        ┃ --cat-N-mark: deep edge/border
+   ─────────────────────╋──────────────────────────────────────────────────
+   dark mode            ┃ --cat-N-fill: jewel tone       → --cat-on-fill: light ink
+                        ┃ --cat-N-mark: pale tint
+   ─────────────────────╋──────────────────────────────────────────────────
+   three-layer contract ┃ ① mark vs --bg ≥ 3:1    ② fill vs --bg low (ungated)
+   (checkCatContrast)   ┃ ③ --cat-on-fill vs fill ≥ 4.5:1    ④ fill ≠ mark
+   ─────────────────────╋──────────────────────────────────────────────────
+   universal semantic   ┃ --diagram-active(+-mark)   in-progress / warn pair
+   palette (lattice.css ┃ --diagram-done(+-mark)     done / muted / grid pair
+   defaults)            ┃ --diagram-critical(+-mark) saturated red, alarm pair
+                        ┃ --diagram-today            saturated yellow highlight
+                        ┃ --diagram-note             pale yellow aside surface
 ```
 
-Slot 1 of the categorical cycle doubles as the canonical primary fill
-for any single-band diagram (flowchart node, sequence actor). Brand
-hue anchors slot 1 by convention; subsequent slots follow whichever
-strategy the palette adopted (Brand triad is the default, generated
-from `examples/palette-audit.md`).
+Slot 1 of the categorical cycle doubles as the canonical primary fill for any
+single-band diagram (flowchart node, sequence actor). The 12 slots are
+regenerated per theme by a deterministic recipe from each theme's own hues —
+copy a shipped three-layer block (indaco / cuoio) and re-hue it.
 
-`test/unit/contrast.test.js` asserts AA (4.5:1) on every
-`--cat-N-fill` / `--cat-on-fill` pair and every `--cat-N-mark` / `--cat-on-mark`
-pair, in both light and dark canvas modes.
+`checkCatContrast` (in `tools/check-ownership.js`, via `build:check`) asserts the
+three gated layers — ① mark-vs-`--bg`, ③ `--cat-on-fill`-vs-fill, ④ fill ≠ mark —
+on every hue-based theme, both canvas modes. Layer ② is a design intention, not a
+gated number.
 
 ---
 
@@ -175,12 +164,13 @@ The browser resolves the function at every use site against the active
 shims — the same mechanism works in marp-cli, the lattice emulator, and
 the VS Code Marp preview.
 
-The `--cat-on-fill` and `--cat-on-mark` tokens are an exception: pinned
-to fixed hex (not `light-dark(…)`), because the categorical fills
-themselves stay in their lightness tier in both canvas modes — the text
-on top must too. Same for `--diagram-today`, `--diagram-critical`, `--diagram-critical-mark`,
-`--diagram-note` (the universal semantic palette is canvas-mode-independent
-by design).
+The `--cat-on-fill` and `--cat-on-mark` inks **flip** with the scheme
+(`--cat-on-fill: var(--text-heading)`), because the categorical fill swaps tiers
+across canvas modes — pale in light, a jewel tone in dark — so the ink on top must
+flip too (a fixed dark hex would drop below AA on the dark jewel fill and fail
+`checkCatContrast`). The universal semantic palette (`--diagram-today`,
+`--diagram-critical`, `--diagram-critical-mark`, `--diagram-note`) is the exception
+that stays canvas-mode-independent by design.
 
 ---
 
@@ -213,11 +203,11 @@ What to change, in order of impact:
 2. **Accent** (`--accent`, `--on-accent`). The most-seen colour after
    ink. Must clear 4.5:1 against `--bg` and against `--accent-soft`.
 3. **Categorical cycle** (`--cat-1-fill` / `--cat-1-mark` through
-   `--cat-12-fill` / `--cat-12-mark`, plus `--cat-on-fill` and `--cat-on-mark`).
-   Sourced from `examples/palette-audit.md` — the rank-1 Brand-triad
-   proposal for your theme is a known-good starting point. Each pair
-   must clear AA against its paired ink — the contrast test will catch
-   slips.
+   `--cat-12-fill` / `--cat-12-mark`, plus the flipping `--cat-on-fill` and
+   `--cat-on-mark` inks). Copy a shipped three-layer block (indaco / cuoio) and
+   re-hue it — the tiers flip with the canvas, so keep the `light-dark()` pairs.
+   The three-layer contract (mark-vs-`--bg` ≥ 3:1, `--cat-on-fill`-vs-fill ≥ 4.5:1,
+   fill ≠ mark) is enforced in both modes by `checkCatContrast`.
 4. **Structural tokens** (`--diagram-stroke`, `--diagram-line`, `--diagram-accent-warm`).
    The saturated brand stroke (reads on every pale fill including
    white), the edge/arrow line, and a secondary warm accent for
@@ -227,7 +217,7 @@ What to change, in order of impact:
    / `--diagram-today` / `--diagram-note`). The deck's status-signaling colours.
    Inherit lattice.css defaults (cuoio is the one theme that overrides
    for its leather aesthetic).
-6. **Dark variant tokens** (`--dark-*`). Used by `section.dark` and by
+6. **Dark variant tokens** (`--scheme-dark-*`). Used by `section.dark` and by
    the dark sides of every `light-dark(…)` pair.
 
 You can ignore everything else on a first pass. The DIAGRAM OVERRIDES
@@ -258,13 +248,12 @@ references the `--c-*` tokens by name — your new values flow through.
    no visible border                          saturated to read on every pale
                                               fill including white
 
-   Pale fill readable in light mode, white    --cat-on-fill declared with
-   text on pale fill in dark mode             light-dark(--text-heading,…) —
-                                              the fill stays pale in dark
-                                              mode, so pin --cat-on-fill
-                                              to a fixed dark hex
+   Label unreadable on a categorical fill     --cat-on-fill pinned to a FIXED hex —
+   in dark mode                               the fill is a jewel tone in dark
+                                              mode, so the ink must FLIP to
+                                              var(--text-heading)
 
-   One slide is dark but the title shows      section.title pulls --dark-*
+   One slide is dark but the title shows      section.title pulls --scheme-dark-*
    wrong colours                              tokens directly; your dark
                                               variant block is incomplete
 ```
@@ -278,7 +267,7 @@ For deeper triage see `engineering/gotchas.md`.
 | You want to…                                   | Read                       |
 |------------------------------------------------|----------------------------|
 | Author a new palette, end to end               | `design/theming.md`          |
-| See the scored palette proposals per theme     | `examples/palette-audit.md` (build the PDF if not present) |
+| See the (retired) categorical proposal deck    | `themes/palette-audit.md` — chart-palette scoring only; its `--cat-*` values are superseded (#1022) |
 | Understand why `themeCSS` was dropped          | `engineering/decisions/2026-05-12-diagram-tokens.md` |
 | See every layout the engine ships              | `engineering/architecture.md`     |
 | Trace a colour from palette to rendered pixel  | `lattice.css` (search the token, then the DIAGRAM OVERRIDES section) |

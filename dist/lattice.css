@@ -250,11 +250,11 @@
 
   /* ── Categorical palette consumers ────────────────────────────────────
    * Each theme exports 12 paired slots: --cat-1-fill/--cat-1-mark .. --cat-12-fill/
-   * --cat-12-mark, plus paired ink: --cat-on-fill (non-flipping dark text on
-   * pale fills) and --cat-on-mark (white-ish text on deep fills, default
-   * #FFFFFF, themes can override). All --cN-light/--cat-on-fill pairs are
-   * AA-safe; all --cN-dark/--cat-on-mark pairs are AA-safe. Hex values are
-   * sourced from the Brand-triad rank-1 proposal in themes/palette-audit.md. */
+   * --cat-12-mark, each a FLIPPING light-dark() tier of one hue (fill: pale↔jewel;
+   * mark: deep↔pale), plus paired inks --cat-on-fill / --cat-on-mark that FLIP with
+   * the fill tier. Holds the three-layer contrast contract (mark-vs-bg >=3:1,
+   * ink-vs-fill >=4.5:1, fill != mark), gated by checkCatContrast in both modes.
+   * See engineering/decisions/2026-07-15-categorical-token-contract.md. */
 
   /* ════════════════════════════════════════════════════════════════════
    * UNIVERSAL TOKEN SYSTEM — categorical vocabulary (group 5, CANONICAL)

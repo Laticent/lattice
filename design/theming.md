@@ -20,7 +20,7 @@ contains:
    the universal semantic palette + diagram overrides).
 3. A `:root` block defining color tokens used by `lattice.css` (surfaces,
    ink, accents, semantic signals).
-4. A `:root` block defining `--dark-*` tokens used by the `section.dark`
+4. A `:root` block defining `--scheme-dark-*` tokens used by the `section.dark`
    variant for cover/divider/closing slides on a dark canvas.
 5. A `:root` block defining `--hljs-*` tokens for code-block syntax colors.
 6. A `:root` block defining `--c-*` tokens — the categorical palette

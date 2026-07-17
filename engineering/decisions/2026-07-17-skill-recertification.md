@@ -130,33 +130,41 @@ plus a maker-checker on the gate diff. Findings folded before commit:
   not neighbor canon). Also: `contractTokenCount` could return a wrong number on a stray
   quote/comment — hardened to fail closed (token-shape validation + comment stripping).
 
-## Deferred (off the direct path — logged, not fixed here; HARD RULE #18)
+## Neighbor canon — folded in (the Munger "half-migrated canon" fix)
 
-The retired categorical model, and retired token NAMES, survive on several theme-authoring
-surfaces beyond the skills. These form a coherent, separate **"re-certify the theme
-scaffolder + theme-CSS-comment surfaces"** follow-up (kept out of this PR per #17; the
-skill now explicitly warns authors about each, so following the skill is safe):
+The Munger inversion's sharpest point was that a re-certified skill which silently *vouches
+for* stale copy-sources is worse than a uniformly-stale canon. `theme.md`'s recipe (`npm run
+new:theme`) and "Where it lives" routed authors straight into surfaces still on the retired
+model — including retired token NAMES beyond the categorical drift. On the owner's call these
+were folded into this PR rather than deferred, so the whole categorical story is coherent:
 
 - **`tools/new-theme.js` (`checklistBlock`)** — the `TODO(palette)` checklist stamped into
-  every new theme teaches the retired fixed-non-flipping-ink recipe and references tokens
-  that no longer exist in the file it stamps into (`--diagram-band-1..12`, `--cat-blue…
-  --cat-mauve`, `--chart-1..6`, `--dark-*`; the real contract is `--cat-N-fill/-mark`,
-  `--chart-cat1..8`, `--scheme-dark-*`). Highest-leverage — it's on the scaffold happy path.
-- **`themes/indaco.css` header "Design contract" comment** — describes the retired L≈83/L≈60
-  band model and `--diagram-band-*`. Its token *values* are correct (three-layer); only the
-  comment is stale.
-- **`lib/base/base.tokens.css`** (lines ~185, 189) — a stale "non-flipping dark text …
-  Brand-triad rank-1 proposal in palette-audit.md" comment that regenerates into
-  `dist/lattice.css` / `dist/lattice-default.css` on every build (source comment, not a
-  hand-edited dist file — no HARD RULE #2 issue, but it keeps re-emitting stale prose).
-- **`themes/README.md`** — the categorical model wall-to-wall (L≈87/L≈32 ASCII tiers, fixed
-  non-flipping ink, "copy palette-audit rank-1") AND the retired `--dark-*` naming.
-- **`engineering/decisions/2026-06-10-design-studio-themes-layouts.md`** — mentions L≈87/L≈32;
-  left as-is (a dated decision record captures a point-in-time decision, superseded by #1022,
-  per the house convention that living contracts move to the canonical doc).
+  every new theme referenced tokens that no longer exist in the file it stamps into
+  (`--diagram-band-1..12`, `--cat-blue…--cat-mauve`, `--chart-1..6`, `--dark-*`) and taught
+  the fixed-non-flipping-ink recipe. Rewrote it to the real contract (`--cat-N-fill/-mark`,
+  the flipping inks + three-layer contract, `--chart-cat1..8`, `--scheme-dark-*`). Verified:
+  scaffolding a theme now stamps the correct checklist and the result passes `checkCatContrast`.
+- **`themes/indaco.css` header "Design contract" comment** — rewrote the retired "L≈83/L≈60
+  band / `--diagram-band-*`" item to the three-layer flipping cycle; fixed a stale test path.
+  (Token *values* were already correct — only the comment was stale.)
+- **`lib/base/base.tokens.css`** — rewrote the "non-flipping dark text … Brand-triad rank-1
+  proposal" comment to the three-layer flipping model; `npm run build` regenerated the
+  comment into `dist/lattice.css` / `dist/lattice-default.css` (comment-only, no token bytes).
+- **`themes/README.md`** — rewrote the categorical model wall-to-wall (the anatomy box, the
+  "categorical contrast contract" diagram, the dark-mode section's false "fixed hex because
+  the fill stays pale" claim, the recipe step, and the triage entry that gave the now-*wrong*
+  "pin to a fixed dark hex" fix) and corrected the retired `--dark-*` → `--scheme-dark-*` naming.
+- **`themes/palette-audit.md`** — superseded banner on the categorical proposals.
 
-Partial mitigation applied here: `themes/palette-audit.md` got a superseded banner ("do not
-copy these `--cat-*` values") so the most direct trap is closed regardless of who finds it.
+**Still deferred (genuinely off-path):**
+- **`engineering/decisions/2026-06-10-design-studio-themes-layouts.md`** mentions L≈87/L≈32 —
+  left as-is: a dated decision record captures a point-in-time decision, superseded by #1022,
+  per the house convention that living contracts move to the canonical doc while decision docs
+  record history.
+- A broader `themes/README.md` / `indaco.css` token-name audit beyond the categorical model
+  (e.g. `--diagram-state-critical` / `--diagram-error-bg` naming in a header comment) is out of
+  this categorical re-certification's scope.
 
 No `CHANGELOG` entry: the skills and canon docs are internal authoring guidance, not a
-user-visible engine change (the render output is byte-identical).
+user-visible engine change (the render output — deck PDF/PPTX/HTML bytes — is unchanged; only
+generated-CSS comments moved).
