@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: (Leak fixes shipped; the runtime FPS=30 hardening is an evidence-gated open follow-up, tracked in the body.) An adversarial trio (red-team leak hunt + Munger inversion + across-refresh storage audit, then an independent checker) traced a field report of "the live preview degrades the longer a session runs AND across multiple refreshes; FPS pinned at 30." Verdict — the docs/src preview path is mostly well-defended; the REAL, confirmed accumulation is (1) createSingleSlideRenderer had no dispose(), so remounting hosts leaked a parsed ~560KB theme iframe each cycle; (2) specimen.js's onThemeChange MutationObserver on the immortal documentElement was never disconnected; (3) the service worker never version-evicted old content-hashed assets, bloating Cache Storage across deploys. All three FIXED here. The most-likely FPS=30 cause — a runtime rAF↔MutationObserver loop that never idles if a per-frame geometry/overflow write oscillates — is a GUARDED risk that can't be confirmed by static analysis; it needs on-device instrumentation before touching the shared runtime (export-sensitive), so it's a scoped follow-up, NOT shipped blind.
+summary: (Leak fixes shipped. The FPS=30 follow-up is now RESOLVED — measurement DISPROVED the runtime oscillation: the preview settles to zero at-rest mutations on every slide tested and rAF runs a full 60/sec, so FPS=30 was environmental, NOT a code bug. No runtime change shipped; instead a settle-check guard + a display-ceiling-relative FPS rating in the overlay.) An adversarial trio (red-team leak hunt + Munger inversion + across-refresh storage audit, then an independent checker) traced a field report of "the live preview degrades the longer a session runs AND across multiple refreshes; FPS pinned at 30." Verdict — the docs/src preview path is mostly well-defended; the REAL, confirmed accumulation is (1) createSingleSlideRenderer had no dispose(), so remounting hosts leaked a parsed ~560KB theme iframe each cycle; (2) specimen.js's onThemeChange MutationObserver on the immortal documentElement was never disconnected; (3) the service worker never version-evicted old content-hashed assets, bloating Cache Storage across deploys. All three FIXED here. The most-likely FPS=30 cause — a runtime rAF↔MutationObserver loop that never idles if a per-frame geometry/overflow write oscillates — is a GUARDED risk that can't be confirmed by static analysis; it needs on-device instrumentation before touching the shared runtime (export-sensitive), so it's a scoped follow-up, NOT shipped blind.
 ---
 
 # Preview performance — accumulation over a session / across refreshes
@@ -38,7 +38,11 @@ engine bundle → cold refetch" mechanism: the FIFO trims oldest-inserted (old-d
 entries first and SWR re-puts current assets, so the current bundle is not the one evicted.
 The real issue is Cache-Storage hygiene, medium — hence fix #3 keeps only the live deploy.
 
-### Primary FPS=30 suspect — PLAUSIBLE, unconfirmed, NOT fixed here
+### Primary FPS=30 suspect — was PLAUSIBLE, later DISPROVEN by measurement (see the RESOLVED section below)
+
+> **Update:** the hypothesis in this section was tested and did **not** hold — the runtime settles to
+> zero at-rest mutations on every slide, rAF runs 60/sec, so FPS=30 is environmental. Kept for the
+> reasoning trail; the verdict is in "## FPS=30 follow-up — RESOLVED" below.
 
 Both the red-team and inversion hunters point outside `docs/src`, to the **injected runtime**
 (`lib/runtime/index.js`): the patch fast-path keeps **one iframe document alive for the whole
@@ -69,16 +73,43 @@ an unreachable node); every React-side palette observer disconnects; localStorag
 (auto-checkpoints capped) are disciplined. The user's suspicion was right in *kind*; most obvious
 vectors were already defended.
 
-## The follow-up (evidence-gated, separate change)
+## FPS=30 follow-up — RESOLVED: the oscillation is DISPROVEN; the cause is environmental
 
-Do NOT harden the runtime loop blind: `lib/runtime/index.js` is the shared engine runtime and
-feeds the **HTML-player export**, so a geometry/overflow change alters exported bytes → export
-sign-off gate (QUALITY BAR) + real-device verification. Sequence:
-1. **Instrument** — count `dispatchPostMutation` invocations on a *resting* (non-typing) preview;
-   non-zero at rest ⇒ a guard is oscillating (confirms FPS=30 on the real device, HARD RULE #23).
-2. **Harden** only what the evidence implicates — hysteresis on the `TOL` overflow flip, coarser
-   `--_sec-1cqi` quantization, and/or a periodic forced full write every N patches to reset
-   accumulated in-iframe state — then render a demo deck in both modes for export sign-off.
+The follow-up was to confirm the runtime oscillation before touching the export-sensitive shared
+runtime (HARD RULE #23) — because the "guarded write oscillates" story was never more than a
+static-analysis hypothesis. **It was measured, and it does not hold.** A headless reproduction
+(`docs/scripts/runtime-settle-check.mjs`) rendered representative slides in the REAL built
+Playground preview and watched the live iframe at rest, replacing "count `dispatchPostMutation`"
+with the equivalent black-box signal — **at-rest DOM mutations** (a settled runtime writes zero;
+an oscillating one churns every frame):
+
+| scenario | at-rest mutations (2s) |
+|---|---|
+| minimal / dense-overflow / borderline-overflow / piechart / mermaid / wide-code | **0 each** |
+| Studio preview after a viewport RESIZE | **0** |
+| landing hero (RestyleShowcase auto-cycling) | **0** |
+| rAF serviced rate, resting Studio + landing | **60/sec** |
+
+So the runtime's change-gated writes settle exactly as designed — no perpetual `rAF↔MutationObserver`
+loop for any slide tested, and the frame loop runs a full 60/sec at rest. **The reported FPS=30 is
+environmental** — a 30Hz panel, a power-saver / thermal rAF throttle (common on tablets/iOS), or a
+backgrounded/occluded tab — not a code oscillation. Hardening the runtime would have "fixed" a bug
+that does not exist, and changed HTML-export bytes for nothing. **No runtime change shipped.**
+
+What DID ship instead:
+1. **`runtime-settle-check.mjs`** (`npm run settle:check`, docs/) — a committed, on-demand guard that
+   fails if any representative slide churns at rest. It turns the runtime's own "must settle" comments
+   (`dispatchPostMutation`, `patchSectionGeometry`, the overflow watcher) into an enforceable check, so
+   a *future* regression that reintroduces the perpetual loop is caught, not shipped.
+2. **The perf overlay's FPS metric now rates against the display's OWN ceiling** (the max FPS seen this
+   session, mirroring how MEM rates against the heap limit) instead of a fixed 60 band — so a steady 30
+   on a 30Hz/throttled device reads healthy, and only FPS dropping *below its own ceiling* flags. The
+   metric copy now says so. This is the fix for the actual user-facing problem: the overlay was
+   flagging the device refresh rate as if it were jank, which is what triggered this whole hunt.
+
+If a real on-device at-rest oscillation is ever found (a specific slide/finish/animation not covered
+here), `settle:check` is the harness to capture it, and only THEN does the export-gated runtime
+hardening (hysteresis on `TOL`, coarser `--_sec-1cqi`) become warranted.
 
 ## Second adversarial trio — verifying the fix (HARD RULE #25)
 
