@@ -3408,6 +3408,155 @@ section.content[data-orientation='square'] > .cell-stage > :is(p,ul,ol) {
   }
 }
 
+/* === lib/components/progression/cycle/cycle.styles.css === */
+/* cycle — a closed loop of 3-6 stages that returns to its start.
+ *
+ * Palette-blind (var(--token) only, HARD RULE #3), margin-free (padding/gap,
+ * HARD RULE #20). UNLAYERED — Lattice's `@layer components` is inert
+ * (engineering/cascade.md), so component CSS is authored unlayered like every
+ * shipped component. CSS-only (substance: structure, no transform): the native
+ * `ul > li` markdown renders identically on all three paths (HARD RULE #1).
+ *
+ * The loop reads: stage nodes flow left→right with moss chevrons between them,
+ * and a return arc beneath carries the last stage back to the first — the ↻
+ * glyph on the arc says the wheel turns. On a narrow/portrait frame the ring
+ * reflows to a vertical stack (adapt.mode: reflow).
+ */
+
+section.cycle > .cell-stage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* ── The ring: a row of equal-height stage nodes, with room below for the
+ *    return arc (reserved with padding — measurable by the overflow probe). ── */
+section.cycle > .cell-stage > ul {
+  list-style: none;
+  padding: 0 0 var(--sp-xl) 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: var(--sp-lg);
+  position: relative;
+}
+
+/* ── A stage node. The first text line is the stage name (auto-bold via the
+ *    li's own weight, the card idiom); the nested bullet is the body clause. ── */
+section.cycle > .cell-stage > ul > li {
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-xs);
+  padding: var(--sp-sm) var(--sp-md);
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-card);
+  font-weight: 700;
+  color: var(--text-heading);
+  line-height: var(--lh-snug);
+  position: relative;
+}
+
+/* forward connector — a moss chevron sitting in the gap after each stage but
+ * the last. The negative offset is placement into the gap, not spacing. */
+section.cycle > .cell-stage > ul > li:not(:last-child)::after {
+  content: "\203A"; /* › */
+  position: absolute;
+  top: 50%;
+  right: calc(-1 * var(--sp-lg));
+  width: var(--sp-lg);
+  transform: translateY(-50%);
+  text-align: center;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: var(--fs-h3);
+  line-height: 1;
+}
+
+/* the return arc — a U beneath the row joining the last stage back to the
+ * first; the ↻ glyph, chipped over the arc, names the loop. Both are absolutely
+ * positioned (decorative), so they add no height the probe must account for. */
+section.cycle > .cell-stage > ul::after {
+  content: "";
+  position: absolute;
+  left: var(--sp-md);
+  right: var(--sp-md);
+  bottom: 0;
+  height: var(--sp-lg);
+  border: 2px solid var(--accent);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  opacity: 0.7;
+}
+section.cycle > .cell-stage > ul::before {
+  content: "\21BB"; /* ↻ */
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 35%);
+  padding: 0 var(--sp-xs);
+  background: var(--bg);
+  color: var(--accent);
+  font-size: var(--fs-h3);
+  line-height: 1;
+}
+
+/* ── The stage body — the nested clause under the name. ── */
+section.cycle > .cell-stage > ul > li > ul,
+section.cycle > .cell-stage > ul > li > ol {
+  list-style: none;
+  padding: var(--sp-xs) 0 0 0;
+}
+section.cycle > .cell-stage > ul > li > ul > li,
+section.cycle > .cell-stage > ul > li > ol > li {
+  font-weight: 400;
+  color: var(--text-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-base);
+}
+/* backwards-compat: an explicit `**Name**` shim shouldn't bold its siblings. */
+section.cycle > .cell-stage > ul > li > strong { font-weight: 700; }
+section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
+
+/* ── Reflow: a narrow / portrait frame stacks the ring vertically. The forward
+ *    connector becomes a down-chevron between rows; the return arc runs up the
+ *    left side back to the top. ── */
+@container lattice (aspect-ratio <= 1.05) {
+  section.cycle > .cell-stage > ul {
+    flex-direction: column;
+    padding: 0 0 0 var(--sp-xl);
+  }
+  section.cycle > .cell-stage > ul > li:not(:last-child)::after {
+    content: "\2304"; /* ⌄ */
+    top: auto;
+    right: auto;
+    bottom: calc(-1 * var(--sp-lg));
+    left: 50%;
+    width: auto;
+    transform: translateX(-50%);
+  }
+  section.cycle > .cell-stage > ul::after {
+    left: 0;
+    right: auto;
+    top: var(--sp-md);
+    bottom: var(--sp-md);
+    width: var(--sp-lg);
+    height: auto;
+    border: 2px solid var(--accent);
+    border-right: none;
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  }
+  section.cycle > .cell-stage > ul::before {
+    left: 0;
+    bottom: 50%;
+    transform: translate(-35%, 50%);
+  }
+}
+
 /* === lib/components/comparison/decision/decision.styles.css === */
 /* decision — extracted from lib/_legacy.css (batch 4).
  * See lib/components/decision/decision.manifest.json for the component contract.

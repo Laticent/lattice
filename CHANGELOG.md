@@ -212,6 +212,14 @@ in patch versions.
   slide-divider preview paints the deck's **real spectrum ribbon** with `spectrum-trim: on` (`--spectrum`
   is now in the Studio's token scope), and the mobile control bar sizes up cleanly with no edge clipping.
   See `engineering/decisions/2026-07-18-compose-prosemirror.md`.
+- **`cycle` — a new `progression` component for a closed loop of stages.** For a process with no
+  beginning or end, where the last stage feeds the first: a natural cycle, a feedback loop, a
+  recurring phase. Stage nodes flow left→right with connector chevrons, and a return arc beneath
+  (with a ↻ glyph) carries the last stage back to the first. Author it as an *unordered* list
+  (`- Stage` / `  - one clause`) — the order comes from position and the arrows, not numbers, because
+  a cycle has no "step one." Holds 3–6 stages (crowds past 5); reflows to a vertical stack on a
+  narrow/portrait frame. Reach for `list-steps` instead when the process is linear with a real start
+  and finish. (`lib/components/progression/cycle/`, `examples/cycle.md`.)
 - **Callout eyebrows are now renamable — `insight-*` modifiers on the slide `_class`.** The
   universal Key Insight panel and the split-compare verdict tag both emit their eyebrow through one
   shared `--insight-label` seam, so a curated modifier swaps the word to a boardroom heading

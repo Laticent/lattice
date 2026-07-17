@@ -245,6 +245,24 @@
     ],
     "description": "Generic prose slide — heading plus paragraphs or a short list."
   },
+  "lattice: cycle": {
+    "prefix": "lattice-cycle",
+    "body": [
+      "<!-- _class: cycle -->",
+      "",
+      "## The heading names the loop.",
+      "",
+      "- First stage",
+      "  - One clause saying what happens here.",
+      "- Second stage",
+      "  - One clause saying what happens here.",
+      "- Third stage",
+      "  - One clause saying what happens here.",
+      "- Fourth stage",
+      "  - One clause saying what happens here."
+    ],
+    "description": "A closed loop of 3-6 stages that returns to its start — for a process with no beginning or end, where the last stage feeds the first."
+  },
   "lattice: decision": {
     "prefix": "lattice-decision",
     "body": [
