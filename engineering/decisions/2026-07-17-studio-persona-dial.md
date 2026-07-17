@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 summary: >
   The Studio sorts people into a reduced newcomer surface vs. the full surface
   with a hidden one-way boolean (`onboarded`) plus a welcome banner whose only
@@ -506,9 +506,18 @@ commit per milestone, the adversarial trio after each. Status:
   re-bloom at width), and the dial is never icon-only (labels show ≥640px; below
   that mobile uses the Edit/Preview pane toggle instead of the dial). Dial fit at
   tablet confirmed at 820px.
-- **M6 (remaining):** the comprehensive `docs/e2e` CHROME/selector sweep + an
-  actual Playwright run (not runnable in this sandbox — state results there), the
-  `CHANGELOG` `## Unreleased` entry, a per-feature demo (if warranted), and
-  flipping this doc's `status:` to accepted. The one carried-forward code
-  follow-up: the general *transient dock* (`revealBuild`) so `onReshape` /
-  Inspector reach from Read/Write without persisting Build.
+- **M6 shipped (docs + e2e sweep).** `CHANGELOG` `## Unreleased` records the
+  change; this doc is `status: accepted`. The `docs/e2e` selector sweep is
+  **clean by inspection**: zero references remain to any removed control (no
+  "focus mode" / "Got it" / "New here" / "graduate" / "onboarded" anywhere under
+  `docs/e2e`), and every spec that drives the full surface resolves because
+  `gotoStudio` seeds the Build posture before hydration (M2). **The one thing not
+  done here: an actual Playwright run** — the Studio e2e suite isn't runnable in
+  this sandbox, so it is UNVERIFIED-by-run and must be executed on a
+  Playwright-capable host (or via CI's nightly Studio job) before merge; the
+  by-inspection sweep found nothing broken, but that is not a substitute for the
+  run (HARD RULE #23).
+- **Carried-forward code follow-up (not blocking):** the general *transient dock*
+  (`revealBuild`, symmetric to `quietened`) so `onReshape` / the Inspector reach
+  from Read/Write without persisting Build. Until then `onReshape` is a sanctioned
+  Build jump. Worth its own small change + trio.
