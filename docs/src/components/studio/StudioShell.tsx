@@ -50,7 +50,7 @@ import { LensesPanel, type TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
-import { type PresentLens, presentationSet, scoreDeck, slideClass, splitSlides, unknownComponents, usedComponents } from './lint';
+import { type PresentLens, presentationSet, scoreDeck, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
 import { activeRule, RULES } from './rule-catalog';
@@ -2077,6 +2077,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			<nav className="flex items-center gap-1.5 overflow-x-auto" aria-label="Slide navigator">
 				{viewSlides.map((s, i) => {
 					const on = i === slideNo - 1;
+					// Read is the newcomer's stop — label each slide by its TITLE (its first
+					// heading), not its component class (`big-number`/`split-compare` is jargon
+					// they can't read). Write/Build keep the class label — the author wants it.
+					const readTitle = slideTitle(s);
+					const label = effectiveStop === 'read' ? readTitle || `Slide ${i + 1}` : slideClass(s);
 					return (
 						<button
 							type="button"
@@ -2084,11 +2089,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							key={i}
 							onClick={() => goToSlide(i)}
 							aria-current={on}
-							aria-label={`Slide ${i + 1} — ${slideClass(s)}`}
+							aria-label={effectiveStop === 'read' ? `Slide ${i + 1}${readTitle ? ` — ${readTitle}` : ''}` : `Slide ${i + 1} — ${slideClass(s)}`}
 							className={cn('flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-left transition-colors', on ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]')}
 						>
 							<span className={cn('grid size-[18px] shrink-0 place-items-center rounded-md font-mono text-[10px] font-bold', on ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>{i + 1}</span>
-							<span className={cn('font-mono text-[11px]', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{slideClass(s)}</span>
+							<span className={cn('text-[11px]', effectiveStop === 'read' ? 'max-w-[18ch] truncate font-sans font-medium' : 'font-mono', on ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{label}</span>
 						</button>
 					);
 				})}

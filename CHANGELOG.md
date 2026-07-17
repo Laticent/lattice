@@ -290,7 +290,10 @@ in patch versions.
   stranded in Build. Read stays a calm label (managing decks is a Write-and-up concern). The full-bleed
   preview (Read, and editor-collapsed) now *contains* the slide — the whole slide is visible, letterboxed,
   never cropped — instead of covering the pane width and clipping the slide's header / footer / page
-  number off the top and bottom when the pane was wider than the slide's aspect ratio. Full design +
+  number off the top and bottom when the pane was wider than the slide's aspect ratio. In Read the
+  slide navigator labels each slide by its **title** (its first heading) rather than its component
+  class — `big-number` / `split-compare` is jargon the newcomer can't read; the class label stays in
+  Write / Build, where the author wants it. Full design +
   adversarial hardening: `engineering/decisions/2026-07-17-studio-persona-dial.md`.
 - **The live preview no longer accumulates leaked observers/iframes over a session, or stale
   cached assets across refreshes.** An adversarial-trio investigation (red-team leak hunt +

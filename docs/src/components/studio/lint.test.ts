@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { presentationIndices, presentationSet, scoreDeck, slideClass, slideIndexAt, slideStartOffset, splitSlides, unknownComponents, usedComponents } from './lint';
+import { presentationIndices, presentationSet, scoreDeck, slideClass, slideIndexAt, slideStartOffset, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 
 const KNOWN = ['title', 'kpi', 'quote', 'cards-grid', 'stats'];
 // Component-name-ish tokens (won't accidentally contain a `-->` or a fence).
@@ -88,6 +88,29 @@ describe('slideClass (fuzz)', () => {
 
 	it('reads only the FIRST class when a slide somehow carries two', () => {
 		expect(slideClass('<!-- _class: kpi -->\n<!-- _class: quote -->')).toBe('kpi');
+	});
+});
+
+describe('slideTitle (reader-facing navigator label)', () => {
+	it("returns the slide's first heading, past directives, stripped of inline syntax", () => {
+		expect(slideTitle('<!-- _class: title -->\n\n# Welcome to Lattice')).toBe('Welcome to Lattice');
+		expect(slideTitle('<!-- _class: big-number -->\n\n## What’s in the box')).toBe('What’s in the box');
+		// Inline emphasis / code / links are stripped to plain text.
+		expect(slideTitle('# The **bold** `truth` and a [link](https://x.io)')).toBe('The bold truth and a link');
+		// A closing-hash ATX heading trims the trailing hashes.
+		expect(slideTitle('### Closing ###')).toBe('Closing');
+	});
+
+	it('returns empty string when the slide has no heading (caller falls back to "Slide N") — never throws', () => {
+		expect(slideTitle('<!-- _class: quote -->\n\nJust a pull quote, no heading.')).toBe('');
+		expect(slideTitle('')).toBe('');
+		expect(slideTitle(undefined as unknown as string)).toBe('');
+		// A `#` without the required space is not an ATX heading.
+		expect(slideTitle('#notaheading')).toBe('');
+	});
+
+	it('takes the FIRST heading when a slide has several', () => {
+		expect(slideTitle('# First\n\nbody\n\n## Second')).toBe('First');
 	});
 });
 
