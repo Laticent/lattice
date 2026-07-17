@@ -56,7 +56,7 @@ const pct = (used: number, total: number) => (total > 0 ? Math.min(100, Math.max
 // inherits — so it lives under General, and cloud/on-device share it rather than each
 // carrying their own. Spend + Instructions used to be their own tabs; they're facets of
 // the AI model, so they live as sections under AI rather than as sibling tabs.
-const TABS = ['General', 'AI', 'Privacy & Data'] as const;
+const TABS = ['General', 'AI', 'Data'] as const;
 type Tab = (typeof TABS)[number];
 type GenView = 'cloud' | 'ondevice';
 
@@ -73,7 +73,7 @@ function AiSection({ children }: { children: React.ReactNode }) {
 	return <div className="mt-6 border-t border-border pt-5">{children}</div>;
 }
 
-// A single Privacy & Data row — one storage category, its stat line, and the same
+// A single Data-tab row — one storage category, its stat line, and the same
 // two-tap DeleteBtn the Library uses (HARD RULE #15: one delete affordance,
 // not a bespoke one per surface).
 function GovRow({ icon, title, description, stat, armed, busy, onArm, onConfirm, onCancel }: { icon: React.ReactNode; title: string; description: string; stat?: string; armed: boolean; busy: boolean; onArm: () => void; onConfirm: () => void; onCancel: () => void }) {
@@ -212,7 +212,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 		}
 	}, [open]);
 
-	// Privacy & Data (delete cache / decks / Library / OpenRouter / downloaded models).
+	// Data tab (delete cache / decks / Library / OpenRouter / downloaded models).
 	const [gov, setGov] = React.useState<GovernanceStats | null>(null);
 	const [govArmed, setGovArmed] = React.useState<string | null>(null);
 	const [govBusy, setGovBusy] = React.useState<string | null>(null);
@@ -221,7 +221,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	const [deletingAll, setDeletingAll] = React.useState(false);
 	const refreshGov = React.useCallback(() => { loadGovernanceStats().then(setGov).catch(() => {}); }, []);
 	React.useEffect(() => {
-		if (open && tab === 'Privacy & Data') { refreshGov(); return; }
+		if (open && tab === 'Data') { refreshGov(); return; }
 		// Disarm every two-tap delete the moment the sheet closes OR the user
 		// navigates to another tab (mirrors Library.tsx's `else { setArmed(null) }`
 		// on !open) — WorkspaceSheet is mounted unconditionally by StudioShell, so
@@ -450,41 +450,6 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 									})}
 								</div>
 								<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Applies to Share → PDF in this Studio; PowerPoint and Print are unaffected.</p>
-							</div>
-
-							<div className="mt-5">
-								<GroupLabel icon={<FolderTree className="size-3.5" />}>Where decks live</GroupLabel>
-								<button type="button" onClick={() => { setStoreInCloud(false); notify('Decks are stored on this device (localStorage).'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', !storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
-									<span className="text-[13px] font-semibold text-[var(--text-heading)]">This device only</span><span className="ml-auto text-[11px] text-muted-foreground">local · how Studio stores today</span>
-								</button>
-								<button type="button" onClick={() => { setStoreInCloud(true); notify('Cloud sync is not enabled in this build — decks stay on this device.'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
-									<span className="text-[13px] font-semibold text-[var(--text-heading)]">Cloud workspace</span><span className="ml-auto text-[11px] text-muted-foreground">synced — coming soon</span>
-								</button>
-							</div>
-
-							{/* Backup & restore — ownership framing, never alarm. The one place a
-							    browser-specific sentence appears is a Safari TAB (the storage-
-							    eviction case); the installed app and other browsers don't get it. */}
-							<div className="mt-6">
-								<GroupLabel icon={<LifeBuoy className="size-3.5" />}>Backup &amp; restore</GroupLabel>
-								<p className="mb-3 text-xs text-muted-foreground">
-									Your decks live in this browser — private to this device. A backup keeps them yours even if the browser clears its data.
-									{isEvictionProneBrowser() ? ' Safari clears unused site data after a week — a backup makes that a non-event.' : ''}
-								</p>
-								<div className="grid grid-cols-2 gap-2.5">
-									<button type="button" onClick={downloadBackup} disabled={busy != null} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-60">
-										<Download className="size-4" />{busy === 'backup' ? 'Packing…' : 'Download backup'}
-									</button>
-									<button type="button" onClick={() => restoreInput.current?.click()} disabled={busy != null} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-[13px] font-semibold text-[var(--text-heading)] disabled:opacity-60">
-										<Upload className="size-4" />{busy === 'restore' ? 'Restoring…' : 'Restore backup'}
-									</button>
-									<input ref={restoreInput} type="file" accept=".zip" aria-label="Restore a workspace backup" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) restoreBackup(f); }} />
-								</div>
-								<p className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-									<SlidersHorizontal className="size-3" />
-									Last backup: {backupAt ? new Date(backupAt).toLocaleDateString() : 'never'}{storageLine ? ` · ${storageLine}` : ''}
-								</p>
-								<p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">One zip: every deck (readable .md copies included), version history, chats, settings, and your Library — saved themes, components, finishes, and reference docs. Restoring never overwrites — a deck that changed since the backup comes back beside the current one as “(restored)”. Your OpenRouter connection is never in the file.</p>
 							</div>
 
 							{/* Install the app — the Studio IS the app (the manifest launches here).
@@ -727,8 +692,42 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 						</div>
 					)}
 
-					{tab === 'Privacy & Data' && (
+					{tab === 'Data' && (
 						<div>
+						<div className="mt-1">
+							<GroupLabel icon={<FolderTree className="size-3.5" />}>Where decks live</GroupLabel>
+							<button type="button" onClick={() => { setStoreInCloud(false); notify('Decks are stored on this device (localStorage).'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', !storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
+								<span className="text-[13px] font-semibold text-[var(--text-heading)]">This device only</span><span className="ml-auto text-[11px] text-muted-foreground">local · how Studio stores today</span>
+							</button>
+							<button type="button" onClick={() => { setStoreInCloud(true); notify('Cloud sync is not enabled in this build — decks stay on this device.'); }} className={cn('my-2 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left', storeInCloud ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-border')}>
+								<span className="text-[13px] font-semibold text-[var(--text-heading)]">Cloud workspace</span><span className="ml-auto text-[11px] text-muted-foreground">synced — coming soon</span>
+							</button>
+						</div>
+
+						{/* Backup & restore — ownership framing, never alarm. The one place a
+						    browser-specific sentence appears is a Safari TAB (the storage-
+						    eviction case); the installed app and other browsers don't get it. */}
+						<div className="mt-6">
+							<GroupLabel icon={<LifeBuoy className="size-3.5" />}>Backup &amp; restore</GroupLabel>
+							<p className="mb-3 text-xs text-muted-foreground">
+								Your decks live in this browser — private to this device. A backup keeps them yours even if the browser clears its data.
+								{isEvictionProneBrowser() ? ' Safari clears unused site data after a week — a backup makes that a non-event.' : ''}
+							</p>
+							<div className="grid grid-cols-2 gap-2.5">
+								<button type="button" onClick={downloadBackup} disabled={busy != null} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-60">
+									<Download className="size-4" />{busy === 'backup' ? 'Packing…' : 'Download backup'}
+								</button>
+								<button type="button" onClick={() => restoreInput.current?.click()} disabled={busy != null} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-[13px] font-semibold text-[var(--text-heading)] disabled:opacity-60">
+									<Upload className="size-4" />{busy === 'restore' ? 'Restoring…' : 'Restore backup'}
+								</button>
+								<input ref={restoreInput} type="file" accept=".zip" aria-label="Restore a workspace backup" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) restoreBackup(f); }} />
+							</div>
+							<p className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+								<SlidersHorizontal className="size-3" />
+								Last backup: {backupAt ? new Date(backupAt).toLocaleDateString() : 'never'}{storageLine ? ` · ${storageLine}` : ''}
+							</p>
+							<p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">One zip: every deck (readable .md copies included), version history, chats, settings, and your Library — saved themes, components, finishes, and reference docs. Restoring never overwrites — a deck that changed since the backup comes back beside the current one as “(restored)”. Your OpenRouter connection is never in the file.</p>
+						</div>
 							<div className="mb-2 flex items-center justify-between gap-2">
 								<GroupLabel icon={<ShieldCheck className="size-3.5" />}>Your data</GroupLabel>
 								{gov && gov.totalBytes > 0 && <span className="rounded-full border border-border bg-card px-2 py-0.5 font-mono text-[11px] font-semibold text-[var(--text-heading)]">{fmtBytes(gov.totalBytes)} total</span>}
