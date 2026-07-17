@@ -33,6 +33,11 @@ const {
   checkMarginDiscipline,
   LAYOUT_MARGIN_BUDGET,
   SANCTIONED_MARGINS,
+  layerBlocksIn,
+  checkCascadeLayers,
+  LAYER_BLOCK_BUDGET,
+  SANCTIONED_LAYER_BLOCKS,
+  CANONICAL_LAYER_ORDER,
   checkHexLiterals,
   LAYOUT_HEX_BUDGET,
   SANCTIONED_HEX,
@@ -225,6 +230,47 @@ describe('check-ownership', () => {
       for (const s of SANCTIONED_MARGINS) {
         assert.ok(s.file && s.value && s.why, 'every sanction names a file, value, and reason');
       }
+    });
+  });
+
+  describe('cascade-layer gate (HARD RULE #26)', () => {
+    test('layerBlocksIn detects named + anonymous @layer blocks and @import layer()', () => {
+      // block openers — the rule-3 footgun, named and anonymous
+      assert.deepEqual(layerBlocksIn('@layer components { section.x { color: red } }'), ['@layer components {']);
+      assert.deepEqual(layerBlocksIn('@layer { section.x { color: red } }'), ['@layer {']);
+      // case-insensitive (CSS at-keywords are)
+      assert.deepEqual(layerBlocksIn('@LAYER Components { a{} }'), ['@LAYER Components {']);
+      // nested inside @media still counts
+      assert.deepEqual(layerBlocksIn('@media print { @layer x { a{} } }'), ['@layer x {']);
+      // @import layer() / bare layer keyword (string values blanked to "" in the report)
+      assert.deepEqual(layerBlocksIn('@import url("x.css") layer(base);'), ['@import url("") layer(base);']);
+      assert.deepEqual(layerBlocksIn('@import "x.css" layer;'), ['@import "" layer;']);
+    });
+
+    test('layerBlocksIn ignores the harmless forms', () => {
+      // the STATEMENT form (reserves order, layers nothing) is not a block
+      assert.deepEqual(layerBlocksIn('@layer base, root, scaffold;'), []);
+      // a mention inside a comment is not code
+      assert.deepEqual(layerBlocksIn('/* do not write @layer components { } here */ .a{}'), []);
+      // a file literally named layer.css in an @import url must not false-positive
+      assert.deepEqual(layerBlocksIn('@import "layer.css";'), []);
+      assert.deepEqual(layerBlocksIn('@import url(mylayer.css);'), []);
+      // an @layer block written inside a string value is not code (string stripped)
+      assert.deepEqual(layerBlocksIn('.a::before { content: "@layer x { }"; }'), []);
+    });
+
+    test('the live engine CSS + built bundle carry zero layer blocks (HARD RULE #26)', () => {
+      const errors = [];
+      checkCascadeLayers(errors);
+      assert.deepEqual(errors, [], `unsanctioned @layer block, order drift, or missing sentinel:\n${errors.join('\n')}`);
+    });
+
+    test('the layer gate is budget-0 with an empty-by-design allowlist + a pinned order', () => {
+      assert.equal(LAYER_BLOCK_BUDGET, 0);
+      // Empty by design: engine CSS layers nothing. Activation adds justified entries.
+      assert.deepEqual(SANCTIONED_LAYER_BLOCKS, []);
+      for (const s of SANCTIONED_LAYER_BLOCKS) assert.ok(s.file && s.why, 'every sanction names a file and reason');
+      assert.equal(CANONICAL_LAYER_ORDER.length, 7);
     });
   });
 
