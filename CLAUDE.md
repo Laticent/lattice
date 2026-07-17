@@ -339,6 +339,20 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   *(discipline — no automated gate; ladder, shapes, and cost rules in
   `engineering/orchestration.md`; born from
   `engineering/decisions/2026-07-05-orchestration-discipline.md`.)*
+- **#26 — Engine CSS admits no partial/isolated `@layer`.** The bundle reserves a
+  7-layer order (`build-css.js` `LAYER_DECLARATION`) but wraps NO rule in a layer —
+  plain source order decides the cascade. Wrapping one file in `@layer` while the
+  rest stay unlayered springs the rule-3 trap (unlayered beats layered regardless of
+  specificity → the layered rule silently loses; Phase 3.5b broke 100% of canary
+  pages). Layering is **all-or-nothing**, and full activation is VETOED while
+  export-to-Marp ships marp-core's unlayered scaffold Lattice can't wrap (R-PATH,
+  `engineering/decisions/2026-06-18-layer-activation-scope.md`). So engine CSS
+  layers nothing; activation is one coordinated pass that adds sanctioned entries
+  WITH justification, never a silent file wrap. The rule is not "layers forbidden
+  forever" — it's "the bundle is never *half*-layered." *(gated —
+  `checkCascadeLayers` + `SANCTIONED_LAYER_BLOCKS` in `tools/check-ownership.js`,
+  via `build:check`; budget 0 + order-pin + inert-note sentinel;
+  `engineering/cascade.md`.)*
 
 ---
 

@@ -221,6 +221,15 @@ in patch versions.
   components` is inert — `engineering/cascade.md`), to check `base.modifiers.css` for base-modifier
   bleed into generic elements, and to update the enumerative roster tests (`stage-catalog`,
   `component-manifest` partition) a new component is designed to trip.
+- **HARD RULE #26 — engine CSS admits no partial/isolated `@layer` (gated).** The bundle's
+  reserved-but-inert `@layer` declaration read as active and invited the rule-3 trap (wrap one
+  file in a layer → it silently loses to every unlayered rule). A new `checkCascadeLayers` gate
+  (`tools/check-ownership.js`, via `build:check`) now fails the build on any layer block — named
+  `@layer x {`, anonymous `@layer {`, or `@import … layer()` — across `lib/` source and the built
+  `dist/lattice.css`, budget 0 + empty allowlist, plus an order-pin and a `LATTICE-LAYERS-INERT`
+  sentinel comment emitted into the bundle so a `dist` reader isn't misled. `engineering/cascade.md`
+  refreshed with the corrected `!important` inventory, the R-PATH activation veto, and the Lattice
+  Layer Contract. See `engineering/decisions/2026-07-17-layer-footgun-gate.md`.
 - **Accent finishes — the spectrum, heading rule, and eyebrow are now selectable finishes.**
   Three baked-in details graduate to first-class registers on the Finish axis (the *accent*
   sub-family, distinct from `finish:` backdrops), each deck-wide or per-slide, palette-blind,

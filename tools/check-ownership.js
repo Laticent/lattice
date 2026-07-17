@@ -750,6 +750,121 @@ function checkMarginDiscipline(errors) {
   }
 }
 
+// ── HARD RULE #26: cascade layers stay INERT — engine CSS admits no layer blocks ──
+// The bundle emits a 7-name `@layer` order (build-css.js LAYER_DECLARATION) but NO
+// rule is wrapped in a layer: plain SOURCE ORDER decides the cascade. Wrapping even
+// one file in `@layer` while the rest stay unlayered springs the rule-3 trap
+// (unlayered beats layered regardless of specificity) → the layered rule silently
+// loses; Phase 3.5b broke 100% of canary pages this way. Full activation is VETOED
+// while export-to-Marp ships marp-core's unlayered scaffold Lattice cannot wrap
+// (engineering/decisions/2026-06-18-layer-activation-scope.md, R-PATH). So the
+// invariant is: engine CSS admits NO layer blocks. Budget 0 + an (empty) allowlist,
+// same shape as #20/#3 — a new block fails; a sanction matching nothing ALSO fails.
+// Scans lib/ source AND the built dist bundle (catches vendored KaTeX + JS-generated
+// blocks the lib walk never sees), matching named + anonymous `@layer{}` and
+// `@import … layer()` — the three ways a layered rule actually reaches a browser.
+const { OUTPUT: LATTICE_BUNDLE, LAYER_DECLARATION } = require('./build-css');
+const BUILD_CSS_SRC = path.join(ROOT, 'tools', 'build-css.js');
+
+// The canonical layer order (names only). The gate asserts LAYER_DECLARATION parses
+// to exactly this — a silent reorder/rename fails the build. Single source of the
+// STRING is build-css.js; this is the pinned assertion target.
+const CANONICAL_LAYER_ORDER = [
+  'base', 'root', 'scaffold', 'components', 'semi-universal', 'universal', 'diagram-overrides',
+];
+
+// Stable sentinel the bundle must emit adjacent to the declaration so a dist reader
+// learns the layers are inert (Part B). Kept in sync with build-css.js LAYER_INERT_NOTE.
+const LAYER_INERT_SENTINEL = 'LATTICE-LAYERS-INERT';
+
+const LAYER_BLOCK_BUDGET = 0;
+
+// Empty by design: engine CSS layers nothing today. Activating layers is a
+// coordinated full-bundle pass (per the R-PATH doc) that would add entries here
+// WITH justification, never a silent file wrap. Each entry: {file, why}.
+const SANCTIONED_LAYER_BLOCKS = [];
+
+// Pure, testable: the layer-block openers + `@import … layer` statements in a
+// stylesheet (comments stripped, case-insensitive). Named `@layer x {`, anonymous
+// `@layer {`, and `@import … layer(…)` all count; the harmless statement form
+// `@layer a, b, c;` (a `;` before any `{`) does NOT, and a file named "layer.css"
+// in an `@import` url can't false-positive (the url is stripped before the test).
+function layerBlocksIn(css) {
+  // Strip comments AND string literals up front, so an `@layer`/`layer` token
+  // inside a comment or a `content: "…"` value can't false-positive — a real
+  // layer block or `@import` is never inside a string. The url() strip then
+  // stops a file literally named `layer.css` in an `@import` from matching.
+  const clean = stripComments(css).replace(/"[^"]*"|'[^']*'/g, '""');
+  const hits = [];
+  for (const m of clean.matchAll(/@layer\b[^;{]*\{/gi)) hits.push(m[0].replace(/\s+/g, ' ').trim());
+  for (const m of clean.matchAll(/@import\b[^;]*;/gi)) {
+    const bare = m[0].replace(/url\([^)]*\)/gi, '');
+    if (/\blayer\b/i.test(bare)) hits.push(m[0].replace(/\s+/g, ' ').trim());
+  }
+  return hits;
+}
+
+// HARD RULE #26 gate — no partial/isolated layering in engine CSS.
+function checkCascadeLayers(errors) {
+  // 1. Footgun guard — no layer block in engine CSS source OR the built bundle.
+  const offences = [];
+  for (const file of listCssFiles(LIB_DIR)) {
+    const rel = path.relative(ROOT, file);
+    for (const opener of layerBlocksIn(fs.readFileSync(file, 'utf8'))) offences.push({ file: rel, opener });
+  }
+  if (fs.existsSync(LATTICE_BUNDLE)) {
+    // Backstop for openers from non-lib sources (vendored KaTeX, JS-generated
+    // blocks); a lib opener mirrored into dist is attributed to its lib file, not
+    // double-counted.
+    const libOpeners = new Set(offences.map((o) => o.opener));
+    const rel = path.relative(ROOT, LATTICE_BUNDLE);
+    for (const opener of layerBlocksIn(fs.readFileSync(LATTICE_BUNDLE, 'utf8'))) {
+      if (!libOpeners.has(opener)) offences.push({ file: rel, opener });
+    }
+  }
+  const remaining = [...offences];
+  const staleSanctions = [];
+  for (const s of SANCTIONED_LAYER_BLOCKS) {
+    const i = remaining.findIndex((o) => o.file === s.file);
+    if (i === -1) staleSanctions.push(s);
+    else remaining.splice(i, 1);
+  }
+  if (remaining.length > LAYER_BLOCK_BUDGET) {
+    const top = remaining.slice(0, 5).map((o) => `${o.file}: \`${o.opener}\``).join('; ');
+    errors.push(
+      `${remaining.length} cascade-layer block(s) in engine CSS (HARD RULE #26: budget 0). ` +
+      `Wrapping a rule in @layer while the rest stay unlayered springs the rule-3 trap — the ` +
+      `layered rule silently loses regardless of specificity (engineering/cascade.md). Engine CSS ` +
+      `layers nothing; full activation is a coordinated pass, not a file wrap. Offending: ${top}.`,
+    );
+  }
+  for (const s of staleSanctions) {
+    errors.push(
+      `stale layer-block sanction in tools/check-ownership.js — ${s.file} no longer has a ` +
+      `@layer block (HARD RULE #26). Remove the SANCTIONED_LAYER_BLOCKS entry so the allowlist stays honest.`,
+    );
+  }
+  // 2. Order pin — the emitted declaration must parse to CANONICAL_LAYER_ORDER.
+  const m = /@layer\s+([^;{]+);/i.exec(LAYER_DECLARATION);
+  const declared = m ? m[1].split(',').map((s) => s.trim()).filter(Boolean) : [];
+  if (declared.join(' | ') !== CANONICAL_LAYER_ORDER.join(' | ')) {
+    errors.push(
+      `the @layer declaration order in tools/build-css.js drifted from CANONICAL_LAYER_ORDER ` +
+      `(HARD RULE #26): declared [${declared.join(', ')}] vs canonical [${CANONICAL_LAYER_ORDER.join(', ')}]. ` +
+      `Update CANONICAL_LAYER_ORDER only with a reviewed reason.`,
+    );
+  }
+  // 3. Inert-note sentinel — build-css.js must emit the reader-facing warning
+  //    adjacent to the declaration (source-checked so minification can't strip it).
+  if (!fs.readFileSync(BUILD_CSS_SRC, 'utf8').includes(LAYER_INERT_SENTINEL)) {
+    errors.push(
+      `the '${LAYER_INERT_SENTINEL}' inert-note sentinel is missing from tools/build-css.js ` +
+      `(HARD RULE #26). The bundle must warn a dist reader that the @layer order is inert; ` +
+      `restore the LAYER_INERT_NOTE emission adjacent to LAYER_DECLARATION.`,
+    );
+  }
+}
+
 // HARD RULE #3 — NO hex colour literals in the engine's LAYOUT CSS; always `var(--token)`.
 // A hardcoded hex can't follow the palette (it's the same colour in every theme + colour
 // mode) and dodges the WCAG-AA contract the tokens carry. The hex gate (`lib/layout/gate.js`
@@ -2252,6 +2367,7 @@ function run() {
   checkRetiredTokenNames(errors);
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
+  checkCascadeLayers(errors);
   checkHexLiterals(errors);
   checkUsEnglish(errors);
   checkAdaptDeclarations(manifests, errors);
@@ -2323,6 +2439,12 @@ module.exports = {
   checkMarginDiscipline,
   LAYOUT_MARGIN_BUDGET,
   SANCTIONED_MARGINS,
+  layerBlocksIn,
+  checkCascadeLayers,
+  LAYER_BLOCK_BUDGET,
+  SANCTIONED_LAYER_BLOCKS,
+  CANONICAL_LAYER_ORDER,
+  LAYER_INERT_SENTINEL,
   checkPreviewHtmlSinks,
   checkSnapshotHtmlSinks,
   SANCTIONED_SNAPSHOT_SINKS,

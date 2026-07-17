@@ -1,12 +1,22 @@
 # Cascade architecture
 
-How Lattice's CSS cascade is structured today, why `@layer` is
-declared-but-inert, and what it would take to activate.
+How Lattice's CSS cascade is structured, why `@layer` is
+declared-but-inert **by design**, and why partial activation is a trap
+the build now gates against (HARD RULE #26).
+
+> **TL;DR** — The bundle names a 7-layer order but wraps **no rule** in a
+> layer: plain **source order** decides the cascade. That is a reasoned,
+> gated position, not an unfinished migration. The layer-addressable
+> `!important` cleanup already shipped (Stage 1, PR #435); full activation
+> is **vetoed** while export-to-Marp exists (R-PATH,
+> `decisions/2026-06-18-layer-activation-scope.md`). Wrapping one file in
+> `@layer` while the rest stay unlayered silently breaks it — so
+> `checkCascadeLayers` fails the build on any layer block.
 
 ## The current cascade
 
 `lattice.css` is the bundled output of `tools/build-css.js`. Sources
-concatenate in this order (file-header docstring is canonical):
+concatenate in this order (the file-header docstring is canonical):
 
 ```text
 1.  lib/_theme.css                              (Marp @theme directive)
@@ -31,22 +41,28 @@ resolve to modifier defaults; component-specific overrides bump
 specificity in their own file. Variants come last so state markers
 (archived, redacted, etc.) compose over everything else.
 
-## The `@layer` declaration is currently inert
+## The `@layer` declaration is inert — by design
 
-`tools/build-css.js` emits this near the top of the bundle:
+`tools/build-css.js` emits this near the top of the bundle, with a
+machine-checked inert-note sentinel directly above it:
 
 ```css
+/* LATTICE-LAYERS-INERT — the @layer order below is RESERVED, NOT ACTIVE. … */
 @layer base, root, scaffold, components, semi-universal, universal, diagram-overrides;
 ```
 
-…but no source file wraps itself in any layer. The declaration exists
-to reserve the layer order for future activation. **Today every rule
-is unlayered.** A `grep -c "^@layer components {" lattice.css` returns
-zero.
+…but **no source file wraps itself in any layer.** The declaration
+reserves the layer order for a future activation that
+`decisions/2026-06-18-layer-activation-scope.md` shows is currently
+**not achievable** (see the veto below). **Today every rule is
+unlayered.** `grep -c '@layer .* {' dist/lattice.css` returns zero.
 
-This is intentional. The next section explains why.
+The `LATTICE-LAYERS-INERT` comment exists so a reader of the raw bundle
+(human **or** agent) is not misled by a declaration that reads active but
+governs nothing. Both the comment and the "no layer blocks" invariant are
+enforced by `checkCascadeLayers` (HARD RULE #26); see the gate section.
 
-## Why broad `@layer` activation is blocked
+## Why partial `@layer` activation is a trap
 
 A first instinct is to wrap each source file in its matching layer.
 That's blocked by a subtle interaction between the `@layer` cascade
@@ -68,126 +84,154 @@ rules and `!important`.
 3. **Unlayered vs layered:** unlayered declarations beat layered
    declarations at the SAME importance level, regardless of
    specificity. An unlayered `section h1` (specificity 0,0,2) BEATS a
-   layered `section.title h1` (specificity 0,1,2) if either is
-   layered and the other isn't.
+   layered `section.title h1` (specificity 0,1,2).
 
-Rule 3 is the trap. Phase 3.5b of the layer-activation investigation
-wrapped ONLY component CSS in `@layer components` and left shared
-files unlayered. Result: every component rule lost to whatever generic
-rule existed in `base.modifiers.css` or `scaffold.css` at lower
-specificity. 100% of canary pages diverged. The change was reverted.
+Rule 3 is **the trap**. Phase 3.5b of the layer-activation investigation
+wrapped ONLY component CSS in `@layer components` and left shared files
+unlayered. Result: every component rule lost to whatever generic rule
+existed in `base.modifiers.css` or `scaffold.css` at lower specificity.
+100% of canary pages diverged. The change was reverted. **The lesson:
+layering is all-or-nothing — a half-layered bundle is a broken bundle.**
 
-### What that means for Lattice today
+### A fourth surprise: `@layer` cannot beat *inline* styles
 
-`scaffold.css` has `!important` rules on `section::after` (pagination
-chrome). They're dead weight in the owned engine's own render (nothing
-competing loads there) but load-bearing in the one context where they do
-compete: `scaffold.css` is the same file the Export-to-Marp bundle ships
-(one source of truth, HARD RULE #1), and real marp-core injects its own
-default pagination CSS there — the `!important` is what wins against
-*that*, not against anything in our own engine. (This is why
-`marp-independence.md`'s "no fighting marp's `!important` scaffold" isn't
-a contradiction: that line describes the owned-engine render path, which
-never sees Marp's scaffold at all.) `base.variants.css` has competing
-`!important` rules on `section.silent::after`, `section.archived::after`,
-etc. (state-marker overrides that need to defeat the scaffold default).
+`@layer` reorders **author-origin selector rules**. It does nothing to an
+inline `style=""` attribute: a normal inline declaration outranks any
+normal author rule (layered or not), and only an author `!important`
+beats it. This is why the vast majority of Lattice's `!important` — the
+Mermaid / KaTeX / SVG library-overrides that defeat inline styles those
+tools emit — **would remain `!important` even under full activation.**
+Layers are simply the wrong tool for that job; `!important` is the
+spec-correct one.
 
-Today both are unlayered → source order resolves the tie → variants
-wins because it comes later in the bundle. ✓
+## Why full activation is vetoed (not merely deferred)
 
-If we wrapped `base.variants.css` in `@layer universal` while leaving
-`scaffold.css` unlayered (or vice versa):
-- Per rule 3, the unlayered side wins regardless of specificity
-- Variants silently loses → `.silent`, `.archived` etc. stop working
-- Pixel-diff catches the regression, but only on slides exercising
-  those variants
+`decisions/2026-06-18-layer-activation-scope.md` scoped the "full
+coordinated rewrite" and reached a firm end:
 
-Wrapping BOTH in `@layer` would help cross-layer comparison — but
-rule 2 means `@layer scaffold` (declared first) still beats
-`@layer universal` (declared later) for `!important`, unchanging the
-outcome.
+- **Stage 1 SHIPPED (PR #435).** The ~12 cascade-workaround `!important`
+  in `base.variants.css` — the state-marker `::after` blocks that used to
+  need `!important` to beat the pagination pseudo — were removed by
+  raising the marker to a **doubled class** (`section.silent.silent::after`,
+  specificity 0,2,2, no ancestor dependency, path-agnostic across the
+  engine and emulator render paths). This is the **only** cleanup layer
+  activation would have delivered, and it was captured **without** layering,
+  at a fraction of the risk. `base.variants.css` now carries essentially no
+  cascade-workaround `!important`.
+- **Stage 2 (full layering) VETOED by R-PATH.** Export-to-Marp
+  (`lib/core/marp-bundle.js`) and the marp-vscode preview style decks with
+  **marp-core's own unlayered scaffold CSS, which Lattice does not emit and
+  cannot wrap.** Layering `lattice.css` while marp-core's scaffold stays
+  unlayered re-creates the rule-3 trap with **marp-core winning** → a broken
+  preview for every exported deck. Since export-to-Marp is a first-class,
+  supported feature, all-or-nothing layering is **not achievable across all
+  consumers from Lattice's side.**
 
-The only safe paths are:
+So "layer nothing" is a **traced architectural constraint**, revisitable
+only if (a) export-to-Marp is retired, or (b) someone proves the marp
+consumer can be safely excluded from layering. Until then the inert
+declaration stays inert.
 
-- **Status quo** — everything competing via `!important` stays
-  unlayered; the existing source-order resolution works.
-- **Full coordinated rewrite** — refactor BOTH sides to eliminate
-  the `!important` competition (e.g. push variants to use selectors
-  specific enough that they don't need `!important` to beat
-  scaffold), then activate `@layer` across the bundle.
+## The `!important` inventory (why layers don't help)
 
-The full rewrite is documented as a deferred follow-up in
-`engineering/decisions/2026-05-18-important-audit-phase-35-prep.md` but has no
-near-term action.
+`grep -o '!important' dist/lattice.css | wc -l` was **426** as of
+2026-07 (recompute rather than trust this number). The shape, not the
+exact count, is the durable fact:
 
-## What Phase 3.5 actually delivered
+- **The dominant block is library-override**, led by `mermaid.css`
+  (~258 of the 426), then print-textures, math, and the KaTeX / SVG /
+  emoji overrides. Every one defeats an **inline** style emitted by an
+  external tool → correct per spec, **must** stay `!important`, and
+  **cannot** be replaced by `@layer` (see the fourth surprise above).
+- **The intra-author cascade-workaround block is essentially gone** —
+  Stage 1 moved the scaffold-vs-variants competition onto selector
+  specificity.
 
-A multi-step investigation in May 2026 attempted broader activation
-and learned:
+Net: full activation would retire ~zero `!important` today (Stage 1
+already banked the win) while breaking export-to-Marp. The cost/benefit
+is not close.
+
+## The Lattice Layer Contract
+
+The recognized `@layer` best practices, and Lattice's **deliberate**
+stance on each. Read this **before** proposing any `@layer` change — the
+danger (rule 3) comes first for a reason.
+
+| Best practice | Lattice's stance |
+|---|---|
+| **Never half-layer** — layer everything or nothing (rule 3). | **FOLLOWED, gated.** We layer *nothing*. `checkCascadeLayers` fails the build on any layer block, so the broken middle state can't ship. |
+| Declare the layer order once, up front, in one statement. | **PARTIAL.** We emit the single ordered declaration (reserved), but it governs nothing today. |
+| Meaningful, ordered layer names. | **FOLLOWED.** `base → root → scaffold → components → semi-universal → universal → diagram-overrides` — pinned by the gate; ready if activation ever unblocks. |
+| Put low-priority / third-party CSS in early layers; overrides in late layers, to retire specificity hacks. | **DELIBERATELY NOT ADOPTED.** Blocked by R-PATH (can't wrap marp-core's scaffold) and low-value (our overrides fight *inline* styles layers can't touch). Cascade is resolved by source order + specificity instead. |
+| Import third-party CSS into a dedicated `layer()`. | **NOT ADOPTED.** Same reasons; most vendor overrides are inline-targeted `!important`. |
+| Use layers to end the `!important` arms race. | **NOT APPLICABLE.** The arms race is against inline styles, which `@layer` cannot arbitrate; the layer-addressable slice was already retired via specificity (Stage 1). |
+
+**The one rule that is permanent regardless of activation: do not
+introduce a partial/isolated layer.** Even after a hypothetical full
+activation, a lone unlayered (or lone layered) file is still a rule-3
+regression. That is what HARD RULE #26 protects — not "layers are
+forbidden forever," but "the bundle is never *half*-layered."
+
+## The gate — HARD RULE #26 (`checkCascadeLayers`)
+
+`tools/check-ownership.js` (run by `npm run build:check`) enforces the
+contract, in the budget-0 + allowlist shape of #20/#3:
+
+1. **No layer block** in `lib/` source OR the built `dist/lattice.css` —
+   named `@layer x {`, anonymous `@layer {`, or `@import … layer()`, the
+   three ways a layered rule reaches a browser. Comments are stripped and
+   the match is case-insensitive, so prose mentions and `@LAYER` don't
+   slip through. Budget 0, `SANCTIONED_LAYER_BLOCKS` empty by design.
+2. **Order pin** — the emitted `LAYER_DECLARATION` must parse to
+   `CANONICAL_LAYER_ORDER`; a silent reorder/rename fails.
+3. **Inert-note sentinel** — `build-css.js` must emit the
+   `LATTICE-LAYERS-INERT` warning adjacent to the declaration (checked in
+   source, so minification can't strip the guarantee).
+
+Activating layers later is therefore a **deliberate, reviewed** change —
+add sanctioned entries with justification in the same coordinated pass —
+never an accidental file wrap.
+
+## What Phase 3.5 actually delivered (history)
+
+The May–June 2026 investigation is preserved for the next contributor so
+Phase 3.5b isn't redone:
 
 | Phase | Outcome |
 |---|---|
 | 3.5a baseline harness | Established that pixel-diff against an in-sandbox build is the only safe verification; diffing against committed PDFs is misleading because of Chromium-version drift. |
-| 3.5b component-layer wrap | **Reverted.** Wrapping only components broke 100% of canary pages due to rule 3 above. |
-| 3.5c retire 7 cascade-workaround `!important` | **Shipped.** Removed 7 defensive `!important` declarations across `anchor/title`, `comparison/verdict-grid`, `progression/list-criteria` (×2), `progression/list-steps`. Each was overkill that natural selector specificity already wins without. Pixel-diffed: 0 deltas across 35 affected pages. |
-| 3.5d this doc | **Shipped.** Captures the investigation so the next contributor doesn't redo Phase 3.5b. |
-
-After Phase 3.5c, `lattice.css` carries 345 `!important` declarations
-(down from 352). All 345 remaining are correct: 14 in `base.variants.css`
-defending against `scaffold.css`, and 331 library-override
-declarations defending against inline styles emitted by Mermaid,
-KaTeX, Marpit's emoji catch-all, and own SVG kernels.
-
-## How the audit categorized `!important` declarations
-
-`engineering/decisions/2026-05-18-important-audit-phase-35-prep.md` has the full
-breakdown. Summary:
-
-- **331 library-override** (Mermaid SVG, KaTeX, Marpit defaults,
-  emoji catch-all, highlight.js). Must stay `!important`, must stay
-  unlayered. These are the correct use of `!important` per the CSS
-  spec — overriding inline styles emitted by external tools.
-- **21 cascade-workaround** at the time of the audit. Of those:
-  - **14 in `base.variants.css`** — locked in (the scaffold-vs-variants
-    competition described above).
-  - **7 in component files** — retired in Phase 3.5c. All were
-    defensive overkill that natural specificity resolution handled
-    correctly.
+| 3.5b component-layer wrap | **Reverted.** Wrapping only components broke 100% of canary pages (rule 3). |
+| 3.5c retire 7 cascade-workaround `!important` | **Shipped.** Removed 7 defensive `!important` across `anchor/title`, `comparison/verdict-grid`, `progression/list-criteria` (×2), `progression/list-steps` — each overkill natural specificity already wins. 0 pixel deltas across 35 pages. |
+| Stage 1 (`2026-06-18`) | **Shipped (#435).** The scaffold-vs-variants `!important` retired via the doubled-class; the practical win banked with no rule-3 exposure. |
+| Stage 2 | **Vetoed** by R-PATH — marp-core's unlayered scaffold can't be wrapped. |
 
 ## What changing the cascade now would require
 
-Anyone touching the cascade should expect to:
-
-1. **Snapshot in-sandbox pixel baselines first.** Diffing against
-   committed PDFs is misleading because different Chromium versions
-   produce different rasterizations. The committed `gallery.pdf`
-   at 4.7MB and a fresh in-sandbox rebuild at 1.8MB are NOT the
-   same baseline; they're produced by different printers.
-2. **Pixel-diff per-component after every change.** `tools/pixel-check.js`
-   has a snapshot/diff harness; treat any pixel delta > ~250 px per
-   page as a real signal (Mermaid contributes up to ~200 px of
-   noise per affected page due to mmdc's Puppeteer non-determinism).
-3. **Don't wrap individual source files in `@layer` in isolation.**
-   Either wrap nothing (status quo) or wrap everything in a
-   coordinated pass that resolves the `!important` competitions
-   first. The middle ground breaks the cascade.
-4. **Treat the 14 `base.variants.css` `!important` rules as
-   load-bearing** until the scaffold-vs-variants competition is
-   refactored. They're not defensive overkill — they're necessary
-   to defeat `scaffold.css`.
-5. **Library-override `!important` stays.** Any rule whose selector
-   targets a class emitted by Mermaid, KaTeX, or another external
-   library needs `!important` to defeat the library's inline styles.
-   That's not a cascade workaround.
+1. **Snapshot in-sandbox pixel baselines first.** Committed PDFs are a
+   false baseline (Chromium-version drift): the committed `gallery.pdf`
+   and a fresh in-sandbox rebuild are produced by different printers.
+2. **Pixel-diff per-component after every change** (`tools/pixel-check.js`);
+   treat > ~250 px/page as a real signal (Mermaid mmdc adds up to ~200 px
+   of Puppeteer noise per affected page).
+3. **Don't wrap any file in `@layer` in isolation** — the gate will fail
+   the build, and rightly: it's the rule-3 trap. Activation is one
+   coordinated pass that wraps every browser-reaching source at once
+   (`2026-06-18` lists the seven), or nothing.
+4. **Library-override `!important` stays.** Any rule whose selector
+   targets a class emitted by Mermaid, KaTeX, or another external library
+   needs `!important` to defeat the library's inline styles. That's not a
+   cascade workaround.
 
 ## Related references
 
+- `engineering/decisions/2026-06-18-layer-activation-scope.md` — the
+  staged plan, Stage 1 outcome, and the R-PATH veto (canonical on *why
+  not*)
+- `engineering/decisions/2026-07-17-layer-footgun-gate.md` — this gate's
+  rationale (HARD RULE #26)
 - `engineering/decisions/2026-05-18-important-audit-phase-35-prep.md` —
-  the full audit; categorization of every `!important` declaration
-- `engineering/decisions/2026-05-18-component-reorg-and-modular-css.md` —
-  the broader refactor plan that surfaced this
-- `design/design-system.md` §10 (CSS architecture) — high-level
-  bundling intent
-- `engineering/gotchas.md` — VS Code PDF preview and other
-  rasterization-environment quirks that affect pixel-diff
-- `tools/build-css.js` header comment — bundle order rationale
+  the original `!important` audit
+- `tools/build-css.js` — `LAYER_DECLARATION`, `LAYER_INERT_NOTE`, bundle
+  order
+- `tools/check-ownership.js` — `checkCascadeLayers`, `layerBlocksIn`,
+  `CANONICAL_LAYER_ORDER`
