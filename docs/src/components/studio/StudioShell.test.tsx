@@ -207,6 +207,35 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
 	});
+
+	it('a Build faculty summoned from Write reveals Build transiently — docks the panel, never persists Build, recedes on close', async () => {
+		localStorage.clear();
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'write' }));
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// At Write there's no activity-bar launcher (a Build-only faculty isn't docked).
+		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
+		// Summon "Reshape for a reader" (a Build faculty) from ⌘K.
+		await user.keyboard('{Meta>}k{/Meta}');
+		const dialog = await screen.findByRole('dialog', { name: /Studio commands/i });
+		await user.click(within(dialog).getByText(/Reshape for a reader/));
+		// The surface transiently REVEALS Build — the launcher + docked Architect appear,
+		// landed on the Lenses tab (reader views now live there, so "Reshape for a reader"
+		// targets it directly).
+		expect(await screen.findByRole('button', { name: 'Open Library' })).toBeInTheDocument();
+		expect(screen.getByRole('tab', { name: 'Lenses' }).getAttribute('aria-selected')).toBe('true');
+		// …but the SAVED posture is untouched: reaching a Build tool never persists Build.
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+		// The dial marks the lit Build as TRANSIENT ("showing temporarily") so clicking it
+		// to persist is deliberate, never a silent no-op on a seemingly-selected segment.
+		expect(screen.getAllByRole('button', { name: /Build — every panel, showing temporarily/ }).length).toBeGreaterThan(0);
+		// Closing the summoned coach recedes to Write — launcher gone, posture still Write.
+		await user.click(screen.getByRole('button', { name: 'Toggle Architect' }));
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument());
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+		// …and the dial no longer marks any stop transient (Build is no longer even shown).
+		expect(screen.queryByRole('button', { name: /showing temporarily/ })).not.toBeInTheDocument();
+	});
 });
 
 describe('StudioShell — e2e flows (jsdom)', () => {

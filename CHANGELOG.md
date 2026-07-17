@@ -293,7 +293,10 @@ in patch versions.
   number off the top and bottom when the pane was wider than the slide's aspect ratio. In Read the
   slide navigator labels each slide by its **title** (its first heading) rather than its component
   class — `big-number` / `split-compare` is jargon the newcomer can't read; the class label stays in
-  Write / Build, where the author wants it. Full design +
+  Write / Build, where the author wants it. Reaching a Build-only tool from a calmer stop no longer
+  persists Build: summoning **Reshape** (and, when wired, the Inspector) from Read / Write now
+  *transiently* reveals Build to dock the panel and recedes to your saved stop when you close it — your
+  posture dial never drifts from reaching a tool. Full design +
   adversarial hardening: `engineering/decisions/2026-07-17-studio-persona-dial.md`.
 - **The live preview no longer accumulates leaked observers/iframes over a session, or stale
   cached assets across refreshes.** An adversarial-trio investigation (red-team leak hunt +
