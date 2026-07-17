@@ -282,6 +282,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate'>('compose');
+	const viewRef = React.useRef(view);
+	viewRef.current = view;
 	const [shareOpen, setShareOpen] = React.useState(false);
 	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
@@ -1425,15 +1427,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				setCmdOpen((v) => !v);
 			} else if ((e.metaKey || e.ctrlKey) && e.key === '.') {
 				e.preventDefault();
-				setQuietened((v) => !v);
+				// Not while Fabricate is up — a full-screen surface with no compose body
+				// behind it. Toggling quiet there would silently arm a state you never see
+				// and desync the suspend/restore (M4 red-team finding 2).
+				if (viewRef.current !== 'fabricate') setQuietened((v) => !v);
 			} else if (e.key === 'Escape') {
-				setQuietened((v) => (v ? false : v));
+				if (viewRef.current !== 'fabricate') setQuietened((v) => (v ? false : v));
 			}
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, []);
-	// Fabricate is its own full-screen surface; never sit quietened behind it.
 	// Fabricate is its own full-screen surface; never sit quietened behind it, but
 	// SUSPEND-and-RESTORE that transient quiet so exiting Fabricate returns you to the
 	// exact surface you left — not a posture you didn't choose (R5). Present is an
@@ -1448,6 +1452,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			setQuietened(true);
 		}
 	}, [view]);
+	// Assistive-tech stop announcement. Held in state that starts EMPTY and updates
+	// only on a real change (a React island mounts after load, so a pre-filled live
+	// region can announce on some SR/browser pairs — M4 red-team finding 3), and never
+	// while Fabricate is up (its full-screen surface isn't a compose stop — finding 1).
+	const [stopAnnounce, setStopAnnounce] = React.useState('');
+	const announceMountRef = React.useRef(false);
+	React.useEffect(() => {
+		if (!announceMountRef.current) { announceMountRef.current = true; return; }
+		if (view !== 'fabricate') setStopAnnounce(POSTURE_ANNOUNCE[effectiveStop]);
+	}, [effectiveStop, view]);
 
 	// Track the document's light/dark mode reactively so exports + the preview
 	// follow a mode flip while Studio is open (the topbar writes <html data-mode>).
@@ -2085,9 +2099,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
 			{/* Announce a stop change to assistive tech — the surface can change from a
 			    keystroke (⌘.) or the "Edit this slide" reveal, which would otherwise be
-			    silent (M3/M4 a11y). aria-live regions don't fire on initial mount, only
-			    on change, so this is quiet until the user moves between stops. */}
-			<div role="status" aria-live="polite" className="sr-only">{POSTURE_ANNOUNCE[effectiveStop]}</div>
+			    silent (M3/M4 a11y). `stopAnnounce` starts empty and is updated only on a
+			    real change (never on mount, never behind Fabricate) by the effect above. */}
+			<div role="status" aria-live="polite" className="sr-only">{stopAnnounce}</div>
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* Read + Write stops (DESKTOP only): a slim header — deck title · ⌘K · Present ·
 			    Share · the dial. Most of the control cluster is gone; ⌘K still reaches
