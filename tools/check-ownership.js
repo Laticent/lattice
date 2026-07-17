@@ -2215,6 +2215,28 @@ function checkSkillFreshness(errors) {
       );
     }
   }
+  // component.md taught `@layer components` (2026-07), but @layer is inert here and
+  // a layered component rule LOSES to an unlayered base rule regardless of
+  // specificity (engineering/cascade.md) — following it produced a component whose
+  // CSS silently lost the cascade. Pin the correction: the skill must NOT reintroduce
+  // the `@layer components {` skeleton wrapper, and must teach the unlayered convention.
+  const componentFile = path.join(SKILLS_DIR, 'component.md');
+  if (fs.existsSync(componentFile)) {
+    const src = fs.readFileSync(componentFile, 'utf8');
+    if (/@layer\s+components\s*\{/.test(src)) {
+      errors.push(
+        'design/skills/component.md reintroduces an `@layer components {` wrapper. Component CSS is ' +
+        'UNLAYERED here (engineering/cascade.md) — a layered rule loses to unlayered base rules. ' +
+        'Remove the wrapper; use bare selectors.',
+      );
+    }
+    if (!/unlayered/i.test(src)) {
+      errors.push(
+        'design/skills/component.md no longer teaches the UNLAYERED CSS convention (expected the word ' +
+        '"unlayered"). Component files carry no `@layer` wrapper (cascade.md); the skill must say so.',
+      );
+    }
+  }
 }
 
 function run() {

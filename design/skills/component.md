@@ -18,7 +18,7 @@ A 10/10 component:
 - Has a **tight capacity + density contract** with a real `escalateTo` target and a
   `stressDoc` proving the ceiling.
 - CSS is **fully palette-blind** (`var(--token)` only), **margin-free**
-  (padding/gap), wrapped in `@layer components`, anchored on `> .cell-stage`, and
+  (padding/gap), **unlayered** (no `@layer` wrapper — see cascade.md), anchored on `> .cell-stage`, and
   **covers all render paths in one file**.
 - Ships **rich prose**: 3–4 `whenToUse`, 3–4 concrete `antiPatterns` (naming the
   escalation target), `related` with `when` clauses, and **a `variantDocs` entry
@@ -68,7 +68,7 @@ A component is self-contained in `lib/components/<bucket>/<name>/`:
 
 ```text
 <name>.manifest.json      ← the contract (schema-validated); source of truth
-<name>.styles.css         ← palette-blind CSS, @layer components
+<name>.styles.css         ← palette-blind CSS, UNLAYERED (no @layer; cascade.md)
 <name>.transform.js       ← ONLY if you must rebuild DOM (structure/series)
 <name>.docs.md            ← GENERATED from the manifest — never hand-edit
 <name>.gallery.md         ← GENERATED — never hand-edit
@@ -112,8 +112,9 @@ families; the rest are substance- or domain-defined.
 3. **Fill the manifest** (see the contract below). The empty `tags[]` and any
    declared variant without a `variantDocs` entry **hard-block the build** — fill
    them.
-4. **Write the CSS** in `<name>.styles.css`: `@layer components`, anchor every
-   selector on `section.<name> > .cell-stage`, palette-blind, `padding`/`gap` only.
+4. **Write the CSS** in `<name>.styles.css`: **unlayered** (no `@layer` wrapper —
+   it's inert here and a layered rule loses to unlayered base rules; cascade.md),
+   anchor every selector on `section.<name> > .cell-stage`, palette-blind, `padding`/`gap` only.
    Cover the native markdown path *and* the post-processed path in the one file.
    Add `@container lattice (aspect-ratio <= 1.05) { … }` if `adapt.mode: "reflow"`.
 5. **If structure/series** and you must rebuild DOM: add `<name>.transform.js` as a
@@ -167,22 +168,24 @@ The manifest is the single source of truth. Required fields: `name`, `function`,
 }
 ```
 
-The CSS anchors on the stage Cell and stays palette-blind + margin-free:
+The CSS anchors on the stage Cell and stays palette-blind + margin-free. Component
+files are **UNLAYERED** — no `@layer` wrapper — because `@layer` is inert here and a
+layered rule LOSES to an unlayered base rule regardless of specificity (a layered
+`section.X > blockquote` silently loses to the base KEY INSIGHT rule). Match every
+other component file: bare selectors, no wrapper. (`engineering/cascade.md`.)
 
 ```css
-@layer components {
-  section.cards-grid > .cell-stage { display: flex; flex-direction: column; gap: var(--sp-md); }
-  section.cards-grid > .cell-stage > ul { display: flex; flex-wrap: wrap; gap: var(--sp-md); }
-  section.cards-grid > .cell-stage > ul > li {
-    width: calc(50% - var(--sp-md) / 2);
-    padding: var(--sp-md);                 /* padding, never margin (#20) */
-    background: var(--bg-alt);             /* var(--token), never hex (#3) */
-    border: 1px solid var(--border);
-    color: var(--text-body);
-  }
-  @container lattice (aspect-ratio <= 1.05) {
-    section.cards-grid > .cell-stage > ul > li { width: 100%; }
-  }
+section.cards-grid > .cell-stage { display: flex; flex-direction: column; gap: var(--sp-md); }
+section.cards-grid > .cell-stage > ul { display: flex; flex-wrap: wrap; gap: var(--sp-md); }
+section.cards-grid > .cell-stage > ul > li {
+  width: calc(50% - var(--sp-md) / 2);
+  padding: var(--sp-md);                 /* padding, never margin (#20) */
+  background: var(--bg-alt);             /* var(--token), never hex (#3) */
+  border: 1px solid var(--border);
+  color: var(--text-body);
+}
+@container lattice (aspect-ratio <= 1.05) {
+  section.cards-grid > .cell-stage > ul > li { width: 100%; }
 }
 ```
 
@@ -229,9 +232,9 @@ reflow rule that matches its `adapt.mode: "reflow"`, every variant documented, t
 - [ ] Manifest complete: real `description`, 3–5 complementary tags, `slots`,
       `skeleton`, `sample`, `stressDoc`, `capacity`+`density`, `whenToUse`,
       `antiPatterns`, `related`, a `variantDocs` entry per variant.
-- [ ] CSS: `@layer components`, anchored on `> .cell-stage`, palette-blind,
-      margin-free; covers native + post-processed paths; `@container` matches
-      `adapt.mode`.
+- [ ] CSS: **unlayered** (no `@layer` wrapper — cascade.md), anchored on
+      `> .cell-stage`, palette-blind, margin-free; covers native + post-processed
+      paths; `@container` matches `adapt.mode`.
 - [ ] Transform (if any) is pure, idempotent, registered, wired in all three paths.
 - [ ] `examples/<name>.md` demo deck (6–10 slides) + committed PDF.
 - [ ] `npm run build` run; **no generated file hand-edited**.

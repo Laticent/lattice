@@ -168,3 +168,16 @@ were folded into this PR rather than deferred, so the whole categorical story is
 No `CHANGELOG` entry: the skills and canon docs are internal authoring guidance, not a
 user-visible engine change (the render output — deck PDF/PPTX/HTML bytes — is unchanged; only
 generated-CSS comments moved).
+
+## Follow-on: component.md `@layer` bug (found by dogfooding the skill)
+
+Building a real component (`policy-recommendation`) straight from `component.md` surfaced a
+defect the count/matrix/tag audit missed: the skill taught `@layer components` (in 5 places),
+but `engineering/cascade.md` documents that `@layer` is **inert** here — every real component
+file is UNLAYERED, and a layered component rule LOSES to an unlayered base rule regardless of
+specificity. A skill-authored component's CSS silently lost the cascade (its blockquote fell to
+the base KEY INSIGHT treatment) until the wrapper was removed. Corrected all 5 spots to teach
+the unlayered convention, and **gated it** in `checkSkillFreshness`: component.md must not
+reintroduce an `@layer components {` wrapper and must teach the word "unlayered". Lesson for the
+recert method: a skill's teaching can be false in a way no count check catches — dogfooding the
+skill end-to-end (HARD RULE #23 on the skill itself) is the check that finds it.
