@@ -247,7 +247,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [quietened, setQuietened] = React.useState(false);
 	const quietenedRef = React.useRef(quietened);
 	quietenedRef.current = quietened;
-	const effectiveStop: Posture = quietened ? 'write' : posture;
+	// `revealBuild` — the transient step-UP, symmetric to `quietened`'s step-down. A
+	// Build-only faculty summoned from Read/Write (Reshape today; the Inspector when
+	// it's wired) docks its panel by transiently raising the rendered stop to 'build'
+	// WITHOUT writing the saved `posture` — so reaching a Build tool never persists
+	// Build (the decision doc's "reachability ≠ arrangement" rule). It recedes when the
+	// summoned panels all close, on Esc, on a dial move, and suspend/restores across
+	// Fabricate — exactly like `quietened`. The two are opposite directions, so arming
+	// one clears the other; hence revealBuild wins the `effectiveStop` precedence.
+	const [revealBuild, setRevealBuild] = React.useState(false);
+	const revealBuildRef = React.useRef(revealBuild);
+	revealBuildRef.current = revealBuild;
+	const effectiveStop: Posture = revealBuild ? 'build' : quietened ? 'write' : posture;
 	// Move the dial: clear any transient quiet and persist the stop. Panel open/close is
 	// ORTHOGONAL to posture (T2 §4.5) — the dial changes the chrome CEILING (Build shows
 	// the activity-bar launcher; Write hides the docked columns), never forcing a panel
@@ -256,8 +267,20 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// the coach. (The mount + breakpoint-flip defaults still seed the arrangement.)
 	const changePosture = React.useCallback((p: Posture) => {
 		setQuietened(false);
+		setRevealBuild(false);
 		setPosture(p);
 	}, [setPosture]);
+	// Summon a Build-only faculty (Reshape, Inspector) from a calmer stop: transiently
+	// reveal Build so the panel can dock, WITHOUT persisting the saved posture. Clears
+	// any quiet (opposite direction). At Build already, it's just the quiet-clear — the
+	// reveal is what steps up from Read/Write, and receding it returns you there.
+	// CALLER CONTRACT: pair this with a panel-open in the SAME handler (e.g. reshape
+	// opens the coach). A bare call self-recedes next commit (harmless, never stuck-on),
+	// because the reveal only holds while a summoned panel is docked.
+	const revealBuildDock = React.useCallback(() => {
+		setQuietened(false);
+		if (postureRef.current !== 'build') setRevealBuild(true);
+	}, []);
 	// Panel state — TWO independent, nullable, per-group slots (the activity-bar
 	// model, engineering/decisions/2026-07-06-studio-activity-bar.md). NOT one
 	// global `activePanel`: the Architect (Assistants group) and the settings scope
@@ -271,6 +294,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const architectOpen = activeAssistant === 'architect';
 	const inspectorOpen = activeSettings !== null;
 	const inspectorScope: 'slide' | 'deck' = activeSettings ?? 'slide';
+	// Whether any Build-only panel is docked — read by the `[view]`-only Fabricate
+	// restore (which can't list panel state as a dep) to avoid re-revealing Build with
+	// nothing open.
+	const panelsOpenRef = React.useRef(false);
+	panelsOpenRef.current = architectOpen || inspectorOpen;
+	// A transient Build reveal recedes once the faculties it was summoned for all
+	// close — mirroring `quietened`'s auto-clear. The summon batches revealBuild + the
+	// panel-open in one commit, so on the opening render a panel is already open and
+	// this never fires prematurely; it clears only after the last docked panel closes.
+	React.useEffect(() => {
+		if (revealBuild && !architectOpen && !inspectorOpen) setRevealBuild(false);
+	}, [revealBuild, architectOpen, inspectorOpen]);
 	// Compatibility setters — the demo hook's prop interface and a handful of simple
 	// call sites still speak the old open/scope API; these adapt it onto the enums.
 	// The COMPOUND toggles (the bar's scope icons, the mobile/tablet settings toggle)
@@ -1448,26 +1483,36 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				// Not while Fabricate is up — a full-screen surface with no compose body
 				// behind it. Toggling quiet there would silently arm a state you never see
 				// and desync the suspend/restore (M4 red-team finding 2).
-				if (viewRef.current !== 'fabricate') setQuietened((v) => !v);
+				// ⌘. quiets to Write — the opposite of a Build reveal, so drop any reveal first.
+				if (viewRef.current !== 'fabricate') { setRevealBuild(false); setQuietened((v) => !v); }
 			} else if (e.key === 'Escape') {
-				if (viewRef.current !== 'fabricate') setQuietened((v) => (v ? false : v));
+				// Esc clears either transient overlay (whichever is armed) back to the saved stop.
+				if (viewRef.current !== 'fabricate') { setRevealBuild((v) => (v ? false : v)); setQuietened((v) => (v ? false : v)); }
 			}
 		};
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, []);
-	// Fabricate is its own full-screen surface; never sit quietened behind it, but
-	// SUSPEND-and-RESTORE that transient quiet so exiting Fabricate returns you to the
-	// exact surface you left — not a posture you didn't choose (R5). Present is an
-	// overlay (it doesn't swap the compose body), so it needs no such dance.
+	// Fabricate is its own full-screen surface; never sit quietened OR build-revealed
+	// behind it, but SUSPEND-and-RESTORE either transient so exiting Fabricate returns
+	// you to the exact surface you left — not a posture you didn't choose (R5). Present
+	// is an overlay (it doesn't swap the compose body), so it needs no such dance. A
+	// summoned panel's open state persists across Fabricate, so restoring the reveal
+	// stays consistent with the panel the recede effect keys on.
 	const suspendedQuietRef = React.useRef(false);
+	const suspendedRevealRef = React.useRef(false);
 	React.useEffect(() => {
 		if (view === 'fabricate') {
 			suspendedQuietRef.current = quietenedRef.current;
+			suspendedRevealRef.current = revealBuildRef.current;
 			if (quietenedRef.current) setQuietened(false);
-		} else if (suspendedQuietRef.current) {
-			suspendedQuietRef.current = false;
-			setQuietened(true);
+			if (revealBuildRef.current) setRevealBuild(false);
+		} else {
+			if (suspendedQuietRef.current) { suspendedQuietRef.current = false; setQuietened(true); }
+			// Only re-reveal Build if the summoned panel actually survived Fabricate — a
+			// breakpoint flip mid-Fabricate can reset the panels, and restoring a reveal
+			// with nothing open would flash Build for one frame before the recede clears it.
+			if (suspendedRevealRef.current) { suspendedRevealRef.current = false; if (panelsOpenRef.current) setRevealBuild(true); }
 		}
 	}, [view]);
 	// Assistive-tech stop announcement. Held in state that starts EMPTY and updates
@@ -2226,7 +2271,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    never hidden behind a posture (2026-07-17-studio-persona-dial.md, T5 graft). */}
 				<Tip label="Present"><Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
 				<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
-				<PostureDial posture={posture} quietened={quietened} onChange={changePosture} />
+				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />
 			</header>
 			) : (
 			<header className="flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 sm:gap-3 sm:px-3.5">
@@ -2325,7 +2370,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{/* The posture dial — the always-visible, reversible way to any stop. Present
 				    at every stop (never a buried setting), so no stop can read as a room you
 				    must escape. Mobile carries the density on its own Edit/Preview pane bar. */}
-				{!mobile && <PostureDial posture={posture} quietened={quietened} onChange={changePosture} />}
+				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />}
 				{/* Feedback — a persistent, one-tap entry point (not gated on onboarded — first
 				    impressions matter too). Opens a pre-filled GitHub issue; no token, no backend. */}
 				{!compact && <Tip label="Send feedback"><Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback"><MessageSquareHeart className="size-[18px]" /></Button></Tip>}
@@ -2631,7 +2676,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onFabricate={() => setView('fabricate')}
 				onLibrary={() => setLibraryOpen(true)}
 				onWorkspace={() => setWorkspaceOpen(true)}
-				onReshape={() => { setQuietened(false); setPosture('build'); setArchitectOpen(true); }}
+				onReshape={() => { revealBuildDock(); setArchitectOpen(true); }}
 				onWatchDemo={startDemo}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
 				onFocus={posture === 'build' ? () => setQuietened(true) : undefined}
@@ -2702,8 +2747,11 @@ const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.Rea
 	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },
 	{ id: 'build', label: 'Build', hint: 'Build — every panel', icon: <Layers className="size-4" /> },
 ];
-function PostureDial({ posture, quietened, onChange }: { posture: Posture; quietened: boolean; onChange: (p: Posture) => void }) {
-	const shown: Posture = quietened ? 'write' : posture;
+function PostureDial({ posture, quietened, revealBuild, onChange }: { posture: Posture; quietened: boolean; revealBuild: boolean; onChange: (p: Posture) => void }) {
+	// Light the EFFECTIVE stop — a transient reveal shows Build, a quiet shows Write —
+	// so the dial always matches the surface you're looking at, then re-lights your
+	// saved stop when the transient recedes.
+	const shown: Posture = revealBuild ? 'build' : quietened ? 'write' : posture;
 	return (
 		<fieldset className="m-0 inline-flex shrink-0 items-center rounded-lg border border-border bg-background p-[3px]">
 			<legend className="sr-only">Workspace density</legend>

@@ -518,10 +518,18 @@ commit per milestone, the adversarial trio after each. Status:
   Playwright-capable host (or via CI's nightly Studio job) before merge; the
   by-inspection sweep found nothing broken, but that is not a substitute for the
   run (HARD RULE #23).
-- **Carried-forward code follow-up (not blocking):** the general *transient dock*
-  (`revealBuild`, symmetric to `quietened`) so `onReshape` / the Inspector reach
-  from Read/Write without persisting Build. Until then `onReshape` is a sanctioned
-  Build jump. Worth its own small change + trio.
+- **Post-ship — transient dock (`revealBuild`) SHIPPED.** The carried-forward
+  follow-up landed: a session-only `revealBuild`, symmetric to `quietened`, raises
+  the rendered stop to Build so a Build-only faculty summoned from Read/Write
+  (`onReshape` today; the Inspector when wired) docks its panel WITHOUT persisting
+  `posture` — closing the "reshape from Read yanks you permanently to Build" gap
+  against the doc's own "reachability ≠ arrangement" rule. `onReshape` no longer
+  calls `setPosture('build')`; it reveals + docks the coach and recedes on close
+  (Esc / dial move / Fabricate suspend-restore all covered). Maker-checker: an
+  independent checker cleared the diff (0 blockers, batching + no-stuck-on
+  confirmed) and its two nits (a 1-frame flash guard, a caller-contract comment)
+  were folded before commit. Unit-tested (summon → reveal → never persist →
+  recede) and real-surface verified from both Write and Read.
 - **Post-M6 CI fix — panels start closed (studio-smoke).** The real Playwright run
   (CI's Studio job, once the branch was pushed) failed `split.spec.ts`: it expects
   both side panels CLOSED on load, then a `Toggle Architect` click to OPEN the
