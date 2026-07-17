@@ -13,13 +13,16 @@ import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import { $setBlocksType } from '@lexical/selection';
 import {
+	$createParagraphNode,
+	$createTextNode,
+	$getRoot,
 	$getSelection,
 	$isRangeSelection,
 	FORMAT_TEXT_COMMAND,
 	REDO_COMMAND,
 	UNDO_COMMAND,
 } from 'lexical';
-import { Bold, Heading1, Heading2, Italic, List, ListOrdered, Quote, Redo2, Undo2 } from 'lucide-react';
+import { Bold, Heading1, Heading2, Italic, Lightbulb, List, ListOrdered, Quote, Redo2, StickyNote, Tag, Undo2 } from 'lucide-react';
 import * as React from 'react';
 import { COMPOSE_THEME, LATTICE_NODES, LATTICE_TRANSFORMERS } from './lexical-lattice';
 
@@ -44,6 +47,16 @@ function ToolbarButton({ onClick, title, children, active }: { onClick: () => vo
 	);
 }
 
+// The trailing below-note node, if the slide already carries one — a paragraph
+// whose text starts with an em-dash. Used to keep canonical order (a Key Insight
+// blockquote must sit ABOVE the below-note).
+function $trailingNote() {
+	const kids = $getRoot().getChildren();
+	const last = kids[kids.length - 1];
+	if (last && last.getType() === 'paragraph' && /^\s*—/.test(last.getTextContent())) return last;
+	return null;
+}
+
 function Toolbar() {
 	const [editor] = useLexicalComposerContext();
 	const fmt = React.useCallback(
@@ -55,8 +68,43 @@ function Toolbar() {
 		},
 		[editor],
 	);
+	// ── Universal authoring markup — DSL operations that place the construct at its
+	// canonical slide position and compile to the register the engine auto-detects.
+	// Key Insight → trailing `> blockquote`; Note → trailing `— …`; Eyebrow → leading
+	// inline-code line. The author expresses intent; placement is the DSL's job.
+	const addKeyInsight = React.useCallback(() => {
+		editor.update(() => {
+			const quote = $createQuoteNode();
+			quote.append($createTextNode('Your key takeaway, in one line.'));
+			// Sit above a below-note if present (canonical order: content → insight → note).
+			const note = $trailingNote();
+			if (note) note.insertBefore(quote);
+			else $getRoot().append(quote);
+			quote.selectEnd();
+		});
+	}, [editor]);
+	const addNote = React.useCallback(() => {
+		editor.update(() => {
+			const p = $createParagraphNode();
+			p.append($createTextNode('— a short note that rides below the slide.'));
+			$getRoot().append(p); // always the very last block
+			p.selectEnd();
+		});
+	}, [editor]);
+	const addEyebrow = React.useCallback(() => {
+		editor.update(() => {
+			const p = $createParagraphNode();
+			const code = $createTextNode('Section · Context');
+			code.setFormat('code'); // inline-code → eyebrow register
+			p.append(code);
+			const first = $getRoot().getFirstChild();
+			if (first) first.insertBefore(p);
+			else $getRoot().append(p);
+			p.selectEnd();
+		});
+	}, [editor]);
 	return (
-		<div className="flex items-center gap-0.5 border-b border-[var(--rule,rgba(0,0,0,0.1))] px-2 py-1.5">
+		<div className="flex flex-wrap items-center gap-0.5 border-b border-[var(--rule,rgba(0,0,0,0.1))] px-2 py-1.5">
 			<ToolbarButton title="Undo" onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}><Undo2 className="size-4" /></ToolbarButton>
 			<ToolbarButton title="Redo" onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}><Redo2 className="size-4" /></ToolbarButton>
 			<span className="mx-1 h-5 w-px bg-[var(--rule,rgba(0,0,0,0.12))]" />
@@ -69,7 +117,26 @@ function Toolbar() {
 			<span className="mx-1 h-5 w-px bg-[var(--rule,rgba(0,0,0,0.12))]" />
 			<ToolbarButton title="Bullet list" onClick={() => editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined)}><List className="size-4" /></ToolbarButton>
 			<ToolbarButton title="Numbered list" onClick={() => editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined)}><ListOrdered className="size-4" /></ToolbarButton>
+			<span className="mx-1 h-5 w-px bg-[var(--rule,rgba(0,0,0,0.12))]" />
+			<span className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Add</span>
+			<LabeledButton title="Add a Key Insight panel — placed at the slide's end" onClick={addKeyInsight}><Lightbulb className="size-3.5" />Key insight</LabeledButton>
+			<LabeledButton title="Add a Note — rides below the slide" onClick={addNote}><StickyNote className="size-3.5" />Note</LabeledButton>
+			<LabeledButton title="Add an Eyebrow label — sits above the heading" onClick={addEyebrow}><Tag className="size-3.5" />Eyebrow</LabeledButton>
 		</div>
+	);
+}
+
+function LabeledButton({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
+	return (
+		<button
+			type="button"
+			title={title}
+			onMouseDown={(e) => e.preventDefault()}
+			onClick={onClick}
+			className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-[var(--text-body)] transition-colors hover:bg-[var(--surface-2,rgba(0,0,0,0.06))]"
+		>
+			{children}
+		</button>
 	);
 }
 
