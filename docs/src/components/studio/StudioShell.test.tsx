@@ -102,17 +102,34 @@ describe('StudioShell — smoke', () => {
 });
 
 describe('StudioShell — the posture dial (persona experiences)', () => {
-	it('a fresh visitor opens on the welcome deck at the calm Write stop — no banner, no nag', () => {
+	it('a fresh visitor lands on the Read home — the sample deck + one "Edit this slide", no banner', () => {
 		localStorage.clear(); // a true fresh visitor — no seed, no prior use
 		render(<StudioShell options={options} />);
-		// The crafted intro deck is the active deck.
+		// The crafted intro deck is the active deck, shown full-bleed.
 		expect(screen.getByText('Welcome to Lattice')).toBeInTheDocument();
-		// Write is calm: the Architect coach is NOT docked by default.
+		// Read is calm: no docked coach, no activity-bar launcher.
 		expect(screen.queryByText('Board-ready')).not.toBeInTheDocument();
-		// The retired "banner jail" is gone — no welcome nag.
+		expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument();
+		// The one primary verb + the one-time element-attached hint (NOT a recurring banner nag).
+		expect(screen.getByRole('button', { name: 'Edit this slide' })).toBeInTheDocument();
+		expect(screen.getByText(/This sample deck is/)).toBeInTheDocument();
 		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
-		// The dial is the always-visible way to any stop.
+		// The dial is present with Read the lit stop; the boot stop is persisted once (R1).
 		expect(screen.getByRole('group', { name: 'Workspace density' })).toBeInTheDocument();
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('read');
+	});
+
+	it('"Edit this slide" steps the newcomer from Read into Write and retires the hint', async () => {
+		localStorage.clear();
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		await user.click(screen.getByRole('button', { name: 'Edit this slide' }));
+		// Now at Write: the editor|preview surface, no "Edit this slide" overlay, hint gone for good.
+		expect(screen.queryByRole('button', { name: 'Edit this slide' })).not.toBeInTheDocument();
+		expect(screen.queryByText(/This sample deck is/)).not.toBeInTheDocument();
+		const saved = JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}');
+		expect(saved.posture).toBe('write');
+		expect(saved.readHintSeen).toBe(true);
 	});
 
 	it('moving the dial to Build raises the chrome ceiling (activity-bar launcher) and persists the stop', async () => {

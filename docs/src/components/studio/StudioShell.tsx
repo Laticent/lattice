@@ -1,6 +1,6 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown, ChevronRight,
-	Copy, Eye, FileBox, FileSliders, FileText, Frame, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, 
+	BookOpen, Check, ChevronDown, ChevronRight,Copy, Eye, FileBox, FileSliders, FileText, Frame, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -64,7 +64,7 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { listFindings } from './studio-lint';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, renameDeck as renameDeckStore, SETTINGS_EVENT, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, renameDeck as renameDeckStore, SETTINGS_EVENT, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
@@ -216,11 +216,24 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Persisted, and written ONLY by an explicit dial move (never by engagement), so a
 	// user boots where they left off and the surface never drifts. `'write'` is the
 	// calm editor|preview surface (the old Focus body, promoted to a home); `'build'`
-	// is the full desktop. (`'read'` — the newcomer home — lands in a later milestone.)
+	// is the full desktop. `'read'` is the full-bleed newcomer home (a beautiful deck
+	// + one "Edit this slide" button); it renders inside the SAME spine with the editor
+	// track at 0px but MOUNTED, so a newcomer's first edit (Read→Write) never remounts.
 	const [posture, setPostureState] = React.useState<Posture>(() => loadSettings().posture);
 	const postureRef = React.useRef(posture);
 	postureRef.current = posture;
 	const setPosture = React.useCallback((p: Posture) => { setPostureState(p); saveSettings({ posture: p }); }, []);
+	// Persist a fresh visitor's DERIVED boot stop exactly once (R1). Without this, a
+	// first-session action that trips hasPriorStudioUse() (creating a deck) would
+	// silently re-derive Read→Write next boot — the ratchet, relocated. Posture then
+	// only ever moves by an explicit dial interaction, as promised.
+	React.useEffect(() => {
+		if (!hasStoredPosture()) saveSettings({ posture: postureRef.current });
+	}, []);
+	// The one-time Read orientation hint ("this deck is yours → Edit this slide"),
+	// shown until the newcomer edits or dismisses it. Content on the button, not a banner.
+	const [readHintSeen, setReadHintSeenState] = React.useState(() => loadSettings().readHintSeen);
+	const dismissReadHint = React.useCallback(() => { setReadHintSeenState(true); saveSettings({ readHintSeen: true }); }, []);
 	// `quietened` — the transient "quiet the noise" overlay (heir to the old Focus
 	// toggle, 2026-06-30-studio-focus-mode.md). Shows the calm Write surface for the
 	// session WITHOUT touching the saved `posture`; ⌘. toggles it, Esc clears it, and
@@ -2044,13 +2057,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	return (
 		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
 			{/* ── Top bar ─────────────────────────────────────────────── */}
-			{/* Write stop (DESKTOP only): a slim header — deck title · ⌘K · Present ·
+			{/* Read + Write stops (DESKTOP only): a slim header — deck title · ⌘K · Present ·
 			    Share · the dial. Most of the control cluster is gone; ⌘K still reaches
 			    every feature, and the dial is the always-visible way to any stop (no
 			    "exit" — you are never in a mode, only at a stop). On COMPACT widths the
 			    full header stays (its ⋯ overflow carries deck-switch / theme / tours),
 			    since a slim header would strand those; the dial rides the full header. */}
-			{effectiveStop === 'write' && !compact ? (
+			{effectiveStop !== 'build' && !compact ? (
 			<header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
 				<LatticeMark mode={mode} className="size-7 shrink-0" />
 				<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
@@ -2301,16 +2314,18 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</div>
 				</div>
 			) : (
-				/* Unified compose spine (M2 spine hoist, 2026-07-17-studio-persona-dial.md).
-				   Write and Build share ONE structure so editor + preview mount ONCE and never
-				   remount across a dial move — the srcdoc iframe never reloads and the visible
-				   slide never jumps. The editor/preview/rails sit at FIXED child indices; only
-				   the surrounding chrome toggles. BUILD gates the chrome on: the left activity
-				   bar + docked Settings/Architect (desktop) or the right Inspector (tablet).
-				   WRITE gates it all off → the bare editor|preview split (the old Focus body).
-				   The split always contributes FIVE children (rail|editor|handle|preview|rail)
-				   via splitTracks() so track lists can't drift (#721 zero-void invariant). */
-				<div className={cn('flex min-h-0 flex-1', desktop && 'flex-row')}>
+				/* Unified compose spine (M2 spine hoist + M3 Read, 2026-07-17-studio-persona-dial.md).
+				   Read, Write and Build share ONE structure so editor + preview mount ONCE and
+				   never remount across a dial move — the srcdoc iframe never reloads and the
+				   visible slide never jumps. The editor/preview/rails sit at FIXED child indices;
+				   only the surrounding chrome + the split track weights change. BUILD gates the
+				   chrome on (activity bar + docked Settings/Architect on desktop, right Inspector
+				   on tablet). WRITE is the bare editor|preview split. READ collapses the editor
+				   track to 0px (the pane stays MOUNTED) for a full-bleed preview + the "Edit this
+				   slide" overlay, so the newcomer's first edit (Read→Write) is a track re-weight,
+				   never a remount. The split always contributes FIVE children so track lists can't
+				   drift (#721 zero-void invariant). */
+				<div className={cn('relative flex min-h-0 flex-1', desktop && 'flex-row')}>
 					{desktop && effectiveStop === 'build' && activityBar}
 					<div
 						className="group/split grid min-h-0 flex-1"
@@ -2318,16 +2333,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						data-split-collapsed={split.collapsed ?? undefined}
 						style={{
 							...split.gridVars,
-							// Track count MUST match the rendered children. Desktop-Build docks
-							// Settings + Architect LEFT (before the split), at the FOLD-clamped
-							// effective widths so both-open never overflows (#721/#720 acceptance);
-							// tablet-Build docks the Inspector RIGHT (after) at a fixed 296px. Open
-							// panels only → their tracks only (a fixed '0px' would collapse the editor
-							// into it). At Write every panel condition is false → the bare five tracks.
+							// Track count MUST match the rendered children (always 5 split tracks +
+							// the Build-gated panel tracks). Desktop-Build docks Settings + Architect
+							// LEFT at the FOLD-clamped widths (#721/#720); tablet-Build docks the
+							// Inspector RIGHT at 296px. READ uses an all-zero-but-preview five-track
+							// list (editor pane kept mounted at 0px → full-bleed preview, no remount).
+							// At Write every panel condition is false → the bare five tracks.
 							gridTemplateColumns: [
 								...(desktop && effectiveStop === 'build' && inspectorOpen ? [`${setEff}px`] : []),
 								...(desktop && effectiveStop === 'build' && architectOpen ? [`${archEff}px`] : []),
-								...splitTracks(split.collapsed),
+								...(effectiveStop === 'read' ? ['0px', '0px', '0px', 'minmax(0,1fr)', '0px'] : splitTracks(split.collapsed)),
 								...(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? ['296px'] : []),
 							].join(' '),
 						}}
@@ -2364,6 +2379,30 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							</aside>
 						)}
 					</div>
+
+					{/* READ overlay — the one primary verb over the full-bleed preview. Absolutely
+					    positioned in the (relative) spine wrapper, so it is NOT a grid item and
+					    can't affect the #721 track/child count. "Edit this slide" is the single,
+					    unmissable, non-hover-gated action (hover fails on touch); it steps the dial
+					    to Write. The one-time hint carries the banner's one true job (the deck is
+					    yours) as element-attached content that never recurs. */}
+					{effectiveStop === 'read' && (
+						<div className="pointer-events-none absolute inset-x-0 bottom-20 z-20 flex flex-col items-center gap-2.5 px-4">
+							{!readHintSeen && (
+								<div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
+									<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
+									<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
+								</div>
+							)}
+							<button
+								type="button"
+								onClick={() => { dismissReadHint(); changePosture('write'); }}
+								className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-[var(--on-accent)] shadow-lg transition-transform hover:scale-[1.02]"
+							>
+								<PencilLine className="size-4" />Edit this slide
+							</button>
+						</div>
+					)}
 				</div>
 			)}
 
@@ -2515,6 +2554,7 @@ function ScrollFade({ children, className }: { children: React.ReactNode; classN
 // surface you're on (the transient `quietened` overlay lights Write without moving the
 // saved posture). Matches the segmented-control idiom (bordered group, card-lift active).
 const POSTURE_STOPS: { id: Posture; label: string; hint: string; icon: React.ReactNode }[] = [
+	{ id: 'read', label: 'Read', hint: 'Read — just the slides', icon: <BookOpen className="size-4" /> },
 	{ id: 'write', label: 'Write', hint: 'Write — editor + preview', icon: <PencilLine className="size-4" /> },
 	{ id: 'build', label: 'Build', hint: 'Build — every panel', icon: <Layers className="size-4" /> },
 ];

@@ -355,22 +355,37 @@ export type PdfPages = 'png' | 'jpeg';
 // drops the inherited starters from every deck that never materialized (approved/edited/dropped) one.
 // The persisted density stop. (`'read'` — the full-bleed newcomer home — widens
 // this union in a later milestone; today's two stops map to the existing surfaces.)
-export type Posture = 'write' | 'build';
-const POSTURES: readonly Posture[] = ['write', 'build'];
+export type Posture = 'read' | 'write' | 'build';
+const POSTURES: readonly Posture[] = ['read', 'write', 'build'];
 const isPosture = (v: unknown): v is Posture => POSTURES.includes(v as Posture);
-export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; handleStyle: HandleStyle; pdfPages: PdfPages; lensDefaults: boolean };
-const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: 'write', handleStyle: 'knob', pdfPages: 'png', lensDefaults: true };
+// `readHintSeen` — the one-time "this sample deck is yours → Edit this slide"
+// orientation hint on the Read stop is shown until the newcomer edits or dismisses
+// it, then never again. (It is content attached to the Edit button, not a banner —
+// it points INTO the app, never recurs, and blocks nothing.)
+export type StudioSettings = { validation: boolean; pageNumbers: boolean; headerFooter: boolean; language: string; posture: Posture; readHintSeen: boolean; handleStyle: HandleStyle; pdfPages: PdfPages; lensDefaults: boolean };
+const DEFAULT_SETTINGS: StudioSettings = { validation: true, pageNumbers: true, headerFooter: false, language: DEFAULT_LANGUAGE, posture: 'read', readHintSeen: false, handleStyle: 'knob', pdfPages: 'png', lensDefaults: true };
 
-// Migrate the retired one-way `onboarded` boolean to a posture. An explicit
-// `onboarded:true` (they reached the full surface) → keep it → 'build'; everyone
-// else → the calm middle 'write'. While the 'read' newcomer home does not yet
-// exist, the fresh-visitor and the prior-use-but-not-onboarded cohorts collapse
-// onto 'write', so this is two-way today. When 'read' ships (M3) this WIDENS to
-// the hardened three-population form (R4/R6): fresh → 'read', prior-use-only →
-// 'write', onboarded → 'build' — so `derivePosture` must consult
-// `hasPriorStudioUse()` at that point. Pre-GA, no real cohort is affected.
+// Derive the boot stop for a browser with no explicitly-stored posture — the
+// hardened three-population form (R4/R6, prior-use-first so an actively-editing
+// user is never demoted): an explicit legacy `onboarded:true` (they reached the
+// full surface) → keep it → 'build'; a browser with prior Studio use but no full
+// surface → the calm middle 'write'; a true first visit → the gentlest home,
+// 'read'. Once derived for a fresh visitor, the boot stop is persisted ONCE (see
+// hasStoredPosture + the mount effect in StudioShell) so a first-session action
+// like creating a deck can never silently re-derive it upward.
 function derivePosture(legacyOnboarded: boolean | undefined): Posture {
-	return legacyOnboarded === true ? 'build' : 'write';
+	if (legacyOnboarded === true) return 'build';
+	if (hasPriorStudioUse()) return 'write';
+	return 'read';
+}
+// True only when a posture was EXPLICITLY written to storage (not merely derived).
+// The mount effect uses this to persist a fresh visitor's derived stop exactly once.
+export function hasStoredPosture(): boolean {
+	try {
+		return isPosture(read<Partial<StudioSettings>>(SETTINGS_LS)?.posture);
+	} catch {
+		return false;
+	}
 }
 
 export function loadSettings(): StudioSettings {

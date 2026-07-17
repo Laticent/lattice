@@ -115,23 +115,26 @@ describe('studio-store — titleFromSource', () => {
 
 describe('studio-store — settings', () => {
 	it('defaults then round-trips', () => {
-		expect(loadSettings()).toMatchObject({ validation: true, pageNumbers: true, headerFooter: false, posture: 'write' });
+		expect(loadSettings()).toMatchObject({ validation: true, pageNumbers: true, headerFooter: false, posture: 'read' });
 		saveSettings({ pageNumbers: false });
 		expect(loadSettings().pageNumbers).toBe(false);
 		expect(loadSettings().validation).toBe(true); // untouched keys keep defaults
 	});
 
-	it('migrates the retired one-way `onboarded` flag to a posture, then drops it', () => {
-		// A legacy engaged user (onboarded:true) reached the full surface → keep it.
+	it('derives the boot posture across the three populations, and drops the legacy flag', () => {
+		// (1) A legacy engaged user (onboarded:true) reached the full surface → keep it → Build.
 		localStorage.setItem('lattice-studio-settings', JSON.stringify({ onboarded: true }));
 		expect(loadSettings().posture).toBe('build');
 		// The retired flag is not re-persisted — no stale second source of truth beside posture.
 		saveSettings({ pageNumbers: false });
 		expect('onboarded' in JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}')).toBe(false);
-		// A legacy non-engaged user (onboarded:false) → the calm middle stop.
+		// (2) Prior Studio use but no full surface (a saved deck index) → the calm middle → Write.
 		localStorage.clear();
-		localStorage.setItem('lattice-studio-settings', JSON.stringify({ onboarded: false }));
+		localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'x', title: 'X', builtin: true }]));
 		expect(loadSettings().posture).toBe('write');
+		// (3) A true first visit (nothing stored) → the gentlest home → Read.
+		localStorage.clear();
+		expect(loadSettings().posture).toBe('read');
 	});
 
 	it('seeds language from the browser the first time, then honors the saved pick', () => {
