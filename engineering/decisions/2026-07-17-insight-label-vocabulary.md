@@ -48,14 +48,19 @@ are themselves modifiers (`insight-key`, `insight-recommendation`), so either
 word can move onto the other surface. This makes the user's framing literal: the
 recommendation *is* a Key Insight variant.
 
-### Vocabulary (lean, curated)
+### Vocabulary (curated)
+
+Shipped as the lean pack (first shipped set), then expanded with the
+board-slide follow-ons (OUR VIEW, IMPLICATION, NEXT STEP, WHY IT MATTERS):
 
 | Modifier | Eyebrow | Modifier | Eyebrow |
 |---|---|---|---|
 | `insight-key` | KEY INSIGHT (universal default) | `insight-verdict` | VERDICT |
 | `insight-recommendation` | RECOMMENDATION (split-compare default) | `insight-so-what` | SO WHAT |
 | `insight-takeaway` | TAKEAWAY | `insight-bottom-line` | BOTTOM LINE |
-| `insight-the-ask` | THE ASK | | |
+| `insight-the-ask` | THE ASK | `insight-our-view` | OUR VIEW |
+| `insight-implication` | IMPLICATION | `insight-next-step` | NEXT STEP |
+| `insight-why` | WHY IT MATTERS | | |
 
 Restraint is the point: a small, individually tasteful set, each uppercase to
 match the eyebrow's `text-transform` and the label voice. Grow it by adding one

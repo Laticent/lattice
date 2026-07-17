@@ -955,7 +955,8 @@ describe('component-manifest', () => {
         'wip', 'draft', 'tbd', 'confidential', 'redacted', 'archived', 'pinned', 'revised', // state
         'tone-pass', 'tone-warn', 'tone-fail', 'tone-skip', // tone
         'insight-key', 'insight-recommendation', 'insight-takeaway', 'insight-verdict',
-        'insight-so-what', 'insight-bottom-line', 'insight-the-ask', // insight
+        'insight-so-what', 'insight-bottom-line', 'insight-the-ask',
+        'insight-our-view', 'insight-implication', 'insight-next-step', 'insight-why', // insight
         'claim-quiet', 'claim-hero', 'claim-framed', // claim
       ]);
     });
