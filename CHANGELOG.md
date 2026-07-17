@@ -228,6 +228,21 @@ in patch versions.
 
 ### Changed
 
+- **The first live preview render after a page load no longer waits on a cold runtime fetch.**
+  The Studio/Playground preview iframe needs `lattice-runtime.js` before it can paint, but that
+  bundle was the one preview asset nobody warmed — the parent page never loads it, so the iframe
+  cold-fetched it the first time it wrote its `srcdoc`, *after* the engine bundle had finished
+  loading. On a cold/first/post-deploy load the two heavy fetches ran back-to-back and the runtime
+  landed squarely on the first-render critical path — it was the bulk of the perf overlay's red
+  **FRAME REBUILD** needle even for a tiny slide (measured cold, mid-tier phone profile: the runtime
+  request didn't even *start* until ~7s in, and the first render's frame took ~3.8s). The app pages
+  now drop a low-priority `<link rel="prefetch" as="script">` for the runtime in `<head>`, so its
+  fetch starts at HTML-parse time and overlaps island hydration + the engine load instead of queuing
+  behind them (same-cache-entry as the iframe's own `<script src>`, content-hash-versioned together).
+  Measured post-fix: the runtime request starts at ~0.2s (was ~7s) and FRAME REBUILD drops ~0.85s.
+  The residual cold-load cost is the engine bundle + hydration + the 563KB CSS parse, which the SSG
+  instant-shell is designed to mask. (`RuntimeWarm.astro`, `studio.astro`, `playground.astro`;
+  `engineering/decisions/2026-07-11-preview-performance-diagnosis.md` §B④.)
 - **Categorical TEXTURE is now a universal token channel (`--cat-N-texture`), not per-theme
   wiring — and it fixes a11y mindmaps + textures every categorical diagram.** Texture (the
   non-color channel that lets monochrome/CVD/print decks tell categories apart) had been copied

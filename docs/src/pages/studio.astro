@@ -12,6 +12,7 @@ import VizDiagnosticsOverlay from '../components/studio/VizDiagnosticsOverlay.as
 import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
+import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
 import { DECKS } from '../components/studio/decks';
@@ -176,6 +177,10 @@ const REPLAY_JS = shell
 		    CSS below, which would otherwise delay it. */}
 		<ColorSchemeSeed />
 		<ResourceHints />
+		{/* Prefetch the preview runtime at parse time so the first live render's
+		    iframe finds it warm instead of cold-fetching it on the critical path
+		    (the FRAME REBUILD cost). Overlaps island hydration + the engine load. */}
+		<RuntimeWarm />
 		<title>Lattice Studio — one workspace</title>
 		<meta name="description" content="The Lattice Studio: compose, present, and fabricate decks in one workspace. A live prototype of the app redesign." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />

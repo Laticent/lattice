@@ -18,6 +18,7 @@ TOTAL in the red on mobile; "I'm not feeling the performance numbers."
 | **C1. Metrics honesty** — regime-split FRAME/TOTAL panel (§C) | **SHIPPED** #917 | panel rates patch vs rebuild honestly |
 | **C2. Browser FRAME/LCP bench** (`npm run perf:frame`, §C) | **SHIPPED** #921 | the measurement surface for all of the above |
 | **D. RENDER** — memoized theme→CSS composition (§D) | **SHIPPED** #924 | warm edit RENDER ~141ms → ~9ms (4×) |
+| **B④. Warm the runtime** — `<link rel=prefetch>` off the first-render path (§B) | **SHIPPED** | cold runtime request ~7000ms → ~200ms; first-render FRAME −~850ms (4×/4Mbps) |
 | **A5. Dark-mode NEWCOMER shell** | **OPEN** | first-time dark-OS visitor gets no build-time shell (returning dark users are covered) |
 | **B①. CSS scoping / per-component composition** | **PARKED** | dominated by the existing `player-prune` kernel; ~2× ceiling; low ROI post-B③ |
 | **B⑤. Map-basemap runtime split** | **REVERTED** | would blank maps in the Export-to-Marp path (runtime is the sole map renderer there) |
@@ -278,8 +279,29 @@ uses the real faces; and the decorative overlay is `pointer-events:none` from th
    full-writes, but front A's instant-shell already masks that behind a painted slide.
    Since the multi-slide filmstrip (`deck-preview.js`) already patched, both preview
    paths now avoid the per-edit reparse.
-4. **Warm the runtime** (preload) so the cold network fetch is off the first-render
-   critical path.
+4. **Warm the runtime** so the cold network fetch is off the first-render critical path.
+   **— SHIPPED.** The engine bundle is warmed (EngineWarm / loaded on mount), but the
+   runtime (`lattice-runtime.js`) was the one preview asset nobody fetched until the first
+   iframe wrote its `srcdoc` — *after* the engine finished loading. On a cold load the two
+   heavy fetches were serial and the runtime landed on the first-render path: measured (built
+   `dist`, headless Chrome, CPU 4× + 4Mbps/150ms, a mid-tier phone) the runtime request didn't
+   **start** until ~7000ms in (done ~8100ms), and the first live `write` render's FRAME was
+   ~3846ms — reproducing the field report's red FRAME REBUILD 3647ms on a 270-byte slide.
+   Fix: a static `<link rel="prefetch" as="script" href={runtimeUrl}>` in the app pages'
+   `<head>` (`RuntimeWarm.astro`, on `studio.astro` + `playground.astro`; the frozen
+   Drawing Board/Workbench are left out). `prefetch` (not `preload`) keeps it at the browser's
+   lowest priority so it never competes with the render-blocking CSS / LCP element — the same
+   reason A2 demoted the *engine* warm from eager — and, being used only inside a subframe, it
+   sidesteps preload's "unused" warning. The URL is the SAME content-hash-versioned
+   `assetBase()+'lattice-runtime.js'` the pages' `options.runtimeUrl` resolves to, so the
+   prefetch and the iframe's own `<script src>` share one cache entry (a content change bumps
+   the hash and busts both). **Measured post-fix:** the runtime request starts at ~200ms (done
+   ~380ms) and the first-render FRAME drops ~850ms. It does NOT move time-to-first-slide much:
+   that is gated by the engine bundle download+parse + hydration + the 563KB CSS reparse, which
+   the SSG instant-shell (front A) is designed to mask; re-warming the *engine* eagerly is the
+   remaining lever and stays closed (A2 — bandwidth contention on slow links), so the runtime
+   warm is the safe, non-speculative slice. Locked by `RuntimeWarm.test.ts` (prefetch present +
+   URL can't drift from the pages' `runtimeUrl`).
 5. **Split the map basemaps out of the runtime bundle — ATTEMPTED, REVERTED (the naive
    cut breaks a shipping host).** The three pre-projected GeoJSON basemaps (`map.basemap*.json`)
    are inlined into `dist/lattice-runtime.min.js` by `map.transform.js`'s top-level `require`s
