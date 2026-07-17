@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, Frame, History, Layers, ListChecks, MessageSquareHeart, MessageSquareText, Monitor, MonitorPlay, Moon, MoreHorizontal, Paintbrush, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -83,16 +83,17 @@ import { workspaceLensConfig } from './workspace-lenses';
 // loads on first open. It's already mount-on-view, so this is a drop-in.
 const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default: m.Fabricate })));
 
-// Deck Inspector pill-tab sections, ordered by likely reach (Look first). The
-// two read-aloud groups collapse into "Speech" so the panel isn't five stacked
-// groups. Icons match the retired InspGroup headers so the mental map is stable.
+// Deck Inspector pill-tab sections, ordered by likely reach (Look first). The two
+// read-aloud groups collapse into "Speech" so the panel isn't five stacked groups.
+// Label-only, matching the Workspace + Slide-settings pill strips (one grammar) and
+// keeping the pills narrow enough to sit on fewer rows in the ~260px column.
 type DeckTab = 'look' | 'brand' | 'marks' | 'speech' | 'authoring';
-const DECK_TABS: { value: DeckTab; label: string; icon: React.ReactNode }[] = [
-	{ value: 'look', label: 'Look', icon: <Palette className="size-3.5" /> },
-	{ value: 'brand', label: 'Brand', icon: <Paintbrush className="size-3.5" /> },
-	{ value: 'marks', label: 'Marks', icon: <Frame className="size-3.5" /> },
-	{ value: 'speech', label: 'Speech', icon: <Volume2 className="size-3.5" /> },
-	{ value: 'authoring', label: 'Authoring', icon: <Wand2 className="size-3.5" /> },
+const DECK_TABS: { value: DeckTab; label: string }[] = [
+	{ value: 'look', label: 'Look' },
+	{ value: 'brand', label: 'Brand' },
+	{ value: 'marks', label: 'Marks' },
+	{ value: 'speech', label: 'Speech' },
+	{ value: 'authoring', label: 'Authoring' },
 ];
 
 // Offline FALLBACK known-components — used only when the real catalog (the
@@ -1749,9 +1750,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					value={architectTab}
 					onValueChange={(v) => setArchitectTab(v as 'coach' | 'chat' | 'lenses')}
 					tabs={[
-						{ value: 'coach', label: 'Coach', icon: <Sparkles className="size-3.5" /> },
-						{ value: 'chat', label: 'Chat', icon: <MessageSquareText className="size-3.5" /> },
-						{ value: 'lenses', label: 'Lenses', icon: <Eye className="size-3.5" /> },
+						{ value: 'coach', label: 'Coach' },
+						{ value: 'chat', label: 'Chat' },
+						{ value: 'lenses', label: 'Lenses' },
 					]}
 				/>
 			</div>
@@ -1966,7 +1967,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<SlidersHorizontal className="size-4 text-[var(--accent)]" />
 							<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
 							<span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
-							{!compact && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
+							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
 					</>
@@ -1976,7 +1977,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
 							<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
 							<span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
-							{!compact && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
+							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
 					</>
@@ -2075,7 +2076,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
 				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { setArchitectOpen(true); setArchitectTab('lenses'); notify('Reader views live in the Architect’s Lenses tab — add one there.'); }} />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { setQuietened(false); setPosture('build'); setArchitectOpen(true); setArchitectTab('lenses'); notify('Reader views live in the Architect’s Lenses tab — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}

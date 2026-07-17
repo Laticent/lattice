@@ -1,10 +1,13 @@
 ---
 status: in-progress
-summary: One cohesive grammar for every Studio/Playground/site panel & drawer —
-  a shared PanelSheet/PanelHeader/PanelBody/PanelSection layer over shadcn Sheet, a
-  single X close (chevron retired), pill-tabs organized by reach, a 3-step width
-  scale, and a touch-scroll fix. Supersedes the deck-Inspector-not-tabbed call
-  (2026-07-03) and the chevron-close model (2026-07-06). Rolls out surface-by-surface.
+summary: A cohesive panel/drawer grammar for the Studio, rolled out surface-by-surface.
+  SHIPPED this pass — the IA regrouping (deck Inspector, Slide settings, Workspace,
+  Architect all pill-tabbed by one-idea-per-tab), a single X close (chevron retired),
+  the touch-scroll fix on every panel body, and unified headers. The shared
+  PanelSheet/PanelHeader/PanelBody/PanelSection primitive is the FOUNDATION + its first
+  consumer (FeedbackSheet); the other surfaces were normalized in place and adopt it
+  incrementally (NOT yet a repo-wide component guarantee). Supersedes the
+  deck-Inspector-not-tabbed call (2026-07-03) and the chevron-close model (2026-07-06).
 ---
 
 # Panels & drawers — one cohesive system
@@ -106,6 +109,27 @@ Slide-settings Status/Decoration/Chrome/Comments, MetricDetail.
   a smaller follow-up, tracked here.
 - Full `PanelSheet`/`PanelHeader` component migration of every sheet (Feedback is the
   pilot); the rest were normalized in place this pass and can adopt the primitive later.
+
+## Open design tensions (surfaced by the adversarial trio — HARD RULE #25)
+
+Honest follow-ups, not papered over. The owner chose to pill-tab the deck Inspector
+(reversing 2026-07-03); these are the costs that reversal carries, worth revisiting:
+- **Glance vs. tabs.** The Inspector stopped being a scan-everything reference column;
+  a deck-wide audit ("is my brand bar on, footer set, page numbers showing?") now costs
+  tab-switches. If it grates, options: keep the column scannable, or merge Look+Brand.
+- **White-label split.** The theme **accent** lives on Look while the **brand bar** lives
+  on Brand — the white-label flow the Brand tab is named for spans two tabs. Candidate:
+  co-locate accent with the brand controls.
+- **"Brand" buries typography.** Eyebrow + Heading rule sit under Brand because they read
+  the `--spectrum` token, but a user thinks "heading," not "brand." Candidate: rename to
+  "Accent" or move the heading marks to Look.
+- **Lenses lives in an AI-branded panel.** Reader views (a deterministic, no-model
+  workflow) are a tab inside the Sparkles/"AI coach" Architect. Entry points route to it,
+  but its conceptual home may be with view/preview controls, not the coach.
+- **Pill density.** Five deck pills still wrap in a ~260px column even label-only;
+  demoting "Authoring" (2 preview-only toggles) to a footer/Workspace would get to four.
+
+## Do-not-regress
 
 ## Do-not-regress
 

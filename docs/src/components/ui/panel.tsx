@@ -10,7 +10,13 @@ import {
 	SheetTitle,
 } from '@/components/ui/sheet';
 
-// panel.tsx — the ONE grammar every drawer and docked column shares.
+// panel.tsx — the shared drawer/panel grammar the Studio is migrating onto.
+//
+// STATUS: this is the primitive + its FIRST consumer (FeedbackSheet). The other surfaces
+// (Inspector, Architect, Workspace, Share, Library, …) were normalized in place this pass
+// and adopt these components incrementally — so the cohesion is enforced by this component
+// only where it's actually wired, not yet repo-wide. Adoption tracked in
+// engineering/decisions/2026-07-17-panel-drawer-cohesion.md.
 //
 // Why a layer over sheet.tsx (not edits to it): `sheet.tsx` is the vendored
 // shadcn base — keep it a thin Radix Dialog wrapper so it stays mergeable on
