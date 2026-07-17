@@ -1,6 +1,8 @@
 ---
-// Warms the preview RUNTIME bundle (`lattice-runtime.js`) on an app page, so the
-// first live render's iframe doesn't cold-fetch it on the critical path.
+// Warms the preview RUNTIME bundle (`lattice-runtime.js`) on any page that
+// live-renders a slide ON LOAD — the app pages (Studio/Playground), the landing
+// hero, and every component page's specimen — so the first live render's iframe
+// doesn't cold-fetch it on the critical path.
 //
 // THE GAP THIS CLOSES. The engine bundle (`lattice-playground.js`) is warmed
 // by EngineWarm / loaded directly on mount, but the runtime is a SEPARATE

@@ -287,9 +287,12 @@ uses the real faces; and the decorative overlay is `pointer-events:none` from th
    `dist`, headless Chrome, CPU 4× + 4Mbps/150ms, a mid-tier phone) the runtime request didn't
    **start** until ~7000ms in (done ~8100ms), and the first live `write` render's FRAME was
    ~3846ms — reproducing the field report's red FRAME REBUILD 3647ms on a 270-byte slide.
-   Fix: a static `<link rel="prefetch" as="script" href={runtimeUrl}>` in the app pages'
-   `<head>` (`RuntimeWarm.astro`, on `studio.astro` + `playground.astro`; the frozen
-   Drawing Board/Workbench are left out). `prefetch` (not `preload`) keeps it at the browser's
+   Fix: a static `<link rel="prefetch" as="script" href={runtimeUrl}>` in the `<head>` of every
+   page that live-renders a slide on load (`RuntimeWarm.astro`, on `studio.astro` + `playground.astro`
+   + the landing `index.astro` (its hero preview) + `ComponentsLayout.astro` (each component page's
+   eager specimen); the frozen Drawing Board/Workbench are left out). The same red FRAME REBUILD showed
+   on the landing (~794ms, field report) and component pages, since their previews cold-fetch the same
+   runtime. `prefetch` (not `preload`) keeps it at the browser's
    lowest priority so it never competes with the render-blocking CSS / LCP element — the same
    reason A2 demoted the *engine* warm from eager — and, being used only inside a subframe, it
    sidesteps preload's "unused" warning. The URL is the SAME content-hash-versioned

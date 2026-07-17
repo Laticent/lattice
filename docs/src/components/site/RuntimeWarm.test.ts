@@ -43,15 +43,32 @@ describe('RuntimeWarm.astro', () => {
 	});
 });
 
-describe('live app pages warm the runtime', () => {
-	for (const page of ['studio.astro', 'playground.astro']) {
-		it(`${page} imports and renders <RuntimeWarm />`, () => {
-			const s = read(join('pages', page));
+// Surfaces that live-render a preview ON LOAD — the hero (index), the app pages
+// (studio/playground), and every component page (its specimen renders eagerly).
+// Each must warm the runtime so the first render doesn't cold-fetch it. The three
+// pages that build their OWN runtimeUrl also carry the shared-cache invariant; the
+// component LAYOUT delegates the URL to Specimen.astro (asserted separately below).
+describe('live-preview surfaces warm the runtime', () => {
+	const cases = [
+		{ file: 'pages/index.astro', ownsUrl: true },
+		{ file: 'pages/studio.astro', ownsUrl: true },
+		{ file: 'pages/playground.astro', ownsUrl: true },
+		{ file: 'layouts/ComponentsLayout.astro', ownsUrl: false },
+	];
+	for (const { file, ownsUrl } of cases) {
+		it(`${file} imports and renders <RuntimeWarm />`, () => {
+			const s = read(file);
 			expect(s).toContain("import RuntimeWarm from '../components/site/RuntimeWarm.astro'");
 			expect(s).toMatch(/<RuntimeWarm\s*\/>/);
-			// And it still builds its own runtimeUrl from the same pieces — the
-			// invariant the prefetch depends on to hit the same cache entry.
-			expect(s).toContain(RUNTIME_FILE);
+			// The pages that build their own runtimeUrl must keep composing it the same
+			// way — the invariant the prefetch depends on to hit one cache entry.
+			if (ownsUrl) expect(s).toContain(RUNTIME_FILE);
 		});
 	}
+
+	it('the component specimen (warmed by ComponentsLayout) is the runtime consumer', () => {
+		// ComponentsLayout carries <RuntimeWarm/> but delegates the actual runtime
+		// load to the specimen partial it wraps — so THAT is where the URL lives.
+		expect(read('components/Specimen.astro')).toContain(RUNTIME_FILE);
+	});
 });

@@ -35,6 +35,7 @@ import { assetBase } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
+import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 
 // Astro evaluates this frontmatter at build time with cwd = docs/, so anchor
 // repo reads to cwd (import.meta.url is unreliable once the page is bundled).
@@ -165,6 +166,10 @@ const nextSteps = [
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<ResourceHints />
+		{/* The hero right panel (HeroPreview) live-renders a slide on load, so the
+		    preview iframe needs the runtime immediately — warm it at parse time so it
+		    isn't cold-fetched on the first-render critical path (FRAME REBUILD). */}
+		<RuntimeWarm />
 		<title>Lattice — Markdown to boardroom-ready slide decks (PDF, PPTX)</title>
 		<meta
 			name="description"

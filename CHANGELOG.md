@@ -239,9 +239,11 @@ in patch versions.
   now drop a low-priority `<link rel="prefetch" as="script">` for the runtime in `<head>`, so its
   fetch starts at HTML-parse time and overlaps island hydration + the engine load instead of queuing
   behind them (same-cache-entry as the iframe's own `<script src>`, content-hash-versioned together).
-  Measured post-fix: the runtime request starts at ~0.2s (was ~7s) and FRAME REBUILD drops ~0.85s.
-  The residual cold-load cost is the engine bundle + hydration + the 563KB CSS parse, which the SSG
-  instant-shell is designed to mask. (`RuntimeWarm.astro`, `studio.astro`, `playground.astro`;
+  Applied on every page that live-renders a slide on load — the app pages (Studio, Playground), the
+  landing hero, and every component page's specimen. Measured post-fix (Studio): the runtime request
+  starts at ~0.2s (was ~7s) and FRAME REBUILD drops ~0.85s. The residual cold-load cost is the engine
+  bundle + hydration + the 563KB CSS parse, which the SSG instant-shell is designed to mask.
+  (`RuntimeWarm.astro`, `studio.astro`, `playground.astro`, `index.astro`, `ComponentsLayout.astro`;
   `engineering/decisions/2026-07-11-preview-performance-diagnosis.md` §B④.)
 - **Categorical TEXTURE is now a universal token channel (`--cat-N-texture`), not per-theme
   wiring — and it fixes a11y mindmaps + textures every categorical diagram.** Texture (the
