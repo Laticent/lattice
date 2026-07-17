@@ -385,6 +385,30 @@ describe('studio-store — last-active deck (boot where you left off)', () => {
 		clearAllDecks();
 		expect(loadActiveDeck()).toBeNull();
 	});
+
+	// Maker-checker Finding 1: the boot resolver's membership must match studio.astro's
+	// inline `isKnown` EXACTLY, or the instant-shell paints a deck the app doesn't boot
+	// (a wrong-deck flash). loadDeckList()=loadIndex() is the PERSISTED index when one
+	// exists — a built-in DELETED from it is NOT a boot target. studio.astro mirrors this
+	// by gating its all-built-ins fallback on an empty index. This pins that contract.
+	it('a built-in absent from a PERSISTED index is not a valid boot target (guards the astro parity)', () => {
+		// A saved index that omits the built-in `q3-board` (e.g. it was deleted), plus an
+		// active pointer that still names it (a stale cross-tab write).
+		localStorage.setItem('lattice-studio-deck-index', JSON.stringify([{ id: 'welcome', title: 'Welcome to Lattice', builtin: true }]));
+		saveActiveDeck('q3-board', 2);
+		// Not in the persisted list → falls back to index[0], NOT the deleted built-in.
+		expect(loadBootDeck().id).toBe('welcome');
+		expect(loadBootSlide()).toBe(0);
+	});
+
+	it('a built-in IS a valid boot target when NO index is persisted (the switched-to-before-any-mutation case)', () => {
+		// No persisted index → loadIndex() seeds from all built-ins, so a switched-to
+		// built-in boots. studio.astro accepts it via BD in exactly this (idx empty) case.
+		expect(localStorage.getItem('lattice-studio-deck-index')).toBeNull();
+		saveActiveDeck('q3-board', 1);
+		expect(loadBootDeck().id).toBe('q3-board');
+		expect(loadBootSlide()).toBe(1);
+	});
 });
 
 describe('studio-store — chat draft (Architect no-lost-work)', () => {
