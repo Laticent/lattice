@@ -545,3 +545,19 @@ commit per milestone, the adversarial trio after each. Status:
   dial up). New deck also joined ⌘K so the "reaches every feature" claim holds.
   Verified on the real running Studio (Write shows + opens the switcher; Read has
   none; Build unregressed).
+- **Post-review fix — Read shows the WHOLE slide (contain, not cover).** Review
+  caught that the Read full-bleed preview cropped the slide: a 16:9 slide in a pane
+  wider than 16:9 was sized `w-full` (cover width), deriving a height taller than
+  the pane, so `overflow-hidden` clipped the slide's header / footer / page number
+  off the top and bottom (measured ~55px each at 1440×780). A slide is a
+  fixed-aspect artifact — cropping hides content — so the fill cases (Read, and
+  editor-collapsed) now CONTAIN: a measured `ResizeObserver` picks the binding axis
+  (pane wider than the slide → bind height, letterbox the sides; pane taller → bind
+  width, letterbox top/bottom), keeping the whole slide visible with the aspect
+  ratio intact. No single static class does this — candidate `h-full w-auto
+  max-w-full` distorts a landscape slide in a tall pane (measured ratio 1.136 vs
+  1.778), so the axis is measured. Verified on the real Studio at 1440×900, 1440×780
+  (height-bind) and 900×1000 (width-bind): fully contained, ratio 1.778 preserved,
+  title + content slides both show their full top/bottom. (Not unit-tested: jsdom
+  has no layout, so the observer can't compute there — this is a HARD RULE #23
+  real-surface verification.)

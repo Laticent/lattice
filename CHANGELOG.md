@@ -285,7 +285,10 @@ in patch versions.
   a first-class mobile Read; a screen-reader announces each stop change. Write keeps deck navigation —
   its slim header carries the real deck switcher (Switch · Rename · New deck), not a dead title label,
   and New deck joined the ⌘K palette — so switching decks and creating one are reachable at Write, never
-  stranded in Build. Read stays a calm label (managing decks is a Write-and-up concern). Full design +
+  stranded in Build. Read stays a calm label (managing decks is a Write-and-up concern). The full-bleed
+  preview (Read, and editor-collapsed) now *contains* the slide — the whole slide is visible, letterboxed,
+  never cropped — instead of covering the pane width and clipping the slide's header / footer / page
+  number off the top and bottom when the pane was wider than the slide's aspect ratio. Full design +
   adversarial hardening: `engineering/decisions/2026-07-17-studio-persona-dial.md`.
 - **The live preview no longer accumulates leaked observers/iframes over a session, or stale
   cached assets across refreshes.** An adversarial-trio investigation (red-team leak hunt +

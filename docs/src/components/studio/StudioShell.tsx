@@ -1510,6 +1510,32 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// portrait shapes bind to height so they fit the pane, landscape to width.
 	const previewRatio = sizeRatio(deckSize);
 	const previewPortrait = previewRatio[1] > previewRatio[0];
+	// When the preview FILLS the pane (Read full-bleed, or editor collapsed) the card
+	// must CONTAIN the slide — the whole slide visible, never cropped — not cover the
+	// width and clip the slide's header / footer / page number off the top and bottom
+	// (the Read bug: a 16:9 slide in a pane wider than 16:9 derived a height taller
+	// than the pane). A slide is a fixed-aspect artifact; cropping it hides content.
+	// So bind the AXIS that fits: pane wider than the slide → bind height (letterbox
+	// the sides); pane taller → bind width (letterbox top/bottom). Measured, because
+	// no single static class contains both pane orientations without distorting.
+	const previewHolderRef = React.useRef<HTMLDivElement>(null);
+	const [previewFitByHeight, setPreviewFitByHeight] = React.useState(true);
+	const slideRatio = previewRatio[0] / previewRatio[1];
+	React.useEffect(() => {
+		const holder = previewHolderRef.current;
+		if (!holder) return;
+		const measure = () => {
+			const cs = getComputedStyle(holder);
+			const cw = holder.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+			const ch = holder.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+			if (cw <= 0 || ch <= 0) return;
+			setPreviewFitByHeight(cw / ch >= slideRatio);
+		};
+		measure();
+		const ro = new ResizeObserver(measure);
+		ro.observe(holder);
+		return () => ro.disconnect();
+	}, [slideRatio]);
 	// Touch swipe (mobile) + horizontal wheel (trackpad) change the viewed slide.
 	// goToSlide(slideNo) is next, goToSlide(slideNo - 2) is prev (both clamp).
 	const swipeRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -2001,7 +2027,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			)}
 			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
 			    aspect ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-card p-4 sm:p-5" onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
+			<div ref={previewHolderRef} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-card p-4 sm:p-5" onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -2009,7 +2035,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{/* The 760px comfort cap LIFTS while the editor is collapsed — otherwise
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
-				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' || effectiveStop === 'read' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
+				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]',
+					// Fill cases (Read full-bleed, or editor collapsed) CONTAIN via the measured
+					// axis so the whole slide shows, uncropped. Otherwise the pane is width-bound
+					// with the 760px comfort cap (portrait binds to height).
+					split.collapsed === 'a' || effectiveStop === 'read'
+						? (previewFitByHeight ? 'h-full w-auto' : 'h-auto w-full')
+						: previewPortrait ? 'h-full w-auto' : 'h-auto w-full max-w-[760px]')}
+					style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
 					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || effectiveStop === 'read' || split.collapsed !== 'b'} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
 				</div>
 			</div>
