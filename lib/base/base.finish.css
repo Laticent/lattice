@@ -712,6 +712,55 @@ section.finish-gallery {
     inset 0 0 0 2.82cqi color-mix(in srgb, var(--accent) 40%, var(--bg));
 }
 
+/* ── 11 · CANOPY — dappled light through leaves + a grounding forest floor ─────
+ * A nature backdrop: soft light blooms clustered along the TOP (sun filtering
+ * down through a canopy) over a fine scattered-fleck texture (light specks on
+ * the forest floor), seated by a bottom-weighted grounding vignette.
+ * RICH:   blooms + flecks mix toward transparent; the vignette is a low-alpha
+ *         ink rim heaviest at the bottom.
+ * OPAQUE: every layer ends on var(--bg). 1 texture + 3 wash blooms, both faces. */
+section.finish-canopy {
+  /* TEXTURE — scattered light flecks (a sparse dot-scatter). */
+  --fin-texture:
+    repeating-radial-gradient(circle at 22% 28%, color-mix(in srgb, var(--accent) 9%, transparent) 0 1.5px, transparent 1.5px 13px);
+  --fin-texture-opaque:
+    repeating-radial-gradient(circle at 22% 28%, color-mix(in srgb, var(--accent) 7%, var(--bg)) 0 1.5px, var(--bg) 1.5px 13px);
+  /* WASH — three soft blooms along the top: light coming down through leaves. */
+  --fin-wash:
+    radial-gradient(70% 55% at 24% 0%, color-mix(in srgb, var(--accent) 14%, transparent) 0%, transparent 62%),
+    radial-gradient(62% 50% at 72% 4%, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 58%),
+    radial-gradient(82% 60% at 50% 10%, color-mix(in srgb, var(--accent) 7%, transparent) 0%, transparent 66%);
+  --fin-wash-opaque:
+    radial-gradient(70% 55% at 24% 0%, color-mix(in srgb, var(--accent) 11%, var(--bg)) 0%, var(--bg) 62%),
+    radial-gradient(62% 50% at 72% 4%, color-mix(in srgb, var(--accent) 8%, var(--bg)) 0%, var(--bg) 58%),
+    radial-gradient(82% 60% at 50% 10%, color-mix(in srgb, var(--accent) 5%, var(--bg)) 0%, var(--bg) 66%);
+  /* 4 layers: texture slot + 3 blooms; aux slots carry one entry per layer,
+   * compositor order (texture, then wash). Texture tiles; blooms cover once. */
+  --fin-size: auto, cover, cover, cover;
+  --fin-position: top left, top left, top left, top left;
+  --fin-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  --fin-mark: none;
+  --fin-mark-opaque: none;
+  --fin-mark-text: "";
+  /* EDGE — a grounding vignette, heaviest toward the bottom (the forest floor
+   * in shadow): the radial is centered high, so its far edge — the bottom — is
+   * darkest. RICH low-alpha ink; OPAQUE ink-in-bg. */
+  --fin-edge:
+    radial-gradient(
+      120% 96% at 50% 6%,
+      transparent 56%,
+      color-mix(in srgb, var(--ink, var(--accent)) 11%, transparent) 100%
+    );
+  --fin-edge-opaque:
+    radial-gradient(
+      120% 96% at 50% 6%,
+      var(--bg) 58%,
+      color-mix(in srgb, var(--ink, var(--accent)) 8%, var(--bg)) 100%
+    );
+  --fin-edge-position: center;
+  --fin-edge-size: cover;
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
  * THE OPAQUE FLIP — the export fallback (the load-bearing PDF-safety swap).
  * Re-points every full-bleed slot to its preset's `--fin-*-opaque` mirror, so a

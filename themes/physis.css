@@ -1,0 +1,181 @@
+/* @theme physis
+ * @size hd       1280px 720px
+ * @size HD       1280px 720px
+ * @size 4K       3840px 2160px
+ * @size 4k       3840px 2160px
+ * @size standard 960px  720px
+ * @size 16:9     1280px 720px
+ * @size square   1080px 1080px
+ * @size 1:1      1080px 1080px
+ * @size portrait 1080px 1350px
+ * @size 4:5      1080px 1350px
+ * @size story    1080px 1920px
+ * @size reel     1080px 1920px
+ * @size 9:16     1080px 1920px
+ * @size mobile   1080px 2340px
+ */
+
+/* Lattice · Physis palette — the nature of nature.
+ * ────────────────────────────────────────────────────────────────────────
+ * Warm bone paper under forest-ink, with a living moss-green accent and an
+ * earthy hue set (moss, fern, bark, lichen, stone, clay, water, sky, berry,
+ * fungus, amber, pine). The deck reads like sun on a forest floor: pale
+ * parchment, deep green-black ink, one moss emphasis. Dark mode is the forest
+ * at night — a deep pine-black canvas.
+ *
+ * Categorical cycle: the three-layer contrast contract (#1022) — each
+ * `--cat-N-fill` / `--cat-N-mark` is a FLIPPING light-dark() tier of one
+ * nature hue (fill: pale wash ↔ jewel; mark: deep edge ↔ pale tint), and the
+ * inks `--cat-on-fill` / `--cat-on-mark` flip with them. mark-vs-bg ≥ 3:1,
+ * label-ink-vs-fill ≥ 4.5:1, fill ≠ mark — gated by checkCatContrast in both
+ * modes. See design/skills/theme.md + engineering/decisions/2026-07-15-categorical-token-contract.md.
+ */
+
+@import 'lattice';
+
+:where(:root) { color-scheme: light; }
+
+:root {
+  /* ── Brand axis — the moss hue, single source of truth ── */
+  --brand-canvas: #1F2C1C;  /* deep pine dusk — dark surface / divider */
+  --brand-accent: #3C6B44;  /* moss green — AA on paper (text-label, accent) */
+  --brand-bright: #6FA96B;  /* new-leaf green — decorative spectrum */
+  --brand-alt:    #A9822E;  /* lichen gold — spectrum endpoint */
+
+  /* ── Surfaces — light-dark() pairs ── */
+  --bg:              light-dark(#F4F1E7, var(--scheme-dark-bg));      /* warm bone paper */
+  --bg-alt:          light-dark(#EAE4D4, var(--scheme-dark-bg-alt));  /* aged-paper card */
+  --surface-inverse: var(--brand-canvas);
+  --border:          light-dark(#DED7C4, var(--scheme-dark-border));
+
+  /* ── Ink ramp — forest ink on bone; ratios in comments ── */
+  --text-display:   #FFFFFF;
+  --text-heading:   light-dark(#1E2A1B, var(--scheme-dark-text-heading));    /* 14:1 */
+  --text-body:      light-dark(#33402E, var(--scheme-dark-text-body));       /* 9:1  */
+  --text-label:     light-dark(var(--brand-accent), var(--scheme-dark-text-label)); /* AA */
+  --text-secondary: light-dark(#54604B, var(--scheme-dark-text-secondary));  /* AA content */
+  --text-muted:     light-dark(#8B9180, var(--scheme-dark-text-muted));      /* chrome only, WCAG-exempt */
+
+  /* ── Accent — moss green; clears AA on --bg and on --accent-soft ── */
+  --accent:      light-dark(var(--brand-accent), #86C08A);
+  --accent-soft: light-dark(#E4EBD6, #26361F);
+  --code-inline-fg: light-dark(#356140, var(--accent));
+  --on-accent:   light-dark(#FFFFFF, #17220F);
+
+  /* ── Semantic signals — nature-tuned (leaf / amber / berry) ── */
+  --pass: light-dark(#4A7A24, #97D061);
+  --warn: light-dark(#8A6410, #E5B84C);
+  --fail: light-dark(#A63A2E, #F0938A);
+  --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
+  --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
+  --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
+
+  --seq-500: var(--brand-accent);
+
+  --bg-warm-mid: #26361F;
+  --code-text:   #DCE4CE;
+
+  /* ── Spectrum ribbon — pine dusk → new leaf → lichen gold ── */
+  --spectrum: linear-gradient(90deg, var(--brand-canvas) 0%, var(--brand-bright) 55%, var(--brand-alt) 100%);
+  --spectrum-vertical: linear-gradient(180deg, var(--brand-canvas) 0%, var(--brand-bright) 55%, var(--brand-alt) 100%);
+  --spectrum-end: var(--brand-alt);
+}
+
+/* ── Dark-variant inputs — the forest at night ── */
+:root {
+  --scheme-dark-bg:             #131A12;
+  --scheme-dark-bg-alt:         #1E271C;
+  --scheme-dark-border:         #34402E;
+  --scheme-dark-text-heading:   #EDF2E3;
+  --scheme-dark-text-body:      #D1DBC4;
+  --scheme-dark-text-muted:     #7E8875;
+  --scheme-dark-text-secondary: #A6B29A;
+  --scheme-dark-text-label:     #9ED09E;
+  --scheme-dark-text-display:   #FFFFFF;
+}
+
+/* ── highlight.js syntax tokens — Night Owl, legible on the pine code panel ── */
+:root {
+  --hljs-comment:    #7E8875;
+  --hljs-keyword:    #A9C97E;
+  --hljs-built_in:   #7FD0A6;
+  --hljs-number:     #E0A96B;
+  --hljs-literal:    #7ED0A6;
+  --hljs-string:     #C7D98A;
+  --hljs-title:      #D6C97E;
+  --hljs-type:       #9FD08A;
+  --hljs-variable:   #C7D98A;
+  --hljs-params:     #7FCFC0;
+  --hljs-tag:        #7FCFC0;
+  --hljs-punctuation:#D4DCC8;
+}
+
+/* ── Diagram structural tokens ── */
+:root {
+  --diagram-stroke: #3C6B44;  /* moss stroke — reads on every pale wash incl white */
+  --diagram-line:   light-dark(#1E2A1B, var(--scheme-dark-text-body));
+  --diagram-accent-warm: #A9822E;  /* lichen warm — radar's second curve */
+}
+
+:root {
+  /* ── Categorical cycle — 12 nature hues, three-layer contract, flipping tiers.
+   * fill: light-dark(pale wash, jewel); mark: light-dark(deep edge, pale tint). ── */
+  --cat-1-fill:  light-dark(#CFE0BE, #3C6B2E);  /* moss */
+  --cat-2-fill:  light-dark(#C4E3C6, #2E7A4E);  /* fern */
+  --cat-3-fill:  light-dark(#E0D3B6, #7A5A24);  /* bark */
+  --cat-4-fill:  light-dark(#EAD9A6, #7C5E00);  /* lichen gold */
+  --cat-5-fill:  light-dark(#C6D6DE, #3A5A6E);  /* stone */
+  --cat-6-fill:  light-dark(#EAC9B4, #9C4E1E);  /* clay */
+  --cat-7-fill:  light-dark(#B9E1D9, #16706A);  /* water */
+  --cat-8-fill:  light-dark(#C3D8EC, #1E6A9E);  /* sky */
+  --cat-9-fill:  light-dark(#E2C8D6, #9C3560);  /* berry */
+  --cat-10-fill: light-dark(#DACFE6, #6A4AA0);  /* fungus */
+  --cat-11-fill: light-dark(#F0D6A8, #8A6300);  /* amber */
+  --cat-12-fill: light-dark(#BFD6BC, #2F6146);  /* pine */
+
+  --cat-1-mark:  light-dark(#3A6B2C, #CFE0BE);
+  --cat-2-mark:  light-dark(#2A7048, #C4E3C6);
+  --cat-3-mark:  light-dark(#6E5220, #E0D3B6);
+  --cat-4-mark:  light-dark(#7A6010, #EAD9A6);
+  --cat-5-mark:  light-dark(#365464, #C6D6DE);
+  --cat-6-mark:  light-dark(#9A4C1E, #EAC9B4);
+  --cat-7-mark:  light-dark(#1E6E64, #B9E1D9);
+  --cat-8-mark:  light-dark(#2A6088, #C3D8EC);
+  --cat-9-mark:  light-dark(#93335A, #E2C8D6);
+  --cat-10-mark: light-dark(#634196, #DACFE6);
+  --cat-11-mark: light-dark(#886110, #F0D6A8);
+  --cat-12-mark: light-dark(#2C6044, #BFD6BC);
+
+  --cat-on-fill: var(--text-heading);          /* flips with the fill tier */
+  --cat-on-mark: light-dark(#FFFFFF, #17220F);
+
+  /* ── Universal semantic diagram palette — nature roles ── */
+  --diagram-active:  light-dark(#EAD9A6, #7C5E00);
+  --diagram-active-mark:  var(--diagram-stroke);
+  --diagram-done:  light-dark(#CFE0BE, #3C6B2E);
+  --diagram-done-mark:  var(--diagram-stroke);
+  --diagram-critical:       light-dark(#A63A2E, #F0938A);
+  --diagram-critical-mark:  var(--diagram-stroke);
+  --diagram-today:        light-dark(#C8A81E, #7A6300);
+  --diagram-note:        light-dark(#E7DCB0, #6E5A0B);
+
+  /* ── Containment tiers — barely-tinted nested surfaces ── */
+  --c-container:    light-dark(#EEE9DA, #1A231A);
+  --c-subcontainer: light-dark(#E2DBC8, #26311F);
+
+  /* ── Chart palette — nature pigment spectrum ── */
+  --chart-cat1: light-dark(#3C6B44, color-mix(in oklab, #3C6B44, white 30%));  /* moss   */
+  --chart-cat2: light-dark(#2E7A4E, color-mix(in oklab, #2E7A4E, white 30%));  /* fern   */
+  --chart-cat3: light-dark(#7A5A24, color-mix(in oklab, #7A5A24, white 30%));  /* bark   */
+  --chart-cat4: light-dark(#A9822E, color-mix(in oklab, #A9822E, white 30%));  /* lichen */
+  --chart-cat5: light-dark(#3A5A6E, color-mix(in oklab, #3A5A6E, white 30%));  /* stone  */
+  --chart-cat6: light-dark(#16706A, color-mix(in oklab, #16706A, white 30%));  /* water  */
+  --chart-cat7: light-dark(#1E6A9E, color-mix(in oklab, #1E6A9E, white 30%));  /* sky    */
+  --chart-cat8: light-dark(#9C3560, color-mix(in oklab, #9C3560, white 30%));  /* berry  */
+
+  --chart-state-pass: light-dark(#4A7A24, #97D061);  /* leaf green */
+  --chart-state-warn: light-dark(#8A6410, #E5B84C);  /* amber */
+  --chart-state-fail: light-dark(#A63A2E, #F0938A);  /* berry red */
+  --chart-state-info: light-dark(#1E6A9E, #7FC3E5);  /* sky */
+  --chart-state-mute: light-dark(#84887A, #9BA192);  /* stone gray */
+}

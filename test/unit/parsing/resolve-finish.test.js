@@ -48,8 +48,9 @@ describe('resolve-finish', () => {
     assert.equal(finishClasses('loom'), 'finish finish-loom');
     assert.equal(finishClasses('savile'), 'finish finish-savile');
     assert.equal(finishClasses('gallery'), 'finish finish-gallery');
+    assert.equal(finishClasses('canopy'), 'finish finish-canopy');
     // every finish preset carries the base `finish` token (the compositor hook)
-    for (const name of ['atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery']) {
+    for (const name of ['atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery', 'canopy']) {
       assert.ok(
         finishClasses(name).split(/\s+/).includes('finish'),
         `${name} must include the base finish class`,
@@ -84,7 +85,7 @@ describe('resolve-finish', () => {
   test('FINISH_NAMES lists exactly the registered names (backdrops + none)', () => {
     assert.deepEqual(
       [...FINISH_NAMES].sort(),
-      ['atrium', 'gallery', 'halo', 'ledger', 'loom', 'meridian', 'nimbus', 'none', 'savile', 'strata'],
+      ['atrium', 'canopy', 'gallery', 'halo', 'ledger', 'loom', 'meridian', 'nimbus', 'none', 'savile', 'strata'],
     );
   });
 

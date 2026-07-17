@@ -55,7 +55,7 @@
       "degradesTo": "code-block"
     }
   },
-  "count": 56,
+  "count": 57,
   "components": [
     {
       "name": "actors",
@@ -1057,6 +1057,76 @@
       "requiredSlots": [
         "heading",
         "body"
+      ],
+      "modifiers": [
+        "accent",
+        "archived",
+        "claim-bleed",
+        "claim-framed",
+        "claim-hero",
+        "claim-quiet",
+        "compact",
+        "confidential",
+        "dark",
+        "draft",
+        "form",
+        "mark-orbit",
+        "mark-threads",
+        "no-footer",
+        "no-form",
+        "no-header",
+        "no-paginate",
+        "no-period",
+        "no-progress",
+        "pinned",
+        "redacted",
+        "revised",
+        "safe",
+        "scale-2xl",
+        "scale-l",
+        "scale-xl",
+        "silent",
+        "tbd",
+        "tint-corner at-tl",
+        "tint-edge at-right",
+        "tint-vignette",
+        "tone-fail",
+        "tone-pass",
+        "tone-skip",
+        "tone-warn",
+        "treatment-none",
+        "wip",
+        "with-period"
+      ],
+      "familyModifiers": [],
+      "readsStateMarkers": false
+    },
+    {
+      "name": "cycle",
+      "classToken": "cycle",
+      "bucket": "progression",
+      "substance": "structure",
+      "skeleton": "<!-- _class: cycle -->\n\n## The heading names the loop.\n\n- First stage\n  - One clause saying what happens here.\n- Second stage\n  - One clause saying what happens here.\n- Third stage\n  - One clause saying what happens here.\n- Fourth stage\n  - One clause saying what happens here.\n",
+      "slots": {
+        "title": {
+          "selector": "h2",
+          "required": true,
+          "description": "Slide heading naming the cycle."
+        },
+        "eyebrow": {
+          "selector": "p > code",
+          "required": false,
+          "description": "Optional label above the heading."
+        },
+        "stages": {
+          "selector": "ul > li",
+          "required": true,
+          "description": "Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first."
+        }
+      },
+      "requiredSlots": [
+        "title",
+        "stages"
       ],
       "modifiers": [
         "accent",

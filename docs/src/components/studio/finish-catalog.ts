@@ -124,6 +124,16 @@ export const FINISHES: FinishEntry[] = [
 				+ `radial-gradient(70% 70% at 50% 50%, ${A(30)}, transparent 65%)`,
 		},
 	},
+	{
+		name: 'canopy', label: 'Canopy', group: 'finish', nature: 'parametric', zone: 'field',
+		blurb: 'Dappled light through leaves + scattered flecks + a grounding forest floor.',
+		swatch: {
+			background:
+				`radial-gradient(70% 55% at 24% 0%, ${A(20)}, transparent 62%), `
+				+ `radial-gradient(62% 50% at 72% 6%, ${A(15)}, transparent 58%), `
+				+ `repeating-radial-gradient(circle at 22% 30%, ${A(16)} 0 1.5px, transparent 1.5px 12px)`,
+		},
+	},
 ];
 
 export const FINISH_BY_NAME: Record<string, FinishEntry> = Object.fromEntries(

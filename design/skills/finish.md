@@ -81,8 +81,8 @@ values, and both faces must keep the **same layer count**.
 - **Studio display metadata**: `docs/src/components/studio/finish-catalog.ts` (must
   stay in step with the register or a rot-guard test fails); optional generator
   recipe in `finish-generate.ts`.
-- **Ships today (10 values)**: `none` (baseline), `atrium`, `meridian`, `strata`,
-  `halo`, `ledger`, `nimbus`, `loom`, `savile`, `gallery`.
+- **Ships today (11 values)**: `none` (baseline), `atrium`, `meridian`, `strata`,
+  `halo`, `ledger`, `nimbus`, `loom`, `savile`, `gallery`, `canopy`.
 - **The closed layer vocabulary** (what the generator/AI may speak): WASH = none /
   corner-glow / duotone / spotlight / bands / mesh; TEXTURE = none / grid / dots /
   hatch / contour / rings / ruled / pinstripe / lattice; MARK = none / monogram /
