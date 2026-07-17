@@ -1881,7 +1881,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const editorPane = (
 		<section
 			id="studio-pane-editor"
-			inert={!mobile && split.collapsed === 'a' ? true : undefined}
+			// Non-interactive whenever the editor is collapsed to 0px — the split's
+			// preview-only state, OR the Read stop (editor mounted at 0px for no-remount).
+			// Without this, a keyboard / screen-reader user could Tab into an invisible
+			// editable region in the newcomer's first view (M3 Munger a11y finding).
+			inert={!mobile && (effectiveStop === 'read' || split.collapsed === 'a') ? true : undefined}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-arming=a]/split:opacity-60 group-data-[split-dragging]/split:select-none"
 		>
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -1940,9 +1944,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const previewPane = (
 		<section
 			id="studio-pane-preview"
-			inert={!mobile && split.collapsed === 'b' ? true : undefined}
+			inert={!mobile && split.collapsed === 'b' && effectiveStop !== 'read' ? true : undefined}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity group-data-[split-arming=b]/split:opacity-60 group-data-[split-dragging]/split:select-none"
 		>
+			{/* At the Read stop the preview is the whole surface — strip its editorial
+			    chrome (header, lens, slide counter, the Collapse trap, the op rail, the
+			    debug footer) so it reads as "just the slides" (M3 red-team). Only the
+			    live deck + the "Edit this slide" overlay remain. */}
+			{effectiveStop !== 'read' && (
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
@@ -1959,6 +1968,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Tip label="Collapse preview — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse preview" onClick={() => collapseFromHeader('b')}><PanelRightClose className="size-4" /></Button></Tip>
 				)}
 			</div>
+			)}
 			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
 			    aspect ratio follows the deck's selected Size, not a fixed 16:9. */}
 			<div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-card p-4 sm:p-5" onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
@@ -1969,13 +1979,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				{/* The 760px comfort cap LIFTS while the editor is collapsed — otherwise
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
-				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || split.collapsed !== 'b'} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
+				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]', previewPortrait ? 'h-full w-auto' : cn('h-auto w-full', split.collapsed === 'a' || effectiveStop === 'read' ? 'max-w-none' : 'max-w-[760px]'))} style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || effectiveStop === 'read' || split.collapsed !== 'b'} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}
 			<div className="flex items-center gap-1.5 border-t border-border bg-background px-3 py-2">
-				{composeLens === 'full' && (
+				{composeLens === 'full' && effectiveStop !== 'read' && (
 					<div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
 						<RailOp label="Add slide" onClick={opAddSlide}><Plus className="size-3.5" /></RailOp>
 						<RailOp label="Duplicate slide" onClick={opDuplicate}><Copy className="size-3.5" /></RailOp>
@@ -2004,11 +2014,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				})}
 			</nav>
 			</div>
+			{effectiveStop !== 'read' && (
 			<div className="flex items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
 				<span className="inline-flex items-center gap-1 text-[var(--chart-3,#2e6f00)]">● Live</span>
 				<span className="truncate">{palette} · {mode}</span>
 				<span className="flex-1" /><span className="hidden sm:inline">{ratioText(previewRatio)} · {viewSlides.length} slide{viewSlides.length === 1 ? '' : 's'}</span>
 			</div>
+			)}
 		</section>
 	);
 

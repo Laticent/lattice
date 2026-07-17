@@ -96,11 +96,10 @@ function saveIndex(index: IndexEntry[]): void {
  * Has this browser used the Studio before? True if a deck index was ever saved
  * (new/rename/delete) or any deck source was edited.
  *
- * Retained for the M3 posture migration: once the `'read'` newcomer home ships,
- * `derivePosture` widens to the hardened three-population form and consults this
- * to route a prior-use-but-not-onboarded browser to `'write'` rather than the
- * fresh-visitor `'read'`. No current caller (the `onboarded` runtime check it
- * used to feed was retired with the dial) — kept deliberately, not dead.
+ * Feeds the posture migration: `derivePosture` consults this to route a
+ * prior-use-but-not-onboarded browser to `'write'` rather than the fresh-visitor
+ * `'read'` (the hardened three-population form, R4/R6). It formerly gated the
+ * retired `onboarded` runtime check, before the dial replaced it.
  */
 export function hasPriorStudioUse(): boolean {
 	try {

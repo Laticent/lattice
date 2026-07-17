@@ -458,3 +458,30 @@ code yet.** Recommended path, un-bundled into two independently-shippable slices
 The alternative — build the whole dial in one branch — remains on the table if
 the destination is wanted in one move; it carries the migration + continuity risk
 above and a larger single review. **This scope choice is the open decision.**
+
+## Build log (this PR — one branch, milestone commits)
+
+Chosen path (2026-07-17): build the full dial incrementally in **one PR**, a
+commit per milestone, the adversarial trio after each. Status:
+
+- **M1–M3 shipped + trio-hardened + real-surface-verified.** The dial (Read ·
+  Write · Build), the spine hoist (continuity VERIFIED — editor + iframe nodes
+  survive every in-breakpoint stop change), and the full-bleed Read newcomer home
+  (chromeless preview, "Edit this slide" → Write with no remount, the 0px editor
+  made `inert` for a11y). Verified at desktop + tablet.
+- **Tracked deferrals (owned by later milestones — NOT silent):**
+  - **Mobile Read → M5.** The Read full-bleed + "Edit this slide" render only in
+    the desktop/tablet spine branch; on mobile the separate pane layout still
+    shows Preview/Edit with no Read overlay, and the dial isn't surfaced. M5
+    (responsive) MUST deliver a first-class mobile Read + orientation and wire
+    `mobilePane` to `posture` — the persona-A-on-a-phone case the brief centers.
+    Until then a mobile newcomer sees the preview pane but no "this deck is yours"
+    teaching (a within-PR intermediate state, not shipped).
+  - **Read-first activation is UNVERIFIED (Slice 2b).** Read is the shipped
+    default for every fresh visitor, but "does Read-first activate better than
+    Write-first" needs a real-user A/B not runnable in this sandbox — flagged, not
+    proven. Calm-first is backed by the competition + the 2026-06-30 onboarding
+    decision; the *specific* Read-vs-Write choice awaits real users.
+  - **⌘K reachability, full-screen suspend/restore, `aria-live` on the reveal,
+    dial-never-icon-only → M4.** Responsive clamp matrix + dial fit at tablet →
+    M5. e2e CHROME/selector sweep + CHANGELOG → M6.
