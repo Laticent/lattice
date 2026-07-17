@@ -73,11 +73,9 @@ export function DeckSetupSheet({
 					<span className="hidden sm:inline">Deck Setting</span>
 				</Button>
 			</SheetTrigger>
-			<SheetContent overlay={false} className="w-[360px] max-w-[88vw] gap-0 overflow-y-auto">
-				<SheetHeader>
-					<SheetTitle className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-						Deck Setting
-					</SheetTitle>
+			<SheetContent overlay={false} className="w-[360px] max-w-[88vw] gap-0 overflow-y-auto overscroll-contain [touch-action:pan-y]">
+				<SheetHeader className="border-b border-border">
+					<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings className="size-[18px] text-[var(--accent)]" />Deck settings</SheetTitle>
 					<SheetDescription className="sr-only">
 						Front matter for this deck — applied to the whole deck and exported with the .md.
 					</SheetDescription>

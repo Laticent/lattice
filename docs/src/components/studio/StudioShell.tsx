@@ -1654,7 +1654,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Lenses (reader views) is its OWN tab now, not buried in the Coach card stack —
 	// it's a full reader-view workflow (membership + approval), distinct from AI critique.
 	const lensesBody = (
-		<div className="min-h-0 flex-1 overflow-y-auto p-2.5">
+		<div className="min-h-0 flex-1 overflow-y-auto p-2.5 min-w-0 overscroll-contain [touch-action:pan-y]">
 			<LensesPanel
 				slides={slides}
 				registry={lensReg}
@@ -1685,7 +1685,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					]}
 				/>
 			</div>
-			{architectTab === 'coach' && <div className="min-h-0 flex-1 overflow-y-auto">{architectCards}</div>}
+			{architectTab === 'coach' && <div className="min-h-0 flex-1 overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>}
 			{architectTab === 'chat' && <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />}
 			{architectTab === 'lenses' && lensesBody}
 		</div>
@@ -1896,7 +1896,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<SlidersHorizontal className="size-4 text-[var(--accent)]" />
 							<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
 							<span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
-							<Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>
+							{!compact && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
 					</>
@@ -1906,14 +1906,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
 							<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
 							<span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
-							<Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>
+							{!compact && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
 					</>
 				)}
 			</div>
 			{inspectorScope === 'deck' ? (
-				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
+				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>
 			) : (
 				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} />
 			)}
@@ -2490,7 +2490,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<SheetTitle className="flex items-center gap-2 text-[15px]"><History className="size-4 text-[var(--accent)]" />Version history</SheetTitle>
 						<SheetDescription className="text-[11px] leading-snug text-muted-foreground">Snapshots of the deck you can restore. One is saved automatically before each AI edit.</SheetDescription>
 					</SheetHeader>
-					<div className="flex-1 overflow-y-auto px-4 py-3">
+					<div className="flex-1 overflow-y-auto px-4 py-3 min-w-0 overscroll-contain [touch-action:pan-y]">
 						<button type="button" onClick={saveVersion} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"><Save className="size-3.5" />Save a version</button>
 						{checkpoints.length === 0 ? (
 							<p className="px-0.5 py-1 text-[11.5px] leading-relaxed text-muted-foreground">No saved versions yet. Versions are also captured automatically before each AI edit.</p>

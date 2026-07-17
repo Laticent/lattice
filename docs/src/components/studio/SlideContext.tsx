@@ -446,7 +446,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 
 	return (
 		<>
-			<div className="flex-1 overflow-y-auto px-4">
+			<div className="flex-1 overflow-y-auto px-4 overscroll-contain [touch-action:pan-y] min-w-0">
 					{/* Reset — revert every edit made this session back to the original slide. */}
 					<div className="flex items-center justify-between border-b border-border py-2">
 						<span className="text-[11px] text-muted-foreground">{dirty ? 'Edited this session' : 'No changes yet'}</span>

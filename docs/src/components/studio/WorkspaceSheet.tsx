@@ -344,10 +344,10 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="right" className="w-full gap-0 sm:max-w-[440px]">
 				<SheetHeader className="border-b border-border">
-					<SheetTitle className="flex items-center gap-2 text-[17px]"><Cloud className="size-5 text-[var(--accent)]" />Workspace <span className="font-mono text-[10px] font-normal uppercase tracking-wider text-[var(--accent)]">your setup</span></SheetTitle>
+					<SheetTitle className="flex items-center gap-2 text-[15px]"><Cloud className="size-[18px] text-[var(--accent)]" />Workspace <span className="font-mono text-[10px] font-normal uppercase tracking-wider text-[var(--accent)]">your setup</span></SheetTitle>
 					<SheetDescription className="sr-only">Your workspace setup — placement handles and deck storage under General; the AI model, spend, and standing instructions under AI.</SheetDescription>
 				</SheetHeader>
-				<div className="overflow-y-auto p-5">
+				<div className="overflow-y-auto p-5 overscroll-contain [touch-action:pan-y] min-w-0">
 					<PillTabs
 						className="mb-4"
 						ariaLabel="Workspace settings"
