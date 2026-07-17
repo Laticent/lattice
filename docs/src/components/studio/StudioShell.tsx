@@ -2335,7 +2335,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
 						    and still fit 390px. */}
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							<PaneBtn active={mobilePane === 'edit'} onClick={() => setMobilePane('edit')} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
+							<PaneBtn active={mobilePane === 'edit'} onClick={() => { setMobilePane('edit'); if (postureRef.current === 'read') changePosture('write'); }} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
 							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" demo="pane-preview" />
 						</div>
 						<span className="flex-1" />
@@ -2357,6 +2357,23 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<div className="relative min-h-0 flex-1">
 						<div className={cn('absolute inset-0 flex', mobilePane === 'edit' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'edit' ? true : undefined}>{editorPane}</div>
 						<div className={cn('absolute inset-0 flex', mobilePane === 'preview' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'preview' ? true : undefined}>{previewPane}</div>
+						{/* Mobile Read — the phone newcomer the brief centers (M5). The preview pane
+						    already renders chromeless full-bleed at the Read stop; this adds the one
+						    "Edit this slide" verb + the one-time hint. Tapping it swaps to the edit
+						    pane AND steps the dial to Write — the same Read→Write step as desktop. */}
+						{effectiveStop === 'read' && mobilePane === 'preview' && (
+							<div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-2.5 px-4">
+								{!readHintSeen && (
+									<div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
+										<span>This sample deck is <b className="font-semibold">yours</b> — tap Edit this slide to change it.</span>
+										<button type="button" onClick={dismissReadHint} aria-label="Dismiss hint" className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-3.5" /></button>
+									</div>
+								)}
+								<button type="button" onClick={() => { dismissReadHint(); setMobilePane('edit'); changePosture('write'); }} className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-semibold text-[var(--on-accent)] shadow-lg">
+									<PencilLine className="size-4" />Edit this slide
+								</button>
+							</div>
+						)}
 					</div>
 				</div>
 			) : (

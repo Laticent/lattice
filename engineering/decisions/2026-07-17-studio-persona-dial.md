@@ -495,5 +495,20 @@ commit per milestone, the adversarial trio after each. Status:
   until then `onReshape` lands you in Build (a sanctioned exception — Reshape is
   an authoring action that needs the coach). The **dial-never-icon-only** rule
   and dial-fit-at-tablet fold into M5 (responsive), where they belong.
-- Responsive clamp matrix + dial fit at tablet + first-class mobile Read → M5.
-  e2e CHROME/selector sweep + CHANGELOG → M6.
+- **M5 shipped (first-class mobile Read + responsive).** The phone newcomer —
+  the persona the brief centers ("my wife on a phone") — now gets the Read verb:
+  the mobile preview pane already rendered chromeless at the Read stop (M3), and
+  M5 adds the "Edit this slide" overlay + the one-time hint over it; tapping it
+  (and the mobile Edit toggle) steps Read→Write, swaps to the editor pane, and
+  persists Write — verified end-to-end on a real 390px surface. The responsive
+  *clamp* is structural, not a new mechanism: `posture` is never overwritten by a
+  breakpoint (mobile/tablet just render their own layout for the same posture and
+  re-bloom at width), and the dial is never icon-only (labels show ≥640px; below
+  that mobile uses the Edit/Preview pane toggle instead of the dial). Dial fit at
+  tablet confirmed at 820px.
+- **M6 (remaining):** the comprehensive `docs/e2e` CHROME/selector sweep + an
+  actual Playwright run (not runnable in this sandbox — state results there), the
+  `CHANGELOG` `## Unreleased` entry, a per-feature demo (if warranted), and
+  flipping this doc's `status:` to accepted. The one carried-forward code
+  follow-up: the general *transient dock* (`revealBuild`) so `onReshape` /
+  Inspector reach from Read/Write without persisting Build.

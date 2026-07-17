@@ -158,6 +158,21 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 	});
 
+	it('mobile: a fresh phone visitor gets Read — "Edit this slide" swaps to the editor + persists Write', async () => {
+		localStorage.clear();
+		setViewport('mobile');
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// The phone newcomer (persona A on their most-likely device) gets the Read verb + hint.
+		const edit = screen.getByRole('button', { name: 'Edit this slide' });
+		expect(edit).toBeInTheDocument();
+		expect(screen.getByText(/This sample deck is/)).toBeInTheDocument();
+		await user.click(edit);
+		// Tapping it steps Read→Write (persisted) and swaps to the editor pane.
+		expect(screen.queryByRole('button', { name: 'Edit this slide' })).not.toBeInTheDocument();
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+	});
+
 	it('a returning user boots straight into Build — the full surface, no cue', () => {
 		// beforeEach seeds the Build posture (the migration target for a legacy engaged
 		// user; the onboarded→posture migration itself is covered in studio-store.test.ts).
