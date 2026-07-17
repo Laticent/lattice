@@ -224,10 +224,15 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(screen.getByText('Board-ready')).toBeInTheDocument();
 		// …but the SAVED posture is untouched: reaching a Build tool never persists Build.
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+		// The dial marks the lit Build as TRANSIENT ("showing temporarily") so clicking it
+		// to persist is deliberate, never a silent no-op on a seemingly-selected segment.
+		expect(screen.getAllByRole('button', { name: /Build — every panel, showing temporarily/ }).length).toBeGreaterThan(0);
 		// Closing the summoned coach recedes to Write — launcher gone, posture still Write.
 		await user.click(screen.getByRole('button', { name: 'Toggle Architect' }));
 		await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument());
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+		// …and the dial no longer marks any stop transient (Build is no longer even shown).
+		expect(screen.queryByRole('button', { name: /showing temporarily/ })).not.toBeInTheDocument();
 	});
 });
 

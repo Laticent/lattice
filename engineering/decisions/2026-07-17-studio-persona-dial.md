@@ -525,11 +525,29 @@ commit per milestone, the adversarial trio after each. Status:
   `posture` — closing the "reshape from Read yanks you permanently to Build" gap
   against the doc's own "reachability ≠ arrangement" rule. `onReshape` no longer
   calls `setPosture('build')`; it reveals + docks the coach and recedes on close
-  (Esc / dial move / Fabricate suspend-restore all covered). Maker-checker: an
-  independent checker cleared the diff (0 blockers, batching + no-stuck-on
-  confirmed) and its two nits (a 1-frame flash guard, a caller-contract comment)
-  were folded before commit. Unit-tested (summon → reveal → never persist →
-  recede) and real-surface verified from both Write and Read.
+  (Esc / dial move / Fabricate suspend-restore all covered). Unit-tested (summon →
+  reveal → never persist → recede) and real-surface verified from both Write and Read.
+  **Adversarial trio (HARD RULE #25 — requested for this posture-core change):** red
+  team + Munger inversion + independent checker, all SHIP / 0 blockers. The checker
+  independently confirmed the `splitTracks` track-count===child-count invariant (#721)
+  holds at every transient flip (both gate on panel-open, not `revealBuild`), the
+  `panelsOpenRef` Fabricate-restore guard is correct, and batching/mutual-exclusion are
+  sound. Two convergent **should-fixes** were folded to hit the 10/10 bar: (1) the recede
+  moved to `useLayoutEffect` so closing a summoned coach never paints a 1-frame empty-Build
+  flash / 52px jump (verified: 0 flash frames, rAF-sampled on the real surface); (2) the
+  dial now marks a TRANSIENT-lit stop with a dashed outline (vs the solid saved-selection
+  shadow) + a "showing temporarily" label, closing the trap where clicking the already-lit
+  Build segment silently persisted Build — a click to persist is now deliberate. (This also
+  resolves the dial-honesty residual for `quietened`.) **Design fork weighed (Munger):** the
+  coach could instead open as a Sheet OVERLAY on desktop (as it already does on compact, and
+  as Library/Workspace do) with no reveal mechanism at all. Dock-via-reveal was kept on two
+  grounds — the coach is a *work-alongside* panel (a docked column keeps editor+preview fully
+  visible where a left Sheet covers them), and it gives the coach ONE desktop presentation
+  (always docked) rather than sheet-from-Read / dock-from-Build on the same viewport. **Watch-item
+  (real-surface, verified once):** the desktop chrome-swing when reshaping *from Read* is large
+  (full-bleed → full Build → full-bleed); the recede returns cleanly to the exact Read home
+  (spot-checked), but a future one-time "close to return" cue is the candidate polish if it ever
+  reads as abrupt.
 - **Post-M6 CI fix — panels start closed (studio-smoke).** The real Playwright run
   (CI's Studio job, once the branch was pushed) failed `split.spec.ts`: it expects
   both side panels CLOSED on load, then a `Toggle Architect` click to OPEN the

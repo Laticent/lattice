@@ -303,7 +303,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// close — mirroring `quietened`'s auto-clear. The summon batches revealBuild + the
 	// panel-open in one commit, so on the opening render a panel is already open and
 	// this never fires prematurely; it clears only after the last docked panel closes.
-	React.useEffect(() => {
+	// useLayoutEffect (not useEffect): the recede must run BEFORE paint, or closing the
+	// coach paints one frame of empty Build chrome (activity bar, no panel) + a 52px
+	// layout jump before the passive effect clears it (red-team/checker finding).
+	React.useLayoutEffect(() => {
 		if (revealBuild && !architectOpen && !inspectorOpen) setRevealBuild(false);
 	}, [revealBuild, architectOpen, inspectorOpen]);
 	// Compatibility setters — the demo hook's prop interface and a handful of simple
@@ -2752,16 +2755,24 @@ function PostureDial({ posture, quietened, revealBuild, onChange }: { posture: P
 	// so the dial always matches the surface you're looking at, then re-lights your
 	// saved stop when the transient recedes.
 	const shown: Posture = revealBuild ? 'build' : quietened ? 'write' : posture;
+	// When the lit stop is TRANSIENT (not your saved home), mark it with a dashed
+	// outline instead of the solid selected shadow — so it reads as "showing now,"
+	// and clicking it to make it your saved home is a deliberate act, never a silent
+	// persist of a segment that merely looked already-selected (red-team finding).
+	const transient = shown !== posture;
 	return (
 		<fieldset className="m-0 inline-flex shrink-0 items-center rounded-lg border border-border bg-background p-[3px]">
 			<legend className="sr-only">Workspace density</legend>
-			{POSTURE_STOPS.map((s) => (
-				<Tip key={s.id} label={s.hint}>
-					<button type="button" aria-label={s.hint} aria-pressed={shown === s.id} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', shown === s.id ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
-						{s.icon}<span className="hidden sm:inline">{s.label}</span>
-					</button>
-				</Tip>
-			))}
+			{POSTURE_STOPS.map((s) => {
+				const lit = shown === s.id;
+				return (
+					<Tip key={s.id} label={lit && transient ? `${s.hint} · showing now — click to make it your saved home` : s.hint}>
+						<button type="button" aria-label={lit && transient ? `${s.hint}, showing temporarily` : s.hint} aria-pressed={lit} onClick={() => onChange(s.id)} className={cn('inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold transition-colors', lit ? (transient ? 'bg-card text-[var(--accent)] outline-dashed outline-1 outline-offset-[-2px] outline-[color-mix(in_srgb,var(--accent)_55%,transparent)]' : 'bg-card text-[var(--accent)] shadow-sm') : 'text-muted-foreground hover:text-[var(--text-heading)]')}>
+							{s.icon}<span className="hidden sm:inline">{s.label}</span>
+						</button>
+					</Tip>
+				);
+			})}
 		</fieldset>
 	);
 }
