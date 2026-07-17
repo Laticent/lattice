@@ -1,0 +1,71 @@
+---
+// ISOLATED PROTOTYPE — the "Compose" leg spike. Route: /lattice/proto/compose/
+// A rich-text (Lexical) slide composer for the "what is markdown?" user: pick a
+// component from a visual live-preview gallery, type its content richly, watch
+// the real slide render beside you. Self-contained — delete src/pages/proto/
+// compose.astro + src/components/proto/* to revert. Not linked from the site.
+import '../../styles/landing.css';
+import ComposeProto from '../../components/proto/ComposeProto.tsx';
+import ColorSchemeSeed from '../../components/site/ColorSchemeSeed.astro';
+import { joinBase } from '../../lib/base-url.mjs';
+import { assetBase } from '../../playground/asset-version.mjs';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const base = import.meta.env.BASE_URL;
+const url = (p) => joinBase(base, p);
+const pg = assetBase();
+
+const options = {
+	themeBase: url(pg + 'themes/'),
+	runtimeUrl: url(pg + 'lattice-runtime.js'),
+	engineUrl: url(pg + 'lattice-playground.js'),
+	mermaidUrl: url(pg + 'export/mermaid-v11.min.js'),
+	katexUrl: url(pg + 'katex/katex.min.css'),
+};
+
+// The component catalog — name / bucket / description / insert skeleton — read
+// from the committed machine manifest at build time (mirrors studio.astro).
+let components = [];
+try {
+	const catalog = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/components.json'), 'utf8'));
+	components = (catalog.components || [])
+		.map((c) => ({ name: c.name, bucket: c.bucket, description: c.description || '', skeleton: String(c.skeleton || '') }))
+		.filter((c) => c.name && c.skeleton);
+} catch (e) {
+	components = [];
+}
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Compose — prototype · Lattice</title>
+		<ColorSchemeSeed />
+		<style is:global>
+			/* Lexical editor prose styling — scoped to the Compose surface. Uses the
+			   engine tokens so it reads in light + dark. */
+			.compose-editable { font-size: 15px; line-height: 1.7; }
+			.ce-h1 { font-size: 1.9rem; font-weight: 700; line-height: 1.2; margin: 0.2em 0 0.4em; color: var(--text-heading, #111); }
+			.ce-h2 { font-size: 1.4rem; font-weight: 700; line-height: 1.25; margin: 0.6em 0 0.3em; color: var(--text-heading, #111); }
+			.ce-h3 { font-size: 1.15rem; font-weight: 600; margin: 0.6em 0 0.3em; color: var(--text-heading, #111); }
+			.ce-p { margin: 0 0 0.6em; }
+			.ce-quote { border-left: 3px solid var(--accent, #6366f1); padding-left: 0.9em; color: var(--text-muted, #666); font-style: italic; margin: 0.4em 0 0.7em; }
+			.ce-ul { list-style: disc; padding-left: 1.4em; margin: 0 0 0.6em; }
+			.ce-ol { list-style: decimal; padding-left: 1.4em; margin: 0 0 0.6em; }
+			.ce-li { margin: 0.15em 0; }
+			.ce-li-nested { list-style: circle; }
+			.ce-bold { font-weight: 700; }
+			.ce-italic { font-style: italic; }
+			.ce-strike { text-decoration: line-through; }
+			.ce-code { font-family: var(--font-mono, ui-monospace, monospace); background: var(--surface-2, rgba(0,0,0,0.06)); padding: 0.05em 0.35em; border-radius: 4px; font-size: 0.9em; }
+			.ce-codeblock { display: block; font-family: var(--font-mono, ui-monospace, monospace); background: var(--surface-2, rgba(0,0,0,0.06)); padding: 0.7em 0.9em; border-radius: 6px; font-size: 0.85em; white-space: pre; overflow-x: auto; margin: 0.4em 0 0.7em; }
+			.ce-link { color: var(--accent, #6366f1); text-decoration: underline; }
+			html, body { margin: 0; padding: 0; background: var(--bg, #fff); }
+		</style>
+	</head>
+	<body>
+		<ComposeProto client:only="react" options={options} components={components} />
+	</body>
+</html>
