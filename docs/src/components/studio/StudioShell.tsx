@@ -2295,61 +2295,48 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<div className={cn('absolute inset-0 flex', mobilePane === 'preview' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'preview' ? true : undefined}>{previewPane}</div>
 					</div>
 				</div>
-			) : effectiveStop === 'write' ? (
-				/* Write: Editor | Preview only — Architect/Inspector hidden, ⌘K still
-				   reaches everything (2026-06-30-studio-focus-mode.md). The old transient
-				   Focus body, promoted to a first-class, persisted stop. */
-				<div
-					className="group/split grid min-h-0 flex-1"
-					data-studio-split=""
-					data-split-collapsed={split.collapsed ?? undefined}
-					style={{ ...split.gridVars, gridTemplateColumns: splitTracks(split.collapsed).join(' ') }}
-					{...split.containerProps}
-				>
-					{splitRailA}
-					{editorPane}
-					{splitHandle}
-					{previewPane}
-					{splitRailB}
-				</div>
 			) : (
-				/* Desktop: [ bar ][ Settings ][ Architect ][ split ] — every panel launches
-				   from the ONE left activity bar and docks beside it, Settings next the bar,
-				   Architect next the editor (2026-07-06-studio-activity-bar.md). Tablet keeps
-				   the Inspector docked on the RIGHT (no bar; Architect is a sheet). The split
-				   always contributes FIVE children (rail | editor | handle | preview | rail)
-				   via splitTracks() so track lists can't drift. */
+				/* Unified compose spine (M2 spine hoist, 2026-07-17-studio-persona-dial.md).
+				   Write and Build share ONE structure so editor + preview mount ONCE and never
+				   remount across a dial move — the srcdoc iframe never reloads and the visible
+				   slide never jumps. The editor/preview/rails sit at FIXED child indices; only
+				   the surrounding chrome toggles. BUILD gates the chrome on: the left activity
+				   bar + docked Settings/Architect (desktop) or the right Inspector (tablet).
+				   WRITE gates it all off → the bare editor|preview split (the old Focus body).
+				   The split always contributes FIVE children (rail|editor|handle|preview|rail)
+				   via splitTracks() so track lists can't drift (#721 zero-void invariant). */
 				<div className={cn('flex min-h-0 flex-1', desktop && 'flex-row')}>
-					{desktop && activityBar}
+					{desktop && effectiveStop === 'build' && activityBar}
 					<div
 						className="group/split grid min-h-0 flex-1"
 						data-studio-split=""
 						data-split-collapsed={split.collapsed ?? undefined}
 						style={{
 							...split.gridVars,
-							// Track count MUST match the rendered children. Desktop docks Settings +
-							// Architect LEFT (before the split), at the FOLD-clamped effective widths
-							// so both-open never overflows (#721/#720 acceptance); tablet docks the
-							// Inspector RIGHT (after) at a fixed 296px. Open panels only → their
-							// tracks only (a fixed '0px' would collapse the editor into it).
+							// Track count MUST match the rendered children. Desktop-Build docks
+							// Settings + Architect LEFT (before the split), at the FOLD-clamped
+							// effective widths so both-open never overflows (#721/#720 acceptance);
+							// tablet-Build docks the Inspector RIGHT (after) at a fixed 296px. Open
+							// panels only → their tracks only (a fixed '0px' would collapse the editor
+							// into it). At Write every panel condition is false → the bare five tracks.
 							gridTemplateColumns: [
-								...(desktop && inspectorOpen ? [`${setEff}px`] : []),
-								...(desktop && architectOpen ? [`${archEff}px`] : []),
+								...(desktop && effectiveStop === 'build' && inspectorOpen ? [`${setEff}px`] : []),
+								...(desktop && effectiveStop === 'build' && architectOpen ? [`${archEff}px`] : []),
 								...splitTracks(split.collapsed),
-								...(bp === 'tablet' && inspectorOpen ? ['296px'] : []),
+								...(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? ['296px'] : []),
 							].join(' '),
 						}}
 						{...split.containerProps}
 					>
-						{/* Settings — docks next to the bar (desktop). Resizable; close = gone. */}
-						{desktop && inspectorOpen && (
+						{/* Settings — docks next to the bar (desktop-Build). Resizable; close = gone. */}
+						{desktop && effectiveStop === 'build' && inspectorOpen && (
 							<aside className="relative flex min-h-0 flex-col border-r border-border bg-background">
 								{inspectorScopeContent}
 								<PanelGrip dragging={setPanel.dragging} {...setPanel.gripProps} aria-label="Resize settings panel" />
 							</aside>
 						)}
-						{/* Architect — docks next to the editor (desktop). Resizable; close = gone. */}
-						{desktop && architectOpen && (
+						{/* Architect — docks next to the editor (desktop-Build). Resizable; close = gone. */}
+						{desktop && effectiveStop === 'build' && architectOpen && (
 							<aside className="relative flex min-h-0 flex-col overflow-hidden border-r border-border bg-card">
 								<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Architect</div>
 								{architectBody}
@@ -2357,16 +2344,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							</aside>
 						)}
 
+						{/* The stationary spine — fixed child indices across Write and Build. */}
 						{splitRailA}
 						{editorPane}
 						{splitHandle}
 						{previewPane}
 						{splitRailB}
 
-						{/* Tablet: the Inspector docks on the RIGHT (no bar below desktop; the
-						    in-panel Slide/Deck segment is its scope switch). The deck stays
-						    visible; no dimming modal. */}
-						{bp === 'tablet' && inspectorOpen && (
+						{/* Tablet-Build: the Inspector docks on the RIGHT (no bar below desktop; the
+						    in-panel Slide/Deck segment is its scope switch). The deck stays visible. */}
+						{bp === 'tablet' && effectiveStop === 'build' && inspectorOpen && (
 							<aside className="flex min-h-0 flex-col border-l border-border bg-background">
 								{inspectorScopeContent}
 							</aside>
