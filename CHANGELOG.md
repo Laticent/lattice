@@ -268,6 +268,28 @@ in patch versions.
   (`docs/scripts/runtime-settle-check.mjs`), locks that in — it fails if any representative slide
   churns at rest, catching a future oscillation regression the runtime's own change-gates prevent.
   (`perf-metrics.ts`, `PerfOverlay.tsx`; `engineering/decisions/2026-07-17-preview-accumulation-leaks.md`.)
+- **The Studio is now one reversible posture dial — Read · Write · Build — instead of a one-way
+  "graduation" that nagged you out of the calm surface.** The old model put a newcomer behind a
+  hidden `onboarded` flag plus a first-run welcome banner whose only job was to push them to
+  *graduate out*; `graduate()` flipped that flag permanently, with no way back ("banner jail"). It's
+  replaced by a single always-visible, reversible dial whose stops are named for what you're *doing*,
+  never who you are: **Read** — the sample deck full-bleed with one "Edit this slide" verb (the
+  non-technical newcomer's home); **Write** — the calm editor + preview (the promoted Focus body);
+  **Build** — every panel. You move between them freely; nothing is a mode you must escape, and no
+  stop reads as a rank. The dial is persisted and written *only* by an explicit move (never by
+  engagement, so the surface never drifts); ⌘. still quiets to Write for a moment without touching
+  your saved stop; and every faculty stays one keystroke away from every stop (Library + Workspace
+  joined the ⌘K palette). Read, Write and Build share one mounted editor + preview, so switching —
+  including a newcomer's first "Edit this slide" — never reloads the preview or jumps the slide. The
+  retired `onboarded` localStorage flag migrates automatically to a posture; the phone newcomer gets
+  a first-class mobile Read; a screen-reader announces each stop change. Write keeps deck navigation —
+  its slim header carries the real deck switcher (Switch · Rename · New deck), not a dead title label,
+  and New deck joined the ⌘K palette — so switching decks and creating one are reachable at Write, never
+  stranded in Build. Read stays a calm label (managing decks is a Write-and-up concern). The full-bleed
+  preview (Read, and editor-collapsed) now *contains* the slide — the whole slide is visible, letterboxed,
+  never cropped — instead of covering the pane width and clipping the slide's header / footer / page
+  number off the top and bottom when the pane was wider than the slide's aspect ratio. Full design +
+  adversarial hardening: `engineering/decisions/2026-07-17-studio-persona-dial.md`.
 - **The live preview no longer accumulates leaked observers/iframes over a session, or stale
   cached assets across refreshes.** An adversarial-trio investigation (red-team leak hunt +
   Munger inversion + across-refresh storage audit) into "the preview degrades the longer I work

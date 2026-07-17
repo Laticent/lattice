@@ -103,15 +103,24 @@ export const appToast = toastText;
  * here.
  */
 export async function gotoStudio(page: Page): Promise<void> {
+	// Seed the Build posture BEFORE the island hydrates, so the full surface (the
+	// left activity bar + docked Architect/Inspector) is present — most specs drive
+	// it. The shipped default is the calm Write stop, which has no activity bar, so
+	// without this the 'Toggle Architect' / 'Deck scope' launchers wouldn't exist.
+	// (2026-07-17-studio-persona-dial.md; the newcomer Read/Write surfaces get their
+	// own dedicated specs.) The runtime read is loadSettings().posture.
+	await page.addInitScript(() => {
+		try {
+			const k = 'lattice-studio-settings';
+			const cur = JSON.parse(localStorage.getItem(k) || '{}');
+			localStorage.setItem(k, JSON.stringify({ ...cur, posture: 'build' }));
+		} catch {
+			/* storage unavailable — the app falls back to its default */
+		}
+	});
 	await page.goto('/studio/', { waitUntil: 'domcontentloaded' });
 	await currentSlide(page).waitFor({ state: 'visible' });
 	await expect(currentSlide(page)).not.toBeEmpty();
-	// Dismiss the first-run welcome banner so it can't overlap controls; best-effort
-	// (it only shows on a fresh context, which every test gets).
-	const gotIt = page.getByRole('button', { name: 'Got it' });
-	if (await gotIt.isVisible().catch(() => false)) {
-		await gotIt.click();
-	}
 }
 
 /** The current slide total (rail buttons), read live so specs don't hard-code the seed deck's size. */
