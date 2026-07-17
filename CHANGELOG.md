@@ -220,6 +220,13 @@ in patch versions.
   a cycle has no "step one." Holds 3–6 stages (crowds past 5); reflows to a vertical stack on a
   narrow/portrait frame. Reach for `list-steps` instead when the process is linear with a real start
   and finish. (`lib/components/progression/cycle/`, `examples/cycle.md`.)
+- **`policy-recommendation` — a new `legal` component for a legislative recommendation.** Puts ONE
+  policy ask before lawmakers: a stance verdict (`adopt` / `amend` / `oppose` / `defer`) colors the
+  badge and rail, the `## ` heading states the recommendation as a claim, a framing line names the
+  stakes, two-to-four evidence-grounded reasons substantiate it (each with a nested citation chip),
+  and a closing blockquote carries the specific legislative ask (the "ask" bar). For weighing options
+  before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.
+  (`lib/components/legal/policy-recommendation/`, `examples/policy-recommendation.md`.)
 - **Callout eyebrows are now renamable — `insight-*` modifiers on the slide `_class`.** The
   universal Key Insight panel and the split-compare verdict tag both emit their eyebrow through one
   shared `--insight-label` seam, so a curated modifier swaps the word to a boardroom heading

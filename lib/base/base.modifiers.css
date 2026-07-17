@@ -185,8 +185,8 @@ section.dark p:has(> code:only-child):has(+ pre) > code { color: var(--on-dark-s
  * BELOW-NOTE fallback note below), so each ancestor must be its own
  * comma-separated selector — same pattern as the UNIVERSAL PILL rule above.
  */
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote {
   background:var(--accent-soft);
   border:1px solid var(--accent);
   border-radius:var(--radius-md);
@@ -195,8 +195,8 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
    * (the stage cell under Form), not a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
 }
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not([class*="layout-"]) > blockquote::before,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote::before {
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::before,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::before {
   /* Default 'KEY INSIGHT'; an `insight-*` modifier on the slide _class (or a
    * deck-wide frontmatter `class:`) overrides via the shared --insight-label
    * seam — the same custom-property idiom the stamp-* markers use
@@ -213,8 +213,8 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   display:block;
   padding-bottom:0.46875cqi; /* label→quote gap, inside the no-bg pseudo (HARD RULE #20) */
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote p,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote p {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote p,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote p {
   font-family:var(--font-body);
   /* Body tier, NOT --fs-message (the 21pt slide-statement tier). A Key Insight
    * SUMMARIZES the body above it, so it must not out-shout the very content it
@@ -226,14 +226,14 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   line-height:var(--lh-snug);
   margin:0;
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote ul,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote ul {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote ul,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote ul {
   list-style:none;
   padding:0; margin:0;
   display:flex; flex-direction:column; gap:0.46875cqi;
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote li,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote li {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote li,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote li {
   font-family:var(--font-body);
   /* Body tier — see the blockquote-p rule above. A bulleted Key Insight is still
    * a summary of the body; its items match body prose, not the statement tier. */
@@ -243,8 +243,8 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   padding-left:var(--sp-md);
   position:relative;
 }
-section:not(.quote):not(.math):not(.citation-card):not([class*="layout-"]) > blockquote li::before,
-section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote li::before {
+section:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote li::before,
+section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote li::before {
   content:'—';
   position:absolute; left:0;
   color:var(--accent);
