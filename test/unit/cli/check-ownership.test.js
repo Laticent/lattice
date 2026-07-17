@@ -373,6 +373,35 @@ describe('check-ownership', () => {
         assert.notEqual(a.claimed, a.actual, `${a.what}: a +1 drift must not equal the source`);
       }
     });
+
+    test('every skill-freshness source count resolves to a real number (no fail-closed null)', () => {
+      // The two source-derived counts (contract-token, chart-cat slot) parse a file
+      // and can return null on a structural change; the live tree must never be null.
+      for (const a of skillFreshnessAssertions()) {
+        assert.notEqual(a.actual, null, `${a.what}: source count must resolve (fail-closed null means the reader broke)`);
+        assert.equal(typeof a.actual, 'number', `${a.what}: source count must be a number`);
+      }
+    });
+
+    const CATEGORICAL_CONCEPT_MARKERS = ['--cat-N-texture', 'three-layer', 'checkCatContrast'];
+
+    test('theme.md teaches the current categorical concept markers', () => {
+      const src = fs.readFileSync(path.join(ROOT, 'design', 'skills', 'theme.md'), 'utf8');
+      for (const needle of CATEGORICAL_CONCEPT_MARKERS) {
+        assert.ok(src.includes(needle), `theme.md must teach the categorical concept "${needle}"`);
+      }
+    });
+
+    test('the gate bites: dropping a categorical concept marker is flagged', () => {
+      // Mirror the gate's substring check in-memory (house pattern — no FS mutation):
+      // removing any one marker must make the concept-drift detector see it missing.
+      const src = fs.readFileSync(path.join(ROOT, 'design', 'skills', 'theme.md'), 'utf8');
+      for (const needle of CATEGORICAL_CONCEPT_MARKERS) {
+        const stripped = src.split(needle).join('REDACTED');
+        const dropped = CATEGORICAL_CONCEPT_MARKERS.filter((c) => !stripped.includes(c));
+        assert.ok(dropped.includes(needle), `removing "${needle}" from theme.md must be detected as a dropped concept`);
+      }
+    });
   });
 
   // HARD RULE #22 — every docs-site preview-frame builder sanitizes its slide HTML.
