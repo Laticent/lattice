@@ -161,6 +161,22 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 	});
 
+	it('Write keeps deck navigation — the switcher (Switch + New deck) rides the slim header; Read stays a calm label', async () => {
+		localStorage.clear();
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		// Read (fresh boot): the deck is a calm label, not a switcher — no deck-CRUD affordance.
+		expect(document.querySelector('[data-demo="deck-switcher"]')).toBeNull();
+		// Dial to Write: the switcher appears. Deck-switching + New deck are the Write persona's
+		// most basic navigation — not strippable chrome (they used to be reachable NOWHERE in Write:
+		// not the slim header, and New deck wasn't even in ⌘K).
+		await user.click(screen.getByRole('button', { name: 'Write — editor + preview' }));
+		const switcher = document.querySelector('[data-demo="deck-switcher"]') as HTMLElement | null;
+		expect(switcher).not.toBeNull();
+		await user.click(switcher as HTMLElement);
+		expect(screen.getByRole('menuitem', { name: 'New deck' })).toBeInTheDocument();
+	});
+
 	it('mobile: a fresh phone visitor gets Read — "Edit this slide" swaps to the editor + persists Write', async () => {
 		localStorage.clear();
 		setViewport('mobile');

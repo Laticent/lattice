@@ -2096,6 +2096,46 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		</nav>
 	);
 
+	// The deck switcher — deck identity + CRUD (Switch / Rename / New). SHARED by the
+	// full header (Build / compact) AND the slim Write header: deck-switching and
+	// New deck are the Write persona's most basic navigation, not strippable chrome,
+	// so Write gets the real switcher, not a dead title label. Read stays a calm label
+	// (one sample deck; managing decks is a Write-and-up concern — dial up to reach it).
+	const deckSwitcher = (
+		<DropdownMenu open={deckMenuOpen} onOpenChange={setDeckMenuOpen}>
+			<DropdownMenuTrigger asChild>
+				{/* No width cap on phones — the deck title is the user's orientation, so
+				    it absorbs the bar's free width (siblings are shrink-0; this pill is
+				    the one shrinkable item, truncating only when the title outgrows the
+				    actual free space instead of a fixed 150px). */}
+				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
+					<span className="size-2 shrink-0 rounded-full bg-primary" />
+					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
+					<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
+					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start" className="w-72">
+				<DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Switch deck</DropdownMenuLabel>
+				{decks.map((d) => (
+					<DropdownMenuItem key={d.id} onSelect={() => loadDeck(d)} className="group">
+						<span className={cn('size-2 rounded-full', d.id === deck.id ? 'bg-[var(--accent)]' : 'bg-primary')} />
+						<span className="truncate font-semibold text-[var(--text-heading)]">{d.title}</span>
+						<span className="ml-auto flex items-center gap-1.5">
+							<span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{d.meta}</span>
+							{decks.length > 1 && (
+								<button type="button" aria-label={`Delete ${d.title}`} className="hidden rounded p-0.5 text-muted-foreground hover:text-[var(--fail,#b3261e)] group-hover:block" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeDeck(d.id); }}><Trash2 className="size-3.5" /></button>
+							)}
+						</span>
+					</DropdownMenuItem>
+				))}
+				<DropdownMenuSeparator />
+				<DropdownMenuItem onSelect={() => { const t = window.prompt('Rename deck', deck.title); if (t != null) renameActiveDeck(t); }}><PencilLine className="size-4" />Rename “{deck.title}”</DropdownMenuItem>
+				<DropdownMenuItem data-demo="new-deck" onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+
 	return (
 		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
 			{/* Announce a stop change to assistive tech — the surface can change from a
@@ -2113,8 +2153,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			{effectiveStop !== 'build' && !compact ? (
 			<header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
 				<LatticeMark mode={mode} className="size-7 shrink-0" />
-				<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
-				<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
+				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
+				    switching / New deck is a Write-and-up concern). Write gets the real
+				    switcher: deck navigation is not strippable chrome. */}
+				{effectiveStop === 'read' ? (
+					<>
+						<span className="min-w-0 truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
+						<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
+					</>
+				) : deckSwitcher}
 				<div className="flex-1" />
 				<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex" aria-label="Search or run a command">
 					<Search className="size-4" />Search or run…
@@ -2153,38 +2200,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 
 				<Separator orientation="vertical" className="hidden h-5 sm:block" />
 
-				<DropdownMenu open={deckMenuOpen} onOpenChange={setDeckMenuOpen}>
-					<DropdownMenuTrigger asChild>
-						{/* No width cap on phones — the deck title is the user's orientation, so
-						    it absorbs the bar's free width (siblings are shrink-0; this pill is
-						    the one shrinkable item, truncating only when the title outgrows the
-						    actual free space instead of a fixed 150px). */}
-						<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
-							<span className="size-2 shrink-0 rounded-full bg-primary" />
-							<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
-							<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
-							<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-						</button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="start" className="w-72">
-						<DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Switch deck</DropdownMenuLabel>
-						{decks.map((d) => (
-							<DropdownMenuItem key={d.id} onSelect={() => loadDeck(d)} className="group">
-								<span className={cn('size-2 rounded-full', d.id === deck.id ? 'bg-[var(--accent)]' : 'bg-primary')} />
-								<span className="truncate font-semibold text-[var(--text-heading)]">{d.title}</span>
-								<span className="ml-auto flex items-center gap-1.5">
-									<span className="font-mono text-[11px] text-muted-foreground group-hover:hidden">{d.meta}</span>
-									{decks.length > 1 && (
-										<button type="button" aria-label={`Delete ${d.title}`} className="hidden rounded p-0.5 text-muted-foreground hover:text-[var(--fail,#b3261e)] group-hover:block" onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeDeck(d.id); }}><Trash2 className="size-3.5" /></button>
-									)}
-								</span>
-							</DropdownMenuItem>
-						))}
-						<DropdownMenuSeparator />
-						<DropdownMenuItem onSelect={() => { const t = window.prompt('Rename deck', deck.title); if (t != null) renameActiveDeck(t); }}><PencilLine className="size-4" />Rename “{deck.title}”</DropdownMenuItem>
-						<DropdownMenuItem data-demo="new-deck" onSelect={() => newDeck()}><Plus className="size-4" />New deck</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
+				{deckSwitcher}
 
 				<div className="flex-1" />
 
@@ -2552,6 +2568,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				decks={decks}
 				palettes={BUILTIN_PALETTES}
 				onPickDeck={loadDeck}
+				onNewDeck={() => newDeck()}
 				onPalette={applyPalette}
 				onPresent={() => setPresentOpen(true)}
 				onShare={() => setShareOpen(true)}

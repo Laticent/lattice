@@ -4,7 +4,7 @@ import type { StudioDeck } from './decks';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
-	open, onOpenChange, decks, palettes, onPickDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
+	open, onOpenChange, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
 	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit,
 }: {
 	open: boolean;
@@ -12,6 +12,9 @@ export function CommandPalette({
 	decks: StudioDeck[];
 	palettes: string[];
 	onPickDeck: (d: StudioDeck) => void;
+	// New deck — the slim Write header's switcher carries it too, but ⌘K is the
+	// header's stated "reaches every feature" path, so it must be reachable here.
+	onNewDeck: () => void;
 	onPalette: (p: string) => void;
 	onPresent: () => void;
 	onShare: () => void;
@@ -71,6 +74,7 @@ export function CommandPalette({
 					{decks.map((d) => (
 						<CommandItem key={d.id} onSelect={run(() => onPickDeck(d))}><FileText />{d.title}</CommandItem>
 					))}
+					<CommandItem onSelect={run(onNewDeck)}><Plus />New deck</CommandItem>
 				</CommandGroup>
 				<CommandSeparator />
 				<CommandGroup heading="Theme">

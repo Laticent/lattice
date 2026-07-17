@@ -522,3 +522,26 @@ commit per milestone, the adversarial trio after each. Status:
   (`revealBuild`, symmetric to `quietened`) so `onReshape` / the Inspector reach
   from Read/Write without persisting Build. Until then `onReshape` is a sanctioned
   Build jump. Worth its own small change + trio.
+- **Post-M6 CI fix — panels start closed (studio-smoke).** The real Playwright run
+  (CI's Studio job, once the branch was pushed) failed `split.spec.ts`: it expects
+  both side panels CLOSED on load, then a `Toggle Architect` click to OPEN the
+  Coach. The Build seed had been auto-docking the Architect, so the click *closed*
+  it and "Coach" was never found. Fixed at the source of truth: `activeAssistant`
+  initializes to `null` and the breakpoint-flip effect resets to `null` — the dial
+  raises the chrome ceiling but **never force-opens a panel** (this *is* the T2 §4.5
+  orthogonality contract, now enforced at mount too). Build shows the activity-bar
+  launcher; panels dock on demand. Unit tests that assert docked-Coach/Lenses
+  content now open it from the bar first. All CI green on the pushed commit,
+  studio-smoke included (the run HARD RULE #23 asked for is now done).
+- **Post-review fix — Write keeps deck navigation.** Review caught that the slim
+  Read/Write header (desktop) rendered the deck title as a dead `<span>`: at Write
+  you could not switch decks (only via ⌘K) and could not create a New deck **at
+  all** (not in the slim header, and it wasn't even in ⌘K) — a broken window (#18)
+  and a false invariant (the header's own "⌘K reaches every feature" comment). Deck
+  identity + CRUD is the Write persona's most basic navigation, not strippable
+  chrome. The full header's deck switcher is now a shared `deckSwitcher` const used
+  by BOTH headers: Write gets the real switcher (Switch · Rename · New deck); Read
+  stays a calm label (one sample deck; managing decks is a Write-and-up concern —
+  dial up). New deck also joined ⌘K so the "reaches every feature" claim holds.
+  Verified on the real running Studio (Write shows + opens the switcher; Read has
+  none; Build unregressed).

@@ -282,8 +282,11 @@ in patch versions.
   joined the ⌘K palette). Read, Write and Build share one mounted editor + preview, so switching —
   including a newcomer's first "Edit this slide" — never reloads the preview or jumps the slide. The
   retired `onboarded` localStorage flag migrates automatically to a posture; the phone newcomer gets
-  a first-class mobile Read; a screen-reader announces each stop change. Full design + adversarial
-  hardening: `engineering/decisions/2026-07-17-studio-persona-dial.md`.
+  a first-class mobile Read; a screen-reader announces each stop change. Write keeps deck navigation —
+  its slim header carries the real deck switcher (Switch · Rename · New deck), not a dead title label,
+  and New deck joined the ⌘K palette — so switching decks and creating one are reachable at Write, never
+  stranded in Build. Read stays a calm label (managing decks is a Write-and-up concern). Full design +
+  adversarial hardening: `engineering/decisions/2026-07-17-studio-persona-dial.md`.
 - **The live preview no longer accumulates leaked observers/iframes over a session, or stale
   cached assets across refreshes.** An adversarial-trio investigation (red-team leak hunt +
   Munger inversion + across-refresh storage audit) into "the preview degrades the longer I work
