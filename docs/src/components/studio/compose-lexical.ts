@@ -4,6 +4,7 @@ import { ListItemNode, ListNode } from '@lexical/list';
 import { TRANSFORMERS } from '@lexical/markdown';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import type { Klass, LexicalNode } from 'lexical';
+import { fenceRanges } from './slide-directives';
 
 // The Lattice ⟷ Lexical bridge for the Compose editing mode (the rich-markdown
 // surface, Option B). Promoted from the /proto spike into the real Studio. Compose
@@ -33,11 +34,17 @@ const DIRECTIVE_LINE_RE = /^[ \t]*<!--\s*_[A-Za-z][\w-]*:[\s\S]*?-->[ \t]*$/gm;
 export type SlideChunk = { directives: string[]; prose: string };
 
 /** Split one slide chunk into its preserved directive lines and the prose body the
- *  rich editor owns. The author never sees or types a directive comment. */
+ *  rich editor owns. The author never sees or types a directive comment. FENCE-AWARE:
+ *  a `<!-- _x -->` inside a ``` fenced code block (a code component demoing directives)
+ *  is left in the prose, never hoisted — mirrors lint.ts / slide-directives.ts, which
+ *  are fence-masked for exactly this reason (2026-07-03-slide-context-editor.md). */
 export function splitSlideDirectives(chunk: string): SlideChunk {
+	const fences = fenceRanges(chunk);
+	const inFence = (i: number) => fences.some(([s, e]) => i >= s && i < e);
 	const directives: string[] = [];
 	const prose = chunk
-		.replace(DIRECTIVE_LINE_RE, (line) => {
+		.replace(DIRECTIVE_LINE_RE, (line, offset: number) => {
+			if (inFence(offset)) return line; // fenced sample — leave it in the prose
 			directives.push(line.trim());
 			return '';
 		})

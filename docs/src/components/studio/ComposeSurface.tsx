@@ -1,5 +1,6 @@
 import { $convertFromMarkdownString, $convertToMarkdownString } from '@lexical/markdown';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
@@ -25,14 +26,38 @@ import { splitSlides } from './lint';
 
 const isJsdom = typeof navigator !== 'undefined' && navigator.userAgent.includes('jsdom');
 
-// One Lexical editor for a single slide's prose. Construct-once (StrictMode-safe):
-// the seed prose only seeds the first mount; later external edits re-key from the
-// parent (deck switch / slide-count change). Degrades to a <textarea> under jsdom
-// so the unit suite never trips on Lexical's missing geometry.
+// Re-seed the editor when the slide's prose changes UNDERNEATH it (an external
+// source write that kept the slide count — AI apply, History restore, an Inspector
+// slide transform), so Compose can't display stale content whose next keystroke
+// would silently revert the external change. Only re-imports when (a) the incoming
+// prose really differs from our own last export (normalized), and (b) THIS editor
+// isn't focused — never clobbering the caret mid-type. (Checker finding #1.)
+function ReconcilePlugin({ seedProse, lastExportRef }: { seedProse: string; lastExportRef: React.MutableRefObject<string> }) {
+	const [editor] = useLexicalComposerContext();
+	React.useEffect(() => {
+		if (seedProse.trim() === lastExportRef.current.trim()) return;
+		const root = editor.getRootElement();
+		const focused = !!root && typeof document !== 'undefined' && root.contains(document.activeElement);
+		if (focused) return;
+		lastExportRef.current = seedProse;
+		editor.update(() => {
+			$convertFromMarkdownString(seedProse, COMPOSE_TRANSFORMERS);
+		});
+	}, [seedProse, editor, lastExportRef]);
+	return null;
+}
+
+// One Lexical editor for a single slide's prose. Construct-once for the FIRST mount;
+// later external divergence flows in through ReconcilePlugin (not a re-key, which
+// would drop the caret every keystroke). Degrades to a <textarea> under jsdom so the
+// unit suite never trips on Lexical's missing geometry.
 function SlideBlock({ seedProse, onProseChange }: { seedProse: string; onProseChange: (prose: string) => void }) {
 	const onChangeRef = React.useRef(onProseChange);
 	onChangeRef.current = onProseChange;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once — seedProse seeds the first mount only; later syncs come via re-key from the parent.
+	// Our latest export — the baseline ReconcilePlugin compares incoming prose against
+	// so a user's own round-tripped edit never triggers a spurious re-import.
+	const lastExportRef = React.useRef(seedProse);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once — seedProse seeds the first mount only; later syncs come via ReconcilePlugin.
 	const initialConfig = React.useMemo(
 		() => ({
 			namespace: 'lattice-compose',
@@ -68,11 +93,14 @@ function SlideBlock({ seedProse, onProseChange }: { seedProse: string; onProseCh
 				<ListPlugin />
 				<LinkPlugin />
 				<MarkdownShortcutPlugin transformers={COMPOSE_TRANSFORMERS} />
+				<ReconcilePlugin seedProse={seedProse} lastExportRef={lastExportRef} />
 				<OnChangePlugin
 					onChange={(state) => {
 						state.read(() => {
 							try {
-								onChangeRef.current($convertToMarkdownString(COMPOSE_TRANSFORMERS));
+								const md = $convertToMarkdownString(COMPOSE_TRANSFORMERS);
+								lastExportRef.current = md;
+								onChangeRef.current(md);
 							} catch (e) {
 								console.error('[compose] export', e);
 							}
@@ -84,32 +112,34 @@ function SlideBlock({ seedProse, onProseChange }: { seedProse: string; onProseCh
 	);
 }
 
+type ParsedSlide = SlideChunk & { raw: string };
+
 export function ComposeSurface({ source, onChange, resetKey = '', className }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string }) {
-	// Parse the deck into front-matter (held aside) + per-slide { directives, prose }.
+	// Parse the deck into front-matter (held aside) + per-slide { directives, prose, raw }.
+	// `raw` is the ORIGINAL chunk verbatim — emitted unchanged for every slide the user
+	// hasn't edited, so a single edit never re-normalizes the rest of the deck (#3).
 	const fm = React.useMemo(() => frontMatterBlock(source), [source]);
-	const chunks = React.useMemo<SlideChunk[]>(() => splitSlides(stripFrontMatter(source)).map(splitSlideDirectives), [source]);
+	const chunks = React.useMemo<ParsedSlide[]>(
+		() => splitSlides(stripFrontMatter(source)).map((raw) => ({ ...splitSlideDirectives(raw), raw })),
+		[source],
+	);
 	// Freshest chunks for the commit funnel (avoids threading them through every edit).
 	const chunksRef = React.useRef(chunks);
 	chunksRef.current = chunks;
 	const fmRef = React.useRef(fm);
 	fmRef.current = fm;
 
-	const recompile = React.useCallback(
-		(next: SlideChunk[]) => {
-			const body = next.map((c) => composeSlideChunk(c.directives, c.prose)).join('\n\n---\n\n');
-			const f = fmRef.current;
-			return f ? f + body : body;
-		},
-		[],
-	);
 	const updateSlide = React.useCallback(
 		(index: number, prose: string) => {
 			const cur = chunksRef.current;
 			if (cur[index] == null || cur[index].prose === prose) return;
-			const next = cur.map((c, i) => (i === index ? { ...c, prose } : c));
-			onChange(recompile(next));
+			// Recompose ONLY the edited slide; every other slide keeps its exact original
+			// bytes (`raw`) so an edit produces a minimal, honest diff.
+			const body = cur.map((c, i) => (i === index ? composeSlideChunk(c.directives, prose) : c.raw)).join('\n\n---\n\n');
+			const f = fmRef.current;
+			onChange(f ? f + body : body);
 		},
-		[onChange, recompile],
+		[onChange],
 	);
 
 	return (
