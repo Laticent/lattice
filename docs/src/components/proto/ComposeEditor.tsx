@@ -24,7 +24,35 @@ import {
 } from 'lexical';
 import { Bold, Heading1, Heading2, Italic, Lightbulb, List, ListOrdered, Quote, Redo2, StickyNote, Tag, Undo2 } from 'lucide-react';
 import * as React from 'react';
+import { $createKpiNode, parseKpi } from './KpiNode';
 import { COMPOSE_THEME, LATTICE_NODES, LATTICE_TRANSFORMERS } from './lexical-lattice';
+
+// Component-aware seed. Prose components import through the markdown transformers;
+// a STRUCTURED component (kpi) is built directly into typed nodes so its nesting is
+// never round-tripped away. The pattern extends: add a branch per structured family.
+function $seedDoc(componentName: string, body: string): void {
+	if (componentName === 'kpi') {
+		const { eyebrow, heading, items } = parseKpi(body);
+		const root = $getRoot();
+		root.clear();
+		if (eyebrow) {
+			const p = $createParagraphNode();
+			const code = $createTextNode(eyebrow);
+			code.setFormat('code');
+			p.append(code);
+			root.append(p);
+		}
+		if (heading) {
+			const h = $createHeadingNode('h2');
+			h.append($createTextNode(heading));
+			root.append(h);
+		}
+		root.append($createKpiNode(items.length ? items : [{ value: '0', label: 'Metric', note: '' }]));
+		root.append($createParagraphNode()); // trailing caret target below the block
+		return;
+	}
+	$convertFromMarkdownString(body, LATTICE_TRANSFORMERS);
+}
 
 // ISOLATED PROTOTYPE — the rich-text "Compose" surface (Lexical). A person who
 // has never heard of "markdown" types here: headings, bold/italic, lists,
@@ -143,20 +171,20 @@ function LabeledButton({ onClick, title, children }: { onClick: () => void; titl
 // Re-import the seed markdown into the editor when a new component is picked
 // (token bump). Keyed on the token, NOT the markdown string, so a normal edit
 // (which flows OUT through OnChange) never triggers a re-seed loop.
-function SeedPlugin({ markdown, token }: { markdown: string; token: number }) {
+function SeedPlugin({ markdown, token, componentName }: { markdown: string; token: number; componentName: string }) {
 	const [editor] = useLexicalComposerContext();
 	const last = React.useRef(-1);
 	React.useEffect(() => {
 		if (token === last.current) return;
 		last.current = token;
 		editor.update(() => {
-			$convertFromMarkdownString(markdown, LATTICE_TRANSFORMERS);
+			$seedDoc(componentName, markdown);
 		});
-	}, [token, markdown, editor]);
+	}, [token, markdown, componentName, editor]);
 	return null;
 }
 
-export function ComposeEditor({ seedMarkdown, seedToken, onMarkdownChange }: { seedMarkdown: string; seedToken: number; onMarkdownChange: (md: string) => void }) {
+export function ComposeEditor({ seedMarkdown, seedToken, componentName, onMarkdownChange }: { seedMarkdown: string; seedToken: number; componentName: string; onMarkdownChange: (md: string) => void }) {
 	const onChangeRef = React.useRef(onMarkdownChange);
 	onChangeRef.current = onMarkdownChange;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once — seedMarkdown seeds only the first mount; later seeds flow through SeedPlugin.
@@ -167,7 +195,7 @@ export function ComposeEditor({ seedMarkdown, seedToken, onMarkdownChange }: { s
 			nodes: LATTICE_NODES as never,
 			editorState: () => {
 				// Seed the very first mount inside the composer's own update scope.
-				$convertFromMarkdownString(seedMarkdown, LATTICE_TRANSFORMERS);
+				$seedDoc(componentName, seedMarkdown);
 			},
 			onError: (e: Error) => {
 				// Surface, don't swallow — a transform gap is a real finding for this spike.
@@ -192,7 +220,7 @@ export function ComposeEditor({ seedMarkdown, seedToken, onMarkdownChange }: { s
 					<ListPlugin />
 					<LinkPlugin />
 					<MarkdownShortcutPlugin transformers={LATTICE_TRANSFORMERS} />
-					<SeedPlugin markdown={seedMarkdown} token={seedToken} />
+					<SeedPlugin markdown={seedMarkdown} token={seedToken} componentName={componentName} />
 					<OnChangePlugin
 						onChange={(editorState) => {
 							editorState.read(() => {

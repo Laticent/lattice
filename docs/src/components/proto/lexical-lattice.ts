@@ -11,6 +11,7 @@ import { ListItemNode, ListNode } from '@lexical/list';
 import { TRANSFORMERS } from '@lexical/markdown';
 import { HeadingNode, QuoteNode } from '@lexical/rich-text';
 import type { Klass, LexicalNode } from 'lexical';
+import { KPI_TRANSFORMER, KpiNode } from './KpiNode';
 
 // The node set the editor registers. It MUST cover every node the markdown
 // transformers can produce (heading/quote/list/code/link) or importing a
@@ -26,13 +27,15 @@ export const LATTICE_NODES: ReadonlyArray<Klass<LexicalNode>> = [
 	CodeNode,
 	CodeHighlightNode,
 	LinkNode,
+	KpiNode,
 ];
 
-// Re-export the default transformer set. The Compose surface owns PROSE only —
-// headings, bold/italic, bullet + numbered lists, blockquote, inline code,
-// links, fenced code — the parts of a slide a human types. The `<!-- _class -->`
-// directive is NEVER typed; it's a structured chip (see composeSlide).
-export const LATTICE_TRANSFORMERS = TRANSFORMERS;
+// The transformer set. The default set handles PROSE — headings, bold/italic,
+// bullet + numbered lists, blockquote, inline code, links, fenced code. KPI_TRANSFORMER
+// is prepended so a typed KpiNode compiles to its own nested grammar BEFORE the
+// generic list transformer (which would flatten it). The `<!-- _class -->` directive
+// is never typed; it's a structured chip (see composeSlide).
+export const LATTICE_TRANSFORMERS = [KPI_TRANSFORMER, ...TRANSFORMERS];
 
 const CLASS_RE = /<!--\s*_class:\s*([^>]*?)\s*-->/;
 // A per-slide directive comment: `<!-- _paginate: false -->`, `_header`, `_footer`,

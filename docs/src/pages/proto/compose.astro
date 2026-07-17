@@ -63,6 +63,22 @@ try {
 			.ce-codeblock { display: block; font-family: var(--font-mono, ui-monospace, monospace); background: var(--surface-2, rgba(0,0,0,0.06)); padding: 0.7em 0.9em; border-radius: 6px; font-size: 0.85em; white-space: pre; overflow-x: auto; margin: 0.4em 0 0.7em; }
 			.ce-link { color: var(--accent, #6366f1); text-decoration: underline; }
 			html, body { margin: 0; padding: 0; background: var(--bg, #fff); }
+
+			/* KPI typed-block — an inline structured block inside the canvas (not a form
+			   panel): edits stay structured, the node compiles to nested markdown. */
+			.kpi-block { border: 1px solid var(--rule, rgba(0,0,0,0.14)); border-radius: 10px; padding: 0.5em 0.75em 0.75em; margin: 0.5em 0; background: var(--surface-1, rgba(0,0,0,0.015)); }
+			.kpi-block-tag { font-family: var(--font-mono, ui-monospace, monospace); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted, #8a8a8a); margin-bottom: 0.5em; }
+			.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.6em; }
+			.kpi-item { position: relative; border: 1px solid var(--rule, rgba(0,0,0,0.1)); border-radius: 8px; padding: 0.5em 0.6em; background: var(--bg, #fff); }
+			.kpi-item input { display: block; width: 100%; border: 0; background: transparent; outline: none; color: var(--text-body, #222); font-family: inherit; }
+			.kpi-value { font-size: 1.5rem; font-weight: 700; line-height: 1.1; color: var(--text-heading, #111); }
+			.kpi-label { font-size: 0.85rem; font-weight: 600; margin-top: 0.15em; }
+			.kpi-note { font-size: 0.75rem; color: var(--text-muted, #777); margin-top: 0.1em; }
+			.kpi-del { position: absolute; top: 3px; right: 3px; display: inline-flex; padding: 2px; border-radius: 4px; color: var(--text-muted, #999); opacity: 0; transition: opacity 0.12s; }
+			.kpi-item:hover .kpi-del { opacity: 1; }
+			.kpi-del:hover { background: var(--surface-2, rgba(0,0,0,0.07)); color: var(--text-body, #333); }
+			.kpi-add { display: inline-flex; align-items: center; gap: 4px; margin-top: 0.6em; padding: 0.25em 0.6em; border-radius: 6px; font-size: 12px; font-weight: 500; color: var(--accent, #6366f1); }
+			.kpi-add:hover { background: var(--surface-2, rgba(0,0,0,0.06)); }
 		</style>
 	</head>
 	<body>
