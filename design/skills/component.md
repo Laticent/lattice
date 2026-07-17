@@ -188,7 +188,7 @@ The CSS anchors on the stage Cell and stays palette-blind + margin-free:
 
 **Variant tiers** — know which is which so you don't list the wrong ones:
 
-- **Tier 1 Universal (35)** — `dark`, `silent`, state markers, tone, claim, etc.
+- **Tier 1 Universal (42)** — `dark`, `silent`, state markers, tone, insight labels, claim, etc.
   Added automatically; **manifests must NOT list them.**
 - **Tier 2 Semi-universal** — `compact`, `accent`, `claim-bleed`. Accepted by
   default; opt out via `excludes`.

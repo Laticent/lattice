@@ -191,6 +191,18 @@ in patch versions.
 
 ### Added
 
+- **Callout eyebrows are now renamable — `insight-*` modifiers on the slide `_class`.** The
+  universal Key Insight panel and the split-compare verdict tag both emit their eyebrow through one
+  shared `--insight-label` seam, so a curated modifier swaps the word to a boardroom heading
+  (`insight-takeaway` → TAKEAWAY, `insight-verdict` → VERDICT, `insight-so-what` → SO WHAT,
+  `insight-bottom-line` → BOTTOM LINE, `insight-the-ask` → THE ASK) while the panel chrome, color,
+  and sizing stay put. Both surfaces read the *same* token — each with its own default via the
+  `var()` fallback, and both defaults exposed as explicit modifiers (`insight-key` → KEY INSIGHT,
+  `insight-recommendation` → RECOMMENDATION) — so the recommendation is a Key Insight variant, not a
+  split-compare special, and either word can move onto the other surface. Set per slide or deck-wide
+  via a frontmatter `class:`. Defaults never move, so every existing deck renders identically. Same
+  custom-property-as-content idiom as the `stamp-*` state markers. See `examples/insight-labels.md`
+  and `engineering/decisions/2026-07-17-insight-label-vocabulary.md`.
 - **Accent finishes — the spectrum, heading rule, and eyebrow are now selectable finishes.**
   Three baked-in details graduate to first-class registers on the Finish axis (the *accent*
   sub-family, distinct from `finish:` backdrops), each deck-wide or per-slide, palette-blind,

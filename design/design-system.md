@@ -339,9 +339,9 @@ state-bearing layouts, "canvas" for charts); some are strictly per-layout
 ("watermark" for split-panel, "four" for cards-grid). The manifest model
 recognises four tiers:
 
-**Tier 1 — Universal (35 variants).** Apply to every component. Added
+**Tier 1 — Universal (42 variants).** Apply to every component. Added
 automatically by `effectiveVariants()`; manifests must NOT list them. The
-canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Eight
+canonical source is `UNIVERSAL_GROUPS` in `lib/components/index.js`. Nine
 categories:
 
 | Category | Variants |
@@ -353,6 +353,7 @@ categories:
 | Social (1) | `safe` |
 | State (8) | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
 | Tone (4) | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
+| Insight (7) | `insight-key`, `insight-recommendation`, `insight-takeaway`, `insight-verdict`, `insight-so-what`, `insight-bottom-line`, `insight-the-ask` |
 | Claim (3) | `claim-quiet`, `claim-hero`, `claim-framed` (the last is the no-op per-slide opt-out marker) |
 
 The State variants are the team-collaboration vocabulary — visible
@@ -360,6 +361,13 @@ markers for slides that are in-progress, confidential, or otherwise
 need a meta-signal independent of the content. The Tone variants
 reuse the state-token color system (pass/warn/fail/skip) at the
 canvas level — a "this slide is the failure slide" treatment. The
+**Insight** variants rename the callout eyebrow — the universal Key
+Insight panel and the split-compare verdict tag share one
+`--insight-label` seam, so a curated modifier swaps the word
+(`insight-takeaway` → TAKEAWAY, `insight-verdict` → VERDICT) while every
+default stays put; `insight-key`/`insight-recommendation` are the two
+defaults as explicit modifiers, so either can move onto the other surface
+(`engineering/decisions/2026-07-17-insight-label-vocabulary.md`). The
 **Claim** variants let content claim the stage by receding the chrome
 (quiet → hero → bleed); they compose with the Chrome switches above and
 are the author surface of the `claim:` register (`design/concepts.md`;

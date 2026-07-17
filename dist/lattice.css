@@ -11521,7 +11521,7 @@ section.split-compare .option ol > li:last-child { padding-bottom:0; }
  * mirroring the ordered-list corner tags in cards-grid. The tag is the
  * eye-catcher; the recommendation reads as normal body inside the card. */
 section.split-compare .verdict { background:var(--accent-soft); border:1px solid var(--on-accent-soft); border-radius:var(--radius-md); padding:calc(var(--sp-xs) + 1.5625cqi) var(--sp-md) var(--sp-sm); position:relative; overflow:hidden; flex-shrink:0; }
-section.split-compare .verdict::before { content:'Recommendation'; position:absolute; top:0; left:0; padding:0.3125cqi 0.9375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0; font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:700; text-transform:uppercase; letter-spacing:0.12em; line-height:1; color:var(--on-accent); background:var(--accent); }
+section.split-compare .verdict::before { content:var(--insight-label, 'RECOMMENDATION'); position:absolute; top:0; left:0; padding:0.3125cqi 0.9375cqi; border-radius:var(--radius-md) 0 var(--radius-sm) 0; font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:700; text-transform:uppercase; letter-spacing:0.12em; line-height:1; color:var(--on-accent); background:var(--accent); }
 section.split-compare .verdict blockquote { margin:0; padding:0; border:none; }
 section.split-compare .verdict blockquote p { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); font-weight:400; line-height:var(--lh-snug); margin:0; }
 
@@ -13943,7 +13943,13 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
 }
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not([class*="layout-"]) > blockquote::before,
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not([class*="layout-"]) > .cell-stage > blockquote::before {
-  content:'KEY INSIGHT';
+  /* Default 'KEY INSIGHT'; an `insight-*` modifier on the slide _class (or a
+   * deck-wide frontmatter `class:`) overrides via the shared --insight-label
+   * seam — the same custom-property idiom the stamp-* markers use
+   * (base.variants.css § INSIGHT LABEL). The split-compare verdict tag reads
+   * the SAME token (default 'RECOMMENDATION'), so one vocabulary drives both:
+   * the recommendation is a Key Insight variant, not a split-compare special. */
+  content:var(--insight-label, 'KEY INSIGHT');
   font-family:var(--font-label);
   font-size:var(--fs-meta);
   font-weight:700;
@@ -18621,6 +18627,28 @@ section.stamp-pin::before {
   color: transparent; overflow: hidden;
   background: var(--stamp-color); width: 2cqi; height: 2.9cqi;
 }
+
+/* ── INSIGHT LABEL ── rename the callout eyebrow via the slide _class.
+   The universal Key Insight panel (base.modifiers.css) and the split-compare
+   verdict tag (split-compare.styles.css) both emit their eyebrow as
+   `content: var(--insight-label, <default>)`. Setting --insight-label on the
+   section — through one of the curated `insight-*` modifiers below, or a
+   deck-wide frontmatter `class:` — swaps the word while every default stays put
+   (the var() fallback). Same custom-property-as-content idiom as the stamp-*
+   markers above; the vocabulary is deliberately small and curated (a highly
+   edited boardroom heading, not free text). The two defaults are themselves
+   modifiers (insight-key / insight-recommendation), so either word can move to
+   the other surface — the recommendation is a Key Insight variant, not a
+   split-compare special. Add a word here to grow the set; keep it uppercase to
+   match the eyebrow's text-transform and the label voice.
+   See engineering/decisions/2026-07-17-insight-label-vocabulary.md. */
+section.insight-key          { --insight-label: 'KEY INSIGHT'; }
+section.insight-recommendation { --insight-label: 'RECOMMENDATION'; }
+section.insight-takeaway     { --insight-label: 'TAKEAWAY'; }
+section.insight-verdict      { --insight-label: 'VERDICT'; }
+section.insight-so-what      { --insight-label: 'SO WHAT'; }
+section.insight-bottom-line  { --insight-label: 'BOTTOM LINE'; }
+section.insight-the-ask      { --insight-label: 'THE ASK'; }
 
 /* The Form (`section.form`) chrome — the root Frame box, the masthead / stage /
  * footer Cells, and the stage fill discipline — used to live here. It is now
