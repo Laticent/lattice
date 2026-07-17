@@ -518,6 +518,10 @@ describe('lint-core: big-number-hero-heading', () => {
     assert.equal(core.findBigNumberHeroInHeading('- 92%\n  - caption'), false);
     assert.equal(core.findBigNumberHeroInHeading('`eyebrow only`'), false); // no heading → not the mistake
     assert.equal(core.findBigNumberHeroInHeading(''), false);
+    // A heading AND a list item present → the hero renders; not the mistake.
+    assert.equal(core.findBigNumberHeroInHeading('## Aside\n\n- 92%\n  - caption'), false);
+    // A `#` INSIDE a code fence (no real heading, no list) is not the mistake.
+    assert.equal(core.findBigNumberHeroInHeading('```\n# not a heading\n```'), false);
   });
 
   test('warns when the hero is authored as a heading', () => {
@@ -544,7 +548,12 @@ describe('lint-core: bookend-finish-contrast', () => {
   // A deck-wide `finish:` paints a backdrop over title/closing bookends, whose
   // inverse display text washes out on a light canvas. The house pattern is
   // `finish-none` on bookends (examples/finish-backdrops.md).
-  const beVocab = { names: new Set(['title', 'closing', 'content']), modifiers: new Set(['silent']) };
+  const beVocab = {
+    names: new Set(['title', 'closing', 'content']),
+    modifiers: new Set(['silent']),
+    // Only a registered finish paints a backdrop; the rule gates on this vocab.
+    finishNames: ['none', 'atrium', 'meridian', 'strata', 'halo', 'ledger', 'nimbus', 'loom', 'savile', 'gallery'],
+  };
   const FMF = (fin) => `---\nmarp: true\ntheme: indaco\n${fin ? `finish: ${fin}\n` : ''}---\n\n`;
   const be = (fin, cls) => core.lintTextWith(`${FMF(fin)}<!-- _class: ${cls} -->\n\n# H\n`, beVocab)
     .find((f) => f.rule === 'bookend-finish-contrast');
@@ -557,7 +566,7 @@ describe('lint-core: bookend-finish-contrast', () => {
   });
 
   test('warns on a closing bookend too', () => {
-    assert.ok(be('hanami', 'closing silent'), 'closing under a deck finish should warn');
+    assert.ok(be('ledger', 'closing silent'), 'closing under a deck finish should warn');
   });
 
   test('clean when the bookend opts out with finish-none', () => {
@@ -575,5 +584,18 @@ describe('lint-core: bookend-finish-contrast', () => {
 
   test('does not fire on non-bookend slides under a finish', () => {
     assert.equal(be('atrium', 'content'), undefined);
+  });
+
+  test('does NOT fire on an unknown/typo finish (no backdrop renders — unknown-finish owns that)', () => {
+    // `atriumm` is not a registered finish, so the engine paints no backdrop;
+    // this rule must not contradict the `unknown-finish` warning.
+    assert.equal(be('atriumm', 'title silent'), undefined);
+    // The per-slide opt-out spelling written at deck level is also not a backdrop.
+    assert.equal(be('finish-none', 'title silent'), undefined);
+  });
+
+  test('a body-level `finish:` (inside a code fence) is not read as the deck finish', () => {
+    const src = '---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: title silent -->\n\n# H\n\n```yaml\nfinish: atrium\n```\n';
+    assert.equal(core.lintTextWith(src, beVocab).find((f) => f.rule === 'bookend-finish-contrast'), undefined);
   });
 });

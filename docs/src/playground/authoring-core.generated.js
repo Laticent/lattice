@@ -146,7 +146,8 @@ var require_lint_core = __commonJS({
     }
     function findBigNumberHeroInHeading(slide) {
       if (!slide) return false;
-      const hasHeading = /^#{1,6}\s+\S/m.test(slide);
+      const body = slide.replace(/^[ \t]*```[\s\S]*?^[ \t]*```/gm, "");
+      const hasHeading = /^#{1,6}\s+\S/m.test(body);
       if (!hasHeading) return false;
       return countPrimaryCollection(slide, "item") === 0;
     }
@@ -358,7 +359,8 @@ ${indent}   - ${body.trim()}`;
       const deckClaimToken = ["quiet", "hero", "bleed"].includes(deckClaimName) ? `claim-${deckClaimName}` : null;
       const deckFinishRaw = fmClaimBlock && (fmClaimBlock[1].match(/^\s*finish:\s*["']?([\w-]+)/m) || [])[1];
       const deckFinishName = deckFinishRaw ? deckFinishRaw.trim().toLowerCase() : "";
-      const deckHasFinish = !!deckFinishName && deckFinishName !== "none";
+      const deckFinishKnown = vocab.finishNames ? new Set([...vocab.finishNames].map((n) => String(n).toLowerCase())) : null;
+      const deckHasFinish = !!deckFinishName && deckFinishName !== "none" && (!deckFinishKnown || deckFinishKnown.has(deckFinishName));
       slides.forEach((slide, idx) => {
         const m = slide.match(CLASS_DIRECTIVE);
         if (!m) return;
