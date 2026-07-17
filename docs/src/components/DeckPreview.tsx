@@ -212,10 +212,19 @@ export function DeckPreview({
 		schedulerRef.current?.schedule();
 	}, [render, coalesce]);
 
-	// Cancel a pending frame/timer on unmount (mount-once). The per-change effect
-	// above deliberately does NOT cancel — a mid-burst change keeps the single
-	// scheduled frame rather than thrashing cancel/reschedule every keystroke.
-	React.useEffect(() => () => schedulerRef.current?.cancel(), []);
+	// Cancel a pending frame/timer AND dispose the renderer on unmount (mount-once).
+	// dispose() disconnects the host ResizeObserver + theme observer and drops the
+	// scaleTargets entry — without it every remount (HeroPreview tab flip, Slide
+	// Overview, Studio overlays) would leak this host's parsed ~560KB theme iframe.
+	// The per-change effect above deliberately does NOT cancel — a mid-burst change
+	// keeps the single scheduled frame rather than thrashing cancel/reschedule.
+	React.useEffect(
+		() => () => {
+			schedulerRef.current?.cancel();
+			engineRef.current?.dispose();
+		},
+		[],
+	);
 
 	// Re-render on palette / mode change (the shared topbar writes <html> attrs).
 	// Routed through the SAME frame scheduler as edits (not a direct render) so it

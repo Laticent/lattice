@@ -93,5 +93,11 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 		};
 	}, [data]);
 
+	// Release the renderer's per-host ResizeObservers + scaleTargets entries on
+	// unmount (mount-once, so it never runs on a data change mid-life). This host
+	// is page-lifetime so it doesn't churn, but leaving its renderer undisposed
+	// would still root every card iframe until page unload. Matches DeckPreview.
+	React.useEffect(() => () => engineRef.current.dispose(), []);
+
 	return null;
 }

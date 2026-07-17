@@ -19,6 +19,7 @@ import '../styles/deck-config.css';
 import '../styles/chart-interact.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
+import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import PlaygroundApp from '../components/playground/PlaygroundApp.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
@@ -141,6 +142,10 @@ const pgData = {
 		    for a dark-app visitor on a light-OS device. Must precede ResourceHints + the seed. */}
 		<ColorSchemeSeed />
 		<ResourceHints />
+		{/* Prefetch the preview runtime at parse time so the first live render's
+		    iframe finds it warm instead of cold-fetching it on the critical path
+		    (the FRAME REBUILD cost). Overlaps island hydration + the engine load. */}
+		<RuntimeWarm />
 		<title>Lattice playground — try it in the browser</title>
 		<meta name="description" content="Write Lattice Markdown and watch it render to boardroom slides live in your browser. Start from any component template." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />

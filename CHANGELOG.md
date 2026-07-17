@@ -228,6 +228,43 @@ in patch versions.
 
 ### Changed
 
+- **The live preview no longer accumulates leaked observers/iframes over a session, or stale
+  cached assets across refreshes.** An adversarial-trio investigation (red-team leak hunt +
+  Munger inversion + across-refresh storage audit) into "the preview degrades the longer I work
+  and the more I refresh" found three real accumulation vectors, all fixed: (1) the single-slide
+  renderer had **no `dispose()`**, so a remounting preview host (the landing hero's Preview↔Source
+  tab flip, the Slide Overview's one-host-per-slide, the Studio overlays) leaked a fully-parsed
+  ~560KB theme iframe each cycle — the per-host `ResizeObserver` was never disconnected and its
+  host stayed rooted in a module-level Map; `dispose()` now releases all of it and every host
+  calls it on unmount. (2) A component-page specimen's `MutationObserver` on the permanent
+  `document.documentElement` (which can never be garbage-collected) was never torn down;
+  `onThemeChange` now returns an unsubscribe and the specimen disposes on `pagehide`. (3) The
+  service worker never version-evicted old content-hashed `playground/v/<hash>/` assets, so each
+  deploy's engine bundle + theme sheets piled up in Cache Storage; it now drops an asset's
+  older-hash copies when it caches the current one, bounding the cache to one deploy. A likely
+  cause of the FPS-pinned-at-30 symptom — a runtime rAF/observer loop that never idles if a
+  per-frame geometry write oscillates — was traced but is a *guarded* risk needing on-device
+  confirmation before the (export-sensitive) shared runtime is touched, so it's a scoped
+  follow-up. (`single-slide-render.ts`, `DeckPreview.tsx`, `FieldCardsLive.tsx`,
+  `RestyleShowcase.tsx`, `specimen.js`, `sw.js`;
+  `engineering/decisions/2026-07-17-preview-accumulation-leaks.md`.)
+- **The first live preview render after a page load no longer waits on a cold runtime fetch.**
+  The Studio/Playground preview iframe needs `lattice-runtime.js` before it can paint, but that
+  bundle was the one preview asset nobody warmed — the parent page never loads it, so the iframe
+  cold-fetched it the first time it wrote its `srcdoc`, *after* the engine bundle had finished
+  loading. On a cold/first/post-deploy load the two heavy fetches ran back-to-back and the runtime
+  landed squarely on the first-render critical path — it was the bulk of the perf overlay's red
+  **FRAME REBUILD** needle even for a tiny slide (measured cold, mid-tier phone profile: the runtime
+  request didn't even *start* until ~7s in, and the first render's frame took ~3.8s). The app pages
+  now drop a low-priority `<link rel="prefetch" as="script">` for the runtime in `<head>`, so its
+  fetch starts at HTML-parse time and overlaps island hydration + the engine load instead of queuing
+  behind them (same-cache-entry as the iframe's own `<script src>`, content-hash-versioned together).
+  Applied on every page that live-renders a slide on load — the app pages (Studio, Playground), the
+  landing hero, and every component page's specimen. Measured post-fix (Studio): the runtime request
+  starts at ~0.2s (was ~7s) and FRAME REBUILD drops ~0.85s. The residual cold-load cost is the engine
+  bundle + hydration + the 563KB CSS parse, which the SSG instant-shell is designed to mask.
+  (`RuntimeWarm.astro`, `studio.astro`, `playground.astro`, `index.astro`, `ComponentsLayout.astro`;
+  `engineering/decisions/2026-07-11-preview-performance-diagnosis.md` §B④.)
 - **Categorical TEXTURE is now a universal token channel (`--cat-N-texture`), not per-theme
   wiring — and it fixes a11y mindmaps + textures every categorical diagram.** Texture (the
   non-color channel that lets monochrome/CVD/print decks tell categories apart) had been copied
