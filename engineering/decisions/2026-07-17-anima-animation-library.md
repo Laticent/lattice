@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Anima — a SERIOUS animation capability (not a gimmick), where motion must carry information a STILL FRAME CANNOT (geometry you must rotate to read, a sequence/causality that only unfolds in time, or a quantity bound to real data) — never bouncing-ball ornament. Three pieces on architecture that already exists: (1) the ANIMA LIBRARY — a pure, framework-free engine in the Cadenza/Vetrina mold with a DSL, a medium-independent SPEC/IR, and a PLUGGABLE capability-negotiated renderer (Zdog canonical/vector/poster; Three.js present-mode-only for true-3D/GLTF; Pixi deferred), whose one idea generalizes Cadenza's "the clock is someone else's" to "the RENDERER is someone else's"; (2) an ANIMATION ASSET (kind:'scene') — a serialized scene spec you CREATE, TUNE, SAVE, and SHARE exactly like a kind:'theme' or kind:'component' asset (asset-bundle.ts / asset-store.js), authored by the LLM-plus-human loop the theme & component generators already prove; (3) ONE HOST COMPONENT (imagery bucket) framing a scene asset with variants mirroring the image component (clean/split/spotlight/gallery/statement/mirror) — asset is the payload, component is the frame. Static PDF/PPTX gets a deterministic VECTOR poster (CSS-3D-charts raster-pixelates finding); reduced-motion → poster. LLM authors DATA (the spec), never JS (HARD RULE #22); palette-blind. Ornament banned by the "information a still cannot carry" test. Design only; nothing built.
+summary: Anima — a SERIOUS animation capability (not a gimmick), where motion must carry information a STILL FRAME CANNOT (geometry you must rotate to read, a sequence/causality that only unfolds in time, or a quantity bound to real data) — never bouncing-ball ornament. Three pieces on architecture that already exists: (1) the ANIMA LIBRARY — a pure, framework-free engine in the Cadenza/Vetrina mold with a DSL, a medium-independent SPEC/IR, and a PLUGGABLE capability-negotiated renderer with TWO first-class vector/poster engines on the canonical path — Zdog (builds flat-3D shapes) and Vivus.js (draws SVG line-art stroke-by-stroke) — plus Three.js present-mode-only for true-3D/GLTF (raster) and Pixi deferred, whose one idea generalizes Cadenza's "the clock is someone else's" to "the RENDERER is someone else's"; (2) an ANIMATION ASSET (kind:'scene') — a serialized scene spec you CREATE, TUNE, SAVE, and SHARE exactly like a kind:'theme' or kind:'component' asset (asset-bundle.ts / asset-store.js), authored by the LLM-plus-human loop the theme & component generators already prove; (3) ONE HOST COMPONENT (imagery bucket) framing a scene asset with variants mirroring the image component (clean/split/spotlight/gallery/statement/mirror) — asset is the payload, component is the frame. Static PDF/PPTX gets a deterministic VECTOR poster (CSS-3D-charts raster-pixelates finding); reduced-motion → poster. LLM authors DATA (the spec), never JS (HARD RULE #22); palette-blind. Ornament banned by the "information a still cannot carry" test. Design only; nothing built.
 companion:
   - ./2026-07-07-cadenza-caption-timeline.md
   - ./2026-07-05-vetrina-walkthrough-library.md
@@ -53,6 +53,11 @@ That test yields the **serious use classes** Anima is built for — each a real 
   *encodes* the data (the honest cousin of a chart, for spatial/physical quantities).
 - **Structure pulled apart** — an **exploded view** or a layered stack separating so the room can
   read how parts or tiers compose. Motion clarifies 3D structure that flattens in a still.
+- **A figure or path drawn in sequence** — a schematic assembling stroke-by-stroke, a route or
+  boundary tracing across a map or plan, a geometric/mathematical construction built in order, a
+  signature signing. The **drawing order is the information**: it walks the eye along the
+  construction and shows *how the figure is built*, which a finished still flattens. (Vivus.js's
+  home — §7.)
 - **An honest transformation** — a real before→after change made legible (a site pre/post build; a
   shape deforming to represent a modeled change). The meaning-bearing morph, never a slide effect.
 
@@ -119,7 +124,7 @@ import outside `./`), a barrel `index.ts`, per-module unit tests, a README, a sp
               │ core: compile(spec) → timeline ; timeline.at(t) → SceneState
               │ inject a backend to paint a SceneState ↓
  RENDERER    caps · mount · draw(state) · poster(spec,t) · dispose              (§5.1)
- backends    Zdog (vector, poster) · Three (live 3D) · Pixi (later)
+ backends    Zdog (build·vector·poster) · Vivus (draw·vector·poster) · Three (live·3D·raster) · Pixi (later)
 ```
 
 ### 5.1 The one idea — inject the renderer (so engines swap AND coexist)
@@ -133,7 +138,7 @@ once.
 
 ```ts
 interface Renderer {
-  readonly caps: RendererCaps;              // { vector, poster, true3d, gltf, live }
+  readonly caps: RendererCaps;              // { vector, poster, draw, true3d, gltf, live }
   mount(host: Element): void;
   draw(state: SceneState): void;            // one time-slice, per frame (host owns the clock+loop)
   poster(spec: Scene, t: number): Poster;   // a DETERMINISTIC still at hero-time t
@@ -143,10 +148,13 @@ interface Renderer {
 
 **Capability negotiation** is the honest core of "multiple engines": each backend advertises
 `caps`; the library validates a spec against the chosen backend and **fails loudly** on a mismatch
-(a `gltf` spec on a backend without it; a vector-poster request to a raster-only engine). That makes
-"swap / run multiple engines" a *checked contract*, and it lets the poster/live split (§7) be
-expressed as **two backends chosen by capability** — e.g. Zdog paints the canonical vector poster
-while Three paints the live view, from the *same* asset.
+(a `gltf` spec on a backend without it; a vector-poster request to a raster-only engine; a
+`draw`/`source: svg` spec on an engine that only builds primitives). That makes "swap / run multiple
+engines" a *checked contract*, and it lets the poster/live split (§7) be expressed as **backends
+chosen by capability** — e.g. Zdog or Vivus paints the canonical vector poster while Three paints the
+live view, from the *same* asset. A backend's `caps` also records its **source model**: Zdog/Three
+**build** geometry from the spec's primitives; **Vivus ingests an authored SVG** (`source: svg`) and
+animates its stroke — the same timeline, a different way in.
 
 ## 6. The DSL + spec — three authoring forms, one asset (Vetrina's shape)
 
@@ -174,15 +182,27 @@ poster); **token-only colour**; and a **deterministic core** (no `Math.random`/w
 `compile`/`at`, so an asset renders one reproducible poster — required by the byte-stable export
 gate).
 
+A part's geometry arrives one of two ways, recorded in the backend's `caps` **source model**: it is
+either **built** from the closed primitive set (Zdog shapes, a Three model) or **ingested** as
+authored SVG line-art (`source: svg`) whose *stroke* the drawing verbs animate (Vivus). The IR spans
+both; a spec that names `source: svg` requires a backend with the `draw` capability (§5.1).
+
 ## 7. The static path is a backend CAPABILITY — vector poster, canonical
 
 Settled by `2026-06-19-css-3d-charts-feasibility.md` §5 + the `video`/`image` precedent: the
 exported PDF/PPTX shows a **poster** (a still at the `hero` time), and it must be **vector where it
 is canonical**, because a zoomed PDF keeps SVG razor-sharp while any **raster/WebGL frame
 pixelates**. Under `prefers-reduced-motion`, live surfaces show the poster too. In the library this
-is *just a capability*: `poster: true` ⇒ `vector: true`.
+is *just a capability*: `poster: true` ⇒ `vector: true`. **Two first-class vector engines anchor the
+canonical path**, each poster-capable; the raster engine is the present-only outlier:
 
-- **Zdog** (`vector, poster, live`) paints the **canonical poster** and can run live — the default.
+- **Zdog** (`vector, poster, live`) **builds** and rotates flat-3D shapes; paints the **canonical
+  poster** and runs live — the default for the explanatory-3D / structure classes.
+- **Vivus.js** (`vector, poster, draw, live`) **draws** authored SVG line-art stroke-by-stroke — a
+  **first-class canonical engine, not a flourish tier**: SVG in, so its poster is the finished
+  drawing, crisp at any PDF zoom. It owns the *drawn-figure* class (§2) — a diagram assembling, a
+  route tracing, a construction built in order. Its source is an ingested SVG (`source: svg`), and it
+  needs *strokable* line-art, not flat fills (§13).
 - **Three.js** (`true3d, gltf, live`, **not** `poster`) is **present-mode-only**; its still is a
   rasterized lower-fidelity preview (flagged) or an author-supplied vector `poster` override (the
   escape hatch `image`/`video` already give).
@@ -250,7 +270,7 @@ and the a11y/CVD palettes.
 Follows `2026-07-08-library-shape-cadenza-vetrina.md`: home `docs/src/lib/anima/`, pure and
 framework-free (`node:`+relative only), `checkAnimaBoundary` gate = the spin-off contract. The
 **Three backend imports `three` only in `backends/three.ts`**, allowlisted (`ANIMA_ADAPTER_DEPS`,
-the `VETRINA_ADAPTER_DEPS` pattern); the **Zdog backend is bundled** (tiny, and it's the canonical
+the `VETRINA_ADAPTER_DEPS` pattern); the **Zdog and Vivus.js backends are bundled** (both tiny, zero-dependency, SVG — the canonical
 poster path). The poster renders where slides render (headless Chromium), so Zdog paints the poster
 SVG in-page like charts do — no Node-native graphics. When the root export pipeline must drive Anima
 directly, it gets the same **workspace + CJS `dist/`** treatment as Cadenza. Spin-off = move the dir
@@ -270,6 +290,8 @@ free-easing/keyframe surface to build ornament with.
   hand-animate frames (narrative-step §8.1's "no animation pane").
 - **No entrance/exit or slide-transition spectacle** (fly-in, bounce, spin-on-reveal, typewriter,
   star-wipe, cube) — motion describes the *object/process*, not the slide.
+- **No self-drawing for flourish** — a Vivus stroke-reveal is admitted only when the drawing
+  *order* carries meaning (§2's drawn-figure class), never a logo drawing itself to look slick.
 - **No autoplay audio; no motion that can't reduce to the poster.**
 - **No arbitrary user JS** — §8's spec boundary is absolute.
 
@@ -285,11 +307,17 @@ to the poster for a scene whose whole content is vestibular.
   informative." §2's test + human review at the Quality Bar hold it — the same honest residue the
   component generator accepts for "tasteful." The knowledge file must *teach* the serious classes
   and the decline, or the model will drift to ornament.
-- **The `SceneState` IR is the make-or-break** — an engine-neutral intersection expressive on both
-  pseudo-3D vector (Zdog) and true-3D GPU (Three); `caps` gates engine-specific richness. Like
+- **The `SceneState` IR is the make-or-break** — an engine-neutral intersection expressive across
+  pseudo-3D vector (Zdog), true-3D GPU (Three), **and drawn SVG line-art (Vivus)**, spanning two
+  *source models* (built primitives vs ingested SVG); `caps` gates engine-specific richness. Like
   Cadenza's display/spoken split, this is the hard design.
-- **Three.js weight** (~600KB, raster poster) — ship **Zdog-only first**; Three is a gated later
-  tier that must earn its weight with a real §2 case (a genuine GLTF/true-3D need).
+- **Self-drawing as flourish, and the stroke constraint.** Vivus's reveal is the easiest of all to
+  slip into ornament; §2 + §12.1 hold it to meaning-bearing drawing order. A hard *input* constraint
+  too: Vivus animates strokes, so its source SVG must be line/path art (strokable outlines), not flat
+  fills — the scene-inspector must steer authored/generated art to that shape.
+- **Three.js weight** (~600KB, raster poster) — ship the **vector engines (Zdog + Vivus) first**;
+  Three is a gated later tier that must earn its weight with a real §2 case (a genuine GLTF/true-3D
+  need).
 - **Scope creep into a motion-graphics tool.** The closed vocabulary + the poster requirement + the
   §2 test are the fence; Anima is for slide-serving, poster-degradable, information-bearing motion —
   not a game loop or an FX suite.
@@ -300,17 +328,20 @@ to the poster for a scene whose whole content is vestibular.
    vocabulary. Zero-dep, boundary-gated, unit-tested against the data (no backend yet).
 2. **Zdog backend** — `caps:{vector,poster,live}`; deterministic vector poster. A hand-authored
    scene renders live + poster.
-3. **The `kind:'scene'` asset** — extend `asset-bundle.ts` / `asset-store` with the scene kind
-   (spec + poster + metadata); save/load/share.
-4. **The host `scene` component** (imagery) — the image-mirrored variants; asset → Anima mount;
+3. **Vivus.js backend** — `caps:{vector,poster,draw,live}`; the `source: svg` ingest mode + the
+   stroke-reveal drawing verbs. The second first-class vector engine — a drawn diagram/route renders
+   live + poster. Both vector engines land **before** the gated Three tier.
+4. **The `kind:'scene'` asset** — extend `asset-bundle.ts` / `asset-store` with the scene kind
+   (spec + poster + metadata; the `source: svg` art for a Vivus scene); save/load/share.
+5. **The host `scene` component** (imagery) — the image-mirrored variants; asset → Anima mount;
    poster wired into the PDF path. Demo deck (#9); dark+light **export sign-off** (QUALITY BAR).
-5. **Reduced-motion + present-mode wiring** — the three tiers; live on HTML export + Studio present,
+6. **Reduced-motion + present-mode wiring** — the three tiers; live on HTML export + Studio present,
    poster on PDF and `still`.
-6. **The scene-inspector + LLM create/tune loop** — the Studio surface + the Anima knowledge file &
+7. **The scene-inspector + LLM create/tune loop** — the Studio surface + the Anima knowledge file &
    generator (extending the component-generator contract); a frozen adversarial prompt set with a
    **decline case** (an ornament/bouncing-ball request must be refused and routed to `image`) and a
    **poster-determinism** case.
-7. **Three.js backend** (GATED, may be cut) — `caps:{true3d,gltf,live}`, present-only,
+8. **Three.js backend** (GATED, may be cut) — `caps:{true3d,gltf,live}`, present-only,
    raster-or-override poster, capability-negotiated. Ships only if a real §2 case earns the weight.
    **Library-shape packaging** and **a second host / layered co-render** remain deferred.
 
@@ -323,6 +354,8 @@ to the poster for a scene whose whole content is vestibular.
   (`2026-06-16-narrative-step-model.md` — a scene is a candidate steppable unit), or on a control?
 - GLTF import — in scope for the Three tier v1, or Zdog-authored geometry only?
 - The asset bundle shape (spec + poster + caps) and the scene-inspector's tuning controls.
+- The `source: svg` ingest (Vivus) — constraining authored/generated art to strokable line-art, and
+  mapping the drawing verbs (`draw`/`trace`/`sequence`) onto its paths.
 - The Anima knowledge-file's worked examples across the serious classes (the make-or-break
   generator deliverable, per component-generator §4.8).
 
@@ -335,11 +368,15 @@ to the poster for a scene whose whole content is vestibular.
   `2026-07-07-cadenza-caption-timeline.md`; **packages per** `2026-07-08-library-shape-*`.
 - **Mirrors the `image` component** (`lib/components/imagery/image/`) for the host + variants.
 - **Applies** `2026-06-19-css-3d-charts-feasibility.md` §5 — vector-vs-raster / PDF-zoom is why
-  `poster` requires `vector`, Zdog is canonical, Three is present-only.
-- **Governed by** `2026-06-16-narrative-step-model.md` §8 (anti-wizbang) — §2 is its sharpened form.
+  `poster` requires `vector`, why **Zdog and Vivus are the canonical vector engines**, and why Three
+  is present-only.
+- **Governed by** `2026-06-16-narrative-step-model.md` §8 (anti-wizbang) — §2 is its sharpened form;
+  Vivus's stroke-reveal is a natural renderer for that model's "assemble as you go" build.
 - **Bound by** HARD RULES #3 (tokens), #8/#9 (graduation + demo deck), #15 (don't multiply runtimes
-  — Pixi deferred), #17 (one host, one PR), #22 (no user JS in the preview frame), and the QUALITY
-  BAR export sign-off.
+  — **Vivus earns first-class status because it opens a distinct capability (`draw`) and is
+  vector/poster/tiny; Pixi stays deferred because it only duplicates raster with no new canonical
+  capability**), #17 (one host, one PR), #22 (no user JS in the preview frame), and the QUALITY BAR
+  export sign-off.
 
 ## 17. Gates (for each increment when it lands)
 
