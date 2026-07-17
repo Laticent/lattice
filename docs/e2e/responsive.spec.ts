@@ -26,5 +26,5 @@ test('@mobile the Architect opens as a sheet, not a column', async ({ page }) =>
 	await gotoStudio(page);
 	await page.getByRole('button', { name: 'Toggle Architect' }).click();
 	// The Coach/Chat tabs are reachable once the Architect sheet is open.
-	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
+	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
 });

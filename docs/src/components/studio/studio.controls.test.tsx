@@ -167,7 +167,8 @@ describe('Studio — Architect + editor controls respond', () => {
 
 	it('the Lenses panel adds a reader view and gates it behind approval (deterministic, real)', async () => {
 		const user = setup();
-		// The Architect's "Reader views" card: add a Bottom-line reader view…
+		// The Architect's "Lenses" tab: add a Bottom-line reader view…
+		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
 		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
 		// …it lands as a real `lenses:` block and the row shows it starts EMPTY — hidden from readers
@@ -183,7 +184,7 @@ describe('Studio — Architect + editor controls respond', () => {
 	it('the Architect Chat thread sends a message and degrades honestly offline', async () => {
 		const user = setup();
 		// Switch the Architect panel to the Chat tab.
-		await user.click(screen.getByRole('button', { name: 'Chat' }));
+		await user.click(screen.getByRole('tab', { name: 'Chat' }));
 		const box = await screen.findByRole('textbox', { name: 'Message the Architect' });
 		await user.type(box, 'Tighten slide 1');
 		await user.click(screen.getByRole('button', { name: 'Send' }));

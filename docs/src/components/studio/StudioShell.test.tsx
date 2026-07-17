@@ -328,6 +328,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(screen.getByText('Slide 1 / 6')).toBeInTheDocument();
 		// Build a Bottom-line view (suggester-proposed members) and preview it — the Compose preview
 		// reshapes to that view's slides (a strict subset). Author-side preview needs no approval.
+		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
 		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
 		await user.click(await screen.findByRole('button', { name: 'Accept all' }));
@@ -348,6 +349,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		render(<StudioShell options={options} components={q3Catalog} />);
 
 		// Add a Bottom-line reader view and accept the suggester's proposal (it becomes a DRAFT).
+		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
 		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
 		await user.click(await screen.findByRole('button', { name: 'Accept all' }));
@@ -615,6 +617,8 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('a fresh deck inherits both starter views as rows, and the Add menu no longer offers them', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
+		// Lenses is its own Architect tab now — open it.
+		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
 		// Both inherited starters appear in the Lenses panel without the author adding anything.
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();
 		expect(screen.getByText('The evidence')).toBeInTheDocument();
@@ -631,6 +635,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('the empty inherited "Bottom line" cannot be previewed (no blank-rail flash / lying toast)', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
+		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
 		// Expand Bottom line (base:none, 0 members) — its Preview button is disabled until a slide is tagged.
 		await user.click(screen.getByText('Bottom line'));
 		const preview = screen.getAllByRole('button', { name: /^Preview$/ }).at(-1) as HTMLButtonElement;
@@ -640,6 +645,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('an inherited view is reader-invisible until approved — the same human gate (fail closed)', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
+		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
 		// The inherited "The evidence" (base:all) already has every slide as a member, but it is UNAPPROVED,
 		// so Present must not offer it to a reader.
 		await user.click(screen.getByRole('button', { name: 'Present' }));
@@ -661,11 +667,13 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 		expect(await screen.findByRole('menuitem', { name: /The evidence/ })).toBeInTheDocument();
 	});
 
-	it('a view the deck has TAGGED sheds its Starter badge — it is being worked on (#993)', () => {
+	it('a view the deck has TAGGED sheds its Starter badge — it is being worked on (#993)', async () => {
+		const user = userEvent.setup();
 		// Seed a deck whose source already tags a slide into the inherited "Bottom line" (stored JSON-encoded,
 		// the shape loadSource reads).
 		localStorage.setItem('lattice-studio-src-q3-board', JSON.stringify('<!-- _class: title -->\n<!-- _lens: +brief -->\n\n# Q3\n\n---\n\n## Detail'));
 		render(<StudioShell options={options} />);
+		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();
 		expect(screen.getByText('The evidence')).toBeInTheDocument();
 		// brief is tagged → no longer an untouched Starter; only the untouched evidence keeps its badge.

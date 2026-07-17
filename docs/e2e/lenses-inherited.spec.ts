@@ -10,7 +10,9 @@ import { expect, gotoStudio, persistedSource, test } from './studio-fixture';
 test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
 	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
+	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
+	// Reader views live on the Architect's Lenses tab now — open it.
+	await page.getByRole('tab', { name: 'Lenses' }).click();
 });
 
 test('a fresh deck inherits the two starter views WITHOUT writing a lenses: block', async ({ page }) => {

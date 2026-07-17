@@ -164,7 +164,7 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 /** Open the Architect panel (collapsed by default) and wait for its tabs. */
 export async function openArchitect(page: Page): Promise<void> {
 	await page.getByRole('button', { name: CHROME.architect }).click();
-	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
+	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
 }
 
 /**

@@ -320,7 +320,7 @@ test.describe('studio split at the 1100px desktop threshold', () => {
 
 		// Open the two side panels from the left activity bar (both start closed).
 		await page.getByRole('button', { name: 'Toggle Architect' }).click();
-		await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
+		await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
 		// The Settings panel opens at deck scope from the bar's Deck icon.
 		await openInspector(page);
 		await expect(page.getByText('Editing the whole deck')).toBeVisible();
@@ -356,7 +356,7 @@ test.describe('studio split at the 1100px desktop threshold', () => {
 		});
 		await gotoStudio(page);
 		await page.getByRole('button', { name: 'Toggle Architect' }).click();
-		await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
+		await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
 		await openInspector(page);
 		await expect(page.getByText('Editing the whole deck')).toBeVisible();
 		await expect(separator(page)).toBeVisible();

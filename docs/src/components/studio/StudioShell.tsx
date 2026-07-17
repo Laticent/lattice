@@ -1,6 +1,6 @@
 import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Check, ChevronDown,
-	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Paintbrush, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	Copy, Eye, FileBox, FileSliders, FileText, Focus, Frame, History, Layers, ListChecks, MessageSquareHeart, MessageSquareText, Minimize2, Monitor, MonitorPlay, Moon, MoreHorizontal, Paintbrush, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -287,7 +287,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
-	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat'>('coach');
+	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat' | 'lenses'>('coach');
 	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the two
 	// read-aloud groups (Lexicon + Acronyms) fold into one Speech tab so the panel
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
@@ -1648,31 +1648,46 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<p className="text-xs leading-relaxed text-muted-foreground">Lead every slide with its takeaway, not its detail — the number, then the supporting rows.{!ai.ready && <span className="text-[var(--text-muted)]"> Connect a model in Workspace for one-click rewrites.</span>}</p>
 				<Chip busy={aiBusy === 'lead'} onClick={() => runArchitectAction('lead', 'Rewrite lead', `Rewrite slide ${activeFullIndex + 1} so it opens with its single headline takeaway or number, then the supporting rows. Return the whole slide, same component.`)}>Rewrite lead</Chip>
 			</ArchCard>
-			<ArchCard tag={<IntentTag intent="info" label="LENSES" />} title="Reader views">
-				<LensesPanel
-					slides={slides}
-					registry={lensReg}
-					catalog={lensCatalog}
-					activeLens={composeLens}
-					workspace={wsLenses}
-					onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
-					onWriteRegistry={writeRegistry}
-					onTag={writeTags}
-					onRemoveLens={removeLensWrite}
-				/>
-			</ArchCard>
 		</>
 	);
 
-	// The Architect panel: a Coach/Chat toggle over the static cards or the real
-	// conversational thread (with reviewable apply/discard diff cards).
+	// Lenses (reader views) is its OWN tab now, not buried in the Coach card stack —
+	// it's a full reader-view workflow (membership + approval), distinct from AI critique.
+	const lensesBody = (
+		<div className="min-h-0 flex-1 overflow-y-auto p-2.5">
+			<LensesPanel
+				slides={slides}
+				registry={lensReg}
+				catalog={lensCatalog}
+				activeLens={composeLens}
+				workspace={wsLenses}
+				onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
+				onWriteRegistry={writeRegistry}
+				onTag={writeTags}
+				onRemoveLens={removeLensWrite}
+			/>
+		</div>
+	);
+
+	// The Architect panel: pill-tabs over the coach analysis, the real conversational
+	// thread, and the reader-views (Lenses) workflow — one clear idea per tab.
 	const architectBody = (
 		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex shrink-0 gap-1 px-2.5 pt-2.5">
-				<button type="button" onClick={() => setArchitectTab('coach')} aria-pressed={architectTab === 'coach'} className={cn('flex-1 rounded-lg border px-2 py-1.5 text-[12px] font-semibold', architectTab === 'coach' ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground')}>Coach</button>
-				<button type="button" onClick={() => setArchitectTab('chat')} aria-pressed={architectTab === 'chat'} className={cn('flex-1 rounded-lg border px-2 py-1.5 text-[12px] font-semibold', architectTab === 'chat' ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground')}>Chat</button>
+			<div className="shrink-0 px-2.5 pt-2.5">
+				<PillTabs
+					ariaLabel="Architect sections"
+					value={architectTab}
+					onValueChange={(v) => setArchitectTab(v as 'coach' | 'chat' | 'lenses')}
+					tabs={[
+						{ value: 'coach', label: 'Coach', icon: <Sparkles className="size-3.5" /> },
+						{ value: 'chat', label: 'Chat', icon: <MessageSquareText className="size-3.5" /> },
+						{ value: 'lenses', label: 'Lenses', icon: <Eye className="size-3.5" /> },
+					]}
+				/>
 			</div>
-			{architectTab === 'coach' ? <div className="min-h-0 flex-1 overflow-y-auto">{architectCards}</div> : <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />}
+			{architectTab === 'coach' && <div className="min-h-0 flex-1 overflow-y-auto">{architectCards}</div>}
+			{architectTab === 'chat' && <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />}
+			{architectTab === 'lenses' && lensesBody}
 		</div>
 	);
 
@@ -1981,7 +1996,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
 				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { graduate(); setArchitectOpen(true); notify('Reader views live in the Architect’s Lenses panel — add one there.'); }} />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { graduate(); setArchitectOpen(true); setArchitectTab('lenses'); notify('Reader views live in the Architect’s Lenses tab — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
@@ -2517,7 +2532,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onShare={() => setShareOpen(true)}
 				onFeedback={() => setFeedbackOpen(true)}
 				onFabricate={() => setView('fabricate')}
-				onReshape={() => { setFocus(false); setArchitectOpen(true); }}
+				onReshape={() => { setFocus(false); setArchitectOpen(true); setArchitectTab('lenses'); }}
 				onWatchDemo={startDemo}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
 				onFocus={() => setFocus(true)}

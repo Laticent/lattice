@@ -75,7 +75,7 @@ test('Architect "Rewrite lead" edits the deck source and checkpoints the undo pa
 
 test('Chat: an instructed edit arrives as a diff and Apply lands it in the source', async ({ page }) => {
 	await openArchitect(page);
-	await page.getByRole('button', { name: 'Chat' }).click();
+	await page.getByRole('tab', { name: 'Chat' }).click();
 
 	const input = page.getByRole('textbox', { name: 'Message the Architect' });
 	await input.fill('Replace the h1/h2 heading of slide 2 with exactly "ATLAS ROADMAP". Change nothing else in the deck.');
