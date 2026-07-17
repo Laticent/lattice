@@ -391,6 +391,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Page-numbers switch writes paginate front-matter to the source', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
 		// Off by default (no front-matter); turning it on writes `paginate: true`.
 		expect(sw).not.toBeChecked();
@@ -405,6 +406,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('a settings change raises a one-click Undo toast that reverts it', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
 		await user.click(sw);
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*true/);
@@ -422,6 +424,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Undo toast steps aside once you edit after the change (never swallows your edits)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
 		await user.click(await screen.findByRole('switch', { name: 'Page numbers' }));
 		expect(await screen.findByRole('button', { name: 'Undo' })).toBeInTheDocument();
 		// Edit the source AFTER the settings change — the pending Undo must bow out so it
@@ -436,6 +439,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Header/Footer fields declare running text into the source (blank clears it)', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
 		// Header & footer are text DECLARATIONS, not toggles: typing text (committed
 		// on blur) writes the directive; clearing the field removes it again.
 		const header = await screen.findByRole('textbox', { name: 'Header' });
@@ -459,6 +463,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Section-rail switch stamps and clears the deck-wide no-progress class', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Marks' }));
 		const sw = await screen.findByRole('switch', { name: 'Section rail' });
 		// Rail is ON by default (no class token) — so the switch reads checked.
 		expect(sw).toBeChecked();
@@ -483,6 +488,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Debug overlay control writes a `debug` directive to the source', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Authoring' }));
 		// The Debug overlay control is a preset menu with every value; picking the
 		// verbose variant writes `debug: on-always verbose`.
 		await user.click(await screen.findByRole('button', { name: 'Debug overlay' }));

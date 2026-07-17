@@ -256,17 +256,17 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		expect(sheet.queryByText('Active generation tier')).not.toBeInTheDocument();
 	});
 
-	it('the settings panel opens to a scope from the rail and collapses from the header chevron', async () => {
+	it('the settings panel opens to a scope from the rail and closes from the header X', async () => {
 		const user = setup();
 		// Closed by default → no scope echo showing.
 		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
 		// The rail's "Deck" scope button opens the column in deck scope (loud echo).
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		expect(await screen.findByText('Editing the whole deck')).toBeInTheDocument();
-		// The inspector is settings-only now; the Running-marks group is a stable
-		// marker that the deck-scope body rendered.
-		expect(screen.getByText('Running marks')).toBeInTheDocument();
-		// The header collapse chevron closes it back to the rail.
+		// The deck-scope body is pill-tabbed now; the Marks tab is a stable marker
+		// that the deck-scope inspector rendered.
+		expect(screen.getByRole('tab', { name: 'Marks' })).toBeInTheDocument();
+		// The header close (a single X, chevron retired) collapses it back to the rail.
 		await user.click(screen.getByRole('button', { name: 'Collapse settings' }));
 		expect(screen.queryByText('Editing the whole deck')).not.toBeInTheDocument();
 		// The rail's scope buttons remain (the switch is always present).
@@ -277,6 +277,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		const user = setup();
 		// Deck-wide Authoring controls live in Deck scope — open it from the rail.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Authoring' }));
 		const sw = await screen.findByRole('switch', { name: 'Inline validation' });
 		expect(sw).toBeChecked();
 		await user.click(sw);
