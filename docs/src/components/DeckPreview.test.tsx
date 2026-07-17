@@ -4,7 +4,7 @@ import DeckPreview from './DeckPreview';
 
 // A shared renderInto spy so we can assert what the component asked the renderer
 // to draw across re-renders. The engine itself is never involved.
-const { renderInto } = vi.hoisted(() => ({
+const { renderInto, dispose } = vi.hoisted(() => ({
 	renderInto: vi.fn(
 		(
 			_host: HTMLElement,
@@ -16,15 +16,17 @@ const { renderInto } = vi.hoisted(() => ({
 			_extraCss?: string,
 		) => Promise.resolve({ ok: true, slides: 1, error: null }),
 	),
+	dispose: vi.fn(),
 }));
 vi.mock('@/lib/single-slide-render', () => ({
 	createSingleSlideRenderer: () => ({
 		renderInto,
 		whenReady: () => Promise.resolve(),
-		onThemeChange() {},
+		onThemeChange: () => () => {},
 		scaleFrame() {},
 		ready: () => true,
 		prefetchTheme() {},
+		dispose,
 	}),
 }));
 
@@ -35,6 +37,7 @@ const opts = { themeBase: '', runtimeUrl: '', engineUrl: '' };
 beforeEach(() => {
 	renderInto.mockReset();
 	renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null }));
+	dispose.mockClear();
 });
 
 describe('DeckPreview — theme threading', () => {
@@ -139,5 +142,18 @@ describe('DeckPreview — frame-aligned render (per-keystroke coalescing)', () =
 		rerender(<DeckPreview options={opts} sample="# B" mermaid={false} aria-label="p" />);
 		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(2));
 		expect(renderInto.mock.calls.at(-1)?.[1]).toBe('# B');
+	});
+});
+
+describe('DeckPreview — teardown (leak fix)', () => {
+	it('disposes the renderer on unmount so its observers + scaleTargets entry are released', async () => {
+		const { unmount } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		expect(dispose).not.toHaveBeenCalled();
+		// A remounting host (HeroPreview tab flip, Slide Overview, Studio overlays)
+		// unmounts DeckPreview; without this the host's ResizeObserver + its
+		// module-level scaleTargets entry would leak the parsed ~560KB theme iframe.
+		unmount();
+		expect(dispose).toHaveBeenCalledTimes(1);
 	});
 });

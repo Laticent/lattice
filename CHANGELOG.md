@@ -228,6 +228,26 @@ in patch versions.
 
 ### Changed
 
+- **The live preview no longer accumulates leaked observers/iframes over a session, or stale
+  cached assets across refreshes.** An adversarial-trio investigation (red-team leak hunt +
+  Munger inversion + across-refresh storage audit) into "the preview degrades the longer I work
+  and the more I refresh" found three real accumulation vectors, all fixed: (1) the single-slide
+  renderer had **no `dispose()`**, so a remounting preview host (the landing hero's Preview↔Source
+  tab flip, the Slide Overview's one-host-per-slide, the Studio overlays) leaked a fully-parsed
+  ~560KB theme iframe each cycle — the per-host `ResizeObserver` was never disconnected and its
+  host stayed rooted in a module-level Map; `dispose()` now releases all of it and every host
+  calls it on unmount. (2) A component-page specimen's `MutationObserver` on the permanent
+  `document.documentElement` (which can never be garbage-collected) was never torn down;
+  `onThemeChange` now returns an unsubscribe and the specimen disposes on `pagehide`. (3) The
+  service worker never version-evicted old content-hashed `playground/v/<hash>/` assets, so each
+  deploy's engine bundle + theme sheets piled up in Cache Storage; it now drops an asset's
+  older-hash copies when it caches the current one, bounding the cache to one deploy. A likely
+  cause of the FPS-pinned-at-30 symptom — a runtime rAF/observer loop that never idles if a
+  per-frame geometry write oscillates — was traced but is a *guarded* risk needing on-device
+  confirmation before the (export-sensitive) shared runtime is touched, so it's a scoped
+  follow-up. (`single-slide-render.ts`, `DeckPreview.tsx`, `FieldCardsLive.tsx`,
+  `RestyleShowcase.tsx`, `specimen.js`, `sw.js`;
+  `engineering/decisions/2026-07-17-preview-accumulation-leaks.md`.)
 - **The first live preview render after a page load no longer waits on a cold runtime fetch.**
   The Studio/Playground preview iframe needs `lattice-runtime.js` before it can paint, but that
   bundle was the one preview asset nobody warmed — the parent page never loads it, so the iframe

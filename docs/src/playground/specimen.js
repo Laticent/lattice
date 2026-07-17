@@ -255,6 +255,15 @@ export function initSpecimen() {
       render();
       lr.scaleFrame(previewHost);
     });
+    // Tear the renderer down when the page goes away. onThemeChange installs a
+    // MutationObserver on the immortal document.documentElement, which can NEVER
+    // be garbage-collected on its own (it pins the whole specimen renderer); the
+    // per-host ResizeObserver + scaleTargets entry would linger too. dispose()
+    // releases all of them. pagehide covers reload/close; astro:before-swap covers
+    // a soft-nav if the docs router is ever enabled. once → self-removing.
+    const teardown = () => lr.dispose();
+    window.addEventListener('pagehide', teardown, { once: true });
+    document.addEventListener('astro:before-swap', teardown, { once: true });
   });
 
   setDirty(state.source !== data.sample);

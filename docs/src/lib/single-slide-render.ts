@@ -168,6 +168,20 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	const mermaidUrl = opts.mermaidUrl || MERMAID;
 	const themes = createThemeFetcher(themeBase);
 
+	// Teardown bookkeeping — everything THIS renderer instance creates that would
+	// otherwise outlive it: the per-host ResizeObservers, the hosts it registered
+	// in the module-level scaleTargets Map (a GC ROOT — the leak vector), the
+	// theme-change MutationObserver(s) on the immortal document.documentElement,
+	// and the pending 4s reveal timers. dispose() releases them. Without it a
+	// REMOUNTING host — HeroPreview's Preview<->Source tab flip, the Slide
+	// Overview (one host per slide), the Studio overlays — leaks a fully-parsed
+	// ~560KB theme iframe per cycle, invisible to GC because scaleTargets roots it.
+	// See engineering/decisions/2026-07-17-preview-accumulation-leaks.md.
+	const ownedObservers = new Set<ResizeObserver>();
+	const ownedHosts = new Set<HTMLElement>();
+	const themeObservers = new Set<MutationObserver>();
+	const ownedTimers = new Set<ReturnType<typeof setTimeout>>();
+
 	// Last sanitize duration (ms), stashed by srcdoc() and read by renderInto for
 	// the perf-overlay RENDER group. A closure var (not a return value) keeps the
 	// srcdoc signature — and the #22 sanitize call site — untouched; renderInto
@@ -475,9 +489,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// slide, never hide it; the normal onload reveal fires first (~sub-500ms)
 					// and makes this a no-op. Mirrors the Playground `#preview` gate's 4s fallback.
 					const revealFr = fr;
-					setTimeout(() => {
+					const revealTimer = setTimeout(() => {
+						ownedTimers.delete(revealTimer);
 						if (revealFr.style.visibility === 'hidden') revealFr.style.visibility = 'visible';
 					}, 4000);
+					ownedTimers.add(revealTimer);
 					if (typeof ResizeObserver !== 'undefined') {
 						// The callback honors the module-level drag gate above; the host is
 						// registered so a resume can re-fit it once, authoritatively.
@@ -485,9 +501,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// (where the resume-time prune never runs) stay bounded too.
 						for (const h of scaleTargets.keys()) if (!h.isConnected) scaleTargets.delete(h);
 						scaleTargets.set(host, () => scaleFrame(host));
-						new ResizeObserver(() => {
+						// Keep the observer instance (was anonymous) so dispose() can
+						// disconnect it — and remember the host so dispose() can also drop
+						// its scaleTargets entry (the module-level root that leaks it).
+						const ro = new ResizeObserver(() => {
 							if (!scaleSuspended) scaleFrame(host);
-						}).observe(host);
+						});
+						ro.observe(host);
+						ownedObservers.add(ro);
+						ownedHosts.add(host);
 					}
 				}
 				// After the frame loads: fit it, then draw the layout debug overlay if the
@@ -605,16 +627,58 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		});
 	}
 
-	/** Call `cb` (debounced) whenever the palette or light/dark mode changes. */
-	function onThemeChange(cb: () => void) {
+	/**
+	 * Call `cb` (debounced) whenever the palette or light/dark mode changes.
+	 * Returns an unsubscribe that disconnects the observer. The observer sits on
+	 * document.documentElement — a PERMANENT node — so it can NEVER be garbage-
+	 * collected while the page lives, and its closure pins the whole renderer; a
+	 * caller that can outlive the page (Astro soft-nav, or any re-init) MUST call
+	 * the unsubscribe (specimen.js does, on teardown). dispose() also drops it.
+	 */
+	function onThemeChange(cb: () => void): () => void {
 		let timer: ReturnType<typeof setTimeout>;
-		new MutationObserver(() => {
+		const mo = new MutationObserver(() => {
 			clearTimeout(timer);
 			timer = setTimeout(cb, 80);
-		}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
+		});
+		mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
+		themeObservers.add(mo);
+		return () => {
+			clearTimeout(timer);
+			mo.disconnect();
+			themeObservers.delete(mo);
+		};
 	}
 
-	return { renderInto, whenReady, onThemeChange, scaleFrame, ready, prefetchTheme };
+	/**
+	 * Release everything this renderer owns — the per-host ResizeObservers, their
+	 * module-level `scaleTargets` entries (the GC root that would otherwise keep a
+	 * detached preview `<figure>`→`<iframe>` subtree alive), the theme-change
+	 * observer(s) on the immortal documentElement, and the pending reveal timers.
+	 * Idempotent. React hosts call this on unmount (DeckPreview); imperative
+	 * callers (specimen) call it on page teardown. It does NOT remove the iframe
+	 * from the DOM — the caller owns the host node's lifecycle (React unmounts it).
+	 */
+	function dispose(): void {
+		for (const ro of ownedObservers) {
+			try {
+				ro.disconnect();
+			} catch {}
+		}
+		ownedObservers.clear();
+		for (const h of ownedHosts) scaleTargets.delete(h);
+		ownedHosts.clear();
+		for (const mo of themeObservers) {
+			try {
+				mo.disconnect();
+			} catch {}
+		}
+		themeObservers.clear();
+		for (const t of ownedTimers) clearTimeout(t);
+		ownedTimers.clear();
+	}
+
+	return { renderInto, whenReady, onThemeChange, scaleFrame, ready, prefetchTheme, dispose };
 }
 
 export type SingleSlideRenderer = ReturnType<typeof createSingleSlideRenderer>;
