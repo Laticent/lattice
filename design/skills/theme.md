@@ -17,9 +17,16 @@ A 10/10 theme:
 
 - **Sets every text token explicitly** — one ink on every light surface, no
   reliance on auto-inversion.
-- **Holds two strict lightness tiers for fills**: pale fills at **L≈87** (read
-  dark ink at 10:1+), deep marks/inks at **L≈32** (read white at 5:1+). This is
-  what keeps charts and diagrams legible.
+- **Holds the categorical three-layer contrast contract** on every `--cat-N`
+  slot, in both canvases: ① the **mark** (edge/border) reads against the canvas
+  (`--cat-N-mark` vs `--bg` ≥ 3:1, WCAG 1.4.11 graphical); ② the **fill** is
+  *intentionally* low-contrast against the canvas — the ① border delineates it;
+  ③ the **label ink** reads on the fill (`--cat-on-fill` vs `--cat-N-fill` ≥
+  4.5:1, WCAG AA); and fill and mark are **distinct tiers of one hue** — never
+  equal (equal fill/mark is the collapse bug the gate was built to catch).
+  `checkCatContrast` gates **three of these** — ① mark-vs-bg, ③ ink-vs-fill, and
+  the anti-collapse floor — over every hue-based theme, both modes. Layer ② is a
+  *design intention* the ① border makes safe, not a machine-checked number.
 - **Reserves saturation for exactly two jobs**: one saturated brand stroke that
   reads on *every* pale fill including white (`--diagram-stroke`), and the alarm
   red (`--diagram-critical`). Every routine surface stays pale — the deck reads as
@@ -56,12 +63,20 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
 - **The engine token layer** you inherit from: `lib/base/base.tokens.css` (the one
   `*.tokens.css` file — the sanctioned home for `--token:#hex`).
 - **The reference themes** to copy from: `themes/indaco.css` (cool default) and
-  `themes/cuoio.css` (warm). The categorical proposals live in
-  `themes/palette-audit.md`.
+  `themes/cuoio.css` (warm) — their `--cat-*` **values** are the current three-layer
+  cycle, so copy them freely.
+- **⚠️ Two stale neighbors — trust this skill's model over them.** `indaco.css`'s own
+  header comment and the `TODO(palette)` checklist the scaffold stamps still describe
+  the *retired* "L≈83/L≈60 band" model, the fixed-non-flipping ink, and retired token
+  names (`--diagram-band-*`, `--cat-blue`, `--chart-1..6`, `--dark-*`). The token
+  **values** they carry are correct; their **explanatory prose** is not — follow the
+  three-layer recipe below, not those comments. `themes/palette-audit.md` scored its
+  categorical proposals under the retired model — **do not copy its `--cat-*` values**;
+  it stays valid only for the separate chart palette.
 - **Commands**:
-  - `npm run new:theme <name>` — copies `indaco.css`, rewrites `@theme`, stamps
-    `TODO(palette):` on every author-edit value, and stamps the `<name>-dark.css`
-    wrapper.
+  - `npm run new:theme <name>` — copies `indaco.css` (a correct three-layer block),
+    rewrites `@theme`, stamps a `TODO(palette):` checklist (see the warning above about
+    its stale prose), and stamps the `<name>-dark.css` wrapper.
   - `node lattice-emulator.js test/integration/baseline-decks/gallery.md /tmp/x.pdf
     -p <name>` — render a broad component gallery in your palette (`-p`/`--palette`
     overrides the deck's `theme:`).
@@ -83,15 +98,26 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
       decoration-only, WCAG-exempt tier (chrome, glyphs) — never content text.
    4. **Accent** — `--accent`, `--accent-soft`, `--on-accent` (must clear contrast
       vs `--bg` **and** vs `--accent-soft`).
-   5. **Categorical cycle** — copy the rank-1 brand-triad proposal from
-      `themes/palette-audit.md`; you inherit the L≈87 / L≈32 tiers for free. Set
-      the paired ink per the contract: `--cat-on-fill` a **fixed dark hex** and
-      `--cat-on-mark` a **fixed white/cream** — both **non-flipping**, because the
-      fills and marks hold their lightness tier in both canvas modes.
-      **Caveat:** the shipped `indaco.css` currently deviates here (it sets
-      `--cat-on-fill: var(--text-heading)` and a flipping `--cat-on-mark`) — follow
-      the contract in `design/theming.md`, not those two lines, when you copy
-      indaco.
+   5. **Categorical cycle** — the scaffold copies indaco's block verbatim, so you
+      **start from a correct three-layer cycle** and only re-hue it. Each slot is a
+      *flipping* pair of the SAME hue: `--cat-N-fill: light-dark(<pale chromatic>,
+      <jewel tone>)` and `--cat-N-mark: light-dark(<deep edge>, <pale tint>)` — fill
+      and mark are opposite tiers, and they swap tiers when the canvas flips.
+      **Because the fill goes pale→jewel across modes, the inks must flip too:**
+      `--cat-on-fill: var(--text-heading)` (dark ink on the pale light fill, light
+      ink on the jewel dark fill) and `--cat-on-mark: light-dark(#FFF, <dark>)`. The
+      three layers these satisfy — mark-vs-canvas ≥ 3:1, label-ink-vs-fill ≥ 4.5:1,
+      fill ≠ mark — are measured in **both** modes by `checkCatContrast`. *(This is
+      the #1022 recolor. The old "pale L≈87 / deep L≈32, fixed non-flipping ink"
+      recipe is retired: a fixed dark `--cat-on-fill` now FAILS the gate in dark
+      mode, where the fill is a jewel tone and dark-on-dark drops below AA.)*
+      **Optional — texture adoption.** A monochrome (onyx) or CVD-safe theme that
+      can't separate categories by hue declares **12** `--cat-N-texture:
+      url(#latt-<set>-N)` tokens (onyx → `latt-onyx-tex`, concrete →
+      `latt-concrete-tex`); every categorical diagram then fills with a repeating
+      pattern instead of flat color. Undeclared = flat color, byte-identical for a
+      hue-based theme. This is the universal channel from
+      `engineering/textures.md` — declare the 12 tokens, nothing else.
    6. **Structural** — `--diagram-stroke` / `-line` / `-accent-warm`.
    7. **Dark-variant inputs** — the `--scheme-dark-*` block feeding the pairs.
    8. **Semantic signals** — `--pass` / `--warn` / `--fail` (keep warn clearly
@@ -100,7 +126,7 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
    convention, and it forces you to check.
 4. **Build & verify both canvases**: render the baseline gallery and a Mermaid deck
    in light and dark. Register the palette name in **`test/unit/palette/token-parity.test.js`'s
-   `THEMES` array** (this is what enforces the full ~72-token contract on your theme)
+   `THEMES` array** (this is what enforces the full 91-token contract on your theme)
    and in `.vscode/settings.json` under `markdown.marp.themes`. (`contrast.test.js`
    is hardcoded to `['indaco','cuoio']` by design — sibling palettes ride the indaco
    run via cascade — so adding your theme *there* does nothing.)
@@ -139,10 +165,12 @@ A base palette's spine (from `themes/indaco.css`):
   --accent-soft: light-dark(#D7ECE7, #123B34);
   --on-accent:   #FFFFFF;          /* curated for AAA on THIS accent, both modes */
 
-  /* Categorical cycle — pale fills L≈87, deep marks L≈32 (copy from palette-audit) */
-  --cat-1-fill: #DCEAE6; /* … 12 slots … */  --cat-1-mark: #0E5F53;
-  --cat-on-fill: #10221E;          /* paired ink — a FIXED dark hex, non-flipping */
-  --cat-on-mark: #FFFFFF;          /* paired ink — fixed white/cream, non-flipping */
+  /* Categorical cycle — flipping tiers of ONE hue; three-layer contrast (checkCatContrast) */
+  --cat-1-fill: light-dark(#BCD5EC, #006398);  /* pale light ↔ jewel dark · … 12 slots … */
+  --cat-1-mark: light-dark(#2E608A, #D4DFE8);  /* deep light ↔ pale dark — the border */
+  --cat-on-fill: var(--text-heading);          /* label ink — FLIPS with the fill tier */
+  --cat-on-mark: light-dark(#FFFFFF, #0A1628); /* ink on the mark — also flips */
+  /* Optional (monochrome/CVD themes): 12 --cat-N-texture: url(#latt-onyx-tex-1) … tokens */
 
   /* Structural — stroke MUST read on white */
   --diagram-stroke: #1F6E60; --diagram-line: light-dark(#0A211D, #EAF3F0);
@@ -164,7 +192,7 @@ The **10 required core tokens** — `build:check` fails without these, defined
 `--surface-inverse`.
 
 But those 10 are the floor, not the contract. A **from-scratch theme must define
-the full ~72-token per-theme contract directly** (the `CONTRACT` list in
+the full 91-token per-theme contract directly** (the `CONTRACT` list in
 `test/unit/palette/token-parity.test.js`) or the untuned tokens fall back to
 indaco's cascade values and your deck renders code, diagrams, and categoricals in
 *indaco's* colors — a mediocre "indaco in disguise" that still lints clean. Beyond
@@ -175,7 +203,9 @@ the 10 core tokens, define: all 12 `--hljs-*` code-syntax colors; **all 12**
 `--c-subcontainer`; and the `--chart-cat1..8` / `--chart-state-*` chart palette.
 **Note:** `token-parity` only checks the themes *listed* in its `THEMES` array — so
 until you add your theme there, a passing `npm test` does **not** prove the contract
-is complete.
+is complete. The 12 `--cat-N-texture` tokens are **not** in this 91-token contract —
+texture is an *optional* adoption channel (recipe step 5), declared only by a
+monochrome/CVD theme.
 
 The **dark variant in full** — this is the whole file:
 
@@ -192,8 +222,9 @@ The **dark variant in full** — this is the whole file:
 - One explicit ink per surface; every text token set, none left to auto-inversion.
 - `--diagram-stroke` a saturated brand hue that borders every pale fill including
   a white box — no floating boxes.
-- `--cat-on-fill` / `--cat-on-mark` pinned to fixed hex so ink-on-fill stays legible
-  in *both* canvas modes (the fills don't change tier when the scheme flips).
+- `--cat-on-fill` / `--cat-on-mark` **flip** with the scheme (`var(--text-heading)`
+  / a `light-dark()` pair), so the label stays legible when the fill swaps from a
+  pale light tier to a jewel dark tier across canvas modes.
 - `--warn` visibly distinct from `--fail` (amber vs red, not two reds).
 - Contrast ratios annotated inline; the contrast test green in light and dark.
 
@@ -201,8 +232,11 @@ The **dark variant in full** — this is the whole file:
 
 ## What bad looks like
 
-- `--cat-on-fill: light-dark(--text-heading, …)` — the fill stays pale in dark
-  mode, so this makes white-on-pale. Pin it to a fixed dark hex.
+- A **fixed, non-flipping** `--cat-on-fill` (e.g. a dark hex) — in dark mode the
+  fill is a jewel tone, so dark-on-dark drops below AA and `checkCatContrast` fails.
+  The ink must flip (`var(--text-heading)`).
+- `--cat-N-fill` set **equal** to `--cat-N-mark` — collapses the node and its border
+  to one color (the original categorical-collapse bug); the anti-collapse floor fails.
 - A pastel `--diagram-stroke` — boxes float with no readable border.
 - `--text-muted` used for a subtitle or caption — it's WCAG-exempt; use
   `--text-secondary` for content.
@@ -219,12 +253,15 @@ The **dark variant in full** — this is the whole file:
 
 - [ ] `@theme <name>` matches the filename exactly.
 - [ ] All 10 required core tokens declared directly.
-- [ ] Every surface/ink/accent token is a `light-dark()` pair; `--cat-on-*` and the
-      universal semantic palette pinned to fixed hex.
-- [ ] Fills at L≈87, marks at L≈32; `--diagram-stroke` reads on white.
+- [ ] Every surface/ink/accent token is a `light-dark()` pair; the universal
+      semantic palette pinned to fixed hex; `--cat-on-fill` / `--cat-on-mark` **flip**
+      with the scheme.
+- [ ] Categorical three-layer contract holds in BOTH modes (mark-vs-`--bg` ≥ 3:1,
+      `--cat-on-fill`-vs-fill ≥ 4.5:1, fill ≠ mark) — `checkCatContrast` green;
+      `--diagram-stroke` reads on white.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
-- [ ] Full ~72-token contract defined directly (not just the 10 core) — all 12
+- [ ] Full 91-token contract defined directly (not just the 10 core) — all 12
       `--cat-*` pairs, all `--hljs-*`, `--chart-*`, `--diagram-*`.
 - [ ] Palette added to `test/unit/palette/token-parity.test.js`'s `THEMES` array and
       `.vscode/settings.json`; `node --test test/unit/palette/*.test.js` green.
@@ -236,7 +273,8 @@ The **dark variant in full** — this is the whole file:
 
 1. **Forgetting a required core token** → `theme "<name>" is missing N core token(s)`
    build failure.
-2. **`light-dark()` on `--cat-on-fill`** → white-on-pale in dark mode.
+2. **A fixed, non-flipping `--cat-on-fill`** → dark-on-jewel in dark mode, below AA
+   (`checkCatContrast` fails). Flip it with `var(--text-heading)`.
 3. **Pale stroke** → boxes float in diagrams.
 4. **`--text-muted` for content** → drops below AA.
 5. **Inventing an `--fs-*` token** (HARD RULE #4) or a **retired token name / a
@@ -256,9 +294,14 @@ The **dark variant in full** — this is the whole file:
 - `themes/README.md` — theme anatomy, declaration order, dark-variant mechanics.
 - `design/theming.md` — the full variable contract, the Mermaid palette contract,
   the categorical cycle, the chart-family palette, CVD palettes.
+- `engineering/textures.md` — the categorical `--cat-N-texture` adoption channel
+  (the 12-token declaration for monochrome/CVD themes).
+- `engineering/decisions/2026-07-15-categorical-token-contract.md` — the three-layer
+  contrast contract (#1022) that retired the L≈87/L≈32 recipe.
 - `engineering/typography.md` — the closed 12-token `--fs-*` system (HARD RULE #4).
 - `lib/tokens/crosswalk.js` — the retired → canonical token-name map (HARD RULE
   #11).
 - `lib/base/base.tokens.css` — the engine token defaults a theme inherits.
 - `tools/check-ownership.js` — the gates (`checkHexLiterals`,
-  `checkTypographyTokens`, `checkRetiredTokenNames`, `checkThemeTokenParity`).
+  `checkTypographyTokens`, `checkRetiredTokenNames`, `checkThemeTokenParity`,
+  `checkCatContrast` — the categorical three-layer contrast enforcement).

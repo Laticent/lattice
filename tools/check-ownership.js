@@ -1868,12 +1868,71 @@ function checkDensityCoverage(manifests, errors) {
 // pins a stable marker phrase in the prose; if the phrase is gone the gate fails
 // too, so a fact can't silently rot by being reworded away from the checker.
 // This is the mechanism that turns "duplication debt" into "enforced-fresh fast
-// path" (2026-07 adversarial-trio review of the skills). It intentionally gates
-// only enumerable facts (counts, the required-token list) — prose, taste, and
-// recipes are not machine-checkable and stay on human review.
+// path" (2026-07 adversarial-trio review of the skills). It gates enumerable facts
+// (counts, the required-token list) AND — added in the 2026-07-17 recertification —
+// the load-bearing CONCEPT markers of the categorical model (three-layer contrast,
+// the texture channel, checkCatContrast), because that mental model, not just a
+// number, is what drifted under #1022. Prose, taste, and recipes remain on human
+// review — the gate pins the facts a rewrite could silently falsify.
+//
+// SCOPE (be honest about what green means): this verifies enumerated counts + the
+// concept keywords WITHIN the design/skills/*.md files. It does NOT reach the
+// neighbor canon those skills point at (themes/README.md, the themes/*.css header
+// comments, the tools/new-theme.js stamped checklist, engineering/decisions/*) —
+// those are ungated and stay on human review. Green ≠ "the whole categorical canon
+// is fresh"; it means the gated skill facts are.
+// Count the categorical chart-hue slots the chart family actually declares
+// (`--chart-cat-N-hue:` declarations in chart-family.css). This is the source of
+// chart-component.md's "`--chart-cat1..8`" claim. Returns null on a structural
+// change so the caller can fail closed rather than silently miscount.
+function chartCatSlotCount() {
+  const p = path.join(COMPONENTS_DIR, 'chart', '_chart-family', 'chart-family.css');
+  if (!fs.existsSync(p)) return null;
+  const css = fs.readFileSync(p, 'utf8');
+  const slots = new Set();
+  for (const m of css.matchAll(/--chart-cat-(\d+)-hue\s*:/g)) slots.add(Number(m[1]));
+  return slots.size || null;
+}
+
+// Count the full per-theme token CONTRACT the way token-parity.test.js defines it
+// (the authoritative source theme.md cites). Eval-free: count quoted literals plus
+// the per-iteration names the one `Array.from({length:N})` generates (N × the
+// number of template-literal names it maps). Returns null if the CONTRACT block
+// can't be parsed — the caller treats null as a loud error (fail closed), so a
+// structural change surfaces instead of silently passing a stale number.
+function contractTokenCount() {
+  const p = path.join(ROOT, 'test', 'unit', 'palette', 'token-parity.test.js');
+  if (!fs.existsSync(p)) return null;
+  const src = fs.readFileSync(p, 'utf8');
+  const m = src.match(/const CONTRACT = \[([\s\S]*?)\n\];/);
+  if (!m) return null;
+  // Strip line comments first, so a `// note with 'quotes' or ...` inside the
+  // CONTRACT array can't skew the literal/spread counts below.
+  const body = m[1].replace(/\/\/[^\n]*/g, '');
+  // Fail closed on any spread we don't model. The ONLY understood construct is a
+  // single `...Array.from({ length: N }, …)`. A `...SHARED_CONST` spread, or a
+  // second Array.from, would silently under/over-count and defeat the check — so
+  // if the spread count doesn't match exactly one recognized Array.from, bail to
+  // null (→ the caller's loud "could not derive… structural change?" error).
+  const spreads = (body.match(/\.\.\./g) || []).length;
+  const arrayFroms = [...body.matchAll(/Array\.from\(\s*\{\s*length:\s*(\d+)\s*\}/g)];
+  if (spreads !== arrayFroms.length || arrayFroms.length > 1) return null;
+  // Every quoted literal must be token-shaped (lowercase, digits, `-`, `_`). A
+  // quote that ISN'T a token name means the structure changed and the count would
+  // be wrong — bail to null (honest "fix the parser") rather than return a
+  // plausible-but-wrong number that misdirects the fix to the skill.
+  const quotedLits = body.match(/'[^']*'/g) || [];
+  if (quotedLits.some((q) => !/^'[a-z0-9_-]+'$/.test(q))) return null;
+  const templates = (body.match(/`[^`]*`/g) || []).length;      // names generated per iteration
+  const generated = arrayFroms.length ? Number(arrayFroms[0][1]) * templates : 0;
+  return quotedLits.length + generated;
+}
+
 function skillFreshnessAssertions() {
   const universalCount = UNIVERSAL_VARIANTS.length;               // 35 today
   const finishCount = Object.keys(FINISH_REGISTER).length;       // 10 today (none + 9)
+  const chartCats = chartCatSlotCount();                          // 8 today
+  const contractCount = contractTokenCount();                    // 91 today
   return [
     {
       file: 'finish.md',
@@ -1902,6 +1961,20 @@ function skillFreshnessAssertions() {
       actual: REQUIRED_THEME_TOKENS.length,
       what: 'required core-token count',
       source: 'REQUIRED_THEME_TOKENS',
+    },
+    {
+      file: 'theme.md',
+      marker: /(\d+)-token contract/,   // every "N-token contract" phrasing must agree
+      actual: contractCount,
+      what: 'full per-theme token-contract count',
+      source: 'CONTRACT (test/unit/palette/token-parity.test.js)',
+    },
+    {
+      file: 'chart-component.md',
+      marker: /--chart-cat1\.\.(\d+)/,
+      actual: chartCats,
+      what: 'chart categorical slot count',
+      source: '--chart-cat-N-hue declarations (chart-family.css)',
     },
   ];
 }
@@ -2071,8 +2144,11 @@ function checkSkillFreshness(errors) {
       continue;
     }
     const src = fs.readFileSync(file, 'utf8');
-    const m = src.match(a.marker);
-    if (!m) {
+    // Enforce EVERY occurrence of the marker, not just the first — a skill states a
+    // count in several human-read places (prose + skeleton + checklist), and a later
+    // one can drift while the first stays right. matchAll catches all of them.
+    const matches = [...src.matchAll(new RegExp(a.marker.source, `${a.marker.flags.replace('g', '')}g`))];
+    if (!matches.length) {
       errors.push(
         `design/skills/${a.file}: the skill-freshness marker for the ${a.what} is gone ` +
         `(expected text matching ${a.marker}). Keep the marker phrasing so the gate can verify the ` +
@@ -2080,12 +2156,25 @@ function checkSkillFreshness(errors) {
       );
       continue;
     }
-    const claimed = Number(m[1]);
-    if (claimed !== a.actual) {
+    // Fail closed: an assertion whose source count couldn't be determined (null)
+    // means the gate can't verify this fact — a loud error, never a silent pass.
+    if (a.actual == null) {
       errors.push(
-        `design/skills/${a.file}: states ${a.what} = ${claimed}, but ${a.source} has ${a.actual}. ` +
-        `A self-contained skill inlines this fact — update the skill's number to ${a.actual}.`,
+        `design/skills/${a.file}: the skill-freshness gate could not derive the ${a.what} from ` +
+        `${a.source} (structural change?). Fix the source-reader in checkSkillFreshness ` +
+        `(tools/check-ownership.js) so the ${a.what} can be verified again.`,
       );
+      continue;
+    }
+    for (const mm of matches) {
+      const claimed = Number(mm[1]);
+      if (claimed !== a.actual) {
+        errors.push(
+          `design/skills/${a.file}: states ${a.what} = ${claimed}, but ${a.source} has ${a.actual}. ` +
+          `A self-contained skill inlines this fact — update the skill's number to ${a.actual}.`,
+        );
+        break;
+      }
     }
   }
   // Every required core token must be NAMED in theme.md, so a token rename can't
@@ -2098,6 +2187,53 @@ function checkSkillFreshness(errors) {
       errors.push(
         `design/skills/theme.md omits ${missing.length} required core token(s): ${missing.join(', ')}. ` +
         `The theme skill must name every REQUIRED_THEME_TOKENS entry.`,
+      );
+    }
+    // The categorical mental model drifted once already (2026-07 recolor #1022):
+    // theme.md taught the retired L≈87/L≈32 recipe and a fixed non-flipping ink,
+    // both of which now FAIL checkCatContrast. These markers pin the load-bearing
+    // concepts of the current model so a future rewrite that drops them re-rots the
+    // skill and is caught here — not just when a NUMBER changes.
+    const conceptMarkers = [
+      { needle: '--cat-N-texture', what: 'the categorical texture adoption channel (engineering/textures.md)' },
+      { needle: 'three-layer', what: 'the three-layer categorical contrast contract (#1022)' },
+      { needle: 'checkCatContrast', what: 'the checkCatContrast gate that enforces the categorical contract' },
+    ];
+    // Search only the TEACHING body, not the "Canonical sources" footer — otherwise
+    // a lone link in the footer satisfies the check even if the recipe prose that
+    // actually teaches the concept was gutted. The concept must be TAUGHT, not merely
+    // mentioned. (Fail closed if the footer heading is absent: search the whole file.)
+    const canonIdx = themeSrc.search(/^##\s+Canonical sources/m);
+    const teaching = canonIdx === -1 ? themeSrc : themeSrc.slice(0, canonIdx);
+    const droppedConcepts = conceptMarkers.filter((c) => !teaching.includes(c.needle));
+    if (droppedConcepts.length) {
+      errors.push(
+        `design/skills/theme.md no longer teaches ${droppedConcepts.length} load-bearing categorical ` +
+        `concept(s): ${droppedConcepts.map((c) => `${c.what} [expected the string "${c.needle}"]`).join('; ')}. ` +
+        `The theme skill must teach the current categorical model (three-layer contrast + texture channel), ` +
+        `not the retired L≈87/L≈32 recipe.`,
+      );
+    }
+  }
+  // component.md taught `@layer components` (2026-07), but @layer is inert here and
+  // a layered component rule LOSES to an unlayered base rule regardless of
+  // specificity (engineering/cascade.md) — following it produced a component whose
+  // CSS silently lost the cascade. Pin the correction: the skill must NOT reintroduce
+  // the `@layer components {` skeleton wrapper, and must teach the unlayered convention.
+  const componentFile = path.join(SKILLS_DIR, 'component.md');
+  if (fs.existsSync(componentFile)) {
+    const src = fs.readFileSync(componentFile, 'utf8');
+    if (/@layer\s+components\s*\{/.test(src)) {
+      errors.push(
+        'design/skills/component.md reintroduces an `@layer components {` wrapper. Component CSS is ' +
+        'UNLAYERED here (engineering/cascade.md) — a layered rule loses to unlayered base rules. ' +
+        'Remove the wrapper; use bare selectors.',
+      );
+    }
+    if (!/unlayered/i.test(src)) {
+      errors.push(
+        'design/skills/component.md no longer teaches the UNLAYERED CSS convention (expected the word ' +
+        '"unlayered"). Component files carry no `@layer` wrapper (cascade.md); the skill must say so.',
       );
     }
   }

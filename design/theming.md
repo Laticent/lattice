@@ -20,7 +20,7 @@ contains:
    the universal semantic palette + diagram overrides).
 3. A `:root` block defining color tokens used by `lattice.css` (surfaces,
    ink, accents, semantic signals).
-4. A `:root` block defining `--dark-*` tokens used by the `section.dark`
+4. A `:root` block defining `--scheme-dark-*` tokens used by the `section.dark`
    variant for cover/divider/closing slides on a dark canvas.
 5. A `:root` block defining `--hljs-*` tokens for code-block syntax colors.
 6. A `:root` block defining `--c-*` tokens — the categorical palette
@@ -187,35 +187,54 @@ OVERRIDES section and by the renderer bridges (`lattice-runtime.js`,
 nth-child cycles (decision list, roadmap horizons, actor pills, kpi
 trajectory).
 
-**Categorical cycle** (12 paired slots, light + dark tiers).
+**Categorical cycle** (12 paired slots, each a flipping `light-dark()` tier of ONE hue).
 
-- `--cat-1-fill`..`--cat-12-fill` — pale fills at L≈87. The canonical
+- `--cat-1-fill`..`--cat-12-fill` — the leaf/area fill,
+  `light-dark(<pale chromatic>, <jewel tone>)`. The canonical
   categorical surface: timeline periods, kanban columns, mindmap
   levels, journey sections, c4 layers, pie slices, treemap leaves,
   gitgraph label pills. Slot 1 doubles as the primary fill for any
   single-band diagram (flowchart node, sequence actor).
-- `--cat-1-mark`..`--cat-12-mark` — deep strokes / inks at L≈32. Saturated
-  marks: decision-list deep accents, piechart wedges, gitgraph branch
-  dots, sankey nodes, kpi trajectory borders, xy-chart plot palette,
-  Mermaid cScale feeds.
+- `--cat-1-mark`..`--cat-12-mark` — the stroke / border,
+  `light-dark(<deep edge>, <pale tint>)` — the OPPOSITE tier of the same
+  hue. Saturated marks: decision-list deep accents, piechart wedges,
+  gitgraph branch dots, sankey nodes, kpi trajectory borders, xy-chart
+  plot palette, Mermaid cScale feeds.
 
-Each pair is generated via the Brand-triad strategy in
-`themes/palette-audit.md` (rank-1 proposal per theme). The audit
-deck scores five strategies × 13 themes (every shipping palette except
-`carta`, which post-dates the audit) and shows the resolved hex
-swatches; copy the rank-1 values into your new palette for a
-known-good starting point.
+Fill and mark are opposite tiers that **swap when the canvas flips** (pale
+fill ↔ jewel fill; deep mark ↔ pale mark). Each slot honors the **three-layer
+contrast contract** (#1022,
+`engineering/decisions/2026-07-15-categorical-token-contract.md`):
 
-**Paired ink** (non-flipping):
+1. **① edge/border** — `--cat-N-mark` vs `--bg` ≥ 3:1 (WCAG 1.4.11 graphical).
+2. **② leaf fill** — `--cat-N-fill` vs `--bg` *intentionally low*; the ① border delineates it.
+3. **③ label ink** — `--cat-on-fill` vs `--cat-N-fill` ≥ 4.5:1 (WCAG AA).
+4. **anti-collapse** — fill ≠ mark (equal fill/mark was the collapse bug).
 
-- `--cat-on-fill` — dark text colour paired with every `--cat-N-fill`
-  fill. Pin to a fixed dark hex (not `light-dark(--text-heading,…)`);
-  the fill itself stays pale in dark mode, so the text on top must
-  too. `test/unit/contrast.test.js` asserts each pair clears 4.5:1 in
-  both modes.
-- `--cat-on-mark` — light text paired with every `--cat-N-mark` fill.
-  Default `#FFFFFF`; warm-palette themes can override to a cream
-  off-white if pure white feels icy on warm-deep slots.
+`checkCatContrast` in `tools/check-ownership.js` gates **three of these** — ① (mark
+vs `--bg`), ③ (ink vs fill), and ④ (fill ≠ mark) — over **every** hue-based theme,
+both modes (a11y-* exempt). Layer ② (fill vs `--bg`) is a *design intention* the ①
+border makes safe, not a machine-checked number. The shipped values are regenerated per
+theme by a deterministic recipe from each theme's own hues — not copied from a
+proposal deck. To start a new theme, copy a shipped three-layer block (indaco / cuoio)
+and re-hue it (the `new:theme` scaffold does this for you).
+
+**Paired ink** (flips with the fill tier):
+
+- `--cat-on-fill` — the label ink on every `--cat-N-fill`. Because the fill
+  goes pale→jewel across modes, this **must flip**: `var(--text-heading)`
+  (dark ink on the pale light fill, light ink on the jewel dark fill). A
+  fixed dark hex fails `checkCatContrast` in dark mode.
+- `--cat-on-mark` — the ink on every `--cat-N-mark`. Also flips:
+  `light-dark(#FFFFFF, <dark>)` (white on the deep light mark, dark on the
+  pale dark mark). Warm-palette themes can use a cream off-white for the
+  light-mode value.
+
+**Texture adoption (optional).** A monochrome (onyx) or CVD-safe theme that
+can't separate categories by hue declares 12 `--cat-N-texture:
+url(#latt-<set>-N)` tokens, and every categorical diagram fills with a
+repeating pattern instead of flat color. Undeclared = flat color,
+byte-identical. See `engineering/textures.md`.
 
 **Structural**
 
@@ -360,24 +379,26 @@ the card outline against the white canvas.
 
 Audit and design rationale: `engineering/decisions/2026-05-12-diagram-elevation.md`.
 
-## The lightness contract
+## The categorical contrast contract
 
-The default `indaco` palette uses two distinct lightness tiers for the
-categorical cycle, plus a small universal semantic palette for status
-signals:
+The default `indaco` palette gives the categorical cycle two **flipping** tiers of
+each hue, plus a small universal semantic palette for status signals:
 
-- **Pale tier, L≈87.** `--cat-1-fill`..`--cat-12-fill`,
-  sequence actor backgrounds, pie slices, and most light surfaces.
-  `--cat-on-fill` reads on these with 10:1+ contrast.
-- **Deep tier, L≈32.** `--cat-1-mark`..`--cat-12-mark`. Saturated marks:
-  decision-list accents, piechart wedges, sankey nodes, gitgraph
+- **Fill tier.** `--cat-1-fill`..`--cat-12-fill` — `light-dark(<pale chromatic>,
+  <jewel tone>)`: the leaf/area behind a category, sequence actor backgrounds, pie
+  slices. Pale on the light canvas, a jewel tone on the dark canvas.
+- **Mark tier.** `--cat-1-mark`..`--cat-12-mark` — `light-dark(<deep edge>, <pale
+  tint>)`: the stroke/border, the *opposite* tier of the same hue. Deep on light,
+  pale on dark. Decision-list accents, piechart wedges, sankey nodes, gitgraph
   branch dots, xy-chart plot palette, Mermaid's cScale feed.
-  `--cat-on-mark` (default `#FFFFFF`) reads on these with 5:1+ contrast.
 
-A new palette should respect the same tier split. Each rank-1 proposal
-in `themes/palette-audit.md` lands its pale tier at L≈87 and its
-deep tier at L≈32, anchored to AA against the paired ink — if you copy
-the proposal values, you inherit the contract for free.
+The tiers **swap** when the canvas flips, so the paired inks flip too:
+`--cat-on-fill` = `var(--text-heading)`, `--cat-on-mark` = `light-dark(#FFFFFF,
+<dark>)`. A new palette must respect the **three-layer contrast contract** —
+`--cat-N-mark` vs `--bg` ≥ 3:1, `--cat-N-fill` vs `--bg` intentionally low,
+`--cat-on-fill` vs `--cat-N-fill` ≥ 4.5:1, and fill ≠ mark — measured in both modes
+by `checkCatContrast`. Copy a shipped block (indaco / cuoio) and re-hue it rather
+than hand-deriving the tiers.
 
 Colors that ignore the tier split:
 
@@ -495,10 +516,11 @@ Then, in order of impact:
    colour after ink. Must clear contrast against `--bg` *and* against
    `--accent-soft`.
 5. **Categorical cycle** (`--cat-1-fill` / `--cat-1-mark` through
-   `--cat-12-fill` / `--cat-12-mark`, plus `--cat-on-fill` / `--cat-on-mark`).
-   Copy the rank-1 Brand-triad proposal from `themes/palette-audit.md`
-   as a known-good starting point; AA against the paired ink is checked
-   by the contrast suite.
+   `--cat-12-fill` / `--cat-12-mark`, plus the flipping `--cat-on-fill` /
+   `--cat-on-mark` inks). Copy a shipped three-layer block (indaco / cuoio) and
+   re-hue it — the tiers flip with the canvas, so keep the `light-dark()` pairs.
+   The three-layer contrast contract (mark-vs-`--bg` ≥ 3:1, `--cat-on-fill`-vs-fill
+   ≥ 4.5:1, fill ≠ mark) is enforced in both modes by `checkCatContrast`.
 6. **Structural tokens** (`--diagram-stroke`, `--diagram-line`, `--diagram-accent-warm`).
    Borders, edge lines, and the secondary warm accent.
 7. **Universal semantic overrides** (optional — only if your theme has
