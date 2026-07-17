@@ -935,9 +935,9 @@ describe('component-manifest', () => {
       assert.ok(!SUBSTANCES.includes(MIXED_SUBSTANCE));
     });
 
-    test('UNIVERSAL_GROUPS has the eight documented categories', () => {
+    test('UNIVERSAL_GROUPS has the nine documented categories', () => {
       assert.deepEqual(Object.keys(UNIVERSAL_GROUPS).sort(), [
-        'chrome', 'claim', 'decoration', 'mood', 'social', 'state', 'tone', 'typography',
+        'chrome', 'claim', 'decoration', 'insight', 'mood', 'social', 'state', 'tone', 'typography',
       ]);
     });
 
@@ -954,6 +954,8 @@ describe('component-manifest', () => {
         'safe', // social
         'wip', 'draft', 'tbd', 'confidential', 'redacted', 'archived', 'pinned', 'revised', // state
         'tone-pass', 'tone-warn', 'tone-fail', 'tone-skip', // tone
+        'insight-key', 'insight-recommendation', 'insight-takeaway', 'insight-verdict',
+        'insight-so-what', 'insight-bottom-line', 'insight-the-ask', // insight
         'claim-quiet', 'claim-hero', 'claim-framed', // claim
       ]);
     });
