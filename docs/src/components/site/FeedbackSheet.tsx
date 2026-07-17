@@ -2,7 +2,7 @@ import { Bug, Check, Copy, Lightbulb, MessageCircleQuestion, MessageSquareHeart,
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { PanelBody, PanelHeader, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { Textarea } from '@/components/ui/textarea';
 import {
 	buildFeedbackIssueUrl,
@@ -90,20 +90,14 @@ export function FeedbackSheet({
 	};
 
 	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="w-full gap-0 sm:max-w-[420px]">
-				<SheetHeader className="border-b border-border">
-					<SheetTitle className="flex items-center gap-2 text-[17px]">
-						<MessageSquareHeart className="size-5 text-[var(--accent)]" />
-						Send feedback
-					</SheetTitle>
-					<SheetDescription className="text-xs text-muted-foreground">
-						You'll finish this on GitHub — we'll have it filled in for you, and you can look it over before it posts.
-					</SheetDescription>
-				</SheetHeader>
-				<div className="flex-1 space-y-5 overflow-y-auto p-5">
-					<section className="space-y-2">
-						<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Category</h3>
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
+			<PanelHeader
+				icon={<MessageSquareHeart />}
+				title="Send feedback"
+				description="You'll finish this on GitHub — we'll have it filled in for you, and you can look it over before it posts."
+			/>
+			<PanelBody className="space-y-5">
+					<PanelSection label="Category">
 						<div className="grid grid-cols-2 gap-2">
 							{FEEDBACK_CATEGORIES.map((c) => {
 								const Icon = CATEGORY_ICON[c];
@@ -126,7 +120,7 @@ export function FeedbackSheet({
 								);
 							})}
 						</div>
-					</section>
+					</PanelSection>
 					<section className="space-y-1.5">
 						<label htmlFor="feedback-summary" className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
 							Summary
@@ -177,8 +171,7 @@ export function FeedbackSheet({
 							<p className="text-center text-[11px] text-muted-foreground">Add a summary and some details to continue.</p>
 						</div>
 					)}
-				</div>
-			</SheetContent>
-		</Sheet>
+			</PanelBody>
+		</PanelSheet>
 	);
 }

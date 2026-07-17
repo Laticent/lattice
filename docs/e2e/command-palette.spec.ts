@@ -20,8 +20,9 @@ test('"Reshape for a reader" opens the Architect coach', async ({ page }) => {
 	await search.fill('Reshape');
 	await page.getByRole('option', { name: 'Reshape for a reader' }).click();
 
-	// The command reveals the Architect coach (home of the Reshape card).
-	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
+	// The command reveals the Architect's Lenses tab (home of reader views).
+	await expect(page.getByRole('tab', { name: 'Lenses' })).toHaveAttribute('aria-selected', 'true');
+	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeVisible();
 });
 
 test('"Present" opens the present overlay', async ({ page }) => {

@@ -406,10 +406,10 @@ describe('WorkspaceSheet — cloud/on-device config split (2026-07-09)', () => {
 	});
 });
 
-describe('WorkspaceSheet — General tab backup & restore', () => {
+describe('WorkspaceSheet — Data tab backup & restore', () => {
 	it('shows the backup group with ownership copy, both controls, and the last-backup line', async () => {
 		const { user, sheet } = openSheet();
-		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		await user.click(sheet.getByRole('tab', { name: 'Data' }));
 		expect(sheet.getByText('Backup & restore')).toBeInTheDocument();
 		// Ownership framing, not alarm.
 		expect(sheet.getByText(/Your decks live in this browser/)).toBeInTheDocument();
@@ -425,7 +425,7 @@ describe('WorkspaceSheet — General tab backup & restore', () => {
 		const user = userEvent.setup();
 		render(<WorkspaceSheet open onOpenChange={noop} notify={notify} />);
 		const sheet = within(screen.getByRole('dialog', { name: /Workspace/ }));
-		await user.click(sheet.getByRole('tab', { name: 'General' }));
+		await user.click(sheet.getByRole('tab', { name: 'Data' }));
 		await user.click(sheet.getByRole('button', { name: /Download backup/ }));
 		expect(await sheet.findByText(/Last backup: (?!never)/)).toBeInTheDocument();
 		expect(notify).toHaveBeenCalledWith(expect.stringMatching(/Backup downloaded/));

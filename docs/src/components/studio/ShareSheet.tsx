@@ -101,10 +101,10 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="right" className="w-full gap-0 sm:max-w-[440px]">
 				<SheetHeader className="border-b border-border">
-					<SheetTitle className="flex items-center gap-2 text-[17px]"><Link2 className="size-5 text-[var(--accent)]" />Share “{deckTitle}”</SheetTitle>
+					<SheetTitle className="flex items-center gap-2 text-[15px]"><Link2 className="size-[18px] text-[var(--accent)]" />Share “{deckTitle}”</SheetTitle>
 					<SheetDescription className="sr-only">Hand off the rendered deck or the Markdown source.</SheetDescription>
 				</SheetHeader>
-				<div className="space-y-6 overflow-y-auto p-5">
+				<div className="space-y-6 overflow-y-auto p-5 overscroll-contain [touch-action:pan-y] min-w-0">
 					{view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'html' ? (

@@ -7,17 +7,17 @@ test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
 	// The Architect panel is collapsed by default — open it before asserting.
 	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
+	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
 });
 
 test('Coach and Chat tabs toggle', async ({ page }) => {
-	const coach = page.getByRole('button', { name: 'Coach' });
-	const chat = page.getByRole('button', { name: 'Chat' });
-	await expect(coach).toHaveAttribute('aria-pressed', 'true');
+	const coach = page.getByRole('tab', { name: 'Coach' });
+	const chat = page.getByRole('tab', { name: 'Chat' });
+	await expect(coach).toHaveAttribute('aria-selected', 'true');
 
 	await chat.click();
-	await expect(chat).toHaveAttribute('aria-pressed', 'true');
-	await expect(coach).toHaveAttribute('aria-pressed', 'false');
+	await expect(chat).toHaveAttribute('aria-selected', 'true');
+	await expect(coach).toHaveAttribute('aria-selected', 'false');
 });
 
 test('the Coach score card scores the seeded deck', async ({ page }) => {
@@ -28,7 +28,7 @@ test('the Coach score card scores the seeded deck', async ({ page }) => {
 });
 
 test('offline chat degrades honestly and points to Workspace', async ({ page }) => {
-	await page.getByRole('button', { name: 'Chat' }).click();
+	await page.getByRole('tab', { name: 'Chat' }).click();
 	const input = page.getByRole('textbox', { name: 'Message the Architect' });
 	await input.fill('Tighten slide two.');
 	await page.getByRole('button', { name: 'Send' }).click();

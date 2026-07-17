@@ -1,6 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, 
-	BookOpen, Check, ChevronDown, ChevronRight,Copy, Eye, FileBox, FileSliders, FileText, Frame, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -13,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Toaster } from '@/components/ui/sonner';
@@ -82,6 +82,19 @@ import { workspaceLensConfig } from './workspace-lenses';
 // initial Studio island payload (the heaviest thing a mobile user waits on) and
 // loads on first open. It's already mount-on-view, so this is a drop-in.
 const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default: m.Fabricate })));
+
+// Deck Inspector pill-tab sections, ordered by likely reach (Look first). The two
+// read-aloud groups collapse into "Speech" so the panel isn't five stacked groups.
+// Label-only, matching the Workspace + Slide-settings pill strips (one grammar) and
+// keeping the pills narrow enough to sit on fewer rows in the ~260px column.
+type DeckTab = 'look' | 'brand' | 'marks' | 'speech' | 'authoring';
+const DECK_TABS: { value: DeckTab; label: string }[] = [
+	{ value: 'look', label: 'Look' },
+	{ value: 'brand', label: 'Brand' },
+	{ value: 'marks', label: 'Marks' },
+	{ value: 'speech', label: 'Speech' },
+	{ value: 'authoring', label: 'Authoring' },
+];
 
 // Offline FALLBACK known-components — used only when the real catalog (the
 // `components` prop, the full 53-component manifest) fails to load. The live known
@@ -339,7 +352,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
-	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat'>('coach');
+	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat' | 'lenses'>('coach');
+	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the two
+	// read-aloud groups (Lexicon + Acronyms) fold into one Speech tab so the panel
+	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
+	// §"Deck inspector: NOT tabbed" — see 2026-07-17-panel-drawer-cohesion.)
+	const [deckTab, setDeckTab] = React.useState<DeckTab>('look');
 	const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(() => loadCheckpoints(loadBootDeck().id));
 	// One-click Undo for the LAST panel settings change — a light complement to ⌘Z /
 	// Version history. Each change captures the pre-change source; Undo restores it.
@@ -1749,38 +1767,56 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<p className="text-xs leading-relaxed text-muted-foreground">Lead every slide with its takeaway, not its detail — the number, then the supporting rows.{!ai.ready && <span className="text-[var(--text-muted)]"> Connect a model in Workspace for one-click rewrites.</span>}</p>
 				<Chip busy={aiBusy === 'lead'} onClick={() => runArchitectAction('lead', 'Rewrite lead', `Rewrite slide ${activeFullIndex + 1} so it opens with its single headline takeaway or number, then the supporting rows. Return the whole slide, same component.`)}>Rewrite lead</Chip>
 			</ArchCard>
-			<ArchCard tag={<IntentTag intent="info" label="LENSES" />} title="Reader views">
-				<LensesPanel
-					slides={slides}
-					registry={lensReg}
-					catalog={lensCatalog}
-					activeLens={composeLens}
-					workspace={wsLenses}
-					onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
-					onWriteRegistry={writeRegistry}
-					onTag={writeTags}
-					onRemoveLens={removeLensWrite}
-				/>
-			</ArchCard>
 		</>
 	);
 
-	// The Architect panel: a Coach/Chat toggle over the static cards or the real
-	// conversational thread (with reviewable apply/discard diff cards).
+	// Lenses (reader views) is its OWN tab now, not buried in the Coach card stack —
+	// it's a full reader-view workflow (membership + approval), distinct from AI critique.
+	const lensesBody = (
+		<div className="min-h-0 flex-1 overflow-y-auto p-2.5 min-w-0 overscroll-contain [touch-action:pan-y]">
+			<LensesPanel
+				slides={slides}
+				registry={lensReg}
+				catalog={lensCatalog}
+				activeLens={composeLens}
+				workspace={wsLenses}
+				onPreview={(id) => { setLens(id); notify(`Preview → ${lensReg.lenses.find((l) => l.id === id)?.label ?? id}`); }}
+				onWriteRegistry={writeRegistry}
+				onTag={writeTags}
+				onRemoveLens={removeLensWrite}
+			/>
+		</div>
+	);
+
+	// The Architect panel: pill-tabs over the coach analysis, the real conversational
+	// thread, and the reader-views (Lenses) workflow — one clear idea per tab.
 	const architectBody = (
 		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex shrink-0 gap-1 px-2.5 pt-2.5">
-				<button type="button" onClick={() => setArchitectTab('coach')} aria-pressed={architectTab === 'coach'} className={cn('flex-1 rounded-lg border px-2 py-1.5 text-[12px] font-semibold', architectTab === 'coach' ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground')}>Coach</button>
-				<button type="button" onClick={() => setArchitectTab('chat')} aria-pressed={architectTab === 'chat'} className={cn('flex-1 rounded-lg border px-2 py-1.5 text-[12px] font-semibold', architectTab === 'chat' ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground')}>Chat</button>
+			<div className="shrink-0 px-2.5 pt-2.5">
+				<PillTabs
+					ariaLabel="Architect sections"
+					value={architectTab}
+					onValueChange={(v) => setArchitectTab(v as 'coach' | 'chat' | 'lenses')}
+					tabs={[
+						{ value: 'coach', label: 'Coach' },
+						{ value: 'chat', label: 'Chat' },
+						{ value: 'lenses', label: 'Lenses' },
+					]}
+				/>
 			</div>
-			{architectTab === 'coach' ? <div className="min-h-0 flex-1 overflow-y-auto">{architectCards}</div> : <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />}
+			{architectTab === 'coach' && <div className="min-h-0 flex-1 overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>}
+			{architectTab === 'chat' && <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />}
+			{architectTab === 'lenses' && lensesBody}
 		</div>
 	);
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
-		<>
-			<InspGroup icon={<Palette className="size-3.5" />} label="Look" desc="The deck's identity — language, palette, light or dark, size, and surface.">
+		<div className="space-y-3 pt-1">
+			<PillTabs tabs={DECK_TABS} value={deckTab} onValueChange={(v) => setDeckTab(v as DeckTab)} ariaLabel="Deck settings sections" />
+			{deckTab === 'look' && (
+			<div>
+				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">The deck's identity — language, palette, light or dark, size, and surface.</p>
 				<Field label="Language" desc="This deck's language — its document language (carried into every export and read-aloud) and the language the AI writes its content in. “Auto” (the link icon) inherits the workspace default; pick one to pin it to the deck. English only for now.">
 					<LanguageSelect
 						value={deckLang || LANG_AUTO}
@@ -1867,6 +1903,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							))}
 						</div>
 					)}
+					{/* Card lift — the opt-in "Struck" elevation. A deck-wide surface toggle
+					    alongside Finish; per-slide `_class: lifted`/`flat` override. */}
+					<Field label="Card lift" desc="Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export."><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
+			</div>
+			)}
+			{deckTab === 'brand' && (
+			<div>
+				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">Where your accent shows — the brand bar, card rails, structural trim, and heading marks. Set the theme accent to a client's brand and everything here follows, white-labeling the deck.</p>
 					<Field label="Brand bar" desc="The colored strip along each slide's top edge. Set Solid to a client's brand color to white-label the deck.">
 							{/* The white-label spectrum — the rainbow bar on the top border / divider
 							    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
@@ -1895,29 +1939,31 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<Field label="Eyebrow" desc="The mark on the mono-caps kicker above a heading — a dot, a bar, an arrow, an underline, or plain.">
 							<CatalogSelect ariaLabel="Choose eyebrow" value={activeEyebrow(eyebrow).name} onValueChange={setEyebrow} className="min-w-[116px]" groups={[{ options: catalogOptions(EYEBROWS) }]} />
 						</Field>
-						{/* Card lift — the opt-in "Struck" elevation. A deck-wide visual toggle
-						    alongside Finish / Brand bar; per-slide `_class: lifted`/`flat` override. */}
-						<Field label="Card lift" desc="Lift card surfaces off the slide with a subtle shadow — reads in light & dark, safe in the PDF export."><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
-				</InspGroup>
-			{/* The deck's running marks — the header, footer, page number, and rail that
-			    repeat across slides. Header & footer are text you DECLARE (the whole point:
-			    you say what the band reads); page numbers & the rail are on/off. The group is
-			    named for its CONTENTS, not its scope — the scope echo already says these are
-			    deck-wide, so the title needn't restate it (that was the redundancy). A single
-			    slide hides any of them from its Slide settings. */}
-			<InspGroup icon={<Frame className="size-3.5" />} label="Running marks" desc="The header, footer, page number, and section rail.">
+			</div>
+			)}
+			{deckTab === 'marks' && (
+			<div>
+				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">The header, footer, page number, and section rail — the marks that repeat across slides.</p>
 					<TextRow label="Header" desc="The line along the top — a deck title or client name. Blank hides it." value={headerText} placeholder={`e.g. ${deck.title}`} onCommit={setHeaderText} />
 					<TextRow label="Footer" desc="The line along the bottom — a confidentiality or source line. Blank hides it." value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
 					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 					<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
-				</InspGroup>
-			<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="Teach read-aloud how to say a tricky word or symbol, or silence it. Overrides the built-in symbol commons; carried into the deck and its captions.">
+			</div>
+			)}
+			{deckTab === 'speech' && (
+			<div>
+				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">Teach read-aloud how to say tricky words, symbols, and acronyms — carried into the deck and its captions.</p>
+			<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="A tricky word or symbol to say a certain way, or to silence. Overrides the built-in symbol commons.">
 				<LexiconEditor lexicon={lexicon} onChange={setLexicon} />
 			</InspGroup>
-			<InspGroup icon={<BookMarked className="size-3.5" />} label="Acronyms" desc="Teach a term's spoken expansion (and an optional glossary definition). The voice says it right and the caption times it right — e.g. EBITDA → “ee bit dah”.">
+			<InspGroup icon={<BookMarked className="size-3.5" />} label="Acronyms" desc="A term's spoken expansion (and an optional glossary definition) — e.g. EBITDA → “ee bit dah”." last>
 				<AcronymEditor acronyms={acronyms} onChange={setAcronyms} />
 			</InspGroup>
-			<InspGroup icon={<Wand2 className="size-3.5" />} label="Authoring" desc="Aids while you write. Preview-only — none of this appears in the export." last>
+			</div>
+			)}
+			{deckTab === 'authoring' && (
+			<div>
+				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">Aids while you write. Preview-only — none of this appears in the export.</p>
 				<Field label="Inline validation" desc="Flags unknown components in the editor as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
 				{/* Debug overlay — outlines every box by layout mode and labels the
 				    structural ones on hover; `always` pins them. A deck setting (`debug:`
@@ -1938,8 +1984,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</Field>
-			</InspGroup>
-		</>
+			</div>
+			)}
+		</div>
 	);
 
 	// The Inspector's scope-switch + active body — shared by the desktop/tablet
@@ -1968,7 +2015,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<SlidersHorizontal className="size-4 text-[var(--accent)]" />
 							<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
 							<span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
-							<Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><ChevronRight className="size-4" /></button></Tip>
+							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
 					</>
@@ -1978,14 +2025,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
 							<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
 							<span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
-							<Tip label="Collapse settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><ChevronRight className="size-4" /></button></Tip>
+							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
 					</>
 				)}
 			</div>
 			{inspectorScope === 'deck' ? (
-				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4">{inspectorBody}</div>
+				<div className="flex-1 space-y-0 overflow-y-auto px-3.5 pb-4 min-w-0 overscroll-contain [touch-action:pan-y]">{inspectorBody}</div>
 			) : (
 				<SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} />
 			)}
@@ -2077,7 +2124,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
 				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { setArchitectOpen(true); notify('Reader views live in the Architect’s Lenses panel — add one there.'); }} />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { revealBuildDock(); setArchitectOpen(true); setArchitectTab('lenses'); notify('Reader views live in the Architect’s Lenses tab — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
@@ -2634,7 +2681,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						<SheetTitle className="flex items-center gap-2 text-[15px]"><History className="size-4 text-[var(--accent)]" />Version history</SheetTitle>
 						<SheetDescription className="text-[11px] leading-snug text-muted-foreground">Snapshots of the deck you can restore. One is saved automatically before each AI edit.</SheetDescription>
 					</SheetHeader>
-					<div className="flex-1 overflow-y-auto px-4 py-3">
+					<div className="flex-1 overflow-y-auto px-4 py-3 min-w-0 overscroll-contain [touch-action:pan-y]">
 						<button type="button" onClick={saveVersion} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"><Save className="size-3.5" />Save a version</button>
 						{checkpoints.length === 0 ? (
 							<p className="px-0.5 py-1 text-[11.5px] leading-relaxed text-muted-foreground">No saved versions yet. Versions are also captured automatically before each AI edit.</p>
@@ -2679,7 +2726,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onFabricate={() => setView('fabricate')}
 				onLibrary={() => setLibraryOpen(true)}
 				onWorkspace={() => setWorkspaceOpen(true)}
-				onReshape={() => { revealBuildDock(); setArchitectOpen(true); }}
+				onReshape={() => { revealBuildDock(); setArchitectOpen(true); setArchitectTab('lenses'); }}
 				onWatchDemo={startDemo}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
 				onFocus={posture === 'build' ? () => setQuietened(true) : undefined}

@@ -346,6 +346,23 @@ in patch versions.
   actors** at once (the old wiring only did mindmap+pie). ~150 lines of duplicated wiring deleted;
   the a11y mindmap bug is fixed structurally; the print band adopts via a token override. Pattern
   defs unchanged. See `engineering/decisions/2026-07-16-universal-texture-channel.md`.
+- **Studio panels & drawers get one grammar, and the deck Inspector is now pill-tabbed.** A shared
+  panel layer (`docs/src/components/ui/panel.tsx` — `PanelSheet` / `PanelHeader` / `PanelBody` /
+  `PanelSection`) gives every drawer and docked column one header (accent icon · one title size ·
+  optional mono eyebrow · trailing actions · a single **X** close), one scroll body that fixes
+  touch-scroll sideways-drift (`overscroll-contain` + `touch-action: pan-y` + `min-w-0`), and a
+  three-step width scale (sm 340 / md 440 / lg 720). The **deck Inspector** — previously five stacked
+  groups — is reorganized into pill-tabs ordered by reach: **Look** (identity + surface), **Brand**
+  (the whole spectrum/accent family: brand bar, bar placement, card rails, structural trim, heading
+  rule, eyebrow), **Marks** (header/footer/page-number/rail), **Speech** (lexicon + acronyms), and
+  **Authoring** (editor aids). The docked-column **collapse chevron is retired for the unified X**.
+  The same "one clear idea per tab" regrouping extends across the Studio: **Slide settings** gains a
+  matching **Brand** tab; **Workspace settings** becomes **General / AI / Data** (all data-lifecycle —
+  where decks live, backup/restore, storage, delete — consolidated under Data); and the **Architect**
+  splits into **Coach / Chat / Lenses**, lifting the reader-view manager out of the crowded Coach view.
+  The **touch-scroll sideways-drift** is fixed on every drawer/panel body, the mobile Settings sheet
+  shows one X instead of two, and drawer headers are unified to a 15px title + accent icon + border.
+  See `engineering/decisions/2026-07-17-panel-drawer-cohesion.md`.
 - **Breaking: the spectrum paints the brand BAR only by default — structural accents go quiet.**
   The in-content accents that read the spectrum (table-header rails, the `list-steps` timeline
   spine, code-panel strips, the `hr` rule, split-card underlines) now render a quiet

@@ -15,7 +15,9 @@ test.beforeEach(async ({ page }) => {
 	});
 	await gotoStudio(page);
 	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	await expect(page.getByRole('button', { name: 'Coach' })).toBeVisible();
+	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
+	// Reader views live on the Architect's Lenses tab now — open it.
+	await page.getByRole('tab', { name: 'Lenses' }).click();
 });
 
 test('a reader view is offered to a reader ONLY after the author previews + approves it', async ({ page }) => {
@@ -77,7 +79,7 @@ test('an untagged deck is not a dead end — the preview header opens the Lenses
 	// "Full deck". It must still point the way to reader views. Close the Architect to start from the bare
 	// deck surface, then the header's "New reader view" affordance opens the Lenses panel.
 	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	await expect(page.getByRole('button', { name: 'Coach' })).toBeHidden();
+	await expect(page.getByRole('tab', { name: 'Coach' })).toBeHidden();
 	await page.getByRole('button', { name: 'New reader view' }).click();
 	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeVisible(); // the Lenses panel is up
 });

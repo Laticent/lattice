@@ -271,7 +271,7 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 					<span className="ml-auto font-mono text-[11px] text-muted-foreground">{selCount > 0 ? `${selCount} selected · ` : ''}{total} total</span>
 				</div>
 
-				<div className="min-h-0 flex-1 overflow-y-auto p-4">
+				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">
 					{total === 0 ? (
 						<div className="grid h-full place-content-center gap-2 text-center text-muted-foreground">
 							<FileBox className="mx-auto size-7 opacity-40" />

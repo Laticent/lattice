@@ -50,11 +50,9 @@ export function GalleriesSheet({
 					<span className="hidden sm:inline">Galleries</span>
 				</Button>
 			</SheetTrigger>
-			<SheetContent overlay={false} className="w-[360px] max-w-[88vw] gap-0 overflow-y-auto">
-				<SheetHeader>
-					<SheetTitle className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-						Load a deck
-					</SheetTitle>
+			<SheetContent overlay={false} className="w-[360px] max-w-[88vw] gap-0 overflow-y-auto overscroll-contain [touch-action:pan-y]">
+				<SheetHeader className="border-b border-border">
+					<SheetTitle className="flex items-center gap-2 text-[15px]"><LayoutGrid className="size-[18px] text-[var(--accent)]" />Load a deck</SheetTitle>
 					<SheetDescription className="sr-only">
 						Scaffold the selected component, or load a full showcase or family survey deck into the editor.
 					</SheetDescription>
