@@ -1,25 +1,6 @@
 ---
 status: proposed
-summary: >
-  Anima — a pure, framework-free ANIMATION LIBRARY in the Cadenza/Vetrina mold, for refined
-  3D/cartoon motion that enhances a slide. Three layers: (1) a DSL — three authoring forms
-  (fluent `scene()` recorder · `storyboard` data · raw), all compiling to (2) a SPEC/IR — a
-  medium-independent, pure-data scene graph + timeline that owns NO DOM and NO WebGL; its one
-  idea generalizes Cadenza's "a timeline is data, the clock is someone else's" to "a scene is
-  data, the RENDERER is someone else's" — the core turns time→SceneState (pure) and you inject a
-  backend to paint it. (3) a RENDERER backend interface — a capability-advertising adapter
-  (`caps`, `mount`, `draw(state)`, `poster(spec,t)`, `dispose`) that engines implement, so the
-  engine is SWAPPABLE and MULTIPLE backends can consume one IR AT THE SAME TIME. Backends: Zdog
-  (SVG, vector, themeable, posterizes — the CANONICAL/default, the only one that can paint the
-  PDF poster per the CSS-3D-charts raster-pixelates finding); Three.js (WebGL, true-3D/GLTF,
-  present-mode-only); PixiJS deferred. "Multiple engines at once" resolves honestly via capability
-  negotiation into three in-scope shapes: different scenes on different backends, and one scene
-  rendered by Zdog for the vector poster AND Three for the live view. The LLM authors the DSL/spec
-  (DATA, never JS) — the HARD RULE #22 safety keystone and what makes LLM refinement pleasant;
-  extends the AI-component transform-bearing #618 DSL track. Palette-blind (`--anima-*`/var(--token)).
-  A thin `scene` component (imagery bucket) is ONE consumer, as Studio's demo consumes Vetrina.
-  Library-shape-today / spin-off-later, boundary-gated (checkAnimaBoundary), per 2026-07-08. Design
-  only; nothing built.
+summary: Anima — a SERIOUS animation capability (not a gimmick), where motion must carry information a STILL FRAME CANNOT (geometry you must rotate to read, a sequence/causality that only unfolds in time, or a quantity bound to real data) — never bouncing-ball ornament. Three pieces on architecture that already exists: (1) the ANIMA LIBRARY — a pure, framework-free engine in the Cadenza/Vetrina mold with a DSL, a medium-independent SPEC/IR, and a PLUGGABLE capability-negotiated renderer (Zdog canonical/vector/poster; Three.js present-mode-only for true-3D/GLTF; Pixi deferred), whose one idea generalizes Cadenza's "the clock is someone else's" to "the RENDERER is someone else's"; (2) an ANIMATION ASSET (kind:'scene') — a serialized scene spec you CREATE, TUNE, SAVE, and SHARE exactly like a kind:'theme' or kind:'component' asset (asset-bundle.ts / asset-store.js), authored by the LLM-plus-human loop the theme & component generators already prove; (3) ONE HOST COMPONENT (imagery bucket) framing a scene asset with variants mirroring the image component (clean/split/spotlight/gallery/statement/mirror) — asset is the payload, component is the frame. Static PDF/PPTX gets a deterministic VECTOR poster (CSS-3D-charts raster-pixelates finding); reduced-motion → poster. LLM authors DATA (the spec), never JS (HARD RULE #22); palette-blind. Ornament banned by the "information a still cannot carry" test. Design only; nothing built.
 companion:
   - ./2026-07-07-cadenza-caption-timeline.md
   - ./2026-07-05-vetrina-walkthrough-library.md
@@ -28,356 +9,342 @@ companion:
   - ./2026-06-29-ai-component-generation.md
 ---
 
-# Anima — a pluggable-engine animation library for refined slide motion
+# Anima — a serious animation capability: a library, an asset, and a host
 
 **Date:** 2026-07-17 · **Status:** direction proposed; field spec + build staged.
-**Working name:** *Anima* (Italian, and the root of *animation*) — final name is a naming call.
-Alternatives weighed: `Scena`, `Moto`, `Diorama`.
+**Working names:** the **library** = *Anima*; the fabricated **asset** = a *scene* (`kind:'scene'`);
+the **host component** = `scene`. All three are naming calls (alternatives: `Moto`, `Diorama`).
 
-## 1. The ask, restated as a library
+## 1. The ask, and the bar
 
-The want: refined **cartoon-like and 3D** motion that enhances a slide, authored and
-iterated **with an LLM** — and, crucially, built as a **real library** the way
-**Vetrina** and **Cadenza** are, with **a DSL, a spec, and a lower-level engine that
-can be swapped out or drive multiple engines at once** (Zdog, Three.js, Pixi …).
+Refined 3D/cartoon motion that **enhances** a slide — but a **serious feature, not a gimmick**:
+genuinely useful, no bouncing balls. And it must fit how Lattice already works:
 
-That reframing is the whole design. Anima is not "a component with a runtime
-choice" — it is a **framework-free library** whose stable contract is a **spec + DSL**
-and whose rendering **engine is a pluggable backend**. A `scene` component is just
-*one consumer* of it, exactly as the Studio demo consumes Vetrina and read-aloud
-consumes Cadenza. This ADR supersedes the component-only framing of the first draft.
+1. an **animation is a fabricated asset** you **create, tune, save, and reuse** — the same
+   lifecycle as a theme or a component, authored with an LLM;
+2. a **component hosts** that asset, and (for now) there is **one** host with **variants like the
+   `image` component** — the asset is the payload, the component is the frame;
+3. it is built as a real **library** (a DSL, a spec, a swappable/multi lower-level engine), the way
+   **Vetrina** and **Cadenza** are.
 
-The admissibility question — does a boardroom-PDF engine that bans "wizbang" get to
-have animation at all — is settled the same way as before and restated in §11: motion
-is admitted only when it is **declared, from a small typed vocabulary, meaning-bearing,
-and losslessly degradable to a static poster** (narrative-step model §8). The library
-*is* the mechanism that enforces that discipline.
+§2 sets the utility bar (what makes it serious). §3 names the three pieces. §4–13 build them.
 
-## 2. What Cadenza and Vetrina taught us — the house library shape
+## 2. The utility thesis — motion must carry information a still cannot
 
-Both are **pure, self-contained, framework-free** cores, boundary-gated
-(`checkCadenzaBoundary` / `checkVetrinaBoundary` bar any import outside `./`), with a
-README, a barrel `index.ts`, standalone unit tests, and a spin-off path
-(`2026-07-08-library-shape-cadenza-vetrina.md`). Anima copies this shape wholesale.
-Two of their ideas are load-bearing here:
+This is the whole difference between a serious feature and a gimmick, and it is the **admission
+test** for every scene:
 
-- **Cadenza's one idea — "a timeline is data; the clock is someone else's."** Cadenza
-  emits plain data (a caption track) and reads a **clock the consumer injects**, which
-  is precisely what lets *one* engine serve every surface (silent read-along, TTS,
-  scrub). Anima **generalizes this to the renderer**: the core emits a scene + timeline
-  as data and reads a **renderer the consumer injects**. Inject a clock *and* a
-  backend, and one scene paints anywhere, on any engine. (§4 is this idea in full.)
-- **Vetrina's "three ways to author, one engine."** Vetrina compiles a fluent
-  `scene()` recorder, a `storyboard` data form, and a raw primitive all down to one
-  `Walkthrough` type. Anima's DSL copies this exactly: three authoring forms, one spec
-  (§6). Vetrina also proves the pieces Anima needs: a **frozen, gated vocabulary** (its
-  five-gesture alphabet — "a new one must earn a new meaning"), a **CSS-first token
-  contract** (`--vt-*`), a **three-tier reduced-motion policy**, and **adapters as
-  sanctioned peer-deps** (its `react.ts`, allowlisted, not in the zero-dep index) —
-  the model for Anima's engine adapters.
+> **A scene earns its motion only when the motion IS the information.** If a single still frame
+> conveys the same thing, it must *be* a still — use `image` or `diagram`. Motion is justified only
+> when it carries what a frame cannot: **geometry you must rotate to read, a sequence or causality
+> that only unfolds over time, or a quantity bound to real data.**
 
-## 3. The three layers
+That test yields the **serious use classes** Anima is built for — each a real boardroom need:
+
+- **Explanatory 3D of a real object** — rotate/expose a product, device, part, or site so the
+  room understands its *form and structure*: what's on the back, how it's held, how big it is. (A
+  hardware or med-device pitch, a building massing, a deep-tech component.) The rotation shows
+  geometry a photo can't.
+- **Mechanism / process in motion** — *how a thing works*: a pump cycle, an assembly sequence, a
+  data path through a system, a state machine advancing. The **sequence and causality are the
+  content**; a still can only freeze one instant of it.
+- **Data-bound motion** — geometry driven by **real numbers**: a vessel filling to a measured
+  capacity, an orbit at true parameters, a load deforming a part to a modeled stress. The motion
+  *encodes* the data (the honest cousin of a chart, for spatial/physical quantities).
+- **Structure pulled apart** — an **exploded view** or a layered stack separating so the room can
+  read how parts or tiers compose. Motion clarifies 3D structure that flattens in a still.
+- **An honest transformation** — a real before→after change made legible (a site pre/post build; a
+  shape deforming to represent a modeled change). The meaning-bearing morph, never a slide effect.
+
+Everything outside that test is **ornament and is banned** (§12): bouncing balls, drifting
+particles, mascots, spin-for-spin's-sake, entrance flourishes, ambient loops with no referent. The
+"cartoon" register is welcome as a *refined illustration style* (clean, flat-shaded, Zdog-like) —
+never as *cartoonish antics*. Serious content, tastefully drawn; not a toy.
+
+## 3. The three pieces (and how they map to what exists)
 
 ```
- authoring ─────────────────────────────────────────────────────────────
-   DSL        scene() fluent  ·  storyboard(data)  ·  raw            (§6)
-                 │  all three compile to ↓
- contract ──────────────────────────────────────────────────────────────
-   SPEC / IR   a pure-data scene graph + timeline — NO DOM, NO WebGL   (§5)
-                 core:  compile(spec) → timeline ;  timeline.at(t) → SceneState
-                 │  inject a backend to paint a SceneState ↓
- engine ────────────────────────────────────────────────────────────────
-   RENDERER    caps · mount · draw(state) · poster(spec,t) · dispose   (§4)
-   backends    Zdog (vector, poster)  ·  Three (live 3D)  ·  Pixi (later)
+  ANIMA (library)          fabricates + renders          §5–8
+     │  produces / tunes / renders ↓
+  a SCENE ASSET  (kind:'scene')                           §4
+     │  a serialized scene spec + poster + metadata
+     │  created·tuned·saved·shared like a theme/component asset
+     │  referenced by ↓
+  the `scene` COMPONENT  (imagery bucket)                 §9
+        frames the asset with image-like variants
+        (clean · split · spotlight · gallery · statement · mirror)
 ```
 
-The layers are the whole point of the ask: the **DSL** and the **SPEC** are the stable
-contract; the **RENDERER** is swappable and multi-instance. Everything above the spec
-is medium-independent; everything below it is an engine detail.
+The split is the point of this revision: an animation is **not baked into a component**. It is an
+**asset** the library fabricates and a **component** merely frames — exactly as an *image* is an
+asset the `image` component frames, and a *theme* is an asset a deck applies. This puts Anima on the
+**same rail as the Theme-AI and Component-AI**, not a bespoke path.
 
-## 4. The one idea — inject the renderer (so engines swap AND coexist)
+## 4. The scene ASSET — a fabricated asset like a theme or a component
 
-The core is **pure**: it compiles a spec to a timeline and answers `timeline.at(tMs)`
-with a **`SceneState`** — a normalized, engine-neutral description of where every part
-sits at time `t` (transforms, colors-as-tokens, visibility). It touches **no DOM and no
-GPU**. Painting is a **`Renderer` you inject**:
+Lattice already has a fabricated-asset model, and this slots straight into it. `kind:'theme'` and
+`kind:'component'` assets are created/tuned in the Studio, saved to a shared local library that
+survives reload (`docs/src/playground/asset-store.js`), and shared as `.lattice-*.zip` bundles
+(`docs/src/components/studio/asset-bundle.ts`, `ASSET_FORMAT`). The theme bridge emits a
+`kind:'theme'` record (`lib/theme/serialize.js`); the component bridge a `kind:'component'` one
+(`lib/layout/scaffold.js`).
 
-```ts
-import { compile } from './anima';
-import { zdogRenderer } from './anima/backends/zdog';
+**A scene is a new `kind:'scene'` asset on that same rail:**
 
-const timeline = compile(sceneSpec);          // pure data — spec → IR + timeline
-const r = zdogRenderer();                      // pick ANY backend
-r.mount(hostEl);
-function frame(nowMs) {                         // the host owns the loop + clock (Cadenza's move)
-  r.draw(timeline.at(nowMs));                   // paint one time-slice
-  requestAnimationFrame(frame);
-}
+- **Payload:** a serialized **scene spec** (§6, the Anima DSL/IR as data) + a **poster** (the
+  deterministic still, §7) + metadata (name, tags, the `caps` it requires).
+- **Create + tune:** in a Studio surface (a "scene inspector," sibling to the theme and component
+  studios) — the LLM drafts a spec from a prompt; the human **tunes** it by editing typed spec
+  fields or nudging DSL controls, re-rendering live (§8). Tuning *a saved asset* is the headline of
+  the ask ("create and tune"); because the spec is data, tuning is editing a contract, not code.
+- **Save + reuse:** it joins the shared asset library (`kind:'scene'`) and is usable across the
+  author's decks and shareable via a `.lattice-scene.zip` bundle — one asset, many slides.
+- **Graduate:** promoting a scene into the shipped set is the same deliberate, human, post-review
+  step every asset takes (HARD RULES #8/#9) — AI authorship bypasses no gate.
+
+`asset-bundle.ts`'s `AssetManifest.kind` union and the `asset-store` kinds gain `'scene'`; the
+bundle carries the spec + poster. This is an additive extension of a proven store, not a new one.
+
+## 5. The ANIMA library — pure core, pluggable engine (Cadenza/Vetrina shape)
+
+Anima is the engine that **fabricates and renders** the asset. It copies the house library shape
+wholesale: pure, framework-free, self-contained, boundary-gated (`checkAnimaBoundary` bars any
+import outside `./`), a barrel `index.ts`, per-module unit tests, a README, a spin-off path
+(`2026-07-08-library-shape-cadenza-vetrina.md`). Three layers:
+
+```
+ DSL        scene() fluent · storyboard(data) · raw     — three ways, one spec  (§6)
+              │ all compile to ↓
+ SPEC / IR   a pure-data scene graph + timeline — NO DOM, NO WebGL              (§6)
+              │ core: compile(spec) → timeline ; timeline.at(t) → SceneState
+              │ inject a backend to paint a SceneState ↓
+ RENDERER    caps · mount · draw(state) · poster(spec,t) · dispose              (§5.1)
+ backends    Zdog (vector, poster) · Three (live 3D) · Pixi (later)
 ```
 
-Because a `SceneState` is engine-neutral data, **any** conforming backend can paint it,
-and **several can paint the same timeline at once**. That is the mechanism behind
-"swap the engine / run multiple engines." The `Renderer` contract:
+### 5.1 The one idea — inject the renderer (so engines swap AND coexist)
+
+The core is **pure**: `compile(spec)` → a timeline; `timeline.at(tMs)` → a **`SceneState`**, a
+normalized, engine-neutral snapshot (transforms, token colors, visibility). It touches **no DOM and
+no GPU**. Painting is a **`Renderer` you inject** — generalizing Cadenza's *"a timeline is data;
+the clock is someone else's"* to *"a scene is data; the **renderer** is someone else's."* Because a
+`SceneState` is data, any conforming backend can paint it, and several can paint one timeline at
+once.
 
 ```ts
 interface Renderer {
-  readonly caps: RendererCaps;              // what this engine can do — see §4.1
-  mount(host: Element): void;               // attach its surface (an <svg>, a <canvas>…)
-  draw(state: SceneState): void;            // paint one time-slice (called per frame)
+  readonly caps: RendererCaps;              // { vector, poster, true3d, gltf, live }
+  mount(host: Element): void;
+  draw(state: SceneState): void;            // one time-slice, per frame (host owns the clock+loop)
   poster(spec: Scene, t: number): Poster;   // a DETERMINISTIC still at hero-time t
   dispose(): void;
 }
 ```
 
-### 4.1 Capability negotiation — the honest core of "multiple engines"
+**Capability negotiation** is the honest core of "multiple engines": each backend advertises
+`caps`; the library validates a spec against the chosen backend and **fails loudly** on a mismatch
+(a `gltf` spec on a backend without it; a vector-poster request to a raster-only engine). That makes
+"swap / run multiple engines" a *checked contract*, and it lets the poster/live split (§7) be
+expressed as **two backends chosen by capability** — e.g. Zdog paints the canonical vector poster
+while Three paints the live view, from the *same* asset.
 
-Engines are **not interchangeable in what they can do**, and pretending otherwise is
-where a naive "pluggable renderer" design fails. Each backend advertises `caps`:
+## 6. The DSL + spec — three authoring forms, one asset (Vetrina's shape)
 
-```ts
-type RendererCaps = {
-  vector: boolean;    // paints resolution-independent output (SVG)
-  poster: boolean;    // can produce a crisp poster fit for the canonical PDF path
-  true3d: boolean;    // real depth/lighting, not projected pseudo-3D
-  gltf: boolean;      // can load external 3D model assets
-  live: boolean;      // animates on an interactive surface
-};
-```
-
-The library **validates the spec against the chosen backend's caps** and fails loudly
-on a mismatch (a `gltf`-bearing spec on a backend without `gltf`; a request for a
-vector poster from a raster-only backend). This turns "multiple engines" from a vague
-promise into a checked contract, and it is what lets the poster/live split (§7) be
-expressed cleanly as *two backends, chosen by capability*.
-
-## 5. The spec / IR — the medium-independent contract (shape sketch)
-
-The spec is **data**, the way Cadenza's `CaptionTrack` is data. Illustrative; the field
-grammar is the impl ADR's:
+The spec is **data** (like Cadenza's `CaptionTrack`). Three authoring forms compile to it — a
+fluent `scene()` recorder (hand authoring), a `storyboard` data form (what the LLM emits and what
+the asset serializes), and a raw spec object (the escape hatch) — Vetrina's "three ways, one
+engine." Illustrative shape:
 
 ```yaml
 scene:
-  hero: 0.4                      # the poster time t∈[0,1] — the frame a still freezes
+  hero: 0.4                      # the poster time t∈[0,1] — the frame the still freezes
   camera: { rotate: [-0.3, 0.6, 0] }
   parts:
     - id: rotor
       shape: cone                # a CLOSED, typed primitive set
       color: var(--accent)       # token ref, resolved at paint — no hex (#3)
-      at: [0, -20, 0]
-      motion: { spin: y, period: 6s }     # CLOSED typed vocab: spin/orbit/bob/reveal/sequence
-    - id: body
-      shape: roundedRect
-      color: var(--cat-2-mark)
-      motion: { bob: 8, period: 3s }
+      motion: { spin: y, period: 6s }   # CLOSED typed vocab: spin/orbit/sequence/fill/explode/reveal
 ```
 
-Invariants the grammar enforces (all echoing the house discipline): a **closed
-primitive + motion vocabulary** (no arbitrary keyframes/easing — pick a *role*, like
-`--fs-*` type), a **declared `hero` time** (so the poster is deterministic), **token-only
-colour**, and a **deterministic core** (no `Math.random`/wall-clock inside `compile`/
-`at` — a spec renders one reproducible poster, required by the byte-stable export gate).
-
-## 6. The DSL — three authoring forms, one spec (Vetrina's shape)
-
-```ts
-// fluent recorder — hand authoring
-const s = scene()
-  .part('rotor', { shape: 'cone', color: 'var(--accent)' }).spin('y', '6s')
-  .part('body',  { shape: 'roundedRect', color: 'var(--cat-2-mark)' }).bob(8, '3s')
-  .hero(0.4)
-  .build();          // ≡ the storyboard data below
-
-// storyboard data — generated / serialized (what the LLM emits, §8)
-storyboard({ hero: 0.4, parts: [ /* … */ ] });
-```
-
-Both compile to the §5 spec; a raw spec object is the total primitive. This is exactly
-Vetrina's `scene()` / `storyboard` / raw trichotomy — the fluent form for humans, the
-data form for generation and round-tripping, the raw form as the escape hatch.
+Invariants the grammar enforces, each echoing the house discipline and §2: a **closed primitive +
+motion vocabulary** whose verbs map to the *serious* classes (`orbit`/`spin` = explanatory 3D;
+`sequence` = mechanism; `fill`/`trace` = data-bound; `explode` = structure) — **no arbitrary
+keyframes/easing** (pick a *role*, like `--fs-*` type); a **declared `hero` time** (deterministic
+poster); **token-only colour**; and a **deterministic core** (no `Math.random`/wall-clock in
+`compile`/`at`, so an asset renders one reproducible poster — required by the byte-stable export
+gate).
 
 ## 7. The static path is a backend CAPABILITY — vector poster, canonical
 
-Settled by `2026-06-19-css-3d-charts-feasibility.md` §5 and the `video` poster
-precedent: the exported PDF/PPTX shows a **poster** — a still at the declared `hero`
-time — and it must be **vector wherever it is canonical**, because zooming a PDF keeps
-SVG razor-sharp while any **raster/WebGL frame pixelates** to a fixed bitmap. Under
-`prefers-reduced-motion`, live surfaces show the poster too.
+Settled by `2026-06-19-css-3d-charts-feasibility.md` §5 + the `video`/`image` precedent: the
+exported PDF/PPTX shows a **poster** (a still at the `hero` time), and it must be **vector where it
+is canonical**, because a zoomed PDF keeps SVG razor-sharp while any **raster/WebGL frame
+pixelates**. Under `prefers-reduced-motion`, live surfaces show the poster too. In the library this
+is *just a capability*: `poster: true` ⇒ `vector: true`.
 
-In this library that constraint is **just a capability**: `poster: true` requires
-`vector: true`. So:
+- **Zdog** (`vector, poster, live`) paints the **canonical poster** and can run live — the default.
+- **Three.js** (`true3d, gltf, live`, **not** `poster`) is **present-mode-only**; its still is a
+  rasterized lower-fidelity preview (flagged) or an author-supplied vector `poster` override (the
+  escape hatch `image`/`video` already give).
 
-- **Zdog** (`vector`, `poster`) paints the **canonical poster** and can also run live.
-- **Three.js** (`true3d`, `gltf`, `live`, **not** `poster`) is **present-mode-only**;
-  its still is either a rasterized lower-fidelity preview (flagged) or an author-supplied
-  vector `poster` override (the same escape hatch `video` gives Instagram).
+The **scene asset carries its poster**, so the `image`-style host (§9) frames a scene exactly as it
+frames a photo, and the PDF path is unchanged plumbing.
 
-### 7.1 "Multiple engines at the same time" — the three in-scope shapes
+## 8. Authoring & tuning — the LLM emits/edits the spec, never code
 
-1. **Different scenes, different backends** in one deck — scene A on Zdog, scene B on
-   Three. Falls straight out of the adapter model.
-2. **One scene, two backends for two purposes** — Zdog renders the **vector poster**
-   (canonical, for the PDF) while Three renders the **live** view (present mode). This
-   is the poster/live split expressed as capability-routed multi-backend, and it is the
-   cleanest answer to the ask: the *same spec*, painted by the engine each surface needs.
-3. **Layered co-render (GATED, later)** — Zdog vector foreground composited over a Three
-   WebGL background in one scene. Powerful but real work (z-order across a vector +
-   GPU layer, shared camera); staged, not v1.
+The create-and-tune loop is the component-generator flow (`2026-06-29` §7) with a scene-shaped
+knowledge file:
 
-## 8. LLM authoring — the model emits the DSL/spec, never code
+```
+describe → model proposes {scene spec}   (Anima knowledge-file in context)
+        → schema-validate + scene-exfil scan + size cap + caps check
+            ├─ clean → render live + poster → human review (the utility gate) → SAVE as kind:'scene'
+            └─ fail  → show findings → regenerate
+tune    → edit spec fields / DSL controls (human or model) → re-validate → re-render → re-save
+```
 
-Unchanged from the first draft and now the library's front door. The model proposes a
-**schema-validated declarative spec** (the storyboard data form, §6); the **vetted,
-library-owned core** (`compile`) interprets it; a backend paints it. No LLM-authored
-JavaScript ever reaches a renderer.
+- **HARD RULE #22 (the keystone).** The Studio renders untrusted decks into a same-origin `srcdoc`
+  iframe; LLM-written engine JS is arbitrary code execution → key theft. A spec is **data**:
+  schema-validated, no `eval`, no remote fetch, size-capped, exfil-scanned. The vetted,
+  library-owned `compile` interprets it; a backend paints it. **No LLM JS ever reaches a renderer.**
+- **The proven shape.** "Model proposes within a tight contract; deterministic code disposes"
+  (Theme-AI #613; Component-AI `2026-06-29`, whose §9 routes *transform-bearing/behavioral*
+  components to the closed **#618 DSL** — a scene **is** transform-bearing, so Anima is that DSL's
+  scene chapter, inheriting its safety envelope).
+- **Why tuning is pleasant** — the spec is small, diffable data. "Rotate the device 15° more, slow
+  the cycle to 8s, recolor the housing to `--accent`" is a three-field edit the human or model
+  makes and the schema validates — the literal "tune the asset" of the ask.
 
-- **HARD RULE #22** — the Studio renders untrusted decks into a same-origin `srcdoc`
-  iframe; LLM-written engine JS is arbitrary code execution → key theft. A spec is data:
-  schema-validated, no `eval`, no remote fetch, size-capped, exfil-scanned (the
-  `findCssExfil`/`findSkeletonHtml` analog for the scene payload).
-- **The proven Lattice shape** — "model proposes within a tight contract; deterministic
-  code disposes" (Theme-AI #613; **AI component generation** `2026-06-29`). That ADR's §9
-  routes *transform-bearing / behavioral* components to the closed **#618 DSL** (safe
-  `match→do`, closed registry, **no user JS**). **A scene is transform-bearing** — Anima
-  *is* the scene chapter of that DSL track, inheriting its safety envelope.
-- **Why iteration is pleasant** — the spec is small, diffable, human-readable data.
-  "Tilt the drone 10° more and recolor the rotor to the accent" is a two-field edit the
-  model or a human makes and the schema validates — not a re-generated code blob.
+## 9. The host `scene` COMPONENT — an `image`-shaped frame
 
-## 9. Theming — palette-blind, CSS-first (Vetrina's `--vt-*` model)
+One component (imagery bucket, beside `image`/`video`), deliberately **thin**: it references a scene
+asset and **frames** it. It mirrors `image` — *the layout reads the asset and resolves the
+composition; name a variant to override* — so an author already fluent in `image` knows it:
 
-Every colour in a spec is a **`var(--token)`** reference resolved at paint (HARD RULE
-#3): surface/ink tokens for form, `--accent` for the one emphasis, `--cat-1..12` for
-categorical parts. The library's own chrome (controls, poster matte) is a validated
-`--anima-*` token contract exactly like `--vt-*` — host CSS restyles it, light/dark for
-free, and any `url()`/`image()`/control-char token value is rejected (token values are
-host-trusted, never wire/AI content — Vetrina's rule).
+| `scene` variant | mirrors `image` | Frame |
+|---|---|---|
+| `clean` | clean | floated card sized to the scene, caption chrome dropped |
+| `split` | split | the scene takes its own column, argument alongside |
+| `spotlight` | spotlight | full-bleed; message rides a solid card |
+| `gallery` | gallery | contained on a matte with a placard — the exhibit |
+| `statement` | statement | full-bleed + scrim + title hero |
+| `mirror` | mirror | flips the scene to the other side |
 
-## 10. The `scene` component — one thin consumer
+Slots mirror `image`: the **scene asset** (referenced like `![scene](asset-id)` — resolved to the
+Anima mount, not an `<img>`), an optional **heading** (the so-what), an optional **body/caption**.
+All motion logic lives in the library + the asset; the component is glue — the way `use-studio-demo`
+is glue over Vetrina. A second host later (e.g. a `compare` that seats two scenes) is additive and
+out of scope now (HARD RULE #17: one host, one PR).
 
-The component is small: `imagery` bucket (beside `video`/`image`, reusing its poster +
-`companion`/`gallery` compositions). Its transform hands the authored spec to Anima,
-mounts the capability-appropriate backend for the surface, and wires the poster into the
-PDF path. All the animation logic lives in the library; the component is glue — the way
-`use-studio-demo.ts` is glue over Vetrina. Anima can equally back a future Studio "scene
-inspector," a docs-site interactive, or a standalone export, without touching the engine.
+## 10. Theming — palette-blind, CSS-first (Vetrina's `--vt-*` model)
 
-## 11. Where it lives, library-shape, spin-off later
+Every colour in a spec is a **`var(--token)`** reference resolved at paint (HARD RULE #3): surface/
+ink for form, `--accent` for the one emphasis, `--cat-1..12` for categorical parts. The library's
+own chrome is a validated `--anima-*` token contract like `--vt-*`; host CSS restyles it, light/dark
+for free, and `url()`/`image()`/control-char token values are rejected (host-trusted, never wire/AI
+content). A scene asset **recolors with the theme** — the same asset reads correctly in every theme
+and the a11y/CVD palettes.
 
-Follows `2026-07-08-library-shape-cadenza-vetrina.md` step for step:
+## 11. Library shape, spin-off later
 
-- **Home:** `docs/src/lib/anima/` — pure, framework-free, `node:`+relative imports only,
-  barrel `index.ts`, README, per-module unit tests (`*.test.ts`, vitest).
-- **Boundary gate:** `checkAnimaBoundary` in `tools/check-ownership.js` — no import
-  outside `./` fails the build. This is the spin-off contract.
-- **Engine adapters are sanctioned peer-deps** — the `three` backend imports `three` (a
-  heavy external) only in `backends/three.ts`, allowlisted (`ANIMA_ADAPTER_DEPS`, the
-  `VETRINA_ADAPTER_DEPS` pattern). The **Zdog backend is bundled** (tiny, and it is the
-  canonical/poster path, so it can't be optional). The pure core stays zero-dep.
-- **The poster runs where slides render** — the existing export pipeline renders slides
-  in headless Chromium, so the Zdog backend paints the poster SVG in-page like charts do;
-  no Node-native graphics needed. When the export pipeline (root CJS) needs to drive it
-  directly, Anima gets the same **workspace + CJS `dist/`** treatment the library-shape
-  ADR gives Cadenza.
-- **Spin-off** = move the dir out + `npm publish`, later, deliberately.
+Follows `2026-07-08-library-shape-cadenza-vetrina.md`: home `docs/src/lib/anima/`, pure and
+framework-free (`node:`+relative only), `checkAnimaBoundary` gate = the spin-off contract. The
+**Three backend imports `three` only in `backends/three.ts`**, allowlisted (`ANIMA_ADAPTER_DEPS`,
+the `VETRINA_ADAPTER_DEPS` pattern); the **Zdog backend is bundled** (tiny, and it's the canonical
+poster path). The poster renders where slides render (headless Chromium), so Zdog paints the poster
+SVG in-page like charts do — no Node-native graphics. When the root export pipeline must drive Anima
+directly, it gets the same **workspace + CJS `dist/`** treatment as Cadenza. Spin-off = move the dir
+out + `npm publish`, later.
 
-## 12. The discipline — anti-wizbang, enforced by the DSL
+## 12. Discipline — the "information a still cannot carry" test, enforced
 
-The library is the enforcement mechanism for narrative-step §8. Motion is admitted only
-when declared, from the closed vocabulary, meaning-bearing, and poster-degradable.
+§2 *is* the anti-wizbang line (narrative-step §8) sharpened for this feature. The library enforces
+it: the motion vocabulary is **closed** and its verbs map to the serious classes; there is no
+free-easing/keyframe surface to build ornament with.
 
 ### 12.1 Banned by construction (if any appears, the feature failed)
 
-- **No per-keyframe / timeline-editor authoring** — you declare parts + typed motion
-  roles, never hand-animate frames (narrative-step §8.1's "no animation pane").
-- **No entrance/exit spectacle** (fly-in, bounce, spin-on-reveal, typewriter, star-wipe)
-  — motion describes the *object*, not a slide transition.
-- **No decorative particle storms / confetti / physics playground** — the PixiJS niche
-  §7 defers; adopting a raster engine for spectacle is exactly the line.
+- **No motion a still could replace** — the §2 test; if one frame carries it, it's an `image`.
+- **No bouncing-ball / particle / mascot / ambient-loop ornament** — the gimmick set, explicitly.
+- **No per-keyframe timeline-editor authoring** — declare parts + typed motion roles, never
+  hand-animate frames (narrative-step §8.1's "no animation pane").
+- **No entrance/exit or slide-transition spectacle** (fly-in, bounce, spin-on-reveal, typewriter,
+  star-wipe, cube) — motion describes the *object/process*, not the slide.
 - **No autoplay audio; no motion that can't reduce to the poster.**
-- **No arbitrary user JS** — the §8 spec boundary is absolute.
-- **"Cartoon" = illustration, not cartoonish effects.** A clean Zdog object is in scope;
-  a mascot doing a backflip on entry is the banned bundle in a costume. This is the
-  riskiest edge — the meaning-bearing gate + human review hold it.
+- **No arbitrary user JS** — §8's spec boundary is absolute.
 
-### 12.2 Reduced motion — Vetrina's three-tier policy
+### 12.2 Reduced motion — Vetrina's three tiers
 
-`prefers-reduced-motion` targets *vestibular* motion, not content the viewer reads by.
-Anima adopts Vetrina's `full` / `legible` / `still` tiers: `legible` suppresses
-sweeping camera orbits/parallax but may keep a gentle, meaning-bearing reveal; `still`
-collapses to the poster. `system` resolves a reduced-motion device to `legible` (or, for
-a scene whose whole content *is* vestibular, to the poster).
+`full` plays; `legible` suppresses vestibular sweeps/orbits but may keep a gentle meaning-bearing
+reveal; `still` collapses to the poster. `system` resolves a reduced-motion device to `legible`, or
+to the poster for a scene whose whole content is vestibular.
 
 ## 13. Honest risk read
 
-- **The renderer abstraction can leak.** A single `SceneState` that must paint on both
-  pseudo-3D vector (Zdog) and true-3D GPU (Three) will not express *everything* both can
-  do; the IR must target the **honest intersection** for portable scenes and gate
-  engine-specific richness behind `caps`. Capability negotiation (§4.1) is the release
-  valve, but the IR design is the hard part — call it the make-or-break, like Cadenza's
-  spoken/display split.
-- **Aesthetic drift toward spectacle** — the "cartoon" pull. Held by §12 + human review.
-- **Three.js weight** — ~600KB and a raster poster. Mitigation: ship **Zdog-only first**;
-  Three is a gated later tier that must earn its weight with a real meaning-bearing case.
-- **Scope creep into a general animation engine.** Anima is for *slide-enhancing,
-  poster-degradable* motion — not a game loop or a motion-graphics tool. The closed
-  vocabulary and the poster requirement are the fence.
+- **The utility bar is a discipline, not a gate.** No machine can see "this rotation is
+  informative." §2's test + human review at the Quality Bar hold it — the same honest residue the
+  component generator accepts for "tasteful." The knowledge file must *teach* the serious classes
+  and the decline, or the model will drift to ornament.
+- **The `SceneState` IR is the make-or-break** — an engine-neutral intersection expressive on both
+  pseudo-3D vector (Zdog) and true-3D GPU (Three); `caps` gates engine-specific richness. Like
+  Cadenza's display/spoken split, this is the hard design.
+- **Three.js weight** (~600KB, raster poster) — ship **Zdog-only first**; Three is a gated later
+  tier that must earn its weight with a real §2 case (a genuine GLTF/true-3D need).
+- **Scope creep into a motion-graphics tool.** The closed vocabulary + the poster requirement + the
+  §2 test are the fence; Anima is for slide-serving, poster-degradable, information-bearing motion —
+  not a game loop or an FX suite.
 
 ## 14. Staged plan (each its own increment / branch — HARD RULE #17)
 
-1. **The pure core** — the spec schema, `compile` → timeline, `timeline.at(t)` →
-   `SceneState`, the closed vocabulary. Zero deps, boundary-gated, unit-tested. No
-   backend yet (test against the data).
-2. **The Zdog backend** — `caps:{vector,poster,live}`, `mount/draw/poster/dispose`;
-   deterministic vector poster. This alone makes a hand-authored scene render live +
-   poster.
-3. **The `scene` component** (imagery) — spec → Anima → poster wired into the PDF path;
-   demo deck (#9); dark+light **export sign-off** (QUALITY BAR).
-4. **Reduced-motion + present-mode wiring** — the three tiers; live on HTML export +
-   Studio present, poster on PDF and `still`.
-5. **The DSL fluent recorder + the LLM authoring loop** — `scene()`; the Anima
-   knowledge-file + generator extending the component-generator contract; a frozen
-   adversarial prompt set incl. a *decline* case (banned spectacle refused) and a
-   *poster-determinism* case.
-6. **The Three.js backend** (GATED, may be cut) — `caps:{true3d,gltf,live}`, present-only,
-   raster-or-override poster; capability negotiation enforced. Ships only if a real case
-   earns the weight.
-7. **Library-shape packaging** (workspace + CJS `dist/`) if/when the root export pipeline
-   must drive Anima directly — per the 2026-07-08 recipe. **Layered co-render (§7.1.3)**
-   remains a deferred, gated experiment.
+1. **Anima pure core** — spec schema, `compile`→timeline, `timeline.at`→`SceneState`, the closed
+   vocabulary. Zero-dep, boundary-gated, unit-tested against the data (no backend yet).
+2. **Zdog backend** — `caps:{vector,poster,live}`; deterministic vector poster. A hand-authored
+   scene renders live + poster.
+3. **The `kind:'scene'` asset** — extend `asset-bundle.ts` / `asset-store` with the scene kind
+   (spec + poster + metadata); save/load/share.
+4. **The host `scene` component** (imagery) — the image-mirrored variants; asset → Anima mount;
+   poster wired into the PDF path. Demo deck (#9); dark+light **export sign-off** (QUALITY BAR).
+5. **Reduced-motion + present-mode wiring** — the three tiers; live on HTML export + Studio present,
+   poster on PDF and `still`.
+6. **The scene-inspector + LLM create/tune loop** — the Studio surface + the Anima knowledge file &
+   generator (extending the component-generator contract); a frozen adversarial prompt set with a
+   **decline case** (an ornament/bouncing-ball request must be refused and routed to `image`) and a
+   **poster-determinism** case.
+7. **Three.js backend** (GATED, may be cut) — `caps:{true3d,gltf,live}`, present-only,
+   raster-or-override poster, capability-negotiated. Ships only if a real §2 case earns the weight.
+   **Library-shape packaging** and **a second host / layered co-render** remain deferred.
 
 ## 15. Open questions (impl ADR)
 
-- The `SceneState` IR — the exact engine-neutral intersection, and how `caps` gate the
-  engine-specific extras (the §13 make-or-break).
-- The closed primitive + motion vocabulary (which Zdog shapes; the motion roles + params).
-- Present-mode integration — does a scene animate on slide-enter, on narrative-step
-  advance (`2026-06-16-narrative-step-model.md` — a scene is a candidate steppable unit),
-  or on a control?
+- The `SceneState` IR — the engine-neutral intersection and how `caps` gate the extras (§13).
+- The closed primitive + motion vocabulary, keyed to the §2 serious classes (which Zdog shapes;
+  the motion roles + params; how `sequence`/`fill`/`explode` are declared).
+- Present-mode integration — does a scene advance on slide-enter, on narrative-step advance
+  (`2026-06-16-narrative-step-model.md` — a scene is a candidate steppable unit), or on a control?
 - GLTF import — in scope for the Three tier v1, or Zdog-authored geometry only?
-- The Anima knowledge-file's worked examples (the make-or-break generator deliverable,
-  per component-generator §4.8).
+- The asset bundle shape (spec + poster + caps) and the scene-inspector's tuning controls.
+- The Anima knowledge-file's worked examples across the serious classes (the make-or-break
+  generator deliverable, per component-generator §4.8).
 
 ## 16. Relationships
 
+- **Rides the fabricated-asset rail of** the Theme-AI (#613) and **Component-AI**
+  (`2026-06-29-ai-component-generation.md`) — `kind:'scene'` joins `kind:'theme'`/`'component'` in
+  `asset-bundle.ts` / `asset-store.js`; extends the transform-bearing #618 DSL track (§9).
 - **Copies the library shape of** `2026-07-05-vetrina-walkthrough-library.md` and
-  `2026-07-07-cadenza-caption-timeline.md`; **packages per**
-  `2026-07-08-library-shape-cadenza-vetrina.md`.
-- **Generalizes Cadenza's injected clock to an injected renderer** (§4).
-- **Extends** `2026-06-29-ai-component-generation.md` §9 — the transform-bearing / #618-DSL
-  track; inherits its propose-within-a-contract architecture and safety envelope.
-- **Applies** `2026-06-19-css-3d-charts-feasibility.md` §5 — vector-vs-raster / PDF-zoom
-  is why `poster` requires `vector`, Zdog is canonical, and Three is present-only.
-- **Governed by** `2026-06-16-narrative-step-model.md` §8 (anti-wizbang); a scene is a
-  candidate steppable unit under §2.
-- **Bound by** HARD RULES #3 (tokens), #15 (don't multiply runtimes — Pixi deferred, not
-  reflexively adopted), #22 (no user JS in the preview frame), #9 (demo deck), and the
-  QUALITY BAR export sign-off.
+  `2026-07-07-cadenza-caption-timeline.md`; **packages per** `2026-07-08-library-shape-*`.
+- **Mirrors the `image` component** (`lib/components/imagery/image/`) for the host + variants.
+- **Applies** `2026-06-19-css-3d-charts-feasibility.md` §5 — vector-vs-raster / PDF-zoom is why
+  `poster` requires `vector`, Zdog is canonical, Three is present-only.
+- **Governed by** `2026-06-16-narrative-step-model.md` §8 (anti-wizbang) — §2 is its sharpened form.
+- **Bound by** HARD RULES #3 (tokens), #8/#9 (graduation + demo deck), #15 (don't multiply runtimes
+  — Pixi deferred), #17 (one host, one PR), #22 (no user JS in the preview frame), and the QUALITY
+  BAR export sign-off.
 
 ## 17. Gates (for each increment when it lands)
 
-Deterministic poster (byte-stable for an unchanged spec); `tools/pixel-check.js` on the
-poster; dark+light export sign-off; reduced-motion verified on the **real** live surface
-(HARD RULE #23 — not a harness); schema-validation + scene-exfil + size-cap tests; the
-`checkAnimaBoundary` import gate green; lint · `build:check` · unit · integration green;
-maker-checker on the core + each backend (an engine transform = real blast radius, HARD
-RULE #25).
+Deterministic poster (byte-stable for an unchanged spec); `tools/pixel-check.js` on the poster;
+dark+light export sign-off; reduced-motion verified on the **real** live surface (HARD RULE #23);
+schema-validation + scene-exfil + size-cap + caps-negotiation tests; the `checkAnimaBoundary` gate
+green; lint · `build:check` · unit · integration green; maker-checker on the core + each backend (an
+engine transform = real blast radius, HARD RULE #25).
