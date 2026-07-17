@@ -258,7 +258,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// (Settings group) are independent, so the coach stays up while you tune.
 	// Merging the old inspectorOpen + inspectorScope into ONE nullable enum makes
 	// the illegal "open with no scope" state unrepresentable.
-	const [activeAssistant, setActiveAssistant] = React.useState<'architect' | null>(() => (posture === 'build' ? 'architect' : null)); // the coach docks in Build; Write starts calm
+	const [activeAssistant, setActiveAssistant] = React.useState<'architect' | null>(null); // panels start closed at every stop; Build shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
 	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
@@ -673,11 +673,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Panels are persistent columns on desktop, on-demand sheets below it. Reset
 	// their open state to the right default whenever the breakpoint flips so a
 	// compact load never auto-pops a sheet and a return to desktop re-docks them.
-	// A newcomer (read via ref so graduating mid-session doesn't slam panels) keeps
-	// the Architect closed on desktop too — reduced density until they engage.
+	// Panels close on a breakpoint flip and open on demand — posture never
+	// force-opens the coach (T2 §4.5 orthogonality); Build's signal is the visible
+	// activity-bar launcher, not an auto-docked panel.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the breakpoint flip itself — the body reads no reactive value, but the RESET must fire whenever `compact` changes (a stranded sheet on resize is the bug this closes).
 	React.useEffect(() => {
-		if (compact) { setActiveAssistant(null); setActiveSettings(null); }
-		else { setActiveAssistant(postureRef.current === 'build' ? 'architect' : null); setActiveSettings(null); }
+		setActiveAssistant(null); setActiveSettings(null);
 		// The "⋯ More" overflow only exists on compact; close it across any tier flip
 		// so a menu opened on a phone doesn't strand open after a resize to desktop
 		// (where its trigger unmounts) — red-team H4.

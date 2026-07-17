@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import StudioShell from './StudioShell';
@@ -87,6 +87,9 @@ function setup() {
 describe('StudioShell — smoke', () => {
 	it('renders the lean bar, the active deck, and the three Compose panes', () => {
 		setup();
+		// Panels start closed at every stop (Build shows the activity-bar launcher; panels
+		// open on demand — posture never force-opens one). Dock the Coach to assert its cards.
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' }));
 		expect(screen.getByText('Lattice')).toBeInTheDocument();
 		expect(screen.getByText('Q3 Board Review')).toBeInTheDocument();
 		expect(screen.getByText('Architect')).toBeInTheDocument();
@@ -182,6 +185,7 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		// beforeEach seeds the Build posture (the migration target for a legacy engaged
 		// user; the onboarded→posture migration itself is covered in studio-store.test.ts).
 		render(<StudioShell options={options} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' }));
 		expect(screen.queryByText(/New here\?/)).not.toBeInTheDocument();
 		expect(screen.getByText('Board-ready')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
@@ -342,6 +346,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 
 	it('shows a live, deck-reactive Architect scorecard', () => {
 		setup();
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' }));
 		// The default deck is clean + varied + titled → the readiness rows reflect it.
 		expect(screen.getByText('Board-ready')).toBeInTheDocument();
 		expect(screen.getByText('Components valid')).toBeInTheDocument();
@@ -365,6 +370,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('previewing a reader view reshapes the Compose preview, and clears back to full', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} components={q3Catalog} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // dock the Coach — Lenses live in it
 		expect(screen.getByText('Slide 1 / 6')).toBeInTheDocument();
 		// Build a Bottom-line view (suggester-proposed members) and preview it — the Compose preview
 		// reshapes to that view's slides (a strict subset). Author-side preview needs no approval.
@@ -386,6 +392,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('the human-in-the-loop gate: Present offers a reader view ONLY after the author approves it', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} components={q3Catalog} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // dock the Coach — Lenses live in it
 
 		// Add a Bottom-line reader view and accept the suggester's proposal (it becomes a DRAFT).
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
@@ -655,6 +662,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('a fresh deck inherits both starter views as rows, and the Add menu no longer offers them', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // dock the Coach — Lenses live in it
 		// Both inherited starters appear in the Lenses panel without the author adding anything.
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();
 		expect(screen.getByText('The evidence')).toBeInTheDocument();
@@ -671,6 +679,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('the empty inherited "Bottom line" cannot be previewed (no blank-rail flash / lying toast)', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // dock the Coach — Lenses live in it
 		// Expand Bottom line (base:none, 0 members) — its Preview button is disabled until a slide is tagged.
 		await user.click(screen.getByText('Bottom line'));
 		const preview = screen.getAllByRole('button', { name: /^Preview$/ }).at(-1) as HTMLButtonElement;
@@ -680,6 +689,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('an inherited view is reader-invisible until approved — the same human gate (fail closed)', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // dock the Coach — Lenses live in it
 		// The inherited "The evidence" (base:all) already has every slide as a member, but it is UNAPPROVED,
 		// so Present must not offer it to a reader.
 		await user.click(screen.getByRole('button', { name: 'Present' }));
@@ -706,6 +716,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 		// the shape loadSource reads).
 		localStorage.setItem('lattice-studio-src-q3-board', JSON.stringify('<!-- _class: title -->\n<!-- _lens: +brief -->\n\n# Q3\n\n---\n\n## Detail'));
 		render(<StudioShell options={options} />);
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // dock the Coach — Lenses live in it
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();
 		expect(screen.getByText('The evidence')).toBeInTheDocument();
 		// brief is tagged → no longer an untouched Starter; only the untouched evidence keeps its badge.

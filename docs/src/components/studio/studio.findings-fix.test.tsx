@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import StudioShell from './StudioShell';
@@ -64,6 +64,10 @@ afterEach(() => {
 function setup() {
 	const user = userEvent.setup();
 	render(<StudioShell options={options} />);
+	// Panels start closed at every stop now (Build shows the activity-bar launcher;
+	// panels open on demand — posture never force-opens one). These flows exercise the
+	// docked Coach, so open it from the bar.
+	fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' }));
 	return user;
 }
 
