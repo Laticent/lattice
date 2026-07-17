@@ -433,6 +433,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const hasDecoration = tints.length > 0 || marks.length > 0;
 	const tabDefs = [
 		...(editable ? [{ value: 'look', label: 'Look' }] : []),
+		...(editable ? [{ value: 'brand', label: 'Brand' }] : []),
 		...(editable && hasStatus ? [{ value: 'status', label: 'Status' }] : []),
 		...(editable && hasDecoration ? [{ value: 'decoration', label: 'Decoration' }] : []),
 		...(editable ? [{ value: 'chrome', label: 'Chrome' }] : []),
@@ -562,10 +563,11 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 						</div>
 					)}
 
-					{/* LOOK */}
+					{/* LOOK — identity + surface for this one slide (the accent/spectrum family
+					    lives in Brand, mirroring the deck Inspector). */}
 					{activeTab === 'look' && (
 						<div className="py-1">
-							<TabIntro>How this one slide looks — its canvas, text size, backdrop, and brand bar. Anything you don't set here is inherited from the deck.</TabIntro>
+							<TabIntro>How this one slide looks — its canvas, text size, and backdrop. Anything you don't set here is inherited from the deck.</TabIntro>
 							<Row label="Canvas" hint={canvas.state === 'auto' && canvas.deckValue ? `${canvas.deckValue} · deck` : undefined} desc="Light or dark surface for this one slide. Auto follows the deck (or the site); Light or Dark pins THIS slide regardless — so a bright slide can sit inside a dark deck, or vice-versa.">
 								<Seg
 									ariaLabel="Slide canvas"
@@ -585,6 +587,21 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<Row label="Finish" hint={finish.state === 'inherited' ? 'inherited' : undefined} desc="A backdrop texture behind the content — a soft gradient or grain. Inherited from the deck unless you override it here.">
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} />
 							</Row>
+							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
+							{accepts('compact') && (
+								<Row label="Compact" hint="tighter spacing" desc="Tightens the space between elements on this slide.">
+									<Switch label="Compact spacing" on={has('compact')} onClick={() => toggle('compact')} />
+								</Row>
+							)}
+							{accepts('accent') && <Row label="Accent" desc="Emphasizes this layout's key element in the theme's accent color."><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
+						</div>
+					)}
+
+					{/* BRAND — where the accent/spectrum shows on this slide (mirrors the deck
+					    Inspector's Brand tab: bar, card rails, structural trim, heading marks). */}
+					{activeTab === 'brand' && (
+						<div className="py-1">
+							<TabIntro>Where the accent shows on this slide — the brand bar, card rails, trim, and heading marks. Anything you don't set is inherited from the deck.</TabIntro>
 							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The colored strip on the slide's top edge (a divider shows it as a left rail). None removes it; Solid/Duo/Mono repaint it in the theme's accent.">
 								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />
 							</Row>
@@ -608,13 +625,6 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							<Row label="Eyebrow" hint={eyebrowProv.state === 'inherited' ? 'from deck' : undefined} desc="The mark on this slide's mono-caps kicker — a dot, bar, arrow, underline, or plain.">
 								<Picker ariaLabel="Eyebrow" value={eyebrowOpt.value} onChange={onEyebrow} options={eyebrowOpt.options} />
 							</Row>
-							{/* `loose` retired 2026-07-03; `compact` is now a lone toggle. */}
-							{accepts('compact') && (
-								<Row label="Compact" hint="tighter spacing" desc="Tightens the space between elements on this slide.">
-									<Switch label="Compact spacing" on={has('compact')} onClick={() => toggle('compact')} />
-								</Row>
-							)}
-							{accepts('accent') && <Row label="Accent" desc="Emphasizes this layout's key element in the theme's accent color."><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
 						</div>
 					)}
 
