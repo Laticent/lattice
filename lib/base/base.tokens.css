@@ -215,6 +215,16 @@
    *   --cat-N-mark   saturated stroke / mark / cScale  (was --cN-dark)
    *   --cat-on-fill  ink for text placed ON a -fill    (was --c-ink-light)
    *   --cat-on-mark  ink for text placed ON a -mark    (was --c-ink-dark)
+   *   --cat-N-texture  OPTIONAL non-color channel — a `url(#…)` SVG pattern that
+   *                    REPLACES the -fill on every categorical diagram. Default
+   *                    UNSET: the canonical consumers paint `var(--cat-N-texture,
+   *                    var(--cat-N-fill))`, so a theme that declares nothing is
+   *                    color-only (unchanged). A theme that CAN'T separate by
+   *                    color (onyx/concrete monochrome, a11y CVD, print B&W)
+   *                    opts in by pointing these 12 tokens at a pattern set from
+   *                    lib/core/accessibility-textures.js — texturing mindmap,
+   *                    pie, kanban, timeline, treemap, … at once, no per-selector
+   *                    wiring. See 2026-07-16-universal-texture-channel.md.
    *
    * `fill` / `mark` / `on-fill` / `on-mark` are WYSIWYM and collision-free
    * (`ink` was already taken by the on-fill text token; the `--accent` /

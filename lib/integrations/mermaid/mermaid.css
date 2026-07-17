@@ -153,6 +153,9 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * to `!important`. See engineering/decisions/2026-06-18-chart-mermaid-style-separation.md.
  */
 :is(section, figure) .radarGraticule {
+  /* Decorative background grid, NOT a category — stays a flat tint (a texture
+     pattern here reads as speckle behind the plot). Universal texture channel
+     deliberately skipped. See 2026-07-16-universal-texture-channel.md. */
   fill: var(--cat-1-fill) !important;
   fill-opacity: 0.25 !important;
   stroke: var(--diagram-stroke) !important;
@@ -205,43 +208,43 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * so every diagram type lands on a tested-contrast band.
  */
 :is(section, figure) .cluster.section--1 rect, :is(section, figure) .section--1 rect,
-:is(section, figure) .section--1 path, :is(section, figure) .section--1 circle { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section--1 path, :is(section, figure) .section--1 circle { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section--1 text, :is(section, figure) .section--1 tspan, :is(section, figure) .section--1 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-0 rect, :is(section, figure) .section-0 rect,
-:is(section, figure) .section-0 path, :is(section, figure) .section-0 circle { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-0 path, :is(section, figure) .section-0 circle { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-0 text, :is(section, figure) .section-0 tspan, :is(section, figure) .section-0 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-1 rect, :is(section, figure) .section-1 rect,
-:is(section, figure) .section-1 path, :is(section, figure) .section-1 circle { fill: var(--cat-2-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-1 path, :is(section, figure) .section-1 circle { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-1 text, :is(section, figure) .section-1 tspan, :is(section, figure) .section-1 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-2 rect, :is(section, figure) .section-2 rect,
-:is(section, figure) .section-2 path, :is(section, figure) .section-2 circle { fill: var(--cat-3-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-2 path, :is(section, figure) .section-2 circle { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-2 text, :is(section, figure) .section-2 tspan, :is(section, figure) .section-2 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-3 rect, :is(section, figure) .section-3 rect,
-:is(section, figure) .section-3 path, :is(section, figure) .section-3 circle { fill: var(--cat-4-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-3 path, :is(section, figure) .section-3 circle { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-3 text, :is(section, figure) .section-3 tspan, :is(section, figure) .section-3 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-4 rect, :is(section, figure) .section-4 rect,
-:is(section, figure) .section-4 path, :is(section, figure) .section-4 circle { fill: var(--cat-5-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-4 path, :is(section, figure) .section-4 circle { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-4 text, :is(section, figure) .section-4 tspan, :is(section, figure) .section-4 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-5 rect, :is(section, figure) .section-5 rect,
-:is(section, figure) .section-5 path, :is(section, figure) .section-5 circle { fill: var(--cat-6-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-5 path, :is(section, figure) .section-5 circle { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-5 text, :is(section, figure) .section-5 tspan, :is(section, figure) .section-5 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-6 rect, :is(section, figure) .section-6 rect,
-:is(section, figure) .section-6 path, :is(section, figure) .section-6 circle { fill: var(--cat-7-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-6 path, :is(section, figure) .section-6 circle { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-6 text, :is(section, figure) .section-6 tspan, :is(section, figure) .section-6 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-7 rect, :is(section, figure) .section-7 rect,
-:is(section, figure) .section-7 path, :is(section, figure) .section-7 circle { fill: var(--cat-8-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-7 path, :is(section, figure) .section-7 circle { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-7 text, :is(section, figure) .section-7 tspan, :is(section, figure) .section-7 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-8 rect, :is(section, figure) .section-8 rect,
-:is(section, figure) .section-8 path, :is(section, figure) .section-8 circle { fill: var(--cat-9-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-8 path, :is(section, figure) .section-8 circle { fill: var(--cat-9-texture, var(--cat-9-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-8 text, :is(section, figure) .section-8 tspan, :is(section, figure) .section-8 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-9 rect, :is(section, figure) .section-9 rect,
-:is(section, figure) .section-9 path, :is(section, figure) .section-9 circle { fill: var(--cat-10-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-9 path, :is(section, figure) .section-9 circle { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-9 text, :is(section, figure) .section-9 tspan, :is(section, figure) .section-9 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-10 rect, :is(section, figure) .section-10 rect,
-:is(section, figure) .section-10 path, :is(section, figure) .section-10 circle { fill: var(--cat-11-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-10 path, :is(section, figure) .section-10 circle { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-10 text, :is(section, figure) .section-10 tspan, :is(section, figure) .section-10 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 :is(section, figure) .cluster.section-11 rect, :is(section, figure) .section-11 rect,
-:is(section, figure) .section-11 path, :is(section, figure) .section-11 circle { fill: var(--cat-12-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .section-11 path, :is(section, figure) .section-11 circle { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .section-11 text, :is(section, figure) .section-11 tspan, :is(section, figure) .section-11 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 
 
@@ -254,7 +257,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) .node .label-container,
 :is(section, figure) .node .basic.label-container,
 :is(section, figure) .node .outer-path {
-  fill: var(--cat-1-fill) !important;
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
   stroke: var(--diagram-stroke) !important;
 }
 
@@ -270,29 +273,29 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * so older renders inherit the same contract.
  */
 :is(section, figure) .section-type-0 rect, :is(section, figure) .section0 rect,
-:is(section, figure) .task-type-0 rect,    section .task0 rect    { fill: var(--cat-1-fill) !important; }
+:is(section, figure) .task-type-0 rect,    section .task0 rect    { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
 :is(section, figure) .section-type-0 text, :is(section, figure) .section0 text,
 :is(section, figure) .task-type-0 text,    section .task0 text    { fill: var(--cat-on-fill) !important; }
 
 :is(section, figure) .section-type-1 rect, :is(section, figure) .section1 rect,
-:is(section, figure) .task-type-1 rect,    section .task1 rect    { fill: var(--cat-2-fill) !important; }
+:is(section, figure) .task-type-1 rect,    section .task1 rect    { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; }
 :is(section, figure) .section-type-1 text, :is(section, figure) .section1 text,
 :is(section, figure) .task-type-1 text,    section .task1 text    { fill: var(--cat-on-fill) !important; }
 
 :is(section, figure) .section-type-2 rect, :is(section, figure) .section2 rect,
-:is(section, figure) .task-type-2 rect,    section .task2 rect    { fill: var(--cat-3-fill) !important; }
+:is(section, figure) .task-type-2 rect,    section .task2 rect    { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; }
 :is(section, figure) .section-type-2 text, :is(section, figure) .section2 text,
 :is(section, figure) .task-type-2 text,    section .task2 text    { fill: var(--cat-on-fill) !important; }
 
-:is(section, figure) .section-type-3 rect, :is(section, figure) .task-type-3 rect { fill: var(--cat-4-fill) !important; }
+:is(section, figure) .section-type-3 rect, :is(section, figure) .task-type-3 rect { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; }
 :is(section, figure) .section-type-3 text, :is(section, figure) .task-type-3 text { fill: var(--cat-on-fill) !important; }
-:is(section, figure) .section-type-4 rect, :is(section, figure) .task-type-4 rect { fill: var(--cat-5-fill) !important; }
+:is(section, figure) .section-type-4 rect, :is(section, figure) .task-type-4 rect { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; }
 :is(section, figure) .section-type-4 text, :is(section, figure) .task-type-4 text { fill: var(--cat-on-fill) !important; }
-:is(section, figure) .section-type-5 rect, :is(section, figure) .task-type-5 rect { fill: var(--cat-6-fill) !important; }
+:is(section, figure) .section-type-5 rect, :is(section, figure) .task-type-5 rect { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; }
 :is(section, figure) .section-type-5 text, :is(section, figure) .task-type-5 text { fill: var(--cat-on-fill) !important; }
-:is(section, figure) .section-type-6 rect, :is(section, figure) .task-type-6 rect { fill: var(--cat-7-fill) !important; }
+:is(section, figure) .section-type-6 rect, :is(section, figure) .task-type-6 rect { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; }
 :is(section, figure) .section-type-6 text, :is(section, figure) .task-type-6 text { fill: var(--cat-on-fill) !important; }
-:is(section, figure) .section-type-7 rect, :is(section, figure) .task-type-7 rect { fill: var(--cat-8-fill) !important; }
+:is(section, figure) .section-type-7 rect, :is(section, figure) .task-type-7 rect { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; }
 :is(section, figure) .section-type-7 text, :is(section, figure) .task-type-7 text { fill: var(--cat-on-fill) !important; }
 
 :is(section, figure) .journey-section text { font-weight: 600 !important; }
@@ -307,23 +310,23 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) .mindmap-node[class*="section-0"] rect,
 :is(section, figure) .mindmap-node[class*="section-0"] circle,
 :is(section, figure) .mindmap-node[class*="section-0"] polygon,
-:is(section, figure) .mindmap-node[class*="section-0"] path { fill: var(--cat-1-fill) !important; }
+:is(section, figure) .mindmap-node[class*="section-0"] path { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
 :is(section, figure) .mindmap-node[class*="section-1"] rect,
 :is(section, figure) .mindmap-node[class*="section-1"] circle,
 :is(section, figure) .mindmap-node[class*="section-1"] polygon,
-:is(section, figure) .mindmap-node[class*="section-1"] path { fill: var(--cat-2-fill) !important; }
+:is(section, figure) .mindmap-node[class*="section-1"] path { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; }
 :is(section, figure) .mindmap-node[class*="section-2"] rect,
 :is(section, figure) .mindmap-node[class*="section-2"] circle,
 :is(section, figure) .mindmap-node[class*="section-2"] polygon,
-:is(section, figure) .mindmap-node[class*="section-2"] path { fill: var(--cat-3-fill) !important; }
+:is(section, figure) .mindmap-node[class*="section-2"] path { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; }
 :is(section, figure) .mindmap-node[class*="section-3"] rect,
 :is(section, figure) .mindmap-node[class*="section-3"] circle,
 :is(section, figure) .mindmap-node[class*="section-3"] polygon,
-:is(section, figure) .mindmap-node[class*="section-3"] path { fill: var(--cat-4-fill) !important; }
+:is(section, figure) .mindmap-node[class*="section-3"] path { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; }
 :is(section, figure) .mindmap-node[class*="section-4"] rect,
 :is(section, figure) .mindmap-node[class*="section-4"] circle,
 :is(section, figure) .mindmap-node[class*="section-4"] polygon,
-:is(section, figure) .mindmap-node[class*="section-4"] path { fill: var(--cat-5-fill) !important; }
+:is(section, figure) .mindmap-node[class*="section-4"] path { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; }
 /* Root node: Mermaid emits classes "section-root" AND "section--1"
  * (note double-dash = minus one). Both have hardcoded fills:
  *   .section-root → #C20000 (red — alarm color, wrong for root)
@@ -333,7 +336,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) .section-root rect,
 :is(section, figure) .section-root circle,
 :is(section, figure) .section-root polygon,
-:is(section, figure) .section-root path { fill: var(--cat-1-fill) !important; }
+:is(section, figure) .section-root path { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
 :is(section, figure) .section-root text, :is(section, figure) .section-root span {
   fill: var(--cat-on-fill) !important;
   color: var(--cat-on-fill) !important;
@@ -342,6 +345,24 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
   fill: var(--cat-on-fill) !important;
   color: var(--cat-on-fill) !important;
 }
+
+/* ── PIE — universal texture channel ──
+ * Mermaid pie slices (path.pieCircle, a pieOuterCircle <circle> precedes them) are
+ * painted from the --cat FILL ramp, cycling mod-12. This is the canonical pie fill
+ * rule: --cat-N-texture (a url(#…) a theme opts into) wins, else the flat --cat-N-fill
+ * — so pie textures for a11y/onyx/concrete and is byte-identical for every other theme. */
+:is(section, figure) .pieCircle:nth-of-type(12n+1) { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+2) { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+3) { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+4) { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+5) { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+6) { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+7) { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+8) { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+9) { fill: var(--cat-9-texture, var(--cat-9-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+10) { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n+11) { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; }
+:is(section, figure) .pieCircle:nth-of-type(12n)    { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; }
 
 /* ── GITGRAPH ARROW FILLS ──
  * Mermaid's gitgraph emits .arrow0..N with a "stroke" declaration but no
@@ -354,14 +375,14 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 }
 
 /* Gitgraph branch label pills — band fills, paired dark text. */
-:is(section, figure) rect.branchLabelBkg.label0 { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) rect.branchLabelBkg.label1 { fill: var(--cat-2-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) rect.branchLabelBkg.label2 { fill: var(--cat-3-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) rect.branchLabelBkg.label3 { fill: var(--cat-4-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) rect.branchLabelBkg.label4 { fill: var(--cat-5-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) rect.branchLabelBkg.label5 { fill: var(--cat-6-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) rect.branchLabelBkg.label6 { fill: var(--cat-7-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) rect.branchLabelBkg.label7 { fill: var(--cat-8-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label0 { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label1 { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label2 { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label3 { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label4 { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label5 { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label6 { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) rect.branchLabelBkg.label7 { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.branchLabel text, :is(section, figure) .branchLabel text { fill: var(--cat-on-fill) !important; }
 
 /* ── TREEMAP ──
@@ -371,14 +392,14 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * per-cycle hues win.
  */
 :is(section, figure) .treemapSection rect, :is(section, figure) .treemapNode rect { fill: var(--bg-alt) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.leaf0x rect.treemapLeaf { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.leaf1x rect.treemapLeaf { fill: var(--cat-2-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.leaf2x rect.treemapLeaf { fill: var(--cat-3-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.leaf3x rect.treemapLeaf { fill: var(--cat-4-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.leaf4x rect.treemapLeaf { fill: var(--cat-5-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.leaf5x rect.treemapLeaf { fill: var(--cat-6-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.leaf6x rect.treemapLeaf { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.leaf7x rect.treemapLeaf { fill: var(--cat-2-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf0x rect.treemapLeaf { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf1x rect.treemapLeaf { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf2x rect.treemapLeaf { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf3x rect.treemapLeaf { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf4x rect.treemapLeaf { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf5x rect.treemapLeaf { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf6x rect.treemapLeaf { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.leaf7x rect.treemapLeaf { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) rect.treemapLeaf { fill-opacity: 1 !important; }
 :is(section, figure) .treemapLabel, :is(section, figure) .treemapNode text, :is(section, figure) .treemapLeaf text { fill: var(--cat-on-fill) !important; }
 
@@ -386,10 +407,10 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * C4 has a hardcoded official palette (#08427B, #1168BD, etc.) that
  * ignores themeVariables. Override the box fills to band tokens.
  */
-:is(section, figure) .person, :is(section, figure) .person_ext { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) .system, :is(section, figure) .system_ext { fill: var(--cat-2-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) .container, :is(section, figure) .container_ext { fill: var(--cat-3-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) .component, :is(section, figure) .component_ext { fill: var(--cat-4-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .person, :is(section, figure) .person_ext { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .system, :is(section, figure) .system_ext { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .container, :is(section, figure) .container_ext { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .component, :is(section, figure) .component_ext { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .person text, :is(section, figure) .system text, :is(section, figure) .container text, :is(section, figure) .component text,
 :is(section, figure) .person_ext text, :is(section, figure) .system_ext text, :is(section, figure) .container_ext text, :is(section, figure) .component_ext text,
 :is(section, figure) text.legendW, :is(section, figure) text.legendT { fill: var(--cat-on-fill) !important; }
@@ -402,7 +423,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) g[class*="person"] > rect, :is(section, figure) g[class*="system"] > rect,
 :is(section, figure) g[class*="container"] > rect, :is(section, figure) g[class*="component"] > rect,
 :is(section, figure) g[class*="boundary"] > rect, :is(section, figure) g[class*="node-bkg"] > rect {
-  fill: var(--cat-1-fill) !important;
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
   stroke: var(--diagram-stroke) !important;
 }
 /* All text/lines/paths inside any C4 SVG (scoped via :has() so non-C4
@@ -431,21 +452,21 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * contrast.
  */
 :is(section, figure) .venn-set-0, :is(section, figure) g.venn-set-0 path, :is(section, figure) .venn-set-0 path {
-  fill: var(--cat-1-fill) !important;
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
   fill-opacity: 1 !important;
   stroke: var(--diagram-stroke) !important;
   stroke-width: 2 !important;
   stroke-opacity: 1 !important;
 }
 :is(section, figure) .venn-set-1, :is(section, figure) g.venn-set-1 path, :is(section, figure) .venn-set-1 path {
-  fill: var(--cat-2-fill) !important;
+  fill: var(--cat-2-texture, var(--cat-2-fill)) !important;
   fill-opacity: 1 !important;
   stroke: var(--diagram-stroke) !important;
   stroke-width: 2 !important;
   stroke-opacity: 1 !important;
 }
 :is(section, figure) .venn-set-2, :is(section, figure) g.venn-set-2 path, :is(section, figure) .venn-set-2 path {
-  fill: var(--cat-3-fill) !important;
+  fill: var(--cat-3-texture, var(--cat-3-fill)) !important;
   fill-opacity: 1 !important;
   stroke: var(--diagram-stroke) !important;
   stroke-width: 2 !important;
@@ -503,12 +524,12 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) path.mouth, :is(section, figure) line.mouth {
   stroke: var(--diagram-line) !important;
 }
-:is(section, figure) circle.actor-0 { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) circle.actor-1 { fill: var(--cat-2-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) circle.actor-2 { fill: var(--cat-3-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) circle.actor-3 { fill: var(--cat-4-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) circle.actor-4 { fill: var(--cat-5-fill) !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) circle.actor-5 { fill: var(--cat-6-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-0 { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-1 { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-2 { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-3 { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-4 { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) circle.actor-5 { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
 /* Legend titles inherit actor color via <title> SVG element; force their
  * text-bearing tspans to read on the brand palette. */
 :is(section, figure) .legend > title, :is(section, figure) title { fill: var(--text-heading) !important; }
@@ -547,20 +568,23 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * legible and the node bars remain the primary read. --cat-1-fill is a
  * light-dark() pair, so the ribbons flip with the canvas.
  */
-:is(section, figure) g.nodes > g.node:nth-of-type(1)  > rect { fill: var(--cat-1-fill)  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(2)  > rect { fill: var(--cat-2-fill)  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(3)  > rect { fill: var(--cat-3-fill)  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(4)  > rect { fill: var(--cat-4-fill)  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(5)  > rect { fill: var(--cat-5-fill)  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(6)  > rect { fill: var(--cat-6-fill)  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(7)  > rect { fill: var(--cat-7-fill)  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(8)  > rect { fill: var(--cat-8-fill)  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(9)  > rect { fill: var(--cat-1-fill)  !important; stroke: var(--diagram-stroke) !important; }
-:is(section, figure) g.nodes > g.node:nth-of-type(10) > rect { fill: var(--cat-2-fill)  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(1)  > rect { fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(2)  > rect { fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(3)  > rect { fill: var(--cat-3-texture, var(--cat-3-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(4)  > rect { fill: var(--cat-4-texture, var(--cat-4-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(5)  > rect { fill: var(--cat-5-texture, var(--cat-5-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(6)  > rect { fill: var(--cat-6-texture, var(--cat-6-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(7)  > rect { fill: var(--cat-7-texture, var(--cat-7-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(8)  > rect { fill: var(--cat-8-texture, var(--cat-8-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(9)  > rect { fill: var(--cat-1-texture, var(--cat-1-fill))  !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) g.nodes > g.node:nth-of-type(10) > rect { fill: var(--cat-2-texture, var(--cat-2-fill))  !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) g.node-labels text, :is(section, figure) g.nodes text {
   fill: var(--cat-on-fill) !important;
 }
 :is(section, figure) g.link path, :is(section, figure) g.links path {
+  /* Ribbons are connective tissue tied to c1 at reduced opacity — a flat COLOR,
+   * NOT the texture channel: a pattern paint-server sampled through a thin,
+   * variable-width stroke reads as speckle, not a tint. So stay on --cat-1-fill. */
   stroke: var(--cat-1-fill) !important;
   stroke-opacity: 0.4 !important;
   fill: none !important;
@@ -571,7 +595,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * brand band-1 + paired dark text.
  */
 :is(section, figure) rect.packetBlock {
-  fill: var(--cat-1-fill) !important;
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
   stroke: var(--diagram-stroke) !important;
 }
 :is(section, figure) text.packetLabel, :is(section, figure) text.packetByte, :is(section, figure) text.packetTitle {
@@ -589,7 +613,7 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
 :is(section, figure) g.architecture-groups rect:not(.background):not(.node-bkg),
 :is(section, figure) g.architecture-services rect:not(.background):not(.node-bkg),
 :is(section, figure) g.architecture-service rect:not(.background):not(.node-bkg) {
-  fill: var(--cat-1-fill) !important;
+  fill: var(--cat-1-texture, var(--cat-1-fill)) !important;
   stroke: var(--diagram-stroke) !important;
 }
 :is(section, figure) g.architecture-groups path.edge,
@@ -724,29 +748,29 @@ section.diagram :is(pre, marp-pre):not([data-mermaid-state="rendered"]) > code,
  * types that use bare `.section-N` (mindmap, kanban via .cluster) keep
  * their existing mappings.
  */
-:is(section, figure) .timeline-node.section--1 rect, :is(section, figure) .timeline-node.section--1 path, :is(section, figure) .timeline-node.section--1 circle { fill: var(--cat-1-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section--1 rect, :is(section, figure) .timeline-node.section--1 path, :is(section, figure) .timeline-node.section--1 circle { fill: var(--cat-1-texture, var(--cat-1-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section--1 text, :is(section, figure) .timeline-node.section--1 tspan, :is(section, figure) .timeline-node.section--1 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-0 rect, :is(section, figure) .timeline-node.section-0 path, :is(section, figure) .timeline-node.section-0 circle { fill: var(--cat-2-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-0 rect, :is(section, figure) .timeline-node.section-0 path, :is(section, figure) .timeline-node.section-0 circle { fill: var(--cat-2-texture, var(--cat-2-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-0 text, :is(section, figure) .timeline-node.section-0 tspan, :is(section, figure) .timeline-node.section-0 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-1 rect, :is(section, figure) .timeline-node.section-1 path, :is(section, figure) .timeline-node.section-1 circle { fill: var(--cat-3-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-1 rect, :is(section, figure) .timeline-node.section-1 path, :is(section, figure) .timeline-node.section-1 circle { fill: var(--cat-3-texture, var(--cat-3-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-1 text, :is(section, figure) .timeline-node.section-1 tspan, :is(section, figure) .timeline-node.section-1 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-2 rect, :is(section, figure) .timeline-node.section-2 path, :is(section, figure) .timeline-node.section-2 circle { fill: var(--cat-4-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-2 rect, :is(section, figure) .timeline-node.section-2 path, :is(section, figure) .timeline-node.section-2 circle { fill: var(--cat-4-texture, var(--cat-4-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-2 text, :is(section, figure) .timeline-node.section-2 tspan, :is(section, figure) .timeline-node.section-2 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-3 rect, :is(section, figure) .timeline-node.section-3 path, :is(section, figure) .timeline-node.section-3 circle { fill: var(--cat-5-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-3 rect, :is(section, figure) .timeline-node.section-3 path, :is(section, figure) .timeline-node.section-3 circle { fill: var(--cat-5-texture, var(--cat-5-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-3 text, :is(section, figure) .timeline-node.section-3 tspan, :is(section, figure) .timeline-node.section-3 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-4 rect, :is(section, figure) .timeline-node.section-4 path, :is(section, figure) .timeline-node.section-4 circle { fill: var(--cat-6-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-4 rect, :is(section, figure) .timeline-node.section-4 path, :is(section, figure) .timeline-node.section-4 circle { fill: var(--cat-6-texture, var(--cat-6-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-4 text, :is(section, figure) .timeline-node.section-4 tspan, :is(section, figure) .timeline-node.section-4 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-5 rect, :is(section, figure) .timeline-node.section-5 path, :is(section, figure) .timeline-node.section-5 circle { fill: var(--cat-7-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-5 rect, :is(section, figure) .timeline-node.section-5 path, :is(section, figure) .timeline-node.section-5 circle { fill: var(--cat-7-texture, var(--cat-7-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-5 text, :is(section, figure) .timeline-node.section-5 tspan, :is(section, figure) .timeline-node.section-5 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-6 rect, :is(section, figure) .timeline-node.section-6 path, :is(section, figure) .timeline-node.section-6 circle { fill: var(--cat-8-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-6 rect, :is(section, figure) .timeline-node.section-6 path, :is(section, figure) .timeline-node.section-6 circle { fill: var(--cat-8-texture, var(--cat-8-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-6 text, :is(section, figure) .timeline-node.section-6 tspan, :is(section, figure) .timeline-node.section-6 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-7 rect, :is(section, figure) .timeline-node.section-7 path, :is(section, figure) .timeline-node.section-7 circle { fill: var(--cat-9-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-7 rect, :is(section, figure) .timeline-node.section-7 path, :is(section, figure) .timeline-node.section-7 circle { fill: var(--cat-9-texture, var(--cat-9-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-7 text, :is(section, figure) .timeline-node.section-7 tspan, :is(section, figure) .timeline-node.section-7 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-8 rect, :is(section, figure) .timeline-node.section-8 path, :is(section, figure) .timeline-node.section-8 circle { fill: var(--cat-10-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-8 rect, :is(section, figure) .timeline-node.section-8 path, :is(section, figure) .timeline-node.section-8 circle { fill: var(--cat-10-texture, var(--cat-10-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-8 text, :is(section, figure) .timeline-node.section-8 tspan, :is(section, figure) .timeline-node.section-8 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-9 rect, :is(section, figure) .timeline-node.section-9 path, :is(section, figure) .timeline-node.section-9 circle { fill: var(--cat-11-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-9 rect, :is(section, figure) .timeline-node.section-9 path, :is(section, figure) .timeline-node.section-9 circle { fill: var(--cat-11-texture, var(--cat-11-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-9 text, :is(section, figure) .timeline-node.section-9 tspan, :is(section, figure) .timeline-node.section-9 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
-:is(section, figure) .timeline-node.section-10 rect, :is(section, figure) .timeline-node.section-10 path, :is(section, figure) .timeline-node.section-10 circle { fill: var(--cat-12-fill) !important; stroke: var(--diagram-stroke) !important; }
+:is(section, figure) .timeline-node.section-10 rect, :is(section, figure) .timeline-node.section-10 path, :is(section, figure) .timeline-node.section-10 circle { fill: var(--cat-12-texture, var(--cat-12-fill)) !important; stroke: var(--diagram-stroke) !important; }
 :is(section, figure) .timeline-node.section-10 text, :is(section, figure) .timeline-node.section-10 tspan, :is(section, figure) .timeline-node.section-10 span { fill: var(--cat-on-fill) !important; color: var(--cat-on-fill) !important; }
 
 /* ── TIMELINE EVENT WRAPPER ──
