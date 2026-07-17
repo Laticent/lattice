@@ -180,7 +180,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	const ownedObservers = new Set<ResizeObserver>();
 	const ownedHosts = new Set<HTMLElement>();
 	const themeObservers = new Set<MutationObserver>();
+	const themeUnsubscribes = new Set<() => void>();
 	const ownedTimers = new Set<ReturnType<typeof setTimeout>>();
+	const ownedIntervals = new Set<ReturnType<typeof setInterval>>();
+	// Latch: renderInto is async (awaits theme fetch + the engine render), so an
+	// unmount can land mid-render. Without this the settling continuation would
+	// re-register the host in scaleTargets + re-add its observer AFTER dispose()
+	// emptied those sets — re-rooting the detached iframe the fix is meant to free.
+	// dispose() sets it; the continuation bails before it touches the DOM.
+	let disposed = false;
 
 	// Last sanitize duration (ms), stashed by srcdoc() and read by renderInto for
 	// the perf-overlay RENDER group. A closure var (not a return value) keeps the
@@ -336,6 +344,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			: Promise.all([themes.ensure(palette, mode), ensurePreviewFonts()]);
 		return themeReady
 			.then(async () => {
+				// Bail if the host was disposed/detached while the theme fetch was in
+				// flight — don't spend an engine render on a torn-down preview.
+				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 				const theme = extra ? extra.name : mode === 'dark' && PG.hasTheme(palette + '-dark') ? palette + '-dark' : palette;
 				let out: { html: string; css: string; width?: number; height?: number; stats?: RenderStats };
 				let engineMs = 0;
@@ -384,6 +395,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					console.error('single-slide render failed', e);
 					return { ok: false, slides: 0, error: String((e as Error)?.message || e) };
 				}
+				// dispose()/unmount may have landed during the (awaited) engine render.
+				// Bail BEFORE any DOM mutation or observer/scaleTargets registration below,
+				// so a settling render can't re-root a host dispose() just released.
+				if (disposed || !host.isConnected) return { ok: false, slides: 0, error: 'renderer disposed' };
 				// Stash the resolved slide box so scaleFrame divides by the right width.
 				const geom: Geom = { width: out.width || DEFAULT_W, height: out.height || DEFAULT_H };
 				(host as LiveHost).__latticeGeom = geom;
@@ -621,9 +636,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			const t = setInterval(() => {
 				if (ready()) {
 					clearInterval(t);
+					ownedIntervals.delete(t);
 					resolve();
 				}
 			}, 50);
+			// Tracked so dispose() cancels it — otherwise a host unmounted before the
+			// engine loads (only the no-engineUrl fallback path: tests/legacy) would
+			// leave this poll spinning forever.
+			ownedIntervals.add(t);
 		});
 	}
 
@@ -643,11 +663,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		});
 		mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette', 'data-mode'] });
 		themeObservers.add(mo);
-		return () => {
-			clearTimeout(timer);
+		const unsub = () => {
+			clearTimeout(timer); // clear the in-flight debounce so cb can't fire post-teardown
 			mo.disconnect();
 			themeObservers.delete(mo);
+			themeUnsubscribes.delete(unsub);
 		};
+		themeUnsubscribes.add(unsub);
+		return unsub;
 	}
 
 	/**
@@ -660,6 +683,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 	 * from the DOM — the caller owns the host node's lifecycle (React unmounts it).
 	 */
 	function dispose(): void {
+		disposed = true; // stop any in-flight renderInto from re-registering below
 		for (const ro of ownedObservers) {
 			try {
 				ro.disconnect();
@@ -668,6 +692,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		ownedObservers.clear();
 		for (const h of ownedHosts) scaleTargets.delete(h);
 		ownedHosts.clear();
+		// Unsubscribe theme watchers via their own closures so the pending debounce
+		// timer is cleared too (a bare mo.disconnect() would leave it armed).
+		for (const unsub of [...themeUnsubscribes]) unsub();
+		themeUnsubscribes.clear();
 		for (const mo of themeObservers) {
 			try {
 				mo.disconnect();
@@ -676,6 +704,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		themeObservers.clear();
 		for (const t of ownedTimers) clearTimeout(t);
 		ownedTimers.clear();
+		for (const iv of ownedIntervals) clearInterval(iv);
+		ownedIntervals.clear();
 	}
 
 	return { renderInto, whenReady, onThemeChange, scaleFrame, ready, prefetchTheme, dispose };

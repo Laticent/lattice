@@ -89,6 +89,12 @@ async function put(cacheName, request, response) {
 	// Cache Storage can't bloat with dead engine bundles / theme sheets across the
 	// lifetime a returning user actually spans. Runs before the FIFO cap so the cap
 	// is a backstop for un-versioned entries, not the only bound on versioned ones.
+	//
+	// LAST-WRITER-WINS across tabs: the "current" hash is whichever a put() saw most
+	// recently, not a globally-pinned deploy. Two tabs straddling a deploy can evict
+	// each other's same-suffix copies (SWR re-puts on the next request, so no break —
+	// just a little cross-deploy churn). Acceptable: a tab's in-use assets are already
+	// loaded, and a page only ever references ONE hash dir (asset-version.mjs).
 	const cur = new URL(request.url).pathname.match(VERSIONED);
 	if (cur) {
 		for (const key of await cache.keys()) {

@@ -111,4 +111,12 @@ describe('sw.js — cross-deploy version eviction', () => {
 		await sw.asset('/playground/v/dddddddd4444/lattice-runtime.js');
 		expect(sw.assetKeys()).toContain(`${ORIGIN}/_astro/chunk.js`); // untouched by version eviction
 	});
+
+	it('does NOT evict itself when the SAME current-hash asset is re-cached (SWR revalidate)', async () => {
+		await sw.asset('/playground/v/eeeeeeee5555/lattice-runtime.js');
+		await sw.asset('/playground/v/eeeeeeee5555/lattice-runtime.js'); // revalidation re-put, same URL
+		const keys = sw.assetKeys();
+		expect(keys).toContain(`${ORIGIN}/playground/v/eeeeeeee5555/lattice-runtime.js`);
+		expect(keys).toHaveLength(1); // survived — the self-skip (key.url === request.url) held
+	});
 });

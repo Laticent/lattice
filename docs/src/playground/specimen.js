@@ -259,9 +259,19 @@ export function initSpecimen() {
     // MutationObserver on the immortal document.documentElement, which can NEVER
     // be garbage-collected on its own (it pins the whole specimen renderer); the
     // per-host ResizeObserver + scaleTargets entry would linger too. dispose()
-    // releases all of them. pagehide covers reload/close; astro:before-swap covers
-    // a soft-nav if the docs router is ever enabled. once → self-removing.
-    const teardown = () => lr.dispose();
+    // releases all of them. astro:before-swap covers a soft-nav (the only path
+    // where documentElement survives, so the only real leak to prevent); pagehide
+    // is the belt-and-braces real-unload case.
+    //
+    // BUT NOT on a bfcache freeze: pagehide fires with event.persisted === true
+    // when the page is frozen for back/forward, and the page can be RESTORED with
+    // its DOM intact — disposing then would leave the restored preview dead (no
+    // theme observer / no resize refit) with nothing to re-init it. Skip persisted;
+    // on real discard the whole heap is freed anyway, so nothing leaks. once → self-removing.
+    const teardown = (e) => {
+      if (e?.persisted) return;
+      lr.dispose();
+    };
     window.addEventListener('pagehide', teardown, { once: true });
     document.addEventListener('astro:before-swap', teardown, { once: true });
   });

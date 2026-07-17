@@ -80,6 +80,41 @@ sign-off gate (QUALITY BAR) + real-device verification. Sequence:
    `--_sec-1cqi` quantization, and/or a periodic forced full write every N patches to reset
    accumulated in-iframe state — then render a demo deck in both modes for export sign-off.
 
+## Second adversarial trio — verifying the fix (HARD RULE #25)
+
+Because the fix touches shared renderer lifecycle + the service worker (real blast radius),
+a second full trio (red team + Munger inversion + independent checker) was run **against the
+diff itself**. Both fixes verified SOUND and every doc claim TRUE, but the trio found real
+hardening the first pass missed — folded in before merge:
+
+- **In-flight `renderInto` re-rooted the host after `dispose()` (Munger, top finding).** `renderInto`
+  is async (awaits theme fetch + engine render); an unmount landing mid-render let the settling
+  continuation re-run `scaleTargets.set(host,…)` + `ownedObservers.add(...)` *after* `dispose()`
+  emptied them — re-rooting the detached iframe on the exact HeroPreview tab-flip surface the fix
+  targets (degrading it from deterministic to opportunistic teardown). **Fixed:** a `disposed` latch;
+  the continuation bails (before any DOM work) if `disposed || !host.isConnected`. Tested both the
+  during-render and before-continuation guards.
+- **`specimen.js` `pagehide` broke bfcache restore (red team + Munger).** `pagehide` fires with
+  `persisted:true` on a bfcache freeze; disposing then left a restored preview dead (no theme
+  observer / resize refit), and it prevented **no** leak (a real unload frees the heap anyway; the
+  soft-nav leak is covered by `astro:before-swap`). **Fixed:** skip teardown when `event.persisted`.
+- **`dispose()` left the `onThemeChange` debounce timer + the `whenReady` poll armed (red team +
+  checker).** **Fixed:** theme watchers are torn down via their own unsubscribe (clears the debounce);
+  the `whenReady` fallback `setInterval` is tracked in `ownedIntervals` and cleared.
+- **Tests asserted wiring, not release (red team + checker).** **Fixed:** a new
+  `single-slide-render.dispose.test.ts` exercises the REAL `dispose()` (RO/MO actually disconnected,
+  idempotent, and the in-flight latch), and the SW test gained the self-skip (re-cache same hash) case.
+- **SW cross-deploy-tab last-writer-wins (red team + Munger, LOW).** Two tabs straddling a deploy can
+  evict each other's same-suffix copies; SWR re-fetches, so no breakage — documented as an accepted
+  tradeoff in `sw.js`, no code change.
+
+Rejected by the trio (not real): self-eviction of the current asset; `scaleTargets` deletion breaking
+drag resume; `installVideoBridge`/`fr.onload`/scheduler-watchdog rooting the iframe; the `owned*` Sets
+growing unbounded; a `FieldCardsLive`/`RestyleShowcase` null-crash. **StrictMode reuse-after-dispose**
+was raised but confirmed **not triggered** — Astro's `react()` enables no StrictMode and every
+"StrictMode-safe" reference is a defensive single-init guard; production remounts build a fresh renderer.
+The `disposed` latch makes even that path safe (renderInto no-ops after dispose).
+
 ## Files
 `docs/src/lib/single-slide-render.ts` (dispose + onThemeChange unsubscribe), `docs/src/components/DeckPreview.tsx`,
 `docs/src/components/landing/FieldCardsLive.tsx`, `docs/src/components/landing/RestyleShowcase.tsx`,
