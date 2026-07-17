@@ -64,7 +64,7 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { listFindings } from './studio-lint';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, renameDeck as renameDeckStore, SETTINGS_EVENT, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, renameDeck as renameDeckStore, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
@@ -193,16 +193,22 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Persisted deck list (seeded from the built-ins), the active deck, and its
 	// source — restored from localStorage so edits survive a switch AND a reload.
 	const [decks, setDecks] = React.useState<StudioDeck[]>(() => loadDeckList());
-	const [deck, setDeck] = React.useState<StudioDeck>(() => loadDeckList()[0] ?? DECKS[0]);
+	// Boot the deck (and slide) you LAST left off on — not always deck #1. loadBootDeck
+	// mirrors studio.astro's inline bootId (last-active id → index[0] → DECKS[0]) so the
+	// pre-paint instant-shell and this hydrated app agree on which deck leads; otherwise
+	// a returning user who left from a non-first deck falls through to a blank cold boot
+	// (the snapshot's deckId never matches). engineering/decisions/2026-07-11-preview-
+	// performance-diagnosis.md § A (returning-visitor shell).
+	const [deck, setDeck] = React.useState<StudioDeck>(() => loadBootDeck());
 	const [source, setSource] = React.useState(() => {
-		const first = loadDeckList()[0] ?? DECKS[0];
+		const first = loadBootDeck();
 		return loadSource(first.id) ?? deckSource(first);
 	});
 	// Always-current mirror of `source`, so a settings write can snapshot the exact
 	// pre-change text for one-click Undo without threading it through every setter.
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
-	const [activeSlide, setActiveSlide] = React.useState(0); // 0-based; index into the VIEWED set
+	const [activeSlide, setActiveSlide] = React.useState(() => loadBootSlide()); // 0-based index into the VIEWED set; boot at the slide you left on (clamped below)
 	// Live mirrors of the active deck id + slide index, so the leave-capture (a stable
 	// callback that must NOT re-subscribe its pagehide listener per deck/slide change)
 	// can stamp WHICH deck/slide it snapshotted without taking them as deps.
@@ -296,7 +302,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
 	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat'>('coach');
-	const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(() => loadCheckpoints((loadDeckList()[0] ?? DECKS[0]).id));
+	const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(() => loadCheckpoints(loadBootDeck().id));
 	// One-click Undo for the LAST panel settings change — a light complement to ⌘Z /
 	// Version history. Each change captures the pre-change source; Undo restores it.
 	// `prev` = source before the change (what Undo restores); `next` = source right
@@ -723,6 +729,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		window.addEventListener(FLUSH_EVENT, flush);
 		return () => window.removeEventListener(FLUSH_EVENT, flush);
 	}, [source, deck.id, saveSourceGuarded]);
+
+	// Record the deck + slide currently in view, so a reload (or an iOS memory-reclaim
+	// tab discard) boots back here instead of on deck #1 — and so studio.astro's pre-paint
+	// replay, which reads the SAME key for its bootId, matches the leave-snapshot's deckId
+	// and paints your real slide instead of a blank cold boot. Guarded by decksClearedRef
+	// for the same reason saveSource is: a keystroke in the still-live editor during the
+	// Privacy&Data clear→reload window must not re-persist a just-cleared pointer.
+	React.useEffect(() => {
+		if (decksClearedRef.current) return;
+		saveActiveDeck(deck.id, activeSlide);
+	}, [deck.id, activeSlide]);
 
 	// Persist the editor preference as it changes.
 	React.useEffect(() => {

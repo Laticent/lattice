@@ -9,6 +9,9 @@ import {
 	deleteDeck,
 	exportStudioState,
 	importStudioState,
+	loadActiveDeck,
+	loadBootDeck,
+	loadBootSlide,
 	loadChat,
 	loadChatDraft,
 	loadCheckpoints,
@@ -20,6 +23,7 @@ import {
 	metaFor,
 	ON_DEVICE_INSTRUCTIONS_MAX,
 	renameDeck,
+	saveActiveDeck,
 	saveChat,
 	saveChatDraft,
 	saveCheckpoint,
@@ -322,6 +326,64 @@ describe('studio-store — Privacy & Data (clearAllDecks / deckContentStats)', (
 			window.removeEventListener(DECKS_CLEARED_EVENT, onCleared);
 		}
 		expect(seen).toEqual(['fired']);
+	});
+});
+
+describe('studio-store — last-active deck (boot where you left off)', () => {
+	it('round-trips the active deck + slide, clamping a negative index to 0', () => {
+		expect(loadActiveDeck()).toBeNull();
+		saveActiveDeck('q3-board', 3);
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 3 });
+		saveActiveDeck('q3-board', -5);
+		expect(loadActiveDeck()).toEqual({ deckId: 'q3-board', slideIndex: 0 });
+	});
+
+	it('a malformed active record reads back as null (never throws)', () => {
+		localStorage.setItem('lattice-studio-active', '{"deckId":""}'); // empty id
+		expect(loadActiveDeck()).toBeNull();
+		localStorage.setItem('lattice-studio-active', 'not json');
+		expect(loadActiveDeck()).toBeNull();
+	});
+
+	it('loadBootDeck returns the last-active deck when it still exists, else the first', () => {
+		// No pointer → first deck (the historical behavior).
+		expect(loadBootDeck().id).toBe(DECKS[0].id);
+		// A pointer at a real built-in → that deck boots.
+		saveActiveDeck('q3-board', 2);
+		expect(loadBootDeck().id).toBe('q3-board');
+		expect(loadBootSlide()).toBe(2);
+		// A pointer at a user deck → that deck boots.
+		const d = createDeck('Working deck');
+		saveActiveDeck(d.id, 1);
+		expect(loadBootDeck().id).toBe(d.id);
+	});
+
+	it('a dangling pointer (deck no longer in the list) falls back to the first deck + slide 0', () => {
+		saveActiveDeck('does-not-exist', 4);
+		expect(loadBootDeck().id).toBe(DECKS[0].id);
+		expect(loadBootSlide()).toBe(0); // slide only restored when the pointer matches the boot deck
+	});
+
+	it('deleteDeck forgets a pointer that names the deleted deck (no dangling boot target)', () => {
+		const d = createDeck('Temp active');
+		saveActiveDeck(d.id, 2);
+		deleteDeck(d.id);
+		expect(loadActiveDeck()).toBeNull();
+		expect(loadBootDeck().id).toBe(DECKS[0].id);
+	});
+
+	it('deleteDeck keeps a pointer that names a DIFFERENT deck', () => {
+		const keep = createDeck('Keep');
+		const drop = createDeck('Drop');
+		saveActiveDeck(keep.id, 1);
+		deleteDeck(drop.id);
+		expect(loadActiveDeck()).toEqual({ deckId: keep.id, slideIndex: 1 });
+	});
+
+	it('clearAllDecks removes the active pointer (it is deck content state)', () => {
+		saveActiveDeck('q3-board', 1);
+		clearAllDecks();
+		expect(loadActiveDeck()).toBeNull();
 	});
 });
 
