@@ -58,6 +58,7 @@ import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { importComments } from './slide-comments';
+import { hasMermaid } from './slide-thumb';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
@@ -2221,7 +2222,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						? (previewFitByHeight ? 'h-full w-auto' : 'h-auto w-full')
 						: previewPortrait ? 'h-full w-auto' : 'h-auto w-full max-w-[760px]')}
 					style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={false} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || effectiveStop === 'read' || split.collapsed !== 'b'} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
+					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={hasMermaid(slide)} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || effectiveStop === 'read' || split.collapsed !== 'b'} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}
