@@ -342,9 +342,15 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 			// never coerced (there is no safe default scene). poster/art ride as strings and
 			// stay UNTRUSTED — a consumer sanitizes them before any preview (HARD RULE #22).
 			const specText = await zip.file(item.spec)?.async('string');
-			let parsed: unknown;
-			try { parsed = specText ? JSON.parse(specText) : undefined; } catch { parsed = undefined; }
-			const r = parseScene(parsed);
+			// Guard BOTH parse steps: a hostile spec must degrade to a DROP of this one scene,
+			// never a throw that aborts the whole import (parseScene is bounded against the
+			// recursion-bomb, but the try/catch keeps any future validator throw contained too).
+			let r: ReturnType<typeof parseScene> = { ok: false, errors: ['unreadable scene spec'] };
+			try {
+				r = parseScene(specText ? JSON.parse(specText) : undefined);
+			} catch {
+				/* malformed JSON or a validator throw → drop this scene */
+			}
 			if (r.ok) {
 				const poster = item.poster ? await zip.file(item.poster)?.async('string') : undefined;
 				const art = item.art ? await zip.file(item.art)?.async('string') : undefined;

@@ -84,6 +84,26 @@ describe('parseScene — rejects', () => {
     expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 5000 } }]).ok).toBe(false); // upper cap (DoS)
   });
   it('accepts an integer sides >= 3', () => expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 6, size: 30 } }]).ok).toBe(true));
+
+  it('rejects an over-deep element tree — DROPS, never overflows the stack (trio DoS)', () => {
+    // A children chain far past MAX_TREE_DEPTH (32). Unbounded, this would RangeError out of
+    // parseScene; bounded, it's an ordinary validation failure that a caller can drop.
+    let node: Record<string, unknown> = { id: 'leaf', shape: 'box' };
+    for (let i = 0; i < 500; i++) node = { id: `g${i}`, shape: 'group', children: [node] };
+    let r: ReturnType<typeof parseScene> | undefined;
+    expect(() => {
+      r = parseScene({ source: 'built', duration: 1000, hero: 0.5, elements: [node] });
+    }).not.toThrow();
+    expect(r?.ok).toBe(false);
+    if (r && !r.ok) expect(r.errors.join(' ')).toMatch(/nesting depth/i);
+  });
+
+  it('rejects a scene past the max element count (breadth DoS)', () => {
+    const elements = Array.from({ length: 2100 }, (_, i) => ({ id: `e${i}`, shape: 'box' }));
+    const r = parseScene({ source: 'built', duration: 1000, hero: 0.5, elements });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.join(' ')).toMatch(/element count/i);
+  });
 });
 
 describe('validateColor', () => {

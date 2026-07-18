@@ -10,19 +10,19 @@
 // derived/authored SVG strings.
 //
 // SECURITY (HARD RULE #22): `art` (authored line-art) and `poster` (a serialized still) are
-// UNTRUSTED markup (AI-authored / bundle-shared). The AUTHORITATIVE chokepoint is the
-// browser-context INGRESS — the faculty save path and the Library-import path MUST run the
-// markup through `sanitizeSlideHtml` BEFORE calling `saveStudioScene` (or before a restored
-// bundle's scenes are persisted), so what lands in the store is already clean (the
-// snapshot-cache.js precedent: sanitize at the storage boundary so a save-without-sanitize
-// path is impossible by construction). This module is deliberately DOM-free (it cannot run
-// DOMPurify — no `window`) and only PERSISTS strings, so it is not itself a sink; the
-// preview-frame builder re-sanitizes as #22 defense-in-depth. The ingress sanitize + its
-// #22-gate registration land with the consumers in Stage 5/7 (no caller exists yet).
+// UNTRUSTED markup (AI-authored / bundle-shared). `saveStudioScene` sanitizes them at the
+// STORE BOUNDARY (`sanitizeSlideHtml`) before they are persisted — so EVERY persistence path
+// (workspace restore today; the faculty-save + Library-import paths in Stage 5/7) is covered
+// by construction, and an unsanitized write is impossible (the snapshot-cache.js precedent:
+// sanitize at the storage boundary, not per-caller). `sanitizeSlideHtml` is a no-op only in a
+// window-less context — where there is also no IndexedDB to persist into — so the guarantee
+// holds wherever a store exists. The preview-frame builder re-sanitizes as defense-in-depth;
+// its #22-gate registration lands with the render sink in Stage 5/7.
 //
 // Decision: engineering/decisions/2026-07-18-anima-motion-faculty-modes.md §4.
 
 import { parseScene, type Scene } from '@/lib/anima';
+import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
 import { deleteAsset, listAssets, putAsset } from '@/playground/asset-store.js';
 
 /** A saved scene as the Studio uses it. The `spec` is canonical; `poster` is a
@@ -45,6 +45,13 @@ type SceneAssetRecord = { id: string; kind: 'scene'; name: string; label?: strin
 /** The engine a scene targets, derived from its source (built→Zdog, svg→Vivus). */
 export function sceneEngine(spec: Scene): 'zdog' | 'vivus' {
 	return spec.source === 'svg' ? 'vivus' : 'zdog';
+}
+
+/** Sanitize a scene's UNTRUSTED SVG markup (`poster`/`art`) — the store-boundary chokepoint
+ *  (HARD RULE #22). Applied by `saveStudioScene` so no raw markup is ever persisted, whatever
+ *  the caller. Exported so the boundary is directly unit-testable without the IndexedDB store. */
+export function sanitizeSceneAssets<T extends { poster?: string; art?: string }>(a: T): T {
+	return { ...a, poster: a.poster ? sanitizeSlideHtml(a.poster) : a.poster, art: a.art ? sanitizeSlideHtml(a.art) : a.art };
 }
 
 /** Turn arbitrary text into a valid scene slug, or '' when nothing usable remains. */
@@ -75,6 +82,9 @@ export async function saveStudioScene(input: { name: string; label?: string; des
 	const r = parseScene(input.spec);
 	if (!r.ok) throw new Error(`Invalid scene spec — not saved: ${r.errors.join('; ')}`);
 	const name = slugify(input.name) || `scene-${Date.now().toString(36)}`;
+	// Sanitize the untrusted SVG markup HERE, at the store boundary — so no caller (restore,
+	// faculty save, Library import) can persist raw markup (HARD RULE #22, snapshot-cache pattern).
+	const { poster, art } = sanitizeSceneAssets({ poster: input.poster, art: input.art });
 	const record: SceneAssetRecord = {
 		id: '', // asset-store assigns one (or reuses the existing id for kind+name)
 		kind: 'scene',
@@ -82,8 +92,8 @@ export async function saveStudioScene(input: { name: string; label?: string; des
 		label: input.label || name,
 		description: input.description,
 		spec: r.scene,
-		poster: input.poster,
-		art: input.art,
+		poster,
+		art,
 		addedAt: Date.now(),
 	};
 	const { id: _drop, ...rest } = record;

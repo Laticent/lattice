@@ -130,14 +130,15 @@ scene joins `theme` / `component` / `finish` on the existing rails
 - `name` (slug), `label`, `description`
 - `spec` — the **canonical** artifact: the validated Anima `Scene` JSON (source `'built'` or
   `'svg'`). This is the source of truth; everything else is derivable.
-- `art?` — for a `source:'svg'` (Vivus) scene, the authored line-art SVG markup. **Sanitized
-  at the browser-context INGRESS** — the faculty save path and the Library-import path run
-  `sanitizeSlideHtml` (HARD RULE #22) *before* calling `saveStudioScene`, so what lands in the
-  store is already clean (the `snapshot-cache.js` precedent — sanitize at the boundary so a
-  save-without-sanitize path can't exist). The store/bundle layer is deliberately DOM-free and
-  cannot run DOMPurify itself; it only persists strings. The preview-frame builder re-sanitizes
-  as defense-in-depth. **The ingress sanitize + its #22-gate registration land in Stage 5/7**
-  (no save/import caller exists at Stage 4). `poster` is untrusted the same way.
+- `art?` — for a `source:'svg'` (Vivus) scene, the authored line-art SVG markup. **Sanitized at
+  the STORE BOUNDARY** — `saveStudioScene` runs `sanitizeSlideHtml` (HARD RULE #22) on `art`/
+  `poster` before `putAsset`, so *every* persistence path (workspace restore today; the
+  faculty-save + Library-import paths in Stage 5/7) is covered **by construction** and an
+  unsanitized write is impossible (the `snapshot-cache.js` precedent — sanitize at the storage
+  boundary, not per-caller). `sanitizeSlideHtml` no-ops only in a window-less context, where
+  there is also no IndexedDB to write into, so the guarantee holds wherever a store exists. The
+  preview-frame builder re-sanitizes as defense-in-depth; **its #22-gate registration lands with
+  the render sink in Stage 5/7**. `poster` is untrusted the same way.
 - `poster` — a serialized still for the Library thumbnail (see §4.1).
 - `engine` / `caps` — which backend the scene targets (Zdog `built` / Vivus `svg`), for
   negotiation + the Library badge.
@@ -199,6 +200,18 @@ Anima ADR's, unchanged.)
   Director Mode) — validated when the second mode is built.
 - The Anima ADR §15 **export** poster model — still Stage-5-gated; §4.1 only fixes storage.
 - Per-user **mode memory** scope (per-scene vs. global default) — a Stage 7 detail.
+- **Scene migration + non-destructive reads (adversarial-trio carry — matters once scenes
+  EXIST, Stage 7).** A stored spec is re-adjudicated by `parseScene` on every read; a future
+  schema tightening (e.g. the Three tier) could invalidate an old scene. Today an unparseable
+  record is *dropped* from the Library list and thus excluded from the next backup — a silent,
+  permanent loss. Before scenes are real: (a) stamp a `specVersion` at save so a reader can
+  *migrate* rather than prune; (b) make reads NON-DESTRUCTIVE — `listStudioScenes`/backup retain
+  a stored-but-currently-unparseable record (skip rendering, keep persisting); (c) surface a
+  **dropped count** on restore/import ("3 restored, 2 skipped — invalid spec") instead of the
+  current silent drop, and wire the `Library.tsx` scene import/export (still Stage 5).
+- **Engine derivation is duplicated** (`asset-bundle.engineOf` ⟂ `scene-library.sceneEngine`) and
+  is a false binary (built→zdog assumes no Three). Unify into one pure helper when the Three
+  backend lands (Anima ADR Stage 8) so a new backend updates the mapping once.
 
 ## 8. Non-functional requirements — performance, reuse, responsive, preferences
 

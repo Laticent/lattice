@@ -107,6 +107,21 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 		expect(round.scenes.map((s) => s.name)).toEqual(['gyroscope']);
 	});
 
+	it('round-trips a bundle scene carrying ART via the sub-dir layout', async () => {
+		const round = await unpackBundle(await packBundle([], [], [], [drawScene]));
+		expect(round.scenes).toHaveLength(1);
+		expect(round.scenes[0].spec.source).toBe('svg');
+		expect(round.scenes[0].art).toContain('<path');
+	});
+
+	it('round-trips a bare scene (neither poster nor art)', async () => {
+		const bare: StudioScene = { id: 's3', name: 'bare', label: 'Bare', spec: builtSpec };
+		const round = await unpackBundle(await packScene(bare));
+		expect(round.scenes).toHaveLength(1);
+		expect(round.scenes[0].poster).toBeUndefined();
+		expect(round.scenes[0].art).toBeUndefined();
+	});
+
 	it('rejects a zip without a Lattice manifest', async () => {
 		const { default: JSZip } = await import('jszip');
 		const z = new JSZip();

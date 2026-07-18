@@ -112,9 +112,27 @@ function validateMotion(m: unknown, source: SourceModel, at: string, errors: str
   }
 }
 
+// Structural bounds on the element tree — the trio's DoS finding. `sides`/`period` cap the
+// LEAVES; these cap the TREE. Without them a `.scene.json` with a deeply-nested `children`
+// chain overflows the (recursive) validator's stack — a RangeError thrown OUT of parseScene,
+// which (a) a caller's per-item drop can't catch and (b) V8's iterative JSON.parse doesn't
+// pre-empt. Bounded → the scene is a plain validation FAILURE (dropped), never a crash. No
+// legitimate exploded-view rig is deep, and 2000 nodes is far past any real boardroom scene.
+const MAX_TREE_DEPTH = 32;
+const MAX_ELEMENTS = 2000;
+
 /** Validate one element (recursively, for a built sub-tree). `ids` is shared across the
- *  whole tree so ids are unique tree-wide. svg elements are flat (no children). */
-function validateElement(raw: unknown, at: string, source: SourceModel, ids: Set<string>, errors: string[]): void {
+ *  whole tree so ids are unique tree-wide; `count` bounds total nodes, `depth` bounds nesting
+ *  (both stop the recursion-bomb DoS). svg elements are flat (no children). */
+function validateElement(raw: unknown, at: string, source: SourceModel, ids: Set<string>, errors: string[], depth: number, count: { n: number }): void {
+  if (depth > MAX_TREE_DEPTH) {
+    errors.push(`${at}: element tree exceeds the max nesting depth (${MAX_TREE_DEPTH})`);
+    return; // stop descending — bounds the stack
+  }
+  if (++count.n > MAX_ELEMENTS) {
+    errors.push(`scene exceeds the max element count (${MAX_ELEMENTS})`);
+    return; // stop — bounds total work
+  }
   if (!raw || typeof raw !== 'object') {
     errors.push(`${at} must be an object`);
     return;
@@ -140,7 +158,7 @@ function validateElement(raw: unknown, at: string, source: SourceModel, ids: Set
       if (!Array.isArray(el.children)) errors.push(`${at}.children must be an array`);
       else {
         el.children.forEach((c, k) => {
-          validateElement(c, `${at}.children[${k}]`, source, ids, errors);
+          validateElement(c, `${at}.children[${k}]`, source, ids, errors, depth + 1, count);
         });
       }
     }
@@ -194,8 +212,9 @@ export function parseScene(input: unknown): ParseResult {
   const src: SourceModel | null = source === 'built' || source === 'svg' ? source : null;
   if (src) {
     const ids = new Set<string>();
+    const count = { n: 0 }; // total nodes across the whole tree (bounds the recursion-bomb)
     o.elements.forEach((raw, i) => {
-      validateElement(raw, `elements[${i}]`, src, ids, errors);
+      validateElement(raw, `elements[${i}]`, src, ids, errors, 0, count);
     });
   }
 

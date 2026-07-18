@@ -136,7 +136,8 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		}
 		for (const s of parsed.scenes) {
 			// unpackBundle already dropped any scene whose spec didn't re-validate, so every
-			// scene here is renderable. poster/art stay as-is (sanitized at their ingress).
+			// scene here is renderable. saveStudioScene sanitizes the untrusted poster/art at
+			// the store boundary — so restoring a hand-crafted backup can't persist raw markup.
 			await saveStudioScene({ name: s.name, label: s.label, description: s.description, spec: s.spec, poster: s.poster, art: s.art });
 			summary.scenes++;
 		}
