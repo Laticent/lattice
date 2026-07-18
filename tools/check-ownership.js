@@ -1755,28 +1755,46 @@ function checkSuonoBoundary(errors) {
 // escapes, not just the tidy single-line `from` (the precise shape a lazy backend's
 // `import('three')` would take).
 const ANIMA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'anima');
+// The sanctioned engine dep each BACKEND adapter may import — kept OUT of the pure core.
+// Everything not listed here (the whole core) may import only in-folder relatives + `node:`;
+// a listed backend file may additionally import its ONE engine dep. Keyed by anima-relative
+// path. A backend that imports an unlisted bare dep — or the core importing ANY — fails.
+const ANIMA_ADAPTER_DEPS = {
+  'backends/zdog.ts': ['zdog'],
+  'backends/vivus.ts': ['vivus'],
+};
 
 function checkAnimaBoundary(errors) {
   if (!fs.existsSync(ANIMA_DIR)) return; // library not present — nothing to guard
   for (const file of listSourceFiles(ANIMA_DIR)) {
     const rel = path.relative(ROOT, file);
+    const relInLib = path.relative(ANIMA_DIR, file).split(path.sep).join('/');
     const base = path.basename(file);
     if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use vitest, not host coupling
+    const allowed = ANIMA_ADAPTER_DEPS[relInLib] || [];
     const src = stripJsComments(fs.readFileSync(file, 'utf8'));
     const seen = new Set();
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
         const spec = m[1];
-        if (spec.startsWith('./')) continue; // in-folder relative — fine
-        if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+        if (spec.startsWith('.')) {
+          // A relative import must resolve INSIDE the anima folder — so `./x` and an
+          // intra-lib `../x` (a backend reaching the core) are fine, but a `../../lib/host`
+          // escape is not (it resolves outside ANIMA_DIR).
+          const resolved = path.resolve(path.dirname(file), spec);
+          if (resolved === ANIMA_DIR || resolved.startsWith(ANIMA_DIR + path.sep)) continue;
+        } else {
+          if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+          if (allowed.includes(spec)) continue; // this backend's sanctioned engine dep
+        }
         if (seen.has(spec)) continue; // don't double-report a spec two patterns both matched
         seen.add(spec);
         errors.push(
-          `${rel} imports '${spec}', which escapes the Anima folder. The animation core is ` +
+          `${rel} imports '${spec}', which escapes the Anima folder. The animation CORE is ` +
             `zero-dependency and spin-off-able (2026-07-17-anima-animation-library.md): every import ` +
             `(static, side-effect, dynamic \`import()\`, or \`require()\`) must resolve inside ` +
-            `docs/src/lib/anima/ (\`./x\`). A backend's engine dep (e.g. three) lands later behind ` +
-            `ANIMA_ADAPTER_DEPS — never in the core.`,
+            `docs/src/lib/anima/ (\`./x\` or an intra-lib \`../x\`) or be a \`node:\` built-in. A backend ` +
+            `may import ONLY its sanctioned engine dep (ANIMA_ADAPTER_DEPS).`,
         );
       }
     }
@@ -2522,6 +2540,7 @@ module.exports = {
   checkCadenzaBoundary,
   checkAnimaBoundary,
   ANIMA_DIR,
+  ANIMA_ADAPTER_DEPS,
   SUONO_SPEC_PATTERNS,
   stripJsComments,
   checkSuonoBoundary,

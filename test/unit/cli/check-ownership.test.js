@@ -65,6 +65,7 @@ const {
   checkVetrinaBoundary,
   checkAnimaBoundary,
   ANIMA_DIR,
+  ANIMA_ADAPTER_DEPS,
   SUONO_SPEC_PATTERNS,
   stripJsComments,
   checkAudioPlaybackBoundary,
@@ -836,11 +837,18 @@ describe('check-ownership', () => {
       assert.deepEqual(errors, [], errors.join('\n'));
     });
 
-    test('every core (non-test) file imports only in-folder `./` or `node:` specifiers', () => {
+    test('every file resolves in-folder or node:; a backend adds only its sanctioned engine dep', () => {
       for (const file of listSourceFiles(ANIMA_DIR)) {
         if (/\.test\.[tj]s$/.test(file)) continue;
+        const relInLib = path.relative(ANIMA_DIR, file).split(path.sep).join('/');
+        const allowed = ANIMA_ADAPTER_DEPS[relInLib] || [];
         for (const spec of scan(fs.readFileSync(file, 'utf8'))) {
-          assert.ok(spec.startsWith('./') || spec.startsWith('node:'), `${path.relative(ANIMA_DIR, file)} imports '${spec}' — must be in-folder`);
+          if (spec.startsWith('.')) {
+            const resolved = path.resolve(path.dirname(file), spec);
+            assert.ok(resolved === ANIMA_DIR || resolved.startsWith(ANIMA_DIR + path.sep), `${relInLib} imports '${spec}', which escapes the folder`);
+          } else if (!spec.startsWith('node:')) {
+            assert.ok(allowed.includes(spec), `${relInLib} imports bare '${spec}' not in its adapter allowlist`);
+          }
         }
       }
     });
