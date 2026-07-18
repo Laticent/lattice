@@ -173,8 +173,24 @@ writing surface fills. Desktop/tablet unchanged; typecheck + 1732 tests + biome 
 real iOS** (HARD RULE #23 — no software keyboard in the sandbox): the collapse/reveal feel across the
 keyboard animation and the scroll-direction thresholds need a device pass.
 
-## Still pending — the divider → slide-settings gear
+## Slice 3 — the divider → slide-settings gear (landed)
 
-The **divider → slide-settings** gear (the `SlideView` bar gains a gear opening `SlideContextBody` as a
-`side="bottom"` Sheet; reconcile the caret slide via `onEditorCursorSlide` before opening; guard the
-lens −1 case; controlled Sheet with focus/selection restore) is still to build.
+The user's original ask ("I like the divider toolbar, it should house the slide settings"). The
+`SlideView` bar's move zone gains a **⚙** (`sliders-horizontal`): on click it reads its own full-deck
+`index()` and calls a ref-backed `onOpenSlideSettings(index)` threaded through the `nodeViews` factory.
+StudioShell's `openSlideSettings(fullIdx)` binds the inspector to that slide **before** opening
+(`setActiveSlide` → `setInspectorScope('slide')` → `setInspectorOpen(true)`) so it targets the caret's
+slide, not the filmstrip's (`activeFullIndex` tracks the preview). **Lens −1 guard:** if the tapped
+slide is filtered out of an active reader lens (`viewSlides.indexOf(slides[fullIdx]) < 0`), it drops the
+lens back to `full` and selects the full index rather than silently editing the previously-active slide
+(red-team M2). The mobile inspector `Sheet` moved from `side="right"` to a `side="bottom"` sheet
+(thumb-reachable); tablet/desktop open the docked inspector (a free in-context shortcut — the gear shows
+on every breakpoint). Reuses `SlideContextBody`/`inspectorScopeContent` verbatim (HARD RULE #15).
+
+Verified in-sandbox (mobile 390, Compose): the gear renders in the active slide's divider and opens the
+bottom settings sheet at **Slide scope** ("Editing Slide 1 only"). Typecheck + 1746 tests + biome clean.
+
+**Follow-up (not blocking):** focus/selection restore on Sheet close (Track 4 graft) — opening the Radix
+Sheet blurs the editor; on close the user taps back in. Seamless "adjust a setting, keep typing" would
+snapshot the `TextSelection` on gear-tap and `view.focus()` + restore on close (a ComposeView↔shell
+signal). Deferred as polish.

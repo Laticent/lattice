@@ -196,6 +196,7 @@ const LUCIDE_PATHS: Record<string, string> = {
 	'trash-2': '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
 	'chevrons-down-up': '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
 	'chevrons-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+	'sliders-horizontal': '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
@@ -217,6 +218,7 @@ class SlideView {
 		public view: EditorView,
 		public getPos: () => number,
 		decorations: readonly Decoration[] = [],
+		onSettings?: (index: number) => void,
 	) {
 		const dom = document.createElement('section');
 		dom.className = node.attrs.locked ? 'cs-slide cs-slide-locked' : 'cs-slide';
@@ -250,8 +252,13 @@ class SlideView {
 		left.append(this.collapseBtn);
 		const center = zone();
 		center.append(mk('Insert slide below', 'plus', () => this.insertBelow()), mk('Delete slide', 'trash-2', () => this.remove(), true));
+		// The divider bar is the HOME for slide settings (the user's request): a gear in the RIGHT
+		// zone opens the slide-scoped inspector for THIS slide, carrying its full-deck index so the
+		// shell targets the caret's slide, not the filmstrip's. Grouped with move (away from the
+		// destructive delete in the center).
 		const right = zone();
 		right.append(mk('Move slide up', 'arrow-up-to-line', () => this.move(-1)), mk('Move slide down', 'arrow-down-to-line', () => this.move(1)));
+		if (onSettings) right.append(mk('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }));
 		bar.append(left, center, right);
 		const content = document.createElement('div');
 		content.className = 'cs-slide-content';
@@ -391,7 +398,7 @@ function GrammarRegisters({ active, onGutter, disabled }: { active: Reg | null; 
 // preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
 // portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
 // pane, else it would paint over the live preview (the body-portal render-gate).
-export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void }) {
+export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -425,6 +432,9 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// typing (a scroll-up away), which answers the inversion's keyboard-only-reachability objection.
 	const onTypingRef = React.useRef(onTypingCollapse);
 	onTypingRef.current = onTypingCollapse;
+	// Ref-backed so the construct-once NodeView factory always calls the CURRENT handler.
+	const onOpenSlideSettingsRef = React.useRef(onOpenSlideSettings);
+	onOpenSlideSettingsRef.current = onOpenSlideSettings;
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
 	// Opening the keyboard collapses; closing it always restores the chrome.
 	React.useEffect(() => {
@@ -498,7 +508,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
-				nodeViews: { slide: (node, nodeView, getPos, decorations) => new SlideView(node, nodeView, getPos as () => number, decorations) },
+				nodeViews: { slide: (node, nodeView, getPos, decorations) => new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i)) },
 				dispatchTransaction(tr) {
 					const prevDoc = view.state.doc;
 					const next = view.state.apply(tr);

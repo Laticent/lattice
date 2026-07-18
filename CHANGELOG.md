@@ -452,6 +452,14 @@ in patch versions.
   its rendered iframe across the search boundary instead of re-rendering cold, and each tile's preview
   figure is `aria-hidden` (the tile button already carries the name) so a screen reader hears each slide
   once, not a duplicate figure node. (`StudioShell.tsx`, `SlidePicker.tsx`, `slide-thumb.tsx`, `DeckPreview.tsx`.)
+- **The slide divider now houses slide settings.** The per-slide divider bar (collapse · insert ·
+  delete · move) gains a **⚙ gear** in its move zone that opens the slide-scoped inspector — Look /
+  Accent / Status / Chrome / Notes / Comments — for **that** slide. On a phone it opens as a
+  thumb-reachable **bottom sheet**; on tablet/desktop it opens the docked inspector (a free in-context
+  shortcut). It carries the slide's full-deck index so it always targets the slide you tapped, not the
+  filmstrip's current selection; and if that slide is filtered out of an active reader lens, the deck
+  drops back to the full view so the gear can never edit the wrong slide. (`ComposeView.tsx` `SlideView`,
+  `StudioShell.tsx`.)
 - **The phone editor gets out of your way while you type.** Even after the grammar bar was lifted
   above the keyboard, three persistent toolbars (app header, deck-actions, the EDIT toolbar) still ate
   the top half of the screen while typing. Now: (a) the **EDIT toolbar band is gone on mobile** — its

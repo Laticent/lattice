@@ -1302,6 +1302,24 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		const vi = viewSlides.indexOf(slides[fullIdx]);
 		if (vi >= 0) setActiveSlide(vi);
 	}
+	// The Compose divider's ⚙ opens slide settings for the caret's slide (its FULL-deck index).
+	// Bind the inspector to that slide, THEN open — targeting the caret's slide, not the filmstrip's
+	// (activeFullIndex tracks the preview selection). In a reader lens the slide may be filtered out
+	// of the viewed set; rather than silently edit the previously-active slide, drop back to the full
+	// deck so the ⚙ always targets the slide you tapped.
+	function openSlideSettings(fullIdx: number) {
+		if (composeLens === 'full') setActiveSlide(fullIdx);
+		else {
+			const vi = viewSlides.indexOf(slides[fullIdx]);
+			if (vi >= 0) setActiveSlide(vi);
+			else {
+				setComposeLens('full');
+				setActiveSlide(fullIdx);
+			}
+		}
+		setInspectorScope('slide');
+		setInspectorOpen(true);
+	}
 	// Transient bottom-center confirmation, so no action in the prototype is a
 	// dead click (real ones confirm; not-yet-wired ones say so honestly).
 	const notify = React.useCallback((msg: string) => {
@@ -2192,7 +2210,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			</div>
 			)}
 			{editMode === 'compose' ? (
-				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} />
+				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} />
 			) : (
 				<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
 			)}
@@ -2801,7 +2819,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
 					{mobile && (
 						<Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-							<SheetContent side="right" className="w-[88vw] gap-0 p-0 sm:max-w-[340px]">
+							<SheetContent side="bottom" className="h-[80vh] gap-0 rounded-t-2xl p-0">
 								<SheetHeader className="border-b border-border">
 									<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings2 className="size-4 text-[var(--accent)]" />Settings</SheetTitle>
 									<SheetDescription className="sr-only">Slide-first settings: switch between this slide's overrides and deck-wide defaults.</SheetDescription>
