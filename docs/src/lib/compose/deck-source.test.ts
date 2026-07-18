@@ -1,0 +1,35 @@
+import { describe, expect, it } from 'vitest';
+import { hasLossyConstruct } from './deck-source';
+
+// `hasLossyConstruct` decides which slides Compose locks read-only (edited in Markdown
+// mode). It must fire on constructs the CommonMark round-trip would flatten/escape, and
+// NOT on prose or the constructs that round-trip byte-exact (inline HTML, `<!-- -->`).
+
+describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
+	it('fires on a markdown table', () => {
+		expect(hasLossyConstruct('## Data\n\n| A | B |\n| --- | --- |\n| 1 | 2 |')).toBe(true);
+	});
+	it('fires on strikethrough', () => {
+		expect(hasLossyConstruct('Price was ~~$5M~~ now $3M.')).toBe(true);
+	});
+	it('fires on a block-level HTML tag', () => {
+		expect(hasLossyConstruct('<figure>\n  <img src="x">\n</figure>')).toBe(true);
+	});
+	it('fires on a task list', () => {
+		expect(hasLossyConstruct('- [ ] todo\n- [x] done')).toBe(true);
+	});
+	it('fires on a footnote reference', () => {
+		expect(hasLossyConstruct('A claim.[^1]\n\n[^1]: the source')).toBe(true);
+	});
+
+	it('does NOT fire on plain prose, headings, lists, blockquotes', () => {
+		expect(hasLossyConstruct('# Title\n\n`Eyebrow`\n\n- one\n- two\n\n> insight')).toBe(false);
+	});
+	it('does NOT fire on inline HTML or HTML comments (they round-trip byte-exact)', () => {
+		expect(hasLossyConstruct('A line with <br> inside it.')).toBe(false);
+		expect(hasLossyConstruct('## Slide\n\n<!-- note: speaker aside -->\n\nBody.')).toBe(false);
+	});
+	it('does NOT fire on a big-number / KPI slide (dollar figures are not tables)', () => {
+		expect(hasLossyConstruct('## Revenue\n\n1. $2.4B\n   - Total revenue\n2. 42%\n   - Margin')).toBe(false);
+	});
+});

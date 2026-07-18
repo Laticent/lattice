@@ -69,38 +69,55 @@ clears the surface's `overflow:hidden` and `container-type` clipping — and fli
 the selection near the viewport top. The gutter owns BLOCK registers; the bar owns
 INLINE marks, so the two never overlap.
 
-## Hardening (the adversarial trio's findings, folded)
+## Hardening (two adversarial trios' findings, folded)
 
-A second trio (red-team · Munger inversion · independent checker) ran against the
-ProseMirror engine. It confirmed the engine is safe as the current opt-in mode (default
-is Markdown; no XSS / HARD RULE #22 path; no gate violated; front-matter, directives,
-nesting, raw-HTML engine content, and empty slides all round-trip **with evidence**), and
-surfaced four corruption/robustness vectors — all now fixed with tests:
+Two trios (red-team · Munger inversion · independent checker) ran against the ProseMirror
+engine. Both confirmed it is safe as the opt-in mode (default is Markdown; no XSS / HARD
+RULE #22 path; no gate violated; front-matter, directives, nesting, raw-HTML engine
+content, and empty slides all round-trip **with evidence**). Findings, all fixed with tests
+and verified on the real built Studio (HARD RULE #23):
 
 - **Thematic-break slide split (was CRITICAL).** `***` / `___` / `- - -` (valid engine
-  `<hr>` forms) serialized to a bare `---`, which is the deck's slide separator — the first
-  Compose touch split the slide and dropped the next slide's `_class`. Fixed: the
-  `horizontal_rule` serializer emits `***`, which `splitSlides`' `/\n-{3,}\n/` can never
-  match (`deck-markdown.ts`; test in `deck-markdown.test.ts` + `deck-doc.test.ts`).
+  `<hr>` forms) serialized to a bare `---`, the deck's slide separator — the first Compose
+  touch split the slide and dropped the next slide's `_class`. Fixed: the `horizontal_rule`
+  serializer emits `***`, which `splitSlides`' `/\n-{3,}\n/` can never match.
+- **Count-change corruption + accidental slide merge (was CRITICAL — 2nd trio, three
+  independent reproductions).** Backspace at a slide start (`joinBackward`), Delete at its
+  end, or a cross-slide selection-delete merged two slides into one, **silently dropping the
+  merged-away slide's `_class`**; and because the slide count changed, the old positional
+  `emitDeck` fell through to a whole-deck lossy reserialize that **flattened untouched table/
+  HTML slides elsewhere**. Two fixes: (1) `emitDeck` reuse is now keyed on node IDENTITY via
+  a `Map`, not position — an untouched slide stays byte-exact through ANY count change; (2) a
+  `filterTransaction` structural guard blocks any transaction that changes the slide count,
+  so an accidental merge/split can't happen (`deck-doc.ts`, `ComposeView.tsx`; tests in
+  `deck-doc.test.ts`).
+- **Editing a rich slide flattens it (was HIGH).** Edit-local emit only protects UNTOUCHED
+  slides; directly editing a slide that carries a construct Compose can't round-trip (a
+  table, block HTML, strikethrough, tasklist, footnote) reserialized it lossily. Fixed: such
+  slides are detected (`hasLossyConstruct`) and marked `locked` — the structural guard blocks
+  edits to them (identity never changes → always emits `raw`), and they render dimmed with an
+  "edit in Markdown" badge. So every Compose slide is either fully-editable prose (lossless
+  round-trip) or a byte-immutable locked slide.
 - **Edit-local emit (the master mitigation).** `docToDeck` re-serialized the WHOLE deck on
-  every keystroke, so a lossy construct (a table, math, raw HTML — things the CommonMark
-  parse layer doesn't model) on ANY slide degraded the moment you typed on ANOTHER slide.
-  Fixed: `emitDeck` re-serializes only the slide whose ProseMirror node identity actually
-  changed; every untouched slide re-emits its ORIGINAL bytes (`raw`, carried on the slide
-  node) verbatim. A slide you never touch can no longer degrade, and a keystroke costs one
-  slide's serialize, not the deck's (`deck-doc.ts`; tests in `deck-doc.test.ts`).
-- **Lost external edit while focused.** The resync effect dropped an external `source`
-  change (Inspector stamping `_class`, an AI apply, undo) that arrived while Compose held
-  focus. Fixed: the change is PARKED and flushed on blur (`ComposeView.tsx`).
-- **Sticky failure + register gaps.** A deck that failed to parse left Compose stuck in the
-  textarea fallback for every later deck — reset on construct. The `note` register was
-  add-only and unguarded — now toggles and is paragraph-scoped (`ComposeView.tsx`).
+  every keystroke; now `emitDeck` re-serializes only the slide whose node identity changed,
+  and every untouched slide re-emits its ORIGINAL `raw` bytes verbatim.
+- **Resync race (was HIGH — 2nd trio).** An external `source` change arriving while Compose
+  held focus was parked and flushed on blur — but if the user kept typing after the park, the
+  stale snapshot replayed over their edits on blur. Fixed: a local edit clears the pending
+  park (favor the actively-typing author); the dead lossy-serializer dedupe guard was removed.
+- **Selection-bar throw could swallow a keystroke's emit (was LOW).** `computeSelBar`'s
+  `coordsAtPos` now runs LAST and guarded, so it can never abort the transaction before the
+  edit is emitted.
+- **Sticky failure + register gaps + note register.** Parse failure no longer sticks across
+  decks; the `note` register toggles and is paragraph-scoped.
 
 ## Known limits (tracked)
 
-- Raw HTML and Markdown tables round-trip **byte-safe** (the checker confirmed this), but
-  render as literal text on the serif surface rather than as rich WYSIWYG — a fidelity gap,
-  not corruption; edit-local emit keeps their bytes intact on untouched slides.
+- Slides with a table / block HTML / strikethrough / tasklist / footnote are **locked
+  read-only** in Compose (edited in Markdown mode) — a deliberate guard, not a bug. Inline
+  math (`$a_1$`) is NOT yet detected as lossy, so a slide with only inline math is editable
+  and its `_`/`*` could be reflowed on a direct edit — a residual gap; model math (and the
+  other locked constructs) as real schema nodes to make them editable-and-lossless.
 - Non-`_` HTML comments (speaker notes / captions) inside prose round-trip byte-stable but
   show as literal editable text — no dedicated hidden node yet.
 - The grammar-gutter register read is a heuristic (position-blind): any blockquote reads as

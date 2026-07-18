@@ -46,6 +46,25 @@ export function composeSlideChunk(directives: string[], prose: string): string {
 	return body ? `${head}\n\n${body}` : head;
 }
 
+// Constructs the engine renders (commonmark + html:true + tables + strikethrough) but
+// the Compose parser (plain CommonMark, html:false) does NOT model — so re-serializing a
+// slide that contains one would flatten/escape it. A slide whose prose matches is LOCKED
+// in Compose (read-only, "edit in Markdown"), so a keystroke can never reflow it. Inline
+// HTML and `<!-- … -->` comments are excluded: they round-trip as literal text byte-exact.
+const LOSSY_CONSTRUCTS: RegExp[] = [
+	/^\s*\|.*\|/m, // pipe-table row
+	/~~/, // strikethrough
+	/^\s*<(?!!--)\/?[a-zA-Z][\w-]*(\s|>|\/)/m, // block-level HTML tag (not a comment)
+	/^\s*[-*+]\s+\[[ xX]\]/m, // task-list item
+	/\[\^[^\]]+\]/, // footnote reference / definition
+];
+
+/** Whether a slide's prose carries a construct the Compose round-trip would corrupt, so
+ *  the slide must be locked read-only in Compose (edited in Markdown mode instead). */
+export function hasLossyConstruct(prose: string): boolean {
+	return LOSSY_CONSTRUCTS.some((re) => re.test(prose));
+}
+
 /** The `_class` component name of a slide's directives (first token), or 'content'. */
 export function slideClassOf(directives: string[]): string {
 	for (const d of directives) {

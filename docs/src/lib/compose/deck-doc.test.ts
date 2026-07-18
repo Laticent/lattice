@@ -1,6 +1,6 @@
 import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
+import { deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
 
 // The whole-deck round-trip through the ONE document: source → doc → source.
 // Directives, front-matter, slide order, and structured nesting must all survive.
@@ -109,5 +109,27 @@ describe('edit-local emit — untouched slides re-emit their bytes verbatim', ()
 		const doc = deckToDoc(source);
 		const baseline = initBaseline(doc);
 		expect(emitDeck(doc, baseline)).toBe(source);
+	});
+
+	it('an untouched slide stays byte-exact even when the SLIDE COUNT changes (identity-keyed emit)', () => {
+		// The adversarial trio's CRITICAL: the old positional emit flattened every untouched
+		// slide the instant the count moved (a slide merge/delete). Identity-keyed emit must
+		// keep a reused slide node byte-exact regardless of position or count.
+		const doc = deckToDoc(source); // [title, TABLE, content]
+		const baseline = initBaseline(doc);
+		// Simulate a merge/delete that drops slide 0 but REUSES slides 1 and 2 by reference —
+		// exactly what a joinBackward leaves for the surviving nodes.
+		const kept = [doc.child(1), doc.child(2)];
+		const merged = deckSchema.nodes.doc.create({ frontMatter: doc.attrs.frontMatter }, kept);
+		const out = emitDeck(merged, baseline);
+		expect(out).toContain('| A | B |\n| --- | --- |\n| 1 | 2 |'); // table grid survived the count change
+		expect((out.match(/<!-- _class:/g) || []).length).toBe(2);
+	});
+
+	it('marks a slide with a lossy construct (table) as locked, and a prose slide as unlocked', () => {
+		const doc = deckToDoc(source); // [title, TABLE, content]
+		expect(doc.child(0).attrs.locked).toBe(false); // "# Deck" — plain prose
+		expect(doc.child(1).attrs.locked).toBe(true); // the table slide
+		expect(doc.child(2).attrs.locked).toBe(false); // "## End" — plain prose
 	});
 });

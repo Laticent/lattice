@@ -4,11 +4,11 @@ import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirr
 import { keymap } from 'prosemirror-keymap';
 import type { MarkType } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { deckSchema, deckToDoc, docToDeck, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
+import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
 import { cn } from '@/lib/utils';
 
 // The Compose editing MODE, on ProseMirror (Option B, one true document), dressed
@@ -109,8 +109,32 @@ function computeSelBar(view: EditorView): SelBar | null {
 	};
 }
 
+// The structural guard (the adversarial trio's CRITICAL). Two invariants a stray keystroke
+// must never break: (1) the slide COUNT can't change from editing — Backspace at a slide
+// start, Delete at its end, or a cross-slide selection-delete would otherwise `joinBackward`
+// two slides into one, silently dropping the merged-away slide's `_class`; (2) a LOCKED
+// slide (one whose prose Compose can't round-trip — a table, block HTML, strikethrough…)
+// can't be edited, so its node identity never changes and `emitDeck` always re-emits its
+// exact `raw` bytes. Selection-only transactions (no doc change) always pass, so you can
+// still put the caret in / copy from a locked slide.
+function structuralGuard() {
+	return new Plugin({
+		filterTransaction(tr, state) {
+			if (!tr.docChanged) return true;
+			const oldDoc = state.doc;
+			const newDoc = tr.doc;
+			if (oldDoc.childCount !== newDoc.childCount) return false; // no accidental merge/split
+			for (let i = 0; i < oldDoc.childCount; i++) {
+				if (oldDoc.child(i).attrs.locked && oldDoc.child(i) !== newDoc.child(i)) return false; // locked slide is immutable
+			}
+			return true;
+		},
+	});
+}
+
 function buildPlugins() {
 	return [
+		structuralGuard(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
 		keymap({
@@ -172,8 +196,11 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 					const next = view.state.apply(tr);
 					view.updateState(next);
 					setActive(activeRegister(next));
-					setSelBar(computeSelBar(view));
 					if (tr.docChanged) {
+						// A fresh local edit supersedes any parked external change — otherwise the
+						// blur flush would replay a now-stale snapshot over the user's typing (the
+						// trio's resync race). Favor the actively-typing author.
+						pendingResyncRef.current = null;
 						// Edit-local emit: only the slide the caret changed is re-serialized;
 						// every untouched slide re-emits its cached bytes (baselineRef).
 						const base = baselineRef.current ?? initBaseline(next.doc);
@@ -181,6 +208,13 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 						baselineRef.current = base;
 						lastEmittedRef.current = src;
 						onChangeRef.current(src);
+					}
+					// Selection-bar geometry LAST and guarded — a throw in coordsAtPos must never
+					// abort the transaction and swallow the emit above.
+					try {
+						setSelBar(computeSelBar(view));
+					} catch {
+						setSelBar(null);
 					}
 				},
 				handleDOMEvents: {
@@ -227,8 +261,10 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 	React.useEffect(() => {
 		const view = viewRef.current;
 		if (!view) return;
+		// `lastEmittedRef` is the exact string this editor last emitted, so this skips our
+		// OWN echo without the old `docToDeck(doc) === source` guard — which compared through
+		// the LOSSY serializer and so never matched a rich deck (dead code, per the trio).
 		if (source === lastEmittedRef.current) return;
-		if (docToDeck(view.state.doc) === source) return;
 		if (view.hasFocus()) {
 			pendingResyncRef.current = source;
 			return;
@@ -334,6 +370,10 @@ function ComposeStyles() {
 			.cs-host .cs-slide{padding:20px clamp(24px,6cqw,64px)}
 			.cs-host .cs-slide + .cs-slide{margin-top:6px;position:relative}
 			.cs-host .cs-slide + .cs-slide::before{content:"◇";display:block;text-align:center;font-size:9px;color:var(--text-faint,#c8ccd4);margin:0 0 18px;border-top:1px solid var(--rule,rgba(0,0,0,.07));padding-top:16px}
+			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
+			   strikethrough…) — read-only here, edited in Markdown mode. Dim it and badge it. */
+			.cs-host .cs-slide-locked{position:relative;opacity:.62}
+			.cs-host .cs-slide-locked::after{content:"◔ edit in Markdown";position:absolute;top:8px;right:clamp(12px,4cqw,40px);font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7280);background:var(--surface-2,rgba(0,0,0,.05));padding:2px 7px;border-radius:4px;pointer-events:none}
 			.cs-host h1{font-family:inherit;font-size:1.95rem;font-weight:700;line-height:1.12;margin:.1em 0 .35em;color:var(--text-heading,#14243a);letter-spacing:-.01em}
 			.cs-host h2{font-family:inherit;font-size:1.45rem;font-weight:700;line-height:1.18;margin:.5em 0 .32em;color:var(--text-heading,#14243a);letter-spacing:-.005em}
 			.cs-host h3{font-family:inherit;font-size:1.15rem;font-weight:600;margin:.5em 0 .25em;color:var(--text-heading,#14243a)}
