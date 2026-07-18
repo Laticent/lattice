@@ -46,6 +46,12 @@ export type ComponentEntry = PickerItem;
 const FUNCTION_ORDER = ['anchor', 'statement', 'inventory', 'comparison', 'progression', 'evidence', 'imagery'];
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
+// A tile's React key. Function-band tiles keep a BARE-NAME key so the same tile
+// (and its live-preview iframe) survives the browse↔search transition inside the
+// one shared grid; the special bands (blank/recent/local) — which can duplicate a
+// catalog item — get a prefixed key so siblings stay unique.
+const tileKey = (bandKey: string, name: string) => (bandKey === 'blank' || bandKey === 'recent' || bandKey === 'local' ? `${bandKey}:${name}` : name);
+
 // The grouping lens for browse mode — Keynote-style bands by the purpose axis. Built
 // locally (not via families.mjs) so the picker carries no extra data dependency.
 const FUNCTION_LENS: Lens = {
@@ -200,30 +206,23 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 				</div>
 			)}
 
-			{/* The grid — the surface. role=group of plain buttons: each tile is natively
-			    focusable + Enter/click inserts (no button-in-button, no roving to break). */}
+			{/* The grid — the surface. Plain buttons: each tile is natively focusable +
+			    Enter/click inserts (no button-in-button, no roving to break). ONE persistent
+			    grid container spans browse AND search — band headers are full-width grid
+			    items — so crossing the search boundary reuses each tile's live-preview iframe
+			    instead of tearing down the whole subtree and re-rendering cold. */}
 			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 [touch-action:pan-y] sm:px-5">
-				{searching ? (
-					flat.length === 0 ? (
-						<Empty query={query} />
-					) : (
-						<div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-3 lg:grid-cols-4">
-							{flat.map((it) => (
-								<Tile key={it.name} item={it} {...tileProps} />
-							))}
-						</div>
-					)
+				{searching && flat.length === 0 ? (
+					<Empty query={query} />
 				) : (
-					bands?.map((band) => (
-						<section key={band.key} className="pt-1">
-							{band.label && <h3 className={cn('px-0.5 pb-1.5 pt-3 font-mono text-[10.5px] font-semibold uppercase tracking-[0.16em]', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{band.label}</h3>}
-							<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-								{band.items.map((it) => (
-									<Tile key={`${band.key}:${it.name}`} item={it} {...tileProps} />
-								))}
-							</div>
-						</section>
-					))
+					<div className="grid grid-cols-2 gap-3 pt-1 sm:grid-cols-3 lg:grid-cols-4">
+						{searching
+							? flat.map((it) => <Tile key={it.name} item={it} {...tileProps} />)
+							: (bands ?? []).flatMap((band) => {
+									const header = band.label ? [<h3 key={`h:${band.key}`} className={cn('col-span-full px-0.5 pb-1 pt-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.16em]', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{band.label}</h3>] : [];
+									return [...header, ...band.items.map((it) => <Tile key={tileKey(band.key, it.name)} item={it} {...tileProps} />)];
+								})}
+					</div>
 				)}
 			</div>
 

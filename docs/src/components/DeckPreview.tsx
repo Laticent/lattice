@@ -56,6 +56,10 @@ export type DeckPreviewProps = {
 	coalesce?: boolean;
 	className?: string;
 	'aria-label'?: string;
+	/** Hide the whole preview subtree from assistive tech — for a thumbnail whose
+	 *  wrapping control already carries the accessible name (the figure would else
+	 *  duplicate it). */
+	'aria-hidden'?: boolean;
 	role?: React.AriaRole;
 	/**
 	 * Fired ONCE, after the first successful render resolves — the signal that the

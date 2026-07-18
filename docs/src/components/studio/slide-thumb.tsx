@@ -63,16 +63,15 @@ export type SlideThumbFaceProps = {
 	/** Windowing gate — the caller pairs this with `useInView`. */
 	active: boolean;
 	className?: string;
-	/** Accessible label for the render. Omit on a picker tile whose gridcell already
-	 *  carries the name, so a mocked/decorative preview can't duplicate it in the a11y tree. */
-	label?: string;
 };
 
 /**
  * The preview face only — a windowed `<DeckPreview>` with Mermaid auto-detected
- * from the sample. The caller supplies the wrapping element + role.
+ * from the sample. The caller supplies the wrapping element, which owns the
+ * accessible NAME; the face itself is `aria-hidden` (a decorative render), so a
+ * screen reader hears the tile's button once, never a duplicate figure node.
  */
-export function SlideThumbFace({ options, sample, paletteOverride, extraTheme, modeOverride, extraCss, active, className, label }: SlideThumbFaceProps) {
+export function SlideThumbFace({ options, sample, paletteOverride, extraTheme, modeOverride, extraCss, active, className }: SlideThumbFaceProps) {
 	return (
 		<DeckPreview
 			options={options}
@@ -84,7 +83,7 @@ export function SlideThumbFace({ options, sample, paletteOverride, extraTheme, m
 			extraCss={extraCss}
 			active={active}
 			className={className}
-			aria-label={label}
+			aria-hidden
 		/>
 	);
 }

@@ -318,6 +318,16 @@ in patch versions.
 
 ### Changed
 
+- **A diagram slide now renders as a diagram in the Studio editing preview, not raw code.** The main
+  deck preview hardcoded `mermaid={false}`, so a slide with a Mermaid fence (the `diagram` component,
+  or hand-written) showed its fenced code instead of the drawn diagram while you edited — even though
+  the new add-slide gallery previewed it correctly. The main preview now auto-detects Mermaid per slide
+  (the shared `hasMermaid` from `slide-thumb.tsx`), so all three preview surfaces — the gallery, the
+  Present slide overview, and the editing preview — render diagrams the same way. Add-slide gallery
+  polish rides along: the browse and search grids now share one container so a live-preview tile keeps
+  its rendered iframe across the search boundary instead of re-rendering cold, and each tile's preview
+  figure is `aria-hidden` (the tile button already carries the name) so a screen reader hears each slide
+  once, not a duplicate figure node. (`StudioShell.tsx`, `SlidePicker.tsx`, `slide-thumb.tsx`, `DeckPreview.tsx`.)
 - **The performance overlay's FPS now rates against your display's refresh ceiling, not a fixed 60.**
   A steady 30fps on a 30Hz panel — or under an iOS/tablet power-saver or a backgrounded-tab throttle —
   is the device's ceiling, not jank, but the overlay was colouring it "poor" and sending people
