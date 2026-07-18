@@ -22,6 +22,15 @@ describe('narration() builder — a config pass-through over buildTrack/makeRead
 		expect(narration(TEXT).toTrack()).toEqual(buildTrack(TEXT));
 	});
 
+	it('.acronyms() and .lexicon() are threaded through to buildTrack', () => {
+		const acronyms = new Map([['ARR', 'annual recurring revenue']]);
+		const lexicon = new Map([['$', 'dollars']]);
+		const text = 'ARR hit $5.';
+		expect(narration(text).acronyms(acronyms).lexicon(lexicon).pace('slow').toTrack()).toEqual(
+			buildTrack(text, { acronyms, lexicon, pace: 'slow' }),
+		);
+	});
+
 	it('.calibration(state) sets rateScale === rateScale(state)', () => {
 		// A calibration observed to run slower than estimate → a rateScale ≠ 1.
 		let state = emptyCalibration();

@@ -261,6 +261,7 @@
 			let mode = 'tones';          // 'tones' (keyless) | 'voice' (cloud)
 			let voice = null, selVoice = 'af_heart';
 			let curBeat = null;          // active beat id, for scenario options
+			let onDone = null;           // one-shot: fired when a run ENDS naturally (not aborted)
 
 			function ensureStage() {
 				if (!stage) stage = createStage();
@@ -322,12 +323,13 @@
 						capEl.innerHTML = `<span class="on">${ITEMS[index].text}</span>`;
 						mIndex.textContent = `${index + 1} / ${ITEMS.length} · ${ITEMS[index].label}`;
 					})
-					.onState(({ playing, index, aborted }) => {
+					.onState(({ playing, aborted }) => {
 						if (!playing) {
 							setTransport(false);
 							if (aborted) setDiag('Aborted — the run stopped cleanly mid-clip (barge-in / stop).');
-							else { setDiag('Done.'); mIndex.textContent = '—'; }
-							if (!aborted) markAllDone();
+							else { setDiag('Done.'); mIndex.textContent = '—'; markAllDone(); }
+							const cb = onDone; onDone = null; // one-shot
+							if (cb) cb({ aborted });
 						}
 					})
 					.build();
@@ -343,31 +345,27 @@
 			}
 			function markAllDone() { ITEMS.forEach((_, i) => markChip(i, 'done')); }
 
-			// Detect whether an item's bytes are already cached → flash "cache" on replay.
-			function flagCacheHits(prevProduce) {
-				// After a run, any item whose produce() wasn't called again this run was a cache hit.
-				// (Illustrative: the byte cache lives in the sequence via keyOf.)
-			}
-
-			async function play(opts = {}) {
+			// Build a FRESH sequence (new instance → empty byte cache) and play it. Used by every
+			// beat except the ones that deliberately reuse an instance (cache / warm).
+			function playFresh(opts = {}) {
 				const st = ensureStage();
 				st.unlock();               // iOS: must be synchronous in the gesture
 				if (seq) seq.stop();
+				onDone = null;
 				renderScore(opts.gaps !== false);
-				const before = produceCount;
 				seq = buildSequence(opts);
 				setDiag('Playing…'); setTransport(true);
 				seq.play();
-				// A replay of the SAME items with the same keys serves from cache: produce() stays flat.
-				if (opts.replay) {
-					setTimeout(() => {
-						const grew = produceCount - before;
-						if (grew === 0) { cacheCount += ITEMS.length; mCache.textContent = String(cacheCount); ITEMS.forEach((_, i) => markChip(i, null, 'hit')); }
-					}, 60);
-				}
+			}
+			// Replay the CURRENT instance. Its closure-held byte cache persists, so keyed items serve
+			// from cache and produce() does not fire again — the real dedup, on the same object.
+			function replayCurrent() {
+				if (!seq) return;
+				setTransport(true);
+				seq.play();               // play() internally stop()s then re-runs; bytesCache survives
 			}
 
-			playBtn.addEventListener('click', () => { curBeat = null; setCurrentBeat(null); play({ gaps: true }); });
+			playBtn.addEventListener('click', () => { curBeat = null; setCurrentBeat(null); playFresh({ gaps: true }); });
 			pauseBtn.addEventListener('click', () => {
 				if (!seq) return;
 				if (seq.playing()) { seq.pause(); pauseBtn.textContent = 'Resume'; setDiag('Paused.'); }
@@ -383,13 +381,48 @@
 
 			// ── The storyboard beats ──────────────────────────────────────────────────────
 			const BEATS = [
-				{ id: 'play',  t: 'Bytes in, clock out', d: 'Five tones scheduled back-to-back; each lights at its real onset on Suono’s owned WebAudio clock.', api: 'sequence().play()', run: () => play({ gaps: false }) },
-				{ id: 'gaps',  t: 'Breath between phrases', d: 'The same run with a deeper gap after a topic beat — the scheduler inserts the silence, not you.', api: 'gap((it,next,i)=>ms)', run: () => play({ gaps: true }) },
-				{ id: 'barge', t: 'Barge-in', d: 'Start playing, then interrupt: the run aborts cleanly mid-clip and the in-flight producer is signalled.', api: 'stop() / AbortSignal', run: () => { play({ gaps: true }); setTimeout(() => bargeBtn.click(), 900); } },
-				{ id: 'pause', t: 'Pause & resume', d: 'Freeze between clips and continue — the owned clock pauses with it.', api: 'pause() / resume()', run: () => { play({ gaps: true }); setTimeout(() => pauseBtn.click(), 800); setTimeout(() => pauseBtn.click(), 1900); } },
-				{ id: 'cache', t: 'Dedup cache', d: 'Replay the same items: keyed bytes serve from cache, so produce() never fires again.', api: 'key(it=>id)', run: async () => { await play({ gaps: false }); setTimeout(() => play({ gaps: false, replay: true }), 200); } },
-				{ id: 'warm',  t: 'Warm ahead', d: 'Preload the phrase, then play — bytes are already decoded, so playback starts with no synth wait.', api: 'warm(items)', run: () => { const st = ensureStage(); const s = buildSequence({ gaps: true }); s.warm(ITEMS); setDiag('Warmed — bytes prefetched + decoded; press a beat to hear the instant start.'); } },
-				{ id: 'voice', t: 'Real words + caption', d: 'With a cloud key, tones become speech and each measured onset re-anchors a caption (the cadenza tie).', api: 'onItemStart→reader.align', run: () => { if (mode !== 'voice') { setDiag('Connect a cloud voice below to hear words; playing tones for now.'); } play({ gaps: true }); } },
+				{ id: 'play',  t: 'Bytes in, clock out', d: 'Five tones scheduled back-to-back; each lights at its real onset on Suono’s owned WebAudio clock.', api: 'sequence().play()', run: () => playFresh({ gaps: false }) },
+				{ id: 'gaps',  t: 'Breath between phrases', d: 'The same run with a deeper gap after a topic beat — the scheduler inserts the silence, not you.', api: 'gap((it,next,i)=>ms)', run: () => playFresh({ gaps: true }) },
+				{ id: 'barge', t: 'Barge-in', d: 'Start playing, then interrupt: the run aborts cleanly mid-clip and the in-flight producer is signalled.', api: 'stop() / AbortSignal', run: () => { playFresh({ gaps: true }); setTimeout(() => bargeBtn.click(), 900); } },
+				{ id: 'pause', t: 'Pause & resume', d: 'Freeze between clips and continue — the owned clock pauses with it.', api: 'pause() / resume()', run: () => { playFresh({ gaps: true }); setTimeout(() => pauseBtn.click(), 800); setTimeout(() => pauseBtn.click(), 1900); } },
+				// Cache: play a FRESH instance, then on natural completion REPLAY THAT SAME instance. Its
+				// keyed byte cache persists across the replay, so produce() should not fire again — we
+				// compare produce() counts across the two runs and report the real delta (0 = full hit).
+				{ id: 'cache', t: 'Dedup cache', d: 'Replay the same instance: keyed bytes serve from its cache, so produce() should not fire again.', api: 'key(it=>id)', run: () => {
+					playFresh({ gaps: false });
+					onDone = ({ aborted }) => {
+						if (aborted) return;
+						const afterFirst = produceCount;
+						setDiag('Replaying the same instance — watch produce() stay flat…');
+						onDone = ({ aborted: a2 }) => {
+							if (a2) return;
+							const grew = produceCount - afterFirst;
+							if (grew === 0) { cacheCount += ITEMS.length; mCache.textContent = String(cacheCount); ITEMS.forEach((_, i) => markChip(i, null, 'hit')); setDiag(`Cache hit — 0 new produce() calls across ${ITEMS.length} items on replay.`); }
+							else setDiag(`Replay re-synthesized ${grew} item(s) — cache miss.`);
+						};
+						replayCurrent();
+					};
+				} },
+				// Warm: build an instance, give the stage a context (unlock), warm() to prefetch (+decode)
+				// its bytes, then after a short prefetch window play THAT SAME instance. Report how many
+				// clips still needed live synthesis at play (ideally 0 — the warm did the work).
+				{ id: 'warm',  t: 'Warm ahead', d: 'Preload the phrase into an instance, then play THAT instance — prefetched bytes mean no live synth at play.', api: 'warm(items)', run: () => {
+					const st = ensureStage(); st.unlock();
+					if (seq) seq.stop();
+					renderScore(true);
+					seq = buildSequence({ gaps: true });
+					seq.warm(ITEMS);
+					setDiag('Warming — prefetching the phrase ahead…');
+					// Play AFTER a prefetch window, and measure synth calls made AT PLAY (baseline captured
+					// just before play, so warm's own produce() calls aren't counted against playback).
+					setTimeout(() => {
+						if (curBeat !== 'warm') return;
+						const beforePlay = produceCount;
+						onDone = ({ aborted }) => { if (!aborted) setDiag(`Played the warmed instance — ${produceCount - beforePlay} live synth call(s) at play (warm prefetched the rest).`); };
+						setTransport(true); seq.play();
+					}, 450);
+				} },
+				{ id: 'voice', t: 'Real words + caption', d: 'With a cloud key, tones become speech and each measured onset re-anchors a caption (the cadenza tie).', api: 'onItemStart→reader.align', run: () => { if (mode !== 'voice') { setDiag('Connect a cloud voice below to hear words; playing tones for now.'); } playFresh({ gaps: true }); } },
 			];
 			function setCurrentBeat(id) {
 				curBeat = id;
