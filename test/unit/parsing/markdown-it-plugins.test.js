@@ -1066,4 +1066,43 @@ describe('markdown-it-plugins', () => {
     assert.match(html, /<code[^>]*>plain text/);
     assert.doesNotMatch(html, /class="functionplot"/);
   });
+
+  // ── animaSceneFences (Stage 6) ─────────────────────────────────────────
+
+  test('animaSceneFences: ```anima becomes a hidden div.anima-spec carrying the base64 spec', () => {
+    const m = makeHost(plugins.animaSceneFences);
+    const spec = '{ "source": "built", "duration": 1000, "hero": 0.5, "elements": [] }';
+    const { html } = m.render('```anima\n' + spec + '\n```');
+    assert.match(html, /<div class="anima-spec" data-scene-spec="[A-Za-z0-9+/=]+" hidden><\/div>/,
+      'should emit a hidden placeholder carrying the base64 spec');
+    const b64 = html.match(/data-scene-spec="([^"]+)"/)[1];
+    assert.deepEqual(JSON.parse(Buffer.from(b64, 'base64').toString('utf8')), JSON.parse(spec));
+  });
+
+  test('animaSceneFences: malformed JSON → an inert anima-spec-error placeholder, no data-scene-spec', () => {
+    const m = makeHost(plugins.animaSceneFences);
+    const { html } = m.render('```anima\n{ not valid json\n```');
+    assert.match(html, /<div class="anima-spec anima-spec-error" hidden><\/div>/);
+    assert.doesNotMatch(html, /data-scene-spec/);
+  });
+
+  test('animaSceneFences: a non-anima fence is left to the default renderer (no shadowing)', () => {
+    const m = makeHost(plugins.animaSceneFences);
+    const { html } = m.render('```js\nconst x = 1;\n```');
+    assert.match(html, /<code[^>]*language-js/);
+    assert.doesNotMatch(html, /anima-spec/);
+  });
+
+  test('animaSceneFences chained after functionPlotFences: both fences work (anti-shadow)', () => {
+    const md = new MarkdownIt('commonmark', { html: true, breaks: true });
+    md.enable(['table', 'strikethrough']);
+    installSlidePipeline(md);
+    md.use(plugins.functionPlotFences);
+    md.use(plugins.animaSceneFences); // registered AFTER, as in lib/engine/index.js
+    const html = md.render(
+      '```functionplot\n{ "data": [] }\n```\n\n```anima\n{ "source":"built","duration":1000,"hero":0.5,"elements":[] }\n```',
+    );
+    assert.match(html, /class="functionplot" data-fp-config=/, 'functionplot survives the anima wrapper');
+    assert.match(html, /class="anima-spec" data-scene-spec=/, 'anima also emits');
+  });
 });

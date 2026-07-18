@@ -117,6 +117,40 @@ describe('scene aspect parser hardening (H1 / L2)', () => {
   });
 });
 
+describe('scene spec transport (Stage 6 — lift data-scene-spec)', () => {
+  const specDiv = (b64) => `<div class="anima-spec" data-scene-spec="${b64}" hidden></div>`;
+  const B64 = 'eyJzb3VyY2UiOiJidWlsdCJ9'; // base64 of {"source":"built"}
+
+  test('lifts the ```anima placeholder onto the section and strips the div', () => {
+    const s = `<section class="scene"><h2>T</h2>${POSTER.wide}${specDiv(B64)}<p>B</p></section>`;
+    const out = scene.applyToRenderedHtml(s);
+    assert.match(out, new RegExp(`<section[^>]*\\bdata-scene-spec="${B64}"`));
+    assert.doesNotMatch(out, /anima-spec/); // div stripped
+    assert.doesNotMatch(out, /scene-text[^>]*>[\s\S]*anima-spec/); // not folded into text
+    assert.match(out, /<div class="scene-figure"><svg/); // still wraps normally
+  });
+
+  test('no ```anima block → no data-scene-spec (static poster, Stage-5 behavior)', () => {
+    const out = scene.applyToRenderedHtml(section(POSTER.wide));
+    assert.doesNotMatch(out, /data-scene-spec/);
+  });
+
+  test('idempotent — a second pass keeps the single lifted attr', () => {
+    const s = `<section class="scene"><h2>T</h2>${POSTER.wide}${specDiv(B64)}</section>`;
+    const once = scene.applyToRenderedHtml(s);
+    const twice = scene.applyToRenderedHtml(once);
+    assert.equal(twice, once);
+    assert.equal((twice.match(/data-scene-spec=/g) || []).length, 1);
+  });
+
+  test('a malformed anima-spec-error placeholder is stripped, no data-scene-spec (poster stands)', () => {
+    const s = `<section class="scene"><h2>T</h2>${POSTER.wide}<div class="anima-spec anima-spec-error" hidden></div><p>B</p></section>`;
+    const out = scene.applyToRenderedHtml(s);
+    assert.doesNotMatch(out, /anima-spec/); // stripped, not folded into .scene-text
+    assert.doesNotMatch(out, /data-scene-spec/); // nothing lifted
+  });
+});
+
 describe('scene section-regex robustness (M1)', () => {
   test('a ">" inside a quoted section attribute does not corrupt the tag', () => {
     const s = '<section class="scene" data-x="a>b"><h2>T</h2>' + POSTER.wide + '<p>B</p></section>';
@@ -138,7 +172,22 @@ function makeScene(inner, className = 'scene', orientation) {
     setAttribute: (k, v) => { attrs[k] = v; },
     querySelector: (sel) => {
       if (sel === 'svg') { const m = sec.innerHTML.match(/<svg\b[\s\S]*?<\/svg>/i); return m ? { outerHTML: m[0] } : null; }
+      if (sel.includes('anima-spec')) {
+        const m = sec.innerHTML.match(/<div class="anima-spec[^"]*"[^>]*\sdata-scene-spec="([^"]*)"[^>]*><\/div>/i);
+        return m ? { getAttribute: () => m[1], remove: () => { sec.innerHTML = sec.innerHTML.replace(m[0], ''); } } : null;
+      }
       return sec.innerHTML.includes('scene-figure') ? {} : null; // ':scope .scene-figure'
+    },
+    querySelectorAll: (sel) => {
+      if (sel?.includes('anima-spec')) {
+        const out = [];
+        for (const m of sec.innerHTML.matchAll(/<div class="anima-spec[^"]*"[^>]*><\/div>/gi)) {
+          const html = m[0];
+          out.push({ remove: () => { sec.innerHTML = sec.innerHTML.replace(html, ''); } });
+        }
+        return out;
+      }
+      return [];
     },
     _attrs: attrs,
   };
@@ -163,6 +212,22 @@ describe('scene applyToDom (runtime path)', () => {
     scene.applyToDom(rootOf([sec]));
     assert.equal((sec.innerHTML.match(/class="scene-figure"/g) || []).length, 1);
     assert.equal((sec.innerHTML.match(/class="scene-text"/g) || []).length, 1);
+  });
+
+  test('lifts the anima-spec placeholder onto the section and strips it (DOM path)', () => {
+    const b64 = 'eyJzb3VyY2UiOiJidWlsdCJ9';
+    const sec = makeScene(`<h2>T</h2>${POSTER.wide}<div class="anima-spec" data-scene-spec="${b64}" hidden></div><p>B</p>`);
+    scene.applyToDom(rootOf([sec]));
+    assert.equal(sec._attrs['data-scene-spec'], b64); // lifted onto the section
+    assert.doesNotMatch(sec.innerHTML, /anima-spec/); // placeholder stripped (not folded into .scene-text)
+    assert.match(sec.innerHTML, /<div class="scene-figure"><svg/); // wraps normally
+  });
+
+  test('strips a malformed anima-spec-error placeholder too (DOM path)', () => {
+    const sec = makeScene(`<h2>T</h2>${POSTER.wide}<div class="anima-spec anima-spec-error" hidden></div><p>B</p>`);
+    scene.applyToDom(rootOf([sec]));
+    assert.equal(sec._attrs['data-scene-spec'], undefined); // nothing to lift
+    assert.doesNotMatch(sec.innerHTML, /anima-spec/); // error placeholder removed
   });
 
   test('author class overrides; portrait orientation uses the portrait table', () => {

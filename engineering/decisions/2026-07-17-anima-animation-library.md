@@ -352,6 +352,35 @@ to the poster for a scene whose whole content is vestibular.
    raster-or-override poster, capability-negotiated. Ships only if a real §2 case earns the weight.
    **Library-shape packaging** and **a second host / layered co-render** remain deferred.
 
+### 14.6a Stage 6 as shipped — Playground live now (6a), present + export next (6b)
+
+Stage 6 landed as a **split**, recorded so the deferred half is tracked work, not a dropped promise:
+
+- **Stage 6a (shipped).** The spec transport (an `anima` fenced block → base64 `data-scene-spec`,
+  lifted onto `section.scene`), the surface-agnostic **host** (`docs/src/lib/anima/hydrate.ts`:
+  decode+validate → negotiate → mount → one rAF loop → reduced-motion tiers → replay/dispose), and
+  the **Playground** live preview (parent-hosted, mirroring `createChartInteract`/`createVideoOverlay` —
+  the backends stay out of the lean in-frame runtime). Verified on the real Playground with a real
+  Chromium (HARD RULE #23): an `anima` deck renders the spec into the frame, the host mounts Zdog, the
+  scene animates theme-recolored. The **adversarial trio** (HARD RULE #25) ran the diff — no CRITICAL/
+  HIGH crash/security/leak (dispose cancels the rAF + disconnects the observer; the base64 transport is
+  ReDoS-safe and can't break the attribute; `parseScene` + the injected `sanitizeSlideHtml` + Vivus's
+  inert-parse gate the untrusted spec/markup). Folded: **diff-based, eager `rebind()`** (a re-render no
+  longer restarts every scene, and it no longer relies on a finicky parent-context IntersectionObserver
+  across the scaled iframe — Munger's ship-blocker + the red team's IO-coverage HIGH); a spec **size-cap**
+  before decode (client-DoS guard); `data-scene-motion` value validation; a `disposed` guard; a broadened
+  stray-placeholder strip; and `usedVerbs` made **recursive** (dropping the host's duplicate `sceneVerbs`).
+- **Stage 6b (fast-follow).** Present-mode advance (still gated on §15's unresolved slide-enter-vs-
+  narrative-step-vs-control question) and **standalone-HTML-export** hydration. Export needs a *different
+  delivery* than the parent-hosted Playground — an in-frame injected script carrying the backends — but it
+  calls the **same** surface-agnostic `hydrateScenes`, so only the delivery bifurcates, not the logic.
+- **Poster ↔ spec correspondence (carry).** For **built** (Zdog) scenes the poster still and the spec are
+  two hand-authored artifacts today; nothing binds them, so a maintainer editing one can drift the other
+  (only the print/`still` surface diverges — the live view is always spec-faithful). **svg** scenes have no
+  drift (the poster SVG *is* the Vivus asset). Stage 7's faculty closes this by generating the built poster
+  from the *same* `zdogRenderer().poster()` the live path derives from — the two then can't diverge by
+  construction. Until then, built posters in demos are explicitly hand-authored placeholders.
+
 ## 15. Open questions (impl ADR)
 
 - **The poster COLOUR / recolour model (decide before Stage 5 wires the poster into the PDF —
