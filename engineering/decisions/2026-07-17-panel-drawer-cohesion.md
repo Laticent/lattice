@@ -156,7 +156,42 @@ The owner directed three follow-ups that resolve tensions surfaced above:
   is one nullable enum, `activeAssistant: 'architect' | 'lenses' | 'library' | null`, so
   only one assistant column is ever open and the #721 track invariant holds.
 
-## Do-not-regress
+## Adversarial trio (this doc's third commit — HARD RULE #25)
+
+The promotion ran the full trio (red team · Munger inversion · independent checker) on the
+shipping diff. Confirmed findings were hardened into the winner:
+
+- **#721 void, Library + Inspector (red-team blocker, FIXED).** The docked Library reused the
+  assistant slot's fold math but with a taller floor (`LIB_MIN` 300 vs the Architect's
+  `ARCH_MIN` 200). `LIB_MIN + SET_MIN = 560` exceeds the narrowest-desktop `panelBudget` (475
+  at vw 1100), so the `Math.max(assistantMin, …)` floor overrode the budget clamp and the
+  editor+preview pair clipped below `PAIR_MIN` (overflow at vw 1100–1184, a two-click action
+  at common laptop widths). Fix: `LIB_MIN = ARCH_MIN` — a slot-shared panel must share the
+  slot's fold floor; the Library still *opens* at its wider `LIB_DEFAULT`, only the
+  both-open-narrow floor yields.
+- **Tablet Architect toggle (checker should-fix, FIXED).** The tablet top-bar toggle kept the
+  pre-enum `(p ? null : 'architect')` form, so with Lenses/Library open it *closed* the panel
+  instead of *switching* to the Architect. Now enum-aware, matching its activity-bar siblings.
+- **Compact Library over Fabricate (red-team nit, FIXED)**, **stale CommandPalette comment
+  (FIXED)**, **Library sheet missing `SheetDescription` (FIXED).**
+
+### New open tensions (recorded, not resolved)
+
+- **Library can no longer be open *alongside* the Architect.** On `main` the Library was an
+  independent right-side Sheet, so it coexisted with the docked-left Architect; folding it
+  into the single `activeAssistant` slot deletes that combination (dip into the Library for a
+  theme, and the coach closes). This is the cohesion tax the single slot buys — forced by the
+  #721 three-column limit (Settings stays a *separate* slot, so the coach↔tune loop is intact).
+  "First-class panel" therefore means *its own launcher + docked column*, **not** *coexists
+  with its siblings* — mechanically the three are a mutually-exclusive toggle group. Revisit if
+  the dip-in-while-coaching workflow proves common (candidate: let the Library coexist as an
+  overlay the way it did before, at the cost of the uniform slot model).
+- **Esc / ⌘. can orphan a transiently-revealed panel (pre-existing, broadened).** The desktop
+  docked panels are plain `<aside>`s, not Radix dialogs, so `Esc`/`⌘.` reach the shortcut
+  handler and clear `revealBuild` without nulling `activeAssistant`; the panel stays "open" in
+  state but unmounts (barless Write), recoverable on the next summon. Pre-existing for the
+  Architect; this PR adds more entry points (Lenses/Library from ⌘K + the preview affordance)
+  that can reach it. Follow-up: fold the panel-close into the reveal-clear.
 
 ## Do-not-regress
 

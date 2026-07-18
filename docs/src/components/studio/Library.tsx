@@ -1,7 +1,7 @@
 import { Check, Download, FileBox, FileText, Package, Plus, Search, Share2, Trash2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
@@ -290,6 +290,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	) : (
 		<SheetHeader className="flex-row items-center gap-3 space-y-0 border-b border-border py-3 pl-4 pr-12">
 			<SheetTitle className="flex shrink-0 items-center gap-2 text-[15px]"><FileBox className="size-[18px] text-[var(--accent)]" />Library</SheetTitle>
+			<SheetDescription className="sr-only">Saved themes, components, and finishes — search, filter, apply, or import a .zip.</SheetDescription>
 			{headerControls}
 		</SheetHeader>
 	);

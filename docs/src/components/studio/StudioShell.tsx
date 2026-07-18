@@ -194,7 +194,14 @@ const ARCH_DEFAULT = 232; // Architect default (matches the old fixed column)
 const SET_MIN = 260; // Settings min width (the inspector fields stay usable)
 const SET_DEFAULT = 296; // Settings default (matches the old inspector column)
 const PANEL_MAX = 420; // drag ceiling for either panel (the fold caps it further when narrow)
-const LIB_MIN = 300; // Library docked min (a 1-col asset list stays usable)
+// Library shares the assistant slot with the Architect, so it MUST share the
+// narrow-fold floor (ARCH_MIN): the fold budget guarantees the pair keeps
+// PAIR_MIN only if `assistantMin + SET_MIN ≤ panelBudget` at the narrowest
+// desktop (vw 1100 → panelBudget 475). A taller LIB_MIN (e.g. 300) makes the
+// `Math.max(assistantMin, …)` floor override the budget clamp when the Inspector
+// is also open, springing the #721 void (overflow at vw 1100–1184). The Library
+// still opens at its wider LIB_DEFAULT; only the both-open-narrow floor yields.
+const LIB_MIN = ARCH_MIN; // = 200; keep in lockstep with the slot's fold floor (#721)
 const LIB_DEFAULT = 380; // Library docked default — wider than the coach; asset cards need room
 
 // Theme constants + the grouped picker live in ThemePicker.tsx (every shipped
@@ -2466,7 +2473,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    they ride the pane bar below with Present + Share. */}
 				{/* Architect + Settings openers — TABLET only. Desktop launches both from the
 				    left activity bar; mobile from the pane bar below. */}
-				{bp === 'tablet' && <Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => setActiveAssistant((p) => (p ? null : 'architect'))} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => setActiveAssistant((p) => (p === 'architect' ? null : 'architect'))} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>}
 				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
 				{!compact && <Separator orientation="vertical" className="h-5" />}
 
@@ -2761,8 +2768,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				</SheetContent>
 			</Sheet>
 			{/* Compact (tablet/mobile): Library is the right Sheet. Desktop-Build renders it
-			    docked in the assistant slot instead (above), so the sheet is compact-only. */}
-			{compact && (
+			    docked in the assistant slot instead (above), so the sheet is compact-only.
+			    Gated on the compose view like its Architect/Lenses sheet peers, so it never
+			    floats over the full-screen Fabricate surface. */}
+			{compact && view === 'compose' && (
 				<Library
 					open={libraryOpen}
 					onOpenChange={setLibraryOpen}

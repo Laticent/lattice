@@ -24,9 +24,11 @@ export function CommandPalette({
 	onInsert?: () => void;
 	onFocus?: () => void;
 	onFeedback?: () => void;
-	// Library + Workspace open as overlays (not docked panels), so they render at
-	// ANY stop — making "every faculty is one keystroke away from every stop" true
-	// even where the activity bar isn't shown (Read/Write). (2026-07-17-studio-persona-dial.md)
+	// Workspace opens as an overlay at ANY stop; the Library is now a docked Build
+	// panel, so its handler (like onReshape) first transiently reveals Build before
+	// opening the slot — keeping "every faculty is one keystroke away from every stop"
+	// true even from Read/Write where the activity bar isn't shown.
+	// (2026-07-17-studio-persona-dial.md, 2026-07-17-panel-drawer-cohesion.md)
 	onLibrary?: () => void;
 	onWorkspace?: () => void;
 	// The editor|preview split (2026-07-02 decision) — each handler is passed
