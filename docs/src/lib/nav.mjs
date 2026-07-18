@@ -53,12 +53,24 @@ export function toolsNav(url) {
 	];
 }
 
-// The flat ordered list (Docs · the tools · Components · Features · Comparison),
+// The framework-free sibling LIBRARIES, each with a standalone showcase demo (own chrome,
+// reached by URL). Grouped under one "Libraries" disclosure on desktop, listed flat in the mobile
+// menu + command palette. Anima's demo lands with its build (not listed yet).
+export function librariesNav(url) {
+	return [
+		{ label: 'Suono', href: url('suono'), match: ['suono'], desc: 'Audio scheduler + owned clock' },
+		{ label: 'Lente', href: url('lente'), match: ['lente'], desc: 'Reader lenses, human-approved' },
+		{ label: 'Cadenza', href: url('cadenza'), match: ['cadenza'], desc: 'Caption + timeline engine' },
+		{ label: 'Vetrina', href: url('vetrina-tour'), match: ['vetrina'], desc: 'Self-driving walkthrough' },
+	];
+}
+
+// The flat ordered list (Docs · the tools · Components · Features · Comparison · the libraries),
 // kept for surfaces that present one undivided menu — the Starlight mobile
 // sidebar and the command palette's "Go to" group.
 export function primaryNav(url) {
 	const content = contentNav(url);
-	return [content[0], ...toolsNav(url), ...content.slice(1)];
+	return [content[0], ...toolsNav(url), ...content.slice(1), ...librariesNav(url)];
 }
 
 // True when the current request path falls inside an item's section, so the
@@ -70,4 +82,9 @@ export function isCurrent(item, pathname) {
 // True when any Tools-group route is current — lights the "Tools" disclosure.
 export function toolsActive(pathname, url) {
 	return toolsNav(url).some((item) => isCurrent(item, pathname));
+}
+
+// True when any Libraries-group route is current — lights the "Libraries" disclosure.
+export function librariesActive(pathname, url) {
+	return librariesNav(url).some((item) => isCurrent(item, pathname));
 }

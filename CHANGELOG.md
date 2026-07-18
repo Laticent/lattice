@@ -208,6 +208,11 @@ in patch versions.
   authored slide — reusing the gallery's preview tiles and the Inspector's token logic (no new engine
   behavior). (`slide-variants.ts`, `ReshapePicker.tsx`, `SlidePicker.tsx`, `component-search.ts`,
   `StudioShell.tsx`; `engineering/decisions/2026-07-18-slide-variants-in-gallery.md`.)
+- **A "Libraries" group in the site nav lists every library demo.** A new disclosure in the desktop
+  header (beside Tools), a section in the mobile menu, and entries in the command palette surface the
+  standalone showcases — Suono, Lente, Cadenza, Vetrina — so they're discoverable, not URL-only. The
+  cadenza + vetrina demos now also wear their marks + favicons. (`docs/src/lib/nav.mjs`,
+  `SiteHeader.astro`, `NavActions.tsx`, `cadenza.astro`, `vetrina-tour.astro`.)
 - **A guided Lente showcase at `/lente`, and marks + lockups for the whole library family.** The
   library-demo fan-out on the locked sibling brand system. `/lente` is a standalone, framework-free,
   real-engine storyboard: pick a lens and the deck shrinks to that subset, see it **fail CLOSED** when

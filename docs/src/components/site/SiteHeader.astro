@@ -25,7 +25,7 @@
 //                           also carries the page TOC).
 import NavActions from './NavActions.tsx';
 import { joinBase } from '../../lib/base-url.mjs';
-import { contentNav, toolsNav, primaryNav, GITHUB_URL, isCurrent, toolsActive } from '../../lib/nav.mjs';
+import { contentNav, toolsNav, librariesNav, primaryNav, GITHUB_URL, isCurrent, toolsActive, librariesActive } from '../../lib/nav.mjs';
 
 const { palettes = [], wide = false, standalone = true, mobileMenu = true } = Astro.props;
 
@@ -36,8 +36,10 @@ const here = Astro.url.pathname;
 const annotate = (items) => items.map((l) => ({ ...l, current: isCurrent(l, here) }));
 const content = annotate(contentNav(url));
 const tools = annotate(toolsNav(url));
+const libraries = annotate(librariesNav(url));
 const links = annotate(primaryNav(url)); // flat, for the command palette + sheet
 const toolsOn = toolsActive(here, url);
+const libsOn = librariesActive(here, url);
 const pagefindUrl = url('pagefind/pagefind.js');
 const homeHref = url('');
 
@@ -74,6 +76,24 @@ const Wrapper = standalone ? 'header' : 'div';
 					))}
 				</div>
 			</details>
+			<details class="sh-tools">
+				<summary class="sh-link sh-tools-summary" data-active={libsOn ? '' : undefined} aria-current={libsOn ? 'true' : undefined}>
+					Libraries
+					<svg class="sh-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+						<path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+					</svg>
+				</summary>
+				<div class="sh-tools-menu" role="menu">
+					{libraries.map((l) => (
+						<a class="sh-tools-item" href={l.href} role="menuitem" aria-current={l.current ? 'page' : undefined}>
+							<span class="sh-tools-item-head">
+								<span class="sh-tools-item-label">{l.label}</span>
+							</span>
+							{l.desc && <span class="sh-tools-item-desc">{l.desc}</span>}
+						</a>
+					))}
+				</div>
+			</details>
 		</nav>
 
 		<div class="sh-spacer"></div>
@@ -85,6 +105,7 @@ const Wrapper = standalone ? 'header' : 'div';
 				links={links}
 				content={content}
 				tools={tools}
+				libraries={libraries}
 				githubUrl={GITHUB_URL}
 				pagefindUrl={pagefindUrl}
 				homeHref={homeHref}

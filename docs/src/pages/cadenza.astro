@@ -14,6 +14,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Cadenza — read-along</title>
+		<link rel="icon" href="/cadenza-mark-min.svg" type="image/svg+xml" />
 		<!-- Global (unscoped): the caption words/cues are created in JS at runtime, so
 		     Astro's default scoping (a hash attribute added only to template elements)
 		     would never match them and the highlight styles would silently not apply. -->
@@ -46,7 +47,8 @@
 				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
 			.wrap { max-width: 860px; margin: 0 auto; }
 			header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-			.brand { display: flex; align-items: baseline; gap: 12px; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
 			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
@@ -116,7 +118,7 @@
 	<body>
 		<div class="wrap">
 			<header>
-				<div class="brand"><h1>Cadenza</h1><span class="tag">read-along</span></div>
+				<div class="brand"><img class="logo" src="/cadenza-mark.svg" alt="" width="46" height="46" /><h1>Cadenza</h1><span class="tag">read-along</span></div>
 				<button class="theme" id="themeBtn" type="button">◐ theme</button>
 			</header>
 			<p class="sub">The pure caption engine behind Lattice's read-aloud. It turns narration into a <b>timed track</b> — each word carrying a <b>display</b> form and a <b>spoken</b> form — and lights up the word being said <i>now</i>. When a quality voice is connected (your OpenRouter key or on-device Kokoro, via the Playground) it <b>speaks</b> the words and each sentence's measured onset re-anchors the highlight to the real audio. With no key it falls back to your <b>browser voice</b> (device-dependent) speaking in parallel while the estimate carries the highlight, and with no speech at all to the pure silent path — Cadenza's own cadence estimate. Either way numbers dwell for how long they take to <i>say</i> — watch <b>$4.2M</b> hold while "four point two million dollars" is spoken.</p>
