@@ -1709,7 +1709,10 @@ const SUONO_SPEC_PATTERNS = [
   // but stops at `;` (statement boundary), `=` (an `export const X = …` assignment, not an import), or
   // a backtick (a template literal that merely CONTAINS import-like text) — the false-positive shapes
   // the round-3 red team found. A real import/re-export never has `=`/backtick before its `from`.
-  /(?:^|\n)\s*(?:import|export)\b[^;=`]*?\bfrom\s*['"]([^'"]+)['"]/g,
+  // The leading anchor is `(?:^|[\n;{}(])` — not just `^|\n` — so a top-level import placed AFTER
+  // another statement on the same line (`const x=0;import three from 'three'`) is still caught; the
+  // Anima adversarial trio (H1) showed the newline-only anchor let that valid ESM escape every pattern.
+  /(?:^|[\n;{}(])\s*(?:import|export)\b[^;=`]*?\bfrom\s*['"]([^'"]+)['"]/g,
   /(?:^|[\n;{}(])\s*import\s+['"]([^'"]+)['"]/g,                      // side-effect import 'x'
   /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/g,                    // dynamic import('x') / require('x')
 ];
@@ -1735,6 +1738,45 @@ function checkSuonoBoundary(errors) {
           `side-effect, dynamic \`import()\`, or \`require()\`) must resolve inside docs/src/lib/suono/ ` +
           `(\`./x\`). Move shared code into the folder — Suono has no peer-dep seam and must not couple ` +
           `to the host (or reach the network/a key).`,
+        );
+      }
+    }
+  }
+}
+
+// ── Anima (docs/src/lib/anima) — the animation core ─────────────────────────
+// Same self-containment antibody as Cadenza/Suono: Anima is the pure animation core
+// (engineering/decisions/2026-07-17-anima-animation-library.md) — a scene spec → a
+// timeline of engine-neutral snapshots — designed to spin off as a zero-dependency,
+// no-DOM/no-WebGL library. It has NO peer-dep seam in Stage 1 (a backend's engine dep,
+// e.g. `three`, lands later behind ANIMA_ADAPTER_DEPS), so EVERY import must resolve
+// inside the folder (`./x`) or be a `node:` built-in. Reuses the robust multi-form Suono
+// specifier patterns — catches side-effect / dynamic `import()` / `require()` / multi-line
+// escapes, not just the tidy single-line `from` (the precise shape a lazy backend's
+// `import('three')` would take).
+const ANIMA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'anima');
+
+function checkAnimaBoundary(errors) {
+  if (!fs.existsSync(ANIMA_DIR)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(ANIMA_DIR)) {
+    const rel = path.relative(ROOT, file);
+    const base = path.basename(file);
+    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use vitest, not host coupling
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const seen = new Set();
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        const spec = m[1];
+        if (spec.startsWith('./')) continue; // in-folder relative — fine
+        if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+        if (seen.has(spec)) continue; // don't double-report a spec two patterns both matched
+        seen.add(spec);
+        errors.push(
+          `${rel} imports '${spec}', which escapes the Anima folder. The animation core is ` +
+            `zero-dependency and spin-off-able (2026-07-17-anima-animation-library.md): every import ` +
+            `(static, side-effect, dynamic \`import()\`, or \`require()\`) must resolve inside ` +
+            `docs/src/lib/anima/ (\`./x\`). A backend's engine dep (e.g. three) lands later behind ` +
+            `ANIMA_ADAPTER_DEPS — never in the core.`,
         );
       }
     }
@@ -2379,6 +2421,7 @@ function run() {
   checkVoiceSampleAssets(errors);
   checkVetrinaBoundary(errors);
   checkCadenzaBoundary(errors);
+  checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
   checkLenteBoundary(errors);
   checkAudioPlaybackBoundary(errors);
@@ -2477,6 +2520,10 @@ module.exports = {
   SINGLETON_TAGS,
   checkVetrinaBoundary,
   checkCadenzaBoundary,
+  checkAnimaBoundary,
+  ANIMA_DIR,
+  SUONO_SPEC_PATTERNS,
+  stripJsComments,
   checkSuonoBoundary,
   checkLenteBoundary,
   checkAudioPlaybackBoundary,

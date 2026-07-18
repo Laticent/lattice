@@ -63,6 +63,10 @@ const {
   checkDensityCoverage,
   SANCTIONED_DENSITY_EXEMPT,
   checkVetrinaBoundary,
+  checkAnimaBoundary,
+  ANIMA_DIR,
+  SUONO_SPEC_PATTERNS,
+  stripJsComments,
   checkAudioPlaybackBoundary,
   SANCTIONED_LEGACY_AUDIO,
   RAW_AUDIO_PATTERNS,
@@ -811,6 +815,56 @@ describe('check-ownership', () => {
       const specs = scan("import _ from 'lodash';");
       assert.deepEqual(specs, ['lodash']);
       assert.ok(!'lodash'.startsWith('./') && !'lodash'.startsWith('node:'), 'bare dep would fail');
+    });
+  });
+
+  // The Anima animation core's self-containment antibody
+  // (engineering/decisions/2026-07-17-anima-animation-library.md §11 — spin-off-able, zero host deps).
+  describe('Anima import-boundary gate (§11 — zero-dependency, spin-off-able)', () => {
+    // Anima reuses the hardened multi-form Suono specifier patterns (side-effect /
+    // dynamic import() / require() / multi-line), so scan with those.
+    const scan = (src) => {
+      const clean = stripJsComments(src);
+      const out = [];
+      for (const pattern of SUONO_SPEC_PATTERNS) for (const m of clean.matchAll(pattern)) out.push(m[1]);
+      return out;
+    };
+
+    test('the live tree is clean — the core imports nothing outside the folder', () => {
+      const errors = [];
+      checkAnimaBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('every core (non-test) file imports only in-folder `./` or `node:` specifiers', () => {
+      for (const file of listSourceFiles(ANIMA_DIR)) {
+        if (/\.test\.[tj]s$/.test(file)) continue;
+        for (const spec of scan(fs.readFileSync(file, 'utf8'))) {
+          assert.ok(spec.startsWith('./') || spec.startsWith('node:'), `${path.relative(ANIMA_DIR, file)} imports '${spec}' — must be in-folder`);
+        }
+      }
+    });
+
+    test('the gate bites on EVERY escape form a lazy backend might use', () => {
+      // The checker MED: the weak single-line regex missed all of these. Assert the
+      // hardened pattern set catches a side-effect import, a dynamic import(), a require(),
+      // and a multi-line `{ … } from` escape — while `./` and `node:` pass.
+      const specs = scan(
+        [
+          "import 'three';", // side-effect
+          "const t = await import('three');", // dynamic
+          "const host = require('../../lib/host');", // require escape
+          "import {\n  Mesh,\n} from '../../vendor/three';", // multi-line wrap
+          "const z=0;import Zdog from 'zdog';", // H1: import after a `;` on the same line
+          "import { compile } from './compile';", // in-folder — OK
+          "import { readFileSync } from 'node:fs';", // node built-in — OK
+        ].join('\n'),
+      );
+      for (const bad of ['three', '../../lib/host', '../../vendor/three', 'zdog']) {
+        assert.ok(specs.includes(bad), `escape '${bad}' is detected`);
+        assert.ok(!bad.startsWith('./') && !bad.startsWith('node:'), `escape '${bad}' fails the in-folder rule`);
+      }
+      assert.ok('./compile'.startsWith('./') && 'node:fs'.startsWith('node:'), 'the in-folder + node: imports pass');
     });
   });
 
