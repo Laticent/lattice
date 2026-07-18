@@ -191,6 +191,21 @@ in patch versions.
 
 ### Added
 
+- **Add-slide is now a live-preview gallery, not a text list.** The Studio's “Insert a component”
+  cmdk popup — a flat list of 56 names with no picture — is replaced by the **Slide Gallery**
+  (`SlidePicker`): a grid where every tile is the REAL engine render of that component in your deck's
+  own palette (the same live-thumbnail machinery as Present's “slides in Present” Slide Overview,
+  windowed so only the on-screen tiles cost an iframe). You pick a slide by *seeing* it — with the
+  name always legible and search co-equal, so “I know what I want” stays one keystroke away. It carries
+  co-equal **search** (the shared `component-search` core), a single-select **function filter**, a
+  **Recent** band, **Your components** previewed *styled* (each local component's own CSS threads into
+  its tile), and a **Blank** tile. Mobile opens to a keyboard-free wall of pictures (a bottom sheet),
+  fixing the keyboard-occlusion the old centered dialog suffered. It **unifies** the insert doors: the
+  Insert pill and the command palette's “Insert a component…” both open the one gallery, inserting
+  through the same `addSlideAfter` path; the rail **+** keeps its one-click blank. Previews inherit the
+  sanctioned sanitized preview path (no new HARD RULE #22 builder). The Present Slide Overview and the
+  gallery now share one extracted `SlideThumb`. (`SlidePicker.tsx`, `slide-thumb.tsx`, `SlideOverview.tsx`,
+  `StudioShell.tsx`; `InsertComponent.tsx` retired.)
 - **Compose — a rich editing mode for the Studio, so you never have to see markdown.** The editor pane
   gains a **Markdown ↔ Compose** toggle. Compose is a calm serif writing surface (the "Quiet Page"
   design) where the whole deck is one continuous note: you type rich text, and a quiet left-margin

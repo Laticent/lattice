@@ -23,10 +23,14 @@ const clampIndex = (i: number, len: number) => Math.max(0, Math.min(i, len - 1))
 
 export type DeckOpResult = { source: string; active: number };
 
-/** Insert a new slide after `index` (—1 / before-0 prepends). Active = the new one. */
+/** Insert a new slide after `index` (—1 / before-0 prepends). Active = the new one.
+ *  A non-finite `index` (an empty-deck entry point that never set a cursor) coerces
+ *  to -1 → insert at 0, so the returned `active` is always a real number and never
+ *  NaN — a NaN active would silently poison the rail highlight + every later insert. */
 export function addSlideAfter(source: string, index: number, body: string = NEW_SLIDE): DeckOpResult {
 	const slides = bodySlides(source);
-	const at = Math.max(0, Math.min(index + 1, slides.length));
+	const from = Number.isFinite(index) ? index : -1;
+	const at = Math.max(0, Math.min(from + 1, slides.length));
 	slides.splice(at, 0, body.trim());
 	return { source: rejoin(source, slides), active: at };
 }

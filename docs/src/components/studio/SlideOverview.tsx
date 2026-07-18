@@ -1,50 +1,24 @@
 import { X } from 'lucide-react';
-import * as React from 'react';
-import DeckPreview from '@/components/DeckPreview';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import { SlideThumbFace, useInView } from './slide-thumb';
 
 // Present → slide overview (the "slide sorter"). A grid of rendered slide
 // thumbnails over the presented set, for jumping anywhere — especially in Q&A.
-// REUSE: each thumbnail is the SAME engine render as the main stage (DeckPreview),
-// not a screenshot. PERF: a full deck could be dozens of slides, and each
-// DeckPreview is an engine iframe, so thumbnails are WINDOWED — a thumb defers its
-// render (`active={false}`) until it scrolls into view (IntersectionObserver),
-// then renders once and stays. Off-screen thumbs cost only a lightweight renderer
-// ref, never an iframe.
+// REUSE: each thumbnail is the SAME engine render as the main stage (via the shared
+// SlideThumbFace over DeckPreview), not a screenshot. PERF: a full deck could be
+// dozens of slides, and each DeckPreview is an engine iframe, so thumbnails are
+// WINDOWED (shared useInView) — a thumb defers its render until it scrolls into
+// view, then renders once and stays. Off-screen thumbs cost only a lightweight ref.
+// The SAME windowing + face powers the Studio add-slide gallery (SlidePicker).
 
 function Thumb({ options, sample, paletteOverride, extraTheme, modeOverride, extraCss, current, onClick, label }: { options: SingleSlideOptions; sample: string; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; current: boolean; onClick: () => void; label: string }) {
-	const ref = React.useRef<HTMLButtonElement>(null);
-	const [visible, setVisible] = React.useState(false);
-	React.useEffect(() => {
-		const el = ref.current;
-		if (!el || visible) return;
-		// No IntersectionObserver (jsdom / very old browsers) → render eagerly rather
-		// than never. The windowing is a perf optimization, not a correctness gate.
-		if (typeof IntersectionObserver === 'undefined') {
-			setVisible(true);
-			return;
-		}
-		// Render a little before it enters the viewport so scrolling reveals a painted
-		// thumb, not a blank that pops in. Disconnect after the first hit — once a
-		// thumbnail has rendered it stays mounted (cheap to keep, jarring to recycle).
-		const io = new IntersectionObserver(
-			([e]) => {
-				if (e.isIntersecting) {
-					setVisible(true);
-					io.disconnect();
-				}
-			},
-			{ rootMargin: '250px' },
-		);
-		io.observe(el);
-		return () => io.disconnect();
-	}, [visible]);
+	const [ref, visible] = useInView<HTMLButtonElement>();
 	return (
 		<button type="button" ref={ref} onClick={onClick} aria-current={current ? 'true' : undefined} aria-label={label} className={cn('group relative overflow-hidden rounded-xl border-2 bg-card text-left transition-colors', current ? 'border-[var(--accent)]' : 'border-border hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--border))]')}>
-			{/* The render is an engine IFRAME — without pointer-events:none it would swallow
-			    the click (a separate document) and the button's onClick would never fire. */}
-			<DeckPreview options={options} sample={sample} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={visible} className="pointer-events-none aspect-video w-full" aria-label={label} />
+			{/* The render is an engine IFRAME — pointer-events:none so it can't swallow the
+			    click (a separate document) and the button's onClick still fires. */}
+			<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={visible} className="pointer-events-none aspect-video w-full" label={label} />
 			<span className="absolute bottom-1.5 left-1.5 rounded-md bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--text-heading)] backdrop-blur-sm">{label.replace('Slide ', '')}</span>
 		</button>
 	);

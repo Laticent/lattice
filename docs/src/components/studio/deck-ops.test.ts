@@ -14,6 +14,21 @@ describe('deck-ops — structural slide editing', () => {
 		expect(splitSlides(stripFrontMatter(r.source))[1]).toBe(NEW_SLIDE);
 	});
 
+	it('addSlideAfter seeds an empty-deck entry: -1 and non-finite both land at 0', () => {
+		// The empty-deck "add your first slide" entry point may pass -1 (no current
+		// slide) or, if a cursor was never set, a non-finite index. Both must insert
+		// at position 0 and return a real `active` (never NaN, which would poison the
+		// rail highlight and every subsequent curIndex+1 insert).
+		const seedNeg = addSlideAfter('', -1);
+		expect(seedNeg.active).toBe(0);
+		expect(count(seedNeg.source)).toBe(1);
+		const seedNaN = addSlideAfter('', Number.NaN);
+		expect(Number.isFinite(seedNaN.active)).toBe(true);
+		expect(seedNaN.active).toBe(0);
+		// @ts-expect-error — an entry point that never set a cursor can pass undefined
+		expect(addSlideAfter(DECK, undefined).active).toBe(0);
+	});
+
 	it('duplicateSlide copies the slide right after it', () => {
 		const r = duplicateSlide(DECK, 1);
 		const slides = splitSlides(stripFrontMatter(r.source));
