@@ -46,7 +46,7 @@ function validateTransform(t: unknown, at: string, errors: string[]): void {
   if (tf.scale != null && !isFiniteNumber(tf.scale)) errors.push(`${at}.transform.scale must be a finite number`);
 }
 
-const PROP_NUMS = ['stroke', 'size', 'width', 'height', 'depth', 'diameter', 'length', 'sides'] as const;
+const PROP_NUMS = ['stroke', 'size', 'width', 'height', 'depth', 'diameter', 'length'] as const;
 
 function validateProps(p: unknown, at: string, errors: string[]): void {
   if (!p || typeof p !== 'object') {
@@ -57,6 +57,9 @@ function validateProps(p: unknown, at: string, errors: string[]): void {
   for (const key of PROP_NUMS) {
     if (props[key] != null && (!isFiniteNumber(props[key]) || (props[key] as number) < 0)) errors.push(`${at}.props.${key} must be a non-negative, finite number`);
   }
+  // `sides` (polygon) must be an integer >= 3: a schema-valid `sides: 0`/`2`/`2.5` crashes
+  // the render/poster path in Zdog (the trio's HIGH). Validate ⇒ renderable.
+  if (props.sides != null && (!isFiniteNumber(props.sides) || !Number.isInteger(props.sides) || (props.sides as number) < 3)) errors.push(`${at}.props.sides must be an integer >= 3`);
   if (props.fill != null && typeof props.fill !== 'boolean') errors.push(`${at}.props.fill must be a boolean`);
 }
 

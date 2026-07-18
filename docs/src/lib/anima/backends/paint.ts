@@ -3,19 +3,28 @@
 // the same scene recolours with the theme, and a theme switch re-resolves on the next draw.
 // DOM-touching, so it lives under backends/ (the pure core stays DOM-free).
 
-/** Resolve a `var(--token)` (with optional `var(--fallback)`) against the host's computed
- *  style; a non-token string passes through; anything unresolved falls back to `fallback`. */
+/** Resolve ANY colour expression — `var(--token)`, `light-dark(...)` (how Lattice themes
+ *  define tokens), `hsl()/oklch()`, a hex, a keyword — to a concrete, NORMALIZED `rgb()`/
+ *  `rgba()` string, by probing the browser's own computed style in the host's context (so
+ *  the theme's custom props + color-scheme apply). Normalizing to rgb is what lets
+ *  `withAlpha` add `reveal` opacity to any theme token format (the trio flagged that
+ *  `light-dark(...)`/`hsl()` values slip past a rgb/hex-only parser). Falls back when there's
+ *  no live browser (e.g. jsdom) or the value doesn't resolve — deterministic per environment. */
 export function resolveColor(color: string | undefined, host: Element, fallback = '#888888'): string {
   if (!color) return fallback;
-  const raw = color.trim();
-  const m = raw.match(/^var\(\s*--([a-z0-9_-]+)\s*(?:,\s*(.+))?\)$/i);
-  if (!m) return raw; // already a concrete colour
-  const cs = host.ownerDocument?.defaultView?.getComputedStyle(host);
-  const val = cs?.getPropertyValue(`--${m[1]}`).trim();
-  if (val) return val;
-  // Fallback expression (e.g. `var(--a, var(--b))`) — recurse; else the literal fallback.
-  if (m[2]) return resolveColor(m[2].trim(), host, fallback);
-  return fallback;
+  const doc = host.ownerDocument;
+  const win = doc?.defaultView;
+  if (!doc || !win) return fallback;
+  const probe = doc.createElement('span');
+  probe.style.color = color; // 'var(--accent)', 'light-dark(#a,#b)', '#hex', … — anything CSS accepts
+  probe.style.position = 'absolute';
+  probe.style.width = '0';
+  probe.style.height = '0';
+  probe.style.overflow = 'hidden';
+  host.appendChild(probe); // inherit the host's custom properties + color-scheme
+  const computed = win.getComputedStyle(probe).color;
+  probe.remove();
+  return computed && computed !== '' ? computed : fallback;
 }
 
 /** Apply `alpha` (0..1) to a concrete colour, so `reveal` reads as OPACITY. Handles

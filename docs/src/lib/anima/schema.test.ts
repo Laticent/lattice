@@ -77,6 +77,12 @@ describe('parseScene — rejects', () => {
   it('an asset on a built scene (svg-only field)', () => expect(bad({ asset: 'x.svg' }).ok).toBe(false));
   it('an svg element with children (svg scenes are flat)', () => expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', children: [] }] }).ok).toBe(false));
   it('a duplicate id across the nested tree', () => expect(bad({}, [{ id: 'a', shape: 'group', children: [{ id: 'a', shape: 'box' }] }]).ok).toBe(false));
+  it('a polygon with sides < 3 or non-integer (crashes the renderer otherwise)', () => {
+    expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 2 } }]).ok).toBe(false);
+    expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 0 } }]).ok).toBe(false);
+    expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 5.5 } }]).ok).toBe(false);
+  });
+  it('accepts an integer sides >= 3', () => expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 6, size: 30 } }]).ok).toBe(true));
 });
 
 describe('validateColor', () => {

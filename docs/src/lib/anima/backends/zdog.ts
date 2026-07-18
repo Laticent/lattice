@@ -34,10 +34,10 @@ export interface ZdogOptions {
 // biome-ignore lint/suspicious/noExplicitAny: Zdog ships no types; the seams are contained here.
 type ZNode = any;
 
-/** Build one Zdog node for a built element (no children yet — the caller recurses). */
-function makeNode(el: BuiltElement, parent: ZNode, host: Element): ZNode {
+/** Build one Zdog node for a built element (no children yet — the caller recurses).
+ *  `color` is already resolved to a concrete rgb (once, at build). */
+function makeNode(el: BuiltElement, parent: ZNode, color: string): ZNode {
   const p: ShapeProps = el.props ?? {};
-  const color = resolveColor(el.color, host);
   const stroke = p.stroke ?? undefined;
   const common = { addTo: parent, color };
   switch (el.shape) {
@@ -72,9 +72,18 @@ export function zdogRenderer(opts: ZdogOptions = {}): Renderer {
   let svg: SVGSVGElement | null = null;
   let illo: ZNode = null;
   const nodes = new Map<string, ZNode>();
-  const baseColor = new Map<string, string | undefined>(); // id → authored token (for re-resolve)
+  const baseColor = new Map<string, string>(); // id → resolved rgb (per-frame reveal = alpha)
+
+  function teardown(): void {
+    if (svg?.parentNode) svg.parentNode.removeChild(svg);
+    nodes.clear();
+    baseColor.clear();
+    illo = null;
+    svg = null;
+  }
 
   function build(scene: Scene, into: Element): void {
+    teardown(); // idempotent: a re-mount (host re-render / tune loop) must not leak the prior svg
     const doc = into.ownerDocument;
     if (!doc) throw new Error('zdogRenderer.mount: host has no ownerDocument');
     svg = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement;
@@ -88,9 +97,10 @@ export function zdogRenderer(opts: ZdogOptions = {}): Renderer {
     if (scene.source !== 'built') return; // svg scenes are Vivus's; nothing to build here
     const walk = (els: BuiltElement[], parent: ZNode): void => {
       for (const el of els) {
-        const node = makeNode(el, parent, into);
+        const rgb = resolveColor(el.color, into); // resolve ONCE (a re-theme re-mounts)
+        const node = makeNode(el, parent, rgb);
         nodes.set(el.id, node);
-        baseColor.set(el.id, el.color);
+        baseColor.set(el.id, rgb);
         if (el.children?.length) walk(el.children, node);
       }
     };
@@ -99,7 +109,6 @@ export function zdogRenderer(opts: ZdogOptions = {}): Renderer {
 
   function apply(state: SceneState): void {
     if (!illo || !host) return;
-    const h: Element = host; // capture the non-null host for the nested walk
     // Apply the scene camera to the Illustration root (a whole-scene rotation).
     if (illo.rotate) {
       illo.rotate.x = state.camera.rotate[0];
@@ -127,7 +136,7 @@ export function zdogRenderer(opts: ZdogOptions = {}): Renderer {
             node.scale.z = s;
           }
           node.visible = es.visible;
-          if ('color' in node) node.color = withAlpha(resolveColor(baseColor.get(es.id), h), es.reveal);
+          if ('color' in node) node.color = withAlpha(baseColor.get(es.id) ?? '#888888', es.reveal);
         }
         if (es.children.length) walk(es.children);
       }
@@ -150,11 +159,7 @@ export function zdogRenderer(opts: ZdogOptions = {}): Renderer {
       return { svg: svg ? svg.outerHTML : '', width: size, height: size };
     },
     dispose() {
-      if (svg?.parentNode) svg.parentNode.removeChild(svg);
-      nodes.clear();
-      baseColor.clear();
-      illo = null;
-      svg = null;
+      teardown();
       host = null;
     },
   };

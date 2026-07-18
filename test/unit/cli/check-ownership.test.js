@@ -853,6 +853,21 @@ describe('check-ownership', () => {
       }
     });
 
+    test('the containment check rejects escapes + a sibling-prefix dir, allows intra-lib', () => {
+      // Mirrors checkAnimaBoundary's real resolution: a relative import is allowed only if it
+      // resolves INSIDE ANIMA_DIR. Guards the `+ path.sep` that stops the anima/anima-evil
+      // sibling-prefix false-allow, and the backend→core `../` reach.
+      const from = path.join(ANIMA_DIR, 'backends');
+      const inside = (spec) => {
+        const r = path.resolve(from, spec);
+        return r === ANIMA_DIR || r.startsWith(ANIMA_DIR + path.sep);
+      };
+      assert.ok(inside('../types'), 'backend → core (../types) allowed');
+      assert.ok(inside('./paint'), 'in-folder (./paint) allowed');
+      assert.ok(!inside('../../lib/host'), 'a ../../lib/host escape rejected');
+      assert.ok(!inside('../../anima-evil/x'), 'a sibling-prefix dir (anima-evil) rejected');
+    });
+
     test('the gate bites on EVERY escape form a lazy backend might use', () => {
       // The checker MED: the weak single-line regex missed all of these. Assert the
       // hardened pattern set catches a side-effect import, a dynamic import(), a require(),

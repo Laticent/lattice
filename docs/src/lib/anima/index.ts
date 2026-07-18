@@ -12,7 +12,7 @@
 export { canRender, negotiate, type RendererCaps, type RequiredCaps, requiredCaps } from './caps';
 export { compile } from './compile';
 export { clamp01, EASINGS, type Easing, ease } from './easing';
-export type { Poster, Renderer } from './renderer';
+export type { AssetMap, Poster, Renderer } from './renderer';
 export { type ParseResult, parseScene, usedVerbs, validateColor } from './schema';
 export type {
   BuiltElement,

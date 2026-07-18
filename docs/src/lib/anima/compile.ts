@@ -43,7 +43,7 @@ function rotateAbout(v: Vec3, axis: Axis, a: number): Vec3 {
   return [x * c - y * s, x * s + y * c, z];
 }
 
-function evalElement(el: AnyElement, seqRank: Map<string, number>, seqCount: number, tMs: number, progress: number): ElementState {
+function evalElement(el: AnyElement, seqRank: Map<string, number>, seqCount: number, tMs: number, progress: number, parentReveal: number): ElementState {
   const tf = identity();
   // Base LOCAL transform (built elements only; svg elements carry no scene-graph transform).
   if ('transform' in el && el.transform) {
@@ -98,16 +98,21 @@ function evalElement(el: AnyElement, seqRank: Map<string, number>, seqCount: num
   }
 
   if (!hasReveal) reveal = 1;
+  // EFFECTIVE reveal composes DOWN the tree: a child's presence is gated by its ancestors
+  // (a hidden/ fading group fades its whole sub-assembly — the mechanism/exploded classes).
+  // A group Anchor has no colour of its own, so this is the ONLY way its reveal reaches paint
+  // (the trio's Munger #3). Multiplicative, so an all-present branch is unaffected.
+  const effective = reveal * parentReveal;
 
-  const children = 'children' in el && el.children ? el.children.map((c) => evalElement(c, seqRank, seqCount, tMs, progress)) : [];
+  const children = 'children' in el && el.children ? el.children.map((c) => evalElement(c, seqRank, seqCount, tMs, progress, effective)) : [];
 
   return {
     id: el.id,
     transform: tf,
     ...(el.color ? { color: el.color } : {}),
-    reveal,
+    reveal: effective,
     level,
-    visible: reveal > EPS,
+    visible: effective > EPS,
     children,
   };
 }
@@ -142,7 +147,7 @@ export function compile(scene: Scene): Timeline {
     const progress = duration > 0 ? t / duration : 0;
     const camera = identity();
     if (scene.source === 'built' && scene.camera?.rotate) camera.rotate = [...scene.camera.rotate];
-    const elements = (scene.elements as AnyElement[]).map((el) => evalElement(el, seqRank, seqCount, t, progress));
+    const elements = (scene.elements as AnyElement[]).map((el) => evalElement(el, seqRank, seqCount, t, progress, 1));
     return { source: scene.source, tMs: t, progress, camera, elements };
   };
 

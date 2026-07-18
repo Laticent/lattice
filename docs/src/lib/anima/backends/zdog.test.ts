@@ -58,6 +58,21 @@ describe('zdogRenderer', () => {
     expect(host.querySelector('svg')).toBeNull();
   });
 
+  it('renders every primitive to at least one path', () => {
+    const prims = ['shape', 'rect', 'rounded-rect', 'ellipse', 'polygon', 'cone', 'box', 'cylinder', 'hemisphere'];
+    const els = prims.map((shape, i) => ({ id: `e${i}`, shape, color: 'var(--accent)', props: { size: 30, width: 40, height: 40, depth: 40, diameter: 40, length: 40, sides: 5 } }));
+    const { renderer, tl, host } = mounted({ source: 'built', duration: 1000, hero: 0.5, elements: els });
+    renderer.draw(tl.at(500));
+    expect(host.querySelector('svg')?.querySelectorAll('path').length ?? 0).toBeGreaterThanOrEqual(prims.length);
+  });
+
+  it('is idempotent: re-mounting leaves exactly one svg (no leak)', () => {
+    const { renderer, host } = mounted();
+    const r2 = parseScene(SCENE);
+    if (r2.ok) renderer.mount(host, r2.scene); // re-mount on the same host
+    expect(host.querySelectorAll('svg').length).toBe(1);
+  });
+
   it('applies the scene camera (a camera change alters the render)', () => {
     const base = { source: 'built', duration: 1000, hero: 0.5, elements: [{ id: 'a', shape: 'box', props: { width: 40, height: 40, depth: 40 } }] };
     const a = mounted({ ...base, camera: { rotate: [0, 0, 0] } });
