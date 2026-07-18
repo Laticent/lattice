@@ -979,6 +979,14 @@ in patch versions.
 
 ### Fixed
 
+- **Dismissing a summoned Studio panel with `Esc` / `⌘.` now actually closes it — it no longer
+  pops back the next time you dial up to Build.** When you summon a Build-only panel (Lenses via
+  "Reshape for a reader", the Inspector, the Library) from a calmer Write/Read stop, the surface
+  transiently reveals Build to dock it. Pressing `Esc` (or `⌘.`) dismissed that reveal but left the
+  panel *open in state* — invisible on the calm surface, then resurfacing unbidden on your next
+  visit to Build. A summon + `Esc` is now one "never mind": both close together. A panel you opened
+  at a **persistent** Build stop is unaffected — it's still preserved across a Build↔Write dip, as
+  designed. (`StudioShell.tsx`; `engineering/decisions/2026-07-17-panel-drawer-cohesion.md`.)
 - **The Studio now reopens on the deck (and slide) you left off on — closing a blank-preview
   stare on return, verified on real WebKit.** The Studio always booted deck #1, even after you'd
   switched to another deck. That also broke the returning-visitor instant-shell: its pre-paint

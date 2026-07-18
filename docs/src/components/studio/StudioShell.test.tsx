@@ -237,6 +237,28 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		expect(screen.queryByRole('button', { name: /showing temporarily/ })).not.toBeInTheDocument();
 	});
 
+	it('Esc dismisses a transiently-summoned panel — it does NOT resurrect on the next Build visit (trio R4)', async () => {
+		// A summon (⌘K → Reshape) + Esc is one "never mind" episode: the transiently-revealed
+		// Lenses panel must CLOSE, not linger open-but-hidden and pop back when the user later
+		// dials up to Build. (Contrast: a panel opened at a PERSISTENT Build stop is preserved
+		// across a Build↔Write dip — that orthogonality is intentional and untouched here.)
+		localStorage.clear();
+		localStorage.setItem('lattice-studio-settings', JSON.stringify({ validation: true, pageNumbers: true, headerFooter: false, posture: 'write' }));
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		await user.keyboard('{Meta>}k{/Meta}');
+		const dialog = await screen.findByRole('dialog', { name: /Studio commands/i });
+		await user.click(within(dialog).getByText(/Reshape for a reader/));
+		expect(await screen.findByRole('button', { name: 'Toggle Lenses' })).toHaveAttribute('aria-pressed', 'true');
+		// Esc recedes the transient reveal — back to Write (launcher gone), posture untouched.
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Toggle Lenses' })).not.toBeInTheDocument());
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
+		// Dial UP to a persistent Build: the summoned-then-dismissed panel stays CLOSED (no orphan).
+		await user.click(screen.getByRole('button', { name: 'Build — every panel' }));
+		expect(await screen.findByRole('button', { name: 'Toggle Lenses' })).toHaveAttribute('aria-pressed', 'false');
+	});
+
 	it('the ⌘K "Library" command reveals Build and opens the Library from Write — never a dead click', async () => {
 		// Regression: Library is a Build-only docked panel now, so opening it from ⌘K at a
 		// non-Build stop must transiently reveal Build (like "Reshape"), or the command fires
