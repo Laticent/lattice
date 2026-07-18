@@ -16,6 +16,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Suono — the scheduler, out loud</title>
+		<link rel="icon" href="/suono-mark-min.svg" type="image/svg+xml" />
 		<!-- Global (unscoped): the score chips + caption words are created in JS at runtime, so
 		     Astro's element-scoped hashes would never match them. -->
 		<style is:global>
@@ -47,7 +48,8 @@
 				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
 			.wrap { max-width: 900px; margin: 0 auto; }
 			header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-			.brand { display: flex; align-items: baseline; gap: 12px; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
 			.home { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; }
 			.home:hover { color: var(--accent); }
 			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
@@ -143,6 +145,7 @@
 		<div class="wrap">
 			<header>
 				<div class="brand">
+					<img class="logo" src="/suono-mark.svg" alt="" width="46" height="46" />
 					<h1>Suono</h1><span class="tag">the scheduler</span>
 				</div>
 				<div style="display:flex; gap:14px; align-items:center;">

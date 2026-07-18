@@ -191,6 +191,14 @@ in patch versions.
 
 ### Added
 
+- **Suono has a brand identity — a mark, a favicon-scale minimal mark, and a Fraunces lockup.** A
+  radial "sound-clock" sibling to the Lattice mark (shared DNA: 128 viewBox, a ringed hub node with a
+  pale halo, precise geometry, one dark-mode-aware palette, the Fraunces wordmark) that tells Suono's
+  own story — the bloom of bars is sound, the warm crown bar is the live onset, the centered base-gap
+  is the tuned breath, the ringed hub is the owned clock. On a locked green palette matching the
+  `/suono` demo, which now wears the mark in its header + as its favicon. Establishes the **sibling
+  brand-system** reference the other four libraries follow. (`docs/public/suono-{mark,mark-min,lockup}.svg`,
+  `docs/src/pages/suono.astro`; `engineering/decisions/2026-07-18-sibling-brand-system.md`.)
 - **Add-slide is now a live-preview gallery, not a text list.** The Studio's “Insert a component”
   cmdk popup — a flat list of 56 names with no picture — is replaced by the **Slide Gallery**
   (`SlidePicker`): a grid where every tile is the REAL engine render of that component in your deck's
