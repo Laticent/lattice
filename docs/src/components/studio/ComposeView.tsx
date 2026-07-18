@@ -565,21 +565,23 @@ function ComposeStyles() {
 			/* the serif page */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 72px;font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
-			.cs-host .cs-slide{padding:20px clamp(24px,6cqw,64px);position:relative}
-			/* control bar ON the slide's top divider line — collapse (left) · insert/delete
-			   (center) · move up/down (right). Hidden until the caret is inside the slide. */
-			.cs-slide-bar{position:absolute;top:8px;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(18px,5cqw,52px);opacity:0;pointer-events:none;transition:opacity .12s;z-index:6;user-select:none}
-			.cs-slide-active > .cs-slide-bar{opacity:1;pointer-events:auto}
-			.cs-sb-zone{display:flex;gap:4px;background:var(--bg,#fff);padding:0 4px}
-			.cs-sb-btn{width:23px;height:21px;border-radius:6px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
-			.cs-sb-btn:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
-			/* the active slide replaces its resting ◇ with the bar */
-			.cs-host .cs-slide-active + .cs-slide::before,.cs-host .cs-slide-active::before{opacity:.25}
+			.cs-host .cs-slide{padding:0 clamp(24px,6cqw,64px) 22px;position:relative}
+			/* the divider between slides IS a control bar: a horizontal line runs through it,
+			   and three control zones sit ON that line — collapse (left edge) · insert/delete
+			   (center) · move up/down (right edge). The line is always visible; the controls
+			   appear only when the caret is inside the slide (cs-slide-active). */
+			.cs-slide-bar{position:relative;display:flex;align-items:center;justify-content:space-between;height:24px;margin:14px 0 10px;padding:0 clamp(16px,5cqw,48px);user-select:none}
+			.cs-slide-bar::before{content:"";position:absolute;left:clamp(16px,5cqw,48px);right:clamp(16px,5cqw,48px);top:50%;height:1px;background:var(--border,#e4eaf2)}
+			.cs-host .cs-slide:first-child .cs-slide-bar::before{display:none}
+			.cs-sb-zone{position:relative;display:flex;gap:5px;padding:0 7px;background:transparent}
+			.cs-slide-active > .cs-slide-bar .cs-sb-zone{background:var(--bg,#fff)}
+			/* slide-control button — DISTINCT class from the selection bar's .cs-sb-btn */
+			.cs-sc-btn{width:24px;height:22px;border-radius:6px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);font-size:12px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
+			.cs-slide-active > .cs-slide-bar .cs-sc-btn{display:flex}
+			.cs-sc-btn:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
 			/* collapsed: keep the first block, hide the rest behind an ellipsis */
 			.cs-slide.cs-collapsed .cs-slide-content > *:not(:first-child){display:none}
 			.cs-slide.cs-collapsed .cs-slide-content::after{content:"⋯";display:block;color:var(--text-muted,#6b7f9a);font-size:17px;line-height:1;padding:2px 0 2px}
-			.cs-host .cs-slide + .cs-slide{margin-top:6px}
-			.cs-host .cs-slide + .cs-slide::before{content:"◇";display:block;text-align:center;font-size:9px;color:var(--text-muted,#6b7f9a);margin:0 0 18px;border-top:1px solid var(--border,#e4eaf2);padding-top:16px}
 			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
 			   strikethrough…) — read-only here, edited in Markdown mode. Dim it and badge it. */
 			.cs-host .cs-slide-locked{position:relative;opacity:.72}
