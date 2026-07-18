@@ -194,6 +194,23 @@ function activeSlidePlugin() {
 	});
 }
 
+// Lucide icon geometry, inlined for the vanilla NodeView (a ProseMirror NodeView is
+// imperative DOM, so the `lucide-react` components can't be used here). These are the exact
+// lucide paths, so the slide bar matches the rest of the Studio — the move icons are the
+// vertical twins of the filmstrip's ArrowLeftToLine/ArrowRightToLine, insert is Plus and
+// delete is Trash2 (same as the filmstrip's slide controls). Keep in sync with lucide.
+const LUCIDE_PATHS: Record<string, string> = {
+	'arrow-up-to-line': '<path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/>',
+	'arrow-down-to-line': '<path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/>',
+	plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+	'trash-2': '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+	'chevrons-down-up': '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
+	'chevrons-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+};
+function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
+	return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
+}
+
 // A per-slide NodeView: renders the slide's content plus a control bar on its divider line
 // (move up/down · collapse · insert below · delete) that reveals on hover (desktop) or
 // sits faint on touch. Structural ops rebuild the doc from the SAME node instances (so
@@ -219,13 +236,13 @@ class SlideView {
 		const bar = document.createElement('div');
 		bar.className = 'cs-slide-bar';
 		bar.contentEditable = 'false';
-		const mk = (label: string, glyph: string, fn: () => void) => {
+		const mk = (label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, danger = false) => {
 			const b = document.createElement('button');
 			b.type = 'button';
-			b.className = 'cs-sc-btn';
+			b.className = danger ? 'cs-sc-btn cs-sc-danger' : 'cs-sc-btn';
 			b.title = label;
 			b.setAttribute('aria-label', label);
-			b.textContent = glyph;
+			b.innerHTML = lucideSvg(icon);
 			b.addEventListener('mousedown', (e) => e.preventDefault());
 			b.addEventListener('click', (e) => {
 				e.preventDefault();
@@ -238,13 +255,13 @@ class SlideView {
 			z.className = 'cs-sb-zone';
 			return z;
 		};
-		this.collapseBtn = mk('Collapse slide', '⌃', () => this.toggleCollapse());
+		this.collapseBtn = mk('Collapse slide', 'chevrons-down-up', () => this.toggleCollapse());
 		const left = zone();
 		left.append(this.collapseBtn);
 		const center = zone();
-		center.append(mk('Insert slide below', '＋', () => this.insertBelow()), mk('Delete slide', '✕', () => this.remove()));
+		center.append(mk('Insert slide below', 'plus', () => this.insertBelow()), mk('Delete slide', 'trash-2', () => this.remove(), true));
 		const right = zone();
-		right.append(mk('Move slide up', '↑', () => this.move(-1)), mk('Move slide down', '↓', () => this.move(1)));
+		right.append(mk('Move slide up', 'arrow-up-to-line', () => this.move(-1)), mk('Move slide down', 'arrow-down-to-line', () => this.move(1)));
 		bar.append(left, center, right);
 		const content = document.createElement('div');
 		content.className = 'cs-slide-content';
@@ -259,7 +276,7 @@ class SlideView {
 		const collapsed = has('collapsed');
 		this.dom.classList.toggle('cs-collapsed', collapsed);
 		this.dom.classList.toggle('cs-slide-active', has('active'));
-		this.collapseBtn.textContent = collapsed ? '⌄' : '⌃';
+		this.collapseBtn.innerHTML = lucideSvg(collapsed ? 'chevrons-up-down' : 'chevrons-down-up');
 		this.collapseBtn.setAttribute('aria-label', collapsed ? 'Expand slide' : 'Collapse slide');
 	}
 	private slides(): PMNode[] {
@@ -576,9 +593,11 @@ function ComposeStyles() {
 			.cs-sb-zone{position:relative;display:flex;gap:5px;padding:0 7px;background:transparent}
 			.cs-slide-active > .cs-slide-bar .cs-sb-zone{background:var(--bg,#fff)}
 			/* slide-control button — DISTINCT class from the selection bar's .cs-sb-btn */
-			.cs-sc-btn{width:24px;height:22px;border-radius:6px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);font-size:12px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
+			.cs-sc-btn{width:24px;height:22px;border-radius:6px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
 			.cs-slide-active > .cs-slide-bar .cs-sc-btn{display:flex}
+			.cs-sc-btn svg{display:block}
 			.cs-sc-btn:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
+			.cs-sc-danger:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e)}
 			/* collapsed: keep the first block, hide the rest behind an ellipsis */
 			.cs-slide.cs-collapsed .cs-slide-content > *:not(:first-child){display:none}
 			.cs-slide.cs-collapsed .cs-slide-content::after{content:"⋯";display:block;color:var(--text-muted,#6b7f9a);font-size:17px;line-height:1;padding:2px 0 2px}
