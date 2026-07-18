@@ -113,15 +113,17 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 
 	const byName = React.useMemo(() => new Map(items.map((i) => [i.name, i])), [items]);
 	const catalogItems = React.useMemo(() => items.map(toCatalogItem), [items]);
-	const fuse = React.useMemo(() => makeFuse(catalogItems), [catalogItems]);
 	// The distinct function values actually present, in canonical order — the filter chips.
 	const functions = React.useMemo(() => FUNCTION_ORDER.filter((f) => items.some((i) => i.function === f)), [items]);
 
 	const q = query.trim().toLowerCase();
 	const searching = q.length >= 2;
 
-	// Compose FILTER → SEARCH → GROUP on the shared core.
+	// Compose FILTER → SEARCH → GROUP on the shared core. The Fuse index is built over
+	// the FACET-FILTERED pool (not the whole catalog) so the fuzzy-typo fallback can't
+	// leak in results from other functions while a filter chip is active.
 	const pool = React.useMemo(() => (facet ? catalogItems.filter((c) => c.function === facet) : catalogItems), [catalogItems, facet]);
+	const fuse = React.useMemo(() => makeFuse(pool), [pool]);
 	const ranked = React.useMemo(() => rankedFor(pool, fuse, query), [pool, fuse, query]);
 
 	// Browse-mode bands (no query): Blank · Recent · Your components · function bands.
@@ -142,10 +144,23 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		return out;
 	}, [searching, facet, recent, byName, items, pool]);
 
-	// Flat list for search results — Blank pinned first only in unfiltered browse.
-	const flat = React.useMemo(() => (ranked ? ranked.map((ci) => byName.get(ci.name)).filter((x): x is PickerItem => !!x) : []), [ranked, byName]);
+	// Ranked search results, mapped back to PickerItems and DE-DUPED by name: a saved
+	// local component that shares a catalog name would otherwise yield two tiles (and a
+	// duplicate React key), since byName collapses the collision to a single entry.
+	const flat = React.useMemo(() => {
+		if (!ranked) return [];
+		const seen = new Set<string>();
+		const out: PickerItem[] = [];
+		for (const ci of ranked) {
+			if (seen.has(ci.name)) continue;
+			seen.add(ci.name);
+			const it = byName.get(ci.name);
+			if (it) out.push(it);
+		}
+		return out;
+	}, [ranked, byName]);
 
-	const count = searching ? flat.length : pool.length + (facet ? 0 : 1); // +1 Blank in browse
+	const count = searching ? flat.length : facet ? pool.length : items.length;
 
 	const insert = (it: PickerItem) => {
 		onInsert(it);

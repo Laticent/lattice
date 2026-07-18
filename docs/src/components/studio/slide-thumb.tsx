@@ -6,9 +6,9 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 // Slide Overview (the "slides in Present" sorter) AND the Studio add-slide gallery
 // (SlidePicker) both render a grid of live engine thumbnails, so they share ONE
 // IntersectionObserver windowing policy and ONE DeckPreview render (HARD RULE #15).
-// The CALLER owns the wrapper element and its role: Slide Overview wraps a
-// <button>; the picker wraps a role="gridcell" div so a tile can host a focusable
-// +Insert child (a <button> may not nest another <button>).
+// The CALLER owns the wrapper element: both wrap the face in a single <button> that
+// IS the click target — the picker's "+ Insert" affordance is a decorative,
+// pointer-events-none overlay, not a nested focusable button, so one button per tile.
 
 /**
  * Does this slide's markdown contain a Mermaid fence? A diagram-bucket component's
