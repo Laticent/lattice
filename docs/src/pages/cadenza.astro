@@ -300,6 +300,11 @@
 				elapsed = 0; paint(); updateClock();
 			}
 
+			// Build a labelled span with its text set via textContent — never innerHTML —
+			// so a narration token like `<img onerror=…>` can't inject into this page
+			// (which holds the user's BYOK key in localStorage). Mirrors the caption path.
+			const mkSpan = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; };
+
 			function paint() {
 				const a = reader.current(); // { cueIndex, wordIndex } | null
 				document.querySelectorAll('.caption .w').forEach((el) => {
@@ -314,13 +319,21 @@
 				});
 				if (a) {
 					const w = track.cues[a.cueIndex].words[a.wordIndex];
-					spokenEl.innerHTML = `<span class="lbl">speaking</span><span class="disp">${w.display}</span><span class="arrow">→</span><span class="say">${w.spoken}</span>`;
+					spokenEl.replaceChildren(mkSpan('lbl', 'speaking'), mkSpan('disp', w.display), mkSpan('arrow', '→'), mkSpan('say', w.spoken));
 				} else {
-					spokenEl.innerHTML = playing ? '<span class="lbl">…</span>' : '<span class="lbl">press play</span>';
+					spokenEl.replaceChildren(mkSpan('lbl', playing ? '…' : 'press play'));
 				}
 				fillEl.style.width = (reader.durationMs() ? Math.min(100, (elapsed / reader.durationMs()) * 100) : 0) + '%';
 			}
-			function updateClock() { clockEl.textContent = (elapsed / 1000).toFixed(1) + 's / ' + (reader.durationMs() / 1000).toFixed(1) + 's'; }
+			function updateClock() {
+				const dur = reader.durationMs();
+				clockEl.textContent = (elapsed / 1000).toFixed(1) + 's / ' + (dur / 1000).toFixed(1) + 's';
+				const bar = $('#bar');
+				bar.setAttribute('aria-valuemin', '0');
+				bar.setAttribute('aria-valuemax', String(Math.round(dur)));
+				bar.setAttribute('aria-valuenow', String(Math.round(elapsed)));
+				bar.setAttribute('aria-valuetext', (elapsed / 1000).toFixed(1) + ' of ' + (dur / 1000).toFixed(1) + ' seconds');
+			}
 
 			function tick(now) {
 				if (!playing) return;
@@ -446,14 +459,33 @@
 				[...e.currentTarget.children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
 				const was = started; stop(); render(); if (was) play();
 			});
+			// Move the playhead to `ms` (the shared seek path for pointer + keyboard).
+			function seekTo(ms) {
+				elapsed = Math.max(0, Math.min(reader.durationMs(), ms));
+				reader.reset(); reader.sync(elapsed); paint(); updateClock();
+			}
 			$('#bar').addEventListener('click', (e) => {
 				leaveStoryboard();
 				// Live TTS (blob OR browser voice) can't be seeked — scrubbing is the
 				// silent-preview affordance only, when no voice is speaking.
 				if (voicing && started) return;
 				const r = e.currentTarget.getBoundingClientRect();
-				elapsed = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * reader.durationMs();
-				reader.reset(); reader.sync(elapsed); paint(); updateClock();
+				seekTo(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * reader.durationMs());
+			});
+			// Keyboard operability for the role="slider" seek bar: Arrow/Home/End scrub,
+			// paired with the aria-value* state set in updateClock() so AT announces position.
+			$('#bar').addEventListener('keydown', (e) => {
+				if (voicing && started) return;
+				const dur = reader.durationMs(); const step = Math.max(200, dur * 0.05);
+				let next;
+				if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = elapsed + step;
+				else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = elapsed - step;
+				else if (e.key === 'Home') next = 0;
+				else if (e.key === 'End') next = dur;
+				else if (e.key === 'PageUp') next = elapsed + step * 4;
+				else if (e.key === 'PageDown') next = elapsed - step * 4;
+				else return;
+				e.preventDefault(); leaveStoryboard(); seekTo(next);
 			});
 			let deb; inputEl.addEventListener('input', () => { leaveStoryboard(); clearTimeout(deb); deb = setTimeout(() => { stop(); render(); }, 250); });
 			$('#themeBtn').addEventListener('click', () => {

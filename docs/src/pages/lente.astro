@@ -225,9 +225,16 @@
 					const b = document.createElement('button');
 					b.className = 'lens-chip'; b.type = 'button';
 					b.setAttribute('aria-pressed', String(l.id === picked));
-					const base = l.id === 'full' ? '' : `<span class="base">${l.base}${l.single ? '·single' : ''}</span>`;
-					b.innerHTML = `${l.label}${base}`;
-					b.addEventListener('click', () => { setCurrentBeat(null); pick(l.id); });
+					// textContent, never innerHTML: a lens label comes from parsed deck
+					// front-matter (untrusted for a real deck). Keep this reference pattern
+					// safe to copy — an attacker-controlled label must not become markup.
+					b.textContent = l.label;
+					if (l.id !== 'full') {
+						const base = document.createElement('span');
+						base.className = 'base'; base.textContent = `${l.base}${l.single ? '·single' : ''}`;
+						b.appendChild(base);
+					}
+					b.addEventListener('click', () => { clearBeatTimers(); setCurrentBeat(null); pick(l.id); });
 					lensesEl.appendChild(b);
 				}
 			}
@@ -288,7 +295,16 @@
 				else if (picked === 'full') setDiag(`Edited slide ${target + 1}. The full lens is always eligible — approve a scoping lens first, then edit, to watch drift.`);
 				else setDiag(`Edited slide ${target + 1}. Approve "${picked}" first, then edit, to watch the lens de-approve on drift.`);
 			});
+			// A beat schedules deferred steps (approve-then-edit, story-then-evidence)
+			// via `after()`, which tracks the timer so any manual interruption — Stop,
+			// Reset, or picking another beat — cancels it. Untracked setTimeouts would
+			// fire out of order after the user has already moved on.
+			let beatTimers = [];
+			const after = (ms, fn) => { beatTimers.push(setTimeout(fn, ms)); };
+			const clearBeatTimers = () => { beatTimers.forEach(clearTimeout); beatTimers = []; };
+
 			$('#resetBtn').addEventListener('click', () => {
+				clearBeatTimers();
 				slides = SLIDES0.slice(); reg = parseLensRegistry(REG_FM); edited = -1;
 				buildDeck(); setDiag(''); pick('full');
 			});
@@ -297,10 +313,10 @@
 			const BEATS = [
 				{ id: 'full',   t: 'The whole deck', d: 'The safe default — the full lens is always eligible; every slide shows.', api: "pick('full')", run: () => pick('full') },
 				{ id: 'brief',  t: 'Pick a lens', d: 'The "brief" lens keeps only its members — the deck shrinks to the bottom line. But a reader can’t open it yet…', api: "lens().pick('brief').pairs()", run: () => pick('brief') },
-				{ id: 'closed', t: 'It fails CLOSED', d: 'Unapproved, the reader view is "unavailable" — never a silent full-deck fallback. A scoping lens can be a redaction.', api: 'project() → unavailable', run: () => pick('brief') },
-				{ id: 'approve',t: 'A human approves', d: 'The one bridge: a person stamps a content hash covering exactly what the reader would see. Now it’s eligible.', api: 'approvalHash(…)', run: () => { pick('brief'); setTimeout(() => approveBtn.click(), 500); } },
-				{ id: 'alt',    t: 'Different altitudes', d: 'Same source, other jobs: "story" (base none) vs "evidence" (base all — everything but the decoration).', api: "pick('story'|'evidence')", run: () => { pick('story'); setTimeout(() => pick('evidence'), 900); } },
-				{ id: 'drift',  t: 'Drift de-approves', d: 'Edit a slide after Approve and the hash no longer matches — the lens de-approves itself, for every consumer.', api: 'project() → drifted', run: () => { pick('brief'); setTimeout(() => approveBtn.click(), 400); setTimeout(() => $('#editBtn').click(), 1100); } },
+				{ id: 'closed', t: 'It fails CLOSED', d: 'Unapproved, the reader view is "unavailable" — never a silent full-deck fallback; an honest UI won’t over-show.', api: 'project() → unavailable', run: () => pick('brief') },
+				{ id: 'approve',t: 'A human approves', d: 'The one bridge: a person stamps a content hash covering exactly what the reader would see. Now it’s eligible.', api: 'approvalHash(…)', run: () => { pick('brief'); after(500, () => approveBtn.click()); } },
+				{ id: 'alt',    t: 'Different altitudes', d: 'Same source, other jobs: "story" (base none) vs "evidence" (base all — everything but the decoration).', api: "pick('story'|'evidence')", run: () => { pick('story'); after(900, () => pick('evidence')); } },
+				{ id: 'drift',  t: 'Drift de-approves', d: 'Edit a slide after Approve and the hash no longer matches — the lens de-approves itself, for every consumer.', api: 'project() → drifted', run: () => { pick('brief'); after(400, () => approveBtn.click()); after(1100, () => $('#editBtn').click()); } },
 			];
 			function setCurrentBeat(id) {
 				[...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id)));
@@ -309,16 +325,18 @@
 				const el = document.createElement('button');
 				el.className = 'beat'; el.type = 'button'; el.dataset.id = b.id;
 				el.innerHTML = `<span class="n">${i + 1}</span><span><span class="bt">${b.t}</span><p class="bd">${b.d}</p><span class="api">${b.api}</span></span>`;
-				el.addEventListener('click', () => { setCurrentBeat(b.id); b.run(); });
+				el.addEventListener('click', () => { clearBeatTimers(); setCurrentBeat(b.id); b.run(); });
 				beatsEl.appendChild(el);
 			});
 			let tourTimer = 0;
+			const stopTour = (e) => { clearInterval(tourTimer); tourTimer = 0; clearBeatTimers(); if (e) e.target.textContent = '▸ Play all six'; };
 			$('#tourBtn').addEventListener('click', (e) => {
-				if (tourTimer) { clearInterval(tourTimer); tourTimer = 0; e.target.textContent = '▸ Play all six'; return; }
+				if (tourTimer) { stopTour(e); return; }
 				$('#resetBtn').click();
 				let i = 0; e.target.textContent = '■ Stop tour';
 				const step = () => {
-					if (i >= BEATS.length) { clearInterval(tourTimer); tourTimer = 0; e.target.textContent = '▸ Play all six'; return; }
+					if (i >= BEATS.length) { stopTour(e); return; }
+					clearBeatTimers(); // drop the previous beat's deferred steps before the next
 					const b = BEATS[i++]; setCurrentBeat(b.id); b.run();
 				};
 				step(); tourTimer = setInterval(step, 3400);

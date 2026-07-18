@@ -1251,6 +1251,20 @@ in patch versions.
   footer, so the looks you just asked for weren't visible. The panel now scrolls itself into view on
   open (`scrollIntoView({ block: 'nearest' })`) — for a panel taller than the viewport it pins the
   header to the top and fills down. (`docs/src/components/studio/SlidePicker.tsx`.)
+- **Library-demo hardening from a full adversarial-trio pass (red team + Munger inversion + independent
+  checker across all four shipping libraries).** Four on-surface fixes to the demo pages: (1) `/cadenza`
+  built the "spoken" readout with `innerHTML` interpolating raw narration tokens — a self-XSS sink on a
+  page that holds the user's BYOK OpenRouter key in `localStorage`; it now builds the readout from DOM
+  nodes with `textContent`, matching the already-safe caption path. (2) `/cadenza`'s `role="slider"` seek
+  bar was focusable but inoperable — no keyboard handler and no `aria-value*`; it now scrubs on
+  Arrow/Home/End/PageUp/PageDown and exposes `aria-valuemin/max/now/valuetext` on each tick. (3) `/lente`
+  rendered parsed lens labels via `innerHTML` — safe for the static demo but a copy-paste XSS footgun on a
+  security-shaped reference page; labels now use `textContent`. (4) `/lente`'s storyboard beats scheduled
+  deferred `setTimeout` steps that were never cleared, so a Stop / Reset / beat-switch let them fire out
+  of order after the user moved on; every beat timer is now tracked and cancelled on interruption (the same
+  discipline already applied to `/cadenza` and `/vetrina`). Also dropped an inaccurate "a scoping lens can
+  be a redaction" line from the `/lente` demo (client-side filtering hides, it does not withhold bytes).
+  (`docs/src/pages/cadenza.astro`, `docs/src/pages/lente.astro`.)
 - **Dismissing a summoned Studio panel with `Esc` / `⌘.` now actually closes it — it no longer
   pops back the next time you dial up to Build.** When you summon a Build-only panel (Lenses via
   "Reshape for a reader", the Inspector, the Library) from a calmer Write/Read stop, the surface
