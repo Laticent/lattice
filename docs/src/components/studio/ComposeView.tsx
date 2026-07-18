@@ -9,7 +9,7 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
-import { activeRegister, applyRegister, type Reg } from '@/lib/compose/registers';
+import { activeRegister, applyRegister, caretInLockedSlide, type Reg } from '@/lib/compose/registers';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
@@ -95,7 +95,7 @@ function computeSelBar(view: EditorView): SelBar | null {
 // can't be edited, so its node identity never changes and `emitDeck` always re-emits its
 // exact `raw` bytes. Selection-only transactions (no doc change) always pass, so you can
 // still put the caret in / copy from a locked slide.
-function structuralGuard() {
+export function structuralGuard() {
 	return new Plugin({
 		filterTransaction(tr, state) {
 			if (!tr.docChanged) return true;
@@ -118,14 +118,35 @@ function structuralGuard() {
 // — not on the SlideView instance. Toggling dispatches a `collapseKey` meta (doc unchanged,
 // so the structural guard waves it through); the decoration maps through edits, and each
 // SlideView reads it in its constructor/update to add the `cs-collapsed` class.
-const collapseKey = new PluginKey<DecorationSet>('cs-collapse');
-function collapsePlugin() {
+export const collapseKey = new PluginKey<DecorationSet>('cs-collapse');
+export function collapsePlugin() {
 	return new Plugin({
 		key: collapseKey,
 		state: {
 			init: () => DecorationSet.empty,
 			apply(tr, set) {
-				let next = set.map(tr.mapping, tr.doc);
+				let next: DecorationSet;
+				if (tr.getMeta('slideOp')) {
+					// A structural op (SlideView.commit) rebuilds the whole doc from the SAME node
+					// instances via one full-content replace step, so position-mapping the collapse
+					// decorations through it DROPS them (their span falls inside the replaced range) —
+					// collapsed slides would pop open on every move/insert/delete. Re-establish collapse
+					// by NODE IDENTITY: note which slide instances were collapsed in the pre-op doc, then
+					// re-decorate those same instances at their new offsets.
+					const beforeDoc = tr.docs.length ? tr.docs[0] : tr.doc;
+					const collapsed = new Set<PMNode>();
+					for (const d of set.find()) {
+						const n = beforeDoc.nodeAt(d.from);
+						if (n) collapsed.add(n);
+					}
+					const decos: Decoration[] = [];
+					tr.doc.forEach((node, offset) => {
+						if (collapsed.has(node)) decos.push(Decoration.node(offset, offset + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true }));
+					});
+					next = DecorationSet.create(tr.doc, decos);
+				} else {
+					next = set.map(tr.mapping, tr.doc);
+				}
 				const toggle = tr.getMeta(collapseKey) as { pos: number } | undefined;
 				if (toggle) {
 					const node = tr.doc.nodeAt(toggle.pos);
@@ -342,18 +363,21 @@ function buildPlugins() {
 // keyboard-riding RAIL so both surfaces stay one control set (no forked widget, HARD RULE #15).
 // The buttons `preventDefault` on mousedown so a tap never blurs the editor (keeping the caret
 // — and, on touch, the software keyboard — alive; the same guard the shipped bottom bar used).
-function GrammarRegisters({ active, onGutter }: { active: Reg | null; onGutter: (reg: Reg) => void }) {
+function GrammarRegisters({ active, onGutter, disabled }: { active: Reg | null; onGutter: (reg: Reg) => void; disabled?: boolean }) {
 	return (
 		<>
 			{REGISTERS.map((r) => (
 				<button
 					key={r.key}
 					type="button"
-					title={`${r.label} — apply to this block`}
+					title={disabled ? `${r.label} — unavailable on a locked slide (edit in Markdown)` : `${r.label} — apply to this block`}
 					aria-label={r.label}
 					aria-pressed={active === r.key}
+					// A locked slide can't be registered (the structural guard filters it), so the
+					// button is disabled rather than silently doing nothing (Finding 4).
+					disabled={disabled}
 					onMouseDown={(e) => e.preventDefault()}
-					onClick={() => onGutter(r.key)}
+					onClick={() => !disabled && onGutter(r.key)}
 					className={cn('cs-greg', r.mono && 'cs-greg-mono', active === r.key && 'cs-greg-live')}
 				>
 					{r.glyph}
@@ -379,6 +403,8 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	const pendingResyncRef = React.useRef<string | null>(null);
 	const [failed, setFailed] = React.useState(false);
 	const [active, setActive] = React.useState<Reg | null>(null);
+	// The caret is in a LOCKED slide → the register buttons disable (Finding 4).
+	const [lockedCaret, setLockedCaret] = React.useState(false);
 	// The floating selection bar (inline marks over a text selection), or null when there
 	// is no non-empty selection. The block registers live in the gutter; this bar is the
 	// inline complement — Bold / Italic / Code on the selected run.
@@ -440,10 +466,19 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				nodeViews: { slide: (node, nodeView, getPos, decorations) => new SlideView(node, nodeView, getPos as () => number, decorations) },
 				dispatchTransaction(tr) {
+					const prevDoc = view.state.doc;
 					const next = view.state.apply(tr);
 					view.updateState(next);
 					setActive(activeRegister(next));
-					if (tr.docChanged) {
+					setLockedCaret(caretInLockedSlide(next));
+					// Guard on the APPLIED doc, NOT `tr.docChanged`: a transaction the structural
+					// guard REJECTS (a keystroke inside a locked slide, or a delete spanning a slide
+					// boundary) still reports `tr.docChanged === true` — but `state.apply` returns the
+					// unchanged state, so `next.doc === prevDoc`. Running the emit branch on that
+					// no-op would null a PARKED external resync (`pendingResyncRef`), silently dropping
+					// an external `_class`/AI/undo change on the next blur — for a keystroke that did
+					// nothing. Only a real doc change supersedes the parked author.
+					if (next.doc !== prevDoc) {
 						// A fresh local edit supersedes any parked external change — otherwise the
 						// blur flush would replay a now-stale snapshot over the user's typing (the
 						// trio's resync race). Favor the actively-typing author.
@@ -487,6 +522,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		}
 		viewRef.current = view;
 		setActive(activeRegister(view.state));
+		setLockedCaret(caretInLockedSlide(view.state));
 		// The floating bar is positioned in viewport coords; a scroll of the writing surface
 		// would strand it, so hide it on scroll (it returns on the next selection change).
 		const host = hostRef.current;
@@ -558,7 +594,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 				{!showRail && (
 					<div className="cs-gutter" role="toolbar" aria-label="Grammar registers">
 						<span className="cs-gutter-label">Grammar</span>
-						<GrammarRegisters active={active} onGutter={onGutter} />
+						<GrammarRegisters active={active} onGutter={onGutter} disabled={lockedCaret} />
 					</div>
 				)}
 				<div ref={hostRef} className="cs-host" />
@@ -587,7 +623,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 			{showRail &&
 				createPortal(
 					<div className="cs-rail" role="toolbar" aria-label="Grammar registers">
-						<GrammarRegisters active={active} onGutter={onGutter} />
+						<GrammarRegisters active={active} onGutter={onGutter} disabled={lockedCaret} />
 					</div>,
 					document.body,
 				)}
@@ -609,6 +645,7 @@ function ComposeStyles() {
 			.cs-greg-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;letter-spacing:.02em}
 			.cs-greg:hover{color:var(--text-heading,#0a1628);background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%)}
 			.cs-greg-live{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent,#006fa8),transparent 60%)}
+				.cs-greg:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
 			/* the serif page */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 72px;font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}

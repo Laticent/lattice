@@ -71,6 +71,14 @@ export function activeRegister(state: EditorState): Reg | null {
 	return null;
 }
 
+// True when the caret sits in a LOCKED slide (immutable — edited in Markdown mode). The gutter /
+// rail read this to DISABLE the register buttons, so a tap there reads as "unavailable" rather
+// than silently doing nothing (Finding 4).
+export function caretInLockedSlide(state: EditorState): boolean {
+	const ctx = slideContext(state);
+	return !!ctx?.slide.attrs.locked;
+}
+
 // Move the caret's top-level block to the END of its slide, replaced by `make(block)`. The
 // trailing registers (Key-insight, Below-note) render only as the slide's last block, so
 // applying one relocates the block there — the "naturally goes to the end of the slide" model.
@@ -104,6 +112,16 @@ export function applyRegister(view: EditorView, reg: Reg, current: Reg | null) {
 	const ctx = slideContext(state);
 	// No single target block (cross-slide / doc-edge selection): nothing to register.
 	if (!ctx) {
+		view.focus();
+		return;
+	}
+	// A LOCKED slide (a construct Compose can't round-trip — a table, block HTML…) is immutable:
+	// the structural guard would silently FILTER any register transaction, leaving the button
+	// looking like it did something. Short-circuit to a clean no-op instead of dispatching a
+	// doomed change (which would also trip the emit path's parked-resync clobber). No-op is right —
+	// the slide is edited in Markdown mode. (The gutter/rail also disables its buttons; see
+	// caretInLockedSlide.)
+	if (ctx.slide.attrs.locked) {
 		view.focus();
 		return;
 	}
@@ -156,6 +174,12 @@ export function applyRegister(view: EditorView, reg: Reg, current: Reg | null) {
 		} else if (!ctx.block.textContent.startsWith('—')) {
 			if (ctx.isLast) view.dispatch(view.state.tr.insertText('— ', $from.start())); // already last
 			else moveToSlideEnd(view, (block) => s.nodes.paragraph.create(null, [s.text('— '), ...block.content.content]));
+		} else {
+			// A paragraph that already leads with an em-dash but ISN'T the slide's last block reads
+			// as `current: null` (Below-note requires trailing) — so it was a dead-end: neither
+			// stripped nor moved. Relocate it to the slide end (content preserved) so it becomes the
+			// recognized trailing note and can then toggle off. (Finding 7.)
+			moveToSlideEnd(view, (block) => s.nodes.paragraph.create(null, block.content.content));
 		}
 	}
 	view.focus();

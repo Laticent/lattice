@@ -107,8 +107,42 @@ that block is a type it can validly render from** (paragraph/heading; plus block
 toggle-off). `insight` now branches on block KIND (blockquote → unwrap; paragraph → wrap in place if
 last, else move to slide end; else no-op), `h1`/`h2` guard to paragraph/heading, and a cross-slide
 selection is a no-op. Every register is now an idempotent toggle that cannot nest. Guarded by
-`registers.test.ts` (8 stress cases incl. the exact repro). Landed on this branch (HARD RULE #18 —
+`registers.test.ts` (stress cases incl. the exact repro). Landed on this branch (HARD RULE #18 —
 a defect the change's own surface exposed, fixed in place).
+
+### Broader red-team of the whole Compose surface
+
+The user pushed for more than the blockquote fix, so an **independent** red-teamer swept the entire
+Compose interaction surface (divider structural ops, `moveToSlideEnd`, the structural guard, the
+resync race, emit round-trip). Seven findings; disposition:
+
+- **Finding 1 — MAJOR, FIXED.** The emit path keyed on `tr.docChanged`, which stays `true` even for a
+  transaction the structural guard REJECTS (a keystroke in a locked slide, a cross-slide delete) —
+  `state.apply` returns the unchanged state, so the emit branch ran on a no-op and nulled a **parked
+  external resync** (`pendingResyncRef`), silently dropping an external `_class`/AI/undo change on the
+  next blur. Fixed: guard on `next.doc !== prevDoc` (the applied doc), not `tr.docChanged`
+  (`ComposeView.tsx` `dispatchTransaction`). Premise locked by a test.
+- **Finding 3 — MAJOR, FIXED.** Collapse is a position-keyed node decoration; `SlideView.commit`
+  rebuilds the doc via one full-content replace step, so mapping dropped it → collapsed slides popped
+  open on every move/insert/delete. Fixed: the collapse plugin re-establishes decorations by **node
+  identity** on a `slideOp` tr. Guarded by `compose-collapse.test.ts` (survives reorder + delete).
+- **Finding 4 — MAJOR, FIXED.** Register buttons on a locked slide dispatched a doomed transaction
+  (silently filtered) with no feedback — and were a vector for Finding 1's clobber. Fixed: `applyRegister`
+  short-circuits to a no-op on a locked slide, and the gutter/rail buttons **disable** (`caretInLockedSlide`).
+- **Finding 7 — MINOR, FIXED.** "Note" on a `— …` paragraph that wasn't the slide's last block was a
+  dead-end. Fixed: it relocates to the slide end so it becomes the recognized trailing note.
+- **Finding 2 — MAJOR, LOGGED (off-path).** A parked external change is dropped whenever the user types
+  again, even for a NON-conflicting edit (the "favor the typing author" design nulls the parked snapshot
+  instead of merging). A real fix needs a 3-way source merge — its own change, out of scope here
+  (HARD RULE #18: off-path → log). **Follow-up: reconcile parked external edits by dimension.**
+- **Finding 5 — MINOR, LOGGED.** Typing over a cross-slide selection is correctly prevented by the guard
+  but is a silent dead keystroke. **Follow-up: a visual cue.**
+- **Finding 6 — MINOR, LOGGED.** On a multi-block range selection the detector reads the first block while
+  the command acts on the whole range (partial apply — no corruption; the `stable()` sweep confirms valid,
+  un-nested output). **Follow-up: operate on, or no-op, the range consistently.**
+
+Checked and sound (no action): `moveToSlideEnd` position math, `emitDeck` node-identity reuse across
+move/insert/delete, the cross-slide `slideContext` bail, the `hr`/bullet serializer overrides.
 
 ## Slice 2 (pending, separate branch/PR — HARD RULE #17)
 

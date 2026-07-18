@@ -414,6 +414,19 @@ in patch versions.
 
 ### Fixed
 
+- **Compose no longer silently drops an external edit when you type in a rejected spot, and collapsed
+  slides no longer pop open when you reorder.** An independent red-team of the whole Compose surface
+  (beyond the register bug below) turned up three real defects, now fixed: (1) a keystroke the structural
+  guard *rejects* — typing in a locked slide, or a delete spanning a slide boundary — still reported
+  `tr.docChanged`, so the emit path ran and discarded a **parked external change** (an Inspector `_class`
+  stamp / AI apply / undo waiting for blur); it now keys on whether the *applied* doc actually changed.
+  (2) **Collapse state survived by node identity:** collapsing a slide then moving/inserting/deleting
+  another used to pop it back open (the collapse decoration was position-mapped through a full-doc
+  rebuild and lost); it now re-attaches to the same slide instance. (3) **Grammar registers on a locked
+  slide** dispatched a doomed, silently-filtered transaction — they're now a clean no-op and the buttons
+  disable. Plus a minor dead-end: "Note" on a non-last `— …` paragraph now relocates it instead of doing
+  nothing. Guarded by `compose-collapse.test.ts` + `registers.test.ts`. (`ComposeView.tsx`,
+  `docs/src/lib/compose/registers.ts`; `engineering/decisions/2026-07-18-compose-mobile-keyboard-rail.md`.)
 - **Applying a Compose grammar register (Key-insight / heading / note) can no longer nest or apply
   without bound.** With the caret in a list item, tapping Key-insight (❦) wrapped the *inner* block
   in a fresh blockquote every tap while the "already an insight?" detector only read the *top-level*

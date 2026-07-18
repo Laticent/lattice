@@ -213,4 +213,31 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		for (const reg of ['h1', 'insight', 'note', 'h2', 'insight', 'h1', 'note'] as const) t.apply(reg);
 		stable(t);
 	});
+
+	// Finding 4: a locked slide (a construct Compose can't round-trip, e.g. a table) is immutable —
+	// the register must be a clean no-op, not a doomed dispatch the structural guard silently eats.
+	it('every register is a no-op on a locked slide', () => {
+		const src = '<!-- _class: content -->\n\n# Locked head\n\n| a | b |\n| - | - |\n| 1 | 2 |';
+		const t = view(src);
+		// sanity: the slide really is locked
+		expect(t.v.state.doc.child(0).attrs.locked).toBe(true);
+		const before = t.src();
+		t.caret('Locked head');
+		for (const reg of ['h1', 'h2', 'insight', 'note', 'eyebrow'] as const) t.apply(reg);
+		expect(t.src()).toBe(before); // untouched
+	});
+
+	// Finding 7: a `— …` paragraph that isn't the slide's last block was a dead-end (couldn't
+	// strip or move). It now relocates to the slide end so it becomes the recognized note.
+	it('note on a non-last em-dash paragraph relocates it to the end (no dead-end)', () => {
+		const t = view('<!-- _class: content -->\n\n— aside first\n\nTail.');
+		t.caret('aside first');
+		t.apply('note'); // moves "— aside first" to the slide end
+		const out = t.src();
+		expect(out).toMatch(/Tail\.[\s\S]*—\s*aside first/); // aside now AFTER Tail (trailing)
+		expect((out.match(/aside first/g) || []).length).toBe(1); // not duplicated
+		t.apply('note'); // now trailing → strips the em-dash
+		expect(t.src()).not.toMatch(/—\s*aside first/);
+		stable(t);
+	});
 });
