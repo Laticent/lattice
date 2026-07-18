@@ -43,6 +43,27 @@ full adversarial trio required for high-blast-radius work (HARD RULE #25). The l
 (`docs/src/lib/lente/`), the Studio **Lenses** panel, and the single export-pipeline directive
 registration are **named follow-up slices below**, each its own PR.
 
+> **Correction (2026-07-18) — two claims below overstated the guarantee; the code + README now
+> read true, and the design record is corrected here rather than rewritten in place.** A second
+> adversarial-trio pass over the shipping libraries found:
+>
+> 1. **§6.2 — the content hash detects DRIFT, not FORGERY.** `approvalHash` is an *unkeyed* SHA-256,
+>    so any actor that can write the deck source can recompute a matching digest. It therefore
+>    de-approves a lens on any edit/reorder/retag (the real, useful property), but it does **not**
+>    by itself answer "did a human vet *this* deck?" against a source-writer (e.g. the AI-Reshape
+>    path). The human-in-the-loop assurance is the **Approve gate** (a person looked and clicked),
+>    not a cryptographic property. Wording like "hand-forgery makes it mismatch" / "defeats forgery"
+>    is retired. (A *keyed* HMAC/signature would be needed for a true forgery proof — a possible
+>    future slice, not claimed today.) The same pass also fixed a real bug: the old pre-image
+>    (`${index} ${slide}` joined by `\n`) was **non-injective** and could collide (fail-OPEN); it is
+>    now an injective JSON encoding.
+> 2. **§6.3 — client-side projection HIDES, it does not WITHHOLD.** Filtering an array the client
+>    already holds is `display:none`, not redaction: a `brief` reader who views source sees every
+>    non-member slide's bytes. Fail-closed is a UI-integrity guarantee (a cooperating renderer won't
+>    over-show), **not** confidentiality. Real redaction requires the host to project server-side and
+>    never ship non-member slides — outside this pure/no-network library. The "redaction" /
+>    "confidentiality breach" framing is scoped accordingly.
+
 ---
 
 ## 1. Why this exists — deterministic, but not the author's

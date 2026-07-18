@@ -459,6 +459,19 @@ in patch versions.
 
 ### Changed
 
+- **Breaking:** **`@slidewright/lente` `approvalHash` now uses an injective encoding — every previously
+  stamped `approved: "sha256:…"` value is invalidated and each lens must be re-approved.** An
+  adversarial-trio pass found the old pre-image (member pairs serialized as `` `${index} ${slide}` ``
+  joined by `\n`) was **non-injective**: a slide body containing a `\n<index> ` sequence could forge the
+  boundary between two members, so two structurally different decks collided to the same digest and a
+  drifted deck read as **approved** (a fail-OPEN hole that falsified the library's own "any edit
+  de-approves" invariant — confirmed at runtime). The pre-image is now `JSON.stringify([lensId, base,
+  [[index, slide], …]])`, which escapes control characters and quotes so distinct member lists always map
+  to distinct strings. The digest is still an *unkeyed* SHA-256 — it detects **drift**, not **forgery**;
+  the human-in-the-loop assurance is the host's Approve gate, not a cryptographic property (README + the
+  design doc §6.2/§6.3 re-scoped to match). Regression-guarded in `project.test.ts`.
+  (`docs/src/lib/lente/project.ts`; correction note in
+  `engineering/decisions/2026-07-13-lente-reader-lenses.md`.)
 - **A diagram slide now renders as a diagram in the Studio editing preview, not raw code.** The main
   deck preview hardcoded `mermaid={false}`, so a slide with a Mermaid fence (the `diagram` component,
   or hand-written) showed its fenced code instead of the drawn diagram while you edited — even though
