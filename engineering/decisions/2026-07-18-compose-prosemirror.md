@@ -81,7 +81,13 @@ and `emitDeck` re-emits its exact `raw` bytes (a locked table survives a reorder
 byte-for-byte) — and carry a `slideOp` meta so the structural guard lets the intentional
 count/lock change through. Collapse is view-only: it lives in a plugin as a node decoration
 (NOT on the view instance, which a real click can make ProseMirror rebuild), so it maps
-through edits and survives a nodeView recreation.
+through edits and survives a nodeView recreation. The divider line spans the full slide
+width and is painted with the deck's STRUCTURAL TRIM (`spectrum-trim:`, read from the
+front-matter) — the same register that colors the rendered deck's `hr` rules and table
+rails — so the Compose dividers preview the deck's chosen trim (off = accent hairline,
+restrained/on = accent ramp; the exact `--spectrum` rainbow falls back to an accent ramp
+since `--spectrum` isn't in the editor's token scope). The control icons are lucide,
+matching the filmstrip (ArrowUpToLine/ArrowDownToLine move, Plus/Trash2, chevrons collapse).
 
 **Palette + responsive.** All chrome is on the studio's real tokens (`--bg`, `--bg-alt`,
 `--border`, `--text-body`, `--text-heading`, `--text-muted`, `--accent`, `--accent-soft`),

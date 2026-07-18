@@ -10,6 +10,24 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
 import { cn } from '@/lib/utils';
+import { getFrontMatter } from './front-matter';
+
+// The slide divider borrows the deck's STRUCTURAL TRIM (`spectrum-trim:`) — the same
+// register that colors the rendered deck's `hr` rules, table rails, and timeline spine —
+// so the Compose dividers preview the deck's chosen trim rather than a flat neutral line.
+// Values mirror spectrum-trim-catalog.ts: off (quiet accent-tinted hairline, the default),
+// restrained (a single-hue accent ramp), on (the full deck `--spectrum`, accent-ramp
+// fallback when `--spectrum` isn't in scope). Returns the CSS the divider paints.
+function trimGradient(source: string): string {
+	switch (getFrontMatter(source, 'spectrum-trim') || 'off') {
+		case 'on':
+			return 'var(--spectrum, linear-gradient(90deg, var(--accent,#006fa8), color-mix(in oklab, var(--accent,#006fa8) 40%, var(--bg,#fff))))';
+		case 'restrained':
+			return 'linear-gradient(90deg, var(--accent,#006fa8), color-mix(in oklab, var(--accent,#006fa8) 35%, var(--bg,#fff)))';
+		default:
+			return 'color-mix(in oklab, var(--accent,#006fa8) 55%, var(--border,#e4eaf2))';
+	}
+}
 
 // The Compose editing MODE, on ProseMirror (Option B, one true document), dressed
 // in the Quiet Page: a serif writing surface whose only chrome is a QUIET GRAMMAR
@@ -518,7 +536,7 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 		);
 	}
 	return (
-		<div className={cn('cs-surface', className)}>
+		<div className={cn('cs-surface', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
 			<ComposeStyles />
 			<div className="cs-frame">
 				<div className="cs-gutter" role="toolbar" aria-label="Grammar registers">
@@ -587,8 +605,10 @@ function ComposeStyles() {
 			   and three control zones sit ON that line — collapse (left edge) · insert/delete
 			   (center) · move up/down (right edge). The line is always visible; the controls
 			   appear only when the caret is inside the slide (cs-slide-active). */
-			.cs-slide-bar{position:relative;display:flex;align-items:center;justify-content:space-between;height:24px;margin:14px 0 10px;padding:0 clamp(16px,5cqw,48px);user-select:none}
-			.cs-slide-bar::before{content:"";position:absolute;left:clamp(16px,5cqw,48px);right:clamp(16px,5cqw,48px);top:50%;height:1px;background:var(--border,#e4eaf2)}
+			.cs-slide-bar{position:relative;display:flex;align-items:center;justify-content:space-between;height:24px;margin:14px calc(-1 * clamp(24px,6cqw,64px)) 10px;padding:0 clamp(20px,5cqw,52px);user-select:none}
+			/* the line spans the FULL slide width (the bar breaks out of the content padding),
+			   painted with the deck's structural trim spectrum (--cs-trim; see trimGradient). */
+			.cs-slide-bar::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;transform:translateY(-50%);border-radius:2px;background:var(--cs-trim,var(--border,#e4eaf2))}
 			.cs-host .cs-slide:first-child .cs-slide-bar::before{display:none}
 			.cs-sb-zone{position:relative;display:flex;gap:5px;padding:0 7px;background:transparent}
 			.cs-slide-active > .cs-slide-bar .cs-sb-zone{background:var(--bg,#fff)}
