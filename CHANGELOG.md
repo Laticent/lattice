@@ -191,6 +191,19 @@ in patch versions.
 
 ### Added
 
+- **Variants are now first-class looks — searchable, insertable, and reshapeable — everywhere in the
+  Studio.** A component's variants (`insight-key`, `claim-hero`, `dark`, … — the alternate LOOKS it
+  offers) were invisible outside the Inspector's token toggles; now they're children of their parent
+  component across three surfaces. (1) **Search** matches variant terms — typing “insight” or “dark”
+  finds the components that offer that look, shown as a match count on each tile. (2) **Insert**: a
+  gallery tile expands to its looks (a windowed sub-grid of live previews labeled `component › look`);
+  picking one inserts the skeleton with that variant token. (3) **Reshape** (new): a button in the
+  edit-mode slide toolbar, next to Insert, opens a popover previewing the *current slide* in every look
+  and swaps the class token in place on pick — axis-aware, so you never get two members of the same
+  family. It's all one operation under the hood — a variant is just a different class token on the same
+  authored slide — reusing the gallery's preview tiles and the Inspector's token logic (no new engine
+  behavior). (`slide-variants.ts`, `ReshapePicker.tsx`, `SlidePicker.tsx`, `component-search.ts`,
+  `StudioShell.tsx`; `engineering/decisions/2026-07-18-slide-variants-in-gallery.md`.)
 - **Suono has a brand identity — a mark, a favicon-scale minimal mark, and a Fraunces lockup.** A
   radial "sound-clock" sibling to the Lattice mark (shared DNA: 128 viewBox, a ringed hub node with a
   pale halo, precise geometry, one dark-mode-aware palette, the Fraunces wordmark) that tells Suono's
