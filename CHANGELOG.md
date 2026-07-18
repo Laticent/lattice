@@ -1136,6 +1136,12 @@ in patch versions.
 
 ### Fixed
 
+- **Expanding a component's looks in the add-slide gallery now scrolls the looks into view.**
+  Tapping the "N looks" chip opens the variant sub-grid as a full-width row after the tile; on a
+  narrow or near-bottom tile (especially mobile) that row landed below the fold, hidden behind the
+  footer, so the looks you just asked for weren't visible. The panel now scrolls itself into view on
+  open (`scrollIntoView({ block: 'nearest' })`) — for a panel taller than the viewport it pins the
+  header to the top and fills down. (`docs/src/components/studio/SlidePicker.tsx`.)
 - **Dismissing a summoned Studio panel with `Esc` / `⌘.` now actually closes it — it no longer
   pops back the next time you dial up to Build.** When you summon a Build-only panel (Lenses via
   "Reshape for a reader", the Inspector, the Library) from a calmer Write/Read stop, the surface
