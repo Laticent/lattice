@@ -107,14 +107,14 @@ describe('Studio — every top-bar control responds', () => {
 		expect(railCount()).toBe(start + 1);
 	});
 
-	it('the Insert palette inserts a component as a new slide', async () => {
+	it('the add-slide gallery inserts a component as a new slide', async () => {
 		const user = setupWithCatalog();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
 		const start = railCount();
-		// Open the insert palette from the editor header.
+		// Open the add-slide gallery from the editor header.
 		await user.click(screen.getByRole('button', { name: /Insert/ }));
-		const dialog = await screen.findByRole('dialog', { name: /Insert a component/i });
-		// Search narrows to the quote component; selecting it adds a slide.
+		const dialog = await screen.findByRole('dialog', { name: /Add a slide/i });
+		// Search narrows to the quote component; clicking its tile adds a slide.
 		await user.type(within(dialog).getByPlaceholderText(/Search/i), 'quote');
 		await user.click(await within(dialog).findByText('quote'));
 		expect(railCount()).toBe(start + 1);

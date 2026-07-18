@@ -59,6 +59,11 @@ try {
 			// in components.json; carried through so the Lenses panel can build a ComponentCatalog.
 			function: c.function || '',
 			form: c.form || '',
+			// The add-slide gallery (SlidePicker) filters on these + shows `purpose` in its
+			// detail rail; without them the shared search core throws on undefined `tags`.
+			substance: c.substance || '',
+			tags: Array.isArray(c.tags) ? c.tags : [],
+			purpose: c.purpose || '',
 			description: c.description || '',
 			skeleton: String(c.skeleton || ''),
 			// Per-component validity data for the per-slide drawer: which variants /

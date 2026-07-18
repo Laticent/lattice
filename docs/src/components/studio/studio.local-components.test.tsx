@@ -5,9 +5,9 @@ import StudioShell from './StudioShell';
 
 // Slice: insert + render a SAVED LOCAL component. A component authored in the
 // Fabricate Layout Studio (component-library, IndexedDB) must (1) appear in the
-// Insert palette under a `local` group, (2) insert its skeleton as a new slide,
-// and (3) render styled — its `.<name>` CSS injected as `extraCss` everywhere the
-// deck renders (compose preview, Share exports, Present).
+// add-slide gallery under a "Your components" band, (2) insert its skeleton as a
+// new slide, and (3) render styled — its `.<name>` CSS injected as `extraCss`
+// everywhere the deck renders (compose preview, Share exports, Present).
 
 // Expose the props we care about as data attributes so the test can assert the
 // CSS actually threads through (the real engine never boots in jsdom).
@@ -58,14 +58,15 @@ function setup() {
 }
 
 describe('Studio — insert + render a saved local component', () => {
-	it('lists the saved local component in the Insert palette under a local group', async () => {
+	it('lists the saved local component in the add-slide gallery under Your components', async () => {
 		const user = setup();
 		// The Insert affordance only appears once there is something to insert; a
 		// saved local component is enough (no built-in catalog in this test).
 		await user.click(await screen.findByRole('button', { name: /Insert/ }));
 		const dialog = await screen.findByRole('dialog');
 		const d = within(dialog);
-		expect(await d.findByText('local')).toBeInTheDocument();
+		// Local components sit under a dedicated "Your components" band, previewed as a tile.
+		expect(await d.findByText('Your components')).toBeInTheDocument();
 		expect(d.getByText('mybox')).toBeInTheDocument();
 	});
 

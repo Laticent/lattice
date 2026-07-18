@@ -43,7 +43,6 @@ import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
-import { type ComponentEntry, InsertComponent } from './InsertComponent';
 import { IntentTag } from './IntentTag';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
@@ -57,6 +56,7 @@ import { PresentOverlay } from './PresentOverlay';
 import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
+import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { importComments } from './slide-comments';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -548,9 +548,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		listStudioFinishes().then(setSavedFinishes).catch(() => setSavedFinishes([]));
 	}, []);
 	React.useEffect(() => { refreshFinishes(); }, [refreshFinishes]);
-	// The insert palette = your saved local components (first) + the built-in catalog.
+	// The add-slide gallery = your saved local components (first) + the built-in catalog.
+	// Locals carry their own `css` so the gallery previews them STYLED (per-tile extraCss —
+	// the engine theme doesn't know a local `.name` rule).
 	const insertComponents = React.useMemo<ComponentEntry[]>(
-		() => [...localComponents.map((c) => ({ name: c.name, bucket: 'local', description: 'Your saved component', skeleton: c.skeleton })), ...components],
+		() => [...localComponents.map((c) => ({ name: c.name, bucket: 'local', description: 'Your saved component', skeleton: c.skeleton, css: c.css })), ...components],
 		[localComponents, components],
 	);
 	// CSS of the local components the deck actually USES, injected so an inserted
@@ -1718,9 +1720,17 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		if (deleteArmed) { setDeleteArmed(false); opDelete(); }
 		else setDeleteArmed(true);
 	};
-	// Insert a library component as a new slide after the current one (its authored
-	// skeleton), via the same deck-op the toolbar uses.
-	const onInsertComponent = (c: ComponentEntry) => { applyDeckOp(addSlideAfter(source, curIndex, c.skeleton)); notify(`Inserted “${c.name}”.`); };
+	// Recently-inserted component names (newest first) — pins a Recent band in the
+	// gallery for the "I keep reaching for this layout" flow.
+	const [recentComponents, setRecentComponents] = React.useState<string[]>([]);
+	// Insert a gallery slide as a new slide after the current one (its authored
+	// skeleton), via the same deck-op the toolbar uses. The empty-deck case (curIndex
+	// -1) is handled by addSlideAfter's clamp; a Blank tile carries the NEW_SLIDE body.
+	const onInsertComponent = (c: ComponentEntry) => {
+		applyDeckOp(addSlideAfter(source, curIndex, c.skeleton));
+		notify(`Inserted “${c.name}”.`);
+		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
+	};
 
 	// ── Version history (checkpoints) ────────────────────────────────────────
 	// Load the active deck's checkpoints when it changes.
@@ -2829,7 +2839,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onExpandPane={split.collapsed ? () => { const c = splitApiRef.current.collapsed; if (c) splitApiRef.current.expand(c); } : undefined}
 				onResetSplit={splitUsable ? () => splitApiRef.current.reset() : undefined}
 			/>
-			<InsertComponent open={insertOpen} onOpenChange={setInsertOpen} components={insertComponents} onInsert={onInsertComponent} />
+			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}
 			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 

@@ -34,9 +34,9 @@ test('a fabricated component saves and inserts into the deck as a new slide', as
 	// deck grows a slide carrying it.
 	await page.getByRole('button', { name: 'Back to Compose' }).click();
 	await page.getByRole('button', { name: 'Insert component' }).click();
-	const search = page.getByPlaceholder(/Search \d+ components/);
+	const search = page.getByPlaceholder(/Search \d+ slides/);
 	await search.fill('callout');
-	await page.getByRole('option', { name: /^callout/ }).first().click();
+	await page.getByRole('button', { name: /^Insert callout/i }).first().click();
 
 	await expect(toastText(page)).toContainText('Inserted');
 	await expect(railButtons(page)).toHaveCount(n + 1);
