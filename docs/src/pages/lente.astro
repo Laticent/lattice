@@ -271,13 +271,22 @@
 			});
 
 			// Edit a slide AFTER approval → the content hash no longer matches → the lens de-approves itself.
+			// Edit a MEMBER of the picked lens (approval only covers a lens's members, so editing a
+			// non-member can't drift it) and report the REAL outcome — never a universal claim.
 			$('#editBtn').addEventListener('click', () => {
-				edited = 1;
+				const members = lens(slides).registry(reg).pick(picked).pairs().map((p) => p.index);
+				const target = members.length ? members[0] : 1;
+				edited = target;
 				slides = slides.slice();
-				slides[edited] = slides[edited] + '\n(edited after approval)';
+				slides[target] = slides[target] + '\n(edited after approval)';
 				buildDeck();
-				setDiag('Edited slide 2 — any lens approved against the old content now DRIFTS (hash mismatch).');
-				pick(picked);
+				const l = reg.lenses.find((x) => x.id === picked);
+				const wasApproved = !!(l && l.approved);
+				pick(picked); // re-projects → updates the reader banner
+				const now = lens(slides).registry(reg).pick(picked).project();
+				if (wasApproved && now.status !== 'ok') setDiag(`Edited slide ${target + 1} (a member of "${picked}") — its stamped hash no longer matches, so it de-approved: ${now.reason}.`);
+				else if (picked === 'full') setDiag(`Edited slide ${target + 1}. The full lens is always eligible — approve a scoping lens first, then edit, to watch drift.`);
+				else setDiag(`Edited slide ${target + 1}. Approve "${picked}" first, then edit, to watch the lens de-approve on drift.`);
 			});
 			$('#resetBtn').addEventListener('click', () => {
 				slides = SLIDES0.slice(); reg = parseLensRegistry(REG_FM); edited = -1;
@@ -287,7 +296,7 @@
 			// ── Storyboard beats ──
 			const BEATS = [
 				{ id: 'full',   t: 'The whole deck', d: 'The safe default — the full lens is always eligible; every slide shows.', api: "pick('full')", run: () => pick('full') },
-				{ id: 'brief',  t: 'Pick a lens', d: 'The "brief" lens keeps only its members — the deck shrinks to the bottom line. But a reader can’t open it yet…', api: 'lens().pick(’brief’).pairs()', run: () => pick('brief') },
+				{ id: 'brief',  t: 'Pick a lens', d: 'The "brief" lens keeps only its members — the deck shrinks to the bottom line. But a reader can’t open it yet…', api: "lens().pick('brief').pairs()", run: () => pick('brief') },
 				{ id: 'closed', t: 'It fails CLOSED', d: 'Unapproved, the reader view is "unavailable" — never a silent full-deck fallback. A scoping lens can be a redaction.', api: 'project() → unavailable', run: () => pick('brief') },
 				{ id: 'approve',t: 'A human approves', d: 'The one bridge: a person stamps a content hash covering exactly what the reader would see. Now it’s eligible.', api: 'approvalHash(…)', run: () => { pick('brief'); setTimeout(() => approveBtn.click(), 500); } },
 				{ id: 'alt',    t: 'Different altitudes', d: 'Same source, other jobs: "story" (base none) vs "evidence" (base all — everything but the decoration).', api: "pick('story'|'evidence')", run: () => { pick('story'); setTimeout(() => pick('evidence'), 900); } },

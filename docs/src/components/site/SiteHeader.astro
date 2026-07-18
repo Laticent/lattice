@@ -181,13 +181,16 @@ const Wrapper = standalone ? 'header' : 'div';
 	.sh-nav {
 		display: none;
 		align-items: center;
-		gap: 0.35rem;
-		margin-left: 1.25rem;
+		gap: 0.2rem;
+		margin-left: 0.6rem;
 	}
 	/* The inline nav + the full action cluster (search pill, theme select,
 	 * GitHub) appear together at lg; below that the bar is compact (search +
-	 * light/dark + menu) and the Sheet / ⌘K palette carry everything. One
-	 * breakpoint keeps the bar from overflowing in the tablet band. */
+	 * light/dark + menu) and the Sheet / ⌘K palette carry everything. The
+	 * breakpoint keeps the bar from overflowing in the tablet band. The nav gap /
+	 * link padding are tuned tight so the full item set (incl. the Tools +
+	 * Libraries disclosures) fits inside the 1180px inner cap at lg without the
+	 * body scrolling horizontally. */
 	@media (min-width: 64rem) {
 		.sh-nav {
 			display: flex;
@@ -198,7 +201,7 @@ const Wrapper = standalone ? 'header' : 'div';
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
-		padding: 0.4rem 0.6rem;
+		padding: 0.4rem 0.5rem;
 		border-radius: var(--radius-sm, 8px);
 		font-size: 0.875rem;
 		font-weight: 500;
