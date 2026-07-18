@@ -139,3 +139,78 @@ describe('a cross-slide selection registers nothing', () => {
 		expect(t.src()).toBe(before); // unchanged
 	});
 });
+
+// Adversarial sweep of the OTHER register vectors (range selection, nested carets, empty /
+// deep content, mixed sequences). The bar: never a crash, never unbounded nesting, and the
+// output always re-parses to a stable doc (valid markdown, no lost slide).
+describe('adversarial register sweep — never corrupts, never nests unbounded', () => {
+	// A register operation must leave the source RE-PARSEABLE and STABLE.
+	const stable = (t: ReturnType<typeof view>) => {
+		const once = t.src();
+		expect(() => deckToDoc(once)).not.toThrow();
+		expect(docToDeck(deckToDoc(once))).toBe(once); // idempotent round-trip
+		expect(once).not.toMatch(/^> >/m); // no nested blockquote anywhere
+	};
+
+	it('a range selection across two blocks in one slide stays valid and never nests', () => {
+		const t = view('<!-- _class: content -->\n\n# Head\n\nBody line.');
+		let from = -1;
+		let to = -1;
+		t.v.state.doc.descendants((node, pos) => {
+			if (node.isText && node.text?.includes('Head')) from = pos + 1;
+			if (node.isText && node.text?.includes('Body line.')) to = pos + 3;
+			return true;
+		});
+		t.v.dispatch(t.v.state.tr.setSelection(TextSelection.create(t.v.state.doc, from, to)));
+		for (let i = 0; i < 4; i++) applyRegister(t.v, 'insight', activeRegister(t.v.state));
+		stable(t);
+	});
+
+	it('a caret inside a blockquote paragraph: heading is a no-op, insight unwraps', () => {
+		const t = view('<!-- _class: content -->\n\n> quoted thought');
+		t.caret('quoted thought');
+		t.apply('h1'); // top-level block is a blockquote → no-op
+		expect(t.src()).not.toMatch(/^#\s/m);
+		t.apply('insight'); // blockquote → unwrap
+		expect(t.src()).not.toMatch(/^>/m);
+		stable(t);
+	});
+
+	it('an empty paragraph survives every register (no crash, no nest)', () => {
+		for (const reg of ['h1', 'h2', 'eyebrow', 'subtitle', 'insight', 'note'] as const) {
+			const t = view('<!-- _class: content -->\n\n# Head\n\ntmp');
+			// empty the trailing paragraph, caret inside it
+			t.caret('tmp');
+			t.v.dispatch(t.v.state.tr.delete(t.v.state.selection.from - 1, t.v.state.selection.from + 2));
+			applyRegister(t.v, reg, activeRegister(t.v.state));
+			applyRegister(t.v, reg, activeRegister(t.v.state));
+			stable(t);
+		}
+	});
+
+	it('note on a non-last paragraph preserves the paragraph text when it moves to the end', () => {
+		const t = view('<!-- _class: content -->\n\nkeep this text\n\nTail.');
+		t.caret('keep this text');
+		t.apply('note');
+		expect(t.src()).toMatch(/—\s*keep this text/); // text preserved, em-dash prepended
+		expect((t.src().match(/keep this text/g) || []).length).toBe(1); // not duplicated
+		stable(t);
+	});
+
+	it('a deeply nested list item is a no-op for every block register', () => {
+		const t = view('<!-- _class: content -->\n\n- outer\n  - inner deep');
+		t.caret('inner deep');
+		for (const reg of ['h1', 'insight', 'note'] as const) t.apply(reg);
+		expect(t.src()).not.toMatch(/^>/m);
+		expect(t.src()).not.toMatch(/^#/m);
+		expect(t.src()).toContain('inner deep');
+		stable(t);
+	});
+
+	it('a rapid mixed sequence leaves a valid, un-nested doc', () => {
+		const t = view('<!-- _class: content -->\n\n# Head\n\nplain paragraph');
+		t.caret('plain paragraph');
+		for (const reg of ['h1', 'insight', 'note', 'h2', 'insight', 'h1', 'note'] as const) t.apply(reg);
+		stable(t);
+	});
+});
