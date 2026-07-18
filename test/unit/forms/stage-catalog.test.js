@@ -29,7 +29,7 @@ const { loadAll } = require('../../../lib/components');
 // (2026-07-14). A change here must be intentional and reviewed.
 const EXPECTED_FLOW = [
   'actors', 'agenda', 'authority-chain', 'big-number', 'cards-grid', 'cards-stack',
-  'checklist', 'citation-card', 'code', 'compare-prose', 'compare-table', 'content',
+  'checklist', 'citation-card', 'code', 'compare-prose', 'compare-table', 'content', 'cycle',
   'decision', 'glossary', 'inventory', 'kpi', 'list', 'list-criteria', 'list-steps',
   'list-tabular', 'logo-wall', 'matrix-2x2', 'obligation-matrix', 'pricing', 'q-and-a',
   'quote', 'redline', 'regulatory-update', 'stats', 'statute-stack', 'verdict-grid',
