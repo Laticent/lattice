@@ -376,8 +376,11 @@ class SlideView {
 		this.commit(nodes);
 	}
 	// Two-step delete: the button asks in place (like the app's other delete actions), auto-cancels.
+	// Works on a LOCKED slide too — removing a whole slide is a structural `slideOp` (waved through
+	// by the structural guard), not a content round-trip, so it's safe even for a slide Compose can't
+	// otherwise edit. (Guarding it here would leave a dead trash button and drop a capability the
+	// pre-divider bar had.)
 	private askDelete() {
-		if (this.locked) return;
 		this.dangerGroup.replaceChildren();
 		const ask = document.createElement('span');
 		ask.className = 'cs-sc-ask';

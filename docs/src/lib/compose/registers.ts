@@ -71,14 +71,6 @@ export function activeRegister(state: EditorState): Reg | null {
 	return null;
 }
 
-// True when the caret sits in a LOCKED slide (immutable — edited in Markdown mode). The gutter /
-// rail read this to DISABLE the register buttons, so a tap there reads as "unavailable" rather
-// than silently doing nothing (Finding 4).
-export function caretInLockedSlide(state: EditorState): boolean {
-	const ctx = slideContext(state);
-	return !!ctx?.slide.attrs.locked;
-}
-
 // The registers that APPLY to the caret's current block — the "truly context-sensitive" set the
 // divider's Format group shows (no-ops are hidden, not dimmed). `active` is the one currently ON.
 //   - locked slide / no context → nothing (the slide is edited in Markdown).
@@ -146,8 +138,8 @@ export function applyRegister(view: EditorView, reg: Reg, current: Reg | null) {
 	// the structural guard would silently FILTER any register transaction, leaving the button
 	// looking like it did something. Short-circuit to a clean no-op instead of dispatching a
 	// doomed change (which would also trip the emit path's parked-resync clobber). No-op is right —
-	// the slide is edited in Markdown mode. (The gutter/rail also disables its buttons; see
-	// caretInLockedSlide.)
+	// the slide is edited in Markdown mode. (The divider's Format group also renders EMPTY on a
+	// locked slide — `applicableRegisters` returns no keys — so there's no button to reach here.)
 	if (ctx.slide.attrs.locked) {
 		view.focus();
 		return;

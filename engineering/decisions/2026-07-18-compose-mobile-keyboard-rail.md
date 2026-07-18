@@ -254,5 +254,35 @@ the ProseMirror selection — a DOM range does not, HARD RULE #23), at **1440 px
 - Delete shows the in-place "Delete?" confirm; cancel restores it (slide count unchanged).
 - Collapse toggles `cs-collapsed` and flips the chevron (down→right).
 - Clicking `H2` on a plain paragraph turns it into an `h2` heading (apply works end-to-end).
+- Delete a **locked** slide: injected a table slide (locked in Compose), the trash now shows the
+  "Delete?" confirm and confirming removes it (2→1 slides) — see the maker-checker fix below.
 - Divider renders full-width with grouped, role-tinted controls; touch targets enlarge to 26–28 px
   on the phone. `registers.test.ts` 18 cases (incl. context-sensitivity + locked-slide) pass.
+
+### Maker-checker pass (fixes folded in before merge)
+
+An independent checker bug-hunted the diff (the `liveSlideViews` sync plugin, `applicableRegisters`
+vs `applyRegister`, the signature-gated rebuild, the inline-confirm delete, removed-code residue).
+Core machinery came back clean — no leak in the module-level `liveSlideViews` Set (constructor adds,
+`destroy()` removes, and `EditorView.destroy`/`updateState` retire node views synchronously), no
+cross-view corruption (each `syncFormat` reads its *own* `this.view.state` and early-returns when
+inactive), no stale-`active` signature collision (`active` is part of the sig), and no dispatch loop
+(`syncFormat`/`resetDelete` are read-only DOM ops inside `ignoreMutation`'s guarded `ctrl`). Fixes:
+
+- **Locked-slide delete was a dead button (regression) — FIXED.** `askDelete` early-returned on a
+  locked slide, so its trash rendered but did nothing — and *worse*, the pre-divider bar could delete a
+  locked slide (a whole-slide removal is a structural `slideOp`, waved through by the guard *before* its
+  locked check, not a content round-trip). Removed the guard; verified on the real surface (above).
+- **Dead `caretInLockedSlide` export removed** (registers.ts) — its only consumer (the gutter/rail
+  disable) is gone; the divider now expresses "locked → no registers" through `applicableRegisters`
+  returning `[]`. (HARD RULE #18 — a window the change itself broke.)
+- **Orphaned `--cs-vv-top` / `--cs-vv-height` writes removed** from `use-visual-viewport.ts` — their
+  only consumer was the retired rail's `top: calc(…)`. The hook now publishes only `--cs-kb-inset`
+  (caret reserve + typing-mode collapse); comments updated to match.
+
+**Logged, not fixed (checker MINOR, off the clean path):** a code-label paragraph adjacent to *no*
+heading (`\`code\`` as a whole paragraph after its heading is deleted) renders as neither eyebrow nor
+subtitle, so `applicableRegisters` offers neither and its code mark can only be cleared in Markdown
+mode. Not a correctness bug; adding a positionally-mislabeled toggle risks its own wart, so it's a
+**follow-up:** offer a "clear label" affordance for an orphan code label rather than an `·e·`/`·s·`
+button that wouldn't match how the engine renders it.

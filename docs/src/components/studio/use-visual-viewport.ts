@@ -2,25 +2,21 @@ import * as React from 'react';
 
 // The software-keyboard geometry, read from `window.visualViewport` — the ONE source of
 // truth iOS Safari exposes for "how much of the layout viewport the keyboard now covers"
-// (neither `100dvh` nor a `position:fixed;bottom:0` element tracks the keyboard on iOS —
-// that is exactly why the Compose grammar bar was hidden under the keyboard while typing).
+// (neither `100dvh` nor a `position:fixed;bottom:0` element tracks the keyboard on iOS).
 //
-// It publishes two CSS custom properties on the document root:
-//   --cs-vv-top    = visualViewport.offsetTop   (layout px the visual viewport is scrolled down)
-//   --cs-vv-height = visualViewport.height       (visible height above the keyboard)
-// A pinned rail positions its BOTTOM edge with
-//   top: calc(var(--cs-vv-top) + var(--cs-vv-height) - <railHeight>)
-// which lands flush with the visual-viewport bottom — the keyboard's top edge when a
-// keyboard is up, the screen bottom when it is down — as an ABSOLUTE layout-px coordinate,
-// so it is invariant to whether iOS resolves `position:fixed` against the layout or the
-// visual viewport (the reference-frame ambiguity that makes `bottom:0 + translateY` double-
-// count the keyboard on some iOS builds).
+// It publishes ONE CSS custom property on the document root and returns the same value:
+//   --cs-kb-inset = the height the keyboard covers (0 when down / hardware keyboard)
+// The writing surface reserves that much scroll room below the caret (padding-bottom), and
+// `inset > 0` drives the mobile TYPING MODE (the top chrome collapses while the keyboard is up).
 //
-// UNVERIFIED (HARD RULE #23 — emulation is not verification): the exact pin behavior across
-// the keyboard-open animation, momentum/rubber-band overscroll, and Stage Manager / Split
-// View can only be confirmed on real iOS hardware. When `visualViewport` is absent the vars
-// fall back (via their CSS defaults) to a rail docked at the bottom — never worse than the
-// always-visible bottom bar this replaces.
+// (Slice 1 also positioned a keyboard-riding register RAIL off `--cs-vv-top`/`--cs-vv-height`;
+// slice 4 retired that rail — formatting now lives on each slide's divider bar, so there is no
+// bottom bar for the keyboard to occlude — and with it those two vars. Only the keyboard inset
+// survives, for the caret reserve + typing-mode collapse.)
+//
+// UNVERIFIED (HARD RULE #23 — emulation is not verification): the exact inset behavior across
+// the keyboard-open animation and momentum/rubber-band overscroll can only be confirmed on real
+// iOS hardware. When `visualViewport` is absent the inset is 0 (typing mode simply never engages).
 export function useVisualViewport(enabled: boolean): { inset: number; supported: boolean } {
 	const [inset, setInset] = React.useState(0);
 	const supported = typeof window !== 'undefined' && !!window.visualViewport;
@@ -29,23 +25,15 @@ export function useVisualViewport(enabled: boolean): { inset: number; supported:
 		if (!enabled) return;
 		const vv = typeof window !== 'undefined' ? window.visualViewport : null;
 		const root = document.documentElement;
-		if (!vv) {
-			// No visualViewport → clear any stale vars so the rail's CSS defaults dock it.
-			root.style.removeProperty('--cs-vv-top');
-			root.style.removeProperty('--cs-vv-height');
-			return;
-		}
+		if (!vv) return;
 		let raf = 0;
 		const measure = () => {
 			raf = 0;
 			// offsetTop moves as the page scrolls under the keyboard; height shrinks when the
 			// keyboard is up. inset = the covered height (0 when down / hardware keyboard).
 			const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-			root.style.setProperty('--cs-vv-top', `${vv.offsetTop}px`);
-			root.style.setProperty('--cs-vv-height', `${vv.height}px`);
 			// The covered (keyboard) height, so the writing surface can reserve scroll room
-			// BELOW the caret equal to keyboard + rail — iOS's native per-keystroke caret
-			// scroll targets the visual-viewport bottom, which is where the rail sits.
+			// BELOW the caret and the typing-mode chrome collapse can trigger.
 			root.style.setProperty('--cs-kb-inset', `${covered}px`);
 			setInset(covered);
 		};
@@ -61,8 +49,6 @@ export function useVisualViewport(enabled: boolean): { inset: number; supported:
 			vv.removeEventListener('resize', onGeom);
 			vv.removeEventListener('scroll', onGeom);
 			if (raf) cancelAnimationFrame(raf);
-			root.style.removeProperty('--cs-vv-top');
-			root.style.removeProperty('--cs-vv-height');
 			root.style.removeProperty('--cs-kb-inset');
 			setInset(0);
 		};
@@ -71,15 +57,13 @@ export function useVisualViewport(enabled: boolean): { inset: number; supported:
 	return { inset, supported };
 }
 
-// True when the Compose surface should present its grammar registers as a KEYBOARD-RIDING
-// bottom rail rather than the desktop/tablet left gutter. Scoped to the MOBILE shell only
-// (<=699px — the `useBreakpoint` 'mobile' cutoff, so the rail and the single-pane shell
-// switch on ONE authority, retiring the old 640-vs-699 CSS/JS mismatch). Deliberately NOT
-// extended to tablet: there the registers live in a LEFT gutter that the software keyboard
-// never occludes, so moving them to a bottom rail would INTRODUCE the occlusion this fixes —
-// tablet keeps its working side-rail until a real device shows it needs the rail (HARD RULE
-// #23). Width-only (not pointer) so it tracks the shell, and a desktop-width coarse iPad Pro
-// keeps the left gutter rather than getting a fixed rail over the three-column layout.
+// True on the MOBILE shell (<=699px — the `useBreakpoint` 'mobile' cutoff, so the shell and
+// the keyboard-driven TYPING MODE switch on ONE authority, retiring the old 640-vs-699 CSS/JS
+// mismatch). It gates the mobile-only chrome behavior: `useVisualViewport` runs (so desktop pays
+// nothing), and when the keyboard is up the top chrome collapses. Width-only (not pointer) so a
+// desktop-width coarse iPad Pro keeps the desktop layout. (Named for slice 1's keyboard-riding
+// register rail, since retired — formatting now lives on the slide divider; the name is kept to
+// avoid churn across its call sites, but it means simply "the mobile shell.")
 export function useRailLayout(): boolean {
 	const query = '(max-width: 699px)';
 	const get = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches;
