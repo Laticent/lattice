@@ -29,6 +29,10 @@ export const CHROME = {
 	slideSettings: 'Slide settings',
 	/** Top-bar toggle for the Architect (AI coach + chat) panel. */
 	architect: 'Toggle Architect',
+	/** Activity-bar toggle for the Lenses (reader-views) panel — a first-class peer of the Architect. */
+	lenses: 'Toggle Lenses',
+	/** Activity-bar toggle for the Library (saved themes / components / finishes) panel. */
+	library: 'Open Library',
 	/** The deck-switcher / workspace launcher in the top bar. */
 	workspaceLauncher: 'Workspace launcher',
 	/** The workspace-settings sheet trigger. */
@@ -174,6 +178,12 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 export async function openArchitect(page: Page): Promise<void> {
 	await page.getByRole('button', { name: CHROME.architect }).click();
 	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
+}
+
+/** Open the Lenses (reader-views) panel — a first-class launcher peer of the Architect. */
+export async function openLenses(page: Page): Promise<void> {
+	await page.getByRole('button', { name: CHROME.lenses }).click();
+	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeVisible();
 }
 
 /**

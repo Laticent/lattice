@@ -1,4 +1,4 @@
-import { expect, gotoStudio, test } from './studio-fixture';
+import { expect, gotoStudio, openLenses, test } from './studio-fixture';
 
 // Reader views (the Lenses panel) — the human-in-the-loop gate, on the REAL browser (the jsdom e2e in
 // StudioShell.test.tsx proves the same loop; this is the real-surface confirmation, HARD RULE #23).
@@ -14,10 +14,8 @@ test.beforeEach(async ({ page }) => {
 		window.localStorage.setItem('lattice-studio-settings', JSON.stringify({ lensDefaults: false }));
 	});
 	await gotoStudio(page);
-	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
-	// Reader views live on the Architect's Lenses tab now — open it.
-	await page.getByRole('tab', { name: 'Lenses' }).click();
+	// Reader views live in the Lenses panel now — its own first-class launcher peer.
+	await openLenses(page);
 });
 
 test('a reader view is offered to a reader ONLY after the author previews + approves it', async ({ page }) => {
@@ -76,10 +74,10 @@ test('Approve is withheld until the view is previewed', async ({ page }) => {
 
 test('an untagged deck is not a dead end — the preview header opens the Lenses panel', async ({ page }) => {
 	// Discoverability: with the exec/onepager heuristics retired, an untagged deck's picker is a static
-	// "Full deck". It must still point the way to reader views. Close the Architect to start from the bare
-	// deck surface, then the header's "New reader view" affordance opens the Lenses panel.
-	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	await expect(page.getByRole('tab', { name: 'Coach' })).toBeHidden();
+	// "Full deck". It must still point the way to reader views. Close the Lenses panel to start from the
+	// bare deck surface, then the header's "New reader view" affordance re-opens the Lenses panel.
+	await page.getByRole('button', { name: 'Toggle Lenses' }).click();
+	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeHidden();
 	await page.getByRole('button', { name: 'New reader view' }).click();
 	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeVisible(); // the Lenses panel is up
 });

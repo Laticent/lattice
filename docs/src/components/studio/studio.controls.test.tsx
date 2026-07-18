@@ -168,9 +168,8 @@ describe('Studio — Architect + editor controls respond', () => {
 
 	it('the Lenses panel adds a reader view and gates it behind approval (deterministic, real)', async () => {
 		const user = setup();
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the architect
-		// The Architect's "Lenses" tab: add a Bottom-line reader view…
-		await user.click(screen.getByRole('tab', { name: 'Lenses' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Lenses' })); // open the Lenses panel (first-class now)
+		// The Lenses panel: add a Bottom-line reader view…
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
 		await user.click(screen.getByRole('button', { name: /Bottom line/ }));
 		// …it lands as a real `lenses:` block and the row shows it starts EMPTY — hidden from readers

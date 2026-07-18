@@ -194,6 +194,8 @@ const ARCH_DEFAULT = 232; // Architect default (matches the old fixed column)
 const SET_MIN = 260; // Settings min width (the inspector fields stay usable)
 const SET_DEFAULT = 296; // Settings default (matches the old inspector column)
 const PANEL_MAX = 420; // drag ceiling for either panel (the fold caps it further when narrow)
+const LIB_MIN = 300; // Library docked min (a 1-col asset list stays usable)
+const LIB_DEFAULT = 380; // Library docked default — wider than the coach; asset cards need room
 
 // Theme constants + the grouped picker live in ThemePicker.tsx (every shipped
 // theme, incl. the AA color-blind-safe set). BUILTIN_PALETTES = anything we can
@@ -300,18 +302,25 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// (Settings group) are independent, so the coach stays up while you tune.
 	// Merging the old inspectorOpen + inspectorScope into ONE nullable enum makes
 	// the illegal "open with no scope" state unrepresentable.
-	const [activeAssistant, setActiveAssistant] = React.useState<'architect' | null>(null); // panels start closed at every stop; Build shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
+	// The left "tool" slot — a MUTUALLY-EXCLUSIVE assistant/tool panel: the Architect
+	// (Coach/Chat), the reader-views Lenses, or the Library. One at a time (a toggle
+	// group), sharing one grid track — the layout can't fit three docked columns
+	// beside editor+preview (#721). Settings/Inspector is a SEPARATE independent slot,
+	// so a tool panel + settings can be open together (the coach↔tune loop).
+	const [activeAssistant, setActiveAssistant] = React.useState<'architect' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Build shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
 	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
 	const architectOpen = activeAssistant === 'architect';
+	const lensesOpen = activeAssistant === 'lenses';
+	const libraryOpen = activeAssistant === 'library';
 	const inspectorOpen = activeSettings !== null;
 	const inspectorScope: 'slide' | 'deck' = activeSettings ?? 'slide';
 	// Whether any Build-only panel is docked — read by the `[view]`-only Fabricate
 	// restore (which can't list panel state as a dep) to avoid re-revealing Build with
 	// nothing open.
 	const panelsOpenRef = React.useRef(false);
-	panelsOpenRef.current = architectOpen || inspectorOpen;
+	panelsOpenRef.current = architectOpen || lensesOpen || libraryOpen || inspectorOpen;
 	// A transient Build reveal recedes once the faculties it was summoned for all
 	// close — mirroring `quietened`'s auto-clear. The summon batches revealBuild + the
 	// panel-open in one commit, so on the opening render a panel is already open and
@@ -320,8 +329,8 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// coach paints one frame of empty Build chrome (activity bar, no panel) + a 52px
 	// layout jump before the passive effect clears it (red-team/checker finding).
 	React.useLayoutEffect(() => {
-		if (revealBuild && !architectOpen && !inspectorOpen) setRevealBuild(false);
-	}, [revealBuild, architectOpen, inspectorOpen]);
+		if (revealBuild && !architectOpen && !lensesOpen && !libraryOpen && !inspectorOpen) setRevealBuild(false);
+	}, [revealBuild, architectOpen, lensesOpen, libraryOpen, inspectorOpen]);
 	// Compatibility setters — the demo hook's prop interface and a handful of simple
 	// call sites still speak the old open/scope API; these adapt it onto the enums.
 	// The COMPOUND toggles (the bar's scope icons, the mobile/tablet settings toggle)
@@ -331,6 +340,13 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// spuriously opens it.
 	const setArchitectOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'architect') : v) ? 'architect' : null));
+	}, []);
+	// Lenses + Library share the assistant slot (mutually exclusive with the Architect).
+	const setLensesOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : null));
+	}, []);
+	const setLibraryOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'library') : v) ? 'library' : null));
 	}, []);
 	const setInspectorOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveSettings((prev) => ((typeof v === 'function' ? v(prev !== null) : v) ? prev ?? 'slide' : null));
@@ -344,15 +360,20 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [shareOpen, setShareOpen] = React.useState(false);
 	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
-	const [libraryOpen, setLibraryOpen] = React.useState(false);
 	// When the reference-doc picker's "Manage in Library" link opens the Library, jump
 	// it straight to the Docs tab (#651). Undefined for the normal Library button.
 	const [libInitialFilter, setLibInitialFilter] = React.useState<'refdoc' | undefined>(undefined);
+	// The Docs deep-link is one-shot: clear it whenever the Library leaves the assistant
+	// slot. Desktop closes the docked Library via the activity-bar launcher (a plain
+	// `setActiveAssistant(null)` — the docked `LibraryFrame` is a div and never fires
+	// `onOpenChange`), so this effect, not the sheet handler, is the reset of record; the
+	// NEXT open lands on the default filter, not Docs.
+	React.useEffect(() => { if (!libraryOpen) setLibInitialFilter(undefined); }, [libraryOpen]);
 	const [presentOpen, setPresentOpen] = React.useState(false);
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
-	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat' | 'lenses'>('coach');
+	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat'>('coach');
 	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the two
 	// read-aloud groups (Lexicon + Acronyms) fold into one Speech tab so the panel
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
@@ -603,6 +624,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// desktop scope rail any more — the bar's Slide/Deck icons are the switch.)
 	const desktop = bp === 'desktop';
 	const archPanel = usePanelWidth({ storageKey: 'lattice-studio-arch-w', defaultWidth: ARCH_DEFAULT, min: ARCH_MIN, max: PANEL_MAX });
+	// The Library docks wider than the coach (asset cards), with its own persisted width;
+	// Architect + Lenses share archPanel. The active one drives the shared slot's track.
+	const libPanel = usePanelWidth({ storageKey: 'lattice-studio-lib-w', defaultWidth: LIB_DEFAULT, min: LIB_MIN, max: PANEL_MAX });
 	const setPanel = usePanelWidth({ storageKey: 'lattice-studio-set-w', defaultWidth: SET_DEFAULT, min: SET_MIN, max: PANEL_MAX });
 	// Live viewport width — drives the narrow fold. Read on mount + resize (not
 	// during a panel drag, so the fold clamp is stable while dragging).
@@ -623,7 +647,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const panelBudget = Math.max(0, gridW - HANDLE_W - PAIR_MIN - FOLD_SAFETY);
 	// Effective (rendered) widths: the Architect keeps priority (the coach you're
 	// reading), Settings yields first; both floored at their mins. Zero unless open at Build.
-	const archEff = barShown && architectOpen ? Math.max(ARCH_MIN, Math.min(archPanel.width, panelBudget - (inspectorOpen ? SET_MIN : 0))) : 0;
+	// The assistant slot holds ONE of Architect / Lenses / Library (mutually exclusive);
+	// the active panel picks the width hook + min. Settings yields first; both floored.
+	const assistantOpen = architectOpen || lensesOpen || libraryOpen;
+	const assistantPanel = libraryOpen ? libPanel : archPanel;
+	const assistantMin = libraryOpen ? LIB_MIN : ARCH_MIN;
+	const archEff = barShown && assistantOpen ? Math.max(assistantMin, Math.min(assistantPanel.width, panelBudget - (inspectorOpen ? SET_MIN : 0))) : 0;
 	const setEff = barShown && inspectorOpen ? Math.max(SET_MIN, Math.min(setPanel.width, panelBudget - archEff)) : 0;
 
 	// Deck-level front-matter (size / paginate / header / footer) is split off the
@@ -1770,8 +1799,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		</>
 	);
 
-	// Lenses (reader views) is its OWN tab now, not buried in the Coach card stack —
-	// it's a full reader-view workflow (membership + approval), distinct from AI critique.
+	// Lenses (reader views) is its OWN first-class panel now — a launcher peer of the
+	// Architect, not a tab inside the AI coach. It's a deterministic membership +
+	// approval workflow, so it doesn't belong under a Sparkles/AI-branded panel.
 	const lensesBody = (
 		<div className="min-h-0 flex-1 overflow-y-auto p-2.5 min-w-0 overscroll-contain [touch-action:pan-y]">
 			<LensesPanel
@@ -1788,25 +1818,23 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		</div>
 	);
 
-	// The Architect panel: pill-tabs over the coach analysis, the real conversational
-	// thread, and the reader-views (Lenses) workflow — one clear idea per tab.
+	// The Architect panel: Coach analysis vs the real conversational thread — the AI
+	// faculties only. Reader-views (Lenses) moved OUT to their own panel.
 	const architectBody = (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="shrink-0 px-2.5 pt-2.5">
 				<PillTabs
 					ariaLabel="Architect sections"
 					value={architectTab}
-					onValueChange={(v) => setArchitectTab(v as 'coach' | 'chat' | 'lenses')}
+					onValueChange={(v) => setArchitectTab(v as 'coach' | 'chat')}
 					tabs={[
 						{ value: 'coach', label: 'Coach' },
 						{ value: 'chat', label: 'Chat' },
-						{ value: 'lenses', label: 'Lenses' },
 					]}
 				/>
 			</div>
 			{architectTab === 'coach' && <div className="min-h-0 flex-1 overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>}
 			{architectTab === 'chat' && <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />}
-			{architectTab === 'lenses' && lensesBody}
 		</div>
 	);
 
@@ -2126,7 +2154,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
 				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { revealBuildDock(); setArchitectOpen(true); setArchitectTab('lenses'); notify('Reader views live in the Architect’s Lenses tab — add one there.'); }} />
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { revealBuildDock(); setLensesOpen(true); notify('Reader views live in the Lenses panel — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
@@ -2234,15 +2262,21 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// map + tour-kit SEL) — keep them stable.
 	const activityBar = (
 		<nav aria-label="Studio panels" className="flex w-[52px] shrink-0 flex-col items-center gap-0.5 border-r border-border bg-card py-2">
-			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">AI</span>
-			<BarIcon label="Toggle Architect" hint="Architect — AI coach &amp; chat" caption="Coach" active={architectOpen} onClick={() => setActiveAssistant((p) => (p ? null : 'architect'))}><Sparkles className="size-[18px]" /></BarIcon>
+			{/* The tool-panel group — ONE mutually-exclusive left slot, ordered by likely
+			    reach: the Architect (coach/chat), the Library (assets to insert), and the
+			    reader-views Lenses. Clicking the active one closes it; clicking another
+			    switches the slot. Library + Lenses are first-class panels here, not a
+			    sheet-from-a-globals-icon and not a tab inside the AI coach. */}
+			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
+			<BarIcon label="Toggle Architect" hint="Architect — AI coach &amp; chat" caption="Coach" active={architectOpen} onClick={() => setActiveAssistant((p) => (p === 'architect' ? null : 'architect'))}><Sparkles className="size-[18px]" /></BarIcon>
+			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={libraryOpen} onClick={() => setActiveAssistant((p) => (p === 'library' ? null : 'library'))}><FileBox className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Lenses" hint="Lenses — reader views" caption="Lenses" active={lensesOpen} onClick={() => setActiveAssistant((p) => (p === 'lenses' ? null : 'lenses'))}><Eye className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />
 			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
 			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={activeSettings === 'slide'} onClick={() => setActiveSettings((p) => (p === 'slide' ? null : 'slide'))}><FileSliders className="size-[18px]" /></BarIcon>
 			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={activeSettings === 'deck'} onClick={() => setActiveSettings((p) => (p === 'deck' ? null : 'deck'))}><SlidersHorizontal className="size-[18px]" /></BarIcon>
 			<span className="flex-1" />
 			<Separator className="my-1 w-6" />
-			<BarIcon label="Open Library" hint="Library — saved themes &amp; components" caption="Library" onClick={() => setLibraryOpen(true)}><FileBox className="size-[18px]" /></BarIcon>
 			<BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={() => setWorkspaceOpen(true)}><Settings2 className="size-[18px]" /></BarIcon>
 			<span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-[var(--surface-inverse)] text-[12px] font-bold text-white">SA</span>
 		</nav>
@@ -2470,6 +2504,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 									</>
 								)}
 								<DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>
+								<DropdownMenuItem onSelect={() => setLensesOpen(true)}><Eye className="size-4" />Lenses — reader views</DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<Kbd className="ml-auto text-[10px]">⌘K</Kbd></DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setFeedbackOpen(true)}><MessageSquareHeart className="size-4" />Send feedback</DropdownMenuItem>
@@ -2573,7 +2608,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							// At Write every panel condition is false → the bare five tracks.
 							gridTemplateColumns: [
 								...(desktop && effectiveStop === 'build' && inspectorOpen ? [`${setEff}px`] : []),
-								...(desktop && effectiveStop === 'build' && architectOpen ? [`${archEff}px`] : []),
+								...(desktop && effectiveStop === 'build' && assistantOpen ? [`${archEff}px`] : []),
 								...(effectiveStop === 'read' ? ['0px', '0px', '0px', 'minmax(0,1fr)', '0px'] : splitTracks(split.collapsed)),
 								...(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? ['296px'] : []),
 							].join(' '),
@@ -2587,12 +2622,27 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 								<PanelGrip dragging={setPanel.dragging} {...setPanel.gripProps} aria-label="Resize settings panel" />
 							</aside>
 						)}
-						{/* Architect — docks next to the editor (desktop-Build). Resizable; close = gone. */}
-						{desktop && effectiveStop === 'build' && architectOpen && (
+						{/* The assistant slot — ONE of Architect / Lenses / Library, docked next to
+						    the editor (desktop-Build). Mutually exclusive; resizable; close = the
+						    launcher toggle (no in-panel X, same as before). */}
+						{desktop && effectiveStop === 'build' && assistantOpen && (
 							<aside className="relative flex min-h-0 flex-col overflow-hidden border-r border-border bg-card">
-								<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Architect</div>
-								{architectBody}
-								<PanelGrip dragging={archPanel.dragging} {...archPanel.gripProps} aria-label="Resize Architect panel" />
+								{architectOpen && (
+									<>
+										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Architect</div>
+										{architectBody}
+									</>
+								)}
+								{lensesOpen && (
+									<>
+										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Lenses</div>
+										{lensesBody}
+									</>
+								)}
+								{libraryOpen && (
+									<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
+								)}
+								<PanelGrip dragging={assistantPanel.dragging} {...assistantPanel.gripProps} aria-label="Resize panel" />
 							</aside>
 						)}
 
@@ -2650,6 +2700,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{architectBody}</div>
 						</SheetContent>
 					</Sheet>
+					{/* Lenses (reader views) — its own compact sheet, a peer of the Architect. */}
+					<Sheet open={lensesOpen} onOpenChange={setLensesOpen}>
+						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[340px]">
+							<SheetHeader className="border-b border-border">
+								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><Eye className="size-4 text-[var(--accent)]" />Lenses</SheetTitle>
+								<SheetDescription className="sr-only">Reader views of this deck — build a subset for one kind of reader, preview it, and approve it.</SheetDescription>
+							</SheetHeader>
+							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{lensesBody}</div>
+						</SheetContent>
+					</Sheet>
 					{/* Settings Sheet — MOBILE only. Same Slide-first segment + scope echo +
 					    active body as the desktop/tablet column, just wrapped in a Sheet
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
@@ -2700,19 +2760,23 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</div>
 				</SheetContent>
 			</Sheet>
-			<Library
-				open={libraryOpen}
-				onOpenChange={(o) => { setLibraryOpen(o); if (!o) setLibInitialFilter(undefined); }}
-				options={options}
-				activePalette={palette}
-				activeFinish={finish}
-				initialFilter={libInitialFilter}
-				onApplyTheme={applyPalette}
-				onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
-				onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))}
-				onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
-				notify={notify}
-			/>
+			{/* Compact (tablet/mobile): Library is the right Sheet. Desktop-Build renders it
+			    docked in the assistant slot instead (above), so the sheet is compact-only. */}
+			{compact && (
+				<Library
+					open={libraryOpen}
+					onOpenChange={setLibraryOpen}
+					options={options}
+					activePalette={palette}
+					activeFinish={finish}
+					initialFilter={libInitialFilter}
+					onApplyTheme={applyPalette}
+					onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
+					onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))}
+					onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }}
+					notify={notify}
+				/>
+			)}
 			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
 			<CommandPalette
 				open={cmdOpen}
@@ -2726,9 +2790,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				onShare={() => setShareOpen(true)}
 				onFeedback={() => setFeedbackOpen(true)}
 				onFabricate={() => setView('fabricate')}
-				onLibrary={() => setLibraryOpen(true)}
+				onLibrary={() => { revealBuildDock(); setLibraryOpen(true); }}
 				onWorkspace={() => setWorkspaceOpen(true)}
-				onReshape={() => { revealBuildDock(); setArchitectOpen(true); setArchitectTab('lenses'); }}
+				onReshape={() => { revealBuildDock(); setLensesOpen(true); }}
 				onWatchDemo={startDemo}
 				onInsert={insertComponents.length > 0 ? () => setInsertOpen(true) : undefined}
 				onFocus={posture === 'build' ? () => setQuietened(true) : undefined}

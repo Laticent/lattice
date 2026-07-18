@@ -60,9 +60,27 @@ function themeSwatches(t: StudioTheme): string[] {
 	return ['var(--accent)'];
 }
 
-export function Library({ open, onOpenChange, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onChanged, notify }: {
+// The Library's transport: a docked left column (desktop-Build) or a right Sheet
+// (compact). The inner content is identical; only the wrapper + header title element
+// differ (a plain <h2> when docked — SheetTitle needs a Dialog context it wouldn't
+// have — vs SheetHeader/SheetTitle in the Sheet).
+function LibraryFrame({ docked, open, onOpenChange, children }: { docked?: boolean; open: boolean; onOpenChange: (o: boolean) => void; children: React.ReactNode }) {
+	if (docked) return <div className="flex h-full min-h-0 flex-col">{children}</div>;
+	return (
+		<Sheet open={open} onOpenChange={onOpenChange}>
+			<SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[720px]">
+				{children}
+			</SheetContent>
+		</Sheet>
+	);
+}
+
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, onApplyTheme, onApplyFinish, onInsert, onChanged, notify }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
+	/** Desktop-Build: render as a docked left column (plain div, no Sheet portal),
+	 *  closed via its launcher toggle. Compact: omit → the right-side Sheet. */
+	docked?: boolean;
 	options: SingleSlideOptions;
 	activePalette: string;
 	activeFinish: string;
@@ -242,12 +260,11 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 
 	const selCount = sel.size;
 
-	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[720px]">
-				<SheetHeader className="flex-row items-center gap-3 space-y-0 border-b border-border py-3 pl-4 pr-12">
-					<SheetTitle className="flex shrink-0 items-center gap-2 text-[15px]"><FileBox className="size-[18px] text-[var(--accent)]" />Library</SheetTitle>
-					<div className="ml-1 flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-muted-foreground">
+	// The header controls (search + contextual add) — shared by both transports; only
+	// the title element differs (plain h2 when docked vs SheetTitle in the Sheet).
+	const headerControls = (
+		<>
+			<div className="ml-1 flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-muted-foreground">
 						<Search className="size-3.5 shrink-0" />
 						<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search themes, components, finishes & docs…" aria-label="Search library" className="min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground" />
 					</div>
@@ -260,7 +277,26 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 					)}
 					<input ref={fileRef} type="file" accept=".zip" multiple hidden onChange={(e) => importFiles(e.target.files)} />
 					<input ref={docFileRef} type="file" accept={REF_DOC_ACCEPT} multiple hidden onChange={(e) => addDocFiles(e.target.files)} />
-				</SheetHeader>
+		</>
+	);
+
+	// The header — a plain <h2> when docked (SheetTitle needs a Dialog context it
+	// wouldn't have), else SheetHeader/SheetTitle in the Sheet.
+	const header = docked ? (
+		<div className="flex flex-row items-center gap-3 border-b border-border py-3 pl-4 pr-4">
+			<h2 className="flex shrink-0 items-center gap-2 text-[15px] font-semibold text-[var(--text-heading)]"><FileBox className="size-[18px] text-[var(--accent)]" />Library</h2>
+			{headerControls}
+		</div>
+	) : (
+		<SheetHeader className="flex-row items-center gap-3 space-y-0 border-b border-border py-3 pl-4 pr-12">
+			<SheetTitle className="flex shrink-0 items-center gap-2 text-[15px]"><FileBox className="size-[18px] text-[var(--accent)]" />Library</SheetTitle>
+			{headerControls}
+		</SheetHeader>
+	);
+
+	return (
+		<LibraryFrame docked={docked} open={open} onOpenChange={onOpenChange}>
+			{header}
 
 				<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
 					<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
@@ -365,8 +401,7 @@ export function Library({ open, onOpenChange, options, activePalette, activeFini
 						<button type="button" className="ml-auto text-[12px] font-semibold text-[var(--accent)]" onClick={() => setSel(new Set())}>Clear selection</button>
 					</div>
 				)}
-			</SheetContent>
-		</Sheet>
+		</LibraryFrame>
 	);
 }
 

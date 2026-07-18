@@ -14,14 +14,14 @@ test('Meta/Control+K opens the command palette', async ({ page }) => {
 	await expect(page.getByPlaceholder('Search or run a command…')).toBeHidden();
 });
 
-test('"Reshape for a reader" opens the Architect coach', async ({ page }) => {
+test('"Reshape for a reader" opens the Lenses panel', async ({ page }) => {
 	await page.keyboard.press('ControlOrMeta+k');
 	const search = page.getByPlaceholder('Search or run a command…');
 	await search.fill('Reshape');
 	await page.getByRole('option', { name: 'Reshape for a reader' }).click();
 
-	// The command reveals the Architect's Lenses tab (home of reader views).
-	await expect(page.getByRole('tab', { name: 'Lenses' })).toHaveAttribute('aria-selected', 'true');
+	// The command opens the Lenses panel (its own first-class home for reader views).
+	await expect(page.getByRole('button', { name: 'Toggle Lenses' })).toHaveAttribute('aria-pressed', 'true');
 	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeVisible();
 });
 

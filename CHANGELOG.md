@@ -361,17 +361,21 @@ in patch versions.
   optional mono eyebrow · trailing actions · a single **X** close), one scroll body that fixes
   touch-scroll sideways-drift (`overscroll-contain` + `touch-action: pan-y` + `min-w-0`), and a
   three-step width scale (sm 340 / md 440 / lg 720). The **deck Inspector** — previously five stacked
-  groups — is reorganized into pill-tabs ordered by reach: **Look** (identity + surface), **Brand**
-  (the whole spectrum/accent family: brand bar, bar placement, card rails, structural trim, heading
-  rule, eyebrow), **Marks** (header/footer/page-number/rail), **Speech** (lexicon + acronyms), and
-  **Authoring** (editor aids). The docked-column **collapse chevron is retired for the unified X**.
-  The same "one clear idea per tab" regrouping extends across the Studio: **Slide settings** gains a
-  matching **Brand** tab; **Workspace settings** becomes **General / AI / Data** (all data-lifecycle —
-  where decks live, backup/restore, storage, delete — consolidated under Data); and the **Architect**
-  splits into **Coach / Chat / Lenses**, lifting the reader-view manager out of the crowded Coach view.
-  The **touch-scroll sideways-drift** is fixed on every drawer/panel body, the mobile Settings sheet
-  shows one X instead of two, and drawer headers are unified to a 15px title + accent icon + border.
-  See `engineering/decisions/2026-07-17-panel-drawer-cohesion.md`.
+  groups — is reorganized into four pill-tabs ordered by reach: **Look** (identity + surface),
+  **Accent** (the whole spectrum/accent family: brand bar, bar placement, card rails, structural trim,
+  heading rule, eyebrow), **Marks** (header/footer/page-number/rail), and **Speech** (lexicon +
+  acronyms). The two preview-only authoring aids (inline validation, debug overlay) demote out of the
+  pill strip into a collapsed **Developer** footer disclosure — the lowest-reach controls no longer
+  cost a fifth pill. The docked-column **collapse chevron is retired for the unified X**. The same "one
+  clear idea per tab" regrouping extends across the Studio: **Slide settings** gains a matching
+  **Accent** tab; **Workspace settings** becomes **General / AI / Data** (all data-lifecycle — where
+  decks live, backup/restore, storage, delete — consolidated under Data). The **Architect** narrows to
+  its AI faculties (**Coach / Chat**), and **Lenses** (reader views) and the **Library** graduate into
+  first-class panels of their own: each is a mutually-exclusive left slot with its own activity-bar
+  launcher (desktop) or ⋯-menu entry (compact), the launchers ordered by likely reach (Architect ·
+  Library · Lenses). The **touch-scroll sideways-drift** is fixed on every drawer/panel body, the
+  mobile Settings sheet shows one X instead of two, and drawer headers are unified to a 15px title +
+  accent icon + border. See `engineering/decisions/2026-07-17-panel-drawer-cohesion.md`.
 - **Breaking: the spectrum paints the brand BAR only by default — structural accents go quiet.**
   The in-content accents that read the spectrum (table-header rails, the `list-steps` timeline
   spine, code-panel strips, the `hr` rule, split-card underlines) now render a quiet
