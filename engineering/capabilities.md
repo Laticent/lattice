@@ -100,6 +100,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `stage-catalog:check` | Freshness gate for the generated stage-cell catalog. |
 | `standalone-core:build` | Bundle the standalone chart-SVG export core for the browser (docs site). |
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
+| `suono-lib:build` | Build the Suono library dist/ (CJS + .d.ts, esbuild + tsc) so require('@slidewright/suono') and npm publish resolve — the audio engine's node-consumable artifact. |
+| `suono-lib:check` | Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts). |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
 | `theme-core:check` | Freshness gate for the theme-core bundle. |
 | `vetrina-lib:build` | Build the Vetrina library dist/ (two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine. |
@@ -324,6 +326,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
 | `tools/build-stage-catalog.js` | Generates lib/forms/cell/masthead/stage-catalog.generated.js — a plain CJS |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
+| `tools/build-suono-lib.js` | Build the Suono library's node-consumable dist/ — the CJS entry + type |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's node-consumable dist/ — the CJS entries + type |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |

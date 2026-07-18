@@ -28,6 +28,7 @@
       "!docs/src/lib/cadenza/dist",
       "!docs/src/lib/vetrina/dist",
       "!docs/src/lib/lente/dist",
+      "!docs/src/lib/suono/dist",
       "!**/*.min.js",
       "!mermaid-v11.min.js",
       "!examples/**/*.json",

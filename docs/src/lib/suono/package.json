@@ -1,0 +1,28 @@
+{
+  "name": "@slidewright/suono",
+  "version": "0.1.0",
+  "description": "Framework-free audio playback + an owned WebAudio clock + a bounded, pause-gated sequence scheduler — bytes in, reliable clocked playback out. Zero-dependency, no network, no key, no model, no DOM ownership.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": false,
+  "types": "./index.ts",
+  "module": "./index.ts",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "import": "./index.ts",
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "README.md"
+  ]
+}

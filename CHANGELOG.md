@@ -222,6 +222,15 @@ in patch versions.
   chrome-exempt SOVEREIGN frame (`lib/forms/frame/scene/`); wired once for every render path through
   the transformer registry. Demo deck: `examples/scene.md`.
   See `engineering/decisions/2026-07-18-anima-motion-faculty-modes.md` §5.
+- **`@slidewright/suono` is now a packaged, publishable workspace with a node-consumable `dist/`.**
+  Suono gains the library-shape recipe its siblings have (the packaging follow-up named in its ADR):
+  a per-lib `package.json` (name, `exports`, `files`), membership in the npm `workspaces`, a build
+  (`tools/build-suono-lib.js`, esbuild CJS + `tsc` `.d.ts`) wired into `npm run build` + the
+  `build:check` freshness gate, a committed `dist/` un-ignored past `docs/.gitignore` and excluded
+  from biome — so `require('@slidewright/suono')` and `npm publish` resolve. Docs + Vitest still
+  import the `./index.ts` source. (The WebAudio playback is browser-only at runtime; the built
+  artifact is what a browser consumer requires.) (`docs/src/lib/suono/package.json`,
+  `tools/build-suono-lib.js`; `engineering/decisions/2026-07-12-suono-audio-library.md`.)
 - **`@slidewright/suono` gains a fluent (thin) `sequence()` front door for house symmetry.**
   `sequence(stage).items(…).produce(…).gap(…).onItemStart(…).play()` chains the same
   `SequenceOptions` the `stage.sequence({…})` object form takes, giving the sibling libraries one

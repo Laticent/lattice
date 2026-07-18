@@ -123,6 +123,8 @@ const SCRIPT_META = {
   'vetrina-lib:check':        ['Build & bundle', 'Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts).'],
   'lente-lib:build':          ['Build & bundle', 'Build the Lente library dist/ (CJS + .d.ts, esbuild + tsc) so require(\'@slidewright/lente\') and npm publish resolve — the fourth spin-off sibling\'s node-consumable artifact.'],
   'lente-lib:check':          ['Build & bundle', 'Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts).'],
+  'suono-lib:build':          ['Build & bundle', 'Build the Suono library dist/ (CJS + .d.ts, esbuild + tsc) so require(\'@slidewright/suono\') and npm publish resolve — the audio engine\'s node-consumable artifact.'],
+  'suono-lib:check':          ['Build & bundle', 'Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts).'],
   'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter.'],
   'decisions:index:check':    ['Build & bundle', 'Freshness gate for the decisions-index (stale vs the notes\' front-matter).'],
 

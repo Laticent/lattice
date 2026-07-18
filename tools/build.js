@@ -101,6 +101,7 @@ const STEPS = [
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
   // build like its siblings or `require('@slidewright/lente')` / publish break.
   { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js' },
+  { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js' },
   { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js' },
   // Capability index — reads package.json scripts + tools/ headers (source,
   // not built artifacts), so order-independent; grouped with the generators.
@@ -128,6 +129,7 @@ const BACKGROUND_LABELS = new Set([
   'Cadenza library dist (CJS + .d.ts)',
   'Vetrina library dist (CJS + .d.ts)',
   'Lente library dist (CJS + .d.ts)',
+  'Suono library dist (CJS + .d.ts)',
 ]);
 const JOIN_BEFORE_SCRIPT = 'build-read-along-core.js';
 
