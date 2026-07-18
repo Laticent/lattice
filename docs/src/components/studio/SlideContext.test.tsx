@@ -130,9 +130,9 @@ describe('SlideContextBody controls', () => {
 		expect(toks).not.toContain('tone-warn');
 	});
 
-	it('sets a per-slide brand bar (spectrum) from the Brand picker', async () => {
+	it('sets a per-slide brand bar (spectrum) from the Accent tab', async () => {
 		const { applied } = setup('<!-- _class: kpi -->\n\n# Hi');
-		goTab('Brand');
+		goTab('Accent');
 		await pickOption(/brand bar/i, 'None');
 		expect(applied()).toContain('spectrum-off');
 	});
@@ -140,7 +140,7 @@ describe('SlideContextBody controls', () => {
 	it('reads the brand bar as inherited from the deck `spectrum:` register', async () => {
 		const src = '---\nspectrum: solid\n---\n\n<!-- _class: kpi -->\n\n# Hi';
 		setup('<!-- _class: kpi -->\n\n# Hi', src);
-		goTab('Brand');
+		goTab('Accent');
 		expect(await selectedOptionText(/brand bar/i)).toMatch(/inherit/i);
 	});
 

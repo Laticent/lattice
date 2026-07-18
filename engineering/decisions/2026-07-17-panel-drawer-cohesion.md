@@ -69,12 +69,14 @@ Was five stacked groups (Look was a 14-control grab-bag). Now pill-tabs by reach
 | Tab | One idea | Controls |
 |---|---|---|
 | **Look** | Identity + surface | Language, Theme, Color mode, Size, Mode, Finish, Card lift |
-| **Brand** | Where the accent shows | Brand bar, Bar placement, Card rail (+placement), Structural trim, Heading rule, Eyebrow |
+| **Accent** | Where the accent shows | Brand bar, Bar placement, Card rail (+placement), Structural trim, Heading rule, Eyebrow |
 | **Marks** | Repeating running chrome | Header, Footer, Page numbers, Section rail |
 | **Speech** | How it's read aloud | Lexicon, Acronyms |
-| **Authoring** | Editor aids (preview-only) | Inline validation, Debug overlay |
 
-The Brand tab collects the whole `--spectrum`-token family that used to bloat Look.
+The Accent tab collects the whole `--spectrum`-token family that used to bloat Look.
+The two preview-only editor aids (inline validation, debug overlay) sit in a collapsed
+**Developer** footer disclosure below the pills — present, but off the reach-ordered strip
+(follow-up A.1; see "Follow-up resolutions" below). This leaves four narrow one-row pills.
 
 ## IA regrouping — shipped (from the grouping audit)
 
@@ -83,14 +85,14 @@ Each surface below failed "one idea per tab" and was regrouped:
   cluster: "Where decks live" + "Backup & restore" moved into a renamed **Data** tab
   (with the storage-governance rows + delete-everything), so it reads
   where-it-lives → back-it-up → manage/clear → delete. General keeps prefs + install.
-- **Slide settings → a Brand tab**, mirroring the deck Inspector — the spectrum/accent
+- **Slide settings → an Accent tab**, mirroring the deck Inspector — the spectrum/accent
   family (brand bar, placements, card rails, trim, heading rule, eyebrow) left the
   overloaded Look tab. (Notes already carries clearly-labeled Note/Caption/Description
   sub-sections, so it was left as-is.)
-- **Architect → Coach / Chat / Lenses** pill-tabs. Lenses (the reader-view membership
-  + approval workflow) left the overloaded Coach card stack for its own peer tab; the
-  hand-rolled Coach/Chat toggle became PillTabs. "Reshape for a reader" + the preview
-  LensPicker now land on the Lenses tab.
+- **Architect → Coach / Chat** pill-tabs (AI faculties only). Lenses (the reader-view
+  membership + approval workflow) first moved to a Coach/Chat/Lenses peer tab, then
+  graduated OUT to its own first-class panel (follow-up; see below). The hand-rolled
+  Coach/Chat toggle became PillTabs.
 
 Left coherent by the audit: Share (artifact vs source), Library (Docs is a noted minor
 outlier, deferred), GalleriesSheet, DeckSetupSheet, ComponentPicker, Version history,
@@ -122,14 +124,74 @@ Honest follow-ups, not papered over. The owner chose to pill-tab the deck Inspec
   co-locate accent with the brand controls.
 - **"Brand" buries typography.** Eyebrow + Heading rule sit under Brand because they read
   the `--spectrum` token, but a user thinks "heading," not "brand." Candidate: rename to
-  "Accent" or move the heading marks to Look.
+  "Accent" or move the heading marks to Look. → **RESOLVED** (renamed to Accent; see below).
 - **Lenses lives in an AI-branded panel.** Reader views (a deterministic, no-model
   workflow) are a tab inside the Sparkles/"AI coach" Architect. Entry points route to it,
-  but its conceptual home may be with view/preview controls, not the coach.
+  but its conceptual home may be with view/preview controls, not the coach. → **RESOLVED**
+  (Lenses is now its own first-class panel; see below).
 - **Pill density.** Five deck pills still wrap in a ~260px column even label-only;
   demoting "Authoring" (2 preview-only toggles) to a footer/Workspace would get to four.
+  → **RESOLVED** (demoted to a Developer footer; see below).
 
-## Do-not-regress
+## Follow-up resolutions (owner-directed, this doc's second commit)
+
+The owner directed three follow-ups that resolve tensions surfaced above:
+
+- **A.1 — Authoring pill → Developer footer.** The deck Inspector's two preview-only aids
+  (inline validation, debug overlay) moved out of the pill strip into a collapsed
+  `<details>` "Developer" footer, always present below the active tab. Four pills now fit
+  one row in a ~260px column. (Resolves *Pill density*.)
+- **A.2 — Brand → Accent.** The tab renamed on both the deck Inspector and Slide settings.
+  "Accent" is the broader, truer name for everything the accent token touches, including
+  the heading marks a user reads as "heading," not "brand." (Resolves *"Brand" buries
+  typography*.)
+- **Lenses + Library → first-class panels.** Both graduate out of their host surface into
+  the **assistant slot** — ONE mutually-exclusive left column shared with the Architect,
+  each with its own activity-bar launcher (desktop) and ⋯-menu entry (compact). The
+  launchers order by likely reach: **Architect · Library · Lenses**. Library keeps its
+  transient Sheet on compact (via a `docked` prop that swaps the Sheet chrome for a plain
+  column when docked); Lenses gets a matching compact sheet. Reader-view entry points
+  ("Reshape for a reader", the preview LensPicker's add affordance) now open the Lenses
+  panel directly. (Resolves *Lenses lives in an AI-branded panel*.) The mutual-exclusivity
+  is one nullable enum, `activeAssistant: 'architect' | 'lenses' | 'library' | null`, so
+  only one assistant column is ever open and the #721 track invariant holds.
+
+## Adversarial trio (this doc's third commit — HARD RULE #25)
+
+The promotion ran the full trio (red team · Munger inversion · independent checker) on the
+shipping diff. Confirmed findings were hardened into the winner:
+
+- **#721 void, Library + Inspector (red-team blocker, FIXED).** The docked Library reused the
+  assistant slot's fold math but with a taller floor (`LIB_MIN` 300 vs the Architect's
+  `ARCH_MIN` 200). `LIB_MIN + SET_MIN = 560` exceeds the narrowest-desktop `panelBudget` (475
+  at vw 1100), so the `Math.max(assistantMin, …)` floor overrode the budget clamp and the
+  editor+preview pair clipped below `PAIR_MIN` (overflow at vw 1100–1184, a two-click action
+  at common laptop widths). Fix: `LIB_MIN = ARCH_MIN` — a slot-shared panel must share the
+  slot's fold floor; the Library still *opens* at its wider `LIB_DEFAULT`, only the
+  both-open-narrow floor yields.
+- **Tablet Architect toggle (checker should-fix, FIXED).** The tablet top-bar toggle kept the
+  pre-enum `(p ? null : 'architect')` form, so with Lenses/Library open it *closed* the panel
+  instead of *switching* to the Architect. Now enum-aware, matching its activity-bar siblings.
+- **Compact Library over Fabricate (red-team nit, FIXED)**, **stale CommandPalette comment
+  (FIXED)**, **Library sheet missing `SheetDescription` (FIXED).**
+
+### New open tensions (recorded, not resolved)
+
+- **Library can no longer be open *alongside* the Architect.** On `main` the Library was an
+  independent right-side Sheet, so it coexisted with the docked-left Architect; folding it
+  into the single `activeAssistant` slot deletes that combination (dip into the Library for a
+  theme, and the coach closes). This is the cohesion tax the single slot buys — forced by the
+  #721 three-column limit (Settings stays a *separate* slot, so the coach↔tune loop is intact).
+  "First-class panel" therefore means *its own launcher + docked column*, **not** *coexists
+  with its siblings* — mechanically the three are a mutually-exclusive toggle group. Revisit if
+  the dip-in-while-coaching workflow proves common (candidate: let the Library coexist as an
+  overlay the way it did before, at the cost of the uniform slot model).
+- **Esc / ⌘. can orphan a transiently-revealed panel (pre-existing, broadened).** The desktop
+  docked panels are plain `<aside>`s, not Radix dialogs, so `Esc`/`⌘.` reach the shortcut
+  handler and clear `revealBuild` without nulling `activeAssistant`; the panel stays "open" in
+  state but unmounts (barless Write), recoverable on the next summon. Pre-existing for the
+  Architect; this PR adds more entry points (Lenses/Library from ⌘K + the preview affordance)
+  that can reach it. Follow-up: fold the panel-close into the reveal-clear.
 
 ## Do-not-regress
 

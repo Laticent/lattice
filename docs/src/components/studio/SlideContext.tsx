@@ -433,7 +433,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const hasDecoration = tints.length > 0 || marks.length > 0;
 	const tabDefs = [
 		...(editable ? [{ value: 'look', label: 'Look' }] : []),
-		...(editable ? [{ value: 'brand', label: 'Brand' }] : []),
+		...(editable ? [{ value: 'brand', label: 'Accent' }] : []),
 		...(editable && hasStatus ? [{ value: 'status', label: 'Status' }] : []),
 		...(editable && hasDecoration ? [{ value: 'decoration', label: 'Decoration' }] : []),
 		...(editable ? [{ value: 'chrome', label: 'Chrome' }] : []),

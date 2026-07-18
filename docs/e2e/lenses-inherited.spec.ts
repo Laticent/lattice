@@ -1,4 +1,4 @@
-import { expect, gotoStudio, persistedSource, test } from './studio-fixture';
+import { expect, gotoStudio, openLenses, persistedSource, test } from './studio-fixture';
 
 // Workspace-inherited reader views (Option B) on the REAL browser — the real-surface confirmation
 // (HARD RULE #23) of the delta model the registry unit tests and the jsdom StudioShell tests prove.
@@ -9,10 +9,8 @@ import { expect, gotoStudio, persistedSource, test } from './studio-fixture';
 
 test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
-	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
-	// Reader views live on the Architect's Lenses tab now — open it.
-	await page.getByRole('tab', { name: 'Lenses' }).click();
+	// Reader views live in the Lenses panel now — its own first-class launcher peer.
+	await openLenses(page);
 });
 
 test('a fresh deck inherits the two starter views WITHOUT writing a lenses: block', async ({ page }) => {
