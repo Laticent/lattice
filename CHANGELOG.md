@@ -222,6 +222,17 @@ in patch versions.
   chrome-exempt SOVEREIGN frame (`lib/forms/frame/scene/`); wired once for every render path through
   the transformer registry. Demo deck: `examples/scene.md`.
   See `engineering/decisions/2026-07-18-anima-motion-faculty-modes.md` §5.
+- **A guided Suono showcase page at `/suono` — the library-demo exemplar.** A standalone,
+  framework-free page driven by the real engine (`createStage()` + the fluent `sequence()` front
+  door) that walks a seven-beat storyboard of Suono's capabilities — clocked playback, phrase gaps,
+  barge-in, pause/resume, the dedup cache, warm/prefetch, and the `onItemStart → reader.align`
+  caption tie to Cadenza — each running **live with synthesized tones, no key required**. An optional
+  cloud-voice upgrade detects the shared bring-your-own-key OpenRouter key already in the browser and
+  speaks real words through the sanctioned voice-model byte producer; when no key is present it shows
+  a Connect affordance instead. Theme-aware (light/dark), responsive (desktop/tablet/mobile).
+  (`docs/src/pages/suono.astro`.) *Visual layout verified via screenshots at all three widths in
+  both themes; live audio playback + interaction is for real-surface testing (a headless build can't
+  exercise WebAudio).*
 - **`@slidewright/suono` is now a packaged, publishable workspace with a node-consumable `dist/`.**
   Suono gains the library-shape recipe its siblings have (the packaging follow-up named in its ADR):
   a per-lib `package.json` (name, `exports`, `files`), membership in the npm `workspaces`, a build
