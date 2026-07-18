@@ -1,0 +1,132 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "scene",
+  "function": "imagery",
+  "form": "canvas",
+  "substance": "prose",
+  "anatomyBlock": "image-canvas",
+  "orientation": [
+    "landscape",
+    "portrait"
+  ],
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "heading",
+      "scene",
+      "body"
+    ]
+  },
+  "tags": [
+    "visual",
+    "showcase",
+    "walkthrough"
+  ],
+  "description": "An Anima motion scene as its poster still — an inline, palette-blind SVG that recolors with the theme and bakes crisp into the PDF; the live animation plays in the HTML/present surfaces.",
+  "purpose": "Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a slide as its hero still. Because the deck renders to a static PDF, a `scene` slide shows the POSTER — an INLINE `<svg>` (never a background-image), so its `var(--token)` fills recolor with the deck theme in light and dark. Author it by pasting the scene's poster SVG under the heading; the Studio's Motion faculty inlines it for you. Scene is a faithful mirror of `image`: the composition auto-RESOLVES from the poster's own aspect × the deck orientation (`clean` is the safe floor), and you name a variant only to override. The compositions: `clean` (a card shaped to the still), `split` (a tall scene gets its own full-height column), `spotlight` (a wide scene owns the frame on a matte stage), `gallery` (opt-in — the whole still matted in a passe-partout frame with a placard below, the exhibit look for a diagram-like scene), `statement` (opt-in — the still on a matte stage with the title on an editorial band), and `mirror` (flips the side).",
+  "variants": [
+    "clean",
+    "split",
+    "spotlight",
+    "gallery",
+    "statement",
+    "mirror"
+  ],
+  "slots": {
+    "heading": {
+      "selector": "h2",
+      "required": false,
+      "description": "Optional heading — the so-what of the scene, not 'Animation'."
+    },
+    "scene": {
+      "selector": ".scene-figure svg, svg",
+      "required": true,
+      "description": "The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image). The Motion faculty inlines a saved scene's stored poster here."
+    },
+    "body": {
+      "selector": "p",
+      "required": false,
+      "description": "Optional caption — one line on what the motion reveals that a still can't."
+    }
+  },
+  "skeleton": "<!-- _class: scene gallery -->\n\n## What the mechanism does.\n\n<svg viewBox=\"0 0 240 150\" xmlns=\"http://www.w3.org/2000/svg\"><ellipse cx=\"120\" cy=\"80\" rx=\"82\" ry=\"30\" fill=\"none\" stroke=\"var(--cat-2-mark)\" stroke-width=\"9\"/><polygon points=\"120,42 152,96 88,96\" fill=\"var(--accent)\"/><circle cx=\"202\" cy=\"80\" r=\"11\" fill=\"var(--cat-4-mark)\"/><rect x=\"76\" y=\"112\" width=\"88\" height=\"11\" rx=\"3\" fill=\"var(--text-muted)\"/></svg>\n\nThe rotor spins inside its housing — a relationship a single still can only imply.\n",
+  "sample": "<!-- _class: scene gallery -->\n\n## The rotor spins inside its fixed housing.\n\n<svg viewBox=\"0 0 240 150\" xmlns=\"http://www.w3.org/2000/svg\"><ellipse cx=\"120\" cy=\"80\" rx=\"82\" ry=\"30\" fill=\"none\" stroke=\"var(--cat-2-mark)\" stroke-width=\"9\"/><polygon points=\"120,42 152,96 88,96\" fill=\"var(--accent)\"/><circle cx=\"202\" cy=\"80\" r=\"11\" fill=\"var(--cat-4-mark)\"/><rect x=\"76\" y=\"112\" width=\"88\" height=\"11\" rx=\"3\" fill=\"var(--text-muted)\"/></svg>\n\nThe poster freezes the hero frame; in the HTML deck it turns.\n",
+  "whenToUse": [
+    {
+      "title": "Motion carries the meaning",
+      "body": "A mechanism you must rotate to read, a process that assembles in order, a quantity bound to live data — anywhere a still can only imply the relationship. The poster captures the hero frame; the live surfaces animate it."
+    },
+    {
+      "title": "You have a fabricated scene",
+      "body": "You built and tuned an Anima scene in the Studio's Motion faculty and want it in the deck. The faculty inlines its poster; the slide recolors it to whichever theme frames it."
+    },
+    {
+      "title": "A diagram that earns its motion",
+      "body": "When a static `diagram` almost says it but the ORDER or the DEPTH is the point — a flow drawing itself node-by-node, a rig turning — reach for `scene` over `diagram`."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Motion as decoration",
+      "body": "If the animation doesn't carry information a still can't — a spinning logo, a bouncing shape — it's ornament. Drop it and use `image` or `diagram`. `scene` is for motion that argues."
+    },
+    {
+      "title": "Expecting the PDF to move",
+      "body": "A PDF is paper — it shows the poster still, not the animation. If the turning IS the point for a print hand-out, choose the hero frame that reads best on its own; the live motion is for the HTML/present surfaces."
+    },
+    {
+      "title": "A photo or screenshot",
+      "body": "If the visual is a raster still that never animates and never recolors, it's an `image`, not a `scene`. Reserve `scene` for the palette-blind, motion-bearing vector still."
+    }
+  ],
+  "related": [
+    {
+      "name": "image",
+      "when": "the visual is a still photo or screenshot, not an animated scene"
+    },
+    {
+      "name": "diagram",
+      "when": "a static Mermaid graph says it — no order or depth that needs motion"
+    },
+    {
+      "name": "video",
+      "when": "the motion is recorded footage with a provider, not a fabricated vector scene"
+    }
+  ],
+  "variantDocs": {
+    "clean": {
+      "label": "clean",
+      "summary": "A card shaped to the still, beside its point.",
+      "sample": "<!-- _class: scene clean -->\n\n## clean seats the scene beside its claim.\n\n<svg viewBox=\"0 0 240 150\" xmlns=\"http://www.w3.org/2000/svg\"><ellipse cx=\"120\" cy=\"80\" rx=\"82\" ry=\"30\" fill=\"none\" stroke=\"var(--cat-2-mark)\" stroke-width=\"9\"/><polygon points=\"120,42 152,96 88,96\" fill=\"var(--accent)\"/><circle cx=\"202\" cy=\"80\" r=\"11\" fill=\"var(--cat-4-mark)\"/><rect x=\"76\" y=\"112\" width=\"88\" height=\"11\" rx=\"3\" fill=\"var(--text-muted)\"/></svg>\n\nThe still floats in a card; the argument runs alongside.\n"
+    },
+    "split": {
+      "label": "split",
+      "summary": "A tall scene gets its own column.",
+      "sample": "<!-- _class: scene split -->\n\n## split gives a tall scene its full column.\n\n<svg viewBox=\"0 0 150 220\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"48\" y=\"20\" width=\"54\" height=\"54\" rx=\"8\" fill=\"none\" stroke=\"var(--cat-2-mark)\" stroke-width=\"7\"/><path d=\"M75 74 V120 M64 110 L75 122 L86 110\" fill=\"none\" stroke=\"var(--text-muted)\" stroke-width=\"6\"/><rect x=\"48\" y=\"122\" width=\"54\" height=\"54\" rx=\"8\" fill=\"var(--accent)\"/></svg>\n\nA portrait scene wants its height; the claim leads beside it.\n"
+    },
+    "spotlight": {
+      "label": "spotlight",
+      "summary": "A wide scene owns the frame.",
+      "sample": "<!-- _class: scene spotlight -->\n\n## spotlight lets a wide scene carry the slide.\n\n<svg viewBox=\"0 0 360 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"20\" y=\"55\" width=\"90\" height=\"40\" rx=\"9\" fill=\"none\" stroke=\"var(--cat-2-mark)\" stroke-width=\"6\"/><path d=\"M110 75 H150 M140 67 L152 75 L140 83\" fill=\"none\" stroke=\"var(--text-muted)\" stroke-width=\"5\"/><rect x=\"152\" y=\"55\" width=\"90\" height=\"40\" rx=\"9\" fill=\"none\" stroke=\"var(--accent)\" stroke-width=\"6\"/><path d=\"M242 75 H282 M272 67 L284 75 L272 83\" fill=\"none\" stroke=\"var(--text-muted)\" stroke-width=\"5\"/><rect x=\"284\" y=\"55\" width=\"56\" height=\"40\" rx=\"9\" fill=\"var(--cat-6-mark)\"/></svg>\n\nWhen the scene already matches the canvas, let it own the frame.\n"
+    },
+    "gallery": {
+      "label": "gallery",
+      "summary": "The whole still contained on a matte.",
+      "sample": "<!-- _class: scene gallery -->\n\n## gallery mats the scene like an exhibit.\n\n<svg viewBox=\"0 0 240 150\" xmlns=\"http://www.w3.org/2000/svg\"><ellipse cx=\"120\" cy=\"80\" rx=\"82\" ry=\"30\" fill=\"none\" stroke=\"var(--cat-2-mark)\" stroke-width=\"9\"/><polygon points=\"120,42 152,96 88,96\" fill=\"var(--accent)\"/><circle cx=\"202\" cy=\"80\" r=\"11\" fill=\"var(--cat-4-mark)\"/><rect x=\"76\" y=\"112\" width=\"88\" height=\"11\" rx=\"3\" fill=\"var(--text-muted)\"/></svg>\n\nThe whole scene on a matte — the default when the shape is the point.\n"
+    },
+    "statement": {
+      "label": "statement",
+      "summary": "The title rides an editorial band below the scene.",
+      "sample": "<!-- _class: scene statement -->\n\n## statement rides the title below the scene.\n\n<svg viewBox=\"0 0 360 200\" xmlns=\"http://www.w3.org/2000/svg\"><ellipse cx=\"180\" cy=\"100\" rx=\"120\" ry=\"46\" fill=\"none\" stroke=\"var(--cat-2-mark)\" stroke-width=\"12\"/><polygon points=\"180,42 224,128 136,128\" fill=\"var(--accent)\"/><circle cx=\"300\" cy=\"100\" r=\"15\" fill=\"var(--cat-4-mark)\"/></svg>\n\nThe still sits on a matte stage; the title rides an editorial band beneath it.\n"
+    },
+    "mirror": {
+      "label": "mirror",
+      "summary": "The scene lands on the left.",
+      "sample": "<!-- _class: scene mirror -->\n\n## mirror lands the scene on the left.\n\n<svg viewBox=\"0 0 240 150\" xmlns=\"http://www.w3.org/2000/svg\"><ellipse cx=\"120\" cy=\"80\" rx=\"82\" ry=\"30\" fill=\"none\" stroke=\"var(--cat-2-mark)\" stroke-width=\"9\"/><polygon points=\"120,42 152,96 88,96\" fill=\"var(--accent)\"/><circle cx=\"202\" cy=\"80\" r=\"11\" fill=\"var(--cat-4-mark)\"/><rect x=\"76\" y=\"112\" width=\"88\" height=\"11\" rx=\"3\" fill=\"var(--text-muted)\"/></svg>\n\nScene anchors from the left; the text leads from the right.\n"
+    }
+  },
+  "showcase": {
+    "featured": false
+  },
+  "specimenVoice": true
+}

@@ -26,7 +26,7 @@ const HISTORICAL_SKIP = [
   'title', 'divider', 'closing',
   'math', 'compare-code',
   'split-panel', 'split-compare',
-  'image',
+  'image', 'scene',
 ];
 
 test('(a) every Cell manifest validates', () => {

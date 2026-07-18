@@ -206,6 +206,22 @@ in patch versions.
   sanctioned sanitized preview path (no new HARD RULE #22 builder). The Present Slide Overview and the
   gallery now share one extracted `SlideThumb`. (`SlidePicker.tsx`, `slide-thumb.tsx`, `SlideOverview.tsx`,
   `StudioShell.tsx`; `InsertComponent.tsx` retired.)
+- **`scene` — put an Anima motion scene on a slide as its poster still.** A new `imagery` component
+  (`<!-- _class: scene -->` + an inline poster `<svg>` under the heading) that frames a fabricated
+  Anima scene as its hero still. The poster is an **inline** SVG (never a background-image), so its
+  `var(--token)` fills recolor with the deck theme in light and dark and bake crisp into the PDF; the
+  live animation plays on the HTML/present surfaces. It is a faithful mirror of the adaptive `image`
+  layout: the composition **auto-resolves** from the poster's own aspect × the deck orientation
+  through the SAME brain (`lib/core/image-aspect.js`, now sharing one fs-free SVG-aspect parser with
+  image's file-header path), with `clean` as the safe floor and an author variant class as the
+  override. Six compositions mirror image — `clean` (a card shaped to the still), `split` (a tall
+  scene's full-height column), `spotlight` (a wide scene on a matte stage), `gallery` (opt-in — a
+  passe-partout exhibit with a placard below), `statement` (opt-in — the still on a matte stage with
+  an editorial title band), and `mirror` — the one divergence from image being contained,
+  theme-recoloring line-art in a `.scene-figure` instead of a cover background. Registered as a
+  chrome-exempt SOVEREIGN frame (`lib/forms/frame/scene/`); wired once for every render path through
+  the transformer registry. Demo deck: `examples/scene.md`.
+  See `engineering/decisions/2026-07-18-anima-motion-faculty-modes.md` §5.
 - **Compose — a rich editing mode for the Studio, so you never have to see markdown.** The editor pane
   gains a **Markdown ↔ Compose** toggle. Compose is a calm serif writing surface (the "Quiet Page"
   design) where the whole deck is one continuous note: you type rich text, and a quiet left-margin

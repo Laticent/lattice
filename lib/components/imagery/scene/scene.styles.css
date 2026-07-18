@@ -1,0 +1,312 @@
+/* scene — an Anima motion scene as its poster still. A FAITHFUL MIRROR of the
+ * adaptive `image` layout (see image.styles.css + lib/core/image-aspect.js): the
+ * COMPOSITION is RESOLVED, not authored, from the poster's own shape and stamped as
+ * `data-img-composition` (by scene.transform.js) — the one attribute this sheet
+ * keys off, exactly like image keys off the same attribute. Compositions, buckets,
+ * orientation reflow, and mirror all mirror image.
+ *
+ * ONE divergence from image: the asset carrier. image's asset rides as a
+ * `.lattice-bg` COVER background; a scene's poster is an INLINE `<svg>` (wrapped in
+ * `.scene-figure`) whose `var(--token)` fills recolor with the theme and bake crisp
+ * into the PDF — so it is CONTAINED (line-art letterboxes in its box), never cover.
+ * Heading + caption live in `.scene-text` (mirrors `.image-text`).
+ *
+ * Palette-blind, UNLAYERED (cascade.md), margin-free (padding/gap only, #20). */
+
+/* ════════════════════════════════════════════════════════════════════
+ * BASE — the sovereign frame + shared scaffolding + per-bucket aspect
+ * ═══════════════════════════════════════════════════════════════════ */
+section.scene {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 0;
+  border: none;
+  background: var(--bg);
+  --scene-matte: var(--bg-alt);
+  /* Card-lift shadow. ZERO BLUR on purpose (mirrors image's --img-lift): a blurred
+   * box-shadow renders as a flat grey block in Apple PDFKit / Skia. A hard, offset,
+   * low-opacity shadow off the heading ink reads as a lifted card in every viewer. */
+  --scene-lift: 0.6cqi 0.8cqi 0 -0.1cqi color-mix(in oklab, var(--text-heading) 13%, transparent);
+  --scene-hairline: inset 0 0 0 1px color-mix(in oklab, var(--text-heading) 9%, transparent);
+  /* Representative aspect per bucket — the floated `clean` card and the gallery
+   * frame take this shape so the poster letterboxes almost none. `--scene-aspect-n`
+   * is the same ratio as a unitless NUMBER for the gallery fit-to-aspect calc. */
+  --scene-aspect: 4 / 3;
+  --scene-aspect-n: 1.333;
+}
+section.scene[data-img-bucket="pano"]   { --scene-aspect: 24 / 9;  --scene-aspect-n: 2.667; }
+section.scene[data-img-bucket="wide"]   { --scene-aspect: 16 / 10; --scene-aspect-n: 1.6; }
+section.scene[data-img-bucket="square"] { --scene-aspect: 1 / 1;   --scene-aspect-n: 1; }
+section.scene[data-img-bucket="tall"]   { --scene-aspect: 3 / 4;   --scene-aspect-n: 0.75; }
+section.scene[data-img-bucket="column"] { --scene-aspect: 2 / 5;   --scene-aspect-n: 0.4; }
+
+/* The scene IS the slide — the sovereign Frame suppresses chrome, but belt-and-suspenders. */
+section.scene > header,
+section.scene > footer { display: none; }
+
+/* The poster still — an inline svg, CONTAINED (fits its box, letterboxed by the
+ * viewBox), never cover. The box each composition gives it bounds the height. */
+section.scene .scene-figure {
+  position: relative;
+  box-sizing: border-box; /* padding stays INSIDE width/height — never adds to the box (#20 sizing) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+section.scene .scene-figure svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* The prose panel (mirrors .image-text). */
+section.scene .scene-text {
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+section.scene .scene-text:empty { display: none; }
+section.scene .scene-text > :first-child { padding-top: 0; }
+section.scene .scene-text h2 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h3);
+  line-height: var(--lh-tight);
+  color: var(--text-heading);
+  padding: 0 0 var(--sp-md);
+  text-wrap: balance;
+}
+section.scene .scene-text p {
+  font-size: var(--fs-body);
+  line-height: var(--lh-relaxed);
+  color: var(--text-muted);
+  padding: 0;
+  max-width: 34ch;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * CLEAN (default/floor) — text panel + a matted card shaped to the poster.
+ * Landscape: panel left, card right. Portrait: card top, panel below.
+ * ═══════════════════════════════════════════════════════════════════ */
+section.scene[data-img-composition="clean"] {
+  display: grid;
+  grid-template-columns: 1.04fr 1fr;
+  grid-template-areas: "text figure";
+  align-items: center;
+  justify-items: center;
+}
+section.scene[data-img-composition="clean"] .scene-text {
+  grid-area: text;
+  justify-self: stretch;
+  padding: 8cqi 6cqi 8cqi 8cqi;
+}
+/* The card: a stable rectangle of the poster's own aspect, matted, centered. */
+section.scene[data-img-composition="clean"] .scene-figure {
+  grid-area: figure;
+  aspect-ratio: var(--scene-aspect);
+  height: 62cqh;
+  width: auto;
+  max-width: 88%;
+  padding: 4.5cqi;
+  background: var(--scene-matte);
+  border-radius: 1cqi;
+  box-shadow: var(--scene-lift), var(--scene-hairline);
+}
+section.scene[data-img-composition="clean"][data-img-bucket="wide"] .scene-figure {
+  height: auto; width: 86%; max-height: 70cqh;
+}
+section.scene[data-img-composition="clean"][data-img-bucket="pano"] .scene-figure {
+  height: auto; width: 90%; max-height: 62cqh;
+}
+
+/* Mirror → card left, text right. */
+section.scene[data-img-composition="clean"].mirror { grid-template-areas: "figure text"; }
+section.scene[data-img-composition="clean"].mirror .scene-text { padding: 8cqi 8cqi 8cqi 6cqi; }
+
+/* Portrait / square: stack — card on top, panel beneath. */
+section.scene[data-img-composition="clean"][data-orientation="portrait"],
+section.scene[data-img-composition="clean"][data-orientation="square"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto;
+  grid-template-areas: "figure" "text";
+  align-content: center;
+  gap: 5cqh;
+  padding: 7cqh 0;
+}
+section.scene[data-img-composition="clean"][data-orientation="portrait"] .scene-figure,
+section.scene[data-img-composition="clean"][data-orientation="square"] .scene-figure {
+  height: auto; width: 84%; max-width: 84%; max-height: 50cqh;
+}
+section.scene[data-img-composition="clean"][data-orientation="portrait"] .scene-text,
+section.scene[data-img-composition="clean"][data-orientation="square"] .scene-text {
+  justify-self: stretch;
+  padding: 0 9cqi;
+  align-items: flex-start;
+}
+section.scene[data-img-composition="clean"][data-orientation="portrait"] .scene-text p,
+section.scene[data-img-composition="clean"][data-orientation="square"] .scene-text p { max-width: 44ch; }
+
+/* ════════════════════════════════════════════════════════════════════
+ * SPLIT — a tall poster gets its own full-height column on a matte.
+ * ═══════════════════════════════════════════════════════════════════ */
+section.scene[data-img-composition="split"] {
+  display: grid;
+  grid-template-columns: 1fr 42%;
+  grid-template-rows: minmax(0, 1fr); /* bound the row to the frame — no auto-row overrun */
+  grid-template-areas: "text figure";
+  align-items: stretch;
+}
+section.scene[data-img-composition="split"] .scene-figure {
+  grid-area: figure;
+  width: 100%;
+  min-height: 0;
+  padding: 6cqi;
+  background: var(--scene-matte);
+  box-shadow: inset 1px 0 0 var(--border);
+}
+section.scene[data-img-composition="split"] .scene-figure svg { max-height: 84cqh; }
+section.scene[data-img-composition="split"] .scene-text {
+  grid-area: text;
+  padding: 9cqi 7cqi 9cqi 8cqi;
+  align-items: flex-start;
+}
+section.scene[data-img-composition="split"] .scene-text::after {
+  content: "";
+  position: absolute;
+  right: 0; top: 14cqh; bottom: 14cqh;
+  width: 0.4cqi;
+  background: var(--accent);
+}
+section.scene[data-img-composition="split"] .scene-text h2 { font-size: var(--fs-h2); }
+/* A `column` (≈1:5) poster is too extreme for the 42% column — narrow it (mirrors
+ * image's split column-bucket rule) so the tower isn't a sliver in a wide matte. */
+section.scene[data-img-composition="split"][data-img-bucket="column"] { grid-template-columns: 1fr 30%; }
+section.scene[data-img-composition="split"][data-img-bucket="column"].mirror { grid-template-columns: 30% 1fr; }
+section.scene[data-img-composition="split"].mirror {
+  grid-template-columns: 42% 1fr;
+  grid-template-areas: "figure text";
+}
+section.scene[data-img-composition="split"].mirror .scene-figure { box-shadow: inset -1px 0 0 var(--border); }
+section.scene[data-img-composition="split"].mirror .scene-text::after { right: auto; left: 0; }
+
+/* Portrait / square: poster band on top, text beneath. */
+section.scene[data-img-composition="split"][data-orientation="portrait"],
+section.scene[data-img-composition="split"][data-orientation="square"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: 46cqh 1fr;
+  grid-template-areas: "figure" "text";
+}
+section.scene[data-img-composition="split"][data-orientation="portrait"] .scene-text,
+section.scene[data-img-composition="split"][data-orientation="square"] .scene-text {
+  justify-content: flex-start;
+  padding: 6cqh 9cqi;
+}
+section.scene[data-img-composition="split"][data-orientation="portrait"] .scene-text::after,
+section.scene[data-img-composition="split"][data-orientation="square"] .scene-text::after {
+  right: 9cqi; left: 9cqi; top: 0; bottom: auto; width: auto; height: 0.4cqi;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * SPOTLIGHT — a wide poster owns the frame (contained big, not cover), text in a
+ * SOLID card so it stays legible. Landscape: card bottom-left.
+ * ═══════════════════════════════════════════════════════════════════ */
+/* A contained line-art poster can't cover the frame the way image's photo does, so
+ * the frame is a MATTE STAGE (var(--scene-matte)) the poster sits large on — the
+ * negative space reads as an intentional gallery wall, and the solid text card
+ * lifts off it cohesively (image gets that cohesion free from a full-bleed photo). */
+section.scene[data-img-composition="spotlight"] { display: block; background: var(--scene-matte); }
+section.scene[data-img-composition="spotlight"] .scene-figure { position: absolute; inset: 0; padding: 7cqi; }
+section.scene[data-img-composition="spotlight"] .scene-text {
+  position: absolute;
+  left: 5cqi; bottom: 6cqh;
+  width: min(46cqi, 50%);
+  padding: 4.4cqi 4.6cqi;
+  background: var(--bg);
+  border-radius: 1cqi;
+  box-shadow: var(--scene-lift), var(--scene-hairline);
+  align-items: flex-start;
+}
+section.scene[data-img-composition="spotlight"] .scene-text::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 4.4cqi; bottom: 4.4cqi;
+  width: 0.4cqi;
+  background: var(--accent);
+}
+section.scene[data-img-composition="spotlight"] .scene-text h2 { font-size: var(--fs-h3); }
+section.scene[data-img-composition="spotlight"] .scene-text p { max-width: 38ch; }
+section.scene[data-img-composition="spotlight"].mirror .scene-text { left: auto; right: 5cqi; }
+
+/* Portrait / square: the card spans the lower width so the poster carries the top. */
+section.scene[data-img-composition="spotlight"][data-orientation="portrait"] .scene-text,
+section.scene[data-img-composition="spotlight"][data-orientation="square"] .scene-text {
+  left: 5cqi; right: 5cqi; bottom: 5cqh; width: auto; padding: 6cqi 6cqi;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * GALLERY (opt-in) — the whole poster in a passe-partout matte frame + a placard
+ * below. The natural "exhibit" look for a diagram-like scene.
+ * ═══════════════════════════════════════════════════════════════════ */
+section.scene[data-img-composition="gallery"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3.6cqh;
+  padding: 6cqh 6cqi;
+  background: var(--scene-matte);
+}
+/* The frame HUGS the poster's aspect: the content box takes --scene-aspect, the mat
+ * is a uniform border added OUTSIDE it (content-box), the svg fills the content box. */
+section.scene[data-img-composition="gallery"] .scene-figure {
+  box-sizing: content-box;
+  width: min(72cqi, 50cqh * var(--scene-aspect-n));
+  aspect-ratio: var(--scene-aspect);
+  height: auto;
+  padding: 0;
+  border: 2.6cqi solid var(--bg);
+  background: var(--bg);
+  box-shadow:
+    inset 0 0 0 1px var(--border),
+    0 0 0 1px var(--text-heading),
+    0.7cqi 0.9cqi 0 -0.15cqi color-mix(in oklab, var(--text-heading) 17%, transparent);
+}
+section.scene[data-img-composition="gallery"] .scene-text {
+  flex: 0 0 auto;
+  align-items: center;
+  text-align: center;
+}
+section.scene[data-img-composition="gallery"] .scene-text h2 { font-size: var(--fs-h4); padding: 0 0 var(--sp-xs); }
+section.scene[data-img-composition="gallery"] .scene-text p { font-size: var(--fs-message); max-width: 60ch; text-align: center; }
+
+/* ════════════════════════════════════════════════════════════════════
+ * STATEMENT (opt-in) — the poster fills the frame, the title rides a scrim BAND
+ * below. image rides white-on-photo; a line-art scene reads better on a themed band.
+ * ═══════════════════════════════════════════════════════════════════ */
+/* The poster sits on a MATTE STAGE (upper region); the title rides a SOLID band
+ * below it, set off by an accent rule. image rides white-on-photo over a scrim; a
+ * line-art scene has no photo to carry white text, so the band is a themed surface
+ * that contrasts the matte stage and reads as a real editorial band. */
+section.scene[data-img-composition="statement"] { display: block; background: var(--scene-matte); }
+section.scene[data-img-composition="statement"] .scene-figure { position: absolute; inset: 0 0 22cqh 0; padding: 6cqi 6cqi 3cqi; }
+section.scene[data-img-composition="statement"] .scene-text {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 4cqi 8cqi 5cqi;
+  background: var(--bg);
+  border-top: 0.4cqi solid var(--accent);
+  align-items: flex-start;
+}
+section.scene[data-img-composition="statement"] .scene-text h2 { font-size: var(--fs-h2); padding: 0; }
+section.scene[data-img-composition="statement"] .scene-text p { padding-top: var(--sp-sm); max-width: 52ch; }
+
+/* Portrait / square: the band grows a touch to keep the title comfortable. */
+section.scene[data-img-composition="statement"][data-orientation="portrait"] .scene-figure,
+section.scene[data-img-composition="statement"][data-orientation="square"] .scene-figure { inset: 0 0 26cqh 0; }

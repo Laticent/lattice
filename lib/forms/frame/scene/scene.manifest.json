@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schema/frame.schema.json",
+  "id": "scene",
+  "form": "canvas",
+  "kind": "sovereign",
+  "exemptFromChrome": true,
+  "description": "Full-bleed motion-scene Frame — an Anima poster still claims the whole canvas, so the root chrome Cells do not apply (mirrors the image Frame; design/forms.md §8; FORM_TOGGLE_SKIP). Suppresses the masthead and footer.",
+  "cells": ["stage"],
+  "suppresses": ["masthead", "masthead-lede", "masthead-bay", "footer", "footer-left", "progress-centre", "pagination-right"]
+}
