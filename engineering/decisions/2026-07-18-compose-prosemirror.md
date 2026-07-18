@@ -149,9 +149,13 @@ and verified on the real built Studio (HARD RULE #23):
   other locked constructs) as real schema nodes to make them editable-and-lossless.
 - Non-`_` HTML comments (speaker notes / captions) inside prose round-trip byte-stable but
   show as literal editable text — no dedicated hidden node yet.
-- The grammar-gutter register read is a heuristic (position-blind): any blockquote reads as
-  Key-insight, an em-dash paragraph as Below-note; Eyebrow vs Subtitle aren't distinguished.
-  Labels only — it never corrupts source. First-class register attrs are future work.
+- The grammar-gutter register read is now EXACT — it mirrors the engine's positional rules
+  (`base.modifiers.css`) rather than pattern-matching: a code label is an Eyebrow before a
+  heading / a Subtitle after one (the gutter gained a 6th **Subtitle** register); a blockquote
+  is Key-insight ONLY when trailing; an em-dash paragraph is Below-note ONLY when trailing.
+  Applying Key-insight / Below-note relocates the block to the slide's end (the "naturally
+  goes to the end" model), since the engine renders them only there. (There is no register
+  *class* to make first-class — the engine detects by position; matching that IS the fix.)
 - Blank "spacer" slides are dropped by the shared `splitSlides` (filters empty chunks).
 - **HARD RULE #23:** the interactive editor surface (typing, focus/blur resync, list
   Enter/Tab, gutter clicks) needs verifying on the real built Studio in a browser — the lib
