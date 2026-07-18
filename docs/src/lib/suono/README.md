@@ -36,6 +36,27 @@ const seq = stage.sequence({
 });
 ```
 
+### Or chain it — the `sequence()` front door
+
+For house symmetry with the sibling libraries (vetrina `scene()`, cadenza `narration()`, lente
+`lens()`), `sequence(stage)` lets you chain the same options instead of assembling the bag:
+
+```ts
+import { createStage, sequence } from './suono';
+
+const seq = sequence(createStage())
+  .items(sentences)
+  .produce((s, { signal }) => fetchTts(s, signal))
+  .key((s) => `${voice}:${s}`)
+  .gap((s) => (/[.!?]$/.test(s) ? 360 : 0))
+  .onItemStart(({ index, onsetMs, durationMs }) => reader.align(index, onsetMs, durationMs))
+  .play();   // or .build() to get the Sequence without starting it
+```
+
+This is a **thin** wrapper — Suono is a stateful runtime with no serializable model, so `.build()` is
+exactly `stage.sequence(collectedOptions)` (a parity test guards it). It adds discoverability, not
+capability; the options-object form above stays first-class.
+
 Or drive one clip at the low level:
 
 ```ts

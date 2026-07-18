@@ -1,13 +1,17 @@
 # build output
 dist/
 # ...except the committed, freshness-gated library dists (node-consumable CJS +
-# .d.ts, built by tools/build-{cadenza,vetrina}-lib.js; the `dist/` rule above
+# .d.ts, built by tools/build-{cadenza,vetrina,lente,suono}-lib.js; the `dist/` rule above
 # matches at any depth, so re-include the full path — a bare `!dist/` under an
 # ignored parent won't work). See 2026-07-08-library-shape-cadenza-vetrina.md.
 !src/lib/cadenza/dist/
 !src/lib/cadenza/dist/**
 !src/lib/vetrina/dist/
 !src/lib/vetrina/dist/**
+!src/lib/lente/dist/
+!src/lib/lente/dist/**
+!src/lib/suono/dist/
+!src/lib/suono/dist/**
 # generated types
 .astro/
 # portal copies staged from ../docs by scripts/sync-portal.mjs

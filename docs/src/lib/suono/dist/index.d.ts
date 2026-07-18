@@ -1,0 +1,10 @@
+export type { SequenceBuilder } from './builder';
+export { sequence } from './builder';
+export type { BoundedCache, Inflight } from './cache';
+export { createBoundedCache, createInflight } from './cache';
+export { encodeWav, parsePcmContentType, toBlobLike, wrapPcm } from './encode';
+export { clampFadeMs } from './envelope';
+export type { SequenceStage } from './sequence';
+export { makeSequence } from './sequence';
+export { createStage } from './stage';
+export type { BlobLike, Bytes, Clip, Onset, PlayHandle, PlayOptions, PlayResult, Sequence, SequenceItemStart, SequenceOptions, SequenceStateEvent, Stage, StageOptions, StageState, WarmOptions, } from './types';

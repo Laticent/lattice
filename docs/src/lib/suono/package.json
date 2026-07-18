@@ -1,7 +1,7 @@
 {
-  "name": "@slidewright/cadenza",
+  "name": "@slidewright/suono",
   "version": "0.1.0",
-  "description": "Framework-free caption + timeline engine — text in, a timed caption track + a clock→word cursor + WebVTT/SRT out. Zero-dependency, no DOM, no audio.",
+  "description": "Framework-free audio playback + an owned WebAudio clock + a bounded, pause-gated sequence scheduler — bytes in, reliable clocked playback out. Zero-dependency, no network, no key, no model, no DOM ownership.",
   "license": "AGPL-3.0-only",
   "type": "module",
   "sideEffects": false,

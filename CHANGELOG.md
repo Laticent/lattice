@@ -191,6 +191,14 @@ in patch versions.
 
 ### Added
 
+- **Suono has a brand identity — a mark, a favicon-scale minimal mark, and a Fraunces lockup.** A
+  radial "sound-clock" sibling to the Lattice mark (shared DNA: 128 viewBox, a ringed hub node with a
+  pale halo, precise geometry, one dark-mode-aware palette, the Fraunces wordmark) that tells Suono's
+  own story — the bloom of bars is sound, the warm crown bar is the live onset, the centered base-gap
+  is the tuned breath, the ringed hub is the owned clock. On a locked green palette matching the
+  `/suono` demo, which now wears the mark in its header + as its favicon. Establishes the **sibling
+  brand-system** reference the other four libraries follow. (`docs/public/suono-{mark,mark-min,lockup}.svg`,
+  `docs/src/pages/suono.astro`; `engineering/decisions/2026-07-18-sibling-brand-system.md`.)
 - **Add-slide is now a live-preview gallery, not a text list.** The Studio's “Insert a component”
   cmdk popup — a flat list of 56 names with no picture — is replaced by the **Slide Gallery**
   (`SlidePicker`): a grid where every tile is the REAL engine render of that component in your deck's
@@ -222,6 +230,61 @@ in patch versions.
   chrome-exempt SOVEREIGN frame (`lib/forms/frame/scene/`); wired once for every render path through
   the transformer registry. Demo deck: `examples/scene.md`.
   See `engineering/decisions/2026-07-18-anima-motion-faculty-modes.md` §5.
+- **A guided Suono showcase page at `/suono` — the library-demo exemplar.** A standalone,
+  framework-free page driven by the real engine (`createStage()` + the fluent `sequence()` front
+  door) that walks a seven-beat storyboard of Suono's capabilities — clocked playback, phrase gaps,
+  barge-in, pause/resume, the dedup cache, warm/prefetch, and the `onItemStart → reader.align`
+  caption tie to Cadenza — each running **live with synthesized tones, no key required**. An optional
+  cloud-voice upgrade detects the shared bring-your-own-key OpenRouter key already in the browser and
+  speaks real words through the sanctioned voice-model byte producer; when no key is present it shows
+  a Connect affordance instead. Theme-aware (light/dark), responsive (desktop/tablet/mobile).
+  (`docs/src/pages/suono.astro`.) *Visual layout verified via screenshots at all three widths in
+  both themes; live audio playback + interaction is for real-surface testing (a headless build can't
+  exercise WebAudio).*
+- **`@slidewright/suono` is now a packaged, publishable workspace with a node-consumable `dist/`.**
+  Suono gains the library-shape recipe its siblings have (the packaging follow-up named in its ADR):
+  a per-lib `package.json` (name, `exports`, `files`), membership in the npm `workspaces`, a build
+  (`tools/build-suono-lib.js`, esbuild CJS + `tsc` `.d.ts`) wired into `npm run build` + the
+  `build:check` freshness gate, a committed `dist/` un-ignored past `docs/.gitignore` and excluded
+  from biome — so `require('@slidewright/suono')` and `npm publish` resolve. Docs + Vitest still
+  import the `./index.ts` source. (The WebAudio playback is browser-only at runtime; the built
+  artifact is what a browser consumer requires.) (`docs/src/lib/suono/package.json`,
+  `tools/build-suono-lib.js`; `engineering/decisions/2026-07-12-suono-audio-library.md`.)
+- **`@slidewright/suono` gains a fluent (thin) `sequence()` front door for house symmetry.**
+  `sequence(stage).items(…).produce(…).gap(…).onItemStart(…).play()` chains the same
+  `SequenceOptions` the `stage.sequence({…})` object form takes, giving the sibling libraries one
+  uniform `verb(input).….build()` shape. It is deliberately **thin**: Suono is a stateful runtime
+  over a live `AudioContext` with no serializable model, so `.build()` is exactly
+  `stage.sequence(collectedOptions)` (a parity test guards it) — discoverability, not new capability;
+  the options-object form stays first-class. (`docs/src/lib/suono/builder.ts`, exported from
+  `index.ts`.)
+- **`@slidewright/cadenza` gains a fluent `narration()` front door — configure once, emit many.**
+  `buildTrack`, `makeReader`, `toVtt`, and `toSrt` each take an overlapping slice of the same
+  options; instead of rebuilding that bag per output, chain
+  `narration(text).pace('moderate').lexicon(map).calibration(state)` then emit `.toTrack()` /
+  `.toReader({onWord})` / `.toVtt()` / `.toSrt()`. It is **pure sugar** — each terminal is exactly
+  the matching call, guarded by a parity test — and a *config* builder, not a cue assembler: you
+  never hand-build the timeline, so the display/spoken/timing forms cannot desync and Cadenza stays
+  "not a decider of what to say." (`docs/src/lib/cadenza/builder.ts`, exported from `index.ts`.)
+- **`@slidewright/lente` gains a fluent `lens()` read-path front door.** Instead of threading
+  `(slides, registry, lensId)` through every call, chain it once:
+  `lens(slides).registry(frontMatter).pick('brief').project()` — with terminals `.project()` /
+  `.slides()` / `.pairs()` / `.indices()` / `.pickable()` / `.hash()`. It is **pure sugar over the
+  read path** (each terminal is exactly the matching `project.ts` function, guarded by a parity
+  test), so it stays fail-CLOSED — an unapproved/drifted lens still yields `unavailable`, never a
+  silent full-deck substitution — and it is read-only by construction: it never imports the
+  suggester and has no `.approve()`/`.suggest()` verb, so the human-Approve gate remains the only
+  bridge from a proposal to a reader. (`docs/src/lib/lente/builder.ts`, exported from `index.ts`.)
+- **`@slidewright/lente` now builds a node-consumable `dist/`, so `require('@slidewright/lente')`
+  and `npm publish` resolve.** Lente's `package.json` already declared `main`/`require` →
+  `./dist/index.cjs` and it was an npm-workspace member, but no build ever produced that file —
+  requiring the package (or publishing it) hit a missing entry. It now builds like its siblings via
+  `tools/build-lente-lib.js` (esbuild CJS + `tsc` `.d.ts`), is wired into `npm run build` and the
+  freshness gate (`build:check`), and its committed `dist/` is un-ignored past `docs/.gitignore` —
+  completing the library-shape recipe the Lente ADR always called for. The docs runtime is
+  unchanged (docs + Vitest still import the `./index.ts` source via the `import`/`types` conditions).
+  (`tools/build-lente-lib.js`, `tools/build.js`, `docs/src/lib/lente/dist/`;
+  `engineering/decisions/2026-07-13-lente-reader-lenses.md`.)
 - **Compose — a rich editing mode for the Studio, so you never have to see markdown.** The editor pane
   gains a **Markdown ↔ Compose** toggle. Compose is a calm serif writing surface (the "Quiet Page"
   design) where the whole deck is one continuous note: you type rich text, and a quiet left-margin

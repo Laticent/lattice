@@ -1,0 +1,511 @@
+---
+// Suono — a standalone, framework-free showcase driven by the REAL engine
+// (docs/src/lib/suono): createStage → an owned WebAudio clock, sequence(stage) → the
+// fluent scheduler, playing synthesized-tone bytes. No React, no slide engine — the
+// honest proof that the audio core is a self-contained library. A guided storyboard:
+// each beat spotlights one capability (clocked playback, gaps, barge-in, pause/resume,
+// dedup cache, warm/prefetch) with LIVE audio and no API key. An optional cloud-voice
+// upgrade reuses the shared OpenRouter key (the Playground's bring-your-own-key) to
+// speak real words — detected if present, offered via Connect if not. Reached at /suono.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Suono — the scheduler, out loud</title>
+		<link rel="icon" href="/suono-mark-min.svg" type="image/svg+xml" />
+		<!-- Global (unscoped): the score chips + caption words are created in JS at runtime, so
+		     Astro's element-scoped hashes would never match them. -->
+		<style is:global>
+			:root {
+				--paper: #f6f3ec; --stage: #efeae0; --ink: #201d18; --muted: #9d968a; --spent: #c3bcae;
+				--line: #ded7c8; --accent: #2f6d5b; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6d9a4;
+				--panel: #fbf9f4; --shadow: 0 1px 2px rgba(32,29,24,.06), 0 8px 24px rgba(32,29,24,.05);
+				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--paper: #101613; --stage: #16201c; --ink: #e6ede9; --muted: #5f7068; --spent: #3f544c;
+					--line: #223029; --accent: #63c9a6; --accent-ink: #0c1512; --glow: #f6b64a; --glow-bg: #33291a;
+					--panel: #131b17; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				}
+			}
+			:root[data-theme="light"] {
+				--paper: #f6f3ec; --stage: #efeae0; --ink: #201d18; --muted: #9d968a; --spent: #c3bcae;
+				--line: #ded7c8; --accent: #2f6d5b; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6d9a4; --panel: #fbf9f4;
+			}
+			:root[data-theme="dark"] {
+				--paper: #101613; --stage: #16201c; --ink: #e6ede9; --muted: #5f7068; --spent: #3f544c;
+				--line: #223029; --accent: #63c9a6; --accent-ink: #0c1512; --glow: #f6b64a; --glow-bg: #33291a; --panel: #131b17;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 900px; margin: 0 auto; }
+			header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			.home { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; }
+			.home:hover { color: var(--accent); }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+			.sub { color: var(--muted); font-size: 14px; max-width: 66ch; margin: 6px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+
+			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(22px, 4vw, 40px); }
+
+			/* The SCORE — the sequence as a row of chips that light at their real onsets. */
+			.score { display: flex; gap: 8px; flex-wrap: wrap; align-items: stretch; min-height: 66px; }
+			.chip { flex: 1 1 0; min-width: 62px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+				display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px 6px;
+				transition: transform .1s ease, border-color .12s ease, background-color .12s ease, box-shadow .12s ease; }
+			.chip .lbl { font-family: var(--stage-serif); font-size: 15px; color: var(--ink); font-weight: 600; }
+			.chip .gap { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+			.chip[data-state="done"] { opacity: .5; }
+			.chip[data-state="live"] { border-color: var(--accent); background: var(--glow-bg);
+				box-shadow: 0 0 0 3px var(--glow-bg); transform: translateY(-3px); }
+			.chip[data-state="live"] .lbl { color: var(--glow); }
+			.chip[data-cache="hit"]::after { content: "cache"; font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+				color: var(--accent); text-transform: uppercase; }
+
+			/* The caption line — the cadenza tie: onItemStart re-anchors a caption to the heard audio. */
+			.caption { margin-top: 20px; font-family: var(--stage-serif); font-size: clamp(19px, 3vw, 26px); line-height: 1.55;
+				text-wrap: balance; min-height: 1.6em; color: var(--muted); }
+			.caption .on { color: var(--glow); font-weight: 600; }
+
+			/* Live readouts fed by the owned clock + scheduler callbacks. */
+			.meters { margin-top: 20px; display: flex; gap: 10px 22px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; }
+			.meter { display: flex; flex-direction: column; gap: 2px; }
+			.meter .k { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+			.meter .v { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 15px; }
+
+			.transport { margin-top: 22px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
+				font-size: 13px; font-weight: 600; border-radius: 999px; padding: 9px 16px; cursor: pointer; transition: transform .08s ease; }
+			.btn:hover { transform: translateY(-1px); } .btn:active { transform: translateY(0); }
+			.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.btn:disabled { opacity: .45; cursor: default; transform: none; }
+			.play { width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer; background: var(--accent);
+				color: var(--accent-ink); display: grid; place-items: center; flex-shrink: 0; transition: transform .08s ease; }
+			.play:hover { transform: scale(1.05); } .play:active { transform: scale(.96); } .play svg { width: 22px; height: 22px; }
+
+			/* The storyboard rail — numbered beats; click to run one, or walk them all. */
+			.rail { margin-top: 26px; }
+			.rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+			.rail-head h2 { font-family: var(--stage-serif); font-size: 18px; margin: 0; font-weight: 600; }
+			.beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+			.beat { text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 15px;
+				cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .12s ease, transform .08s ease; }
+			.beat:hover { transform: translateY(-2px); border-color: var(--accent); }
+			.beat[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow-bg); }
+			.beat .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--stage); border: 1px solid var(--line);
+				color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+			.beat[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.beat .bt { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; }
+			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.45; }
+			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+
+			.diag { margin-top: 16px; min-height: 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); word-break: break-word; }
+			.diag.err { color: var(--glow); font-weight: 600; }
+
+			details { margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+			summary { cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 600; color: var(--ink); display: flex; align-items: center; gap: 8px; list-style: none; flex-wrap: wrap; }
+			summary::-webkit-details-marker { display: none; }
+			summary .chev { color: var(--muted); transition: transform .15s ease; }
+			details[open] summary .chev { transform: rotate(90deg); }
+			summary .hint { color: var(--muted); font-weight: 400; font-size: 12px; }
+			summary .keydot { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--muted); }
+			summary .keydot i { width: 8px; height: 8px; border-radius: 50%; background: var(--spent); }
+			summary .keydot[data-on="true"] { color: var(--accent); } summary .keydot[data-on="true"] i { background: var(--accent); box-shadow: 0 0 0 3px var(--glow-bg); }
+			.panel-body { padding: 0 16px 16px; }
+			.keyhint { color: var(--muted); font-size: 12px; margin: 0 0 8px; line-height: 1.5; }
+			.keyhint a { color: var(--accent); }
+			.keyrow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+			.vsel { border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 12px; font-weight: 600; border-radius: 999px; padding: 8px 30px 8px 13px; cursor: pointer; -webkit-appearance: none; appearance: none;
+				background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: right 13px center, right 8px center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+			.vsel:disabled { opacity: .5; cursor: default; }
+			.usage { margin-top: 10px; font-family: var(--mono); font-size: 12px; color: var(--muted); display: grid; gap: 3px; }
+			.usage b { color: var(--ink); }
+
+			.foot { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+			.foot code { font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px; cursor: pointer; font-family: var(--sans); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<div class="brand">
+					<img class="logo" src="/suono-mark.svg" alt="" width="46" height="46" />
+					<h1>Suono</h1><span class="tag">the scheduler</span>
+				</div>
+				<div style="display:flex; gap:14px; align-items:center;">
+					<a class="home" href="/">← Lattice</a>
+					<button class="theme" id="themeBtn" type="button">◐ theme</button>
+				</div>
+			</header>
+			<p class="sub">
+				Give it audio <b>bytes</b> and it hands you reliable, gapless playback on an <b>owned WebAudio
+				clock</b> — plus a bounded, pause-gated <b>sequence scheduler</b>. It owns no network, no key, no
+				model. Every beat below runs the <b>real engine</b> live, with synthesized tones — no key needed.
+			</p>
+
+			<div class="stage">
+				<div class="score" id="score" aria-label="The sequence"></div>
+				<p class="caption" id="caption">Press play, or pick a beat below.</p>
+				<div class="meters">
+					<div class="meter"><span class="k">Owned clock</span><span class="v" id="mClock">0.00s</span></div>
+					<div class="meter"><span class="k">Now playing</span><span class="v" id="mIndex">—</span></div>
+					<div class="meter"><span class="k">produce() calls</span><span class="v" id="mProduce">0</span></div>
+					<div class="meter"><span class="k">Cache hits</span><span class="v" id="mCache">0</span></div>
+				</div>
+				<div class="transport">
+					<button class="play" id="playBtn" type="button" aria-label="Play the sequence">
+						<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+					</button>
+					<button class="btn" id="pauseBtn" type="button" disabled>Pause</button>
+					<button class="btn" id="bargeBtn" type="button" disabled>Barge-in ▸ interrupt</button>
+					<button class="btn" id="stopBtn" type="button" disabled>Stop</button>
+				</div>
+				<p class="diag" id="diag" role="status" aria-live="polite"></p>
+			</div>
+
+			<div class="rail">
+				<div class="rail-head">
+					<h2>The storyboard</h2>
+					<button class="btn primary" id="tourBtn" type="button">▸ Play all seven</button>
+				</div>
+				<div class="beats" id="beats"></div>
+			</div>
+
+			<details id="cloudPanel">
+				<summary>
+					<span class="chev">▸</span> Cloud voice
+					<span class="hint">— hear real words instead of tones (optional)</span>
+					<span class="keydot" id="keyDot"><i></i><span id="keyDotLabel">no key</span></span>
+				</summary>
+				<div class="panel-body">
+					<p class="keyhint" id="cloudHint"></p>
+					<div class="keyrow" id="cloudControls"></div>
+					<div class="usage" id="usage" hidden></div>
+				</div>
+			</details>
+
+			<p class="foot">
+				Driven by the real engine (<code>@/lib/suono</code>): <code>createStage()</code> → the owned clock +
+				player, <code>sequence(stage).items(…).produce(…).gap(…).onItemStart(…).play()</code> → the fluent
+				scheduler (the library's chained front door). The byte source here is a synthesized tone
+				(<code>encodeWav</code>); connect a key and it becomes real speech, each sentence's measured onset
+				re-anchoring a caption — the same <code>onItemStart → reader.align</code> tie
+				<code>@/lib/cadenza</code> uses. A plain DOM page, no framework — the proof the core is standalone.
+			</p>
+		</div>
+
+		<script>
+			import { createStage, encodeWav, sequence } from '@/lib/suono';
+
+			const $ = (s) => document.querySelector(s);
+			const root = document.documentElement;
+			const scoreEl = $('#score'), capEl = $('#caption'), diagEl = $('#diag');
+			const mClock = $('#mClock'), mIndex = $('#mIndex'), mProduce = $('#mProduce'), mCache = $('#mCache');
+			const playBtn = $('#playBtn'), pauseBtn = $('#pauseBtn'), bargeBtn = $('#bargeBtn'), stopBtn = $('#stopBtn'), tourBtn = $('#tourBtn');
+			const beatsEl = $('#beats');
+			function setDiag(msg, isErr) { diagEl.textContent = msg || ''; diagEl.classList.toggle('err', !!isErr); }
+
+			// ── Theme toggle (light/dark), mirroring the cadenza reference page ───────────
+			const THEME_LS = 'lattice-docs-mode';
+			function applyTheme(t) { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); }
+			try { applyTheme(localStorage.getItem(THEME_LS)); } catch {}
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme')
+					|| (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+				const next = cur === 'dark' ? 'light' : 'dark';
+				applyTheme(next);
+				try { localStorage.setItem(THEME_LS, next); } catch {}
+			});
+
+			// ── The sequence: a short pentatonic phrase, one tone per note ───────────────
+			// Each item carries a display label, the words a cloud voice would speak, and a pitch.
+			const ITEMS = [
+				{ label: 'One', text: 'Bytes in.', hz: 392.0 },      // G4
+				{ label: 'Two', text: 'A clock of its own.', hz: 440.0 }, // A4
+				{ label: 'Three', text: 'Gapless.', hz: 523.25 },    // C5
+				{ label: 'Four', text: 'Interruptible.', hz: 587.33 }, // D5
+				{ label: 'Five', text: 'And cached.', hz: 659.25 },  // E5
+			];
+			const PHRASE_END = new Set([1, 4]); // a deeper breath after these (topic beats)
+
+			// A keyless byte source: synthesize a short, softly-enveloped sine WAV at the item's pitch.
+			// This is the honest full-pipeline demo — real bytes, decoded + scheduled + clocked by Suono.
+			function tone(hz, ms = 460) {
+				const sr = 44100, n = Math.floor((ms / 1000) * sr), s = new Float32Array(n);
+				for (let i = 0; i < n; i++) {
+					const t = i / sr;
+					const env = Math.min(1, t / 0.012) * Math.min(1, (ms / 1000 - t) / 0.09); // 12ms attack, 90ms release
+					s[i] = Math.sin(2 * Math.PI * hz * t) * 0.28 * Math.max(0, env);
+				}
+				return encodeWav(s, sr);
+			}
+
+			// ── Engine wiring ────────────────────────────────────────────────────────────
+			let stage = null;
+			let seq = null;
+			let produceCount = 0, cacheCount = 0;
+			let clockRaf = 0;
+			let mode = 'tones';          // 'tones' (keyless) | 'voice' (cloud)
+			let voice = null, selVoice = 'af_heart';
+			let curBeat = null;          // active beat id, for scenario options
+			let onDone = null;           // one-shot: fired when a run ENDS naturally (not aborted)
+
+			function ensureStage() {
+				if (!stage) stage = createStage();
+				return stage;
+			}
+
+			function renderScore(showGaps) {
+				scoreEl.innerHTML = '';
+				ITEMS.forEach((it, i) => {
+					const chip = document.createElement('div');
+					chip.className = 'chip';
+					chip.dataset.state = 'idle';
+					chip.id = `chip-${i}`;
+					const g = showGaps && PHRASE_END.has(i) ? '+breath' : '';
+					chip.innerHTML = `<span class="lbl">${it.label}</span><span class="gap">${g}</span>`;
+					scoreEl.appendChild(chip);
+				});
+			}
+			function markChip(i, state, cache) {
+				const chip = document.getElementById(`chip-${i}`);
+				if (!chip) return;
+				if (state) chip.dataset.state = state;
+				if (cache) chip.dataset.cache = cache;
+			}
+			function resetChips() { ITEMS.forEach((_, i) => { const c = document.getElementById(`chip-${i}`); if (c) { c.dataset.state = 'idle'; delete c.dataset.cache; } }); }
+
+			function tickClock() {
+				if (stage) mClock.textContent = `${(stage.clockMs() / 1000).toFixed(2)}s`;
+				clockRaf = requestAnimationFrame(tickClock);
+			}
+
+			function setTransport(running) {
+				pauseBtn.disabled = !running; bargeBtn.disabled = !running; stopBtn.disabled = !running;
+				pauseBtn.textContent = 'Pause';
+			}
+
+			// Build a sequence with the current mode + a per-beat option set, using the fluent builder.
+			function buildSequence(opts = {}) {
+				const st = ensureStage();
+				const withGaps = opts.gaps !== false;
+				const producer = async (item, { signal }) => {
+					produceCount++; mProduce.textContent = String(produceCount);
+					if (mode === 'voice' && voice) {
+						try {
+							const { bytes } = await voice.synthOne({ text: item.text, voice: selVoice, signal });
+							if (bytes) return bytes;
+						} catch { /* fall through to a tone */ }
+					}
+					return tone(item.hz);
+				};
+				return sequence(st)
+					.items(ITEMS)
+					.produce(producer)
+					.key((it) => `${mode}:${selVoice}:${it.label}`)  // dedup identity → cache hits on replay
+					.gap((_it, _next, i) => (withGaps && PHRASE_END.has(i) ? 520 : withGaps ? 120 : 0))
+					.concurrency(2)
+					.onItemStart(({ index }) => {
+						resetPastAndLight(index);
+						capEl.innerHTML = `<span class="on">${ITEMS[index].text}</span>`;
+						mIndex.textContent = `${index + 1} / ${ITEMS.length} · ${ITEMS[index].label}`;
+					})
+					.onState(({ playing, aborted }) => {
+						if (!playing) {
+							setTransport(false);
+							if (aborted) setDiag('Aborted — the run stopped cleanly mid-clip (barge-in / stop).');
+							else { setDiag('Done.'); mIndex.textContent = '—'; markAllDone(); }
+							const cb = onDone; onDone = null; // one-shot
+							if (cb) cb({ aborted });
+						}
+					})
+					.build();
+			}
+			function resetPastAndLight(index) {
+				ITEMS.forEach((_, i) => {
+					const c = document.getElementById(`chip-${i}`);
+					if (!c) return;
+					if (i < index) c.dataset.state = 'done';
+					else if (i === index) c.dataset.state = 'live';
+					else c.dataset.state = 'idle';
+				});
+			}
+			function markAllDone() { ITEMS.forEach((_, i) => markChip(i, 'done')); }
+
+			// Build a FRESH sequence (new instance → empty byte cache) and play it. Used by every
+			// beat except the ones that deliberately reuse an instance (cache / warm).
+			function playFresh(opts = {}) {
+				const st = ensureStage();
+				st.unlock();               // iOS: must be synchronous in the gesture
+				if (seq) seq.stop();
+				onDone = null;
+				renderScore(opts.gaps !== false);
+				seq = buildSequence(opts);
+				setDiag('Playing…'); setTransport(true);
+				seq.play();
+			}
+			// Replay the CURRENT instance. Its closure-held byte cache persists, so keyed items serve
+			// from cache and produce() does not fire again — the real dedup, on the same object.
+			function replayCurrent() {
+				if (!seq) return;
+				setTransport(true);
+				seq.play();               // play() internally stop()s then re-runs; bytesCache survives
+			}
+
+			playBtn.addEventListener('click', () => { curBeat = null; setCurrentBeat(null); playFresh({ gaps: true }); });
+			pauseBtn.addEventListener('click', () => {
+				if (!seq) return;
+				if (seq.playing()) { seq.pause(); pauseBtn.textContent = 'Resume'; setDiag('Paused.'); }
+				else { seq.resume(); pauseBtn.textContent = 'Pause'; setDiag('Resumed.'); }
+			});
+			stopBtn.addEventListener('click', () => { if (seq) seq.stop(); });
+			bargeBtn.addEventListener('click', () => {
+				if (!seq) return;
+				seq.stop();               // cooperative abort — in-flight produce() is signalled
+				setDiag('Barged in — the sequence aborted; a new intent could start immediately.');
+				setTransport(false);
+			});
+
+			// ── The storyboard beats ──────────────────────────────────────────────────────
+			const BEATS = [
+				{ id: 'play',  t: 'Bytes in, clock out', d: 'Five tones scheduled back-to-back; each lights at its real onset on Suono’s owned WebAudio clock.', api: 'sequence().play()', run: () => playFresh({ gaps: false }) },
+				{ id: 'gaps',  t: 'Breath between phrases', d: 'The same run with a deeper gap after a topic beat — the scheduler inserts the silence, not you.', api: 'gap((it,next,i)=>ms)', run: () => playFresh({ gaps: true }) },
+				{ id: 'barge', t: 'Barge-in', d: 'Start playing, then interrupt: the run aborts cleanly mid-clip and the in-flight producer is signalled.', api: 'stop() / AbortSignal', run: () => { playFresh({ gaps: true }); setTimeout(() => bargeBtn.click(), 900); } },
+				{ id: 'pause', t: 'Pause & resume', d: 'Freeze between clips and continue — the owned clock pauses with it.', api: 'pause() / resume()', run: () => { playFresh({ gaps: true }); setTimeout(() => pauseBtn.click(), 800); setTimeout(() => pauseBtn.click(), 1900); } },
+				// Cache: play a FRESH instance, then on natural completion REPLAY THAT SAME instance. Its
+				// keyed byte cache persists across the replay, so produce() should not fire again — we
+				// compare produce() counts across the two runs and report the real delta (0 = full hit).
+				{ id: 'cache', t: 'Dedup cache', d: 'Replay the same instance: keyed bytes serve from its cache, so produce() should not fire again.', api: 'key(it=>id)', run: () => {
+					playFresh({ gaps: false });
+					onDone = ({ aborted }) => {
+						if (aborted) return;
+						const afterFirst = produceCount;
+						setDiag('Replaying the same instance — watch produce() stay flat…');
+						onDone = ({ aborted: a2 }) => {
+							if (a2) return;
+							const grew = produceCount - afterFirst;
+							if (grew === 0) { cacheCount += ITEMS.length; mCache.textContent = String(cacheCount); ITEMS.forEach((_, i) => markChip(i, null, 'hit')); setDiag(`Cache hit — 0 new produce() calls across ${ITEMS.length} items on replay.`); }
+							else setDiag(`Replay re-synthesized ${grew} item(s) — cache miss.`);
+						};
+						replayCurrent();
+					};
+				} },
+				// Warm: build an instance, give the stage a context (unlock), warm() to prefetch (+decode)
+				// its bytes, then after a short prefetch window play THAT SAME instance. Report how many
+				// clips still needed live synthesis at play (ideally 0 — the warm did the work).
+				{ id: 'warm',  t: 'Warm ahead', d: 'Preload the phrase into an instance, then play THAT instance — prefetched bytes mean no live synth at play.', api: 'warm(items)', run: () => {
+					const st = ensureStage(); st.unlock();
+					if (seq) seq.stop();
+					renderScore(true);
+					seq = buildSequence({ gaps: true });
+					seq.warm(ITEMS);
+					setDiag('Warming — prefetching the phrase ahead…');
+					// Play AFTER a prefetch window, and measure synth calls made AT PLAY (baseline captured
+					// just before play, so warm's own produce() calls aren't counted against playback).
+					setTimeout(() => {
+						if (curBeat !== 'warm') return;
+						const beforePlay = produceCount;
+						onDone = ({ aborted }) => { if (!aborted) setDiag(`Played the warmed instance — ${produceCount - beforePlay} live synth call(s) at play (warm prefetched the rest).`); };
+						setTransport(true); seq.play();
+					}, 450);
+				} },
+				{ id: 'voice', t: 'Real words + caption', d: 'With a cloud key, tones become speech and each measured onset re-anchors a caption (the cadenza tie).', api: 'onItemStart→reader.align', run: () => { if (mode !== 'voice') { setDiag('Connect a cloud voice below to hear words; playing tones for now.'); } playFresh({ gaps: true }); } },
+			];
+			function setCurrentBeat(id) {
+				curBeat = id;
+				[...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id)));
+			}
+			BEATS.forEach((b, i) => {
+				const el = document.createElement('button');
+				el.className = 'beat'; el.type = 'button'; el.dataset.id = b.id;
+				el.innerHTML = `<span class="n">${i + 1}</span><span><span class="bt">${b.t}</span><p class="bd">${b.d}</p><span class="api">${b.api}</span></span>`;
+				el.addEventListener('click', () => { setCurrentBeat(b.id); b.run(); });
+				beatsEl.appendChild(el);
+			});
+
+			// Walk all seven beats in sequence (a self-advancing tour).
+			let tourTimer = 0;
+			tourBtn.addEventListener('click', () => {
+				if (tourTimer) { clearInterval(tourTimer); tourTimer = 0; tourBtn.textContent = '▸ Play all seven'; return; }
+				let i = 0;
+				tourBtn.textContent = '■ Stop tour';
+				const step = () => {
+					if (i >= BEATS.length) { clearInterval(tourTimer); tourTimer = 0; tourBtn.textContent = '▸ Play all seven'; return; }
+					const b = BEATS[i++]; setCurrentBeat(b.id); b.run();
+				};
+				step();
+				tourTimer = setInterval(step, 4200);
+			});
+
+			// ── Cloud voice — detect the shared OpenRouter key; use it or offer Connect ──────
+			const OR_KEY_LS = 'lattice-db-or-key';
+			const OR_VOICE_LS = 'lattice-db-voice-or';
+			const keyDot = $('#keyDot'), keyDotLabel = $('#keyDotLabel'), cloudHint = $('#cloudHint'), cloudControls = $('#cloudControls'), usageEl = $('#usage');
+			function readKey() { try { return localStorage.getItem(OR_KEY_LS); } catch { return null; } }
+			try { selVoice = localStorage.getItem(OR_VOICE_LS) || 'af_heart'; } catch {}
+
+			async function refreshCloud() {
+				const key = readKey();
+				const on = !!key;
+				keyDot.dataset.on = String(on);
+				keyDotLabel.textContent = on ? 'key connected' : 'no key';
+				cloudControls.innerHTML = '';
+				if (on) {
+					mode = 'voice';
+					cloudHint.innerHTML = 'Using the OpenRouter key already in this browser (the same bring-your-own-key the Playground stores in <code>localStorage</code> — it never leaves your device). Items now synthesize real speech through the shared voice ladder.';
+					// Voice picker (Kokoro voices, shared with the Playground).
+					const sel = document.createElement('select');
+					sel.className = 'vsel'; sel.setAttribute('aria-label', 'Cloud voice');
+					[['af_heart', 'Heart'], ['af_bella', 'Bella'], ['am_michael', 'Michael'], ['bf_emma', 'Emma'], ['bm_george', 'George']]
+						.forEach(([v, l]) => { const o = document.createElement('option'); o.value = v; o.textContent = l; sel.appendChild(o); });
+					sel.value = selVoice;
+					sel.addEventListener('change', () => { selVoice = sel.value; try { localStorage.setItem(OR_VOICE_LS, selVoice); } catch {} });
+					const useTones = document.createElement('button');
+					useTones.className = 'btn'; useTones.type = 'button'; useTones.textContent = 'Use tones instead';
+					useTones.addEventListener('click', () => { mode = 'tones'; setDiag('Back to synthesized tones.'); });
+					cloudControls.append(sel, useTones);
+					usageEl.hidden = false;
+					usageEl.innerHTML = 'Cloud voice (TTS) is billed by the provider per synthesis; unlike chat generation it returns no per-token cost, so no dollar meter is shown here. Suono spends nothing — it only <b>plays</b> the bytes your voice source returns.';
+					// Lazily load the shared voice model (byte producer) — the sanctioned pattern.
+					if (!voice) {
+						import('@/playground/voice-model.js')
+							.then((m) => { voice = m.createVoiceModel({ getOpenRouterKey: readKey, allowBrowserVoice: false }); })
+							.catch(() => { voice = null; setDiag('Could not load the cloud voice model; staying on tones.', true); });
+					}
+				} else {
+					mode = 'tones';
+					cloudHint.innerHTML = 'This demo is fully live without a key — every beat plays synthesized tones. To hear <b>real words</b>, connect an OpenRouter key (bring-your-own-key, stored only in your browser). Suono itself never holds a key.';
+					const connect = document.createElement('a');
+					connect.className = 'btn primary'; connect.href = '/playground/'; connect.textContent = 'Connect a key in the Playground →';
+					const getKey = document.createElement('a');
+					getKey.className = 'btn'; getKey.href = 'https://openrouter.ai/keys'; getKey.target = '_blank'; getKey.rel = 'noopener'; getKey.textContent = 'Get a key';
+					cloudControls.append(connect, getKey);
+					usageEl.hidden = true;
+				}
+			}
+			// React to a key connected in another tab (the shared BYOK key).
+			addEventListener('storage', (e) => { if (e.key === OR_KEY_LS) refreshCloud(); });
+			refreshCloud();
+
+			// ── Boot ──────────────────────────────────────────────────────────────────────
+			renderScore(true);
+			tickClock();
+		</script>
+	</body>
+</html>

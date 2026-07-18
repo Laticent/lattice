@@ -97,6 +97,11 @@ const STEPS = [
   // Cadenza's dist/ must exist on disk BEFORE read-along-core bundles it in.
   { label: 'Cadenza library dist (CJS + .d.ts)', script: 'build-cadenza-lib.js' },
   { label: 'Vetrina library dist (CJS + .d.ts)', script: 'build-vetrina-lib.js' },
+  // Lente has no root CJS consumer today, but its package.json promises
+  // ./dist/index.cjs (main/require) and it is a workspace member, so it must
+  // build like its siblings or `require('@slidewright/lente')` / publish break.
+  { label: 'Lente library dist (CJS + .d.ts)', script: 'build-lente-lib.js' },
+  { label: 'Suono library dist (CJS + .d.ts)', script: 'build-suono-lib.js' },
   { label: 'read-along-core bundle (docs site)', script: 'build-read-along-core.js' },
   // Capability index — reads package.json scripts + tools/ headers (source,
   // not built artifacts), so order-independent; grouped with the generators.
@@ -108,18 +113,23 @@ const STEPS = [
   { label: 'dist README', script: 'build-dist-readme.js' },
 ];
 
-// The two slowest steps (non-incremental `tsc --emitDeclarationOnly`, ~37% of
-// build:check's total wall time) have no ordering dependency on anything
-// EXCEPT read-along-core, which needs Cadenza's dist/ on disk (see the STEPS
-// comment above). Run them in the background as soon as the pipeline starts;
-// join right before read-along-core, the one step that actually needs to wait.
-// Conservative scope: just these two, not a full 26-step dependency-tier
+// The slowest steps (non-incremental `tsc --emitDeclarationOnly`) have no
+// ordering dependency on anything EXCEPT read-along-core, which needs Cadenza's
+// dist/ on disk (see the STEPS comment above). Run them in the background as
+// soon as the pipeline starts; join right before read-along-core, the one step
+// that actually needs to wait. Each -lib script stages into its own
+// `${dist}.tmp` sibling and touches only its own lib dir, so the three run
+// collision-free; Lente/Vetrina aren't read-along inputs, so joining them at
+// that point is incidental (harmless), not a dependency.
+// Conservative scope: just these library dists, not a full 26-step dependency-tier
 // reorg (the other steps' temp-path usage across all 26 scripts isn't
 // audited, so parallelizing further risks output collisions this narrow slice
 // avoids by construction).
 const BACKGROUND_LABELS = new Set([
   'Cadenza library dist (CJS + .d.ts)',
   'Vetrina library dist (CJS + .d.ts)',
+  'Lente library dist (CJS + .d.ts)',
+  'Suono library dist (CJS + .d.ts)',
 ]);
 const JOIN_BEFORE_SCRIPT = 'build-read-along-core.js';
 

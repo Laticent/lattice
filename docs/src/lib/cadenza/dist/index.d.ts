@@ -1,3 +1,5 @@
+export type { Narration } from './builder';
+export { narration } from './builder';
 export type { Pace } from './cadence';
 export { CLIP_TRAILING_FRACTION, clipTrailingMs, estimateWordMs, FINAL_LENGTHEN_MS, interCueGapMs, PACE_WPM, PARAGRAPH_PAUSE_MS, pauseAfter, readMs, SYLLABLE_MS, syllableCount, } from './cadence';
 export type { CalibrationState } from './calibrate';

@@ -80,6 +80,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `katex-provider:watch` | Rebuild the katex-provider bundle on change. |
 | `layout-core:build` | Bundle the pure Layout Studio core for the browser (docs site). |
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
+| `lente-lib:build` | Build the Lente library dist/ (CJS + .d.ts, esbuild + tsc) so require('@slidewright/lente') and npm publish resolve — the fourth spin-off sibling's node-consumable artifact. |
+| `lente-lib:check` | Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts). |
 | `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
 | `player-core:check` | Freshness gate for the player-core Playground bundle. |
 | `player-prune:build` | Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces. |
@@ -98,6 +100,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `stage-catalog:check` | Freshness gate for the generated stage-cell catalog. |
 | `standalone-core:build` | Bundle the standalone chart-SVG export core for the browser (docs site). |
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
+| `suono-lib:build` | Build the Suono library dist/ (CJS + .d.ts, esbuild + tsc) so require('@slidewright/suono') and npm publish resolve — the audio engine's node-consumable artifact. |
+| `suono-lib:check` | Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts). |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
 | `theme-core:check` | Freshness gate for the theme-core bundle. |
 | `vetrina-lib:build` | Build the Vetrina library dist/ (two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine. |
@@ -314,6 +318,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
+| `tools/build-lente-lib.js` | Build the Lente library's node-consumable dist/ — the CJS entry + type |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |
@@ -321,6 +326,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
 | `tools/build-stage-catalog.js` | Generates lib/forms/cell/masthead/stage-catalog.generated.js — a plain CJS |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
+| `tools/build-suono-lib.js` | Build the Suono library's node-consumable dist/ — the CJS entry + type |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's node-consumable dist/ — the CJS entries + type |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |

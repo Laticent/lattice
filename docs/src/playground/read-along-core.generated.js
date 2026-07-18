@@ -51,6 +51,7 @@ var require_dist = __commonJS({
       lookupLexicon: () => lookupLexicon,
       makeCursor: () => makeCursor,
       makeReader: () => makeReader,
+      narration: () => narration,
       numberToWords: () => numberToWords,
       observe: () => observe,
       pauseAfter: () => pauseAfter,
@@ -70,6 +71,168 @@ var require_dist = __commonJS({
       unmatchedAcronyms: () => unmatchedAcronyms
     });
     module.exports = __toCommonJS(index_exports);
+    var CALIBRATION_WINDOW = 15;
+    var CALIBRATION_MIN_N = 5;
+    var CALIBRATION_MIN_K = 0.6;
+    var CALIBRATION_MAX_K = 1.6;
+    var SAMPLE_MIN_RATIO = 0.2;
+    var SAMPLE_MAX_RATIO = 5;
+    function emptyCalibration() {
+      return { samples: [], n: 0, updatedAt: 0 };
+    }
+    function observe(state, estDurMs, measuredDurMs, atMs) {
+      if (!Number.isFinite(estDurMs) || !Number.isFinite(measuredDurMs) || estDurMs <= 0 || measuredDurMs <= 0) {
+        return state;
+      }
+      const ratio = measuredDurMs / estDurMs;
+      if (ratio < SAMPLE_MIN_RATIO || ratio > SAMPLE_MAX_RATIO) return state;
+      const samples = state.samples.concat(ratio);
+      if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
+      return {
+        samples,
+        n: state.n + 1,
+        updatedAt: atMs ?? state.updatedAt
+      };
+    }
+    function median(xs) {
+      if (!xs.length) return 1;
+      const s = xs.slice().sort((a, b) => a - b);
+      const mid = s.length >> 1;
+      return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    }
+    function rateScale(state) {
+      if (!state || state.n < CALIBRATION_MIN_N || !state.samples.length) return 1;
+      const k = median(state.samples);
+      return Math.min(CALIBRATION_MAX_K, Math.max(CALIBRATION_MIN_K, k));
+    }
+    function serializeCalibration(state) {
+      return { samples: state.samples.slice(), n: state.n, updatedAt: state.updatedAt };
+    }
+    function deserializeCalibration(raw) {
+      if (!raw || typeof raw !== "object") return emptyCalibration();
+      const r = raw;
+      const samples = Array.isArray(r.samples) ? r.samples.filter((x) => typeof x === "number" && Number.isFinite(x)) : [];
+      if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
+      const n = typeof r.n === "number" && Number.isFinite(r.n) ? Math.max(0, Math.floor(r.n)) : samples.length;
+      const updatedAt = typeof r.updatedAt === "number" && Number.isFinite(r.updatedAt) ? r.updatedAt : 0;
+      return { samples, n, updatedAt };
+    }
+    function cloneTrack(track) {
+      return {
+        durationMs: track.durationMs,
+        cues: track.cues.map((c) => ({ ...c, words: c.words.map((w) => ({ ...w })) }))
+      };
+    }
+    function makeCursor(input) {
+      const track = cloneTrack(input);
+      let flat = [];
+      const reindex = () => {
+        flat = [];
+        track.cues.forEach((cue, cueIndex) => {
+          cue.words.forEach((w, wordIndex) => {
+            flat.push({ cueIndex, wordIndex, startMs: w.startMs, endMs: w.endMs });
+          });
+        });
+      };
+      reindex();
+      const cursor = {
+        at(timeMs) {
+          if (!flat.length || timeMs < flat[0].startMs) return null;
+          let lo = 0;
+          let hi = flat.length - 1;
+          let idx = -1;
+          while (lo <= hi) {
+            const mid = lo + hi >> 1;
+            if (flat[mid].startMs <= timeMs) {
+              idx = mid;
+              lo = mid + 1;
+            } else {
+              hi = mid - 1;
+            }
+          }
+          if (idx < 0) return null;
+          const w = flat[idx];
+          if (idx === flat.length - 1 && timeMs >= w.endMs) return null;
+          return { cueIndex: w.cueIndex, wordIndex: w.wordIndex };
+        },
+        align(cueIndex, onsetMs, durationMs) {
+          const cue = track.cues[cueIndex];
+          if (!cue?.words.length) return cursor;
+          const dur = Math.max(0, durationMs);
+          const estStart = cue.startMs;
+          const estDur = Math.max(1, cue.endMs - cue.startMs);
+          const oldEnd = cue.endMs;
+          const scale = dur / estDur;
+          for (const w of cue.words) {
+            w.startMs = onsetMs + (w.startMs - estStart) * scale;
+            w.endMs = onsetMs + (w.endMs - estStart) * scale;
+          }
+          cue.startMs = onsetMs;
+          cue.endMs = onsetMs + dur;
+          const delta = cue.endMs - oldEnd;
+          if (delta !== 0) {
+            for (let i = cueIndex + 1; i < track.cues.length; i++) {
+              const c = track.cues[i];
+              c.startMs += delta;
+              c.endMs += delta;
+              for (const w of c.words) {
+                w.startMs += delta;
+                w.endMs += delta;
+              }
+            }
+          }
+          track.durationMs = track.cues.length ? track.cues[track.cues.length - 1].endMs : 0;
+          reindex();
+          return cursor;
+        },
+        track() {
+          return track;
+        }
+      };
+      return cursor;
+    }
+    function sameActive(a, b) {
+      if (a === b) return true;
+      if (!a || !b) return false;
+      return a.cueIndex === b.cueIndex && a.wordIndex === b.wordIndex;
+    }
+    function makeReader(opts) {
+      const cursor = makeCursor(opts.track);
+      let last = null;
+      let ended = false;
+      const reader = {
+        sync(nowMs) {
+          const active = cursor.at(nowMs);
+          if (!sameActive(active, last)) {
+            last = active;
+            opts.onWord?.(active);
+          }
+          const total = cursor.track().durationMs;
+          if (!ended && total > 0 && nowMs >= total) {
+            ended = true;
+            opts.onEnd?.();
+          }
+          return active;
+        },
+        align(cueIndex, onsetMs, durationMs) {
+          cursor.align(cueIndex, onsetMs, durationMs);
+        },
+        current() {
+          return last;
+        },
+        durationMs() {
+          return cursor.track().durationMs;
+        },
+        trackNow() {
+          return cursor.track();
+        },
+        reset() {
+          last = null;
+          ended = false;
+        }
+      };
+      return reader;
+    }
     var BASE = {
       // Fiscal periods, no attached year (FY26 / 4Q24 / 1H26 carry a year and are parsed
       // in normalize.ts). Quarters read as ordinals ("third quarter"), the natural form.
@@ -600,168 +763,6 @@ var require_dist = __commonJS({
       const raw = 300 + 6e4 / PACE_WPM[pace] * words;
       return Math.round(Math.min(6e3, Math.max(1e3, raw)));
     }
-    var CALIBRATION_WINDOW = 15;
-    var CALIBRATION_MIN_N = 5;
-    var CALIBRATION_MIN_K = 0.6;
-    var CALIBRATION_MAX_K = 1.6;
-    var SAMPLE_MIN_RATIO = 0.2;
-    var SAMPLE_MAX_RATIO = 5;
-    function emptyCalibration() {
-      return { samples: [], n: 0, updatedAt: 0 };
-    }
-    function observe(state, estDurMs, measuredDurMs, atMs) {
-      if (!Number.isFinite(estDurMs) || !Number.isFinite(measuredDurMs) || estDurMs <= 0 || measuredDurMs <= 0) {
-        return state;
-      }
-      const ratio = measuredDurMs / estDurMs;
-      if (ratio < SAMPLE_MIN_RATIO || ratio > SAMPLE_MAX_RATIO) return state;
-      const samples = state.samples.concat(ratio);
-      if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
-      return {
-        samples,
-        n: state.n + 1,
-        updatedAt: atMs ?? state.updatedAt
-      };
-    }
-    function median(xs) {
-      if (!xs.length) return 1;
-      const s = xs.slice().sort((a, b) => a - b);
-      const mid = s.length >> 1;
-      return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-    }
-    function rateScale(state) {
-      if (!state || state.n < CALIBRATION_MIN_N || !state.samples.length) return 1;
-      const k = median(state.samples);
-      return Math.min(CALIBRATION_MAX_K, Math.max(CALIBRATION_MIN_K, k));
-    }
-    function serializeCalibration(state) {
-      return { samples: state.samples.slice(), n: state.n, updatedAt: state.updatedAt };
-    }
-    function deserializeCalibration(raw) {
-      if (!raw || typeof raw !== "object") return emptyCalibration();
-      const r = raw;
-      const samples = Array.isArray(r.samples) ? r.samples.filter((x) => typeof x === "number" && Number.isFinite(x)) : [];
-      if (samples.length > CALIBRATION_WINDOW) samples.splice(0, samples.length - CALIBRATION_WINDOW);
-      const n = typeof r.n === "number" && Number.isFinite(r.n) ? Math.max(0, Math.floor(r.n)) : samples.length;
-      const updatedAt = typeof r.updatedAt === "number" && Number.isFinite(r.updatedAt) ? r.updatedAt : 0;
-      return { samples, n, updatedAt };
-    }
-    function cloneTrack(track) {
-      return {
-        durationMs: track.durationMs,
-        cues: track.cues.map((c) => ({ ...c, words: c.words.map((w) => ({ ...w })) }))
-      };
-    }
-    function makeCursor(input) {
-      const track = cloneTrack(input);
-      let flat = [];
-      const reindex = () => {
-        flat = [];
-        track.cues.forEach((cue, cueIndex) => {
-          cue.words.forEach((w, wordIndex) => {
-            flat.push({ cueIndex, wordIndex, startMs: w.startMs, endMs: w.endMs });
-          });
-        });
-      };
-      reindex();
-      const cursor = {
-        at(timeMs) {
-          if (!flat.length || timeMs < flat[0].startMs) return null;
-          let lo = 0;
-          let hi = flat.length - 1;
-          let idx = -1;
-          while (lo <= hi) {
-            const mid = lo + hi >> 1;
-            if (flat[mid].startMs <= timeMs) {
-              idx = mid;
-              lo = mid + 1;
-            } else {
-              hi = mid - 1;
-            }
-          }
-          if (idx < 0) return null;
-          const w = flat[idx];
-          if (idx === flat.length - 1 && timeMs >= w.endMs) return null;
-          return { cueIndex: w.cueIndex, wordIndex: w.wordIndex };
-        },
-        align(cueIndex, onsetMs, durationMs) {
-          const cue = track.cues[cueIndex];
-          if (!cue?.words.length) return cursor;
-          const dur = Math.max(0, durationMs);
-          const estStart = cue.startMs;
-          const estDur = Math.max(1, cue.endMs - cue.startMs);
-          const oldEnd = cue.endMs;
-          const scale = dur / estDur;
-          for (const w of cue.words) {
-            w.startMs = onsetMs + (w.startMs - estStart) * scale;
-            w.endMs = onsetMs + (w.endMs - estStart) * scale;
-          }
-          cue.startMs = onsetMs;
-          cue.endMs = onsetMs + dur;
-          const delta = cue.endMs - oldEnd;
-          if (delta !== 0) {
-            for (let i = cueIndex + 1; i < track.cues.length; i++) {
-              const c = track.cues[i];
-              c.startMs += delta;
-              c.endMs += delta;
-              for (const w of c.words) {
-                w.startMs += delta;
-                w.endMs += delta;
-              }
-            }
-          }
-          track.durationMs = track.cues.length ? track.cues[track.cues.length - 1].endMs : 0;
-          reindex();
-          return cursor;
-        },
-        track() {
-          return track;
-        }
-      };
-      return cursor;
-    }
-    function sameActive(a, b) {
-      if (a === b) return true;
-      if (!a || !b) return false;
-      return a.cueIndex === b.cueIndex && a.wordIndex === b.wordIndex;
-    }
-    function makeReader(opts) {
-      const cursor = makeCursor(opts.track);
-      let last = null;
-      let ended = false;
-      const reader = {
-        sync(nowMs) {
-          const active = cursor.at(nowMs);
-          if (!sameActive(active, last)) {
-            last = active;
-            opts.onWord?.(active);
-          }
-          const total = cursor.track().durationMs;
-          if (!ended && total > 0 && nowMs >= total) {
-            ended = true;
-            opts.onEnd?.();
-          }
-          return active;
-        },
-        align(cueIndex, onsetMs, durationMs) {
-          cursor.align(cueIndex, onsetMs, durationMs);
-        },
-        current() {
-          return last;
-        },
-        durationMs() {
-          return cursor.track().durationMs;
-        },
-        trackNow() {
-          return cursor.track();
-        },
-        reset() {
-          last = null;
-          ended = false;
-        }
-      };
-      return reader;
-    }
     function buildTrack(text, opts = {}) {
       const pace = opts.pace ?? "moderate";
       const rateScale2 = opts.rateScale ?? 1;
@@ -845,6 +846,48 @@ ${escapeCueText(cue.display)}
         );
       });
       return blocks.join("\n");
+    }
+    function narration(text) {
+      const opts = {};
+      const b = {
+        pace(p) {
+          opts.pace = p;
+          return b;
+        },
+        acronyms(reg) {
+          opts.acronyms = reg;
+          return b;
+        },
+        lang(tag) {
+          opts.lang = tag;
+          return b;
+        },
+        rate(scale) {
+          opts.rateScale = scale;
+          return b;
+        },
+        calibration(state) {
+          opts.rateScale = rateScale(state);
+          return b;
+        },
+        lexicon(map) {
+          opts.lexicon = map;
+          return b;
+        },
+        toTrack() {
+          return buildTrack(text, opts);
+        },
+        toReader(handlers) {
+          return makeReader({ track: buildTrack(text, opts), ...handlers });
+        },
+        toVtt() {
+          return toVtt(buildTrack(text, opts));
+        },
+        toSrt() {
+          return toSrt(buildTrack(text, opts));
+        }
+      };
+      return b;
     }
   }
 });
