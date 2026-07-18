@@ -92,6 +92,24 @@ keyboard, so this cannot be confirmed here):**
 
 The always-docked fallback means each of these degrades to "docked bottom bar" rather than breaking.
 
+## Follow-on: register-apply hardening (the `- > > > >` bug)
+
+Testing slice 1 on-device surfaced a **pre-existing** correctness bug the rail made easy to hit:
+tapping Key-insight (❦) with the caret in a list item nested a blockquote every tap
+(`- > > > >`), unbounded. Red-team + inversion found the root cause: a register that **mutates a
+different block than its detector reads** never toggles off. `insight` wrapped the *inner* block
+(the paragraph inside the list item) via `wrapIn`, while `activeRegister` inspected the *top-level*
+block (the list) — so `current` was never `insight` and every tap re-wrapped.
+
+Fix: the apply/detect logic moved to a pure kernel `docs/src/lib/compose/registers.ts` with one
+invariant — **a register mutates and detects the SAME top-level block, and is a strict no-op unless
+that block is a type it can validly render from** (paragraph/heading; plus blockquote for insight's
+toggle-off). `insight` now branches on block KIND (blockquote → unwrap; paragraph → wrap in place if
+last, else move to slide end; else no-op), `h1`/`h2` guard to paragraph/heading, and a cross-slide
+selection is a no-op. Every register is now an idempotent toggle that cannot nest. Guarded by
+`registers.test.ts` (8 stress cases incl. the exact repro). Landed on this branch (HARD RULE #18 —
+a defect the change's own surface exposed, fixed in place).
+
 ## Slice 2 (pending, separate branch/PR — HARD RULE #17)
 
 Band consolidation (remove the in-pane EDIT header on mobile; relocate Insert → rail, Fix-all →

@@ -412,6 +412,21 @@ in patch versions.
   `lib/base/base.docs.md`; design in
   `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
 
+### Fixed
+
+- **Applying a Compose grammar register (Key-insight / heading / note) can no longer nest or apply
+  without bound.** With the caret in a list item, tapping Key-insight (❦) wrapped the *inner* block
+  in a fresh blockquote every tap while the "already an insight?" detector only read the *top-level*
+  list — so the two never agreed and the source grew `- > > > >` without limit (found on-device via
+  the new keyboard rail, which makes registers easy to tap repeatedly). The register apply/detect
+  logic is now a pure, unit-tested kernel (`docs/src/lib/compose/registers.ts`) with one invariant:
+  a register MUTATES and DETECTS the same top-level block, and is a strict **no-op** unless that block
+  is a type it can validly render from (paragraph/heading; plus blockquote for Key-insight's
+  toggle-off). Every register is now an idempotent toggle that can never nest — Key-insight on a list,
+  a heading in a list, a note in a list, and a cross-slide selection are all no-ops; on a plain
+  paragraph each applies once and toggles cleanly back off. Guarded by `registers.test.ts` (8 stress
+  cases, including the exact `- > > > >` repro). (`ComposeView.tsx` now imports the kernel.)
+
 ### Changed
 
 - **A diagram slide now renders as a diagram in the Studio editing preview, not raw code.** The main
