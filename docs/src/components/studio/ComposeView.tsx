@@ -208,7 +208,7 @@ const LUCIDE_PATHS: Record<string, string> = {
 	'chevrons-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
-	return `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
+	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
 }
 
 // A per-slide NodeView: renders the slide's content plus a control bar on its divider line
@@ -593,7 +593,7 @@ function ComposeStyles() {
 			.cs-sb-zone{position:relative;display:flex;gap:5px;padding:0 7px;background:transparent}
 			.cs-slide-active > .cs-slide-bar .cs-sb-zone{background:var(--bg,#fff)}
 			/* slide-control button — DISTINCT class from the selection bar's .cs-sb-btn */
-			.cs-sc-btn{width:24px;height:22px;border-radius:6px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
+			.cs-sc-btn{width:21px;height:19px;border-radius:5px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
 			.cs-slide-active > .cs-slide-bar .cs-sc-btn{display:flex}
 			.cs-sc-btn svg{display:block}
 			.cs-sc-btn:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
