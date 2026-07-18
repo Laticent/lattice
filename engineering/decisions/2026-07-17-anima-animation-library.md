@@ -336,15 +336,18 @@ to the poster for a scene whose whole content is vestibular.
    stroke-reveal drawing verbs. The second first-class vector engine — a drawn diagram/route renders
    live + poster. Both vector engines land **before** the gated Three tier.
 4. **The `kind:'scene'` asset** — extend `asset-bundle.ts` / `asset-store` with the scene kind
-   (spec + poster + metadata; the `source: svg` art for a Vivus scene); save/load/share.
+   (spec + poster + metadata; the `source: svg` art for a Vivus scene); save/load/share. Record
+   shape + poster-storage decision: `2026-07-18-anima-motion-faculty-modes.md` §4.
 5. **The host `scene` component** (imagery) — the image-mirrored variants; asset → Anima mount;
    poster wired into the PDF path. Demo deck (#9); dark+light **export sign-off** (QUALITY BAR).
 6. **Reduced-motion + present-mode wiring** — the three tiers; live on HTML export + Studio present,
    poster on PDF and `still`.
-7. **The scene-inspector + LLM create/tune loop** — the Studio surface + the Anima knowledge file &
-   generator (extending the component-generator contract); a frozen adversarial prompt set with a
-   **decline case** (an ornament/bouncing-ball request must be refused and routed to `image`) and a
-   **poster-determinism** case.
+7. **The Motion faculty + LLM create/tune loop** — the Studio surface, shaped as author-persona
+   **modes over one scene spec** (v1: Director Mode/Guided + Rig Mode; shared chrome + swappable tune body):
+   `2026-07-18-anima-motion-faculty-modes.md`. Plus the Anima knowledge file & generator (extending
+   the component-generator contract); a frozen adversarial prompt set with a **decline case** (an
+   ornament/bouncing-ball request must be refused and routed to `image`) and a **poster-determinism**
+   case.
 8. **Three.js backend** (GATED, may be cut) — `caps:{true3d,gltf,live}`, present-only,
    raster-or-override poster, capability-negotiated. Ships only if a real §2 case earns the weight.
    **Library-shape packaging** and **a second host / layered co-render** remain deferred.
@@ -361,7 +364,9 @@ to the poster for a scene whose whole content is vestibular.
   theme (the poster is a thumbnail, not the canonical artifact) — which also means §7's "unchanged
   plumbing" is false and Vivus's source markup must reach the export Chromium. This is an
   export-sign-off-gated decision; Stages 2–3 render live/verification posters only, no theme-frozen
-  poster is wired into any export.
+  poster is wired into any export. **Storage side now resolved** (`2026-07-18-anima-motion-faculty-modes.md`
+  §4.1): the *stored* asset poster keeps `var(--token)` (option (a)) and the spec is canonical; the
+  *export* choice (a) vs (b) stays open + Stage-5 sign-off-gated.
 - The `SceneState` IR — the engine-neutral intersection and how `caps` gate the extras (§13).
 - The closed primitive + motion vocabulary, keyed to the §2 serious classes (which Zdog shapes;
   the motion roles + params; how `sequence`/`fill`/`explode` are declared).
