@@ -36,6 +36,29 @@ function frame() {
 const vtt = toVtt(track);
 ```
 
+### Or chain it — the `narration()` front door
+
+`buildTrack`, `makeReader`, `toVtt`, and `toSrt` each take an overlapping slice of the same
+options. `narration()` collects the config once, then emits any output — **configure once, emit
+many**:
+
+```ts
+import { narration } from './cadenza';
+
+const n = narration('Revenue grew to $4.2M. We beat plan by eight points.')
+  .pace('moderate')
+  .lexicon(deckLexicon)
+  .calibration(voiceState);   // derive the pace multiplier from a measured voice
+
+const track  = n.toTrack();                          // === buildTrack(text, options)
+const reader = n.toReader({ onWord: highlight });    // === makeReader({ track, onWord })
+const vtt    = n.toVtt();                             // === toVtt(buildTrack(text, options))
+```
+
+It is **pure sugar** — each terminal is exactly the matching call, guarded by a parity test — and a
+*config* builder, never a cue assembler: you can't hand-build the timeline, so the display / spoken /
+timing forms can't desync, and Cadenza stays "not a decider of what to say."
+
 ## The one idea — a timeline is data; the clock is someone else's
 
 Everything Cadenza produces is plain data. What drives *time* is injected by the

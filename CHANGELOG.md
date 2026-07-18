@@ -222,6 +222,14 @@ in patch versions.
   chrome-exempt SOVEREIGN frame (`lib/forms/frame/scene/`); wired once for every render path through
   the transformer registry. Demo deck: `examples/scene.md`.
   See `engineering/decisions/2026-07-18-anima-motion-faculty-modes.md` §5.
+- **`@slidewright/cadenza` gains a fluent `narration()` front door — configure once, emit many.**
+  `buildTrack`, `makeReader`, `toVtt`, and `toSrt` each take an overlapping slice of the same
+  options; instead of rebuilding that bag per output, chain
+  `narration(text).pace('moderate').lexicon(map).calibration(state)` then emit `.toTrack()` /
+  `.toReader({onWord})` / `.toVtt()` / `.toSrt()`. It is **pure sugar** — each terminal is exactly
+  the matching call, guarded by a parity test — and a *config* builder, not a cue assembler: you
+  never hand-build the timeline, so the display/spoken/timing forms cannot desync and Cadenza stays
+  "not a decider of what to say." (`docs/src/lib/cadenza/builder.ts`, exported from `index.ts`.)
 - **`@slidewright/lente` gains a fluent `lens()` read-path front door.** Instead of threading
   `(slides, registry, lensId)` through every call, chain it once:
   `lens(slides).registry(frontMatter).pick('brief').project()` — with terminals `.project()` /

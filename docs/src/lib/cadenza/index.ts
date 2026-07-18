@@ -5,6 +5,10 @@
 // The one authoring/serialization boundary a consumer needs; everything else
 // (playback, highlighting, deciding WHAT to say) is the consumer's job.
 
+export type { Narration } from './builder';
+// Fluent CONFIG front door — configure once (pace/acronyms/lang/rate/lexicon), emit many
+// (toTrack/toReader/toVtt/toSrt). Pure sugar over buildTrack/makeReader/toVtt/toSrt.
+export { narration } from './builder';
 export type { Pace } from './cadence';
 export {
   CLIP_TRAILING_FRACTION,
