@@ -121,6 +121,8 @@ const SCRIPT_META = {
   'cadenza-lib:check':        ['Build & bundle', 'Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts).'],
   'vetrina-lib:build':        ['Build & bundle', 'Build the Vetrina library dist/ (two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine.'],
   'vetrina-lib:check':        ['Build & bundle', 'Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts).'],
+  'lente-lib:build':          ['Build & bundle', 'Build the Lente library dist/ (CJS + .d.ts, esbuild + tsc) so require(\'@slidewright/lente\') and npm publish resolve — the fourth spin-off sibling\'s node-consumable artifact.'],
+  'lente-lib:check':          ['Build & bundle', 'Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts).'],
   'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter.'],
   'decisions:index:check':    ['Build & bundle', 'Freshness gate for the decisions-index (stale vs the notes\' front-matter).'],
 

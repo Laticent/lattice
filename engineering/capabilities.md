@@ -80,6 +80,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `katex-provider:watch` | Rebuild the katex-provider bundle on change. |
 | `layout-core:build` | Bundle the pure Layout Studio core for the browser (docs site). |
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
+| `lente-lib:build` | Build the Lente library dist/ (CJS + .d.ts, esbuild + tsc) so require('@slidewright/lente') and npm publish resolve — the fourth spin-off sibling's node-consumable artifact. |
+| `lente-lib:check` | Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts). |
 | `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
 | `player-core:check` | Freshness gate for the player-core Playground bundle. |
 | `player-prune:build` | Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces. |
@@ -314,6 +316,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
+| `tools/build-lente-lib.js` | Build the Lente library's node-consumable dist/ — the CJS entry + type |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |

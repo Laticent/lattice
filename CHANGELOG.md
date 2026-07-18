@@ -222,6 +222,16 @@ in patch versions.
   chrome-exempt SOVEREIGN frame (`lib/forms/frame/scene/`); wired once for every render path through
   the transformer registry. Demo deck: `examples/scene.md`.
   See `engineering/decisions/2026-07-18-anima-motion-faculty-modes.md` §5.
+- **`@slidewright/lente` now builds a node-consumable `dist/`, so `require('@slidewright/lente')`
+  and `npm publish` resolve.** Lente's `package.json` already declared `main`/`require` →
+  `./dist/index.cjs` and it was an npm-workspace member, but no build ever produced that file —
+  requiring the package (or publishing it) hit a missing entry. It now builds like its siblings via
+  `tools/build-lente-lib.js` (esbuild CJS + `tsc` `.d.ts`), is wired into `npm run build` and the
+  freshness gate (`build:check`), and its committed `dist/` is un-ignored past `docs/.gitignore` —
+  completing the library-shape recipe the Lente ADR always called for. The docs runtime is
+  unchanged (docs + Vitest still import the `./index.ts` source via the `import`/`types` conditions).
+  (`tools/build-lente-lib.js`, `tools/build.js`, `docs/src/lib/lente/dist/`;
+  `engineering/decisions/2026-07-13-lente-reader-lenses.md`.)
 - **Compose — a rich editing mode for the Studio, so you never have to see markdown.** The editor pane
   gains a **Markdown ↔ Compose** toggle. Compose is a calm serif writing surface (the "Quiet Page"
   design) where the whole deck is one continuous note: you type rich text, and a quiet left-margin
