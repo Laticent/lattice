@@ -43,6 +43,7 @@ import {
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
+import { createAnimaScenes } from '@/playground/anima-scenes.ts';
 import { createChartInteract } from '@/playground/chart-interact.js';
 import { applyDebug } from '@/playground/debug-overlay.js';
 import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
@@ -192,6 +193,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// each render (a srcdoc rewrite replaces the iframe doc). Export untouched.
 	const chartInteractRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	const videoOverlayRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
+	// Parent-hosted Anima scene hydration — brings a `scene` slide's poster to life on the
+	// live preview (Stage 6). Created on mount, re-bound after each render (a srcdoc rewrite
+	// replaces the iframe doc). Export untouched (poster still).
+	const animaScenesRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	// Chart detail reveal — the parent-hosted chart-interact layer hands us the hovered
 	// mark's detail + the cursor point; we render it as the real shadcn Popover, anchored
 	// to a virtual element at that point (so it sits right by the pointer). `body`/`meta`
@@ -331,6 +336,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const onFrameLoad = React.useCallback(() => {
 		applyDebug(frameRef.current, { force: forceRef.current });
 		videoOverlayRef.current?.rebind();
+		animaScenesRef.current?.rebind();
 		// Close the expand-during-srcdoc-load race: an expand that fired before the
 		// fresh document defined __latticeFit would silently no-op; the loaded doc
 		// re-fits itself here against the now-final pane width.
@@ -426,6 +432,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				chartInteractRef.current?.rebind();
 				// Re-install the parent-hosted video playback bridge on the (possibly new) frame.
 				videoOverlayRef.current?.rebind();
+				// Re-hydrate Anima scenes on the (possibly new) frame document.
+				animaScenesRef.current?.rebind();
 				// Re-apply the debug overlay: a section PATCH keeps the doc live but swaps
 				// the <section> nodes the chips were bound to, so the agent must redraw.
 				// (A full srcdoc write reloads → onFrameLoad handles that; this no-ops
@@ -620,11 +628,17 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// (never an iframe inside the slide — #22 + the iOS scaled-iframe traps).
 		const vo = createVideoOverlay({ getFrame: () => frameRef.current ?? frame });
 		videoOverlayRef.current = vo;
+		// Parent-hosted Anima scene hydration (Stage 6): mount the backend + run the loop
+		// over the scene poster in the live preview.
+		const as = createAnimaScenes({ getFrame: () => frameRef.current ?? frame });
+		animaScenesRef.current = as;
 		return () => {
 			ci.destroy();
 			chartInteractRef.current = null;
 			vo.destroy();
 			videoOverlayRef.current = null;
+			as.destroy();
+			animaScenesRef.current = null;
 		};
 	}, []);
 

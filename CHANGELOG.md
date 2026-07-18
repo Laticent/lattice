@@ -216,6 +216,22 @@ in patch versions.
   `/suono` demo, which now wears the mark in its header + as its favicon. Establishes the **sibling
   brand-system** reference the other four libraries follow. (`docs/public/suono-{mark,mark-min,lockup}.svg`,
   `docs/src/pages/suono.astro`; `engineering/decisions/2026-07-18-sibling-brand-system.md`.)
+- **`scene` slides come alive on screen (Anima Stage 6).** A `scene` slide now carries an optional
+  **`anima` fenced block** — the motion SPEC (JSON) beside the poster still. In print the PDF freezes
+  the poster (unchanged); on the live surfaces the poster comes alive. A markdown-it rewriter packs the
+  spec onto the section as `data-scene-spec`, and a framework-free **host** (`docs/src/lib/anima/hydrate.ts`)
+  decodes + validates it (`parseScene`), negotiates a backend (built → Zdog, svg → Vivus), mounts it into
+  the scene's figure, and runs one `requestAnimationFrame` loop — looping for continuous motion
+  (spin/orbit), playing once and holding otherwise, with a replay control. Motion respects the
+  viewer's **`prefers-reduced-motion`** as an accessibility floor: a scene resolves to the `legible`
+  tier (the vestibular verbs spin/orbit suppressed, the meaning-bearing ones kept) or, when nothing
+  meaning-bearing survives, to the `still` poster. (A per-scene author tier override — the full
+  `full`/`legible`/`still` control — is a fast-follow.) **Live in the Studio Playground preview today**
+  (parent-hosted, mirroring the chart-interact / video-overlay pattern — no backend ships into the
+  frame; the untrusted spec is validated and svg source markup sanitized before it mounts);
+  **Present-mode and standalone-HTML-export hydration are a fast-follow (Stage 6b)**. Demo deck:
+  `examples/anima-scene.md` (its PDF shows the posters). See
+  `engineering/decisions/2026-07-17-anima-animation-library.md` §14.6.
 - **Add-slide is now a live-preview gallery, not a text list.** The Studio's “Insert a component”
   cmdk popup — a flat list of 56 names with no picture — is replaced by the **Slide Gallery**
   (`SlidePicker`): a grid where every tile is the REAL engine render of that component in your deck's

@@ -222,9 +222,19 @@ export function parseScene(input: unknown): ParseResult {
   return { ok: true, scene: input as unknown as Scene };
 }
 
-/** Convenience: the motion verbs used by a validated scene (deduped). */
+/** Convenience: the motion verbs used by a validated scene (deduped), RECURSING through
+ *  the built tree — a scene's motion routinely lives on a nested child (the canonical
+ *  "rotor spinning inside a housing" puts `spin` on a child), so a top-level-only walk
+ *  would miss it. (`requiredCaps` keeps its own draw-only top-level check — svg scenes,
+ *  the only ones with a cap-gated verb, are flat.) */
 export function usedVerbs(scene: Scene): MotionVerb[] {
   const set = new Set<MotionVerb>();
-  for (const el of scene.elements) for (const m of (el.motion ?? []) as Motion[]) set.add(m.verb);
+  const visit = (els: readonly { motion?: Motion[]; children?: unknown }[]): void => {
+    for (const el of els) {
+      for (const m of (el.motion ?? []) as Motion[]) set.add(m.verb);
+      if (Array.isArray(el.children)) visit(el.children as readonly { motion?: Motion[] }[]);
+    }
+  };
+  visit(scene.elements as readonly { motion?: Motion[]; children?: unknown }[]);
   return [...set];
 }
