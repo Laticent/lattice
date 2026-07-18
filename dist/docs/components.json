@@ -284,7 +284,7 @@
       ]
     }
   },
-  "count": 57,
+  "count": 58,
   "components": [
     {
       "name": "actors",
@@ -6607,6 +6607,200 @@
         }
       ],
       "galleryHref": "../../lib/components/chart/piechart/piechart.gallery.light.pdf"
+    },
+    {
+      "name": "policy-recommendation",
+      "bucket": "legal",
+      "function": "statement",
+      "form": "panel",
+      "substance": "structure",
+      "orientation": [
+        "landscape",
+        "portrait"
+      ],
+      "families": [
+        "wide",
+        "square",
+        "tall",
+        "strip"
+      ],
+      "adapt": {
+        "mode": "reflow",
+        "priority": [
+          "recommendation",
+          "ask",
+          "rationale",
+          "impact",
+          "eyebrow"
+        ]
+      },
+      "tags": [
+        "recommendation",
+        "regulation",
+        "risk",
+        "takeaway"
+      ],
+      "description": "A legislative recommendation — a stance verdict beside the recommendation, its evidence, and the specific ask to lawmakers.",
+      "purpose": "Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colours the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.",
+      "variants": [
+        "adopt",
+        "amend",
+        "oppose",
+        "defer"
+      ],
+      "effectiveVariants": [
+        "accent",
+        "adopt",
+        "amend",
+        "archived",
+        "claim-bleed",
+        "claim-framed",
+        "claim-hero",
+        "claim-quiet",
+        "compact",
+        "confidential",
+        "dark",
+        "defer",
+        "draft",
+        "form",
+        "insight-bottom-line",
+        "insight-implication",
+        "insight-key",
+        "insight-next-step",
+        "insight-our-view",
+        "insight-recommendation",
+        "insight-so-what",
+        "insight-takeaway",
+        "insight-the-ask",
+        "insight-verdict",
+        "insight-why",
+        "mark-orbit",
+        "mark-threads",
+        "no-footer",
+        "no-form",
+        "no-header",
+        "no-paginate",
+        "no-period",
+        "no-progress",
+        "oppose",
+        "pinned",
+        "redacted",
+        "revised",
+        "safe",
+        "scale-2xl",
+        "scale-l",
+        "scale-xl",
+        "silent",
+        "tbd",
+        "tint-corner at-tl",
+        "tint-edge at-right",
+        "tint-vignette",
+        "tone-fail",
+        "tone-pass",
+        "tone-skip",
+        "tone-warn",
+        "treatment-none",
+        "wip",
+        "with-period"
+      ],
+      "familyModifiers": [],
+      "capacity": {
+        "axis": "item",
+        "min": 2,
+        "sweet": 3,
+        "soft": 3,
+        "hard": 4,
+        "escalateTo": [
+          "list-criteria",
+          "split across slides"
+        ],
+        "note": "past four reasons the panel reads as a memo, not a recommendation — move the evidence to list-criteria and keep the recommendation slide to its strongest three"
+      },
+      "density": {
+        "axis": "item",
+        "soft": 20,
+        "hard": 28,
+        "note": "one reason + its cited evidence per row, ~18-20 words; the citation rides a nested inline-code chip"
+      },
+      "slots": {
+        "eyebrow": {
+          "selector": "p:first-of-type > code",
+          "required": false,
+          "description": "Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`)."
+        },
+        "recommendation": {
+          "selector": "h2",
+          "required": true,
+          "description": "The recommendation as a complete declarative sentence — the action you want taken, not a topic label."
+        },
+        "impact": {
+          "selector": "p",
+          "required": false,
+          "description": "One-sentence framing of the problem or stakes the recommendation addresses."
+        },
+        "rationale": {
+          "selector": "ul > li",
+          "required": true,
+          "description": "Two-to-four evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip."
+        },
+        "ask": {
+          "selector": "blockquote",
+          "required": false,
+          "description": "The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar."
+        }
+      },
+      "skeleton": "<!-- _class: policy-recommendation adopt -->\n\n`Bill reference · Domain`\n\n## The recommendation as a complete sentence.\n\nOne line naming the problem or the stakes.\n\n- First reason\n  - The evidence for it, with a `Citation` chip.\n- Second reason\n  - The evidence for it, with a `Citation` chip.\n- Third reason\n  - The evidence for it, with a `Citation` chip.\n\n> The specific legislative ask — sponsor, vote, or amend, with the section.\n",
+      "whenToUse": [
+        {
+          "title": "One recommendation, put to lawmakers",
+          "body": "When a brief must land a single policy ask — adopt, amend, oppose, or defer — with the evidence that earns it and the exact legislative move to make. The stance badge is the verdict; the ask is the call to action."
+        },
+        {
+          "title": "The stance sets the color",
+          "body": "Pick the variant by the posture: `adopt` (support, green), `amend` (conditional, amber), `oppose` (against, red), `defer` (study first, neutral). The badge, rail, and ask bar all take the stance color, so the reader sees the position before reading a word."
+        },
+        {
+          "title": "Reasons carry a citation",
+          "body": "Each reason leads with a bold claim and a nested evidence line ending in an inline-code citation chip. Without the chip the reason reads as opinion; with it, it earns its place in a legislative record."
+        }
+      ],
+      "antiPatterns": [
+        {
+          "title": "Weighing two options",
+          "body": "If the slide compares alternatives before choosing, use `split-compare` — its right zone is a 2-option grid plus a verdict card. policy-recommendation states one already-chosen position."
+        },
+        {
+          "title": "More than four reasons",
+          "body": "Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list-criteria`."
+        },
+        {
+          "title": "A recommendation with no ask",
+          "body": "Omitting the closing blockquote leaves the reader with a position but no action. Always name the specific legislative move — the bill, the section, the vote."
+        },
+        {
+          "title": "A topic-label heading",
+          "body": "`## Breach Notification` is a topic, not a recommendation. Say the action: `## Adopt a 30-day breach-notification deadline.`"
+        }
+      ],
+      "related": [
+        {
+          "name": "split-compare",
+          "when": "two options weighed before a verdict card"
+        },
+        {
+          "name": "decision",
+          "when": "naming a chosen path among options already presented"
+        },
+        {
+          "name": "list-criteria",
+          "when": "a flat enumeration of requirements without a stance or an ask"
+        },
+        {
+          "name": "regulatory-update",
+          "when": "a period digest of what changed, not a recommendation on one measure"
+        }
+      ],
+      "galleryHref": "../../lib/components/legal/policy-recommendation/policy-recommendation.gallery.light.pdf"
     },
     {
       "name": "pricing",
