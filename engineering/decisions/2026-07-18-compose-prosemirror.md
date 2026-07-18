@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Compose — a rich, calm editing MODE of the Studio editor pane (the "Quiet Page" design), rebuilt on ProseMirror as ONE continuous document (Option B) after an adversarial trio found the first Lexical version structurally unfit (lossy nested-list round-trip; corruption on selection; N stacked editors couldn't span slides). A DOM-less deck-model core (docs/src/lib/compose) round-trips a deck's markdown losslessly incl. the nested KPI/cards grammar; a quiet left-margin grammar gutter applies Lattice's registers to the caret's block. Both modes read/write the same source (HARD RULE #1). Slices 1–3 landed; hardening + the floating selection bar + a mobile pass pending.
+summary: Compose — a rich, calm editing MODE of the Studio editor pane (the "Quiet Page" design), rebuilt on ProseMirror as ONE continuous document (Option B) after an adversarial trio found the first Lexical version structurally unfit (lossy nested-list round-trip; corruption on selection; N stacked editors couldn't span slides). A DOM-less deck-model core (docs/src/lib/compose) round-trips a deck's markdown losslessly incl. the nested KPI/cards grammar; a quiet left-margin grammar gutter applies Lattice's registers to the caret's block, and a floating bar over a text selection applies inline marks (Bold/Italic/Code). Both modes read/write the same source (HARD RULE #1). Slices 1–3 + hardening + the selection bar landed and verified on the real Studio; a deeper mobile polish pass is the remaining follow-up.
 ---
 
 # Compose — the rich-markdown editing mode, on ProseMirror
@@ -63,6 +63,12 @@ registers (H1 / H2 / Eyebrow / Key-insight / Below-note) as a faint left rail, L
 for the block the caret is in, click-to-apply (the register transform). The empty
 margin becomes the toolbar; restraint is the statement. Light + dark.
 
+Inline formatting is the gutter's complement: a **floating selection bar** (Bold /
+Italic / Code) rises over a non-empty text selection — portaled to `<body>` so it
+clears the surface's `overflow:hidden` and `container-type` clipping — and flips below
+the selection near the viewport top. The gutter owns BLOCK registers; the bar owns
+INLINE marks, so the two never overlap.
+
 ## Hardening (the adversarial trio's findings, folded)
 
 A second trio (red-team · Munger inversion · independent checker) ran against the
@@ -101,7 +107,8 @@ surfaced four corruption/robustness vectors — all now fixed with tests:
   Key-insight, an em-dash paragraph as Below-note; Eyebrow vs Subtitle aren't distinguished.
   Labels only — it never corrupts source. First-class register attrs are future work.
 - Blank "spacer" slides are dropped by the shared `splitSlides` (filters empty chunks).
-- Mobile gutter + the floating selection bar are pending a visual pass.
+- A deeper mobile polish pass (gutter density, the selection bar's touch ergonomics) is
+  the remaining follow-up; the surface itself mounts and round-trips cleanly at 390px.
 - **HARD RULE #23:** the interactive editor surface (typing, focus/blur resync, list
   Enter/Tab, gutter clicks) needs verifying on the real built Studio in a browser — the lib
   round-trip tests are pure/headless and do not exercise `EditorView`.

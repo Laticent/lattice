@@ -2,10 +2,12 @@ import { baseKeymap, lift, setBlockType, toggleMark, wrapIn } from 'prosemirror-
 import { history, redo, undo } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
+import type { MarkType } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, docToDeck, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
 import { cn } from '@/lib/utils';
 
@@ -75,6 +77,38 @@ function applyRegister(view: EditorView, reg: Reg, current: Reg | null) {
 	view.focus();
 }
 
+// Whether a mark is on across the current selection (or in the stored marks at an
+// empty caret) — drives the floating bar's pressed state.
+function markActive(state: EditorState, type: MarkType): boolean {
+	const { from, to, empty, $from } = state.selection;
+	if (empty) return !!type.isInSet(state.storedMarks || $from.marks());
+	return state.doc.rangeHasMark(from, to, type);
+}
+
+// The floating selection bar's model: where to sit (viewport coords, so it portals to
+// <body> and dodges the surface's `overflow:hidden` + `container-type` clipping) and
+// which inline marks are live. null = no non-empty text selection, so no bar.
+type SelBar = { left: number; top: number; below: boolean; strong: boolean; em: boolean; code: boolean };
+
+function computeSelBar(view: EditorView): SelBar | null {
+	const { state } = view;
+	const sel = state.selection;
+	if (sel.empty || !(sel instanceof TextSelection)) return null;
+	const start = view.coordsAtPos(sel.from);
+	const end = view.coordsAtPos(sel.to);
+	const anchorTop = Math.min(start.top, end.top);
+	// Near the top of the viewport there's no room above — flip below the selection.
+	const below = anchorTop < 56;
+	return {
+		left: (start.left + end.left) / 2,
+		top: below ? Math.max(start.bottom, end.bottom) : anchorTop,
+		below,
+		strong: markActive(state, deckSchema.marks.strong),
+		em: markActive(state, deckSchema.marks.em),
+		code: markActive(state, deckSchema.marks.code),
+	};
+}
+
 function buildPlugins() {
 	return [
 		history(),
@@ -109,6 +143,10 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 	const pendingResyncRef = React.useRef<string | null>(null);
 	const [failed, setFailed] = React.useState(false);
 	const [active, setActive] = React.useState<Reg | null>(null);
+	// The floating selection bar (inline marks over a text selection), or null when there
+	// is no non-empty selection. The block registers live in the gutter; this bar is the
+	// inline complement — Bold / Italic / Code on the selected run.
+	const [selBar, setSelBar] = React.useState<SelBar | null>(null);
 
 	// Re-import `src` into the editor, rebuilding the emit baseline. Shared by the
 	// external-source effect and the on-blur flush.
@@ -134,6 +172,7 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 					const next = view.state.apply(tr);
 					view.updateState(next);
 					setActive(activeRegister(next));
+					setSelBar(computeSelBar(view));
 					if (tr.docChanged) {
 						// Edit-local emit: only the slide the caret changed is re-serialized;
 						// every untouched slide re-emits its cached bytes (baselineRef).
@@ -147,6 +186,7 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 				handleDOMEvents: {
 					// D2: on blur, apply any external source that arrived while focused.
 					blur() {
+						setSelBar(null); // the selection bar never outlives focus
 						const pending = pendingResyncRef.current;
 						if (pending != null && viewRef.current) {
 							try {
@@ -166,7 +206,13 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 		}
 		viewRef.current = view;
 		setActive(activeRegister(view.state));
+		// The floating bar is positioned in viewport coords; a scroll of the writing surface
+		// would strand it, so hide it on scroll (it returns on the next selection change).
+		const host = hostRef.current;
+		const hideBar = () => setSelBar(null);
+		host?.addEventListener('scroll', hideBar, { passive: true });
 		return () => {
+			host?.removeEventListener('scroll', hideBar);
 			view.destroy();
 			viewRef.current = null;
 			baselineRef.current = null;
@@ -197,6 +243,16 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 	const onGutter = React.useCallback((reg: Reg) => {
 		const view = viewRef.current;
 		if (view) applyRegister(view, reg, activeRegister(view.state));
+	}, []);
+
+	// Toggle an inline mark from the floating bar, keeping the selection (the buttons
+	// preventDefault on mousedown so focus never leaves the editor).
+	const onMark = React.useCallback((mark: 'strong' | 'em' | 'code') => {
+		const view = viewRef.current;
+		if (!view) return;
+		toggleMark(deckSchema.marks[mark])(view.state, view.dispatch);
+		view.focus();
+		setSelBar(computeSelBar(view));
 	}, []);
 
 	if (failed) {
@@ -233,6 +289,27 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 				</div>
 				<div ref={hostRef} className="cs-host" />
 			</div>
+			{selBar &&
+				createPortal(
+					<div
+						className="cs-selbar"
+						role="toolbar"
+						aria-label="Text formatting"
+						style={{ left: `${selBar.left}px`, top: `${selBar.top}px`, transform: selBar.below ? 'translate(-50%, 8px)' : 'translate(-50%, calc(-100% - 8px))' }}
+						onMouseDown={(e) => e.preventDefault()}
+					>
+						<button type="button" aria-label="Bold" aria-pressed={selBar.strong} className={cn('cs-sb-btn', selBar.strong && 'cs-sb-on')} onClick={() => onMark('strong')} style={{ fontWeight: 700 }}>
+							B
+						</button>
+						<button type="button" aria-label="Italic" aria-pressed={selBar.em} className={cn('cs-sb-btn', selBar.em && 'cs-sb-on')} onClick={() => onMark('em')} style={{ fontStyle: 'italic' }}>
+							I
+						</button>
+						<button type="button" aria-label="Code" aria-pressed={selBar.code} className={cn('cs-sb-btn cs-sb-mono', selBar.code && 'cs-sb-on')} onClick={() => onMark('code')}>
+							{'</>'}
+						</button>
+					</div>,
+					document.body,
+				)}
 		</div>
 	);
 }
@@ -280,6 +357,13 @@ function ComposeStyles() {
 			.cs-host em{font-style:italic}
 			.cs-host a{color:var(--accent,#1e5f96);text-decoration:underline}
 			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#1e5f96)}
+			/* floating selection bar — inline marks over a text selection (portaled to body) */
+			.cs-selbar{position:fixed;z-index:60;display:flex;gap:2px;padding:3px;border-radius:9px;background:var(--surface-1,#fff);border:1px solid var(--rule,rgba(0,0,0,.1));box-shadow:0 6px 20px -6px rgba(15,30,55,.28),0 1px 2px rgba(15,30,55,.12);animation:cs-sb-in .1s ease-out}
+			@keyframes cs-sb-in{from{opacity:0;scale:.94}to{opacity:1;scale:1}}
+			.cs-sb-btn{min-width:28px;height:26px;padding:0 6px;border:none;border-radius:6px;background:transparent;color:var(--text-body,#2b3a4f);font-family:var(--font-serif,Georgia,serif);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .1s,background .1s}
+			.cs-sb-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:11px}
+			.cs-sb-btn:hover{background:color-mix(in srgb,var(--bg) 55%,var(--rule,#eee));color:var(--text-heading,#14243a)}
+			.cs-sb-on{color:var(--accent,#1e5f96);background:var(--accent-soft,rgba(30,95,150,.12))}
 		`}</style>
 	);
 }
