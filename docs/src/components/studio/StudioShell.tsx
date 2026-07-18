@@ -32,7 +32,7 @@ import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refin
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
-import { ComposeSurface } from './ComposeSurface';
+import { ComposeView } from './ComposeView';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
@@ -2148,7 +2148,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				)}
 			</div>
 			{editMode === 'compose' ? (
-				<ComposeSurface source={source} onChange={setSource} resetKey={deck.id} className="flex-1" />
+				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" />
 			) : (
 				<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
 			)}
