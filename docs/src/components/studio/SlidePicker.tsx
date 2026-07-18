@@ -385,8 +385,18 @@ function LooksPanel({ item, looksFilter, onInsertLook, options, frontMatter, pal
 		if (looksFilter?.length) return all.filter((l) => l.token === '' || looksFilter.includes(l.token));
 		return all;
 	}, [item.variants, looksFilter]);
+	// Bring the panel into view on open. It's a col-span-full row inserted AFTER the
+	// clicked tile, so on a narrow/near-bottom tile it lands below the fold (the mobile
+	// bug). `block: 'nearest'` scrolls the least amount that reveals it — for a panel
+	// taller than the scrollport it pins the header to the top and fills down. rAF waits
+	// for the row to lay out before measuring.
+	const panelRef = React.useRef<HTMLDivElement>(null);
+	React.useEffect(() => {
+		const id = requestAnimationFrame(() => panelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+		return () => cancelAnimationFrame(id);
+	}, []);
 	return (
-		<div className="col-span-full rounded-xl border border-[color-mix(in_srgb,var(--accent)_30%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_4%,var(--card))] p-3">
+		<div ref={panelRef} className="col-span-full scroll-mt-2 rounded-xl border border-[color-mix(in_srgb,var(--accent)_30%,var(--border))] bg-[color-mix(in_srgb,var(--accent)_4%,var(--card))] p-3">
 			<div className="mb-2 flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.14em] text-[var(--accent)]">
 				<Layers className="size-3" />
 				{item.name} › looks
