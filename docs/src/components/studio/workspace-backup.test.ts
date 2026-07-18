@@ -32,6 +32,7 @@ describe('workspace-backup — zip anatomy', () => {
 		expect(manifest.format).toBe(WORKSPACE_FORMAT);
 		expect(manifest.counts.decks).toBeGreaterThan(0);
 		expect(manifest.counts.refdocs).toBe(0); // jsdom has no IndexedDB → empty shelf, but the count is declared
+		expect(manifest.counts.scenes).toBe(0); // scenes ride the same shelf — count declared even when empty
 		expect(zip.file('workspace.json')).toBeTruthy();
 		expect(zip.file('README.md')).toBeTruthy();
 		expect(zip.file('decks/quarterly-plan.md')).toBeTruthy();

@@ -14,10 +14,15 @@ import { parseScene, type Scene } from '@/lib/anima';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
-import { type StudioScene, sceneEngine } from './scene-library';
+import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
 
 export const ASSET_FORMAT = 'lattice-asset/1';
+
+// The engine a scene targets, derived from its source (built→Zdog, svg→Vivus). Inlined
+// here (rather than importing scene-library's `sceneEngine`) so this "pure data + JSZip"
+// module stays free of the IndexedDB-bound store graph. Mirrors scene-library.sceneEngine.
+const engineOf = (spec: Scene): 'zdog' | 'vivus' => (spec.source === 'svg' ? 'vivus' : 'zdog');
 
 export type ThemeItem = { kind: 'theme'; name: string; label: string; essentials: Record<string, string> | null; css: string; showcase?: string };
 export type ComponentItem = { kind: 'component'; name: string; bucket: string | null; css: string; skeleton: string };
@@ -191,7 +196,7 @@ scene SPEC is the source of truth; the poster is a token-preserving still that b
 a PDF.
 
 ## What's inside
-- \`${s.name}.scene.json\` — the canonical Anima scene spec (${sceneEngine(s.spec)} engine).
+- \`${s.name}.scene.json\` — the canonical Anima scene spec (${engineOf(s.spec)} engine).
 ${s.poster ? `- \`${s.name}.poster.svg\` — the hero still (keeps \`var(--token)\`, so it recolors with the theme).\n` : ''}${s.art ? `- \`${s.name}.art.svg\` — the authored line-art the scene draws.\n` : ''}- \`manifest.json\` — the asset envelope (re-imports into the Studio Library).
 
 ## Use it
@@ -244,7 +249,7 @@ export async function packFinish(f: StudioFinish): Promise<Blob> {
 /** Pack ONE scene → a `.zip` Blob (spec JSON + optional poster/art SVG + manifest). */
 export async function packScene(s: StudioScene): Promise<Blob> {
 	const zip = await jszip();
-	const item: SceneItem = { kind: 'scene', name: s.name, label: s.label, description: s.description, engine: sceneEngine(s.spec), spec: `${s.name}.scene.json` };
+	const item: SceneItem = { kind: 'scene', name: s.name, label: s.label, description: s.description, engine: engineOf(s.spec), spec: `${s.name}.scene.json` };
 	zip.file(item.spec, JSON.stringify(s.spec, null, 2));
 	if (s.poster) {
 		item.poster = `${s.name}.poster.svg`;
@@ -287,7 +292,7 @@ export async function packBundle(themes: { theme: StudioTheme; showcase?: Blob |
 	}
 	for (const s of scenes) {
 		const base = `scenes/${s.name}`;
-		const item: SceneItem = { kind: 'scene', name: s.name, label: s.label, description: s.description, engine: sceneEngine(s.spec), spec: `${base}/${s.name}.scene.json` };
+		const item: SceneItem = { kind: 'scene', name: s.name, label: s.label, description: s.description, engine: engineOf(s.spec), spec: `${base}/${s.name}.scene.json` };
 		zip.file(item.spec, JSON.stringify(s.spec, null, 2));
 		if (s.poster) {
 			item.poster = `${base}/${s.name}.poster.svg`;

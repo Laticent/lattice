@@ -7,11 +7,18 @@
 // unavailable (private mode / SSR / jsdom) so a read never throws — it returns [].
 //
 // The SPEC is the canonical artifact (the validated Anima `Scene`); `poster`/`art` are
-// derived/authored SVG strings. SECURITY (HARD RULE #22): `art` (authored line-art) and
-// `poster` (a serialized still) are UNTRUSTED markup — a consumer that renders them into
-// a preview frame MUST run them through `sanitizeSlideHtml` first (the same contract the
-// Vivus backend + AssetMap document). This module only PERSISTS strings; it never injects
-// them into the DOM, so it is not itself a sink.
+// derived/authored SVG strings.
+//
+// SECURITY (HARD RULE #22): `art` (authored line-art) and `poster` (a serialized still) are
+// UNTRUSTED markup (AI-authored / bundle-shared). The AUTHORITATIVE chokepoint is the
+// browser-context INGRESS — the faculty save path and the Library-import path MUST run the
+// markup through `sanitizeSlideHtml` BEFORE calling `saveStudioScene` (or before a restored
+// bundle's scenes are persisted), so what lands in the store is already clean (the
+// snapshot-cache.js precedent: sanitize at the storage boundary so a save-without-sanitize
+// path is impossible by construction). This module is deliberately DOM-free (it cannot run
+// DOMPurify — no `window`) and only PERSISTS strings, so it is not itself a sink; the
+// preview-frame builder re-sanitizes as #22 defense-in-depth. The ingress sanitize + its
+// #22-gate registration land with the consumers in Stage 5/7 (no caller exists yet).
 //
 // Decision: engineering/decisions/2026-07-18-anima-motion-faculty-modes.md §4.
 
@@ -81,9 +88,9 @@ export async function saveStudioScene(input: { name: string; label?: string; des
 	};
 	const { id: _drop, ...rest } = record;
 	const stored = (await putAsset(rest as unknown as SceneAssetRecord)) as SceneAssetRecord;
-	const studio = toStudioScene(stored);
-	if (!studio) throw new Error('Saved scene failed to reload — spec did not re-validate.');
-	return studio;
+	// The spec was validated above (parseScene returns it by reference), so build the Studio
+	// scene directly from the already-valid `r.scene` + the store-assigned id — no re-parse.
+	return { id: stored.id, name: stored.name, label: stored.label || stored.name, description: stored.description, spec: r.scene, poster: stored.poster, art: stored.art };
 }
 
 /** Every saved scene, newest first. Returns [] when the store is unavailable. */
