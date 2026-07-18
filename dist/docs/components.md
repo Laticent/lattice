@@ -4168,6 +4168,8 @@ Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a sli
 
 The rotor spins inside its housing — a relationship a single still can only imply.
 
+<!-- Live motion (HTML/present only) — the Motion faculty writes this `anima` block for you; edit or delete it. -->
+
 ```anima
 {
   "source": "built",

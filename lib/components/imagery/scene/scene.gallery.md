@@ -22,7 +22,7 @@ An Anima motion scene as its poster still — an inline, palette-blind SVG that 
 
 <svg viewBox="0 0 240 150" xmlns="http://www.w3.org/2000/svg"><ellipse cx="120" cy="80" rx="82" ry="30" fill="none" stroke="var(--cat-2-mark)" stroke-width="9"/><polygon points="120,42 152,96 88,96" fill="var(--accent)"/><circle cx="202" cy="80" r="11" fill="var(--cat-4-mark)"/><rect x="76" y="112" width="88" height="11" rx="3" fill="var(--text-muted)"/></svg>
 
-The poster freezes the hero frame; in the HTML deck it turns.
+The poster freezes the hero frame; on screen the rotor turns and a bead traces its ring.
 
 ```anima
 {
@@ -122,7 +122,7 @@ Scene anchors from the left; the text leads from the right.
 
 <svg viewBox="0 0 240 150" xmlns="http://www.w3.org/2000/svg"><ellipse cx="120" cy="80" rx="82" ry="30" fill="none" stroke="var(--cat-2-mark)" stroke-width="9"/><polygon points="120,42 152,96 88,96" fill="var(--accent)"/><circle cx="202" cy="80" r="11" fill="var(--cat-4-mark)"/><rect x="76" y="112" width="88" height="11" rx="3" fill="var(--text-muted)"/></svg>
 
-The poster freezes the hero frame; in the HTML deck it turns.
+The poster freezes the hero frame; on screen the rotor turns and a bead traces its ring.
 
 ```anima
 {
@@ -150,7 +150,7 @@ The poster freezes the hero frame; in the HTML deck it turns.
 
 <svg viewBox="0 0 240 150" xmlns="http://www.w3.org/2000/svg"><ellipse cx="120" cy="80" rx="82" ry="30" fill="none" stroke="var(--cat-2-mark)" stroke-width="9"/><polygon points="120,42 152,96 88,96" fill="var(--accent)"/><circle cx="202" cy="80" r="11" fill="var(--cat-4-mark)"/><rect x="76" y="112" width="88" height="11" rx="3" fill="var(--text-muted)"/></svg>
 
-The poster freezes the hero frame; in the HTML deck it turns.
+The poster freezes the hero frame; on screen the rotor turns and a bead traces its ring.
 
 ```anima
 {
@@ -178,7 +178,7 @@ The poster freezes the hero frame; in the HTML deck it turns.
 
 <svg viewBox="0 0 240 150" xmlns="http://www.w3.org/2000/svg"><ellipse cx="120" cy="80" rx="82" ry="30" fill="none" stroke="var(--cat-2-mark)" stroke-width="9"/><polygon points="120,42 152,96 88,96" fill="var(--accent)"/><circle cx="202" cy="80" r="11" fill="var(--cat-4-mark)"/><rect x="76" y="112" width="88" height="11" rx="3" fill="var(--text-muted)"/></svg>
 
-The poster freezes the hero frame; in the HTML deck it turns.
+The poster freezes the hero frame; on screen the rotor turns and a bead traces its ring.
 
 ```anima
 {
