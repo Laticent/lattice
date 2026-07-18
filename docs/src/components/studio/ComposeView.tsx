@@ -6,7 +6,7 @@ import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-li
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import * as React from 'react';
-import { deckSchema, deckToDoc, docToDeck } from '@/lib/compose/deck-doc';
+import { deckSchema, deckToDoc, docToDeck, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
 import { cn } from '@/lib/utils';
 
 // The Compose editing MODE, on ProseMirror (Option B, one true document), dressed
@@ -59,8 +59,18 @@ function applyRegister(view: EditorView, reg: Reg, current: Reg | null) {
 		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, $from.start(), $from.end())));
 		toggleMark(s.marks.code)(view.state, view.dispatch);
 	} else if (reg === 'note') {
+		// Below-note is a PARAGRAPH treatment (a leading em-dash), so guard against
+		// stamping it into a heading, and toggle it off when it's already lit.
 		const { $from } = view.state.selection;
-		if (!$from.parent.textContent.startsWith('—')) view.dispatch(view.state.tr.insertText('— ', $from.start()));
+		if ($from.parent.type.name === 'paragraph') {
+			const starts = $from.parent.textContent.startsWith('—');
+			if (current === 'note' && starts) {
+				const strip = $from.parent.textContent.startsWith('— ') ? 2 : 1;
+				view.dispatch(view.state.tr.delete($from.start(), $from.start() + strip));
+			} else if (!starts) {
+				view.dispatch(view.state.tr.insertText('— ', $from.start()));
+			}
+		}
 	}
 	view.focus();
 }
@@ -93,25 +103,60 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 	const onChangeRef = React.useRef(onChange);
 	onChangeRef.current = onChange;
 	const lastEmittedRef = React.useRef(source);
+	const baselineRef = React.useRef<EmitBaseline | null>(null);
+	// An external source change that arrived while the editor held focus — parked here
+	// and flushed on blur so it is never silently lost (D2). null = nothing pending.
+	const pendingResyncRef = React.useRef<string | null>(null);
 	const [failed, setFailed] = React.useState(false);
 	const [active, setActive] = React.useState<Reg | null>(null);
+
+	// Re-import `src` into the editor, rebuilding the emit baseline. Shared by the
+	// external-source effect and the on-blur flush.
+	const resyncFrom = React.useCallback((view: EditorView, src: string) => {
+		const doc = deckToDoc(src);
+		view.updateState(EditorState.create({ doc, plugins: view.state.plugins }));
+		baselineRef.current = initBaseline(doc);
+		lastEmittedRef.current = src;
+		pendingResyncRef.current = null;
+	}, []);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once per deck; `source` seeds the doc and syncs separately.
 	React.useEffect(() => {
 		if (!hostRef.current) return;
+		setFailed(false); // D3: a prior deck's parse failure must not stick to this one.
 		let view: EditorView;
 		try {
+			const doc = deckToDoc(source);
+			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
-				state: EditorState.create({ doc: deckToDoc(source), plugins: buildPlugins() }),
+				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				dispatchTransaction(tr) {
 					const next = view.state.apply(tr);
 					view.updateState(next);
 					setActive(activeRegister(next));
 					if (tr.docChanged) {
-						const src = docToDeck(next.doc);
+						// Edit-local emit: only the slide the caret changed is re-serialized;
+						// every untouched slide re-emits its cached bytes (baselineRef).
+						const base = baselineRef.current ?? initBaseline(next.doc);
+						const src = emitDeck(next.doc, base);
+						baselineRef.current = base;
 						lastEmittedRef.current = src;
 						onChangeRef.current(src);
 					}
+				},
+				handleDOMEvents: {
+					// D2: on blur, apply any external source that arrived while focused.
+					blur() {
+						const pending = pendingResyncRef.current;
+						if (pending != null && viewRef.current) {
+							try {
+								resyncFrom(viewRef.current, pending);
+							} catch (e) {
+								console.error('[compose] blur resync', e);
+							}
+						}
+						return false;
+					},
 				},
 			});
 		} catch (e) {
@@ -124,24 +169,30 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 		return () => {
 			view.destroy();
 			viewRef.current = null;
+			baselineRef.current = null;
+			pendingResyncRef.current = null;
 		};
-	}, [resetKey]);
+	}, [resetKey, resyncFrom]);
 
-	// External source change → re-import, unless it's our own edit or the editor is
-	// focused (never clobber the caret mid-type). One document → one clean re-baseline.
+	// External source change → re-import, unless it's our own edit. While the editor is
+	// focused we never clobber the caret mid-type: the change is PARKED and flushed on
+	// blur (D2), so a concurrent actor (Inspector stamping `_class`, an AI apply, undo)
+	// can't be silently lost. One document → one clean re-baseline.
 	React.useEffect(() => {
 		const view = viewRef.current;
 		if (!view) return;
 		if (source === lastEmittedRef.current) return;
 		if (docToDeck(view.state.doc) === source) return;
-		if (view.hasFocus()) return;
+		if (view.hasFocus()) {
+			pendingResyncRef.current = source;
+			return;
+		}
 		try {
-			view.updateState(EditorState.create({ doc: deckToDoc(source), plugins: view.state.plugins }));
-			lastEmittedRef.current = source;
+			resyncFrom(view, source);
 		} catch (e) {
 			console.error('[compose] resync', e);
 		}
-	}, [source]);
+	}, [source, resyncFrom]);
 
 	const onGutter = React.useCallback((reg: Reg) => {
 		const view = viewRef.current;

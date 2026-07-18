@@ -73,4 +73,16 @@ describe('slide-prose round-trip — structure is preserved (the Lexical killer)
 		expect(/1\.\s+53\n\s+-\s+components/.test(out)).toBe(true);
 		expect(/2\.\s+14\n\s+-\s+themes/.test(out)).toBe(true);
 	});
+
+	it('a thematic break serializes as `***`, never `---` (never a phantom slide split)', () => {
+		// `***`, `___`, `- - -` are all valid engine `<hr>` forms; a bare `---` line, by
+		// contrast, IS the deck separator, so the serializer must never emit one inside a
+		// slide (else the first Compose touch splits the slide and drops the next `_class`).
+		for (const hr of ['***', '___', '- - -']) {
+			const out = roundTripSlideProse(`## A\n\nfoo\n\n${hr}\n\nbar`);
+			expect(out).toContain('***');
+			// No bare `---` separator line anywhere in a single slide's prose.
+			expect(/\n-{3,}\n/.test(`\n${out}\n`)).toBe(false);
+		}
+	});
 });

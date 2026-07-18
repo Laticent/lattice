@@ -26,6 +26,15 @@ const latticeNodes = {
 	bullet_list(state: SerializerState, node: PMNode) {
 		state.renderList(node, '  ', () => `${(node.attrs.bullet as string) || '-'} `);
 	},
+	// A thematic break serializes as `***`, NEVER the default `---`. Inside a slide a
+	// bare `---` line IS the deck's slide separator (`splitSlides` cuts on `/\n-{3,}\n/`),
+	// so an author typing `***`/`___`/`- - -` (all valid engine `<hr>` forms) must not have
+	// it degrade into a slide split that silently drops the next slide's `_class`. `***`
+	// is an equivalent `<hr>` that the separator regex can never match.
+	horizontal_rule(state: SerializerState, node: PMNode) {
+		state.write('***');
+		state.closeBlock(node);
+	},
 };
 
 /** The Lattice markdown serializer — ProseMirror doc → Lattice markdown. */

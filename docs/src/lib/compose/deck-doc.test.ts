@@ -1,5 +1,6 @@
+import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
-import { deckToDoc, docToDeck } from './deck-doc';
+import { deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
 
 // The whole-deck round-trip through the ONE document: source → doc → source.
 // Directives, front-matter, slide order, and structured nesting must all survive.
@@ -61,5 +62,52 @@ describe('deck round-trip (one document)', () => {
 	it('a single-slide deck round-trips', () => {
 		const source = '<!-- _class: statement -->\n\n## One thing to remember.';
 		expect(norm(rt(source))).toBe(norm(source));
+	});
+
+	it('a thematic break in prose does not split the slide (stays one slide, keeps its class)', () => {
+		const source = '<!-- _class: content -->\n\n## A\n\nfoo\n\n***\n\nbar';
+		const out = rt(source);
+		// Still exactly one slide with its directive — no phantom second slide.
+		expect((out.match(/<!-- _class:/g) || []).length).toBe(1);
+		expect(out).toContain('<!-- _class: content -->');
+		expect(out).toContain('***');
+		expect((out.match(/\n---\n/g) || []).length).toBe(0);
+	});
+});
+
+describe('edit-local emit — untouched slides re-emit their bytes verbatim', () => {
+	// A markdown table is a construct the Compose parser (CommonMark) does NOT model, so a
+	// full re-serialize would flatten it. Edit-local emit must leave a slide the author
+	// never touched byte-for-byte, so such a slide can never degrade from a keystroke made
+	// elsewhere. This is the master mitigation for parser-parity gaps.
+	const TABLE = '<!-- _class: content -->\n\n## Data\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
+	const source = ['<!-- _class: title -->\n\n# Deck', TABLE, '<!-- _class: content -->\n\n## End'].join('\n\n---\n\n');
+
+	it('a full re-serialize (docToDeck) WOULD corrupt the table — proving the risk is real', () => {
+		// The CommonMark parser flattens the table's rows onto a single soft-broken line,
+		// so the multi-line pipe grid is gone.
+		expect(docToDeck(deckToDoc(source))).not.toContain('| A | B |\n| --- | --- |');
+	});
+
+	it('editing slide 0 leaves the untouched table slide byte-exact', () => {
+		const doc = deckToDoc(source);
+		const baseline = initBaseline(doc);
+		// Simulate a keystroke in the FIRST slide: insert text inside its heading.
+		let state = EditorState.create({ doc });
+		const posInSlide0 = 3; // inside "# Deck" heading text
+		state = state.apply(state.tr.insertText('X', posInSlide0));
+		const out = emitDeck(state.doc, baseline);
+		// The edited slide reflects the change...
+		const firstSlide = out.split('\n\n---\n\n')[0];
+		expect(firstSlide).toContain('X');
+		expect(firstSlide).toContain('# D');
+		// ...and the untouched table slide is preserved verbatim (grid intact, not flattened).
+		expect(out).toContain('| A | B |\n| --- | --- |\n| 1 | 2 |');
+	});
+
+	it('with no edit, the first emit reproduces the deck bytes exactly (raw seed)', () => {
+		const doc = deckToDoc(source);
+		const baseline = initBaseline(doc);
+		expect(emitDeck(doc, baseline)).toBe(source);
 	});
 });
