@@ -144,10 +144,37 @@ resync race, emit round-trip). Seven findings; disposition:
 Checked and sound (no action): `moveToSlideEnd` position math, `emitDeck` node-identity reuse across
 move/insert/delete, the cross-slide `slideContext` bail, the `hr`/bullet serializer overrides.
 
-## Slice 2 (pending, separate branch/PR — HARD RULE #17)
+## Slice 2 — consolidation + typing mode (landed)
 
-Band consolidation (remove the in-pane EDIT header on mobile; relocate Insert → rail, Fix-all →
-issues chip, History/mode → `⋯`; keep two top bands) and the **divider → slide-settings** gear
-(the `SlideView` bar gains a gear opening `SlideContextBody` as a `side="bottom"` Sheet; reconcile
-the caret slide via `onEditorCursorSlide` before opening; guard the lens −1 case; controlled Sheet
-with focus/selection restore). See the competition + trio notes in the session record.
+On-device, even with the rail lifted, three persistent top bands (app header, deck-actions, the EDIT
+toolbar) still ate the top half of the screen *while typing* — "not usable with so many toolbars." Two
+moves fixed it:
+
+1. **Consolidate to two resting bands.** The in-pane EDIT toolbar band is now `!mobile` (hidden on the
+   phone); its actions relocated: the **Markdown⟷Compose toggle → the deck-actions bar** (edit pane —
+   the default mode is Markdown, so the toggle can't be buried), and **Insert / Fix-all / Version
+   history → the `⋯` menu** (edit-pane section). Phone rests at header + deck-actions, not three bands.
+2. **Typing mode (the reversed decision).** When the software keyboard is up, the two remaining top
+   bands **collapse** (`max-height`/opacity/transform transition) so the writing surface takes the
+   screen; only the grammar rail rides the keyboard. **Scroll is the reveal driver** — `ComposeView`
+   watches the host scroll + the `useVisualViewport` inset and reports `onTypingCollapse`: opening the
+   keyboard collapses; scrolling UP reveals; scrolling down re-hides.
+
+**Why this reverses the earlier "keep chrome always visible" call (and why it's safe).** The Munger
+inversion had rejected the *contextual* model on the grounds that hiding chrome makes controls
+reachable ONLY with the keyboard up (a trap, incl. iPad hardware keyboards). That objection is
+answered by making the trigger symmetric: chrome is fully present when the keyboard is DOWN, and a
+single scroll-up (or keyboard dismiss) restores it when UP — so nothing is unreachable, and a hardware
+keyboard (no `inset`) simply never collapses. The user chose this after living with the dense stack.
+
+**Verified in-sandbox:** resting phone shows two bands with a working Compose toggle and the `⋯`
+Editor section; a mocked `visualViewport` keyboard collapses both bands to 0 height / opacity 0 and the
+writing surface fills. Desktop/tablet unchanged; typecheck + 1732 tests + biome clean. **UNVERIFIED on
+real iOS** (HARD RULE #23 — no software keyboard in the sandbox): the collapse/reveal feel across the
+keyboard animation and the scroll-direction thresholds need a device pass.
+
+## Still pending — the divider → slide-settings gear
+
+The **divider → slide-settings** gear (the `SlideView` bar gains a gear opening `SlideContextBody` as a
+`side="bottom"` Sheet; reconcile the caret slide via `onEditorCursorSlide` before opening; guard the
+lens −1 case; controlled Sheet with focus/selection restore) is still to build.

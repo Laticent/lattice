@@ -452,6 +452,20 @@ in patch versions.
   its rendered iframe across the search boundary instead of re-rendering cold, and each tile's preview
   figure is `aria-hidden` (the tile button already carries the name) so a screen reader hears each slide
   once, not a duplicate figure node. (`StudioShell.tsx`, `SlidePicker.tsx`, `slide-thumb.tsx`, `DeckPreview.tsx`.)
+- **The phone editor gets out of your way while you type.** Even after the grammar bar was lifted
+  above the keyboard, three persistent toolbars (app header, deck-actions, the EDIT toolbar) still ate
+  the top half of the screen while typing. Now: (a) the **EDIT toolbar band is gone on mobile** — its
+  actions moved to where they belong (the Markdown⟷Compose toggle onto the deck-actions bar; Insert /
+  Fix-all / Version history into the `⋯` menu), so the phone rests at **two bands, not three**; and
+  (b) a **typing mode** — when the software keyboard opens, the remaining top chrome **collapses away**
+  so the writing surface takes the whole screen, with just the grammar rail above the keyboard.
+  **Scroll is the reveal driver:** scroll up to bring the toolbars back, scroll down (or keep typing)
+  to hide them — so every control stays one gesture away while typing. This reverses an earlier
+  "keep all chrome always visible" call: the inversion's objection was that hiding chrome made controls
+  reachable *only* with the keyboard up; this is the opposite (chrome is there when the keyboard is
+  down, and a scroll-up away when it's up), so nothing becomes unreachable. Desktop and tablet are
+  unchanged. The keyboard-driven collapse is **UNVERIFIED on real iOS** (HARD RULE #23) and needs a
+  device pass. (`StudioShell.tsx`, `ComposeView.tsx`.)
 - **On a phone, the Compose grammar bar now rides above the software keyboard instead of hiding
   behind it.** The register bar (H1 / H2 / Eyebrow / Subtitle / Key-insight / Below-note) used to sit
   in normal flow at the bottom of the editor, so the iOS keyboard drew right over it the moment you

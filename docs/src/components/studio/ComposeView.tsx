@@ -391,7 +391,7 @@ function GrammarRegisters({ active, onGutter, disabled }: { active: Reg | null; 
 // preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
 // portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
 // pane, else it would paint over the live preview (the body-portal render-gate).
-export function ComposeView({ source, onChange, resetKey = '', className, visible = true }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean }) {
+export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -415,7 +415,41 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// the keyboard geometry ONLY while the rail is shown, so the desktop path pays nothing.
 	const railLayout = useRailLayout();
 	const showRail = visible && railLayout && !failed;
-	useVisualViewport(showRail);
+	const { inset } = useVisualViewport(showRail);
+	const keyboardUp = inset > 0;
+
+	// TYPING MODE — when the software keyboard is up, the shell's top chrome collapses so the
+	// writing surface gets the screen (the "so many toolbars while typing" fix). SCROLL is the
+	// reveal driver: opening the keyboard collapses the chrome; scrolling UP on the writing
+	// surface brings it back, scrolling down re-hides it — so every control stays reachable while
+	// typing (a scroll-up away), which answers the inversion's keyboard-only-reachability objection.
+	const onTypingRef = React.useRef(onTypingCollapse);
+	onTypingRef.current = onTypingCollapse;
+	const [chromeRevealed, setChromeRevealed] = React.useState(true);
+	// Opening the keyboard collapses; closing it always restores the chrome.
+	React.useEffect(() => {
+		setChromeRevealed(!keyboardUp);
+	}, [keyboardUp]);
+	React.useEffect(() => {
+		if (!showRail) return;
+		const host = hostRef.current;
+		if (!host) return;
+		let last = host.scrollTop;
+		const onScroll = () => {
+			const y = host.scrollTop;
+			const dy = y - last;
+			if (Math.abs(dy) < 8) return; // ignore sub-threshold jitter
+			if (dy < 0) setChromeRevealed(true); // scroll UP → reveal
+			else if (y > 40) setChromeRevealed(false); // scroll DOWN (past the top) → hide
+			last = y;
+		};
+		host.addEventListener('scroll', onScroll, { passive: true });
+		return () => host.removeEventListener('scroll', onScroll);
+	}, [showRail]);
+	const chromeCollapsed = showRail && keyboardUp && !chromeRevealed;
+	React.useEffect(() => {
+		onTypingRef.current?.(chromeCollapsed);
+	}, [chromeCollapsed]);
 
 	// Keep the portaled rail's left/width locked to the editor host's box: on tablet the
 	// split is user-draggable and the device rotates, so a baked-once rect would detach the

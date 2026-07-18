@@ -413,6 +413,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		}
 	});
 	const [mobilePane, setMobilePane] = React.useState<'edit' | 'preview'>('preview');
+	// TYPING MODE: the Compose surface reports when the software keyboard is up (and the user
+	// hasn't scrolled the chrome back into view) so the mobile top bands collapse for a clean
+	// writing surface. Reset whenever we leave the edit pane so preview never starts collapsed.
+	const [chromeCollapsed, setChromeCollapsed] = React.useState(false);
 	// Saved themes from the SHARED Workbench library (asset-store, IndexedDB) — a
 	// theme derived + saved in Fabricate lands here and becomes selectable. Loaded
 	// async (the store is IndexedDB); refreshed after a save/delete.
@@ -2133,6 +2137,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			inert={!mobile && (effectiveStop === 'read' || split.collapsed === 'a') ? true : undefined}
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-arming=a]/split:opacity-60 group-data-[split-dragging]/split:select-none"
 		>
+			{/* The EDIT toolbar band — HIDDEN on mobile (its actions move to the ⋯ menu below), so
+			    the phone rests at two bands, not three. Desktop/tablet keep it. */}
+			{!mobile && (
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Edit
 				<span className="flex-1" />
@@ -2183,8 +2190,9 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					<Tip label="Collapse editor — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse editor" onClick={() => collapseFromHeader('a')}><PanelLeftClose className="size-4" /></Button></Tip>
 				)}
 			</div>
+			)}
 			{editMode === 'compose' ? (
-				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} />
+				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} />
 			) : (
 				<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
 			)}
@@ -2416,7 +2424,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />
 			</header>
 			) : (
-			<header className="flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 sm:gap-3 sm:px-3.5">
+			<header className={cn('flex h-[54px] shrink-0 items-center gap-1.5 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-2.5 transition-[max-height,opacity,transform] duration-200 ease-out sm:gap-3 sm:px-3.5', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						{/* The real brand mark (not a text tile), and the chevron shows at EVERY
@@ -2542,6 +2550,19 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						    region so a clipped row signals "more below". */}
 						<DropdownMenuContent align="end" className="w-56 overflow-hidden p-0">
 							<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
+								{/* Editor actions — relocated here from the (now mobile-hidden) EDIT toolbar
+								    band. Only while EDITING (the edit pane), so the preview pane isn't cluttered. */}
+								{mobile && mobilePane === 'edit' && (
+									<>
+										<DropdownMenuLabel className="flex items-center gap-2"><PencilLine className="size-4" />Editor</DropdownMenuLabel>
+										{insertComponents.length > 0 && (
+											<DropdownMenuItem className="pl-8" onSelect={() => setInsertOpen(true)}><Plus className="size-4" />Insert component</DropdownMenuItem>
+										)}
+										<DropdownMenuItem className="pl-8" disabled={!issues} onSelect={() => editorRef.current?.fixAll()}><ListChecks className="size-4" />Fix all issues{issues > 0 && <span className="ml-auto text-[11px] text-muted-foreground">{issues}</span>}</DropdownMenuItem>
+										<DropdownMenuItem className="pl-8" onSelect={() => setHistoryOpen(true)}><History className="size-4" />Version history</DropdownMenuItem>
+										<DropdownMenuSeparator />
+									</>
+								)}
 								{/* Show me — the persistent phone entry to the guided tours. The welcome-banner
 								    button is the first-run affordance, but it vanishes once dismissed; the topbar
 								    menu is desktop/tablet-only. So on mobile the tours live here too, inlined (a
@@ -2590,7 +2611,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				   stay per-pane so the row fits: the issues pill on the Edit pane; History +
 				   Slide settings on the Preview pane (the Edit pane's editor header has them). */
 				<div className="flex min-h-0 flex-1 flex-col">
-					<div role="toolbar" aria-label="Deck actions" className="flex shrink-0 items-center gap-1 border-b border-border bg-card p-1.5">
+					<div role="toolbar" aria-label="Deck actions" className={cn('flex shrink-0 items-center gap-1 border-b border-border bg-card p-1.5 transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 py-0 opacity-0')}>
 						{/* Icon-only Edit/Preview toggle — dropping the two text labels reclaims
 						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
 						    and still fit 390px. */}
@@ -2598,6 +2619,15 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 							<PaneBtn active={mobilePane === 'edit'} onClick={() => { setMobilePane('edit'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
 							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" demo="pane-preview" />
 						</div>
+						{/* Markdown ⟷ Compose — the editing-paradigm toggle, on the EDIT pane. It moved
+						    here from the (mobile-hidden) EDIT band; the default is Markdown, so this must
+						    stay one tap, not buried in ⋯. */}
+						{mobilePane === 'edit' && (
+							<div className="ml-0.5 inline-flex items-center gap-0.5 rounded-lg border border-border bg-background p-[3px]">
+								<button type="button" aria-label="Markdown source" onClick={() => setEditMode('markdown')} aria-pressed={editMode === 'markdown'} className={cn('inline-flex items-center rounded-md p-1.5 transition-colors', editMode === 'markdown' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground')}><FileText className="size-4" /></button>
+								<button type="button" aria-label="Compose — rich editor" onClick={() => setEditMode('compose')} aria-pressed={editMode === 'compose'} className={cn('inline-flex items-center rounded-md p-1.5 transition-colors', editMode === 'compose' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground')}><Sparkles className="size-4" /></button>
+							</div>
+						)}
 						<span className="flex-1" />
 						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
 						{/* Version history + Slide settings ride the pane bar only on the PREVIEW
