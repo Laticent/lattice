@@ -192,9 +192,10 @@ in patch versions.
 ### Added
 
 - **Variants are now first-class looks — searchable, insertable, and reshapeable — everywhere in the
-  Studio.** A component's DECLARED variants — its own alternate forms (`kpi › ops/spotlight`,
-  `list › numbered/roman`), the 36-of-59 components that have them — were invisible outside the
-  Inspector; now they're children of their parent component across three surfaces. (Universal
+  Studio.** A component's variants — its own alternate forms (`kpi › ops/spotlight`,
+  `list › numbered/roman`), the 36-of-59 components that have them, exactly the set the playground
+  and component reference show (declared `variants` filtered to the documented ones) — were invisible
+  outside the Inspector; now they're children of their parent component across three surfaces. (Universal
   configuration every slide accepts — `dark`, `no-header`, `insight-*`, `compact` — stays in slide
   settings, where it belongs; it is not a "variant of the component".) (1) **Search** matches a
   variant term (“ops”, “spotlight”, “numbered”) to the components that offer that form, shown as a

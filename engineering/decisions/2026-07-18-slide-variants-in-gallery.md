@@ -48,15 +48,21 @@ component. Labels read `component › variant` everywhere (`quote › insight-ke
 Validity + exclusivity already live in the engine and the Inspector, and we reuse
 them verbatim (HARD RULE #15):
 
-- **Valid looks per component** = that component's DECLARED `variants` (its own alternate
-  forms — `kpi › ops/spotlight`, `list › numbered/roman`), NOT `effectiveVariants`.
-  `effectiveVariants` also folds in the universal configuration every component accepts
-  (`dark`, `no-header`, `insight-*`, `tone-*`, `compact`, …) — that is slide *settings*
-  (the Inspector), not "variants of the component", so it stays out of looks. 36 of 59
-  components declare real variants; the other 23 (title, quote, big-number, …) have none
-  and correctly show no looks chip and no Reshape button. A component's declared variants
-  are a mutually-exclusive family (a slide is one form), so reshaping to one replaces any
-  other.
+- **Valid looks per component** = exactly the set the **playground and component
+  reference surface**: the component's DECLARED `variants` narrowed to the ones that are
+  DOCUMENTED (`variants.filter(v => variantDocs[v])`, the identical derivation in
+  `docs/src/pages/playground.astro` and `components/[bucket]/[name].astro`). This is its
+  own alternate forms — `kpi › ops/spotlight`, `list › numbered/roman` — NOT
+  `effectiveVariants`. `effectiveVariants` also folds in the universal configuration every
+  component accepts (`dark`, `no-header`, `insight-*`, `tone-*`, `compact`, …) — that is
+  slide *settings* (the Inspector), not "variants of the component", so it stays out of
+  looks. To keep the Studio and the playground from ever disagreeing, `components.json`
+  now emits this filtered set at the source (`documentedVariants` in
+  `tools/build-docs-portal.js`); every declared variant is documented today, so it is a
+  no-op on current output that guards the future. 36 of 59 components carry real variants;
+  the other 23 (title, quote, big-number, …) have none and correctly show no looks chip
+  and no Reshape button. A component's variants are a mutually-exclusive family (a slide is
+  one form), so reshaping to one replaces any other.
 - **Exclusive vs additive** = `lintVocab.exclusiveAxes` (e.g. only one `insight-*` at a
   time; `dark` stacks). Applying a look uses the Inspector's own `mergeClassTokens` /
   `setGroupToken` / `toggleToken`, so the result is always a valid, non-contradictory
