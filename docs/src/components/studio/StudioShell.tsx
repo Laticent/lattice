@@ -53,12 +53,15 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, scoreDeck, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
+import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { importComments } from './slide-comments';
+import { getClassTokens } from './slide-directives';
 import { hasMermaid } from './slide-thumb';
+import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
@@ -553,7 +556,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	// Locals carry their own `css` so the gallery previews them STYLED (per-tile extraCss —
 	// the engine theme doesn't know a local `.name` rule).
 	const insertComponents = React.useMemo<ComponentEntry[]>(
-		() => [...localComponents.map((c) => ({ name: c.name, bucket: 'local', description: 'Your saved component', skeleton: c.skeleton, css: c.css })), ...components],
+		() => [
+			...localComponents.map((c) => ({ name: c.name, bucket: 'local', description: 'Your saved component', skeleton: c.skeleton, css: c.css })),
+			// Catalog items carry their DECLARED variants (`variants`) — the component's own
+			// alternate forms (kpi › ops/spotlight, list › numbered/roman) — NOT `effectiveVariants`,
+			// which also folds in universal config (dark, no-header, insight-*, tone-*) that belongs
+			// in slide settings, not "variants of the component".
+			...components,
+		],
 		[localComponents, components],
 	);
 	// CSS of the local components the deck actually USES, injected so an inserted
@@ -1769,6 +1779,14 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 		});
 	}, [settingsWrite, activeFullIndex]);
 
+	// Reshape — the current slide's component + the variant LOOKS it offers, for the
+	// edit-mode Reshape control (a variant is a class token; recast = swap the token).
+	const reshapeAxes = React.useMemo(() => (lintVocab as { exclusiveAxes?: Record<string, string[]> } | null)?.exclusiveAxes ?? {}, [lintVocab]);
+	const activeChunk = slides[activeFullIndex] ?? '';
+	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
+	const reshapeVariants = React.useMemo(() => components.find((c) => c.name === reshapeComponent)?.variants ?? [], [components, reshapeComponent]);
+	const onReshape = (token: string) => mutateSlideFromPanel((c) => applyVariant(c, token, reshapeAxes));
+
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
 	// History), then swap in the proposed source.
 	const applyChatEdit = (next: string) => {
@@ -2147,6 +2165,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 					</DropdownMenu>
 				)}
 				{insertComponents.length > 0 && <Tip label="Insert component"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Insert component"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Insert</span></button></Tip>}
+				{reshapeVariants.length > 0 && <ReshapePicker chunk={activeChunk} variants={reshapeVariants} axes={reshapeAxes} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} onReshape={onReshape} />}
 				<Tip label="Fix all issues"><button type="button" onClick={() => editorRef.current?.fixAll()} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] disabled:opacity-40" disabled={!issues} aria-label="Fix all issues"><ListChecks className="size-3" /><span className="hidden @[36rem]:inline">Fix all</span></button></Tip>
 				{/* Version history — deck-level recovery, docked in the editor header at every
 				    width (an action, not a panel; not in the top nav). */}

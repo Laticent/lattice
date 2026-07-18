@@ -17,6 +17,10 @@ export type CatalogItem = {
 	familyLabel: string;
 	description: string;
 	tags: string[];
+	/** The component's variant tokens (`insight-key`, `dark`, …) — indexed so a variant
+	 *  term finds its parent component in the add-slide gallery. Optional: surfaces that
+	 *  don't care about variants (the playground picker) simply omit it. */
+	variants?: string[];
 };
 
 export type LensOrder = { key: string; label: string };
@@ -24,7 +28,7 @@ export type Lens = { id: string; label: string; field: string | null; order: Len
 export type Group = { key: string; label: string; items: CatalogItem[] };
 
 const hay = (it: CatalogItem) =>
-	`${it.name} ${it.tags.join(' ')} ${it.familyLabel} ${it.bucket} ${it.function} ${it.substance} ${it.description}`.toLowerCase();
+	`${it.name} ${it.tags.join(' ')} ${(it.variants ?? []).join(' ')} ${it.familyLabel} ${it.bucket} ${it.function} ${it.substance} ${it.description}`.toLowerCase();
 
 // Rank a substring hit: name beats tag beats family/bucket beats description.
 function subScore(it: CatalogItem, q: string): number {
@@ -33,17 +37,19 @@ function subScore(it: CatalogItem, q: string): number {
 	if (n.startsWith(q)) return 1;
 	if (n.includes(q)) return 2;
 	if (it.tags.some((t) => t.toLowerCase().includes(q))) return 3;
-	if (`${it.familyLabel} ${it.bucket} ${it.function} ${it.substance}`.toLowerCase().includes(q)) return 4;
-	return 5; // description only
+	if ((it.variants ?? []).some((t) => t.toLowerCase().includes(q))) return 4; // a variant look (e.g. "insight")
+	if (`${it.familyLabel} ${it.bucket} ${it.function} ${it.substance}`.toLowerCase().includes(q)) return 5;
+	return 6; // description only
 }
 
 /** Build the Fuse index once per island mount; reused across keystrokes. */
 export function makeFuse(items: CatalogItem[]): Fuse<CatalogItem> {
 	return new Fuse(items, {
 		keys: [
-			{ name: 'name', weight: 0.6 },
-			{ name: 'tags', weight: 0.25 },
-			{ name: 'familyLabel', weight: 0.1 },
+			{ name: 'name', weight: 0.55 },
+			{ name: 'tags', weight: 0.22 },
+			{ name: 'variants', weight: 0.13 },
+			{ name: 'familyLabel', weight: 0.05 },
 			{ name: 'description', weight: 0.05 },
 		],
 		threshold: 0.3,

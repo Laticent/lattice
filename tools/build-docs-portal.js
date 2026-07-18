@@ -58,6 +58,17 @@ const { BUCKET_BLURBS } = require('./build-bucket-galleries');
 const { renderDocs } = require('./build-component-docs');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
 
+// A component's user-facing variant looks: its declared `variants` narrowed to the
+// ones carrying `variantDocs` — the identical derivation the playground and the
+// component reference use (playground.astro, components/[bucket]/[name].astro). An
+// undocumented declared variant is a documentation gap, not a surfaced look, so it
+// stays out of the catalog and the two surfaces never disagree.
+function documentedVariants(m) {
+  const declared = Array.isArray(m.variants) ? m.variants : [];
+  const docs = m.variantDocs || {};
+  return declared.filter((v) => docs[v]);
+}
+
 // Box-families a component supports: explicit `adapt.families`, else derived from
 // the legacy `orientation` so the catalog stays honest for unmigrated components.
 // See engineering/decisions/2026-06-18-component-adaptive-sizing.md.
@@ -440,7 +451,14 @@ function renderPortalJson(manifests) {
     tags: Array.isArray(m.tags) ? m.tags : [],
     description: m.description,
     purpose: m.purpose || null,
-    variants: Array.isArray(m.variants) ? m.variants : [],
+    // A component's variants = its DECLARED forms filtered to those that are
+    // DOCUMENTED (`variantDocs[v]`) — the exact set the playground and component
+    // reference surface (docs/src/pages/playground.astro, [name].astro). Filtering
+    // here locks the Studio's variant looks to the playground's definition so the
+    // two can never drift (an undocumented declared variant is a doc gap, not a
+    // user-facing look). Today every declared variant is documented, so this is a
+    // no-op on current output; it guards the future.
+    variants: documentedVariants(m),
     ...(Array.isArray(m.variantAxes) && m.variantAxes.length ? { variantAxes: m.variantAxes } : {}),
     effectiveVariants: effectiveVariants(m),
     familyModifiers: familyModifiersFor(m),
