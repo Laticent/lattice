@@ -148,19 +148,23 @@ header: "Lattice · cards-grid"
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · cards-grid" -->
 
 ## When NOT to reach for cards-grid.
 
-- **More than 4 items.** Split into multiple slides instead. The grid loses scannability past 4 cards.
-- **Order carries meaning.** Use list-steps or list-criteria. cards-grid is for parallel options, not sequences.
-- **Lopsided density.** Equalize the prose when one card has three sentences and the rest have one. Otherwise change layout.
-- **Inline-code-only body.** A body bullet containing only `code` gets promoted to an eyebrow label. Mix it with surrounding prose.
+- More than 4 items
+  - Split into multiple slides instead. The grid loses scannability past 4 cards.
+- Order carries meaning
+  - Use list-steps or list-criteria. cards-grid is for parallel options, not sequences.
+- Lopsided density
+  - Equalize the prose when one card has three sentences and the rest have one. Otherwise change layout.
+- Inline-code-only body
+  - A body bullet containing only `code` gets promoted to an eyebrow label. Mix it with surrounding prose.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

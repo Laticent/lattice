@@ -172,18 +172,21 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · compare-prose" -->
 
 ## When NOT to reach for compare-prose.
 
-- **Code comparison.** Use `compare-code` for two fenced blocks. compare-prose is for sentences, not snippets.
-- **Three or more options.** compare-prose is strictly two. For three or more, use `cards-grid three` or `verdict-grid` with criteria badges.
-- **Verbatim text differences.** When the diff lives inside the prose itself — legal language, contract clauses — use `redline` so insertions and deletions render inline.
+- Code comparison
+  - Use `compare-code` for two fenced blocks. compare-prose is for sentences, not snippets.
+- Three or more options
+  - compare-prose is strictly two. For three or more, use `cards-grid three` or `verdict-grid` with criteria badges.
+- Verbatim text differences
+  - When the diff lives inside the prose itself — legal language, contract clauses — use `redline` so insertions and deletions render inline.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

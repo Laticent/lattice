@@ -191,6 +191,13 @@ in patch versions.
 
 ### Added
 
+- **`closing` gains an `index` variant — a closing that ends on a reference list.** The final slide can
+  now carry a short `key — description` index below the takeaway line (see also, next steps, references),
+  rendered as a centered set that keeps the bookend's symmetry. The default one-line closing is
+  unchanged — the list is opt-in. Any `closing` that ends with a list now renders legibly on the dark
+  canvas in **both** light and dark themes (the list previously inherited body ink, which vanished
+  against the dark canvas under the light theme). (`closing.styles.css`, `closing.manifest.json`.)
+
 - **Variants are now first-class looks — searchable, insertable, and reshapeable — everywhere in the
   Studio.** A component's variants — its own alternate forms (`kpi › ops/spotlight`,
   `list › numbered/roman`), the 36-of-59 components that have them, exactly the set the playground
@@ -467,6 +474,13 @@ in patch versions.
   a heading in a list, a note in a list, and a cross-slide selection are all no-ops; on a plain
   paragraph each applies once and toggles cleanly back off. Guarded by `registers.test.ts` (8 stress
   cases, including the exact `- > > > >` repro). (`ComposeView.tsx` now imports the kernel.)
+- **Component-gallery anti-pattern slides no longer overflow or shatter.** The generated "When NOT to
+  reach for X" slide used the `list` component with inline `- **Title.** body` bullets; `list` lays each
+  `<li>` out as flex, so any anti-pattern body containing inline code (`_header:`, `silent`, …) broke
+  into scattered chips that overran the frame. The generator now emits `cards-stack compact` with the
+  HARD RULE #5 nested `- Title` / `  - body` contract — full-width title+body cards that read as a
+  cautionary ledger, keep inline code inline, and stay inside the frame at up to 4 anti-patterns (the
+  catalog max). Affects the generated slide in every component gallery. (`tools/build-component-docs.js`.)
 
 ### Changed
 

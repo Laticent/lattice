@@ -2,10 +2,28 @@
 
 # progression
 
-`2 components`
+`3 components`
 
 Progression — ordered movement through stages or time.
 
+
+---
+
+<!-- _class: cycle -->
+<!-- _footer: "cycle · progression survey" -->
+
+`The water cycle`
+
+## Nothing is spent — only moved.
+
+- Evaporation
+  - The sun lifts water from ocean and leaf into vapor.
+- Condensation
+  - Vapor cools into cloud, a reservoir held aloft.
+- Precipitation
+  - Rain and snow return the water to the ground.
+- Collection
+  - Rivers gather it back to the sea, and it begins again.
 
 ---
 

@@ -260,18 +260,21 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · regulatory-update" -->
 
 ## When NOT to reach for regulatory-update.
 
-- **Single rule's lineage.** If the slide walks one rule from statute through case, use `authority-chain`. regulatory-update is a period digest.
-- **Past six rows.** More than six items compresses the row gap and the citation chips run out of room. Split by jurisdiction.
-- **Missing summary or citation.** Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumor.
+- Single rule's lineage
+  - If the slide walks one rule from statute through case, use `authority-chain`. regulatory-update is a period digest.
+- Past six rows
+  - More than six items compresses the row gap and the citation chips run out of room. Split by jurisdiction.
+- Missing summary or citation
+  - Each row needs all three sub-items — citation, summary, effective date. Otherwise the row reads as rumor.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

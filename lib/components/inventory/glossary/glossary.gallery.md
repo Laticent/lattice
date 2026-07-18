@@ -109,18 +109,21 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · glossary" -->
 
 ## When NOT to reach for glossary.
 
-- **Multi-sentence definitions.** Each entry is one short line. If a definition needs context or examples, the term deserves its own slide — use a divider (light variant) with the term as the heading.
-- **Mixed term lengths.** If some terms are single words and others are full phrases, the left column gets ragged. Trim long terms to their canonical short form.
-- **Hand-written range pill.** The runtime derives the range pill (e.g. "A – G") from the entries. Authoring it into the heading double-stamps it.
+- Multi-sentence definitions
+  - Each entry is one short line. If a definition needs context or examples, the term deserves its own slide — use a divider (light variant) with the term as the heading.
+- Mixed term lengths
+  - If some terms are single words and others are full phrases, the left column gets ragged. Trim long terms to their canonical short form.
+- Hand-written range pill
+  - The runtime derives the range pill (e.g. "A – G") from the entries. Authoring it into the heading double-stamps it.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

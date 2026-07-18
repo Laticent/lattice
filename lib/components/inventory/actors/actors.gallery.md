@@ -107,18 +107,21 @@ Roster of responsibilities owned by named actors.
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · actors" -->
 
 ## When NOT to reach for actors.
 
-- **Process sequence.** If the rows describe stages in order, use list-steps or process-flow. actors is for parallel ownership, not handoff sequence.
-- **Long per-actor prose.** More than one sentence per row crowds the ledger. Move the detail to a dedicated slide and keep actors as the index.
-- **Roles without names.** If the labels are job titles in the abstract ("the engineer"), reach for cards-stack or list. The actors layout earns its weight when the names are named.
+- Process sequence
+  - If the rows describe stages in order, use list-steps or process-flow. actors is for parallel ownership, not handoff sequence.
+- Long per-actor prose
+  - More than one sentence per row crowds the ledger. Move the detail to a dedicated slide and keep actors as the index.
+- Roles without names
+  - If the labels are job titles in the abstract ("the engineer"), reach for cards-stack or list. The actors layout earns its weight when the names are named.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

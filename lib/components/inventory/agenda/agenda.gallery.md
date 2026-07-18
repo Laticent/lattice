@@ -238,19 +238,23 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · agenda" -->
 
 ## When NOT to reach for agenda.
 
-- **Sub-bullets per section.** The agenda is a wayfinder, not a treatment. If a section needs decomposition, that belongs on a section divider when the section opens — not here.
-- **Unnumbered list.** Authoring with `-` instead of `1.` loses the numbered chrome the layout depends on. Always use ordered list syntax.
-- **Single-section decks.** If the deck has no sections to enumerate, skip the agenda. Empty wayfinding is more friction than no wayfinding.
-- **More than six sections.** A single agenda slide holds up to six sections at a legible row height; beyond that the rows crowd the footer. Group related items under fewer headings, or split the agenda across two slides.
+- Sub-bullets per section
+  - The agenda is a wayfinder, not a treatment. If a section needs decomposition, that belongs on a section divider when the section opens — not here.
+- Unnumbered list
+  - Authoring with `-` instead of `1.` loses the numbered chrome the layout depends on. Always use ordered list syntax.
+- Single-section decks
+  - If the deck has no sections to enumerate, skip the agenda. Empty wayfinding is more friction than no wayfinding.
+- More than six sections
+  - A single agenda slide holds up to six sections at a legible row height; beyond that the rows crowd the footer. Group related items under fewer headings, or split the agenda across two slides.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

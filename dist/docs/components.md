@@ -172,6 +172,22 @@ The payload bullet renders as a QR code sized for the back row.
 - Scan to open `caption`
 ```
 
+##### `index` — index
+
+Ends on a reference list — see also, next steps.
+
+```markdown
+<!-- _class: closing silent index -->
+
+## Where to go next.
+
+`Next steps`
+
+- `docs` — the component catalog and authoring contracts
+- `gallery` — every layout rendered in light and dark
+- `studio` — compose and preview a deck in the browser
+```
+
 #### Universal modifiers
 
 This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.

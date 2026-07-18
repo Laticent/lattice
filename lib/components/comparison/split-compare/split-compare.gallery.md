@@ -125,18 +125,21 @@ One question on the left; two option cards and a verdict on the right.
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · split-compare" -->
 
 ## When NOT to reach for split-compare.
 
-- **Three or more options.** split-compare is strictly two — first card is the alternative, second card is the preferred. For three options, use `verdict-grid` or successive `decision` slides.
-- **No verdict.** The blockquote is mandatory. Without it the slide collapses to a comparison without a call — use `compare-prose` for that case.
-- **Preferred on the left.** Layout convention pins the preferred option to the second (right) card. Putting the recommendation first breaks the reading flow and the accent badge lands on the wrong card.
+- Three or more options
+  - split-compare is strictly two — first card is the alternative, second card is the preferred. For three options, use `verdict-grid` or successive `decision` slides.
+- No verdict
+  - The blockquote is mandatory. Without it the slide collapses to a comparison without a call — use `compare-prose` for that case.
+- Preferred on the left
+  - Layout convention pins the preferred option to the second (right) card. Putting the recommendation first breaks the reading flow and the accent badge lands on the wrong card.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 
