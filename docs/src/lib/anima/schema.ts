@@ -71,12 +71,9 @@ function validateMotion(m: unknown, source: SourceModel, at: string, errors: str
     case 'spin':
     case 'orbit':
       if (!AXES.includes(mo.axis as never)) errors.push(`${at}.axis must be one of [${AXES.join(', ')}]`);
-      if (!isFiniteNumber(mo.period) || (mo.period as number) <= 0) errors.push(`${at}.period must be a positive number (ms)`);
-      break;
-    case 'bob':
-      if (!AXES.includes(mo.axis as never)) errors.push(`${at}.axis must be one of [${AXES.join(', ')}]`);
-      if (!isFiniteNumber(mo.amplitude)) errors.push(`${at}.amplitude must be a finite number`);
-      if (!isFiniteNumber(mo.period) || (mo.period as number) <= 0) errors.push(`${at}.period must be a positive number (ms)`);
+      // Floor at 1ms/rev: a sub-millisecond (or denormal like 5e-324) period overflows
+      // t/period to Infinity in compile (the trio's M2) and is meaningless for a slide.
+      if (!isFiniteNumber(mo.period) || (mo.period as number) < 1) errors.push(`${at}.period must be a number >= 1 (ms/revolution)`);
       break;
     case 'fill':
       if (!isUnit(mo.to)) errors.push(`${at}.to must be a level in [0,1]`);
@@ -97,6 +94,54 @@ function validateMotion(m: unknown, source: SourceModel, at: string, errors: str
   }
 }
 
+/** Validate one element (recursively, for a built sub-tree). `ids` is shared across the
+ *  whole tree so ids are unique tree-wide. svg elements are flat (no children). */
+function validateElement(raw: unknown, at: string, source: SourceModel, ids: Set<string>, errors: string[]): void {
+  if (!raw || typeof raw !== 'object') {
+    errors.push(`${at} must be an object`);
+    return;
+  }
+  const el = raw as Record<string, unknown>;
+  if (typeof el.id !== 'string' || !el.id) errors.push(`${at}.id must be a non-empty string`);
+  else if (ids.has(el.id)) errors.push(`${at}.id '${el.id}' is duplicated`);
+  else ids.add(el.id);
+
+  if (el.color != null) {
+    const e = validateColor(el.color);
+    if (e) errors.push(`${at}: ${e}`);
+  }
+
+  if (source === 'built') {
+    if (!PRIMITIVES.includes(el.shape as never)) errors.push(`${at}.shape '${String(el.shape)}' is not a primitive [${PRIMITIVES.join(', ')}]`);
+    if (el.transform != null) validateTransform(el.transform, at, errors);
+    // Reject cross-shape fields so a confused emission fails loudly (compile ignores them).
+    if (el.pathRef != null) errors.push(`${at}.pathRef is an svg-only field, but this is a built element`);
+    // Nested children compose under this element (the Zdog/Three tree).
+    if (el.children != null) {
+      if (!Array.isArray(el.children)) errors.push(`${at}.children must be an array`);
+      else {
+        el.children.forEach((c, k) => {
+          validateElement(c, `${at}.children[${k}]`, source, ids, errors);
+        });
+      }
+    }
+  } else {
+    if (typeof el.pathRef !== 'string' || !el.pathRef) errors.push(`${at}.pathRef must be a non-empty string (a path/group id in the SVG asset)`);
+    if (el.shape != null) errors.push(`${at}.shape is a built-only field, but this is an svg element`);
+    if (el.transform != null) errors.push(`${at}.transform is a built-only field, but this is an svg element`);
+    if (el.children != null) errors.push(`${at}.children is a built-only field (an svg scene is flat), but this is an svg element`);
+  }
+
+  if (el.motion != null) {
+    if (!Array.isArray(el.motion)) errors.push(`${at}.motion must be an array`);
+    else {
+      el.motion.forEach((m, j) => {
+        validateMotion(m, source, `${at}.motion[${j}]`, errors);
+      });
+    }
+  }
+}
+
 /**
  * Validate untrusted input into a typed `Scene`, or a list of errors. Deterministic and
  * pure. The compile step (compile.ts) may then assume a well-formed scene.
@@ -111,57 +156,29 @@ export function parseScene(input: unknown): ParseResult {
   if (!isFiniteNumber(o.duration) || (o.duration as number) <= 0) errors.push('scene.duration must be a positive, finite number (ms)');
   if (!isUnit(o.hero)) errors.push('scene.hero must be a number in [0,1]');
   if (source === 'svg' && (typeof o.asset !== 'string' || !o.asset)) errors.push("an svg scene needs a non-empty 'asset' reference");
-  if (source === 'built' && o.camera != null) {
-    const cam = o.camera as Record<string, unknown>;
-    if (typeof cam !== 'object') errors.push('scene.camera must be an object');
-    else if (cam.rotate != null && !isVec3(cam.rotate)) errors.push('scene.camera.rotate must be a [x,y,z] of finite numbers (radians)');
+  if (source === 'built') {
+    if (o.camera != null) {
+      const cam = o.camera as Record<string, unknown>;
+      if (typeof cam !== 'object') errors.push('scene.camera must be an object');
+      else if (cam.rotate != null && !isVec3(cam.rotate)) errors.push('scene.camera.rotate must be a [x,y,z] of finite numbers (radians)');
+    }
+    if (o.asset != null) errors.push('scene.asset is an svg-only field, but this is a built scene');
   }
+  if (source === 'svg' && o.camera != null) errors.push('scene.camera is a built-only field, but this is an svg scene');
 
   if (!Array.isArray(o.elements) || o.elements.length === 0) {
     errors.push('scene.elements must be a non-empty array');
     return { ok: false, errors };
   }
 
-  // Only validate element shape against a known source; an unknown source already errored.
+  // Only validate elements against a known source; an unknown source already errored.
   const src: SourceModel | null = source === 'built' || source === 'svg' ? source : null;
-  const ids = new Set<string>();
-  o.elements.forEach((raw, i) => {
-    const at = `elements[${i}]`;
-    if (!raw || typeof raw !== 'object') {
-      errors.push(`${at} must be an object`);
-      return;
-    }
-    const el = raw as Record<string, unknown>;
-    if (typeof el.id !== 'string' || !el.id) errors.push(`${at}.id must be a non-empty string`);
-    else if (ids.has(el.id)) errors.push(`${at}.id '${el.id}' is duplicated`);
-    else ids.add(el.id);
-
-    if (el.color != null) {
-      const e = validateColor(el.color);
-      if (e) errors.push(`${at}: ${e}`);
-    }
-
-    if (src === 'built') {
-      if (!PRIMITIVES.includes(el.shape as never)) errors.push(`${at}.shape '${String(el.shape)}' is not a primitive [${PRIMITIVES.join(', ')}]`);
-      if (el.transform != null) validateTransform(el.transform, at, errors);
-      // Reject cross-shape fields so a confused emission fails loudly rather than silently
-      // (compile ignores them) — checker LOW.
-      if (el.pathRef != null) errors.push(`${at}.pathRef is an svg-only field, but this is a built element`);
-    } else if (src === 'svg') {
-      if (typeof el.pathRef !== 'string' || !el.pathRef) errors.push(`${at}.pathRef must be a non-empty string (a path/group id in the SVG asset)`);
-      if (el.shape != null) errors.push(`${at}.shape is a built-only field, but this is an svg element`);
-      if (el.transform != null) errors.push(`${at}.transform is a built-only field, but this is an svg element`);
-    }
-
-    if (el.motion != null) {
-      if (!Array.isArray(el.motion)) errors.push(`${at}.motion must be an array`);
-      else if (src) {
-        el.motion.forEach((m, j) => {
-          validateMotion(m, src, `${at}.motion[${j}]`, errors);
-        });
-      }
-    }
-  });
+  if (src) {
+    const ids = new Set<string>();
+    o.elements.forEach((raw, i) => {
+      validateElement(raw, `elements[${i}]`, src, ids, errors);
+    });
+  }
 
   if (errors.length) return { ok: false, errors };
   return { ok: true, scene: input as unknown as Scene };

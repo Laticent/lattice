@@ -1709,7 +1709,10 @@ const SUONO_SPEC_PATTERNS = [
   // but stops at `;` (statement boundary), `=` (an `export const X = …` assignment, not an import), or
   // a backtick (a template literal that merely CONTAINS import-like text) — the false-positive shapes
   // the round-3 red team found. A real import/re-export never has `=`/backtick before its `from`.
-  /(?:^|\n)\s*(?:import|export)\b[^;=`]*?\bfrom\s*['"]([^'"]+)['"]/g,
+  // The leading anchor is `(?:^|[\n;{}(])` — not just `^|\n` — so a top-level import placed AFTER
+  // another statement on the same line (`const x=0;import three from 'three'`) is still caught; the
+  // Anima adversarial trio (H1) showed the newline-only anchor let that valid ESM escape every pattern.
+  /(?:^|[\n;{}(])\s*(?:import|export)\b[^;=`]*?\bfrom\s*['"]([^'"]+)['"]/g,
   /(?:^|[\n;{}(])\s*import\s+['"]([^'"]+)['"]/g,                      // side-effect import 'x'
   /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]/g,                    // dynamic import('x') / require('x')
 ];

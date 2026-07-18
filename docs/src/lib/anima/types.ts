@@ -33,12 +33,6 @@ export interface OrbitMotion {
   axis: Axis;
   period: number; // ms per revolution of the element's position about the axis
 }
-export interface BobMotion {
-  verb: 'bob';
-  axis: Axis;
-  amplitude: number; // scene-local units
-  period: number; // ms per cycle
-}
 export interface ExplodeMotion {
   verb: 'explode';
   distance: number; // fraction of the element's base offset to push outward (0 = none)
@@ -81,7 +75,6 @@ export interface TraceMotion {
 export type Motion =
   | SpinMotion
   | OrbitMotion
-  | BobMotion
   | ExplodeMotion
   | RevealMotion
   | SequenceMotion
@@ -90,12 +83,19 @@ export type Motion =
   | TraceMotion;
 
 // ── Elements ────────────────────────────────────────────────────────────────
+// The built scene is a NESTED tree (like Zdog's Anchor tree and Three's Object3D
+// tree): a child's transform is LOCAL to its parent, and the backend composes
+// parent∘child (which is how both engines natively work). This is why compound motion
+// — a rotor spinning inside a tilting housing — is expressible: put the rotor's `spin`
+// on a child of the housing. A `group` (no `shape`) is a pure transform node with
+// children. Paint/z-order is document (tree pre-order) order.
 export interface BuiltElement {
   id: string;
   shape: Primitive;
   color?: Color;
-  transform?: Transform;
+  transform?: Transform; // the element's LOCAL transform, before its motions
   motion?: Motion[];
+  children?: BuiltElement[]; // nested sub-tree; their transforms compose under this one
   // Reserved caps-gated extensions for the Three tier (material / light /
   // camera-perspective) are NOT spec'd in Stage 1 — added when §14.8 lands.
 }
@@ -140,13 +140,21 @@ export interface ResolvedTransform {
 }
 export interface ElementState {
   id: string;
+  /** The element's LOCAL resolved transform (relative to its parent). The backend
+   *  builds the nested tree and lets Zdog/Three compose parent∘child — the core never
+   *  pre-composes to world space (which would discard the tree the engines z-sort by). */
   transform: ResolvedTransform;
   color?: Color; // still a token ref — resolved at paint
-  /** 0→1 progressive PRESENCE: opacity/scale-in for built, stroke-draw for svg. */
+  /** 0→1 progressive PRESENCE, defined as OPACITY (the portable reading across a vector
+   *  and a GPU backend; a transparent-material backend honours it as material opacity).
+   *  For an svg element this is the stroke-draw progress. */
   reveal: number;
-  /** 0→1 data-bound LEVEL (the `fill` verb); 1 when no fill drives it. */
+  /** 0→1 data-bound LEVEL (the `fill` verb); 1 when no fill drives it. Its geometry
+   *  binding is per-verb and backend-defined (e.g. a vessel's fill height). */
   level: number;
   visible: boolean;
+  /** Nested children (built scenes only); [] for a leaf or an svg element. */
+  children: ElementState[];
 }
 export interface SceneState {
   source: SourceModel;
@@ -154,6 +162,7 @@ export interface SceneState {
   /** 0→1 across the whole timeline. */
   progress: number;
   camera: ResolvedTransform; // identity for an svg scene
+  /** The ROOT elements; each carries its sub-tree in `children`. Pre-order = paint order. */
   elements: ElementState[];
 }
 

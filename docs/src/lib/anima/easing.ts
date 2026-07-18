@@ -21,5 +21,7 @@ export function ease(name: Easing, p: number): number {
       return 1 - (1 - t) ** 3;
     case 'ease-in-out':
       return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+    default:
+      return t; // robust public surface: an off-union name falls back to linear (F8)
   }
 }

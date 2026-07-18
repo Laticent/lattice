@@ -31,6 +31,10 @@ describe('parseScene — accepts', () => {
     const r = parseScene(built);
     if (r.ok) expect(usedVerbs(r.scene)).toEqual(['spin']);
   });
+  it('a nested built tree (a group with children)', () => {
+    const r = parseScene({ ...built, elements: [{ id: 'g', shape: 'group', children: [{ id: 'c', shape: 'cone', motion: [{ verb: 'spin', axis: 'y', period: 1000 }] }] }] });
+    expect(r.ok).toBe(true);
+  });
 });
 
 describe('parseScene — rejects', () => {
@@ -68,6 +72,11 @@ describe('parseScene — rejects', () => {
     const noAsset = { source: 'svg', duration: 4000, hero: 1, elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'draw' }] }] };
     expect(parseScene(noAsset).ok).toBe(false);
   });
+  it('a sub-1ms rotation period (overflows compile)', () => expect(bad({}, [{ id: 'a', shape: 'box', motion: [{ verb: 'spin', axis: 'y', period: 0.5 }] }]).ok).toBe(false));
+  it('a camera on an svg scene (built-only field)', () => expect(parseScene({ ...svg, camera: { rotate: [0, 0, 0] } }).ok).toBe(false));
+  it('an asset on a built scene (svg-only field)', () => expect(bad({ asset: 'x.svg' }).ok).toBe(false));
+  it('an svg element with children (svg scenes are flat)', () => expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', children: [] }] }).ok).toBe(false));
+  it('a duplicate id across the nested tree', () => expect(bad({}, [{ id: 'a', shape: 'group', children: [{ id: 'a', shape: 'box' }] }]).ok).toBe(false));
 });
 
 describe('validateColor', () => {

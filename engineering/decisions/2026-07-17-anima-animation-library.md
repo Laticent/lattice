@@ -310,7 +310,11 @@ to the poster for a scene whose whole content is vestibular.
 - **The `SceneState` IR is the make-or-break** — an engine-neutral intersection expressive across
   pseudo-3D vector (Zdog), true-3D GPU (Three), **and drawn SVG line-art (Vivus)**, spanning two
   *source models* (built primitives vs ingested SVG); `caps` gates engine-specific richness. Like
-  Cadenza's display/spoken split, this is the hard design.
+  Cadenza's display/spoken split, this is the hard design. **Stage 1 resolved it** (validated by the
+  adversarial trio, HARD RULE #25) as a **nested built tree** — each element's transform is *local*
+  and the backend composes parent∘child, matching Zdog's Anchor / Three's Object3D trees, so compound
+  motion (a rotor inside a tilting housing) is expressible and the `group` primitive is real —
+  with `reveal` defined as **opacity** and paint order = tree pre-order.
 - **Self-drawing as flourish, and the stroke constraint.** Vivus's reveal is the easiest of all to
   slip into ornament; §2 + §12.1 hold it to meaning-bearing drawing order. A hard *input* constraint
   too: Vivus animates strokes, so its source SVG must be line/path art (strokable outlines), not flat

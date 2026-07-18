@@ -4,7 +4,12 @@
 // Cadenza's "a timeline is data; the clock is someone else's"). No DOM, no WebGL, no
 // randomness, no wall-clock — a given scene renders ONE reproducible snapshot at any t,
 // which is what the byte-stable poster gate depends on
-// (2026-07-17-anima-animation-library.md §5–7). A backend reads whichever fields it paints.
+// (2026-07-17-anima-animation-library.md §5–7).
+//
+// The built scene is a NESTED tree; each element's transform is emitted LOCAL to its
+// parent (the backend composes parent∘child, as Zdog/Three do natively), so compound
+// motion — a rotor spinning inside a tilting housing — is expressible. A backend reads
+// whichever fields it paints.
 
 import { clamp01, type Easing, ease } from './easing';
 import type { BuiltElement, ElementState, ResolvedTransform, Scene, SceneState, SvgElement, Timeline, Vec3 } from './types';
@@ -13,6 +18,8 @@ import type { Axis } from './vocabulary';
 const TAU = Math.PI * 2;
 const EPS = 1e-6;
 const AXIS_INDEX: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
+
+type AnyElement = BuiltElement | SvgElement;
 
 function identity(): ResolvedTransform {
   return { at: [0, 0, 0], rotate: [0, 0, 0], scale: 1 };
@@ -24,19 +31,21 @@ function windowed(progress: number, at = 0, span = 1, easing: Easing = 'linear')
   return ease(easing, clamp01((progress - at) / s));
 }
 
-/** Rotate a position vector about an axis by `a` radians (right-handed). */
+/** Right-handed rotation of a position vector about an axis by `a` radians. All three
+ *  axes share ONE handedness (cyclic x→y→z); an earlier y-branch was the transpose —
+ *  the adversarial-trio F1 correctness bug. */
 function rotateAbout(v: Vec3, axis: Axis, a: number): Vec3 {
   const c = Math.cos(a);
   const s = Math.sin(a);
   const [x, y, z] = v;
-  if (axis === 'y') return [x * c - z * s, y, x * s + z * c];
   if (axis === 'x') return [x, y * c - z * s, y * s + z * c];
+  if (axis === 'y') return [x * c + z * s, y, -x * s + z * c];
   return [x * c - y * s, x * s + y * c, z];
 }
 
-function evalElement(el: BuiltElement | SvgElement, seqRank: number, seqCount: number, tMs: number, progress: number): ElementState {
+function evalElement(el: AnyElement, seqRank: Map<string, number>, seqCount: number, tMs: number, progress: number): ElementState {
   const tf = identity();
-  // Base transform (built elements only; svg elements have no scene-graph transform).
+  // Base LOCAL transform (built elements only; svg elements carry no scene-graph transform).
   if ('transform' in el && el.transform) {
     const b = el.transform;
     if (b.at) tf.at = [...b.at];
@@ -48,6 +57,8 @@ function evalElement(el: BuiltElement | SvgElement, seqRank: number, seqCount: n
   let level = 1;
   let hasReveal = false;
 
+  // Motions apply in array order onto the LOCAL transform (composition is order-dependent —
+  // documented in the vocabulary; e.g. `explode` scales whatever offset precedes it).
   for (const m of el.motion ?? []) {
     switch (m.verb) {
       case 'spin':
@@ -56,10 +67,9 @@ function evalElement(el: BuiltElement | SvgElement, seqRank: number, seqCount: n
       case 'orbit':
         tf.at = rotateAbout(tf.at, m.axis, (tMs / m.period) * TAU);
         break;
-      case 'bob':
-        tf.at[AXIS_INDEX[m.axis]] += m.amplitude * Math.sin((tMs / m.period) * TAU);
-        break;
       case 'explode': {
+        // Push the element outward from its PARENT origin — a child separating from its
+        // assembly (the exploded view), which nesting makes meaningful.
         const k = 1 + m.distance * windowed(progress, m.at, m.span, m.easing);
         tf.at = [tf.at[0] * k, tf.at[1] * k, tf.at[2] * k];
         break;
@@ -71,13 +81,13 @@ function evalElement(el: BuiltElement | SvgElement, seqRank: number, seqCount: n
         reveal *= windowed(progress, m.at, m.span, m.easing);
         break;
       case 'sequence': {
-        // Stagger over the SEQUENCED SUBSET (not all scene elements): the i-th sequenced
-        // element of n reveals over its own slot within the [at, at+span] window, so a
-        // scene where only some elements sequence has no dead slots (checker MED).
+        // Stagger over the SEQUENCED SUBSET (tree pre-order), so a scene where only some
+        // elements sequence has no dead slots. Sequenced elements are expected to share
+        // `at`/`span` for a gapless tiling (each uses its own here).
         hasReveal = true;
         const span = m.span ?? 1;
         const slot = span / seqCount;
-        const start = (m.at ?? 0) + seqRank * slot;
+        const start = (m.at ?? 0) + (seqRank.get(el.id) ?? 0) * slot;
         reveal *= windowed(progress, start, slot, m.easing);
         break;
       }
@@ -89,6 +99,8 @@ function evalElement(el: BuiltElement | SvgElement, seqRank: number, seqCount: n
 
   if (!hasReveal) reveal = 1;
 
+  const children = 'children' in el && el.children ? el.children.map((c) => evalElement(c, seqRank, seqCount, tMs, progress)) : [];
+
   return {
     id: el.id,
     transform: tf,
@@ -96,32 +108,41 @@ function evalElement(el: BuiltElement | SvgElement, seqRank: number, seqCount: n
     reveal,
     level,
     visible: reveal > EPS,
+    children,
   };
 }
 
+/** Collect ids carrying a `sequence` verb, in tree PRE-ORDER, so the stagger tiles the
+ *  sequenced subset deterministically across the whole tree. */
+function collectSequenced(elements: AnyElement[], out: string[]): void {
+  for (const el of elements) {
+    if ((el.motion ?? []).some((m) => m.verb === 'sequence')) out.push(el.id);
+    if ('children' in el && el.children) collectSequenced(el.children, out);
+  }
+}
+
 /**
- * Compile a (validated) scene into a Timeline. `at(t)` clamps t to `[0, duration]` and
- * returns the engine-neutral snapshot; `poster()` samples the hero time. Pure and
- * deterministic — the same scene always yields the same snapshot at the same t.
+ * Compile a (validated) scene into a Timeline. `at(t)` clamps t to `[0, duration]` (and
+ * maps a non-finite clock to 0) and returns the engine-neutral snapshot; `poster()`
+ * samples the hero time. Pure and deterministic.
  */
 export function compile(scene: Scene): Timeline {
   const duration = scene.duration;
 
-  // Rank the elements that carry a `sequence` verb, in document order, so the stagger
-  // tiles the SEQUENCED SUBSET rather than all elements (checker MED).
   const sequenced: string[] = [];
-  for (const el of scene.elements) {
-    if ((el.motion ?? []).some((m) => m.verb === 'sequence')) sequenced.push(el.id);
-  }
+  collectSequenced(scene.elements as AnyElement[], sequenced);
   const seqRank = new Map(sequenced.map((id, i) => [id, i] as const));
   const seqCount = Math.max(1, sequenced.length);
 
   const at = (tMs: number): SceneState => {
-    const t = tMs < 0 ? 0 : tMs > duration ? duration : tMs;
+    // NaN clock (a dropped rAF timestamp) → 0, so it can't flood the snapshot with NaN:
+    // `NaN < 0` and `NaN > duration` are both false, so the plain min/max below would leak
+    // NaN into every element (the trio's M1). ±Infinity clamp naturally through the min/max.
+    const t = Number.isNaN(tMs) ? 0 : tMs < 0 ? 0 : tMs > duration ? duration : tMs;
     const progress = duration > 0 ? t / duration : 0;
     const camera = identity();
     if (scene.source === 'built' && scene.camera?.rotate) camera.rotate = [...scene.camera.rotate];
-    const elements = scene.elements.map((el) => evalElement(el, seqRank.get(el.id) ?? 0, seqCount, t, progress));
+    const elements = (scene.elements as AnyElement[]).map((el) => evalElement(el, seqRank, seqCount, t, progress));
     return { source: scene.source, tMs: t, progress, camera, elements };
   };
 

@@ -31,10 +31,15 @@ const parsed = parseScene({
   hero: 0.4,               // the poster is the frame at 40% of the timeline
   camera: { rotate: [-0.3, 0.6, 0] },
   elements: [
-    { id: 'rotor', shape: 'cone', color: 'var(--accent)',
-      motion: [{ verb: 'spin', axis: 'y', period: 6000 }] },
-    { id: 'body', shape: 'rounded-rect', color: 'var(--cat-2-mark)',
-      motion: [{ verb: 'bob', axis: 'y', amplitude: 8, period: 3000 }] },
+    // a housing that tilts, with a rotor spinning INSIDE it — the child's transform is
+    // LOCAL, so the backend composes rotor-under-housing (compound motion, nesting).
+    { id: 'housing', shape: 'group', transform: { rotate: [0, 0.3, 0] },
+      children: [
+        { id: 'rotor', shape: 'cone', color: 'var(--accent)',
+          motion: [{ verb: 'spin', axis: 'y', period: 6000 }] },
+      ] },
+    { id: 'label', shape: 'rounded-rect', color: 'var(--cat-2-mark)',
+      motion: [{ verb: 'reveal', at: 0.3, span: 0.4 }] },
   ],
 });
 if (!parsed.ok) throw new Error(parsed.errors.join('\n'));
@@ -70,12 +75,16 @@ keyframes (the anti-wizbang discipline, ADR §12):
 
 | Verb | Drives | Source | Class (ADR §2) |
 |---|---|---|---|
-| `spin` / `orbit` | rotation / orbit of position | built | explanatory 3D |
-| `bob` | gentle translate | built | (accent) |
-| `explode` | outward from origin | built | structure |
-| `reveal` / `sequence` | presence 0→1 (staggered) | built / both | mechanism |
+| `spin` / `orbit` | local rotation / orbit of position | built | explanatory 3D |
+| `explode` | child outward from its parent | built | structure |
+| `reveal` / `sequence` | presence 0→1 as opacity (staggered) | built / both | mechanism |
 | `fill` | data-bound level 0→to | both | data-bound |
 | `draw` / `trace` | SVG stroke reveal | svg | drawn figure (Vivus) |
+
+The built scene is a **nested tree** (like Zdog's Anchor tree / Three's Object3D tree): a
+child's `transform` is **local** to its parent and the backend composes it, so compound
+motion — a rotor spinning inside a tilting housing — is expressible. `reveal` is defined
+as **opacity** (the portable reading across a vector and a GPU backend).
 
 Colours are `var(--token)` references only (palette-blind, HARD RULE #3); the validator
 rejects hex, `url()`, and markup.

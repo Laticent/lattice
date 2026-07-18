@@ -26,11 +26,10 @@ export type Primitive = (typeof PRIMITIVES)[number];
 // classes of §2: spin/orbit = explanatory 3D; sequence/reveal = mechanism; fill = data-
 // bound; explode = structure; draw/trace = the drawn figure (Vivus).
 export const MOTION_VERBS = [
-  'spin', // continuous rotation about an axis (built)
-  'orbit', // the element's position circles an axis over a period (built)
-  'bob', // gentle sinusoidal translate along an axis (built)
-  'explode', // elements move outward from the origin — the exploded view (built)
-  'reveal', // a single element fades/scales in over a window (built)
+  'spin', // continuous rotation about an axis, in the element's LOCAL frame (built)
+  'orbit', // the element's local position circles an axis over a period (built)
+  'explode', // children move outward from their parent origin — the exploded view (built)
+  'reveal', // a single element fades in (opacity) over a window (built)
   'sequence', // stagger element reveals across the timeline (built | svg)
   'fill', // a data-bound scalar level 0→to over a window (built | svg)
   'draw', // stroke-reveal of an SVG path (svg — needs the `draw` cap)
@@ -51,7 +50,6 @@ export type SourceModel = (typeof SOURCE_MODELS)[number];
 export const VERB_CAP: Record<MotionVerb, 'draw' | null> = {
   spin: null,
   orbit: null,
-  bob: null,
   explode: null,
   reveal: null,
   sequence: null,
@@ -65,7 +63,6 @@ export const VERB_CAP: Record<MotionVerb, 'draw' | null> = {
 export const VERB_SOURCE: Record<MotionVerb, SourceModel | 'both'> = {
   spin: 'built',
   orbit: 'built',
-  bob: 'built',
   explode: 'built',
   reveal: 'built',
   sequence: 'both',

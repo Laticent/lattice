@@ -855,11 +855,12 @@ describe('check-ownership', () => {
           "const t = await import('three');", // dynamic
           "const host = require('../../lib/host');", // require escape
           "import {\n  Mesh,\n} from '../../vendor/three';", // multi-line wrap
+          "const z=0;import Zdog from 'zdog';", // H1: import after a `;` on the same line
           "import { compile } from './compile';", // in-folder — OK
           "import { readFileSync } from 'node:fs';", // node built-in — OK
         ].join('\n'),
       );
-      for (const bad of ['three', '../../lib/host', '../../vendor/three']) {
+      for (const bad of ['three', '../../lib/host', '../../vendor/three', 'zdog']) {
         assert.ok(specs.includes(bad), `escape '${bad}' is detected`);
         assert.ok(!bad.startsWith('./') && !bad.startsWith('node:'), `escape '${bad}' fails the in-folder rule`);
       }
