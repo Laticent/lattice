@@ -1,0 +1,269 @@
+---
+// Vetrina — a standalone, framework-free showcase driven by the REAL engine
+// (docs/src/lib/vetrina): run() drives a self-directing cursor over a plain-DOM mini dashboard —
+// theater over REAL state, seamlessly interruptible. No React, no slide engine. A guided storyboard:
+// each beat runs a short walkthrough that shows one primitive (narrate + point, a real state change,
+// typing, gestures, the cooperative hand-off). Reached at /vetrina.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Vetrina — a self-driving walkthrough</title>
+		<link rel="icon" href="/vetrina-mark.svg" type="image/svg+xml" />
+		<style is:global>
+			:root {
+				--paper: #fbf5f7; --stage: #f4e9ee; --ink: #2a1a22; --muted: #9c8a92; --spent: #cbb8c1;
+				--line: #e6d5dd; --accent: #a8446a; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6e2c4;
+				--panel: #fffafc; --shadow: 0 1px 2px rgba(42,26,34,.06), 0 8px 24px rgba(42,26,34,.06);
+				--vt-accent: #a8446a;
+				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--paper: #140d11; --stage: #1e141a; --ink: #efe2e8; --muted: #6a5560; --spent: #47343d;
+					--line: #2c1f26; --accent: #e08aa8; --accent-ink: #1a0f14; --glow: #f6b64a; --glow-bg: #33291a;
+					--panel: #191016; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+					--vt-accent: #e08aa8;
+				}
+			}
+			:root[data-theme="light"] {
+				--paper: #fbf5f7; --stage: #f4e9ee; --ink: #2a1a22; --muted: #9c8a92; --spent: #cbb8c1;
+				--line: #e6d5dd; --accent: #a8446a; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6e2c4; --panel: #fffafc; --vt-accent: #a8446a;
+			}
+			:root[data-theme="dark"] {
+				--paper: #140d11; --stage: #1e141a; --ink: #efe2e8; --muted: #6a5560; --spent: #47343d;
+				--line: #2c1f26; --accent: #e08aa8; --accent-ink: #1a0f14; --glow: #f6b64a; --glow-bg: #33291a; --panel: #191016; --vt-accent: #e08aa8;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 900px; margin: 0 auto; }
+			header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			.home { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; }
+			.home:hover { color: var(--accent); }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+			.sub { color: var(--muted); font-size: 14px; max-width: 66ch; margin: 6px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+
+			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(22px, 4vw, 36px); position: relative; }
+			/* The mini dashboard the walkthrough drives — real widgets, real state. */
+			.board { display: grid; gap: 14px; max-width: 460px; margin: 0 auto; }
+			.board-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+			.metric { display: flex; flex-direction: column; gap: 2px; }
+			.metric-label { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+			.metric-val { font-family: var(--stage-serif); font-size: 34px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+			.board-btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
+				font-size: 13px; font-weight: 600; border-radius: 10px; padding: 10px 16px; cursor: pointer; transition: transform .08s ease, border-color .12s ease; }
+			.board-btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+			.board-btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.board-btn:disabled { opacity: .5; cursor: default; transform: none; }
+			.board-field { display: flex; flex-direction: column; gap: 5px; }
+			.board-field span { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+			.board-field input { font-family: var(--sans); font-size: 14px; color: var(--ink); background: var(--panel);
+				border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+			.board[data-done="true"] { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 8px; border-radius: 14px; }
+
+			.transport { margin-top: 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
+				font-size: 13px; font-weight: 600; border-radius: 999px; padding: 9px 16px; cursor: pointer; transition: transform .08s ease; }
+			.btn:hover { transform: translateY(-1px); }
+			.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.diag { margin-top: 14px; min-height: 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+			.rail { margin-top: 26px; }
+			.rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+			.rail-head h2 { font-family: var(--stage-serif); font-size: 18px; margin: 0; font-weight: 600; }
+			.beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+			.beat { text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 15px;
+				cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .12s ease, transform .08s ease; }
+			.beat:hover { transform: translateY(-2px); border-color: var(--accent); }
+			.beat[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent); }
+			.beat .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--stage); border: 1px solid var(--line);
+				color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+			.beat[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.beat .bt { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; }
+			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.45; }
+			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+
+			.foot { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+			.foot code { font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px; cursor: pointer; font-family: var(--sans); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<div class="brand">
+					<img class="logo" src="/vetrina-mark.svg" alt="" width="46" height="46" />
+					<h1>Vetrina</h1><span class="tag">walkthrough</span>
+				</div>
+				<div style="display:flex; gap:14px; align-items:center;">
+					<a class="home" href="/">← Lattice</a>
+					<button class="theme" id="themeBtn" type="button">◐ theme</button>
+				</div>
+			</header>
+			<p class="sub">
+				A self-driving product tour — a cursor that <b>narrates and operates real UI</b>, theater over
+				<b>real state</b>, and hands you the wheel the instant you touch anything. Framework-free; it drives
+				plain DOM. Every beat below runs the <b>real engine</b> over the mini dashboard.
+			</p>
+
+			<div class="stage">
+				<div class="board" id="vt-board">
+					<div class="board-row">
+						<div class="metric"><span class="metric-label">Signups today</span><span class="metric-val" id="vt-count">128</span></div>
+						<button class="board-btn" id="vt-bump" type="button">+ Add one</button>
+					</div>
+					<label class="board-field"><span>Release note</span><input id="vt-note" type="text" placeholder="type a note…" /></label>
+					<button class="board-btn primary" id="vt-finish" type="button">Publish release</button>
+				</div>
+			</div>
+			<div class="transport">
+				<button class="btn" id="stopBtn" type="button">Stop</button>
+				<button class="btn" id="resetBtn" type="button">Reset board</button>
+			</div>
+			<p class="diag" id="diag" role="status" aria-live="polite"></p>
+
+			<div class="rail">
+				<div class="rail-head">
+					<h2>The storyboard</h2>
+					<button class="btn primary" id="tourBtn" type="button">▸ Play all five</button>
+				</div>
+				<div class="beats" id="beats"></div>
+			</div>
+
+			<p class="foot">
+				Driven by the real engine (<code>@/lib/vetrina</code>): <code>run()</code> owns the take-over race +
+				teardown; the self-directing cursor calls <code>stage.say</code> / <code>point</code> /
+				<code>gesture</code> and <code>ctx.type</code> / <code>awaitUser</code> over the real widgets above.
+				The counter and note are <b>real state</b> — the tour mutates them, it doesn't paint them. Touch
+				anything mid-tour and it hands you the wheel. A plain DOM page, no framework — the proof the core
+				is standalone.
+			</p>
+		</div>
+
+		<script>
+			import { run, wait } from '@/lib/vetrina';
+
+			const $ = (s) => document.querySelector(s);
+			const root = document.documentElement;
+			const board = $('#vt-board'), countEl = $('#vt-count'), noteEl = $('#vt-note'), finishEl = $('#vt-finish');
+			const beatsEl = $('#beats');
+			const setDiag = (m) => { $('#diag').textContent = m || ''; };
+
+			// Theme toggle (shared docs key).
+			const THEME_LS = 'lattice-docs-mode';
+			const applyTheme = (t) => { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); };
+			try { applyTheme(localStorage.getItem(THEME_LS)); } catch {}
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+				const next = cur === 'dark' ? 'light' : 'dark';
+				applyTheme(next); try { localStorage.setItem(THEME_LS, next); } catch {}
+			});
+
+			// ── The dashboard's real state the walkthrough drives ──
+			const actions = {
+				bump: () => { countEl.textContent = String((Number(countEl.textContent) || 0) + 1); },
+				publish: () => { board.dataset.done = 'true'; finishEl.disabled = true; },
+			};
+			const type = {
+				set: (t) => { noteEl.value = t; },
+				append: (t) => { noteEl.value += t; },
+				read: () => noteEl.value,
+			};
+			const within = (sel, node) => { const el = board.querySelector(sel); return !!el && node instanceof Node && el.contains(node); };
+
+			function resetBoard() { countEl.textContent = '128'; noteEl.value = ''; delete board.dataset.done; finishEl.disabled = false; }
+
+			let handle = null;
+			let touring = false;
+			const tourBtn = $('#tourBtn');
+			// Halt the "Play all five" loop and restore the button — called by every manual
+			// interruption (Stop, Reset, picking a single beat) so the tour can't march on.
+			function endTour() { touring = false; tourBtn.textContent = '▸ Play all five'; }
+			function stopCurrent() { if (handle) { try { handle.stop(); } catch {} handle = null; } }
+			// Run one walkthrough `play` over the board; resolves when it tears down. Guard the
+			// engine call so a synchronous throw can't wedge the awaiting tour loop.
+			function playScene(play) {
+				stopCurrent();
+				return new Promise((resolve) => {
+					try {
+						handle = run({
+							root: board, actions, type, play,
+							takeover: { scope: 'window' },
+							onStop: (reason) => { handle = null; setDiag(reason === 'takeover' ? 'You took the wheel.' : reason === 'error' ? 'Beat error — see console.' : ''); resolve(reason); },
+						});
+					} catch (err) {
+						handle = null; console.error('[vetrina] beat failed to start', err); setDiag('Beat error — see console.'); resolve('error');
+					}
+				});
+			}
+
+			// ── The five beats — each a short walkthrough over the real widgets ──
+			const BEATS = [
+				{ id: 'say', t: 'Narrate + point', d: 'The cursor speaks and points at a real element — a caption dock + a gliding pointer over your own DOM.', api: 'stage.say / point', run: () => playScene(async ({ stage, signal }) => {
+					stage.say('Welcome — let me show you this dashboard.'); await wait(900, signal);
+					await stage.point('#vt-count', signal); stage.say('This is today’s signups.'); await wait(1100, signal);
+				}) },
+				{ id: 'state', t: 'Real state, not theater', d: 'It drives a REAL increment, then circles it — the number actually changes; nothing is painted on.', api: 'actions.bump() + gesture', run: () => playScene(async ({ stage, actions, signal }) => {
+					await stage.point('#vt-count', signal); stage.say('Watch — I’ll add one.'); await wait(650, signal);
+					actions.bump(); await stage.gesture('circle', '#vt-count', signal);
+					stage.say('That was a real state change, not a painted one.'); await wait(1100, signal);
+				}) },
+				{ id: 'type', t: 'Type into a field', d: 'It types a release note character-by-character into the real input — end-to-end through ctx.type.', api: 'ctx.type(target, text)', run: () => playScene(async (ctx) => {
+					const { stage, signal } = ctx;
+					await stage.point('#vt-note', signal); stage.say('And fill the note…'); await wait(500, signal);
+					await ctx.type('#vt-note', 'Shipped by Vetrina', { cadence: 34 }); await wait(900, signal);
+				}) },
+				{ id: 'gesture', t: 'Gestures', d: 'A vocabulary of cursor gestures — circle, check, wave, cross, shake — to punctuate a beat.', api: "gesture('check'|'wave'|…)", run: () => playScene(async ({ stage, signal }) => {
+					await stage.point('#vt-finish', signal); await stage.gesture('wave', undefined, signal); await wait(500, signal);
+					await stage.gesture('check', '#vt-finish', signal); stage.say('A check to confirm.'); await wait(1000, signal);
+				}) },
+				{ id: 'handoff', t: 'Take the wheel', d: 'The cooperative hand-off: it waits for YOU to click Publish (or takes over the instant you touch anything else); times out after 8s.', api: 'ctx.awaitUser({ match })', run: () => playScene(async (ctx) => {
+					const { stage, actions, signal } = ctx;
+					stage.say('Your turn — click Publish release.'); await stage.point('#vt-finish', signal);
+					await ctx.awaitUser({ match: (e) => within('#vt-finish', e.target), timeout: 8000, onTimeout: 'abort' });
+					actions.publish(); await stage.gesture('check', '#vt-finish', signal);
+					stage.say('Published — that’s the whole tour.'); await wait(900, signal);
+				}) },
+			];
+			function setCurrentBeat(id) { [...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id))); }
+			BEATS.forEach((b, i) => {
+				const el = document.createElement('button');
+				el.className = 'beat'; el.type = 'button'; el.dataset.id = b.id;
+				el.innerHTML = `<span class="n">${i + 1}</span><span><span class="bt">${b.t}</span><p class="bd">${b.d}</p><span class="api">${b.api}</span></span>`;
+				el.addEventListener('click', () => { endTour(); setCurrentBeat(b.id); resetBoard(); b.run(); });
+				beatsEl.appendChild(el);
+			});
+
+			$('#stopBtn').addEventListener('click', () => { endTour(); stopCurrent(); setDiag('Stopped.'); });
+			$('#resetBtn').addEventListener('click', () => { endTour(); stopCurrent(); resetBoard(); setCurrentBeat(null); setDiag(''); });
+
+			tourBtn.addEventListener('click', async () => {
+				if (touring) { endTour(); stopCurrent(); return; }
+				touring = true; tourBtn.textContent = '■ Stop tour'; resetBoard();
+				for (const b of BEATS) {
+					if (!touring) break;
+					setCurrentBeat(b.id);
+					await b.run(); // resolves when the beat tears down (awaitUser beat resolves on click or 8s timeout)
+					if (!touring) break;
+					await new Promise((r) => setTimeout(r, 500));
+				}
+				endTour();
+			});
+		</script>
+	</body>
+</html>

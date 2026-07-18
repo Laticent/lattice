@@ -61,7 +61,7 @@ export function librariesNav(url) {
 		{ label: 'Suono', href: url('suono'), match: ['suono'], desc: 'Audio scheduler + owned clock' },
 		{ label: 'Lente', href: url('lente'), match: ['lente'], desc: 'Reader lenses, human-approved' },
 		{ label: 'Cadenza', href: url('cadenza'), match: ['cadenza'], desc: 'Caption + timeline engine' },
-		{ label: 'Vetrina', href: url('vetrina-tour'), match: ['vetrina'], desc: 'Self-driving walkthrough' },
+		{ label: 'Vetrina', href: url('vetrina'), match: ['vetrina'], desc: 'Self-driving walkthrough' },
 	];
 }
 

@@ -213,6 +213,17 @@ in patch versions.
   standalone showcases — Suono, Lente, Cadenza, Vetrina — so they're discoverable, not URL-only. The
   cadenza + vetrina demos now also wear their marks + favicons. (`docs/src/lib/nav.mjs`,
   `SiteHeader.astro`, `NavActions.tsx`, `cadenza.astro`, `vetrina-tour.astro`.)
+- **All four library demos now share one numbered-storyboard format.** `/cadenza` and `/vetrina` are
+  rebuilt to match `/suono` and `/lente`: a live stage on top, then a numbered "storyboard" rail of
+  beats (each a one-click capability demo) with a "Play all five" tour — one consistent way to show a
+  library off. `/cadenza` drives its existing read-along engine through five beats (text→timed track,
+  display-vs-spoken, pace, WebVTT export, real-voice hybrid re-anchor). `/vetrina` is a **new**
+  standalone page at `/vetrina` (the nav now points here): the real `run()` walkthrough engine drives a
+  self-directing cursor over a plain-DOM mini dashboard across five beats — narrate + point, a real
+  state change, typing into a field, gestures, and the cooperative `awaitUser` hand-off (verified live:
+  the type beat fills the note, the hand-off completes on a real click, and touching anything mid-tour
+  hands you the wheel). The prior `/vetrina-tour` reference surface (which backs the `awaitUser` e2e)
+  stays as-is. (`docs/src/pages/cadenza.astro`, `docs/src/pages/vetrina.astro`, `docs/src/lib/nav.mjs`.)
 - **A guided Lente showcase at `/lente`, and marks + lockups for the whole library family.** The
   library-demo fan-out on the locked sibling brand system. `/lente` is a standalone, framework-free,
   real-engine storyboard: pick a lens and the deck shrinks to that subset, see it **fail CLOSED** when
