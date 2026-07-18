@@ -63,6 +63,9 @@ const {
   checkDensityCoverage,
   SANCTIONED_DENSITY_EXEMPT,
   checkVetrinaBoundary,
+  checkAnimaBoundary,
+  ANIMA_DIR,
+  ANIMA_IMPORT,
   checkAudioPlaybackBoundary,
   SANCTIONED_LEGACY_AUDIO,
   RAW_AUDIO_PATTERNS,
@@ -811,6 +814,34 @@ describe('check-ownership', () => {
       const specs = scan("import _ from 'lodash';");
       assert.deepEqual(specs, ['lodash']);
       assert.ok(!'lodash'.startsWith('./') && !'lodash'.startsWith('node:'), 'bare dep would fail');
+    });
+  });
+
+  // The Anima animation core's self-containment antibody
+  // (engineering/decisions/2026-07-17-anima-animation-library.md §11 — spin-off-able, zero host deps).
+  describe('Anima import-boundary gate (§11 — zero-dependency, spin-off-able)', () => {
+    const scan = (src) => [...src.matchAll(new RegExp(ANIMA_IMPORT.source, 'g'))].map((m) => m[1]);
+
+    test('the live tree is clean — the core imports nothing outside the folder', () => {
+      const errors = [];
+      checkAnimaBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('every core (non-test) file imports only in-folder `./` or `node:` specifiers', () => {
+      for (const file of listSourceFiles(ANIMA_DIR)) {
+        if (/\.test\.[tj]s$/.test(file)) continue;
+        for (const spec of scan(fs.readFileSync(file, 'utf8'))) {
+          assert.ok(spec.startsWith('./') || spec.startsWith('node:'), `${path.relative(ANIMA_DIR, file)} imports '${spec}' — must be in-folder`);
+        }
+      }
+    });
+
+    test('the gate bites: a `../` host escape and a bare engine dep are both caught', () => {
+      const specs = scan("import { host } from '../../lib/host';\nimport * as THREE from 'three';\nimport { compile } from './compile';");
+      assert.ok(specs.includes('../../lib/host') && specs.includes('three'), 'both escapes detected');
+      assert.ok(!'three'.startsWith('./') && !'three'.startsWith('node:'), 'the engine dep would fail the in-folder rule');
+      assert.ok('./compile'.startsWith('./'), 'the in-folder import passes');
     });
   });
 
