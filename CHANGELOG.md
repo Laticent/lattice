@@ -424,6 +424,21 @@ in patch versions.
   its rendered iframe across the search boundary instead of re-rendering cold, and each tile's preview
   figure is `aria-hidden` (the tile button already carries the name) so a screen reader hears each slide
   once, not a duplicate figure node. (`StudioShell.tsx`, `SlidePicker.tsx`, `slide-thumb.tsx`, `DeckPreview.tsx`.)
+- **On a phone, the Compose grammar bar now rides above the software keyboard instead of hiding
+  behind it.** The register bar (H1 / H2 / Eyebrow / Subtitle / Key-insight / Below-note) used to sit
+  in normal flow at the bottom of the editor, so the iOS keyboard drew right over it the moment you
+  started typing — exactly when you reach for it. It is now a `position:fixed` rail portaled to
+  `<body>` and pinned by an **absolute visual-viewport coordinate**
+  (`top = visualViewport.offsetTop + visualViewport.height − railHeight`), which lands its bottom edge
+  flush with the keyboard's top edge regardless of how iOS resolves `position:fixed` (the reference-
+  frame ambiguity that makes `bottom:0 + translateY` double-count the keyboard on some builds). When no
+  keyboard is up — or `visualViewport` is unavailable — it **docks at the bottom of the editor**, so it
+  is never worse than the always-visible bar it replaces. Scoped to the mobile shell (≤699px); tablet
+  and desktop keep the left grammar gutter (there the registers sit on the side, where the keyboard
+  never occluded them), which also retires the old 640-vs-699 CSS/JS breakpoint split. The keyboard-
+  lift itself is **UNVERIFIED on real iOS** (a headless sandbox has no software keyboard; HARD RULE
+  #23) and needs a device pass. (`ComposeView.tsx`, new `use-visual-viewport.ts`, `StudioShell.tsx`;
+  `engineering/decisions/2026-07-18-compose-mobile-keyboard-rail.md`.)
 - **The performance overlay's FPS now rates against your display's refresh ceiling, not a fixed 60.**
   A steady 30fps on a 30Hz panel — or under an iOS/tablet power-saver or a backgrounded-tab throttle —
   is the device's ceiling, not jank, but the overlay was colouring it "poor" and sending people

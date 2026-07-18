@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
+import { useRailLayout, useVisualViewport } from './use-visual-viewport';
 
 // The slide divider borrows the deck's STRUCTURAL TRIM (`spectrum-trim:`) — the same
 // register that colors the rendered deck's `hr` rules, table rails, and timeline spine —
@@ -448,7 +449,36 @@ function buildPlugins() {
 	];
 }
 
-export function ComposeView({ source, onChange, resetKey = '', className }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string }) {
+// The six grammar-register buttons — shared by the desktop LEFT gutter and the mobile/tablet
+// keyboard-riding RAIL so both surfaces stay one control set (no forked widget, HARD RULE #15).
+// The buttons `preventDefault` on mousedown so a tap never blurs the editor (keeping the caret
+// — and, on touch, the software keyboard — alive; the same guard the shipped bottom bar used).
+function GrammarRegisters({ active, onGutter }: { active: Reg | null; onGutter: (reg: Reg) => void }) {
+	return (
+		<>
+			{REGISTERS.map((r) => (
+				<button
+					key={r.key}
+					type="button"
+					title={`${r.label} — apply to this block`}
+					aria-label={r.label}
+					aria-pressed={active === r.key}
+					onMouseDown={(e) => e.preventDefault()}
+					onClick={() => onGutter(r.key)}
+					className={cn('cs-greg', r.mono && 'cs-greg-mono', active === r.key && 'cs-greg-live')}
+				>
+					{r.glyph}
+				</button>
+			))}
+		</>
+	);
+}
+
+// `visible` = whether the Compose surface is the active/visible pane. On mobile the editor and
+// preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
+// portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
+// pane, else it would paint over the live preview (the body-portal render-gate).
+export function ComposeView({ source, onChange, resetKey = '', className, visible = true }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -464,6 +494,40 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 	// is no non-empty selection. The block registers live in the gutter; this bar is the
 	// inline complement — Bold / Italic / Code on the selected run.
 	const [selBar, setSelBar] = React.useState<SelBar | null>(null);
+
+	// Present the grammar registers as the keyboard-riding bottom RAIL (coarse pointer /
+	// phone-tablet width) instead of the desktop left gutter. `useVisualViewport` publishes
+	// the keyboard geometry ONLY while the rail is shown, so the desktop path pays nothing.
+	const railLayout = useRailLayout();
+	const showRail = visible && railLayout && !failed;
+	useVisualViewport(showRail);
+
+	// Keep the portaled rail's left/width locked to the editor host's box: on tablet the
+	// split is user-draggable and the device rotates, so a baked-once rect would detach the
+	// rail from the editor column. A ResizeObserver on the host re-publishes the geometry.
+	React.useEffect(() => {
+		if (!showRail) return;
+		const host = hostRef.current;
+		if (!host) return;
+		const root = document.documentElement;
+		const sync = () => {
+			const r = host.getBoundingClientRect();
+			root.style.setProperty('--cs-rail-left', `${r.left}px`);
+			root.style.setProperty('--cs-rail-width', `${r.width}px`);
+		};
+		sync();
+		const ro = new ResizeObserver(sync);
+		ro.observe(host);
+		window.addEventListener('resize', sync);
+		window.addEventListener('scroll', sync, true);
+		return () => {
+			ro.disconnect();
+			window.removeEventListener('resize', sync);
+			window.removeEventListener('scroll', sync, true);
+			root.style.removeProperty('--cs-rail-left');
+			root.style.removeProperty('--cs-rail-width');
+		};
+	}, [showRail]);
 
 	// Re-import `src` into the editor, rebuilding the emit baseline. Shared by the
 	// external-source effect and the on-blur flush.
@@ -599,24 +663,15 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 	return (
 		<div className={cn('cs-surface', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
 			<ComposeStyles />
-			<div className="cs-frame">
-				<div className="cs-gutter" role="toolbar" aria-label="Grammar registers">
-					<span className="cs-gutter-label">Grammar</span>
-					{REGISTERS.map((r) => (
-						<button
-							key={r.key}
-							type="button"
-							title={`${r.label} — apply to this block`}
-							aria-label={r.label}
-							aria-pressed={active === r.key}
-							onMouseDown={(e) => e.preventDefault()}
-							onClick={() => onGutter(r.key)}
-							className={cn('cs-greg', r.mono && 'cs-greg-mono', active === r.key && 'cs-greg-live')}
-						>
-							{r.glyph}
-						</button>
-					))}
-				</div>
+			<div className="cs-frame" data-rail={showRail ? 'on' : undefined}>
+				{/* Desktop LEFT gutter. On the rail surfaces it's not rendered — the registers
+				    live in the portaled rail below (exactly one register surface at a time). */}
+				{!showRail && (
+					<div className="cs-gutter" role="toolbar" aria-label="Grammar registers">
+						<span className="cs-gutter-label">Grammar</span>
+						<GrammarRegisters active={active} onGutter={onGutter} />
+					</div>
+				)}
 				<div ref={hostRef} className="cs-host" />
 			</div>
 			{selBar &&
@@ -637,6 +692,13 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 						<button type="button" aria-label="Code" aria-pressed={selBar.code} className={cn('cs-sb-btn cs-sb-mono', selBar.code && 'cs-sb-on')} onClick={() => onMark('code')}>
 							{'</>'}
 						</button>
+					</div>,
+					document.body,
+				)}
+			{showRail &&
+				createPortal(
+					<div className="cs-rail" role="toolbar" aria-label="Grammar registers">
+						<GrammarRegisters active={active} onGutter={onGutter} />
 					</div>,
 					document.body,
 				)}
@@ -709,8 +771,27 @@ function ComposeStyles() {
 			.cs-host em{font-style:italic}
 			.cs-host a{color:var(--accent,#1e5f96);text-decoration:underline}
 			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#006fa8)}
-			/* MOBILE — the grammar rail becomes a bottom bar (thumb-reachable; the cramped low-
-			   contrast left rail was the phone pain point). Host on top, register bar below. */
+			/* MOBILE / TABLET — the grammar registers ride a KEYBOARD-AWARE bottom RAIL
+			   (.cs-rail, portaled to <body>) instead of the cramped left gutter. It docks at the
+			   bottom of the editor column and LIFTS above the software keyboard when one is up,
+			   positioned by an absolute visual-viewport coordinate (use-visual-viewport). */
+			.cs-rail{
+				position:fixed;z-index:45;
+				left:var(--cs-rail-left,0px);width:var(--cs-rail-width,100vw);
+				top:calc(var(--cs-vv-top,0px) + var(--cs-vv-height,100vh) - 52px);height:52px;
+				display:flex;align-items:center;gap:8px;padding:7px 12px;overflow-x:auto;
+				background:var(--bg-alt,#f2f5fa);border-top:1px solid var(--border,#e4eaf2);
+				box-shadow:0 -8px 20px -14px rgba(0,0,0,.45);
+				-webkit-overflow-scrolling:touch;overscroll-behavior:contain
+			}
+			.cs-rail .cs-greg{width:46px;height:38px;font-size:16px;flex:none}
+			.cs-rail .cs-greg-mono{font-size:11px}
+			/* reserve scroll room below the caret = keyboard + rail, so iOS's native
+			   per-keystroke caret scroll can't land the caret behind the rail. */
+			.cs-frame[data-rail="on"] .cs-host .ProseMirror{padding-bottom:calc(64px + 52px + var(--cs-kb-inset,0px))}
+			.cs-frame[data-rail="on"] .cs-host{scroll-padding-bottom:calc(52px + var(--cs-kb-inset,0px))}
+			/* NARROW FINE-POINTER window (no coarse pointer → no rail): the in-flow .cs-gutter
+			   reflows to a bottom bar, exactly as it shipped. */
 			@media (max-width:640px){
 				.cs-frame{flex-direction:column}
 				.cs-host{order:1}
