@@ -208,6 +208,17 @@ in patch versions.
   authored slide — reusing the gallery's preview tiles and the Inspector's token logic (no new engine
   behavior). (`slide-variants.ts`, `ReshapePicker.tsx`, `SlidePicker.tsx`, `component-search.ts`,
   `StudioShell.tsx`; `engineering/decisions/2026-07-18-slide-variants-in-gallery.md`.)
+- **A guided Lente showcase at `/lente`, and marks + lockups for the whole library family.** The
+  library-demo fan-out on the locked sibling brand system. `/lente` is a standalone, framework-free,
+  real-engine storyboard: pick a lens and the deck shrinks to that subset, see it **fail CLOSED** when
+  unapproved (never a silent full-deck fallback), approve it (a human stamps the content hash), then
+  watch it **de-approve on drift** — all driven live by `parseLensRegistry` + the fluent `lens()`
+  front door (the approve/drift flow verified on the real page). Each remaining built library gets its
+  own mark + Fraunces lockup on the shared DNA with its own metaphor: **lente** = a camera iris/aperture
+  (blue), **vetrina** = a framed vitrine + self-driving cursor (rose), **cadenza** = a caption with the
+  current word lit (indigo); cadenza also ships a favicon-scale min. (`docs/src/pages/lente.astro`,
+  `docs/public/{lente,vetrina,cadenza}-{mark,lockup}.svg`; `engineering/decisions/2026-07-18-sibling-brand-system.md`.)
+
 - **Suono has a brand identity — a mark, a favicon-scale minimal mark, and a Fraunces lockup.** A
   radial "sound-clock" sibling to the Lattice mark (shared DNA: 128 viewBox, a ringed hub node with a
   pale halo, precise geometry, one dark-mode-aware palette, the Fraunces wordmark) that tells Suono's

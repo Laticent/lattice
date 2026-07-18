@@ -1,0 +1,324 @@
+---
+// Lente — a standalone, framework-free showcase driven by the REAL engine
+// (docs/src/lib/lente): parseLensRegistry + the fluent lens() front door projecting one deck at the
+// altitude a reader chose — but ONLY a view a human approved. No React, no slide engine — the honest
+// proof the reader-lens core is a self-contained, deterministic, no-DOM library. A guided storyboard:
+// pick a lens and watch the deck shrink to a subset; see it fail CLOSED when unapproved; approve it;
+// watch it de-approve on drift. Reached at /lente.
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<title>Lente — one deck, at the altitude you chose</title>
+		<link rel="icon" href="/lente-mark.svg" type="image/svg+xml" />
+		<style is:global>
+			:root {
+				--paper: #f4f6fb; --stage: #eaeef7; --ink: #1a2230; --muted: #8b93a5; --spent: #b9c1d2;
+				--line: #d7deec; --accent: #2f5fa6; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6e2c4;
+				--panel: #fbfcff; --shadow: 0 1px 2px rgba(26,34,48,.06), 0 8px 24px rgba(26,34,48,.06);
+				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--paper: #0d1017; --stage: #141926; --ink: #dfe6f2; --muted: #5c6678; --spent: #3a4356;
+					--line: #222a3a; --accent: #6fa3e6; --accent-ink: #0b1220; --glow: #f6b64a; --glow-bg: #2f2a1c;
+					--panel: #111624; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				}
+			}
+			:root[data-theme="light"] {
+				--paper: #f4f6fb; --stage: #eaeef7; --ink: #1a2230; --muted: #8b93a5; --spent: #b9c1d2;
+				--line: #d7deec; --accent: #2f5fa6; --accent-ink: #fff; --glow: #c67a12; --glow-bg: #f6e2c4; --panel: #fbfcff;
+			}
+			:root[data-theme="dark"] {
+				--paper: #0d1017; --stage: #141926; --ink: #dfe6f2; --muted: #5c6678; --spent: #3a4356;
+				--line: #222a3a; --accent: #6fa3e6; --accent-ink: #0b1220; --glow: #f6b64a; --glow-bg: #2f2a1c; --panel: #111624;
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
+				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
+			.wrap { max-width: 900px; margin: 0 auto; }
+			header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
+			.home { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 600; }
+			.home:hover { color: var(--accent); }
+			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
+			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
+				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
+			.sub { color: var(--muted); font-size: 14px; max-width: 66ch; margin: 6px 0 0; }
+			.sub b { color: var(--ink); font-weight: 600; }
+
+			.stage { margin: 26px 0 0; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
+				box-shadow: var(--shadow); padding: clamp(22px, 4vw, 36px); }
+			.lenses { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+			.lens-chip { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
+				font-size: 13px; font-weight: 600; border-radius: 999px; padding: 8px 15px; cursor: pointer; transition: transform .08s ease, border-color .12s ease; }
+			.lens-chip:hover { transform: translateY(-1px); }
+			.lens-chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.lens-chip .base { font-family: var(--mono); font-size: 10px; opacity: .7; margin-left: 5px; }
+
+			/* Reader status banner — fail-CLOSED is the whole point. */
+			.reader { margin-top: 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+				border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 11px 15px; font-size: 13px; }
+			.reader .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--spent); flex-shrink: 0; }
+			.reader[data-ok="true"] .dot { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+			.reader[data-ok="false"] .dot { background: var(--glow); box-shadow: 0 0 0 3px var(--glow-bg); }
+			.reader .st { font-weight: 600; }
+			.reader .why { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+			.reader .approve { margin-left: auto; border: 1px solid var(--accent); background: transparent; color: var(--accent);
+				font-family: var(--sans); font-size: 12px; font-weight: 600; border-radius: 8px; padding: 7px 13px; cursor: pointer; }
+			.reader .approve:disabled { opacity: .4; cursor: default; }
+
+			/* The deck — slide cards; members lit, non-members dimmed to "spent". */
+			.deck { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+			.card { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); padding: 12px 13px; min-height: 84px;
+				display: flex; flex-direction: column; gap: 6px; transition: opacity .25s ease, transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+			.card .kls { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+			.card .ttl { font-family: var(--stage-serif); font-size: 15px; color: var(--ink); line-height: 1.25; }
+			.card .idx { margin-top: auto; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+			.card[data-in="false"] { opacity: .28; }
+			.card[data-in="true"] { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 14%, transparent); }
+			.card[data-edited="true"] .ttl::after { content: " ·edited"; color: var(--glow); font-family: var(--mono); font-size: 10px; }
+			.count { margin-top: 14px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+			.count b { color: var(--ink); }
+
+			.transport { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
+				font-size: 13px; font-weight: 600; border-radius: 999px; padding: 9px 16px; cursor: pointer; transition: transform .08s ease; }
+			.btn:hover { transform: translateY(-1px); }
+			.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.diag { margin-top: 14px; min-height: 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+			.rail { margin-top: 26px; }
+			.rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+			.rail-head h2 { font-family: var(--stage-serif); font-size: 18px; margin: 0; font-weight: 600; }
+			.beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+			.beat { text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 15px;
+				cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .12s ease, transform .08s ease; }
+			.beat:hover { transform: translateY(-2px); border-color: var(--accent); }
+			.beat[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent); }
+			.beat .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--stage); border: 1px solid var(--line);
+				color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+			.beat[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.beat .bt { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; }
+			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.45; }
+			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+
+			.foot { margin-top: 26px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+			.foot code { font-family: var(--mono); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px; cursor: pointer; font-family: var(--sans); }
+			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+		</style>
+	</head>
+	<body>
+		<div class="wrap">
+			<header>
+				<div class="brand">
+					<img class="logo" src="/lente-mark.svg" alt="" width="46" height="46" />
+					<h1>Lente</h1><span class="tag">reader lenses</span>
+				</div>
+				<div style="display:flex; gap:14px; align-items:center;">
+					<a class="home" href="/">← Lattice</a>
+					<button class="theme" id="themeBtn" type="button">◐ theme</button>
+				</div>
+			</header>
+			<p class="sub">
+				One deck is written once. A reader opens it for a different job — the bottom line, the story, the
+				data. Lente projects the <b>same source</b> at the altitude a reader picks — but only ever a view a
+				<b>human approved</b>. It is a pure, deterministic, no-DOM function; every beat below runs the
+				<b>real engine</b> live.
+			</p>
+
+			<div class="stage">
+				<div class="lenses" id="lenses" aria-label="Pick a lens"></div>
+				<div class="reader" id="reader" data-ok="true">
+					<span class="dot"></span>
+					<span class="st" id="readerSt">Reader view</span>
+					<span class="why" id="readerWhy"></span>
+					<button class="approve" id="approveBtn" type="button">Approve this lens ▸ stamp the hash</button>
+				</div>
+				<div class="deck" id="deck"></div>
+				<p class="count" id="count"></p>
+				<div class="transport">
+					<button class="btn" id="editBtn" type="button">Edit a slide (after approval)</button>
+					<button class="btn" id="resetBtn" type="button">Reset</button>
+				</div>
+				<p class="diag" id="diag" role="status" aria-live="polite"></p>
+			</div>
+
+			<div class="rail">
+				<div class="rail-head">
+					<h2>The storyboard</h2>
+					<button class="btn primary" id="tourBtn" type="button">▸ Play all six</button>
+				</div>
+				<div class="beats" id="beats"></div>
+			</div>
+
+			<p class="foot">
+				Driven by the real engine (<code>@/lib/lente</code>): <code>parseLensRegistry</code> reads the
+				deck's <code>lenses:</code> block; the fluent
+				<code>lens(slides).registry(reg).pick(id).project()</code> front door returns the reader's view.
+				The read path is <b>fail-CLOSED</b> — an unapproved or drifted lens yields
+				<code>unavailable</code>, never a silent full-deck fallback — and it can never reach the suggester.
+				The only bridge is a human pressing <b>Approve</b>, which stamps a content hash that any later edit
+				invalidates. A plain DOM page, no framework — the proof the core is standalone.
+			</p>
+		</div>
+
+		<script>
+			import { approvalHash, lens, parseLensRegistry } from '@/lib/lente';
+
+			const $ = (s) => document.querySelector(s);
+			const root = document.documentElement;
+			const lensesEl = $('#lenses'), deckEl = $('#deck'), countEl = $('#count'), diagEl = $('#diag');
+			const readerEl = $('#reader'), readerSt = $('#readerSt'), readerWhy = $('#readerWhy'), approveBtn = $('#approveBtn');
+			const beatsEl = $('#beats');
+			const setDiag = (m) => { diagEl.textContent = m || ''; };
+
+			// Theme toggle (shared key with the docs site).
+			const THEME_LS = 'lattice-docs-mode';
+			const applyTheme = (t) => { if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme'); };
+			try { applyTheme(localStorage.getItem(THEME_LS)); } catch {}
+			$('#themeBtn').addEventListener('click', () => {
+				const cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+				const next = cur === 'dark' ? 'light' : 'dark';
+				applyTheme(next);
+				try { localStorage.setItem(THEME_LS, next); } catch {}
+			});
+
+			// ── A small worked deck: each slide carries its _class + author-approved _lens tags ──
+			// brief (base none) = {0,1,4,7} · story (base none) = {0,2,3,6} · ask (single) = {7}
+			// evidence (base all) = everything EXCEPT the anchors {0,7} (they carry -evidence).
+			const SLIDES0 = [
+				'<!-- _class: anchor -->\n<!-- _lens: brief story -evidence -->\n# Recommendation',
+				'<!-- _class: statement -->\n<!-- _lens: brief -->\n## The bottom line — three moves',
+				'<!-- _class: statement -->\n<!-- _lens: story -->\n## Where we are today',
+				'<!-- _class: statement -->\n<!-- _lens: story -->\n## The problem, stated',
+				'<!-- _class: chart -->\n<!-- _lens: brief -->\n## Revenue +18% this quarter',
+				'<!-- _class: evidence -->\n## Cost breakdown, line by line',
+				'<!-- _class: comparison -->\n<!-- _lens: story -->\n## Options A / B / C',
+				'<!-- _class: anchor -->\n<!-- _lens: brief ask -evidence -->\n# The ask — approve $2M',
+			];
+			const TITLES = SLIDES0.map((s) => (s.match(/^#{1,6}\s+(.+)$/m) || [, ''])[1]);
+			const KLASS = SLIDES0.map((s) => (s.match(/_class:\s*(\w+)/) || [, ''])[1]);
+			const REG_FM = 'lenses:\n'
+				+ '  brief: { label: "Brief", base: none }\n'
+				+ '  ask: { label: "The ask", base: none, single: true }\n'
+				+ '  story: { label: "Story", base: none }\n'
+				+ '  evidence: { label: "Evidence", base: all }';
+
+			let slides = SLIDES0.slice();
+			let reg = parseLensRegistry(REG_FM);   // Lente owns the registry
+			let picked = 'full';
+			let edited = -1;
+
+			function renderLenses() {
+				lensesEl.innerHTML = '';
+				for (const l of reg.lenses) {
+					const b = document.createElement('button');
+					b.className = 'lens-chip'; b.type = 'button';
+					b.setAttribute('aria-pressed', String(l.id === picked));
+					const base = l.id === 'full' ? '' : `<span class="base">${l.base}${l.single ? '·single' : ''}</span>`;
+					b.innerHTML = `${l.label}${base}`;
+					b.addEventListener('click', () => { setCurrentBeat(null); pick(l.id); });
+					lensesEl.appendChild(b);
+				}
+			}
+
+			function pick(id) {
+				picked = id;
+				renderLenses();
+				// Author-preview membership (ignores approval) — what the lens WOULD show:
+				const pairs = lens(slides).registry(reg).pick(id).pairs();
+				const inSet = new Set(pairs.map((p) => p.index));
+				deckEl.querySelectorAll('.card').forEach((c) => {
+					c.dataset.in = String(inSet.has(Number(c.dataset.i)));
+				});
+				countEl.innerHTML = `<b>${pairs.length}</b> of ${slides.length} slides — the <b>${picked}</b> lens.`;
+				// Reader eligibility (fail-CLOSED) — what a reader may ACTUALLY open:
+				const view = lens(slides).registry(reg).pick(id).project();
+				const ok = view.status === 'ok';
+				readerEl.dataset.ok = String(ok);
+				readerSt.textContent = ok ? 'Reader view — OK' : 'Reader view — unavailable';
+				readerWhy.textContent = ok ? (id === 'full' ? 'the whole deck; always eligible' : 'approved · hash matches') : `reason: ${view.reason}`;
+				approveBtn.disabled = ok || id === 'full';
+			}
+
+			function buildDeck() {
+				deckEl.innerHTML = '';
+				slides.forEach((_, i) => {
+					const c = document.createElement('div');
+					c.className = 'card'; c.dataset.i = String(i); c.dataset.in = 'true';
+					c.dataset.edited = String(i === edited);
+					c.innerHTML = `<span class="kls">${KLASS[i]}</span><span class="ttl">${TITLES[i]}</span><span class="idx">slide ${i + 1}</span>`;
+					deckEl.appendChild(c);
+				});
+			}
+
+			// Approve = the human-in-the-loop bridge: stamp the content hash for the picked lens.
+			approveBtn.addEventListener('click', () => {
+				if (picked === 'full') return;
+				const l = reg.lenses.find((x) => x.id === picked);
+				if (l) { l.approved = approvalHash(slides, reg, picked); setDiag(`Approved "${picked}" — stamped ${l.approved.slice(0, 18)}…`); }
+				pick(picked);
+			});
+
+			// Edit a slide AFTER approval → the content hash no longer matches → the lens de-approves itself.
+			$('#editBtn').addEventListener('click', () => {
+				edited = 1;
+				slides = slides.slice();
+				slides[edited] = slides[edited] + '\n(edited after approval)';
+				buildDeck();
+				setDiag('Edited slide 2 — any lens approved against the old content now DRIFTS (hash mismatch).');
+				pick(picked);
+			});
+			$('#resetBtn').addEventListener('click', () => {
+				slides = SLIDES0.slice(); reg = parseLensRegistry(REG_FM); edited = -1;
+				buildDeck(); setDiag(''); pick('full');
+			});
+
+			// ── Storyboard beats ──
+			const BEATS = [
+				{ id: 'full',   t: 'The whole deck', d: 'The safe default — the full lens is always eligible; every slide shows.', api: "pick('full')", run: () => pick('full') },
+				{ id: 'brief',  t: 'Pick a lens', d: 'The "brief" lens keeps only its members — the deck shrinks to the bottom line. But a reader can’t open it yet…', api: 'lens().pick(’brief’).pairs()', run: () => pick('brief') },
+				{ id: 'closed', t: 'It fails CLOSED', d: 'Unapproved, the reader view is "unavailable" — never a silent full-deck fallback. A scoping lens can be a redaction.', api: 'project() → unavailable', run: () => pick('brief') },
+				{ id: 'approve',t: 'A human approves', d: 'The one bridge: a person stamps a content hash covering exactly what the reader would see. Now it’s eligible.', api: 'approvalHash(…)', run: () => { pick('brief'); setTimeout(() => approveBtn.click(), 500); } },
+				{ id: 'alt',    t: 'Different altitudes', d: 'Same source, other jobs: "story" (base none) vs "evidence" (base all — everything but the decoration).', api: "pick('story'|'evidence')", run: () => { pick('story'); setTimeout(() => pick('evidence'), 900); } },
+				{ id: 'drift',  t: 'Drift de-approves', d: 'Edit a slide after Approve and the hash no longer matches — the lens de-approves itself, for every consumer.', api: 'project() → drifted', run: () => { pick('brief'); setTimeout(() => approveBtn.click(), 400); setTimeout(() => $('#editBtn').click(), 1100); } },
+			];
+			function setCurrentBeat(id) {
+				[...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id)));
+			}
+			BEATS.forEach((b, i) => {
+				const el = document.createElement('button');
+				el.className = 'beat'; el.type = 'button'; el.dataset.id = b.id;
+				el.innerHTML = `<span class="n">${i + 1}</span><span><span class="bt">${b.t}</span><p class="bd">${b.d}</p><span class="api">${b.api}</span></span>`;
+				el.addEventListener('click', () => { setCurrentBeat(b.id); b.run(); });
+				beatsEl.appendChild(el);
+			});
+			let tourTimer = 0;
+			$('#tourBtn').addEventListener('click', (e) => {
+				if (tourTimer) { clearInterval(tourTimer); tourTimer = 0; e.target.textContent = '▸ Play all six'; return; }
+				$('#resetBtn').click();
+				let i = 0; e.target.textContent = '■ Stop tour';
+				const step = () => {
+					if (i >= BEATS.length) { clearInterval(tourTimer); tourTimer = 0; e.target.textContent = '▸ Play all six'; return; }
+					const b = BEATS[i++]; setCurrentBeat(b.id); b.run();
+				};
+				step(); tourTimer = setInterval(step, 3400);
+			});
+
+			// Boot
+			buildDeck();
+			renderLenses();
+			pick('full');
+		</script>
+	</body>
+</html>
