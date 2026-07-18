@@ -2,10 +2,10 @@ import { baseKeymap, lift, setBlockType, toggleMark, wrapIn } from 'prosemirror-
 import { history, redo, undo } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
-import type { MarkType } from 'prosemirror-model';
+import type { MarkType, Node as PMNode } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
@@ -130,6 +130,9 @@ function structuralGuard() {
 	return new Plugin({
 		filterTransaction(tr, state) {
 			if (!tr.docChanged) return true;
+			// A deliberate slide op (insert/delete/move from the slide rail) is allowed to
+			// change the count and touch locked slides — it's intentional, not an accident.
+			if (tr.getMeta('slideOp')) return true;
 			const oldDoc = state.doc;
 			const newDoc = tr.doc;
 			if (oldDoc.childCount !== newDoc.childCount) return false; // no accidental merge/split
@@ -141,9 +144,165 @@ function structuralGuard() {
 	});
 }
 
+// Collapse is view-only state that must OUTLIVE a nodeView recreation (a real click can
+// make ProseMirror rebuild the slide's view), so it lives in a plugin as a node decoration
+// — not on the SlideView instance. Toggling dispatches a `collapseKey` meta (doc unchanged,
+// so the structural guard waves it through); the decoration maps through edits, and each
+// SlideView reads it in its constructor/update to add the `cs-collapsed` class.
+const collapseKey = new PluginKey<DecorationSet>('cs-collapse');
+function collapsePlugin() {
+	return new Plugin({
+		key: collapseKey,
+		state: {
+			init: () => DecorationSet.empty,
+			apply(tr, set) {
+				let next = set.map(tr.mapping, tr.doc);
+				const toggle = tr.getMeta(collapseKey) as { pos: number } | undefined;
+				if (toggle) {
+					const node = tr.doc.nodeAt(toggle.pos);
+					if (node) {
+						const existing = next.find(toggle.pos, toggle.pos + 1);
+						next = existing.length ? next.remove(existing) : next.add(tr.doc, [Decoration.node(toggle.pos, toggle.pos + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true })]);
+					}
+				}
+				return next;
+			},
+		},
+		props: {
+			decorations(state) {
+				return collapseKey.getState(state);
+			},
+		},
+	});
+}
+
+// A per-slide NodeView: renders the slide's content plus a LEFT-side control rail
+// (move up/down · collapse · insert below · delete) that reveals on hover (desktop) or
+// sits faint on touch. Structural ops rebuild the doc from the SAME node instances (so
+// every unmoved slide keeps its identity → emitDeck re-emits its exact `raw` bytes) and
+// carry the `slideOp` meta so the structural guard lets the count/lock change through.
+// Collapse is view-only (a class on this instance) — it never touches the source.
+class SlideView {
+	dom: HTMLElement;
+	contentDOM: HTMLElement;
+	ctrl: HTMLElement;
+	collapseBtn: HTMLButtonElement;
+	constructor(
+		node: PMNode,
+		public view: EditorView,
+		public getPos: () => number,
+		decorations: readonly Decoration[] = [],
+	) {
+		const dom = document.createElement('section');
+		dom.className = node.attrs.locked ? 'cs-slide cs-slide-locked' : 'cs-slide';
+		const ctrl = document.createElement('div');
+		ctrl.className = 'cs-slide-ctrl';
+		ctrl.contentEditable = 'false';
+		const mk = (label: string, glyph: string, fn: () => void) => {
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'cs-sc-btn';
+			b.title = label;
+			b.setAttribute('aria-label', label);
+			b.textContent = glyph;
+			b.addEventListener('mousedown', (e) => e.preventDefault());
+			b.addEventListener('click', (e) => {
+				e.preventDefault();
+				fn();
+			});
+			return b;
+		};
+		this.collapseBtn = mk('Collapse slide', '⌃', () => this.toggleCollapse());
+		ctrl.append(
+			mk('Move slide up', '↑', () => this.move(-1)),
+			mk('Move slide down', '↓', () => this.move(1)),
+			this.collapseBtn,
+			mk('Insert slide below', '＋', () => this.insertBelow()),
+			mk('Delete slide', '✕', () => this.remove()),
+		);
+		const content = document.createElement('div');
+		content.className = 'cs-slide-content';
+		dom.append(ctrl, content);
+		this.dom = dom;
+		this.contentDOM = content;
+		this.ctrl = ctrl;
+		this.applyCollapsed(decorations);
+	}
+	private applyCollapsed(decorations: readonly Decoration[]) {
+		const collapsed = decorations.some((d) => (d.spec as { collapsed?: boolean } | undefined)?.collapsed);
+		this.dom.classList.toggle('cs-collapsed', collapsed);
+		this.collapseBtn.textContent = collapsed ? '⌄' : '⌃';
+		this.collapseBtn.setAttribute('aria-label', collapsed ? 'Expand slide' : 'Collapse slide');
+	}
+	private slides(): PMNode[] {
+		const arr: PMNode[] = [];
+		this.view.state.doc.forEach((n) => {
+			arr.push(n);
+		});
+		return arr;
+	}
+	private index(): number {
+		const pos = this.getPos();
+		const doc = this.view.state.doc;
+		let off = 0;
+		for (let k = 0; k < doc.childCount; k++) {
+			if (off === pos) return k;
+			off += doc.child(k).nodeSize;
+		}
+		return -1;
+	}
+	private commit(nodes: PMNode[]) {
+		const { state } = this.view;
+		this.view.dispatch(state.tr.replaceWith(0, state.doc.content.size, nodes).setMeta('slideOp', true));
+		this.view.focus();
+	}
+	private move(dir: number) {
+		const i = this.index();
+		const j = i + dir;
+		const nodes = this.slides();
+		if (i < 0 || j < 0 || j >= nodes.length) return;
+		[nodes[i], nodes[j]] = [nodes[j], nodes[i]];
+		this.commit(nodes);
+	}
+	private insertBelow() {
+		const i = this.index();
+		if (i < 0) return;
+		const nodes = this.slides();
+		const blank = deckSchema.nodes.slide.create({ directives: ['<!-- _class: content -->'], raw: '', locked: false }, deckSchema.nodes.paragraph.create());
+		nodes.splice(i + 1, 0, blank);
+		this.commit(nodes);
+	}
+	private remove() {
+		const nodes = this.slides();
+		if (nodes.length <= 1) return; // a deck always keeps at least one slide
+		const i = this.index();
+		if (i < 0) return;
+		nodes.splice(i, 1);
+		this.commit(nodes);
+	}
+	private toggleCollapse() {
+		const pos = this.getPos();
+		this.view.dispatch(this.view.state.tr.setMeta(collapseKey, { pos }));
+		this.view.focus();
+	}
+	update(node: PMNode, decorations: readonly Decoration[]) {
+		if (node.type.name !== 'slide') return false;
+		this.dom.classList.toggle('cs-slide-locked', !!node.attrs.locked);
+		this.applyCollapsed(decorations);
+		return true;
+	}
+	ignoreMutation(m: MutationRecord | { target: Node }) {
+		return this.ctrl.contains(m.target as Node);
+	}
+	stopEvent(e: Event) {
+		return this.ctrl.contains(e.target as Node);
+	}
+}
+
 function buildPlugins() {
 	return [
 		structuralGuard(),
+		collapsePlugin(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
 		keymap({
@@ -201,6 +360,7 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
+				nodeViews: { slide: (node, nodeView, getPos, decorations) => new SlideView(node, nodeView, getPos as () => number, decorations) },
 				dispatchTransaction(tr) {
 					const next = view.state.apply(tr);
 					view.updateState(next);
@@ -376,8 +536,17 @@ function ComposeStyles() {
 			/* the serif page */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 72px;font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
-			.cs-host .cs-slide{padding:20px clamp(24px,6cqw,64px)}
-			.cs-host .cs-slide + .cs-slide{margin-top:6px;position:relative}
+			.cs-host .cs-slide{padding:20px clamp(24px,6cqw,64px);position:relative}
+			/* per-slide control rail (left) — reveals on hover; faint on touch */
+			.cs-slide-ctrl{position:absolute;left:2px;top:16px;display:flex;flex-direction:column;gap:3px;opacity:0;transition:opacity .12s;z-index:6;user-select:none}
+			.cs-slide:hover > .cs-slide-ctrl,.cs-slide-ctrl:focus-within{opacity:1}
+			@media (hover:none){.cs-slide-ctrl{opacity:.5}}
+			.cs-sc-btn{width:22px;height:22px;border-radius:6px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
+			.cs-sc-btn:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
+			/* collapsed: keep the first block, hide the rest behind an ellipsis */
+			.cs-slide.cs-collapsed .cs-slide-content > *:not(:first-child){display:none}
+			.cs-slide.cs-collapsed .cs-slide-content::after{content:"⋯";display:block;color:var(--text-muted,#6b7f9a);font-size:17px;line-height:1;padding:2px 0 2px}
+			.cs-host .cs-slide + .cs-slide{margin-top:6px}
 			.cs-host .cs-slide + .cs-slide::before{content:"◇";display:block;text-align:center;font-size:9px;color:var(--text-muted,#6b7f9a);margin:0 0 18px;border-top:1px solid var(--border,#e4eaf2);padding-top:16px}
 			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
 			   strikethrough…) — read-only here, edited in Markdown mode. Dim it and badge it. */
