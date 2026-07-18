@@ -7,6 +7,10 @@
 // (lente, Italian: lens — matching vetrina "shop window", cadenza, suono.)
 
 
+export type { LensView } from './builder';
+// Fluent READ-PATH front door — sugar over ./project (collect (slides, registry, lensId) once, pick
+// a terminal). Read-only by construction: no `.approve()`/`.suggest()`, never imports the suggester.
+export { lens } from './builder';
 // Content-hash primitive (exposed for host-side approval flows + tests).
 export { sha256Hex } from './hash';
 // Read path — pure, deterministic, never reaches the suggester.

@@ -1,3 +1,5 @@
+export type { LensView } from './builder';
+export { lens } from './builder';
 export { sha256Hex } from './hash';
 export { approvalHash, lensEligibility, lensIndices, lensPairs, lensSlides, readerLenses } from './project';
 export { emitRegistry, emitRegistryDelta, isPristineInherited, parseLensRegistry, upsertLensRegistry } from './registry';

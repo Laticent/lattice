@@ -28,6 +28,7 @@ __export(index_exports, {
   emitRegistry: () => emitRegistry,
   emitRegistryDelta: () => emitRegistryDelta,
   isPristineInherited: () => isPristineInherited,
+  lens: () => lens,
   lensEligibility: () => lensEligibility,
   lensIndices: () => lensIndices,
   lensPairs: () => lensPairs,
@@ -312,20 +313,20 @@ function applyTag(slideSrc, lensId, member, base) {
 var FULL_LENS_ID = "full";
 
 // docs/src/lib/lente/project.ts
-function memberOf(slideSrc, lens) {
-  if (lens.id === FULL_LENS_ID) return true;
+function memberOf(slideSrc, lens2) {
+  if (lens2.id === FULL_LENS_ID) return true;
   const t = parseSlideTags(slideSrc);
-  return lens.base === "all" ? !t.exclude.has(lens.id) : t.include.has(lens.id);
+  return lens2.base === "all" ? !t.exclude.has(lens2.id) : t.include.has(lens2.id);
 }
 function pairsOf(slides) {
   return (Array.isArray(slides) ? slides : []).map((slide, index) => ({ slide, index })).filter((p) => typeof p.slide === "string");
 }
 function lensPairs(slides, reg, lensId) {
   const all = pairsOf(slides);
-  const lens = reg.lenses.find((l) => l.id === lensId);
-  if (!lens || lens.id === FULL_LENS_ID) return all;
-  const members = all.filter((p) => memberOf(p.slide, lens));
-  return lens.single ? members.slice(0, 1) : members;
+  const lens2 = reg.lenses.find((l) => l.id === lensId);
+  if (!lens2 || lens2.id === FULL_LENS_ID) return all;
+  const members = all.filter((p) => memberOf(p.slide, lens2));
+  return lens2.single ? members.slice(0, 1) : members;
 }
 function lensSlides(slides, reg, lensId) {
   return lensPairs(slides, reg, lensId).map((p) => p.slide);
@@ -335,22 +336,22 @@ function lensIndices(slides, reg, lensId) {
 }
 function approvalHash(slides, reg, lensId) {
   const pairs = lensPairs(slides, reg, lensId);
-  const lens = reg.lenses.find((l) => l.id === lensId);
-  const base = lens?.base ?? "none";
+  const lens2 = reg.lenses.find((l) => l.id === lensId);
+  const base = lens2?.base ?? "none";
   const body = pairs.map((p) => `${p.index} ${p.slide}`).join("\n");
   return `sha256:${sha256Hex(`${lensId}
 ${base}
 ${body}`)}`;
 }
 function lensEligibility(slides, reg, lensId) {
-  const lens = reg.lenses.find((l) => l.id === lensId);
-  if (!lens) return { status: "unavailable", reason: "unknown" };
-  if (lens.id === FULL_LENS_ID) return { status: "ok", pairs: pairsOf(slides) };
-  if (lens.hidden) return { status: "unavailable", reason: "hidden" };
-  if (!lens.approved) return { status: "unavailable", reason: "unapproved" };
+  const lens2 = reg.lenses.find((l) => l.id === lensId);
+  if (!lens2) return { status: "unavailable", reason: "unknown" };
+  if (lens2.id === FULL_LENS_ID) return { status: "ok", pairs: pairsOf(slides) };
+  if (lens2.hidden) return { status: "unavailable", reason: "hidden" };
+  if (!lens2.approved) return { status: "unavailable", reason: "unapproved" };
   const pairs = lensPairs(slides, reg, lensId);
   if (pairs.length === 0) return { status: "unavailable", reason: "empty" };
-  if (lens.approved !== approvalHash(slides, reg, lensId)) return { status: "unavailable", reason: "drifted" };
+  if (lens2.approved !== approvalHash(slides, reg, lensId)) return { status: "unavailable", reason: "drifted" };
   return { status: "ok", pairs };
 }
 function readerLenses(slides, reg) {
@@ -516,8 +517,8 @@ function emitRegistry(reg) {
   return body.length ? `lenses:
 ${body.join("\n")}` : "";
 }
-function isPristineInherited(lens, def) {
-  return !!def && !lens.approved && lens.base === def.base && lens.label === def.label && !!lens.single === !!def.single && !!lens.hidden === !!def.hidden && (lens.order ?? null) === (def.order ?? null);
+function isPristineInherited(lens2, def) {
+  return !!def && !lens2.approved && lens2.base === def.base && lens2.label === def.label && !!lens2.single === !!def.single && !!lens2.hidden === !!def.hidden && (lens2.order ?? null) === (def.order ?? null);
 }
 function emitInlineDelta(d, wsDef) {
   const parts = [`label: ${JSON.stringify(d.label)}`, `base: ${d.base}`];
@@ -533,11 +534,11 @@ function emitRegistryDelta(reg, workspace, materialize) {
   const defs = new Map(workspace.lenses.filter((l) => l.id !== FULL_LENS_ID).map((l) => [l.id, l]));
   const lines = [];
   const present = /* @__PURE__ */ new Set();
-  for (const lens of reg.lenses) {
-    if (lens.id === FULL_LENS_ID) continue;
-    present.add(lens.id);
-    if (isPristineInherited(lens, defs.get(lens.id)) && !materialize?.has(lens.id)) continue;
-    lines.push(emitInlineDelta(lens, defs.get(lens.id)));
+  for (const lens2 of reg.lenses) {
+    if (lens2.id === FULL_LENS_ID) continue;
+    present.add(lens2.id);
+    if (isPristineInherited(lens2, defs.get(lens2.id)) && !materialize?.has(lens2.id)) continue;
+    lines.push(emitInlineDelta(lens2, defs.get(lens2.id)));
   }
   for (const id of defs.keys()) if (!present.has(id)) lines.push(`  ${id}: { drop: true }`);
   return lines.length ? `lenses:
@@ -585,6 +586,41 @@ function sourceDropIds(lines) {
   const ids = [];
   for (const { def, drop } of parseEntries(lines)) if (drop && def.id !== FULL_LENS_ID && !ids.includes(def.id)) ids.push(def.id);
   return ids;
+}
+
+// docs/src/lib/lente/builder.ts
+function lens(slides) {
+  let reg = parseLensRegistry("");
+  let lensId = FULL_LENS_ID;
+  const b = {
+    registry(r) {
+      reg = typeof r === "string" ? parseLensRegistry(r) : r;
+      return b;
+    },
+    pick(id) {
+      lensId = id;
+      return b;
+    },
+    project() {
+      return lensEligibility(slides, reg, lensId);
+    },
+    slides() {
+      return lensSlides(slides, reg, lensId);
+    },
+    pairs() {
+      return lensPairs(slides, reg, lensId);
+    },
+    indices() {
+      return lensIndices(slides, reg, lensId);
+    },
+    pickable() {
+      return readerLenses(slides, reg);
+    },
+    hash() {
+      return approvalHash(slides, reg, lensId);
+    }
+  };
+  return b;
 }
 
 // docs/src/lib/lente/suggest.ts
@@ -671,9 +707,9 @@ var SUGGESTERS = {
 function suggestMembership(slides, reg, catalog) {
   const src = Array.isArray(slides) ? slides : [];
   const out = [];
-  for (const lens of reg.lenses) {
-    if (lens.id === FULL_LENS_ID) continue;
-    const rule = SUGGESTERS[lens.id];
+  for (const lens2 of reg.lenses) {
+    if (lens2.id === FULL_LENS_ID) continue;
+    const rule = SUGGESTERS[lens2.id];
     if (rule) out.push(...rule(src, catalog));
   }
   return out;
@@ -740,6 +776,7 @@ function rebaseLensTags(slides, reg, lensId, from, to) {
   emitRegistry,
   emitRegistryDelta,
   isPristineInherited,
+  lens,
   lensEligibility,
   lensIndices,
   lensPairs,

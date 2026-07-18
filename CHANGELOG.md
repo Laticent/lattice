@@ -222,6 +222,15 @@ in patch versions.
   chrome-exempt SOVEREIGN frame (`lib/forms/frame/scene/`); wired once for every render path through
   the transformer registry. Demo deck: `examples/scene.md`.
   See `engineering/decisions/2026-07-18-anima-motion-faculty-modes.md` §5.
+- **`@slidewright/lente` gains a fluent `lens()` read-path front door.** Instead of threading
+  `(slides, registry, lensId)` through every call, chain it once:
+  `lens(slides).registry(frontMatter).pick('brief').project()` — with terminals `.project()` /
+  `.slides()` / `.pairs()` / `.indices()` / `.pickable()` / `.hash()`. It is **pure sugar over the
+  read path** (each terminal is exactly the matching `project.ts` function, guarded by a parity
+  test), so it stays fail-CLOSED — an unapproved/drifted lens still yields `unavailable`, never a
+  silent full-deck substitution — and it is read-only by construction: it never imports the
+  suggester and has no `.approve()`/`.suggest()` verb, so the human-Approve gate remains the only
+  bridge from a proposal to a reader. (`docs/src/lib/lente/builder.ts`, exported from `index.ts`.)
 - **`@slidewright/lente` now builds a node-consumable `dist/`, so `require('@slidewright/lente')`
   and `npm publish` resolve.** Lente's `package.json` already declared `main`/`require` →
   `./dist/index.cjs` and it was an npm-workspace member, but no build ever produced that file —

@@ -36,6 +36,26 @@ if (view.status === 'ok') render(view.pairs);
 else showUnavailable(view.reason);   // 'unapproved' | 'drifted' | 'empty' | 'hidden' | 'unknown'
 ```
 
+### Or chain it — the `lens()` front door
+
+For call-sites that would otherwise thread `(slides, registry, lensId)` through every call, `lens()`
+collects them once and you pick a terminal. It is **pure sugar over the read path** — each terminal
+is exactly the matching `project.ts` function, guarded by a parity test — so it stays fail-CLOSED and
+adds no behavior:
+
+```ts
+import { lens } from './lente/index.js';
+
+const view = lens(slides).registry(frontMatterText).pick('brief').project();
+if (view.status === 'ok') render(view.pairs);
+
+const brief    = lens(slides).registry(registry).pick('brief').slides();   // === lensSlides(…)
+const pickable = lens(slides).registry(registry).pickable();               // === readerLenses(…)
+```
+
+Read-path only by construction: `lens()` never imports the suggester and has **no `.approve()` /
+`.suggest()` verb** — the human-Approve gate is still the only bridge from a proposal to a reader.
+
 ## The two paths never touch
 
 - **Read** (`project.ts`) computes a reader's view from approved tags + the registry. It **cannot
@@ -70,6 +90,7 @@ Membership is a **diff from the base**: a `base:none` lens carries an include to
 | `tags.ts` | per-slide `_lens` tag parse + `applyTag` writer |
 | `registry.ts` | the front-matter `lenses:` block parse / emit / upsert (Lente is the sole writer) |
 | `project.ts` | the read path — `lensPairs`/`lensSlides`/`lensIndices`, `readerLenses`, `approvalHash`, eligibility |
+| `builder.ts` | the fluent `lens()` front door — a pass-through over `project.ts` (read-path only) |
 | `suggest.ts` | the suggest path — the no-AI heuristic rule table (a separate module) |
 | `validate.ts` | `unknownLensTokens`, `validateRegistry`, `rebaseLensTags` |
 | `hash.ts` | a pure, dependency-free SHA-256 (deterministic in Node + browser) |
