@@ -10,7 +10,8 @@ summary: >
   reference: a radial "sound-clock" (a bloom of bars = sound, a warm crown bar = the live onset, a
   centered base-gap = the tuned breath, the ringed hub = the owned clock), on a locked GREEN palette
   that matches the /suono demo. Assets: `docs/public/suono-{mark,mark-min,lockup}.svg`. This doc is
-  the template the remaining four follow before we fan out.
+  the template the family follows; the fan-out (2026-07-18) then built marks + lockups for Lente,
+  Vetrina, and Cadenza on it — Anima stays staged (WIP).
 companion:
   - ./2026-07-12-suono-audio-library.md
   - ./2026-07-08-library-shape-cadenza-vetrina.md
@@ -18,7 +19,8 @@ companion:
 
 # The sibling brand system — one family, five voices (2026-07-18)
 
-**Date:** 2026-07-18 · **Status:** shipped; Suono built to the bar, the other four staged.
+**Date:** 2026-07-18 · **Status:** shipped; Suono set the bar, then Lente/Vetrina/Cadenza were built
+on it in the fan-out. Anima staged (WIP).
 
 > **Goal (the architect's words).** Craft a logo for each spin-off library on par in quality, craft,
 > and relevance with the Lattice mark, and *lock in* the first one — Suono — as the reference for
@@ -105,12 +107,12 @@ All four demos are surfaced in the site's **Libraries** nav group (`nav.mjs` `li
 ## How the marks are produced
 
 The Suono mark is generated from a small parametric script (radial math + envelope + the DNA hub),
-kept out of tree (`.scratch/`); the committed SVGs are the source of truth. When we fan out, promote
-that to a committed `tools/` generator parameterized per library (palette + metaphor primitives) so
-all five stay byte-consistent in construction — a follow-up, not a blocker.
+kept out of tree (`.scratch/`); the committed SVGs are the source of truth. Promoting that to a
+committed `tools/` generator parameterized per library (palette + metaphor primitives), so all marks
+stay byte-consistent in construction, remains a follow-up (not a blocker).
 
 ## Non-goals
 
 Not a full brand book (typography scales, spacing tokens, usage rules beyond the mark). Not touching
-the Lattice mark. Not building the other four marks here — this locks the *system* and the *Suono
-reference*; the rest come with each library's demo in the fan-out.
+the Lattice mark. Not building **Anima's** mark yet (WIP — it lands with its build). This doc locks
+the *system* + the *Suono reference*; the Lente/Vetrina/Cadenza marks were then built on it.
