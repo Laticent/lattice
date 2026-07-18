@@ -222,6 +222,14 @@ in patch versions.
   chrome-exempt SOVEREIGN frame (`lib/forms/frame/scene/`); wired once for every render path through
   the transformer registry. Demo deck: `examples/scene.md`.
   See `engineering/decisions/2026-07-18-anima-motion-faculty-modes.md` §5.
+- **`@slidewright/suono` gains a fluent (thin) `sequence()` front door for house symmetry.**
+  `sequence(stage).items(…).produce(…).gap(…).onItemStart(…).play()` chains the same
+  `SequenceOptions` the `stage.sequence({…})` object form takes, giving the sibling libraries one
+  uniform `verb(input).….build()` shape. It is deliberately **thin**: Suono is a stateful runtime
+  over a live `AudioContext` with no serializable model, so `.build()` is exactly
+  `stage.sequence(collectedOptions)` (a parity test guards it) — discoverability, not new capability;
+  the options-object form stays first-class. (`docs/src/lib/suono/builder.ts`, exported from
+  `index.ts`.)
 - **`@slidewright/cadenza` gains a fluent `narration()` front door — configure once, emit many.**
   `buildTrack`, `makeReader`, `toVtt`, and `toSrt` each take an overlapping slice of the same
   options; instead of rebuilding that bag per output, chain

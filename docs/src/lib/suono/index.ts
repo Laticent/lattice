@@ -6,6 +6,11 @@
 // The stage owns the AudioContext + plays a clip; the sequence schedules an ordered set through a
 // caller-supplied produce(). Encoding + caching are pure, node-safe helpers exposed for reuse.
 
+// Fluent (thin) front door — chain the SequenceOptions setters then .build()/.play(). Pure
+// house-symmetry over stage.sequence(opts); Suono has no serializable model, so this is
+// discoverability, not new capability. See builder.ts.
+export type { SequenceBuilder } from './builder';
+export { sequence } from './builder';
 export type { BoundedCache, Inflight } from './cache';
 export { createBoundedCache, createInflight } from './cache';
 export { encodeWav, parsePcmContentType, toBlobLike, wrapPcm } from './encode';
