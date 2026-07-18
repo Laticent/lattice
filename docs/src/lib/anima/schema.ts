@@ -46,6 +46,24 @@ function validateTransform(t: unknown, at: string, errors: string[]): void {
   if (tf.scale != null && !isFiniteNumber(tf.scale)) errors.push(`${at}.transform.scale must be a finite number`);
 }
 
+const PROP_NUMS = ['stroke', 'size', 'width', 'height', 'depth', 'diameter', 'length'] as const;
+
+function validateProps(p: unknown, at: string, errors: string[]): void {
+  if (!p || typeof p !== 'object') {
+    errors.push(`${at}.props must be an object`);
+    return;
+  }
+  const props = p as Record<string, unknown>;
+  for (const key of PROP_NUMS) {
+    if (props[key] != null && (!isFiniteNumber(props[key]) || (props[key] as number) < 0)) errors.push(`${at}.props.${key} must be a non-negative, finite number`);
+  }
+  // `sides` (polygon) must be an integer in [3, 1024]: `sides: 0`/`2`/`2.5` crashes Zdog's
+  // render (the trio's HIGH), and an unbounded huge count hangs the render (the trio's DoS
+  // MED — one vertex per side). Validate ⇒ renderable in bounded time.
+  if (props.sides != null && (!isFiniteNumber(props.sides) || !Number.isInteger(props.sides) || (props.sides as number) < 3 || (props.sides as number) > 1024)) errors.push(`${at}.props.sides must be an integer in [3, 1024]`);
+  if (props.fill != null && typeof props.fill !== 'boolean') errors.push(`${at}.props.fill must be a boolean`);
+}
+
 function validateWindow(m: Record<string, unknown>, at: string, errors: string[]): void {
   if (m.at != null && !isUnit(m.at)) errors.push(`${at}.at must be in [0,1] (fraction of the timeline)`);
   if (m.span != null && !isUnit(m.span)) errors.push(`${at}.span must be in [0,1]`);
@@ -114,6 +132,7 @@ function validateElement(raw: unknown, at: string, source: SourceModel, ids: Set
   if (source === 'built') {
     if (!PRIMITIVES.includes(el.shape as never)) errors.push(`${at}.shape '${String(el.shape)}' is not a primitive [${PRIMITIVES.join(', ')}]`);
     if (el.transform != null) validateTransform(el.transform, at, errors);
+    if (el.props != null) validateProps(el.props, at, errors);
     // Reject cross-shape fields so a confused emission fails loudly (compile ignores them).
     if (el.pathRef != null) errors.push(`${at}.pathRef is an svg-only field, but this is a built element`);
     // Nested children compose under this element (the Zdog/Three tree).

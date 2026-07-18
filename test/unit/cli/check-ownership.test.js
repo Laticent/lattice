@@ -65,6 +65,7 @@ const {
   checkVetrinaBoundary,
   checkAnimaBoundary,
   ANIMA_DIR,
+  ANIMA_ADAPTER_DEPS,
   SUONO_SPEC_PATTERNS,
   stripJsComments,
   checkAudioPlaybackBoundary,
@@ -836,13 +837,35 @@ describe('check-ownership', () => {
       assert.deepEqual(errors, [], errors.join('\n'));
     });
 
-    test('every core (non-test) file imports only in-folder `./` or `node:` specifiers', () => {
+    test('every file resolves in-folder or node:; a backend adds only its sanctioned engine dep', () => {
       for (const file of listSourceFiles(ANIMA_DIR)) {
         if (/\.test\.[tj]s$/.test(file)) continue;
+        const relInLib = path.relative(ANIMA_DIR, file).split(path.sep).join('/');
+        const allowed = ANIMA_ADAPTER_DEPS[relInLib] || [];
         for (const spec of scan(fs.readFileSync(file, 'utf8'))) {
-          assert.ok(spec.startsWith('./') || spec.startsWith('node:'), `${path.relative(ANIMA_DIR, file)} imports '${spec}' — must be in-folder`);
+          if (spec.startsWith('.')) {
+            const resolved = path.resolve(path.dirname(file), spec);
+            assert.ok(resolved === ANIMA_DIR || resolved.startsWith(ANIMA_DIR + path.sep), `${relInLib} imports '${spec}', which escapes the folder`);
+          } else if (!spec.startsWith('node:')) {
+            assert.ok(allowed.includes(spec), `${relInLib} imports bare '${spec}' not in its adapter allowlist`);
+          }
         }
       }
+    });
+
+    test('the containment check rejects escapes + a sibling-prefix dir, allows intra-lib', () => {
+      // Mirrors checkAnimaBoundary's real resolution: a relative import is allowed only if it
+      // resolves INSIDE ANIMA_DIR. Guards the `+ path.sep` that stops the anima/anima-evil
+      // sibling-prefix false-allow, and the backend→core `../` reach.
+      const from = path.join(ANIMA_DIR, 'backends');
+      const inside = (spec) => {
+        const r = path.resolve(from, spec);
+        return r === ANIMA_DIR || r.startsWith(ANIMA_DIR + path.sep);
+      };
+      assert.ok(inside('../types'), 'backend → core (../types) allowed');
+      assert.ok(inside('./paint'), 'in-folder (./paint) allowed');
+      assert.ok(!inside('../../lib/host'), 'a ../../lib/host escape rejected');
+      assert.ok(!inside('../../anima-evil/x'), 'a sibling-prefix dir (anima-evil) rejected');
     });
 
     test('the gate bites on EVERY escape form a lazy backend might use', () => {

@@ -20,6 +20,21 @@ export interface Transform {
   scale?: number; // uniform scale (non-uniform deferred)
 }
 
+/** Geometry params a `built` primitive needs to have a size (the IR is otherwise
+ *  dimensionless). A backend reads the fields its primitive uses and defaults the rest;
+ *  all are optional and non-negative. Units are scene-local (the host frames the scene). */
+export interface ShapeProps {
+  stroke?: number; // line weight / rounded-edge radius (Zdog `stroke`)
+  size?: number; // generic primary dimension (a radius / half-extent) for shape/ellipse/polygon
+  width?: number; // box / rect
+  height?: number; // box / rect
+  depth?: number; // box
+  diameter?: number; // cone / cylinder / hemisphere
+  length?: number; // cone / cylinder
+  sides?: number; // polygon
+  fill?: boolean; // filled vs stroked
+}
+
 // ── Motion — the closed, typed verbs (a discriminated union on `verb`) ──────────
 // Windowed verbs carry `at`/`span` ∈ [0,1] of the timeline (defaults 0 / 1) and an
 // optional `easing`; cyclic verbs carry a `period` in ms and take no easing.
@@ -93,6 +108,7 @@ export interface BuiltElement {
   id: string;
   shape: Primitive;
   color?: Color;
+  props?: ShapeProps; // geometry (size/stroke/…); a backend defaults what's omitted
   transform?: Transform; // the element's LOCAL transform, before its motions
   motion?: Motion[];
   children?: BuiltElement[]; // nested sub-tree; their transforms compose under this one

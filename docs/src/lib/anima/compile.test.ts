@@ -67,6 +67,25 @@ describe('compile — hierarchy (nesting)', () => {
     const built = timeline(scene([el('a')]));
     expect(built.at(0).elements[0].children).toEqual([]);
   });
+
+  it('composes reveal DOWN the tree — a group revealing gates its children (Munger #3)', () => {
+    const tl = timeline(scene([{ id: 'g', shape: 'group', motion: [{ verb: 'reveal', at: 0, span: 1 }], children: [{ id: 'c', shape: 'box' }] }]));
+    const s = tl.at(500); // group reveal 0.5 → child effective = own(1) × parent(0.5)
+    expect(s.elements[0].reveal).toBeCloseTo(0.5, 6);
+    expect(s.elements[0].children[0].reveal).toBeCloseTo(0.5, 6);
+    // Fully-present branches are unaffected (×1).
+    expect(timeline(scene([el('a')])).at(500).elements[0].reveal).toBe(1);
+  });
+
+  it('composes reveal 3 levels deep (multiplicative)', () => {
+    const tl = timeline(
+      scene([{ id: 'g', shape: 'group', motion: [{ verb: 'reveal', at: 0, span: 1 }], children: [{ id: 'm', shape: 'group', children: [{ id: 'c', shape: 'box', motion: [{ verb: 'reveal', at: 0, span: 1 }] }] }] }]),
+    );
+    const s = tl.at(500); // g=0.5 ; m=1×0.5=0.5 ; c=0.5×0.5=0.25
+    expect(s.elements[0].reveal).toBeCloseTo(0.5, 6);
+    expect(s.elements[0].children[0].reveal).toBeCloseTo(0.5, 6);
+    expect(s.elements[0].children[0].children[0].reveal).toBeCloseTo(0.25, 6);
+  });
 });
 
 describe('compile — reveal / presence', () => {

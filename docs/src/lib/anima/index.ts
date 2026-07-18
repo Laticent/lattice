@@ -4,12 +4,15 @@
 // generalization of Cadenza's injected clock). See the design ADR:
 // engineering/decisions/2026-07-17-anima-animation-library.md
 //
-// Stage 1 is the pure core (no backend): the spec schema, the timeline compiler, the
-// closed vocabulary, and the capability model. Backends (Zdog, Vivus, Three) land next.
+// This barrel is the PURE core surface (zero-dep, no DOM). A backend that imports an
+// engine dep (Zdog, Vivus) is NOT re-exported here — import it directly from
+// `./backends/<engine>` — so the core stays spin-off-able. Only the pure `Renderer`
+// contract TYPES live here.
 
 export { canRender, negotiate, type RendererCaps, type RequiredCaps, requiredCaps } from './caps';
 export { compile } from './compile';
 export { clamp01, EASINGS, type Easing, ease } from './easing';
+export type { AssetMap, Poster, Renderer } from './renderer';
 export { type ParseResult, parseScene, usedVerbs, validateColor } from './schema';
 export type {
   BuiltElement,
@@ -21,6 +24,7 @@ export type {
   ResolvedTransform,
   Scene,
   SceneState,
+  ShapeProps,
   SvgElement,
   SvgScene,
   Timeline,

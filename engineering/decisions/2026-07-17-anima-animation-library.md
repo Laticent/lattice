@@ -351,6 +351,17 @@ to the poster for a scene whose whole content is vestibular.
 
 ## 15. Open questions (impl ADR)
 
+- **The poster COLOUR / recolour model (decide before Stage 5 wires the poster into the PDF —
+  the adversarial trio's highest-cost Stage-2 finding).** A backend resolves `var(--token)` to a
+  concrete `rgb()` at paint (correct for LIVE; a re-theme re-mounts). But if a *stored* poster
+  bakes those literals, it is theme-FROZEN and a deck on another theme shows the wrong colours —
+  breaking the §10 recolour promise. Two options to pick from before the export path is built:
+  (a) the poster keeps `style="fill:var(--token)"` (+ a separate opacity for `reveal`) so it
+  recolours in whatever theme frames it; or (b) the export RE-RENDERS the backend under the deck's
+  theme (the poster is a thumbnail, not the canonical artifact) — which also means §7's "unchanged
+  plumbing" is false and Vivus's source markup must reach the export Chromium. This is an
+  export-sign-off-gated decision; Stages 2–3 render live/verification posters only, no theme-frozen
+  poster is wired into any export.
 - The `SceneState` IR — the engine-neutral intersection and how `caps` gate the extras (§13).
 - The closed primitive + motion vocabulary, keyed to the §2 serious classes (which Zdog shapes;
   the motion roles + params; how `sequence`/`fill`/`explode` are declared).
