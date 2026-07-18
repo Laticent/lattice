@@ -11,6 +11,29 @@
 
 import type { Bytes, Sequence, SequenceItemStart, SequenceOptions, SequenceStateEvent, Stage } from './types';
 
+// ── Compile-time PARITY GATE (no runtime footprint) ───────────────────────────────────────────
+// The pass-through is only real if EVERY SequenceOptions field is reachable through a setter. This
+// map binds each builder method to the option key it writes; the two assertions below make `tsc`
+// FAIL if SequenceOptions gains a field no setter covers, or if a mapped setter isn't a real
+// SequenceBuilder method. So adding an option can't silently bypass the builder (the hand test can't
+// catch a NEW field) — the divergence becomes a build error, matching the house's gate-everything rule.
+type _RequireNever<T extends never> = T;
+type _SequenceSetterMap = {
+	items: 'items';
+	produce: 'produce';
+	key: 'keyOf';
+	gap: 'gapMs';
+	concurrency: 'concurrency';
+	cacheLimit: 'cacheLimit';
+	produceTimeout: 'produceTimeoutMs';
+	onItemStart: 'onItemStart';
+	onState: 'onState';
+};
+// Errors if any SequenceOptions key is NOT the target of some setter:
+type _EverySequenceOptionCovered = _RequireNever<Exclude<keyof SequenceOptions<unknown>, _SequenceSetterMap[keyof _SequenceSetterMap]>>;
+// Errors if any mapped setter is NOT a real SequenceBuilder method:
+type _EverySequenceSetterReal = _RequireNever<Exclude<keyof _SequenceSetterMap, keyof SequenceBuilder<unknown>>>;
+
 export interface SequenceBuilder<T> {
 	/** The ordered items to play (opaque to Suono). Required. */
 	items(items: readonly T[]): this;

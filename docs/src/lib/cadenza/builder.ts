@@ -19,6 +19,23 @@ import type { LexiconMap } from './symbols';
 import { type BuildOptions, buildTrack, type CaptionTrack } from './track';
 import { toSrt, toVtt } from './vtt';
 
+// ── Compile-time PARITY GATE (no runtime footprint) ───────────────────────────────────────────
+// Every BuildOptions field must be reachable through a config verb. This map binds each verb to the
+// option key it writes (`rate` and `calibration` both write `rateScale`); the assertions make `tsc`
+// FAIL if BuildOptions gains a field no verb covers, or if a mapped verb isn't a real Narration
+// method — so an added option can't silently bypass the builder (the hand test can't catch that).
+type _RequireNever<T extends never> = T;
+type _NarrationSetterMap = {
+	pace: 'pace';
+	acronyms: 'acronyms';
+	lang: 'lang';
+	rate: 'rateScale';
+	calibration: 'rateScale';
+	lexicon: 'lexicon';
+};
+type _EveryBuildOptionCovered = _RequireNever<Exclude<keyof BuildOptions, _NarrationSetterMap[keyof _NarrationSetterMap]>>;
+type _EveryNarrationSetterReal = _RequireNever<Exclude<keyof _NarrationSetterMap, keyof Narration>>;
+
 export interface Narration {
 	/** Reading pace (default `moderate`). */
 	pace(p: Pace): this;
