@@ -1541,10 +1541,16 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				// behind it. Toggling quiet there would silently arm a state you never see
 				// and desync the suspend/restore (M4 red-team finding 2).
 				// ⌘. quiets to Write — the opposite of a Build reveal, so drop any reveal first.
-				if (viewRef.current !== 'fabricate') { setRevealBuild(false); setQuietened((v) => !v); }
+				// If we're dismissing a TRANSIENT reveal, close its summoned panel(s) too (see Esc).
+				if (viewRef.current !== 'fabricate') { if (revealBuildRef.current) { setActiveAssistant(null); setActiveSettings(null); } setRevealBuild(false); setQuietened((v) => !v); }
 			} else if (e.key === 'Escape') {
 				// Esc clears either transient overlay (whichever is armed) back to the saved stop.
-				if (viewRef.current !== 'fabricate') { setRevealBuild((v) => (v ? false : v)); setQuietened((v) => (v ? false : v)); }
+				// Dismissing a transient Build REVEAL also closes the panel(s) it was summoned for:
+				// a summon + Esc is one "never mind" episode, so the panel must not linger open-but-
+				// hidden and pop back on the next Build visit (adversarial-trio R4). A panel opened at
+				// a PERSISTENT Build stop (revealBuild already false) is untouched — its orthogonal
+				// preservation across a Build↔Write dip is the documented, intended behavior.
+				if (viewRef.current !== 'fabricate') { if (revealBuildRef.current) { setActiveAssistant(null); setActiveSettings(null); } setRevealBuild((v) => (v ? false : v)); setQuietened((v) => (v ? false : v)); }
 			}
 		};
 		window.addEventListener('keydown', onKey);

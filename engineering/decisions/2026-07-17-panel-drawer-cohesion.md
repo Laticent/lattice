@@ -186,12 +186,15 @@ shipping diff. Confirmed findings were hardened into the winner:
   with its siblings* — mechanically the three are a mutually-exclusive toggle group. Revisit if
   the dip-in-while-coaching workflow proves common (candidate: let the Library coexist as an
   overlay the way it did before, at the cost of the uniform slot model).
-- **Esc / ⌘. can orphan a transiently-revealed panel (pre-existing, broadened).** The desktop
-  docked panels are plain `<aside>`s, not Radix dialogs, so `Esc`/`⌘.` reach the shortcut
-  handler and clear `revealBuild` without nulling `activeAssistant`; the panel stays "open" in
-  state but unmounts (barless Write), recoverable on the next summon. Pre-existing for the
-  Architect; this PR adds more entry points (Lenses/Library from ⌘K + the preview affordance)
-  that can reach it. Follow-up: fold the panel-close into the reveal-clear.
+- **Esc / ⌘. could orphan a transiently-revealed panel (RESOLVED).** The desktop docked
+  panels are plain `<aside>`s, not Radix dialogs, so `Esc`/`⌘.` reach the shortcut handler and
+  clear `revealBuild`; previously they left `activeAssistant` set, so a summoned-then-dismissed
+  panel lingered "open" but unmounted (barless Write) and popped back on the next Build visit.
+  Fix: both handlers now close the summoned panel(s) **when they were dismissing a transient
+  reveal** (`revealBuildRef.current`) — a summon + Esc is one "never mind" episode. A panel
+  opened at a **persistent** Build stop (`revealBuild` already false) is untouched, so the
+  documented orthogonal preservation across a Build↔Write dip (lines 284–289 of `StudioShell`)
+  still holds. Guarded, tested (jsdom + real-browser), one commit.
 
 ## Do-not-regress
 
