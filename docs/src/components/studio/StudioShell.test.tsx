@@ -367,7 +367,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		const user = setup();
 		// Deck-wide Authoring controls live in Deck scope — open it from the rail.
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Authoring' }));
+		await user.click(await screen.findByText('Developer')); // A.1: dev aids live in a footer disclosure now
 		const sw = await screen.findByRole('switch', { name: 'Inline validation' });
 		expect(sw).toBeChecked();
 		await user.click(sw);

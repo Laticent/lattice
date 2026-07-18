@@ -493,7 +493,7 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Debug overlay control writes a `debug` directive to the source', async () => {
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		await user.click(await screen.findByRole('tab', { name: 'Authoring' }));
+		await user.click(await screen.findByText('Developer')); // A.1: dev aids live in a footer disclosure now
 		// The Debug overlay control is a preset menu with every value; picking the
 		// verbose variant writes `debug: on-always verbose`.
 		await user.click(await screen.findByRole('button', { name: 'Debug overlay' }));

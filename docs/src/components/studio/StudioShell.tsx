@@ -84,16 +84,16 @@ import { workspaceLensConfig } from './workspace-lenses';
 const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default: m.Fabricate })));
 
 // Deck Inspector pill-tab sections, ordered by likely reach (Look first). The two
-// read-aloud groups collapse into "Speech" so the panel isn't five stacked groups.
-// Label-only, matching the Workspace + Slide-settings pill strips (one grammar) and
-// keeping the pills narrow enough to sit on fewer rows in the ~260px column.
-type DeckTab = 'look' | 'brand' | 'marks' | 'speech' | 'authoring';
+// read-aloud groups collapse into "Speech"; the spectrum/accent family is "Accent"
+// (renamed from "Brand" — a broader, clearer name for everything the accent touches,
+// incl. the heading marks). Preview-only dev aids are NOT a tab — they live in a
+// Developer footer disclosure (A.1) so the strip is four narrow, one-row pills.
+type DeckTab = 'look' | 'brand' | 'marks' | 'speech';
 const DECK_TABS: { value: DeckTab; label: string }[] = [
 	{ value: 'look', label: 'Look' },
-	{ value: 'brand', label: 'Brand' },
+	{ value: 'brand', label: 'Accent' },
 	{ value: 'marks', label: 'Marks' },
 	{ value: 'speech', label: 'Speech' },
-	{ value: 'authoring', label: 'Authoring' },
 ];
 
 // Offline FALLBACK known-components — used only when the real catalog (the
@@ -1961,9 +1961,12 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			</InspGroup>
 			</div>
 			)}
-			{deckTab === 'authoring' && (
-			<div>
-				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">Aids while you write. Preview-only — none of this appears in the export.</p>
+			{/* Developer — the two preview-only authoring aids. NOT a pill tab (A.1): they're
+			    the lowest-reach controls and don't belong in a strip you scan for deck styling.
+			    A collapsed footer disclosure keeps them reachable without a fifth pill. */}
+			<details className="mt-1 border-t border-border pt-2">
+				<summary className="cursor-pointer select-none text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[var(--text-heading)]">Developer</summary>
+				<p className="mb-2.5 mt-2 text-[11px] leading-snug text-muted-foreground">Aids while you write. Preview-only — none of this appears in the export.</p>
 				<Field label="Inline validation" desc="Flags unknown components in the editor as you type."><Toggle label="Inline validation" on={validation} onClick={() => { setValidation((v) => { notify(v ? 'Inline validation off — the editor stops flagging components.' : 'Inline validation on — unknown components are flagged again.'); return !v; }); }} /></Field>
 				{/* Debug overlay — outlines every box by layout mode and labels the
 				    structural ones on hover; `always` pins them. A deck setting (`debug:`
@@ -1984,8 +1987,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</Field>
-			</div>
-			)}
+			</details>
 		</div>
 	);
 
