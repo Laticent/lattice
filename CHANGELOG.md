@@ -304,14 +304,15 @@ in patch versions.
   `engineering/decisions/2026-07-13-lente-reader-lenses.md`.)
 - **Compose — a rich editing mode for the Studio, so you never have to see markdown.** The editor pane
   gains a **Markdown ↔ Compose** toggle. Compose is a calm serif writing surface (the "Quiet Page"
-  design) where the whole deck is one continuous note: you type rich text, and a quiet left-margin
-  **grammar gutter** applies Lattice's registers (H1 / H2 / Eyebrow / Subtitle / Key insight / Below-note)
-  to the block your caret is in — lit EXACTLY as the engine will render it (a code label is an Eyebrow
-  before a heading or a Subtitle after one; Key-insight / Below-note light only when trailing, and
-  applying them moves the block to the slide's end). A **floating bar** over a text selection applies
-  inline marks (Bold /
-  Italic / Code). Each slide shows a control bar on its divider line when the caret is inside it —
-  collapse (left), insert/delete (center), move up/down (right). Both modes read and write the same
+  design) where the whole deck is one continuous note: you type rich text, and each slide's **divider
+  line doubles as its control bar** — a full-width rule that, when your caret is inside the slide,
+  carries grouped controls: a collapse toggle, a **context-sensitive Format group** that offers only
+  the registers that can validly apply to the block you're in (H1 / H2 / Eyebrow / Subtitle / Key
+  insight / Below-note — lit EXACTLY as the engine will render it: a code label is an Eyebrow before a
+  heading or a Subtitle after one; Key-insight / Below-note light only when trailing, and applying
+  them moves the block to the slide's end; a list offers none), insert-below and slide settings, and
+  a delete with an in-place confirm. A **floating bar** over a text selection applies inline marks
+  (Bold / Italic / Code). Both modes read and write the same
   deck source, so flipping never loses work
   and the preview tracks either. Built on ProseMirror (one true document — selection, copy and undo span
   slides) with a DOM-less deck-model core (`docs/src/lib/compose`) that round-trips a deck's markdown
@@ -412,6 +413,34 @@ in patch versions.
   `lib/base/base.docs.md`; design in
   `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
 
+### Fixed
+
+- **Compose no longer silently drops an external edit when you type in a rejected spot, and collapsed
+  slides no longer pop open when you reorder.** An independent red-team of the whole Compose surface
+  (beyond the register bug below) turned up three real defects, now fixed: (1) a keystroke the structural
+  guard *rejects* — typing in a locked slide, or a delete spanning a slide boundary — still reported
+  `tr.docChanged`, so the emit path ran and discarded a **parked external change** (an Inspector `_class`
+  stamp / AI apply / undo waiting for blur); it now keys on whether the *applied* doc actually changed.
+  (2) **Collapse state survived by node identity:** collapsing a slide then moving/inserting/deleting
+  another used to pop it back open (the collapse decoration was position-mapped through a full-doc
+  rebuild and lost); it now re-attaches to the same slide instance. (3) **Grammar registers on a locked
+  slide** dispatched a doomed, silently-filtered transaction — they're now a clean no-op and the buttons
+  disable. Plus a minor dead-end: "Note" on a non-last `— …` paragraph now relocates it instead of doing
+  nothing. Guarded by `compose-collapse.test.ts` + `registers.test.ts`. (`ComposeView.tsx`,
+  `docs/src/lib/compose/registers.ts`; `engineering/decisions/2026-07-18-compose-mobile-keyboard-rail.md`.)
+- **Applying a Compose grammar register (Key-insight / heading / note) can no longer nest or apply
+  without bound.** With the caret in a list item, tapping Key-insight (❦) wrapped the *inner* block
+  in a fresh blockquote every tap while the "already an insight?" detector only read the *top-level*
+  list — so the two never agreed and the source grew `- > > > >` without limit (found on-device via
+  the new keyboard rail, which makes registers easy to tap repeatedly). The register apply/detect
+  logic is now a pure, unit-tested kernel (`docs/src/lib/compose/registers.ts`) with one invariant:
+  a register MUTATES and DETECTS the same top-level block, and is a strict **no-op** unless that block
+  is a type it can validly render from (paragraph/heading; plus blockquote for Key-insight's
+  toggle-off). Every register is now an idempotent toggle that can never nest — Key-insight on a list,
+  a heading in a list, a note in a list, and a cross-slide selection are all no-ops; on a plain
+  paragraph each applies once and toggles cleanly back off. Guarded by `registers.test.ts` (8 stress
+  cases, including the exact `- > > > >` repro). (`ComposeView.tsx` now imports the kernel.)
+
 ### Changed
 
 - **A diagram slide now renders as a diagram in the Studio editing preview, not raw code.** The main
@@ -424,6 +453,43 @@ in patch versions.
   its rendered iframe across the search boundary instead of re-rendering cold, and each tile's preview
   figure is `aria-hidden` (the tile button already carries the name) so a screen reader hears each slide
   once, not a duplicate figure node. (`StudioShell.tsx`, `SlidePicker.tsx`, `slide-thumb.tsx`, `DeckPreview.tsx`.)
+- **The slide divider now houses slide settings.** The per-slide divider bar (collapse · insert ·
+  delete · move) gains a **⚙ gear** in its move zone that opens the slide-scoped inspector — Look /
+  Accent / Status / Chrome / Notes / Comments — for **that** slide. On a phone it opens as a
+  thumb-reachable **bottom sheet**; on tablet/desktop it opens the docked inspector (a free in-context
+  shortcut). It carries the slide's full-deck index so it always targets the slide you tapped, not the
+  filmstrip's current selection; and if that slide is filtered out of an active reader lens, the deck
+  drops back to the full view so the gear can never edit the wrong slide. (`ComposeView.tsx` `SlideView`,
+  `StudioShell.tsx`.)
+- **The phone editor gets out of your way while you type.** Even after the grammar bar was lifted
+  above the keyboard, three persistent toolbars (app header, deck-actions, the EDIT toolbar) still ate
+  the top half of the screen while typing. Now: (a) the **EDIT toolbar band is gone on mobile** — its
+  actions moved to where they belong (the Markdown⟷Compose toggle onto the deck-actions bar; Insert /
+  Fix-all / Version history into the `⋯` menu), so the phone rests at **two bands, not three**; and
+  (b) a **typing mode** — when the software keyboard opens, the remaining top chrome **collapses away**
+  so the writing surface takes the whole screen, with just the grammar rail above the keyboard.
+  **Scroll is the reveal driver:** scroll up to bring the toolbars back, scroll down (or keep typing)
+  to hide them — so every control stays one gesture away while typing. This reverses an earlier
+  "keep all chrome always visible" call: the inversion's objection was that hiding chrome made controls
+  reachable *only* with the keyboard up; this is the opposite (chrome is there when the keyboard is
+  down, and a scroll-up away when it's up), so nothing becomes unreachable. Desktop and tablet are
+  unchanged. The keyboard-driven collapse is **UNVERIFIED on real iOS** (HARD RULE #23) and needs a
+  device pass. (`StudioShell.tsx`, `ComposeView.tsx`.)
+- **On a phone, the Compose grammar bar now rides above the software keyboard instead of hiding
+  behind it.** The register bar (H1 / H2 / Eyebrow / Subtitle / Key-insight / Below-note) used to sit
+  in normal flow at the bottom of the editor, so the iOS keyboard drew right over it the moment you
+  started typing — exactly when you reach for it. It is now a `position:fixed` rail portaled to
+  `<body>` and pinned by an **absolute visual-viewport coordinate**
+  (`top = visualViewport.offsetTop + visualViewport.height − railHeight`), which lands its bottom edge
+  flush with the keyboard's top edge regardless of how iOS resolves `position:fixed` (the reference-
+  frame ambiguity that makes `bottom:0 + translateY` double-count the keyboard on some builds). When no
+  keyboard is up — or `visualViewport` is unavailable — it **docks at the bottom of the editor**, so it
+  is never worse than the always-visible bar it replaces. Scoped to the mobile shell (≤699px); tablet
+  and desktop keep the left grammar gutter (there the registers sit on the side, where the keyboard
+  never occluded them), which also retires the old 640-vs-699 CSS/JS breakpoint split. The keyboard-
+  lift itself is **UNVERIFIED on real iOS** (a headless sandbox has no software keyboard; HARD RULE
+  #23) and needs a device pass. (`ComposeView.tsx`, new `use-visual-viewport.ts`, `StudioShell.tsx`;
+  `engineering/decisions/2026-07-18-compose-mobile-keyboard-rail.md`.)
 - **The performance overlay's FPS now rates against your display's refresh ceiling, not a fixed 60.**
   A steady 30fps on a 30Hz panel — or under an iOS/tablet power-saver or a backgrounded-tab throttle —
   is the device's ceiling, not jank, but the overlay was colouring it "poor" and sending people

@@ -1,4 +1,4 @@
-import { baseKeymap, lift, setBlockType, toggleMark, wrapIn } from 'prosemirror-commands';
+import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { history, redo, undo } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
@@ -9,8 +9,10 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
+import { activeRegister, applicableRegisters, applyRegister, type Reg } from '@/lib/compose/registers';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
+import { useRailLayout, useVisualViewport } from './use-visual-viewport';
 
 // The slide divider borrows the deck's STRUCTURAL TRIM (`spectrum-trim:`) — the same
 // register that colors the rendered deck's `hr` rules, table rails, and timeline spine —
@@ -35,7 +37,6 @@ function trimGradient(source: string): string {
 // rest, LIT for the block the caret is in, click-to-apply. The empty margin becomes
 // the toolbar; restraint stays. One document → selection/copy/undo span slides.
 
-type Reg = 'h1' | 'h2' | 'eyebrow' | 'subtitle' | 'insight' | 'note';
 const REGISTERS: { key: Reg; glyph: string; label: string; mono?: boolean }[] = [
 	{ key: 'h1', glyph: 'H1', label: 'Heading', mono: true },
 	{ key: 'h2', glyph: 'H2', label: 'Section', mono: true },
@@ -44,117 +45,6 @@ const REGISTERS: { key: Reg; glyph: string; label: string; mono?: boolean }[] = 
 	{ key: 'insight', glyph: '❦', label: 'Key insight' },
 	{ key: 'note', glyph: '—', label: 'Below-note' },
 ];
-
-// True if a paragraph node's only content is inline code (the engine's eyebrow/subtitle
-// construct — `p:has(> code:only-child)`).
-function isCodeLabel(block: PMNode): boolean {
-	return block.type.name === 'paragraph' && block.textContent.length > 0 && block.content.content.every((n) => !n.isText || n.marks.some((m) => m.type.name === 'code'));
-}
-
-// The caret's top-level block within its slide, with the siblings the engine's positional
-// register rules key on. `slide` is the depth-1 ancestor (doc → slide → block).
-function slideContext(state: EditorState) {
-	const { $from } = state.selection;
-	if ($from.depth < 1 || $from.node(1).type.name !== 'slide') return null;
-	const slide = $from.node(1);
-	const index = $from.index(1);
-	const block = slide.child(index);
-	return {
-		slide,
-		index,
-		block,
-		isLast: index === slide.childCount - 1,
-		prev: index > 0 ? slide.child(index - 1) : null,
-		next: index < slide.childCount - 1 ? slide.child(index + 1) : null,
-	};
-}
-
-// Which register the caret's block currently IS — EXACTLY as the engine renders it, so the
-// gutter never mislabels (base.modifiers.css): a code label is an EYEBROW before a heading /
-// a SUBTITLE after one; a blockquote is a KEY-INSIGHT only when TRAILING; an em-dash
-// paragraph is a BELOW-NOTE only when TRAILING. Anything else lights nothing.
-function activeRegister(state: EditorState): Reg | null {
-	const ctx = slideContext(state);
-	if (!ctx) return null;
-	const { block, isLast, prev, next } = ctx;
-	const isHeading = (n: PMNode | null) => !!n && n.type.name === 'heading';
-	if (block.type.name === 'heading') return (block.attrs.level as number) <= 1 ? 'h1' : 'h2';
-	if (block.type.name === 'blockquote') return isLast ? 'insight' : null;
-	if (block.type.name === 'paragraph') {
-		if (isCodeLabel(block)) {
-			if (isHeading(next)) return 'eyebrow'; // code label BEFORE a heading (eyebrow wins when sandwiched)
-			if (isHeading(prev)) return 'subtitle'; // code label AFTER a heading
-			return null; // a code label adjacent to no heading renders as neither
-		}
-		if (isLast && block.textContent.startsWith('—')) return 'note';
-	}
-	return null;
-}
-
-// Move the caret's top-level block to the END of its slide, replaced by `make(block)`. The
-// trailing registers (Key-insight, Below-note) render only as the slide's last block, so
-// applying one relocates the block there — the "naturally goes to the end of the slide" model.
-function moveToSlideEnd(view: EditorView, make: (block: PMNode) => PMNode) {
-	const { state } = view;
-	const { $from } = state.selection;
-	if ($from.depth < 1) return;
-	const slide = $from.node(1);
-	const slideStart = $from.before(1);
-	const index = $from.index(1);
-	let blockStart = slideStart + 1;
-	for (let i = 0; i < index; i++) blockStart += slide.child(i).nodeSize;
-	const block = slide.child(index);
-	const newNode = make(block);
-	const tr = state.tr.delete(blockStart, blockStart + block.nodeSize);
-	const end = tr.mapping.map(slideStart + slide.nodeSize - 1);
-	tr.insert(end, newNode);
-	tr.setSelection(TextSelection.near(tr.doc.resolve(end + newNode.nodeSize - 1), -1));
-	view.dispatch(tr.scrollIntoView());
-	view.focus();
-}
-
-// Apply a register to the caret's block (the "menu is the style sheet"). Positional
-// registers place the block where the engine renders them; toggling a lit register removes it.
-function applyRegister(view: EditorView, reg: Reg, current: Reg | null) {
-	const s = deckSchema;
-	const { state, dispatch } = view;
-	const ctx = slideContext(state);
-	if (reg === current && (reg === 'h1' || reg === 'h2')) {
-		setBlockType(s.nodes.paragraph)(state, dispatch);
-	} else if (reg === 'h1') {
-		setBlockType(s.nodes.heading, { level: 1 })(state, dispatch);
-	} else if (reg === 'h2') {
-		setBlockType(s.nodes.heading, { level: 2 })(state, dispatch);
-	} else if ((reg === 'eyebrow' || reg === 'subtitle') && ctx?.block.type.name === 'paragraph') {
-		// Eyebrow and Subtitle are ONE construct (a code label); position decides which the
-		// engine renders. Both toggle the inline-code treatment — but only on a TOP-LEVEL
-		// paragraph (guarding on ctx.block, not $from.parent, so a caret inside a list item
-		// doesn't code-mark just that item, which could never render as an eyebrow anyway).
-		const { $from } = view.state.selection;
-		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, $from.start(), $from.end())));
-		toggleMark(s.marks.code)(view.state, view.dispatch);
-	} else if (reg === 'insight') {
-		if (current === 'insight') lift(state, dispatch); // unwrap the trailing blockquote
-		else if (ctx?.isLast) wrapIn(s.nodes.blockquote)(state, dispatch); // already last → wrap in place
-		else moveToSlideEnd(view, (block) => s.nodes.blockquote.create(null, block));
-	} else if (reg === 'note') {
-		const { $from } = view.state.selection;
-		// Guard on the TOP-LEVEL block (ctx.block), NOT $from.parent: inside a list item /
-		// blockquote the immediate parent is a paragraph, but ctx.block is the list/quote — and
-		// `make` would then spread list-item/paragraph nodes into a paragraph (an invalid node
-		// that silently corrupts the list on emit). Below-note applies to a real trailing
-		// paragraph only; on anything else it's a no-op (as note-on-heading already was).
-		if (current === 'note') {
-			// strip the leading em-dash from the trailing note
-			const strip = $from.parent.textContent.startsWith('— ') ? 2 : 1;
-			view.dispatch(view.state.tr.delete($from.start(), $from.start() + strip));
-		} else if (ctx?.block.type.name === 'paragraph' && !ctx.block.textContent.startsWith('—')) {
-			if (ctx.isLast) view.dispatch(view.state.tr.insertText('— ', $from.start())); // already last
-			else moveToSlideEnd(view, (block) => s.nodes.paragraph.create(null, [s.text('— '), ...block.content.content]));
-		}
-	}
-	view.focus();
-}
 
 // Whether a mark is on across the current selection (or in the stored marks at an
 // empty caret) — drives the floating bar's pressed state.
@@ -205,7 +95,7 @@ function computeSelBar(view: EditorView): SelBar | null {
 // can't be edited, so its node identity never changes and `emitDeck` always re-emits its
 // exact `raw` bytes. Selection-only transactions (no doc change) always pass, so you can
 // still put the caret in / copy from a locked slide.
-function structuralGuard() {
+export function structuralGuard() {
 	return new Plugin({
 		filterTransaction(tr, state) {
 			if (!tr.docChanged) return true;
@@ -228,14 +118,35 @@ function structuralGuard() {
 // — not on the SlideView instance. Toggling dispatches a `collapseKey` meta (doc unchanged,
 // so the structural guard waves it through); the decoration maps through edits, and each
 // SlideView reads it in its constructor/update to add the `cs-collapsed` class.
-const collapseKey = new PluginKey<DecorationSet>('cs-collapse');
-function collapsePlugin() {
+export const collapseKey = new PluginKey<DecorationSet>('cs-collapse');
+export function collapsePlugin() {
 	return new Plugin({
 		key: collapseKey,
 		state: {
 			init: () => DecorationSet.empty,
 			apply(tr, set) {
-				let next = set.map(tr.mapping, tr.doc);
+				let next: DecorationSet;
+				if (tr.getMeta('slideOp')) {
+					// A structural op (SlideView.commit) rebuilds the whole doc from the SAME node
+					// instances via one full-content replace step, so position-mapping the collapse
+					// decorations through it DROPS them (their span falls inside the replaced range) —
+					// collapsed slides would pop open on every move/insert/delete. Re-establish collapse
+					// by NODE IDENTITY: note which slide instances were collapsed in the pre-op doc, then
+					// re-decorate those same instances at their new offsets.
+					const beforeDoc = tr.docs.length ? tr.docs[0] : tr.doc;
+					const collapsed = new Set<PMNode>();
+					for (const d of set.find()) {
+						const n = beforeDoc.nodeAt(d.from);
+						if (n) collapsed.add(n);
+					}
+					const decos: Decoration[] = [];
+					tr.doc.forEach((node, offset) => {
+						if (collapsed.has(node)) decos.push(Decoration.node(offset, offset + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true }));
+					});
+					next = DecorationSet.create(tr.doc, decos);
+				} else {
+					next = set.map(tr.mapping, tr.doc);
+				}
 				const toggle = tr.getMeta(collapseKey) as { pos: number } | undefined;
 				if (toggle) {
 					const node = tr.doc.nodeAt(toggle.pos);
@@ -283,80 +194,156 @@ const LUCIDE_PATHS: Record<string, string> = {
 	'arrow-down-to-line': '<path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/>',
 	plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
 	'trash-2': '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
-	'chevrons-down-up': '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
-	'chevrons-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+	'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+	'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+	check: '<path d="M20 6 9 17l-5-5"/>',
+	x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+	'sliders-horizontal': '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
 }
 
-// A per-slide NodeView: renders the slide's content plus a control bar on its divider line
-// (move up/down · collapse · insert below · delete) that reveals on hover (desktop) or
-// sits faint on touch. Structural ops rebuild the doc from the SAME node instances (so
-// every unmoved slide keeps its identity → emitDeck re-emits its exact `raw` bytes) and
-// carry the `slideOp` meta so the structural guard lets the count/lock change through.
-// Collapse is view-only (a class on this instance) — it never touches the source.
+// A per-slide NodeView — the slide's ONE control bar, on its top divider line, full-width and
+// grouped: [collapse toggle] · [context-sensitive Format registers] · [insert · settings] · [delete].
+// Controls show only when the caret is inside this slide (the cs-slide-active decoration).
+// Structural ops rebuild the doc from the SAME node instances (identity preserved → emitDeck
+// re-emits exact bytes) with a `slideOp` meta so the structural guard allows the count/lock change.
+// Collapse is view-only (a class), never touching the source.
+//
+// Live instances are tracked so `formatSyncPlugin` can re-sync the Format group on every caret
+// move — the applicable registers change as the caret moves between blocks WITHIN a slide, which
+// no node- or outer-decoration change would otherwise signal.
+const liveSlideViews = new Set<SlideView>();
+function formatSyncPlugin() {
+	return new Plugin({
+		view() {
+			return {
+				update() {
+					for (const sv of liveSlideViews) sv.syncFormat();
+				},
+			};
+		},
+	});
+}
+
 class SlideView {
 	dom: HTMLElement;
 	contentDOM: HTMLElement;
 	ctrl: HTMLElement;
 	collapseBtn: HTMLButtonElement;
+	private fmtGroup: HTMLElement;
+	private dangerGroup: HTMLElement;
+	private deleteBtn: HTMLButtonElement;
+	private confirmTimer = 0;
+	private locked: boolean;
 	constructor(
 		node: PMNode,
 		public view: EditorView,
 		public getPos: () => number,
 		decorations: readonly Decoration[] = [],
+		onSettings?: (index: number) => void,
 	) {
+		this.locked = !!node.attrs.locked;
 		const dom = document.createElement('section');
-		dom.className = node.attrs.locked ? 'cs-slide cs-slide-locked' : 'cs-slide';
-		// The controls live ON the slide's top divider LINE, in three zones — collapse at the
-		// left edge, insert/delete centered, move up/down at the right edge — and appear only
-		// when the caret is inside this slide (the cs-slide-active decoration).
+		dom.className = this.locked ? 'cs-slide cs-slide-locked' : 'cs-slide';
 		const bar = document.createElement('div');
 		bar.className = 'cs-slide-bar';
 		bar.contentEditable = 'false';
-		const mk = (label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, danger = false) => {
-			const b = document.createElement('button');
-			b.type = 'button';
-			b.className = danger ? 'cs-sc-btn cs-sc-danger' : 'cs-sc-btn';
-			b.title = label;
-			b.setAttribute('aria-label', label);
-			b.innerHTML = lucideSvg(icon);
-			b.addEventListener('mousedown', (e) => e.preventDefault());
-			b.addEventListener('click', (e) => {
-				e.preventDefault();
-				fn();
-			});
-			return b;
+		const group = (kind: string) => {
+			const g = document.createElement('div');
+			g.className = `cs-sb-g cs-sb-${kind}`;
+			return g;
 		};
-		const zone = () => {
-			const z = document.createElement('div');
-			z.className = 'cs-sb-zone';
-			return z;
-		};
-		this.collapseBtn = mk('Collapse slide', 'chevrons-down-up', () => this.toggleCollapse());
-		const left = zone();
-		left.append(this.collapseBtn);
-		const center = zone();
-		center.append(mk('Insert slide below', 'plus', () => this.insertBelow()), mk('Delete slide', 'trash-2', () => this.remove(), true));
-		const right = zone();
-		right.append(mk('Move slide up', 'arrow-up-to-line', () => this.move(-1)), mk('Move slide down', 'arrow-down-to-line', () => this.move(1)));
-		bar.append(left, center, right);
+
+		// STATE — collapse toggle (chevron ▸ collapsed / ▾ expanded, VS Code style — reads as state).
+		this.collapseBtn = this.btn('Collapse slide', 'chevron-down', () => this.toggleCollapse());
+		const state = group('state');
+		state.append(this.collapseBtn);
+
+		// FORMAT — the context-sensitive registers, (re)built by syncFormat() as the caret moves.
+		this.fmtGroup = group('format');
+		this.fmtGroup.setAttribute('role', 'group');
+		this.fmtGroup.setAttribute('aria-label', 'Formatting');
+
+		// SLIDE — insert below · slide settings.
+		const slide = group('slide');
+		slide.append(this.btn('Insert slide below', 'plus', () => this.insertBelow()));
+		if (onSettings) slide.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }));
+
+		// DANGER — delete, with an inline two-step confirm (like the app's other delete actions).
+		this.dangerGroup = group('danger');
+		this.deleteBtn = this.btn('Delete slide', 'trash-2', () => this.askDelete());
+		this.dangerGroup.append(this.deleteBtn);
+
+		bar.append(state, this.fmtGroup, slide, this.dangerGroup);
 		const content = document.createElement('div');
 		content.className = 'cs-slide-content';
 		dom.append(bar, content);
 		this.dom = dom;
 		this.contentDOM = content;
 		this.ctrl = bar;
+		liveSlideViews.add(this);
 		this.applyDecos(decorations);
+	}
+	private btn(label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, cls = ''): HTMLButtonElement {
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = `cs-sc-btn ${cls}`.trim();
+		b.title = label;
+		b.setAttribute('aria-label', label);
+		b.innerHTML = lucideSvg(icon);
+		b.addEventListener('mousedown', (e) => e.preventDefault());
+		b.addEventListener('click', (e) => {
+			e.preventDefault();
+			fn();
+		});
+		return b;
+	}
+	// Rebuild the Format group from the registers that APPLY to the caret's block — only when THIS
+	// slide is active. Runs on every state change (formatSyncPlugin) so it tracks the caret; a
+	// signature check skips the DOM churn when nothing changed.
+	syncFormat() {
+		if (!this.dom.classList.contains('cs-slide-active')) {
+			if (this.fmtGroup.childElementCount) {
+				this.fmtGroup.replaceChildren();
+				this.fmtGroup.dataset.sig = '';
+			}
+			return;
+		}
+		const { keys, active } = applicableRegisters(this.view.state);
+		const sig = `${keys.join(',')}|${active ?? ''}`;
+		if (this.fmtGroup.dataset.sig === sig) return;
+		this.fmtGroup.dataset.sig = sig;
+		this.fmtGroup.replaceChildren();
+		for (const key of keys) {
+			const meta = REGISTERS.find((r) => r.key === key);
+			if (!meta) continue;
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = `cs-fmt-btn${meta.mono ? ' cs-fmt-mono' : ''}${active === key ? ' cs-fmt-on' : ''}`;
+			b.textContent = meta.glyph;
+			b.title = `${meta.label} — apply to this block`;
+			b.setAttribute('aria-label', meta.label);
+			b.setAttribute('aria-pressed', active === key ? 'true' : 'false');
+			b.addEventListener('mousedown', (e) => e.preventDefault());
+			b.addEventListener('click', (e) => {
+				e.preventDefault();
+				applyRegister(this.view, key, activeRegister(this.view.state));
+			});
+			this.fmtGroup.append(b);
+		}
 	}
 	private applyDecos(decorations: readonly Decoration[]) {
 		const has = (k: 'collapsed' | 'active') => decorations.some((d) => (d.spec as Record<string, boolean> | undefined)?.[k]);
 		const collapsed = has('collapsed');
 		this.dom.classList.toggle('cs-collapsed', collapsed);
 		this.dom.classList.toggle('cs-slide-active', has('active'));
-		this.collapseBtn.innerHTML = lucideSvg(collapsed ? 'chevrons-up-down' : 'chevrons-down-up');
+		this.collapseBtn.innerHTML = lucideSvg(collapsed ? 'chevron-right' : 'chevron-down');
 		this.collapseBtn.setAttribute('aria-label', collapsed ? 'Expand slide' : 'Collapse slide');
+		this.collapseBtn.title = collapsed ? 'Expand slide' : 'Collapse slide';
+		if (!this.dom.classList.contains('cs-slide-active')) this.resetDelete();
+		this.syncFormat();
 	}
 	private slides(): PMNode[] {
 		const arr: PMNode[] = [];
@@ -380,14 +367,6 @@ class SlideView {
 		this.view.dispatch(state.tr.replaceWith(0, state.doc.content.size, nodes).setMeta('slideOp', true));
 		this.view.focus();
 	}
-	private move(dir: number) {
-		const i = this.index();
-		const j = i + dir;
-		const nodes = this.slides();
-		if (i < 0 || j < 0 || j >= nodes.length) return;
-		[nodes[i], nodes[j]] = [nodes[j], nodes[i]];
-		this.commit(nodes);
-	}
 	private insertBelow() {
 		const i = this.index();
 		if (i < 0) return;
@@ -396,7 +375,26 @@ class SlideView {
 		nodes.splice(i + 1, 0, blank);
 		this.commit(nodes);
 	}
+	// Two-step delete: the button asks in place (like the app's other delete actions), auto-cancels.
+	// Works on a LOCKED slide too — removing a whole slide is a structural `slideOp` (waved through
+	// by the structural guard), not a content round-trip, so it's safe even for a slide Compose can't
+	// otherwise edit. (Guarding it here would leave a dead trash button and drop a capability the
+	// pre-divider bar had.)
+	private askDelete() {
+		this.dangerGroup.replaceChildren();
+		const ask = document.createElement('span');
+		ask.className = 'cs-sc-ask';
+		ask.textContent = 'Delete?';
+		this.dangerGroup.append(ask, this.btn('Confirm delete slide', 'check', () => this.remove(), 'cs-sc-confirm'), this.btn('Keep slide', 'x', () => this.resetDelete()));
+		clearTimeout(this.confirmTimer);
+		this.confirmTimer = window.setTimeout(() => this.resetDelete(), 4000);
+	}
+	private resetDelete() {
+		clearTimeout(this.confirmTimer);
+		if (this.dangerGroup.firstElementChild !== this.deleteBtn) this.dangerGroup.replaceChildren(this.deleteBtn);
+	}
 	private remove() {
+		this.resetDelete();
 		const nodes = this.slides();
 		if (nodes.length <= 1) return; // a deck always keeps at least one slide
 		const i = this.index();
@@ -411,7 +409,8 @@ class SlideView {
 	}
 	update(node: PMNode, decorations: readonly Decoration[]) {
 		if (node.type.name !== 'slide') return false;
-		this.dom.classList.toggle('cs-slide-locked', !!node.attrs.locked);
+		this.locked = !!node.attrs.locked;
+		this.dom.classList.toggle('cs-slide-locked', this.locked);
 		this.applyDecos(decorations);
 		return true;
 	}
@@ -421,6 +420,10 @@ class SlideView {
 	stopEvent(e: Event) {
 		return this.ctrl.contains(e.target as Node);
 	}
+	destroy() {
+		clearTimeout(this.confirmTimer);
+		liveSlideViews.delete(this);
+	}
 }
 
 function buildPlugins() {
@@ -428,6 +431,7 @@ function buildPlugins() {
 		structuralGuard(),
 		collapsePlugin(),
 		activeSlidePlugin(),
+		formatSyncPlugin(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
 		keymap({
@@ -448,7 +452,11 @@ function buildPlugins() {
 	];
 }
 
-export function ComposeView({ source, onChange, resetKey = '', className }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string }) {
+// `visible` = whether the Compose surface is the active/visible pane. On mobile the editor and
+// preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
+// portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
+// pane, else it would paint over the live preview (the body-portal render-gate).
+export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -459,11 +467,54 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 	// and flushed on blur so it is never silently lost (D2). null = nothing pending.
 	const pendingResyncRef = React.useRef<string | null>(null);
 	const [failed, setFailed] = React.useState(false);
-	const [active, setActive] = React.useState<Reg | null>(null);
-	// The floating selection bar (inline marks over a text selection), or null when there
-	// is no non-empty selection. The block registers live in the gutter; this bar is the
-	// inline complement — Bold / Italic / Code on the selected run.
+	// The floating selection bar (inline marks over a text selection) on DESKTOP, or null when there
+	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
+	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
 	const [selBar, setSelBar] = React.useState<SelBar | null>(null);
+
+	// The mobile shell (coarse pointer / ≤699px) drives the TYPING-MODE chrome collapse: when the
+	// software keyboard is up, the shell's top bands collapse for a full writing surface.
+	// `useVisualViewport` publishes the keyboard geometry only here, so desktop pays nothing.
+	const railLayout = useRailLayout();
+	const mobileShell = visible && railLayout && !failed;
+	const { inset } = useVisualViewport(mobileShell);
+	const keyboardUp = inset > 0;
+
+	// TYPING MODE — when the software keyboard is up, the shell's top chrome collapses so the
+	// writing surface gets the screen (the "so many toolbars while typing" fix). SCROLL is the
+	// reveal driver: opening the keyboard collapses the chrome; scrolling UP on the writing
+	// surface brings it back, scrolling down re-hides it — so every control stays reachable while
+	// typing (a scroll-up away), which answers the inversion's keyboard-only-reachability objection.
+	const onTypingRef = React.useRef(onTypingCollapse);
+	onTypingRef.current = onTypingCollapse;
+	// Ref-backed so the construct-once NodeView factory always calls the CURRENT handler.
+	const onOpenSlideSettingsRef = React.useRef(onOpenSlideSettings);
+	onOpenSlideSettingsRef.current = onOpenSlideSettings;
+	const [chromeRevealed, setChromeRevealed] = React.useState(true);
+	// Opening the keyboard collapses; closing it always restores the chrome.
+	React.useEffect(() => {
+		setChromeRevealed(!keyboardUp);
+	}, [keyboardUp]);
+	React.useEffect(() => {
+		if (!mobileShell) return;
+		const host = hostRef.current;
+		if (!host) return;
+		let last = host.scrollTop;
+		const onScroll = () => {
+			const y = host.scrollTop;
+			const dy = y - last;
+			if (Math.abs(dy) < 8) return; // ignore sub-threshold jitter
+			if (dy < 0) setChromeRevealed(true); // scroll UP → reveal
+			else if (y > 40) setChromeRevealed(false); // scroll DOWN (past the top) → hide
+			last = y;
+		};
+		host.addEventListener('scroll', onScroll, { passive: true });
+		return () => host.removeEventListener('scroll', onScroll);
+	}, [mobileShell]);
+	const chromeCollapsed = mobileShell && keyboardUp && !chromeRevealed;
+	React.useEffect(() => {
+		onTypingRef.current?.(chromeCollapsed);
+	}, [chromeCollapsed]);
 
 	// Re-import `src` into the editor, rebuilding the emit baseline. Shared by the
 	// external-source effect and the on-blur flush.
@@ -485,12 +536,19 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
-				nodeViews: { slide: (node, nodeView, getPos, decorations) => new SlideView(node, nodeView, getPos as () => number, decorations) },
+				nodeViews: { slide: (node, nodeView, getPos, decorations) => new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i)) },
 				dispatchTransaction(tr) {
+					const prevDoc = view.state.doc;
 					const next = view.state.apply(tr);
 					view.updateState(next);
-					setActive(activeRegister(next));
-					if (tr.docChanged) {
+					// Guard on the APPLIED doc, NOT `tr.docChanged`: a transaction the structural
+					// guard REJECTS (a keystroke inside a locked slide, or a delete spanning a slide
+					// boundary) still reports `tr.docChanged === true` — but `state.apply` returns the
+					// unchanged state, so `next.doc === prevDoc`. Running the emit branch on that
+					// no-op would null a PARKED external resync (`pendingResyncRef`), silently dropping
+					// an external `_class`/AI/undo change on the next blur — for a keystroke that did
+					// nothing. Only a real doc change supersedes the parked author.
+					if (next.doc !== prevDoc) {
 						// A fresh local edit supersedes any parked external change — otherwise the
 						// blur flush would replay a now-stale snapshot over the user's typing (the
 						// trio's resync race). Favor the actively-typing author.
@@ -533,7 +591,6 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 			return;
 		}
 		viewRef.current = view;
-		setActive(activeRegister(view.state));
 		// The floating bar is positioned in viewport coords; a scroll of the writing surface
 		// would strand it, so hide it on scroll (it returns on the next selection change).
 		const host = hostRef.current;
@@ -570,11 +627,6 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 		}
 	}, [source, resyncFrom]);
 
-	const onGutter = React.useCallback((reg: Reg) => {
-		const view = viewRef.current;
-		if (view) applyRegister(view, reg, activeRegister(view.state));
-	}, []);
-
 	// Toggle an inline mark from the floating bar, keeping the selection (the buttons
 	// preventDefault on mousedown so focus never leaves the editor).
 	const onMark = React.useCallback((mark: 'strong' | 'em' | 'code') => {
@@ -599,24 +651,9 @@ export function ComposeView({ source, onChange, resetKey = '', className }: { so
 	return (
 		<div className={cn('cs-surface', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
 			<ComposeStyles />
+			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
+			    (context-sensitive). Just the writing surface. */}
 			<div className="cs-frame">
-				<div className="cs-gutter" role="toolbar" aria-label="Grammar registers">
-					<span className="cs-gutter-label">Grammar</span>
-					{REGISTERS.map((r) => (
-						<button
-							key={r.key}
-							type="button"
-							title={`${r.label} — apply to this block`}
-							aria-label={r.label}
-							aria-pressed={active === r.key}
-							onMouseDown={(e) => e.preventDefault()}
-							onClick={() => onGutter(r.key)}
-							className={cn('cs-greg', r.mono && 'cs-greg-mono', active === r.key && 'cs-greg-live')}
-						>
-							{r.glyph}
-						</button>
-					))}
-				</div>
 				<div ref={hostRef} className="cs-host" />
 			</div>
 			{selBar &&
@@ -651,34 +688,35 @@ function ComposeStyles() {
 		<style>{`
 			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff)}
 			.cs-frame{display:flex;height:100%}
-			/* quiet grammar gutter */
-			.cs-gutter{flex:none;width:54px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:22px 0;border-right:1px solid var(--border,#e4eaf2);position:relative;background:var(--bg-alt,#f2f5fa)}
-			.cs-gutter-label{position:absolute;left:7px;top:24px;writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--font-mono,ui-monospace,monospace);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted,#6b7f9a)}
-			.cs-greg{width:34px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--font-serif,Georgia,serif);font-size:15px;color:var(--text-muted,#6b7f9a);background:transparent;border:none;cursor:pointer;transition:color .13s,background .13s}
-			.cs-greg-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;letter-spacing:.02em}
-			.cs-greg:hover{color:var(--text-heading,#0a1628);background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%)}
-			.cs-greg-live{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent,#006fa8),transparent 60%)}
-			/* the serif page */
+			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
-			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 72px;font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
+			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(72px + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:0 clamp(24px,6cqw,64px) 22px;position:relative}
-			/* the divider between slides IS a control bar: a horizontal line runs through it,
-			   and three control zones sit ON that line — collapse (left edge) · insert/delete
-			   (center) · move up/down (right edge). The line is always visible; the controls
-			   appear only when the caret is inside the slide (cs-slide-active). */
-			.cs-slide-bar{position:relative;display:flex;align-items:center;justify-content:space-between;height:24px;margin:14px calc(-1 * clamp(24px,6cqw,64px)) 10px;padding:0 clamp(20px,5cqw,52px);user-select:none}
-			/* the line spans the FULL slide width (the bar breaks out of the content padding),
-			   painted with the deck's structural trim spectrum (--cs-trim; see trimGradient). */
+			/* the divider between slides IS the slide's control bar: a FULL-WIDTH line runs through it;
+			   grouped controls sit ON the line — [collapse] · [context Format] · [insert · settings] ·
+			   [delete]. The line always shows; the groups appear only when the caret is inside the
+			   slide (cs-slide-active), each group tinted by role. */
+			.cs-slide-bar{position:relative;display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:22px;margin:15px calc(-1 * clamp(24px,6cqw,64px)) 11px;padding:0 clamp(20px,5cqw,52px);user-select:none}
 			.cs-slide-bar::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;transform:translateY(-50%);border-radius:2px;background:var(--cs-trim,var(--border,#e4eaf2))}
 			.cs-host .cs-slide:first-child .cs-slide-bar::before{display:none}
-			.cs-sb-zone{position:relative;display:flex;gap:5px;padding:0 7px;background:transparent}
-			.cs-slide-active > .cs-slide-bar .cs-sb-zone{background:var(--bg,#fff)}
-			/* slide-control button — DISTINCT class from the selection bar's .cs-sb-btn */
-			.cs-sc-btn{width:21px;height:19px;border-radius:5px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
-			.cs-slide-active > .cs-slide-bar .cs-sc-btn{display:flex}
+			.cs-sb-g{position:relative;display:none;align-items:center;gap:2px;padding:0 6px;border-radius:7px}
+			.cs-slide-active > .cs-slide-bar .cs-sb-g{display:flex;background:var(--bg,#fff)}
+			.cs-slide-active > .cs-slide-bar .cs-sb-format:empty{display:none}
+			/* slide-control button (DISTINCT from the selection bar's .cs-sb-btn) — smaller, quiet. */
+			.cs-sc-btn{width:19px;height:19px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .1s,background .1s,border-color .1s}
 			.cs-sc-btn svg{display:block}
-			.cs-sc-btn:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
-			.cs-sc-danger:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e)}
+			.cs-sc-btn:hover{color:var(--text-heading,#0a1628);background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 14%)}
+			/* on-brand group tints: state/slide neutral (accent on hover), danger = fail red. */
+			.cs-sb-slide .cs-sc-btn:hover{color:var(--accent,#006fa8)}
+			.cs-sb-danger .cs-sc-btn{color:color-mix(in oklab,var(--fail,#b3261e),var(--text-muted) 32%)}
+			.cs-sb-danger .cs-sc-btn:hover{color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 88%)}
+			.cs-sc-confirm{color:var(--fail,#b3261e) !important;border-color:color-mix(in oklab,var(--fail,#b3261e),transparent 55%) !important}
+			.cs-sc-ask{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--fail,#b3261e);padding:0 3px 0 1px;align-self:center}
+			/* FORMAT group — context-sensitive registers, accent-tinted, lit when active. */
+			.cs-fmt-btn{min-width:19px;height:19px;padding:0 4px;border:1px solid transparent;border-radius:5px;background:transparent;font-family:var(--font-serif,Georgia,serif);font-size:12.5px;line-height:1;color:var(--accent,#006fa8);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .1s,background .1s}
+			.cs-fmt-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.02em}
+			.cs-fmt-btn:hover{background:var(--accent-soft,#eff6fc)}
+			.cs-fmt-on{background:var(--accent-soft,#eff6fc);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent,#006fa8),transparent 55%)}
 			/* collapsed: keep the first block, hide the rest behind an ellipsis */
 			.cs-slide.cs-collapsed .cs-slide-content > *:not(:first-child){display:none}
 			.cs-slide.cs-collapsed .cs-slide-content::after{content:"⋯";display:block;color:var(--text-muted,#6b7f9a);font-size:17px;line-height:1;padding:2px 0 2px}
@@ -709,20 +747,14 @@ function ComposeStyles() {
 			.cs-host em{font-style:italic}
 			.cs-host a{color:var(--accent,#1e5f96);text-decoration:underline}
 			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#006fa8)}
-			/* MOBILE — the grammar rail becomes a bottom bar (thumb-reachable; the cramped low-
-			   contrast left rail was the phone pain point). Host on top, register bar below. */
+			/* MOBILE — the slide-divider control bar gets bigger touch targets, still grouped and
+			   full-width. (No keyboard-riding rail: formatting is on the divider.) */
 			@media (max-width:640px){
-				.cs-frame{flex-direction:column}
-				.cs-host{order:1}
-				.cs-gutter{order:2;flex-direction:row;width:auto;height:auto;justify-content:center;gap:8px;padding:7px 12px;border-right:none;border-top:1px solid var(--border,#e4eaf2);overflow-x:auto}
-				.cs-gutter-label{display:none}
-				.cs-greg{width:40px;height:34px;font-size:16px}
-				.cs-greg-mono{font-size:11px}
-				/* the slide control bar: no full-width break-out on a phone (it clipped the
-				   right-edge move buttons), and bigger touch targets (~32px, toward the WCAG
-				   guidance while still fitting five controls across a 360px bar). */
-				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
-				.cs-sc-btn{width:33px;height:31px}
+				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 2px;gap:3px}
+				.cs-sb-g{padding:0 4px;gap:1px}
+				.cs-sc-btn{width:28px;height:26px}
+				.cs-fmt-btn{min-width:26px;height:26px;font-size:14px}
+				.cs-fmt-mono{font-size:11px}
 			}
 			/* floating selection bar — inline marks over a text selection (portaled to body).
 			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */
