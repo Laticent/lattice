@@ -431,6 +431,14 @@ in patch versions.
 
 ### Fixed
 
+- **The `scene` component's own showcase now moves.** Stage 6 shipped live scene hydration, but the
+  scene component's `sample` and insert `skeleton` were still poster-only — so picking "scene" in the
+  Playground (or inserting it) showed a static still with no ```anima block, nothing to hydrate, and
+  therefore no autoplay and no ↻ replay control. The scene's motion only appeared in
+  `examples/anima-scene.md`. Both now carry a real ```anima spec (a built-Zdog rotor turning inside its
+  ring), so exploring or inserting `scene` demonstrates the live motion on the Playground straight away;
+  the PDF poster is unchanged (export bytes untouched). (`scene.manifest.json` + regenerated docs.)
+
 - **Compose no longer silently drops an external edit when you type in a rejected spot, and collapsed
   slides no longer pop open when you reorder.** An independent red-team of the whole Compose surface
   (beyond the register bug below) turned up three real defects, now fixed: (1) a keystroke the structural
