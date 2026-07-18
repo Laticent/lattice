@@ -34,7 +34,7 @@ function rotateAbout(v: Vec3, axis: Axis, a: number): Vec3 {
   return [x * c - y * s, x * s + y * c, z];
 }
 
-function evalElement(el: BuiltElement | SvgElement, index: number, count: number, tMs: number, progress: number): ElementState {
+function evalElement(el: BuiltElement | SvgElement, seqRank: number, seqCount: number, tMs: number, progress: number): ElementState {
   const tf = identity();
   // Base transform (built elements only; svg elements have no scene-graph transform).
   if ('transform' in el && el.transform) {
@@ -71,11 +71,13 @@ function evalElement(el: BuiltElement | SvgElement, index: number, count: number
         reveal *= windowed(progress, m.at, m.span, m.easing);
         break;
       case 'sequence': {
-        // Stagger: element i of n reveals over its own slot within the [at, at+span] window.
+        // Stagger over the SEQUENCED SUBSET (not all scene elements): the i-th sequenced
+        // element of n reveals over its own slot within the [at, at+span] window, so a
+        // scene where only some elements sequence has no dead slots (checker MED).
         hasReveal = true;
         const span = m.span ?? 1;
-        const slot = span / Math.max(1, count);
-        const start = (m.at ?? 0) + index * slot;
+        const slot = span / seqCount;
+        const start = (m.at ?? 0) + seqRank * slot;
         reveal *= windowed(progress, start, slot, m.easing);
         break;
       }
@@ -104,14 +106,22 @@ function evalElement(el: BuiltElement | SvgElement, index: number, count: number
  */
 export function compile(scene: Scene): Timeline {
   const duration = scene.duration;
-  const count = scene.elements.length;
+
+  // Rank the elements that carry a `sequence` verb, in document order, so the stagger
+  // tiles the SEQUENCED SUBSET rather than all elements (checker MED).
+  const sequenced: string[] = [];
+  for (const el of scene.elements) {
+    if ((el.motion ?? []).some((m) => m.verb === 'sequence')) sequenced.push(el.id);
+  }
+  const seqRank = new Map(sequenced.map((id, i) => [id, i] as const));
+  const seqCount = Math.max(1, sequenced.length);
 
   const at = (tMs: number): SceneState => {
     const t = tMs < 0 ? 0 : tMs > duration ? duration : tMs;
     const progress = duration > 0 ? t / duration : 0;
     const camera = identity();
     if (scene.source === 'built' && scene.camera?.rotate) camera.rotate = [...scene.camera.rotate];
-    const elements = scene.elements.map((el, i) => evalElement(el, i, count, t, progress));
+    const elements = scene.elements.map((el) => evalElement(el, seqRank.get(el.id) ?? 0, seqCount, t, progress));
     return { source: scene.source, tMs: t, progress, camera, elements };
   };
 

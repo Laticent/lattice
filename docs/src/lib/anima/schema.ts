@@ -13,7 +13,7 @@ export type ParseResult = { ok: true; scene: Scene } | { ok: false; errors: stri
 // A token colour is `var(--name)` with an optional `var(--name)` fallback — no hex, no
 // keyword, no functions. The forbid-list is a belt over the allow-regex: token values
 // are host-trusted and must never smuggle url()/expression()/markup (Vetrina's rule).
-const TOKEN_COLOR = /^var\(--[a-z0-9-]+(?:\s*,\s*var\(--[a-z0-9-]+\))?\)$/i;
+const TOKEN_COLOR = /^var\(--[a-z0-9_-]+(?:\s*,\s*var\(--[a-z0-9_-]+\))?\)$/i;
 const COLOR_FORBID = /(url\(|image\(|expression\(|javascript:|[;{}<>])/i;
 
 export function validateColor(c: unknown): string | null {
@@ -83,7 +83,9 @@ function validateMotion(m: unknown, source: SourceModel, at: string, errors: str
       validateWindow(mo, at, errors);
       break;
     case 'explode':
-      if (!isFiniteNumber(mo.distance)) errors.push(`${at}.distance must be a finite number`);
+      // Non-negative: distance is a fraction to push OUTWARD; a negative would flip the
+      // element through the origin to the mirror side (checker MED — range discipline).
+      if (!isFiniteNumber(mo.distance) || (mo.distance as number) < 0) errors.push(`${at}.distance must be a non-negative, finite number`);
       validateWindow(mo, at, errors);
       break;
     case 'reveal':
@@ -142,8 +144,13 @@ export function parseScene(input: unknown): ParseResult {
     if (src === 'built') {
       if (!PRIMITIVES.includes(el.shape as never)) errors.push(`${at}.shape '${String(el.shape)}' is not a primitive [${PRIMITIVES.join(', ')}]`);
       if (el.transform != null) validateTransform(el.transform, at, errors);
+      // Reject cross-shape fields so a confused emission fails loudly rather than silently
+      // (compile ignores them) — checker LOW.
+      if (el.pathRef != null) errors.push(`${at}.pathRef is an svg-only field, but this is a built element`);
     } else if (src === 'svg') {
       if (typeof el.pathRef !== 'string' || !el.pathRef) errors.push(`${at}.pathRef must be a non-empty string (a path/group id in the SVG asset)`);
+      if (el.shape != null) errors.push(`${at}.shape is a built-only field, but this is an svg element`);
+      if (el.transform != null) errors.push(`${at}.transform is a built-only field, but this is an svg element`);
     }
 
     if (el.motion != null) {

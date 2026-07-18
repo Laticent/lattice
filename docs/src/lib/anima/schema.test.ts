@@ -58,6 +58,12 @@ describe('parseScene — rejects', () => {
   });
   it('a spin with a non-positive period', () => expect(bad({}, [{ id: 'a', shape: 'box', motion: [{ verb: 'spin', axis: 'y', period: 0 }] }]).ok).toBe(false));
   it('a fill level out of [0,1]', () => expect(bad({}, [{ id: 'a', shape: 'box', motion: [{ verb: 'fill', to: 2 }] }]).ok).toBe(false));
+  it('a negative explode distance', () => expect(bad({}, [{ id: 'a', shape: 'box', motion: [{ verb: 'explode', distance: -1 }] }]).ok).toBe(false));
+  it('a built element carrying a pathRef (cross-shape field)', () => expect(bad({}, [{ id: 'a', shape: 'box', pathRef: 'p1' }]).ok).toBe(false));
+  it('an svg element carrying a built-only field', () => {
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', shape: 'box' }] }).ok).toBe(false);
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', transform: { at: [1, 0, 0] } }] }).ok).toBe(false);
+  });
   it('an svg scene with no asset', () => {
     const noAsset = { source: 'svg', duration: 4000, hero: 1, elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'draw' }] }] };
     expect(parseScene(noAsset).ok).toBe(false);

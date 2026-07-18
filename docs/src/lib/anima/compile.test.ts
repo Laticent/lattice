@@ -48,6 +48,16 @@ describe('compile — reveal / presence', () => {
     expect(s.elements[1].reveal).toBe(0);
   });
 
+  it('sequence staggers over the SEQUENCED SUBSET, ignoring non-sequenced elements', () => {
+    // 3 elements, only #0 and #2 sequenced → they tile [0,.5] and [.5,1]; #1 stays present.
+    const tl = timeline(scene([el('a', { motion: [{ verb: 'sequence' }] }), el('b'), el('c', { motion: [{ verb: 'sequence' }] })]));
+    const s = tl.at(400); // progress .4 → into #0's [0,.5] slot (0.8), before #2's [.5,1]
+    expect(s.elements[0].reveal).toBeCloseTo(0.8, 6);
+    expect(s.elements[1].reveal).toBe(1); // non-sequenced → always present
+    expect(s.elements[2].reveal).toBe(0);
+    expect(tl.at(750).elements[2].reveal).toBeGreaterThan(0); // #2 begins past the midpoint
+  });
+
   it('an element with no reveal verb is present throughout', () => {
     const tl = timeline(scene([el('a')]));
     expect(tl.at(0).elements[0].reveal).toBe(1);

@@ -1685,37 +1685,6 @@ function checkCadenzaBoundary(errors) {
   }
 }
 
-// ── Anima (docs/src/lib/anima) — the animation core ─────────────────────────
-// The same self-containment antibody as Cadenza: Anima is the pure animation core
-// (engineering/decisions/2026-07-17-anima-animation-library.md) — a scene spec → a
-// timeline of engine-neutral snapshots — designed to SPIN OFF as a zero-dependency
-// library. The Stage-1 core owns no DOM and no WebGL and has NO peer-dep seam (a
-// backend's engine dep, e.g. `three`, lands later behind ANIMA_ADAPTER_DEPS), so EVERY
-// import must resolve inside the folder (`./x`) or be a `node:` built-in.
-const ANIMA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'anima');
-const ANIMA_IMPORT = /(?:^|\n)\s*(?:import|export)\b[^;\n]*?\bfrom\s*['"]([^'"]+)['"]/g;
-
-function checkAnimaBoundary(errors) {
-  if (!fs.existsSync(ANIMA_DIR)) return; // library not present — nothing to guard
-  for (const file of listSourceFiles(ANIMA_DIR)) {
-    const rel = path.relative(ROOT, file);
-    const base = path.basename(file);
-    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use vitest, not host coupling
-    const src = fs.readFileSync(file, 'utf8');
-    for (const m of src.matchAll(ANIMA_IMPORT)) {
-      const spec = m[1];
-      if (spec.startsWith('./')) continue; // in-folder relative — fine
-      if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
-      errors.push(
-        `${rel} imports '${spec}', which escapes the Anima folder. The animation core is ` +
-          `zero-dependency and spin-off-able (2026-07-17-anima-animation-library.md): every import must ` +
-          `resolve inside docs/src/lib/anima/ (\`./x\`). A backend's engine dep (e.g. three) lands later ` +
-          `behind ANIMA_ADAPTER_DEPS — never in the core.`,
-      );
-    }
-  }
-}
-
 // ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
 // The same self-containment antibody as Cadenza, plus a HARDER security invariant
 // baked into the design (engineering/decisions/2026-07-12-suono-audio-library.md):
@@ -1766,6 +1735,45 @@ function checkSuonoBoundary(errors) {
           `side-effect, dynamic \`import()\`, or \`require()\`) must resolve inside docs/src/lib/suono/ ` +
           `(\`./x\`). Move shared code into the folder — Suono has no peer-dep seam and must not couple ` +
           `to the host (or reach the network/a key).`,
+        );
+      }
+    }
+  }
+}
+
+// ── Anima (docs/src/lib/anima) — the animation core ─────────────────────────
+// Same self-containment antibody as Cadenza/Suono: Anima is the pure animation core
+// (engineering/decisions/2026-07-17-anima-animation-library.md) — a scene spec → a
+// timeline of engine-neutral snapshots — designed to spin off as a zero-dependency,
+// no-DOM/no-WebGL library. It has NO peer-dep seam in Stage 1 (a backend's engine dep,
+// e.g. `three`, lands later behind ANIMA_ADAPTER_DEPS), so EVERY import must resolve
+// inside the folder (`./x`) or be a `node:` built-in. Reuses the robust multi-form Suono
+// specifier patterns — catches side-effect / dynamic `import()` / `require()` / multi-line
+// escapes, not just the tidy single-line `from` (the precise shape a lazy backend's
+// `import('three')` would take).
+const ANIMA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'anima');
+
+function checkAnimaBoundary(errors) {
+  if (!fs.existsSync(ANIMA_DIR)) return; // library not present — nothing to guard
+  for (const file of listSourceFiles(ANIMA_DIR)) {
+    const rel = path.relative(ROOT, file);
+    const base = path.basename(file);
+    if (base.endsWith('.test.ts') || base.endsWith('.test.js')) continue; // tests use vitest, not host coupling
+    const src = stripJsComments(fs.readFileSync(file, 'utf8'));
+    const seen = new Set();
+    for (const pattern of SUONO_SPEC_PATTERNS) {
+      for (const m of src.matchAll(pattern)) {
+        const spec = m[1];
+        if (spec.startsWith('./')) continue; // in-folder relative — fine
+        if (spec.startsWith('node:')) continue; // node built-in — allowed (SSR-safe core)
+        if (seen.has(spec)) continue; // don't double-report a spec two patterns both matched
+        seen.add(spec);
+        errors.push(
+          `${rel} imports '${spec}', which escapes the Anima folder. The animation core is ` +
+            `zero-dependency and spin-off-able (2026-07-17-anima-animation-library.md): every import ` +
+            `(static, side-effect, dynamic \`import()\`, or \`require()\`) must resolve inside ` +
+            `docs/src/lib/anima/ (\`./x\`). A backend's engine dep (e.g. three) lands later behind ` +
+            `ANIMA_ADAPTER_DEPS — never in the core.`,
         );
       }
     }
@@ -2511,7 +2519,8 @@ module.exports = {
   checkCadenzaBoundary,
   checkAnimaBoundary,
   ANIMA_DIR,
-  ANIMA_IMPORT,
+  SUONO_SPEC_PATTERNS,
+  stripJsComments,
   checkSuonoBoundary,
   checkLenteBoundary,
   checkAudioPlaybackBoundary,
