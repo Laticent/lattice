@@ -18,10 +18,10 @@ const { runEmulator } = require('../../helpers/render');
 const { pageCount }   = require('../../helpers/pdf');
 
 const GALLERY = path.join(__dirname, '..', 'baseline-decks', 'gallery.md');
-// 115 since the full-coverage extension added the evidence-chart, legal,
-// operating, and connect modules (was 87) — every one of the 55 components
-// now appears at least once.
-const EXPECTED_PAGES = 115;
+// 117 since cycle (progression) and policy-recommendation (legal) graduated
+// into the deck (was 115 for the full-coverage extension, 87 before that) —
+// every one of the 55 components now appears at least once.
+const EXPECTED_PAGES = 117;
 
 describe('emulator.gallery', () => {
   test('emulator: gallery.md builds and produces expected page count', { timeout: 180000 }, () => {
