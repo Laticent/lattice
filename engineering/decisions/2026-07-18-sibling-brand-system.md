@@ -81,19 +81,26 @@ encodes exactly that:
 **Assets:** `docs/public/suono-mark.svg` (27 bars, full), `suono-mark-min.svg` (15 chunky bars,
 favicon — legible to 16px), `suono-lockup.svg`. Worn by the `/suono` demo header + favicon.
 
-## The remaining four (staged, not built)
+## The fan-out — three more built, one staged
 
-Each follows the DNA above with its own metaphor; these are direction notes, not final:
+The fan-out (2026-07-18) built marks + Fraunces lockups for the three remaining SHIPPED libraries,
+each on the DNA above with its own metaphor + accent. Assets: `docs/public/<name>-mark.svg` +
+`-lockup.svg` (cadenza also `-mark-min.svg`, its caption being dense small; lente/vetrina hold at
+16px on the full mark).
 
-- **Vetrina** ("shop window", the walkthrough engine) — a framed *window / vitrine*: a hub with a
-  guiding cursor or a spotlight sweep; the "theater over real state" story.
-- **Cadenza** (the caption timeline) — a *timed word-run*: a horizontal cue of ticks with one lit
-  word-node on the hub; timing-is-data. (Cadenza's demo uses an indigo accent today — its mark
-  locks that.)
-- **Lente** ("lens", reader lenses) — a *lens / aperture*: concentric rings focusing to the hub, a
-  subset of nodes in focus and the rest dimmed; "one deck at the altitude you chose."
-- **Anima** (animation) — *motion made legible*: a rotation/arc-sweep around the hub; "information a
-  still frame cannot carry." (WIP library — mark comes with its build.)
+- **Lente** ("lens", reader lenses) — **built**. A camera **iris/aperture** (blue `#2f5fa6` /
+  `#6fa3e6`): tangent blades frame the aperture around the hub, one blade warm (the focal lens). Worn
+  by the `/lente` demo (built to the storyboard standard) + favicon.
+- **Vetrina** ("shop window", the walkthrough engine) — **built**. A framed **vitrine** (rose
+  `#a8446a` / `#e08aa8`): a rounded-rect window around the hub with a self-driving **cursor** aimed at
+  it — theater over real state. Worn by `/vetrina-tour` + favicon.
+- **Cadenza** (the caption timeline) — **built**. A **caption with the current word lit** (indigo
+  `#3f3d8f` / `#9491f2`, matching its demo): the hub is the lit word (warm ring), spoken word-bars
+  behind, upcoming dimmed ahead. Worn by `/cadenza` + favicon.
+- **Anima** (animation) — **staged** (WIP library). Direction: *motion made legible* — a rotation /
+  arc-sweep around the hub; "information a still frame cannot carry." Its mark lands with its build.
+
+All four demos are surfaced in the site's **Libraries** nav group (`nav.mjs` `librariesNav`).
 
 ## How the marks are produced
 
