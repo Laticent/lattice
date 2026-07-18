@@ -8,8 +8,11 @@
  *  `rgba()` string, by probing the browser's own computed style in the host's context (so
  *  the theme's custom props + color-scheme apply). Normalizing to rgb is what lets
  *  `withAlpha` add `reveal` opacity to any theme token format (the trio flagged that
- *  `light-dark(...)`/`hsl()` values slip past a rgb/hex-only parser). Falls back when there's
- *  no live browser (e.g. jsdom) or the value doesn't resolve — deterministic per environment. */
+ *  `light-dark(...)`/`hsl()` values slip past a rgb/hex-only parser). In a real browser this
+ *  yields a normalized `rgb()`; in jsdom `getComputedStyle` doesn't resolve the cascade so it
+ *  returns the literal input (harmless — withAlpha passes a non-rgb string through, and the
+ *  byte-stable poster gate runs in real Chromium). Backends resolve ONCE (per mount) and
+ *  cache the rgb, so a live theme switch requires a RE-MOUNT (the host's responsibility). */
 export function resolveColor(color: string | undefined, host: Element, fallback = '#888888'): string {
   if (!color) return fallback;
   const doc = host.ownerDocument;
@@ -22,9 +25,12 @@ export function resolveColor(color: string | undefined, host: Element, fallback 
   probe.style.height = '0';
   probe.style.overflow = 'hidden';
   host.appendChild(probe); // inherit the host's custom properties + color-scheme
-  const computed = win.getComputedStyle(probe).color;
-  probe.remove();
-  return computed && computed !== '' ? computed : fallback;
+  try {
+    const computed = win.getComputedStyle(probe).color;
+    return computed && computed !== '' ? computed : fallback;
+  } finally {
+    probe.remove(); // never leave the probe attached, even if getComputedStyle throws
+  }
 }
 
 /** Apply `alpha` (0..1) to a concrete colour, so `reveal` reads as OPACITY. Handles

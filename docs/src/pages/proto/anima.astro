@@ -1,0 +1,154 @@
+---
+// ISOLATED PROTOTYPE — Anima backends live demo (Zdog 3D + Vivus draw).
+// Self-contained, no site imports beyond the Anima library → delete this one file to revert.
+// Route: /proto/anima/  (docs base is '/')
+//
+// This is the "see it working with minimal effort" surface for the Anima animation
+// library (engineering/decisions/2026-07-17-anima-animation-library.md): a declarative
+// scene SPEC → compile() → a timeline whose at(t) yields an engine-neutral SceneState,
+// painted by an injected backend. Two engines, both vector, both palette-blind.
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Anima · backends demo</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #16161a;
+    --panel: #1e1e24;
+    --border: #2c2c34;
+    --ink: #e7e7ea;
+    --muted: #9aa0a8;
+    /* scene tokens in the real Lattice light-dark() form */
+    --accent: light-dark(#8a672e, #e8b23a);
+    --cat-2-mark: light-dark(#2e608a, #5fb0c8);
+    --cat-4-mark: light-dark(#8a3e2e, #d07a5a);
+    --cat-6-mark: light-dark(#3e7a5a, #6fc39a);
+    --text-muted: light-dark(#555, #9aa0a8);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; padding: 32px; }
+  header { max-width: 920px; margin: 0 auto 24px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header p { color: var(--muted); margin: 0; max-width: 60ch; }
+  .grid { max-width: 920px; margin: 0 auto; display: grid; gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  .stage { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: center; }
+  .stage svg { display: block; width: 100%; height: 100%; }
+  .draw .stage { aspect-ratio: 16 / 10; }
+  .cap { color: var(--muted); font-size: 13px; margin: 12px 2px 0; }
+  .controls { max-width: 920px; margin: 22px auto 0; display: flex; gap: 10px; }
+  button { background: #26262e; color: var(--ink); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  button:hover { background: #30303a; }
+  a { color: var(--cat-2-mark); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Anima — one spec, any engine</h1>
+    <p>A declarative scene compiles to a timeline; an injected backend paints it. Two vector
+       engines, both palette-blind (colors are theme tokens). Left builds &amp; rotates 3D shapes
+       (Zdog); right draws SVG line-art stroke-by-stroke (Vivus).</p>
+  </header>
+
+  <div class="grid">
+    <div class="card"><h2>3D · Zdog</h2><div class="stage" id="zdog"></div>
+      <p class="cap">A gyroscope: a rotor spinning <em>inside</em> a tilting rig (nested transforms), an orbiting bead, a base that reveals in.</p></div>
+    <div class="card draw"><h2>Draw · Vivus</h2><div class="stage" id="vivus"></div>
+      <p class="cap">A process flow assembling itself — node, arrow, node — the drawing <em>order</em> carries the meaning.</p></div>
+  </div>
+
+  <div class="controls">
+    <button id="toggle">Pause</button>
+    <button id="poster">Freeze poster</button>
+    <button id="restart">Restart</button>
+  </div>
+
+<script>
+  import { compile, parseScene } from '@/lib/anima';
+  import { zdogRenderer } from '@/lib/anima/backends/zdog';
+  import { vivusRenderer } from '@/lib/anima/backends/vivus';
+
+  // ── Scene A — a 3D gyroscope (Zdog, built source) ─────────────────────────
+  const gyro = parseScene({
+    source: 'built', duration: 4000, hero: 0.5,
+    camera: { rotate: [-0.55, -0.6, 0] },
+    elements: [
+      { id: 'rig', shape: 'group', motion: [{ verb: 'spin', axis: 'y', period: 4000 }], children: [
+        { id: 'ring', shape: 'ellipse', color: 'var(--cat-2-mark)', props: { diameter: 150, stroke: 10 }, transform: { rotate: [1.5708, 0, 0] } },
+        { id: 'rotor', shape: 'cone', color: 'var(--accent)', props: { diameter: 74, length: 96, stroke: 1 }, transform: { at: [0, -18, 0], rotate: [-1.2, 0, 0] } },
+        { id: 'bead', shape: 'shape', color: 'var(--cat-4-mark)', props: { stroke: 26 }, transform: { at: [75, 0, 0] }, motion: [{ verb: 'orbit', axis: 'y', period: 2000 }] },
+      ] },
+      { id: 'base', shape: 'box', color: 'var(--text-muted)', props: { width: 130, height: 12, depth: 130 }, transform: { at: [0, 78, 0] }, motion: [{ verb: 'reveal', at: 0, span: 0.4 }] },
+    ],
+  });
+
+  // ── Scene B — a process flow drawing itself (Vivus, svg source) ───────────
+  const FLOW = `<svg viewBox="0 0 460 150" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect id="n1" x="14" y="50" width="118" height="52" rx="11" stroke="#000"/>
+    <path id="a1" d="M132 76 H176 M166 68 L176 76 L166 84" stroke="#000"/>
+    <rect id="n2" x="176" y="50" width="118" height="52" rx="11" stroke="#000"/>
+    <path id="a2" d="M294 76 H338 M328 68 L338 76 L328 84" stroke="#000"/>
+    <rect id="n3" x="338" y="50" width="118" height="52" rx="11" stroke="#000"/>
+  </svg>`;
+  const flow = parseScene({
+    source: 'svg', duration: 3600, hero: 1, asset: 'flow',
+    elements: [
+      { id: 'n1', pathRef: 'n1', color: 'var(--cat-2-mark)', motion: [{ verb: 'draw', span: 1 }] },
+      { id: 'a1', pathRef: 'a1', color: 'var(--text-muted)', motion: [{ verb: 'draw', span: 1 }] },
+      { id: 'n2', pathRef: 'n2', color: 'var(--accent)', motion: [{ verb: 'draw', span: 1 }] },
+      { id: 'a2', pathRef: 'a2', color: 'var(--text-muted)', motion: [{ verb: 'draw', span: 1 }] },
+      { id: 'n3', pathRef: 'n3', color: 'var(--cat-6-mark)', motion: [{ verb: 'draw', span: 1 }] },
+    ],
+  });
+
+  if (!gyro.ok || !flow.ok) {
+    document.body.insertAdjacentHTML('beforeend', '<pre>' + JSON.stringify({ gyro, flow }, null, 2) + '</pre>');
+    throw new Error('invalid scene');
+  }
+
+  const gyroTl = compile(gyro.scene);
+  const flowTl = compile(flow.scene);
+  const zdog = zdogRenderer({ size: 360, zoom: 1.15 });
+  const vivus = vivusRenderer({ type: 'oneByOne', duration: 100 });
+  zdog.mount(document.getElementById('zdog'), gyro.scene);
+  vivus.mount(document.getElementById('vivus'), flow.scene, { flow: FLOW });
+
+  let playing = true, start = 0, raf = 0;
+  function frame(t) {
+    if (!start) start = t;
+    const e = t - start;
+    zdog.draw(gyroTl.at(e % gyroTl.durationMs));
+    vivus.draw(flowTl.at(e % flowTl.durationMs));
+    if (playing) raf = requestAnimationFrame(frame);
+  }
+  raf = requestAnimationFrame(frame);
+
+  document.getElementById('toggle').addEventListener('click', (ev) => {
+    playing = !playing;
+    ev.target.textContent = playing ? 'Pause' : 'Play';
+    if (playing) { start = 0; raf = requestAnimationFrame(frame); }
+  });
+  document.getElementById('poster').addEventListener('click', () => {
+    playing = false; cancelAnimationFrame(raf);
+    document.getElementById('toggle').textContent = 'Play';
+    zdog.draw(gyroTl.poster());
+    vivus.draw(flowTl.poster());
+  });
+  document.getElementById('restart').addEventListener('click', () => {
+    start = 0;
+    if (!playing) { playing = true; document.getElementById('toggle').textContent = 'Pause'; raf = requestAnimationFrame(frame); }
+  });
+</script>
+</body>
+</html>

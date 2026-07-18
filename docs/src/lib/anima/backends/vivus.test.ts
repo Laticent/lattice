@@ -59,6 +59,23 @@ describe('vivusRenderer', () => {
     expect(host.querySelector('svg')).toBeNull();
   });
 
+  it('is idempotent: re-mounting leaves exactly one svg (no leak)', () => {
+    const { renderer, host } = mounted();
+    const r2 = parseScene(SCENE);
+    if (r2.ok) renderer.mount(host, r2.scene, { diagram: MARKUP });
+    expect(host.querySelectorAll('svg').length).toBe(1);
+  });
+
+  it('parses inertly + strips a script/on* handler from untrusted markup (defense-in-depth)', () => {
+    const evil = '<svg viewBox="0 0 10 10"><script>window.__x=1</script><path id="p1" onload="window.__x=1" d="M0 0 H10" stroke="#000"/></svg>';
+    const r = parseScene({ source: 'svg', duration: 1000, hero: 1, asset: 'e', elements: [{ id: 'a', pathRef: 'p1', motion: [{ verb: 'draw' }] }] });
+    if (!r.ok) throw new Error(r.errors.join('; '));
+    const host = document.createElement('div');
+    vivusRenderer().mount(host, r.scene, { e: evil });
+    expect(host.querySelector('script')).toBeNull();
+    expect(host.querySelector('#p1')?.getAttribute('onload')).toBeNull();
+  });
+
   it('does not crash when the asset is missing (a placeholder is the host job)', () => {
     const r = parseScene({ source: 'svg', duration: 1000, hero: 1, asset: 'missing', elements: [{ id: 'a', pathRef: 'p1', motion: [{ verb: 'draw' }] }] });
     if (!r.ok) throw new Error(r.errors.join('; '));

@@ -81,6 +81,7 @@ describe('parseScene — rejects', () => {
     expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 2 } }]).ok).toBe(false);
     expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 0 } }]).ok).toBe(false);
     expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 5.5 } }]).ok).toBe(false);
+    expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 5000 } }]).ok).toBe(false); // upper cap (DoS)
   });
   it('accepts an integer sides >= 3', () => expect(bad({}, [{ id: 'a', shape: 'polygon', props: { sides: 6, size: 30 } }]).ok).toBe(true));
 });
