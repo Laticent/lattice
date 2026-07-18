@@ -764,6 +764,24 @@ The mandate, projected after dinner, stayed legible — the room got darker and 
 
 ---
 
+<!-- _class: cycle -->
+<!-- _footer: "Progression — cycle · cycle" -->
+
+`Framework · The Closed Loop`
+
+## The same three verbs, now closing on themselves.
+
+- Sense
+  - Log the signal as observed, never as concluded.
+- Score
+  - Calibrate it against outcomes until it carries a number.
+- Decide
+  - Attach a deadline; without one it stays an opinion.
+- Calibrate
+  - Feed the outcome back as the next weight — then sense again.
+
+---
+
 <!-- _class: compare-prose chosen -->
 <!-- _footer: "Modifier — compare-prose chosen · compare-prose chosen" -->
 
@@ -1677,6 +1695,26 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 ---
 
+<!-- _class: policy-recommendation adopt -->
+<!-- _footer: "Legal — policy-recommendation · adopt" -->
+
+`Federal AI Accountability Act · Deployer Duties`
+
+## Adopt Colorado's deployer-duties framework as the federal floor.
+
+A federal standard ends the fifty-state patchwork our audit log already answers to.
+
+- The audit trail already exists
+  - Every score is logged, signed, and DSAR-exportable today `Colorado SB 24-205`.
+- Compliance is a moat, not a cost
+  - Deployers who logged decisions saw 31% fewer disputes reach litigation `Stanford HAI 2025`.
+- One federal floor beats fifty ceilings
+  - It retires the conflicting state duties without lowering the bar `EU AI Act Title III`.
+
+> Co-sponsor the deployer-duties title in § 4, or move it as a floor amendment before markup.
+
+---
+
 <!-- _class: divider -->
 <!-- _header: '' -->
 <!-- _paginate: false -->
@@ -1857,7 +1895,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 Every other page wears the full spectrum on its top edge — the mark of belonging to a wider deck. The last page wears one color, because one thing got decided.
 
-Slide 115, for the record: decision logged, retrospective booked, attendance aspirational.
+Slide 117, for the record: decision logged, retrospective booked, attendance aspirational.
 
 <!-- Import Mermaid and the Lattice runtime theme for VS Code / web preview.
      The build script (lattice-emulator.js) pre-renders Mermaid to SVG at build time
