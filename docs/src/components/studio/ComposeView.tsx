@@ -35,61 +35,122 @@ function trimGradient(source: string): string {
 // rest, LIT for the block the caret is in, click-to-apply. The empty margin becomes
 // the toolbar; restraint stays. One document → selection/copy/undo span slides.
 
-type Reg = 'h1' | 'h2' | 'eyebrow' | 'insight' | 'note';
+type Reg = 'h1' | 'h2' | 'eyebrow' | 'subtitle' | 'insight' | 'note';
 const REGISTERS: { key: Reg; glyph: string; label: string; mono?: boolean }[] = [
 	{ key: 'h1', glyph: 'H1', label: 'Heading', mono: true },
 	{ key: 'h2', glyph: 'H2', label: 'Section', mono: true },
 	{ key: 'eyebrow', glyph: '·e·', label: 'Eyebrow', mono: true },
+	{ key: 'subtitle', glyph: '·s·', label: 'Subtitle', mono: true },
 	{ key: 'insight', glyph: '❦', label: 'Key insight' },
 	{ key: 'note', glyph: '—', label: 'Below-note' },
 ];
 
-// Which register the caret's block currently IS — drives the gutter's lit state.
-function activeRegister(state: EditorState): Reg | null {
+// True if a paragraph node's only content is inline code (the engine's eyebrow/subtitle
+// construct — `p:has(> code:only-child)`).
+function isCodeLabel(block: PMNode): boolean {
+	return block.type.name === 'paragraph' && block.textContent.length > 0 && block.content.content.every((n) => !n.isText || n.marks.some((m) => m.type.name === 'code'));
+}
+
+// The caret's top-level block within its slide, with the siblings the engine's positional
+// register rules key on. `slide` is the depth-1 ancestor (doc → slide → block).
+function slideContext(state: EditorState) {
 	const { $from } = state.selection;
-	for (let d = $from.depth; d > 0; d--) {
-		if ($from.node(d).type.name === 'blockquote') return 'insight';
-	}
-	const block = $from.parent;
+	if ($from.depth < 1 || $from.node(1).type.name !== 'slide') return null;
+	const slide = $from.node(1);
+	const index = $from.index(1);
+	const block = slide.child(index);
+	return {
+		slide,
+		index,
+		block,
+		isLast: index === slide.childCount - 1,
+		prev: index > 0 ? slide.child(index - 1) : null,
+		next: index < slide.childCount - 1 ? slide.child(index + 1) : null,
+	};
+}
+
+// Which register the caret's block currently IS — EXACTLY as the engine renders it, so the
+// gutter never mislabels (base.modifiers.css): a code label is an EYEBROW before a heading /
+// a SUBTITLE after one; a blockquote is a KEY-INSIGHT only when TRAILING; an em-dash
+// paragraph is a BELOW-NOTE only when TRAILING. Anything else lights nothing.
+function activeRegister(state: EditorState): Reg | null {
+	const ctx = slideContext(state);
+	if (!ctx) return null;
+	const { block, isLast, prev, next } = ctx;
+	const isHeading = (n: PMNode | null) => !!n && n.type.name === 'heading';
 	if (block.type.name === 'heading') return (block.attrs.level as number) <= 1 ? 'h1' : 'h2';
+	if (block.type.name === 'blockquote') return isLast ? 'insight' : null;
 	if (block.type.name === 'paragraph') {
-		const text = block.textContent;
-		if (text.startsWith('—')) return 'note';
-		if (text.length > 0 && block.content.content.every((n) => !n.isText || n.marks.some((m) => m.type.name === 'code'))) return 'eyebrow';
+		if (isCodeLabel(block)) {
+			if (isHeading(next)) return 'eyebrow'; // code label BEFORE a heading (eyebrow wins when sandwiched)
+			if (isHeading(prev)) return 'subtitle'; // code label AFTER a heading
+			return null; // a code label adjacent to no heading renders as neither
+		}
+		if (isLast && block.textContent.startsWith('—')) return 'note';
 	}
 	return null;
 }
 
-// Apply a register to the caret's block (the "menu is the style sheet"). Toggles
-// off to a plain paragraph when the block is already that register.
+// Move the caret's top-level block to the END of its slide, replaced by `make(block)`. The
+// trailing registers (Key-insight, Below-note) render only as the slide's last block, so
+// applying one relocates the block there — the "naturally goes to the end of the slide" model.
+function moveToSlideEnd(view: EditorView, make: (block: PMNode) => PMNode) {
+	const { state } = view;
+	const { $from } = state.selection;
+	if ($from.depth < 1) return;
+	const slide = $from.node(1);
+	const slideStart = $from.before(1);
+	const index = $from.index(1);
+	let blockStart = slideStart + 1;
+	for (let i = 0; i < index; i++) blockStart += slide.child(i).nodeSize;
+	const block = slide.child(index);
+	const newNode = make(block);
+	const tr = state.tr.delete(blockStart, blockStart + block.nodeSize);
+	const end = tr.mapping.map(slideStart + slide.nodeSize - 1);
+	tr.insert(end, newNode);
+	tr.setSelection(TextSelection.near(tr.doc.resolve(end + newNode.nodeSize - 1), -1));
+	view.dispatch(tr.scrollIntoView());
+	view.focus();
+}
+
+// Apply a register to the caret's block (the "menu is the style sheet"). Positional
+// registers place the block where the engine renders them; toggling a lit register removes it.
 function applyRegister(view: EditorView, reg: Reg, current: Reg | null) {
 	const s = deckSchema;
 	const { state, dispatch } = view;
+	const ctx = slideContext(state);
 	if (reg === current && (reg === 'h1' || reg === 'h2')) {
 		setBlockType(s.nodes.paragraph)(state, dispatch);
 	} else if (reg === 'h1') {
 		setBlockType(s.nodes.heading, { level: 1 })(state, dispatch);
 	} else if (reg === 'h2') {
 		setBlockType(s.nodes.heading, { level: 2 })(state, dispatch);
-	} else if (reg === 'insight') {
-		if (current === 'insight') lift(state, dispatch);
-		else wrapIn(s.nodes.blockquote)(state, dispatch);
-	} else if (reg === 'eyebrow') {
+	} else if ((reg === 'eyebrow' || reg === 'subtitle') && ctx?.block.type.name === 'paragraph') {
+		// Eyebrow and Subtitle are ONE construct (a code label); position decides which the
+		// engine renders. Both toggle the inline-code treatment — but only on a TOP-LEVEL
+		// paragraph (guarding on ctx.block, not $from.parent, so a caret inside a list item
+		// doesn't code-mark just that item, which could never render as an eyebrow anyway).
 		const { $from } = view.state.selection;
 		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, $from.start(), $from.end())));
 		toggleMark(s.marks.code)(view.state, view.dispatch);
+	} else if (reg === 'insight') {
+		if (current === 'insight') lift(state, dispatch); // unwrap the trailing blockquote
+		else if (ctx?.isLast) wrapIn(s.nodes.blockquote)(state, dispatch); // already last → wrap in place
+		else moveToSlideEnd(view, (block) => s.nodes.blockquote.create(null, block));
 	} else if (reg === 'note') {
-		// Below-note is a PARAGRAPH treatment (a leading em-dash), so guard against
-		// stamping it into a heading, and toggle it off when it's already lit.
 		const { $from } = view.state.selection;
-		if ($from.parent.type.name === 'paragraph') {
-			const starts = $from.parent.textContent.startsWith('—');
-			if (current === 'note' && starts) {
-				const strip = $from.parent.textContent.startsWith('— ') ? 2 : 1;
-				view.dispatch(view.state.tr.delete($from.start(), $from.start() + strip));
-			} else if (!starts) {
-				view.dispatch(view.state.tr.insertText('— ', $from.start()));
-			}
+		// Guard on the TOP-LEVEL block (ctx.block), NOT $from.parent: inside a list item /
+		// blockquote the immediate parent is a paragraph, but ctx.block is the list/quote — and
+		// `make` would then spread list-item/paragraph nodes into a paragraph (an invalid node
+		// that silently corrupts the list on emit). Below-note applies to a real trailing
+		// paragraph only; on anything else it's a no-op (as note-on-heading already was).
+		if (current === 'note') {
+			// strip the leading em-dash from the trailing note
+			const strip = $from.parent.textContent.startsWith('— ') ? 2 : 1;
+			view.dispatch(view.state.tr.delete($from.start(), $from.start() + strip));
+		} else if (ctx?.block.type.name === 'paragraph' && !ctx.block.textContent.startsWith('—')) {
+			if (ctx.isLast) view.dispatch(view.state.tr.insertText('— ', $from.start())); // already last
+			else moveToSlideEnd(view, (block) => s.nodes.paragraph.create(null, [s.text('— '), ...block.content.content]));
 		}
 	}
 	view.focus();
