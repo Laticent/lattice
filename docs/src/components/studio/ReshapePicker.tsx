@@ -6,7 +6,7 @@ import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
 import { getClassTokens } from './slide-directives';
 import { SlideThumbFace, useInView } from './slide-thumb';
-import { applyVariant, componentLooks } from './slide-variants';
+import { applyVariant, componentLooks, variantActive } from './slide-variants';
 
 // Reshape — recast the CURRENT slide to a different variant look (the edit-mode
 // sibling of Insert). A variant is just a class token, so this previews the user's
@@ -35,7 +35,7 @@ export function ReshapePicker({ chunk, variants, axes, options, frontMatter, pal
 	const component = getClassTokens(chunk)[0] ?? '';
 	const looks = React.useMemo(() => componentLooks(variants, axes), [variants, axes]);
 	const tokens = React.useMemo(() => new Set(getClassTokens(chunk)), [chunk]);
-	const hasVariant = looks.some((l) => l.token && tokens.has(l.token));
+	const hasVariant = looks.some((l) => variantActive(tokens, l.token));
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
@@ -57,9 +57,9 @@ export function ReshapePicker({ chunk, variants, axes, options, frontMatter, pal
 					{looks.map((look) => (
 						<ReshapeTile
 							key={look.token || '__default'}
-							sample={(frontMatter ?? '') + applyVariant(chunk, look.token, axes)}
+							sample={(frontMatter ?? '') + applyVariant(chunk, look.token, axes, variants)}
 							label={look.token ? look.label : 'Default'}
-							active={look.token ? tokens.has(look.token) : !hasVariant}
+							active={look.token ? variantActive(tokens, look.token) : !hasVariant}
 							options={options}
 							paletteOverride={paletteOverride}
 							extraTheme={extraTheme}

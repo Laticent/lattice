@@ -1,7 +1,22 @@
+---
+status: shipped
+summary: >
+  Slide VARIANTS become first-class looks — searchable, insertable, and reshapeable —
+  across the Studio. A variant is not a different kind of slide: it is the same authored
+  slide with a different `_class` token, so "search a variant", "insert a variant", and
+  "reshape to a variant" are one operation (change the tokens), and every look is a child
+  of its parent component (`quote › insight-key`). Search indexes variant tokens; a
+  gallery tile expands to a windowed sub-grid of live look previews; a new Reshape control
+  in the edit-mode slide toolbar previews the CURRENT slide in every look and swaps the
+  token in place (axis-aware). Decision: Reshape lives in the toolbar (sibling of Insert),
+  not on the preview or only in the Inspector. Reuses the gallery preview tiles + the
+  Inspector's token mutators — no new engine behavior.
+---
+
 # Slide variants as first-class looks — search, insert, and reshape
 
-**Date:** 2026-07-18 · **Status:** accepted, building · **Follows:** the add-slide
-gallery (`SlidePicker`, #1058/#1062).
+**Date:** 2026-07-18 · **Status:** shipped · **Follows:** the add-slide gallery
+(`SlidePicker`, #1058/#1062).
 
 ## The problem
 

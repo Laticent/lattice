@@ -187,8 +187,10 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		onOpenChange(false);
 	};
 	// Insert a specific LOOK: the component's skeleton with the variant token merged in.
+	// Keep the base component NAME (not `name · token`) so the toast + Recent band —
+	// which resolve by base name — track it instead of silently dropping it.
 	const insertLook = (it: PickerItem, token: string) => {
-		onInsert({ ...it, skeleton: variantSample(it.skeleton, token), name: token ? `${it.name} · ${token}` : it.name });
+		onInsert({ ...it, skeleton: variantSample(it.skeleton, token) });
 		onOpenChange(false);
 	};
 
@@ -196,14 +198,16 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	const previewProps = { options, frontMatter, paletteOverride, extraTheme, modeOverride };
 
 	// A tile, followed by its expanded looks panel when open. `looksFilter` narrows the
-	// panel to the query-matched looks when a variant term is driving the search.
+	// panel to the query-matched looks when a variant term is driving the search. Keyed
+	// by the TILE key (not the bare name) — a recent catalog component appears in two
+	// bands, and keying expansion by name would open both and collide the panel keys.
 	const renderTile = (item: PickerItem, key: string, looksFilter?: string[]) => {
 		const variantCount = item.variants?.length ?? 0;
 		const nodes: React.ReactNode[] = [
-			<Tile key={key} item={item} looksCount={variantCount} matchCount={looksFilter?.length ?? 0} isOpen={expanded === item.name} onToggleLooks={variantCount ? () => setExpanded((e) => (e === item.name ? null : item.name)) : undefined} {...tileProps} />,
+			<Tile key={key} item={item} looksCount={variantCount} matchCount={looksFilter?.length ?? 0} isOpen={expanded === key} onToggleLooks={variantCount ? () => setExpanded((e) => (e === key ? null : key)) : undefined} {...tileProps} />,
 		];
-		if (expanded === item.name && variantCount) {
-			nodes.push(<LooksPanel key={`looks:${item.name}`} item={item} looksFilter={looksFilter} onInsertLook={insertLook} {...previewProps} />);
+		if (expanded === key && variantCount) {
+			nodes.push(<LooksPanel key={`looks:${key}`} item={item} looksFilter={looksFilter} onInsertLook={insertLook} {...previewProps} />);
 		}
 		return nodes;
 	};

@@ -37,6 +37,17 @@ export function componentLooks(effectiveVariants: string[] | undefined, axes: Re
 	return looks;
 }
 
+// A variant token can be a SPACE-SEPARATED set (`tint-corner at-tl`) — `_class` is
+// whitespace-tokenized, so we compare and merge at the sub-token level, never treating
+// the whole variant as one opaque token (which would double-add and never match).
+const parts = (token: string): string[] => token.split(/\s+/).filter(Boolean);
+
+/** Is this variant look currently ON — i.e. are ALL its sub-tokens present? (A
+ *  multi-token variant like `tint-corner at-tl` is on only when both tokens are.) */
+export function variantActive(present: Set<string>, token: string): boolean {
+	return token ? parts(token).every((t) => present.has(t)) : false;
+}
+
 /**
  * A variant look's PREVIEW sample: the component's `skeleton` with the variant token
  * added to its `_class`. The empty token renders the base skeleton unchanged. Same
@@ -46,29 +57,34 @@ export function componentLooks(effectiveVariants: string[] | undefined, axes: Re
 export function variantSample(skeleton: string, token: string): string {
 	if (!token) return skeleton;
 	const tokens = getClassTokens(skeleton);
-	if (tokens.includes(token)) return skeleton;
-	return setClassTokens(skeleton, [...tokens, token]);
+	const merged = [...tokens];
+	for (const t of parts(token)) if (!merged.includes(t)) merged.push(t);
+	return merged.length === tokens.length ? skeleton : setClassTokens(skeleton, merged);
 }
 
 /**
  * Apply a variant look to an EXISTING slide chunk (Reshape). Axis-aware: if the token
  * belongs to an exclusive axis, replace any current member of that axis (so you never
- * get two `insight-*`); otherwise add it. An empty token clears every axis member —
- * "reshape back to the default look". Non-axis tokens already present stay put.
+ * get two `insight-*`); otherwise add it (sub-token aware). The empty token clears every
+ * axis member AND every one of the component's known variant tokens — "reshape back to
+ * the default look" — while keeping the component token and any hand-authored non-variant
+ * tokens. `allVariants` is the component's full variant set, needed so the default can
+ * strip additive looks (`dark`, `tint-*`) that live on no exclusive axis.
  */
-export function applyVariant(chunk: string, token: string, axes: Record<string, readonly string[]> = {}): string {
-	// Find the token's axis (or, for the empty "default", every axis is a candidate to clear).
+export function applyVariant(chunk: string, token: string, axes: Record<string, readonly string[]> = {}, allVariants: readonly string[] = []): string {
 	if (token) {
 		for (const members of Object.values(axes)) {
 			if (members.includes(token)) return setGroupToken(chunk, members, token);
 		}
-		// Additive look — ensure it's on without disturbing others.
+		// Additive look — ensure each of its sub-tokens is on, without disturbing others.
 		const tokens = getClassTokens(chunk);
-		return tokens.includes(token) ? chunk : setClassTokens(chunk, [...tokens, token]);
+		const merged = [...tokens];
+		for (const t of parts(token)) if (!merged.includes(t)) merged.push(t);
+		return merged.length === tokens.length ? chunk : setClassTokens(chunk, merged);
 	}
-	// Default look: strip every axis member so only the component (+ any additive
-	// tokens outside the axes) remains.
-	const axisMembers = new Set(Object.values(axes).flat());
-	const kept = getClassTokens(chunk).filter((t) => !axisMembers.has(t));
+	// Default look: strip every axis member AND every known variant sub-token, leaving
+	// the component (`tokens[0]`, never a variant) and any non-variant tokens.
+	const strip = new Set<string>([...Object.values(axes).flat(), ...allVariants.flatMap(parts)]);
+	const kept = getClassTokens(chunk).filter((t) => !strip.has(t));
 	return setClassTokens(chunk, kept);
 }
