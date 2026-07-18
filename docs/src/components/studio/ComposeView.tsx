@@ -90,7 +90,16 @@ function markActive(state: EditorState, type: MarkType): boolean {
 // which inline marks are live. null = no non-empty text selection, so no bar.
 type SelBar = { left: number; top: number; below: boolean; strong: boolean; em: boolean; code: boolean };
 
+// The floating bar shows ONLY on a fine-pointer/hover device (desktop). On touch, the OS
+// selection menu (Cut/Copy/Paste + Format B/I/U) owns formatting — our bar would fight it,
+// stacking on top of the native popover (the iOS screenshots). So on coarse pointers we
+// stand down and let the OS menu drive; its Bold/Italic map to our marks, Underline no-ops.
+function canFloatBar(): boolean {
+	return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+}
+
 function computeSelBar(view: EditorView): SelBar | null {
+	if (!canFloatBar()) return null;
 	const { state } = view;
 	const sel = state.selection;
 	if (sel.empty || !(sel instanceof TextSelection)) return null;
@@ -358,28 +367,28 @@ function ComposeStyles() {
 			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff)}
 			.cs-frame{display:flex;height:100%}
 			/* quiet grammar gutter */
-			.cs-gutter{flex:none;width:54px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:22px 0;border-right:1px solid var(--rule,rgba(0,0,0,.06));position:relative;background:linear-gradient(to right,color-mix(in srgb,var(--bg) 70%,var(--rule,#eee)),transparent)}
-			.cs-gutter-label{position:absolute;left:7px;top:24px;writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--font-mono,ui-monospace,monospace);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted,#aab0bc);opacity:.7}
-			.cs-greg{width:34px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--font-serif,Georgia,serif);font-size:15px;color:var(--text-faint,#c8ccd4);background:transparent;border:none;cursor:pointer;transition:color .13s,background .13s}
+			.cs-gutter{flex:none;width:54px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:22px 0;border-right:1px solid var(--border,#e4eaf2);position:relative;background:var(--bg-alt,#f2f5fa)}
+			.cs-gutter-label{position:absolute;left:7px;top:24px;writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--font-mono,ui-monospace,monospace);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted,#6b7f9a)}
+			.cs-greg{width:34px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--font-serif,Georgia,serif);font-size:15px;color:var(--text-muted,#6b7f9a);background:transparent;border:none;cursor:pointer;transition:color .13s,background .13s}
 			.cs-greg-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;letter-spacing:.02em}
-			.cs-greg:hover{color:var(--text-body,#2b3a4f);background:color-mix(in srgb,var(--bg) 60%,var(--rule,#eee))}
-			.cs-greg-live{color:var(--accent,#1e5f96);background:var(--accent-soft,rgba(30,95,150,.1))}
+			.cs-greg:hover{color:var(--text-heading,#0a1628);background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%)}
+			.cs-greg-live{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent,#006fa8),transparent 60%)}
 			/* the serif page */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 72px;font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:20px clamp(24px,6cqw,64px)}
 			.cs-host .cs-slide + .cs-slide{margin-top:6px;position:relative}
-			.cs-host .cs-slide + .cs-slide::before{content:"◇";display:block;text-align:center;font-size:9px;color:var(--text-faint,#c8ccd4);margin:0 0 18px;border-top:1px solid var(--rule,rgba(0,0,0,.07));padding-top:16px}
+			.cs-host .cs-slide + .cs-slide::before{content:"◇";display:block;text-align:center;font-size:9px;color:var(--text-muted,#6b7f9a);margin:0 0 18px;border-top:1px solid var(--border,#e4eaf2);padding-top:16px}
 			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
 			   strikethrough…) — read-only here, edited in Markdown mode. Dim it and badge it. */
-			.cs-host .cs-slide-locked{position:relative;opacity:.62}
-			.cs-host .cs-slide-locked::after{content:"◔ edit in Markdown";position:absolute;top:8px;right:clamp(12px,4cqw,40px);font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7280);background:var(--surface-2,rgba(0,0,0,.05));padding:2px 7px;border-radius:4px;pointer-events:none}
+			.cs-host .cs-slide-locked{position:relative;opacity:.72}
+			.cs-host .cs-slide-locked::after{content:"◔ edit in Markdown";position:absolute;top:8px;right:clamp(12px,4cqw,40px);font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px;pointer-events:none}
 			.cs-host h1{font-family:inherit;font-size:1.95rem;font-weight:700;line-height:1.12;margin:.1em 0 .35em;color:var(--text-heading,#14243a);letter-spacing:-.01em}
 			.cs-host h2{font-family:inherit;font-size:1.45rem;font-weight:700;line-height:1.18;margin:.5em 0 .32em;color:var(--text-heading,#14243a);letter-spacing:-.005em}
 			.cs-host h3{font-family:inherit;font-size:1.15rem;font-weight:600;margin:.5em 0 .25em;color:var(--text-heading,#14243a)}
 			.cs-host p{margin:0 0 .6em}
 			/* eyebrow / subtitle: an inline-code-only paragraph reads as a mono label */
-			.cs-host p > code:only-child{font-family:var(--font-mono,ui-monospace,monospace);font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted,#6b7280);background:var(--surface-2,rgba(0,0,0,.05));padding:2px 7px;border-radius:4px}
+			.cs-host p > code:only-child{font-family:var(--font-mono,ui-monospace,monospace);font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:color-mix(in oklab,var(--text-muted,#6b7f9a),var(--text-heading) 35%);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:2px 7px;border-radius:4px}
 			/* key-insight panel: a blockquote */
 			.cs-host blockquote{border-left:2.5px solid var(--accent,#1e5f96);background:var(--accent-soft,rgba(30,95,150,.08));padding:11px 17px;border-radius:0 8px 8px 0;margin:.6em 0;color:var(--text-heading,#14243a)}
 			.cs-host blockquote > *:last-child{margin-bottom:0}
@@ -392,18 +401,29 @@ function ComposeStyles() {
 			.cs-host ol > li{counter-increment:cs-ol}
 			.cs-host ol > li::before{content:counter(cs-ol) ".";position:absolute;left:-1.6em;color:var(--text-muted,#6b7280);font-variant-numeric:tabular-nums}
 			.cs-host li ul,.cs-host li ol{margin:.15em 0 .1em}
-			.cs-host code{font-family:var(--font-mono,ui-monospace,monospace);background:var(--surface-2,rgba(0,0,0,.06));padding:.05em .35em;border-radius:4px;font-size:.85em}
+			.cs-host code{font-family:var(--font-mono,ui-monospace,monospace);background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);padding:.03em .32em;border-radius:4px;font-size:.85em}
 			.cs-host strong{font-weight:700;color:var(--text-heading,#14243a)}
 			.cs-host em{font-style:italic}
 			.cs-host a{color:var(--accent,#1e5f96);text-decoration:underline}
-			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#1e5f96)}
-			/* floating selection bar — inline marks over a text selection (portaled to body) */
-			.cs-selbar{position:fixed;z-index:60;display:flex;gap:2px;padding:3px;border-radius:9px;background:var(--surface-1,#fff);border:1px solid var(--rule,rgba(0,0,0,.1));box-shadow:0 6px 20px -6px rgba(15,30,55,.28),0 1px 2px rgba(15,30,55,.12);animation:cs-sb-in .1s ease-out}
+			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#006fa8)}
+			/* MOBILE — the grammar rail becomes a bottom bar (thumb-reachable; the cramped low-
+			   contrast left rail was the phone pain point). Host on top, register bar below. */
+			@media (max-width:640px){
+				.cs-frame{flex-direction:column}
+				.cs-host{order:1}
+				.cs-gutter{order:2;flex-direction:row;width:auto;height:auto;justify-content:center;gap:8px;padding:7px 12px;border-right:none;border-top:1px solid var(--border,#e4eaf2);overflow-x:auto}
+				.cs-gutter-label{display:none}
+				.cs-greg{width:40px;height:34px;font-size:16px}
+				.cs-greg-mono{font-size:11px}
+			}
+			/* floating selection bar — inline marks over a text selection (portaled to body).
+			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */
+			.cs-selbar{position:fixed;z-index:60;display:flex;gap:2px;padding:3px;border-radius:9px;background:var(--bg-alt,#fff);border:1px solid var(--border,rgba(0,0,0,.1));box-shadow:0 6px 20px -6px rgba(0,0,0,.28),0 1px 2px rgba(0,0,0,.14);animation:cs-sb-in .1s ease-out}
 			@keyframes cs-sb-in{from{opacity:0;scale:.94}to{opacity:1;scale:1}}
-			.cs-sb-btn{min-width:28px;height:26px;padding:0 6px;border:none;border-radius:6px;background:transparent;color:var(--text-body,#2b3a4f);font-family:var(--font-serif,Georgia,serif);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .1s,background .1s}
+			.cs-sb-btn{min-width:28px;height:26px;padding:0 6px;border:none;border-radius:6px;background:transparent;color:var(--text-body,#1e3a5f);font-family:var(--font-serif,Georgia,serif);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .1s,background .1s}
 			.cs-sb-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:11px}
-			.cs-sb-btn:hover{background:color-mix(in srgb,var(--bg) 55%,var(--rule,#eee));color:var(--text-heading,#14243a)}
-			.cs-sb-on{color:var(--accent,#1e5f96);background:var(--accent-soft,rgba(30,95,150,.12))}
+			.cs-sb-btn:hover{background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%);color:var(--text-heading,#0a1628)}
+			.cs-sb-on{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 		`}</style>
 	);
 }

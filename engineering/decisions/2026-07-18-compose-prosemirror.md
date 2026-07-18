@@ -67,7 +67,19 @@ Inline formatting is the gutter's complement: a **floating selection bar** (Bold
 Italic / Code) rises over a non-empty text selection — portaled to `<body>` so it
 clears the surface's `overflow:hidden` and `container-type` clipping — and flips below
 the selection near the viewport top. The gutter owns BLOCK registers; the bar owns
-INLINE marks, so the two never overlap.
+INLINE marks, so the two never overlap. On **touch** the bar stands down entirely
+(`canFloatBar` gates on `(hover:hover) and (pointer:fine)`): the OS selection menu
+(Cut/Copy/Paste + Format B/I/U) owns formatting there — its Bold/Italic map to our marks,
+Underline no-ops (the engine has no underline; it'd be off-model `<u>` HTML).
+
+**Palette + responsive.** All chrome is on the studio's real tokens (`--bg`, `--bg-alt`,
+`--border`, `--text-body`, `--text-heading`, `--text-muted`, `--accent`, `--accent-soft`),
+so it themes light+dark with the shell. (An earlier pass invented `--rule` / `--surface-*`
+/ `--text-faint`, which don't exist in the Studio and silently fell back to light-only
+colors — the cause of the invisible dark-mode divider, the muddy gutter gradient, and a
+near-invisible selection bar; all rebound and the gradient removed.) On **mobile
+(≤640px)** the left grammar rail becomes a thumb-reachable **bottom bar** (the cramped,
+low-contrast left rail was the phone pain point); desktop/tablet keep the left rail.
 
 ## Hardening (two adversarial trios' findings, folded)
 
@@ -124,8 +136,6 @@ and verified on the real built Studio (HARD RULE #23):
   Key-insight, an em-dash paragraph as Below-note; Eyebrow vs Subtitle aren't distinguished.
   Labels only — it never corrupts source. First-class register attrs are future work.
 - Blank "spacer" slides are dropped by the shared `splitSlides` (filters empty chunks).
-- A deeper mobile polish pass (gutter density, the selection bar's touch ergonomics) is
-  the remaining follow-up; the surface itself mounts and round-trips cleanly at 390px.
 - **HARD RULE #23:** the interactive editor surface (typing, focus/blur resync, list
   Enter/Tab, gutter clicks) needs verifying on the real built Studio in a browser — the lib
   round-trip tests are pure/headless and do not exercise `EditorView`.
