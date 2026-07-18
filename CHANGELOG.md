@@ -191,6 +191,21 @@ in patch versions.
 
 ### Added
 
+- **Compose — a rich editing mode for the Studio, so you never have to see markdown.** The editor pane
+  gains a **Markdown ↔ Compose** toggle. Compose is a calm serif writing surface (the "Quiet Page"
+  design) where the whole deck is one continuous note: you type rich text, and a quiet left-margin
+  **grammar gutter** applies Lattice's registers (H1 / H2 / Eyebrow / Key insight / Below-note) to the
+  block your caret is in, and a **floating bar** over a text selection applies inline marks (Bold /
+  Italic / Code). Each slide shows a control bar on its divider line when the caret is inside it —
+  collapse (left), insert/delete (center), move up/down (right). Both modes read and write the same
+  deck source, so flipping never loses work
+  and the preview tracks either. Built on ProseMirror (one true document — selection, copy and undo span
+  slides) with a DOM-less deck-model core (`docs/src/lib/compose`) that round-trips a deck's markdown
+  losslessly, including the nested KPI/cards/stats grammar. Prose slides are fully editable in Compose;
+  a slide carrying a construct Compose can't round-trip yet (a table, block HTML, strikethrough) is
+  **locked read-only** (shown dimmed with an "edit in Markdown" badge) so a keystroke can never flatten
+  it, and a structural guard blocks accidental slide merges — so Compose never corrupts a deck.
+  See `engineering/decisions/2026-07-18-compose-prosemirror.md`.
 - **Callout eyebrows are now renamable — `insight-*` modifiers on the slide `_class`.** The
   universal Key Insight panel and the split-compare verdict tag both emit their eyebrow through one
   shared `--insight-label` seam, so a curated modifier swaps the word to a boardroom heading

@@ -32,6 +32,7 @@ import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refin
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
+import { ComposeView } from './ComposeView';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
@@ -362,6 +363,10 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const [historyOpen, setHistoryOpen] = React.useState(false); // Version-history sheet (an action, not a deck setting — lives outside the inspector)
 	const [deckMenuOpen, setDeckMenuOpen] = React.useState(false); // deck switcher — controlled so the demo can open it
 	const [view, setView] = React.useState<'compose' | 'fabricate'>('compose');
+	// The editor pane's editing MODE: the markdown source (CodeMirror) or the rich
+	// Compose surface (Option B continuous note). Both read/write the same `source`,
+	// so flipping never loses work and the preview tracks either. (2026-07-17 Compose.)
+	const [editMode, setEditMode] = React.useState<'markdown' | 'compose'>('markdown');
 	const viewRef = React.useRef(view);
 	viewRef.current = view;
 	const [shareOpen, setShareOpen] = React.useState(false);
@@ -2139,12 +2144,20 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 				    (a duplicate here would break the e2e strict 'Slide settings' locator); on
 				    tablet/mobile the editor header is the opener. */}
 				{compact && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
-				<span className="hidden items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-foreground @[36rem]:inline-flex"><FileText className="size-3" />Markdown</span>
+				{/* Editing-mode toggle: markdown source ⟷ rich Compose. Both bind to `source`. */}
+				<div className="ml-0.5 inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
+					<button type="button" aria-label="Markdown source" onClick={() => setEditMode('markdown')} aria-pressed={editMode === 'markdown'} className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal transition-colors', editMode === 'markdown' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}><FileText className="size-3" /><span className="hidden @[34rem]:inline">Markdown</span></button>
+					<button type="button" aria-label="Compose — rich editor" onClick={() => setEditMode('compose')} aria-pressed={editMode === 'compose'} className={cn('inline-flex items-center gap-1 rounded-md px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal transition-colors', editMode === 'compose' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}><Sparkles className="size-3" /><span className="hidden @[34rem]:inline">Compose</span></button>
+				</div>
 				{splitUsable && (
 					<Tip label="Collapse editor — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse editor" onClick={() => collapseFromHeader('a')}><PanelLeftClose className="size-4" /></Button></Tip>
 				)}
 			</div>
-			<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
+			{editMode === 'compose' ? (
+				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" />
+			) : (
+				<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
+			)}
 		</section>
 	);
 
