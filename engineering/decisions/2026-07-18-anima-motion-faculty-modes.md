@@ -130,9 +130,15 @@ scene joins `theme` / `component` / `finish` on the existing rails
 - `name` (slug), `label`, `description`
 - `spec` — the **canonical** artifact: the validated Anima `Scene` JSON (source `'built'` or
   `'svg'`). This is the source of truth; everything else is derivable.
-- `art?` — for a `source:'svg'` (Vivus) scene, the authored line-art SVG markup. **Must be
-  host-sanitized (`sanitizeSlideHtml`, HARD RULE #22) before it enters the store**, exactly
-  as the AssetMap contract already requires.
+- `art?` — for a `source:'svg'` (Vivus) scene, the authored line-art SVG markup. **Sanitized at
+  the STORE BOUNDARY** — `saveStudioScene` runs `sanitizeSlideHtml` (HARD RULE #22) on `art`/
+  `poster` before `putAsset`, so *every* persistence path (workspace restore today; the
+  faculty-save + Library-import paths in Stage 5/7) is covered **by construction** and an
+  unsanitized write is impossible (the `snapshot-cache.js` precedent — sanitize at the storage
+  boundary, not per-caller). `sanitizeSlideHtml` no-ops only in a window-less context, where
+  there is also no IndexedDB to write into, so the guarantee holds wherever a store exists. The
+  preview-frame builder re-sanitizes as defense-in-depth; **its #22-gate registration lands with
+  the render sink in Stage 5/7**. `poster` is untrusted the same way.
 - `poster` — a serialized still for the Library thumbnail (see §4.1).
 - `engine` / `caps` — which backend the scene targets (Zdog `built` / Vivus `svg`), for
   negotiation + the Library badge.
@@ -163,8 +169,12 @@ stays gated):
 Design is done top-down (the faculty clarifies everything); **build is bottom-up**, each
 slice its own branch/PR (HARD RULE #17, Anima ADR §14):
 
-1. **Stage 4 — `kind:'scene'` asset store** (this doc's build target). No UI beyond Library
-   list/import. Pure-ish, unit-testable, no export.
+1. **Stage 4 — `kind:'scene'` asset store** (this doc's build target). The `scene` kind on the
+   `asset-bundle.ts` / `asset-store.js` rails + `scene-library.ts`; **whole-workspace backup
+   round-trips scenes** (durability, so a future scene can't be silently lost). Pure-ish,
+   unit-tested, no export. **Deferred to Stage 5** (tracked, no caller yet at Stage 4): the
+   `Library.tsx` import/export UI for scenes + the **ingress `sanitizeSlideHtml`** on the
+   faculty-save / Library-import paths (§4) with its #22-gate registration.
 2. **Stage 5 — host `scene` component** (imagery) + poster→PDF path + demo deck +
    **dark/light export sign-off** (the one hard human gate).
 3. **Stage 7 — the Motion faculty**, shared chrome + the v1 modes (Director + Rig), saving
@@ -190,8 +200,61 @@ Anima ADR's, unchanged.)
   Director Mode) — validated when the second mode is built.
 - The Anima ADR §15 **export** poster model — still Stage-5-gated; §4.1 only fixes storage.
 - Per-user **mode memory** scope (per-scene vs. global default) — a Stage 7 detail.
+- **Scene migration + non-destructive reads (adversarial-trio carry — matters once scenes
+  EXIST, Stage 7).** A stored spec is re-adjudicated by `parseScene` on every read; a future
+  schema tightening (e.g. the Three tier) could invalidate an old scene. Today an unparseable
+  record is *dropped* from the Library list and thus excluded from the next backup — a silent,
+  permanent loss. Before scenes are real: (a) stamp a `specVersion` at save so a reader can
+  *migrate* rather than prune; (b) make reads NON-DESTRUCTIVE — `listStudioScenes`/backup retain
+  a stored-but-currently-unparseable record (skip rendering, keep persisting); (c) surface a
+  **dropped count** on restore/import ("3 restored, 2 skipped — invalid spec") instead of the
+  current silent drop, and wire the `Library.tsx` scene import/export (still Stage 5).
+- **Engine derivation is duplicated** (`asset-bundle.engineOf` ⟂ `scene-library.sceneEngine`) and
+  is a false binary (built→zdog assumes no Three). Unify into one pure helper when the Three
+  backend lands (Anima ADR Stage 8) so a new backend updates the mapping once.
 
-## 8. Relationships
+## 8. Non-functional requirements — performance, reuse, responsive, preferences
+
+These bind every mode (they are faculty properties, like the anti-gimmick bar), and the
+faculty must **carry forward the performance posture the rest of Lattice already earned** —
+not regress it.
+
+**Performance (HARD RULE #19 — evidence, not claims):**
+- **Animate on `requestAnimationFrame`, never a timer.** One rAF loop drives `draw(state)`;
+  it pauses when the tab/preview is hidden and stops entirely under reduced-motion (below).
+- **Keep the load lean.** The pure Anima core is zero-dependency; an engine (Zdog/Vivus)
+  loads **only with its backend** (code-split, not in the core barrel), so a deck that never
+  animates pays nothing. Self-hosted JS/CSS, no CDN (the site's standing posture — a privacy
+  + reliability + speed win we keep).
+- **A scene has a frame-rate budget, and it is VISIBLE to the author.** Surface a live
+  **FPS / frame-time readout** on the faculty's preview (near the scrub strip) so a heavy
+  scene reads as heavy *before it ships* — the author-facing analog of the WCAG audit and
+  the "reads as information?" check. A scene that can't hold a smooth rate on a mid-range
+  device is a signal to simplify (fewer elements/verbs), and the readout makes that signal
+  legible. Bench the faculty per HARD RULE #19 when its interactions land.
+
+**Reuse (HARD RULE #15 — don't reinvent, for tooling AND UI):**
+- Build the faculty from the **shadcn primitives in `docs/src/components/ui/`** and the shared
+  Studio chrome — never a bespoke widget per surface. In particular, use the shadcn
+  **resizable / splitter** for Rig Mode's columns and the Stage+Spec split, so panel sizing
+  is draggable **and remembered**, consistent with the rest of the Studio.
+
+**Responsive — mobile · tablet · desktop, all first-class (QUALITY BAR):**
+- The faculty inherits `Fabricate.tsx`'s breakpoint behavior: the 3-column Rig Mode collapses
+  gracefully below desktop (the inspector renders inline under the selected element, not a
+  far-below scroll — the pattern the Theme tab already uses); controls go icon-first where
+  space is tight; the preview + scrub strip stay usable.
+- **Interaction is touch-first on touch devices** — scrub, drag the poster marker, select an
+  element — and must be verified on the **real** surface, not emulation (HARD RULE #23).
+
+**Preferences (honor what the user asked for):**
+- **`prefers-reduced-motion`** → the faculty preview does **not** autoplay; it shows the
+  **poster** with an explicit play affordance, and a placed scene renders as its poster
+  (the Stage-6 wiring — Anima ADR §14.6). Motion is opt-in when the user has opted out.
+- Persist the user's **panel sizes** (the splitter) and **chosen mode** (§3 mode memory), so
+  the faculty reopens the way they left it.
+
+## 9. Relationships
 
 - **Refines** `2026-07-17-anima-animation-library.md` §14 (staging) + §15 (poster question,
   storage side) + §16 (fabricated-asset rail).

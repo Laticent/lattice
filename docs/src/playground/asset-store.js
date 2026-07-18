@@ -65,7 +65,7 @@ export async function putAsset(record) {
   let toStore = record;
   if (!toStore.id) {
     const existing = (await listAssets(record.kind)).find(a => a.name === record.name);
-    toStore = { ...record, id: existing ? existing.id : newId({ theme: 't', component: 'c', finish: 'f', refdoc: 'd' }[record.kind] || 'a') };
+    toStore = { ...record, id: existing ? existing.id : newId({ theme: 't', component: 'c', finish: 'f', scene: 's', refdoc: 'd' }[record.kind] || 'a') };
   }
   await reqAsPromise(tx(db, 'readwrite').put(toStore));
   return toStore;

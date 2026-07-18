@@ -10,29 +10,41 @@
 //   <slug>.lattice-component.zip  manifest.json · <slug>.css · <slug>.skeleton.md · README.md
 //   lattice-assets.zip            manifest.json · themes/<slug>/… · components/<slug>/… · README.md
 
+import { parseScene, type Scene } from '@/lib/anima';
 import type { StudioComponent } from './component-library';
 import { coerceRecipe, type FinishRecipe } from './finish-generate';
 import type { StudioFinish } from './finish-library';
+import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
 
 export const ASSET_FORMAT = 'lattice-asset/1';
+
+// The engine a scene targets, derived from its source (built→Zdog, svg→Vivus). Inlined
+// here (rather than importing scene-library's `sceneEngine`) so this "pure data + JSZip"
+// module stays free of the IndexedDB-bound store graph. Mirrors scene-library.sceneEngine.
+const engineOf = (spec: Scene): 'zdog' | 'vivus' => (spec.source === 'svg' ? 'vivus' : 'zdog');
 
 export type ThemeItem = { kind: 'theme'; name: string; label: string; essentials: Record<string, string> | null; css: string; showcase?: string };
 export type ComponentItem = { kind: 'component'; name: string; bucket: string | null; css: string; skeleton: string };
 // A finish item: the generated `section.finish.finish-<slug>` CSS file + the
 // structured recipe JSON (so a re-import reloads into the faculty for re-editing).
 export type FinishItem = { kind: 'finish'; name: string; label: string; css: string; recipe: string };
-export type ManifestItem = ThemeItem | ComponentItem | FinishItem;
-export type AssetManifest = { format: typeof ASSET_FORMAT; kind: 'theme' | 'component' | 'finish' | 'bundle'; items: ManifestItem[] };
+// A scene item: the canonical Anima spec JSON + a token-preserving poster still (+ the
+// authored line-art for a Vivus scene). `spec`/`poster`/`art` are FILENAMES in the zip.
+export type SceneItem = { kind: 'scene'; name: string; label: string; description?: string; engine: string; spec: string; poster?: string; art?: string };
+export type ManifestItem = ThemeItem | ComponentItem | FinishItem | SceneItem;
+export type AssetManifest = { format: typeof ASSET_FORMAT; kind: 'theme' | 'component' | 'finish' | 'scene' | 'bundle'; items: ManifestItem[] };
 
 export type ParsedTheme = { name: string; label: string; essentials: Record<string, string> | null; css: string };
 export type ParsedComponent = { name: string; bucket: string | null; css: string; skeleton: string };
 export type ParsedFinish = { name: string; label: string; css: string; recipe: FinishRecipe };
-export type ParsedBundle = { themes: ParsedTheme[]; components: ParsedComponent[]; finishes: ParsedFinish[] };
+export type ParsedScene = { name: string; label: string; description?: string; spec: Scene; poster?: string; art?: string };
+export type ParsedBundle = { themes: ParsedTheme[]; components: ParsedComponent[]; finishes: ParsedFinish[]; scenes: ParsedScene[] };
 
 export const themeZipName = (t: { name: string }) => `${t.name}.lattice-theme.zip`;
 export const componentZipName = (c: { name: string }) => `${c.name}.lattice-component.zip`;
 export const finishZipName = (f: { name: string }) => `${f.name}.lattice-finish.zip`;
+export const sceneZipName = (s: { name: string }) => `${s.name}.lattice-scene.zip`;
 
 // A representative deck that exercises the theme across the engine's range —
 // title, KPIs, a journey chart (the categorical series band), a Mermaid flow, a
@@ -176,6 +188,22 @@ Open the Studio → **Library** → **Import .zip**, then pick it from the Finis
 `;
 }
 
+function sceneReadme(s: StudioScene): string {
+	return `# ${s.label} — a Lattice motion scene
+
+A palette-blind, poster-first Anima animation for [Lattice](https://lattice.style). The
+scene SPEC is the source of truth; the poster is a token-preserving still that bakes into
+a PDF.
+
+## What's inside
+- \`${s.name}.scene.json\` — the canonical Anima scene spec (${engineOf(s.spec)} engine).
+${s.poster ? `- \`${s.name}.poster.svg\` — the hero still (keeps \`var(--token)\`, so it recolors with the theme).\n` : ''}${s.art ? `- \`${s.name}.art.svg\` — the authored line-art the scene draws.\n` : ''}- \`manifest.json\` — the asset envelope (re-imports into the Studio Library).
+
+## Use it
+Open the Studio → **Library** → **Import .zip**, then place it via the scene component.
+`;
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: JSZip is dynamically imported.
 async function jszip(): Promise<any> {
 	const { default: JSZip } = await import('jszip');
@@ -218,8 +246,26 @@ export async function packFinish(f: StudioFinish): Promise<Blob> {
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
-/** Pack a MIX of themes + components + finishes → one `lattice-assets.zip` Blob (sub-dir layout). */
-export async function packBundle(themes: { theme: StudioTheme; showcase?: Blob | null }[], components: StudioComponent[], finishes: StudioFinish[] = []): Promise<Blob> {
+/** Pack ONE scene → a `.zip` Blob (spec JSON + optional poster/art SVG + manifest). */
+export async function packScene(s: StudioScene): Promise<Blob> {
+	const zip = await jszip();
+	const item: SceneItem = { kind: 'scene', name: s.name, label: s.label, description: s.description, engine: engineOf(s.spec), spec: `${s.name}.scene.json` };
+	zip.file(item.spec, JSON.stringify(s.spec, null, 2));
+	if (s.poster) {
+		item.poster = `${s.name}.poster.svg`;
+		zip.file(item.poster, s.poster);
+	}
+	if (s.art) {
+		item.art = `${s.name}.art.svg`;
+		zip.file(item.art, s.art);
+	}
+	zip.file('manifest.json', JSON.stringify({ format: ASSET_FORMAT, kind: 'scene', items: [item] } satisfies AssetManifest, null, 2));
+	zip.file('README.md', sceneReadme(s));
+	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+}
+
+/** Pack a MIX of themes + components + finishes + scenes → one `lattice-assets.zip` Blob (sub-dir layout). */
+export async function packBundle(themes: { theme: StudioTheme; showcase?: Blob | null }[], components: StudioComponent[], finishes: StudioFinish[] = [], scenes: StudioScene[] = []): Promise<Blob> {
 	const zip = await jszip();
 	const items: ManifestItem[] = [];
 	for (const { theme, showcase } of themes) {
@@ -244,8 +290,22 @@ export async function packBundle(themes: { theme: StudioTheme; showcase?: Blob |
 		zip.file(`${base}/${f.name}.recipe.json`, JSON.stringify(f.recipe, null, 2));
 		items.push({ kind: 'finish', name: f.name, label: f.label, css: `${base}/${f.name}.finish.css`, recipe: `${base}/${f.name}.recipe.json` });
 	}
+	for (const s of scenes) {
+		const base = `scenes/${s.name}`;
+		const item: SceneItem = { kind: 'scene', name: s.name, label: s.label, description: s.description, engine: engineOf(s.spec), spec: `${base}/${s.name}.scene.json` };
+		zip.file(item.spec, JSON.stringify(s.spec, null, 2));
+		if (s.poster) {
+			item.poster = `${base}/${s.name}.poster.svg`;
+			zip.file(item.poster, s.poster);
+		}
+		if (s.art) {
+			item.art = `${base}/${s.name}.art.svg`;
+			zip.file(item.art, s.art);
+		}
+		items.push(item);
+	}
 	zip.file('manifest.json', JSON.stringify({ format: ASSET_FORMAT, kind: 'bundle', items } satisfies AssetManifest, null, 2));
-	zip.file('README.md', `# Lattice asset bundle\n\n${themes.length} theme(s) + ${components.length} component(s) + ${finishes.length} finish(es). Import via the Studio → **Library** → **Import .zip**.\n`);
+	zip.file('README.md', `# Lattice asset bundle\n\n${themes.length} theme(s) + ${components.length} component(s) + ${finishes.length} finish(es) + ${scenes.length} scene(s). Import via the Studio → **Library** → **Import .zip**.\n`);
 	return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
 }
 
@@ -257,7 +317,7 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 	if (!manifestFile) throw new Error('Not a Lattice asset zip — manifest.json missing.');
 	const manifest = JSON.parse(await manifestFile.async('string')) as AssetManifest;
 	if (manifest.format !== ASSET_FORMAT) throw new Error(`Unsupported asset format: ${manifest.format}`);
-	const out: ParsedBundle = { themes: [], components: [], finishes: [] };
+	const out: ParsedBundle = { themes: [], components: [], finishes: [], scenes: [] };
 	for (const item of manifest.items) {
 		if (item.kind === 'theme') {
 			const css = await zip.file(item.css)?.async('string');
@@ -275,6 +335,26 @@ export async function unpackBundle(file: Blob): Promise<ParsedBundle> {
 				let parsed: unknown;
 				try { parsed = recipeText ? JSON.parse(recipeText) : undefined; } catch { parsed = undefined; }
 				out.finishes.push({ name: item.name, label: item.label, css, recipe: coerceRecipe(parsed) });
+			}
+		} else if (item.kind === 'scene') {
+			// The spec is the source of truth. Validate the imported JSON — an untrusted /
+			// corrupt zip that doesn't yield a schema-valid scene is DROPPED (fail-closed),
+			// never coerced (there is no safe default scene). poster/art ride as strings and
+			// stay UNTRUSTED — a consumer sanitizes them before any preview (HARD RULE #22).
+			const specText = await zip.file(item.spec)?.async('string');
+			// Guard BOTH parse steps: a hostile spec must degrade to a DROP of this one scene,
+			// never a throw that aborts the whole import (parseScene is bounded against the
+			// recursion-bomb, but the try/catch keeps any future validator throw contained too).
+			let r: ReturnType<typeof parseScene> = { ok: false, errors: ['unreadable scene spec'] };
+			try {
+				r = parseScene(specText ? JSON.parse(specText) : undefined);
+			} catch {
+				/* malformed JSON or a validator throw → drop this scene */
+			}
+			if (r.ok) {
+				const poster = item.poster ? await zip.file(item.poster)?.async('string') : undefined;
+				const art = item.art ? await zip.file(item.art)?.async('string') : undefined;
+				out.scenes.push({ name: item.name, label: item.label, description: item.description, spec: r.scene, poster: poster ?? undefined, art: art ?? undefined });
 			}
 		}
 	}

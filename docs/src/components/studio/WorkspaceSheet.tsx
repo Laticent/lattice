@@ -291,7 +291,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 		try {
 			const s = await restoreWorkspace(file, Date.now());
 			const decks = s.added + s.restoredCopies;
-			const assets = s.themes + s.components + s.finishes;
+			const assets = s.themes + s.components + s.finishes + s.scenes;
 			notify(`Workspace restored — ${decks} deck${decks === 1 ? '' : 's'}${assets ? ` + ${assets} library asset${assets === 1 ? '' : 's'}` : ''} in. Reloading…`);
 			// The restore touches decks, settings, and the Library across several
 			// stores; a reload is the one honest way to re-derive every view of them.
