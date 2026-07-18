@@ -246,6 +246,16 @@ function resolvePalettes() {
       // resolution in both modes so the dark toggle is inert on the site too.
       dark[t] = invariant ? r.light : r.dark;
     }
+    // --spectrum is a GRADIENT (not part of the flat-colour PORTAL_TOKENS contract), so
+    // it's resolved and carried separately. Emitting it onto the token blocks lets the
+    // Studio's Compose surface paint the deck's REAL spectrum ribbon (its structural-trim
+    // divider), instead of falling back to a plain accent ramp.
+    const spec = resolveToken(map, 'spectrum');
+    if (spec) {
+      const tidy = (s) => s.replace(/\s+/g, ' ').trim(); // collapse the multi-line gradient source
+      light.spectrum = tidy(spec.light);
+      dark.spectrum = tidy(invariant ? spec.light : spec.dark);
+    }
     // A palette whose light and dark surfaces are identical is single-mode
     // (e.g. carbone — inherently dark, or the mode-invariant a11y palettes).
     const singleMode = light.bg === dark.bg && light['text-heading'] === dark['text-heading'];
@@ -295,7 +305,8 @@ function paletteCss() {
   for (const p of resolvePalettes()) {
     const decls = (set) =>
       `color-scheme:${isDarkSurface(set.bg) ? 'dark' : 'light'};` +
-      PORTAL_TOKENS.map((t) => `--${t}:${set[t]};`).join('');
+      PORTAL_TOKENS.map((t) => `--${t}:${set[t]};`).join('') +
+      (set.spectrum ? `--spectrum:${set.spectrum};` : '');
     blocks.push(`html[data-palette="${p.name}"][data-mode="light"]{${decls(p.light)}}`);
     blocks.push(`html[data-palette="${p.name}"][data-mode="dark"]{${decls(p.dark)}}`);
   }
