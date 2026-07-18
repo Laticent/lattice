@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { packBundle, packComponent, packFinish, packTheme, showcaseDeck, unpackBundle } from './asset-bundle';
+import type { Scene } from '@/lib/anima';
+import { packBundle, packComponent, packFinish, packScene, packTheme, showcaseDeck, unpackBundle } from './asset-bundle';
 import type { StudioComponent } from './component-library';
 import { DEFAULT_RECIPE } from './finish-generate';
 import type { StudioFinish } from './finish-library';
+import type { StudioScene } from './scene-library';
 import type { StudioTheme } from './theme-library';
 
 const theme: StudioTheme = {
@@ -14,6 +16,10 @@ const theme: StudioTheme = {
 };
 const comp: StudioComponent = { id: 'c1', name: 'callout', bucket: 'statement', css: 'section.callout { color: var(--accent); }', skeleton: '<!-- _class: callout -->\n\n## Hi' };
 const finish: StudioFinish = { id: 'f1', name: 'mybrand', label: 'My Brand', css: 'section.finish.finish-mybrand { --fin-wash: none; }', recipe: { ...DEFAULT_RECIPE, mark: { type: 'monogram', placement: 'bottom-right', glyph: 'AB' } } };
+const builtSpec = { source: 'built', duration: 6000, hero: 0.4, elements: [{ id: 'rotor', shape: 'cone', color: 'var(--accent)', motion: [{ verb: 'spin', axis: 'y', period: 6000 }] }] } as unknown as Scene;
+const svgSpec = { source: 'svg', duration: 4000, hero: 1, asset: 'route.svg', elements: [{ id: 'p', pathRef: 'p1', color: 'var(--accent)', motion: [{ verb: 'draw', span: 1 }] }] } as unknown as Scene;
+const scene: StudioScene = { id: 's1', name: 'gyroscope', label: 'Gyroscope', description: 'A rotor spinning in its rig', spec: builtSpec, poster: '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="var(--accent)"/></svg>' };
+const drawScene: StudioScene = { id: 's2', name: 'route', label: 'Route', spec: svgSpec, art: '<svg viewBox="0 0 100 60"><path id="p1" d="M10 30 H90" stroke="#000"/></svg>' };
 
 describe('asset-bundle — pack/unpack roundtrip', () => {
 	it('packs a theme and reads it back (name/label/essentials/css)', async () => {
@@ -60,11 +66,45 @@ describe('asset-bundle — pack/unpack roundtrip', () => {
 		expect(round.finishes[0].recipe).toBeDefined(); // coerceRecipe gives a renderable default
 	});
 
-	it('packs a mixed bundle and reads back all three kinds', async () => {
-		const round = await unpackBundle(await packBundle([{ theme }], [comp], [finish]));
+	it('packs a scene and reads it back (spec canonical + poster + engine)', async () => {
+		const { default: JSZip } = await import('jszip');
+		const blob = await packScene(scene);
+		const zip = await JSZip.loadAsync(blob);
+		// The manifest records the engine (derived from source) + the poster filename.
+		const manifest = JSON.parse(await zip.file('manifest.json')!.async('string'));
+		expect(manifest.kind).toBe('scene');
+		expect(manifest.items[0].engine).toBe('zdog');
+		expect(manifest.items[0].poster).toBe('gyroscope.poster.svg');
+		const round = await unpackBundle(blob);
+		expect(round.scenes).toHaveLength(1);
+		expect(round.scenes[0].name).toBe('gyroscope');
+		expect(round.scenes[0].label).toBe('Gyroscope');
+		expect(round.scenes[0].spec.source).toBe('built');
+		expect(round.scenes[0].poster).toContain('var(--accent)'); // token-preserving, not theme-frozen
+	});
+
+	it('round-trips an svg (Vivus) scene with its line-art', async () => {
+		const round = await unpackBundle(await packScene(drawScene));
+		expect(round.scenes).toHaveLength(1);
+		expect(round.scenes[0].spec.source).toBe('svg');
+		expect(round.scenes[0].art).toContain('<path');
+	});
+
+	it('drops a scene whose spec no longer validates (fail-closed, never coerced)', async () => {
+		const { default: JSZip } = await import('jszip');
+		const zip = new JSZip();
+		zip.file('broken.scene.json', JSON.stringify({ source: 'built', duration: -1, hero: 2, elements: [] })); // invalid
+		zip.file('manifest.json', JSON.stringify({ format: 'lattice-asset/1', kind: 'scene', items: [{ kind: 'scene', name: 'broken', label: 'Broken', engine: 'zdog', spec: 'broken.scene.json' }] }));
+		const round = await unpackBundle(await zip.generateAsync({ type: 'blob' }));
+		expect(round.scenes).toHaveLength(0);
+	});
+
+	it('packs a mixed bundle and reads back all four kinds', async () => {
+		const round = await unpackBundle(await packBundle([{ theme }], [comp], [finish], [scene]));
 		expect(round.themes.map((t) => t.name)).toEqual(['harbor']);
 		expect(round.components.map((c) => c.name)).toEqual(['callout']);
 		expect(round.finishes.map((f) => f.name)).toEqual(['mybrand']);
+		expect(round.scenes.map((s) => s.name)).toEqual(['gyroscope']);
 	});
 
 	it('rejects a zip without a Lattice manifest', async () => {
