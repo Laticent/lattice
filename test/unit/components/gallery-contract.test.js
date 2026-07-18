@@ -70,6 +70,7 @@ const VOICE_EXEMPT = {
   // Imagery: the asset is the content; prose is a caption at most.
   image: { rules: ['stressDoc', 'density'], reason: 'photo compositions; no prose axis, no scalable collection' },
   video: { rules: ['stressDoc', 'density'], reason: 'a single embed; no scalable collection' },
+  scene: { rules: ['stressDoc', 'density'], reason: 'a single Anima poster still; no prose axis, no scalable collection' },
   // Density awaits calibration where the axis is unusual (tracked follow-ups).
   redline: { rules: ['density'], reason: 'tracked-changes prose; no item/row axis' },
   pricing: { rules: ['density'], reason: 'tier cards pending a calibrated axis' },

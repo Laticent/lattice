@@ -3,7 +3,7 @@
   "model": "Form 1.0",
   "modelHref": "https://github.com/slidewright/lattice/blob/main/design/forms.md",
   "counts": {
-    "frames": 10,
+    "frames": 11,
     "cells": 9,
     "tiles": 14
   },
@@ -13,6 +13,7 @@
     "divider",
     "image",
     "math",
+    "scene",
     "split-compare",
     "split-panel",
     "title"
@@ -129,6 +130,26 @@
       ],
       "suppresses": [
         "progress-centre"
+      ]
+    },
+    {
+      "$schema": "../../schema/frame.schema.json",
+      "id": "scene",
+      "form": "canvas",
+      "kind": "sovereign",
+      "exemptFromChrome": true,
+      "description": "Full-bleed motion-scene Frame — an Anima poster still claims the whole canvas, so the root chrome Cells do not apply (mirrors the image Frame; design/forms.md §8; FORM_TOGGLE_SKIP). Suppresses the masthead and footer.",
+      "cells": [
+        "stage"
+      ],
+      "suppresses": [
+        "masthead",
+        "masthead-lede",
+        "masthead-bay",
+        "footer",
+        "footer-left",
+        "progress-centre",
+        "pagination-right"
       ]
     },
     {

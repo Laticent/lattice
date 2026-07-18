@@ -192,6 +192,29 @@ Anima ADR's, unchanged.)
   and the novel mode-switch architecture warrants the **adversarial trio** on what ships.
 - No export bytes change before Stage 5 sign-off.
 
+### 6.1 Stage 5 `scene` component — adversarial-trio outcome
+
+The host `scene` component (imagery) was built as a **faithful mirror of the adaptive
+`image` layout**: the composition auto-resolves from the poster's aspect through image's
+shared brain (`lib/core/image-aspect.js`, now with a shared fs-free `aspectFromSvgTag`), CSS
+keys on the same `data-img-composition` attribute, and the one divergence is contained,
+theme-recoloring inline line-art (a `.scene-figure` svg) instead of a cover background. The
+trio (red team · Munger inversion · independent checker) ran on the shipping diff. Verdict:
+architecture sound (cleaner pipeline than image — one kernel, two paths that can't drift; no
+dependency cycle; genuine single-source reuse; correct sovereign-frame wiring; gate-clean).
+Folded fixes: (H1) `aspectFromSvgTag` now rejects non-px `width`/`height` and falls through to
+the `viewBox` — an inline poster authored `width="100%"` was mis-bucketing as `square`; (M1) the
+section regex is quote-aware so a future `data-scene-spec` JSON `>` can't corrupt the tag; (F1)
+`applyToDom` gained full runtime-path test coverage; plus a `split` column-bucket rule and the
+comma-`viewBox` parse, ported from image. **Accepted with rationale** (not blocking): the
+poster is assumed flat (one top-level `<svg>`, no nesting — matches the Anima backends); and
+`spotlight`/`statement` are weaker over contained line-art than over a cover photo (the
+matte-stage redesign mitigates; auto-resolving pano→spotlight is the honest cost of the
+faithful mirror). **Pipeline-slot assumption to preserve:** scene wraps in the registry pass,
+*before* the tile/backdrop injectors, so — unlike image's late fold-into-`.image-text` — it
+relies on every injector skipping `section.scene` (sovereign chrome suppression + `form`-toggle
+exemption). A future all-sections injector must exclude scene, or scene must move its wrap after it.
+
 ## 7. Open questions (carried)
 
 - The mode-switch **affordance + placement** (header segment vs. a corner control) — a Stage

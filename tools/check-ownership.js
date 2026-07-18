@@ -1993,6 +1993,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   math: 'figural — typeset equation',
   image: 'figural — picture',
   video: 'figural — poster + QR, not prose (heading/caption are universal budgets)',
+  scene: 'figural — an Anima poster still (inline svg), not prose (heading/caption are universal budgets)',
   'logo-wall': 'figural — logos',
   // connect — QR cards; fields are credentials/identity values (ssid, email), not prose.
   wifi: 'connect — Wi-Fi credentials, not prose',
