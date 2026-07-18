@@ -538,6 +538,16 @@ in patch versions.
   design doc §6.2/§6.3 re-scoped to match). Regression-guarded in `project.test.ts`.
   (`docs/src/lib/lente/project.ts`; correction note in
   `engineering/decisions/2026-07-13-lente-reader-lenses.md`.)
+- **The Compose slide divider is reworked into a two-register control bar.** Each slide's divider is
+  now a full-width hairline carrying two visually-distinct registers: the **structural** register —
+  circular caps for collapse (left) and delete (right) — sits on the line of **every** slide (the line
+  is consistent now, including the first slide); the **content** register — the context-sensitive
+  Format group, a grouping divider, then insert and slide-settings — floats as a rounded pill below the
+  line, shown only on the **active** slide (with a soft accent bloom; only one pill is ever visible, so
+  a long deck never becomes a column of glows). The two registers are told apart by **shape** (circle
+  vs. rounded pill), not color, so the distinction survives for colorblind readers and the app's a11y
+  palettes. The active register is a solid accent chip — you always see the block style in effect.
+  (`docs/src/components/studio/ComposeView.tsx`.)
 - **A diagram slide now renders as a diagram in the Studio editing preview, not raw code.** The main
   deck preview hardcoded `mermaid={false}`, so a slide with a Mermaid fence (the `diagram` component,
   or hand-written) showed its fenced code instead of the drawn diagram while you edited — even though

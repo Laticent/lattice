@@ -250,33 +250,40 @@ class SlideView {
 		const bar = document.createElement('div');
 		bar.className = 'cs-slide-bar';
 		bar.contentEditable = 'false';
-		const group = (kind: string) => {
-			const g = document.createElement('div');
-			g.className = `cs-sb-g cs-sb-${kind}`;
-			return g;
-		};
 
-		// STATE — collapse toggle (chevron ▸ collapsed / ▾ expanded, VS Code style — reads as state).
-		this.collapseBtn = this.btn('Collapse slide', 'chevron-down', () => this.toggleCollapse());
-		const state = group('state');
-		state.append(this.collapseBtn);
+		// THE LINE — the STRUCTURAL register, on EVERY slide: circular caps sitting on the hairline,
+		// collapse at the left, delete at the right. Shape (circle) — not color — distinguishes this
+		// structural/destructive register from the content pill below, so it reads for colorblind users.
+		const line = document.createElement('div');
+		line.className = 'cs-sb-line';
+		this.collapseBtn = this.btn('Collapse slide', 'chevron-down', () => this.toggleCollapse(), 'cs-sc-cap');
+		this.dangerGroup = document.createElement('div');
+		this.dangerGroup.className = 'cs-sb-danger';
+		this.deleteBtn = this.btn('Delete slide', 'trash-2', () => this.askDelete(), 'cs-sc-cap cs-sc-delete');
+		this.dangerGroup.append(this.deleteBtn);
+		line.append(this.collapseBtn, this.dangerGroup);
 
-		// FORMAT — the context-sensitive registers, (re)built by syncFormat() as the caret moves.
-		this.fmtGroup = group('format');
+		// THE PILL — the CONTENT register, shown only on the ACTIVE slide (below the line): the
+		// context-sensitive Format group, a divider (grouping), then insert · settings. Rounded-rect
+		// shape marks it as the content register; the active slide's pill blooms a soft accent halo.
+		const pill = document.createElement('div');
+		pill.className = 'cs-sb-pill';
+		pill.setAttribute('role', 'toolbar');
+		pill.setAttribute('aria-label', 'Slide formatting');
+		this.fmtGroup = document.createElement('div');
+		this.fmtGroup.className = 'cs-sb-format';
 		this.fmtGroup.setAttribute('role', 'group');
 		this.fmtGroup.setAttribute('aria-label', 'Formatting');
+		const div = document.createElement('span');
+		div.className = 'cs-sb-div';
+		div.setAttribute('aria-hidden', 'true');
+		const actions = document.createElement('div');
+		actions.className = 'cs-sb-actions';
+		actions.append(this.btn('Insert slide below', 'plus', () => this.insertBelow(), 'cs-pill-btn'));
+		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
+		pill.append(this.fmtGroup, div, actions);
 
-		// SLIDE — insert below · slide settings.
-		const slide = group('slide');
-		slide.append(this.btn('Insert slide below', 'plus', () => this.insertBelow()));
-		if (onSettings) slide.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }));
-
-		// DANGER — delete, with an inline two-step confirm (like the app's other delete actions).
-		this.dangerGroup = group('danger');
-		this.deleteBtn = this.btn('Delete slide', 'trash-2', () => this.askDelete());
-		this.dangerGroup.append(this.deleteBtn);
-
-		bar.append(state, this.fmtGroup, slide, this.dangerGroup);
+		bar.append(line, pill);
 		const content = document.createElement('div');
 		content.className = 'cs-slide-content';
 		dom.append(bar, content);
@@ -286,10 +293,10 @@ class SlideView {
 		liveSlideViews.add(this);
 		this.applyDecos(decorations);
 	}
-	private btn(label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, cls = ''): HTMLButtonElement {
+	private btn(label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, cls: string): HTMLButtonElement {
 		const b = document.createElement('button');
 		b.type = 'button';
-		b.className = `cs-sc-btn ${cls}`.trim();
+		b.className = cls;
 		b.title = label;
 		b.setAttribute('aria-label', label);
 		b.innerHTML = lucideSvg(icon);
@@ -381,16 +388,18 @@ class SlideView {
 	// otherwise edit. (Guarding it here would leave a dead trash button and drop a capability the
 	// pre-divider bar had.)
 	private askDelete() {
+		this.dangerGroup.classList.add('cs-confirming');
 		this.dangerGroup.replaceChildren();
 		const ask = document.createElement('span');
 		ask.className = 'cs-sc-ask';
 		ask.textContent = 'Delete?';
-		this.dangerGroup.append(ask, this.btn('Confirm delete slide', 'check', () => this.remove(), 'cs-sc-confirm'), this.btn('Keep slide', 'x', () => this.resetDelete()));
+		this.dangerGroup.append(ask, this.btn('Confirm delete slide', 'check', () => this.remove(), 'cs-sc-cap cs-sc-confirm'), this.btn('Keep slide', 'x', () => this.resetDelete(), 'cs-sc-cap'));
 		clearTimeout(this.confirmTimer);
 		this.confirmTimer = window.setTimeout(() => this.resetDelete(), 4000);
 	}
 	private resetDelete() {
 		clearTimeout(this.confirmTimer);
+		this.dangerGroup.classList.remove('cs-confirming');
 		if (this.dangerGroup.firstElementChild !== this.deleteBtn) this.dangerGroup.replaceChildren(this.deleteBtn);
 	}
 	private remove() {
@@ -692,31 +701,41 @@ function ComposeStyles() {
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(72px + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:0 clamp(24px,6cqw,64px) 22px;position:relative}
-			/* the divider between slides IS the slide's control bar: a FULL-WIDTH line runs through it;
-			   grouped controls sit ON the line — [collapse] · [context Format] · [insert · settings] ·
-			   [delete]. The line always shows; the groups appear only when the caret is inside the
-			   slide (cs-slide-active), each group tinted by role. */
-			.cs-slide-bar{position:relative;display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:22px;margin:15px calc(-1 * clamp(24px,6cqw,64px)) 11px;padding:0 clamp(20px,5cqw,52px);user-select:none}
-			.cs-slide-bar::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;transform:translateY(-50%);border-radius:2px;background:var(--cs-trim,var(--border,#e4eaf2))}
-			.cs-host .cs-slide:first-child .cs-slide-bar::before{display:none}
-			.cs-sb-g{position:relative;display:none;align-items:center;gap:2px;padding:0 6px;border-radius:7px}
-			.cs-slide-active > .cs-slide-bar .cs-sb-g{display:flex;background:var(--bg,#fff)}
-			.cs-slide-active > .cs-slide-bar .cs-sb-format:empty{display:none}
-			/* slide-control button (DISTINCT from the selection bar's .cs-sb-btn) — smaller, quiet. */
-			.cs-sc-btn{width:19px;height:19px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .1s,background .1s,border-color .1s}
-			.cs-sc-btn svg{display:block}
-			.cs-sc-btn:hover{color:var(--text-heading,#0a1628);background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 14%)}
-			/* on-brand group tints: state/slide neutral (accent on hover), danger = fail red. */
-			.cs-sb-slide .cs-sc-btn:hover{color:var(--accent,#006fa8)}
-			.cs-sb-danger .cs-sc-btn{color:color-mix(in oklab,var(--fail,#b3261e),var(--text-muted) 32%)}
-			.cs-sb-danger .cs-sc-btn:hover{color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 88%)}
-			.cs-sc-confirm{color:var(--fail,#b3261e) !important;border-color:color-mix(in oklab,var(--fail,#b3261e),transparent 55%) !important}
-			.cs-sc-ask{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--fail,#b3261e);padding:0 3px 0 1px;align-self:center}
-			/* FORMAT group — context-sensitive registers, accent-tinted, lit when active. */
-			.cs-fmt-btn{min-width:19px;height:19px;padding:0 4px;border:1px solid transparent;border-radius:5px;background:transparent;font-family:var(--font-serif,Georgia,serif);font-size:12.5px;line-height:1;color:var(--accent,#006fa8);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .1s,background .1s}
-			.cs-fmt-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.02em}
-			.cs-fmt-btn:hover{background:var(--accent-soft,#eff6fc)}
-			.cs-fmt-on{background:var(--accent-soft,#eff6fc);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent,#006fa8),transparent 55%)}
+			/* THE DIVIDER = the slide's control bar, as a COLUMN: a full-width hairline carrying circular
+			   STRUCTURAL caps (collapse left, delete right) on EVERY slide, and — only on the ACTIVE slide —
+			   a centered CONTENT pill (context Format · insert · settings) below it. SHAPE (circle vs rounded
+			   pill), not color, marks the two registers apart, so the split reads for colorblind users. The
+			   line previews the deck's spectrum-trim. */
+			.cs-slide-bar{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;margin:14px calc(-1 * clamp(24px,6cqw,64px)) 10px;padding:0 clamp(16px,4cqw,44px);user-select:none}
+			/* the line + caps — structural register, on every slide */
+			.cs-sb-line{position:relative;display:flex;align-items:center;justify-content:space-between;width:100%;height:22px}
+			.cs-sb-line::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;transform:translateY(-50%);border-radius:2px;background:var(--cs-trim,var(--border,#e4eaf2))}
+			.cs-sc-cap{position:relative;z-index:1;flex:none;width:22px;height:22px;padding:0;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,border-color .12s,background .12s}
+			.cs-sc-cap svg{display:block;width:13px;height:13px}
+			.cs-sc-cap:hover{color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-sc-delete:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 90%)}
+			.cs-sc-confirm{color:var(--fail,#b3261e);border-color:color-mix(in oklab,var(--fail,#b3261e),transparent 55%)}
+			.cs-sc-confirm:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 88%)}
+			/* delete → in-place confirm: "Delete?" + check/x, on a bg chip masking the line behind it */
+			.cs-sb-danger{position:relative;z-index:1;display:flex;align-items:center;gap:4px}
+			.cs-sb-danger.cs-confirming{background:var(--bg,#fff);border-radius:999px;padding-left:9px}
+			.cs-sc-ask{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--fail,#b3261e);align-self:center}
+			/* content pill — content register, ONLY on the active slide; a soft accent bloom (only the active
+			   slide's pill is ever shown, so it never becomes a column of glows) */
+			.cs-sb-pill{display:none;align-items:center;gap:3px;padding:3px 5px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-radius:12px;box-shadow:0 5px 15px -8px color-mix(in oklab,var(--accent,#006fa8),transparent 66%),0 1px 3px -1px color-mix(in oklab,var(--text-heading,#0a1628),transparent 84%)}
+			.cs-slide-active > .cs-slide-bar > .cs-sb-pill{display:inline-flex}
+			.cs-sb-format{display:inline-flex;align-items:center;gap:2px}
+			.cs-sb-actions{display:inline-flex;align-items:center;gap:2px}
+			.cs-sb-div{flex:none;width:1px;height:14px;border-radius:1px;background:var(--border,#e4eaf2)}
+			.cs-sb-format:empty,.cs-sb-format:empty + .cs-sb-div{display:none}
+			/* content-register buttons — ghost glyph; the ACTIVE one is a SOLID accent chip (in-effect highlight) */
+			.cs-fmt-btn{min-width:22px;height:22px;padding:0 7px;border:none;border-radius:7px;background:transparent;font-family:var(--font-mono,ui-monospace,monospace);font-size:10.5px;font-weight:600;letter-spacing:.02em;line-height:1;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s,box-shadow .12s}
+			.cs-fmt-btn:not(.cs-fmt-mono){font-family:var(--font-serif,Georgia,serif);font-size:13px;font-weight:500;letter-spacing:0}
+			.cs-fmt-btn:hover{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+			.cs-fmt-on,.cs-fmt-on:hover{color:var(--on-accent,#fff);background:var(--accent,#006fa8);font-weight:700;box-shadow:0 1px 3px -1px color-mix(in oklab,var(--accent,#006fa8),transparent 45%)}
+			.cs-pill-btn{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s}
+			.cs-pill-btn svg{display:block;width:13px;height:13px}
+			.cs-pill-btn:hover{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			/* collapsed: keep the first block, hide the rest behind an ellipsis */
 			.cs-slide.cs-collapsed .cs-slide-content > *:not(:first-child){display:none}
 			.cs-slide.cs-collapsed .cs-slide-content::after{content:"⋯";display:block;color:var(--text-muted,#6b7f9a);font-size:17px;line-height:1;padding:2px 0 2px}
@@ -747,14 +766,18 @@ function ComposeStyles() {
 			.cs-host em{font-style:italic}
 			.cs-host a{color:var(--accent,#1e5f96);text-decoration:underline}
 			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#006fa8)}
-			/* MOBILE — the slide-divider control bar gets bigger touch targets, still grouped and
-			   full-width. (No keyboard-riding rail: formatting is on the divider.) */
+			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
-				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 2px;gap:3px}
-				.cs-sb-g{padding:0 4px;gap:1px}
-				.cs-sc-btn{width:28px;height:26px}
-				.cs-fmt-btn{min-width:26px;height:26px;font-size:14px}
-				.cs-fmt-mono{font-size:11px}
+				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px;gap:9px}
+				.cs-sb-line{height:28px}
+				.cs-sc-cap{width:28px;height:28px}
+				.cs-sc-cap svg{width:15px;height:15px}
+				.cs-sb-pill{gap:4px;padding:4px 6px;border-radius:14px}
+				.cs-sb-div{height:16px}
+				.cs-fmt-btn{min-width:28px;height:28px;padding:0 9px;font-size:12px}
+				.cs-fmt-btn:not(.cs-fmt-mono){font-size:15px}
+				.cs-pill-btn{width:28px;height:28px}
+				.cs-pill-btn svg{width:15px;height:15px}
 			}
 			/* floating selection bar — inline marks over a text selection (portaled to body).
 			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */
