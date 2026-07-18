@@ -1,13 +1,13 @@
 ---
-status: in-progress
-summary: The phone Compose editor hid its grammar/register bar behind the iOS keyboard while typing (normal-flow `.cs-gutter` bottom bar; `100dvh` and `position:fixed;bottom:0` don't track the keyboard on iOS). A `design-competition` (winner Keyline, both judges, fact-check clean) then the adversarial trio produced the fix. Slice 1 (landed): the registers become a `position:fixed` rail portaled to `<body>`, pinned by an ABSOLUTE visual-viewport coordinate (`top = visualViewport.offsetTop + visualViewport.height − railHeight`) so it rides the keyboard's top edge invariant to iOS's `position:fixed` reference-frame ambiguity; it DOCKS at the editor bottom when no keyboard / no `visualViewport` (never worse than today — the fallback the inversion demanded). Scoped to the mobile shell (≤699px); tablet + desktop keep the left gutter (side rail, never occluded), retiring the 640-vs-699 mismatch. New `use-visual-viewport.ts`; render-gated on the active non-inert pane (body-portal escape); `ResizeObserver` tracks the host rect. Verified in-sandbox: desktop/tablet unchanged, mobile rail docks full-width, typecheck + 1711 tests + biome clean. UNVERIFIED on real iOS (no software keyboard in a headless sandbox, HARD RULE #23): the actual keyboard-lift, touch focus-retention, caret-above-rail. Slice 2 (pending, separate PR): two-band consolidation + divider→slide-settings gear.
+status: shipped
+summary: The phone Compose editor hid its grammar/register bar behind the iOS keyboard while typing (normal-flow `.cs-gutter` bottom bar; `100dvh` and `position:fixed;bottom:0` don't track the keyboard on iOS). A `design-competition` (winner Keyline) + the adversarial trio produced slice 1 — a keyboard-riding register rail — but four slices of on-device use drove the design past it. FINAL SHAPE (slice 4): there is NO separate formatting bar at all. Each slide's top divider line IS its full-width control bar, carrying, only when the caret is inside that slide, four role-tinted groups — a VS-Code-style collapse chevron, a truly CONTEXT-SENSITIVE Format group (`applicableRegisters()` returns only the registers that can validly render from the caret's block; a list offers none, so the infinite `- > > > >` vector is absent from the UI, not merely guarded), insert-below + slide-settings gear, and delete with an in-place two-step confirm. A `formatSyncPlugin` (plugin `view()` hook over a `liveSlideViews` registry) re-syncs the Format group on every caret move. The keyboard-riding rail AND the left gutter are RETIRED (with formatting on the divider there is no bottom bar to occlude); `use-visual-viewport` survives only for the typing-mode chrome collapse. Slices 2–3 (two-band consolidation, typing-mode scroll-reveal, divider→settings gear) also landed. Verified on the real surface at 1440px + 390px with real mouse clicks that move the PM selection (HARD RULE #23): Format group tracks the caret across block types (list→empty), delete-confirm, collapse toggle, and register-apply all confirmed; typecheck + 1748 docs tests + biome clean. UNVERIFIED on real iOS: the keyboard-open feel of typing-mode chrome collapse (no software keyboard in a headless sandbox).
 ---
 
-# Compose mobile editor — the keyboard-riding grammar rail (Keyline, slice 1)
+# Compose mobile editor — the divider IS the control bar (Keyline → slice 4)
 
 **Date:** 2026-07-18
-**Status:** Slice 1 landed (grammar rail); slice 2 (band consolidation + divider→settings) pending.
-**Surface:** `docs/src` Studio Compose editor (`ComposeView.tsx`, `StudioShell.tsx`).
+**Status:** Landed. Slice 1 (keyboard rail) → slice 4 retired it: the slide divider is now the one control bar.
+**Surface:** `docs/src` Studio Compose editor (`ComposeView.tsx`, `StudioShell.tsx`, `lib/compose/registers.ts`).
 
 ## Problem
 
@@ -194,3 +194,65 @@ bottom settings sheet at **Slide scope** ("Editing Slide 1 only"). Typecheck + 1
 Sheet blurs the editor; on close the user taps back in. Seamless "adjust a setting, keep typing" would
 snapshot the `TextSelection` on gear-tap and `view.focus()` + restore on close (a ComposeView↔shell
 signal). Deferred as polish.
+
+## Slice 4 — the divider IS the slide's control bar; retire the formatting rail (landed)
+
+Living with slice 1–3 on-device, the user rejected the very idea of a separate formatting toolbar
+("having a formatting toolbar is a horrible idea"). The direction: **fold every per-slide control
+onto the divider itself.** The keyboard-riding rail — slice 1's whole mechanism — is retired; with
+formatting on the divider there is no bottom bar for the keyboard to occlude, so the occlusion
+problem it solved no longer exists. This is the cleanest possible resolution of the original
+complaint, reached by removing the surface rather than positioning it.
+
+**The one control bar.** Each slide's top divider line goes **full-width** and carries the slide's
+controls in four role-tinted groups that sit *on* the line (each group's background masks the rule
+behind it), shown only when the caret is inside that slide (`cs-slide-active`):
+
+- **State** — the collapse toggle, now a **chevron** (▾ expanded / ▸ collapsed) that reads as state
+  the way VS Code / editor folding does, replacing the old resize-look glyph that gave no indication
+  of the current state.
+- **Format** — the **context-sensitive** registers (below).
+- **Slide** — insert-below (`+`) · slide settings (`⚙`, the slice-3 gear).
+- **Danger** — delete, with an **in-place two-step confirm** ("Delete?" + ✓/✕, 4 s auto-cancel),
+  matching the app's other delete actions instead of deleting on a single tap.
+
+**Removed:** the slide **move up/down** buttons (reorder lives in the filmstrip), the persistent
+left **grammar gutter** *and* the mobile **keyboard rail** (both replaced by the divider Format
+group), and the whole `use-visual-viewport` *rail-geometry* path (the hook stays only for the
+typing-mode chrome collapse). Net: one bar, no floating chrome, no gutter column.
+
+**Truly context-sensitive Format.** The user asked that the format icons reflect "the needs of the
+slide itself," not a fixed six-button strip. A new kernel export `applicableRegisters(state)`
+(`registers.ts`) returns exactly the registers that can *validly render* from the caret's top-level
+block — no-ops are **hidden, not dimmed**:
+
+| Caret block | Format group |
+|---|---|
+| heading | `H1` `H2` (toggle level / off) |
+| plain paragraph | `H1` `H2` `❦` `—` |
+| paragraph adjacent to a heading | above **+** `·e·` (before) / `·s·` (after) |
+| blockquote (Key-insight) | `❦` (toggle off only) |
+| **list / table / other container** | **∅ — group hidden** |
+
+That last row is the structural payoff of the `- > > > >` fix (slice-1 follow-on): a list can render
+*no* register, so the Format group is **empty** and there is **no Key-insight button to tap** — the
+infinite-nesting vector is not just guarded but absent from the UI.
+
+Because the applicable set changes as the caret moves *between blocks within one slide* — a move no
+node- or outer-decoration change signals — a small **`formatSyncPlugin`** (a plugin `view()` update
+hook over a `liveSlideViews` registry) re-runs each live `SlideView.syncFormat()` on every state
+change; a signature check skips DOM churn when the set is unchanged.
+
+**On-brand group tints.** State/slide read neutral (accent on hover); danger is `--fail` red; the
+Format registers are `--accent`-tinted and lit (`cs-fmt-on`, inset ring) when active — so the groups
+are legible by role at a glance, per the ask for "different on-brand colors based on group/context."
+
+**Verified on the real surface** (built docs, real Playground, real `page.mouse` clicks that move
+the ProseMirror selection — a DOM range does not, HARD RULE #23), at **1440 px and 390 px**:
+- Format group tracks the caret across block types — heading→`[H1,H2]`, paragraph→`[H1,H2,❦,—]`,
+  code-label-after-heading→`[H1,H2,·s·*,❦,—]`, blockquote→`[❦*]`, **list→`[]` (hidden)**.
+- Delete shows the in-place "Delete?" confirm; cancel restores it (slide count unchanged).
+- Collapse toggles `cs-collapsed` and flips the chevron (down→right).
+- Clicking `H2` on a plain paragraph turns it into an `h2` heading (apply works end-to-end).
+- Divider renders full-width with grouped, role-tinted controls; touch targets enlarge to 26–28 px
+  on the phone. `registers.test.ts` 18 cases (incl. context-sensitivity + locked-slide) pass.

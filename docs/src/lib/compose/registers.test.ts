@@ -2,7 +2,7 @@ import { EditorState, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { deckSchema, deckToDoc, docToDeck } from './deck-doc';
-import { activeRegister, applyRegister, type Reg } from './registers';
+import { activeRegister, applicableRegisters, applyRegister, type Reg } from './registers';
 
 // Stress test for the grammar-register apply/detect kernel. Born from a real device bug: a
 // Key-insight (❦) applied while the caret sat in a LIST wrapped the inner block in a fresh
@@ -205,6 +205,24 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		expect(t.src()).not.toMatch(/^#/m);
 		expect(t.src()).toContain('inner deep');
 		stable(t);
+	});
+
+	it('the Format group is context-sensitive to the caret block', () => {
+		const t = view('<!-- _class: content -->\n\n# Head\n\nright after heading\n\n- a list item\n\nlone paragraph');
+		t.caret('Head'); // heading → only H1/H2
+		expect(applicableRegisters(t.v.state).keys).toEqual(['h1', 'h2']);
+		t.caret('right after heading'); // paragraph AFTER a heading → subtitle applies
+		expect(applicableRegisters(t.v.state).keys).toEqual(['h1', 'h2', 'subtitle', 'insight', 'note']);
+		t.caret('lone paragraph'); // paragraph NOT adjacent to any heading → no eyebrow/subtitle
+		expect(applicableRegisters(t.v.state).keys).toEqual(['h1', 'h2', 'insight', 'note']);
+		t.caret('a list item'); // inside a list → nothing applies
+		expect(applicableRegisters(t.v.state).keys).toEqual([]);
+	});
+
+	it('a locked slide offers no registers', () => {
+		const t = view('<!-- _class: content -->\n\n# Locked\n\n| a | b |\n| - | - |\n| 1 | 2 |');
+		t.caret('Locked');
+		expect(applicableRegisters(t.v.state)).toEqual({ keys: [], active: null });
 	});
 
 	it('a rapid mixed sequence leaves a valid, un-nested doc', () => {

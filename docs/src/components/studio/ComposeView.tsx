@@ -9,7 +9,7 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
-import { activeRegister, applyRegister, caretInLockedSlide, type Reg } from '@/lib/compose/registers';
+import { activeRegister, applicableRegisters, applyRegister, type Reg } from '@/lib/compose/registers';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
@@ -194,25 +194,49 @@ const LUCIDE_PATHS: Record<string, string> = {
 	'arrow-down-to-line': '<path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/>',
 	plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
 	'trash-2': '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
-	'chevrons-down-up': '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
-	'chevrons-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+	'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+	'chevron-down': '<path d="m6 9 6 6 6-6"/>',
+	check: '<path d="M20 6 9 17l-5-5"/>',
+	x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 	'sliders-horizontal': '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
 }
 
-// A per-slide NodeView: renders the slide's content plus a control bar on its divider line
-// (move up/down · collapse · insert below · delete) that reveals on hover (desktop) or
-// sits faint on touch. Structural ops rebuild the doc from the SAME node instances (so
-// every unmoved slide keeps its identity → emitDeck re-emits its exact `raw` bytes) and
-// carry the `slideOp` meta so the structural guard lets the count/lock change through.
-// Collapse is view-only (a class on this instance) — it never touches the source.
+// A per-slide NodeView — the slide's ONE control bar, on its top divider line, full-width and
+// grouped: [collapse toggle] · [context-sensitive Format registers] · [insert · settings] · [delete].
+// Controls show only when the caret is inside this slide (the cs-slide-active decoration).
+// Structural ops rebuild the doc from the SAME node instances (identity preserved → emitDeck
+// re-emits exact bytes) with a `slideOp` meta so the structural guard allows the count/lock change.
+// Collapse is view-only (a class), never touching the source.
+//
+// Live instances are tracked so `formatSyncPlugin` can re-sync the Format group on every caret
+// move — the applicable registers change as the caret moves between blocks WITHIN a slide, which
+// no node- or outer-decoration change would otherwise signal.
+const liveSlideViews = new Set<SlideView>();
+function formatSyncPlugin() {
+	return new Plugin({
+		view() {
+			return {
+				update() {
+					for (const sv of liveSlideViews) sv.syncFormat();
+				},
+			};
+		},
+	});
+}
+
 class SlideView {
 	dom: HTMLElement;
 	contentDOM: HTMLElement;
 	ctrl: HTMLElement;
 	collapseBtn: HTMLButtonElement;
+	private fmtGroup: HTMLElement;
+	private dangerGroup: HTMLElement;
+	private deleteBtn: HTMLButtonElement;
+	private confirmTimer = 0;
+	private locked: boolean;
 	constructor(
 		node: PMNode,
 		public view: EditorView,
@@ -220,61 +244,106 @@ class SlideView {
 		decorations: readonly Decoration[] = [],
 		onSettings?: (index: number) => void,
 	) {
+		this.locked = !!node.attrs.locked;
 		const dom = document.createElement('section');
-		dom.className = node.attrs.locked ? 'cs-slide cs-slide-locked' : 'cs-slide';
-		// The controls live ON the slide's top divider LINE, in three zones — collapse at the
-		// left edge, insert/delete centered, move up/down at the right edge — and appear only
-		// when the caret is inside this slide (the cs-slide-active decoration).
+		dom.className = this.locked ? 'cs-slide cs-slide-locked' : 'cs-slide';
 		const bar = document.createElement('div');
 		bar.className = 'cs-slide-bar';
 		bar.contentEditable = 'false';
-		const mk = (label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, danger = false) => {
-			const b = document.createElement('button');
-			b.type = 'button';
-			b.className = danger ? 'cs-sc-btn cs-sc-danger' : 'cs-sc-btn';
-			b.title = label;
-			b.setAttribute('aria-label', label);
-			b.innerHTML = lucideSvg(icon);
-			b.addEventListener('mousedown', (e) => e.preventDefault());
-			b.addEventListener('click', (e) => {
-				e.preventDefault();
-				fn();
-			});
-			return b;
+		const group = (kind: string) => {
+			const g = document.createElement('div');
+			g.className = `cs-sb-g cs-sb-${kind}`;
+			return g;
 		};
-		const zone = () => {
-			const z = document.createElement('div');
-			z.className = 'cs-sb-zone';
-			return z;
-		};
-		this.collapseBtn = mk('Collapse slide', 'chevrons-down-up', () => this.toggleCollapse());
-		const left = zone();
-		left.append(this.collapseBtn);
-		const center = zone();
-		center.append(mk('Insert slide below', 'plus', () => this.insertBelow()), mk('Delete slide', 'trash-2', () => this.remove(), true));
-		// The divider bar is the HOME for slide settings (the user's request): a gear in the RIGHT
-		// zone opens the slide-scoped inspector for THIS slide, carrying its full-deck index so the
-		// shell targets the caret's slide, not the filmstrip's. Grouped with move (away from the
-		// destructive delete in the center).
-		const right = zone();
-		right.append(mk('Move slide up', 'arrow-up-to-line', () => this.move(-1)), mk('Move slide down', 'arrow-down-to-line', () => this.move(1)));
-		if (onSettings) right.append(mk('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }));
-		bar.append(left, center, right);
+
+		// STATE — collapse toggle (chevron ▸ collapsed / ▾ expanded, VS Code style — reads as state).
+		this.collapseBtn = this.btn('Collapse slide', 'chevron-down', () => this.toggleCollapse());
+		const state = group('state');
+		state.append(this.collapseBtn);
+
+		// FORMAT — the context-sensitive registers, (re)built by syncFormat() as the caret moves.
+		this.fmtGroup = group('format');
+		this.fmtGroup.setAttribute('role', 'group');
+		this.fmtGroup.setAttribute('aria-label', 'Formatting');
+
+		// SLIDE — insert below · slide settings.
+		const slide = group('slide');
+		slide.append(this.btn('Insert slide below', 'plus', () => this.insertBelow()));
+		if (onSettings) slide.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }));
+
+		// DANGER — delete, with an inline two-step confirm (like the app's other delete actions).
+		this.dangerGroup = group('danger');
+		this.deleteBtn = this.btn('Delete slide', 'trash-2', () => this.askDelete());
+		this.dangerGroup.append(this.deleteBtn);
+
+		bar.append(state, this.fmtGroup, slide, this.dangerGroup);
 		const content = document.createElement('div');
 		content.className = 'cs-slide-content';
 		dom.append(bar, content);
 		this.dom = dom;
 		this.contentDOM = content;
 		this.ctrl = bar;
+		liveSlideViews.add(this);
 		this.applyDecos(decorations);
+	}
+	private btn(label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, cls = ''): HTMLButtonElement {
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = `cs-sc-btn ${cls}`.trim();
+		b.title = label;
+		b.setAttribute('aria-label', label);
+		b.innerHTML = lucideSvg(icon);
+		b.addEventListener('mousedown', (e) => e.preventDefault());
+		b.addEventListener('click', (e) => {
+			e.preventDefault();
+			fn();
+		});
+		return b;
+	}
+	// Rebuild the Format group from the registers that APPLY to the caret's block — only when THIS
+	// slide is active. Runs on every state change (formatSyncPlugin) so it tracks the caret; a
+	// signature check skips the DOM churn when nothing changed.
+	syncFormat() {
+		if (!this.dom.classList.contains('cs-slide-active')) {
+			if (this.fmtGroup.childElementCount) {
+				this.fmtGroup.replaceChildren();
+				this.fmtGroup.dataset.sig = '';
+			}
+			return;
+		}
+		const { keys, active } = applicableRegisters(this.view.state);
+		const sig = `${keys.join(',')}|${active ?? ''}`;
+		if (this.fmtGroup.dataset.sig === sig) return;
+		this.fmtGroup.dataset.sig = sig;
+		this.fmtGroup.replaceChildren();
+		for (const key of keys) {
+			const meta = REGISTERS.find((r) => r.key === key);
+			if (!meta) continue;
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = `cs-fmt-btn${meta.mono ? ' cs-fmt-mono' : ''}${active === key ? ' cs-fmt-on' : ''}`;
+			b.textContent = meta.glyph;
+			b.title = `${meta.label} — apply to this block`;
+			b.setAttribute('aria-label', meta.label);
+			b.setAttribute('aria-pressed', active === key ? 'true' : 'false');
+			b.addEventListener('mousedown', (e) => e.preventDefault());
+			b.addEventListener('click', (e) => {
+				e.preventDefault();
+				applyRegister(this.view, key, activeRegister(this.view.state));
+			});
+			this.fmtGroup.append(b);
+		}
 	}
 	private applyDecos(decorations: readonly Decoration[]) {
 		const has = (k: 'collapsed' | 'active') => decorations.some((d) => (d.spec as Record<string, boolean> | undefined)?.[k]);
 		const collapsed = has('collapsed');
 		this.dom.classList.toggle('cs-collapsed', collapsed);
 		this.dom.classList.toggle('cs-slide-active', has('active'));
-		this.collapseBtn.innerHTML = lucideSvg(collapsed ? 'chevrons-up-down' : 'chevrons-down-up');
+		this.collapseBtn.innerHTML = lucideSvg(collapsed ? 'chevron-right' : 'chevron-down');
 		this.collapseBtn.setAttribute('aria-label', collapsed ? 'Expand slide' : 'Collapse slide');
+		this.collapseBtn.title = collapsed ? 'Expand slide' : 'Collapse slide';
+		if (!this.dom.classList.contains('cs-slide-active')) this.resetDelete();
+		this.syncFormat();
 	}
 	private slides(): PMNode[] {
 		const arr: PMNode[] = [];
@@ -298,14 +367,6 @@ class SlideView {
 		this.view.dispatch(state.tr.replaceWith(0, state.doc.content.size, nodes).setMeta('slideOp', true));
 		this.view.focus();
 	}
-	private move(dir: number) {
-		const i = this.index();
-		const j = i + dir;
-		const nodes = this.slides();
-		if (i < 0 || j < 0 || j >= nodes.length) return;
-		[nodes[i], nodes[j]] = [nodes[j], nodes[i]];
-		this.commit(nodes);
-	}
 	private insertBelow() {
 		const i = this.index();
 		if (i < 0) return;
@@ -314,7 +375,23 @@ class SlideView {
 		nodes.splice(i + 1, 0, blank);
 		this.commit(nodes);
 	}
+	// Two-step delete: the button asks in place (like the app's other delete actions), auto-cancels.
+	private askDelete() {
+		if (this.locked) return;
+		this.dangerGroup.replaceChildren();
+		const ask = document.createElement('span');
+		ask.className = 'cs-sc-ask';
+		ask.textContent = 'Delete?';
+		this.dangerGroup.append(ask, this.btn('Confirm delete slide', 'check', () => this.remove(), 'cs-sc-confirm'), this.btn('Keep slide', 'x', () => this.resetDelete()));
+		clearTimeout(this.confirmTimer);
+		this.confirmTimer = window.setTimeout(() => this.resetDelete(), 4000);
+	}
+	private resetDelete() {
+		clearTimeout(this.confirmTimer);
+		if (this.dangerGroup.firstElementChild !== this.deleteBtn) this.dangerGroup.replaceChildren(this.deleteBtn);
+	}
 	private remove() {
+		this.resetDelete();
 		const nodes = this.slides();
 		if (nodes.length <= 1) return; // a deck always keeps at least one slide
 		const i = this.index();
@@ -329,7 +406,8 @@ class SlideView {
 	}
 	update(node: PMNode, decorations: readonly Decoration[]) {
 		if (node.type.name !== 'slide') return false;
-		this.dom.classList.toggle('cs-slide-locked', !!node.attrs.locked);
+		this.locked = !!node.attrs.locked;
+		this.dom.classList.toggle('cs-slide-locked', this.locked);
 		this.applyDecos(decorations);
 		return true;
 	}
@@ -339,6 +417,10 @@ class SlideView {
 	stopEvent(e: Event) {
 		return this.ctrl.contains(e.target as Node);
 	}
+	destroy() {
+		clearTimeout(this.confirmTimer);
+		liveSlideViews.delete(this);
+	}
 }
 
 function buildPlugins() {
@@ -346,6 +428,7 @@ function buildPlugins() {
 		structuralGuard(),
 		collapsePlugin(),
 		activeSlidePlugin(),
+		formatSyncPlugin(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
 		keymap({
@@ -366,34 +449,6 @@ function buildPlugins() {
 	];
 }
 
-// The six grammar-register buttons — shared by the desktop LEFT gutter and the mobile/tablet
-// keyboard-riding RAIL so both surfaces stay one control set (no forked widget, HARD RULE #15).
-// The buttons `preventDefault` on mousedown so a tap never blurs the editor (keeping the caret
-// — and, on touch, the software keyboard — alive; the same guard the shipped bottom bar used).
-function GrammarRegisters({ active, onGutter, disabled }: { active: Reg | null; onGutter: (reg: Reg) => void; disabled?: boolean }) {
-	return (
-		<>
-			{REGISTERS.map((r) => (
-				<button
-					key={r.key}
-					type="button"
-					title={disabled ? `${r.label} — unavailable on a locked slide (edit in Markdown)` : `${r.label} — apply to this block`}
-					aria-label={r.label}
-					aria-pressed={active === r.key}
-					// A locked slide can't be registered (the structural guard filters it), so the
-					// button is disabled rather than silently doing nothing (Finding 4).
-					disabled={disabled}
-					onMouseDown={(e) => e.preventDefault()}
-					onClick={() => !disabled && onGutter(r.key)}
-					className={cn('cs-greg', r.mono && 'cs-greg-mono', active === r.key && 'cs-greg-live')}
-				>
-					{r.glyph}
-				</button>
-			))}
-		</>
-	);
-}
-
 // `visible` = whether the Compose surface is the active/visible pane. On mobile the editor and
 // preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
 // portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
@@ -409,20 +464,17 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// and flushed on blur so it is never silently lost (D2). null = nothing pending.
 	const pendingResyncRef = React.useRef<string | null>(null);
 	const [failed, setFailed] = React.useState(false);
-	const [active, setActive] = React.useState<Reg | null>(null);
-	// The caret is in a LOCKED slide → the register buttons disable (Finding 4).
-	const [lockedCaret, setLockedCaret] = React.useState(false);
-	// The floating selection bar (inline marks over a text selection), or null when there
-	// is no non-empty selection. The block registers live in the gutter; this bar is the
-	// inline complement — Bold / Italic / Code on the selected run.
+	// The floating selection bar (inline marks over a text selection) on DESKTOP, or null when there
+	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
+	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
 	const [selBar, setSelBar] = React.useState<SelBar | null>(null);
 
-	// Present the grammar registers as the keyboard-riding bottom RAIL (coarse pointer /
-	// phone-tablet width) instead of the desktop left gutter. `useVisualViewport` publishes
-	// the keyboard geometry ONLY while the rail is shown, so the desktop path pays nothing.
+	// The mobile shell (coarse pointer / ≤699px) drives the TYPING-MODE chrome collapse: when the
+	// software keyboard is up, the shell's top bands collapse for a full writing surface.
+	// `useVisualViewport` publishes the keyboard geometry only here, so desktop pays nothing.
 	const railLayout = useRailLayout();
-	const showRail = visible && railLayout && !failed;
-	const { inset } = useVisualViewport(showRail);
+	const mobileShell = visible && railLayout && !failed;
+	const { inset } = useVisualViewport(mobileShell);
 	const keyboardUp = inset > 0;
 
 	// TYPING MODE — when the software keyboard is up, the shell's top chrome collapses so the
@@ -441,7 +493,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		setChromeRevealed(!keyboardUp);
 	}, [keyboardUp]);
 	React.useEffect(() => {
-		if (!showRail) return;
+		if (!mobileShell) return;
 		const host = hostRef.current;
 		if (!host) return;
 		let last = host.scrollTop;
@@ -455,38 +507,11 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		};
 		host.addEventListener('scroll', onScroll, { passive: true });
 		return () => host.removeEventListener('scroll', onScroll);
-	}, [showRail]);
-	const chromeCollapsed = showRail && keyboardUp && !chromeRevealed;
+	}, [mobileShell]);
+	const chromeCollapsed = mobileShell && keyboardUp && !chromeRevealed;
 	React.useEffect(() => {
 		onTypingRef.current?.(chromeCollapsed);
 	}, [chromeCollapsed]);
-
-	// Keep the portaled rail's left/width locked to the editor host's box: on tablet the
-	// split is user-draggable and the device rotates, so a baked-once rect would detach the
-	// rail from the editor column. A ResizeObserver on the host re-publishes the geometry.
-	React.useEffect(() => {
-		if (!showRail) return;
-		const host = hostRef.current;
-		if (!host) return;
-		const root = document.documentElement;
-		const sync = () => {
-			const r = host.getBoundingClientRect();
-			root.style.setProperty('--cs-rail-left', `${r.left}px`);
-			root.style.setProperty('--cs-rail-width', `${r.width}px`);
-		};
-		sync();
-		const ro = new ResizeObserver(sync);
-		ro.observe(host);
-		window.addEventListener('resize', sync);
-		window.addEventListener('scroll', sync, true);
-		return () => {
-			ro.disconnect();
-			window.removeEventListener('resize', sync);
-			window.removeEventListener('scroll', sync, true);
-			root.style.removeProperty('--cs-rail-left');
-			root.style.removeProperty('--cs-rail-width');
-		};
-	}, [showRail]);
 
 	// Re-import `src` into the editor, rebuilding the emit baseline. Shared by the
 	// external-source effect and the on-blur flush.
@@ -513,8 +538,6 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 					const prevDoc = view.state.doc;
 					const next = view.state.apply(tr);
 					view.updateState(next);
-					setActive(activeRegister(next));
-					setLockedCaret(caretInLockedSlide(next));
 					// Guard on the APPLIED doc, NOT `tr.docChanged`: a transaction the structural
 					// guard REJECTS (a keystroke inside a locked slide, or a delete spanning a slide
 					// boundary) still reports `tr.docChanged === true` — but `state.apply` returns the
@@ -565,8 +588,6 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 			return;
 		}
 		viewRef.current = view;
-		setActive(activeRegister(view.state));
-		setLockedCaret(caretInLockedSlide(view.state));
 		// The floating bar is positioned in viewport coords; a scroll of the writing surface
 		// would strand it, so hide it on scroll (it returns on the next selection change).
 		const host = hostRef.current;
@@ -603,11 +624,6 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		}
 	}, [source, resyncFrom]);
 
-	const onGutter = React.useCallback((reg: Reg) => {
-		const view = viewRef.current;
-		if (view) applyRegister(view, reg, activeRegister(view.state));
-	}, []);
-
 	// Toggle an inline mark from the floating bar, keeping the selection (the buttons
 	// preventDefault on mousedown so focus never leaves the editor).
 	const onMark = React.useCallback((mark: 'strong' | 'em' | 'code') => {
@@ -632,15 +648,9 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	return (
 		<div className={cn('cs-surface', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
 			<ComposeStyles />
-			<div className="cs-frame" data-rail={showRail ? 'on' : undefined}>
-				{/* Desktop LEFT gutter. On the rail surfaces it's not rendered — the registers
-				    live in the portaled rail below (exactly one register surface at a time). */}
-				{!showRail && (
-					<div className="cs-gutter" role="toolbar" aria-label="Grammar registers">
-						<span className="cs-gutter-label">Grammar</span>
-						<GrammarRegisters active={active} onGutter={onGutter} disabled={lockedCaret} />
-					</div>
-				)}
+			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
+			    (context-sensitive). Just the writing surface. */}
+			<div className="cs-frame">
 				<div ref={hostRef} className="cs-host" />
 			</div>
 			{selBar &&
@@ -664,13 +674,6 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 					</div>,
 					document.body,
 				)}
-			{showRail &&
-				createPortal(
-					<div className="cs-rail" role="toolbar" aria-label="Grammar registers">
-						<GrammarRegisters active={active} onGutter={onGutter} disabled={lockedCaret} />
-					</div>,
-					document.body,
-				)}
 		</div>
 	);
 }
@@ -682,35 +685,35 @@ function ComposeStyles() {
 		<style>{`
 			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff)}
 			.cs-frame{display:flex;height:100%}
-			/* quiet grammar gutter */
-			.cs-gutter{flex:none;width:54px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:22px 0;border-right:1px solid var(--border,#e4eaf2);position:relative;background:var(--bg-alt,#f2f5fa)}
-			.cs-gutter-label{position:absolute;left:7px;top:24px;writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--font-mono,ui-monospace,monospace);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted,#6b7f9a)}
-			.cs-greg{width:34px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--font-serif,Georgia,serif);font-size:15px;color:var(--text-muted,#6b7f9a);background:transparent;border:none;cursor:pointer;transition:color .13s,background .13s}
-			.cs-greg-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;letter-spacing:.02em}
-			.cs-greg:hover{color:var(--text-heading,#0a1628);background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%)}
-			.cs-greg-live{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent,#006fa8),transparent 60%)}
-				.cs-greg:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
-			/* the serif page */
+			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
-			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 72px;font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
+			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 calc(72px + var(--cs-kb-inset,0px));font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:0 clamp(24px,6cqw,64px) 22px;position:relative}
-			/* the divider between slides IS a control bar: a horizontal line runs through it,
-			   and three control zones sit ON that line — collapse (left edge) · insert/delete
-			   (center) · move up/down (right edge). The line is always visible; the controls
-			   appear only when the caret is inside the slide (cs-slide-active). */
-			.cs-slide-bar{position:relative;display:flex;align-items:center;justify-content:space-between;height:24px;margin:14px calc(-1 * clamp(24px,6cqw,64px)) 10px;padding:0 clamp(20px,5cqw,52px);user-select:none}
-			/* the line spans the FULL slide width (the bar breaks out of the content padding),
-			   painted with the deck's structural trim spectrum (--cs-trim; see trimGradient). */
+			/* the divider between slides IS the slide's control bar: a FULL-WIDTH line runs through it;
+			   grouped controls sit ON the line — [collapse] · [context Format] · [insert · settings] ·
+			   [delete]. The line always shows; the groups appear only when the caret is inside the
+			   slide (cs-slide-active), each group tinted by role. */
+			.cs-slide-bar{position:relative;display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:22px;margin:15px calc(-1 * clamp(24px,6cqw,64px)) 11px;padding:0 clamp(20px,5cqw,52px);user-select:none}
 			.cs-slide-bar::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;transform:translateY(-50%);border-radius:2px;background:var(--cs-trim,var(--border,#e4eaf2))}
 			.cs-host .cs-slide:first-child .cs-slide-bar::before{display:none}
-			.cs-sb-zone{position:relative;display:flex;gap:5px;padding:0 7px;background:transparent}
-			.cs-slide-active > .cs-slide-bar .cs-sb-zone{background:var(--bg,#fff)}
-			/* slide-control button — DISTINCT class from the selection bar's .cs-sb-btn */
-			.cs-sc-btn{width:21px;height:19px;border-radius:5px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);cursor:pointer;display:none;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
-			.cs-slide-active > .cs-slide-bar .cs-sc-btn{display:flex}
+			.cs-sb-g{position:relative;display:none;align-items:center;gap:2px;padding:0 6px;border-radius:7px}
+			.cs-slide-active > .cs-slide-bar .cs-sb-g{display:flex;background:var(--bg,#fff)}
+			.cs-slide-active > .cs-slide-bar .cs-sb-format:empty{display:none}
+			/* slide-control button (DISTINCT from the selection bar's .cs-sb-btn) — smaller, quiet. */
+			.cs-sc-btn{width:19px;height:19px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .1s,background .1s,border-color .1s}
 			.cs-sc-btn svg{display:block}
-			.cs-sc-btn:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
-			.cs-sc-danger:hover{color:var(--fail,#b3261e);border-color:var(--fail,#b3261e)}
+			.cs-sc-btn:hover{color:var(--text-heading,#0a1628);background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 14%)}
+			/* on-brand group tints: state/slide neutral (accent on hover), danger = fail red. */
+			.cs-sb-slide .cs-sc-btn:hover{color:var(--accent,#006fa8)}
+			.cs-sb-danger .cs-sc-btn{color:color-mix(in oklab,var(--fail,#b3261e),var(--text-muted) 32%)}
+			.cs-sb-danger .cs-sc-btn:hover{color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 88%)}
+			.cs-sc-confirm{color:var(--fail,#b3261e) !important;border-color:color-mix(in oklab,var(--fail,#b3261e),transparent 55%) !important}
+			.cs-sc-ask{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--fail,#b3261e);padding:0 3px 0 1px;align-self:center}
+			/* FORMAT group — context-sensitive registers, accent-tinted, lit when active. */
+			.cs-fmt-btn{min-width:19px;height:19px;padding:0 4px;border:1px solid transparent;border-radius:5px;background:transparent;font-family:var(--font-serif,Georgia,serif);font-size:12.5px;line-height:1;color:var(--accent,#006fa8);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .1s,background .1s}
+			.cs-fmt-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.02em}
+			.cs-fmt-btn:hover{background:var(--accent-soft,#eff6fc)}
+			.cs-fmt-on{background:var(--accent-soft,#eff6fc);box-shadow:inset 0 0 0 1px color-mix(in oklab,var(--accent,#006fa8),transparent 55%)}
 			/* collapsed: keep the first block, hide the rest behind an ellipsis */
 			.cs-slide.cs-collapsed .cs-slide-content > *:not(:first-child){display:none}
 			.cs-slide.cs-collapsed .cs-slide-content::after{content:"⋯";display:block;color:var(--text-muted,#6b7f9a);font-size:17px;line-height:1;padding:2px 0 2px}
@@ -741,39 +744,14 @@ function ComposeStyles() {
 			.cs-host em{font-style:italic}
 			.cs-host a{color:var(--accent,#1e5f96);text-decoration:underline}
 			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#006fa8)}
-			/* MOBILE / TABLET — the grammar registers ride a KEYBOARD-AWARE bottom RAIL
-			   (.cs-rail, portaled to <body>) instead of the cramped left gutter. It docks at the
-			   bottom of the editor column and LIFTS above the software keyboard when one is up,
-			   positioned by an absolute visual-viewport coordinate (use-visual-viewport). */
-			.cs-rail{
-				position:fixed;z-index:45;
-				left:var(--cs-rail-left,0px);width:var(--cs-rail-width,100vw);
-				top:calc(var(--cs-vv-top,0px) + var(--cs-vv-height,100vh) - 52px);height:52px;
-				display:flex;align-items:center;gap:8px;padding:7px 12px;overflow-x:auto;
-				background:var(--bg-alt,#f2f5fa);border-top:1px solid var(--border,#e4eaf2);
-				box-shadow:0 -8px 20px -14px rgba(0,0,0,.45);
-				-webkit-overflow-scrolling:touch;overscroll-behavior:contain
-			}
-			.cs-rail .cs-greg{width:46px;height:38px;font-size:16px;flex:none}
-			.cs-rail .cs-greg-mono{font-size:11px}
-			/* reserve scroll room below the caret = keyboard + rail, so iOS's native
-			   per-keystroke caret scroll can't land the caret behind the rail. */
-			.cs-frame[data-rail="on"] .cs-host .ProseMirror{padding-bottom:calc(64px + 52px + var(--cs-kb-inset,0px))}
-			.cs-frame[data-rail="on"] .cs-host{scroll-padding-bottom:calc(52px + var(--cs-kb-inset,0px))}
-			/* NARROW FINE-POINTER window (no coarse pointer → no rail): the in-flow .cs-gutter
-			   reflows to a bottom bar, exactly as it shipped. */
+			/* MOBILE — the slide-divider control bar gets bigger touch targets, still grouped and
+			   full-width. (No keyboard-riding rail: formatting is on the divider.) */
 			@media (max-width:640px){
-				.cs-frame{flex-direction:column}
-				.cs-host{order:1}
-				.cs-gutter{order:2;flex-direction:row;width:auto;height:auto;justify-content:center;gap:8px;padding:7px 12px;border-right:none;border-top:1px solid var(--border,#e4eaf2);overflow-x:auto}
-				.cs-gutter-label{display:none}
-				.cs-greg{width:40px;height:34px;font-size:16px}
-				.cs-greg-mono{font-size:11px}
-				/* the slide control bar: no full-width break-out on a phone (it clipped the
-				   right-edge move buttons), and bigger touch targets (~32px, toward the WCAG
-				   guidance while still fitting five controls across a 360px bar). */
-				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
-				.cs-sc-btn{width:33px;height:31px}
+				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 2px;gap:3px}
+				.cs-sb-g{padding:0 4px;gap:1px}
+				.cs-sc-btn{width:28px;height:26px}
+				.cs-fmt-btn{min-width:26px;height:26px;font-size:14px}
+				.cs-fmt-mono{font-size:11px}
 			}
 			/* floating selection bar — inline marks over a text selection (portaled to body).
 			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */

@@ -304,14 +304,15 @@ in patch versions.
   `engineering/decisions/2026-07-13-lente-reader-lenses.md`.)
 - **Compose — a rich editing mode for the Studio, so you never have to see markdown.** The editor pane
   gains a **Markdown ↔ Compose** toggle. Compose is a calm serif writing surface (the "Quiet Page"
-  design) where the whole deck is one continuous note: you type rich text, and a quiet left-margin
-  **grammar gutter** applies Lattice's registers (H1 / H2 / Eyebrow / Subtitle / Key insight / Below-note)
-  to the block your caret is in — lit EXACTLY as the engine will render it (a code label is an Eyebrow
-  before a heading or a Subtitle after one; Key-insight / Below-note light only when trailing, and
-  applying them moves the block to the slide's end). A **floating bar** over a text selection applies
-  inline marks (Bold /
-  Italic / Code). Each slide shows a control bar on its divider line when the caret is inside it —
-  collapse (left), insert/delete (center), move up/down (right). Both modes read and write the same
+  design) where the whole deck is one continuous note: you type rich text, and each slide's **divider
+  line doubles as its control bar** — a full-width rule that, when your caret is inside the slide,
+  carries grouped controls: a collapse toggle, a **context-sensitive Format group** that offers only
+  the registers that can validly apply to the block you're in (H1 / H2 / Eyebrow / Subtitle / Key
+  insight / Below-note — lit EXACTLY as the engine will render it: a code label is an Eyebrow before a
+  heading or a Subtitle after one; Key-insight / Below-note light only when trailing, and applying
+  them moves the block to the slide's end; a list offers none), insert-below and slide settings, and
+  a delete with an in-place confirm. A **floating bar** over a text selection applies inline marks
+  (Bold / Italic / Code). Both modes read and write the same
   deck source, so flipping never loses work
   and the preview tracks either. Built on ProseMirror (one true document — selection, copy and undo span
   slides) with a DOM-less deck-model core (`docs/src/lib/compose`) that round-trips a deck's markdown

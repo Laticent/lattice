@@ -79,6 +79,33 @@ export function caretInLockedSlide(state: EditorState): boolean {
 	return !!ctx?.slide.attrs.locked;
 }
 
+// The registers that APPLY to the caret's current block — the "truly context-sensitive" set the
+// divider's Format group shows (no-ops are hidden, not dimmed). `active` is the one currently ON.
+//   - locked slide / no context → nothing (the slide is edited in Markdown).
+//   - heading → H1 / H2 (toggle level, or back to paragraph).
+//   - blockquote (Key-insight) → just Key-insight (to toggle it off).
+//   - paragraph → H1 / H2 always; Eyebrow / Subtitle only where the engine would render them (a
+//     code label adjacent to a heading) or where already active; Key-insight + Below-note always.
+//   - list / table / other container → nothing (no register can render from it).
+export function applicableRegisters(state: EditorState): { keys: Reg[]; active: Reg | null } {
+	const ctx = slideContext(state);
+	if (!ctx || ctx.slide.attrs.locked) return { keys: [], active: null };
+	const active = activeRegister(state);
+	const { block, prev, next } = ctx;
+	const isHeading = (n: PMNode | null) => !!n && n.type.name === 'heading';
+	const kind = block.type.name;
+	if (kind === 'heading') return { keys: ['h1', 'h2'], active };
+	if (kind === 'blockquote') return { keys: ['insight'], active };
+	if (kind === 'paragraph') {
+		const keys: Reg[] = ['h1', 'h2'];
+		if (isHeading(next) || active === 'eyebrow') keys.push('eyebrow');
+		if (isHeading(prev) || active === 'subtitle') keys.push('subtitle');
+		keys.push('insight', 'note');
+		return { keys, active };
+	}
+	return { keys: [], active };
+}
+
 // Move the caret's top-level block to the END of its slide, replaced by `make(block)`. The
 // trailing registers (Key-insight, Below-note) render only as the slide's last block, so
 // applying one relocates the block there — the "naturally goes to the end of the slide" model.
