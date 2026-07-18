@@ -192,10 +192,13 @@ in patch versions.
 ### Added
 
 - **Variants are now first-class looks — searchable, insertable, and reshapeable — everywhere in the
-  Studio.** A component's variants (`insight-key`, `claim-hero`, `dark`, … — the alternate LOOKS it
-  offers) were invisible outside the Inspector's token toggles; now they're children of their parent
-  component across three surfaces. (1) **Search** matches variant terms — typing “insight” or “dark”
-  finds the components that offer that look, shown as a match count on each tile. (2) **Insert**: a
+  Studio.** A component's DECLARED variants — its own alternate forms (`kpi › ops/spotlight`,
+  `list › numbered/roman`), the 36-of-59 components that have them — were invisible outside the
+  Inspector; now they're children of their parent component across three surfaces. (Universal
+  configuration every slide accepts — `dark`, `no-header`, `insight-*`, `compact` — stays in slide
+  settings, where it belongs; it is not a "variant of the component".) (1) **Search** matches a
+  variant term (“ops”, “spotlight”, “numbered”) to the components that offer that form, shown as a
+  match count on each tile. (2) **Insert**: a
   gallery tile expands to its looks (a windowed sub-grid of live previews labeled `component › look`);
   picking one inserts the skeleton with that variant token. (3) **Reshape** (new): a button in the
   edit-mode slide toolbar, next to Insert, opens a popover previewing the *current slide* in every look

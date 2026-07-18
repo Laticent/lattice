@@ -558,9 +558,11 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const insertComponents = React.useMemo<ComponentEntry[]>(
 		() => [
 			...localComponents.map((c) => ({ name: c.name, bucket: 'local', description: 'Your saved component', skeleton: c.skeleton, css: c.css })),
-			// Catalog items carry their variant LOOKS (effectiveVariants) so the gallery can
-			// offer them as children and search can match a variant term to its parent.
-			...components.map((c) => ({ ...c, variants: (c as { effectiveVariants?: string[] }).effectiveVariants ?? [] })),
+			// Catalog items carry their DECLARED variants (`variants`) — the component's own
+			// alternate forms (kpi › ops/spotlight, list › numbered/roman) — NOT `effectiveVariants`,
+			// which also folds in universal config (dark, no-header, insight-*, tone-*) that belongs
+			// in slide settings, not "variants of the component".
+			...components,
 		],
 		[localComponents, components],
 	);
@@ -1782,10 +1784,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 	const reshapeAxes = React.useMemo(() => (lintVocab as { exclusiveAxes?: Record<string, string[]> } | null)?.exclusiveAxes ?? {}, [lintVocab]);
 	const activeChunk = slides[activeFullIndex] ?? '';
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
-	const reshapeVariants = React.useMemo(() => {
-		const entry = components.find((c) => c.name === reshapeComponent) as { effectiveVariants?: string[] } | undefined;
-		return entry?.effectiveVariants ?? [];
-	}, [components, reshapeComponent]);
+	const reshapeVariants = React.useMemo(() => components.find((c) => c.name === reshapeComponent)?.variants ?? [], [components, reshapeComponent]);
 	const onReshape = (token: string) => mutateSlideFromPanel((c) => applyVariant(c, token, reshapeAxes));
 
 	// Apply an AI chat edit — checkpoint the pre-edit deck first (reversible from
