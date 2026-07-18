@@ -718,6 +718,11 @@ function ComposeStyles() {
 				.cs-gutter-label{display:none}
 				.cs-greg{width:40px;height:34px;font-size:16px}
 				.cs-greg-mono{font-size:11px}
+				/* the slide control bar: no full-width break-out on a phone (it clipped the
+				   right-edge move buttons), and bigger touch targets (~32px, toward the WCAG
+				   guidance while still fitting five controls across a 360px bar). */
+				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
+				.cs-sc-btn{width:33px;height:31px}
 			}
 			/* floating selection bar — inline marks over a text selection (portaled to body).
 			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */

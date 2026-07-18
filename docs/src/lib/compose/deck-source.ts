@@ -1,3 +1,4 @@
+import { sourceHasMath } from '../../../../lib/engine/math-detect.mjs';
 import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
 import { splitSlides } from '../../components/studio/lint';
 import { fenceRanges } from '../../components/studio/slide-directives';
@@ -59,10 +60,29 @@ const LOSSY_CONSTRUCTS: RegExp[] = [
 	/\[\^[^\]]+\]/, // footnote reference / definition
 ];
 
-/** Whether a slide's prose carries a construct the Compose round-trip would corrupt, so
- *  the slide must be locked read-only in Compose (edited in Markdown mode instead). */
+/** Blank fenced code blocks (fence-aware) and inline-code spans before construct detection,
+ *  so a `$…$` shell snippet, a pipe row in a code sample, or a `~~` in a fence never trips a
+ *  lock — the engine renders code literally, so neither math nor a table lives inside it. */
+function withoutCode(prose: string): string {
+	const fences = fenceRanges(prose);
+	let out = '';
+	let pos = 0;
+	for (const [start, end] of fences) {
+		out += prose.slice(pos, start);
+		pos = end;
+	}
+	out += prose.slice(pos);
+	return out.replace(/`[^`\n]*`/g, ' '); // strip inline-code spans
+}
+
+/** Whether a slide's prose carries a construct the Compose round-trip would corrupt, so the
+ *  slide must be locked read-only in Compose (edited in Markdown mode instead). Detection runs
+ *  on prose with code blanked (code round-trips fine and never renders math/tables), and math
+ *  uses the ENGINE's own currency-safe rules (`sourceHasMath`) — so `$a_1$` locks the slide but
+ *  a `$400M` figure, or a `$x` in a shell fence, does not: the lock matches what the engine renders. */
 export function hasLossyConstruct(prose: string): boolean {
-	return LOSSY_CONSTRUCTS.some((re) => re.test(prose));
+	const bare = withoutCode(prose);
+	return sourceHasMath(bare) || LOSSY_CONSTRUCTS.some((re) => re.test(bare));
 }
 
 /** The `_class` component name of a slide's directives (first token), or 'content'. */

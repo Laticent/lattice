@@ -32,4 +32,17 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 	it('does NOT fire on a big-number / KPI slide (dollar figures are not tables)', () => {
 		expect(hasLossyConstruct('## Revenue\n\n1. $2.4B\n   - Total revenue\n2. 42%\n   - Margin')).toBe(false);
 	});
+
+	it('fires on inline / display math (the engine renders it, Compose cannot round-trip it)', () => {
+		expect(hasLossyConstruct('The area is $A = \\pi r^2$ per shape.')).toBe(true);
+		expect(hasLossyConstruct('## Model\n\n$$E = mc^2$$')).toBe(true);
+	});
+	it('does NOT fire on currency prose (the engine keeps $400M / $18M literal, so Compose can too)', () => {
+		expect(hasLossyConstruct('Revenue was $400M, up 28% YoY, ahead by $18M.')).toBe(false);
+	});
+	it('does NOT fire on a $…$ shape / a pipe row inside code (the engine renders code literally)', () => {
+		expect(hasLossyConstruct('Run this:\n\n```bash\necho "$A$B"\n```')).toBe(false); // shell var, not math
+		expect(hasLossyConstruct('The `$x$` token is a placeholder.')).toBe(false); // inline code, not math
+		expect(hasLossyConstruct('A grid sample:\n\n```\n| A | B |\n```')).toBe(false); // pipes in a fence, not a table
+	});
 });

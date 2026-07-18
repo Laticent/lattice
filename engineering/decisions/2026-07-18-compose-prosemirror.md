@@ -1,6 +1,6 @@
 ---
 status: in-progress
-summary: Compose — a rich, calm editing MODE of the Studio editor pane (the "Quiet Page" design), rebuilt on ProseMirror as ONE continuous document (Option B) after an adversarial trio found the first Lexical version structurally unfit (lossy nested-list round-trip; corruption on selection; N stacked editors couldn't span slides). A DOM-less deck-model core (docs/src/lib/compose) round-trips a deck's markdown losslessly incl. the nested KPI/cards grammar; a quiet left-margin grammar gutter applies Lattice's registers to the caret's block, and a floating bar over a text selection applies inline marks (Bold/Italic/Code). Both modes read/write the same source (HARD RULE #1). Slices 1–3 + hardening + the selection bar landed and verified on the real Studio; a deeper mobile polish pass is the remaining follow-up.
+summary: Compose — a rich, calm editing MODE of the Studio editor pane (the "Quiet Page" design), rebuilt on ProseMirror as ONE continuous document (Option B) after an adversarial trio found the first Lexical version structurally unfit (lossy nested-list round-trip; corruption on selection; N stacked editors couldn't span slides). A DOM-less deck-model core (docs/src/lib/compose) round-trips a deck's markdown losslessly incl. the nested KPI/cards grammar; a quiet left-margin grammar gutter applies Lattice's registers to the caret's block, and a floating bar over a text selection applies inline marks (Bold/Italic/Code). Both modes read/write the same source (HARD RULE #1). Slices 1–3 + hardening + the selection bar + exact registers + math-lock + the real `--spectrum` trim + a mobile polish pass landed and verified on the real Studio.
 ---
 
 # Compose — the rich-markdown editing mode, on ProseMirror
@@ -85,8 +85,10 @@ through edits and survives a nodeView recreation. The divider line spans the ful
 width and is painted with the deck's STRUCTURAL TRIM (`spectrum-trim:`, read from the
 front-matter) — the same register that colors the rendered deck's `hr` rules and table
 rails — so the Compose dividers preview the deck's chosen trim (off = accent hairline,
-restrained/on = accent ramp; the exact `--spectrum` rainbow falls back to an accent ramp
-since `--spectrum` isn't in the editor's token scope). The control icons are lucide,
+restrained = accent ramp, on = the deck's REAL `--spectrum` ribbon). `--spectrum` is now
+emitted onto the generated per-palette token blocks (`tools/build-docs-portal.js` →
+`lattice-tokens.generated.css`), so it's in the Studio's token scope and the `on` trim
+shows the true theme rainbow rather than a fallback ramp. The control icons are lucide,
 matching the filmstrip (ArrowUpToLine/ArrowDownToLine move, Plus/Trash2, chevrons collapse).
 
 **Palette + responsive.** All chrome is on the studio's real tokens (`--bg`, `--bg-alt`,
@@ -142,11 +144,12 @@ and verified on the real built Studio (HARD RULE #23):
 
 ## Known limits (tracked)
 
-- Slides with a table / block HTML / strikethrough / tasklist / footnote are **locked
-  read-only** in Compose (edited in Markdown mode) — a deliberate guard, not a bug. Inline
-  math (`$a_1$`) is NOT yet detected as lossy, so a slide with only inline math is editable
-  and its `_`/`*` could be reflowed on a direct edit — a residual gap; model math (and the
-  other locked constructs) as real schema nodes to make them editable-and-lossless.
+- Slides with a table / block HTML / strikethrough / tasklist / footnote / **math** are
+  **locked read-only** in Compose (edited in Markdown mode) — a deliberate guard, not a bug.
+  Math uses the ENGINE's own currency-safe detector (`lib/engine/math-detect.mjs`'s
+  `sourceHasMath`), so `$a_1$` locks a slide but a `$400M` figure does not — the lock matches
+  what the engine actually renders. Making these constructs editable-and-lossless (real
+  schema nodes) is still future work; today they lock rather than risk a reflow.
 - Non-`_` HTML comments (speaker notes / captions) inside prose round-trip byte-stable but
   show as literal editable text — no dedicated hidden node yet.
 - The grammar-gutter register read is now EXACT — it mirrors the engine's positional rules

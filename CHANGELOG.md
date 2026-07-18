@@ -205,9 +205,12 @@ in patch versions.
   and the preview tracks either. Built on ProseMirror (one true document — selection, copy and undo span
   slides) with a DOM-less deck-model core (`docs/src/lib/compose`) that round-trips a deck's markdown
   losslessly, including the nested KPI/cards/stats grammar. Prose slides are fully editable in Compose;
-  a slide carrying a construct Compose can't round-trip yet (a table, block HTML, strikethrough) is
+  a slide carrying a construct Compose can't round-trip yet (a table, block HTML, strikethrough, or
+  **math** — detected with the engine's currency-safe rules, so `$a_1$` locks but `$400M` doesn't) is
   **locked read-only** (shown dimmed with an "edit in Markdown" badge) so a keystroke can never flatten
-  it, and a structural guard blocks accidental slide merges — so Compose never corrupts a deck.
+  it, and a structural guard blocks accidental slide merges — so Compose never corrupts a deck. The
+  slide-divider preview paints the deck's **real spectrum ribbon** with `spectrum-trim: on` (`--spectrum`
+  is now in the Studio's token scope), and the mobile control bar sizes up cleanly with no edge clipping.
   See `engineering/decisions/2026-07-18-compose-prosemirror.md`.
 - **Callout eyebrows are now renamable — `insight-*` modifiers on the slide `_class`.** The
   universal Key Insight panel and the split-compare verdict tag both emit their eyebrow through one
