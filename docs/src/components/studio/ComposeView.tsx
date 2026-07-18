@@ -176,7 +176,25 @@ function collapsePlugin() {
 	});
 }
 
-// A per-slide NodeView: renders the slide's content plus a LEFT-side control rail
+// Marks the slide the caret is inside with a `cs-slide-active` node decoration so its
+// control bar shows only when you're "inside the slide boundary" (recomputed from the
+// selection every state change — stateless, no stored set).
+function activeSlidePlugin() {
+	return new Plugin({
+		props: {
+			decorations(state) {
+				const { $from } = state.selection;
+				if ($from.depth < 1) return DecorationSet.empty;
+				const node = $from.node(1);
+				if (node.type.name !== 'slide') return DecorationSet.empty;
+				const pos = $from.before(1);
+				return DecorationSet.create(state.doc, [Decoration.node(pos, pos + node.nodeSize, {}, { active: true })]);
+			},
+		},
+	});
+}
+
+// A per-slide NodeView: renders the slide's content plus a control bar on its divider line
 // (move up/down · collapse · insert below · delete) that reveals on hover (desktop) or
 // sits faint on touch. Structural ops rebuild the doc from the SAME node instances (so
 // every unmoved slide keeps its identity → emitDeck re-emits its exact `raw` bytes) and
@@ -195,9 +213,12 @@ class SlideView {
 	) {
 		const dom = document.createElement('section');
 		dom.className = node.attrs.locked ? 'cs-slide cs-slide-locked' : 'cs-slide';
-		const ctrl = document.createElement('div');
-		ctrl.className = 'cs-slide-ctrl';
-		ctrl.contentEditable = 'false';
+		// The controls live ON the slide's top divider LINE, in three zones — collapse at the
+		// left edge, insert/delete centered, move up/down at the right edge — and appear only
+		// when the caret is inside this slide (the cs-slide-active decoration).
+		const bar = document.createElement('div');
+		bar.className = 'cs-slide-bar';
+		bar.contentEditable = 'false';
 		const mk = (label: string, glyph: string, fn: () => void) => {
 			const b = document.createElement('button');
 			b.type = 'button';
@@ -212,25 +233,32 @@ class SlideView {
 			});
 			return b;
 		};
+		const zone = () => {
+			const z = document.createElement('div');
+			z.className = 'cs-sb-zone';
+			return z;
+		};
 		this.collapseBtn = mk('Collapse slide', '⌃', () => this.toggleCollapse());
-		ctrl.append(
-			mk('Move slide up', '↑', () => this.move(-1)),
-			mk('Move slide down', '↓', () => this.move(1)),
-			this.collapseBtn,
-			mk('Insert slide below', '＋', () => this.insertBelow()),
-			mk('Delete slide', '✕', () => this.remove()),
-		);
+		const left = zone();
+		left.append(this.collapseBtn);
+		const center = zone();
+		center.append(mk('Insert slide below', '＋', () => this.insertBelow()), mk('Delete slide', '✕', () => this.remove()));
+		const right = zone();
+		right.append(mk('Move slide up', '↑', () => this.move(-1)), mk('Move slide down', '↓', () => this.move(1)));
+		bar.append(left, center, right);
 		const content = document.createElement('div');
 		content.className = 'cs-slide-content';
-		dom.append(ctrl, content);
+		dom.append(bar, content);
 		this.dom = dom;
 		this.contentDOM = content;
-		this.ctrl = ctrl;
-		this.applyCollapsed(decorations);
+		this.ctrl = bar;
+		this.applyDecos(decorations);
 	}
-	private applyCollapsed(decorations: readonly Decoration[]) {
-		const collapsed = decorations.some((d) => (d.spec as { collapsed?: boolean } | undefined)?.collapsed);
+	private applyDecos(decorations: readonly Decoration[]) {
+		const has = (k: 'collapsed' | 'active') => decorations.some((d) => (d.spec as Record<string, boolean> | undefined)?.[k]);
+		const collapsed = has('collapsed');
 		this.dom.classList.toggle('cs-collapsed', collapsed);
+		this.dom.classList.toggle('cs-slide-active', has('active'));
 		this.collapseBtn.textContent = collapsed ? '⌄' : '⌃';
 		this.collapseBtn.setAttribute('aria-label', collapsed ? 'Expand slide' : 'Collapse slide');
 	}
@@ -288,7 +316,7 @@ class SlideView {
 	update(node: PMNode, decorations: readonly Decoration[]) {
 		if (node.type.name !== 'slide') return false;
 		this.dom.classList.toggle('cs-slide-locked', !!node.attrs.locked);
-		this.applyCollapsed(decorations);
+		this.applyDecos(decorations);
 		return true;
 	}
 	ignoreMutation(m: MutationRecord | { target: Node }) {
@@ -303,6 +331,7 @@ function buildPlugins() {
 	return [
 		structuralGuard(),
 		collapsePlugin(),
+		activeSlidePlugin(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
 		keymap({
@@ -537,12 +566,15 @@ function ComposeStyles() {
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 			.cs-host .ProseMirror{outline:none;min-height:100%;padding:6px 0 72px;font-family:var(--font-serif,Georgia,"Times New Roman",serif);font-size:16.5px;line-height:1.62;color:var(--text-body,#2b3a4f)}
 			.cs-host .cs-slide{padding:20px clamp(24px,6cqw,64px);position:relative}
-			/* per-slide control rail (left) — reveals on hover; faint on touch */
-			.cs-slide-ctrl{position:absolute;left:2px;top:16px;display:flex;flex-direction:column;gap:3px;opacity:0;transition:opacity .12s;z-index:6;user-select:none}
-			.cs-slide:hover > .cs-slide-ctrl,.cs-slide-ctrl:focus-within{opacity:1}
-			@media (hover:none){.cs-slide-ctrl{opacity:.5}}
-			.cs-sc-btn{width:22px;height:22px;border-radius:6px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
-			.cs-sc-btn:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
+			/* control bar ON the slide's top divider line — collapse (left) · insert/delete
+			   (center) · move up/down (right). Hidden until the caret is inside the slide. */
+			.cs-slide-bar{position:absolute;top:8px;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(18px,5cqw,52px);opacity:0;pointer-events:none;transition:opacity .12s;z-index:6;user-select:none}
+			.cs-slide-active > .cs-slide-bar{opacity:1;pointer-events:auto}
+			.cs-sb-zone{display:flex;gap:4px;background:var(--bg,#fff);padding:0 4px}
+			.cs-sb-btn{width:23px;height:21px;border-radius:6px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#6b7f9a);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;transition:color .1s,border-color .1s}
+			.cs-sb-btn:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
+			/* the active slide replaces its resting ◇ with the bar */
+			.cs-host .cs-slide-active + .cs-slide::before,.cs-host .cs-slide-active::before{opacity:.25}
 			/* collapsed: keep the first block, hide the rest behind an ellipsis */
 			.cs-slide.cs-collapsed .cs-slide-content > *:not(:first-child){display:none}
 			.cs-slide.cs-collapsed .cs-slide-content::after{content:"⋯";display:block;color:var(--text-muted,#6b7f9a);font-size:17px;line-height:1;padding:2px 0 2px}

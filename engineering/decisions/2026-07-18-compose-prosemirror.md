@@ -72,14 +72,16 @@ INLINE marks, so the two never overlap. On **touch** the bar stands down entirel
 (Cut/Copy/Paste + Format B/I/U) owns formatting there — its Bold/Italic map to our marks,
 Underline no-ops (the engine has no underline; it'd be off-model `<u>` HTML).
 
-**Per-slide control rail.** Each slide is a ProseMirror NodeView carrying a left-side
-control cluster (move up/down · collapse · insert below · delete) that reveals on hover
-(faint on touch). Structural ops rebuild the doc from the SAME node instances — so every
-unmoved slide keeps its identity and `emitDeck` re-emits its exact `raw` bytes (a locked
-table survives a reorder byte-for-byte) — and carry a `slideOp` meta so the structural
-guard lets the intentional count/lock change through. Collapse is view-only: it lives in a
-plugin as a node decoration (NOT on the view instance, which a real click can make
-ProseMirror rebuild), so it maps through edits and survives a nodeView recreation.
+**Per-slide control bar.** Each slide is a ProseMirror NodeView carrying a control bar ON
+its top divider line — collapse at the left edge, insert/delete centered, move up/down at
+the right edge — shown only when the caret is inside that slide (a `cs-slide-active` node
+decoration computed from the selection, so it works on touch without a hover). Structural
+ops rebuild the doc from the SAME node instances — so every unmoved slide keeps its identity
+and `emitDeck` re-emits its exact `raw` bytes (a locked table survives a reorder
+byte-for-byte) — and carry a `slideOp` meta so the structural guard lets the intentional
+count/lock change through. Collapse is view-only: it lives in a plugin as a node decoration
+(NOT on the view instance, which a real click can make ProseMirror rebuild), so it maps
+through edits and survives a nodeView recreation.
 
 **Palette + responsive.** All chrome is on the studio's real tokens (`--bg`, `--bg-alt`,
 `--border`, `--text-body`, `--text-heading`, `--text-muted`, `--accent`, `--accent-soft`),
