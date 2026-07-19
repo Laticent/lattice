@@ -155,6 +155,22 @@ One line runs through all of Lattice, and it answers the whole question too:
 the machine owns what's correct, and you own what's good. Anyone can have the
 engine now. What it's built on is still yours to do.
 
+## What it took
+
+Let me be straight about how Lattice got made, because it bears on everything
+above. It would not exist without Claude. I had carried the shape of it for
+years and never had the hands to build it — and then a model did the grunt
+work, night after night, that turned the idea into something you can open. It
+wrote code faster than I could have alone and never tired of the work. That is
+not a footnote I'm reluctant to add. It's the reason any of this is real.
+
+None of it changes the argument; it completes it. Claude gave me the hands, and
+the standard for what those hands built stayed mine. Neither half makes Lattice
+alone. A machine with no one holding the line settles for the average; a vision
+no one can build stays a vision. What I brought was knowing what good looked
+like. What the model brought was the tireless means to reach it. Together, the
+idea I'd been carrying finally exists.
+
 ## Where to go next
 
 - [Principles](/principles/) — the convictions the engine is built on.
