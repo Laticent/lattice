@@ -8,7 +8,7 @@ summary: >
   so the mask didn't apply and the real cost showed. Deep analysis + a fresh adversarial trio
   (HARD RULE #25) found the biggest single passenger is highlight.js's FULL 192-language build
   — ~1.05MB raw / ~64% of the 1.65MB preview bundle — of which 90%+ is exotic grammars a deck
-  never uses. SLICE 1 (SHIPPED): a preview-only esbuild alias swaps it for the 37-language
+  never uses. SLICE 1 (SHIPPED): a preview-only esbuild exact-match resolve swaps it for the 36-language
   `common` build → preview bundle 1.65MB→733KB raw (−56%) / 509KB→249KB gz (−51%), export path
   unchanged, zero visual regression on shipping decks (verified). The trio KILLED the other three
   proposed fronts (chart lazy-split breaks the sync render()/export contract; live CSS prune was
@@ -70,7 +70,7 @@ Measured via an esbuild metafile (`tools/build-playground.js` entry = `lib/playg
 
 | Passenger | Size (min-in-bundle) | Share | Acutely needed? |
 |---|---|---|---|
-| **highlight.js — FULL 192 languages** | **1,054.7 KB** | **~64%** | ~52KB-gz (`common`, 37 langs) |
+| **highlight.js — FULL 192 languages** | **1,054.7 KB** | **~64%** | ~52KB-gz (`common`, 36 langs) |
 | chart-family kernels | 262 KB | ~16% | 0 for a no-chart deck |
 | markdown-it + `entities` tables | ~151 KB (`entities` alone 82KB) | ~9% | most |
 | qrcode | 22.8 KB | ~1% | 0 unless qr/wifi/contact/video |
@@ -104,14 +104,25 @@ it's an unproven hypothesis touching the Studio's core island, not a mechanical 
 
 ## 4. What shipped (slice 1)
 
-A preview-only esbuild alias in `tools/build-playground.js`, beside the KaTeX-stub precedent:
+A preview-only highlight.js→`common` swap in `tools/build-playground.js`. It shipped first as an
+esbuild `alias` entry; a follow-up (the shipped-diff trio's red-team finding) replaced that with an
+**exact-match resolve plugin**, because `alias` matches subpaths by prefix — `alias['highlight.js']`
+would silently rewrite a future `highlight.js/lib/…` import to `common.js/lib/…` and break the build.
+The plugin rewrites ONLY the bare specifier:
 
 ```js
-alias: {
-  katex: '…/lib/engine/katex-browser-stub.js',
-  'highlight.js': '…/node_modules/highlight.js/lib/common.js', // preview bundle only
-}
+const HLJS_COMMON = '…/node_modules/highlight.js/lib/common.js';
+const hljsCommonPreviewPlugin = {
+  name: 'hljs-common-preview',
+  setup(build) {
+    build.onResolve({ filter: /^highlight\.js$/ }, () => ({ path: HLJS_COMMON })); // bare specifier only
+  },
+};
+// BUILD_OPTIONS: alias keeps only the katex stub; plugins: [hljsCommonPreviewPlugin]
 ```
+
+The output bundle is **byte-identical** to the original alias form (same resolved `common.js`) — the
+plugin is purely a footgun fix, not a behavior change.
 
 **Scoped to the preview bundle by construction.** `lib/engine/index.js` still
 `require('highlight.js')` (the full build) for the Node CLI/PDF/PPTX export path, so exported
