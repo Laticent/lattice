@@ -316,7 +316,13 @@ export function MotionStudio({
 		try {
 			const out = await generateScene(p, refine ? spec : undefined);
 			if (out.status === 'ok') {
-				if (genSeq.current !== seq) return; // a manual edit / Reset superseded this generation
+				if (genSeq.current !== seq) {
+					// A manual edit / Reset superseded this generation while it was in flight. Protect the
+					// hand-edits (don't clobber them), but SAY SO — a paid round-trip silently vanishing is
+					// the wrong default when it's the user's own metered key.
+					notify('Your edit cancelled the pending generation — describe again to use it.');
+					return;
+				}
 				// The stage transports the spec via `btoa` (Latin1 only); a model that returns a
 				// non-ASCII id/color would throw there and blank the stage. Reject it here so we
 				// never show a false "Generated" over an empty stage (honest degradation, #23).
