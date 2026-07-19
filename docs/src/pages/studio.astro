@@ -93,21 +93,20 @@ try {
 	for (const c of grammar.components || []) {
 		if (!c.name) continue;
 		const slots = c.slots || {};
-		const headingSlot = slots.heading || slots.title;
-		// A class with NO heading/title slot is KNOWN to render no heading → empty set (offer nothing).
-		if (!headingSlot) {
-			slideHeadings[c.name] = [];
-			continue;
+		// Scan EVERY slot's selector for a heading element, not just the slot NAMED heading/title — a
+		// class can carry its heading in a differently-named slot (e.g. policy-recommendation's required
+		// `recommendation` slot has selector `h2`). Keying on the slot name alone wrongly mapped such a
+		// class to [] and hid its H2 (trio: red-team + checker MAJOR). Match hN only as an ELEMENT
+		// selector (start / whitespace / a combinator before it, no word-char or hyphen after) so a
+		// class/id token like `.h2-foo` never false-matches. `h1, h2` (journey) yields both levels.
+		const levels = [];
+		for (const slot of Object.values(slots)) {
+			for (const mm of String(slot?.selector || '').matchAll(/(?:^|[\s>,(+~])h([1-6])(?![\w-])/g)) levels.push(mm[1] === '1' ? 'h1' : 'h2');
 		}
-		// Collect EVERY heading level the slot's selector lists (a heading slot may name several, e.g.
-		// `h1, h2` on journey — dropping one would over-restrict a class the engine treats as two-level).
-		// Match hN only as an ELEMENT selector (preceded by start / whitespace / a combinator, and not
-		// followed by a word char or hyphen) so a class/id token like `.h2-foo` never false-matches.
-		const levels = [...String(headingSlot.selector || '').matchAll(/(?:^|[\s>,(+~])h([1-6])(?![\w-])/g)].map((mm) => (mm[1] === '1' ? 'h1' : 'h2'));
-		const uniq = [...new Set(levels)];
-		// A heading slot whose selector we couldn't parse is left ABSENT (→ permissive), not empty —
-		// never over-restrict a class that DOES take a heading just because the selector was exotic.
-		if (uniq.length) slideHeadings[c.name] = uniq;
+		// The class's declared heading level set — an EMPTY [] means no slot renders a heading at all
+		// (big-number, quote), so Compose offers no heading register there rather than the permissive
+		// default. A class absent from the map entirely (unnamed) stays permissive in `headingKeysFor`.
+		slideHeadings[c.name] = [...new Set(levels)];
 	}
 } catch (e) {
 	// Graceful, but make the degradation OBSERVABLE: a missing/corrupt grammar.json or a slot-shape

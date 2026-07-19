@@ -477,16 +477,15 @@ in patch versions.
 
 ### Fixed
 
-- **Compose's slide-divider Format group — four follow-ups.** (1) An **orphan inline-code label** (a
+- **Compose's slide-divider Format group — three follow-ups.** (1) An **orphan inline-code label** (a
   lone `` `code` `` paragraph next to no heading) now offers a pill affordance to clear its mark instead
-  of being editable only in Markdown mode. (2) A slide class the grammar gives **no heading slot** (e.g.
-  `big-number`, whose hero is a list item) now offers **no** heading register at all, rather than the
-  permissive H1/H2; an unrecognized class still stays permissive. (3) An **H3–H6 heading** (reachable by
-  typing `### `) is no longer mislabeled as an active "H2" that toggled it to a paragraph on click — it
-  now lights nothing and applying the grammar heading **normalizes** it to H1/H2. (4) Opening **slide
-  settings from the divider ⚙ no longer loses your place** — the caret is snapshotted and restored (with
-  focus) when the settings panel closes, so you can adjust a setting and keep typing. (`registers.ts`,
-  `ComposeView.tsx`, `studio.astro`, `StudioShell.tsx`;
+  of being editable only in Markdown mode. (2) The heading register is offered strictly per the slide
+  class's **grammar**: a class the grammar gives **no heading** (e.g. `big-number`, whose hero is a list
+  item) offers **no** H1/H2, while a class that anchors its heading through any slot — including one not
+  literally named `heading` (e.g. `policy-recommendation`'s required `## `) — correctly offers it; an
+  unrecognized class stays permissive. (3) An **H3–H6 heading** (reachable by typing `### `) is no longer
+  mislabeled as an active "H2" that toggled it to a paragraph on click — it now lights nothing and
+  applying the grammar heading **normalizes** it to H1/H2. (`registers.ts`, `studio.astro`;
   `engineering/decisions/2026-07-19-compose-divider-competition-grammar.md`.)
 - **The `scene` component's own showcase now moves.** Stage 6 shipped live scene hydration, but the
   scene component's `sample` and insert `skeleton` were still poster-only — so picking "scene" in the

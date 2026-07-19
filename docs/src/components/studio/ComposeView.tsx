@@ -499,7 +499,7 @@ function buildPlugins() {
 // preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
 // portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
 // pane, else it would paint over the live preview (the body-portal render-gate).
-export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, settingsOpen = false }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; settingsOpen?: boolean }) {
+export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -537,11 +537,6 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// the Format group offers the grammar-correct heading register per the caret slide's `_class`.
 	const slideHeadingsRef = React.useRef(slideHeadings);
 	slideHeadingsRef.current = slideHeadings;
-	// The caret position snapshotted when the divider's ⚙ opens slide settings — restored on close so
-	// "adjust a setting, keep typing" is seamless (the settings Sheet blurs the editor; without this the
-	// author has to tap back in). A plain number (head pos), re-clamped on restore so a settings edit
-	// that rewrote the doc can't land a stale selection (Track-4 focus-restore follow-up).
-	const pendingSelRef = React.useRef<number | null>(null);
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
 	// Opening the keyboard collapses; closing it always restores the chrome.
 	React.useEffect(() => {
@@ -590,18 +585,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(
-							node,
-							nodeView,
-							getPos as () => number,
-							decorations,
-							(i) => {
-								// Snapshot the caret before the settings panel steals focus, so we can restore it on close.
-								pendingSelRef.current = nodeView.state.selection.head;
-								onOpenSlideSettingsRef.current?.(i);
-							},
-							() => slideHeadingsRef.current,
-						),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current),
 				},
 				dispatchTransaction(tr) {
 					const prevDoc = view.state.doc;
@@ -692,30 +676,6 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 			console.error('[compose] resync', e);
 		}
 	}, [source, resyncFrom]);
-
-	// When slide settings CLOSE (opened via the divider ⚙), return the caret to where it was so the
-	// author keeps typing without re-tapping — the settings Sheet blurred the editor. Deferred a frame
-	// so it wins after the Sheet's own close-focus handling; only acts when a snapshot is pending (i.e.
-	// settings were opened FROM the gear) and focus actually left the editor; the position is clamped to
-	// the current doc so a settings edit that rewrote the source can't restore a stale caret.
-	React.useEffect(() => {
-		if (settingsOpen) return;
-		const pos = pendingSelRef.current;
-		if (pos == null) return;
-		pendingSelRef.current = null;
-		const raf = requestAnimationFrame(() => {
-			const view = viewRef.current;
-			if (!view || view.hasFocus()) return;
-			try {
-				const at = Math.max(0, Math.min(pos, view.state.doc.content.size - 1));
-				view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(at))));
-				view.focus();
-			} catch (e) {
-				console.error('[compose] restore selection', e);
-			}
-		});
-		return () => cancelAnimationFrame(raf);
-	}, [settingsOpen]);
 
 	// Toggle an inline mark from the floating bar, keeping the selection (the buttons
 	// preventDefault on mousedown so focus never leaves the editor).

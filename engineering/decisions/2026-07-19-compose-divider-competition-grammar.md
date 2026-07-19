@@ -149,17 +149,34 @@ Run against the shipping state (`d5a2ff9`). Findings folded in:
 
 - **Orphan code-label affordance — DONE.** An orphan `` `code` `` paragraph now offers eyebrow in the
   pill so its mark can be cleared without dropping to Markdown (`applicableRegisters`).
-- **No-heading-slot classes — DONE.** `slideHeadings` now carries an explicit empty `[]` for a KNOWN
-  class with no heading slot (big-number), so Compose offers no heading register there; only an
-  *unrecognized* class stays permissive (`studio.astro` builds the full map; `headingKeysFor` returns
-  `Array.isArray(gh) ? [...gh] : permissive`).
+- **No-heading-slot classes — DONE.** `slideHeadings` now carries an explicit empty `[]` for a class the
+  grammar gives no heading (big-number, quote), so Compose offers no heading register there; only an
+  *unrecognized* class stays permissive (`headingKeysFor` returns `Array.isArray(gh) ? [...gh] :
+  permissive`). The build derives levels by scanning **every** slot's selector for a heading element,
+  not just a slot literally named `heading`/`title` — a class can carry its required heading in a
+  differently-named slot (`policy-recommendation`'s `recommendation` slot is `## `), and keying on the
+  name alone wrongly hid its H2 (caught by the follow-up trio; fixed before merge).
 - **H3–H6 headings — DONE.** `activeRegister` lights H1/H2 only for levels 1/2 (null for 3–6), so an
   H3 is no longer a mislabeled active-H2 that toggled to a paragraph; applying the grammar heading
   normalizes it to H1/H2.
-- **Focus/selection restore on settings close — DONE.** The divider ⚙ snapshots the caret and restores
-  focus + position (clamped to the current doc) when the settings panel closes — "adjust a setting,
-  keep typing" (`ComposeView` `settingsOpen` prop + a deferred restore effect; `StudioShell` threads
-  `inspectorOpen`).
+
+**Attempted and DEFERRED — focus/selection restore on settings close.** The goal (adjust a setting from
+the divider ⚙, keep typing without re-focusing) is real, but a correct implementation isn't reachable
+without a better signal, and the follow-up adversarial trio was decisive:
+- The editor only **blurs on the mobile settings Sheet** (the Radix Sheet traps focus); the desktop
+  inspector is a docked panel that does **not** blur the editor (verified). So a desktop-only restore is
+  a **no-op** — there's nothing to restore.
+- On **mobile**, force-focusing the editor on close would **re-raise the software keyboard** on a
+  frequent action, and the iOS close-focus behavior can't be verified in a headless sandbox (HARD RULE
+  #23). The inversion also showed the trigger is weak: "settings closed" fires on every dismissal
+  (backdrop, Escape, navigate), not just "resume typing" — and the one path where intent is clear
+  (tapping back into the editor) already places the caret where you tap.
+- The red team found concrete failure modes on top of that (a stale snapshot restoring into the
+  **wrong deck** after a deck switch; a stale offset after a settings edit rewrote the slide).
+
+So a *safe* version is a no-op and a *useful* version is unsafe-and-unverifiable. Reverted rather than
+ship dead code or a mobile keyboard-slam. A proper version needs an explicit "return to editing"
+affordance (an unambiguous resume signal) plus on-device verification — logged for a future pass.
 
 **Still open (not in this pass):**
 

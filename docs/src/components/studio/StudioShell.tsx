@@ -2210,7 +2210,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			</div>
 			)}
 			{editMode === 'compose' ? (
-				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} settingsOpen={inspectorOpen} />
+				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} />
 			) : (
 				<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
 			)}
