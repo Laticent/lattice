@@ -64,23 +64,37 @@ export function useSharedPreviewSlot({
 				// Explicit-visibility model (do NOT rely on DOM occlusion): a parked slot
 				// (Fabricate / mobile edit pane / collapsed preview) hides the host outright.
 				//
-				// `opacity:0`, NOT `visibility:hidden` alone, is what actually hides it. The
-				// live engine iframe sets its OWN inline `visibility:visible` (single-slide-
-				// render.ts — its about:blank white-flash gate), and a descendant's explicit
+				// `opacity:0`, NOT `visibility:hidden`, is what actually hides it. The live
+				// engine iframe sets its OWN inline `visibility:visible` (single-slide-render.ts
+				// — its about:blank white-flash gate), and a descendant's explicit
 				// `visibility:visible` OVERRIDES an ancestor's `visibility:hidden` per CSS — so
 				// hiding the host with visibility alone left the slide painting over the code
 				// editor (a tap fell through the pointer-transparent host, so it "bled through").
 				// `opacity` multiplies down the subtree and CANNOT be overridden by a child, and
 				// (unlike `display:none`) it preserves layout, so the frame stays full-size and
 				// warm — per-keystroke renders on the mobile edit pane keep hitting a real box,
-				// exactly as before. Keep `visibility:hidden` too (a11y intent + the not-yet-
-				// revealed case, where the child's own visibility is still hidden).
+				// exactly as before. `visibility:hidden` rides along but only does real work in
+				// the PRE-load window (before the child asserts its own visibility, it inherits
+				// hidden); once the iframe has loaded, opacity is the sole hide (a loaded frame
+				// stays in the a11y tree + tab order regardless — see the doc's a11y follow-up).
 				host.style.visibility = 'hidden';
 				host.style.opacity = '0';
+				// The controller — not React — owns pointer-events, so a parked (invisible) host
+				// can NEVER capture a click. `opacity:0` does not disable hit-testing, and the
+				// child iframe's own `visibility:visible` makes it a hit target through the
+				// ancestor's `visibility:hidden`; a React style keyed on `presentOpen` left the
+				// host `pointer-events:auto` in the withheld-lens Present state (`presentOpen`
+				// true, `presentActive` false) → an invisible click-eater over the "unavailable"
+				// card. Parked is always click-through.
+				host.style.pointerEvents = 'none';
 				return;
 			}
 			host.style.visibility = 'visible';
 			host.style.opacity = '1';
+			// Only the live Present slide accepts pointer input (poster/video taps); the editor
+			// slot stays click-through so a swipe reaches the pane behind it (the z-15 host is
+			// pointer-transparent by design).
+			host.style.pointerEvents = presentActive ? 'auto' : 'none';
 			host.style.top = `${r.top}px`;
 			host.style.left = `${r.left}px`;
 			host.style.width = `${r.width}px`;

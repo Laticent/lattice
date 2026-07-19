@@ -2891,11 +2891,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				// z: Present → 101 (between backdrop 100 and chrome 102). Editor → 15, which sits
 				// ABOVE the mobile pane's own `z-10` (whose opaque bg would else cover the slide)
 				// yet BELOW the READ "Edit this slide" overlay (z-20) and sheets/dialogs (z-50).
-				// Start hidden AND opacity:0 — the controller (useSharedPreviewSlot) owns both
-				// imperatively. opacity is the real hide: the live iframe re-asserts its own
-				// visibility:visible, which overrides an ancestor's visibility:hidden (CSS), so
-				// visibility alone can't park it. See use-shared-preview-slot.ts.
-				style={{ position: 'fixed', top: 0, left: 0, visibility: 'hidden', opacity: 0, zIndex: presentOpen ? 101 : 15, pointerEvents: presentOpen ? 'auto' : 'none' }}
+				// visibility/opacity/pointer-events are all CONSTANTS here (parked defaults) and
+				// owned imperatively by the controller (useSharedPreviewSlot) — a constant in the
+				// JSX means React's diff skips it on re-render, so the controller's imperative
+				// value survives (never clobbered back to the default). opacity is the real hide
+				// (the live iframe re-asserts its own visibility:visible, which overrides an
+				// ancestor's visibility:hidden per CSS); pointer-events:none is the parked default
+				// so an invisible host never eats a click. See use-shared-preview-slot.ts.
+				style={{ position: 'fixed', top: 0, left: 0, visibility: 'hidden', opacity: 0, zIndex: presentOpen ? 101 : 15, pointerEvents: 'none' }}
 				className={cn('overflow-hidden', presentOpen ? 'rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]' : 'rounded-xl')}
 			>
 				<DeckPreview options={options} sample={sharedSample} mermaid={sharedMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={sharedActive} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />

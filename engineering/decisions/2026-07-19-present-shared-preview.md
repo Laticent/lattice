@@ -124,9 +124,36 @@ opacity is **0** when parked (mobile edit pane AND desktop collapsed-preview) an
 (start / Present / Write); a mobile edit-pane screenshot shows only Markdown, no slide bleed; 87
 DeckPreview/Studio/Present unit tests pass; lint + typecheck clean.
 
+### Adversarial trio on the fix (HARD RULE #25) — confirmed correct, one residual closed
+Red team + Munger inversion + independent checker, each driving the real built Studio. **Core
+confirmed sound**: red team couldn't break it across 7 surfaces (incl. the React-clobber test — a
+constant `opacity:0` in the JSX means React's diff skips it on re-render, so the controller's
+imperative `1` survives); the checker independently reproduced every claim (effective opacity 0
+parked / 1 active, mechanism line-verified in `single-slide-render.ts`, 87 tests, `build:check` +
+typecheck clean, no dist drift); Munger confirmed `opacity:0` is the most-robust mechanism and that
+the two alternatives are each ruled out by a real constraint — `display:none` zeroes `host.clientWidth`
+so `scaleFrame` fits against a 0-box (corrupts the warm frame), and `content-visibility` establishes
+`contain`, which breaks the `position:fixed`-fills-viewport invariant (Crux A). **Two lenses
+converged on one residual, now fixed**: the parked host set `opacity:0` but React kept
+`pointer-events:auto` whenever `presentOpen` — so in the withheld-lens Present state (`presentOpen`
+true but `presentActive` false → the host parks) an INVISIBLE host could still capture clicks over
+Present's "unavailable" card (a pre-existing pointer-swallow the opacity fix otherwise *improved* by
+hiding the bleed, not a regression). Closed by making the controller the sole owner of
+`pointer-events`: `none` whenever parked, `auto` only for the live Present slot, `none` for the
+editor slot (click-through by design). The host's React `pointerEvents` is now a clobber-safe
+constant `'none'`, matching how `opacity`/`visibility` are already handled.
+
 ## Follow-ups (logged, #18)
 - The positioning controller re-measures on slot/root *size* + scroll, not pure *position* shifts
   between switch boundaries — a narrow residual (Crux A bars transform-based ancestor motion; most
   pane toggles change the slot's own size). Low risk; noted.
 - Open-from-Fabricate's reconcile write could be eliminated by pre-syncing the parked frame to
   Present's theme, but it's a rare path and not worth the coupling.
+- **A parked preview iframe stays in the accessibility tree and tab order** (trio finding). A loaded
+  `iframe.live` re-asserts its own `visibility:visible`, so the host's `visibility:hidden` can't pull
+  it out of the a11y tree or focus order — Tab from the editor can land on a parked "Live deck
+  preview" frame. This PRE-DATES the reshape (the second Present iframe had the same property) and is
+  off the path of the opacity fix (#18), so it's logged, not fixed here. The clean fix is to gate the
+  child iframe's own `visibility` / `aria-hidden` / `tabindex` when its host parks (couples the
+  controller across the iframe boundary — deferred). Low severity: a duplicate of already-visible
+  content, no data risk.
