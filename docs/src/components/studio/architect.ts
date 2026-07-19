@@ -4,6 +4,9 @@
 // the derived tokens — so the delivered palette is always AA-clean.
 import Fuse from 'fuse.js';
 import * as React from 'react';
+import { parseScene } from '@/lib/anima/schema';
+import type { Scene } from '@/lib/anima/types';
+import { AXES, MOTION_VERBS, PRIMITIVES, VERB_SOURCE } from '@/lib/anima/vocabulary';
 import { applyEdit, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits } from '@/playground/architect-edits.js';
 import { requestSlideFix } from '@/playground/architect-fix.js';
 import { cosineRank } from '@/playground/architect-retrieval.js';
@@ -509,6 +512,101 @@ export function parseFinishReply(reply: string): { recipe: FinishRecipeOut; name
 			edge: { type: str(e.type), intensity: num(e.intensity) },
 		},
 	};
+}
+
+// ── Motion faculty (Director mode): "Describe a motion scene" ──────────────
+// The Anima analog of generateFinish, same model-proposes / deterministic-code-
+// disposes shape (2026-07-18-anima-motion-faculty-modes.md §3.1): the model proposes
+// a full Anima Scene as DATA (HARD RULE #22 — never code), and `parseScene` is the
+// gate that disposes. A reply that doesn't validate degrades to 'nochange' (the last
+// good scene stands) — no model text ever reaches the render frame.
+export type SceneGenOutcome =
+	| { status: 'ok'; scene: Scene }
+	| { status: 'offline' }
+	| { status: 'blocked'; note: string }
+	| { status: 'nochange'; note: string };
+
+// The built-scene motion verbs (spin/orbit/explode/reveal/sequence/fill) — svg-only
+// verbs (draw/trace) are excluded from the prompt because Director authors built scenes.
+const BUILT_VERBS = MOTION_VERBS.filter((v) => VERB_SOURCE[v] === 'built' || VERB_SOURCE[v] === 'both');
+
+const SCENE_SYSTEM = [
+	'You design an ANIMA SCENE — a small, serious 3D animation for a boardroom slide. The motion must CARRY INFORMATION (a mechanism, a relationship, a process a still cannot show), never decoration. Prefer ONE clear moving idea over many.',
+	'Return ONLY a JSON object (no prose, no code, no markdown) matching this exact shape, using ONLY values from the closed vocabularies below:',
+	'{',
+	'  "source": "built",            // always "built" for you (3D primitives)',
+	'  "duration": <ms 1500-8000>,   // total loop length; longer reads calmer',
+	'  "hero": <0..1>,               // poster-frame fraction (the still baked into the PDF), usually 0.4-0.6',
+	'  "elements": [ <Element>, ... ] // at least one; a nested TREE',
+	'}',
+	'Element: { "id": "<unique-kebab>", "shape": <primitive>, "color"?: "var(--token)", "props"?: {geometry}, "transform"?: {"at":[x,y,z],"rotate":[x,y,z-radians],"scale":n}, "motion"?: [<Motion>], "children"?: [<Element>...] }',
+	`Primitives: ${PRIMITIVES.join(', ')}. A "group" draws nothing — it is a transform node; put shapes in its "children" (e.g. a rotor spinning inside a housing = a group carrying the spin, containing the parts).`,
+	`Motion verbs: ${BUILT_VERBS.join(', ')}. spin/orbit take {"axis":"${AXES.join('|')}","period":<ms-per-turn, >=800 so a viewer can follow it>}. explode takes {"distance":<n>=0>}. fill takes {"to":<0..1>}. reveal/sequence/explode/fill also accept a window {"at":<0..1>,"span":<0..1>,"easing":"linear|ease-in|ease-out|ease-in-out"}.`,
+	'Colors MUST be palette tokens — "var(--accent)", "var(--cat-2-mark)", "var(--text)", "var(--cat-1-mark)" — never hex or CSS names, so the scene recolors with the deck theme.',
+	'Example (a rotor spinning inside a ring): {"source":"built","duration":3000,"hero":0.5,"elements":[{"id":"rig","shape":"group","motion":[{"verb":"spin","axis":"y","period":3000}],"children":[{"id":"ring","shape":"ellipse","color":"var(--cat-2-mark)","props":{"diameter":150,"stroke":10},"transform":{"rotate":[1.5708,0,0]}},{"id":"rotor","shape":"cone","color":"var(--accent)","props":{"diameter":74,"length":96}}]}]}',
+].join('\n');
+
+/**
+ * Generate an Anima Scene from a "describe a motion scene" prompt. When `current` is
+ * supplied, this is a REFINE: the model gets the current scene + the nudge and returns a
+ * full updated scene. The reply is extracted + validated by `parseScene` (parseSceneReply);
+ * a non-validating reply degrades to 'nochange'.
+ */
+export async function generateScene(prompt: string, current?: Scene): Promise<SceneGenOutcome> {
+	if (!prompt.trim()) return { status: 'nochange', note: 'Describe a motion scene to generate one.' };
+	const model = await architectModel();
+	if (!model) return { status: 'offline' };
+	const generation = model.availability().generation;
+	if (generation === 'floor') return { status: 'offline' };
+	if (generation === 'openrouter') {
+		const blk = cloudBudgetBlock(model, prompt);
+		if (blk) return { status: 'blocked', note: blk };
+	}
+	const messages: { role: string; content: string }[] = [{ role: 'system', content: SCENE_SYSTEM }];
+	if (current) {
+		messages.push({ role: 'user', content: `Current scene JSON:\n${JSON.stringify(current)}\n\nAdjust it — ${prompt.trim()} — and return the FULL updated scene JSON.` });
+	} else {
+		messages.push({ role: 'user', content: `Design a motion scene for: ${prompt.trim()}` });
+	}
+	let reply = '';
+	try {
+		reply = await model.complete({
+			messages,
+			json: true,
+			fallback: '',
+			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+		});
+	} catch {
+		return { status: 'offline' };
+	}
+	const parsed = parseSceneReply(reply);
+	if (!parsed.ok) return { status: 'nochange', note: parsed.note };
+	return { status: 'ok', scene: parsed.scene };
+}
+
+// Validate a model reply as an Anima Scene. The model emits DATA only (HARD RULE #22) —
+// `parseScene` is the gate; a bad reply is reported, never rendered. `complete({ json:true })`
+// hands back an ALREADY-PARSED object (architect-model's extractJson), so accept an object
+// directly; also tolerate a raw/fenced STRING (a json:false path, or a test feeding text) by
+// slicing the first {…}. Exported for unit tests (the AI-scene extraction contract).
+export function parseSceneReply(reply: unknown): { ok: true; scene: Scene } | { ok: false; note: string } {
+	let obj: unknown;
+	if (reply && typeof reply === 'object') {
+		obj = reply; // json:true already parsed it
+	} else {
+		const text = String(reply || '').trim();
+		const start = text.indexOf('{');
+		const end = text.lastIndexOf('}');
+		if (start < 0 || end <= start) return { ok: false, note: 'The model returned no scene.' };
+		try {
+			obj = JSON.parse(text.slice(start, end + 1));
+		} catch {
+			return { ok: false, note: 'The model’s reply was not valid JSON.' };
+		}
+	}
+	const res = parseScene(obj);
+	if (!res.ok) return { ok: false, note: `The scene didn’t validate: ${res.errors[0] ?? 'unknown error'}.` };
+	return { ok: true, scene: res.scene };
 }
 
 // ── Component Studio: "Describe a component" ───────────────────────────────

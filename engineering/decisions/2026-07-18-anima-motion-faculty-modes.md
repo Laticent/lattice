@@ -215,14 +215,29 @@ faithful mirror). **Pipeline-slot assumption to preserve:** scene wraps in the r
 relies on every injector skipping `section.scene` (sovereign chrome suppression + `form`-toggle
 exemption). A future all-sections injector must exclude scene, or scene must move its wrap after it.
 
+## 6.2 Stage 7 build outcome — the two v1 modes shipped
+
+The faculty landed bottom-up across three slices: **7a** Rig foundation (tree · live stage ·
+read-only inspector), **7b** Rig authoring (verb chips + params + the "reads as information?"
+audit), **7c** Director mode. Director reuses the existing Studio AI rails wholesale (HARD RULE
+#15): a new `generateScene(prompt, current?)` bridge in `architect.ts` mirrors `generateFinish`
+— it teaches the closed Anima vocabulary in a `SCENE_SYSTEM` prompt, calls the shared
+`architectModel().complete()` (the user's own OpenRouter key via OAuth, the budget gate + spend
+tally all inherited — HARD RULE #24), and validates the reply with `parseScene` (the model emits
+DATA only, HARD RULE #22). On a valid reply the UI calls the *same* `setSpec` Rig drives, so the
+live stage / tree / Save need zero new wiring — the "one scene spec, many projections" thesis
+(§2.1) paid off exactly as designed. **A real-surface bug the unit test masked** (HARD RULE #23):
+`complete({ json:true })` returns an already-*parsed object* (architect-model's `extractJson`), not
+a string, so `parseSceneReply` must accept an object — the string-returning module mock hid it, and
+only driving the real Studio with a mocked endpoint surfaced it. Resolves the §7 open questions:
+the **mode switch** is a header segmented toggle (Director · Rig); **mode memory** is a *global
+per-user* default (localStorage `lattice-motion-mode`), defaulting to Director (the low floor).
+
 ## 7. Open questions (carried)
 
-- The mode-switch **affordance + placement** (header segment vs. a corner control) — a Stage
-  7 detail, settled against the real shell.
 - Whether the **scrub/poster strip** is truly universal or a few modes hide it (e.g., pure
   Director Mode) — validated when the second mode is built.
 - The Anima ADR §15 **export** poster model — still Stage-5-gated; §4.1 only fixes storage.
-- Per-user **mode memory** scope (per-scene vs. global default) — a Stage 7 detail.
 - **Scene migration + non-destructive reads (adversarial-trio carry — matters once scenes
   EXIST, Stage 7).** A stored spec is re-adjudicated by `parseScene` on every read; a future
   schema tightening (e.g. the Three tier) could invalidate an old scene. Today an unparseable

@@ -47,6 +47,12 @@ describe('auditScene — the anti-gimmick check', () => {
     expect(notes.some((n) => n.level === 'warn' && n.elId === 'hollow' && /nothing to show/i.test(n.message))).toBe(true);
   });
 
+  it('dedupes identical notes (two byte-identical too-fast motions → one warning)', () => {
+    const notes = auditScene(built([{ id: 'q', shape: 'box', motion: [{ verb: 'spin', axis: 'y', period: 200 }, { verb: 'spin', axis: 'y', period: 200 }] }]));
+    const tooFast = notes.filter((n) => /too fast/i.test(n.message));
+    expect(tooFast).toHaveLength(1); // not two identical warnings
+  });
+
   it('does not warn a moving group whose descendant renders geometry', () => {
     const notes = auditScene(built([
       { id: 'outer', shape: 'group', motion: [{ verb: 'spin', axis: 'y', period: 3000 }], children: [{ id: 'inner', shape: 'group', children: [{ id: 'leaf', shape: 'cone' }] }] },

@@ -191,6 +191,18 @@ in patch versions.
 
 ### Added
 
+- **Director mode — describe a motion scene in plain words, and the Studio builds it.** The Motion
+  faculty gains its low-floor front door (a **Director · Rig** switch in the header, remembered per
+  user). In **Director** you type what you want — “a rotor spinning inside a housing,” “two gears
+  meshing” — and the model proposes an Anima scene that plays live on the stage; the scene tree stays
+  under the hood. Nudge it with **refine chips** (Calmer · Bolder · Simpler · More depth) or a freeform
+  “make the ring bigger,” and **tune** its pace + poster frame with two sliders. It runs on **your own**
+  OpenRouter key (connect once via OAuth — our key is never on the site), and the model emits only
+  **data**: every reply is validated by `parseScene` before it renders (HARD RULE #22), so a bad reply
+  leaves your current scene untouched. Flip to **Rig** any time to fine-tune by hand — same scene, no
+  loss. (`MotionStudio.tsx`, `architect.ts` `generateScene`; `2026-07-18-anima-motion-faculty-modes.md`
+  §3.1.)
+
 - **A Motion faculty in the Studio — the foundation for authoring a `scene`.** The Fabricate
   surface gains a fourth tab (Theme · Component · Finish · **Motion**). Its first mode, **Rig**, lays the
   groundwork: the scene **tree** on the left (inspect and prune elements), a **live stage** in the center

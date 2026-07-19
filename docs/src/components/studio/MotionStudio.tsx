@@ -1,6 +1,7 @@
-import { Check, Cloud, Film, Loader2, RotateCcw, Trash2, X } from 'lucide-react';
+import { ArrowUp, Check, Cloud, Film, Loader2, RotateCcw, SlidersHorizontal, Sparkles, Trash2, Wand2, X } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { auditScene } from '@/lib/anima/audit';
 import { EASINGS } from '@/lib/anima/easing';
 import { hydrateScene } from '@/lib/anima/hydrate';
@@ -9,14 +10,19 @@ import type { BuiltElement, Motion, Scene } from '@/lib/anima/types';
 import { AXES, MOTION_VERBS, type MotionVerb, VERB_SOURCE } from '@/lib/anima/vocabulary';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
 import { cn } from '@/lib/utils';
+import { connectOpenRouter, generateScene, useArchitectStatus } from './architect';
 import { saveStudioScene, sceneEngine, slugify } from './scene-library';
 
-// The Motion faculty — Rig Mode v1 (Stage 7a), the deterministic foundation of
-// 2026-07-18-anima-motion-faculty-modes.md §3.1. Three panes: the scene TREE (left) ·
-// a LIVE STAGE (center, driven by the Stage 6 host — the same hydrateScene the deck
-// surfaces use) · a selected-element inspector (right, read-only here). Name + Save
-// persist the canonical spec into the Stage 4 asset store. The rich verb-chip param
-// editing + the "reads as information?" audit are Stage 7b; Director (AI) is 7c.
+// The Motion faculty — the two v1 authoring MODES of 2026-07-18-anima-motion-faculty-modes.md
+// §3.1, both projections of ONE scene spec so switching is loss-free:
+//   • DIRECTOR (Stage 7c, the low floor) — describe a scene in words → the model proposes a
+//     Scene as DATA → parseScene gates it (HARD RULE #22) → the live stage. Refine with chips
+//     + a freeform nudge; tune pace + poster. The tree stays under the hood.
+//   • RIG (Stages 7a/7b, the ceiling) — the scene TREE · the LIVE STAGE (the Stage 6 host, the
+//     same hydrateScene the deck surfaces use) · a verb-chip inspector + the "reads as
+//     information?" audit. Max control.
+// The chosen mode travels with the USER (localStorage), not the scene; a fresh user opens in
+// Director. Name + Save persist the canonical spec into the Stage 4 asset store.
 
 // A starter scene so the stage is never empty — the rotor-in-housing, the docs' own
 // canonical example of meaning-bearing motion (a relationship a still can only imply).
@@ -141,6 +147,37 @@ const clampNum = (raw: string, min: number) => {
 	return Number.isFinite(n) ? Math.max(min, n) : min;
 };
 
+// The two v1 authoring modes (2026-07-18 §3.1): Director (describe it, spec under the hood)
+// and Rig (the tree + verb chips). The choice travels with the user, not the scene — a
+// Presenter reopens in Director, an Analyst in Rig. A fresh user defaults to Director (the
+// low floor). Persisted best-effort; a window-less/blocked context falls back to Director.
+type Mode = 'director' | 'rig';
+const MODE_KEY = 'lattice-motion-mode';
+function readMotionMode(): Mode {
+	try {
+		return localStorage.getItem(MODE_KEY) === 'rig' ? 'rig' : 'director';
+	} catch {
+		return 'director';
+	}
+}
+function writeMotionMode(m: Mode) {
+	try {
+		localStorage.setItem(MODE_KEY, m);
+	} catch {
+		/* private mode / SSR — the in-memory state still switches */
+	}
+}
+
+// Director refine chips — SEMANTIC nudges that re-prompt the model with the CURRENT scene.
+// Deliberately NOT "Slower"/"Faster": pace is the Pace slider's job (a free, instant spec
+// edit), so a paid model round-trip for it would be strictly worse (red-team/Munger note).
+const REFINE_CHIPS: { label: string; nudge: string }[] = [
+	{ label: 'Calmer', nudge: 'Make it calmer and more restrained.' },
+	{ label: 'Bolder', nudge: 'Make it bolder and more dramatic.' },
+	{ label: 'Simpler', nudge: 'Simplify it — fewer elements, one clear idea.' },
+	{ label: 'More depth', nudge: 'Give it more three-dimensional depth.' },
+];
+
 export function MotionStudio({
 	notify,
 	onSaved,
@@ -154,7 +191,27 @@ export function MotionStudio({
 	const [selected, setSelected] = React.useState<string>('rig');
 	const [name, setName] = React.useState('');
 	const [saving, setSaving] = React.useState(false);
+	const [mode, setMode] = React.useState<Mode>(readMotionMode);
+	const [prompt, setPrompt] = React.useState('');
+	const [refine, setRefine] = React.useState('');
+	const [gen, setGen] = React.useState<'idle' | 'working'>('idle');
+	const modelReady = useArchitectStatus().ready;
 	const stageRef = React.useRef<HTMLDivElement>(null);
+
+	const switchMode = (m: Mode) => {
+		setMode(m);
+		writeMotionMode(m);
+	};
+
+	// A generation sequence — every MANUAL spec edit (Rig chips/params, prune, Reset, sliders)
+	// bumps it through `editSpec`. A describe/refine snapshots it and, on resolve, drops its
+	// result if the user has edited since — so a slow cloud reply can't silently clobber the
+	// hand-edits the user made while waiting (red-team lost-update finding).
+	const genSeq = React.useRef(0);
+	const editSpec = (u: React.SetStateAction<Scene>) => {
+		genSeq.current++;
+		setSpec(u);
+	};
 
 	const rows = React.useMemo(() => flatten(spec), [spec]);
 	const valid = React.useMemo(() => parseScene(spec).ok, [spec]);
@@ -163,6 +220,7 @@ export function MotionStudio({
 	// The LIVE STAGE. Build a `section.scene` with the current spec and hand it to the Stage 6
 	// host (eager mount, sanitizer injected — HARD RULE #22). Re-hydrate whenever the spec
 	// changes; dispose on teardown so no rAF outlives the stage.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `mode` is intentional, not extra — switching Director↔Rig unmounts one stage node and mounts another, so the effect MUST re-run to hydrate the new node (stageRef points at it only after the swap commits).
 	React.useEffect(() => {
 		const host = stageRef.current;
 		if (!host || !valid) return;
@@ -195,7 +253,9 @@ export function MotionStudio({
 			ctrl?.dispose();
 			host.textContent = '';
 		};
-	}, [spec, valid]);
+		// `mode` is a dep: switching Director↔Rig re-mounts a DIFFERENT stage node, so the
+		// effect must re-run to hydrate into it (spec/valid alone wouldn't have changed).
+	}, [spec, valid, mode]);
 
 	// Keep the selection valid — if the selected element was pruned, fall to the first row.
 	React.useEffect(() => {
@@ -218,7 +278,7 @@ export function MotionStudio({
 	// `selectedRow`), so a rapid sequence of chip/param edits can't splice against a stale tree.
 	function toggleVerb(v: MotionVerb) {
 		if (!selPath) return;
-		setSpec((s) => {
+		editSpec((s) => {
 			const el = elementAt(s, selPath);
 			if (!el) return s;
 			const motions = el.motion ?? [];
@@ -228,7 +288,7 @@ export function MotionStudio({
 	}
 	function updateMotion(i: number, patch: Record<string, unknown>) {
 		if (!selPath) return;
-		setSpec((s) => {
+		editSpec((s) => {
 			const el = elementAt(s, selPath);
 			if (!el?.motion) return s;
 			const motions = el.motion.map((m, k) => (k === i ? ({ ...m, ...patch } as Motion) : m));
@@ -237,12 +297,62 @@ export function MotionStudio({
 	}
 	function removeMotion(i: number) {
 		if (!selPath) return;
-		setSpec((s) => {
+		editSpec((s) => {
 			const el = elementAt(s, selPath);
 			if (!el?.motion) return s;
 			return setMotionAt(s, selPath, el.motion.filter((_, k) => k !== i));
 		});
 	}
+
+	// Director mode — describe (fresh) or refine (nudge the current scene). The model emits a
+	// full Scene as DATA; `generateScene` validates it via parseScene (HARD RULE #22), so a bad
+	// reply degrades to 'nochange' and the current scene stands. On success we adopt the scene
+	// (setSpec) — the same setter Rig drives, so the stage/tree/save all just work.
+	async function runDescribe(text: string, refine: boolean) {
+		const p = text.trim();
+		if (!p || gen === 'working') return;
+		const seq = genSeq.current; // snapshot — drop the reply if the user edits while it's in flight
+		setGen('working');
+		try {
+			const out = await generateScene(p, refine ? spec : undefined);
+			if (out.status === 'ok') {
+				if (genSeq.current !== seq) {
+					// A manual edit / Reset superseded this generation while it was in flight. Protect the
+					// hand-edits (don't clobber them), but SAY SO — a paid round-trip silently vanishing is
+					// the wrong default when it's the user's own metered key.
+					notify('Your edit cancelled the pending generation — describe again to use it.');
+					return;
+				}
+				// The stage transports the spec via `btoa` (Latin1 only); a model that returns a
+				// non-ASCII id/color would throw there and blank the stage. Reject it here so we
+				// never show a false "Generated" over an empty stage (honest degradation, #23).
+				try {
+					btoa(JSON.stringify(out.scene));
+				} catch {
+					notify('That scene used characters we can’t render yet — try describing it without special symbols.');
+					return;
+				}
+				setSpec(out.scene);
+				setSelected(out.scene.elements[0]?.id ?? '');
+				if (!refine) setPrompt('');
+				notify(refine ? 'Refined the scene.' : 'Generated a motion scene — refine it, or name it and Save.');
+			} else if (out.status === 'offline') {
+				notify('No model connected — Connect OpenRouter (your own key) or load an on-device model.');
+			} else if (out.status === 'blocked') {
+				notify(out.note);
+			} else {
+				notify(out.note || 'No scene proposed — try describing it differently.');
+			}
+		} catch {
+			notify('Scene generation failed — please try again.');
+		} finally {
+			setGen('idle');
+		}
+	}
+
+	// The two Director "few sliders" (§3.1) — global scene knobs that never touch the tree.
+	const setDuration = (ms: number) => editSpec((s) => ({ ...s, duration: Math.max(1, Math.round(ms)) }));
+	const setHero = (h: number) => editSpec((s) => ({ ...s, hero: clamp01(h) }));
 
 	const nameOk = slugify(name).length > 0;
 	async function save() {
@@ -269,7 +379,17 @@ export function MotionStudio({
 				</div>
 				<span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{sceneEngine(spec)}</span>
 				<div className="flex-1" />
-				<Button type="button" variant="ghost" size="sm" title="Reset to the starter scene" onClick={() => { setSpec(STARTER); setSelected('rig'); }} className="shrink-0 gap-1.5 text-muted-foreground">
+				{/* Mode switch — Director (describe) · Rig (tree). Remembered per user (§3.1). */}
+				{/* biome-ignore lint/a11y/useSemanticElements: role="group" + aria-label is the correct ARIA for a labeled segmented toggle; <fieldset>/<legend> is for form field sets, not a 2-button mode switch in a toolbar */}
+				<div className="inline-flex shrink-0 overflow-hidden rounded-md border border-border" role="group" aria-label="Authoring mode">
+					<button type="button" aria-pressed={mode === 'director'} onClick={() => switchMode('director')} className={cn('flex items-center gap-1.5 px-2.5 py-1 text-[12px] font-medium', mode === 'director' ? 'bg-[var(--accent)] text-[var(--bg,#fff)]' : 'text-muted-foreground hover:bg-muted')}>
+						<Wand2 className="size-3.5" /> <span className="hidden sm:inline">Director</span>
+					</button>
+					<button type="button" aria-pressed={mode === 'rig'} onClick={() => switchMode('rig')} className={cn('flex items-center gap-1.5 border-l border-border px-2.5 py-1 text-[12px] font-medium', mode === 'rig' ? 'bg-[var(--accent)] text-[var(--bg,#fff)]' : 'text-muted-foreground hover:bg-muted')}>
+						<SlidersHorizontal className="size-3.5" /> <span className="hidden sm:inline">Rig</span>
+					</button>
+				</div>
+				<Button type="button" variant="ghost" size="sm" title="Reset to the starter scene" onClick={() => { editSpec(STARTER); setSelected('rig'); }} className="shrink-0 gap-1.5 text-muted-foreground">
 					<RotateCcw className="size-3.5" /> <span className="hidden sm:inline">Reset</span>
 				</Button>
 				{onOpenWorkspace && (
@@ -282,7 +402,84 @@ export function MotionStudio({
 				</Button>
 			</div>
 
-			{/* Body — tree · stage · inspector. */}
+			{mode === 'director' ? (
+				<>
+					{/* AI front door — describe a motion scene (mirrors the Finish/Theme command bar). */}
+					<div className="flex shrink-0 flex-col gap-2 border-b border-border bg-card px-4 py-2.5">
+						<div className={cn('flex items-center gap-2.5 rounded-[10px] border bg-background px-3 py-2', modelReady ? 'border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]' : 'border-dashed border-border')}>
+							<Sparkles className={cn('size-4 shrink-0', modelReady ? 'text-[var(--accent)]' : 'text-muted-foreground')} />
+							<input value={prompt} onChange={(e) => setPrompt(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') runDescribe(prompt, false); }} disabled={gen === 'working' || !modelReady} placeholder="Describe a motion scene — e.g. “a gear meshing with a larger gear”" aria-label="Describe a motion scene" className="min-w-0 flex-1 bg-transparent text-[13px] text-[var(--text-heading)] outline-none placeholder:text-muted-foreground disabled:opacity-60" />
+							{modelReady ? (
+								<button type="button" onClick={() => runDescribe(prompt, false)} disabled={gen === 'working' || !prompt.trim()} aria-label="Generate scene" className="grid size-7 shrink-0 place-items-center rounded-md bg-[var(--accent)] text-[var(--bg,#fff)] disabled:opacity-40">
+									{gen === 'working' ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+								</button>
+							) : (
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<button type="button" aria-label="Connect a model" className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--accent)] px-2.5 py-1 text-[12px] font-semibold text-[var(--bg,#fff)]"><Cloud className="size-3.5" />Connect</button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="end" className="w-60">
+										<DropdownMenuItem onSelect={() => { connectOpenRouter().catch(() => notify('Could not start the OpenRouter connect flow — try Library.')); }}><Cloud className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Connect cloud</div><div className="text-[11px] text-muted-foreground">OpenRouter — your own key</div></div></DropdownMenuItem>
+										<DropdownMenuItem onSelect={() => onOpenWorkspace?.()}><Sparkles className="size-4" /><div><div className="font-semibold text-[var(--text-heading)]">Use on-device</div><div className="text-[11px] text-muted-foreground">Runs locally, free — via Library</div></div></DropdownMenuItem>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem onSelect={() => onOpenWorkspace?.()}>Open Library…</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
+							)}
+						</div>
+						{!modelReady && <p className="text-[11px] leading-snug text-muted-foreground">Connect a model to describe a scene in words — or switch to Rig to build it by hand.</p>}
+					</div>
+
+					{/* Body — the live stage + a refine/tune panel (the tree stays under the hood). */}
+					<div className="grid min-h-0 flex-1 grid-cols-1 sm:grid-cols-[minmax(0,2.4fr)_minmax(220px,1fr)]">
+						<div className="relative flex min-h-[240px] items-center justify-center bg-[var(--bg,#fff)] p-6">
+							{valid ? (
+								<div ref={stageRef} className="motion-stage aspect-[4/3] w-full max-w-[520px]" />
+							) : (
+								<div className="flex items-center gap-2 text-sm text-[var(--fail)]"><X className="size-4" /> The scene spec is invalid — nothing to play.</div>
+							)}
+						</div>
+						<div className="min-h-0 overflow-y-auto border-t border-border p-3 sm:border-l sm:border-t-0">
+							{/* Refine — quick chips + a freeform nudge, both re-prompt with the current scene. */}
+							<div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Refine</div>
+							<div className="flex flex-wrap gap-1.5 pb-2">
+								{REFINE_CHIPS.map((c) => (
+									<button key={c.label} type="button" disabled={gen === 'working' || !modelReady} onClick={() => runDescribe(c.nudge, true)} className="rounded-full border border-border px-2.5 py-0.5 text-[12px] font-medium text-muted-foreground hover:border-[var(--text-muted)] hover:text-foreground disabled:opacity-40">{c.label}</button>
+								))}
+							</div>
+							<div className="flex items-center gap-1.5 pb-3">
+								<input value={refine} onChange={(e) => setRefine(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && refine.trim()) { runDescribe(refine, true); setRefine(''); } }} disabled={gen === 'working' || !modelReady} placeholder="Refine — e.g. “make the ring bigger”" aria-label="Refine the scene" className="min-w-0 flex-1 rounded-md border border-border bg-transparent px-2 py-1 text-[12px] text-foreground outline-none placeholder:text-muted-foreground focus:border-[var(--accent)] disabled:opacity-50" />
+								<button type="button" disabled={gen === 'working' || !modelReady || !refine.trim()} onClick={() => { runDescribe(refine, true); setRefine(''); }} aria-label="Apply refinement" className="grid size-7 shrink-0 place-items-center rounded-md border border-border text-muted-foreground hover:text-[var(--accent)] disabled:opacity-40">{gen === 'working' ? <Loader2 className="size-3.5 animate-spin" /> : <ArrowUp className="size-3.5" />}</button>
+							</div>
+
+							{/* Tune — the two global "few sliders" (§3.1): pace + the poster frame. */}
+							<div className="border-t border-border pt-3">
+								<div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tune</div>
+								<label className="flex items-center gap-2 pb-2 text-[12px] text-muted-foreground">
+									<span className="w-14 shrink-0">Pace</span>
+									<input type="range" min={1500} max={8000} step={250} value={spec.duration} onChange={(e) => setDuration(Number(e.target.value))} className="min-w-0 flex-1 accent-[var(--accent)]" />
+									<span className="w-12 shrink-0 text-right tabular-nums">{(spec.duration / 1000).toFixed(1)}s</span>
+								</label>
+								<label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+									<span className="w-14 shrink-0">Poster</span>
+									<input type="range" min={0} max={1} step={0.05} value={spec.hero} onChange={(e) => setHero(Number(e.target.value))} className="min-w-0 flex-1 accent-[var(--accent)]" />
+									<span className="w-12 shrink-0 text-right tabular-nums">{spec.hero.toFixed(2)}</span>
+								</label>
+								<p className="pt-1 text-[11px] leading-snug text-muted-foreground">Poster is the still frame baked into the PDF.</p>
+							</div>
+
+							{/* The "reads as information?" check — implicit in Director: only the warnings show. */}
+							{audit.some((n) => n.level === 'warn') && (
+								<ul className="mt-3 flex flex-col gap-1.5 border-t border-border pt-3">
+									{audit.filter((n) => n.level === 'warn').map((n) => (
+										<li key={`${n.elId ?? 'scene'}:${n.message}`} className="flex gap-1.5 text-[12px] leading-snug text-[var(--fail)]"><span aria-hidden className="shrink-0">⚠</span><span>{n.message}</span></li>
+									))}
+								</ul>
+							)}
+						</div>
+					</div>
+				</>
+			) : (
 			<div className="grid min-h-0 flex-1 grid-cols-1 sm:grid-cols-[minmax(180px,1fr)_minmax(0,2.4fr)_minmax(200px,1.1fr)]">
 				{/* Scene tree */}
 				<div className="min-h-0 overflow-y-auto border-b border-border p-2 sm:border-b-0 sm:border-r">
@@ -300,7 +497,7 @@ export function MotionStudio({
 									{VERBS(r.el).length > 0 && <span className="shrink-0 text-[11px] text-[var(--accent)]">{VERBS(r.el).join('·')}</span>}
 								</button>
 								{canRemove(r) && (
-									<button type="button" aria-label={`Remove ${r.el.id}`} onClick={() => setSpec((s) => removeAt(s, r.path))} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail)] group-hover:opacity-100">
+									<button type="button" aria-label={`Remove ${r.el.id}`} onClick={() => editSpec((s) => removeAt(s, r.path))} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail)] group-hover:opacity-100">
 										<Trash2 className="size-3" />
 									</button>
 								)}
@@ -439,6 +636,7 @@ export function MotionStudio({
 					</div>
 				</div>
 			</div>
+			)}
 
 			{/* The live stage borrows the host's rules — the engine stylesheet isn't loaded in the
 			    Studio's own DOM (decks render in their iframe). The control uses px here (the deck's
