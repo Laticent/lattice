@@ -1,5 +1,5 @@
 import { Fragment, type Node as PMNode } from 'prosemirror-model';
-import type { Command, EditorState } from 'prosemirror-state';
+import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
 import { addRowAfter, goToNextCell, isInTable, selectedRect } from 'prosemirror-tables';
 
 // Pure table editing commands for Compose — no DOM, no React. Shared by the editor's keymap /
@@ -74,6 +74,79 @@ export const tabToNextCellOrAddRow: Command = (state, dispatch, view) => {
 	if (dispatch && view) {
 		addRowAfter(state, dispatch);
 		goToNextCell(1)(view.state, view.dispatch, view);
+	}
+	return true;
+};
+
+// ── LFM state markers (obligation-matrix / roadmap cells) ───────────────────────
+// The four markers the engine renders as stoplight chips: `[x]` pass, `[-]` partial/warn,
+// `[ ]` todo, `[/]` skip (LFM-1.0 §3.2). The picker sets them so authors don't type the syntax.
+const CELL_MARKER = /^\[([x\-/ ])\]\s?/; // a leading marker + its optional trailing space
+
+/** The marker CHAR (`x`/`-`/`/`/` `) at the start of the caret's cell, or null. Drives the picker. */
+export function currentCellMarker(state: EditorState): string | null {
+	if (!isInTable(state)) return null;
+	const p = state.selection.$from.parent;
+	if (p.type.name !== 'table_cell' && p.type.name !== 'table_header') return null;
+	// Read the LEADING TEXT NODE (mirrors setCellMarker): a marker only ever leads plain text, and a
+	// leading inline atom would make `textContent` lie about the marker's presence.
+	const first = p.firstChild;
+	const m = first?.isText ? /^\[([x\-/ ])\]/.exec(first.text ?? '') : null;
+	return m ? m[1] : null;
+}
+
+/** Set (or clear, with null) the LFM state marker at the START of the caret's cell, preserving any
+ *  trailing text (`[x] Signal taxonomy`). `marker` is the full token, e.g. `[x]`. */
+export function setCellMarker(marker: string | null): Command {
+	return (state, dispatch) => {
+		if (!isInTable(state)) return false;
+		const { $from } = state.selection;
+		const p = $from.parent;
+		if (p.type.name !== 'table_cell' && p.type.name !== 'table_header') return false;
+		if (dispatch) {
+			const cellStart = $from.start(); // first inline position in the cell
+			// Measure an existing marker off the cell's LEADING TEXT NODE, not `textContent`: textContent
+			// skips inline atoms (an image), so its char length diverges from real document positions and
+			// a range built from it would delete the wrong content. A marker only ever leads a text node.
+			const first = p.firstChild;
+			const m = first?.isText ? CELL_MARKER.exec(first.text ?? '') : null;
+			const existing = m ? m[0].length : 0;
+			const tr = state.tr;
+			if (marker) {
+				// Insert an explicitly UNMARKED text node (not `insertText`, which inherits the stored/
+				// inclusive marks at the caret): a marker under bold/code would serialize `**\[x\] …**`,
+				// which the engine never renders as a stoplight. The marker must be plain at the cell start.
+				tr.replaceWith(cellStart, cellStart + existing, state.schema.text(`${marker} `));
+			} else if (existing) {
+				tr.delete(cellStart, cellStart + existing);
+			}
+			dispatch(tr);
+		}
+		return true;
+	};
+}
+
+/** Insert a starter 2×2 GFM table (a header row + one body row) at the caret: replacing an empty
+ *  paragraph, else inserted after the caret's top-level block. Bails inside an existing table (use
+ *  the table controls) or outside a slide. */
+export const insertStarterTable: Command = (state, dispatch) => {
+	const { $from } = state.selection;
+	if ($from.depth < 2 || $from.node(1).type.name !== 'slide' || isInTable(state)) return false;
+	const s = state.schema;
+	if (!s.nodes.table) return false;
+	if (dispatch) {
+		const th = s.nodes.table_header.createAndFill();
+		const td = s.nodes.table_cell.createAndFill();
+		if (!th || !td) return false; // unreachable for inline* cells, but report no-op honestly if it happens
+		const table = s.nodes.table.create(null, [s.nodes.table_row.create(null, [th, th]), s.nodes.table_row.create(null, [td, td])]);
+		const before = $from.before(2);
+		const after = $from.after(2);
+		const block = $from.node(1).child($from.index(1));
+		const empty = block.type.name === 'paragraph' && block.content.size === 0;
+		const at = empty ? before : after;
+		const tr = empty ? state.tr.replaceWith(before, after, table) : state.tr.insert(after, table);
+		tr.setSelection(TextSelection.near(tr.doc.resolve(at + 1)));
+		dispatch(tr.scrollIntoView());
 	}
 	return true;
 };

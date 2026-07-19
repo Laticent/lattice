@@ -212,6 +212,50 @@ render never diverge — the two editors stay perfectly in sync.
 > trigger is a genuine `DropdownMenuTrigger` — resolving the trio's reuse finding
 > (HARD RULE #15) properly rather than restyling a bespoke popover. Pure commands
 > moved to `lib/compose/table-commands.ts` (shared, no circular import).
+>
+> **Follow-up: the on-deck trio (2026-07-19).** Three items the original design
+> named but deferred, landed together (one PR, HARD RULE #17):
+> - **Marker picker (Axis C "later").** On a stateful slide
+>   (`obligation-matrix`/`roadmap`) the table island leads with four state-marker
+>   chips (`[x]` pass · `[-]` partial · `[ ]` to-do · `[/]` skip). Clicking one
+>   sets/replaces the marker at the caret cell's start via `setCellMarker`
+>   (`currentCellMarker` reads it back); the cell's own rendered badge
+>   (`stateMarkerPlugin`) shows the live state, so the chips carry no pressed-state.
+>   Class-awareness comes from the slide's `directives` (`_class`), read through
+>   `slideClassOf` — no new schema, still literal cell text (Axis C invariant holds).
+> - **Insert-table affordance (Axis E / phase 2 "insert a brand-new table").** A
+>   pill-actions button (`insertStarterTable`) drops a 2×2 GFM grid at the caret —
+>   replacing an empty paragraph in place, else after the caret's block. Hidden when
+>   the caret is already in a table (`.cs-caret-in-table`), so no dead button /
+>   doubled table icon.
+> - **Decoration-cache perf (the logged residual above).** `stateMarkerPlugin` now
+>   memoizes its `DecorationSet` by `state.doc` identity, so a caret-only update
+>   (the common keystroke) skips the whole-doc marker rescan — the scan runs only on
+>   a real doc change. Behavior-identical (the cache is per-view, keyed on the
+>   immutable doc object). A one-off manual timing put the full scan at well under a
+>   millisecond on a synthetic 100-slide deck, so this was never a hot path; the memo
+>   just removes the per-update rescan and retires the "revisit with a decoration
+>   cache" residual. (Docs-site editor code, not the engine, so it's outside the
+>   `npm run bench` harness — no committed baseline.)
+>
+> **Trio hardening (2026-07-19, this PR).** The three follow-ups went through the
+> full adversarial trio (red team · Munger inversion · independent checker,
+> HARD RULE #25). Fixes folded before merge:
+> - **`setCellMarker` measured the marker off `textContent` and inserted with
+>   `insertText`** — two bugs the red team reproduced. `textContent` skips inline
+>   atoms, so a cell leading with an image diverged char-count from document
+>   position and the range deleted the image; and `insertText` inherits inclusive
+>   marks, so a marker set on a bold cell serialized `**\[x\] …**`, which the engine
+>   never renders. Both fixed by measuring off the cell's leading *text* node and
+>   inserting an explicitly unmarked node (regression-tested).
+> - **The badge decoration was class-blind and painted header cells** (Munger
+>   inversion) — Compose showed stoplight chips the export won't produce (on
+>   non-stateful tables and in `<th>`). `stateMarkerPlugin` now descends only
+>   stateful slides and decorates `table_cell` only, so Compose's badge matches the
+>   engine exactly. `STATEFUL_CLASSES` is now the single source of truth for *both*
+>   the picker and the decoration (documented as the pipe-table subset of the spec's
+>   five marker-bearing components — the other three carry markers in lists, not
+>   cells, so they are correctly out of a table picker's scope).
 
 ## Phasing (one branch → one PR, HARD RULE #17)
 

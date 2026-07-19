@@ -4,7 +4,7 @@ import { deleteTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { deckSchema, deckToDoc, docToDeck } from '@/lib/compose/deck-doc';
-import { currentColumnAlign, setColumnAlign, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { currentCellMarker, currentColumnAlign, insertStarterTable, setCellMarker, setColumnAlign, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 
 // The table CHROME commands, state-tested (no browser) the way the register/collapse suites are.
 // These are the behaviors the round-trip fixtures don't exercise — the adversarial trio flagged
@@ -110,5 +110,88 @@ describe('table chrome commands', () => {
 		expect(out.attrs.colspan).toBe(1);
 		expect(out.attrs.rowspan).toBe(1);
 		expect(out.attrs.colwidth).toBe(null);
+	});
+
+	it('setCellMarker writes a state marker at the cell start and currentCellMarker reads it back', () => {
+		const t = harness(TABLE);
+		t.caret('1'); // a body cell with text "1"
+		expect(currentCellMarker(t.state)).toBe(null);
+		setCellMarker('[x]')(t.state, t.view.dispatch);
+		expect(currentCellMarker(t.state)).toBe('x');
+		expect(t.src()).toContain('| [x] 1 |'); // marker prepended, cell text preserved
+	});
+
+	it('setCellMarker replaces an existing marker (not stack it) and clears with null', () => {
+		const t = harness('<!-- _class: obligation-matrix -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| GDPR | [x] |');
+		t.caret('[x]');
+		setCellMarker('[-]')(t.state, t.view.dispatch); // x → -
+		expect(t.src()).toContain('| [-] |');
+		expect(t.src()).not.toContain('[x]');
+		t.caret('[-]');
+		setCellMarker(null)(t.state, t.view.dispatch); // clear
+		expect(currentCellMarker(t.state)).toBe(null);
+	});
+
+	it('insertStarterTable drops a 2×2 grid (header + one body row) at the caret block', () => {
+		const t = harness('<!-- _class: content -->\n\n# Head\n\nsome prose');
+		t.caret('some prose');
+		expect(insertStarterTable(t.state, t.view.dispatch)).toBe(true);
+		expect(t.count('table')).toBe(1);
+		expect(t.count('table_row')).toBe(2); // header + one body row
+		expect(t.count('table_header')).toBe(2); // 2 columns
+		expect(() => t.state.doc.check()).not.toThrow();
+		expect(t.src()).toContain('| --- | --- |'); // the empty starter grid serializes to valid GFM
+	});
+
+	it('setCellMarker inserts an UNMARKED marker under bold (never a bolded/escaped `**[x] …**`)', () => {
+		// Red-team #2: insertText would inherit inclusive marks, bolding+escaping the marker so the
+		// engine never renders it. The marker must be plain text at the literal cell start.
+		const t = harness('<!-- _class: obligation-matrix -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| **GDPR** | x |');
+		t.caret('GDPR'); // caret inside the bolded cell text
+		setCellMarker('[x]')(t.state, t.view.dispatch);
+		expect(t.src()).toContain('[x] **GDPR**'); // marker plain + outside the bold, not `**[x] GDPR**`
+		expect(t.src()).not.toContain('**[x]'); // never inside the emphasis
+		expect(t.src()).not.toContain('\\[x\\]'); // never escaped
+	});
+
+	it('setCellMarker leaves a leading inline image intact (no textContent-vs-position corruption)', () => {
+		// Red-team #1: measuring an existing marker off `textContent` (which skips the image atom) and
+		// using that char count as a document position would delete the image. Guard on the leading text.
+		const t = harness('<!-- _class: obligation-matrix -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| GDPR | ![a](u.png) x |');
+		t.caret('x'); // the cell leads with an image, then text
+		setCellMarker('[x]')(t.state, t.view.dispatch);
+		expect(t.src()).toContain('u.png'); // the image survives
+		expect(t.src()).toContain('[x]'); // and the marker was written
+	});
+
+	it('insertStarterTable replaces an EMPTY paragraph in place (no stray blank block)', () => {
+		// Build a slide with an empty trailing paragraph directly (markdown collapses blank lines).
+		const s = deckSchema;
+		const slide = s.nodes.slide.create({ directives: ['<!-- _class: content -->'] }, [s.nodes.heading.create({ level: 1 }, s.text('Head')), s.nodes.paragraph.create()]);
+		let state = EditorState.create({ doc: s.nodes.doc.create(null, [slide]), schema: s });
+		const emptyPos = state.doc.child(0).child(0).nodeSize + 2; // inside the empty paragraph
+		state = state.apply(state.tr.setSelection(TextSelection.near(state.doc.resolve(emptyPos))));
+		const before = state.doc.nodeSize;
+		let next = state;
+		insertStarterTable(state, (tr) => {
+			next = state.apply(tr);
+		});
+		let paras = 0;
+		let tables = 0;
+		next.doc.descendants((n) => {
+			if (n.type.name === 'paragraph' && n.content.size === 0) paras++;
+			if (n.type.name === 'table') tables++;
+			return true;
+		});
+		expect(tables).toBe(1);
+		expect(paras).toBe(0); // the empty paragraph was replaced, not left behind
+		expect(next.doc.nodeSize).toBeGreaterThan(before);
+	});
+
+	it('insertStarterTable is a no-op inside an existing table', () => {
+		const t = harness(TABLE);
+		t.caret('1');
+		expect(insertStarterTable(t.state, t.view.dispatch)).toBe(false);
+		expect(t.count('table')).toBe(1); // unchanged
 	});
 });
