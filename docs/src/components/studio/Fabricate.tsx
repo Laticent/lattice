@@ -195,6 +195,9 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 	// holds the dedup near-neighbors (reuse nudge).
 	const [compPrompt, setCompPrompt] = React.useState('');
 	const [compGen, setCompGen] = React.useState<'idle' | 'working'>('idle');
+	// A live status line during generation — carries "Refining — fixing N issues…" while
+	// the silent gate-repair passes run, so the auto-fix is visible, not a mystery wait.
+	const [compStatus, setCompStatus] = React.useState('');
 	const [compSimilar, setCompSimilar] = React.useState<ComponentSimilar[]>([]);
 
 	// Reference-doc grounding (#640) — one per surface: a brand guide grounds the
@@ -326,8 +329,14 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 		const p = text.trim();
 		if (!p || compGen === 'working') return;
 		setCompGen('working');
+		setCompStatus('');
 		try {
-			const out = await generateComponent(p, catalog, compDoc.docs);
+			// Live status: while the silent gate-repair passes run, show "Refining — fixing
+			// N issues…" so the auto-fix is visible (not a mysterious extra wait) before the
+			// draft ever lands in the editor.
+			const out = await generateComponent(p, catalog, compDoc.docs, {
+				onStatus: (s) => setCompStatus(s.phase === 'refining' ? `Refining — fixing ${s.issues} issue${s.issues === 1 ? '' : 's'}…` : ''),
+			});
 			if (out.status === 'ok') {
 				compDoc.clear();
 				setCompName(out.draft.name);
@@ -339,7 +348,9 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 				setCompSimilar(out.similar);
 				setCompPrompt('');
 				const issues = out.findings.filter((f) => f.level === 'error').length;
-				notify(issues ? `Generated “.${out.draft.name}” — ${issues} gate ${issues === 1 ? 'issue' : 'issues'} to review below.` : `Generated “.${out.draft.name}” — gate-clean. Review the preview, then Save.`);
+				// Lead with the auto-fix when it ran, so the user sees the refinement did work.
+				const fixed = out.refined > 0 ? `refined in ${out.refined} pass${out.refined === 1 ? '' : 'es'} — ` : '';
+				notify(issues ? `Generated “.${out.draft.name}” — ${fixed}${issues} gate ${issues === 1 ? 'issue' : 'issues'} still to review below.` : `Generated “.${out.draft.name}” — ${fixed}gate-clean. Review the preview, then Save.`);
 			} else if (out.status === 'declined') {
 				setCompSimilar(out.similar);
 				notify(`That needs ${out.route === 'dsl' ? 'a first-party build' : `the ${out.route} path`} — ${out.reason}${out.suggestion ? ` (try: ${out.suggestion})` : ''}.`);
@@ -354,6 +365,7 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 			notify('Component generation failed — please try again.');
 		} finally {
 			setCompGen('idle');
+			setCompStatus('');
 		}
 	}
 
@@ -702,7 +714,11 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 						)}
 					</div>
 					{compDoc.chip}
-					{compSimilar.length > 0 ? (
+					{compStatus ? (
+							<div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--accent)]" role="status" aria-live="polite">
+								<Loader2 className="size-3 animate-spin" />{compStatus}
+							</div>
+						) : compSimilar.length > 0 ? (
 						<div className="flex flex-wrap items-center gap-1.5">
 							<span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70" title="Existing components close to your request — reuse one where it fits">Similar</span>
 							{compSimilar.map((s) => (

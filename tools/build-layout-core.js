@@ -55,7 +55,7 @@ export const {
 } = bridge;
 // ai (the model-proposes pieces — knowledge file + coerce + dedup ranking + audit)
 export const {
-  ASK_SYSTEM, COMPONENT_CANON, askComponentMessages, coerceComponent, rankSimilar,
+  ASK_SYSTEM, COMPONENT_CANON, askComponentMessages, askRepairMessages, coerceComponent, rankSimilar,
   auditComponentDesign, addScopePrefix,
 } = ai;
 `;

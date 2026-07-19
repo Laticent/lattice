@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { applyDeckEdit, architectSpend, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { applyDeckEdit, architectModel, architectSpend, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -267,6 +267,73 @@ describe('generateComponent — honest "describe a component"', () => {
 		// signal the UI can act on (point at Workspace), not a faked draft.
 		const out = await generateComponent('a grid of capability cards', []);
 		expect(out.status).toBe('offline');
+	});
+});
+
+// The silent gate-repair loop: a first draft that fails the gate is fed back to the
+// model (with the exact findings) and re-gated, up to 2 passes, BEFORE the user sees
+// it (2026-07-19-component-gate-autofix.md). Driven here with an injected backend
+// that returns a scripted sequence of drafts, so the loop is exercised end-to-end
+// without a real model.
+describe('generateComponent — silent gate-repair', () => {
+	const draft = (css: string) => ({
+		name: 'neon-console', description: 'A neon terminal panel.', function: 'inventory', form: 'panel',
+		substance: 'structure', bucket: 'inventory', tags: ['neon', 'terminal', 'status'], adapt: { mode: 'native' },
+		capacity: { sweet: 1, soft: 1, hard: 1 }, css, skeleton: '<!-- _class: neon-console -->\n\n## Status\n\n- Core `OK`',
+	});
+	// The dirty draft trips two gate errors (hex + margin); the clean one is token-only.
+	const DIRTY = draft('section.neon-console > .cell-stage { color:#00ff00; margin:4px; }');
+	const CLEAN = draft('section.neon-console > .cell-stage { color:var(--pass); padding:var(--sp-sm); }');
+
+	// A backend whose json `complete` returns the next scripted reply each call.
+	const seqBackend = (replies: unknown[]) => {
+		let i = 0;
+		return { name: 'mock', async complete() { return replies[Math.min(i++, replies.length - 1)]; }, async embed() { return null; } };
+	};
+	async function withBackend(replies: unknown[], run: () => Promise<void>) {
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend(seqBackend(replies));
+		try { await run(); } finally { m.__setBackend(null); } // reset so sibling tests see the floor
+	}
+
+	it('silently repairs a gate-failing draft to clean before the user sees it', async () => {
+		await withBackend([DIRTY, CLEAN], async () => {
+			const statuses: string[] = [];
+			const out = await generateComponent('a neon terminal console', [], undefined, { onStatus: (s) => statuses.push(s.phase) });
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.refined).toBe(1); // one repair pass ran and was accepted
+			expect(out.findings.filter((f) => f.level === 'error')).toHaveLength(0); // errors cleared
+			expect(out.draft.css).toContain('var(--pass)'); // the repaired (clean) draft won
+			expect(out.draft.css).not.toContain('#00ff00');
+			expect(statuses).toContain('refining'); // the UI got a live "refining" signal
+		});
+	});
+
+	it('keeps the best draft and SHOWS remaining findings when repair cannot clear them', async () => {
+		// The model never fixes it (always returns the same dirty draft) — the loop must
+		// stop (no improvement), keep the draft, and surface the errors rather than hide them.
+		await withBackend([DIRTY, DIRTY, DIRTY], async () => {
+			const out = await generateComponent('a neon terminal console', []);
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.refined).toBe(0); // no pass improved it
+			expect(out.findings.filter((f) => f.level === 'error').length).toBeGreaterThan(0); // shown, not papered over
+		});
+	});
+
+	it('does not call the model to repair a first draft that is already gate-clean', async () => {
+		let calls = 0;
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend({ name: 'mock', async complete() { calls++; return CLEAN; }, async embed() { return null; } });
+		try {
+			const out = await generateComponent('a clean panel', []);
+			expect(out.status).toBe('ok');
+			if (out.status === 'ok') expect(out.refined).toBe(0);
+			expect(calls).toBe(1); // exactly one call — the generation, no repair pass
+		} finally {
+			m.__setBackend(null);
+		}
 	});
 });
 
