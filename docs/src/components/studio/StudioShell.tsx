@@ -77,6 +77,7 @@ import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-l
 import { TOURS } from './tours';
 import { useBreakpoint } from './use-breakpoint';
 import { usePanelWidth } from './use-panel-width';
+import { useSharedPreviewSlot } from './use-shared-preview-slot';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
 import { isEvictionProneBrowser } from './workspace-backup';
@@ -451,6 +452,32 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// NEXT open lands on the default filter, not Docs.
 	React.useEffect(() => { if (!libraryOpen) setLibInitialFilter(undefined); }, [libraryOpen]);
 	const [presentOpen, setPresentOpen] = React.useState(false);
+	// The slide Present wants shown, PUBLISHED up from PresentOverlay so the ONE shared
+	// preview (hoisted below) renders it — Present holds no iframe of its own. `null` while
+	// a lens is withheld (fail-closed) → the shared preview hides and Present shows its own
+	// "unavailable" card. Stable setter so the child can publish from a layout effect.
+	const [presentPreview, setPresentPreview] = React.useState<{ sample: string; mermaid: boolean } | null>(null);
+	const onPresentSlide = React.useCallback((sample: string | null, mermaid: boolean) => setPresentPreview(sample == null ? null : { sample, mermaid }), []);
+	// Present OVERLAYS the current view (its z-100 backdrop fully covers Fabricate), so it
+	// does NOT leave Fabricate — Escape returns you there with your in-progress theme/component
+	// work intact. The reshape's real invariant is ONE warm *deck* preview (the shared host,
+	// parked warm through Fabricate), which holds regardless of Fabricate's separate specimen
+	// iframes; an earlier version unmounted Fabricate to force a global iframe count of 1, which
+	// silently destroyed unsaved fabrication state (Fabricate keeps it in un-persisted useState) —
+	// the adversarial trio flagged that as data loss, so Present now leaves Fabricate mounted.
+	const openPresent = React.useCallback(() => { setPresentOpen(true); }, []);
+	// Clear the published present slide on CLOSE so the NEXT open provably starts from
+	// `editorSample` (guaranteed same render signature as the warm frame) until Present
+	// republishes the equal present sample — the warm-patch-on-open invariant then holds by
+	// construction, not by a coalescing timing side-effect (a stale slide's differing
+	// `mermaid` flag could otherwise flip the signature and force a cold write).
+	React.useEffect(() => { if (!presentOpen) setPresentPreview(null); }, [presentOpen]);
+	// Read in captureLastSlide (a stable useCallback) without re-binding its listeners: while
+	// Present is open the shared iframe shows the PRESENT slide (a lens projection that maps to
+	// no editor slide), so capturing it would stamp present HTML under the editor's slideIndex
+	// and the next boot's instant-shell would replay that artifact. Skip capture while presenting.
+	const presentOpenRef = React.useRef(presentOpen);
+	presentOpenRef.current = presentOpen;
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
@@ -547,10 +574,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// only bakes the newcomer slide at build time). Captured on leave (pagehide /
 	// tab-hide) and once shortly after the first render — never per-keystroke.
 	const previewBoxRef = React.useRef<HTMLDivElement>(null);
+	// The ONE shared preview: a `position:fixed` host (parked below the studio root,
+	// never moved in the DOM) holding the single DeckPreview, positioned by the controller
+	// to overlay whichever SLOT is active — the editor pane's `editorSlotRef` or Present's
+	// `presentSlotRef`. Moving the iframe would reload it, so we portal by positioning.
+	const sharedHostRef = React.useRef<HTMLDivElement>(null);
+	const editorSlotRef = React.useRef<HTMLDivElement>(null);
+	const presentSlotRef = React.useRef<HTMLDivElement>(null);
 	const lastCaptureRef = React.useRef(0);
 	const captureLastSlide = React.useCallback(() => {
 		try {
-			const fr = previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+			if (presentOpenRef.current) return; // never snapshot the present-lens slide as an editor slide
+			const fr = sharedHostRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 			if (!fr) return;
 			// Dedupe back-to-back captures: pagehide + visibilitychange both fire on a
 			// mobile nav, and the post-first-render timer can overlap — the CSSOM walk +
@@ -1436,7 +1471,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setInspectorOpen,
 		applyPalette,
 		toggleMode,
-		setPresentOpen,
+		// Present overlays the current view (see openPresent) — it does not force compose, so a
+		// tour opening Present never discards Fabricate state; close returns to the prior view.
+		setPresentOpen: (o: boolean) => setPresentOpen(o),
 		setShareOpen,
 		setInspectorScope,
 		setDeckMenuOpen,
@@ -1971,6 +2008,34 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		wheelAtRef.current = now;
 		goToSlide(e.deltaX > 0 ? slideNo : slideNo - 2);
 	};
+
+	// ── The ONE shared preview: inputs + positioning controller ───────────────────
+	// The single hoisted DeckPreview renders EITHER the editor's cursor slide OR (when
+	// Present is open and showable) Present's current slide — one warm iframe, never a
+	// second cold write on Present open. `mermaid` is unified to the SHOWN slide on both
+	// surfaces so the frame signature matches across the editor↔Present hand-off.
+	const editorSample = previewFm ? previewFm + slide : slide;
+	const editorMermaid = hasMermaid(slide);
+	const presentShowing = presentOpen && presentPreview !== null;
+	const sharedSample = presentShowing ? (presentPreview as { sample: string }).sample : editorSample;
+	const sharedMermaid = presentShowing ? (presentPreview as { mermaid: boolean }).mermaid : editorMermaid;
+	// Render (keep warm) whenever a surface may need it — Present, mobile (both panes stay
+	// mounted), Read full-bleed, or the desktop/tablet preview pane while it isn't
+	// collapsed. Parked warm (active=false, iframe kept) only in Fabricate when not
+	// presenting, so ⌘K→Present from Fabricate resumes as a PATCH, not a cold write.
+	const sharedActive = view === 'fabricate' && !presentOpen ? false : presentOpen || mobile || effectiveStop === 'read' || split.collapsed !== 'b';
+	// Whether the editor SLOT is on-screen (explicit-visibility model — not DOM occlusion):
+	// hidden in Fabricate and on the mobile edit pane (preview stays warm but parked).
+	const editorSlotVisible = view !== 'fabricate' && !presentOpen && (mobile ? mobilePane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
+	useSharedPreviewSlot({
+		hostRef: sharedHostRef,
+		editorSlotRef,
+		presentSlotRef,
+		rootRef,
+		presentActive: presentShowing,
+		editorVisible: editorSlotVisible,
+		suspended: split.dragging,
+	});
 
 	// Structural slide ops (full lens only). Each rewrites the source, moves the
 	// active slide to follow the edit, and reveals it in the editor next frame
@@ -2663,7 +2728,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						? (previewFitByHeight ? 'h-full w-auto' : 'h-auto w-full')
 						: previewPortrait ? 'h-full w-auto' : 'h-auto w-full max-w-[760px]')}
 					style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					<DeckPreview options={options} sample={previewFm ? previewFm + slide : slide} mermaid={hasMermaid(slide)} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={mobile || effectiveStop === 'read' || split.collapsed !== 'b'} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
+					{/* Empty SLOT — the ONE shared preview (hoisted at the studio root) is positioned
+					    to overlay this box; the iframe never lives here (moving it would reload it). */}
+					<div ref={editorSlotRef} className="size-full" />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type */}
@@ -2808,6 +2875,27 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    silent (M3/M4 a11y). `stopAnnounce` starts empty and is updated only on a
 			    real change (never on mount, never behind Fabricate) by the effect above. */}
 			<div role="status" aria-live="polite" className="sr-only">{stopAnnounce}</div>
+			{/* ── The ONE shared preview ────────────────────────────────
+			    A `position:fixed` host, ALWAYS mounted (outside the Fabricate/mobile/desktop
+			    branches below) so it stays warm in every Present-open path, and NEVER moved in
+			    the DOM (moving an <iframe> reloads it). `useSharedPreviewSlot` writes its
+			    top/left/width/height each frame to overlay the active slot — the editor pane's
+			    slot, or (when Present is open) Present's slide-row slot. z-101 sits BETWEEN
+			    Present's backdrop (z-100) and chrome (z-102); in the editor it drops to z-15 (above
+			    the mobile pane's z-10, under the READ overlay z-20 and sheets/dialogs z-50) and goes
+			    pointer-transparent so a swipe over the slide still reaches
+			    the pane. The card frame differs per surface: Present draws the full card here;
+			    the editor keeps its frame on `previewBoxRef` and this host only clips the corners. */}
+			<div
+				ref={sharedHostRef}
+				// z: Present → 101 (between backdrop 100 and chrome 102). Editor → 15, which sits
+				// ABOVE the mobile pane's own `z-10` (whose opaque bg would else cover the slide)
+				// yet BELOW the READ "Edit this slide" overlay (z-20) and sheets/dialogs (z-50).
+				style={{ position: 'fixed', top: 0, left: 0, visibility: 'hidden', zIndex: presentOpen ? 101 : 15, pointerEvents: presentOpen ? 'auto' : 'none' }}
+				className={cn('overflow-hidden', presentOpen ? 'rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]' : 'rounded-xl')}
+			>
+				<DeckPreview options={options} sample={sharedSample} mermaid={sharedMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={sharedActive} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
+			</div>
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* Read + Write stops (DESKTOP only): a slim header — deck title · ⌘K · Present ·
 			    Share · the dial. Most of the control cluster is gone; ⌘K still reaches
@@ -2834,7 +2922,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				</button>
 				{/* Present + Share are deliverable verbs — they stay reachable at EVERY stop,
 				    never hidden behind a posture (2026-07-17-studio-persona-dial.md, T5 graft). */}
-				<Tip label="Present"><Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
+				<Tip label="Present"><Button variant="outline" size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
 				<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>
 				<PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />
 			</header>
@@ -2928,7 +3016,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{!mobile && <Tip label="Present"><Button variant="outline" size="sm" data-demo="present" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
+				{!mobile && <Tip label="Present"><Button variant="outline" size="sm" data-demo="present" onClick={openPresent} className="gap-1.5 px-2 lg:px-3" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>}
 				{!mobile && <Tip label="Share"><Button size="sm" data-demo="share" onClick={() => setShareOpen(true)} className="gap-1.5 px-2 lg:px-3" aria-label="Share"><Share2 className="size-4" /><span className="hidden lg:inline">Share</span></Button></Tip>}
 
 				<Separator orientation="vertical" className="hidden h-5 sm:block" />
@@ -3050,7 +3138,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    pane — the EDIT pane's own editor header already carries both. */}
 						{mobilePane === 'preview' && <Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>}
 						{mobilePane === 'preview' && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
-						<Tip label="Present"><Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button></Tip>
+						<Tip label="Present"><Button variant="outline" size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button></Tip>
 						<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /></Button></Tip>
 						<Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>
 						<Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><MessageSquareHeart className="size-[18px]" /></Button></Tip>
@@ -3249,7 +3337,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
-			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={() => setPresentOpen(true)} notify={notify} />
+			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} notify={notify} />
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deck.title, Theme: `${palette} · ${mode}` }} />
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
@@ -3298,7 +3386,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					notify={notify}
 				/>
 			)}
-			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
+			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} slotRef={presentSlotRef} onSlide={onPresentSlide} />
 			<CommandPalette
 				open={cmdOpen}
 				onOpenChange={setCmdOpen}
@@ -3307,7 +3395,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				onPickDeck={loadDeck}
 				onNewDeck={() => newDeck()}
 				onPalette={applyPalette}
-				onPresent={() => setPresentOpen(true)}
+				onPresent={openPresent}
 				onShare={() => setShareOpen(true)}
 				onFeedback={() => setFeedbackOpen(true)}
 				onFabricate={() => setView('fabricate')}

@@ -725,6 +725,22 @@ in patch versions.
 
 ### Changed
 
+- **Opening Present is now instant — it reuses the editor's already-warm preview instead of building a
+  second one.** Present mode used to render its own deck-preview iframe, so opening it paid a cold render
+  (parse the full theme CSS + boot the runtime in a fresh iframe: ~600ms on desktop, ~2.3s on a slow
+  phone) before the first slide appeared — the red "REBUILD" the live perf HUD showed on device.
+  Navigation between slides was already instant; only the *open* was slow. Now there is ONE shared preview
+  iframe for the whole Studio: it lives at the app root and is repositioned to fill the editor pane or the
+  Present stage as needed (never moved in the DOM — that would reload it). Opening Present from the normal
+  editor is a warm ~2ms patch (often no re-render at all); flipping through slides stays instant; closing
+  returns you to the editor unchanged. Bonus: Present slides now get Mermaid diagrams (the shared preview
+  unifies the diagram flag across both surfaces). Opening Present from the Fabricate theme studio keeps
+  Fabricate open behind it (Escape returns you there with your work intact) and does a small one-time
+  reconcile render for Fabricate's live theme. Verified on the real built Studio: 0-render open from the
+  editor, exactly one live preview iframe in every state, editor typing/theme-auditioning unregressed, 818
+  Studio unit tests green; the felt on-device speed-up is UNVERIFIED pending a phone check.
+  (`use-shared-preview-slot.ts` new, `StudioShell.tsx`, `PresentOverlay.tsx`;
+  `engineering/decisions/2026-07-19-present-shared-preview.md`.)
 - **The Studio becomes interactive sooner on cold load and refresh — the CodeMirror editor now loads
   off the critical hydration path.** The Studio is one `client:only` React island, and the editor
   (CodeMirror 6 + markdown + lint + autocomplete) was statically bundled into it — ~196KB gz that had
