@@ -15,6 +15,7 @@ import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/dr
 import { budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
 import { askComponentMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
+import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
 import { type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { deckOutputLang, languageDirective } from './studio-language';
 import { loadInstructions, loadOnDeviceInstructions, loadSettings } from './studio-store';
@@ -433,15 +434,21 @@ export type FinishGenOutcome =
 	| { status: 'blocked'; note: string }
 	| { status: 'nochange'; note: string };
 
-const FINISH_SYSTEM = [
+// The closed vocabularies are pulled from finish-generate.ts's `as const` arrays — the
+// SAME lists coerceRecipe validates against — so the model is always offered EXACTLY the
+// shippable layer types, including the premium layers (wash `mesh`, texture `pinstripe`/
+// `lattice`, edge `frame`) added in the Finish redesign. Hardcoding them here is how this
+// prompt silently fell behind the engine; deriving them means it can't drift again.
+const vocab = (a: readonly string[]) => a.join('|');
+export const FINISH_SYSTEM = [
 	'You design a SLIDE FINISH — a subtle, palette-blind backdrop composed of four stacked layers, behind boardroom content.',
 	'Return ONLY a JSON object (no prose, no CSS) with this exact shape and ONLY values from these closed vocabularies:',
 	'{',
 	'  "name": "<short-kebab-name>",',
-	'  "wash":    { "type": "none|corner-glow|duotone|spotlight|bands", "intensity": <3-20> },',
-	'  "texture": { "type": "none|grid|dots|hatch|contour|rings|ruled", "intensity": <3-18>, "scale": <12-64> },',
-	'  "mark":    { "type": "none|monogram|tick|bar|numeral", "placement": "top-left|top-right|bottom-left|bottom-right|center|left" },',
-	'  "edge":    { "type": "none|vignette|margin-rule|fold", "intensity": <3-20> }',
+	`  "wash":    { "type": "${vocab(WASH_TYPES)}", "intensity": <3-20> },`,
+	`  "texture": { "type": "${vocab(TEXTURE_TYPES)}", "intensity": <3-18>, "scale": <12-64> },`,
+	`  "mark":    { "type": "${vocab(MARK_TYPES)}", "placement": "${vocab(PLACEMENTS)}" },`,
+	`  "edge":    { "type": "${vocab(EDGE_TYPES)}", "intensity": <3-20> }`,
 	'}',
 	'Keep it RESTRAINED: low intensities (text must stay readable, no scrim). A finish is atmosphere, not decoration. Leave a layer "none" when it is not needed — most good finishes use one or two layers.',
 ].join('\n');
