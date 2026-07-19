@@ -592,6 +592,19 @@ in patch versions.
 
 ### Fixed
 
+- **AI-generated (Fabricate) themes now hold the categorical three-layer contrast contract in dark
+  mode.** `deriveTheme` — the engine behind the Studio's "describe a look" theme generator — still
+  emitted the retired pre-#1022 categorical model: non-flipping single-value `--cat-N-fill`/`-mark`
+  plus a fixed dark `--cat-on-fill`. That left every dark-mode categorical **mark (branch/border) at
+  ~2.0–2.9:1 against the dark canvas**, below the 3:1 WCAG 1.4.11 graphical floor the shipped themes
+  hold — and the derivation's own audit blessed it green because it only checked the text pairs, never
+  the mark-vs-canvas edge. The categorical tokens are now flipping `light-dark()` pairs (pale fill +
+  deep mark in light; jewel fill + pale mark in dark; the label inks flip with the fill), the alarm
+  (`--diagram-critical`) flips to match, and `THEME_CANON` (the model's guidance) teaches the current
+  contract. The `mark`-vs-`bg` ≥ 3 graphical pair is now part of the derivation's contrast audit
+  (`auditBoth`/`contractPairs`), so the shipped derive test **and** the live Studio "WCAG report" catch
+  a sub-floor mark instead of passing it. (`lib/theme/derive.js`, `lib/theme/ai.js`,
+  `lib/theme/contrast.js`.)
 - **Compose's slide-divider Format group — three follow-ups.** (1) An **orphan inline-code label** (a
   lone `` `code` `` paragraph next to no heading) now offers a pill affordance to clear its mark instead
   of being editable only in Markdown mode. (2) The heading register is offered strictly per the slide

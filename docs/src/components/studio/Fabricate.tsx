@@ -81,8 +81,9 @@ function sides(v: unknown): { light: string; dark: string } {
 }
 // Layer the per-side overrides back onto a freshly-derived map, PRESERVING each
 // token's shape: a light-dark() pair stays a pair (per-side override); a single
-// value stays single (the viz band has mode-independent tokens like cat-N-fill,
-// which must not silently become light-dark()).
+// value stays single (some viz tokens are mode-independent — e.g. --diagram-stroke —
+// and must not silently become light-dark()). The categorical fill/mark tokens ARE
+// light-dark() pairs (the three-layer flipping contract), so they take the pair branch.
 function applyOverrides(map: Record<string, unknown>, overrides: Record<string, Override>): Record<string, unknown> {
 	const out = { ...map };
 	for (const [token, ov] of Object.entries(overrides)) {

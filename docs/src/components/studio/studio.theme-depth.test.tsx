@@ -130,10 +130,12 @@ describe('Studio — Fabricate Theme Studio depth', () => {
 		// The override re-derives — every preview re-renders against the new theme.
 		await waitFor(() => expect(slide.getAttribute('data-extra-theme')).not.toBe(before));
 
-		// A categorical fill is mode-independent — one "value" well, no light/dark split.
+		// A categorical fill now FLIPS with the canvas (the three-layer contract, #1089):
+		// the tray exposes light + dark wells, not a single mode-independent value.
 		await user.click(screen.getByRole('button', { name: 'Categorical 1 · fill' }));
-		expect(screen.getByLabelText('Categorical 1 · fill value')).toBeTruthy();
-		expect(screen.queryByLabelText('Categorical 1 · fill dark')).toBeNull();
+		expect(screen.getByLabelText('Categorical 1 · fill light')).toBeTruthy();
+		expect(screen.getByLabelText('Categorical 1 · fill dark')).toBeTruthy();
+		expect(screen.queryByLabelText('Categorical 1 · fill value')).toBeNull();
 	});
 
 	it('requires a name before saving — no magic default (consistent with components)', async () => {

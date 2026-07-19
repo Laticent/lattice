@@ -58,11 +58,20 @@ describe('theme-derive', () => {
   test('cross-check: a spot pair clears AA via the raw predicate too', () => {
     // Guards against the audit and derivation sharing a hidden mutual bug.
     const t = deriveTheme(STARTERS[0].essentials);
-    const headingLight = t['text-heading'].match(/light-dark\(\s*([^,]+)/)[1].trim();
-    const bgLight = t.bg.match(/light-dark\(\s*([^,]+)/)[1].trim();
-    assert.ok(contrastRatio(headingLight, bgLight) >= 4.5);
-    assert.ok(contrastRatio(t['cat-1-mark'], t['cat-on-mark']) >= 4.5);
-    assert.ok(contrastRatio(t['cat-1-fill'], t['cat-on-fill']) >= 4.5);
+    // The categorical tokens are now flipping light-dark() pairs (three-layer
+    // contract), so resolve the mode arm before the raw contrast predicate.
+    const arm = (v, m) => {
+      const mm = v.match(/^light-dark\(\s*([^,]+),\s*(.+)\)\s*$/);
+      return mm ? mm[m].trim() : v;
+    };
+    assert.ok(contrastRatio(arm(t['text-heading'], 1), arm(t.bg, 1)) >= 4.5);
+    // The categorical inks FLIP, so verify the label pairs in BOTH modes plus the
+    // graphical edge (mark vs bg ≥ 3) that the pre-#1022 model failed in dark mode.
+    for (const m of [1, 2]) {
+      assert.ok(contrastRatio(arm(t['cat-1-mark'], m), arm(t['cat-on-mark'], m)) >= 4.5, `cat-1-mark/on-mark mode ${m}`);
+      assert.ok(contrastRatio(arm(t['cat-1-fill'], m), arm(t['cat-on-fill'], m)) >= 4.5, `cat-1-fill/on-fill mode ${m}`);
+      assert.ok(contrastRatio(arm(t['cat-1-mark'], m), arm(t.bg, m)) >= 3, `cat-1-mark vs bg (edge) mode ${m}`);
+    }
   });
 
   describe('ramp strategy', () => {
