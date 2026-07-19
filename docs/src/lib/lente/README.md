@@ -19,7 +19,7 @@ subset.
 ## 60-second start
 
 ```ts
-import { parseLensRegistry, lensSlides, readerLenses, lensEligibility } from './lente/index.js';
+import { parseLensRegistry, lensSlides, readerLenses, lensEligibility } from '@slidewright/lente';
 
 const slides = splitDeckIntoSlides(source);          // your `---`-splitter
 const registry = parseLensRegistry(frontMatterText); // the deck's `lenses:` block
@@ -46,7 +46,7 @@ is exactly the matching `project.ts` function, guarded by a parity test — so i
 adds no behavior:
 
 ```ts
-import { lens } from './lente/index.js';
+import { lens } from '@slidewright/lente';
 
 const view = lens(slides).registry(frontMatterText).pick('brief').project();
 if (view.status === 'ok') render(view.pairs);

@@ -1,20 +1,23 @@
 #!/usr/bin/env node
 /**
- * Build the Suono library's node-consumable dist/ — the CJS entry + type
- * declarations that let ROOT CJS code `require('@slidewright/suono')`.
+ * Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type
+ * declarations that let ROOT CJS `require('@slidewright/suono')` AND a plain Node-ESM /
+ * bundler consumer `import '@slidewright/suono'`.
  *
  *   docs/src/lib/suono/*.ts  (source, docs-side ESM/TS)
+ *     →  docs/src/lib/suono/dist/index.mjs   (bundled ESM, esbuild)
  *     →  docs/src/lib/suono/dist/index.cjs   (bundled CJS, esbuild)
  *     →  docs/src/lib/suono/dist/*.d.ts      (declarations, tsc)
  *
  * WHY: Suono ships the library-shape recipe from 2026-07-08-library-shape-cadenza-vetrina.md
  * (the packaging follow-up named in 2026-07-12-suono-audio-library.md §8): a per-lib
- * package.json whose `exports` map sends `require` here to dist/index.cjs while docs +
- * Vitest keep importing the TS SOURCE (the `import`/`types` conditions point at ./index.ts),
- * so the docs runtime is unaffected. This makes `require('@slidewright/suono')` and npm
- * publish resolve — Suono becoming node-consumable/publishable like Cadenza, Vetrina, and
- * Lente. (The WebAudio playback surface is browser-only at runtime; the encode/cache helpers
- * are node-safe, and the built artifact is what a browser consumer requires.)
+ * package.json whose `exports` map sends `require` to dist/index.cjs and `import` to
+ * dist/index.mjs. The docs runtime is unaffected because docs + Vitest import the TS SOURCE
+ * through the `@/lib/*` path ALIAS (not the package name), so these dist artifacts are only
+ * what an external consumer / npm publish resolves. The `import` condition used to point at
+ * raw ./index.ts, which crashed a plain Node-ESM consumer with ERR_UNKNOWN_FILE_EXTENSION —
+ * emitting a real .mjs is the fix. (The WebAudio playback surface is browser-only at runtime;
+ * the encode/cache helpers are node-safe, and the built artifact is what a consumer imports.)
  *
  * Bundler = the in-tree esbuild (engineering/capabilities.md names it the house
  * bundler); declarations = `tsc --emitDeclarationOnly` (esbuild can't emit .d.ts).
@@ -58,25 +61,37 @@ function sourceFiles() {
     .map((f) => path.join(LIB_DIR, f));
 }
 
-/** Bundle the barrel into one CJS file (zero-dep → everything inlines). */
-async function buildCjs(outDir) {
-  await esbuild.build({
-    entryPoints: [ENTRY],
-    outfile: path.join(outDir, 'index.cjs'),
-    bundle: true,
-    format: 'cjs',
-    platform: 'node',
-    target: ['node18'],
-    minify: false, // committed, human-readable source
-    legalComments: 'none',
-    // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json
-    // walking up from the entry. That ambient config `extends astro/tsconfigs/strict`,
-    // which resolves in some environments and not others (astro is a docs-only dep) —
-    // making the emitted bytes environment-dependent and flapping the freshness gate
-    // in CI. An empty raw config makes the output deterministic everywhere.
-    tsconfigRaw: '{}',
-    banner: { js: CJS_BANNER },
-  });
+// Both module formats: CJS (`require` condition → dist/index.cjs) + ESM
+// (`import`/`module` condition → dist/index.mjs). Emitting a real .mjs is what makes
+// `import '@slidewright/suono'` resolve for a plain Node-ESM / non-TS-bundler consumer —
+// the `import` condition used to point at raw ./index.ts and crashed with
+// ERR_UNKNOWN_FILE_EXTENSION.
+const FORMATS = [
+  { format: 'cjs', ext: 'cjs' },
+  { format: 'esm', ext: 'mjs' },
+];
+
+/** Bundle the barrel into a CJS + an ESM file (zero-dep → everything inlines). */
+async function buildBundles(outDir) {
+  for (const { format, ext } of FORMATS) {
+    await esbuild.build({
+      entryPoints: [ENTRY],
+      outfile: path.join(outDir, `index.${ext}`),
+      bundle: true,
+      format,
+      platform: 'node',
+      target: ['node18'],
+      minify: false, // committed, human-readable source
+      legalComments: 'none',
+      // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json
+      // walking up from the entry. That ambient config `extends astro/tsconfigs/strict`,
+      // which resolves in some environments and not others (astro is a docs-only dep) —
+      // making the emitted bytes environment-dependent and flapping the freshness gate
+      // in CI. An empty raw config makes the output deterministic everywhere.
+      tsconfigRaw: '{}',
+      banner: { js: CJS_BANNER },
+    });
+  }
 }
 
 /** Emit .d.ts for every non-test source via tsc (no JS, declarations only). */
@@ -108,7 +123,7 @@ function buildTypes(outDir) {
 /** Build both artifacts into `outDir` (esbuild CJS + tsc declarations). */
 async function buildInto(outDir) {
   fs.mkdirSync(outDir, { recursive: true });
-  await buildCjs(outDir);
+  await buildBundles(outDir);
   buildTypes(outDir);
 }
 

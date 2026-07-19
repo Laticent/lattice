@@ -10,8 +10,10 @@ steps aside and hands them the wheel, mid-sentence, with no "are you still there
 modal to dismiss.
 
 It is **framework-free** (the core imports nothing but the DOM), **zero-config**
-(pass nothing, get the house look), and **buildless-friendly** (a plain `<script
-type="module">` is enough — no bundler required).
+(pass nothing, get the house look), and **buildless-friendly**: it ships a real ESM
+build (`dist/index.mjs`), so a plain `<script type="module">` that imports it needs
+no bundler. (A TS/bundler consumer imports the package by name — `@slidewright/vetrina`
+resolves to the ESM build for `import` and the CJS build for `require`.)
 
 > Vetrina is the walkthrough engine behind SlideWright's Studio demo. The full
 > design contract, invariants, and the adversarial review that shaped it live in
@@ -24,7 +26,7 @@ type="module">` is enough — no bundler required).
 <input id="title" />
 
 <script type="module">
-  import { run, scene } from './vetrina/index.js';
+  import { run, scene } from './vetrina/dist/index.mjs'; // the shipped ESM build
 
   // Your app's real setters. Vetrina names nothing in here — it's your bag.
   const actions = {
