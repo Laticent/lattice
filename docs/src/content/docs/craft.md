@@ -21,8 +21,8 @@ The reachable object is also the least interesting thing about the work.
 The claim is true about the noun and false about the verb. Anyone can now
 *have* a slide engine. Almost no one can *do* what building Lattice took —
 hold a standard and keep the whole thing coherent while it's under pressure.
-AI didn't shrink that work. It left the work standing while everything around
-it got easy, which is not the same as making it easy.
+AI made everything around that work easier and left the work itself exactly
+where it was.
 
 ## What the machine is standing on
 
@@ -38,10 +38,10 @@ Those documents are the product. The CSS is only where the judgment landed.
 
 A model is fluent at the move from a decided question to working code. It is
 not the thing that knew the question was worth asking, or which of two
-plausible answers would still be right in six months. Point someone without
-that judgment at the same model and you get fluent output over an incoherent
-system: a hundred locally-reasonable choices that never add up to one
-coherent thing. It looks finished. Push on it and it falls apart.
+plausible answers would still be right in six months. Without that judgment,
+the same model produces fluent output over an incoherent system: a hundred
+locally-reasonable choices that never add up to one coherent thing. It looks
+finished. Push on it and it falls apart.
 
 Run the experiment. Give a capable person the same tools I have, the same
 month, and one brief: build a boardroom-grade slide engine. They ship a
@@ -52,7 +52,7 @@ on fire, and they can't say why. Every hard rule in Lattice exists because
 someone already paid that tuition. A greenfield built with a better shovel
 still has the same landmines, still armed.
 
-## Give two people the same tool and they pull apart
+## Same tool, wider gap
 
 The deepest mistake in *anyone can do it now* is reading a lower floor as a
 lower ceiling.
@@ -60,12 +60,12 @@ lower ceiling.
 AI did raise the floor. The worst thing a person can produce today is much
 better than the worst they could produce alone, and that's a genuine good.
 But the ceiling went up too, because someone with judgment now spends their
-scarce hours on it instead of on boilerplate. Hand the same tool to two
-people and they don't converge — they pull apart faster than before, because
-it amplifies whatever direction you were already facing. Aim it with a real
-sense of quality and the results are excellent; aim it with none and you just
-reach mediocrity sooner. The gap between the two doesn't close; it widens,
-and then hides behind everyone's nicer baseline.
+scarce hours on it instead of boilerplate. The tool doesn't average people
+toward each other. It amplifies whatever direction they were already facing,
+so good taste and no taste end up further apart, not closer. Aim it with a
+real sense of quality and the results are excellent; aim it with none and you
+reach mediocrity sooner. The gap between the two doesn't close; it widens, and
+then hides behind everyone's nicer baseline.
 
 ## What actually got scarcer
 
@@ -86,15 +86,14 @@ Three things, and a model hands you none of them.
 
 ## Ask the tool itself
 
-The tool will tell you this itself, if you ask it honestly.
-
-Every time an AI works inside Lattice, it works downstream of a standard it
-didn't set. It's fluent within the rules; it never decided the rules should
-exist, or what *good* means here, or when the whole approach has gone wrong.
-When it goes off, it goes off confidently, plausibly, in the average
-direction — and the thing that catches it is a person with taste saying *no,
-not good enough.* Take that person out of the room and you don't get
-Lattice-without-the-human. You get fluent drift.
+Ask an AI honestly and it will tell you this itself. Every time one works
+inside Lattice, it works downstream of a standard it didn't set — fluent
+within the rules, but never the thing that decided the rules should exist, or
+what *good* means here, or when the whole approach has gone wrong. When it
+goes off, it goes off confidently, plausibly, in the average direction, and
+what catches it is a person with taste saying *no, not good enough.* Take that
+person out of the room and you don't get Lattice-without-the-human. You get
+fluent drift.
 
 So when someone says AI means anyone can do what I did, what they're picturing
 is the tool without me — and that version produces the confident average. I
@@ -109,8 +108,8 @@ what they would have chosen, and why. It falls apart the moment it has to
 produce judgment on demand, which is the one thing that never got automated.
 
 Better, use the belief instead of defending against it. Make the judgment
-legible — the decision documents already do this, and they are the receipt
-that tells the real thing from a copy of its look. Spend the hours the tool
+legible — that written record already does it, and it's the receipt that tells
+the real thing from a copy of its look. Spend the hours the tool
 frees on the work only a person can do, and treat the commodity part as a
 commodity. Compete where the model can't follow.
 
