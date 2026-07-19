@@ -21,7 +21,16 @@ summary: >
   zdog in one deletion pass. Three.js is dropped from the plan (it was never built — zero LOC to
   remove; the lit-3-D ceiling is DEFERRED and re-openable, not disproven). Security moves to the
   center: every SVG (generated, pasted, templated) passes a hardened untrusted-SVG sanitize
-  profile before the frame (HARD RULE #22). Design only; nothing cut or built yet.
+  profile before the frame (HARD RULE #22). ARCHITECTURE (design dialogue, §0.75): Anima is an
+  animation LAYER over Lattice's own vector output (charts, diagrams, sketch, slides), power tracking
+  source structure — our own charts are the most powerful AND least model-dependent on-ramp, so the
+  proof gate leads by animating a real Lattice chart, not an AI-generated one. TWO surfaces: Fabricate
+  → Motion = animated-asset factory (create/refine an SVG, bake in animation, share as a Lattice asset
+  that travels WITHIN Lattice via the Stage-6 spec+player; portable Lottie/video export is LATER);
+  slide/deck-level SETTINGS = animate existing charts/diagrams/sketch in place (bounded policies, deck
+  default / slide override, needs renderer role-metadata). The motion STYLE is our closed role-set,
+  NOT Vivus (a draw-on primitive only) and NOT a free keyframe editor. Design only; nothing cut or
+  built yet.
 companion:
   - ./2026-07-17-anima-animation-library.md
   - ./2026-07-18-anima-motion-faculty-modes.md
@@ -108,6 +117,63 @@ HARD RULE #24), every scene rendered + audited. ~1.3¢ total. Findings:
 
 Evidence artifact (renders + ladder): the floor-test dossier (`.scratch/floor-artifact.html`).
 
+## 0.75 Design-dialogue refinement — Anima is an animation LAYER, delivered through TWO surfaces
+
+A design dialogue after the floor test reframed the product model. **This section is the current
+architectural frame; where it and the older §4 "single Fabricate faculty" wording differ, this
+governs** — the §4.4/§4.4a *engine* detail still stands, as the shared substrate under every on-ramp.
+
+**The reframe: Anima is not a drawing generator — it is an animation layer over Lattice's own vector
+output.** Charts, diagrams (mermaid), sketch strokes, whole slides — Lattice already renders them as
+SVG/DOM. The engine's job is to *choreograph vector we already have*, not to invent pictures. This is
+the moat: no other deck tool can animate its own rendered charts, because none has a clean vector IR +
+a timeline. **Power tracks source structure** — the more we own the source's semantics, the more
+meaningful (and automatic) the animation, and the *less* it depends on a model:
+
+| On-ramp | Tractability | Why |
+|---|---|---|
+| **Our charts → animate** | Highest | We own the render → emit stable ids + roles → semantic build, ZERO model risk. |
+| **Our diagrams (mermaid) → animate** | High | We control the render; nodes/edges are taggable. |
+| **Sketch mode → animate** | High | Vector strokes; draw-on is natively what sketch wants. |
+| **Describe (prompt → SVG)** | Medium | Works ABOVE the model floor (§0.5); garbage below. One on-ramp, not the headline. |
+| **Bring foreign SVG** | Med–low | Draw-in works; meaningful choreography needs the human choreograph surface. |
+| **Whole slide** | Lowest — trap | Heterogeneous; "animate the slide" has no single meaning (see guardrail). |
+
+Note the inversion the floor test surfaced: the **most powerful** on-ramp (our own charts) is the
+**least model-dependent** — no generation, so no floor-model risk. This de-risks the pivot and
+**reorders the proof gate** (§5.2): lead by *animating a real Lattice chart at the bar*, not by
+AI-generating one.
+
+**Two surfaces, two jobs** (the architecture the dialogue settled):
+
+1. **Fabricate → Motion = the animated-asset factory.** Where you *create a new standalone animated
+   thing*: **Describe** (prompt → SVG, model-floor caveat) or **Bring** (supply + refine your own
+   SVG), then choreograph it, then **save it as a Lattice asset with the animation baked in**. The
+   asset **travels within the Lattice ecosystem** — the Stage-6 `data-scene-spec` + player already
+   carries a scene through decks / preview / HTML export; this faculty is its authoring front door.
+   *(Export to portable third-party formats — Lottie / video — is explicitly LATER, §8.)*
+2. **Slide- and deck-level animation settings = animate content already IN the deck.** Existing
+   charts, diagrams, and sketch mode are animated *in place* via bounded settings — **deck-level = the
+   default policy, slide-level = the override** (the familiar cascade). This is NOT the faculty and NOT
+   free-form: a closed set of policies ("build charts on reveal", "draw diagrams on", "off"). It
+   **depends on the chart / diagram / sketch renderers emitting role metadata** (stable ids +
+   `data-anima-role` = bar/axis/series/label/node/edge) at render time — core scope for this path,
+   tractable because we own those renderers.
+
+**The motion STYLE is ours, closed, and is NOT Vivus.** Vivus does exactly one thing — draw `<path>`
+strokes on (`stroke-dashoffset`), with a few knobs (order / `oneByOne`, duration, easing). It
+**cannot** move, fade, scale, recolor, or animate text. So every other role (reveal / highlight /
+slide / fill) is our per-element engine (§4.4a), and the "style" a user composes is a **closed
+vocabulary of roles + timing we design**, never a free keyframe/curve editor (the anti-gimmick fence,
+§7). "Create your own animation style" = compose from the closed set, by design — not author arbitrary
+motion.
+
+**Whole-slide guardrail.** "Turn a slide into an animation" is the gimmick cliff — one step from the
+everything-flies-in builder-deck aesthetic the thesis refuses. If ever built, it is bounded to "reveal
+the components in reading order, once," never per-element choreography of a whole slide.
+
+---
+
 ## 1. The decision
 
 **Make the SVG (Vivus-family) source model Anima's primary engine**, and rebuild the Motion faculty
@@ -119,6 +185,13 @@ for lit, textured 3-D; the tier was never built, so this is a plan change, not a
 This is a strategic re-order, made with eyes open: Stages 1–7 shipped a zdog-centric engine and a
 faculty built to author 3-D primitive trees. We are demoting that path in favor of the register the
 boardroom most often speaks — and accepting a **greenfield SVG-motion build** to get there.
+
+**And a bigger frame (§0.75):** Anima is best understood not as a drawing generator but as an
+**animation layer over Lattice's own vector output**, delivered through **two surfaces** — the
+Fabricate → Motion *animated-asset factory* (create/refine an SVG and bake in animation as a Lattice
+asset) and *slide/deck-level settings* that animate existing charts, diagrams, and sketch in place.
+Read §0.75 as the governing product architecture; §2–§4 below detail the drawn-diagram register and
+the engine that serves all of it.
 
 ## 2. Why — most boardroom visuals are line + label, not shaded solids
 
@@ -268,13 +341,17 @@ bar.**
    the hardened untrusted-SVG sanitize profile, and — per the floor test (§0.5) — a **model-floor
    gate + a decline/re-roll affordance** in Director. Each slice is its own branch/PR (HARD RULE
    #17), self-reviewed at the gates; the sanitize/AI-SVG slice gets the trio (#25).
-2. **PROOF GATE (go/no-go).** Verify on the **real Studio** (HARD RULE #23), **on the model tier
-   Director actually gates to** (§0.5 — the floor test showed quality is model-dependent, so the gate
-   must run on the gated tier, not a hand-picked strong model): one real, AI-*generated* labeled
-   boardroom scene (e.g. a value chain or a 2×2) that reaches the **10/10 boardroom bar** — on-brand
-   strokes, legible labels, choreography that reads as information — and a *brought* SVG that
-   choreographs cleanly. Artifact from that surface, not a harness. **If this gate fails, zdog is not
-   cut** — we keep both engines and re-scope, rather than delete a working path for an unproven one.
+2. **PROOF GATE (go/no-go).** Verify on the **real Studio** (HARD RULE #23), artifact from that
+   surface, not a harness. **Lead with the least model-dependent on-ramp** (§0.75): a **real Lattice
+   chart animated at the 10/10 bar** — our own vector, role-tagged, choreographed into a meaningful
+   build with **no generation and no model-floor risk**. That proves the moat (our-vector-in →
+   meaningful-animation-out). *Then* the model-gated leg: one **AI-*generated*** labeled boardroom
+   scene at the bar, run **on the model tier Director actually gates to** (§0.5 — quality is
+   model-dependent, so the gate runs on the gated tier, not a hand-picked strong model), plus a
+   *brought* SVG that choreographs cleanly. **If the chart leg fails, the pivot is wrong; if the
+   AI-generated leg fails, Describe is gated/deferred but the layer still ships. Either way, zdog is
+   not cut until its replacement clears the bar** — we keep both engines and re-scope rather than
+   delete a working path for an unproven one.
 3. **THEN excise zdog in one deletion pass** (only after the gate passes): remove `source:'built'`,
    `PRIMITIVES`, the built-only verbs, `backends/zdog.ts` + its adapter allowlist entry, the
    primitive-tree Rig (`flatten`/`removeAt`/`setMotionAt` + the tree/verb-chip inspector), zdog from
@@ -315,7 +392,11 @@ on evidence — not up front on faith.
 ## 7. What we are deliberately NOT doing
 
 - **Not a general SVG animation editor / motion-graphics tool.** The anti-gimmick fence holds: a
-  closed set of *motion roles* you pick, never a free keyframe/curve surface (Anima ADR §12).
+  closed set of *motion roles* you pick, never a free keyframe/curve surface (Anima ADR §12). "Create
+  your own style" means compose from that closed set + timing — the style system is *ours*, not
+  Vivus's (Vivus is only the draw-on primitive; §0.75).
+- **Not animating a whole slide element-by-element.** The gimmick cliff — bounded to "reveal
+  components in reading order, once," if built at all (§0.75 guardrail).
 - **Not character animation / "limitless."** Out of scope, as before.
 - **Not building the Three tier now.** Dropped from the plan; re-openable as a caps-gated backend if
   real 3-D demand appears (§3).
@@ -333,10 +414,14 @@ on evidence — not up front on faith.
   channels land (see §6, UNVERIFIED).
 - **Naming / spec shape** — with one engine, `source:'svg'` and the built/svg tagged union lose their
   reason to exist; decide the simplified spec shape during the excision pass.
+- **Export-to-anywhere (DEFERRED, §0.75).** Animated assets travel *within Lattice* now (the Stage-6
+  spec + player). Portable third-party export — Lottie (vector, needs its player) or video/APNG
+  (universal, raster) — is a later lift with a real portability-vs-control tension; not in this scope.
 
-*(Moved OUT of open questions and INTO core scope by the trio: the untrusted-SVG sanitize profile
-(§4.6) and the id-mapping / auto-id pass (§4.3) — both are required for the faculty to function, not
-optional refinements.)*
+*(Moved OUT of open questions and INTO core scope: the untrusted-SVG sanitize profile (§4.6) and the
+id-mapping / auto-id pass (§4.3) — by the trio; and — by the design dialogue (§0.75) — **role-metadata
+emission from the chart / diagram / sketch renderers** (`data-anima-role`), required for the in-place
+slide/deck animation path to choreograph meaningfully. All are prerequisites, not refinements.)*
 
 ## 9. Relationships
 
