@@ -565,6 +565,20 @@ in patch versions.
 
 ### Changed
 
+- **The live-preview engine bundle is ~half the size on cold load — the docs Playground/Studio now ships
+  highlight.js's 37-language `common` build instead of the full 192-language one.** Syntax highlighting for
+  fenced code was quietly the single largest passenger in `lattice-playground.js`: the full highlight.js build
+  is **~1.05MB raw / ~64% of the bundle**, and 90%+ of it is exotic grammars (1C:Enterprise, Mathematica, Arma
+  scripting, …) a slide deck never uses. Swapping to the `common` build (JS/TS/Python/YAML/SQL/Bash/JSON/…, all
+  the languages the galleries + examples + component docs actually use) drops the preview bundle **1.65MB → 733KB
+  raw (−56%) / 509KB → 249KB gz (−51%)** — ~897KB less to parse and 254KB less to download on every cold load and
+  refresh. The swap is a **preview-only esbuild alias** (`tools/build-playground.js`, beside the KaTeX stub): the
+  CLI/PDF-export path keeps the full build via `lib/engine`, so exported artifacts still highlight every language
+  and no export bytes change. A fenced language outside `common` degrades gracefully to monochrome in the live
+  preview (the engine already guards `hljs.getLanguage()` before highlighting — a miss is escaped plaintext, never
+  an error); mermaid fence coloring is unaffected. Verified end-to-end through the built bundle (code fence still
+  emits `hljs-` spans) and by an adversarial trio against every shipping deck's languages.
+  See `engineering/decisions/2026-07-19-preview-bundle-hljs-common.md`.
 - **The `/vetrina` demo's board is now a real, functional CRUD example — you can operate it, not just watch.**
   The old mini-dashboard's "+ Add one" button was inert (only the walkthrough drove it). It is now a working
   **release-notes** board with genuine Create (type a note + Add, or Enter), Read (the live list + a count +
