@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * Build the Lente library's node-consumable dist/ — the CJS entry + type
- * declarations that let ROOT CJS code `require('@slidewright/lente')`.
+ * Build the Lente library's consumable dist/ — the ESM + CJS entries + type
+ * declarations that let ROOT CJS `require('@slidewright/lente')` AND a plain
+ * Node-ESM / bundler consumer `import '@slidewright/lente'`.
  *
  *   docs/src/lib/lente/*.ts  (source, docs-side ESM/TS)
+ *     →  docs/src/lib/lente/dist/index.mjs   (bundled ESM, esbuild)
  *     →  docs/src/lib/lente/dist/index.cjs   (bundled CJS, esbuild)
  *     →  docs/src/lib/lente/dist/*.d.ts      (declarations, tsc)
  *
@@ -12,10 +14,10 @@
  * `require('@slidewright/lente')` (and any npm publish) resolves a missing file.
  * This completes the library-shape recipe the Lente ADR always called for
  * (2026-07-13-lente-reader-lenses.md, following 2026-07-08-library-shape-cadenza-vetrina.md):
- * the `exports` map sends `require` here to dist/index.cjs while docs + Vitest keep
- * importing the TS SOURCE (the `import`/`types` conditions point at ./index.ts) — so
- * the docs runtime is unaffected. Lente is the fourth spin-off sibling; this makes it
- * node-consumable and publishable like Cadenza and Vetrina.
+ * the `exports` map sends `require` → dist/index.cjs and `import` → dist/index.mjs, while
+ * docs + Vitest import the TS SOURCE through the `@/lib/*` path ALIAS (not the package
+ * name) — so the docs runtime is unaffected. Lente is the fourth spin-off sibling; this
+ * makes it node-consumable and publishable like Cadenza and Vetrina.
  *
  * Bundler = the in-tree esbuild (engineering/capabilities.md names it the house
  * bundler); declarations = `tsc --emitDeclarationOnly` (esbuild can't emit .d.ts).
@@ -59,25 +61,36 @@ function sourceFiles() {
     .map((f) => path.join(LIB_DIR, f));
 }
 
-/** Bundle the barrel into one CJS file (zero-dep → everything inlines). */
-async function buildCjs(outDir) {
-  await esbuild.build({
-    entryPoints: [ENTRY],
-    outfile: path.join(outDir, 'index.cjs'),
-    bundle: true,
-    format: 'cjs',
-    platform: 'node',
-    target: ['node18'],
-    minify: false, // committed, human-readable source
-    legalComments: 'none',
-    // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json
-    // walking up from the entry. That ambient config `extends astro/tsconfigs/strict`,
-    // which resolves in some environments and not others (astro is a docs-only dep) —
-    // making the emitted bytes environment-dependent and flapping the freshness gate
-    // in CI. An empty raw config makes the output deterministic everywhere.
-    tsconfigRaw: '{}',
-    banner: { js: CJS_BANNER },
-  });
+// Both module formats: CJS (`require` condition -> dist/index.cjs) + ESM
+// (`import`/`module` condition -> dist/index.mjs). Emitting a real .mjs is what makes
+// `import '@slidewright/lente'` resolve for a plain Node-ESM / non-TS-bundler consumer —
+// the `import` condition used to point at raw ./index.ts and crashed with a TS extension.
+const FORMATS = [
+  { format: 'cjs', ext: 'cjs' },
+  { format: 'esm', ext: 'mjs' },
+];
+
+/** Bundle the barrel into a CJS + an ESM file (zero-dep → everything inlines). */
+async function buildBundles(outDir) {
+  for (const { format, ext } of FORMATS) {
+    await esbuild.build({
+      entryPoints: [ENTRY],
+      outfile: path.join(outDir, `index.${ext}`),
+      bundle: true,
+      format,
+      platform: 'node',
+      target: ['node18'],
+      minify: false, // committed, human-readable source
+      legalComments: 'none',
+      // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json
+      // walking up from the entry. That ambient config `extends astro/tsconfigs/strict`,
+      // which resolves in some environments and not others (astro is a docs-only dep) —
+      // making the emitted bytes environment-dependent and flapping the freshness gate
+      // in CI. An empty raw config makes the output deterministic everywhere.
+      tsconfigRaw: '{}',
+      banner: { js: CJS_BANNER },
+    });
+  }
 }
 
 /** Emit .d.ts for every non-test source via tsc (no JS, declarations only). */
@@ -109,7 +122,7 @@ function buildTypes(outDir) {
 /** Build both artifacts into `outDir` (esbuild CJS + tsc declarations). */
 async function buildInto(outDir) {
   fs.mkdirSync(outDir, { recursive: true });
-  await buildCjs(outDir);
+  await buildBundles(outDir);
   buildTypes(outDir);
 }
 

@@ -476,6 +476,20 @@ in patch versions.
   the moving parts, which is the only pixel change in the regenerated demo PDFs). (`scene.manifest.json`
   + regenerated docs.)
 
+- **The four spin-off libraries now ship a real ESM build — `import '@slidewright/…'` works in plain
+  Node ESM and any bundler, not just `require`.** Every package (`suono`, `lente`, `cadenza`, `vetrina`)
+  mapped its `exports["."].import` (and top-level `module`) at raw `./index.ts`, so a plain Node-ESM
+  consumer — the modern default — crashed with `ERR_UNKNOWN_FILE_EXTENSION ".ts"`; only the `require`
+  (CJS) path actually resolved, contradicting the "framework-free, publishable / buildless" positioning.
+  Each library's build script now emits a real `dist/index.mjs` (vetrina also `dist/react.mjs`) alongside
+  the existing `dist/index.cjs`, and the `import`/`module` conditions point at it. Verified: all four
+  import by name under real Node ESM (`import * as m from '@slidewright/suono'`, …), the `require` path is
+  unchanged (no regression — the in-repo `require('@slidewright/cadenza')` consumers still resolve), and
+  the docs runtime is unaffected (docs + Vitest import source through the `@/lib/*` alias, not the package
+  name). Vetrina's README "buildless — no bundler required" claim + its `./vetrina/index.js` example (a
+  file that never existed) are corrected to the shipped `dist/index.mjs`, and the other READMEs' example
+  imports now use the resolvable package name. (`tools/build-{suono,lente,cadenza,vetrina}-lib.js`,
+  `docs/src/lib/*/package.json`, `docs/src/lib/*/README.md`.)
 - **Compose no longer silently drops an external edit when you type in a rejected spot, and collapsed
   slides no longer pop open when you reorder.** An independent red-team of the whole Compose surface
   (beyond the register bug below) turned up three real defects, now fixed: (1) a keystroke the structural

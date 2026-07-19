@@ -45,7 +45,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `axis-dom-catalog:check` | Freshness gate for the generated axis-DOM catalog. |
 | `build` | Regenerate every generated artifact in dependency order, behind the ownership gate. |
 | `build:check` | Freshness gate: regenerate in memory and byte-diff every artifact; fail on drift (CI/pre-push). |
-| `cadenza-lib:build` | Build the Cadenza library dist/ (CJS + .d.ts, esbuild + tsc) so root CJS can require('@slidewright/cadenza') — the workspace package that retires the caption hand-mirrors. |
+| `cadenza-lib:build` | Build the Cadenza library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@slidewright/cadenza') resolves — the workspace package that retires the caption hand-mirrors. |
 | `cadenza-lib:check` | Freshness gate for the Cadenza library dist/ (stale vs docs/src/lib/cadenza/*.ts). |
 | `capabilities:build` | Generate engineering/capabilities.md — the index of every script, tool, and framework. |
 | `capabilities:check` | Freshness gate for capabilities.md; fails on drift or any undescribed script/tool. |
@@ -80,7 +80,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `katex-provider:watch` | Rebuild the katex-provider bundle on change. |
 | `layout-core:build` | Bundle the pure Layout Studio core for the browser (docs site). |
 | `layout-core:check` | Freshness gate for the layout-core bundle. |
-| `lente-lib:build` | Build the Lente library dist/ (CJS + .d.ts, esbuild + tsc) so require('@slidewright/lente') and npm publish resolve — the fourth spin-off sibling's node-consumable artifact. |
+| `lente-lib:build` | Build the Lente library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@slidewright/lente') and npm publish resolve — the fourth spin-off sibling's consumable artifact. |
 | `lente-lib:check` | Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts). |
 | `player-core:build` | Bundle the pure HTML-player assembly core (lib/export/player-core.mjs) for the browser — the Studio "Download as webpage" export. |
 | `player-core:check` | Freshness gate for the player-core Playground bundle. |
@@ -100,11 +100,11 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `stage-catalog:check` | Freshness gate for the generated stage-cell catalog. |
 | `standalone-core:build` | Bundle the standalone chart-SVG export core for the browser (docs site). |
 | `standalone-core:check` | Freshness gate for the standalone-core bundle. |
-| `suono-lib:build` | Build the Suono library dist/ (CJS + .d.ts, esbuild + tsc) so require('@slidewright/suono') and npm publish resolve — the audio engine's node-consumable artifact. |
+| `suono-lib:build` | Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require('@slidewright/suono') and npm publish resolve — the audio engine's consumable artifact. |
 | `suono-lib:check` | Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts). |
 | `theme-core:build` | Bundle the pure Theme Studio core for the browser (docs site). |
 | `theme-core:check` | Freshness gate for the theme-core bundle. |
-| `vetrina-lib:build` | Build the Vetrina library dist/ (two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine. |
+| `vetrina-lib:build` | Build the Vetrina library dist/ (two ESM + two CJS entries + .d.ts, esbuild + tsc; react external) — the publishable workspace package for the walkthrough engine. |
 | `vetrina-lib:check` | Freshness gate for the Vetrina library dist/ (stale vs docs/src/lib/vetrina/*.ts). |
 
 ### Galleries & preview
@@ -313,12 +313,12 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
 | `tools/build-a11y-textures.js` | Bundle the categorical/chart texture-<defs> kernel for the browser. |
 | `tools/build-axis-dom-catalog.js` | Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup |
-| `tools/build-cadenza-lib.js` | Build the Cadenza library's node-consumable dist/ — the CJS entry + type |
+| `tools/build-cadenza-lib.js` | Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
-| `tools/build-lente-lib.js` | Build the Lente library's node-consumable dist/ — the CJS entry + type |
+| `tools/build-lente-lib.js` | Build the Lente library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |
 | `tools/build-player-prune.js` | Bundle the used-selector / used-family PRUNE kernel for the browser. |
 | `tools/build-read-along-core.js` | Bundle the pure read-along CAPTIONS + NARRATION kernel for the browser. |
@@ -326,8 +326,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-spec-docs.js` | Publish the owned LFM standards (spec/*.md) onto the docs website as |
 | `tools/build-stage-catalog.js` | Generates lib/forms/cell/masthead/stage-catalog.generated.js — a plain CJS |
 | `tools/build-standalone-core.js` | Bundle the standalone chart-SVG export core for the browser. |
-| `tools/build-suono-lib.js` | Build the Suono library's node-consumable dist/ — the CJS entry + type |
-| `tools/build-vetrina-lib.js` | Build the Vetrina library's node-consumable dist/ — the CJS entries + type |
+| `tools/build-suono-lib.js` | Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type |
+| `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |
 | `tools/check-viz-render.js` | check-viz-render — the SCOPED-CSS black-fill guard (born from the #956 |

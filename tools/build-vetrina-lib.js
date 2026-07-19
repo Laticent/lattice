@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Build the Vetrina library's node-consumable dist/ — the CJS entries + type
+ * Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type
  * declarations that make it a publishable unit (2026-07-08-library-shape-cadenza-vetrina.md).
  *
  *   docs/src/lib/vetrina/*.ts  (source, docs-side ESM/TS)
+ *     →  dist/index.mjs + dist/react.mjs   (bundled ESM, esbuild)
  *     →  dist/index.cjs + dist/react.cjs   (bundled CJS, esbuild)
  *     →  dist/*.d.ts                        (declarations, tsc)
  *
@@ -16,8 +17,10 @@
  *     sanctions it in the adapter), though the adapter imports only react today.
  *
  * Bundler = the in-tree esbuild; declarations = `tsc --emitDeclarationOnly`. Docs +
- * Vitest keep importing the TS SOURCE (the package's `import`/`types` conditions point
- * at ./index.ts / ./react.ts); this dist/ is for the `require` condition + future publish.
+ * Vitest import the TS SOURCE through the `@/lib/*` path ALIAS (not the package name);
+ * this dist/ is what an external consumer resolves — `require` → dist/*.cjs, `import`
+ * → dist/*.mjs (the `import` condition used to point at raw ./index.ts and crashed a
+ * plain Node-ESM consumer), + future npm publish.
  *
  * Flags:
  *   --check    Rebuild into a temp dir and diff the whole tree against the
@@ -61,26 +64,37 @@ function sourceFiles() {
     .map((f) => path.join(LIB_DIR, f));
 }
 
-/** Bundle each entrypoint into its own CJS file; react stays external. */
-async function buildCjs(outDir) {
+// Both module formats per entry: CJS (`require` condition) + ESM (`import`/`module`
+// condition). Emitting a real dist/*.mjs is what makes `import '@slidewright/vetrina'`
+// resolve for a plain Node-ESM / non-TS-bundler consumer — the `import` condition used to
+// point at raw ./index.ts and crashed with ERR_UNKNOWN_FILE_EXTENSION.
+const FORMATS = [
+  { format: 'cjs', ext: 'cjs' },
+  { format: 'esm', ext: 'mjs' },
+];
+
+/** Bundle each entrypoint into a CJS + an ESM file; react stays external. */
+async function buildBundles(outDir) {
   for (const entry of ENTRIES) {
-    const out = `${path.basename(entry, '.ts')}.cjs`;
-    await esbuild.build({
-      entryPoints: [path.join(LIB_DIR, entry)],
-      outfile: path.join(outDir, out),
-      bundle: true,
-      format: 'cjs',
-      platform: 'node',
-      target: ['node18'],
-      external: EXTERNAL,
-      minify: false, // committed, human-readable source
-      legalComments: 'none',
-      // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json,
-      // whose `extends astro/tsconfigs/strict` resolves unevenly across environments and
-      // would flap the freshness gate. See tools/build-cadenza-lib.js for the full note.
-      tsconfigRaw: '{}',
-      banner: { js: banner(entry) },
-    });
+    const stem = path.basename(entry, '.ts');
+    for (const { format, ext } of FORMATS) {
+      await esbuild.build({
+        entryPoints: [path.join(LIB_DIR, entry)],
+        outfile: path.join(outDir, `${stem}.${ext}`),
+        bundle: true,
+        format,
+        platform: 'node',
+        target: ['node18'],
+        external: EXTERNAL,
+        minify: false, // committed, human-readable source
+        legalComments: 'none',
+        // Pin the TS config INLINE so esbuild never auto-discovers docs/tsconfig.json,
+        // whose `extends astro/tsconfigs/strict` resolves unevenly across environments and
+        // would flap the freshness gate. See tools/build-cadenza-lib.js for the full note.
+        tsconfigRaw: '{}',
+        banner: { js: banner(entry) },
+      });
+    }
   }
 }
 
@@ -113,7 +127,7 @@ function buildTypes(outDir) {
 /** Build both artifact kinds into `outDir`. */
 async function buildInto(outDir) {
   fs.mkdirSync(outDir, { recursive: true });
-  await buildCjs(outDir);
+  await buildBundles(outDir);
   buildTypes(outDir);
 }
 

@@ -17,7 +17,7 @@ it) — the third spin-off-able sibling beside [Cadenza](../cadenza/) (caption t
 ## 60-second start
 
 ```ts
-import { createStage } from './suono';
+import { createStage } from '@slidewright/suono';
 
 const stage = createStage();          // owns ONE AudioContext, lazily
 
@@ -42,7 +42,7 @@ For house symmetry with the sibling libraries (vetrina `scene()`, cadenza `narra
 `lens()`), `sequence(stage)` lets you chain the same options instead of assembling the bag:
 
 ```ts
-import { createStage, sequence } from './suono';
+import { createStage, sequence } from '@slidewright/suono';
 
 const seq = sequence(createStage())
   .items(sentences)

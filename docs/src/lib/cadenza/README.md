@@ -16,7 +16,7 @@ full design contract is
 ## 60-second start
 
 ```ts
-import { buildTrack, makeReader, toVtt } from './cadenza';
+import { buildTrack, makeReader, toVtt } from '@slidewright/cadenza';
 
 // 1. Text → an estimated timeline (offline, no audio needed).
 const track = buildTrack('Revenue grew to $4.2M. We beat plan by eight points.', { pace: 'moderate' });
@@ -43,7 +43,7 @@ options. `narration()` collects the config once, then emits any output — **con
 many**:
 
 ```ts
-import { narration } from './cadenza';
+import { narration } from '@slidewright/cadenza';
 
 const n = narration('Revenue grew to $4.2M. We beat plan by eight points.')
   .pace('moderate')
