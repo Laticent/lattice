@@ -21,21 +21,38 @@ const { SLIDE_PROSE_BUDGET, UNIVERSAL_PROSE_BUDGETS } = require('../../../lib/au
 const REVIEW_SRC = fs.readFileSync(path.join(__dirname, '../../../lib/authoring/review-core.js'), 'utf8');
 
 describe('deck-canon', () => {
+  // Match `rule: '<id>'` OR `rule: "<id>"`, ids = word chars + hyphen. Widened from the
+  // original /'([a-z-]+)'/ after a red-team finding that it missed double-quoted ids and
+  // ids containing digits/uppercase — either would have shipped a rule untaught + unflagged.
+  const RULE_LITERAL = /rule:\s*['"]([\w-]+)['"]/g;
+
   test('RUBRIC covers every rule reviewText can emit (drift gate)', () => {
-    // Every literal `rule: '<id>'` in review-core's source must have a RUBRIC entry, so
-    // the taught rubric can't silently fall behind the checked one. (The `verbose-*`
-    // budget family uses a computed id — covered by the collective 'verbose-*' entry.)
-    const emitted = new Set([...REVIEW_SRC.matchAll(/rule:\s*'([a-z-]+)'/g)].map((m) => m[1]));
+    // Every quoted `rule:` literal in review-core's source must have a RUBRIC entry, so the
+    // taught rubric can't silently fall behind the checked one. (The `verbose-*` budget
+    // family uses a computed id — covered by the collective 'verbose-*' entry + the
+    // variable-binding guard below.)
+    const emitted = new Set([...REVIEW_SRC.matchAll(RULE_LITERAL)].map((m) => m[1]));
     const taught = new Set(RUBRIC.map((r) => r.id));
     const missing = [...emitted].filter((id) => !taught.has(id));
     assert.deepEqual(missing, [], `RUBRIC is missing entries for review rules: ${missing.join(', ')}`);
   });
 
   test('RUBRIC has no stale entry (every id is a real rule or the verbose family)', () => {
-    const emitted = new Set([...REVIEW_SRC.matchAll(/rule:\s*'([a-z-]+)'/g)].map((m) => m[1]));
+    const emitted = new Set([...REVIEW_SRC.matchAll(RULE_LITERAL)].map((m) => m[1]));
     const ALLOW_NON_LITERAL = new Set(['verbose-*']); // computed-id family, not a literal
     const stale = RUBRIC.map((r) => r.id).filter((id) => !emitted.has(id) && !ALLOW_NON_LITERAL.has(id));
     assert.deepEqual(stale, [], `RUBRIC has entries for no-longer-emitted rules: ${stale.join(', ')}`);
+  });
+
+  test('the only VARIABLE-emitted rule family is the allowlisted verbose-* (else one could ship untaught)', () => {
+    // A rule id built from a variable (review-core binds `const rule = … verbose-${kind}`
+    // and pushes it via object shorthand) is invisible to the literal scan above, so a new
+    // one could ship with no RUBRIC entry and no flag. Pin that there is exactly ONE such
+    // binding — the verbose family — with a RUBRIC entry; a second `const rule =` trips this,
+    // forcing a deliberate RUBRIC entry + allowlist update.
+    const varBindings = [...REVIEW_SRC.matchAll(/\bconst\s+rule\s*=/g)].length;
+    assert.equal(varBindings, 1, `expected exactly 1 variable rule-binding (verbose-*); found ${varBindings} — a new one needs a RUBRIC entry + allowlist`);
+    assert.ok(RUBRIC.some((r) => r.id === 'verbose-*'), 'the verbose-* family must have a RUBRIC entry');
   });
 
   test('every RUBRIC entry has a non-empty trap and fix', () => {
