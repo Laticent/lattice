@@ -583,7 +583,10 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
-				nodeViews: { slide: (node, nodeView, getPos, decorations) => new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current) },
+				nodeViews: {
+					slide: (node, nodeView, getPos, decorations) =>
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current),
+				},
 				dispatchTransaction(tr) {
 					const prevDoc = view.state.doc;
 					const next = view.state.apply(tr);
