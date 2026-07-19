@@ -4,7 +4,7 @@ import { deleteTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { deckSchema, deckToDoc, docToDeck } from '@/lib/compose/deck-doc';
-import { currentColumnAlign, setColumnAlign, stripCellSpans, tabToNextCellOrAddRow } from './ComposeView';
+import { currentColumnAlign, setColumnAlign, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 
 // The table CHROME commands, state-tested (no browser) the way the register/collapse suites are.
 // These are the behaviors the round-trip fixtures don't exercise — the adversarial trio flagged
