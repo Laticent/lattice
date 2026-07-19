@@ -40,15 +40,21 @@ export type RefineActionId = 'polish' | 'formalize' | 'elaborate' | 'shorten';
 //     so the UI can point the author at Workspace → connect, instead of toasting
 //     a change that never happened.
 
-// The deck-editor system turn: persona + the full authoring canon (DECK_CANON, sourced
-// from lib/authoring — the boardroom rules, budgets, and the reviewer's own traps, so the
-// generator self-avoids what the review pass would flag) + the edit-block protocol. The
-// canon subsumes the terse inline rules the prompt used to carry.
-const SYSTEM =
-	'You are the Lattice Architect, a boardroom deck editor.\n\n' +
-	deckCanon.DECK_CANON +
-	'\n\n' +
-	EDIT_PROTOCOL;
+// The deck-editor system turn: persona + the authoring canon (sourced from lib/authoring —
+// the boardroom rules, budgets, and the reviewer's own traps, so the generator self-avoids
+// what the review pass would flag) + the edit-block protocol. The canon subsumes the terse
+// inline rules the prompt used to carry.
+//
+// TIERED by model: the CLOUD tier gets the FULL canon (~900 tokens, cached in the system
+// prefix so it costs once per burst); a small ON-DEVICE model gets the SHORT canon (~275
+// tokens) — a long system prompt makes a tiny local model lose the thread, so it gets the
+// load-bearing rules only. The persona + EDIT_PROTOCOL are IDENTICAL across tiers (the
+// parser needs the edit-block grammar regardless of tier).
+const SYSTEM_PERSONA = 'You are the Lattice Architect, a boardroom deck editor.\n\n';
+export function deckSystem(generation: string): string {
+	const canon = generation === 'openrouter' ? deckCanon.DECK_CANON : deckCanon.DECK_CANON_SHORT;
+	return SYSTEM_PERSONA + canon + '\n\n' + EDIT_PROTOCOL;
+}
 
 // ── Studio voice ────────────────────────────────────────────────────────────
 // The output language + the author's standing instructions, merged into the
@@ -94,8 +100,31 @@ export function withStudioVoice(messages: Msg[], generation: string = 'openroute
 	const sys = out.find((m) => m.role === 'system');
 	// The system turn is always plain text (we author it); the string guard keeps
 	// TS honest now that a message's content may be content-parts (an inlined PDF).
-	if (sys && typeof sys.content === 'string') sys.content = `${sys.content}\n\n${extra}`;
-	else if (!sys) out.unshift({ role: 'system', content: extra });
+	if (sys && typeof sys.content === 'string') {
+		if (generation === 'openrouter') {
+			// CLOUD PATH — keep the STABLE canon and the VOLATILE voice as SEPARATE text
+			// parts, so the prompt-cache layer (withCachedSystem) can put its breakpoint
+			// AFTER the canon and BEFORE the voice. A deck-language / standing-instructions
+			// change then re-pays only the short voice tail, not the whole cached canon.
+			// The canon part stays byte-identical (cacheable); the \n\n separator that used
+			// to join them rides on the voice part so the concatenated prompt is unchanged.
+			sys.content = [
+				{ type: 'text', text: sys.content },
+				{ type: 'text', text: `\n\n${extra}` },
+			];
+		} else {
+			// ON-DEVICE / non-cacheable — one flat string system turn (the small backends
+			// read `sys.content` as a string and take only the first system message).
+			sys.content = `${sys.content}\n\n${extra}`;
+		}
+	} else if (sys && Array.isArray(sys.content)) {
+		// The system turn is ALREADY content-parts — the Coach "Fix" cloud path
+		// (buildFixMessages) emits [{canon, cache_control}, {dynamic}]. Append the voice
+		// as a trailing part so the language directive + standing instructions still reach
+		// the model (they were silently dropped before); it rides AFTER the cached canon,
+		// same as the split above.
+		sys.content = [...sys.content, { type: 'text', text: `\n\n${extra}` }];
+	} else if (!sys) out.unshift({ role: 'system', content: extra });
 	return out;
 }
 
@@ -220,7 +249,7 @@ export async function runArchitect(source: string, instruction: string, docs?: R
 	// Ground in the user's reference doc (#640) — e.g. "rewrite this in the style of
 	// the attached deck". Applied after the Studio voice so the doc sits in the user turn.
 	const ground = groundMessages(withStudioVoice([
-		{ role: 'system', content: SYSTEM },
+		{ role: 'system', content: deckSystem(generation) },
 		{ role: 'user', content: `${instruction}\n\nThe deck — address slides by their [slide N] markers, and never include a marker in an edit body:\n\n${numberSlides(source)}` },
 	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
 	let reply = '';
@@ -866,7 +895,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	}
 	// Ground the final user turn in the reference doc (#640).
 	const ground = groundMessages(withStudioVoice([
-		{ role: 'system', content: `${SYSTEM}\n\nConverse with the author. Answer questions directly. Only emit edit blocks when they actually want a change to the deck.` },
+		{ role: 'system', content: `${deckSystem(generation)}\n\nConverse with the author. Answer questions directly. Only emit edit blocks when they actually want a change to the deck.` },
 		...history.slice(0, -1),
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
 	], generation, deckOutputLang(source)), docs, generation === 'openrouter');

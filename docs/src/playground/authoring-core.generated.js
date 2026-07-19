@@ -2234,8 +2234,20 @@ var require_deck_canon = __commonJS({
         traps
       ].join("\n");
     }
+    function buildDeckCanonShort() {
+      return [
+        "HOW A BOARDROOM DECK WORKS (keep edits an argument, not a file dump):",
+        '\u2022 ONE idea per slide. Every "## " heading is a COMPLETE DECLARATIVE SENTENCE that IS the claim \u2014 never a label ("Q2 Results"), never a question. The body DELIVERS the claim; it never just restates the heading.',
+        "\u2022 ARC: a title that states the stakes -> sections that build the argument -> a closing that names ONE ask. The headings alone should read as the argument.",
+        `\u2022 RESTRAINT: aim ~${SLIDE_PROSE_BUDGET.words} words of body and <= ${SLIDE_PROSE_BUDGET.bullets} bullets per slide (title <= ${b.title.soft} words). When content overflows, SPLIT the slide \u2014 never shrink the font.`,
+        "\u2022 RIGHT COMPONENT by INTENT then CAPACITY: match the intent to a catalog component, count the content against its capacity, and split or escalate if it exceeds the budget. Pick from the catalog, never memory.",
+        '\u2022 CARD-style layouts nest "- Title" then a two-space-indented "  - body" \u2014 never an inline "- **Title.** body".',
+        '\u2022 BOOKENDS: the title slide is "# h1" then a backtick `eyebrow` then a one-sentence subtitle; the closing is ONE sentence plus a signature (never a bulleted next-steps list); both carry `silent`.'
+      ].join("\n");
+    }
     var DECK_CANON = buildDeckCanon();
-    module.exports = { DECK_CANON, buildDeckCanon };
+    var DECK_CANON_SHORT = buildDeckCanonShort();
+    module.exports = { DECK_CANON, DECK_CANON_SHORT, buildDeckCanon, buildDeckCanonShort };
   }
 });
 

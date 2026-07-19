@@ -243,9 +243,24 @@ export function withCachedSystem(messages, modelId) {
   if (!OR_CACHE_BREAKPOINT_VENDORS.has(String(modelId || '').split('/')[0])) return messages;
   let marked = false;
   return (messages || []).map((m) => {
-    if (marked || !m || m.role !== 'system' || typeof m.content !== 'string') return m;
-    marked = true;
-    return { ...m, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] };
+    if (marked || !m || m.role !== 'system') return m;
+    // Plain string system prompt: wrap it as one cached text part.
+    if (typeof m.content === 'string') {
+      marked = true;
+      return { ...m, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] };
+    }
+    // A canon/voice split (withStudioVoice's cloud path emits the system as
+    // [stable canon, volatile voice] text parts): put the breakpoint on the FIRST
+    // part so the cached prefix ends AFTER the canon and BEFORE the voice — a deck-
+    // language / standing-instructions change then re-pays only the short voice
+    // tail, not the whole canon. Parts already carrying a cache_control are left as
+    // authored.
+    if (Array.isArray(m.content) && m.content.length && m.content[0] && typeof m.content[0].text === 'string' && !m.content.some((p) => p?.cache_control)) {
+      marked = true;
+      const content = m.content.map((p, i) => (i === 0 ? { ...p, cache_control: { type: 'ephemeral' } } : p));
+      return { ...m, content };
+    }
+    return m;
   });
 }
 

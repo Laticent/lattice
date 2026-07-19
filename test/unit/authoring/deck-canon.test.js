@@ -15,7 +15,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { RUBRIC } = require('../../../lib/authoring/review-core.js');
-const { DECK_CANON, buildDeckCanon } = require('../../../lib/authoring/deck-canon.js');
+const { DECK_CANON, DECK_CANON_SHORT, buildDeckCanon, buildDeckCanonShort } = require('../../../lib/authoring/deck-canon.js');
 const { SLIDE_PROSE_BUDGET, UNIVERSAL_PROSE_BUDGETS } = require('../../../lib/authoring/prose-budgets.js');
 
 const REVIEW_SRC = fs.readFileSync(path.join(__dirname, '../../../lib/authoring/review-core.js'), 'utf8');
@@ -82,5 +82,27 @@ describe('deck-canon', () => {
     assert.match(DECK_CANON, /- \*\*Title\.\*\* body/);        // the card-nesting anti-pattern
     assert.match(DECK_CANON, /INTENT then CAPACITY/);          // the component-selection loop
     assert.ok(DECK_CANON.length > 800, 'the canon should be substantive');
+  });
+
+  // The on-device SHORT canon: a tiny local model degrades under the full ~900-token
+  // canon, so it gets the load-bearing rules only — but it must still teach the
+  // non-negotiables and keep the budgets sourced.
+  test('DECK_CANON_SHORT is materially shorter than the full canon', () => {
+    assert.ok(DECK_CANON_SHORT.length < DECK_CANON.length * 0.5, `short canon (${DECK_CANON_SHORT.length}) should be < half the full canon (${DECK_CANON.length})`);
+    assert.ok(DECK_CANON_SHORT.length > 200, 'the short canon must still be substantive');
+  });
+
+  test('DECK_CANON_SHORT keeps the load-bearing rules', () => {
+    assert.match(DECK_CANON_SHORT, /COMPLETE DECLARATIVE SENTENCE/); // heading-as-claim
+    assert.match(DECK_CANON_SHORT, /- \*\*Title\.\*\* body/);        // card-nesting anti-pattern
+    assert.match(DECK_CANON_SHORT, /INTENT then CAPACITY/);          // component-selection loop
+    assert.match(DECK_CANON_SHORT, /BOOKENDS/);                      // the bookend shape
+  });
+
+  test('DECK_CANON_SHORT keeps the budgets sourced (not hardcoded)', () => {
+    assert.ok(DECK_CANON_SHORT.includes(`~${SLIDE_PROSE_BUDGET.words} words`), 'short canon must render the slide budget from source');
+    assert.ok(DECK_CANON_SHORT.includes(String(UNIVERSAL_PROSE_BUDGETS.title.soft)), 'short canon must cite the sourced title budget');
+    // The gate bites: rebuilt from source, the value tracks.
+    assert.ok(buildDeckCanonShort().includes(`~${SLIDE_PROSE_BUDGET.words} words`));
   });
 });

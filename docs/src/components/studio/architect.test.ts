@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { applyDeckEdit, architectSpend, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { deckCanon } from '@/playground/authoring-core.generated.js';
+import { applyDeckEdit, architectSpend, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -14,6 +15,18 @@ afterEach(() => {
 // withStudioVoice merges the output-language directive (+ standing instructions)
 // into the system turn of DECK-CONTENT calls — the prose paths only. The structural
 // generators (theme/component) never see it, so their slugs/CSS stay English.
+//
+// The CLOUD path keeps the stable canon and the volatile voice as SEPARATE system
+// text parts (so the cache breakpoint can sit between them); the on-device path
+// flattens to one string. `sysText` reads the combined system text either way so a
+// behavioral assertion is shape-agnostic.
+const sysText = (m: { content: unknown }): string => {
+	const c = m.content;
+	if (typeof c === 'string') return c;
+	if (Array.isArray(c)) return c.map((p) => (p && typeof p === 'object' && 'text' in p ? String((p as { text?: string }).text ?? '') : '')).join('\n\n');
+	return '';
+};
+
 describe('withStudioVoice — language + instructions injection', () => {
 	it('folds the language directive into an existing system turn', () => {
 		saveSettings({ language: 'en-GB' });
@@ -22,9 +35,9 @@ describe('withStudioVoice — language + instructions injection', () => {
 			{ role: 'user', content: 'hi' },
 		]);
 		expect(out[0].role).toBe('system');
-		expect(out[0].content).toContain('BASE');
-		expect(out[0].content).toContain('English (United Kingdom)');
-		expect(out[0].content).toContain('British spelling');
+		expect(sysText(out[0])).toContain('BASE');
+		expect(sysText(out[0])).toContain('English (United Kingdom)');
+		expect(sysText(out[0])).toContain('British spelling');
 		expect(out[1]).toEqual({ role: 'user', content: 'hi' }); // user turn untouched
 	});
 
@@ -32,7 +45,7 @@ describe('withStudioVoice — language + instructions injection', () => {
 		saveSettings({ language: 'en-US' });
 		const out = withStudioVoice([{ role: 'user', content: 'hi' }]);
 		expect(out[0].role).toBe('system');
-		expect(out[0].content).toContain('English (United States)');
+		expect(sysText(out[0])).toContain('English (United States)');
 		expect(out).toHaveLength(2);
 	});
 
@@ -40,19 +53,19 @@ describe('withStudioVoice — language + instructions injection', () => {
 		saveSettings({ language: 'en-US' }); // workspace default
 		// An explicit deck lang wins over the workspace default…
 		const overridden = withStudioVoice([{ role: 'system', content: 'X' }], 'openrouter', 'en-GB');
-		expect(overridden[0].content).toContain('English (United Kingdom)');
-		expect(overridden[0].content).not.toContain('English (United States)');
+		expect(sysText(overridden[0])).toContain('English (United Kingdom)');
+		expect(sysText(overridden[0])).not.toContain('English (United States)');
 		// …and with no deck lang the workspace default applies.
 		const inherited = withStudioVoice([{ role: 'system', content: 'X' }], 'openrouter');
-		expect(inherited[0].content).toContain('English (United States)');
+		expect(sysText(inherited[0])).toContain('English (United States)');
 	});
 
 	it('appends standing instructions when set, omits them when blank', () => {
 		saveSettings({ language: 'en-US' });
 		saveInstructions('Be terse.');
-		expect(withStudioVoice([{ role: 'system', content: 'X' }])[0].content).toContain('Be terse.');
+		expect(sysText(withStudioVoice([{ role: 'system', content: 'X' }])[0])).toContain('Be terse.');
 		saveInstructions('');
-		expect(withStudioVoice([{ role: 'system', content: 'X' }])[0].content).not.toContain('Be terse.');
+		expect(sysText(withStudioVoice([{ role: 'system', content: 'X' }])[0])).not.toContain('Be terse.');
 	});
 
 	it('does not mutate the input array', () => {
@@ -65,19 +78,82 @@ describe('withStudioVoice — language + instructions injection', () => {
 		saveSettings({ language: 'en-US' });
 		saveInstructions('Cloud voice.');
 		saveOnDeviceInstructions('Local note.');
-		expect(withStudioVoice([{ role: 'system', content: 'X' }])[0].content).toContain('Cloud voice.');
-		expect(withStudioVoice([{ role: 'system', content: 'X' }])[0].content).not.toContain('Local note.');
-		expect(withStudioVoice([{ role: 'system', content: 'X' }], 'openrouter')[0].content).toContain('Cloud voice.');
+		expect(sysText(withStudioVoice([{ role: 'system', content: 'X' }])[0])).toContain('Cloud voice.');
+		expect(sysText(withStudioVoice([{ role: 'system', content: 'X' }])[0])).not.toContain('Local note.');
+		expect(sysText(withStudioVoice([{ role: 'system', content: 'X' }], 'openrouter')[0])).toContain('Cloud voice.');
 	});
 
 	it('picks the separate, capped ON-DEVICE instructions field for any on-device generation', () => {
 		saveSettings({ language: 'en-US' });
 		saveInstructions('Cloud voice.');
 		saveOnDeviceInstructions('Local note.');
-		for (const generation of ['prompt-api', 'webllm', 'universal']) {
+		for (const generation of ['prompt-api', 'webllm', 'universal', 'transformers']) {
 			const out = withStudioVoice([{ role: 'system', content: 'X' }], generation);
-			expect(out[0].content).toContain('Local note.');
-			expect(out[0].content).not.toContain('Cloud voice.');
+			expect(sysText(out[0])).toContain('Local note.');
+			expect(sysText(out[0])).not.toContain('Cloud voice.');
+		}
+	});
+
+	// The Coach "Fix" cloud path (buildFixMessages) hands withStudioVoice a system turn
+	// whose content is ALREADY parts ([{canon, cache_control}, {dynamic}]). The voice must
+	// still be injected (it was silently dropped before) — appended as a trailing part.
+	it('injects the voice when the system content is already content-parts (finding-fix cloud path)', () => {
+		saveSettings({ language: 'en-GB' });
+		saveInstructions('Be terse.');
+		const preParts = [
+			{ role: 'system', content: [{ type: 'text', text: 'CANON', cache_control: { type: 'ephemeral' } }, { type: 'text', text: 'the flagged slide' }] },
+			{ role: 'user', content: 'fix it' },
+		] as Parameters<typeof withStudioVoice>[0];
+		const out = withStudioVoice(preParts, 'openrouter', 'en-GB');
+		const parts = out[0].content as Array<{ text: string; cache_control?: unknown }>;
+		expect(parts).toHaveLength(3); // canon (still marked) + dynamic + appended voice
+		expect(parts[0].cache_control).toBeTruthy(); // the cached canon part is untouched
+		expect(parts[2].text).toContain('English (United Kingdom)');
+		expect(parts[2].text).toContain('Be terse.');
+	});
+
+	// The cache-breakpoint contract: CLOUD splits canon vs voice into parts; on-device
+	// stays one string. withCachedSystem then marks the FIRST part (see its own tests).
+	it('CLOUD path splits the system into [canon, voice] text parts; on-device is one string', () => {
+		saveSettings({ language: 'en-US' });
+		saveInstructions('');
+		saveOnDeviceInstructions('');
+		const cloud = withStudioVoice([{ role: 'system', content: 'CANON' }], 'openrouter');
+		expect(Array.isArray(cloud[0].content)).toBe(true);
+		const parts = cloud[0].content as Array<{ type: string; text: string }>;
+		expect(parts).toHaveLength(2);
+		expect(parts[0].text).toBe('CANON'); // the stable canon is its own part (nothing appended)
+		expect(parts[1].text).toContain('English (United States)'); // the volatile voice trails
+		// on-device keeps the flat string
+		const local = withStudioVoice([{ role: 'system', content: 'CANON' }], 'webllm');
+		expect(typeof local[0].content).toBe('string');
+		expect(local[0].content).toContain('CANON');
+	});
+});
+
+// The deck system is TIERED: the cloud gets the full canon (cached in the prefix);
+// a small on-device model gets the SHORT canon so a long prompt doesn't drown it. The
+// persona + edit-block protocol are identical across tiers (the parser needs the grammar).
+describe('deckSystem — tiered canon by model', () => {
+	it('cloud (openrouter) carries the FULL canon; on-device carries the SHORT one', () => {
+		const cloud = deckSystem('openrouter');
+		expect(cloud).toContain(deckCanon.DECK_CANON);
+		expect(cloud.length).toBeGreaterThan(deckCanon.DECK_CANON.length);
+		// Include 'transformers' — the RAW backend name the deck call sites pass (they use
+		// model.availability().generation, not the normalized 'universal' tier label).
+		for (const generation of ['prompt-api', 'webllm', 'universal', 'transformers']) {
+			const local = deckSystem(generation);
+			expect(local, `${generation} should use the short canon`).toContain(deckCanon.DECK_CANON_SHORT);
+			expect(local, `${generation} should NOT carry the full canon`).not.toContain(deckCanon.DECK_CANON);
+			expect(local.length, `${generation} prompt should be materially shorter`).toBeLessThan(cloud.length);
+		}
+	});
+
+	it('every tier keeps the persona and the edit-block protocol', () => {
+		for (const generation of ['openrouter', 'prompt-api', 'webllm', 'universal', 'transformers']) {
+			const sys = deckSystem(generation);
+			expect(sys).toContain('Lattice Architect');
+			expect(sys.toLowerCase()).toContain('edit'); // the EDIT_PROTOCOL grammar the parser needs
 		}
 	});
 });
