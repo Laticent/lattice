@@ -265,6 +265,17 @@ in patch versions.
   kernel); the toy `scoreDeck` and the standalone "Rewrite lead" chip are removed; component `density` is plumbed
   through `studio.astro` so the review's density findings survive. Part of the Drawing Board → Studio migration
   (`engineering/decisions/2026-07-03-studio-succession.md` P2a).
+- **The Coach's findings are redesigned as full-width cards with an in-pill fix lifecycle and batch actions.**
+  Each finding is now a full-width card (like the Lenses panel), not a bulleted list row: a single meta line
+  (severity glyph · slide · rule, the rule truncating rather than wrapping), the message on its own line, and the
+  action on its own line — so nothing competes for width. The AI fix no longer fires a toast: the **Fix pill cycles
+  its progress in place** ("Reading slide N…" → "Drafting…" → "Preparing the diff…") and then **splits into two pills,
+  Apply and Discard**, with the diff shown below for review. An open or in-flight fix now **survives a re-lint** — fix
+  state is keyed by finding identity, so editing another slide no longer drops the fix you're on ("stay on Fix"), and
+  the active card is emphasized. New **Fix all** (drafts every fixable finding against one snapshot — never a blind
+  apply) and **Apply all** (applies every reviewed proposal, slide-descending, one checkpoint, each still stale-guarded)
+  batch actions appear when there are two or more to act on. New `coach/FindingCard.tsx`; `StudioShell.tsx` fix state
+  is now a per-finding map. (`engineering/decisions/2026-07-19-coach-chat-studio-migration.md`.)
 - **The Studio Architect chat now streams, renders Markdown, and shows what a turn costs.** The
   Converse chat was a plain-text bubble list; it is rebuilt as a real conversation. Replies **stream
   in token-by-token** (with a Stop control and Regenerate), render **on-brand Markdown** — bold, lists,

@@ -89,10 +89,21 @@ diff context-collapse.
   slot. They are NOT tabs inside one "Architect" panel: they have nothing to do with
   each other, so a shared tab only added cognitive load. (The competition briefs
   assumed the pre-existing tabbed panel; the tab was removed on review.)
-- **Coach** (`coach/coach-core.ts`, `StudioShell.tsx`): real scorecard, quick-read
-  chips, severity-ranked findings, hardened per-finding fix, honest framing, an
-  AI-fix cost cue; `density` plumbed through `studio.astro`. Toy `scoreDeck` and the
-  standalone "Rewrite lead" chip removed.
+- **Coach** (`coach/coach-core.ts`, `coach/FindingCard.tsx`, `StudioShell.tsx`): real
+  scorecard, quick-read chips, severity-ranked findings, hardened per-finding fix, honest
+  framing, an AI-fix cost cue; `density` plumbed through `studio.astro`. Toy `scoreDeck`
+  and the standalone "Rewrite lead" chip removed.
+- **Coach finding cards, redesigned (2026-07-19 follow-up).** After review, the findings
+  render as full-width cards (Lenses rhythm), not a bulleted list: a 3-row card (meta —
+  glyph · slide · rule, truncated; message; action) that minimizes wrapping. The AI fix
+  is a **single pill that cycles its progress IN place** (no toast) and then **splits into
+  Apply / Discard**, with the diff below for review. Fix state moved from a single
+  `fixProposal` to a **per-finding map keyed by finding identity** (`findingKey`) so an
+  open/in-flight fix **survives a re-lint** (the old `setFixProposal(null)` on `[findings]`
+  dropped it) — a stale entry is pruned only when its finding disappears. **Fix all** (batch
+  DRAFT against one source snapshot) and **Apply all** (apply every proposal slide-descending,
+  one checkpoint, each still K4 stale-guarded, mismatches skipped with a notice) land the
+  deferred "Fix top N" follow-up below. New `coach/FindingCard.tsx`.
 - **Chat** (`chat-markdown.ts`, `chat-highlight.ts`, `ChatCodeBlock.tsx`,
   `ArchitectChat.tsx`, `architect.ts`): streaming, Markdown + `~~~` code + Copy +
   highlight, per-slide re-appliable diff, DOMPurify, cost strip, ephemeral notices.
@@ -105,5 +116,7 @@ diff context-collapse.
   estimate).
 - A chat "tone/clarity only — change no numbers or facts" constraint mode + fact
   provenance on edits that touch numbers (Munger inversion's content-truth point).
-- Multi-fix "Fix top N" batch queue in the Coach (per-finding, serialized against
-  live source, one checkpoint) — designed and hardened, deferred from this slice.
+- ~~Multi-fix "Fix top N" batch queue in the Coach~~ — **landed** in the 2026-07-19
+  finding-card follow-up above (Fix all drafts every fixable finding against one
+  snapshot; Apply all applies the reviewed proposals slide-descending under one
+  checkpoint, each stale-guarded).

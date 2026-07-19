@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, Gauge, History, Info, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, OctagonAlert, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -28,13 +28,14 @@ import { cn } from '@/lib/utils';
 import { sliceSlide } from '@/playground/architect-edits.js';
 import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
-import { ArchitectChat, DiffCard } from './ArchitectChat';
+import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { ComposeView } from './ComposeView';
 import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, hasFencedSeparator, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
+import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
@@ -1502,8 +1503,24 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// The active deterministic Coach chip result card (one open at a time). No model.
 	const [coachCard, setCoachCard] = React.useState<{ id: string; card: CoachCard } | null>(null);
 	const [talkMinutes, setTalkMinutes] = React.useState<number | null>(null);
-	const [fixBusy, setFixBusy] = React.useState<string | null>(null);
-	const [fixProposal, setFixProposal] = React.useState<{ key: string; slide?: number; proposedSlice?: string; before: string; after: string; edit: unknown } | null>(null);
+	// Per-finding fix lifecycle, keyed by finding IDENTITY (findingKey) — not list index.
+	// Keying by identity is what lets an open/in-flight fix SURVIVE a re-lint: editing
+	// another slide re-runs the assessment, but a finding that persists keeps its fix
+	// state ("if I'm on Fix, I stay on Fix"). A pruning effect drops entries whose finding
+	// no longer exists. `fixAll` is the batch draft (never a blind apply-all).
+	const [fixStates, setFixStates] = React.useState<Record<string, FindingFixState>>({});
+	const [fixingAll, setFixingAll] = React.useState(false);
+	// Live cycling-step timers for in-flight fixes (one per finding key), cleared on
+	// resolve / discard / unmount so a settled pill never keeps ticking.
+	const fixTimersRef = React.useRef<Record<string, ReturnType<typeof setInterval>>>({});
+	const stopFixTimer = React.useCallback((key: string) => {
+		const t = fixTimersRef.current[key];
+		if (t) {
+			clearInterval(t);
+			delete fixTimersRef.current[key];
+		}
+	}, []);
+	React.useEffect(() => () => { for (const t of Object.values(fixTimersRef.current)) clearInterval(t); }, []);
 	// On return from the OpenRouter OAuth redirect (?code=), finish the exchange.
 	React.useEffect(() => {
 		resumePendingAuth().then((ok) => {
@@ -1594,69 +1611,162 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			clearTimeout(id);
 		};
 	}, [source, lintVocab, components, localNames, savedFinishLintNames]);
-	// A clean proposal can outlive its finding after an edit; clear it when the
-	// finding set changes so a stale diff card never lingers.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally keyed on findings identity only — clearing a stale proposal when the list changes.
+	// Re-lint housekeeping. A fix keyed by finding identity SURVIVES a re-lint — that's
+	// the "stay on Fix" contract — so we don't nuke the whole map here. We only PRUNE
+	// entries whose finding no longer exists (it was resolved, or edited away), so a
+	// stale diff can't linger, while a fix for a finding that persists stays put. The
+	// deterministic quick-read card is transient, so it still clears.
 	React.useEffect(() => {
-		setFixProposal(null);
+		const live = new Set(findings.map(findingKey));
+		setFixStates((m) => {
+			let changed = false;
+			const next: Record<string, FindingFixState> = {};
+			for (const [k, v] of Object.entries(m)) {
+				if (live.has(k)) next[k] = v;
+				else {
+					changed = true;
+					stopFixTimer(k);
+				}
+			}
+			return changed ? next : m;
+		});
 		setCoachCard(null);
-	}, [findings]);
+	}, [findings, stopFixTimer]);
 
-	// Ask the Architect to fix ONE finding — proposes a reviewable diff (nothing
-	// applied yet). Honest degradation with no model / at the cap.
-	const fixFinding = React.useCallback(
-		async (finding: Finding, key: string) => {
-			if (fixBusy) return;
+	// Draft an AI fix for ONE finding, showing progress IN the pill (no toast) and
+	// leaving a reviewable diff — nothing is applied until Apply. The pill cycles
+	// through honest steps ("Reading slide N…" → "Drafting…" → "Preparing the diff…")
+	// while the request is in flight; on resolve it splits into Apply / Discard.
+	// `srcAt` lets the batch draft (fixAll) pin every request to ONE source snapshot.
+	const draftFix = React.useCallback(
+		async (finding: Finding, srcAt?: string): Promise<boolean> => {
+			const src = srcAt ?? source;
+			const key = findingKey(finding);
+			if (fixStates[key]?.phase === 'working') return false;
 			// K3 guard: the engine slide splitter is fence-blind, so a `---` inside a code
 			// fence would make an AI fix mis-target and corrupt the deck. Refuse honestly.
-			if (hasFencedSeparator(source)) {
+			if (hasFencedSeparator(src)) {
 				notify('AI fix is unavailable while a slide has a `---` inside a code fence — it would mis-target. Remove or fence it differently, or edit by hand.');
-				return;
+				return false;
 			}
-			setFixBusy(key);
-			setFixProposal(null);
-			notify('Asking the Architect to fix this…');
+			const steps = [finding.slide ? `Reading slide ${finding.slide}…` : 'Reading the deck…', 'Drafting a tighter pass…', 'Preparing the diff…'];
+			let si = 0;
+			setFixStates((m) => ({ ...m, [key]: { phase: 'working', step: steps[0] } }));
+			stopFixTimer(key);
+			fixTimersRef.current[key] = setInterval(() => {
+				si = Math.min(si + 1, steps.length - 1);
+				setFixStates((m) => (m[key]?.phase === 'working' ? { ...m, [key]: { phase: 'working', step: steps[si] } } : m));
+			}, 650);
+			const clear = () =>
+				setFixStates((m) => {
+					if (!(key in m)) return m;
+					const { [key]: _drop, ...rest } = m;
+					return rest;
+				});
 			try {
-				const out = await requestFindingFix(source, finding, components);
+				const out = await requestFindingFix(src, finding, components);
+				stopFixTimer(key);
 				if (out.status === 'offline') {
 					notify('Connect a model in Workspace → AI to fix a finding.');
 					setWorkspaceOpen(true);
+					clear();
 				} else if (out.status === 'blocked') {
 					notify(out.note);
 					setWorkspaceOpen(true);
+					clear();
 				} else if (out.status === 'nochange') {
 					notify('The model had no rewrite to propose for this one.');
+					clear();
 				} else {
 					// Capture the slide's content AT PROPOSAL TIME so Apply can detect a change
 					// under it (K4), independent of what the model reports as `before`.
-					setFixProposal({ key, slide: finding.slide, proposedSlice: finding.slide ? sliceSlide(source, finding.slide) : undefined, before: out.before, after: out.after, edit: out.edit });
+					setFixStates((m) => ({ ...m, [key]: { phase: 'proposed', slide: finding.slide, proposedSlice: finding.slide ? sliceSlide(src, finding.slide) : undefined, before: out.before, after: out.after, edit: out.edit } }));
+					return true;
 				}
 			} catch {
+				stopFixTimer(key);
 				notify('Fix failed — try again.');
-			} finally {
-				setFixBusy(null);
+				clear();
 			}
+			return false;
 		},
-		[fixBusy, source, components, notify],
+		[fixStates, source, components, notify, stopFixTimer],
 	);
-	// Apply the reviewed fix — checkpoint first (reversible from History), splice the
-	// edited slide back, and jump the preview to it.
-	const applyFix = React.useCallback(() => {
-		if (!fixProposal) return;
-		// K4 stale-body guard: if the target slide changed since the fix was proposed,
-		// applying would overwrite the author's newer edit with a rewrite of stale content.
-		// Refuse and ask for a re-run rather than clobber (the DB guarded this; the Studio
-		// applyFix did not).
-		if (fixProposal.slide && fixProposal.proposedSlice != null && sliceSlide(source, fixProposal.slide).trim() !== fixProposal.proposedSlice.trim()) {
-			notify(`Slide ${fixProposal.slide} changed since this fix was proposed — re-run the fix so it works from your current slide.`);
-			setFixProposal(null);
-			return;
+	const fixFinding = React.useCallback((finding: Finding) => void draftFix(finding), [draftFix]);
+	const discardFix = React.useCallback(
+		(key: string) => {
+			stopFixTimer(key);
+			setFixStates((m) => {
+				if (!(key in m)) return m;
+				const { [key]: _drop, ...rest } = m;
+				return rest;
+			});
+		},
+		[stopFixTimer],
+	);
+	// Apply ONE reviewed fix by key — checkpoint first (reversible from History), splice
+	// the edited slide back. K4 stale-body guard: refuse (rather than clobber) if the
+	// target slide changed since the fix was proposed.
+	const applyFixKey = React.useCallback(
+		(key: string): boolean => {
+			const st = fixStates[key];
+			if (!st || st.phase !== 'proposed') return false;
+			if (st.slide && st.proposedSlice != null && sliceSlide(source, st.slide).trim() !== st.proposedSlice.trim()) {
+				notify(`Slide ${st.slide} changed since this fix was proposed — re-run the fix so it works from your current slide.`);
+				discardFix(key);
+				return false;
+			}
+			setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
+			setSource(applyDeckEdit(source, st.edit));
+			discardFix(key);
+			notify('Fix applied — ⌘Z or restore from History to undo.');
+			return true;
+		},
+		[fixStates, source, deck.id, notify, discardFix],
+	);
+	// Draft fixes for EVERY fixable finding, serialized against one source snapshot so
+	// slide numbers stay coherent — each lands as its own reviewable proposal. Nothing
+	// applies (no blind apply-all): the author reviews, then Apply / Apply all.
+	const fixAll = React.useCallback(async () => {
+		if (fixingAll || hasFencedSeparator(source)) return;
+		const targets = rankFindings(findings)
+			.slice(0, 6)
+			.filter((f) => f.slide && fixStates[findingKey(f)]?.phase !== 'proposed');
+		if (!targets.length) return;
+		setFixingAll(true);
+		const snap = source;
+		try {
+			for (const f of targets) await draftFix(f, snap);
+		} finally {
+			setFixingAll(false);
 		}
-		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
-		setSource(applyDeckEdit(source, fixProposal.edit));
-		setFixProposal(null);
-		notify('Fix applied — ⌘Z or restore from History to undo.');
-	}, [fixProposal, source, deck.id, notify]);
+	}, [fixingAll, source, findings, fixStates, draftFix]);
+	// Apply every reviewed proposal, one checkpoint for the batch. Applied slide-descending
+	// (highest slide first) so earlier slide numbers stay valid as the deck shifts; each
+	// still passes its own K4 stale guard, so a proposal invalidated by an intervening edit
+	// is skipped with a notice rather than clobbering.
+	const applyAll = React.useCallback(() => {
+		const proposed = Object.entries(fixStates)
+			.filter(([, v]) => v.phase === 'proposed')
+			.map(([k, v]) => ({ key: k, st: v as Extract<FindingFixState, { phase: 'proposed' }> }))
+			.sort((a, b) => (b.st.slide ?? 0) - (a.st.slide ?? 0));
+		if (!proposed.length) return;
+		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fixes', Date.now()));
+		let next = source;
+		let applied = 0;
+		let skipped = 0;
+		for (const { key, st } of proposed) {
+			if (st.slide && st.proposedSlice != null && sliceSlide(next, st.slide).trim() !== st.proposedSlice.trim()) {
+				skipped++;
+				continue;
+			}
+			next = applyDeckEdit(next, st.edit);
+			applied++;
+			discardFix(key);
+		}
+		if (applied) setSource(next);
+		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${skipped ? ` · ${skipped} skipped (slide changed)` : ''} — undo from History.` : 'No fixes applied — the slides changed since they were proposed. Re-run the fixes.');
+	}, [fixStates, source, deck.id, notify, discardFix]);
 
 	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
 	// popovers/sheets/dialogs handle Escape first and stop its propagation, so `Esc`
@@ -1922,6 +2032,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 
 	const rankedFindings = rankFindings(findings);
 	const fencedBlocked = hasFencedSeparator(source);
+	// Batch-fix counts (the shown slice): how many slide-level findings still need a
+	// fix drafted, and how many reviewed proposals are waiting to apply.
+	const batchFixable = rankedFindings.slice(0, 6).filter((f) => f.slide && fixStates[findingKey(f)]?.phase !== 'proposed' && fixStates[findingKey(f)]?.phase !== 'working').length;
+	const proposedCount = Object.values(fixStates).filter((v) => v.phase === 'proposed').length;
 	const scoreIntent = (band?: string): 'pass' | 'review' | 'fix' | 'info' => (!band ? 'info' : /^A/.test(band) ? 'pass' : /^[BC]/.test(band) ? 'review' : 'fix');
 	const runChip = async (id: string) => {
 		if (coachCard?.id === id && id !== 'pacing') {
@@ -2043,29 +2157,44 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					</div>
 				)}
 			</ArchCard>
-			{/* Slide-level findings — severity-ranked; per-finding AI fix → reviewable diff. */}
+			{/* Slide-level findings — severity-ranked full-width cards; per-finding AI fix
+			    cycles IN the pill then splits into Apply / Discard, the diff below. */}
 			{rankedFindings.length > 0 && (
 				<ArchCard tag={<IntentTag intent={rankedFindings.some((f) => f.severity === 'error') ? 'fix' : 'review'} label="FINDINGS" />} title={`${rankedFindings.length} to address`}>
 					<p className="text-xs leading-relaxed text-muted-foreground">Ranked by severity. {ai.ready ? 'Fix one with AI — review the diff before it lands (spends on your key; billed to generate, not to apply).' : 'Connect a model in Workspace to fix these with AI.'}</p>
-					<ul className="mt-2 space-y-2">
-						{rankedFindings.slice(0, 6).map((f, i) => {
-							const key = `${f.slide}:${f.rule}:${i}`;
-							const sev = f.severity;
-							const color = sev === 'error' ? 'var(--fail,#b3261e)' : sev === 'warning' ? 'var(--chart-2,#9c3f00)' : 'var(--text-muted)';
-							const SevIcon = sev === 'error' ? OctagonAlert : sev === 'warning' ? AlertTriangle : Info;
-							const deckLevel = !f.slide;
+					{/* Batch actions — draft every fixable finding, or apply all the reviewed
+					    proposals at once. Never a blind apply-all: Fix all only DRAFTS. Each
+					    only shows when it beats the single-card pills (2+ to act on). */}
+					{ai.ready && !fencedBlocked && (batchFixable > 1 || proposedCount > 1) && (
+						<div className="mt-2 flex flex-wrap items-center gap-1.5">
+							{batchFixable > 1 && (
+								<button type="button" onClick={fixAll} disabled={fixingAll} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)] disabled:opacity-60">
+									{fixingAll ? <Sparkles className="size-3 animate-pulse" /> : null}
+									{fixingAll ? 'Drafting…' : `Fix all ≈ $${(batchFixable * 0.02).toFixed(2)}`}
+								</button>
+							)}
+							{proposedCount > 1 && (
+								<button type="button" onClick={applyAll} className="inline-flex items-center gap-1 rounded-full bg-[var(--accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--on-accent)]">
+									<Check className="size-3" />
+									Apply all ({proposedCount})
+								</button>
+							)}
+						</div>
+					)}
+					<ul className="mt-2 list-none space-y-2 pl-0">
+						{rankedFindings.slice(0, 6).map((f) => {
+							const key = findingKey(f);
 							return (
-								<li key={key} className="rounded-lg border border-border bg-background px-2.5 py-2">
-									<div className="flex items-start gap-2">
-										<span className="mt-0.5 shrink-0" style={{ color }}><SevIcon className="size-3.5" /></span>
-										<div className="min-w-0 flex-1">
-											<span className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">{deckLevel ? 'Deck-level' : `Slide ${f.slide}`} · {f.rule}</span>
-											<p className="text-[12px] leading-snug text-foreground">{f.message}</p>
-										</div>
-										{ai.ready && !deckLevel && !fencedBlocked && <Chip busy={fixBusy === key} onClick={() => fixFinding(f, key)}>Fix ≈ $0.02</Chip>}
-									</div>
-									{fixProposal?.key === key && <DiffCard before={fixProposal.before} after={fixProposal.after} onApply={applyFix} onDiscard={() => setFixProposal(null)} />}
-								</li>
+								<FindingCard
+									key={key}
+									finding={f}
+									state={fixStates[key]}
+									canFix={ai.ready && !!f.slide && !fencedBlocked}
+									costLabel="Fix ≈ $0.02"
+									onFix={() => fixFinding(f)}
+									onApply={() => applyFixKey(key)}
+									onDiscard={() => discardFix(key)}
+								/>
 							);
 						})}
 					</ul>
@@ -3260,6 +3389,13 @@ function PanelGrip({ dragging, className, ...props }: { dragging?: boolean } & R
 		</div>
 	);
 }
+// A STABLE identity for a finding, independent of its position in the ranked list.
+// Keying the per-finding fix state by this (not the array index) is what lets an open
+// or in-flight fix survive a re-lint that reorders the list — the "stay on Fix" contract.
+// Content-based, so a finding that is resolved or edited away naturally drops its state.
+function findingKey(f: Finding): string {
+	return `${f.slide ?? 0}:${f.rule}:${f.message}`;
+}
 function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: string; children: React.ReactNode }) {
 	return (
 		<div className="relative m-2.5 rounded-xl border border-border bg-background p-3 shadow-[0_1px_2px_rgba(10,22,40,.06)]">
@@ -3273,9 +3409,6 @@ function RailOp({ label, onClick, disabled, danger, armed, children }: { label: 
 	return (
 		<Tip label={label}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn('grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:opacity-30 disabled:hover:bg-transparent', danger && !armed && 'hover:bg-[color-mix(in_srgb,var(--fail,#b3261e)_12%,transparent)] hover:text-[var(--fail,#b3261e)]', armed && 'bg-[var(--fail,#b3261e)] text-white hover:bg-[var(--fail,#b3261e)] hover:text-white')}>{children}</button></Tip>
 	);
-}
-function Chip({ children, onClick, busy }: { children: React.ReactNode; onClick?: () => void; busy?: boolean }) {
-	return <button type="button" onClick={onClick} disabled={busy} className="mt-2 mr-1.5 inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] text-[var(--accent)] disabled:opacity-60">{busy && <Sparkles className="size-3 animate-pulse" />}{children}</button>;
 }
 function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNode; label: string; desc?: string; last?: boolean; children: React.ReactNode }) {
 	return (
