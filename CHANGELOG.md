@@ -746,6 +746,20 @@ in patch versions.
   surface (mobile edit pane, Fabricate, collapsed preview).
   (`use-shared-preview-slot.ts` new, `StudioShell.tsx`, `PresentOverlay.tsx`;
   `engineering/decisions/2026-07-19-present-shared-preview.md`.)
+- **The component-dedup embedder now runs in a Web Worker — never on the main thread — so semantic
+  "similar components" suggestions can stay on without any risk of freezing or crashing the tab.**
+  Follow-on to the #1110 hot-path fix. The bge-small model that ranks near-duplicate components (the
+  "Suggest similar components" nudge) previously loaded onnxruntime WASM on the **main thread** wherever
+  it loaded at all — the Fabricate hot path was guarded in #1110, but the Drawing Board's retrieval and
+  any warm-load path still touched the main thread. The embedder now loads and runs entirely in a module
+  Web Worker (the same off-thread pattern the on-device generation tier uses), at the shared `embed()`
+  layer, so **every** caller is off-thread. It is worker-only with **no main-thread fallback**: where
+  module workers are unavailable, dedup degrades to the instant lexical ranker rather than ever loading a
+  model on the main thread. Fabricate now warms the worker in the background after the first component
+  generation, so semantic dedup comes online for subsequent generations without blocking the first (a
+  one-time ~30 MB background download, tied to actual use; skip it by turning off "Suggest similar
+  components" in Workspace settings). (`architect-model.js` `embeddingsBackend`/`embed`;
+  `engineering/decisions/2026-07-19-embedder-web-worker.md`.)
 - **The Studio becomes interactive sooner on cold load and refresh — the CodeMirror editor now loads
   off the critical hydration path.** The Studio is one `client:only` React island, and the editor
   (CodeMirror 6 + markdown + lint + autocomplete) was statically bundled into it — ~196KB gz that had

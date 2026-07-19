@@ -62,12 +62,14 @@ describe('architect-model — tier precedence (Policy B opt-in)', () => {
 	});
 });
 
-// The dedup "reuse nudge" in Fabricate must never cold-load the ~30MB bge-small
-// embedder on the main thread inside the generate hot path — that inline load
-// froze generation and could OOM-crash the tab (2026-07-19-dedup-embedder-hot-load.md).
-// These lock the two behaviors the fix depends on, so a future refactor can't
-// silently reintroduce the block.
-describe('architect-model — embed hot-path guard (allowLoad)', () => {
+// The bge-small embedder runs WORKER-ONLY — never on the main thread — because a
+// main-thread WASM pipeline init froze generation and could OOM-crash the tab
+// (2026-07-19-dedup-embedder-hot-load.md, 2026-07-20-embedder-web-worker.md). These
+// lock the contract a future refactor can't silently break: the injected test hook
+// precedes the guard, the hot path never blocks, and there is NO main-thread
+// fallback — where module workers are unavailable (jsdom here), embed degrades to
+// null → the caller's lexical ranker, never an inline transformers.js load.
+describe('architect-model — embed is worker-only (allowLoad + no main-thread fallback)', () => {
 	type EmbedModel = { embed: (t: string | string[], o?: { allowLoad?: boolean }) => Promise<number[][] | null>; __setBackend: (b: unknown) => void };
 	const makeModel = () => createArchitectModel({ getSettings: () => ({}) }) as unknown as EmbedModel;
 
@@ -82,11 +84,19 @@ describe('architect-model — embed hot-path guard (allowLoad)', () => {
 		expect(withGuard?.length).toBe(2); // allowLoad:false does NOT block the injected path
 	});
 
-	it('a COLD embedder with allowLoad:false returns null — no cold load in the hot path', async () => {
-		// No injected backend and the real embedder unloaded: allowLoad:false must
-		// short-circuit to null (dedupComponents then uses its lexical fallback),
-		// never triggering the transformers.js import + main-thread WASM init.
+	it('a COLD embedder with allowLoad:false returns null — the hot path never blocks', async () => {
+		// No injected backend and the worker not warm: allowLoad:false must return null
+		// immediately (dedupComponents then ranks lexically) — it only kicks a background
+		// worker warm, never an awaited/main-thread load.
 		const m = makeModel();
 		expect(await m.embed(['a', 'b'], { allowLoad: false })).toBe(null);
+	});
+
+	it('a COLD embedder with allowLoad:true degrades to null where module workers are absent — never a main-thread load', async () => {
+		// jsdom has no Worker, so the worker load fails; embed must resolve null WITHOUT
+		// throwing, hanging, or falling back to an inline transformers.js import. This is
+		// the whole safety guarantee: the embedder is worker-only.
+		const m = makeModel();
+		expect(await m.embed(['a', 'b'])).toBe(null); // default allowLoad:true
 	});
 });
