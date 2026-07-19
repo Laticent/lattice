@@ -208,6 +208,33 @@ in patch versions.
   authored slide — reusing the gallery's preview tiles and the Inspector's token logic (no new engine
   behavior). (`slide-variants.ts`, `ReshapePicker.tsx`, `SlidePicker.tsx`, `component-search.ts`,
   `StudioShell.tsx`; `engineering/decisions/2026-07-18-slide-variants-in-gallery.md`.)
+- **A "Libraries" group in the site nav lists every library demo.** A new disclosure in the desktop
+  header (beside Tools), a section in the mobile menu, and entries in the command palette surface the
+  standalone showcases — Suono, Lente, Cadenza, Vetrina — so they're discoverable, not URL-only. The
+  cadenza + vetrina demos now also wear their marks + favicons. (`docs/src/lib/nav.mjs`,
+  `SiteHeader.astro`, `NavActions.tsx`, `cadenza.astro`, `vetrina-tour.astro`.)
+- **All four library demos now share one numbered-storyboard format.** `/cadenza` and `/vetrina` are
+  rebuilt to match `/suono` and `/lente`: a live stage on top, then a numbered "storyboard" rail of
+  beats (each a one-click capability demo) with a "Play all five" tour — one consistent way to show a
+  library off. `/cadenza` drives its existing read-along engine through five beats (text→timed track,
+  display-vs-spoken, pace, WebVTT export, real-voice hybrid re-anchor). `/vetrina` is a **new**
+  standalone page at `/vetrina` (the nav now points here): the real `run()` walkthrough engine drives a
+  self-directing cursor over a plain-DOM mini dashboard across five beats — narrate + point, a real
+  state change, typing into a field, gestures, and the cooperative `awaitUser` hand-off (verified live:
+  the type beat fills the note, the hand-off completes on a real click, and touching anything mid-tour
+  hands you the wheel). The prior `/vetrina-tour` reference surface (which backs the `awaitUser` e2e)
+  stays as-is. (`docs/src/pages/cadenza.astro`, `docs/src/pages/vetrina.astro`, `docs/src/lib/nav.mjs`.)
+- **A guided Lente showcase at `/lente`, and marks + lockups for the whole library family.** The
+  library-demo fan-out on the locked sibling brand system. `/lente` is a standalone, framework-free,
+  real-engine storyboard: pick a lens and the deck shrinks to that subset, see it **fail CLOSED** when
+  unapproved (never a silent full-deck fallback), approve it (a human stamps the content hash), then
+  watch it **de-approve on drift** — all driven live by `parseLensRegistry` + the fluent `lens()`
+  front door (the approve/drift flow verified on the real page). Each remaining built library gets its
+  own mark + Fraunces lockup on the shared DNA with its own metaphor: **lente** = a camera iris/aperture
+  (blue), **vetrina** = a framed vitrine + self-driving cursor (rose), **cadenza** = a caption with the
+  current word lit (indigo); cadenza also ships a favicon-scale min. (`docs/src/pages/lente.astro`,
+  `docs/public/{lente,vetrina,cadenza}-{mark,lockup}.svg`; `engineering/decisions/2026-07-18-sibling-brand-system.md`.)
+
 - **Suono has a brand identity — a mark, a favicon-scale minimal mark, and a Fraunces lockup.** A
   radial "sound-clock" sibling to the Lattice mark (shared DNA: 128 viewBox, a ringed hub node with a
   pale halo, precise geometry, one dark-mode-aware palette, the Fraunces wordmark) that tells Suono's
@@ -1248,6 +1275,20 @@ in patch versions.
   footer, so the looks you just asked for weren't visible. The panel now scrolls itself into view on
   open (`scrollIntoView({ block: 'nearest' })`) — for a panel taller than the viewport it pins the
   header to the top and fills down. (`docs/src/components/studio/SlidePicker.tsx`.)
+- **Library-demo hardening from a full adversarial-trio pass (red team + Munger inversion + independent
+  checker across all four shipping libraries).** Four on-surface fixes to the demo pages: (1) `/cadenza`
+  built the "spoken" readout with `innerHTML` interpolating raw narration tokens — a self-XSS sink on a
+  page that holds the user's BYOK OpenRouter key in `localStorage`; it now builds the readout from DOM
+  nodes with `textContent`, matching the already-safe caption path. (2) `/cadenza`'s `role="slider"` seek
+  bar was focusable but inoperable — no keyboard handler and no `aria-value*`; it now scrubs on
+  Arrow/Home/End/PageUp/PageDown and exposes `aria-valuemin/max/now/valuetext` on each tick. (3) `/lente`
+  rendered parsed lens labels via `innerHTML` — safe for the static demo but a copy-paste XSS footgun on a
+  security-shaped reference page; labels now use `textContent`. (4) `/lente`'s storyboard beats scheduled
+  deferred `setTimeout` steps that were never cleared, so a Stop / Reset / beat-switch let them fire out
+  of order after the user moved on; every beat timer is now tracked and cancelled on interruption (the same
+  discipline already applied to `/cadenza` and `/vetrina`). Also dropped an inaccurate "a scoping lens can
+  be a redaction" line from the `/lente` demo (client-side filtering hides, it does not withhold bytes).
+  (`docs/src/pages/cadenza.astro`, `docs/src/pages/lente.astro`.)
 - **Dismissing a summoned Studio panel with `Esc` / `⌘.` now actually closes it — it no longer
   pops back the next time you dial up to Build.** When you summon a Build-only panel (Lenses via
   "Reshape for a reader", the Inspector, the Library) from a calmer Write/Read stop, the surface

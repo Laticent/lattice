@@ -14,6 +14,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Cadenza — read-along</title>
+		<link rel="icon" href="/cadenza-mark-min.svg" type="image/svg+xml" />
 		<!-- Global (unscoped): the caption words/cues are created in JS at runtime, so
 		     Astro's default scoping (a hash attribute added only to template elements)
 		     would never match them and the highlight styles would silently not apply. -->
@@ -46,7 +47,8 @@
 				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }
 			.wrap { max-width: 860px; margin: 0 auto; }
 			header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-			.brand { display: flex; align-items: baseline; gap: 12px; }
+			.brand { display: flex; align-items: center; gap: 13px; }
+			.brand .logo { width: 46px; height: 46px; flex-shrink: 0; }
 			h1 { font-family: var(--stage-serif); font-size: clamp(28px, 5vw, 40px); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 			.tag { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent);
 				border: 1px solid var(--accent); padding: 3px 8px; border-radius: 999px; font-weight: 600; }
@@ -111,15 +113,34 @@
 			.theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 999px; font-size: 11px; padding: 5px 11px; cursor: pointer; font-family: var(--sans); }
 			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 			@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+			/* Storyboard rail — matches /suono + /lente */
+			.rail { margin-top: 26px; }
+			.rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+			.rail-head h2 { font-family: var(--stage-serif); font-size: 18px; margin: 0; font-weight: 600; }
+			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 600; border-radius: 999px; padding: 9px 16px; cursor: pointer; transition: transform .08s ease; }
+			.btn:hover { transform: translateY(-1px); }
+			.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+			.beat { text-align: left; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); padding: 14px 15px; cursor: pointer; display: flex; gap: 12px; align-items: flex-start; transition: border-color .12s ease, transform .08s ease; }
+			.beat:hover { transform: translateY(-2px); border-color: var(--accent); }
+			.beat[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--glow-bg); }
+			.beat .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--stage); border: 1px solid var(--line); color: var(--accent); font-family: var(--mono); font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+			.beat[aria-current="true"] .n { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+			.beat .bt { font-size: 14px; font-weight: 600; color: var(--ink); margin: 0 0 2px; }
+			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.45; }
+			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); }
 		</style>
 	</head>
 	<body>
 		<div class="wrap">
 			<header>
-				<div class="brand"><h1>Cadenza</h1><span class="tag">read-along</span></div>
+				<div class="brand"><img class="logo" src="/cadenza-mark.svg" alt="" width="46" height="46" /><h1>Cadenza</h1><span class="tag">read-along</span></div>
 				<button class="theme" id="themeBtn" type="button">◐ theme</button>
 			</header>
-			<p class="sub">The pure caption engine behind Lattice's read-aloud. It turns narration into a <b>timed track</b> — each word carrying a <b>display</b> form and a <b>spoken</b> form — and lights up the word being said <i>now</i>. When a quality voice is connected (your OpenRouter key or on-device Kokoro, via the Playground) it <b>speaks</b> the words and each sentence's measured onset re-anchors the highlight to the real audio. With no key it falls back to your <b>browser voice</b> (device-dependent) speaking in parallel while the estimate carries the highlight, and with no speech at all to the pure silent path — Cadenza's own cadence estimate. Either way numbers dwell for how long they take to <i>say</i> — watch <b>$4.2M</b> hold while "four point two million dollars" is spoken.</p>
+			<p class="sub">The pure caption engine behind Lattice's read-aloud: prose in, a <b>timed track</b> out — each
+				word carrying a <b>display</b> form and a <b>spoken</b> form, lit as it's said. It owns no audio and
+				no DOM; <b>you inject the clock</b>. Every beat below runs the <b>real engine</b> — silent by default,
+				and with a connected voice each sentence's measured onset re-anchors the highlight to the real audio.</p>
 
 			<div class="stage">
 				<div class="caption" id="caption"></div>
@@ -142,6 +163,14 @@
 			</div>
 
 			<p class="diag" id="diag" role="status" aria-live="polite"></p>
+
+			<div class="rail">
+				<div class="rail-head">
+					<h2>The storyboard</h2>
+					<button class="btn primary" id="tourBtn" type="button">▸ Play all five</button>
+				</div>
+				<div class="beats" id="beats"></div>
+			</div>
 
 			<details id="keyPanel">
 				<summary><span class="chev">▸</span> Cloud voice <span class="hint">— paste an OpenRouter key to hear Kokoro (and enable the voice picker)</span></summary>
@@ -271,6 +300,11 @@
 				elapsed = 0; paint(); updateClock();
 			}
 
+			// Build a labelled span with its text set via textContent — never innerHTML —
+			// so a narration token like `<img onerror=…>` can't inject into this page
+			// (which holds the user's BYOK key in localStorage). Mirrors the caption path.
+			const mkSpan = (cls, text) => { const s = document.createElement('span'); s.className = cls; s.textContent = text; return s; };
+
 			function paint() {
 				const a = reader.current(); // { cueIndex, wordIndex } | null
 				document.querySelectorAll('.caption .w').forEach((el) => {
@@ -285,13 +319,21 @@
 				});
 				if (a) {
 					const w = track.cues[a.cueIndex].words[a.wordIndex];
-					spokenEl.innerHTML = `<span class="lbl">speaking</span><span class="disp">${w.display}</span><span class="arrow">→</span><span class="say">${w.spoken}</span>`;
+					spokenEl.replaceChildren(mkSpan('lbl', 'speaking'), mkSpan('disp', w.display), mkSpan('arrow', '→'), mkSpan('say', w.spoken));
 				} else {
-					spokenEl.innerHTML = playing ? '<span class="lbl">…</span>' : '<span class="lbl">press play</span>';
+					spokenEl.replaceChildren(mkSpan('lbl', playing ? '…' : 'press play'));
 				}
 				fillEl.style.width = (reader.durationMs() ? Math.min(100, (elapsed / reader.durationMs()) * 100) : 0) + '%';
 			}
-			function updateClock() { clockEl.textContent = (elapsed / 1000).toFixed(1) + 's / ' + (reader.durationMs() / 1000).toFixed(1) + 's'; }
+			function updateClock() {
+				const dur = reader.durationMs();
+				clockEl.textContent = (elapsed / 1000).toFixed(1) + 's / ' + (dur / 1000).toFixed(1) + 's';
+				const bar = $('#bar');
+				bar.setAttribute('aria-valuemin', '0');
+				bar.setAttribute('aria-valuemax', String(Math.round(dur)));
+				bar.setAttribute('aria-valuenow', String(Math.round(elapsed)));
+				bar.setAttribute('aria-valuetext', (elapsed / 1000).toFixed(1) + ' of ' + (dur / 1000).toFixed(1) + ' seconds');
+			}
 
 			function tick(now) {
 				if (!playing) return;
@@ -314,6 +356,7 @@
 			// gesture (iOS), so this is called straight from play() with no await before it.
 			function startVoice() {
 				mode = 'silent'; audioBase = null; voicing = false;
+				if (forceSilent) { refreshVoice('silent'); return; } // storyboard beats 1–4: pure silent estimate
 				const r = rungNow();
 				refreshVoice(r);
 				if (!voice || r === 'silent') return;
@@ -400,27 +443,58 @@
 			}
 			function setIcon(on) { $('#playIcon').innerHTML = on ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"></path>' : '<path d="M8 5v14l11-7z"></path>'; $('#play').setAttribute('aria-label', on ? 'Pause' : 'Play'); }
 
-			$('#play').addEventListener('click', () => (playing ? pause() : play()));
+			// The storyboard's forced-silent flag + the "Play all five" tour timer, declared here so the
+			// manual controls below can leave the storyboard cleanly (drop the flag, halt the tour).
+			let forceSilent = false; // beats 1–4 force the silent estimate so they're deterministic
+			let tourTimer = 0;
+			function stopTour() { if (tourTimer) { clearInterval(tourTimer); tourTimer = 0; $('#tourBtn').textContent = '▸ Play all five'; } }
+			// A manual playback gesture (Play, pace, seek, retype, pick a voice, connect a key) exits the
+			// storyboard: halt any running tour AND drop the beats' forced-silent flag so the real browser/
+			// cloud voice plays again. Beats call restart() directly, never this path, so they stay silent.
+			function leaveStoryboard() { stopTour(); forceSilent = false; }
+			$('#play').addEventListener('click', () => { leaveStoryboard(); playing ? pause() : play(); });
 			$('#pace').addEventListener('click', (e) => {
+				leaveStoryboard();
 				const b = e.target.closest('button'); if (!b) return; pace = b.dataset.pace;
 				[...e.currentTarget.children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
 				const was = started; stop(); render(); if (was) play();
 			});
+			// Move the playhead to `ms` (the shared seek path for pointer + keyboard).
+			function seekTo(ms) {
+				elapsed = Math.max(0, Math.min(reader.durationMs(), ms));
+				reader.reset(); reader.sync(elapsed); paint(); updateClock();
+			}
 			$('#bar').addEventListener('click', (e) => {
+				leaveStoryboard();
 				// Live TTS (blob OR browser voice) can't be seeked — scrubbing is the
 				// silent-preview affordance only, when no voice is speaking.
 				if (voicing && started) return;
 				const r = e.currentTarget.getBoundingClientRect();
-				elapsed = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * reader.durationMs();
-				reader.reset(); reader.sync(elapsed); paint(); updateClock();
+				seekTo(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * reader.durationMs());
 			});
-			let deb; inputEl.addEventListener('input', () => { clearTimeout(deb); deb = setTimeout(() => { stop(); render(); }, 250); });
+			// Keyboard operability for the role="slider" seek bar: Arrow/Home/End scrub,
+			// paired with the aria-value* state set in updateClock() so AT announces position.
+			$('#bar').addEventListener('keydown', (e) => {
+				if (voicing && started) return;
+				const dur = reader.durationMs(); const step = Math.max(200, dur * 0.05);
+				let next;
+				if (e.key === 'ArrowRight' || e.key === 'ArrowUp') next = elapsed + step;
+				else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = elapsed - step;
+				else if (e.key === 'Home') next = 0;
+				else if (e.key === 'End') next = dur;
+				else if (e.key === 'PageUp') next = elapsed + step * 4;
+				else if (e.key === 'PageDown') next = elapsed - step * 4;
+				else return;
+				e.preventDefault(); leaveStoryboard(); seekTo(next);
+			});
+			let deb; inputEl.addEventListener('input', () => { leaveStoryboard(); clearTimeout(deb); deb = setTimeout(() => { stop(); render(); }, 250); });
 			$('#themeBtn').addEventListener('click', () => {
 				const cur = root.getAttribute('data-theme');
 				root.setAttribute('data-theme', cur === 'dark' ? 'light' : cur === 'light' ? 'dark' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'));
 			});
 
 			voiceSelEl.addEventListener('change', () => {
+				leaveStoryboard();
 				selVoice = voiceSelEl.value;
 				try { localStorage.setItem(OR_VOICE_LS, selVoice); } catch {}
 				const was = started; stop(); if (was) play(); // restart so the new voice is heard
@@ -436,7 +510,7 @@
 				keyStatusEl.classList.toggle('ok', has);
 			}
 			$('#orKeyUse').addEventListener('click', () => {
-				const v = orKeyEl.value.trim(); if (!v) return;
+				const v = orKeyEl.value.trim(); if (!v) return; leaveStoryboard();
 				try { localStorage.setItem(OR_KEY_LS, v); } catch {}
 				orKeyEl.value = ''; keyPanelEl.open = false;
 				refreshKeyUI(); refreshVoice();
@@ -448,6 +522,38 @@
 			keyPanelEl.open = !keyPresent();
 			refreshKeyUI();
 			populateVoices();
+
+			// ── The storyboard — numbered beats driving the real read-along engine ──────────────────
+			const NUMBERS = "Revenue grew to $4.2M this quarter, up 18.5% from Q3 — the fastest in the company's history. We beat plan by eight points.";
+			const setText = (s) => { inputEl.value = s; };
+			const setPace = (p) => { pace = p; [...$('#pace').children].forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.pace === p))); };
+			const restart = () => { stop(); render(); play(); };
+			const beatsEl = $('#beats');
+			const BEATS = [
+				{ id: 'track', t: 'Text → a timed track', d: 'buildTrack turns prose into cues + per-word timings; makeReader lights the word being said now on a clock YOU inject (a plain timer here).', api: 'buildTrack → makeReader', run: () => { forceSilent = true; setText(SAMPLE); setPace('moderate'); restart(); } },
+				{ id: 'forms', t: 'Display vs spoken', d: '“$4.2M” shows as four glyphs but dwells as long as “four point two million dollars” takes to say — watch the spoken readout under the caption.', api: 'Word.display / Word.spoken', run: () => { forceSilent = true; setText(NUMBERS); setPace('moderate'); restart(); } },
+				{ id: 'pace', t: 'Pace retimes it', d: 'slow · moderate · fast rescale the estimate — the same words, a different clock. (Playing slow.)', api: "pace: 'slow'|'moderate'|'fast'", run: () => { forceSilent = true; setText(SAMPLE); setPace('slow'); restart(); } },
+				{ id: 'vtt', t: 'Export WebVTT', d: 'The same track serializes to standard captions with karaoke word timestamps — the real export, opened below.', api: 'toVtt(track)', run: () => { forceSilent = true; stop(); setText(SAMPLE); render(); $('#vttPanel').open = true; $('#vttPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); setDiag('WebVTT generated below — karaoke word timings included.'); } },
+				{ id: 'voice', t: 'Real voice + hybrid re-anchor', d: 'Connect a cloud key and each sentence’s measured onset re-anchors its words to the ACTUAL voice; with no key, the browser voice or the silent estimate carries it.', api: 'onset → reader.align', run: () => { forceSilent = false; setText(SAMPLE); setPace('moderate'); restart(); } },
+			];
+			function setCurrentBeat(id) { [...beatsEl.children].forEach((el) => el.setAttribute('aria-current', String(el.dataset.id === id))); }
+			BEATS.forEach((b, i) => {
+				const el = document.createElement('button');
+				el.className = 'beat'; el.type = 'button'; el.dataset.id = b.id;
+				el.innerHTML = `<span class="n">${i + 1}</span><span><span class="bt">${b.t}</span><p class="bd">${b.d}</p><span class="api">${b.api}</span></span>`;
+				el.addEventListener('click', () => { stopTour(); setCurrentBeat(b.id); b.run(); });
+				beatsEl.appendChild(el);
+			});
+			$('#tourBtn').addEventListener('click', (e) => {
+				if (tourTimer) { stopTour(); return; }
+				let i = 0; e.target.textContent = '■ Stop tour';
+				const step = () => {
+					if (i >= BEATS.length) { stopTour(); return; }
+					const b = BEATS[i++]; setCurrentBeat(b.id); b.run();
+				};
+				step(); tourTimer = setInterval(step, 5200);
+			});
+
 			inputEl.value = SAMPLE;
 			render();
 		</script>

@@ -36,6 +36,7 @@ export default function NavActions({
 	links,
 	content,
 	tools,
+	libraries = [],
 	githubUrl,
 	pagefindUrl,
 	homeHref,
@@ -45,6 +46,7 @@ export default function NavActions({
 	links: NavLink[];
 	content: NavLink[];
 	tools: NavLink[];
+	libraries?: NavLink[];
 	githubUrl: string;
 	pagefindUrl: string;
 	homeHref: string;
@@ -79,7 +81,7 @@ export default function NavActions({
 				variant="outline"
 				onClick={() => setOpen(true)}
 				aria-label="Search (⌘K)"
-				className="hidden h-8 w-56 justify-start gap-2 px-3 text-muted-foreground lg:inline-flex xl:w-64"
+				className="hidden h-8 w-44 justify-start gap-2 px-3 text-muted-foreground lg:inline-flex xl:w-64"
 			>
 				<Search className="size-4" />
 				<span className="text-sm">Search the docs…</span>
@@ -136,6 +138,9 @@ export default function NavActions({
 						<nav className="flex flex-col gap-5 overflow-y-auto p-4" aria-label="Site">
 							<SheetSection title="Browse" items={content} onNavigate={() => setSheet(false)} />
 							<SheetSection title="Tools" items={tools} onNavigate={() => setSheet(false)} />
+							{libraries.length > 0 && (
+								<SheetSection title="Libraries" items={libraries} onNavigate={() => setSheet(false)} />
+							)}
 							<div className="flex flex-col gap-3 border-t pt-4">
 								<span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">Theme</span>
 								<PaletteControls palettes={palettes} />

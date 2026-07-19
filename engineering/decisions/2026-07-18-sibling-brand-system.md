@@ -10,7 +10,8 @@ summary: >
   reference: a radial "sound-clock" (a bloom of bars = sound, a warm crown bar = the live onset, a
   centered base-gap = the tuned breath, the ringed hub = the owned clock), on a locked GREEN palette
   that matches the /suono demo. Assets: `docs/public/suono-{mark,mark-min,lockup}.svg`. This doc is
-  the template the remaining four follow before we fan out.
+  the template the family follows; the fan-out (2026-07-18) then built marks + lockups for Lente,
+  Vetrina, and Cadenza on it — Anima stays staged (WIP).
 companion:
   - ./2026-07-12-suono-audio-library.md
   - ./2026-07-08-library-shape-cadenza-vetrina.md
@@ -18,7 +19,8 @@ companion:
 
 # The sibling brand system — one family, five voices (2026-07-18)
 
-**Date:** 2026-07-18 · **Status:** shipped; Suono built to the bar, the other four staged.
+**Date:** 2026-07-18 · **Status:** shipped; Suono set the bar, then Lente/Vetrina/Cadenza were built
+on it in the fan-out. Anima staged (WIP).
 
 > **Goal (the architect's words).** Craft a logo for each spin-off library on par in quality, craft,
 > and relevance with the Lattice mark, and *lock in* the first one — Suono — as the reference for
@@ -81,29 +83,36 @@ encodes exactly that:
 **Assets:** `docs/public/suono-mark.svg` (27 bars, full), `suono-mark-min.svg` (15 chunky bars,
 favicon — legible to 16px), `suono-lockup.svg`. Worn by the `/suono` demo header + favicon.
 
-## The remaining four (staged, not built)
+## The fan-out — three more built, one staged
 
-Each follows the DNA above with its own metaphor; these are direction notes, not final:
+The fan-out (2026-07-18) built marks + Fraunces lockups for the three remaining SHIPPED libraries,
+each on the DNA above with its own metaphor + accent. Assets: `docs/public/<name>-mark.svg` +
+`-lockup.svg` (cadenza also `-mark-min.svg`, its caption being dense small; lente/vetrina hold at
+16px on the full mark).
 
-- **Vetrina** ("shop window", the walkthrough engine) — a framed *window / vitrine*: a hub with a
-  guiding cursor or a spotlight sweep; the "theater over real state" story.
-- **Cadenza** (the caption timeline) — a *timed word-run*: a horizontal cue of ticks with one lit
-  word-node on the hub; timing-is-data. (Cadenza's demo uses an indigo accent today — its mark
-  locks that.)
-- **Lente** ("lens", reader lenses) — a *lens / aperture*: concentric rings focusing to the hub, a
-  subset of nodes in focus and the rest dimmed; "one deck at the altitude you chose."
-- **Anima** (animation) — *motion made legible*: a rotation/arc-sweep around the hub; "information a
-  still frame cannot carry." (WIP library — mark comes with its build.)
+- **Lente** ("lens", reader lenses) — **built**. A camera **iris/aperture** (blue `#2f5fa6` /
+  `#6fa3e6`): tangent blades frame the aperture around the hub, one blade warm (the focal lens). Worn
+  by the `/lente` demo (built to the storyboard standard) + favicon.
+- **Vetrina** ("shop window", the walkthrough engine) — **built**. A framed **vitrine** (rose
+  `#a8446a` / `#e08aa8`): a rounded-rect window around the hub with a self-driving **cursor** aimed at
+  it — theater over real state. Worn by `/vetrina-tour` + favicon.
+- **Cadenza** (the caption timeline) — **built**. A **caption with the current word lit** (indigo
+  `#3f3d8f` / `#9491f2`, matching its demo): the hub is the lit word (warm ring), spoken word-bars
+  behind, upcoming dimmed ahead. Worn by `/cadenza` + favicon.
+- **Anima** (animation) — **staged** (WIP library). Direction: *motion made legible* — a rotation /
+  arc-sweep around the hub; "information a still frame cannot carry." Its mark lands with its build.
+
+All four demos are surfaced in the site's **Libraries** nav group (`nav.mjs` `librariesNav`).
 
 ## How the marks are produced
 
 The Suono mark is generated from a small parametric script (radial math + envelope + the DNA hub),
-kept out of tree (`.scratch/`); the committed SVGs are the source of truth. When we fan out, promote
-that to a committed `tools/` generator parameterized per library (palette + metaphor primitives) so
-all five stay byte-consistent in construction — a follow-up, not a blocker.
+kept out of tree (`.scratch/`); the committed SVGs are the source of truth. Promoting that to a
+committed `tools/` generator parameterized per library (palette + metaphor primitives), so all marks
+stay byte-consistent in construction, remains a follow-up (not a blocker).
 
 ## Non-goals
 
 Not a full brand book (typography scales, spacing tokens, usage rules beyond the mark). Not touching
-the Lattice mark. Not building the other four marks here — this locks the *system* and the *Suono
-reference*; the rest come with each library's demo in the fan-out.
+the Lattice mark. Not building **Anima's** mark yet (WIP — it lands with its build). This doc locks
+the *system* + the *Suono reference*; the Lente/Vetrina/Cadenza marks were then built on it.
