@@ -214,9 +214,9 @@ const LIB_DEFAULT = 380; // Library docked default — wider than the coach; ass
 // drive through `data-palette`.
 
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
-type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; lintVocab?: any };
+type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; lintVocab?: any; slideHeadings?: Record<string, 'h1' | 'h2'> };
 
-export default function StudioShell({ options, components = [], lintVocab }: Props) {
+export default function StudioShell({ options, components = [], lintVocab, slideHeadings }: Props) {
 	// Persisted deck list (seeded from the built-ins), the active deck, and its
 	// source — restored from localStorage so edits survive a switch AND a reload.
 	const [decks, setDecks] = React.useState<StudioDeck[]>(() => loadDeckList());
@@ -2210,7 +2210,7 @@ export default function StudioShell({ options, components = [], lintVocab }: Pro
 			</div>
 			)}
 			{editMode === 'compose' ? (
-				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} />
+				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} />
 			) : (
 				<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
 			)}

@@ -9,7 +9,7 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
-import { activeRegister, applicableRegisters, applyRegister, type Reg } from '@/lib/compose/registers';
+import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideHeadings } from '@/lib/compose/registers';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
@@ -243,6 +243,7 @@ class SlideView {
 		public getPos: () => number,
 		decorations: readonly Decoration[] = [],
 		onSettings?: (index: number) => void,
+		private getHeadings?: () => SlideHeadings | undefined,
 	) {
 		this.locked = !!node.attrs.locked;
 		const dom = document.createElement('section');
@@ -318,7 +319,7 @@ class SlideView {
 			}
 			return;
 		}
-		const { keys, active } = applicableRegisters(this.view.state);
+		const { keys, active } = applicableRegisters(this.view.state, this.getHeadings?.());
 		const sig = `${keys.join(',')}|${active ?? ''}`;
 		if (this.fmtGroup.dataset.sig === sig) return;
 		this.fmtGroup.dataset.sig = sig;
@@ -465,7 +466,7 @@ function buildPlugins() {
 // preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
 // portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
 // pane, else it would paint over the live preview (the body-portal render-gate).
-export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void }) {
+export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -499,6 +500,10 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// Ref-backed so the construct-once NodeView factory always calls the CURRENT handler.
 	const onOpenSlideSettingsRef = React.useRef(onOpenSlideSettings);
 	onOpenSlideSettingsRef.current = onOpenSlideSettings;
+	// The per-class grammar heading map (build-static), read live by each SlideView's syncFormat so
+	// the Format group offers the grammar-correct heading register per the caret slide's `_class`.
+	const slideHeadingsRef = React.useRef(slideHeadings);
+	slideHeadingsRef.current = slideHeadings;
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
 	// Opening the keyboard collapses; closing it always restores the chrome.
 	React.useEffect(() => {
@@ -545,7 +550,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
-				nodeViews: { slide: (node, nodeView, getPos, decorations) => new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i)) },
+				nodeViews: { slide: (node, nodeView, getPos, decorations) => new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current) },
 				dispatchTransaction(tr) {
 					const prevDoc = view.state.doc;
 					const next = view.state.apply(tr);

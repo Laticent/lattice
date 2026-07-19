@@ -548,6 +548,14 @@ in patch versions.
   vs. rounded pill), not color, so the distinction survives for colorblind readers and the app's a11y
   palettes. The active register is a solid accent chip — you always see the block style in effect.
   (`docs/src/components/studio/ComposeView.tsx`.)
+- **Compose's heading register is now driven by the slide's grammar, not just the block type.** The
+  Format group offers the heading the slide's `_class` actually anchors — **H1 on a title-family slide,
+  H2 on a body slide, and never both** — so you can't apply an `# H1` on slide 2 (which breaks the
+  single-title rule) or an `## H2` on the title. The per-class heading level is read at build from the
+  component manifests' heading slot (`dist/docs/grammar.json`), so Compose and the engine share one
+  grammar; an unknown class stays permissive. Eyebrow / subtitle / key-insight / below-note are base
+  modifiers the engine renders on any class, so they remain driven by the caret's block context.
+  (`docs/src/lib/compose/registers.ts`, `docs/src/pages/studio.astro`.)
 - **A diagram slide now renders as a diagram in the Studio editing preview, not raw code.** The main
   deck preview hardcoded `mermaid={false}`, so a slide with a Mermaid fence (the `diagram` component,
   or hand-written) showed its fenced code instead of the drawn diagram while you edited — even though

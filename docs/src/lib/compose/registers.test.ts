@@ -219,6 +219,27 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		expect(applicableRegisters(t.v.state).keys).toEqual([]);
 	});
 
+	it('the HEADING register follows the slide-class grammar (H1 for a title, H2 for a body class)', () => {
+		const headings = { title: 'h1', content: 'h2', 'cards-grid': 'h2' } as const;
+		// A TITLE slide grammars an h1 → the heading register offers ONLY H1 (never H2).
+		const title = view('<!-- _class: title -->\n\n# Deck title\n\nsub line');
+		title.caret('Deck title');
+		expect(applicableRegisters(title.v.state, headings).keys).toEqual(['h1']);
+		title.caret('sub line'); // paragraph right after the h1 → H1 + subtitle, still NO H2
+		expect(applicableRegisters(title.v.state, headings).keys).toEqual(['h1', 'subtitle', 'insight', 'note']);
+		// A CONTENT slide grammars an h2 → the heading register offers ONLY H2 (never H1 — the
+		// single-h1 rule the user hit on slide 2).
+		const content = view('<!-- _class: content -->\n\n## Section\n\nbody text');
+		content.caret('Section');
+		expect(applicableRegisters(content.v.state, headings).keys).toEqual(['h2']);
+		content.caret('body text'); // right after the h2 → H2 + subtitle (never H1)
+		expect(applicableRegisters(content.v.state, headings).keys).toEqual(['h2', 'subtitle', 'insight', 'note']);
+		// An UNKNOWN class (not in the grammar map) stays permissive — never silently drop the control.
+		const unknown = view('<!-- _class: mystery-box -->\n\n# Head\n\ntext');
+		unknown.caret('Head');
+		expect(applicableRegisters(unknown.v.state, headings).keys).toEqual(['h1', 'h2']);
+	});
+
 	it('a locked slide offers no registers', () => {
 		const t = view('<!-- _class: content -->\n\n# Locked\n\n| a | b |\n| - | - |\n| 1 | 2 |');
 		t.caret('Locked');

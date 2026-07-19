@@ -80,6 +80,24 @@ try {
 	components = [];
 }
 
+// The per-class HEADING register for Compose: a `_class` name → the heading level its GRAMMAR
+// anchors ('h1' for the title family, 'h2' for body classes), read from each component's heading/title
+// slot in the generated grammar (`dist/docs/grammar.json`). Threaded into the Compose editor so its
+// Format group offers the grammar-correct heading — never H1 on a body slide, never H2 on a title —
+// sharing the engine's slot contract as the one source of truth (HARD RULE #1).
+let slideHeadings = {};
+try {
+	const grammar = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/grammar.json'), 'utf8'));
+	for (const c of grammar.components || []) {
+		const slots = c.slots || {};
+		const sel = (slots.heading || slots.title || {}).selector || '';
+		const m = sel.match(/\bh([1-6])\b/);
+		if (m && c.name) slideHeadings[c.name] = m[1] === '1' ? 'h1' : 'h2';
+	}
+} catch (e) {
+	slideHeadings = {};
+}
+
 // The deterministic lint vocabulary — built at build time from the LIVE component
 // manifests (the SAME buildVocab the Drawing Board and the Node CLI use), so the
 // editor's inline grammar linter is the canonical lint-core, not a reduced copy.
@@ -283,7 +301,7 @@ const REPLAY_JS = shell
 		)}
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
-		<StudioShell client:only="react" options={options} components={components} lintVocab={lintVocab} />
+		<StudioShell client:only="react" options={options} components={components} lintVocab={lintVocab} slideHeadings={slideHeadings} />
 		{/* Live viz diagnostics — renders nothing until the Workspace → Diagnostics
 		    switch (or ?viz) turns it on; then reads dropped-to-black chart paint from
 		    the render pipeline. */}
