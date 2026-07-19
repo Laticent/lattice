@@ -225,7 +225,8 @@ var require_derive = __commonJS({
       pickInk: pickInk2,
       ensureContrast: ensureContrast2,
       normalizeHex: normalizeHex2,
-      AA: AA2
+      AA: AA2,
+      AA_LARGE: AA_LARGE2
     } = require_color();
     var ESSENTIAL_KEYS2 = Object.freeze([
       "bg",
@@ -247,6 +248,10 @@ var require_derive = __commonJS({
     var DEEP_L2 = 0.45;
     var PALE_C = 0.04;
     var DEEP_C = 0.13;
+    var JEWEL_L = 0.42;
+    var JEWEL_C = 0.12;
+    var PALE_MARK_L = 0.82;
+    var PALE_MARK_C = 0.085;
     var RAMP_STRATEGIES = Object.freeze(["spectrum", "analogous", "triad", "complementary", "brand-mono"]);
     var DEFAULT_STRATEGY = "spectrum";
     var norm360 = (d) => (d % 360 + 360) % 360;
@@ -416,21 +421,28 @@ var require_derive = __commonJS({
       t["scheme-dark-text-muted"] = darkMuted;
       const inkLight = ensureContrast2(headingLight, "#ffffff", AA2, "darken");
       const inkDark = "#ffffff";
-      t["cat-on-fill"] = inkLight;
-      t["cat-on-mark"] = inkDark;
+      t["cat-on-fill"] = ld(inkLight, inkDark);
+      t["cat-on-mark"] = ld(inkDark, inkLight);
       for (let i = 0; i < 12; i++) {
         const h = norm360(rampHue(strategy, accentHue, i, 12));
         const cMul = rampChromaMul(strategy, i, 12);
         const dL = rampLightnessDelta(strategy, i, 12);
-        const paleRaw = oklchToHex2({ L: PALE_L2 + dL, C: PALE_C * cMul, h });
-        const deepRaw = oklchToHex2({ L: DEEP_L2 + dL, C: DEEP_C * cMul, h });
-        t[`cat-${i + 1}-fill`] = ensureContrast2(paleRaw, inkLight, AA2, "lighten");
-        t[`cat-${i + 1}-mark`] = ensureContrast2(deepRaw, inkDark, AA2, "darken");
+        const fillLight = ensureContrast2(oklchToHex2({ L: PALE_L2 + dL, C: PALE_C * cMul, h }), inkLight, AA2, "lighten");
+        let markLight = ensureContrast2(oklchToHex2({ L: DEEP_L2 + dL, C: DEEP_C * cMul, h }), e.bg, AA_LARGE2, "darken");
+        markLight = ensureContrast2(markLight, inkDark, AA2, "darken");
+        const fillDark = ensureContrast2(oklchToHex2({ L: JEWEL_L + dL, C: JEWEL_C * cMul, h }), inkDark, AA2, "darken");
+        let markDark = ensureContrast2(oklchToHex2({ L: PALE_MARK_L + dL, C: PALE_MARK_C * cMul, h }), darkBgDeeper, AA_LARGE2, "lighten");
+        markDark = ensureContrast2(markDark, inkLight, AA2, "lighten");
+        t[`cat-${i + 1}-fill`] = ld(fillLight, fillDark);
+        t[`cat-${i + 1}-mark`] = ld(markLight, markDark);
       }
       t["diagram-stroke"] = withChroma2(withLightness2(e.accent, 0.5), 0.09);
       t["diagram-line"] = ld(withLightness2(e.textBody, 0.32), withLightness2(darkBody, 0.78));
       t["diagram-accent-warm"] = "var(--accent)";
-      t["diagram-critical"] = ensureContrast2("#c20000", inkDark, AA2, "darken");
+      t["diagram-critical"] = ld(
+        ensureContrast2("#c20000", inkDark, AA2, "darken"),
+        ensureContrast2(withLightness2("#c20000", 0.68), inkLight, AA2, "lighten")
+      );
       const onCode = darkBg;
       const synth = (rot, L = 0.72, C = 0.11) => ensureContrast2(oklchToHex2({ L, C, h: ((accentHue + rot) % 360 + 360) % 360 }), onCode, 3, "lighten");
       t["hljs-comment"] = ensureContrast2(mix2(e.textMuted, onCode, 0.2), onCode, 3, "lighten");
@@ -473,7 +485,7 @@ var require_derive = __commonJS({
 // lib/theme/contrast.js
 var require_contrast = __commonJS({
   "lib/theme/contrast.js"(exports, module) {
-    var { contrastRatio: contrastRatio2, AA: AA2 } = require_color();
+    var { contrastRatio: contrastRatio2, AA: AA2, AA_LARGE: AA_LARGE2 } = require_color();
     function resolveVars2(vars, mode = "light") {
       const out = { ...vars };
       for (const k of Object.keys(out)) {
@@ -498,6 +510,7 @@ var require_contrast = __commonJS({
       const pairs = [];
       for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-fill`, "cat-on-fill", AA2, "categorical-pale"]);
       for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-mark`, "cat-on-mark", AA2, "categorical-deep"]);
+      for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-mark`, "bg", AA_LARGE2, "categorical-edge"]);
       pairs.push(["bg", "text-heading", AA2, "heading"]);
       pairs.push(["bg-alt", "text-heading", AA2, "heading"]);
       pairs.push(["diagram-critical", "cat-on-mark", AA2, "alarm"]);
@@ -762,7 +775,7 @@ var require_ai = __commonJS({
       warn: "warning amber",
       fail: "error red"
     };
-    var THEME_CANON = "HOW LATTICE THEMES WORK (so you choose well):\n\u2022 Your 10 colours are ESSENTIALS. The engine derives ~70 more from them in OKLCH and repairs every pair to WCAG AA in BOTH light and dark canvases \u2014 you never hand-author the rest. Pick essentials that derive cleanly.\n\u2022 Categorical data-viz fills come in two lightness tiers: 12 PALE fills (L\u22480.9, gentle tint) and 12 DEEP marks (L\u22480.45, saturated), both keyed off the accent HUE. So the accent should be saturated and distinctly hued.\n\u2022 A dark canvas band is derived from the accent hue at low lightness; ink is lifted to stay readable. Choose a textBody that lightens gracefully.\n\u2022 Worked example (indaco): bg #f7f8fb, bgAlt #eef1f6, textHeading #0f1b2d, textBody #243244, textMuted #6b7787, accent #1f5fb0, accentSoft #e6eefb, pass #1f7a4d, warn #b26a00, fail #c0392b.\n";
+    var THEME_CANON = 'HOW LATTICE THEMES WORK (so you choose well):\n\u2022 Your 10 colours are ESSENTIALS. The engine derives ~70 more from them in OKLCH and repairs every pair to WCAG AA in BOTH light and dark canvases \u2014 you never hand-author the rest. Pick essentials that derive cleanly.\n\u2022 Categorical data-viz uses a THREE-LAYER, mode-flipping contract keyed off the accent HUE: each of 12 slots is one hue drawn as a fill + a mark (its border). Light canvas = pale fill + deep mark; dark canvas = deep "jewel" fill + pale mark; the label ink flips with the fill so it stays legible, and the mark always clears 3:1 against the canvas. The engine derives and AA-repairs all of it \u2014 so pick an accent that is saturated and distinctly hued.\n\u2022 A dark canvas band is derived from the accent hue at low lightness; ink is lifted to stay readable. Choose a textBody that lightens gracefully.\n\u2022 Worked example (indaco): bg #f7f8fb, bgAlt #eef1f6, textHeading #0f1b2d, textBody #243244, textMuted #6b7787, accent #1f5fb0, accentSoft #e6eefb, pass #1f7a4d, warn #b26a00, fail #c0392b.\n';
     var ASK_SYSTEM2 = 'You are a palette designer for the Lattice slide engine. You will be given the CURRENT palette (as JSON) and a request. If the request describes a new look, return a complete new palette; if it asks for a change (e.g. "cooler", "more contrast", "navy accent"), adjust the current palette accordingly.\n\n' + THEME_CANON + '\nOutput ONLY a compact JSON object \u2014 no prose, no markdown \u2014 with EXACTLY these keys. The first ten are 6-digit hex colours (e.g. "#1a2b3c"):\n' + ESSENTIAL_KEYS2.map((k) => `  "${k}": ${KEY_DESCRIPTIONS[k]}`).join("\n") + `
   "rampStrategy": the categorical/chart hue layout \u2014 one of ${RAMP_STRATEGIES.map((s) => `"${s}"`).join(", ")}. Pick the one that fits the brief: "spectrum" broad & distinct, "analogous" calm & cohesive, "triad" balanced & lively, "complementary" high-contrast pairs, "brand-mono" restrained single-hue.
   "name": a short lowercase slug naming THIS palette (a\u2013z, 0\u20139, hyphens; start with a letter), evocative of the look \u2014 e.g. "harbor-slate", "terracotta-warm". Not a generic word like "theme" or "palette".
