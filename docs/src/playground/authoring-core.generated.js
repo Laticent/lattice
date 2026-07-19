@@ -26,9 +26,80 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
+// lib/authoring/slide-split.js
+var require_slide_split = __commonJS({
+  "lib/authoring/slide-split.js"(exports, module) {
+    function fenceOpen(text) {
+      let inFence = false;
+      let fenceChar = "";
+      let fenceLen = 0;
+      const lines = String(text).split("\n");
+      for (const line of lines) {
+        if (!inFence) {
+          const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+          if (open) {
+            inFence = true;
+            fenceChar = open[1][0];
+            fenceLen = open[1].length;
+          }
+        } else {
+          const close = line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`));
+          if (close) {
+            inFence = false;
+            fenceChar = "";
+            fenceLen = 0;
+          }
+        }
+      }
+      return inFence;
+    }
+    function splitTopLevel(source) {
+      const naive = String(source || "").split(/^---$/m);
+      if (naive.length < 2) return naive;
+      const out = [];
+      let cur = naive[0];
+      for (let k = 1; k < naive.length; k++) {
+        if (fenceOpen(cur)) cur = `${cur}---${naive[k]}`;
+        else {
+          out.push(cur);
+          cur = naive[k];
+        }
+      }
+      out.push(cur);
+      return out;
+    }
+    function separatorLines(lines) {
+      const set = /* @__PURE__ */ new Set();
+      let inFence = false;
+      let fenceChar = "";
+      let fenceLen = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!inFence) {
+          const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+          if (open) {
+            inFence = true;
+            fenceChar = open[1][0];
+            fenceLen = open[1].length;
+            continue;
+          }
+          if (/^---\r?$/.test(line)) set.add(i);
+        } else if (line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`))) {
+          inFence = false;
+          fenceChar = "";
+          fenceLen = 0;
+        }
+      }
+      return set;
+    }
+    module.exports = { splitTopLevel, fenceOpen, separatorLines };
+  }
+});
+
 // lib/authoring/lint-core.js
 var require_lint_core = __commonJS({
   "lib/authoring/lint-core.js"(exports, module) {
+    var { splitTopLevel, separatorLines } = require_slide_split();
     var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
     var FOCUS_DIRECTIVE = /<!--\s*_focus:\s*([^>]+?)\s*-->/;
     var FOCUS_STYLE_DIRECTIVE = /<!--\s*_focusStyle:\s*([^>]+?)\s*-->/;
@@ -245,9 +316,10 @@ ${indent}   - ${body.trim()}`;
       const lines = source.split("\n");
       const target = finding.line.trim();
       const targetChunk = finding.slide + fmChunks(source) - 1;
+      const seps = separatorLines(lines);
       let chunk = 0;
       for (let i = 0; i < lines.length; i++) {
-        if (lines[i] === "---") {
+        if (seps.has(i)) {
           chunk++;
           continue;
         }
@@ -311,7 +383,7 @@ ${indent}   - ${body.trim()}`;
       if (!mapVocab) return [];
       const findings = [];
       const norm = (s) => String(s).toLowerCase().replace(/[.’']/g, "").replace(/\s+/g, " ").trim();
-      const slides = source.split(/^---$/m);
+      const slides = splitTopLevel(source);
       const fm = fmChunks(source);
       slides.forEach((slide, idx) => {
         const m = slide.match(CLASS_DIRECTIVE);
@@ -352,7 +424,7 @@ ${indent}   - ${body.trim()}`;
       const splitSlot = new Set(SPLIT_SLOT_LAYOUTS);
       const numberSlot = new Set(NUMBER_SLOT_LAYOUTS);
       const isH2AnchoredSplit = (tokens) => tokens.includes("split-panel") && !tokens.includes("pullquote") || tokens.includes("split-compare");
-      const slides = source.split(/^---$/m);
+      const slides = splitTopLevel(source);
       const fm = fmChunks(source);
       const orientation = deckOrientation(source);
       const fmClaimBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
@@ -769,7 +841,7 @@ ${indent}   - ${body.trim()}`;
     }
     function findGanttIssues(source) {
       const findings = [];
-      const slides = source.split(/^---$/m);
+      const slides = splitTopLevel(source);
       const fm = fmChunks(source);
       slides.forEach((slide, idx) => {
         const cm = slide.match(CLASS_DIRECTIVE);
@@ -1492,6 +1564,7 @@ var require_review_core = __commonJS({
       elementWordCounts,
       universalProseOverages
     } = require_prose_budgets();
+    var { splitTopLevel } = require_slide_split();
     var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
     var LABEL_WORDS = /* @__PURE__ */ new Set([
       "overview",
@@ -1535,7 +1608,7 @@ var require_review_core = __commonJS({
     var REFERENT_RE = /\b(vs\.?|versus|from|up|down|grew|fell|rose|dropped|increased?|decreased?|than|prior|baseline|target|yoy|qoq|mom|compared|over|under|above|below|year[-\s]?over[-\s]?year)\b|[%×]|\bpp\b|\b\d+x\b/i;
     var PLACEHOLDER_RE = /^(title|untitled|deck title|presentation title|your title(\s+here)?|subtitle|your subtitle(\s+here)?|tagline|lorem ipsum|tbd|todo)$/i;
     function splitSlides(source) {
-      return source.split(/^---$/m);
+      return splitTopLevel(source);
     }
     var FRONT_MATTER = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/;
     function firstSlideIndex(source) {
@@ -1851,6 +1924,7 @@ var require_review_core = __commonJS({
 // lib/authoring/scorecard.js
 var require_scorecard = __commonJS({
   "lib/authoring/scorecard.js"(exports, module) {
+    var { splitTopLevel } = require_slide_split();
     var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
     var DATA_LAYOUTS = /* @__PURE__ */ new Set([
       "funnel",
@@ -1872,7 +1946,7 @@ var require_scorecard = __commonJS({
     var band = (n) => n >= 93 ? "A" : n >= 85 ? "A\u2212" : n >= 78 ? "B+" : n >= 70 ? "B" : n >= 62 ? "C+" : n >= 55 ? "C" : n >= 45 ? "D" : "F";
     var plural = (n) => n > 1 ? "s" : "";
     function parseDeckShape(source) {
-      const slides = source.split(/^---$/m);
+      const slides = splitTopLevel(source);
       const tokensPer = slides.map((s) => {
         const m = s.match(CLASS_DIRECTIVE);
         return m ? m[1].trim().split(/\s+/).filter(Boolean) : [];

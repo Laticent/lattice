@@ -20,7 +20,6 @@ const FINDING = { slide: 2, rule: 'wall-of-text', severity: 'warning', message: 
 const mockFindings = vi.hoisted(() => ({ current: [{ slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' }] as { slide: number; rule: string; severity: string; message: string }[] }));
 vi.mock('./coach/coach-core', () => ({
 	assessDeck: vi.fn(async () => ({ hasContent: true, scorecard: { overall: 82, band: 'B+', categories: [] }, findings: mockFindings.current })),
-	hasFencedSeparator: () => false,
 	rankFindings: (f: unknown[]) => f,
 	topFixes: () => ({ title: 'Top fixes', body: [] }),
 	weakestSlide: () => ({ title: 'Weakest slide', body: [] }),

@@ -36,26 +36,6 @@ export function hasContent(src: string): boolean {
 	return /<!--\s*_class:/.test(s) && s.split(/^---$/m).filter((x) => x.trim()).length > 1;
 }
 
-/** True when a `---` sits INSIDE a fenced code block (``` / ~~~). The engine's
- *  slide splitter (architect-edits.js) is fence-blind, so an AI fix that splices by
- *  slide number would mis-target and corrupt the deck — the Coach disables AI fixes
- *  when this is present (K3 guard). Tracked follow-up: make the engine splitter
- *  fence-aware. */
-export function hasFencedSeparator(src: string): boolean {
-	const lines = String(src ?? '').split('\n');
-	let fence: { marker: string; len: number } | null = null;
-	for (const line of lines) {
-		const open = /^\s*(`{3,}|~{3,})/.exec(line);
-		if (fence) {
-			if (open && open[1][0] === fence.marker && open[1].length >= fence.len && /^\s*(`{3,}|~{3,})\s*$/.test(line)) fence = null;
-			else if (/^-{3,}\s*$/.test(line)) return true;
-		} else if (open) {
-			fence = { marker: open[1][0], len: open[1].length };
-		}
-	}
-	return false;
-}
-
 /** The real deck assessment: the engine scorecard + the union of lint + review
  *  findings. Returns an empty, content-false assessment (not a grade) for a blank deck.
  *  Never throws into render. */

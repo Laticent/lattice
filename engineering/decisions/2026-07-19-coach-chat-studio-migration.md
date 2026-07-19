@@ -144,11 +144,10 @@ and the same-slide stale-supersede path (`studio.findings-fix.test.tsx`).
 
 ## Logged follow-ups (HARD RULE #18, off-path)
 
-- Make the engine slide splitter (`architect-edits.js` / `review-core.js`)
-  fence-aware so a `---` inside a code fence no longer desyncs slide numbers. Same root
-  cause as the red-team's LOW finding that a MODEL-authored replace body containing a bare
-  `---` would inject a slide separator on apply (pre-existing in `runArchitect`/chat too);
-  the fix belongs in the shared splitter/`applyEdit`, not one call site.
+- ~~Make the engine slide splitter fence-aware~~ — **landed** (`2026-07-19-fence-aware-slide-splitter.md`):
+  a shared byte-faithful `splitTopLevel` across the authoring cores + `architect-edits.js`; the K3
+  `hasFencedSeparator` guard is removed, and `applyEdit` now refuses a model replace body that smuggles a
+  top-level `---` (the red-team's LOW finding), so the fix covers every apply path, not one call site.
 - Exact aborted-turn cost via an OpenRouter `/generation` fetch (currently an
   estimate).
 - A chat "tone/clarity only — change no numbers or facts" constraint mode + fact

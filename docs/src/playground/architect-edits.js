@@ -19,6 +19,76 @@ function fmChunks(source) {
   return FRONT_MATTER.test(String(source || '')) ? 2 : 0;
 }
 
+// ── Fence-aware slide boundaries ───────────────────────────────────────────────
+// A `---` INSIDE a ```/~~~ code fence (routine in decks that show Markdown / diff /
+// YAML samples) is not a slide boundary. Treating it as one desynced every slide
+// number after it — and so made the Coach's per-finding AI fix target the wrong
+// slide. These mirror lib/authoring/slide-split.js but are kept LOCAL so this module
+// stays dependency-free + headless-verifiable (its stated contract).
+
+// Does `text` end with an unclosed code fence? (opener char + run length tracked so a
+// shorter inner fence can't close it; up to 3 leading spaces per CommonMark.)
+export function fenceOpen(text) {
+  let inFence = false;
+  let fenceChar = '';
+  let fenceLen = 0;
+  for (const line of String(text).split('\n')) {
+    if (!inFence) {
+      const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+      if (open) { inFence = true; fenceChar = open[1][0]; fenceLen = open[1].length; }
+    } else if (line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`))) {
+      inFence = false; fenceChar = ''; fenceLen = 0;
+    }
+  }
+  return inFence;
+}
+
+// Byte-faithful to `source.split(/^---$/m)` EXCEPT a fenced `---` doesn't split (the
+// chunk is re-merged, re-inserting the exact `---` the naive split removed). So the
+// front-matter chunk model + every index calc below are preserved for fence-free decks.
+export function splitTopLevel(source) {
+  const naive = String(source || '').split(/^---$/m);
+  if (naive.length < 2) return naive;
+  const out = [];
+  let cur = naive[0];
+  for (let k = 1; k < naive.length; k++) {
+    if (fenceOpen(cur)) cur = `${cur}---${naive[k]}`;
+    else { out.push(cur); cur = naive[k]; }
+  }
+  out.push(cur);
+  return out;
+}
+
+// A single-slide edit body must not smuggle a slide boundary. Applying one that does
+// corrupts the deck two ways: a TOP-LEVEL `---` (outside a fence) injects a new separator,
+// AND an UNCLOSED fence in the body swallows the deck's NEXT real `---` on reparse (so a
+// later slide is trapped inside this one's code block). Refuse either — the splice's stated
+// contract is "refuse rather than corrupt" (trio red team).
+function bodySplitsSlides(body) {
+  const t = String(body || '').trim();
+  return splitTopLevel(t).length > 1 || fenceOpen(t);
+}
+
+// Line indices that are TOP-LEVEL slide separators (a `---` line outside any fence) —
+// the line-based analog the surgical splice reads.
+export function separatorLines(lines) {
+  const set = new Set();
+  let inFence = false;
+  let fenceChar = '';
+  let fenceLen = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!inFence) {
+      const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+      if (open) { inFence = true; fenceChar = open[1][0]; fenceLen = open[1].length; continue; }
+      if (/^---\r?$/.test(line)) set.add(i); // CRLF-tolerant so it agrees with splitTopLevel (/^---$/m splits `---\r\n`)
+    } else if (line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`))) {
+      inFence = false; fenceChar = ''; fenceLen = 0;
+    }
+  }
+  return set;
+}
+
 // ── The prompt half ──────────────────────────────────────────────────────────
 
 // Show the deck with unambiguous [slide N] markers so the model can address a
@@ -26,7 +96,7 @@ function fmChunks(source) {
 // matter is dropped from the view — the model edits real slides, numbered from 1.
 // The markers are stripped from any edit body it sends back (see EDIT_PROTOCOL).
 export function numberSlides(source) {
-  const slides = String(source || '').split(/^---$/m);
+  const slides = splitTopLevel(source);
   if (slides.length === 1 && !slides[0].trim()) return '';
   const real = slides.slice(fmChunks(source));
   if (!real.length) return '';
@@ -92,10 +162,11 @@ export function parseEdits(reply) {
 // Line ranges [startLine, endLine] for each slide's CONTENT (separators excluded),
 // so an edit touches only the target slide and leaves every other byte intact.
 function slideRanges(lines) {
+  const seps = separatorLines(lines);
   const ranges = [];
   let start = 0;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i] === '---') { ranges.push([start, i - 1]); start = i + 1; }
+    if (seps.has(i)) { ranges.push([start, i - 1]); start = i + 1; }
   }
   ranges.push([start, lines.length - 1]);
   return ranges;
@@ -104,7 +175,7 @@ function slideRanges(lines) {
 // How many real slides the deck has (front matter excluded; 1-based addressing
 // tops out here).
 export function slideCount(source) {
-  return Math.max(0, String(source || '').split(/^---$/m).length - fmChunks(source));
+  return Math.max(0, splitTopLevel(source).length - fmChunks(source));
 }
 
 // Read one slide's content (trimmed) — the "before" side of a diff. `n` is the
@@ -131,6 +202,9 @@ export function applyEdit(source, edit) {
   if (edit.action === 'replace') {
     const n = edit.slide + fm; // human slide number → raw chunk index
     if (edit.slide < 1 || n > count) return source;
+    // A replace targets ONE slide; a body that would split slides (top-level `---` or an
+    // unclosed fence) corrupts the deck, so refuse rather than corrupt (trio red team).
+    if (bodySplitsSlides(edit.body)) return source;
     const [a, b] = ranges[n - 1];
     const seg = lines.slice(a, b + 1);
     // Keep the original leading/trailing blank lines; swap only the content.
@@ -161,7 +235,11 @@ export function applyEdit(source, edit) {
     // appends). The old split/rejoin reformatted the `---…---` fence and broke
     // Marp's front-matter parsing, so the front matter is reattached untouched.
     const block = edit.body.trim();
-    const all = String(source || '').split(/^---$/m);
+    // Insert adds ONE new slide; a body that would split slides (top-level `---` or an
+    // unclosed fence) would inject extra separators / swallow a later `---`. Refuse (same
+    // contract as replace — the guard was replace-only before; trio red team).
+    if (bodySplitsSlides(block)) return source;
+    const all = splitTopLevel(source);
     const real = all.slice(fm).map((s) => s.replace(/^\n+|\n+$/g, ''));
     const at = edit.slide === Number.MAX_SAFE_INTEGER ? real.length : Math.max(0, Math.min(real.length, edit.slide));
     real.splice(at, 0, block);

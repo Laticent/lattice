@@ -609,6 +609,21 @@ in patch versions.
   (`auditBoth`/`contractPairs`), so the shipped derive test **and** the live Studio "WCAG report" catch
   a sub-floor mark instead of passing it. (`lib/theme/derive.js`, `lib/theme/ai.js`,
   `lib/theme/contrast.js`.)
+- **A `---` inside a code fence no longer desyncs slide numbers — the authoring slide splitter is
+  fence-aware.** The deterministic authoring cores (`lint-core`, `review-core`, `scorecard`,
+  `fact-check-core`) and the Studio edit engine (`architect-edits.js`) split a deck on `---` lines with a
+  naive `split(/^---$/m)` that was **fence-blind**: a `---` inside a ` ``` ` / `~~~` block (routine in
+  decks that show Markdown / diff / YAML samples) was mis-read as a slide boundary, so every slide number
+  after it drifted — and the Coach's per-finding AI fix then targeted the **wrong slide**. A new shared
+  `splitTopLevel` (`lib/authoring/slide-split.js`) is **byte-identical to the old split for any deck with
+  no fenced `---`** and only heals the fenced case, so lint/review/scorecard findings, the `[slide N]`
+  prompt markers, `sliceSlide`, and the apply splice all agree on slide numbers again. Because the fix now
+  targets correctly, the Coach's **"AI fix paused when a slide has a fenced `---`" limitation (the K3
+  guard) is removed** — the fix is offered on those decks. `applyEdit` (replace **and** insert) now
+  **refuses a model reply whose body would split the slide** — a top-level `---` OR an unclosed code
+  fence (which would swallow the deck's next `---`) — and the Coach reports the refusal honestly
+  ("Couldn't apply — it would split slide N") instead of banking a checkpoint and claiming success over
+  an unchanged deck. (`engineering/decisions/2026-07-19-fence-aware-slide-splitter.md`.)
 - **Compose's slide-divider Format group — three follow-ups.** (1) An **orphan inline-code label** (a
   lone `` `code` `` paragraph next to no heading) now offers a pill affordance to clear its mark instead
   of being editable only in Markdown mode. (2) The heading register is offered strictly per the slide
