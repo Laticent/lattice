@@ -163,6 +163,31 @@ test('the CSP sha256 actually covers the shipped player script (freeze-surviving
 	assert.match(html, /default-src 'none'/, 'default-src none locks down the file');
 });
 
+test('a scene deck injects the Anima bundle under the SAME sha256 CSP; a scene-less deck does not', async () => {
+	// The security-critical invariant of the export-hydration path (Stage 6b slice C): the
+	// Anima bundle rides in the ONE hashed <script>, and the sha256 CSP still covers it — a
+	// future refactor that appends the bundle AFTER the hash (or the ascii pass) would leave a
+	// hash the browser rejects, dead on iOS. This pins hash-covers-bundle permanently.
+	const spec = Buffer.from(
+		JSON.stringify({ source: 'built', duration: 1000, hero: 0.5, elements: [{ id: 'a', shape: 'cone', motion: [{ verb: 'spin', axis: 'y', period: 1000 }] }] }),
+	).toString('base64');
+	const sceneDoc = docHtml.replace(
+		'<section data-lattice-slide="1" id="1" class="title"><h1>Deck</h1><p>Intro paragraph.</p>',
+		`<section data-lattice-slide="1" id="1" class="scene" data-scene-spec="${spec}"><div class="scene-figure"><svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="3"/></svg></div><p>Intro paragraph.</p>`,
+	);
+	const { html } = await buildPlayerHtml({ docHtml: sceneDoc, source, now: 0 });
+	assert.match(html, /__latticeAnima/, 'the Anima bundle must be injected for a scene deck');
+	assert.match(html, /hydrateScenes\(document\)/, 'the hydrate call must be present');
+	const cspHash = (html.match(/script-src 'sha256-([^']+)'/) || [])[1];
+	const body = html.match(/<script>([\s\S]*?)<\/script>/i);
+	assert.ok(body, 'the player script block is present');
+	const actual = crypto.createHash('sha256').update(body[1], 'utf8').digest('base64');
+	assert.equal(actual, cspHash, 'CSP hash must cover the script WITH the Anima bundle appended');
+	// Byte-identity gate: a scene-LESS deck must NOT carry the backends.
+	const { html: plain } = await buildPlayerHtml({ docHtml, source, now: 0 });
+	assert.doesNotMatch(plain, /__latticeAnima/, 'a scene-less export must not ship the ~58 KB backends');
+});
+
 test('the CSP-hashed script is pure ASCII (WebKit hashes non-ASCII differently → blocks it)', async () => {
 	// iOS WebKit (Safari + every iOS webview) computes the sha256 CSP hash over a different
 	// byte encoding than Chromium/Node for non-ASCII, so a glyph or em-dash in the script

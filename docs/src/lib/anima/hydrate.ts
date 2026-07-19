@@ -403,8 +403,14 @@ export function hydrateScene(section: Element, opts: HydrateOptions = {}): { dis
 export function hydrateScenes(root: ParentNode, opts: HydrateOptions = {}): { dispose(): void } {
   const controllers: Array<{ dispose(): void }> = [];
   for (const section of Array.from(root.querySelectorAll('section.scene[data-scene-spec]'))) {
-    const c = hydrateScene(section, opts);
-    if (c) controllers.push(c);
+    // Isolate each scene: a spec that validates but throws in compile/mount must not stop the
+    // rest of the deck's scenes from hydrating — the poster stands for the faulty one.
+    try {
+      const c = hydrateScene(section, opts);
+      if (c) controllers.push(c);
+    } catch {
+      /* one bad scene, poster stands */
+    }
   }
   return {
     dispose() {
