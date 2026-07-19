@@ -760,8 +760,10 @@ function ComposeStyles() {
 			.cs-sc-ask{font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--fail,#b3261e);align-self:center}
 			/* content pill — content register, ONLY on the active slide; a soft accent bloom (only the active
 			   slide's pill is ever shown, so it never becomes a column of glows) */
-			.cs-sb-pill{display:none;align-items:center;gap:3px;padding:3px 5px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-radius:12px;box-shadow:0 5px 15px -8px color-mix(in oklab,var(--accent,#006fa8),transparent 66%),0 1px 3px -1px color-mix(in oklab,var(--text-heading,#0a1628),transparent 84%)}
-			.cs-slide-active > .cs-slide-bar > .cs-sb-pill{display:inline-flex}
+			/* The pill RESERVES its space on every slide (visibility, not display) so focusing a slide
+				   never reflows content down — it fades in place. Hidden = non-interactive + out of tab order. */
+			.cs-sb-pill{display:inline-flex;visibility:hidden;opacity:0;align-items:center;gap:3px;padding:3px 5px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-radius:12px;box-shadow:0 5px 15px -8px color-mix(in oklab,var(--accent,#006fa8),transparent 66%),0 1px 3px -1px color-mix(in oklab,var(--text-heading,#0a1628),transparent 84%);transition:opacity .12s ease}
+			.cs-slide-active > .cs-slide-bar > .cs-sb-pill{visibility:visible;opacity:1}
 			.cs-sb-format{display:inline-flex;align-items:center;gap:2px}
 			.cs-sb-actions{display:inline-flex;align-items:center;gap:2px}
 			.cs-sb-div{flex:none;width:1px;height:14px;border-radius:1px;background:var(--border,#e4eaf2)}

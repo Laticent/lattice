@@ -126,8 +126,12 @@ Run against the shipping state (`d5a2ff9`). Findings folded in:
   cap and `role="group" aria-label="Slide"` to the line (the structural register as a named set).
 
 **Surfaced as decisions / logged (not silently changed):**
-- **Layout jump** — the pill appears on focus, pushing content down ~37px. A genuine trade-off on the
-  user's "pill on active" choice; raised for the user rather than reworked unilaterally.
+- **Layout jump → RESOLVED (user chose "reserve the space").** The pill appeared on focus, pushing
+  content down ~37px. Raised as a decision; the user chose to reserve the pill's space on every slide
+  (`visibility:hidden`+`opacity:0`, not `display:none`, so it fades in place) — the bar height is now
+  constant and focusing a slide reflows nothing (verified: a reference slide's top is pixel-identical
+  whichever slide is active). Trade-off accepted: each non-active slide's line sits in a slightly taller
+  zone.
 - **Grammar gate is on the pill, not the `#` input rule** — an author can still type `# ` on a body
   slide and produce an H1 the grammar forbids (the live preview + deck lint still flag it). Design gap,
   logged.
