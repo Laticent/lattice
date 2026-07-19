@@ -258,6 +258,27 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		expect(t.src()).not.toMatch(/^#/m);
 	});
 
+	// Trio CRITICAL: a slide `_class` naming an Object.prototype method must not crash the lookup
+	// (`headings['constructor']` resolves to a function up the chain; an unguarded spread throws and
+	// wedged the format-sync/emit). And a CLASSLESS slide stays permissive, never pinned to content's H2.
+	it('is crash-proof on prototype-named classes and permissive when classless', () => {
+		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'], title: ['h1'] };
+		for (const evil of ['constructor', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toString']) {
+			const p = view(`<!-- _class: ${evil} -->\n\n# Head`);
+			p.caret('Head');
+			expect(() => applicableRegisters(p.v.state, headings)).not.toThrow();
+			expect(applicableRegisters(p.v.state, headings).keys).toEqual(['h1', 'h2']); // permissive, not stranded/crashed
+		}
+		// A classless slide (no `_class` directive) is NOT silently gated to content's H2.
+		const bare = view('# Just a heading\n\nbody');
+		bare.caret('Just a heading');
+		expect(applicableRegisters(bare.v.state, headings).keys).toEqual(['h1', 'h2']);
+		// The LAST `_class` wins (engine semantics), so Compose gates on what actually renders.
+		const multi = view('<!-- _class: content -->\n<!-- _class: title -->\n\n# T');
+		multi.caret('T');
+		expect(applicableRegisters(multi.v.state, headings).keys).toEqual(['h1']); // title, not content
+	});
+
 	it('a locked slide offers no registers', () => {
 		const t = view('<!-- _class: content -->\n\n# Locked\n\n| a | b |\n| - | - |\n| 1 | 2 |');
 		t.caret('Locked');

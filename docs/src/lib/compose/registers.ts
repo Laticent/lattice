@@ -3,7 +3,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { type EditorState, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
-import { slideClassOf } from './deck-source';
+import { CLASS_RE } from './deck-source';
 
 // The Compose "grammar registers" — the block styles the engine renders from plain structure
 // (base.modifiers.css): H1/H2 headings, an inline-code label as an eyebrow (before a heading)
@@ -82,10 +82,25 @@ export type SlideHeadings = Record<string, ('h1' | 'h2')[]>;
 
 // Which HEADING register(s) the caret's slide grammar permits: the class's declared level(s), or —
 // when the class isn't in the grammar map — both (never silently drop the control on an unknown class).
+// Three guards, all from the adversarial trio:
+//   - Only an EXPLICITLY-classed slide is gated. A classless slide (`slideClassOf` would default it to
+//     `content`→H2) stays PERMISSIVE, so an author who hasn't committed a class — or intends a title —
+//     isn't silently blocked from originating an H1 (inversion + red-team "strand the author").
+//   - The LAST `_class` wins, matching the engine's directive semantics (a slide with two `_class`
+//     comments renders as the last; Compose must not gate on the first and diverge).
+//   - `Array.isArray` guards the plain-object lookup against `Object.prototype` keys a slide could name
+//     in `_class` (`constructor`, `hasOwnProperty`, …): `headings['constructor']` resolves to a FUNCTION
+//     up the prototype chain, and an unguarded `[...gh]` on it THROWS — which propagated out of the
+//     format sync and skipped the source emit, silently dropping the author's edits (trio: CRITICAL).
 function headingKeysFor(directives: string[], headings?: SlideHeadings): Reg[] {
-	const cls = slideClassOf(directives);
+	let cls: string | null = null;
+	for (const d of directives) {
+		const m = d.match(CLASS_RE);
+		if (m) cls = m[1];
+	}
+	if (cls == null) return ['h1', 'h2'];
 	const gh = headings?.[cls];
-	return gh?.length ? [...gh] : ['h1', 'h2'];
+	return Array.isArray(gh) && gh.length ? [...gh] : ['h1', 'h2'];
 }
 
 // The registers that APPLY to the caret's current block — the "truly context-sensitive" set the

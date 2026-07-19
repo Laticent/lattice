@@ -220,7 +220,17 @@ function formatSyncPlugin() {
 		view() {
 			return {
 				update() {
-					for (const sv of liveSlideViews) sv.syncFormat();
+					// Defense in depth: syncFormat rebuilds DOM from the pure register kernel; a throw here
+					// runs inside view.updateState, so it would propagate out and ABORT the transaction's
+					// emit branch — silently dropping the author's edits. Contain any per-view error so one
+					// bad slide can never wedge the whole editor.
+					for (const sv of liveSlideViews) {
+						try {
+							sv.syncFormat();
+						} catch (e) {
+							console.error('[compose] syncFormat', e);
+						}
+					}
 				},
 			};
 		},
@@ -257,6 +267,8 @@ class SlideView {
 		// structural/destructive register from the content pill below, so it reads for colorblind users.
 		const line = document.createElement('div');
 		line.className = 'cs-sb-line';
+		line.setAttribute('role', 'group');
+		line.setAttribute('aria-label', 'Slide'); // the structural register (collapse · delete) as a named set
 		this.collapseBtn = this.btn('Collapse slide', 'chevron-down', () => this.toggleCollapse(), 'cs-sc-cap');
 		this.dangerGroup = document.createElement('div');
 		this.dangerGroup.className = 'cs-sb-danger';
@@ -350,6 +362,8 @@ class SlideView {
 		this.collapseBtn.innerHTML = lucideSvg(collapsed ? 'chevron-right' : 'chevron-down');
 		this.collapseBtn.setAttribute('aria-label', collapsed ? 'Expand slide' : 'Collapse slide');
 		this.collapseBtn.title = collapsed ? 'Expand slide' : 'Collapse slide';
+		// Expose the disclosure state programmatically, not just via the flipped label/glyph (trio a11y).
+		this.collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 		if (!this.dom.classList.contains('cs-slide-active')) this.resetDelete();
 		this.syncFormat();
 	}
@@ -372,7 +386,26 @@ class SlideView {
 	}
 	private commit(nodes: PMNode[]) {
 		const { state } = this.view;
-		this.view.dispatch(state.tr.replaceWith(0, state.doc.content.size, nodes).setMeta('slideOp', true));
+		// Preserve the caret's slide across the full-doc rebuild. The delete cap now acts on NON-active
+		// slides too, so deleting a slide OTHER than the caret's must not fling the caret to doc start
+		// (a full replaceWith collapses the mapped selection). We reuse the SAME node instances, so the
+		// caret's slide keeps its identity unless it's the one removed — re-anchor to it at the same
+		// in-slide offset. (Trio red-team: non-active delete displaced the caret.)
+		const { $from } = state.selection;
+		const caretSlide = $from.depth >= 1 ? $from.node(1) : null;
+		const offsetInSlide = caretSlide ? $from.pos - $from.before(1) : 0;
+		const tr = state.tr.replaceWith(0, state.doc.content.size, nodes).setMeta('slideOp', true);
+		if (caretSlide) {
+			let start = -1;
+			tr.doc.forEach((n, off) => {
+				if (start < 0 && n === caretSlide) start = off;
+			});
+			if (start >= 0) {
+				const target = Math.min(start + offsetInSlide, start + caretSlide.nodeSize - 1);
+				tr.setSelection(TextSelection.near(tr.doc.resolve(target)));
+			}
+		}
+		this.view.dispatch(tr);
 		this.view.focus();
 	}
 	private insertBelow() {

@@ -102,6 +102,40 @@ and dark**:
 - `registers.test.ts` — 19 cases incl. the grammar heading map and the permissive-unknown fallback;
   existing no-map callers keep the permissive default. Typecheck + biome + build:check clean.
 
+## Adversarial trio (red team · Munger inversion · independent checker)
+
+Run against the shipping state (`d5a2ff9`). Findings folded in:
+
+- **CRITICAL (red team + checker) — prototype-chain crash → silent data loss.** A slide classed
+  `<!-- _class: constructor -->` (or `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`) made
+  `headings[cls]` resolve to a FUNCTION up `Object.prototype`; the unguarded `[...gh]` threw, propagated
+  out of `view.updateState`, and **skipped the source emit on every keystroke** — the author's edits
+  never reached `source`/preview/persistence (or, on slide 0, downgraded the editor to the raw textarea).
+  Fixed: `headingKeysFor` guards with `Array.isArray(gh)` and only gates an EXPLICITLY-classed slide
+  (classless → permissive, so an author isn't stranded from H1), using the LAST `_class` (engine
+  semantics). Plus defense-in-depth: `formatSyncPlugin` wraps each `syncFormat` in try/catch so no
+  kernel throw can ever wedge the emit again. Verified on the real surface (no crash, no textarea
+  fallback, zero throws, permissive keys). `registers.test.ts` covers all four prototype names + the
+  classless + last-wins cases.
+- **MINOR (inversion + red team) — classless slide stranded from H1.** An unclassed slide defaulted to
+  `content`→H2-only, blocking H1 from the pill. Now classless → permissive (same fix as above).
+- **MINOR (red team) — non-active delete displaced the caret.** With the delete cap on every line,
+  deleting a slide OTHER than the caret's flung the caret to doc start (full-doc replace). `commit` now
+  re-anchors the caret to its slide by node identity across the rebuild.
+- **a11y (inversion) — disclosure + grouping not in the tree.** Added `aria-expanded` to the collapse
+  cap and `role="group" aria-label="Slide"` to the line (the structural register as a named set).
+
+**Surfaced as decisions / logged (not silently changed):**
+- **Layout jump** — the pill appears on focus, pushing content down ~37px. A genuine trade-off on the
+  user's "pill on active" choice; raised for the user rather than reworked unilaterally.
+- **Grammar gate is on the pill, not the `#` input rule** — an author can still type `# ` on a body
+  slide and produce an H1 the grammar forbids (the live preview + deck lint still flag it). Design gap,
+  logged.
+- **H3–H6 headings** show as "H2" in the pill and normalize to a paragraph on click (`activeRegister`
+  maps `level>1`→h2; the register vocab is H1/H2). Pre-existing, low value; logged.
+- **Shape distinguishes register, not safe-vs-destructive** — delete and collapse share the circular
+  cap; the two-step in-place confirm (not shape) is the mis-delete safeguard, which is correct.
+
 ## Follow-ups (logged, not blocking)
 
 - The orphan code-label affordance from the #1059 checker (a `` `code` `` paragraph cut off from its
