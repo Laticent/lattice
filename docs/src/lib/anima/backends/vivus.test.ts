@@ -89,3 +89,64 @@ describe('vivusRenderer', () => {
     }).not.toThrow();
   });
 });
+
+// ── Per-element paint (slice: transform/opacity/emphasis) — runs in jsdom even though Vivus
+//    (stroke-draw) can't init here, because paintElements is attribute-only. ────────────────
+const PAINT_MARKUP =
+  '<svg viewBox="0 0 100 60">' +
+  '<path id="d" d="M0 0 H10" stroke="#000" stroke-width="2" fill="none"/>' +
+  '<text id="l" x="5" y="5">Hi</text>' +
+  '<rect id="s" x="0" y="0" width="4" height="4"/>' +
+  '<path id="h" d="M0 0 H10" stroke="#000" stroke-width="1.5" fill="none"/>' +
+  '</svg>';
+const PAINT_SCENE = {
+  source: 'svg',
+  duration: 1000,
+  hero: 1,
+  asset: 'm',
+  elements: [
+    { id: 'd', pathRef: 'd', motion: [{ verb: 'draw', span: 1 }] }, // stroke-drawn (not faded)
+    { id: 'l', pathRef: 'l', motion: [{ verb: 'reveal', at: 0, span: 1 }] }, // fade via opacity
+    { id: 's', pathRef: 's', motion: [{ verb: 'slide', from: [40, 0], at: 0, span: 1 }] }, // transform
+    { id: 'h', pathRef: 'h', motion: [{ verb: 'highlight', at: 0, span: 1 }] }, // emphasis
+  ],
+};
+
+describe('vivusRenderer — per-element paint', () => {
+  it('fades a reveal-only part via opacity (0→1), not a stroke', () => {
+    const { renderer, tl, host } = mounted(PAINT_SCENE, { m: PAINT_MARKUP });
+    renderer.draw(tl.at(0));
+    expect(Number(host.querySelector('#l')?.getAttribute('opacity'))).toBeCloseTo(0, 3);
+    renderer.draw(tl.at(1000));
+    expect(Number(host.querySelector('#l')?.getAttribute('opacity'))).toBeCloseTo(1, 3);
+  });
+
+  it('slides a part in via a transform translate, arriving at 0', () => {
+    const { renderer, tl, host } = mounted(PAINT_SCENE, { m: PAINT_MARKUP });
+    renderer.draw(tl.at(0));
+    expect(host.querySelector('#s')?.getAttribute('transform')).toContain('translate(40 0)');
+    renderer.draw(tl.at(1000));
+    expect(host.querySelector('#s')?.getAttribute('transform')).toContain('translate(0 0)');
+  });
+
+  it('bumps stroke-weight on a highlighted part, holding at full emphasis', () => {
+    const { renderer, tl, host } = mounted(PAINT_SCENE, { m: PAINT_MARKUP });
+    renderer.draw(tl.at(0));
+    expect(Number(host.querySelector('#h')?.getAttribute('stroke-width'))).toBeCloseTo(1.5, 3); // base
+    renderer.draw(tl.at(1000));
+    expect(Number(host.querySelector('#h')?.getAttribute('stroke-width'))).toBeCloseTo(1.5 * 1.9, 3); // +90%
+  });
+
+  it('does not paint opacity on a stroke-drawn (non-fade) part', () => {
+    const { renderer, tl, host } = mounted(PAINT_SCENE, { m: PAINT_MARKUP });
+    renderer.draw(tl.at(500));
+    expect(host.querySelector('#d')?.getAttribute('opacity')).toBeNull();
+  });
+
+  it('bakes the per-element channels into the poster serialization', () => {
+    const { renderer, tl } = mounted(PAINT_SCENE, { m: PAINT_MARKUP });
+    const p = renderer.poster(tl.poster()); // hero = 1 → arrived, fully revealed, full emphasis
+    expect(p.svg).toContain('opacity="1"');
+    expect(p.svg).toContain('transform="translate(0 0)"');
+  });
+});

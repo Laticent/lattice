@@ -45,7 +45,8 @@ function rotateAbout(v: Vec3, axis: Axis, a: number): Vec3 {
 
 function evalElement(el: AnyElement, seqRank: Map<string, number>, seqCount: number, tMs: number, progress: number, parentReveal: number): ElementState {
   const tf = identity();
-  // Base LOCAL transform (built elements only; svg elements carry no scene-graph transform).
+  // Base LOCAL transform. Built elements nest (parent∘child); an svg part carries an optional
+  // flat 2-D transform (the backend paints at.x/at.y as translate, scale, rotate.z).
   if ('transform' in el && el.transform) {
     const b = el.transform;
     if (b.at) tf.at = [...b.at];
@@ -55,6 +56,7 @@ function evalElement(el: AnyElement, seqRank: Map<string, number>, seqCount: num
 
   let reveal = 1;
   let level = 1;
+  let emphasis = 0;
   let hasReveal = false;
 
   // Motions apply in array order onto the LOCAL transform (composition is order-dependent —
@@ -94,13 +96,27 @@ function evalElement(el: AnyElement, seqRank: Map<string, number>, seqCount: num
       case 'fill':
         level = m.to * windowed(progress, m.at, m.span, m.easing);
         break;
+      case 'slide': {
+        // A move-IN: displaced by `from` at the window's start, arriving at the base position
+        // (offset 0) by its end. 2-D only — the svg backend paints at.x/at.y as a translate.
+        const w = windowed(progress, m.at, m.span, m.easing);
+        tf.at[0] += m.from[0] * (1 - w);
+        tf.at[1] += m.from[1] * (1 - w);
+        break;
+      }
+      case 'highlight':
+        // Rises to full emphasis over the window and HOLDS (windowed clamps to 1 past the
+        // window), so the emphasized state is present in the hero-still poster. Max, so
+        // multiple highlights don't dim each other.
+        emphasis = Math.max(emphasis, windowed(progress, m.at, m.span, m.easing));
+        break;
     }
   }
 
   if (!hasReveal) reveal = 1;
   // EFFECTIVE reveal composes DOWN the tree: a child's presence is gated by its ancestors
   // (a hidden/ fading group fades its whole sub-assembly — the mechanism/exploded classes).
-  // A group Anchor has no colour of its own, so this is the ONLY way its reveal reaches paint
+  // A group Anchor has no color of its own, so this is the ONLY way its reveal reaches paint
   // (the trio's Munger #3). Multiplicative, so an all-present branch is unaffected.
   const effective = reveal * parentReveal;
 
@@ -112,6 +128,7 @@ function evalElement(el: AnyElement, seqRank: Map<string, number>, seqCount: num
     ...(el.color ? { color: el.color } : {}),
     reveal: effective,
     level,
+    emphasis,
     visible: effective > EPS,
     children,
   };

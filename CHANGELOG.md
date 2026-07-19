@@ -17,6 +17,17 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **Anima's SVG engine now animates each part on its own — move, fade, and emphasize, not just
+  draw.** The `source:'svg'` motion set gains three per-element channels: **`slide`** (a 2-D
+  move-in — a part arrives from a `from: [dx, dy]` offset, so "value flows left→right" is real),
+  **`highlight`** (an emphasis pulse that bumps a part's stroke-weight and holds into the poster —
+  landing the eye on the one thing that matters), and **`reveal`** now fades a non-drawn part
+  (e.g. a label) in via opacity instead of pinning the stroke-draw. A new optional
+  `SvgElement.transform` (2-D — translate/scale/rotate-z) gives a part a base pose. This is the
+  per-element paint substrate for the SVG-first direction
+  (`engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §4.4a); the stroke-draw for
+  `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
+  `backends/vivus.ts`.)
 - **The chart detail reveal is now the real shadcn Popover, and it appears at the cursor.** Hovering
   or tapping a chart mark (pie wedge, funnel band, state node, …) previously popped a hand-rolled card
   anchored under the chart's centre. It now (a) renders as the actual shadcn `Popover` in the Playground

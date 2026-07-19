@@ -103,10 +103,17 @@ function validateMotion(m: unknown, source: SourceModel, at: string, errors: str
       if (!isFiniteNumber(mo.distance) || (mo.distance as number) < 0) errors.push(`${at}.distance must be a non-negative, finite number`);
       validateWindow(mo, at, errors);
       break;
+    case 'slide':
+      // `from` is the [dx, dy] scene-local offset the element moves IN from — two finite
+      // numbers (negatives are legitimate: slide in from the left/top).
+      if (!Array.isArray(mo.from) || mo.from.length !== 2 || !mo.from.every(isFiniteNumber)) errors.push(`${at}.from must be a [dx, dy] of two finite numbers (the move-in offset)`);
+      validateWindow(mo, at, errors);
+      break;
     case 'reveal':
     case 'sequence':
     case 'draw':
     case 'trace':
+    case 'highlight':
       validateWindow(mo, at, errors);
       break;
   }
@@ -165,7 +172,9 @@ function validateElement(raw: unknown, at: string, source: SourceModel, ids: Set
   } else {
     if (typeof el.pathRef !== 'string' || !el.pathRef) errors.push(`${at}.pathRef must be a non-empty string (a path/group id in the SVG asset)`);
     if (el.shape != null) errors.push(`${at}.shape is a built-only field, but this is an svg element`);
-    if (el.transform != null) errors.push(`${at}.transform is a built-only field, but this is an svg element`);
+    // A 2-D base transform IS allowed on an svg part (the backend uses at.x/y, scale, rotate.z);
+    // it shares the shape of the built Transform, so validate it the same way.
+    if (el.transform != null) validateTransform(el.transform, at, errors);
     if (el.children != null) errors.push(`${at}.children is a built-only field (an svg scene is flat), but this is an svg element`);
   }
 

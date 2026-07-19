@@ -10,7 +10,7 @@ import type { Axis, Primitive, SourceModel } from './vocabulary';
 
 export type Vec3 = [number, number, number];
 
-/** A colour reference — a `var(--token)` string, resolved to a concrete colour at PAINT,
+/** A color reference — a `var(--token)` string, resolved to a concrete color at PAINT,
  *  never in the pure core (palette-blindness, HARD RULE #3). Validated by schema.ts. */
 export type Color = string;
 
@@ -86,6 +86,21 @@ export interface TraceMotion {
   span?: number;
   easing?: Easing;
 }
+export interface SlideMotion {
+  verb: 'slide';
+  /** The [dx, dy] offset (scene-local units) the element STARTS displaced by and moves
+   *  IN from; at the window's end it has arrived at its base position (offset 0). */
+  from: [number, number];
+  at?: number;
+  span?: number;
+  easing?: Easing;
+}
+export interface HighlightMotion {
+  verb: 'highlight';
+  at?: number;
+  span?: number;
+  easing?: Easing;
+}
 
 export type Motion =
   | SpinMotion
@@ -95,7 +110,9 @@ export type Motion =
   | SequenceMotion
   | FillMotion
   | DrawMotion
-  | TraceMotion;
+  | TraceMotion
+  | SlideMotion
+  | HighlightMotion;
 
 // ── Elements ────────────────────────────────────────────────────────────────
 // The built scene is a NESTED tree (like Zdog's Anchor tree and Three's Object3D
@@ -120,7 +137,12 @@ export interface SvgElement {
   id: string;
   /** Id of a path or group inside the scene's SVG asset that this element reveals. */
   pathRef: string;
-  color?: Color; // stroke colour
+  color?: Color; // stroke color
+  /** A 2-D base transform for this part, applied before its motions (the svg backend uses
+   *  `at` as an x/y translate in scene-local units, `scale` uniformly, and `rotate[2]` — the
+   *  z angle — about the part's center; `at[2]` / `rotate[0]`/`rotate[1]` are ignored). The
+   *  `slide` verb animates this same translate channel. Absent = identity. */
+  transform?: Transform;
   motion?: Motion[];
 }
 
@@ -168,6 +190,10 @@ export interface ElementState {
   /** 0→1 data-bound LEVEL (the `fill` verb); 1 when no fill drives it. Its geometry
    *  binding is per-verb and backend-defined (e.g. a vessel's fill height). */
   level: number;
+  /** 0→1 EMPHASIS (the `highlight` verb); 0 when nothing highlights it. A backend paints it
+   *  as an attention cue — the svg backend bumps stroke-weight. Rises over the window and
+   *  HOLDS, so the emphasized state persists into the hero-still poster. */
+  emphasis: number;
   visible: boolean;
   /** Nested children (built scenes only); [] for a leaf or an svg element. */
   children: ElementState[];
