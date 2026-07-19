@@ -1825,7 +1825,26 @@ var require_review_core = __commonJS({
       }
       return findings;
     }
-    module.exports = { reviewText, isLabelHeading, ASK_RE, pacingVerdict };
+    var RUBRIC = Object.freeze([
+      { id: "label-title", trap: "a heading that is a category label, not the takeaway", fix: 'make the heading the message itself \u2014 "Revenue grew 18%, led by APAC"' },
+      { id: "title-incomplete", trap: "a title slide with placeholder text, or no subtitle to orient the room", fix: "name the deck, and add one plain line of framing under the h1" },
+      { id: "chart-no-takeaway", trap: 'a data slide whose heading names the topic, not the "so what"', fix: "put the conclusion the data supports in the h2, not just its subject" },
+      { id: "metric-no-referent", trap: "a hero number with nothing to compare it to", fix: "add a baseline, direction, or target \u2014 a bare number is a boast, not a claim" },
+      { id: "wall-of-text", trap: "a slide dense enough that it holds more than one idea", fix: "split it, or cut to the essential point and push detail to speaker notes" },
+      { id: "density-overflow", trap: "an element run well past its word budget", fix: "tighten hard to the essential point" },
+      { id: "density-crowd", trap: "an element crowding its word budget", fix: "trim toward the soft target so it reads light" },
+      { id: "long-heading", trap: "a heading too long to land on one tight line", fix: "trim to a single assertion; qualifiers and caveats go in the body" },
+      { id: "possessive-stacking", trap: 'stacked possessives ("the system\u2019s policy\u2019s\u2026") that stumble read aloud', fix: "one possessive at a time; restructure the phrase to speak cleanly" },
+      { id: "monotone-openings", trap: "three or more headings opening the same way", fix: "vary the opening and verb \u2014 identical openings read as a drone" },
+      { id: "duplicate-heading", trap: "two slides making the same claim", fix: "give each a distinct takeaway, or merge the duplicate slides" },
+      { id: "stub-slide", trap: "a heading with no body \u2014 a placeholder shipped as content", fix: "fill it with the supporting content, or make it a deliberate divider" },
+      { id: "image-no-alt", trap: "an image that carries meaning but has no alt text", fix: "describe what it shows in the brackets so screen readers reach it" },
+      { id: "no-ask", trap: "a deck that never states what it wants from the room", fix: 'add a decision slide or a plain "we recommend\u2026" line near the close' },
+      { id: "agenda-missing", trap: "a long deck with no roadmap the audience can track", fix: "add an agenda slide near the top" },
+      { id: "length-vs-time", trap: "more slides than the talk time supports", fix: "aim for ~1\u20132 minutes per slide; cut the rest" },
+      { id: "verbose-*", trap: "a chrome slot (eyebrow, subtitle, key-insight) over its word budget", fix: "tighten the slot toward its soft budget \u2014 chrome frames the slide, it doesn\u2019t carry it" }
+    ]);
+    module.exports = { reviewText, isLabelHeading, ASK_RE, pacingVerdict, RUBRIC };
   }
 });
 
@@ -2120,16 +2139,45 @@ var require_notes_core = __commonJS({
   }
 });
 
+// lib/authoring/deck-canon.js
+var require_deck_canon = __commonJS({
+  "lib/authoring/deck-canon.js"(exports, module) {
+    var { RUBRIC } = require_review_core();
+    var { UNIVERSAL_PROSE_BUDGETS, SLIDE_PROSE_BUDGET } = require_prose_budgets();
+    var b = UNIVERSAL_PROSE_BUDGETS;
+    function buildDeckCanon() {
+      const traps = RUBRIC.map((r) => `  - ${r.trap} \u2192 ${r.fix}`).join("\n");
+      return [
+        "HOW A BOARDROOM DECK WORKS (so your edits read as an argument, not a file dump):",
+        `\u2022 ONE idea per slide. Every "## " heading is a COMPLETE DECLARATIVE SENTENCE that IS the slide's claim \u2014 never a label ("Q2 Results"), never a question. The body then DELIVERS the claim (the mechanism, the number); it never just restates the heading.`,
+        "\u2022 NARRATIVE ARC: a title that states the stakes -> sections that build the argument -> a closing that names ONE ask. Read top to bottom, the headings alone should BE the argument.",
+        "\u2022 RHYTHM: interleave a prose claim, an evidence beat (a number / chart), a human beat (a quote), a decision beat. Never run three prose slides in a row.",
+        `\u2022 RESTRAINT: aim ~${SLIDE_PROSE_BUDGET.words} words of body and <= ${SLIDE_PROSE_BUDGET.bullets} bullets per slide. Chrome soft budgets: title <= ${b.title.soft} words, eyebrow <= ${b.eyebrow.soft}, subtitle <= ${b.subtitle.soft}, key-insight <= ${b.keyInsight.soft}. When content overflows, SPLIT the slide \u2014 never shrink the font.`,
+        "\u2022 RIGHT COMPONENT per slide, chosen by INTENT then CAPACITY: match the intent to a component in the catalog, then COUNT the content against that component's capacity \u2014 if it exceeds the hard budget, use the escalateTo target or split across slides. Pick from the catalog, never memory.",
+        '\u2022 CARD-style layouts nest "- Title" then a two-space-indented "  - body" \u2014 never an inline "- **Title.** body".',
+        '\u2022 BOOKENDS are stereotyped: the title slide puts "# h1" FIRST, then a backtick `eyebrow`, then a one-sentence subtitle; both the title and the closing carry `silent`. The closing is ONE sentence plus a signature \u2014 never a bulleted "next steps" list.',
+        "TRAPS TO AVOID (each is exactly what the deck reviewer flags \u2014 self-avoid them up front):",
+        traps
+      ].join("\n");
+    }
+    var DECK_CANON = buildDeckCanon();
+    module.exports = { DECK_CANON, buildDeckCanon };
+  }
+});
+
 // lib/authoring/authoring-core.entry.js
 var import_lint_core = __toESM(require_lint_core());
 var import_review_core = __toESM(require_review_core());
 var import_scorecard = __toESM(require_scorecard());
 var import_notes_core = __toESM(require_notes_core());
+var import_deck_canon = __toESM(require_deck_canon());
+var export_deckCanon = import_deck_canon.default;
 var export_lintCore = import_lint_core.default;
 var export_notesCore = import_notes_core.default;
 var export_reviewCore = import_review_core.default;
 var export_scorecard = import_scorecard.default;
 export {
+  export_deckCanon as deckCanon,
   export_lintCore as lintCore,
   export_notesCore as notesCore,
   export_reviewCore as reviewCore,
