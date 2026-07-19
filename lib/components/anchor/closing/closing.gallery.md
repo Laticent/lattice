@@ -50,18 +50,35 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: list -->
+<!-- _class: closing silent index -->
+<!-- _footer: "index · closing index — Ends on a reference list — see also, next steps." -->
+
+## Where to go next.
+
+`Next steps`
+
+- `docs` — the component catalog and authoring contracts
+- `gallery` — every layout rendered in light and dark
+- `studio` — compose and preview a deck in the browser
+
+
+---
+
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · closing" -->
 
 ## When NOT to reach for closing.
 
-- **Multi-line heading.** Keep the closing line to one editorial sentence. The layout is centered and large — two-line closings get cramped and lose impact.
-- **Header or footer overrides.** Don't reinstate `_header:` or `_footer:` on the closing. The dark canvas is the "we're done" signal; chrome breaks it. Use the `silent` modifier to suppress all three in one token.
-- **Mid-deck closing.** If the audience needs a strong statement mid-deck, use `big-number` or `content` with the `dark` modifier. Reserving closing for the final slide preserves its bookend role.
+- Multi-line heading
+  - Keep the closing line to one editorial sentence. The layout is centered and large — two-line closings get cramped and lose impact.
+- Header or footer overrides
+  - Don't reinstate `_header:` or `_footer:` on the closing. The dark canvas is the "we're done" signal; chrome breaks it. Use the `silent` modifier to suppress all three in one token.
+- Mid-deck closing
+  - If the audience needs a strong statement mid-deck, use `big-number` or `content` with the `dark` modifier. Reserving closing for the final slide preserves its bookend role.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

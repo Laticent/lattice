@@ -150,18 +150,21 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · kanban" -->
 
 ## When NOT to reach for kanban.
 
-- **Schedule, not status.** If the question is when each task ships rather than where it sits today, reach for `gantt` (spans) or `roadmap` (phases). Kanban is a snapshot, not a timeline.
-- **More than five lanes.** Past five columns the cards compress and the column headers crowd. Group adjacent stages or split into two boards (e.g. by team) instead.
-- **Cards without meta.** A board of bare titles wastes the layout's affordances. Add at least a size badge and a lane label so the audience can scan workload and ownership at a glance.
+- Schedule, not status
+  - If the question is when each task ships rather than where it sits today, reach for `gantt` (spans) or `roadmap` (phases). Kanban is a snapshot, not a timeline.
+- More than five lanes
+  - Past five columns the cards compress and the column headers crowd. Group adjacent stages or split into two boards (e.g. by team) instead.
+- Cards without meta
+  - A board of bare titles wastes the layout's affordances. Add at least a size badge and a lane label so the audience can scan workload and ownership at a glance.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

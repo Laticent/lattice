@@ -172,18 +172,21 @@ return signals;
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · compare-code" -->
 
 ## When NOT to reach for compare-code.
 
-- **One side is prose.** If one column is code and the other is description, use a single fenced block with surrounding prose. compare-code is for code-versus-code.
-- **Snippets longer than 14 lines.** The text shrinks below readability past 14 lines per side. Split into two slides or extract the key delta into a smaller diff.
-- **Three-way comparison.** compare-code is binary. For three configurations or three implementations, use prose with successive fenced blocks or a `compare-table`.
+- One side is prose
+  - If one column is code and the other is description, use a single fenced block with surrounding prose. compare-code is for code-versus-code.
+- Snippets longer than 14 lines
+  - The text shrinks below readability past 14 lines per side. Split into two slides or extract the key delta into a smaller diff.
+- Three-way comparison
+  - compare-code is binary. For three configurations or three implementations, use prose with successive fenced blocks or a `compare-table`.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

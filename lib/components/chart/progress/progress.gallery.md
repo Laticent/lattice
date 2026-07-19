@@ -107,18 +107,21 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · progress" -->
 
 ## When NOT to reach for progress.
 
-- **Comparing unrelated metrics.** Revenue % of target, latency vs SLO, and headcount fill aren't comparable on a shared bar scale. Use `kpi` for value/target/status tiles or `stats` for an independent metric row.
-- **More than eight rows.** Past eight workstreams the bars compress and the labels truncate. Split the view by owner or workstream group; the audience can't scan twelve bars at once anyway.
-- **Decorative status pills.** Don't invent new status words for tone. `on-track`, `at-risk`, `blocked`, `deferred`, `done` are the vocabulary the engine recognises; everything else renders as a plain pill and breaks the at-a-glance read.
+- Comparing unrelated metrics
+  - Revenue % of target, latency vs SLO, and headcount fill aren't comparable on a shared bar scale. Use `kpi` for value/target/status tiles or `stats` for an independent metric row.
+- More than eight rows
+  - Past eight workstreams the bars compress and the labels truncate. Split the view by owner or workstream group; the audience can't scan twelve bars at once anyway.
+- Decorative status pills
+  - Don't invent new status words for tone. `on-track`, `at-risk`, `blocked`, `deferred`, `done` are the vocabulary the engine recognises; everything else renders as a plain pill and breaks the at-a-glance read.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

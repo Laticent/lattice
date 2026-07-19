@@ -57,17 +57,19 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · contact" -->
 
 ## When NOT to reach for contact.
 
-- **Not a team roster.** One card is one person. For a set of people use an inventory layout; a contact card is a single identity.
-- **Don't bold the field values.** The value leads and the key trails as a small tag — name last, never first. Writing the key first, bolded, breaks the transform's postfix read.
+- Not a team roster
+  - One card is one person. For a set of people use an inventory layout; a contact card is a single identity.
+- Don't bold the field values
+  - The value leads and the key trails as a small tag — name last, never first. Writing the key first, bolded, breaks the transform's postfix read.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

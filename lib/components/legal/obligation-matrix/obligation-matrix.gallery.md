@@ -182,18 +182,21 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · obligation-matrix" -->
 
 ## When NOT to reach for obligation-matrix.
 
-- **Two regimes only.** Past one row vs another the grid loses its purpose. Use `compare-prose` or `compare-table` for two-regime comparisons.
-- **Mixed cell content.** Don't mix state markers with prose values in the same matrix — the cell width has to grow to fit prose and the marker grid collapses. Pick one cell type.
-- **Missing legend.** The trailing paragraph naming filled/half/empty is what onboards a first-time reader. Skipping it forces the audience to guess the mapping.
+- Two regimes only
+  - Past one row vs another the grid loses its purpose. Use `compare-prose` or `compare-table` for two-regime comparisons.
+- Mixed cell content
+  - Don't mix state markers with prose values in the same matrix — the cell width has to grow to fit prose and the marker grid collapses. Pick one cell type.
+- Missing legend
+  - The trailing paragraph naming filled/half/empty is what onboards a first-time reader. Skipping it forces the audience to guess the mapping.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

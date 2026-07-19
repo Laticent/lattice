@@ -110,18 +110,21 @@ function fitsOnASlide(block) {
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · code" -->
 
 ## When NOT to reach for code.
 
-- **Comparing two versions.** If you need before/after, use compare-code — it gives both snippets parallel framing. code is for a single snippet doing one job.
-- **Code-as-decoration.** A screenshot of an IDE or a snippet the audience cannot read defeats the layout. If the code is too long to legibly fit, the slide isn't a code slide — it's a content slide that talks about code.
-- **No language hint.** A bare fence renders as undifferentiated mono. Always tag the language so the highlighter and the reviewer both know what they are looking at.
+- Comparing two versions
+  - If you need before/after, use compare-code — it gives both snippets parallel framing. code is for a single snippet doing one job.
+- Code-as-decoration
+  - A screenshot of an IDE or a snippet the audience cannot read defeats the layout. If the code is too long to legibly fit, the slide isn't a code slide — it's a content slide that talks about code.
+- No language hint
+  - A bare fence renders as undifferentiated mono. Always tag the language so the highlighter and the reviewer both know what they are looking at.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

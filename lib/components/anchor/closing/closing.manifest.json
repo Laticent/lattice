@@ -21,7 +21,8 @@
   "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals \"we're done.\"",
   "variants": [
     "numbered",
-    "qr"
+    "qr",
+    "index"
   ],
   "slots": {
     "heading": {
@@ -95,6 +96,11 @@
       "label": "qr",
       "summary": "Scan to take the deck with you.",
       "sample": "<!-- _class: closing qr -->\n\n`closing qr`\n\n## Leave a scannable takeaway behind.\n\nThe payload bullet renders as a QR code sized for the back row.\n\n- https://slidewright.dev/components/closing\n- Scan to open `caption`\n"
+    },
+    "index": {
+      "label": "index",
+      "summary": "Ends on a reference list — see also, next steps.",
+      "sample": "<!-- _class: closing silent index -->\n\n## Where to go next.\n\n`Next steps`\n\n- `docs` — the component catalog and authoring contracts\n- `gallery` — every layout rendered in light and dark\n- `studio` — compose and preview a deck in the browser\n"
     }
   },
   "specimenVoice": true,

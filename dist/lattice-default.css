@@ -2670,6 +2670,41 @@ section.closing h2 + p:has(> code:only-child) > code {
   border-radius: 0;
 }
 
+/* ── Trailing list (base safety-net) ──────────────────────────────────────
+ * A closing may end with a short list — related components, next steps,
+ * references. The canvas is always dark, so an UNSTYLED list inherits
+ * --text-body, which is dark ink under the LIGHT theme and vanishes against
+ * the dark canvas (dark-mode happened to survive on the light ink). These
+ * rules bind the list to the theme-stable on-dark ink so it stays legible
+ * in BOTH themes, and rebind the inline-code chip to on-dark so its wash
+ * follows (base.tokens.css --code-inline-*) instead of the heavy accent
+ * chip. The default one-line closing carries no list and is untouched; the
+ * `index` variant below refines this into a first-class reference set. */
+section.closing :is(ul,ol) {
+  list-style:none; padding:0; margin:0;
+  display:flex; flex-direction:column; align-items:center;
+  gap:var(--sp-xs); padding-top:var(--sp-md);
+  max-width:60cqi;
+}
+section.closing :is(ul,ol) li {
+  color:var(--on-dark-secondary);
+  font-size:var(--fs-message); font-style:normal;
+  line-height:var(--lh-snug); text-align:center;
+}
+/* Inline-code chips ride on-dark already — base.modifiers.css rebinds
+ * `section.closing code` to --on-dark-primary, so the wash follows the
+ * light ink on the dark canvas. The index variant below only resizes it. */
+
+/* ── index — the list-bearing closing (component variant) ──────────────────
+ * A takeaway line over a centered index of `key — description` rows — a
+ * refined "see also" / "next steps". Keeps closing's centered bookend
+ * symmetry; adds a little more air above the set and gives the leading key
+ * a mono meta-chip so it reads as a reference key. */
+section.closing.index :is(ul,ol) { gap:var(--sp-xs); padding-top:var(--sp-lg); max-width:62cqi; }
+section.closing.index :is(ul,ol) li code {
+  font-family:var(--font-mono); font-size:var(--fs-meta); font-weight:600;
+}
+
 /* === lib/components/code/code/code.styles.css === */
 /* code — extracted from lib/_legacy.css (batch 4).
  * See lib/components/code/code.manifest.json for the component contract.

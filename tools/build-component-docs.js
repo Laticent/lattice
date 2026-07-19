@@ -254,12 +254,13 @@ function renderDocs(m) {
  *   1. Title (dark bookend, no chrome)
  *   2. Default appearance (component's own layout with sample content)
  *   3..N+2. One slide per variant (component's layout + variant modifier)
- *   N+3. Anti-patterns (cards-grid meta-layout, omitted if no antiPatterns)
- *   N+4. Closing — related components (omitted if no related)
+ *   N+3. Anti-patterns (cards-stack compact meta-layout, omitted if none)
+ *   N+4. Closing — related components (closing index, omitted if no related)
  *
- * The closing/anti-patterns slides use cards-grid as a meta-layout for
- * documenting other components. When the component being documented IS
- * cards-grid, the dogfooding is intentional.
+ * The anti-patterns slide uses `cards-stack compact` and the see-also
+ * slide uses `closing index` as meta-layouts for documenting the component.
+ * When the component being documented IS one of those, the dogfooding is
+ * intentional.
  *
  * Page count derivable as expectedGallerySlideCount(m).
  */
@@ -462,13 +463,27 @@ function injectFooter(slide, footer) {
 }
 
 function renderAntiPatternsSlide(m) {
-  // Use `list` for the anti-patterns meta-slide, NOT `cards-grid`.
-  // cards-grid promotes inline-code spans (`literal`) to status pills,
-  // which mangles any antiPattern body that uses backticks for vocab
-  // (`On plan`, `At risk`, etc.). list renders inline code as inline code,
-  // preserving the prose. Slide count is unchanged.
-  const items = m.antiPatterns.map((p) => `- **${p.title}.** ${p.body}`);
-  return `<!-- _class: list -->
+  // Use `cards-stack compact` for the anti-patterns meta-slide. Each
+  // anti-pattern is a title + body card, authored with the HARD RULE #5
+  // nested contract (`- Title` / `  - body`) so the body renders as prose
+  // and any inline code in it stays inline code — NOT promoted to a status
+  // pill (the failure mode that ruled out cards-grid, whose title-trailing
+  // `code` becomes a pill). `compact` keeps the 4-item components (the
+  // catalog max) inside the frame while the 3-item norm still breathes.
+  // Full-width stacked cards read as a cautionary ledger; the old `list`
+  // register laid each <li> out as flex, so an inline-code body shattered
+  // into scattered chips and overflowed. Slide count is unchanged.
+  //
+  // Titles are stripped of backticks: cards-stack promotes a `code` span on
+  // the title line to a right-anchored pill (no :last-child guard), which
+  // would scatter a title that carries inline vocab. Bodies keep their
+  // backticks — nested-list code is never pilled — so this only defends the
+  // title line, matching the old format's inline-code resilience. No shipping
+  // manifest has a code-bearing title today; this keeps a future one safe.
+  const items = m.antiPatterns.map(
+    (p) => `- ${p.title.replace(/`/g, '')}\n  - ${p.body}`
+  );
+  return `<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · ${m.name}" -->
 
 ## When NOT to reach for ${m.name}.
@@ -477,8 +492,13 @@ ${items.join('\n')}`;
 }
 
 function renderClosingSlide(m) {
+  // `index` is closing's list-bearing variant: the related list renders as a
+  // centered reference index on the dark canvas, legible in BOTH themes.
+  // A plain `closing silent` left the list unstyled, so its descriptions
+  // inherited --text-body and vanished on the dark canvas under the light
+  // theme. See closing.styles.css and closing.manifest.json.
   const items = m.related.map((r) => `- \`${r.name}\` — ${r.when}`).join('\n');
-  return `<!-- _class: closing silent -->
+  return `<!-- _class: closing silent index -->
 
 ## See also.
 

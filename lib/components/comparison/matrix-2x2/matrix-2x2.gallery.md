@@ -125,18 +125,21 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · matrix-2x2" -->
 
 ## When NOT to reach for matrix-2x2.
 
-- **Continuous-axis data.** If items have x/y coordinates rather than quadrant labels, use `quadrant`. matrix-2x2 is author-placed categorical, not plotted.
-- **Empty quadrants left blank.** An empty cell still needs a label or an explicit (none) placeholder. A missing card breaks the 2×2 symmetry.
-- **More than 4 items per cell.** Each quadrant holds 1–4 items. Past that the cells crowd. Promote inner items to their own slide if needed.
+- Continuous-axis data
+  - If items have x/y coordinates rather than quadrant labels, use `quadrant`. matrix-2x2 is author-placed categorical, not plotted.
+- Empty quadrants left blank
+  - An empty cell still needs a label or an explicit (none) placeholder. A missing card breaks the 2×2 symmetry.
+- More than 4 items per cell
+  - Each quadrant holds 1–4 items. Past that the cells crowd. Promote inner items to their own slide if needed.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

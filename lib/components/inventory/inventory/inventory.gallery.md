@@ -137,19 +137,23 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · inventory" -->
 
 ## When NOT to reach for inventory.
 
-- **More than six items.** The looks lose scannability past six entries (the cards/timeline looks past four). Escalate to list-tabular or split across slides.
-- **Ordered steps.** If sequence carries meaning, use list-steps or list-criteria. inventory entries are parallel, of similar weight.
-- **Nested-bullet authoring.** inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
-- **Lopsided density.** Equalize the prose when one entry has three sentences and the rest have one — uneven density unbalances every look.
+- More than six items
+  - The looks lose scannability past six entries (the cards/timeline looks past four). Escalate to list-tabular or split across slides.
+- Ordered steps
+  - If sequence carries meaning, use list-steps or list-criteria. inventory entries are parallel, of similar weight.
+- Nested-bullet authoring
+  - inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
+- Lopsided density
+  - Equalize the prose when one entry has three sentences and the rest have one — uneven density unbalances every look.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 

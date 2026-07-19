@@ -1756,7 +1756,8 @@
       "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals \"we're done.\"",
       "variants": [
         "numbered",
-        "qr"
+        "qr",
+        "index"
       ],
       "effectiveVariants": [
         "archived",
@@ -1768,6 +1769,7 @@
         "dark",
         "draft",
         "form",
+        "index",
         "insight-bottom-line",
         "insight-implication",
         "insight-key",

@@ -115,18 +115,21 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: list -->
+<!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · cycle" -->
 
 ## When NOT to reach for cycle.
 
-- **A linear process.** If the sequence has a real start and a real end, use list-steps — the numbered spine promises exactly that order. The cycle's closed loop mis-cues a one-way process as recurring.
-- **More than six stages.** Past six the ring crowds and the descriptions shrink below legibility. Keep the six load-bearing stages here and push the detail to list-steps or a second slide.
-- **Parallel options.** If the items are alternatives the audience weighs rather than stages that flow into each other, use cards-grid or verdict-grid. The arrows here read as causation, not choice.
+- A linear process
+  - If the sequence has a real start and a real end, use list-steps — the numbered spine promises exactly that order. The cycle's closed loop mis-cues a one-way process as recurring.
+- More than six stages
+  - Past six the ring crowds and the descriptions shrink below legibility. Keep the six load-bearing stages here and push the detail to list-steps or a second slide.
+- Parallel options
+  - If the items are alternatives the audience weighs rather than stages that flow into each other, use cards-grid or verdict-grid. The arrows here read as causation, not choice.
 
 ---
 
-<!-- _class: closing silent -->
+<!-- _class: closing silent index -->
 
 ## See also.
 
