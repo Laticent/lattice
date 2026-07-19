@@ -179,7 +179,9 @@ export type ModelAvailability = {
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[] }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; onGenerationId?: (id: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[] }) => Promise<string>;
+	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
+	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
 	embed?: (texts: string | string[]) => Promise<number[][] | null>;
 	availability: () => ModelAvailability;
@@ -883,7 +885,7 @@ export type ChatResult =
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: { onToken?: (t: string) => void; signal?: AbortSignal }): Promise<ChatResult> {
+export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: { onToken?: (t: string) => void; signal?: AbortSignal; constrainFacts?: boolean }): Promise<ChatResult> {
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
 	const generation = model.availability().generation;
@@ -893,9 +895,15 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		const blk = cloudBudgetBlock(model, `${last?.content ?? ''}\n${source}`, refDocsTokens(docs));
 		if (blk) return { status: 'blocked', reply: blk };
 	}
+	// "Facts locked" — a tone/clarity-only constraint (Munger's content-truth point): the
+	// model may improve wording/structure but must not alter any number, date, name, or
+	// claim; if a fix would require changing a fact, it explains instead of editing.
+	const factGuard = opts?.constrainFacts
+		? '\n\nCONSTRAINT — FACTS LOCKED: You may improve wording, structure, and clarity ONLY. Do NOT change, add, or remove any number, date, name, metric, currency amount, or factual claim. If a genuine improvement would require changing a fact, do NOT edit — explain what you would change and why, and let the author decide.'
+		: '';
 	// Ground the final user turn in the reference doc (#640).
 	const ground = groundMessages(withStudioVoice([
-		{ role: 'system', content: `${deckSystem(generation)}\n\nConverse with the author. Answer questions directly. Only emit edit blocks when they actually want a change to the deck.` },
+		{ role: 'system', content: `${deckSystem(generation)}\n\nConverse with the author. Answer questions directly. Only emit edit blocks when they actually want a change to the deck.${factGuard}` },
 		...history.slice(0, -1),
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
 	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
@@ -903,6 +911,7 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 	// A local copy of the streamed text so an explicit Stop keeps the partial reply
 	// (model.complete throws on abort before returning, so its return value is lost).
 	let streamed = '';
+	let genId: string | null = null;
 	try {
 		reply = await model.complete({
 			messages: ground.messages,
@@ -915,18 +924,25 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 				streamed += t;
 				opts?.onToken?.(t);
 			},
+			onGenerationId: (id) => { genId = id; },
 			signal: opts?.signal,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
 	} catch (e) {
 		// An explicit abort (Stop) is not a failure — keep whatever streamed so far. The
-		// usage chunk never arrived, so recordSpend didn't fire; charge an ESTIMATE of the
-		// aborted turn (prompt + streamed tokens) so the budget gauge/cap aren't blind to
-		// real spend (exact cost would need a /generation fetch — a follow-up).
+		// usage chunk never arrived, so recordSpend didn't fire; charge an ESTIMATE now so
+		// the budget gauge/cap aren't blind, then RECONCILE to the authoritative cost in the
+		// background via the generation id (OpenRouter computes cost async, so this can't be
+		// awaited inline; it records only the delta, so the gauge self-corrects on the next read).
 		if ((e as { name?: string })?.name === 'AbortError') {
 			if (generation === 'openrouter' && streamed) {
-				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs));
+				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs)) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
+				if (genId && model.openRouterGenerationCost) {
+					void model.openRouterGenerationCost(genId)
+						.then((exact) => { if (exact != null && Number.isFinite(exact)) recordSpend(exact - est, 0); })
+						.catch(() => {});
+				}
 			}
 			return finalizeChat(streamed || reply, source);
 		}

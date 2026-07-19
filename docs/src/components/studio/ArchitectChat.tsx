@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import { ArrowUp, Check, RotateCcw, Sparkles, Square, TriangleAlert, X } from 'lucide-react';
+import { ArrowUp, Check, Lock, RotateCcw, Sparkles, Square, TriangleAlert, Unlock, X } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { diffLines, sliceSlide } from '@/playground/architect-edits.js';
@@ -47,6 +47,10 @@ export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onM
 	const [messages, setMessages] = React.useState<ChatMessage[]>(() => loadChat(deckId));
 	const [input, setInput] = React.useState<string>(() => loadChatDraft(deckId));
 	const [busy, setBusy] = React.useState(false);
+	// "Facts locked" — a tone/clarity-only turn: the model may improve wording but must not
+	// change any number/date/name/claim (threaded to chatComplete as constrainFacts). Off by
+	// default; a deliberate opt-in for a "polish, don't touch the numbers" pass.
+	const [factsLocked, setFactsLocked] = React.useState(false);
 	// The in-flight assistant buffer (null when idle). Painted rAF-coalesced during stream.
 	const [streaming, setStreaming] = React.useState<string | null>(null);
 	// An EPHEMERAL notice (offline / blocked / error). NEVER persisted as an assistant
@@ -118,7 +122,7 @@ export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onM
 		};
 		try {
 			const turns: ChatTurn[] = history.map((m) => ({ role: m.role, content: m.content }));
-			const out = await chatComplete(turns, source, refDoc.docs, { onToken, signal: controller.signal });
+			const out = await chatComplete(turns, source, refDoc.docs, { onToken, signal: controller.signal, constrainFacts: factsLocked });
 			if (out.status === 'offline') {
 				setNotice({ kind: 'offline', text: 'Connect a model in Workspace → AI and I can answer and edit your deck.' });
 				onConnect();
@@ -287,6 +291,16 @@ export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onM
 						className="max-h-[120px] min-h-[22px] flex-1 resize-none bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground"
 					/>
 					{refDoc.attachButton}
+					<button
+						type="button"
+						onClick={() => setFactsLocked((v) => !v)}
+						title={factsLocked ? 'Facts locked — tone & clarity only, no numbers changed' : 'Lock facts — let the model polish wording but change no numbers'}
+						aria-label="Lock facts — tone and clarity only"
+						aria-pressed={factsLocked}
+						className={cn('grid size-7 shrink-0 place-items-center rounded-lg', factsLocked ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}
+					>
+						{factsLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+					</button>
 					{messages.some((m) => m.role === 'assistant') && !busy && (
 						<button type="button" onClick={regenerate} aria-label="Regenerate last reply" className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground hover:text-foreground">
 							<RotateCcw className="size-3.5" />
@@ -307,6 +321,28 @@ export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onM
 	);
 }
 
+// Numeric provenance — Munger's content-truth point. A rewrite that changes a figure is
+// the highest-risk edit in a numbers deck, so surface it explicitly for review regardless
+// of the "facts locked" mode. Captures currency / thousands / decimals / percentages.
+// A money/metric token: optional currency, grouped-thousands OR a plain number, optional
+// decimal, optional magnitude (K/M/B), optional percent. Deliberately NOT `[\d,]*` — that
+// swallowed list commas ("10, 20" → "10,") and a trailing space; grouped thousands need an
+// exact 3-digit group, so "1,000" is one token but "10, 20" is two.
+const NUM_RE = /[$€£]?\d{1,3}(?:,\d{3})+(?:\.\d+)?[KkMmBb]?%?|[$€£]?\d+(?:\.\d+)?[KkMmBb]?%?/g;
+function numericTokens(s: string): string[] {
+	return (String(s).match(NUM_RE) || []).filter((x) => /\d/.test(x));
+}
+export function figureChange(before: string, after: string): { removed: string[]; added: string[] } | null {
+	const count = (arr: string[]) => arr.reduce((m, n) => m.set(n, (m.get(n) ?? 0) + 1), new Map<string, number>());
+	const bc = count(numericTokens(before));
+	const ac = count(numericTokens(after));
+	const removed: string[] = [];
+	const added: string[] = [];
+	for (const [n, c] of bc) for (let i = 0; i < c - (ac.get(n) ?? 0); i++) removed.push(n);
+	for (const [n, c] of ac) for (let i = 0; i < c - (bc.get(n) ?? 0); i++) added.push(n);
+	return removed.length || added.length ? { removed, added } : null;
+}
+
 // A grouped, per-slide review of proposed edits. Nothing changes until Apply; each edit
 // re-applies against the CURRENT deck, and a slide that changed since the proposal is
 // flagged so the author knows Apply will replace their current slide content.
@@ -322,13 +358,22 @@ function ProposalReview({ edits, liveSource, onApply, onDiscard }: { edits: Chat
 				<span className="text-[10px] text-muted-foreground">nothing changes until you Apply</span>
 			</div>
 			<div className="max-h-[220px] overflow-y-auto">
-				{edits.map((e, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: static proposal list.
-					<div key={i} className="border-b border-border last:border-b-0">
-						<div className="px-2.5 pt-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{e.label}</div>
-						<DiffCard rows={e.diff as DiffRow[]} />
-					</div>
-				))}
+				{edits.map((e, i) => {
+					const fig = e.action !== 'insert' ? figureChange(e.before, e.after) : null;
+					return (
+						// biome-ignore lint/suspicious/noArrayIndexKey: static proposal list.
+						<div key={i} className="border-b border-border last:border-b-0">
+							<div className="px-2.5 pt-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{e.label}</div>
+							<DiffCard rows={e.diff as DiffRow[]} />
+							{fig && (
+								<div className="flex items-start gap-1.5 px-2.5 pb-1.5 text-[10px] text-[var(--warn,#9a6a00)]">
+									<TriangleAlert className="mt-0.5 size-3 shrink-0" />
+									<span>Changes a figure — verify{fig.removed.length && fig.added.length ? `: ${fig.removed.join(', ')} → ${fig.added.join(', ')}` : fig.added.length ? ` (adds ${fig.added.join(', ')})` : ` (removes ${fig.removed.join(', ')})`}</span>
+								</div>
+							)}
+						</div>
+					);
+				})}
 			</div>
 			{staleSlides.length > 0 && (
 				<div className="flex items-start gap-1.5 border-t border-border px-2.5 py-1.5 text-[10.5px] text-[var(--warn,#9a6a00)]">

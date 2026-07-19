@@ -148,10 +148,16 @@ and the same-slide stale-supersede path (`studio.findings-fix.test.tsx`).
   a shared byte-faithful `splitTopLevel` across the authoring cores + `architect-edits.js`; the K3
   `hasFencedSeparator` guard is removed, and `applyEdit` now refuses a model replace body that smuggles a
   top-level `---` (the red-team's LOW finding), so the fix covers every apply path, not one call site.
-- Exact aborted-turn cost via an OpenRouter `/generation` fetch (currently an
-  estimate).
-- A chat "tone/clarity only — change no numbers or facts" constraint mode + fact
-  provenance on edits that touch numbers (Munger inversion's content-truth point).
+- ~~Exact aborted-turn cost via an OpenRouter `/generation` fetch~~ — **landed**: on Stop, the
+  streamed turn's generation id is captured (`onGenerationId`) and, after the immediate estimate,
+  the authoritative `total_cost` is fetched in the background (`openRouterGenerationCost`, retried
+  since OpenRouter computes cost async) and the gauge self-corrects by the delta. Best-effort — the
+  estimate stands if the fetch fails.
+- ~~A chat "tone/clarity only — change no numbers or facts" constraint mode + fact provenance~~ —
+  **landed**: a "Facts locked" composer toggle threads `constrainFacts` into `chatComplete` (a
+  system constraint: improve wording, change no number/date/name/claim — explain instead of editing),
+  and every proposed edit shows numeric **provenance** (`figureChange` → "Changes a figure — verify:
+  X → Y") regardless of the toggle, so an altered figure is never silent.
 - ~~Multi-fix "Fix top N" batch queue in the Coach~~ — **landed** in the 2026-07-19
   finding-card follow-up above (Fix all drafts every fixable finding against one
   snapshot; Apply all applies the reviewed proposals slide-descending under one
