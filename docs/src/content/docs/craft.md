@@ -36,21 +36,21 @@ down so I couldn't quietly change my mind.
 
 Those documents are the product. The CSS is only where the judgment landed.
 
-A model is fluent at the move from a decided question to working code. It is
+A model is quick at the move from a decided question to working code. It is
 not the thing that knew the question was worth asking, or which of two
 plausible answers would still be right in six months. Without that judgment,
-the same model produces fluent output over an incoherent system: a hundred
-locally-reasonable choices that never add up to one coherent thing. It looks
+the same model produces fluent output on top of an incoherent system: a
+hundred locally reasonable choices that never add up to one whole. It looks
 finished. Push on it and it falls apart.
 
 Run the experiment. Give a capable person the same tools I have, the same
-month, and one brief: build a boardroom-grade slide engine. They ship a
+month, and one brief: build a boardroom-quality slide engine. They ship a
 working prototype in days — the part the belief points at. Then they reach
 the first real fork, and they have no way to choose, because nothing has
 bitten them yet. So they take the easy branch. Six weeks later it's quietly
 on fire, and they can't say why. Every hard rule in Lattice exists because
-someone already paid that tuition. A greenfield built with a better shovel
-still has the same landmines, still armed.
+someone already paid that tuition. A greenfield you clear faster still has the
+same landmines, still armed.
 
 ## Same tool, wider gap
 
@@ -59,8 +59,8 @@ lower ceiling.
 
 AI did raise the floor. The worst thing a person can produce today is much
 better than the worst they could produce alone, and that's a genuine good.
-But the tool pays out in proportion to the judgment you bring to aim it. Hand
-it to someone with no eye and the floor jumps while the ceiling holds — the
+But the tool does nothing on its own; it multiplies whatever you bring to aim
+it. Hand it to someone with no eye and the floor jumps while the ceiling holds — the
 tool was never the thing holding them back, so the work only comes out tidier
 than before. Hand it to someone with real craft and the ceiling rises too:
 freed from the busywork, they reach more of what they already saw. The floor
@@ -83,61 +83,73 @@ Three things, and a model hands you none of them.
   restraint — vetoes, retirements, *we could, and we won't, and here's why.*
   AI is an engine of more. Saying no is a subtractive skill, and a generative
   tool has no instinct for it.
-- **Owning the reversal.** It takes holding a belief loosely enough to kill
-  it, and still having believed it enough to ship it in the first place — the
-  rarest move in building anything, and the one a model is worst at. No amount
-  of raw capability stands in for it.
+- **Owning the reversal.** Holding a belief loosely enough to kill it, and
+  still having believed it enough to ship it in the first place — the rarest
+  move in building anything, and the one a model is worst at. No amount of raw
+  capability stands in for it.
 
-## Ask the tool itself
+## Watch what the tool does
 
-Ask an AI honestly and it will tell you this itself. Every time one works
-inside Lattice, it works downstream of a standard it didn't set — fluent
-within the rules, but never the thing that decided the rules should exist, or
-what *good* means here, or when the whole approach has gone wrong. When it
-goes off, it goes off confidently, plausibly, in the average direction, and
-what catches it is a person with taste saying *no, not good enough.* Take that
-person out of the room and you don't get Lattice-without-the-human. You get
-fluent drift.
+I have a stake in believing all this — my work is worth more if it's true — so
+don't take it on my word. Watch the tool instead. Every time one works inside
+Lattice, it works downstream of a standard it didn't set: quick within the
+rules, never the source that decided the rules should exist, or what *good*
+means here, or when the whole approach has gone wrong. Left alone it drifts
+toward the average of everything it has seen, and what catches the drift is a
+person with taste saying *no, not good enough.*
+
+There's an honest objection here, the one that should worry me most. Every
+craft that got automated heard this same reassurance first. The scribe, the
+typesetter, the portrait painter each located their essence in some taste a
+machine could never hold, and each was, in time, wrong. So why is this
+different? Not because the model can't reach the standard — give it a clear one
+and it often will. Because the standard has to come from somewhere, and *the
+average of everything ever made* is not a standard; it's a description. A model
+can hit any target you set. It cannot be the thing that decides which target is
+worth hitting. That isn't a gap more capability closes. It's a different kind of
+act, and it stays with the person who owns the result.
 
 So when someone says AI means anyone can do what I did, what they're picturing
-is the tool without me — and that version produces the confident average. I
-was the correction on the average the whole time.
+is the tool without that person — and that version produces the confident
+average. The standard was mine the whole time.
 
 ## What to do with the belief
 
 Don't argue the surface claim, because you'll lose: at that level it's true.
-Anyone really can generate a thing that renders slides. Move the argument to
-where the belief is false. Pick any hard fork in the work and ask the skeptic
-what they would have chosen, and why. It falls apart the moment it has to
-produce judgment on demand, which is the one thing that never got automated.
+Anyone really can generate a deck that renders. Move the argument to where the
+belief is false. Pick any hard fork in the work and ask the skeptic what they
+would have chosen, and why. The claim falls apart the moment it has to produce
+judgment on demand, which is the one thing that never got automated.
 
 Better, use the belief instead of defending against it. Make the judgment
 legible — that written record already does it, and it's the receipt that tells
-the real thing from a copy of its look. Spend the hours the tool
-frees on the work only a person can do, and treat the commodity part as a
-commodity. Compete where the model can't follow.
+the real thing from a copy of its look. Spend the hours the tool frees you on
+work only a person can do, and treat the commodity part as a commodity. Compete
+where the model can't follow.
 
 ## The part that doesn't automate
 
-A camcorder in every pocket didn't make everyone James Cameron. Once the
-camera stopped being the hard part, the job became everything the camera was
-never doing — what to shoot, when to cut, why the scene earns its place.
-Cameron with a phone still outshoots an amateur with a full crew, because the
-distance between them was never the gear. The people who hear *I can shoot
-video now* and take it to mean *I can direct now* are wrong in exactly the way
-this belief is wrong.
+A camera in every pocket didn't make everyone James Cameron. Once the camera
+stopped being the hard part, the job became everything the camera was never
+doing — what to shoot, when to cut, why the scene earns its place. Cameron with
+a phone still outshoots an amateur with a full crew, because the distance
+between them was never the gear. The people who hear *I can shoot video now* and
+take it to mean *I can direct now* are wrong in exactly the way this belief is
+wrong.
 
 Judgment cuts the other way too. Cameron keeps pouring that same mastery into
-Avatar sequels the first film already said, and no amount of craft makes the
-next one land like the first. Every ceiling has a height where more effort
-stops changing what matters — and the hardest call in any work is knowing where
-it sits: when the floor is already enough, when the climb has quit paying. A
-model will gladly help you climb. It will never tell you when to stop.
+Avatar sequels that only repeat what the first film already said, and no amount
+of craft makes the next one land like the first. Every ceiling has a height
+where more effort stops changing what matters — and the hardest call in any
+work is knowing where it sits: when the floor is already enough, when the climb
+has quit paying. No metric marks that line; deciding the next Avatar stopped
+mattering is the same act as deciding what *good* was to begin with. A model
+will gladly help you climb. It will never tell you when to stop.
 
 So build the kind of work whose value you can point to but could never prompt
 out of thin air: the reasoning, and the standard held steady across a thousand
 small choices that were only obvious once someone made them. AI doesn't
-replace that work. It waits for it, and mostly doesn't find it.
+replace that work. It waits for that work, and mostly doesn't find it.
 
 One line runs through all of Lattice, and it answers the whole question too:
 the machine owns what's correct, and you own what's good. Anyone can have the
