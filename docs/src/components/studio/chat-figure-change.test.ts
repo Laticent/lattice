@@ -28,4 +28,19 @@ describe('figureChange — numeric provenance for a proposed edit', () => {
 	it('ignores pure reordering of the same numbers', () => {
 		expect(figureChange('10, 20, 30', '30 and 10 and 20')).toBeNull();
 	});
+	it('flags a SIGN FLIP — the highest-risk numeric edit (loss ↔ gain)', () => {
+		const c = figureChange('Margin was -5% last year.', 'Margin was 5% last year.');
+		expect(c).not.toBeNull();
+		expect(c?.removed).toContain('-5%');
+		expect(c?.added).toContain('5%');
+		// EPS sign flip with a decimal
+		expect(figureChange('EPS -2.30', 'EPS 2.30')).not.toBeNull();
+	});
+	it('does NOT flag a pure REFORMAT of the same value (thousands / magnitude)', () => {
+		expect(figureChange('Revenue $4,200,000.', 'Revenue $4.2M.')).toBeNull(); // 4,200,000 === 4.2M
+		expect(figureChange('4,200 units', '4200 units')).toBeNull(); // grouping only
+	});
+	it('does flag a genuine value change even across formats', () => {
+		expect(figureChange('$4.2M', '$4.3M')).not.toBeNull();
+	});
 });

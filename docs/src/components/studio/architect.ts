@@ -12,7 +12,7 @@ import { requestSlideFix } from '@/playground/architect-fix.js';
 import { cosineRank } from '@/playground/architect-retrieval.js';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/drawing-board-refine.js';
-import { budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
+import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
 import { askComponentMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
 import { FINISHES } from './finish-catalog';
@@ -933,14 +933,22 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		// usage chunk never arrived, so recordSpend didn't fire; charge an ESTIMATE now so
 		// the budget gauge/cap aren't blind, then RECONCILE to the authoritative cost in the
 		// background via the generation id (OpenRouter computes cost async, so this can't be
-		// awaited inline; it records only the delta, so the gauge self-corrects on the next read).
+		// awaited inline). The reconciliation uses adjustSpend (a SIGNED correction) so it can
+		// true the gauge DOWN when the estimate overshot — the common case, since the estimate
+		// ignores prompt caching — not only up; recordSpend's positive-only clamp couldn't. A
+		// 'lattice-spend-changed' event lets the open panel re-read without waiting for the next
+		// turn. Best-effort — on any failure the estimate simply stands.
 		if ((e as { name?: string })?.name === 'AbortError') {
 			if (generation === 'openrouter' && streamed) {
 				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs)) ?? 0;
 				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
 				if (genId && model.openRouterGenerationCost) {
 					void model.openRouterGenerationCost(genId)
-						.then((exact) => { if (exact != null && Number.isFinite(exact)) recordSpend(exact - est, 0); })
+						.then((exact) => {
+							if (exact == null || !Number.isFinite(exact)) return;
+							adjustSpend(exact - est);
+							try { globalThis.dispatchEvent?.(new Event('lattice-spend-changed')); } catch { /* no window */ }
+						})
 						.catch(() => {});
 				}
 			}

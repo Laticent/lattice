@@ -191,20 +191,24 @@ in patch versions.
 
 ### Added
 
-- **The Studio chat can lock the facts, and always shows when an edit changes a number.** Two
-  content-truth guards for editing a numbers deck. (1) A **"Facts locked"** toggle in the chat
-  composer (a lock icon): when on, the model may improve wording, structure, and clarity but must
-  **not change any number, date, name, metric, or claim** — if a real improvement needs a fact
-  changed, it explains instead of editing. (2) Every proposed edit now carries **numeric provenance** —
-  a proposal that alters a figure shows an amber **"Changes a figure — verify: 4.2M, 18% → 5.1M, 22%"**
-  cue, shown regardless of the toggle, so a silently-rewritten number can't slip past review.
+- **The Studio chat can preserve the facts, and always shows when an edit changes a number.** Two
+  content-truth guards for editing a numbers deck. (1) A **"Preserve facts"** toggle in the chat
+  composer: when on, the model is asked to improve wording, structure, and clarity but not change any
+  number, date, name, or claim — explaining instead of editing when a fix would need one. It's a
+  best-effort model instruction (the copy says so; review the diff to confirm), backstopped by (2). (2)
+  Every proposed edit carries **numeric provenance** — a proposal that changes a figure's **value**
+  shows an amber **"Changes a figure — verify: $4.2M, 18% → $5.1M, 22%"** cue, shown regardless of the
+  toggle. It compares normalized values, so a pure **reformat** (`4,200`↔`4200`, `$4.2M`↔`$4,200,000`)
+  doesn't cry wolf, while a **sign flip** (`-5%`→`5%`, a loss↔gain) — the highest-risk edit — is caught.
   (`ArchitectChat.tsx`, `architect.ts`; `engineering/decisions/2026-07-19-coach-chat-studio-migration.md`.)
-- **An aborted (Stopped) chat turn now reconciles to its exact cost.** Hitting Stop mid-stream used to
-  leave the budget gauge on an estimate (the usage chunk never arrives). The turn's generation id is
-  now captured from the stream, and after the immediate estimate the authoritative `total_cost` is
-  fetched from OpenRouter in the background (retried, since cost is computed async) and the gauge
-  self-corrects by the delta — best-effort, so the estimate stands if the fetch fails.
-  (`architect-model.js`, `architect.ts`.)
+- **An aborted (Stopped) chat turn now reconciles to its exact cost — in either direction.** Hitting
+  Stop mid-stream used to leave the budget gauge on an estimate (the usage chunk never arrives). The
+  turn's generation id is now captured from the stream, and after the immediate estimate the
+  authoritative `total_cost` is fetched from OpenRouter in the background (retried, since cost is
+  computed async) and applied as a **signed** correction (`adjustSpend`) so the gauge trues **down**
+  when the estimate overshot — common, since the estimate ignores prompt caching — not only up; the
+  panel re-reads on a `lattice-spend-changed` event. Best-effort — the estimate stands if the fetch
+  fails. (`architect-model.js`, `architect.ts`, `drawing-board-settings.js`.)
 - **Director mode — describe a motion scene in plain words, and the Studio builds it.** The Motion
   faculty gains its low-floor front door (a **Director · Rig** switch in the header, remembered per
   user). In **Director** you type what you want — “a rotor spinning inside a housing,” “two gears
