@@ -13,7 +13,7 @@ export type SlideChunk = { directives: string[]; prose: string };
 export type ParsedSlide = SlideChunk & { raw: string };
 
 const DIRECTIVE_LINE_RE = /^[ \t]*<!--\s*_[A-Za-z][\w-]*:[\s\S]*?-->[ \t]*$/gm;
-const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)/;
+export const CLASS_RE = /<!--\s*_class:\s*([A-Za-z0-9-]+)/;
 const SEP = '\n\n---\n\n';
 
 /** CRLF → LF. The slide separator `\n-{3,}\n` doesn't match `\r\n---\r\n`, so a CRLF

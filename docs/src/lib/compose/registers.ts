@@ -3,6 +3,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { type EditorState, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
+import { CLASS_RE } from './deck-source';
 
 // The Compose "grammar registers" — the block styles the engine renders from plain structure
 // (base.modifiers.css): H1/H2 headings, an inline-code label as an eyebrow (before a heading)
@@ -71,25 +72,67 @@ export function activeRegister(state: EditorState): Reg | null {
 	return null;
 }
 
+// A per-class HEADING register set, keyed by `_class` name → the heading level(s) the class's GRAMMAR
+// anchors (`['h1']` for the title family, `['h2']` for body classes, `['h1','h2']` for a class whose
+// heading slot lists both, e.g. `journey`). Built at the docs-site build from the component manifests'
+// heading/title slot (`dist/docs/grammar.json`), so Compose offers the SAME heading the engine renders
+// — one source of truth (HARD RULE #1). A class absent from the map (unknown, or one with no heading
+// slot at all, e.g. big-number) falls back to permissive (both).
+export type SlideHeadings = Record<string, ('h1' | 'h2')[]>;
+
+// Which HEADING register(s) the caret's slide grammar permits: the class's declared level(s), or —
+// when the class isn't in the grammar map — both (never silently drop the control on an unknown class).
+// Three guards, all from the adversarial trio:
+//   - Only an EXPLICITLY-classed slide is gated. A classless slide (`slideClassOf` would default it to
+//     `content`→H2) stays PERMISSIVE, so an author who hasn't committed a class — or intends a title —
+//     isn't silently blocked from originating an H1 (inversion + red-team "strand the author").
+//   - The LAST `_class` wins, matching the engine's directive semantics (a slide with two `_class`
+//     comments renders as the last; Compose must not gate on the first and diverge).
+//   - `Array.isArray` guards the plain-object lookup against `Object.prototype` keys a slide could name
+//     in `_class` (`constructor`, `hasOwnProperty`, …): `headings['constructor']` resolves to a FUNCTION
+//     up the prototype chain, and an unguarded `[...gh]` on it THROWS — which propagated out of the
+//     format sync and skipped the source emit, silently dropping the author's edits (trio: CRITICAL).
+function headingKeysFor(directives: string[], headings?: SlideHeadings): Reg[] {
+	let cls: string | null = null;
+	for (const d of directives) {
+		const m = d.match(CLASS_RE);
+		if (m) cls = m[1];
+	}
+	if (cls == null) return ['h1', 'h2'];
+	const gh = headings?.[cls];
+	return Array.isArray(gh) && gh.length ? [...gh] : ['h1', 'h2'];
+}
+
 // The registers that APPLY to the caret's current block — the "truly context-sensitive" set the
 // divider's Format group shows (no-ops are hidden, not dimmed). `active` is the one currently ON.
 //   - locked slide / no context → nothing (the slide is edited in Markdown).
-//   - heading → H1 / H2 (toggle level, or back to paragraph).
+//   - the HEADING register follows the slide's GRAMMAR: a title-class slide offers H1, a body-class
+//     slide offers H2 — never both (so H1 can't be applied on slide 2, nor H2 on a title). Passing no
+//     `headings` map (e.g. in a unit test) keeps the permissive H1/H2 default.
+//   - heading block → the grammar heading register (toggle level, or back to paragraph).
 //   - blockquote (Key-insight) → just Key-insight (to toggle it off).
-//   - paragraph → H1 / H2 always; Eyebrow / Subtitle only where the engine would render them (a
-//     code label adjacent to a heading) or where already active; Key-insight + Below-note always.
+//   - paragraph → the grammar heading register; Eyebrow / Subtitle only where the engine would render
+//     them (a code label adjacent to a heading) or where already active; Key-insight + Below-note
+//     always (these are BASE modifiers the engine renders on any class, so they stay block-driven).
 //   - list / table / other container → nothing (no register can render from it).
-export function applicableRegisters(state: EditorState): { keys: Reg[]; active: Reg | null } {
+export function applicableRegisters(state: EditorState, headings?: SlideHeadings): { keys: Reg[]; active: Reg | null } {
 	const ctx = slideContext(state);
 	if (!ctx || ctx.slide.attrs.locked) return { keys: [], active: null };
 	const active = activeRegister(state);
 	const { block, prev, next } = ctx;
 	const isHeading = (n: PMNode | null) => !!n && n.type.name === 'heading';
 	const kind = block.type.name;
-	if (kind === 'heading') return { keys: ['h1', 'h2'], active };
+	const hk = headingKeysFor(ctx.slide.attrs.directives as string[], headings);
+	// Always keep the block's CURRENT heading register available even if the class grammar wouldn't
+	// offer it — otherwise a heading at a grammar-illegal level (e.g. an H1 typed via the `#` input
+	// rule or round-tripped from markdown onto a body slide) renders as a lone WRONG button that can't
+	// be lit or toggled off from the pill (recoverable only in Markdown mode). Prepend so the active,
+	// lit register reads first, then the grammar target to switch to.
+	if ((active === 'h1' || active === 'h2') && !hk.includes(active)) hk.unshift(active);
+	if (kind === 'heading') return { keys: hk, active };
 	if (kind === 'blockquote') return { keys: ['insight'], active };
 	if (kind === 'paragraph') {
-		const keys: Reg[] = ['h1', 'h2'];
+		const keys: Reg[] = [...hk];
 		if (isHeading(next) || active === 'eyebrow') keys.push('eyebrow');
 		if (isHeading(prev) || active === 'subtitle') keys.push('subtitle');
 		keys.push('insight', 'note');

@@ -219,6 +219,66 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		expect(applicableRegisters(t.v.state).keys).toEqual([]);
 	});
 
+	it('the HEADING register follows the slide-class grammar (H1 for a title, H2 for a body class)', () => {
+		const headings: Record<string, ('h1' | 'h2')[]> = { title: ['h1'], content: ['h2'], 'cards-grid': ['h2'], journey: ['h1', 'h2'] };
+		// A TITLE slide grammars an h1 → the heading register offers ONLY H1 (never H2).
+		const title = view('<!-- _class: title -->\n\n# Deck title\n\nsub line');
+		title.caret('Deck title');
+		expect(applicableRegisters(title.v.state, headings).keys).toEqual(['h1']);
+		title.caret('sub line'); // paragraph right after the h1 → H1 + subtitle, still NO H2
+		expect(applicableRegisters(title.v.state, headings).keys).toEqual(['h1', 'subtitle', 'insight', 'note']);
+		// A CONTENT slide grammars an h2 → the heading register offers ONLY H2 (never H1 — the
+		// single-h1 rule the user hit on slide 2).
+		const content = view('<!-- _class: content -->\n\n## Section\n\nbody text');
+		content.caret('Section');
+		expect(applicableRegisters(content.v.state, headings).keys).toEqual(['h2']);
+		content.caret('body text'); // right after the h2 → H2 + subtitle (never H1)
+		expect(applicableRegisters(content.v.state, headings).keys).toEqual(['h2', 'subtitle', 'insight', 'note']);
+		// A multi-level class (heading slot lists `h1, h2`) offers BOTH.
+		const jrn = view('<!-- _class: journey -->\n\n## Stage\n\nstep');
+		jrn.caret('Stage');
+		expect(applicableRegisters(jrn.v.state, headings).keys).toEqual(['h1', 'h2']); // grammar allows both
+		// An UNKNOWN class (not in the grammar map) stays permissive — never silently drop the control.
+		const unknown = view('<!-- _class: mystery-box -->\n\n# Head\n\ntext');
+		unknown.caret('Head');
+		expect(applicableRegisters(unknown.v.state, headings).keys).toEqual(['h1', 'h2']);
+	});
+
+	// MAJOR (checker): a heading at a grammar-illegal level must stay lit + toggle-off-able from the
+	// pill, not render as a lone wrong button. An H1 on a body (h2) slide offers H1 (lit) AND H2.
+	it('keeps a grammar-illegal heading level available so it can be un-set from the pill', () => {
+		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'] };
+		const t = view('<!-- _class: content -->\n\n# Rogue H1'); // an h1 on a body-class slide
+		t.caret('Rogue H1');
+		const { keys, active } = applicableRegisters(t.v.state, headings);
+		expect(active).toBe('h1'); // the block really is an h1
+		expect(keys).toContain('h1'); // ...and h1 is offered (lit), so it can be toggled back to paragraph
+		expect(keys).toContain('h2'); // ...alongside the grammar-correct h2 to switch to
+		t.apply('h1'); // clicking the lit register reverts to paragraph
+		expect(t.src()).not.toMatch(/^#/m);
+	});
+
+	// Trio CRITICAL: a slide `_class` naming an Object.prototype method must not crash the lookup
+	// (`headings['constructor']` resolves to a function up the chain; an unguarded spread throws and
+	// wedged the format-sync/emit). And a CLASSLESS slide stays permissive, never pinned to content's H2.
+	it('is crash-proof on prototype-named classes and permissive when classless', () => {
+		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'], title: ['h1'] };
+		for (const evil of ['constructor', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toString']) {
+			const p = view(`<!-- _class: ${evil} -->\n\n# Head`);
+			p.caret('Head');
+			expect(() => applicableRegisters(p.v.state, headings)).not.toThrow();
+			expect(applicableRegisters(p.v.state, headings).keys).toEqual(['h1', 'h2']); // permissive, not stranded/crashed
+		}
+		// A classless slide (no `_class` directive) is NOT silently gated to content's H2.
+		const bare = view('# Just a heading\n\nbody');
+		bare.caret('Just a heading');
+		expect(applicableRegisters(bare.v.state, headings).keys).toEqual(['h1', 'h2']);
+		// The LAST `_class` wins (engine semantics), so Compose gates on what actually renders.
+		const multi = view('<!-- _class: content -->\n<!-- _class: title -->\n\n# T');
+		multi.caret('T');
+		expect(applicableRegisters(multi.v.state, headings).keys).toEqual(['h1']); // title, not content
+	});
+
 	it('a locked slide offers no registers', () => {
 		const t = view('<!-- _class: content -->\n\n# Locked\n\n| a | b |\n| - | - |\n| 1 | 2 |');
 		t.caret('Locked');
