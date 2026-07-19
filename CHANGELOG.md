@@ -556,6 +556,16 @@ in patch versions.
 
 ### Changed
 
+- **The `/vetrina` demo's board is now a real, functional CRUD example — you can operate it, not just watch.**
+  The old mini-dashboard's "+ Add one" button was inert (only the walkthrough drove it). It is now a working
+  **release-notes** board with genuine Create (type a note + Add, or Enter), Read (the live list + a count +
+  a draft/published badge), Update (click a note to edit inline; Enter/Escape to commit/cancel), and Delete
+  (× per row), plus Publish. Crucially, the self-driving tour calls the **same** `actions.add` / `update` /
+  `remove` / `publish` a human click does — the cursor and you drive one real state, and touching anything
+  mid-tour still hands you the wheel. The five beats now demonstrate the CRUD loop (narrate → create → update
+  → delete → your-turn hand-off). Note text is rendered via `textContent` (no `innerHTML`). Verified live:
+  direct create/read/update/delete/publish, every tour beat mutating real rows, the `awaitUser` publish, and
+  take-over — no console errors, clean at desktop + mobile in light + dark. (`docs/src/pages/vetrina.astro`.)
 - **A live scene's play/pause control now stays out of the way.** It moved to the top-right corner and
   hides at rest instead of sitting permanently over the motion — it fades in on hover (desktop) or a tap
   (touch), reveals on keyboard focus, auto-hides after a couple of seconds, and flashes briefly when the
