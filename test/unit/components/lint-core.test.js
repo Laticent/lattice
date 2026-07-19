@@ -267,6 +267,23 @@ describe('lint-core: auto-fix', () => {
     const src = `${FM}<!-- _class: cards-grid -->\n\n## H\n\n- A\n  - one\n`;
     assert.equal(core.applyAllFixes(src, vocab), src);
   });
+
+  test('applyFix scopes fence-aware: a fenced --- before the target does not desync the fix', () => {
+    // Slide 1 DEMONSTRATES markdown (a `---` inside a code fence); slide 2 has an
+    // autofixable inline-title. The fix must still target slide 2 — a fence-blind chunk
+    // walk would mis-scope, return null, and (via applyAllFixes' break) halt the pass.
+    const code = '<!-- _class: code -->\n\n```md\ntitle: X\n---\nbody\n```\n';
+    const bad = '<!-- _class: cards-grid -->\n\n## H\n\n- **First.** inline body\n';
+    const src = `${FM}${code}---\n${bad}`;
+    const f = ruleFor(src, 'card-style-inline-title');
+    assert.equal(f.slide, 2, 'the finding is numbered fence-aware (slide 2, not 3)');
+    const fixed = core.applyFix(src, f);
+    assert.ok(fixed && fixed.includes('- First\n  - inline body'), 'the fix applied to slide 2');
+    assert.ok(fixed.includes('title: X\n---\nbody'), 'the fenced code sample is untouched');
+    // …and the batch pass clears it rather than halting on it.
+    const all = core.applyAllFixes(src, vocab);
+    assert.equal(core.lintTextWith(all, vocab).some((x) => x.rule === 'card-style-inline-title'), false);
+  });
 });
 
 describe('lint-core: focus directive grammar (rule 11)', () => {

@@ -77,9 +77,28 @@ path). The authoring bundle (`authoring-core.generated.js`) and the emulator
   Slide 3 (not desynced), the Fix pill is offered (no K3 pause), and applying it
   edits slide 3 while the code sample on slide 2 stays byte-intact.
 
-## Not in scope
+## Maker-checker
 
-The render/emulator splitter (`lib/core/split-slides.js`) already handled fences;
-this change aligns the *authoring* splitters with it rather than merging the two
-(their chunk contracts differ). Unifying them is a possible future cleanup, not
-required here.
+An independent checker verified byte-faithfulness empirically and caught a real
+FIX-FIRST regression that was folded in before commit: `lint-core`'s deterministic
+`applyFix` (the engine behind "Fix all" / CLI `--fix`) still counted chunks with a
+raw `lines[i] === '---'` walk, so once `finding.slide` became fence-aware they
+DISAGREED — a fenced `---` before an autofixable finding mis-scoped the fix, which
+returned null and *halted the whole `applyAllFixes` pass*. Fixed by routing that
+walk through the shared `separatorLines`, which is also **CRLF-tolerant** (`/^---$/m`
+splits a `---\r\n` line, so a line walk must too) — closing the checker's CRLF nit
+in the same stroke (and the local `separatorLines` in `architect-edits.js` was made
+CRLF-tolerant to match). New autofix-through-a-fence test added.
+
+## Not in scope / logged (HARD RULE #18, off-path)
+
+- The render/emulator splitter (`lib/core/split-slides.js`) already handled fences;
+  this change aligns the *authoring* splitters with it rather than merging the two
+  (their chunk contracts differ). Unifying them is a possible future cleanup.
+- `coach-core.ts` `countSlides` (the pacing "~Xs per slide" estimate) and the FROZEN
+  `docs/src/playground/coach-actions.js` still split fence-blind. Both are SYNC and
+  off the finding→apply targeting path; `countSlides`'s only effect is a slightly-off
+  pacing estimate on a deck with a fenced `---`. Not worth a third copy of the fence
+  logic (they can't import the async authoring bundle synchronously); logged rather
+  than fixed. (`hasContent`'s naive split is harmless — it only needs `>1` non-empty
+  chunk, which every real deck has.)

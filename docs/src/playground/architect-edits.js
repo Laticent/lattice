@@ -71,7 +71,7 @@ function separatorLines(lines) {
     if (!inFence) {
       const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
       if (open) { inFence = true; fenceChar = open[1][0]; fenceLen = open[1].length; continue; }
-      if (line === '---') set.add(i);
+      if (/^---\r?$/.test(line)) set.add(i); // CRLF-tolerant so it agrees with splitTopLevel (/^---$/m splits `---\r\n`)
     } else if (line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`))) {
       inFence = false; fenceChar = ''; fenceLen = 0;
     }

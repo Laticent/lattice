@@ -68,14 +68,38 @@ var require_slide_split = __commonJS({
       out.push(cur);
       return out;
     }
-    module.exports = { splitTopLevel, fenceOpen };
+    function separatorLines(lines) {
+      const set = /* @__PURE__ */ new Set();
+      let inFence = false;
+      let fenceChar = "";
+      let fenceLen = 0;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!inFence) {
+          const open = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+          if (open) {
+            inFence = true;
+            fenceChar = open[1][0];
+            fenceLen = open[1].length;
+            continue;
+          }
+          if (/^---\r?$/.test(line)) set.add(i);
+        } else if (line.match(new RegExp(`^\\s{0,3}(\\${fenceChar}{${fenceLen},})\\s*$`))) {
+          inFence = false;
+          fenceChar = "";
+          fenceLen = 0;
+        }
+      }
+      return set;
+    }
+    module.exports = { splitTopLevel, fenceOpen, separatorLines };
   }
 });
 
 // lib/authoring/lint-core.js
 var require_lint_core = __commonJS({
   "lib/authoring/lint-core.js"(exports, module) {
-    var { splitTopLevel } = require_slide_split();
+    var { splitTopLevel, separatorLines } = require_slide_split();
     var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
     var FOCUS_DIRECTIVE = /<!--\s*_focus:\s*([^>]+?)\s*-->/;
     var FOCUS_STYLE_DIRECTIVE = /<!--\s*_focusStyle:\s*([^>]+?)\s*-->/;
@@ -292,9 +316,10 @@ ${indent}   - ${body.trim()}`;
       const lines = source.split("\n");
       const target = finding.line.trim();
       const targetChunk = finding.slide + fmChunks(source) - 1;
+      const seps = separatorLines(lines);
       let chunk = 0;
       for (let i = 0; i < lines.length; i++) {
-        if (lines[i] === "---") {
+        if (seps.has(i)) {
           chunk++;
           continue;
         }
