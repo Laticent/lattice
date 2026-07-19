@@ -214,7 +214,7 @@ const LIB_DEFAULT = 380; // Library docked default — wider than the coach; ass
 // drive through `data-palette`.
 
 // biome-ignore lint/suspicious/noExplicitAny: serialized lint vocabulary from the page.
-type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; lintVocab?: any; slideHeadings?: Record<string, 'h1' | 'h2'> };
+type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]> };
 
 export default function StudioShell({ options, components = [], lintVocab, slideHeadings }: Props) {
 	// Persisted deck list (seeded from the built-ins), the active deck, and its

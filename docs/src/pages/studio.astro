@@ -91,10 +91,18 @@ try {
 	for (const c of grammar.components || []) {
 		const slots = c.slots || {};
 		const sel = (slots.heading || slots.title || {}).selector || '';
-		const m = sel.match(/\bh([1-6])\b/);
-		if (m && c.name) slideHeadings[c.name] = m[1] === '1' ? 'h1' : 'h2';
+		// Collect EVERY heading level the slot's selector lists (a heading slot may name several, e.g.
+		// `h1, h2` on journey — dropping one would over-restrict a class the engine treats as two-level).
+		// Match hN only as an ELEMENT selector (preceded by start / whitespace / a combinator, and not
+		// followed by a word char or hyphen) so a class/id token like `.h2-foo` never false-matches.
+		const levels = [...sel.matchAll(/(?:^|[\s>,(+~])h([1-6])(?![\w-])/g)].map((mm) => (mm[1] === '1' ? 'h1' : 'h2'));
+		const uniq = [...new Set(levels)];
+		if (uniq.length && c.name) slideHeadings[c.name] = uniq;
 	}
 } catch (e) {
+	// Graceful, but make the degradation OBSERVABLE: a missing/corrupt grammar.json or a slot-shape
+	// change silently disables grammar-driven headings site-wide (every class → permissive H1/H2).
+	console.warn('[studio] slideHeadings: could not derive the grammar heading map — Compose falls back to permissive H1/H2', e && e.message);
 	slideHeadings = {};
 }
 

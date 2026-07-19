@@ -220,7 +220,7 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	});
 
 	it('the HEADING register follows the slide-class grammar (H1 for a title, H2 for a body class)', () => {
-		const headings = { title: 'h1', content: 'h2', 'cards-grid': 'h2' } as const;
+		const headings: Record<string, ('h1' | 'h2')[]> = { title: ['h1'], content: ['h2'], 'cards-grid': ['h2'], journey: ['h1', 'h2'] };
 		// A TITLE slide grammars an h1 → the heading register offers ONLY H1 (never H2).
 		const title = view('<!-- _class: title -->\n\n# Deck title\n\nsub line');
 		title.caret('Deck title');
@@ -234,10 +234,28 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		expect(applicableRegisters(content.v.state, headings).keys).toEqual(['h2']);
 		content.caret('body text'); // right after the h2 → H2 + subtitle (never H1)
 		expect(applicableRegisters(content.v.state, headings).keys).toEqual(['h2', 'subtitle', 'insight', 'note']);
+		// A multi-level class (heading slot lists `h1, h2`) offers BOTH.
+		const jrn = view('<!-- _class: journey -->\n\n## Stage\n\nstep');
+		jrn.caret('Stage');
+		expect(applicableRegisters(jrn.v.state, headings).keys).toEqual(['h1', 'h2']); // grammar allows both
 		// An UNKNOWN class (not in the grammar map) stays permissive — never silently drop the control.
 		const unknown = view('<!-- _class: mystery-box -->\n\n# Head\n\ntext');
 		unknown.caret('Head');
 		expect(applicableRegisters(unknown.v.state, headings).keys).toEqual(['h1', 'h2']);
+	});
+
+	// MAJOR (checker): a heading at a grammar-illegal level must stay lit + toggle-off-able from the
+	// pill, not render as a lone wrong button. An H1 on a body (h2) slide offers H1 (lit) AND H2.
+	it('keeps a grammar-illegal heading level available so it can be un-set from the pill', () => {
+		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'] };
+		const t = view('<!-- _class: content -->\n\n# Rogue H1'); // an h1 on a body-class slide
+		t.caret('Rogue H1');
+		const { keys, active } = applicableRegisters(t.v.state, headings);
+		expect(active).toBe('h1'); // the block really is an h1
+		expect(keys).toContain('h1'); // ...and h1 is offered (lit), so it can be toggled back to paragraph
+		expect(keys).toContain('h2'); // ...alongside the grammar-correct h2 to switch to
+		t.apply('h1'); // clicking the lit register reverts to paragraph
+		expect(t.src()).not.toMatch(/^#/m);
 	});
 
 	it('a locked slide offers no registers', () => {

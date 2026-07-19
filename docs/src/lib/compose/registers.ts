@@ -72,19 +72,20 @@ export function activeRegister(state: EditorState): Reg | null {
 	return null;
 }
 
-// A per-class HEADING register, keyed by `_class` name → the heading level the class's GRAMMAR
-// anchors ('h1' for the title family, 'h2' for body classes). Built at the docs-site build from the
-// component manifests' heading/title slot (`dist/docs/grammar.json`), so Compose offers the SAME
-// heading the engine renders — one source of truth (HARD RULE #1). A class absent from the map
-// (unknown, or one with no heading slot at all, e.g. big-number) falls back to permissive (both).
-export type SlideHeadings = Record<string, 'h1' | 'h2'>;
+// A per-class HEADING register set, keyed by `_class` name → the heading level(s) the class's GRAMMAR
+// anchors (`['h1']` for the title family, `['h2']` for body classes, `['h1','h2']` for a class whose
+// heading slot lists both, e.g. `journey`). Built at the docs-site build from the component manifests'
+// heading/title slot (`dist/docs/grammar.json`), so Compose offers the SAME heading the engine renders
+// — one source of truth (HARD RULE #1). A class absent from the map (unknown, or one with no heading
+// slot at all, e.g. big-number) falls back to permissive (both).
+export type SlideHeadings = Record<string, ('h1' | 'h2')[]>;
 
-// Which HEADING register(s) the caret's slide grammar permits: the class's declared level, or —
+// Which HEADING register(s) the caret's slide grammar permits: the class's declared level(s), or —
 // when the class isn't in the grammar map — both (never silently drop the control on an unknown class).
 function headingKeysFor(directives: string[], headings?: SlideHeadings): Reg[] {
 	const cls = slideClassOf(directives);
 	const gh = headings?.[cls];
-	return gh === 'h1' ? ['h1'] : gh === 'h2' ? ['h2'] : ['h1', 'h2'];
+	return gh?.length ? [...gh] : ['h1', 'h2'];
 }
 
 // The registers that APPLY to the caret's current block — the "truly context-sensitive" set the
@@ -107,6 +108,12 @@ export function applicableRegisters(state: EditorState, headings?: SlideHeadings
 	const isHeading = (n: PMNode | null) => !!n && n.type.name === 'heading';
 	const kind = block.type.name;
 	const hk = headingKeysFor(ctx.slide.attrs.directives as string[], headings);
+	// Always keep the block's CURRENT heading register available even if the class grammar wouldn't
+	// offer it — otherwise a heading at a grammar-illegal level (e.g. an H1 typed via the `#` input
+	// rule or round-tripped from markdown onto a body slide) renders as a lone WRONG button that can't
+	// be lit or toggled off from the pill (recoverable only in Markdown mode). Prepend so the active,
+	// lit register reads first, then the grammar target to switch to.
+	if ((active === 'h1' || active === 'h2') && !hk.includes(active)) hk.unshift(active);
 	if (kind === 'heading') return { keys: hk, active };
 	if (kind === 'blockquote') return { keys: ['insight'], active };
 	if (kind === 'paragraph') {
