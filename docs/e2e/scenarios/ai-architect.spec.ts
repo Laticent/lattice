@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import { disposeRelay, injectOpenRouter, LIVE_KEY, routeOpenRouterViaNode } from '../openrouter-live';
-import { checkpointLabels, expect, gotoStudio, openArchitect, persistedSource, setEditorContent, test, toastText } from '../studio-fixture';
+import { checkpointLabels, expect, gotoStudio, openArchitect, openChat, persistedSource, setEditorContent, test, toastText } from '../studio-fixture';
 
 // AI-assisted productivity, against a LIVE OpenRouter model. These scenarios
 // close the honest-offline gap: with a key present the Architect must produce a
@@ -79,8 +79,7 @@ test('Architect per-finding AI fix edits the deck source and checkpoints the und
 });
 
 test('Chat: an instructed edit arrives as a diff and Apply lands it in the source', async ({ page }) => {
-	await openArchitect(page);
-	await page.getByRole('tab', { name: 'Chat' }).click();
+	await openChat(page);
 
 	const input = page.getByRole('textbox', { name: 'Message the Architect' });
 	await input.fill('Replace the h1/h2 heading of slide 2 with exactly "ATLAS ROADMAP". Change nothing else in the deck.');

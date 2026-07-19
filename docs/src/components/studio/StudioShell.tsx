@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, History, Info, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, OctagonAlert, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, Gauge, History, Info, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, OctagonAlert, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -359,11 +359,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// group), sharing one grid track — the layout can't fit three docked columns
 	// beside editor+preview (#721). Settings/Inspector is a SEPARATE independent slot,
 	// so a tool panel + settings can be open together (the coach↔tune loop).
-	const [activeAssistant, setActiveAssistant] = React.useState<'architect' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Build shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
+	const [activeAssistant, setActiveAssistant] = React.useState<'coach' | 'chat' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Build shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
 	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
-	const architectOpen = activeAssistant === 'architect';
+	// Coach and Chat are SEPARATE panels (own toolbar icon, own drawer) — they have
+	// nothing to do with each other, so no shared tab. They share the ONE assistant
+	// slot (mutually exclusive), so `architectOpen` = "an AI panel holds the slot"
+	// still drives every layout/width/effect read unchanged.
+	const coachOpen = activeAssistant === 'coach';
+	const chatOpen = activeAssistant === 'chat';
+	const architectOpen = coachOpen || chatOpen;
 	const lensesOpen = activeAssistant === 'lenses';
 	const libraryOpen = activeAssistant === 'library';
 	const inspectorOpen = activeSettings !== null;
@@ -390,9 +396,24 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// setInspectorScope(s) SELECTS scope s and ensures the panel is open — the only
 	// bare-scope caller (the in-panel segment) renders only while open, so this never
 	// spuriously opens it.
-	const setArchitectOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
-		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'architect') : v) ? 'architect' : null));
+	// Coach + Chat each own the assistant slot (mutually exclusive with each other +
+	// Lenses/Library). Toggling one closes it; it never stomps a sibling it didn't own.
+	const setCoachOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'coach') : v) ? 'coach' : prev === 'coach' ? null : prev));
 	}, []);
+	const setChatOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'chat') : v) ? 'chat' : prev === 'chat' ? null : prev));
+	}, []);
+	// Back-compat shims for the demo/walkthrough hook, which speaks the old open/tab
+	// API: open defaults to the Coach panel, and the "tab" setter now SELECTS which of
+	// the two separate panels is shown.
+	const setArchitectOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveAssistant((prev) => {
+			const was = prev === 'coach' || prev === 'chat';
+			return (typeof v === 'function' ? v(was) : v) ? (was ? prev : 'coach') : was ? null : prev;
+		});
+	}, []);
+	const setArchitectTab = React.useCallback((t: 'coach' | 'chat') => setActiveAssistant(t), []);
 	// Lenses + Library share the assistant slot (mutually exclusive with the Architect).
 	const setLensesOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : null));
@@ -429,7 +450,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
-	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat'>('coach');
 	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the two
 	// read-aloud groups (Lexicon + Acronyms) fold into one Speech tab so the panel
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
@@ -2072,25 +2092,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		</div>
 	);
 
-	// The Architect panel: Coach analysis vs the real conversational thread — the AI
-	// faculties only. Reader-views (Lenses) moved OUT to their own panel.
-	const architectBody = (
-		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="shrink-0 px-2.5 pt-2.5">
-				<PillTabs
-					ariaLabel="Architect sections"
-					value={architectTab}
-					onValueChange={(v) => setArchitectTab(v as 'coach' | 'chat')}
-					tabs={[
-						{ value: 'coach', label: 'Coach' },
-						{ value: 'chat', label: 'Chat' },
-					]}
-				/>
-			</div>
-			{architectTab === 'coach' && <div className="min-h-0 flex-1 overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>}
-			{architectTab === 'chat' && <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />}
-		</div>
-	);
+	// Coach and Chat are two SEPARATE panels — the deterministic assessment and the
+	// AI conversation have nothing to do with each other, so each gets its own toolbar
+	// icon + drawer (no tab-switching cognitive load). Reader-views (Lenses) + Library
+	// are their own panels too; all share the one mutually-exclusive assistant slot.
+	const coachBody = <div className="flex min-h-0 flex-1 flex-col overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>;
+	const chatBody = <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
@@ -2537,7 +2544,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    switches the slot. Library + Lenses are first-class panels here, not a
 			    sheet-from-a-globals-icon and not a tab inside the AI coach. */}
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
-			<BarIcon label="Toggle Architect" hint="Architect — AI coach &amp; chat" caption="Coach" active={architectOpen} onClick={() => setActiveAssistant((p) => (p === 'architect' ? null : 'architect'))}><Sparkles className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))}><Gauge className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><Sparkles className="size-[18px]" /></BarIcon>
 			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={libraryOpen} onClick={() => setActiveAssistant((p) => (p === 'library' ? null : 'library'))}><FileBox className="size-[18px]" /></BarIcon>
 			<BarIcon label="Toggle Lenses" hint="Lenses — reader views" caption="Lenses" active={lensesOpen} onClick={() => setActiveAssistant((p) => (p === 'lenses' ? null : 'lenses'))}><Eye className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />
@@ -2735,7 +2743,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    they ride the pane bar below with Present + Share. */}
 				{/* Architect + Settings openers — TABLET only. Desktop launches both from the
 				    left activity bar; mobile from the pane bar below. */}
-				{bp === 'tablet' && <Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => setActiveAssistant((p) => (p === 'architect' ? null : 'architect'))} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>}
 				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
 				{!compact && <Separator orientation="vertical" className="h-5" />}
 
@@ -2841,7 +2850,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{mobilePane === 'preview' && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
 						<Tip label="Present"><Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button></Tip>
 						<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /></Button></Tip>
-						<Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => setArchitectOpen((v) => !v)} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>
+						<Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>
+						<Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>
 						<Tip label="Settings — deck & slide"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>
 					</div>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
@@ -2918,10 +2928,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    launcher toggle (no in-panel X, same as before). */}
 						{desktop && effectiveStop === 'build' && assistantOpen && (
 							<aside className="relative flex min-h-0 flex-col overflow-hidden border-r border-border bg-card">
-								{architectOpen && (
+								{coachOpen && (
 									<>
-										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Architect</div>
-										{architectBody}
+										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>
+										{coachBody}
+									</>
+								)}
+								{chatOpen && (
+									<>
+										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Chat</div>
+										{chatBody}
 									</>
 								)}
 								{lensesOpen && (
@@ -2982,13 +2998,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{/* ── Compact panels as sheets (tablet + mobile) ───────────── */}
 			{compact && view === 'compose' && (
 				<>
-					<Sheet open={architectOpen} onOpenChange={setArchitectOpen}>
+					<Sheet open={coachOpen} onOpenChange={setCoachOpen}>
 						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[320px]">
 							<SheetHeader className="border-b border-border">
-								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><Sparkles className="size-4 text-[var(--accent)]" />Architect</SheetTitle>
-								<SheetDescription className="sr-only">Board-readiness scorecard, coaching, and reshape suggestions for this deck.</SheetDescription>
+								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><Gauge className="size-4 text-[var(--accent)]" />Coach</SheetTitle>
+								<SheetDescription className="sr-only">Board-readiness scorecard, deterministic quick reads, and per-finding fixes for this deck.</SheetDescription>
 							</SheetHeader>
-							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{architectBody}</div>
+							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
+						</SheetContent>
+					</Sheet>
+					{/* Chat — its own compact drawer, a peer of the Coach (they are separate panels). */}
+					<Sheet open={chatOpen} onOpenChange={setChatOpen}>
+						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[320px]">
+							<SheetHeader className="border-b border-border">
+								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><Sparkles className="size-4 text-[var(--accent)]" />Chat</SheetTitle>
+								<SheetDescription className="sr-only">A conversation with the AI Architect about this deck, with reviewable edits.</SheetDescription>
+							</SheetHeader>
+							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBody}</div>
 						</SheetContent>
 					</Sheet>
 					{/* Lenses (reader views) — its own compact sheet, a peer of the Architect. */}

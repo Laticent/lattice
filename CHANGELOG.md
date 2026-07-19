@@ -246,6 +246,11 @@ in patch versions.
   as their slide is shown and pause off-screen natively. The PDF is untouched — it keeps the poster still.
   (`lib/export/player-core.mjs`, `tools/build-anima-player.js` → `lib/export/anima-player-bundle.generated.mjs`.)
 
+- **Coach and Chat are two separate Studio panels, each with its own left-toolbar icon and drawer.** The
+  deterministic assessment and the AI conversation have nothing to do with each other, so they are no longer
+  tabs inside one "Architect" panel (which taxed you with a tab-switch for zero benefit). Each now has its own
+  activity-bar launcher — a **Coach** gauge and a **Chat** spark — opens as its own resizable column on desktop
+  and its own slide-in drawer on mobile, and shares the one mutually-exclusive assistant slot. (`StudioShell.tsx`.)
 - **The Studio Coach now runs the engine's real deck assessment, with deterministic "quick reads" and safer fixes.**
   The Coach's board-readiness card was a 3-check toy heuristic (`lint.ts scoreDeck`); it now renders the **same
   deterministic scorecard the CLI runs** — an overall grade/band plus a per-dimension read (structure · clarity ·

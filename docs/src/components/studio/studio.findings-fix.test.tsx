@@ -77,7 +77,7 @@ function setup() {
 	// Panels start closed at every stop now (Build shows the activity-bar launcher;
 	// panels open on demand — posture never force-opens one). These flows exercise the
 	// docked Coach, so open it from the bar.
-	fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' }));
+	fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' }));
 	return user;
 }
 

@@ -47,7 +47,7 @@ export const SEL = {
 	// '[aria-label="Choose theme"]', which matched NOTHING — the real label is
 	// "Choose deck theme"; the reskin() cursor pointed at a missing node.)
 	theme: '[aria-label="Choose deck theme"]',
-	architect: '[aria-label="Toggle Architect"]',
+	architect: '[aria-label="Toggle Coach"]',
 	mode: '[data-demo="mode"]',
 	slideSettings: '[aria-label="Slide settings"]',
 	// Union selectors — desktop carries data-demo, the mobile pane bar carries only aria-label.

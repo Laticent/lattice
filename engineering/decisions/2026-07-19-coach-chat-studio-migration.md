@@ -82,6 +82,13 @@ diff context-collapse.
 
 ## What shipped
 
+- **Two separate panels** (`StudioShell.tsx`): the Coach (deterministic assessment)
+  and the Chat (AI conversation) are independent panels — each with its own
+  activity-bar icon (a Coach gauge, a Chat spark), its own resizable desktop column,
+  and its own mobile slide-in drawer — sharing the one mutually-exclusive assistant
+  slot. They are NOT tabs inside one "Architect" panel: they have nothing to do with
+  each other, so a shared tab only added cognitive load. (The competition briefs
+  assumed the pre-existing tabbed panel; the tab was removed on review.)
 - **Coach** (`coach/coach-core.ts`, `StudioShell.tsx`): real scorecard, quick-read
   chips, severity-ranked findings, hardened per-finding fix, honest framing, an
   AI-fix cost cue; `density` plumbed through `studio.astro`. Toy `scoreDeck` and the

@@ -24,7 +24,7 @@ test('@mobile the studio collapses to a swappable Edit/Preview pane', async ({ p
 
 test('@mobile the Architect opens as a sheet, not a column', async ({ page }) => {
 	await gotoStudio(page);
-	await page.getByRole('button', { name: 'Toggle Architect' }).click();
-	// The Coach/Chat tabs are reachable once the Architect sheet is open.
-	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
+	await page.getByRole('button', { name: 'Toggle Coach' }).click();
+	// The Coach panel is reachable as its own sheet.
+	await expect(page.getByText('Board readiness')).toBeVisible();
 });

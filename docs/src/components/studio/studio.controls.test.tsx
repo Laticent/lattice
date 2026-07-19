@@ -158,7 +158,7 @@ describe('Studio — every top-bar control responds', () => {
 describe('Studio — Architect + editor controls respond', () => {
 	it('"Fix all" clears an unknown component flagged inline', async () => {
 		const user = setup();
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — the Architect "Fix all" banner needs the coach open
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' })); // panels start closed now — the Architect "Fix all" banner needs the coach open
 		const editor = screen.getByLabelText('Deck source');
 		await user.click(editor);
 		await user.paste('<!-- _class: bogus-zzz -->\n# Oops\n\n---\n\n');
@@ -187,9 +187,8 @@ describe('Studio — Architect + editor controls respond', () => {
 
 	it('the Architect Chat thread sends a message and degrades honestly offline', async () => {
 		const user = setup();
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the coach
-		// Switch the Architect panel to the Chat tab.
-		await user.click(screen.getByRole('tab', { name: 'Chat' }));
+		// Chat is its own panel now (own toolbar icon) — no tab-switching.
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Chat' }));
 		const box = await screen.findByRole('textbox', { name: 'Message the Architect' });
 		await user.type(box, 'Tighten slide 1');
 		await user.click(screen.getByRole('button', { name: 'Send' }));
@@ -201,7 +200,7 @@ describe('Studio — Architect + editor controls respond', () => {
 
 	it('the deterministic Coach chips work with no model connected', async () => {
 		const user = setup();
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Architect' })); // panels start closed now — open the coach
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Coach' })); // panels start closed now — open the coach
 		// The Coach's value is deterministic (Coach-vs-Converse): the "quick reads" chips
 		// compute a result card from the deck with NO model — they must work offline, not
 		// point at Workspace. (The model-gated AI fix is what degrades; covered elsewhere.)
