@@ -106,8 +106,11 @@ different? Not because the model can't reach the standard — give it a clear on
 and it often will. Because the standard has to come from somewhere, and *the
 average of everything ever made* is not a standard; it's a description. A model
 can hit any target you set. It cannot be the thing that decides which target is
-worth hitting. That isn't a gap more capability closes. It's a different kind of
-act, and it stays with the person who owns the result.
+worth hitting. Train it on me until it predicts my taste exactly, and it still
+hasn't taken that taste on: it has nothing at stake, nothing that answers when
+the deck dies in the room. Predicting a standard isn't owning one. That isn't a
+gap more capability closes — it's a different kind of act, and it stays with
+whoever is accountable for the result.
 
 So when someone says AI means anyone can do what I did, what they're picturing
 is the tool without the person who set the standard — and that version produces
