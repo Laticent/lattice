@@ -212,6 +212,27 @@ render never diverge — the two editors stay perfectly in sync.
 > trigger is a genuine `DropdownMenuTrigger` — resolving the trio's reuse finding
 > (HARD RULE #15) properly rather than restyling a bespoke popover. Pure commands
 > moved to `lib/compose/table-commands.ts` (shared, no circular import).
+>
+> **Follow-up: the on-deck trio (2026-07-19).** Three items the original design
+> named but deferred, landed together (one PR, HARD RULE #17):
+> - **Marker picker (Axis C "later").** On a stateful slide
+>   (`obligation-matrix`/`roadmap`) the table island leads with four state-marker
+>   chips (`[x]` pass · `[-]` partial · `[ ]` to-do · `[/]` skip). Clicking one
+>   sets/replaces the marker at the caret cell's start via `setCellMarker`
+>   (`currentCellMarker` reads it back); the cell's own rendered badge
+>   (`stateMarkerPlugin`) shows the live state, so the chips carry no pressed-state.
+>   Class-awareness comes from the slide's `directives` (`_class`), read through
+>   `slideClassOf` — no new schema, still literal cell text (Axis C invariant holds).
+> - **Insert-table affordance (Axis E / phase 2 "insert a brand-new table").** A
+>   pill-actions button (`insertStarterTable`) drops a 2×2 GFM grid at the caret —
+>   replacing an empty paragraph in place, else after the caret's block. Hidden when
+>   the caret is already in a table (`.cs-caret-in-table`), so no dead button /
+>   doubled table icon.
+> - **Decoration-cache perf (the logged residual above).** `stateMarkerPlugin` now
+>   memoizes its `DecorationSet` by `state.doc` identity, so a caret-only update
+>   (the common keystroke) skips the whole-doc marker rescan. Behavior-identical;
+>   measured 0.82 ms/scan on a synthetic 100-slide deck, now skipped on non-doc
+>   transactions. This retires the "revisit with a decoration cache" residual.
 
 ## Phasing (one branch → one PR, HARD RULE #17)
 

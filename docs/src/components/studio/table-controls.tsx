@@ -1,19 +1,30 @@
-import { AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, Columns3, Rows3, Table, Trash2 } from 'lucide-react';
+import { AlignCenter, AlignLeft, AlignRight, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, ArrowUpToLine, Check, Circle, Columns3, Minus, Rows3, Slash, Table, Trash2 } from 'lucide-react';
 import type { Command } from 'prosemirror-state';
 import { addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { type ColAlign, currentColumnAlign, setColumnAlign } from '@/lib/compose/table-commands';
+import { type ColAlign, currentColumnAlign, setCellMarker, setColumnAlign } from '@/lib/compose/table-commands';
 import { cn } from '@/lib/utils';
+
+// The four LFM state markers, for the class-aware picker (obligation-matrix / roadmap). Each sets
+// the marker at the caret cell's start; the cell's own rendered chip (stateMarkerPlugin) shows the
+// live state, so the picker itself needs no pressed-state.
+const MARKERS = [
+	{ token: '[x]', Icon: Check, label: 'Pass', cls: 'cs-mk-pass' },
+	{ token: '[-]', Icon: Minus, label: 'Partial', cls: 'cs-mk-warn' },
+	{ token: '[ ]', Icon: Circle, label: 'To-do', cls: 'cs-mk-todo' },
+	{ token: '[/]', Icon: Slash, label: 'Skip', cls: 'cs-mk-skip' },
+] as const;
 
 // The table controls that live IN the slide's context-sensitive divider bar when the caret is in a
 // table (mounted into a pill slot by ComposeView). Quick insert-row/column inline on desktop, and a
 // table-icon dropdown — the real shadcn DropdownMenu (Radix a11y: focus, arrow keys, Escape,
-// outside-click, roles) — holding the full action set with icons. No hand-rolled popover.
+// outside-click, roles) — holding the full action set with icons. No hand-rolled popover. On a
+// STATEFUL component (obligation-matrix / roadmap) a state-marker picker leads the group.
 // 2026-07-19-compose-table-editing.md (chrome).
 
-export function TableControls({ view }: { view: EditorView }) {
+export function TableControls({ view, stateful = false }: { view: EditorView; stateful?: boolean }) {
 	const [align, setAlign] = React.useState<ColAlign>(null);
 	// Run a table command against the live editor, keeping focus in the editor.
 	const run = React.useCallback(
@@ -37,6 +48,16 @@ export function TableControls({ view }: { view: EditorView }) {
 
 	return (
 		<div className="cs-tblc">
+			{stateful && (
+				<div className="cs-tblc-marks">
+					{MARKERS.map(({ token, Icon, label, cls }) => (
+						<button key={token} type="button" className={cn('cs-tblc-mark', cls)} aria-label={`Set cell state: ${label}`} title={label} onMouseDown={(e) => e.preventDefault()} onClick={() => run(setCellMarker(token))}>
+							<Icon aria-hidden />
+						</button>
+					))}
+					<span className="cs-tblc-div" aria-hidden />
+				</div>
+			)}
 			<button type="button" className="cs-tblc-quick" aria-label="Insert row below" title="Insert row below" onMouseDown={(e) => e.preventDefault()} onClick={() => run(addRowAfter)}>
 				<ArrowDownToLine aria-hidden />
 			</button>

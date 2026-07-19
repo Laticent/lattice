@@ -228,7 +228,10 @@ in patch versions.
   type; **Tab**/**Shift-Tab** hop cells and append a row off the end; the slide's own context-sensitive
   divider bar grows table controls when the caret is in a table — quick insert-row/column inline, and a
   **table-icon dropdown** (a shadcn menu with an icon per action: insert row/column, align a column,
-  delete row/column/table) that keeps the bar compact on mobile. No separate floating toolbar. The LFM state
+  delete row/column/table) that keeps the bar compact on mobile. No separate floating toolbar. You can
+  also **insert a fresh table** into any slide from the bar (a starter 2×2 grid at the caret), and on
+  the stateful components (**obligation-matrix**, **roadmap**) a **state-marker picker** appears — click
+  the stoplight chips to set a cell's `[x]`/`[-]`/`[ ]`/`[/]` instead of typing the syntax. The LFM state
   markers `[x] [-] [ ] [/]` show as tinted chips (green/amber/neutral/strikethrough) while staying literal
   text, so obligation-matrix and roadmap tables read as themselves. The editor is deliberately clamped to
   what GFM can store — no merged cells, no column resize — so what you see always survives the save; a

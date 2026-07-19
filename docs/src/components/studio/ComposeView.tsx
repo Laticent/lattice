@@ -10,8 +10,9 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
+import { slideClassOf } from '@/lib/compose/deck-source';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideHeadings } from '@/lib/compose/registers';
-import { stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
 import { TableControls } from './table-controls';
@@ -182,10 +183,23 @@ export function collapsePlugin() {
 // each update (tables are small), the same view-only pattern as the collapse decoration.
 const CELL_MARKER_RE = /^\[([x\-/ ])\]/;
 const MARKER_STATE: Record<string, string> = { x: 'pass', '-': 'warn', '/': 'skip', ' ': 'todo' };
+
+// The table components whose cells carry LFM state markers — they get the marker picker in the bar.
+const STATEFUL_CLASSES = new Set(['obligation-matrix', 'roadmap']);
+function isStatefulClass(slide: PMNode): boolean {
+	return STATEFUL_CLASSES.has(slideClassOf((slide.attrs.directives as string[]) || []));
+}
 function stateMarkerPlugin() {
+	// Memoize by doc IDENTITY: `decorations` is called on every view update, but the marker set only
+	// changes when the DOC changes — so a selection-only update (a caret move, the common case) skips
+	// the whole-doc rescan and returns the cached set. Behavior is identical; it just avoids O(nodes)
+	// work per keystroke-less update on a large deck.
+	let cachedDoc: PMNode | null = null;
+	let cached: DecorationSet = DecorationSet.empty;
 	return new Plugin({
 		props: {
 			decorations(state) {
+				if (state.doc === cachedDoc) return cached;
 				const decos: Decoration[] = [];
 				state.doc.descendants((node, pos) => {
 					if (node.type.name !== 'table_cell' && node.type.name !== 'table_header') return true;
@@ -196,7 +210,9 @@ function stateMarkerPlugin() {
 					}
 					return true; // a cell can hold nested inline, but the marker is only ever at its start
 				});
-				return DecorationSet.create(state.doc, decos);
+				cachedDoc = state.doc;
+				cached = DecorationSet.create(state.doc, decos);
+				return cached;
 			},
 		},
 	});
@@ -235,6 +251,7 @@ const LUCIDE_PATHS: Record<string, string> = {
 	check: '<path d="M20 6 9 17l-5-5"/>',
 	x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 	'sliders-horizontal': '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+	'grid-2x2-plus': '<path d="M12 3v17a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1H3"/><path d="M16 19h6"/><path d="M19 22v-6"/>',
 };
 function lucideSvg(name: keyof typeof LUCIDE_PATHS): string {
 	return `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${LUCIDE_PATHS[name]}</svg>`;
@@ -283,6 +300,7 @@ class SlideView {
 	private deleteBtn: HTMLButtonElement;
 	private confirmTimer = 0;
 	private locked: boolean;
+	private stateful: boolean; // slide is a stateful table component (obligation-matrix / roadmap) → offer the marker picker
 	private tableHosted = false; // whether this slide's Format group currently hosts the React TableControls
 	constructor(
 		node: PMNode,
@@ -292,9 +310,10 @@ class SlideView {
 		onSettings?: (index: number) => void,
 		private getHeadings?: () => SlideHeadings | undefined,
 		onInsertBelow?: (index: number) => void,
-		private mountTable?: (slot: HTMLElement | null, owner: SlideView) => void,
+		private mountTable?: (slot: HTMLElement | null, owner: SlideView, stateful: boolean) => void,
 	) {
 		this.locked = !!node.attrs.locked;
+		this.stateful = isStatefulClass(node);
 		const dom = document.createElement('section');
 		dom.className = this.locked ? 'cs-slide cs-slide-locked' : 'cs-slide';
 		const bar = document.createElement('div');
@@ -335,6 +354,9 @@ class SlideView {
 		// wired (onInsertBelow) — the #1058 "one insert door", its Blank tile a tap away — and
 		// falls back to a direct blank insert if it isn't.
 		actions.append(this.btn('Insert slide below', 'plus', () => { const i = this.index(); if (i < 0) return; if (onInsertBelow) onInsertBelow(i); else this.insertBelow(); }, 'cs-pill-btn'));
+		// Insert a starter table into THIS slide at the caret (distinct from the add-slide `+` and the
+		// in-table edit dropdown). insertStarterTable is a no-op inside an existing table / a locked slide.
+		actions.append(this.btn('Insert table', 'grid-2x2-plus', () => { insertStarterTable(this.view.state, this.view.dispatch); this.view.focus(); }, 'cs-pill-btn cs-insert-table'));
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
 		pill.append(this.fmtGroup, div, actions);
 
@@ -372,6 +394,9 @@ class SlideView {
 		// table slide is read-only (the guard eats every command), so it gets the register path, not
 		// the controls (the register footgun, HARD RULE #18).
 		const inTable = active && !this.locked && isInTable(this.view.state);
+		// Hide the "insert table" action while the caret is in a table — there it's a no-op, and the
+		// table-edit dropdown already shows a table icon (avoid the doubled glyph).
+		this.dom.classList.toggle('cs-caret-in-table', inTable);
 		if (!inTable) this.clearTableHost(); // leaving the table unmounts the React controls
 		if (!active) {
 			if (this.fmtGroup.childElementCount) {
@@ -387,7 +412,7 @@ class SlideView {
 			slot.className = 'cs-tblc-slot';
 			this.fmtGroup.replaceChildren(slot);
 			this.tableHosted = true;
-			this.mountTable?.(slot, this);
+			this.mountTable?.(slot, this, this.stateful);
 			return;
 		}
 		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.());
@@ -419,7 +444,7 @@ class SlideView {
 	private clearTableHost() {
 		if (!this.tableHosted) return;
 		this.tableHosted = false;
-		this.mountTable?.(null, this);
+		this.mountTable?.(null, this, false);
 	}
 	private applyDecos(decorations: readonly Decoration[]) {
 		const has = (k: 'collapsed' | 'active') => decorations.some((d) => (d.spec as Record<string, boolean> | undefined)?.[k]);
@@ -520,6 +545,7 @@ class SlideView {
 	update(node: PMNode, decorations: readonly Decoration[]) {
 		if (node.type.name !== 'slide') return false;
 		this.locked = !!node.attrs.locked;
+		this.stateful = isStatefulClass(node);
 		this.dom.classList.toggle('cs-slide-locked', this.locked);
 		this.applyDecos(decorations);
 		return true;
@@ -595,15 +621,15 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// The pill slot (a DOM node owned by the ACTIVE table slide's divider bar) into which the React
 	// `TableControls` island is portaled. null = the caret isn't in an editable table. The mount is
 	// owner-keyed (tableHostRef) so a late unmount from the previous host can't clobber the new one.
-	const [tableSlot, setTableSlot] = React.useState<HTMLElement | null>(null);
+	const [tableMount, setTableMount] = React.useState<{ slot: HTMLElement; stateful: boolean } | null>(null);
 	const tableHostRef = React.useRef<object | null>(null);
-	const mountTable = React.useCallback((slot: HTMLElement | null, owner: object) => {
+	const mountTable = React.useCallback((slot: HTMLElement | null, owner: object, stateful: boolean) => {
 		if (slot) {
 			tableHostRef.current = owner;
-			setTableSlot(slot);
+			setTableMount({ slot, stateful });
 		} else if (tableHostRef.current === owner) {
 			tableHostRef.current = null;
-			setTableSlot(null);
+			setTableMount(null);
 		}
 	}, []);
 
@@ -828,7 +854,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 					</div>,
 					document.body,
 				)}
-			{tableSlot && createPortal(<TableControls view={viewRef.current as EditorView} />, tableSlot)}
+			{tableMount && createPortal(<TableControls view={viewRef.current as EditorView} stateful={tableMount.stateful} />, tableMount.slot)}
 		</div>
 	);
 }
@@ -941,6 +967,9 @@ function ComposeStyles() {
 				.cs-tblc-quick{display:none}
 				.cs-tblc-more{width:28px;height:28px}
 				.cs-tblc-more svg{width:16px;height:16px}
+				/* keep the state-marker picker — it's the point of obligation-matrix / roadmap — just bigger */
+				.cs-tblc-mark{width:28px;height:28px}
+				.cs-tblc-mark svg{width:15px;height:15px}
 			}
 			/* floating selection bar — inline marks over a text selection (portaled to body).
 			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */
@@ -958,6 +987,17 @@ function ComposeStyles() {
 				.cs-tblc-quick,.cs-tblc-more{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s}
 				.cs-tblc-quick svg,.cs-tblc-more svg{width:14px;height:14px}
 				.cs-tblc-quick:hover,.cs-tblc-more:hover,.cs-tblc-more[data-state=open]{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+				/* state-marker picker (obligation-matrix / roadmap): click to set the caret cell's marker;
+				   each chip carries the engine's stoplight color, matching the rendered cell chip. */
+				.cs-tblc-marks{display:inline-flex;align-items:center;gap:1px}
+				.cs-tblc-mark{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s}
+				.cs-tblc-mark svg{width:13px;height:13px}
+				.cs-tblc-mark:hover{background:color-mix(in oklab,currentColor,transparent 86%)}
+				.cs-mk-pass{color:var(--ok,#1a7f5a)}
+				.cs-mk-warn{color:var(--warn,#b7791f)}
+				.cs-mk-todo,.cs-mk-skip{color:var(--text-muted,#6b7f9a)}
+				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
+				.cs-caret-in-table .cs-insert-table{display:none}
 		`}</style>
 	);
 }
