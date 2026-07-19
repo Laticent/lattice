@@ -140,6 +140,28 @@ describe('table chrome commands', () => {
 		expect(t.count('table_row')).toBe(2); // header + one body row
 		expect(t.count('table_header')).toBe(2); // 2 columns
 		expect(() => t.state.doc.check()).not.toThrow();
+		expect(t.src()).toContain('| --- | --- |'); // the empty starter grid serializes to valid GFM
+	});
+
+	it('setCellMarker inserts an UNMARKED marker under bold (never a bolded/escaped `**[x] …**`)', () => {
+		// Red-team #2: insertText would inherit inclusive marks, bolding+escaping the marker so the
+		// engine never renders it. The marker must be plain text at the literal cell start.
+		const t = harness('<!-- _class: obligation-matrix -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| **GDPR** | x |');
+		t.caret('GDPR'); // caret inside the bolded cell text
+		setCellMarker('[x]')(t.state, t.view.dispatch);
+		expect(t.src()).toContain('[x] **GDPR**'); // marker plain + outside the bold, not `**[x] GDPR**`
+		expect(t.src()).not.toContain('**[x]'); // never inside the emphasis
+		expect(t.src()).not.toContain('\\[x\\]'); // never escaped
+	});
+
+	it('setCellMarker leaves a leading inline image intact (no textContent-vs-position corruption)', () => {
+		// Red-team #1: measuring an existing marker off `textContent` (which skips the image atom) and
+		// using that char count as a document position would delete the image. Guard on the leading text.
+		const t = harness('<!-- _class: obligation-matrix -->\n\n## M\n\n| R | A |\n| --- | :---: |\n| GDPR | ![a](u.png) x |');
+		t.caret('x'); // the cell leads with an image, then text
+		setCellMarker('[x]')(t.state, t.view.dispatch);
+		expect(t.src()).toContain('u.png'); // the image survives
+		expect(t.src()).toContain('[x]'); // and the marker was written
 	});
 
 	it('insertStarterTable replaces an EMPTY paragraph in place (no stray blank block)', () => {

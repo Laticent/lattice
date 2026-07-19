@@ -232,8 +232,9 @@ in patch versions.
   also **insert a fresh table** into any slide from the bar (a starter 2×2 grid at the caret), and on
   the stateful components (**obligation-matrix**, **roadmap**) a **state-marker picker** appears — click
   the stoplight chips to set a cell's `[x]`/`[-]`/`[ ]`/`[/]` instead of typing the syntax. The LFM state
-  markers `[x] [-] [ ] [/]` show as tinted chips (green/amber/neutral/strikethrough) while staying literal
-  text, so obligation-matrix and roadmap tables read as themselves. The editor is deliberately clamped to
+  markers `[x] [-] [ ] [/]` show as tinted chips (green/amber/neutral/strikethrough) in those components'
+  body cells while staying literal text — matching exactly where the export paints them — so
+  obligation-matrix and roadmap tables read as themselves. The editor is deliberately clamped to
   what GFM can store — no merged cells, no column resize — so what you see always survives the save; a
   cell holding an unmodeled construct (math, block or entity-encoded HTML, strikethrough, a footnote)
   still locks the slide, and a table pasted with merged cells is flattened to a plain grid rather than

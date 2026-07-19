@@ -88,7 +88,10 @@ export function currentCellMarker(state: EditorState): string | null {
 	if (!isInTable(state)) return null;
 	const p = state.selection.$from.parent;
 	if (p.type.name !== 'table_cell' && p.type.name !== 'table_header') return null;
-	const m = /^\[([x\-/ ])\]/.exec(p.textContent);
+	// Read the LEADING TEXT NODE (mirrors setCellMarker): a marker only ever leads plain text, and a
+	// leading inline atom would make `textContent` lie about the marker's presence.
+	const first = p.firstChild;
+	const m = first?.isText ? /^\[([x\-/ ])\]/.exec(first.text ?? '') : null;
 	return m ? m[1] : null;
 }
 
@@ -102,11 +105,21 @@ export function setCellMarker(marker: string | null): Command {
 		if (p.type.name !== 'table_cell' && p.type.name !== 'table_header') return false;
 		if (dispatch) {
 			const cellStart = $from.start(); // first inline position in the cell
-			const m = CELL_MARKER.exec(p.textContent);
+			// Measure an existing marker off the cell's LEADING TEXT NODE, not `textContent`: textContent
+			// skips inline atoms (an image), so its char length diverges from real document positions and
+			// a range built from it would delete the wrong content. A marker only ever leads a text node.
+			const first = p.firstChild;
+			const m = first?.isText ? CELL_MARKER.exec(first.text ?? '') : null;
 			const existing = m ? m[0].length : 0;
 			const tr = state.tr;
-			if (marker) tr.insertText(`${marker} `, cellStart, cellStart + existing);
-			else if (existing) tr.delete(cellStart, cellStart + existing);
+			if (marker) {
+				// Insert an explicitly UNMARKED text node (not `insertText`, which inherits the stored/
+				// inclusive marks at the caret): a marker under bold/code would serialize `**\[x\] …**`,
+				// which the engine never renders as a stoplight. The marker must be plain at the cell start.
+				tr.replaceWith(cellStart, cellStart + existing, state.schema.text(`${marker} `));
+			} else if (existing) {
+				tr.delete(cellStart, cellStart + existing);
+			}
 			dispatch(tr);
 		}
 		return true;
@@ -124,7 +137,7 @@ export const insertStarterTable: Command = (state, dispatch) => {
 	if (dispatch) {
 		const th = s.nodes.table_header.createAndFill();
 		const td = s.nodes.table_cell.createAndFill();
-		if (!th || !td) return true;
+		if (!th || !td) return false; // unreachable for inline* cells, but report no-op honestly if it happens
 		const table = s.nodes.table.create(null, [s.nodes.table_row.create(null, [th, th]), s.nodes.table_row.create(null, [td, td])]);
 		const before = $from.before(2);
 		const after = $from.after(2);

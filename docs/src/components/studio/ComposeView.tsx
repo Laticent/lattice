@@ -184,7 +184,12 @@ export function collapsePlugin() {
 const CELL_MARKER_RE = /^\[([x\-/ ])\]/;
 const MARKER_STATE: Record<string, string> = { x: 'pass', '-': 'warn', '/': 'skip', ' ': 'todo' };
 
-// The table components whose cells carry LFM state markers — they get the marker picker in the bar.
+// The PIPE-TABLE components whose BODY cells carry LFM state markers the engine paints as stoplight
+// chips (`obligationMatrixBadges` / roadmap gate on `<td>`, spec LFM-1.0 §3.2). The other stateful
+// components (checklist / verdict-grid / pricing) carry markers in LIST items, not table cells, so
+// they are correctly out of a table picker's scope. This is the single source of truth for BOTH the
+// marker picker (which classes offer it) AND the badge decoration below (which cells get painted) —
+// so the two never diverge. Add a class here when a new marker-bearing pipe-table component ships.
 const STATEFUL_CLASSES = new Set(['obligation-matrix', 'roadmap']);
 function isStatefulClass(slide: PMNode): boolean {
 	return STATEFUL_CLASSES.has(slideClassOf((slide.attrs.directives as string[]) || []));
@@ -202,8 +207,17 @@ function stateMarkerPlugin() {
 				if (state.doc === cachedDoc) return cached;
 				const decos: Decoration[] = [];
 				state.doc.descendants((node, pos) => {
-					if (node.type.name !== 'table_cell' && node.type.name !== 'table_header') return true;
-					const m = CELL_MARKER_RE.exec(node.textContent);
+					// Only paint where the ENGINE renders a stoplight chip: a marker-bearing pipe-table
+					// component's BODY cell. Descend stateful slides only (skip the rest wholesale — also
+					// faster), and decorate `table_cell`, never `table_header` (headers carry column labels,
+					// not statuses — `obligationMatrixBadges`/roadmap gate on `<td>`). Anything else the
+					// author typed stays literal, matching what the export produces (no WYSIWYG lie).
+					if (node.type.name === 'slide') return isStatefulClass(node);
+					if (node.type.name !== 'table_cell') return true;
+					// Measure off the leading TEXT node: a leading inline atom (image) would offset the range.
+					const first = node.firstChild;
+					if (!first?.isText) return true;
+					const m = CELL_MARKER_RE.exec(first.text ?? '');
 					if (m) {
 						const from = pos + 1; // inline content starts just inside the cell
 						decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${MARKER_STATE[m[1]]}` }));
