@@ -237,6 +237,33 @@ export function collapsePlugin() {
 	});
 }
 
+// View-only badge chips for the four LFM state markers at the START of a table cell — the
+// signature obligation-matrix / roadmap grammar. The underlying text stays the literal
+// `[x]`/`[-]`/`[ ]`/`[/]` (so the round-trip is untouched and the marker is still editable); an
+// inline decoration just tints it to the engine's stoplight semantics. Recomputed from the doc
+// each update (tables are small), the same view-only pattern as the collapse decoration.
+const CELL_MARKER_RE = /^\[([x\-/ ])\]/;
+const MARKER_STATE: Record<string, string> = { x: 'pass', '-': 'warn', '/': 'skip', ' ': 'todo' };
+function stateMarkerPlugin() {
+	return new Plugin({
+		props: {
+			decorations(state) {
+				const decos: Decoration[] = [];
+				state.doc.descendants((node, pos) => {
+					if (node.type.name !== 'table_cell' && node.type.name !== 'table_header') return true;
+					const m = CELL_MARKER_RE.exec(node.textContent);
+					if (m) {
+						const from = pos + 1; // inline content starts just inside the cell
+						decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${MARKER_STATE[m[1]]}` }));
+					}
+					return true; // a cell can hold nested inline, but the marker is only ever at its start
+				});
+				return DecorationSet.create(state.doc, decos);
+			},
+		},
+	});
+}
+
 // Marks the slide the caret is inside with a `cs-slide-active` node decoration so its
 // control bar shows only when you're "inside the slide boundary" (recomputed from the
 // selection every state change — stateless, no stored set).
@@ -549,6 +576,7 @@ function buildPlugins() {
 		structuralGuard(),
 		collapsePlugin(),
 		activeSlidePlugin(),
+		stateMarkerPlugin(),
 		formatSyncPlugin(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
@@ -1009,6 +1037,12 @@ function ComposeStyles() {
 				.cs-host td:first-child{font-weight:600;color:var(--text-heading,#0a1628)}
 				.cs-host table p{margin:0}
 				.cs-host .selectedCell{background:color-mix(in oklab,var(--accent,#006fa8),transparent 86%)}
+				/* view-only badge chips for the four LFM state markers in a cell — literal text, just tinted */
+				.cs-host .cs-cellmark{font-family:var(--font-mono,ui-monospace,monospace);font-size:.82em;font-weight:700;padding:.04em .34em;border-radius:5px;letter-spacing:-.02em}
+				.cs-host .cs-cellmark-pass{color:var(--ok,#1a7f5a);background:color-mix(in oklab,var(--ok,#1a7f5a),transparent 88%)}
+				.cs-host .cs-cellmark-warn{color:var(--warn,#b7791f);background:color-mix(in oklab,var(--warn,#b7791f),transparent 86%)}
+				.cs-host .cs-cellmark-skip{color:var(--text-muted,#6b7f9a);background:color-mix(in oklab,var(--text-muted,#6b7f9a),transparent 88%);text-decoration:line-through}
+				.cs-host .cs-cellmark-todo{color:var(--text-muted,#6b7f9a);background:color-mix(in oklab,var(--border,#e4eaf2),transparent 40%)}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}

@@ -209,6 +209,19 @@ in patch versions.
   nothing — the anti-gimmick bar made explicit (`2026-07-18-anima-motion-faculty-modes.md` §3.1–3.2). The
   audit is pure and advisory; it never blocks. (`MotionStudio.tsx`, `docs/src/lib/anima/audit.ts`.)
 
+- **Tables are now editable in the Studio's Compose editor — no more "edit in Markdown" lock.** A slide
+  with a `|…|` table used to be locked read-only in Compose (the rich editor) because its round-trip ran
+  on a CommonMark-only serializer that couldn't emit a table. Compose now models GFM tables as real
+  ProseMirror nodes and round-trips them losslessly, so you edit a table in place: click into a cell and
+  type; **Tab**/**Shift-Tab** hop cells and append a row off the end; a floating toolbar over the table
+  inserts/deletes rows and columns, sets per-column alignment, and deletes the table. The LFM state
+  markers `[x] [-] [ ] [/]` show as tinted chips (green/amber/neutral/strikethrough) while staying literal
+  text, so obligation-matrix and roadmap tables read as themselves. The editor is deliberately clamped to
+  what GFM can store — no merged cells, no column resize — so what you see always survives the save; a
+  cell holding an unmodeled construct (math, block HTML, strikethrough, a footnote) still locks the slide.
+  glossary and list-tabular are authored as lists and were already editable. (Design:
+  `engineering/decisions/2026-07-19-compose-table-editing.md`; `docs/src/lib/compose/deck-markdown.ts`,
+  `docs/src/components/studio/ComposeView.tsx`.)
 - **A `scene` animates inside an exported standalone `.html`, not just the live tools.** Export a deck
   with the self-contained player (`--player`, or the Studio's "share as webpage") and a scene now plays
   right in the portable file — no server, no network. The Anima host + vector backends are pre-bundled

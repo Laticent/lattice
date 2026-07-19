@@ -15,6 +15,12 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 	it('STILL fires on a table whose cell holds an unmodeled construct (math), locking the whole slide', () => {
 		expect(hasLossyConstruct('| Shape | Area |\n| --- | --- |\n| Circle | $\\pi r^2$ |')).toBe(true);
 	});
+	it('STILL fires on a table whose cell holds inline HTML (Axis F / checker Bug 3)', () => {
+		// The block-HTML rule is line-anchored, so a mid-line tag in a cell slipped past it; the
+		// engine renders that HTML and a pipe in an attribute would split the cell, so it must lock.
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| <div>x</div> | 2 |')).toBe(true);
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| <span>t</span> | y |')).toBe(true);
+	});
 	it('fires on strikethrough', () => {
 		expect(hasLossyConstruct('Price was ~~$5M~~ now $3M.')).toBe(true);
 	});

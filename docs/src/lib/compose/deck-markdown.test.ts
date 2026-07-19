@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { roundTripSlideProse } from './deck-markdown';
+import { parseSlideProse, roundTripSlideProse } from './deck-markdown';
 
 // The lossless round-trip proof — on REAL Lattice slide prose, the exact grammar
 // Lexical flattened. Each case asserts the round-trip preserves structure (and
@@ -122,5 +122,38 @@ describe('table round-trip — the reason table slides stop locking', () => {
 		// `:----:` (4 dashes) → canonical `:---:`; the center alignment is what matters and is kept.
 		const out = roundTripSlideProse('| A | B |\n| :----: | ----: |\n| 1 | 2 |');
 		expect(out).toContain('| :---: | ---: |');
+	});
+
+	// Regressions from the maker-checker pass on the round-trip kernel.
+	const bodyCellCount = (md: string) => {
+		let n = 0;
+		parseSlideProse(md).descendants((node) => {
+			if (node.type.name === 'table_cell') n++;
+			return true;
+		});
+		return n;
+	};
+
+	it('a literal backslash-then-pipe in a cell does NOT split the cell, and is idempotent (Bug 1)', () => {
+		// Source cell content is the literal text `x\|y` (backslash, pipe): `\\` = literal backslash,
+		// `\|` = literal pipe. The old lookbehind saw the escaped backslash and left the pipe raw.
+		const src = ['| a | b |', '| --- | --- |', String.raw`| x\\\|y | z |`].join('\n');
+		const once = roundTripSlideProse(src);
+		expect(roundTripSlideProse(once)).toBe(once); // fixed point — emit caching depends on it
+		expect(bodyCellCount(once)).toBe(2); // the `z` column survived (cell did not split into 3)
+	});
+
+	it('a user-escaped bracket in a cell stays literal — never becomes a live link (Bug 2)', () => {
+		const src = ['| a | b |', '| --- | --- |', '| \\[text\\](http://x.com) | z |'].join('\n');
+		const out = roundTripSlideProse(src);
+		expect(out).toContain('\\[text\\]'); // still escaped literal
+		expect(out).not.toContain('[text](http://x.com)'); // NOT a live link
+		expect(roundTripSlideProse(out)).toBe(out); // idempotent
+	});
+
+	it('state markers still survive while other escaped brackets do not (Bug 2 boundary)', () => {
+		const out = roundTripSlideProse('| A | B |\n| --- | --- |\n| [x] done | \\[n\\] |');
+		expect(out).toContain('| [x] done |'); // the leading marker is un-escaped
+		expect(out).toContain('\\[n\\]'); // a non-marker escaped bracket stays escaped
 	});
 });

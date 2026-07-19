@@ -89,20 +89,31 @@ export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokeni
 // ── Serializer ───────────────────────────────────────────────────────────────
 const DELIM: Record<string, string> = { left: ':---', center: ':---:', right: '---:', null: '---' };
 
+// The serializer state's constructor and `out` buffer are typed `@internal` upstream, but are
+// the documented way to render a fragment to a string; reach them through a minimal surface.
+const SubState = MarkdownSerializerState as unknown as new (
+	nodes: SerializerState,
+	marks: SerializerState,
+	options: SerializerState,
+) => { renderInline(n: PMNode): void; out: string };
+
 /** Serialize one cell's inline content to a single GFM-safe line. */
 function serializeCell(state: SerializerState, cell: PMNode): string {
 	// A throwaway sub-state renders just this cell's inline content to a string
 	// (the main state writes to one shared buffer, so it can't be reused per-cell).
-	const sub = new MarkdownSerializerState(state.nodes, state.marks, state.options);
+	const sub = new SubState(state.nodes, state.marks, state.options);
 	sub.renderInline(cell);
 	let out = sub.out.replace(/\n+/g, ' ').trim();
-	// LFM state markers (`[x] [-] [ ] [/]`) and literal brackets are the signature
-	// cell syntax; the base serializer escapes `[`/`]` as link syntax, which would
-	// break the engine's `^\[([x-/ ])\]` marker regex. Un-escape brackets so markers
-	// survive verbatim.
-	out = out.replace(/\\([[\]])/g, '$1');
-	// GFM: a raw pipe splits cells, so escape any not-already-escaped pipe.
-	out = out.replace(/(?<!\\)\|/g, '\\|');
+	// Un-escape ONLY a leading LFM state marker's brackets — the engine's exact
+	// `^\[([x-/ ])\]` shape — so `[x] [-] [ ] [/]` survive verbatim. Every OTHER escaped
+	// bracket stays escaped: a user's `\[literal\]` or an escaped `\[text\](url)` must NOT
+	// silently become a live link/image (checker Bug 2).
+	out = out.replace(/^\\\[([x\-/ ])\\\]/, '[$1]');
+	// GFM: a raw pipe splits cells, so escape EVERY literal pipe. `renderInline` never emits a
+	// SYNTACTIC pipe, so there is nothing pre-escaped to skip — and a lookbehind would misfire on
+	// an escaped backslash (`x\\|y`), leaving that pipe raw and splitting the cell (checker Bug 1).
+	// GFM un-escapes `\|` back to `|` even inside a code span, so escaping unconditionally is safe.
+	out = out.replace(/\|/g, '\\|');
 	return out;
 }
 

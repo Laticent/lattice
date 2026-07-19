@@ -61,6 +61,10 @@ export function composeSlideChunk(directives: string[], prose: string): string {
 const LOSSY_CONSTRUCTS: RegExp[] = [
 	/~~/, // strikethrough
 	/^\s*<(?!!--)\/?[a-zA-Z][\w-]*(\s|>|\/)/m, // block-level HTML tag (not a comment)
+	// An HTML tag INSIDE a table row (`| … <tag> … |`). The block-HTML rule above is line-anchored,
+	// so a mid-line tag in a cell slips past it — but the engine renders that HTML (html:true) and a
+	// pipe inside a tag attribute would split the cell, so the slide must lock (Axis F, checker Bug 3).
+	/^\s*\|.*<(?!!--)\/?[a-zA-Z][\w-]*(\s|>|\/)/m,
 	/^\s*[-*+]\s+\[[ xX]\]/m, // task-list item
 	/\[\^[^\]]+\]/, // footnote reference / definition
 ];
