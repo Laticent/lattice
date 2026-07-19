@@ -59,13 +59,14 @@ lower ceiling.
 
 AI did raise the floor. The worst thing a person can produce today is much
 better than the worst they could produce alone, and that's a genuine good.
-But the ceiling went up too, because someone with judgment now spends their
-scarce hours on it instead of boilerplate. The tool doesn't average people
-toward each other. It amplifies whatever direction they were already facing,
-so good taste and no taste end up further apart, not closer. Aim it with a
-real sense of quality and the results are excellent; aim it with none and you
-reach mediocrity sooner. The gap between the two doesn't close; it widens, and
-then hides behind everyone's nicer baseline.
+But the tool pays out in proportion to the judgment you bring to aim it. Hand
+it to someone with no eye and the floor jumps while the ceiling holds — the
+tool was never the thing holding them back, so the work only comes out tidier
+than before. Hand it to someone with real craft and the ceiling rises too:
+freed from the busywork, they reach more of what they already saw. The floor
+comes up for everyone. The ceiling comes up for whoever brought something to
+lift. The same tool spreads people further apart, then hides the spread behind
+everyone's nicer baseline.
 
 ## What actually got scarcer
 
@@ -115,10 +116,13 @@ commodity. Compete where the model can't follow.
 
 ## The part that doesn't automate
 
-Photography didn't end painting. It ended the market for mediocre painting,
-and made the deliberate kind matter more. The people who mistook *I can
-produce an image now* for *I can paint now* were wrong in exactly the way this
-belief is wrong.
+A camcorder in every pocket didn't make everyone James Cameron. Once the
+camera stopped being the hard part, the job became everything the camera was
+never doing — what to shoot, when to cut, why the scene earns its place.
+Cameron with a phone still outshoots an amateur with a full crew, because the
+distance between them was never the gear. The people who hear *I can shoot
+video now* and take it to mean *I can direct now* are wrong in exactly the way
+this belief is wrong.
 
 So build the kind of work whose value you can point to but could never prompt
 out of thin air: the reasoning, and the standard held steady across a thousand
