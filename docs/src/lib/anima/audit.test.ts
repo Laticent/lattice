@@ -27,9 +27,19 @@ describe('auditScene — the anti-gimmick check', () => {
     expect(notes.some((n) => n.level === 'warn' && n.elId === 'z' && /too fast/i.test(n.message))).toBe(true);
   });
 
-  it('warns on a duplicated verb', () => {
+  it('warns on a truly redundant duplicate (same verb, no distinguishing param)', () => {
     const notes = auditScene(built([{ id: 'q', shape: 'box', motion: [{ verb: 'reveal' }, { verb: 'reveal' }] }]));
-    expect(notes.some((n) => n.level === 'warn' && n.elId === 'q' && /more than once/i.test(n.message))).toBe(true);
+    expect(notes.some((n) => n.level === 'warn' && n.elId === 'q' && /read as one|repeats/i.test(n.message))).toBe(true);
+  });
+
+  it('warns on two spins on the SAME axis (they fold into one rate)', () => {
+    const notes = auditScene(built([{ id: 'q', shape: 'box', motion: [{ verb: 'spin', axis: 'y', period: 3000 }, { verb: 'spin', axis: 'y', period: 5000 }] }]));
+    expect(notes.some((n) => n.level === 'warn' && /repeats “spin”/.test(n.message))).toBe(true);
+  });
+
+  it('does NOT flag two spins on DIFFERENT axes (a real compound tumble)', () => {
+    const notes = auditScene(built([{ id: 'q', shape: 'box', motion: [{ verb: 'spin', axis: 'x', period: 3000 }, { verb: 'spin', axis: 'y', period: 3000 }] }]));
+    expect(notes.every((n) => !/repeats/.test(n.message))).toBe(true);
   });
 
   it('warns when a moving group has no visible geometry', () => {

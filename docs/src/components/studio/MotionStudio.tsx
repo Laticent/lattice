@@ -133,6 +133,13 @@ const VERBS = (el: BuiltElement): string[] => (el.motion ?? []).map((m) => m.ver
 // orbit) do not. Used to decide which param block the inspector renders.
 const WINDOWED = new Set<MotionVerb>(['explode', 'reveal', 'sequence', 'fill', 'draw', 'trace']);
 const clamp01 = (n: number) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0));
+// A `type="number"` field accepts scientific notation, so `Number("1e309")` is Infinity —
+// which is truthy (so `|| fallback` won't catch it) but fails the schema's finite check and
+// would invalidate the scene. Guard finiteness the way clamp01 does for the sliders.
+const clampNum = (raw: string, min: number) => {
+	const n = Number(raw);
+	return Number.isFinite(n) ? Math.max(min, n) : min;
+};
 
 export function MotionStudio({
 	notify,
@@ -368,14 +375,14 @@ export function MotionStudio({
 													</div>
 													<label className="flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
 														<span>period <span className="text-[11px]">(ms/turn)</span></span>
-														<input type="number" min={1} step={100} value={m.period} onChange={(e) => updateMotion(i, { period: Math.max(1, Math.round(Number(e.target.value) || 1)) })} className="w-20 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-[12px] text-foreground outline-none focus:border-[var(--accent)]" />
+														<input type="number" min={1} step={100} value={m.period} onChange={(e) => updateMotion(i, { period: Math.round(clampNum(e.target.value, 1)) })} className="w-20 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-[12px] text-foreground outline-none focus:border-[var(--accent)]" />
 													</label>
 												</div>
 											)}
 											{m.verb === 'explode' && (
 												<label className="flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
 													<span>distance</span>
-													<input type="number" min={0} step={0.1} value={m.distance} onChange={(e) => updateMotion(i, { distance: Math.max(0, Number(e.target.value) || 0) })} className="w-20 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-[12px] text-foreground outline-none focus:border-[var(--accent)]" />
+													<input type="number" min={0} step={0.1} value={m.distance} onChange={(e) => updateMotion(i, { distance: clampNum(e.target.value, 0) })} className="w-20 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-[12px] text-foreground outline-none focus:border-[var(--accent)]" />
 												</label>
 											)}
 											{m.verb === 'fill' && (
@@ -419,7 +426,7 @@ export function MotionStudio({
 					<div className="mt-1 border-t border-border pt-3">
 						<div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reads as information?</div>
 						{audit.length === 0 ? (
-							<p className="flex items-center gap-1.5 text-[12px] text-[var(--accent)]"><Check className="size-3.5 shrink-0" /> Every motion earns its place.</p>
+							<p className="flex items-center gap-1.5 text-[12px] text-[var(--accent)]"><Check className="size-3.5 shrink-0" /> No gimmicks flagged.</p>
 						) : (
 							<ul className="flex flex-col gap-1.5">
 								{audit.map((n) => (

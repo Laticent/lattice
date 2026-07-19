@@ -5,7 +5,7 @@
 // keeps every verb serious, so this only ADVISES — the author-facing analog of the WCAG
 // audit and the FPS readout. Deterministic and DOM-free, like the rest of the core.
 
-import type { BuiltElement, Scene, SvgElement } from './types';
+import type { BuiltElement, Motion, Scene, SvgElement } from './types';
 
 export type AuditLevel = 'info' | 'warn';
 export interface AuditNote {
@@ -16,8 +16,9 @@ export interface AuditNote {
 }
 
 // A rotation slower than this reads as trackable EXPLANATION; faster, it blurs into a
-// gimmick. ~800ms/rev is the floor a viewer can actually follow (the "serious, not
-// wizbang" bar — 2026-07-17-anima-animation-library.md §2).
+// gimmick. 800ms/rev is a CHOSEN heuristic threshold — not a measured constant — a
+// deliberately conservative "can a viewer follow a single turn?" floor, in the spirit of
+// the anti-gimmick bar (2026-07-17-anima-animation-library.md §2). Tune with real feedback.
 export const READABLE_PERIOD_MS = 800;
 
 /** Every element in the scene, flattened — a built tree recurses through `children`; an
@@ -68,10 +69,15 @@ export function auditScene(scene: Scene): AuditNote[] {
       }
     }
 
-    // Redundant motion — the same verb listed twice adds nothing a reader can tell apart.
-    const verbs = motions.map((m) => m.verb);
-    for (const v of new Set(verbs.filter((verb, i) => verbs.indexOf(verb) !== i))) {
-      notes.push({ level: 'warn', elId: el.id, message: `“${el.id}” carries “${v}” more than once — the duplicate is invisible to a reader. Keep one.` });
+    // Redundant motion — a duplicate that a reader can't tell apart. Two spins/orbits on the
+    // SAME axis fold into one net rate (compile sums rotation per-axis), but on DIFFERENT axes
+    // they compose into a real compound tumble — so key those by axis, every other verb by
+    // name. This never flags a meaningful multi-axis rig; it flags only true redundancy.
+    const sig = (m: Motion) => (m.verb === 'spin' || m.verb === 'orbit' ? `${m.verb}:${m.axis}` : m.verb);
+    const sigs = motions.map(sig);
+    for (const s of new Set(sigs.filter((x, i) => sigs.indexOf(x) !== i))) {
+      const dup = motions.find((m) => sig(m) === s);
+      notes.push({ level: 'warn', elId: el.id, message: `“${el.id}” repeats “${dup?.verb}” with no distinguishing difference — the copies read as one. Keep one.` });
     }
 
     // Motion with nothing to show — a group that moves but renders no geometry (an empty rig).
