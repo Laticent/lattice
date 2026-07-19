@@ -74,6 +74,40 @@ materially understated the build and over-committed the deletion.** The correcti
 
 ---
 
+## 0.5 Floor test (real, on-key) — where the model floor actually is
+
+The trio said the AI-SVG assumption was UNVERIFIED and the make-or-break of the pivot. It has now
+been **tested for real**: the house canon (`svg-canon.md`) as system prompt × five boardroom
+prompts × **five models from a 3B tiny up to a mid-tier flash** (ministral-3b, llama-3.1-8b,
+qwen-2.5-7b, gpt-4o-mini, gemini-2.5-flash-lite), via OpenRouter on our key (`.scratch/` throwaway,
+HARD RULE #24), every scene rendered + audited. ~1.3¢ total. Findings:
+
+1. **The ceiling holds, the floor is higher than hoped.** A **mid-tier** model
+   (`gemini-2.5-flash-lite`) draws genuinely boardroom-legible line-art — real trapezoid funnel with
+   true counts, a proper 2×2 with labeled axes + named quadrants — and **generalizes to a diagram
+   type the canon never showed it** (a clean timeline). The direction's core bet is real *at that
+   tier.*
+2. **Below the floor, models emit audit-passing GARBAGE.** qwen-7b filled boxes with a token color →
+   solid black blocks that graded `CLEAN`; gpt-4o-mini's funnel was overlapping diamonds, also
+   `CLEAN`; the 3B drew wavy lines for boxes. **Canon-conformance ≠ legibility, and the mechanical
+   audit cannot see the difference.** The worst failure mode is silent: a weak key produces junk that
+   passes every automated check.
+3. **The prompt-level fence is unreliable.** "Draw a man walking" was declined by two models but drew
+   a literal stick figure on three — including the *most capable* one. Fence-holding is
+   refusal-instruction-following, **not** capability, and it can't live only in the system prompt.
+
+**Scope this forces (folded into §4/§5 below):**
+- **A model-floor gate in Director** — recommend/require a mid-tier+ model, warn on weak keys.
+- **The audit gates safety + conformance, never quality** — quality rides on the model tier + the
+  human seeing the result. (It also has a real bug: token-color fills slip through "stroke, don't
+  fill.") 
+- **A real decline / re-roll affordance**, and leaning on the **Bring/Template** on-ramps for keys
+  that can't reliably *Describe*.
+- **Reinforces "prove before cut"** (§5): quality is model-dependent, so the AI-SVG path must clear
+  the bar **on the tier Director will actually gate to, in the real Playground**, before zdog goes.
+
+Evidence artifact (renders + ladder): the floor-test dossier (`.scratch/floor-artifact.html`).
+
 ## 1. The decision
 
 **Make the SVG (Vivus-family) source model Anima's primary engine**, and rebuild the Motion faculty
@@ -231,14 +265,16 @@ bar.**
 1. **Build the SVG-native faculty ADDITIVELY** — both engines coexist behind the existing tagged
    union. Land: the per-element svg backend (§4.4a), the `SvgElement.transform` + emphasis-channel
    spec changes, the Director→SVG generator + SVG canon, the choreograph surface + id-mapping pass,
-   and the hardened untrusted-SVG sanitize profile. Each slice is its own branch/PR (HARD RULE #17),
-   self-reviewed at the gates; the sanitize/AI-SVG slice gets the trio (#25).
-2. **PROOF GATE (go/no-go).** Verify on the **real Studio** (HARD RULE #23): one real,
-   AI-*generated* labeled boardroom scene (e.g. a value chain or a 2×2) that reaches the **10/10
-   boardroom bar** — on-brand strokes, legible labels, choreography that reads as information — and a
-   *brought* SVG that choreographs cleanly. Artifact from that surface, not a harness. **If this gate
-   fails, zdog is not cut** — we keep both engines and re-scope, rather than delete a working path for
-   an unproven one.
+   the hardened untrusted-SVG sanitize profile, and — per the floor test (§0.5) — a **model-floor
+   gate + a decline/re-roll affordance** in Director. Each slice is its own branch/PR (HARD RULE
+   #17), self-reviewed at the gates; the sanitize/AI-SVG slice gets the trio (#25).
+2. **PROOF GATE (go/no-go).** Verify on the **real Studio** (HARD RULE #23), **on the model tier
+   Director actually gates to** (§0.5 — the floor test showed quality is model-dependent, so the gate
+   must run on the gated tier, not a hand-picked strong model): one real, AI-*generated* labeled
+   boardroom scene (e.g. a value chain or a 2×2) that reaches the **10/10 boardroom bar** — on-brand
+   strokes, legible labels, choreography that reads as information — and a *brought* SVG that
+   choreographs cleanly. Artifact from that surface, not a harness. **If this gate fails, zdog is not
+   cut** — we keep both engines and re-scope, rather than delete a working path for an unproven one.
 3. **THEN excise zdog in one deletion pass** (only after the gate passes): remove `source:'built'`,
    `PRIMITIVES`, the built-only verbs, `backends/zdog.ts` + its adapter allowlist entry, the
    primitive-tree Rig (`flatten`/`removeAt`/`setMotionAt` + the tree/verb-chip inspector), zdog from
