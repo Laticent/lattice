@@ -546,6 +546,12 @@ in patch versions.
 
 ### Changed
 
+- **A live scene's play/pause control now stays out of the way.** It moved to the top-right corner and
+  hides at rest instead of sitting permanently over the motion — it fades in on hover (desktop) or a tap
+  (touch), reveals on keyboard focus, auto-hides after a couple of seconds, and flashes briefly when the
+  scene mounts so it stays discoverable. The reduced-motion "Play the motion" opt-in is exempt (it sits
+  over a still poster and is the only way to start, so it stays visible). (`hydrate.ts`, `scene.styles.css`.)
+
 - **Breaking:** **`@slidewright/lente` `approvalHash` now uses an injective encoding — every previously
   stamped `approved: "sha256:…"` value is invalidated and each lens must be re-approved.** An
   adversarial-trio pass found the old pre-image (member pairs serialized as `` `${index} ${slide}` ``

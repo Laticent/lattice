@@ -11927,7 +11927,7 @@ section.scene .scene-figure .scene-live canvas {
 section.scene .scene-control {
   position: absolute;
   right: 2.5cqi;
-  bottom: 2.5cqi;
+  top: 2.5cqi;
   z-index: 3;
   height: 5cqi;
   min-height: 26px;
@@ -11942,6 +11942,27 @@ section.scene .scene-control {
   font-size: var(--fs-message);
   line-height: 1;
   cursor: pointer;
+  /* A playback control must not sit permanently over the motion. It hides by default and
+   * reveals on hover (desktop) / focus (keyboard) / a JS `.scene-controls-shown` flash (a
+   * touch tap, and a brief on-mount hint so it stays discoverable without a pointer). */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+section.scene .scene-figure:hover .scene-control,
+section.scene .scene-figure:focus-within .scene-control,
+section.scene .scene-figure.scene-controls-shown .scene-control {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* The reduced-motion "Play the motion" opt-in sits over a STILL poster and is the only way
+ * to start the motion — always visible, never auto-hidden. */
+section.scene .scene-control[data-mode="optin"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  section.scene .scene-control { transition: none; }
 }
 /* The glyph is the ACTION the button performs. */
 section.scene .scene-control::before { font-size: 1.1em; }
