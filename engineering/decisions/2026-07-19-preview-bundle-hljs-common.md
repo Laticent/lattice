@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   Cold first-load and refresh of the docs Playground/Studio were still ~7.5s (LCP/FCP)
   despite the July perf program — because that program MASKED cold LCP with a static shell
@@ -175,3 +175,37 @@ the full grammars would let a Playground user pasting an exotic language get col
 render — but the trio noted it does NOT retro-heal an already-painted slide and can contend with
 typing, so it's a minor optional add, not the strategy. The strategy is: **less on the critical
 path.** Slice 1 removes 254KB-gz of it; slice 2 goes after the hydration cost behind it.
+
+## 6. On-device verification — and the "normal-mode red" resolved (2026-07-19)
+
+Both slices shipped (#1088 hljs→common, #1094 lazy editor, #1096 alias-hardening). The owner then
+measured the deployed `lattice.style` on a real phone, which **closes the UNVERIFIED felt-wall-clock
+caveat** both slice docs carried (HARD RULE #23):
+
+| Path (same "Welcome to Lattice" deck) | LCP | FCP | TOTAL REBUILD | FRAME REBUILD |
+|---|---|---|---|---|
+| **Before (first report, cold)** | 7651ms 🔴 | 7559ms 🔴 | 5074ms 🔴 | 2714ms 🔴 |
+| **Private mode (fresh, no client state)** | **237ms** 🟢 | **225ms** 🟢 | **152ms** 🟢 | 119ms 🟢 |
+| Normal Firefox (cache cleared) | 1322ms 🟢 | 1300ms 🟢 | **1527ms** 🔴 | 1489ms 🔴 |
+
+**First paint went ~7.5s → sub-second on real hardware** — the reported "insufferable first load" is
+gone. Private mode is the cleanest measure of the deployed code (least client state), and it's green
+across the board.
+
+**The one puzzle — normal-mode Firefox ~10× slower than private on the SAME fresh deck — was chased to
+ground and is NOT ours.** The browser is **Firefox on iOS** (WebKit/WKWebView), where a service worker
+may not even run, so the SW is a red herring; and "clear cache" leaves `localStorage` intact, so the one
+thing that survives is returning-user client state. Reproduced locally (headless Chromium, real built
+`dist`, the `frame-bench` serve+drive harness): a **clean** load vs one with a full **returning-user
+localStorage seed** (deck-index, active deck, settings, palette, a last-slide snapshot) — measured
+`totalWrite` **192ms vs 196ms** (and 439 vs 266 on a noisier run). **Returning-user state makes no
+difference, and neither clean nor seeded reproduces the ~1489ms** — both match the *private* device
+result. So the normal-mode red is a **Firefox-iOS environment artifact** (HTTP-cache partitioning /
+connection handling / ETP / an incomplete cache-clear), not a Lattice code defect or a returning-user
+code path. Chased with a reproduction rather than a third hypothesis after two earlier wrong guesses
+(a "universal cold theme/font fetch tax" and a Safari-service-worker theory — both disproven by the
+private-mode 152ms and this local repro respectively).
+
+**Status:** the cold-load program is **complete and verified**. Remaining items in §5 (entities decode
+path, Cloudflare brotli/immutable) stay optional; the parked levers stay parked. No further code is
+warranted by the on-device data.
