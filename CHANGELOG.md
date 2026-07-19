@@ -191,6 +191,15 @@ in patch versions.
 
 ### Added
 
+- **A `scene` now comes alive in Studio Present mode, not just the Playground.** Stage 6 animated scenes
+  on the Playground preview; presenting the same deck showed only the frozen poster. Now a scene hydrates
+  on the Present surface too — it **plays when you land on its slide, stops when you leave, and restarts
+  from the top when you return** — carrying the same ⏸/▶/↻ control and reduced-motion opt-in. The wiring
+  lives in `DeckPreview` (the host every Present slide renders through), lazy-loaded and only when the
+  slide actually carries a live scene, so a scene-less preview (landing, hero, most specimens) never pulls
+  the animation backends into its bundle. Any surface built on `DeckPreview` inherits live scenes.
+  (`DeckPreview.tsx`; ADR §15.)
+
 - **`closing` gains an `index` variant — a closing that ends on a reference list.** The final slide can
   now carry a short `key — description` index below the takeaway line (see also, next steps, references),
   rendered as a centered set that keeps the bookend's symmetry. The default one-line closing is

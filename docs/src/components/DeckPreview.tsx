@@ -150,6 +150,52 @@ export function DeckPreview({
 	const renderRef = React.useRef(render);
 	renderRef.current = render;
 
+	// ── Live Anima scenes (Stage 6b) ────────────────────────────────────────────
+	// Bring a `scene` slide's poster to life on THIS preview surface (Studio Present, and
+	// every other DeckPreview host), reusing the parent-hosted controller the Playground
+	// uses (createAnimaScenes). Lazily imported, and ONLY when the rendered slide actually
+	// carries a live scene — a scene-less preview (landing, hero, most specimens) never
+	// pulls the Anima backends into its bundle. On a slide swap the srcdoc is rewritten, so
+	// the controller disposes the departed scene and hydrates the arriving one: play on
+	// enter, stop on exit, restart from the top on re-entry — the present-mode contract
+	// (2026-07-17-anima-animation-library.md §15).
+	const animaRef = React.useRef<{ rebind(): void; destroy(): void } | null>(null);
+	const animaBoundRef = React.useRef(false);
+	const animaLoadingRef = React.useRef(false);
+	const syncAnima = React.useCallback(() => {
+		if (animaRef.current) {
+			animaRef.current.rebind();
+			return;
+		}
+		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+		const hasScene = !!fr?.contentDocument?.querySelector('section.scene[data-scene-spec]');
+		if (!hasScene || animaLoadingRef.current) return;
+		animaLoadingRef.current = true;
+		import('@/playground/anima-scenes')
+			.then(({ createAnimaScenes }) => {
+				if (!stageRef.current) return; // unmounted during the async load
+				animaRef.current = createAnimaScenes({
+					getFrame: () => stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null,
+				});
+				animaRef.current.rebind();
+			})
+			.catch(() => {})
+			.finally(() => {
+				animaLoadingRef.current = false;
+			});
+	}, []);
+	// Bind ONE persistent `load` listener to the live iframe: a srcdoc rewrite re-fires
+	// `load` after the new slide has parsed — the reliable "its DOM is ready" signal, since
+	// rebinding at render-resolve (srcdoc merely SET) can race the parse. Guarded to bind
+	// once per host; if the frame is already parsed when we bind, sync straight away.
+	const bindAnima = React.useCallback(() => {
+		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+		if (!fr || animaBoundRef.current) return;
+		animaBoundRef.current = true;
+		fr.addEventListener('load', syncAnima);
+		if (fr.contentDocument?.readyState === 'complete') syncAnima();
+	}, [syncAnima]);
+
 	// FRAME-ALIGNED RENDER LOOP — driven by the SHARED scheduler (@/lib/frame-scheduler),
 	// the same kernel the Playground filmstrip uses. A change schedules ONE render on the
 	// next frame; a burst collapses to a single render of the LATEST state; a cheap patch
@@ -183,6 +229,10 @@ export function DeckPreview({
 		// the 50ms line.
 		await engineRef.current?.whenReady();
 		const status = await renderRef.current();
+		// (Re)hydrate any live scene on the freshly rendered slide. `bindAnima` self-guards to
+		// attach the load listener once; `syncAnima` covers the in-place patch path (no `load`).
+		bindAnima();
+		syncAnima();
 		return { heavy: status?.writePath === 'write' };
 	};
 
@@ -225,6 +275,7 @@ export function DeckPreview({
 	React.useEffect(
 		() => () => {
 			schedulerRef.current?.cancel();
+			animaRef.current?.destroy();
 			engineRef.current?.dispose();
 		},
 		[],
@@ -244,11 +295,18 @@ export function DeckPreview({
 	// Render ONLY on the rising edge of `active` (e.g. switching back to a tab).
 	// Also routed through the frame scheduler (was a bare requestAnimationFrame →
 	// direct render), so a re-show mid-render can't overlap the in-flight one either.
+	// On the FALLING edge, tear down any live scene so a hidden host (a HeroPreview
+	// flipped to its Source tab) doesn't keep a parent-hosted rAF loop running unseen;
+	// the rising-edge render re-hydrates it (a scene restarts on re-show, which is the
+	// present-mode contract anyway). This bounds the eager-mount cost as scene hydration
+	// now spans every DeckPreview host, not just the always-on Playground.
 	const wasActiveRef = React.useRef(active);
 	React.useEffect(() => {
 		const rising = active && !wasActiveRef.current;
+		const falling = !active && wasActiveRef.current;
 		wasActiveRef.current = active;
 		if (rising) schedulerRef.current?.schedule();
+		else if (falling) animaRef.current?.destroy();
 	}, [active]);
 
 	// `m-0` neutralizes the `<figure>` UA default margin (`0 40px`) — Tailwind
