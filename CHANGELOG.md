@@ -272,10 +272,13 @@ in patch versions.
   its progress in place** ("Reading slide N…" → "Drafting…" → "Preparing the diff…") and then **splits into two pills,
   Apply and Discard**, with the diff shown below for review. An open or in-flight fix now **survives a re-lint** — fix
   state is keyed by finding identity, so editing another slide no longer drops the fix you're on ("stay on Fix"), and
-  the active card is emphasized. New **Fix all** (drafts every fixable finding against one snapshot — never a blind
-  apply) and **Apply all** (applies every reviewed proposal, slide-descending, one checkpoint, each still stale-guarded)
-  batch actions appear when there are two or more to act on. New `coach/FindingCard.tsx`; `StudioShell.tsx` fix state
-  is now a per-finding map. (`engineering/decisions/2026-07-19-coach-chat-studio-migration.md`.)
+  the active card is emphasized (its order is held so an unrelated re-rank can't move it under you). New **Draft all**
+  (drafts every fixable finding against one snapshot — never a blind apply) and **Apply all** (applies every reviewed
+  proposal, slide-descending, one checkpoint, each still stale-guarded) batch actions appear at two or more; a proposal
+  that can't apply because its slide changed stays a visible "re-draft" card rather than vanishing. The AI-fix cost cue
+  is a real per-model, per-deck estimate (not a hard-coded guess), degrading to a qualitative cue when the price isn't
+  known. New `coach/FindingCard.tsx`; `StudioShell.tsx` fix state is now a per-finding map. Hardened by an adversarial
+  trio on the shipped diff. (`engineering/decisions/2026-07-19-coach-chat-studio-migration.md`.)
 - **The Studio Architect chat now streams, renders Markdown, and shows what a turn costs.** The
   Converse chat was a plain-text bubble list; it is rebuilt as a real conversation. Replies **stream
   in token-by-token** (with a Stop control and Regenerate), render **on-brand Markdown** — bold, lists,

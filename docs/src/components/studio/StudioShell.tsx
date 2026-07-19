@@ -29,7 +29,7 @@ import { sliceSlide } from '@/playground/architect-edits.js';
 import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat } from './ArchitectChat';
-import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
+import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
@@ -1503,7 +1503,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// The active deterministic Coach chip result card (one open at a time). No model.
 	const [coachCard, setCoachCard] = React.useState<{ id: string; card: CoachCard } | null>(null);
 	const [talkMinutes, setTalkMinutes] = React.useState<number | null>(null);
-	// Per-finding fix lifecycle, keyed by finding IDENTITY (findingKey) — not list index.
+	// Per-finding fix lifecycle, keyed by finding IDENTITY (findingKeys) — not list index.
 	// Keying by identity is what lets an open/in-flight fix SURVIVE a re-lint: editing
 	// another slide re-runs the assessment, but a finding that persists keeps its fix
 	// state ("if I'm on Fix, I stay on Fix"). A pruning effect drops entries whose finding
@@ -1513,6 +1513,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Live cycling-step timers for in-flight fixes (one per finding key), cleared on
 	// resolve / discard / unmount so a settled pill never keeps ticking.
 	const fixTimersRef = React.useRef<Record<string, ReturnType<typeof setInterval>>>({});
+	// The last card order captured while NO fix was active — the frozen order to hold to
+	// while a fix IS active, so the reviewed card never jumps under a re-rank (trio Munger #5).
+	const frozenOrderRef = React.useRef<string[]>([]);
 	const stopFixTimer = React.useCallback((key: string) => {
 		const t = fixTimersRef.current[key];
 		if (t) {
@@ -1611,37 +1614,48 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			clearTimeout(id);
 		};
 	}, [source, lintVocab, components, localNames, savedFinishLintNames]);
-	// Re-lint housekeeping. A fix keyed by finding identity SURVIVES a re-lint — that's
-	// the "stay on Fix" contract — so we don't nuke the whole map here. We only PRUNE
-	// entries whose finding no longer exists (it was resolved, or edited away), so a
-	// stale diff can't linger, while a fix for a finding that persists stays put. The
+	// Disambiguated, STABLE per-finding keys (finding object → key). Content-based so a
+	// fix survives a re-lint; an occurrence ordinal keeps two IDENTICAL findings (e.g. a
+	// repeated `_class` token → two same unknown-class findings) from colliding onto one
+	// card / one fix state — the old index-free key silently merged them (trio red-team #2).
+	const findingKeys = React.useMemo(() => {
+		const seen = new Map<string, number>();
+		const map = new Map<Finding, string>();
+		for (const f of findings) {
+			const base = `${f.slide ?? 0}:${f.rule}:${f.message}`;
+			const n = seen.get(base) ?? 0;
+			seen.set(base, n + 1);
+			map.set(f, n === 0 ? base : `${base}#${n}`);
+		}
+		return map;
+	}, [findings]);
+	const keyFor = React.useCallback((f: Finding): string => findingKeys.get(f) ?? `${f.slide ?? 0}:${f.rule}:${f.message}`, [findingKeys]);
+	// Re-lint housekeeping. A fix keyed by finding identity SURVIVES a re-lint — the
+	// "stay on Fix" contract — so we don't nuke the map; we only PRUNE entries whose
+	// finding no longer exists (resolved / edited away) so a stale diff can't linger. Timer
+	// clears are hoisted OUT of the reducer, which stays pure (trio red-team smell). The
 	// deterministic quick-read card is transient, so it still clears.
 	React.useEffect(() => {
-		const live = new Set(findings.map(findingKey));
+		const live = new Set(findingKeys.values());
+		for (const k of Object.keys(fixTimersRef.current)) if (!live.has(k)) stopFixTimer(k);
 		setFixStates((m) => {
-			let changed = false;
-			const next: Record<string, FindingFixState> = {};
-			for (const [k, v] of Object.entries(m)) {
-				if (live.has(k)) next[k] = v;
-				else {
-					changed = true;
-					stopFixTimer(k);
-				}
-			}
-			return changed ? next : m;
+			const drop = Object.keys(m).filter((k) => !live.has(k));
+			if (!drop.length) return m;
+			const next = { ...m };
+			for (const k of drop) delete next[k];
+			return next;
 		});
 		setCoachCard(null);
-	}, [findings, stopFixTimer]);
+	}, [findingKeys, stopFixTimer]);
 
-	// Draft an AI fix for ONE finding, showing progress IN the pill (no toast) and
-	// leaving a reviewable diff — nothing is applied until Apply. The pill cycles
-	// through honest steps ("Reading slide N…" → "Drafting…" → "Preparing the diff…")
-	// while the request is in flight; on resolve it splits into Apply / Discard.
-	// `srcAt` lets the batch draft (fixAll) pin every request to ONE source snapshot.
+	// Draft an AI fix for ONE finding, showing progress IN the pill (no toast) and leaving
+	// a reviewable diff — nothing applies until Apply. The pill cycles through the fix
+	// pipeline's stages (read → draft → diff) while the request is in flight; on resolve it
+	// splits into Apply / Discard. `srcAt` pins the batch draft (fixAll) to ONE source
+	// snapshot; `key` is the caller's disambiguated finding key.
 	const draftFix = React.useCallback(
-		async (finding: Finding, srcAt?: string): Promise<boolean> => {
+		async (finding: Finding, key: string, srcAt?: string): Promise<boolean> => {
 			const src = srcAt ?? source;
-			const key = findingKey(finding);
 			if (fixStates[key]?.phase === 'working') return false;
 			// K3 guard: the engine slide splitter is fence-blind, so a `---` inside a code
 			// fence would make an AI fix mis-target and corrupt the deck. Refuse honestly.
@@ -1678,9 +1692,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					notify('The model had no rewrite to propose for this one.');
 					clear();
 				} else {
-					// Capture the slide's content AT PROPOSAL TIME so Apply can detect a change
+					// Land the proposal ONLY if this fix is still tracked. A re-lint during the
+					// request may have pruned the finding; writing here unconditionally would
+					// resurrect a PHANTOM proposal (inflates Apply-all, risks a wrong-slide
+					// apply). Guard the write like clear() does (trio red-team #1).
+					// Capture the slide content AT PROPOSAL TIME so Apply can detect a change
 					// under it (K4), independent of what the model reports as `before`.
-					setFixStates((m) => ({ ...m, [key]: { phase: 'proposed', slide: finding.slide, proposedSlice: finding.slide ? sliceSlide(src, finding.slide) : undefined, before: out.before, after: out.after, edit: out.edit } }));
+					setFixStates((m) => (key in m ? { ...m, [key]: { phase: 'proposed', slide: finding.slide, proposedSlice: finding.slide ? sliceSlide(src, finding.slide) : undefined, before: out.before, after: out.after, edit: out.edit } } : m));
 					return true;
 				}
 			} catch {
@@ -1692,7 +1710,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		},
 		[fixStates, source, components, notify, stopFixTimer],
 	);
-	const fixFinding = React.useCallback((finding: Finding) => void draftFix(finding), [draftFix]);
+	const fixFinding = React.useCallback((finding: Finding, key: string) => void draftFix(finding, key), [draftFix]);
 	const discardFix = React.useCallback(
 		(key: string) => {
 			stopFixTimer(key);
@@ -1705,15 +1723,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		[stopFixTimer],
 	);
 	// Apply ONE reviewed fix by key — checkpoint first (reversible from History), splice
-	// the edited slide back. K4 stale-body guard: refuse (rather than clobber) if the
-	// target slide changed since the fix was proposed.
+	// the edited slide back. K4 stale-body guard: if the target slide changed since the fix
+	// was proposed, DON'T clobber — flip the card to a visible `stale` state so the panel
+	// still shows it owing a re-draft, rather than silently dropping it (trio Munger #3).
 	const applyFixKey = React.useCallback(
 		(key: string): boolean => {
 			const st = fixStates[key];
 			if (!st || st.phase !== 'proposed') return false;
 			if (st.slide && st.proposedSlice != null && sliceSlide(source, st.slide).trim() !== st.proposedSlice.trim()) {
-				notify(`Slide ${st.slide} changed since this fix was proposed — re-run the fix so it works from your current slide.`);
-				discardFix(key);
+				notify(`Slide ${st.slide} changed since this fix was drafted — re-draft it from your current slide.`);
+				setFixStates((m) => (key in m ? { ...m, [key]: { phase: 'stale', slide: st.slide } } : m));
 				return false;
 			}
 			setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
@@ -1724,27 +1743,34 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		},
 		[fixStates, source, deck.id, notify, discardFix],
 	);
-	// Draft fixes for EVERY fixable finding, serialized against one source snapshot so
-	// slide numbers stay coherent — each lands as its own reviewable proposal. Nothing
-	// applies (no blind apply-all): the author reviews, then Apply / Apply all.
+	// Draft fixes for EVERY draftable finding (idle OR previously-stale), serialized against
+	// one source snapshot so slide numbers stay coherent — each lands as its own reviewable
+	// proposal. Nothing applies (no blind apply-all): the author reviews, then Apply / Apply
+	// all. The target set matches `batchFixable` (both skip proposed + working) — trio #4.
 	const fixAll = React.useCallback(async () => {
 		if (fixingAll || hasFencedSeparator(source)) return;
+		const snap = source;
 		const targets = rankFindings(findings)
 			.slice(0, 6)
-			.filter((f) => f.slide && fixStates[findingKey(f)]?.phase !== 'proposed');
+			.filter((f) => {
+				if (!f.slide) return false;
+				const ph = fixStates[keyFor(f)]?.phase;
+				return ph !== 'proposed' && ph !== 'working';
+			});
 		if (!targets.length) return;
 		setFixingAll(true);
-		const snap = source;
 		try {
-			for (const f of targets) await draftFix(f, snap);
+			for (const f of targets) await draftFix(f, keyFor(f), snap);
 		} finally {
 			setFixingAll(false);
 		}
-	}, [fixingAll, source, findings, fixStates, draftFix]);
+	}, [fixingAll, source, findings, fixStates, draftFix, keyFor]);
 	// Apply every reviewed proposal, one checkpoint for the batch. Applied slide-descending
-	// (highest slide first) so earlier slide numbers stay valid as the deck shifts; each
-	// still passes its own K4 stale guard, so a proposal invalidated by an intervening edit
-	// is skipped with a notice rather than clobbering.
+	// (highest slide first) so earlier slide numbers stay valid as the deck shifts. A
+	// proposal is SKIPPED when its slide changed under it — either the user edited it, or an
+	// EARLIER fix in this same batch already rewrote that slide (two whole-slide rewrites for
+	// one slide can't compose). Skipped ones don't vanish: they flip to a visible `stale`
+	// card so the panel still shows what it couldn't apply (trio Munger #3 / red-team #3).
 	const applyAll = React.useCallback(() => {
 		const proposed = Object.entries(fixStates)
 			.filter(([, v]) => v.phase === 'proposed')
@@ -1753,19 +1779,24 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		if (!proposed.length) return;
 		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fixes', Date.now()));
 		let next = source;
+		const appliedSlides = new Set<number>();
+		const stale: { key: string; slide?: number }[] = [];
 		let applied = 0;
-		let skipped = 0;
 		for (const { key, st } of proposed) {
-			if (st.slide && st.proposedSlice != null && sliceSlide(next, st.slide).trim() !== st.proposedSlice.trim()) {
-				skipped++;
+			const supersededInBatch = st.slide != null && appliedSlides.has(st.slide);
+			const changedByUser = st.slide != null && st.proposedSlice != null && sliceSlide(next, st.slide).trim() !== st.proposedSlice.trim();
+			if (supersededInBatch || changedByUser) {
+				stale.push({ key, slide: st.slide });
 				continue;
 			}
 			next = applyDeckEdit(next, st.edit);
+			if (st.slide != null) appliedSlides.add(st.slide);
 			applied++;
 			discardFix(key);
 		}
 		if (applied) setSource(next);
-		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${skipped ? ` · ${skipped} skipped (slide changed)` : ''} — undo from History.` : 'No fixes applied — the slides changed since they were proposed. Re-run the fixes.');
+		if (stale.length) setFixStates((m) => { const n = { ...m }; for (const { key, slide } of stale) if (n[key]) n[key] = { phase: 'stale', slide }; return n; });
+		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${stale.length ? ` · ${stale.length} need a re-draft (slide changed)` : ''} — undo from History.` : 'None applied — those slides changed since they were drafted. Re-draft them.');
 	}, [fixStates, source, deck.id, notify, discardFix]);
 
 	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
@@ -2032,10 +2063,39 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 
 	const rankedFindings = rankFindings(findings);
 	const fencedBlocked = hasFencedSeparator(source);
-	// Batch-fix counts (the shown slice): how many slide-level findings still need a
-	// fix drafted, and how many reviewed proposals are waiting to apply.
-	const batchFixable = rankedFindings.slice(0, 6).filter((f) => f.slide && fixStates[findingKey(f)]?.phase !== 'proposed' && fixStates[findingKey(f)]?.phase !== 'working').length;
+	const shownFindings = rankedFindings.slice(0, 6);
+	// A finding is DRAFTABLE when it has no active fix (idle) or a previously-stale one to
+	// re-draft — the same set fixAll targets, so the count and the action agree (trio #4).
+	const isDraftable = (f: Finding): boolean => {
+		const ph = fixStates[keyFor(f)]?.phase;
+		return ph === undefined || ph === 'stale';
+	};
+	// Batch counts (the shown slice): draftable slide-level findings, and reviewed proposals
+	// waiting to apply.
+	const batchFixable = shownFindings.filter((f) => f.slide && isDraftable(f)).length;
 	const proposedCount = Object.values(fixStates).filter((v) => v.phase === 'proposed').length;
+	// Honest cost cue — the true per-fix cost scales with the connected model's price AND
+	// the deck size (each fix re-sends the whole deck), so derive it from `estimateUsd`
+	// like the Chat strip does; never a hard-coded guess (trio Munger #1). No price yet
+	// (pre-catalog) → a qualitative cue, never a fake number.
+	const usd = (n: number) => `$${n < 0.1 ? n.toFixed(3) : n.toFixed(2)}`;
+	const fixEstimate = ai.price ? estimateUsd(source, ai.price, 1024) : null;
+	const fixCostLabel = fixEstimate != null ? `Fix ≈ ${usd(fixEstimate)}` : 'Fix · on your key';
+	const draftAllLabel = fixEstimate != null ? `Draft all ≈ ${usd(fixEstimate * batchFixable)}` : `Draft all (${batchFixable})`;
+	// Freeze the card order while any fix is ACTIVE so an unrelated re-rank (a new
+	// higher-severity finding elsewhere) can't move the card you're reviewing out from
+	// under you (trio Munger #5). With nothing active, the fresh severity ranking wins.
+	const hasActiveFix = Object.values(fixStates).some((v) => v.phase === 'working' || v.phase === 'proposed' || v.phase === 'stale');
+	const displayFindings = (() => {
+		const keyed = shownFindings.map((f) => ({ f, key: keyFor(f) }));
+		if (!hasActiveFix) {
+			frozenOrderRef.current = keyed.map((x) => x.key);
+			return keyed;
+		}
+		const order = frozenOrderRef.current;
+		const rank = (k: string) => { const i = order.indexOf(k); return i === -1 ? order.length : i; };
+		return [...keyed].sort((a, b) => rank(a.key) - rank(b.key));
+	})();
 	const scoreIntent = (band?: string): 'pass' | 'review' | 'fix' | 'info' => (!band ? 'info' : /^A/.test(band) ? 'pass' : /^[BC]/.test(band) ? 'review' : 'fix');
 	const runChip = async (id: string) => {
 		if (coachCard?.id === id && id !== 'pacing') {
@@ -2162,15 +2222,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{rankedFindings.length > 0 && (
 				<ArchCard tag={<IntentTag intent={rankedFindings.some((f) => f.severity === 'error') ? 'fix' : 'review'} label="FINDINGS" />} title={`${rankedFindings.length} to address`}>
 					<p className="text-xs leading-relaxed text-muted-foreground">Ranked by severity. {ai.ready ? 'Fix one with AI — review the diff before it lands (spends on your key; billed to generate, not to apply).' : 'Connect a model in Workspace to fix these with AI.'}</p>
-					{/* Batch actions — draft every fixable finding, or apply all the reviewed
-					    proposals at once. Never a blind apply-all: Fix all only DRAFTS. Each
-					    only shows when it beats the single-card pills (2+ to act on). */}
+					{/* Batch actions — DRAFT every fixable finding, or apply the reviewed proposals
+					    at once. Never a blind apply-all: "Draft all" only drafts (each still gets a
+					    reviewable diff); it's named for what it does so draft→review→apply reads off
+					    the labels. Each shows only when it beats the single-card pills (2+ to act on). */}
 					{ai.ready && !fencedBlocked && (batchFixable > 1 || proposedCount > 1) && (
 						<div className="mt-2 flex flex-wrap items-center gap-1.5">
 							{batchFixable > 1 && (
 								<button type="button" onClick={fixAll} disabled={fixingAll} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)] disabled:opacity-60">
 									{fixingAll ? <Sparkles className="size-3 animate-pulse" /> : null}
-									{fixingAll ? 'Drafting…' : `Fix all ≈ $${(batchFixable * 0.02).toFixed(2)}`}
+									{fixingAll ? 'Drafting…' : draftAllLabel}
 								</button>
 							)}
 							{proposedCount > 1 && (
@@ -2182,21 +2243,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</div>
 					)}
 					<ul className="mt-2 list-none space-y-2 pl-0">
-						{rankedFindings.slice(0, 6).map((f) => {
-							const key = findingKey(f);
-							return (
-								<FindingCard
-									key={key}
-									finding={f}
-									state={fixStates[key]}
-									canFix={ai.ready && !!f.slide && !fencedBlocked}
-									costLabel="Fix ≈ $0.02"
-									onFix={() => fixFinding(f)}
-									onApply={() => applyFixKey(key)}
-									onDiscard={() => discardFix(key)}
-								/>
-							);
-						})}
+						{displayFindings.map(({ f, key }) => (
+							<FindingCard
+								key={key}
+								finding={f}
+								state={fixStates[key]}
+								canFix={ai.ready && !!f.slide && !fencedBlocked}
+								costLabel={fixCostLabel}
+								onFix={() => fixFinding(f, key)}
+								onApply={() => applyFixKey(key)}
+								onDiscard={() => discardFix(key)}
+							/>
+						))}
 					</ul>
 					{rankedFindings.length > 6 && <p className="mt-2 text-[11px] text-muted-foreground">+{rankedFindings.length - 6} more — the editor underlines them all.</p>}
 					{fencedBlocked && <p className="mt-2 text-[10.5px] leading-snug text-[var(--warn,#9a6a00)]">AI fix is paused — a slide has a `---` inside a code fence, which would mis-target. Edit by hand or fence it differently.</p>}
@@ -3388,13 +3446,6 @@ function PanelGrip({ dragging, className, ...props }: { dragging?: boolean } & R
 			/>
 		</div>
 	);
-}
-// A STABLE identity for a finding, independent of its position in the ranked list.
-// Keying the per-finding fix state by this (not the array index) is what lets an open
-// or in-flight fix survive a re-lint that reorders the list — the "stay on Fix" contract.
-// Content-based, so a finding that is resolved or edited away naturally drops its state.
-function findingKey(f: Finding): string {
-	return `${f.slide ?? 0}:${f.rule}:${f.message}`;
 }
 function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: string; children: React.ReactNode }) {
 	return (

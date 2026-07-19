@@ -108,10 +108,47 @@ diff context-collapse.
   `ArchitectChat.tsx`, `architect.ts`): streaming, Markdown + `~~~` code + Copy +
   highlight, per-slide re-appliable diff, DOMPurify, cost strip, ephemeral notices.
 
+## The finding-card redesign's own adversarial-trio pass (2026-07-19)
+
+The redesign above (per HARD RULE #25, high-blast-radius UI touching a deck-mutating
+batch path) got its own red-team + Munger-inversion + independent-checker pass on the
+*shipped* diff. Confirmed clean: XSS (React-text-only), no timer leaks, K4 source-pinning
+sound. Fixed before this landed:
+
+- **Phantom proposal (red-team, MAJOR).** `draftFix`'s success branch wrote the `proposed`
+  entry unconditionally; if a re-lint pruned the finding mid-request, it resurrected a ghost
+  proposal (inflating Apply-all, risking a wrong-slide apply). → the write is now guarded
+  `key in m` like the failure paths, so a pruned fix stays gone.
+- **Key-collision regression (red-team, MAJOR).** The content key `slide:rule:message` can
+  collide (e.g. `_class: foo foo` → two identical `unknown-class` findings), merging two
+  cards onto one React key + one fix state. → keys are disambiguated with an occurrence
+  ordinal (`findingKeys` map, finding-object → key), still stable across a re-lint.
+- **Dishonest cost cue (Munger, the headline).** The hard-coded `$0.02` under-reported: the
+  real per-fix cost scales with the connected model's price AND the deck size (each fix
+  re-sends the whole deck), and "Fix all" multiplied the understatement. → derived from
+  `estimateUsd(source, ai.price, …)` like the sibling Chat strip; a qualitative cue ("Fix ·
+  on your key", "Draft all (N)") when the price isn't known, never a fake number.
+- **Silent Apply-all skips (Munger + red-team).** A skipped proposal (slide changed under it,
+  or a sibling batch-fix already rewrote that slide) used to vanish behind a transient toast.
+  → it now flips to a visible **`stale`** card ("Slide changed — re-draft") so the panel keeps
+  showing what it couldn't apply; the toast wording distinguishes self-supersede from a user edit.
+- **"Fix all" → "Draft all" (Munger).** Renamed so draft→review→apply reads off the labels,
+  not from the user knowing "Fix" secretly means "draft."
+- **Position stability (Munger).** The card order is frozen while any fix is active, so an
+  unrelated re-rank can't move the card you're reviewing out from under you.
+- **Count/target drift + impure reducer (red-team, minor).** `batchFixable` and `fixAll` now
+  share one draftable predicate; the prune effect's timer-clears are hoisted out of the reducer.
+
+New unit coverage: Draft-all → Apply-all, the working→proposed pill transition, survive-re-lint,
+and the same-slide stale-supersede path (`studio.findings-fix.test.tsx`).
+
 ## Logged follow-ups (HARD RULE #18, off-path)
 
 - Make the engine slide splitter (`architect-edits.js` / `review-core.js`)
-  fence-aware so a `---` inside a code fence no longer desyncs slide numbers.
+  fence-aware so a `---` inside a code fence no longer desyncs slide numbers. Same root
+  cause as the red-team's LOW finding that a MODEL-authored replace body containing a bare
+  `---` would inject a slide separator on apply (pre-existing in `runArchitect`/chat too);
+  the fix belongs in the shared splitter/`applyEdit`, not one call site.
 - Exact aborted-turn cost via an OpenRouter `/generation` fetch (currently an
   estimate).
 - A chat "tone/clarity only — change no numbers or facts" constraint mode + fact

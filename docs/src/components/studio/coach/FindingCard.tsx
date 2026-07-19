@@ -11,7 +11,11 @@ import type { Finding } from '../architect';
 // shell so an open fix SURVIVES a re-lint ("if I'm on Fix, I stay on Fix").
 export type FindingFixState =
 	| { phase: 'working'; step: string }
-	| { phase: 'proposed'; slide?: number; proposedSlice?: string; before: string; after: string; edit: unknown };
+	| { phase: 'proposed'; slide?: number; proposedSlice?: string; before: string; after: string; edit: unknown }
+	// A drafted fix that could NOT be applied because its slide changed under it (the user
+	// edited it, or a sibling batch-fix rewrote the same slide). It stays visible as a
+	// "re-draft" card rather than vanishing, so the panel still shows what it owes.
+	| { phase: 'stale'; slide?: number };
 
 const sevColor = (sev: string) => (sev === 'error' ? 'var(--fail,#b3261e)' : sev === 'warning' ? 'var(--chart-2,#9c3f00)' : 'var(--text-muted)');
 const sevIcon = (sev: string) => (sev === 'error' ? OctagonAlert : sev === 'warning' ? AlertTriangle : Info);
@@ -46,7 +50,8 @@ export function FindingCard({
 	const SevIcon = sevIcon(finding.severity);
 	const working = state?.phase === 'working' ? state : null;
 	const proposed = state?.phase === 'proposed' ? state : null;
-	const active = !!(working || proposed);
+	const stale = state?.phase === 'stale';
+	const active = !!(working || proposed || stale);
 	return (
 		<li className={cn('rounded-lg border bg-background', active ? 'border-[var(--accent)]' : 'border-border')}>
 			<div className="px-2.5 py-2">
@@ -79,6 +84,13 @@ export function FindingCard({
 								<button type="button" onClick={onDiscard} className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
 									<X className="size-3" />
 									Discard
+								</button>
+							</>
+						) : stale ? (
+							<>
+								<span className="text-[11px] font-medium text-[var(--warn,#9a6a00)]">Slide changed — the draft is out of date.</span>
+								<button type="button" onClick={onFix} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)]">
+									Re-draft
 								</button>
 							</>
 						) : (
