@@ -243,3 +243,13 @@ describe('compile — svg per-element channels', () => {
     expect(st.transform.rotate[2]).toBeCloseTo(0.3, 6);
   });
 });
+
+describe('compile — highlight holds past its window (poster guarantee)', () => {
+  it('emphasis stays at full PAST the window end, so a pre-hero highlight shows in the poster', () => {
+    // window [0.3, 0.6]; the hero (progress 1) is PAST it — the hold must keep emphasis at 1.
+    const tl = timeline(svgScene([svgEl('a', { motion: [{ verb: 'highlight', at: 0.3, span: 0.3 }] })]));
+    expect(tl.at(600).elements[0].emphasis).toBeCloseTo(1, 6); // at the window end
+    expect(tl.at(1000).elements[0].emphasis).toBeCloseTo(1, 6); // PAST the window — held, not decayed
+    expect(tl.poster().elements[0].emphasis).toBeCloseTo(1, 6); // hero=1 → the still shows emphasis
+  });
+});

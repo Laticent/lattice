@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { compile } from '../compile';
 import { parseScene } from '../schema';
-import { vivusRenderer } from './vivus';
+import { strokeProgress, vivusRenderer } from './vivus';
 
 const MARKUP = '<svg viewBox="0 0 100 60"><path id="p1" d="M10 30 H90" stroke="#000" fill="none"/><path id="p2" d="M50 10 V50" stroke="#000" fill="none"/></svg>';
 const SCENE = {
@@ -163,5 +163,39 @@ describe('vivusRenderer — transform composition order (checker #1)', () => {
     // authored placement first (outermost) → our rotate composes in the part's local frame
     expect(t.startsWith('translate(100 50)')).toBe(true);
     expect(t).toContain('rotate(90)'); // 1.5708 rad ≈ 90°
+  });
+});
+
+describe('strokeProgress — reveal-aggregate decoupling (trio poison case)', () => {
+  it('a reveal-only part (excluded from the animated set) does NOT raise the stroke aggregate', () => {
+    // 'draws' is mid-draw; 'fades' is a fully-present reveal-only label. The aggregate must
+    // track the DRAWING element alone, not get pinned to 1 by the static label.
+    const p = strokeProgress(new Set(['draws']), [
+      { id: 'draws', reveal: 0.3 },
+      { id: 'fades', reveal: 1 },
+    ]);
+    expect(p).toBeCloseTo(0.3, 6);
+  });
+  it('no drawing element → 1 (a static, fully-drawn figure)', () => {
+    expect(strokeProgress(new Set(), [{ id: 'a', reveal: 0 }])).toBe(1);
+  });
+  it('maxes reveal over the animated set only', () => {
+    const p = strokeProgress(new Set(['a', 'b']), [
+      { id: 'a', reveal: 0.2 },
+      { id: 'b', reveal: 0.7 },
+      { id: 'c', reveal: 1 },
+    ]);
+    expect(p).toBeCloseTo(0.7, 6);
+  });
+});
+
+describe('vivusRenderer — highlight emphasis in the poster (checker #2/#5)', () => {
+  it('bakes the bumped stroke-weight into the poster serialization at full emphasis', () => {
+    // highlight window ENDS before the hero (at 0.3+0.3=0.6 < 1.0), so the poster proves the HOLD.
+    const M = '<svg viewBox="0 0 100 60"><path id="h" d="M0 0 H10" stroke="#000" stroke-width="1.5" fill="none"/></svg>';
+    const S = { source: 'svg', duration: 1000, hero: 1, asset: 'm', elements: [{ id: 'h', pathRef: 'h', motion: [{ verb: 'highlight', at: 0.3, span: 0.3 }] }] };
+    const { renderer, tl } = mounted(S, { m: M });
+    const p = renderer.poster(tl.poster()); // hero=1, past the highlight window → held at full
+    expect(p.svg).toMatch(/stroke-width:\s*2\.85/); // 1.5 × (1 + 0.9) held into the still
   });
 });

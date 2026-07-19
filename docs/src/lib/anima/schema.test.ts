@@ -138,3 +138,34 @@ describe('validateColor', () => {
     expect(validateColor(42)).not.toBeNull();
   });
 });
+
+describe('parseScene — svg per-element hardening (trio findings)', () => {
+  const one = (extra: Record<string, unknown>) => parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', ...extra }] });
+  it('rejects an svg transform with a non-zero IGNORED axis (silent no-op footgun)', () => {
+    expect(one({ transform: { at: [0, 0, 50] } }).ok).toBe(false); // z
+    expect(one({ transform: { rotate: [0.3, 0, 0] } }).ok).toBe(false); // rotate.x
+    expect(one({ transform: { rotate: [0, 0.3, 0] } }).ok).toBe(false); // rotate.y
+    expect(one({ transform: { at: [10, 20, 0], rotate: [0, 0, 0.5], scale: 2 } }).ok).toBe(true); // pure 2-D is fine
+  });
+  it('rejects an out-of-range svg transform scale', () => {
+    expect(one({ transform: { scale: -1 } }).ok).toBe(false);
+    expect(one({ transform: { scale: 5000 } }).ok).toBe(false);
+  });
+  it('rejects an out-of-bounds transform.at or slide.from magnitude', () => {
+    expect(one({ transform: { at: [1e9, 0, 0] } }).ok).toBe(false);
+    expect(one({ motion: [{ verb: 'slide', from: [1e9, 0] }] }).ok).toBe(false);
+    expect(one({ motion: [{ verb: 'slide', from: [200, -80] }] }).ok).toBe(true); // sane offset ok
+  });
+  it('rejects two svg elements sharing a pathRef (silent last-wins)', () => {
+    const dup = parseScene({ ...svg, elements: [
+      { id: 'a', pathRef: 'shared', motion: [{ verb: 'slide', from: [10, 0] }] },
+      { id: 'b', pathRef: 'shared', motion: [{ verb: 'slide', from: [0, 10] }] },
+    ] });
+    expect(dup.ok).toBe(false);
+  });
+  it('rejects reveal combined with draw/trace on one svg part (both paint presence)', () => {
+    expect(one({ motion: [{ verb: 'draw' }, { verb: 'reveal' }] }).ok).toBe(false);
+    expect(one({ motion: [{ verb: 'trace' }, { verb: 'reveal' }] }).ok).toBe(false);
+    expect(one({ motion: [{ verb: 'draw' }, { verb: 'highlight' }] }).ok).toBe(true); // draw + emphasis is fine
+  });
+});

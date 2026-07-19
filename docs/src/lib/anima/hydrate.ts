@@ -29,9 +29,12 @@ import type { AssetMap, Renderer } from './renderer';
 /** The reduced-motion tiers (ADR §12.2). `system` resolves the device's setting. */
 export type MotionTier = 'full' | 'legible' | 'still' | 'system';
 
-/** The vestibular verbs — sweeps/orbits a reduced-motion viewer should not be subjected
- *  to. `legible` suppresses these but keeps the meaning-bearing verbs (reveal/draw/fill/
- *  sequence/explode). Classed in vocabulary.ts (spin/orbit = "explanatory 3D" sweeps). */
+/** The vestibular verbs — continuous sweeps/orbits a reduced-motion viewer should not be
+ *  subjected to. `legible` suppresses these but keeps the meaning-bearing verbs (reveal/draw/
+ *  fill/sequence/explode, and the svg slide/highlight). Classed in vocabulary.ts (spin/orbit =
+ *  "explanatory 3D" sweeps). `slide` and `highlight` are deliberately NOT vestibular: both are
+ *  one-shot, windowed, meaning-bearing moves (a directional entrance, a one-time emphasis) — the
+ *  same class as draw/reveal — not the sustained oscillation `legible` exists to quiet. */
 const VESTIBULAR: ReadonlySet<MotionVerb> = new Set<MotionVerb>(['spin', 'orbit']);
 
 // ── Pure helpers (exported for unit testing — no DOM) ────────────────────────

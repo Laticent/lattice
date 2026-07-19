@@ -55,37 +55,57 @@ const DRAW_VERBS = new Set(['draw', 'trace', 'sequence']);
 const EMPHASIS_GAIN = 0.9;
 
 /** The verbs that make a part FADE via opacity rather than stroke: a `reveal` that isn't also
- *  a draw/trace. (A path is normally drawn; a label is normally revealed.) */
+ *  a draw/trace. (A path is normally drawn; a label is normally revealed. Schema now rejects
+ *  `reveal` co-listed with `draw`/`trace` on one svg part, so the two never collide.) */
 function isFadeElement(motion: readonly { verb: string }[]): boolean {
   const verbs = new Set(motion.map((m) => m.verb));
   return verbs.has('reveal') && !verbs.has('draw') && !verbs.has('trace');
 }
 
-/** Find a path/group by id within an svg (safe against odd ids — no selector parsing). */
-function byId(svg: Element, id: string): Element | null {
-  for (const node of Array.from(svg.querySelectorAll('[id]'))) {
-    if (node.id === id) return node;
+/** The whole-SVG stroke-draw progress: the max `reveal` over the DRAWING elements (those in
+ *  `animated`). A reveal-only / static part is excluded, so it cannot pin the aggregate to 1
+ *  (the trio's poison case). No drawing element → 1 (a static, fully-drawn figure). Pure and
+ *  exported so the decoupling is unit-testable without a real Vivus (which can't init in jsdom). */
+export function strokeProgress(animated: ReadonlySet<string>, elements: readonly { id: string; reveal: number }[]): number {
+  let p = 0;
+  let any = false;
+  for (const es of elements) {
+    if (animated.has(es.id)) {
+      any = true;
+      if (es.reveal > p) p = es.reveal;
+    }
   }
-  return null;
+  return any ? clamp01(p) : 1;
 }
 
-/** INERTLY parse SVG markup (no script/onerror execution) and strip dangerous nodes as
- *  defense-in-depth. The authoritative sanitize is the host's (see the file header).
- *  Parsed as `text/html`: a DOMParser document is inert (scripts don't run, subresources
- *  don't load) AND HTML parsing infers the SVG namespace (so markup without an explicit
- *  `xmlns` still becomes real SVG — strict `image/svg+xml` would silently drop it). */
+// Elements stripped by the inert parse. Beyond the obvious code-execution vectors
+// (`script`/`foreignObject`/`on*`), these carry OFF-ORIGIN or side-effecting behaviour that
+// fires the moment the svg is appended to the LIVE document (mount): `style` (a global
+// `@import url(…)` beacons the viewer's IP and leaks into the page cascade), `image`/`use`
+// (external `href` fetches), and SMIL (`animate`/`set` — uncontrolled motion outside our
+// timeline). NOTE: this is defense-in-depth, NOT a full sanitizer — the host's
+// `sanitizeSlideHtml` (DOMPurify, HARD RULE #22) remains authoritative; this layer just makes
+// the raw-append path safe on its own until that host builder is wired (Stage 5).
+const STRIP_TAGS = new Set(['script', 'foreignobject', 'style', 'image', 'use', 'animate', 'animatetransform', 'animatemotion', 'set']);
+
+/** INERTLY parse SVG markup (no script/onerror execution) and strip side-effecting / off-origin
+ *  nodes as defense-in-depth (STRIP_TAGS). Parsed as `text/html`: a DOMParser document is inert
+ *  (scripts don't run, subresources don't load) AND HTML parsing infers the SVG namespace (so
+ *  markup without an explicit `xmlns` still becomes real SVG — strict `image/svg+xml` would drop
+ *  it). */
 function parseSvgInert(markup: string, doc: Document): SVGSVGElement | null {
   const parsed = new DOMParser().parseFromString(markup, 'text/html');
   const svgEl = parsed.querySelector('svg');
   if (!svgEl) return null;
   for (const el of Array.from(svgEl.querySelectorAll('*'))) {
-    const tag = el.tagName.toLowerCase();
-    if (tag === 'script' || tag === 'foreignobject') {
+    if (STRIP_TAGS.has(el.tagName.toLowerCase())) {
       el.remove();
       continue;
     }
     for (const attr of Array.from(el.attributes)) {
       const n = attr.name.toLowerCase();
+      // Strip event handlers, javascript: hrefs, AND external resource refs (image/use href,
+      // filter/mask/clip-path url()) that would fetch off-origin from the live DOM.
       if (n.startsWith('on') || ((n === 'href' || n === 'xlink:href') && /^\s*javascript:/i.test(attr.value))) el.removeAttribute(attr.name);
     }
   }
@@ -174,22 +194,10 @@ export function vivusRenderer(opts: VivusOptions = {}): Renderer {
     }
   }
 
-  /** The progress that drives the whole-SVG draw: the max reveal over the DRAWING elements
-   *  (a static element no longer pins it to 1). Vivus sequences the paths in document order
-   *  across this progress. Per-element `at`/`span` WINDOWS are not independently honored —
-   *  the drawing ORDER is document order (a documented limitation; a future direct-
-   *  dashoffset mode would honor arbitrary per-path windows). */
-  function progressOf(state: SceneState): number {
-    let p = 0;
-    let any = false;
-    for (const es of state.elements) {
-      if (animated.has(es.id)) {
-        any = true;
-        if (es.reveal > p) p = es.reveal;
-      }
-    }
-    return any ? clamp01(p) : 1; // no drawing elements → a static (fully-drawn) figure
-  }
+  // Vivus sequences the paths in document order across this progress. Per-element `at`/`span`
+  // WINDOWS are not independently honored — the drawing ORDER is document order (a documented
+  // limitation; the next slice's direct-dashoffset mode honors arbitrary per-path windows).
+  const progressOf = (state: SceneState): number => strokeProgress(animated, state.elements);
 
   const renderer: Renderer = {
     caps: VIVUS_CAPS,
@@ -207,8 +215,8 @@ export function vivusRenderer(opts: VivusOptions = {}): Renderer {
       animated = new Set(s.elements.filter((el) => (el.motion ?? []).some((m) => DRAW_VERBS.has(m.verb))).map((el) => el.id));
       // Build Vivus FIRST: its Pathformer (in the ctor) rewrites shape nodes (rect/circle/…)
       // into <path>s, REPLACING the DOM nodes. So capture part refs + colors AFTER, against the
-      // rewritten nodes — else paintElements would mutate detached originals (byId matches the
-      // preserved id either way).
+      // rewritten nodes — else paintElements would mutate detached originals (the id is preserved
+      // onto the replacement path, so the id→node map resolves either way).
       try {
         vivus = new Vivus(svg, { type: opts.type ?? 'oneByOne', start: 'manual', duration: opts.duration ?? 200 });
         ready = true;
@@ -218,9 +226,14 @@ export function vivusRenderer(opts: VivusOptions = {}): Renderer {
       // Resolve each part's node ONCE and capture the metadata paintElements needs per frame:
       // token stroke color (palette-blind, #3), base stroke weight, center, and which channels
       // it paints (fade / highlight / transform). A part whose pathRef doesn't resolve is skipped.
+      // Build ONE id→node map (post-Pathformer) instead of rescanning the tree per element.
+      const nodeById = new Map<string, Element>();
+      for (const node of Array.from(svg.querySelectorAll('[id]'))) {
+        if (!nodeById.has(node.id)) nodeById.set(node.id, node);
+      }
       parts = [];
       for (const el of s.elements) {
-        const node = byId(svg, el.pathRef);
+        const node = nodeById.get(el.pathRef);
         if (!node) continue;
         if (el.color) node.setAttribute('stroke', resolveColor(el.color, target));
         const motion = el.motion ?? [];
