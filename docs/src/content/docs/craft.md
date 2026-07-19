@@ -157,19 +157,14 @@ engine now. What it's built on is still yours to do.
 
 ## What it took
 
-Let me be straight about how Lattice got made, because it bears on everything
-above. It would not exist without Claude. I had carried the shape of it for
-years and never had the hands to build it — and then a model did the grunt
-work, night after night, that turned the idea into something you can open. It
-wrote code faster than I could have alone and never tired of the work. That is
-not a footnote I'm reluctant to add. It's the reason any of this is real.
+I couldn't have built Lattice without Claude. The shape of it had been in my
+head for years, with no way to get it out. The ideas were the easy part; the
+hands were what I lacked. A model did the grunt work, night after night, and
+turned what I'd been describing into something you can open.
 
-None of it changes the argument; it completes it. Claude gave me the hands, and
-the standard for what those hands built stayed mine. Neither half makes Lattice
-alone. A machine with no one holding the line settles for the average; a vision
-no one can build stays a vision. What I brought was knowing what good looked
-like. What the model brought was the tireless means to reach it. Together, the
-idea I'd been carrying finally exists.
+That's not a hole in the argument. It's the proof of it: the machine did the
+building, I held the line on what was worth keeping, and Lattice exists only
+because both were there. I'd carried it for years. Now it's real.
 
 ## Where to go next
 
