@@ -246,6 +246,20 @@ in patch versions.
   as their slide is shown and pause off-screen natively. The PDF is untouched — it keeps the poster still.
   (`lib/export/player-core.mjs`, `tools/build-anima-player.js` → `lib/export/anima-player-bundle.generated.mjs`.)
 
+- **The Studio Coach now runs the engine's real deck assessment, with deterministic "quick reads" and safer fixes.**
+  The Coach's board-readiness card was a 3-check toy heuristic (`lint.ts scoreDeck`); it now renders the **same
+  deterministic scorecard the CLI runs** — an overall grade/band plus a per-dimension read (structure · clarity ·
+  data · pacing · contract) over the engine's lint **and** review findings — so there is one deck assessment, not
+  two that drift. The grade is framed honestly ("checks authoring hygiene, not whether the argument persuades") and
+  a **blank deck shows a prompt, never a fabricated "A"**. New deterministic **quick-read chips** — Top fixes ·
+  Weakest slide · Structure · The ask · Pacing — compute a result card from the deck with **no model** (free, instant),
+  and findings are now **ranked by severity** with jump-to-slide. The per-finding **Fix with AI** is hardened: it
+  re-checks that the target slide hasn't changed since the fix was proposed (no silent clobber), and it's disabled
+  with an honest note when a slide contains a `---` inside a code fence (which would mis-target). Deck-level findings
+  that can't be slide-fixed are marked and excluded from AI fixes. New `coach/coach-core.ts` (assessment + chip
+  kernel); the toy `scoreDeck` and the standalone "Rewrite lead" chip are removed; component `density` is plumbed
+  through `studio.astro` so the review's density findings survive. Part of the Drawing Board → Studio migration
+  (`engineering/decisions/2026-07-03-studio-succession.md` P2a).
 - **The Studio Architect chat now streams, renders Markdown, and shows what a turn costs.** The
   Converse chat was a plain-text bubble list; it is rebuilt as a real conversation. Replies **stream
   in token-by-token** (with a Stop control and Regenerate), render **on-brand Markdown** — bold, lists,

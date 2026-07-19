@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, History, Info, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, OctagonAlert, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -25,14 +25,16 @@ import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
+import { sliceSlide } from '@/playground/architect-edits.js';
 import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat, DiffCard } from './ArchitectChat';
-import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
+import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { ComposeView } from './ComposeView';
+import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, hasFencedSeparator, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
@@ -50,7 +52,7 @@ import { LensesPanel, type TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
-import { type PresentLens, presentationSet, scoreDeck, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
+import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
 import { ReshapePicker } from './ReshapePicker';
@@ -68,7 +70,6 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, renameDeck as renameDeckStore, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -839,7 +840,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const knownWithLocal = React.useMemo(() => [...catalogNames, ...localNames], [catalogNames, localNames]);
 	const lintKnown = React.useMemo(() => (validation ? knownWithLocal : usedComponents(source)), [validation, source, knownWithLocal]);
 	const issues = React.useMemo(() => unknownComponents(source, lintKnown).length, [source, lintKnown]);
-	const deckScore = React.useMemo(() => scoreDeck(source, lintKnown), [source, lintKnown]);
 
 	// Panels are persistent columns on desktop, on-demand sheets below it. Reset
 	// their open state to the right default whenever the breakpoint flips so a
@@ -1464,15 +1464,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 
 	// ── Architect (AI) ───────────────────────────────────────────────────────
 	const ai = useArchitectStatus();
-	const [aiBusy, setAiBusy] = React.useState<string | null>(null);
 	const [hasSelection, setHasSelection] = React.useState(false);
 	const [refineBusy, setRefineBusy] = React.useState(false);
 	// Deck-wide deterministic findings (the real lint-core list the editor underlines)
 	// — surfaced in the Coach panel so each can be fixed with AI. A proposed fix is a
 	// reviewable diff keyed by finding; nothing applies until the author clicks Apply.
 	const [findings, setFindings] = React.useState<Finding[]>([]);
+	// The REAL engine deck assessment (scorecard + lint/review findings), replacing the
+	// toy lint.ts scoreDeck. `hasContent` false → a blank deck shows a placeholder, never
+	// a fabricated grade (K1). Populated by the debounced effect below.
+	const [scorecard, setScorecard] = React.useState<DeckScorecard | null>(null);
+	const [deckHasContent, setDeckHasContent] = React.useState(false);
+	const [assessing, setAssessing] = React.useState(true);
+	// The active deterministic Coach chip result card (one open at a time). No model.
+	const [coachCard, setCoachCard] = React.useState<{ id: string; card: CoachCard } | null>(null);
+	const [talkMinutes, setTalkMinutes] = React.useState<number | null>(null);
 	const [fixBusy, setFixBusy] = React.useState<string | null>(null);
-	const [fixProposal, setFixProposal] = React.useState<{ key: string; before: string; after: string; edit: unknown } | null>(null);
+	const [fixProposal, setFixProposal] = React.useState<{ key: string; slide?: number; proposedSlice?: string; before: string; after: string; edit: unknown } | null>(null);
 	// On return from the OpenRouter OAuth redirect (?code=), finish the exchange.
 	React.useEffect(() => {
 		resumePendingAuth().then((ok) => {
@@ -1498,38 +1506,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			notify(`${edited} decks live only in this browser — a backup takes 10 s: Workspace → General.${isEvictionProneBrowser() ? ' (Safari clears unused site data after a week.)' : ''}`);
 		}
 	}, [notify]);
-	// Run one architect instruction. Applies real edits when a model is connected;
-	// degrades honestly (points at Workspace) when it is not.
-	const runArchitectAction = React.useCallback(
-		async (key: string, label: string, instruction: string) => {
-			if (aiBusy) return;
-			setAiBusy(key);
-			notify(`${label}…`);
-			try {
-				const out = await runArchitect(source, instruction);
-				if (out.status === 'offline') {
-					notify('Connect a model in Workspace → AI, then this applies automatically.');
-					setWorkspaceOpen(true);
-				} else if (out.status === 'blocked') {
-					notify(out.note);
-					setWorkspaceOpen(true);
-				} else if (out.status === 'advice') {
-					notify(out.note);
-				} else {
-					// Checkpoint the pre-edit deck so an AI change is reversible from
-					// history, not just ⌘Z.
-					setCheckpoints(saveCheckpoint(deck.id, source, `Before ${label}`, Date.now()));
-					setSource(out.source);
-					notify(`${out.note} — ⌘Z or restore from History to undo.`);
-				}
-			} catch {
-				notify(`${label} failed — try again.`);
-			} finally {
-				setAiBusy(null);
-			}
-		},
-		[aiBusy, source, notify, deck.id],
-	);
+	// NOTE: the standalone "Rewrite lead" AI action (runArchitectAction) was removed with
+	// the Coach reframe — the deterministic chips + per-finding AI fix + the chat now cover
+	// deck edits, so a single static rewrite chip is redundant (succession doc §2, P2a).
 
 	// Refine the editor SELECTION with the model (Polish/Formalize/Elaborate/
 	// Shorten). Checkpoints the pre-edit deck, applies the rewrite as one undoable
@@ -1576,31 +1555,41 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// (Editor.tsx, debounced 750ms by @codemirror/lint's default), so an
 	// undebounced copy here duplicated that work on every keystroke.
 	React.useEffect(() => {
-		if (!validation) {
-			setFindings([]);
-			return;
-		}
 		let live = true;
+		setAssessing(true);
 		const id = setTimeout(() => {
-			listFindings(lintVocab, source, localNames, savedFinishLintNames).then((f) => {
-				if (live) setFindings(f);
+			assessDeck(source, lintVocab, components, localNames, savedFinishLintNames).then((a: CoachAssessment) => {
+				if (!live) return;
+				setScorecard(a.scorecard);
+				setDeckHasContent(a.hasContent);
+				setFindings(a.findings);
+				setAssessing(false);
 			});
 		}, 400);
 		return () => {
 			live = false;
 			clearTimeout(id);
 		};
-	}, [validation, source, lintVocab, localNames, savedFinishLintNames]);
+	}, [source, lintVocab, components, localNames, savedFinishLintNames]);
 	// A clean proposal can outlive its finding after an edit; clear it when the
 	// finding set changes so a stale diff card never lingers.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally keyed on findings identity only — clearing a stale proposal when the list changes.
-	React.useEffect(() => setFixProposal(null), [findings]);
+	React.useEffect(() => {
+		setFixProposal(null);
+		setCoachCard(null);
+	}, [findings]);
 
 	// Ask the Architect to fix ONE finding — proposes a reviewable diff (nothing
 	// applied yet). Honest degradation with no model / at the cap.
 	const fixFinding = React.useCallback(
 		async (finding: Finding, key: string) => {
 			if (fixBusy) return;
+			// K3 guard: the engine slide splitter is fence-blind, so a `---` inside a code
+			// fence would make an AI fix mis-target and corrupt the deck. Refuse honestly.
+			if (hasFencedSeparator(source)) {
+				notify('AI fix is unavailable while a slide has a `---` inside a code fence — it would mis-target. Remove or fence it differently, or edit by hand.');
+				return;
+			}
 			setFixBusy(key);
 			setFixProposal(null);
 			notify('Asking the Architect to fix this…');
@@ -1615,7 +1604,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				} else if (out.status === 'nochange') {
 					notify('The model had no rewrite to propose for this one.');
 				} else {
-					setFixProposal({ key, before: out.before, after: out.after, edit: out.edit });
+					// Capture the slide's content AT PROPOSAL TIME so Apply can detect a change
+					// under it (K4), independent of what the model reports as `before`.
+					setFixProposal({ key, slide: finding.slide, proposedSlice: finding.slide ? sliceSlide(source, finding.slide) : undefined, before: out.before, after: out.after, edit: out.edit });
 				}
 			} catch {
 				notify('Fix failed — try again.');
@@ -1629,6 +1620,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// edited slide back, and jump the preview to it.
 	const applyFix = React.useCallback(() => {
 		if (!fixProposal) return;
+		// K4 stale-body guard: if the target slide changed since the fix was proposed,
+		// applying would overwrite the author's newer edit with a rewrite of stale content.
+		// Refuse and ask for a re-run rather than clobber (the DB guarded this; the Studio
+		// applyFix did not).
+		if (fixProposal.slide && fixProposal.proposedSlice != null && sliceSlide(source, fixProposal.slide).trim() !== fixProposal.proposedSlice.trim()) {
+			notify(`Slide ${fixProposal.slide} changed since this fix was proposed — re-run the fix so it works from your current slide.`);
+			setFixProposal(null);
+			return;
+		}
 		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
 		setSource(applyDeckEdit(source, fixProposal.edit));
 		setFixProposal(null);
@@ -1897,6 +1897,30 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		requestAnimationFrame(() => editorRef.current?.revealSlide(0));
 	};
 
+	const rankedFindings = rankFindings(findings);
+	const fencedBlocked = hasFencedSeparator(source);
+	const scoreIntent = (band?: string): 'pass' | 'review' | 'fix' | 'info' => (!band ? 'info' : /^A/.test(band) ? 'pass' : /^[BC]/.test(band) ? 'review' : 'fix');
+	const runChip = async (id: string) => {
+		if (coachCard?.id === id && id !== 'pacing') {
+			setCoachCard(null);
+			return;
+		}
+		let card: CoachCard;
+		if (id === 'top') card = topFixes(findings);
+		else if (id === 'weak') card = weakestSlide(findings);
+		else if (id === 'ask') card = await theAsk(source);
+		else if (id === 'structure') card = await structureCheck(source);
+		else card = await pacing(source, talkMinutes ?? undefined);
+		setCoachCard({ id, card });
+	};
+	const CHIPS: [string, string][] = [
+		['top', 'Top fixes'],
+		['weak', 'Weakest slide'],
+		['structure', 'Structure'],
+		['ask', 'The ask'],
+		['pacing', 'Pacing'],
+	];
+
 	const architectCards = (
 		<>
 			{issues > 0 && (
@@ -1906,41 +1930,126 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<button type="button" onClick={() => editorRef.current?.fixAll()} className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)]">Fix all</button>
 				</div>
 			)}
-			<ArchCard tag={<IntentTag intent={deckScore.intent} />} title="Board-ready">
-				<div className="flex items-baseline gap-2"><span className="font-sans text-[28px] font-extrabold leading-none text-[var(--text-heading)]">{deckScore.score.toFixed(1)}</span><span className="text-[13px] text-muted-foreground">/ 10 · boardroom</span></div>
-				<div className="mt-2 space-y-1.5 text-xs">
-					{deckScore.rows.map((r) => <ScoreRow key={r.label} ok={r.ok} label={r.label} v={r.note} />)}
-				</div>
+			{/* Deck-level assessment — the REAL engine scorecard (grade + per-dimension read),
+			    replacing the toy heuristic. Never a fabricated grade for an empty deck (K1). */}
+			<ArchCard tag={<IntentTag intent={scoreIntent(scorecard?.band)} />} title="Board readiness">
+				{!deckHasContent ? (
+					<p className="text-xs leading-relaxed text-muted-foreground">Add a slide or two and I’ll assess the deck — a grade, a per-dimension read, and the fixes that matter most. No grade is shown for an empty deck.</p>
+				) : assessing && !scorecard ? (
+					<div className="space-y-2" role="status" aria-label="Assessing">
+						<div className="h-7 w-16 animate-pulse rounded bg-[var(--bg-alt)]" />
+						<div className="h-2 w-full animate-pulse rounded bg-[var(--bg-alt)]" />
+						<div className="h-2 w-2/3 animate-pulse rounded bg-[var(--bg-alt)]" />
+					</div>
+				) : scorecard ? (
+					<>
+						<div className="flex items-baseline gap-2">
+							<span className="font-sans text-[30px] font-extrabold leading-none" style={{ color: scoreIntent(scorecard.band) === 'fix' ? 'var(--fail,#b3261e)' : 'var(--text-heading)' }}>{scorecard.band}</span>
+							<span className="text-[15px] font-semibold text-[var(--text-heading)]">{Math.round(scorecard.overall)}<span className="text-[13px] font-normal text-muted-foreground"> / 100</span></span>
+						</div>
+						<div className="mt-2.5 space-y-2">
+							{scorecard.categories.map((c) => (
+								<div key={c.key} className="text-xs">
+									<div className="flex items-center justify-between gap-2">
+										<span className="text-[var(--text-body)]">{c.label}</span>
+										<span className="tabular-nums text-muted-foreground">{c.na ? 'n/a' : Math.round(c.score ?? 0)}</span>
+									</div>
+									{!c.na && (
+										<div className="mt-0.5 h-[4px] overflow-hidden rounded-full bg-border">
+											<span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.max(0, Math.min(100, c.score ?? 0))}%` }} />
+										</div>
+									)}
+									{(c.na || (c.score ?? 100) < 85) && c.notes[0] && <p className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">{c.notes[0]}</p>}
+								</div>
+							))}
+						</div>
+						<p className="mt-2.5 text-[10.5px] leading-snug text-muted-foreground">Live · deterministic — checks authoring hygiene (structure, clarity, contract). It can’t judge whether your argument or numbers will persuade. Free.</p>
+					</>
+				) : (
+					<p className="text-xs text-muted-foreground">Assessment unavailable right now.</p>
+				)}
 			</ArchCard>
-			{findings.length > 0 && (
-				<ArchCard tag={<IntentTag intent="review" label="FINDINGS" />} title={`${findings.length} to address`}>
-					<p className="text-xs leading-relaxed text-muted-foreground">The deck linter's per-slide notes. {ai.ready ? 'Fix any one with AI — review the diff before it lands.' : <>Connect a model in Workspace to fix these with AI.</>}</p>
+			{/* Deterministic quick reads — chips → one result card. Instant, free, no model. */}
+			<ArchCard tag={<IntentTag intent="info" label="QUICK READS" />} title="Ask the deck">
+				<div className="flex flex-wrap gap-1.5">
+					{CHIPS.map(([id, label]) => (
+						<button key={id} type="button" onClick={() => runChip(id)} className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors', coachCard?.id === id ? 'border-transparent bg-[var(--accent)] text-[var(--on-accent)]' : 'border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>
+							{label}
+						</button>
+					))}
+				</div>
+				<p className="mt-1.5 text-[9.5px] font-bold uppercase tracking-widest text-[var(--chart-3,#2e6f00)]">Free · no model</p>
+				{coachCard && (
+					<div className="mt-2 rounded-lg border border-border bg-background px-2.5 py-2">
+						<div className="flex items-center justify-between gap-2">
+							<span className="text-[12px] font-semibold text-foreground">{coachCard.card.title}</span>
+							<button type="button" onClick={() => setCoachCard(null)} aria-label="Close"><X className="size-3 text-muted-foreground" /></button>
+						</div>
+						<ul className="mt-1 space-y-1 text-[11.5px] leading-snug text-muted-foreground">
+							{coachCard.card.body.map((b, i) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: static result-card lines.
+								<li key={i}>{b}</li>
+							))}
+						</ul>
+						{coachCard.card.needMinutes && (
+							<div className="mt-1.5 flex items-center gap-1.5">
+								<input
+									type="number"
+									min={1}
+									placeholder="minutes"
+									aria-label="Talk length in minutes"
+									className="w-20 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:border-[var(--accent)]"
+									onKeyDown={(e) => {
+										if (e.key === 'Enter') {
+											const v = Number((e.target as HTMLInputElement).value);
+											if (v > 0) {
+												setTalkMinutes(v);
+												pacing(source, v).then((card) => setCoachCard({ id: 'pacing', card }));
+											}
+										}
+									}}
+								/>
+								<span className="text-[10.5px] text-muted-foreground">↵ your talk length</span>
+							</div>
+						)}
+						{coachCard.card.jump ? (
+							<button type="button" onClick={() => editorRef.current?.revealSlide((coachCard.card.jump as number) - 1)} className="mt-1.5 text-[11px] font-semibold text-[var(--accent)]">
+								Jump to slide {coachCard.card.jump} →
+							</button>
+						) : null}
+					</div>
+				)}
+			</ArchCard>
+			{/* Slide-level findings — severity-ranked; per-finding AI fix → reviewable diff. */}
+			{rankedFindings.length > 0 && (
+				<ArchCard tag={<IntentTag intent={rankedFindings.some((f) => f.severity === 'error') ? 'fix' : 'review'} label="FINDINGS" />} title={`${rankedFindings.length} to address`}>
+					<p className="text-xs leading-relaxed text-muted-foreground">Ranked by severity. {ai.ready ? 'Fix one with AI — review the diff before it lands (spends on your key; billed to generate, not to apply).' : 'Connect a model in Workspace to fix these with AI.'}</p>
 					<ul className="mt-2 space-y-2">
-						{findings.slice(0, 6).map((f, i) => {
+						{rankedFindings.slice(0, 6).map((f, i) => {
 							const key = `${f.slide}:${f.rule}:${i}`;
-							const isErr = f.severity === 'error';
+							const sev = f.severity;
+							const color = sev === 'error' ? 'var(--fail,#b3261e)' : sev === 'warning' ? 'var(--chart-2,#9c3f00)' : 'var(--text-muted)';
+							const SevIcon = sev === 'error' ? OctagonAlert : sev === 'warning' ? AlertTriangle : Info;
+							const deckLevel = !f.slide;
 							return (
 								<li key={key} className="rounded-lg border border-border bg-background px-2.5 py-2">
 									<div className="flex items-start gap-2">
-										<span className="mt-0.5 shrink-0" style={{ color: isErr ? 'var(--chart-2,#9c3f00)' : 'var(--chart-4,#9a6a00)' }}><AlertTriangle className="size-3.5" /></span>
+										<span className="mt-0.5 shrink-0" style={{ color }}><SevIcon className="size-3.5" /></span>
 										<div className="min-w-0 flex-1">
-											<span className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">Slide {f.slide} · {f.rule}</span>
+											<span className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">{deckLevel ? 'Deck-level' : `Slide ${f.slide}`} · {f.rule}</span>
 											<p className="text-[12px] leading-snug text-foreground">{f.message}</p>
 										</div>
-										{ai.ready && <Chip busy={fixBusy === key} onClick={() => fixFinding(f, key)}>Fix with AI</Chip>}
+										{ai.ready && !deckLevel && !fencedBlocked && <Chip busy={fixBusy === key} onClick={() => fixFinding(f, key)}>Fix ≈ $0.02</Chip>}
 									</div>
 									{fixProposal?.key === key && <DiffCard before={fixProposal.before} after={fixProposal.after} onApply={applyFix} onDiscard={() => setFixProposal(null)} />}
 								</li>
 							);
 						})}
 					</ul>
-					{findings.length > 6 && <p className="mt-2 text-[11px] text-muted-foreground">+{findings.length - 6} more — the editor underlines them all.</p>}
+					{rankedFindings.length > 6 && <p className="mt-2 text-[11px] text-muted-foreground">+{rankedFindings.length - 6} more — the editor underlines them all.</p>}
+					{fencedBlocked && <p className="mt-2 text-[10.5px] leading-snug text-[var(--warn,#9a6a00)]">AI fix is paused — a slide has a `---` inside a code fence, which would mis-target. Edit by hand or fence it differently.</p>}
 				</ArchCard>
 			)}
-			<ArchCard tag={<IntentTag intent="info" label="COACH" />} title="Tighten the story">
-				<p className="text-xs leading-relaxed text-muted-foreground">Lead every slide with its takeaway, not its detail — the number, then the supporting rows.{!ai.ready && <span className="text-[var(--text-muted)]"> Connect a model in Workspace for one-click rewrites.</span>}</p>
-				<Chip busy={aiBusy === 'lead'} onClick={() => runArchitectAction('lead', 'Rewrite lead', `Rewrite slide ${activeFullIndex + 1} so it opens with its single headline takeaway or number, then the supporting rows. Return the whole slide, same component.`)}>Rewrite lead</Chip>
-			</ArchCard>
 		</>
 	);
 
@@ -3128,15 +3237,6 @@ function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: strin
 			<span className="absolute right-2.5 top-2.5">{tag}</span>
 			<div className="pr-16 text-[12px] font-bold text-[var(--text-heading)]">{title}</div>
 			<div className="mt-1">{children}</div>
-		</div>
-	);
-}
-function ScoreRow({ ok, label, v }: { ok?: boolean; label: string; v: string }) {
-	return (
-		<div className="flex items-center gap-1.5">
-			{ok ? <span className="text-[var(--chart-3,#2e6f00)]">✓</span> : <AlertTriangle className="size-3 text-[var(--chart-2,#9c3f00)]" />}
-			<span className="text-foreground">{label}</span>
-			<span className={cn('ml-auto font-mono text-[11px]', ok ? 'text-[var(--chart-3,#2e6f00)]' : 'text-[var(--chart-2,#9c3f00)]')}>{v}</span>
 		</div>
 	);
 }

@@ -139,45 +139,7 @@ export function presentationIndices(slides: string[], lens: PresentLens, registr
 	return presentationPairs(slides, lens, registry).map((p) => p.index);
 }
 
-export type DeckScore = {
-	/** 0–10 board-readiness, one decimal. */
-	score: number;
-	/** Overall posture for the status tag. */
-	intent: 'pass' | 'review' | 'fix';
-	rows: { label: string; ok: boolean; note: string }[];
-};
-
-/** A deterministic, deck-reactive readiness score for the Architect. NOT an AI
- *  judgement — a transparent heuristic over what's measurable in the source
- *  (valid components, an opening title, component variety, enough slides) so the
- *  scorecard moves as you edit. Pure + fuzz-tested; never throws. */
-export function scoreDeck(source: string, known: Iterable<string>): DeckScore {
-	const slides = splitSlides(source);
-	const used = usedComponents(source);
-	const unknown = unknownComponents(source, known);
-	const variety = new Set(used).size;
-	const n = slides.length;
-
-	const validOk = unknown.length === 0;
-	const titleOk = used.includes('title');
-	const varietyOk = variety >= Math.min(3, Math.max(1, n));
-
-	let score = 10;
-	score -= Math.min(6, unknown.length * 1.5); // unknown components are the big hit
-	if (!titleOk) score -= 1;
-	if (!varietyOk) score -= 1;
-	if (n < 3) score -= 1;
-	score = Math.max(0, Math.min(10, score));
-
-	const intent: DeckScore['intent'] = !validOk ? 'fix' : score >= 8 ? 'pass' : 'review';
-
-	return {
-		score: Math.round(score * 10) / 10,
-		intent,
-		rows: [
-			{ label: 'Components valid', ok: validOk, note: validOk ? 'pass' : `${unknown.length} to fix` },
-			{ label: 'Opens with a title', ok: titleOk, note: titleOk ? 'pass' : 'add title' },
-			{ label: 'Variety', ok: varietyOk, note: `${variety} type${variety === 1 ? '' : 's'}` },
-		],
-	};
-}
+// NOTE: the toy `scoreDeck` heuristic (a 3-check 0–10 score) was DELETED here — the
+// Studio Coach now renders the engine's REAL scorecard (`scorecard.scoreDeck` over
+// lint + review findings) via coach/coach-core.ts, so there is one deck assessment,
+// not two that drift (HARD RULE #1; succession doc §2.1).

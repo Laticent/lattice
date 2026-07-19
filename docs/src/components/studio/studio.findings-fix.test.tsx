@@ -13,9 +13,19 @@ vi.mock('@/components/DeckPreview', () => ({
 	default: ({ 'aria-label': label }: { 'aria-label'?: string }) => <div data-testid="deck-preview">{label}</div>,
 }));
 
-// One deterministic finding the panel should surface.
+// One deterministic finding the panel should surface. The Coach kernel is mocked so we
+// assert the StudioShell ORCHESTRATION (the real assessment is covered by coach-core.test).
 const FINDING = { slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' };
-vi.mock('./studio-lint', () => ({ listFindings: vi.fn(async () => [FINDING]) }));
+vi.mock('./coach/coach-core', () => ({
+	assessDeck: vi.fn(async () => ({ hasContent: true, scorecard: { overall: 82, band: 'B+', categories: [] }, findings: [FINDING] })),
+	hasFencedSeparator: () => false,
+	rankFindings: (f: unknown[]) => f,
+	topFixes: () => ({ title: 'Top fixes', body: [] }),
+	weakestSlide: () => ({ title: 'Weakest slide', body: [] }),
+	theAsk: async () => ({ title: 'The ask', body: [] }),
+	pacing: async () => ({ title: 'Pacing', body: [] }),
+	structureCheck: async () => ({ title: 'Structure check', body: [] }),
+}));
 
 const fixSpy = vi.hoisted(() => vi.fn(async () => ({ status: 'ok', before: 'old line', after: 'new tightened line', edit: { action: 'replace', slide: 2, body: 'new' } })));
 const statusSpy = vi.hoisted(() => vi.fn((): { ready: boolean; generation: string; modelName: string | null; remaining: number | null } => ({ ready: true, generation: 'openrouter', modelName: 'test', remaining: null })));
@@ -81,7 +91,7 @@ describe('Studio — per-finding AI fix', () => {
 
 	it('proposes a reviewable diff, and Apply splices the edited deck', async () => {
 		const user = setup();
-		await user.click(await screen.findByRole('button', { name: /Fix with AI/ }));
+		await user.click(await screen.findByRole('button', { name: /Fix ≈/ }));
 		expect(fixSpy).toHaveBeenCalledWith(expect.any(String), FINDING, expect.anything());
 		// The diff card appears with Apply / Discard…
 		const apply = await screen.findByRole('button', { name: 'Apply' });
@@ -94,7 +104,7 @@ describe('Studio — per-finding AI fix', () => {
 
 	it('Discard drops the proposed diff without applying', async () => {
 		const user = setup();
-		await user.click(await screen.findByRole('button', { name: /Fix with AI/ }));
+		await user.click(await screen.findByRole('button', { name: /Fix ≈/ }));
 		await user.click(await screen.findByRole('button', { name: 'Discard' }));
 		expect(screen.queryByText(/new tightened line/)).not.toBeInTheDocument();
 		expect(applySpy).not.toHaveBeenCalled();
@@ -105,7 +115,7 @@ describe('Studio — per-finding AI fix', () => {
 		setup();
 		// The findings still show (deterministic), but without the AI fix affordance.
 		expect(await screen.findByText('1 to address')).toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: /Fix with AI/ })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: /Fix ≈/ })).not.toBeInTheDocument();
 		expect(screen.getByText(/Connect a model in Workspace to fix these with AI/)).toBeInTheDocument();
 	});
 });
