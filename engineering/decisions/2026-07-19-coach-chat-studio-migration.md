@@ -1,5 +1,5 @@
 ---
-status: implemented
+status: shipped
 summary: The Studio's Coach and Chat are redesigned and deepened, closing the Drawing Board → Studio coaching/conversation gap (succession doc P2a + P2b). Two independent design competitions (5 tracks × 5 internal iterations each, judged) picked a finalist per surface; the adversarial trio (red team + Munger inversion + independent checker) hardened each winner before implementation. Coach: the toy `lint.ts scoreDeck` is replaced by the engine's real `scorecard.scoreDeck` (grade + per-dimension read over lint + review findings), deterministic quick-read chips (topFixes/weakestSlide/theAsk/pacing/structureCheck) ported behind React, severity-ranked findings, and per-finding AI fix hardened against stale-slide clobber (K4) and fence-blind slide splitting (K3), with an empty-deck grade guard (K1). Chat: streaming replies (onToken through chatComplete), on-brand Markdown with `~~~` fenced code (Copy button + lezer highlighting), a per-slide reviewable diff re-applied against the CURRENT deck at Apply-time (K1 stale-snapshot fix), DOMPurify defense-in-depth, ephemeral (never replayed) offline/blocked notices, and a calm per-turn/session cost strip. XSS-safe by construction; cost/budget cues visible; the Coach-vs-Converse honesty contract preserved.
 ---
 
