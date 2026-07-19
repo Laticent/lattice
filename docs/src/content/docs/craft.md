@@ -157,13 +157,14 @@ engine now. What it's built on is still yours to do.
 
 ## What it took
 
-I couldn't have built Lattice without Claude. The shape of it had been in my
-head for years, with no way to get it out. The ideas were the easy part; the
-hands were what I lacked. A model did the grunt work, night after night, and
-turned what I'd been describing into something you can open.
+I could have built Lattice myself. The ideas were never the hard part. What I
+didn't have was the time. Building it the way I wanted would have cost more than
+I could spare without real sacrifice, so the version in my head stayed there.
+Claude did the grunt work, night after night, and turned what I'd been
+describing into something you can open.
 
-That's not a hole in the argument. It's the proof of it: the machine did the
-building, I held the line on what was worth keeping, and Lattice exists only
+That's not a hole in the argument. It's the proof of it: the machine put in the
+hours, I held the line on what was worth keeping, and Lattice exists only
 because both were there. I'd carried it for years. Now it's real.
 
 ## Where to go next
