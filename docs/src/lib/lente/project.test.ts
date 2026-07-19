@@ -83,6 +83,30 @@ describe('lensEligibility — the human gate, fail CLOSED', () => {
 	});
 });
 
+describe('approvalHash — injective pre-image (D1 fail-open fix)', () => {
+	// A base:'all', non-full lens whose members are every slide (no exclusion tags),
+	// so I can drive the exact collision the adversarial trio found.
+	const xreg = (approved?: string): LensRegistry =>
+		({ default: 'full', lenses: [{ id: 'full', label: 'F', base: 'all' }, { id: 'x', label: 'X', base: 'all', ...(approved ? { approved } : {}) }] }) as LensRegistry;
+
+	it('two decks that forged the same digest under the old index-space-slide join now differ', () => {
+		// Old scheme: both -> pre-image "x\nall\n0 a\n1 b" (a slide body forging the record boundary).
+		expect(approvalHash(['a', 'b'], xreg(), 'x')).not.toBe(approvalHash(['a\n1 b'], xreg(), 'x'));
+	});
+
+	it('the concrete fail-open path is closed: approve one deck, swap to the forged deck -> drifted', () => {
+		const approved = approvalHash(['a', 'b'], xreg(), 'x');
+		expect(lensEligibility(['a', 'b'], xreg(approved), 'x').status).toBe('ok');
+		expect(lensEligibility(['a\n1 b'], xreg(approved), 'x')).toEqual({ status: 'unavailable', reason: 'drifted' });
+	});
+
+	// Guards the NEW scheme's own escaping (not a regression for the old \n-join bug): a quote/comma
+	// body must not forge the JSON structure the pre-image relies on.
+	it('quotes/commas in a body cannot forge the JSON structure (escaped, so distinct)', () => {
+		expect(approvalHash(['a"', ',b'], xreg(), 'x')).not.toBe(approvalHash(['a","', 'b'], xreg(), 'x'));
+	});
+});
+
 describe('readerLenses', () => {
 	it('offers full plus only the approved, visible, non-empty lenses', () => {
 		const r = reg([]);
