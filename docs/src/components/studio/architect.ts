@@ -183,7 +183,9 @@ type ArchitectModel = {
 	// The authoritative cost of a generation by its stream id — corrects an aborted turn's estimate.
 	openRouterGenerationCost?: (id: string) => Promise<number | null>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
-	embed?: (texts: string | string[]) => Promise<number[][] | null>;
+	// `allowLoad:false` returns null unless the embedder is ALREADY warm, so a hot path
+	// never triggers the ~30MB main-thread cold load (see dedupComponents).
+	embed?: (texts: string | string[], opts?: { allowLoad?: boolean }) => Promise<number[][] | null>;
 	availability: () => ModelAvailability;
 	refreshAvailability?: () => Promise<unknown>;
 	beginOpenRouterAuth: (cb: string) => Promise<string | null>;
@@ -709,10 +711,15 @@ const corpusText = (c: DedupCatalog[number]) => `${c.name} — ${c.description |
 async function dedupComponents(prompt: string, catalog: DedupCatalog, model: ArchitectModel, limit = 3): Promise<ComponentSimilar[]> {
 	if (!prompt.trim() || !catalog.length) return [];
 	const toSimilar = (c: DedupCatalog[number], score: number): ComponentSimilar => ({ name: c.name, bucket: c.bucket || '', description: c.description || '', score });
-	// 1. Embeddings — the primary signal.
+	// 1. Embeddings — the primary signal, but ONLY if the embedder is already warm.
+	// `allowLoad:false` keeps this dedup "reuse nudge" from cold-loading the ~30MB
+	// bge-small model on the main thread inside the generate hot path — that inline
+	// load froze generation and could OOM-crash the tab on memory-constrained
+	// browsers (2026-07-19-dedup-embedder-hot-load.md). A cold embedder → null here →
+	// the instant lexical fallback below (step 2) does the ranking.
 	try {
 		if (model.embed) {
-			const vecs = await model.embed([prompt, ...catalog.map(corpusText)]);
+			const vecs = await model.embed([prompt, ...catalog.map(corpusText)], { allowLoad: false });
 			if (vecs && vecs.length === catalog.length + 1) {
 				const ranked = cosineRank(vecs[0], vecs.slice(1), { limit }) as { index: number; score: number }[];
 				const hits = ranked.filter((r) => r.score > 0.35).map((r) => toSimilar(catalog[r.index], r.score));
