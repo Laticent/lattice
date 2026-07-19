@@ -964,6 +964,25 @@ function ComposeStyles() {
 				.cs-host .cs-cellmark-warn{color:var(--warn,#b7791f);background:color-mix(in oklab,var(--warn,#b7791f),transparent 86%)}
 				.cs-host .cs-cellmark-skip{color:var(--text-muted,#6b7f9a);background:color-mix(in oklab,var(--text-muted,#6b7f9a),transparent 88%);text-decoration:line-through}
 				.cs-host .cs-cellmark-todo{color:var(--text-muted,#6b7f9a);background:color-mix(in oklab,var(--border,#e4eaf2),transparent 40%)}
+				/* the React TableControls island, mounted into the divider bar's Format-group slot: quick
+				   insert-row/column buttons + a table-icon trigger for the shadcn dropdown (menu itself is
+				   styled by shadcn/Tailwind, portaled by Radix). Buttons match the pill's icon buttons. */
+				.cs-tblc-slot{display:inline-flex}
+				.cs-tblc{display:inline-flex;align-items:center;gap:2px}
+				.cs-tblc-quick,.cs-tblc-more{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s}
+				.cs-tblc-quick svg,.cs-tblc-more svg{width:14px;height:14px}
+				.cs-tblc-quick:hover,.cs-tblc-more:hover,.cs-tblc-more[data-state=open]{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+				/* state-marker picker (obligation-matrix / roadmap): click to set the caret cell's marker;
+				   each chip carries the engine's stoplight color, matching the rendered cell chip. */
+				.cs-tblc-marks{display:inline-flex;align-items:center;gap:1px}
+				.cs-tblc-mark{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s}
+				.cs-tblc-mark svg{width:13px;height:13px}
+				.cs-tblc-mark:hover{background:color-mix(in oklab,currentColor,transparent 86%)}
+				.cs-mk-pass{color:var(--ok,#1a7f5a)}
+				.cs-mk-warn{color:var(--warn,#b7791f)}
+				.cs-mk-todo,.cs-mk-skip{color:var(--text-muted,#6b7f9a)}
+				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
+				.cs-caret-in-table .cs-insert-table{display:none}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
@@ -993,25 +1012,6 @@ function ComposeStyles() {
 			.cs-sb-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:11px}
 			.cs-sb-btn:hover{background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%);color:var(--text-heading,#0a1628)}
 			.cs-sb-on{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
-				/* the React TableControls island, mounted into the divider bar's Format-group slot: quick
-				   insert-row/column buttons + a table-icon trigger for the shadcn dropdown (menu itself is
-				   styled by shadcn/Tailwind, portaled by Radix). Buttons match the pill's icon buttons. */
-				.cs-tblc-slot{display:inline-flex}
-				.cs-tblc{display:inline-flex;align-items:center;gap:2px}
-				.cs-tblc-quick,.cs-tblc-more{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s}
-				.cs-tblc-quick svg,.cs-tblc-more svg{width:14px;height:14px}
-				.cs-tblc-quick:hover,.cs-tblc-more:hover,.cs-tblc-more[data-state=open]{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
-				/* state-marker picker (obligation-matrix / roadmap): click to set the caret cell's marker;
-				   each chip carries the engine's stoplight color, matching the rendered cell chip. */
-				.cs-tblc-marks{display:inline-flex;align-items:center;gap:1px}
-				.cs-tblc-mark{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s}
-				.cs-tblc-mark svg{width:13px;height:13px}
-				.cs-tblc-mark:hover{background:color-mix(in oklab,currentColor,transparent 86%)}
-				.cs-mk-pass{color:var(--ok,#1a7f5a)}
-				.cs-mk-warn{color:var(--warn,#b7791f)}
-				.cs-mk-todo,.cs-mk-skip{color:var(--text-muted,#6b7f9a)}
-				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
-				.cs-caret-in-table .cs-insert-table{display:none}
 		`}</style>
 	);
 }
