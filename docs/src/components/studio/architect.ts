@@ -15,6 +15,7 @@ import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/dr
 import { budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
 import { askComponentMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
+import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
 import { type GroundMsg, groundMessages, type MsgContent, type ReferenceDoc, refDocsTokens } from './reference-doc';
 import { deckOutputLang, languageDirective } from './studio-language';
@@ -440,8 +441,16 @@ export type FinishGenOutcome =
 // `lattice`, edge `frame`) added in the Finish redesign. Hardcoding them here is how this
 // prompt silently fell behind the engine; deriving them means it can't drift again.
 const vocab = (a: readonly string[]) => a.join('|');
+
+// The TEACHING exemplars — the shipped finishes and their layer recipes, sourced from
+// finish-catalog.ts (the same blurbs the picker shows), so the model is grounded in
+// combinations that ACTUALLY read well on a boardroom deck and the list can't drift from
+// what ships. `none` is the baseline (no backdrop), so it is excluded from the exemplars.
+const FINISH_EXEMPLARS = FINISHES.filter((f) => f.group === 'finish').map((f) => `  • ${f.label} — ${f.blurb.replace(/\.$/, '')}`);
+
 export const FINISH_SYSTEM = [
-	'You design a SLIDE FINISH — a subtle, palette-blind backdrop composed of four stacked layers, behind boardroom content.',
+	'You design a SLIDE FINISH — a subtle, palette-blind backdrop composed of four stacked layers, painted BEHIND boardroom content.',
+	'The four layers, bottom to top: WASH (an ambient color field), TEXTURE (a fine repeating pattern), MARK (a single placed emblem), EDGE (a vignette or frame).',
 	'Return ONLY a JSON object (no prose, no CSS) with this exact shape and ONLY values from these closed vocabularies:',
 	'{',
 	'  "name": "<short-kebab-name>",',
@@ -450,7 +459,11 @@ export const FINISH_SYSTEM = [
 	`  "mark":    { "type": "${vocab(MARK_TYPES)}", "placement": "${vocab(PLACEMENTS)}" },`,
 	`  "edge":    { "type": "${vocab(EDGE_TYPES)}", "intensity": <3-20> }`,
 	'}',
-	'Keep it RESTRAINED: low intensities (text must stay readable, no scrim). A finish is atmosphere, not decoration. Leave a layer "none" when it is not needed — most good finishes use one or two layers.',
+	'HAVE A POINT OF VIEW: the best finishes carry a SIGNATURE layer — a mesh wash, a pinstripe or lattice texture, a keyline frame — that gives them an identity beyond "a gradient wash of the accent the theme already paints". Reach for one when the brief has a character ("tailored", "woven", "museum", "blueprint"); otherwise a plain wash + a faint texture is the quiet default.',
+	'Keep it RESTRAINED: low intensities (accent alpha stays low so text-on-background contrast survives with no scrim). A finish is atmosphere, not decoration. Leave a layer "none" when it is not needed — most good finishes use ONE or TWO layers, rarely all four.',
+	'Leave "mark" as "none" unless the brief explicitly asks for an emblem/monogram/numeral — a deck-wide placed mark reads as clutter.',
+	'These SHIPPED finishes read well — use them as your bar for taste and combination (do not just copy one; compose to the brief):',
+	...FINISH_EXEMPLARS,
 ].join('\n');
 
 /**
