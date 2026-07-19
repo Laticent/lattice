@@ -4,7 +4,20 @@ import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirr
 import { keymap } from 'prosemirror-keymap';
 import type { MarkType, Node as PMNode } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import { EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import { type Command, EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import {
+	addColumnAfter,
+	addColumnBefore,
+	addRowAfter,
+	addRowBefore,
+	deleteColumn,
+	deleteRow,
+	deleteTable,
+	goToNextCell,
+	isInTable,
+	selectedRect,
+	tableEditing,
+} from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -85,6 +98,64 @@ function computeSelBar(view: EditorView): SelBar | null {
 		em: markActive(state, deckSchema.marks.em),
 		code: markActive(state, deckSchema.marks.code),
 	};
+}
+
+// ── Tables ──────────────────────────────────────────────────────────────────
+// GFM tables are real, editable nodes (deck-markdown). The structural ops come from
+// prosemirror-tables (add/delete row+column, delete table); alignment is Lattice's own
+// column command because GFM alignment is per-COLUMN, and it's read from the header row on
+// serialize. We deliberately expose NO merge/split and NO column-resize — neither survives
+// the GFM round-trip (2026-07-19-compose-table-editing.md, Axis B).
+
+/** Set GFM column alignment on every cell of the caret's column (so it renders consistently
+ *  and the header cell — which the serializer reads — carries it). `null` clears it. */
+function setColumnAlign(align: 'left' | 'center' | 'right' | null): Command {
+	return (state, dispatch) => {
+		if (!isInTable(state)) return false;
+		if (dispatch) {
+			const rect = selectedRect(state);
+			const tr = state.tr;
+			const seen = new Set<number>();
+			for (let col = rect.left; col < rect.right; col++) {
+				for (let row = 0; row < rect.map.height; row++) {
+					const rel = rect.map.map[row * rect.map.width + col];
+					if (seen.has(rel)) continue; // a merged cell appears once per span; forbidden here, deduped anyway
+					seen.add(rel);
+					const pos = rect.tableStart + rel;
+					const cell = tr.doc.nodeAt(pos);
+					if (cell) tr.setNodeMarkup(pos, undefined, { ...cell.attrs, align });
+				}
+			}
+			dispatch(tr);
+		}
+		return true;
+	};
+}
+
+// The floating table toolbar's model: where to sit (viewport coords, portaled to <body> like
+// the selection bar) and the caret column's current alignment (for the pressed L/C/R state).
+// null = the caret is not inside a table, so no toolbar.
+type TableBar = { left: number; top: number; align: 'left' | 'center' | 'right' | null };
+
+function computeTableBar(view: EditorView): TableBar | null {
+	const { state } = view;
+	if (!isInTable(state)) return null;
+	let rect: ReturnType<typeof selectedRect>;
+	try {
+		rect = selectedRect(state);
+	} catch {
+		return null;
+	}
+	const tablePos = rect.tableStart - 1; // the table node's own position
+	const dom = view.nodeDOM(tablePos);
+	if (!(dom instanceof HTMLElement)) return null;
+	const r = dom.getBoundingClientRect();
+	// The caret column's alignment, read from its top cell — drives the L/C/R pressed state.
+	let align: 'left' | 'center' | 'right' | null = null;
+	const topRel = rect.map.map[rect.top * rect.map.width + rect.left];
+	const topCell = state.doc.nodeAt(rect.tableStart + topRel);
+	if (topCell) align = (topCell.attrs.align as typeof align) ?? null;
+	return { left: r.left + r.width / 2, top: Math.max(r.top, 52), align };
 }
 
 // The structural guard (the adversarial trio's CRITICAL). Two invariants a stray keystroke
@@ -481,11 +552,19 @@ function buildPlugins() {
 		formatSyncPlugin(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
+		// Table cell navigation FIRST — Tab/Shift-Tab hop cells (and append a row off the end).
+		// goToNextCell returns false outside a table, so it falls through to list-item sink/lift.
+		// Enter is a no-op inside a table: a GFM cell is single-line, and the default splitBlock
+		// would fracture the cell (cells are `inline*` textblocks) — corrupting the grid.
+		keymap({ Tab: goToNextCell(1), 'Shift-Tab': goToNextCell(-1), Enter: (state) => isInTable(state) }),
 		keymap({
 			Enter: splitListItem(deckSchema.nodes.list_item),
 			Tab: sinkListItem(deckSchema.nodes.list_item),
 			'Shift-Tab': liftListItem(deckSchema.nodes.list_item),
 		}),
+		// prosemirror-tables' editing plugin — cell selection, structural integrity, the
+		// commands the toolbar drives. No columnResizing (GFM has no column widths).
+		tableEditing(),
 		keymap({ 'Mod-b': toggleMark(deckSchema.marks.strong), 'Mod-i': toggleMark(deckSchema.marks.em) }),
 		keymap(baseKeymap),
 		inputRules({
@@ -518,6 +597,9 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
 	const [selBar, setSelBar] = React.useState<SelBar | null>(null);
+	// The floating table toolbar (structural ops + column align) when the caret is inside a
+	// table, else null. Portaled to <body> like the selection bar.
+	const [tableBar, setTableBar] = React.useState<TableBar | null>(null);
 
 	// The mobile shell (coarse pointer / ≤699px) drives the TYPING-MODE chrome collapse: when the
 	// software keyboard is up, the shell's top bands collapse for a full writing surface.
@@ -617,18 +699,24 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 						lastEmittedRef.current = src;
 						onChangeRef.current(src);
 					}
-					// Selection-bar geometry LAST and guarded — a throw in coordsAtPos must never
-					// abort the transaction and swallow the emit above.
+					// Selection-bar + table-bar geometry LAST and guarded — a throw in coordsAtPos
+					// must never abort the transaction and swallow the emit above.
 					try {
 						setSelBar(computeSelBar(view));
 					} catch {
 						setSelBar(null);
+					}
+					try {
+						setTableBar(computeTableBar(view));
+					} catch {
+						setTableBar(null);
 					}
 				},
 				handleDOMEvents: {
 					// D2: on blur, apply any external source that arrived while focused.
 					blur() {
 						setSelBar(null); // the selection bar never outlives focus
+						setTableBar(null); // nor the table toolbar
 						const pending = pendingResyncRef.current;
 						if (pending != null && viewRef.current) {
 							try {
@@ -650,10 +738,20 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		// The floating bar is positioned in viewport coords; a scroll of the writing surface
 		// would strand it, so hide it on scroll (it returns on the next selection change).
 		const host = hostRef.current;
-		const hideBar = () => setSelBar(null);
-		host?.addEventListener('scroll', hideBar, { passive: true });
+		// A scroll of the writing surface would strand the viewport-positioned bars: hide the
+		// transient selection bar (it returns on the next selection), and RE-ANCHOR the table
+		// toolbar to the table's new position (it should stay put while you edit a long table).
+		const onScroll = () => {
+			setSelBar(null);
+			try {
+				setTableBar(computeTableBar(view));
+			} catch {
+				setTableBar(null);
+			}
+		};
+		host?.addEventListener('scroll', onScroll, { passive: true });
 		return () => {
-			host?.removeEventListener('scroll', hideBar);
+			host?.removeEventListener('scroll', onScroll);
 			view.destroy();
 			viewRef.current = null;
 			baselineRef.current = null;
@@ -693,6 +791,20 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		setSelBar(computeSelBar(view));
 	}, []);
 
+	// Run a table command from the toolbar, keeping focus in the editor, then re-anchor the bar
+	// (a row/column op moves the table; delete-table dismisses it).
+	const onTableCmd = React.useCallback((cmd: Command) => {
+		const view = viewRef.current;
+		if (!view) return;
+		cmd(view.state, view.dispatch);
+		view.focus();
+		try {
+			setTableBar(computeTableBar(view));
+		} catch {
+			setTableBar(null);
+		}
+	}, []);
+
 	if (failed) {
 		return (
 			<textarea
@@ -729,6 +841,81 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 						</button>
 						<button type="button" aria-label="Code" aria-pressed={selBar.code} className={cn('cs-sb-btn cs-sb-mono', selBar.code && 'cs-sb-on')} onClick={() => onMark('code')}>
 							{'</>'}
+						</button>
+					</div>,
+					document.body,
+				)}
+			{tableBar &&
+				createPortal(
+					<div
+						className="cs-tablebar"
+						role="toolbar"
+						aria-label="Table"
+						style={{ left: `${tableBar.left}px`, top: `${tableBar.top}px` }}
+						onMouseDown={(e) => e.preventDefault()}
+					>
+						<span className="cs-tb-label" aria-hidden="true">
+							Row
+						</span>
+						<button type="button" className="cs-tb-btn" aria-label="Insert row above" title="Insert row above" onClick={() => onTableCmd(addRowBefore)}>
+							+↑
+						</button>
+						<button type="button" className="cs-tb-btn" aria-label="Insert row below" title="Insert row below" onClick={() => onTableCmd(addRowAfter)}>
+							+↓
+						</button>
+						<button type="button" className="cs-tb-btn" aria-label="Delete row" title="Delete row" onClick={() => onTableCmd(deleteRow)}>
+							✕
+						</button>
+						<span className="cs-tb-sep" aria-hidden="true" />
+						<span className="cs-tb-label" aria-hidden="true">
+							Col
+						</span>
+						<button type="button" className="cs-tb-btn" aria-label="Insert column left" title="Insert column left" onClick={() => onTableCmd(addColumnBefore)}>
+							+←
+						</button>
+						<button type="button" className="cs-tb-btn" aria-label="Insert column right" title="Insert column right" onClick={() => onTableCmd(addColumnAfter)}>
+							+→
+						</button>
+						<button type="button" className="cs-tb-btn" aria-label="Delete column" title="Delete column" onClick={() => onTableCmd(deleteColumn)}>
+							✕
+						</button>
+						<span className="cs-tb-sep" aria-hidden="true" />
+						<span className="cs-tb-label" aria-hidden="true">
+							Align
+						</span>
+						<button
+							type="button"
+							className={cn('cs-tb-btn cs-tb-align', tableBar.align === 'left' && 'cs-tb-on')}
+							aria-label="Align column left"
+							aria-pressed={tableBar.align === 'left'}
+							title="Align column left"
+							onClick={() => onTableCmd(setColumnAlign(tableBar.align === 'left' ? null : 'left'))}
+						>
+							L
+						</button>
+						<button
+							type="button"
+							className={cn('cs-tb-btn cs-tb-align', tableBar.align === 'center' && 'cs-tb-on')}
+							aria-label="Align column center"
+							aria-pressed={tableBar.align === 'center'}
+							title="Align column center"
+							onClick={() => onTableCmd(setColumnAlign(tableBar.align === 'center' ? null : 'center'))}
+						>
+							C
+						</button>
+						<button
+							type="button"
+							className={cn('cs-tb-btn cs-tb-align', tableBar.align === 'right' && 'cs-tb-on')}
+							aria-label="Align column right"
+							aria-pressed={tableBar.align === 'right'}
+							title="Align column right"
+							onClick={() => onTableCmd(setColumnAlign(tableBar.align === 'right' ? null : 'right'))}
+						>
+							R
+						</button>
+						<span className="cs-tb-sep" aria-hidden="true" />
+						<button type="button" className="cs-tb-btn cs-tb-danger" aria-label="Delete table" title="Delete table" onClick={() => onTableCmd(deleteTable)}>
+							⌦
 						</button>
 					</div>,
 					document.body,
@@ -815,6 +1002,13 @@ function ComposeStyles() {
 			.cs-host em{font-style:italic}
 			.cs-host a{color:var(--accent,#1e5f96);text-decoration:underline}
 			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#006fa8)}
+				/* GFM TABLES — the editable grid, previewing the rendered compare-table: a label-voice header on an accent rail, hairline body rows, emphasized first column. Column alignment comes from each cell's inline text-align (the align attr). */
+				.cs-host table{border-collapse:collapse;width:100%;table-layout:auto;margin:.5em 0;font-size:.92em}
+				.cs-host th,.cs-host td{position:relative;border:1px solid var(--border,#e4eaf2);padding:6px 10px;vertical-align:top;text-align:left}
+				.cs-host tr:first-child th,.cs-host thead th{font-family:var(--font-mono,ui-monospace,monospace);font-size:.72em;letter-spacing:.08em;text-transform:uppercase;font-weight:600;color:var(--text-heading,#0a1628);background:var(--bg-alt,#f2f5fa);border-bottom:2px solid var(--accent,#006fa8)}
+				.cs-host td:first-child{font-weight:600;color:var(--text-heading,#0a1628)}
+				.cs-host table p{margin:0}
+				.cs-host .selectedCell{background:color-mix(in oklab,var(--accent,#006fa8),transparent 86%)}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
@@ -836,6 +1030,16 @@ function ComposeStyles() {
 			.cs-sb-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:11px}
 			.cs-sb-btn:hover{background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%);color:var(--text-heading,#0a1628)}
 			.cs-sb-on{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
+				/* floating TABLE toolbar — structural ops + column align, over the caret's table
+				   (portaled to body). Shown whenever the caret is inside a table, on any pointer. */
+				.cs-tablebar{position:fixed;z-index:60;display:flex;align-items:center;gap:2px;padding:3px 5px;border-radius:9px;background:var(--bg-alt,#fff);border:1px solid var(--border,rgba(0,0,0,.1));box-shadow:0 6px 20px -6px rgba(0,0,0,.28),0 1px 2px rgba(0,0,0,.14);transform:translate(-50%,calc(-100% - 8px));animation:cs-sb-in .1s ease-out}
+				.cs-tb-label{font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);padding:0 2px}
+				.cs-tb-btn{min-width:24px;height:24px;padding:0 5px;border:none;border-radius:6px;background:transparent;color:var(--text-body,#1e3a5f);font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .1s,background .1s}
+				.cs-tb-align{font-weight:700;font-size:11px}
+				.cs-tb-btn:hover{background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%);color:var(--text-heading,#0a1628)}
+				.cs-tb-on,.cs-tb-on:hover{color:var(--on-accent,#fff);background:var(--accent,#006fa8)}
+				.cs-tb-danger:hover{color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 88%)}
+				.cs-tb-sep{flex:none;width:1px;height:15px;background:var(--border,#e4eaf2);margin:0 2px}
 		`}</style>
 	);
 }
