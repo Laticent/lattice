@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: shipped
 summary: >
   The plan to make the product AI (Fabricate) generate top-tier theme / component / finish /
   deck on the first try, by feeding each generator ONE generated, always-current authoring
@@ -16,7 +16,7 @@ companion:
 
 # Authoring-canon unification — the plan to the promised land
 
-**Date:** 2026-07-19 · **Status:** in-progress · **Owner:** Sharmarke
+**Date:** 2026-07-19 · **Status:** shipped (the full stack landed) · **Owner:** Sharmarke
 
 ## The goal (owner's words, distilled)
 
@@ -96,20 +96,35 @@ artifact and no build-time generator.
     finish parity uses an exact-token (not substring) match.
   - **Multi-prompt eval** — replace the n=1 A/B with a small multi-prompt before/after to catch
     formulaic/cookie-cutter output.
-- **Win 2 — Theme canon: facts-from-source + parity gate.** Interpolate the theme canon's
-  falsifiable bits (required tokens, the three-layer contract params) from the engine; gate that
-  `THEME_CANON` stays true to source and agrees with `theme.md`. No kernel — hand prose + sourced
-  facts. (Highest traffic after component; the correctness bug already fixed in #1089.)
-- **Win 3 — Component canon: facts-from-source + parity gate.** `COMPONENT_CANON` already pulls
-  enums from `gate.js`; extend the same interpolate-and-gate to its other falsifiable facts and
-  reconcile with `component.md`.
-- **Win 4 — Finish canon: prose grounding.** With the vocab already sourced (Win 1), add the
-  finish teaching (which layer combos read well) and reconcile with `finish.md`.
-- **Win 5 — Close the loop.** One drift gate that asserts every product canon stays true to its
-  source; confirm each generator gets exactly one canon; verify the cache breakpoint + on-device
-  segmentation hold.
+- **Win 2 — Theme canon: facts-from-source + parity gate. (Done.)** `THEME_CANON` now interpolates
+  the token-contract size (`requiredTokenList`), the categorical slot count (single-sourced as
+  `derive.js` `CATEGORICAL_COUNT`), and the graphical-edge threshold (`AA_LARGE`); teaching prose stays
+  hand-written. `test/unit/palette/theme-canon.test.js` gates that the facts are sourced (not hardcoded)
+  and agrees with `theming.md` on the three-layer flipping model.
+- **Win 3 — Component canon: facts-from-source + parity gate. (Done.)** Caught a LIVE drift — the prose
+  bucket taxonomy named 12 buckets after `connect` (the 13th) shipped, so the generator was blind to it;
+  fixed. `test/unit/layout/component-canon.test.js` gates that every bucket is named in the taxonomy AND
+  the output contract, the categorical range tracks `CATEGORICAL_COUNT`, and the canon agrees with
+  `component.md` on the full 13-bucket set.
+- **Win 4 — Finish canon: prose grounding. (Done.)** `FINISH_SYSTEM` now teaches the four layer roles, a
+  point-of-view (reach for a signature layer), and interpolates the shipped finishes + blurbs from
+  `finish-catalog.ts` as taste exemplars (so "reads well" can't drift). `finish-system-vocab.test.ts`
+  extended to gate the teaching + reconcile with `finish.md`.
+- **Model-layer fixes (from the trio, now shipped).** (a) The deck cache breakpoint sits AFTER the stable
+  canon and BEFORE the volatile voice — `withStudioVoice` emits the cloud system as [canon, voice] parts,
+  `withCachedSystem` marks the first; a maker-checker also closed a gap where the voice was dropped when the
+  system was already parts (the Coach "Fix" path). *Caveat:* the ~1180-token cached prefix is below Haiku's
+  2048-token minimum, so the split is a no-op on the default model and pays off on Sonnet+ — structure, not
+  a measured win. (b) On-device gets `DECK_CANON_SHORT` (~275 tok) via `deckSystem(generation)`, so a tiny
+  local model isn't drowned by the full ~900-token canon.
+- **Win 5 — Close the loop. (Done.)** `test/unit/authoring/canon-loop.test.js` asserts the cross-cutting
+  invariants: each generator has exactly one substantive, distinct canon, the on-device deck canon is a
+  strict shorter sibling, and the shared categorical-slot fact agrees across every canon (the "one truth
+  per artifact" guarantee). The cache breakpoint + on-device segmentation are verified by
+  `architect-model.cache.test.ts` + the `deckSystem` tiering tests.
 
-Each win is its own small PR, verified with a **multi-prompt** before/after shown to the owner.
+All wins shipped on ONE branch (`claude/authoring-canon-remaining-wins`), one PR, one commit each — an
+increment-in-place per HARD RULE #17, not a stacked chain.
 
 ## Verification discipline
 
