@@ -85,7 +85,7 @@ The drawing ORDER is the meaning — node, arrow, node — which a static diagra
 
 ## Every scene reduces to its still.
 
-Under `prefers-reduced-motion`, the vestibular spin is suppressed and a scene whose whole point is the sweep falls back to this poster — the reader is never made queasy to get the meaning.
+Under `prefers-reduced-motion`, the vestibular spin doesn't autoplay — a scene whose whole point is the sweep falls back to this poster, now with a **Play the motion** control so a reader who wants it can still opt in. The default respects the reader; the choice stays theirs.
 
 <svg viewBox="0 0 240 180" xmlns="http://www.w3.org/2000/svg"><ellipse cx="120" cy="92" rx="86" ry="30" fill="none" stroke="var(--cat-2-mark)" stroke-width="9"/><polygon points="120,50 156,112 84,112" fill="var(--accent)"/><circle cx="120" cy="92" r="8" fill="var(--bg)" stroke="var(--text-heading)" stroke-width="4"/><circle cx="206" cy="92" r="11" fill="var(--cat-4-mark)"/></svg>
 

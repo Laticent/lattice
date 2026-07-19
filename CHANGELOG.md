@@ -198,6 +198,18 @@ in patch versions.
   canvas in **both** light and dark themes (the list previously inherited body ink, which vanished
   against the dark canvas under the light theme). (`closing.styles.css`, `closing.manifest.json`.)
 
+- **A live `scene` now has a real play/pause control, and reduced-motion viewers can opt into the
+  motion.** Stage 6 gave a live scene only a ↻ replay button — no way to pause a looping animation, and
+  a scene held to its poster by `prefers-reduced-motion` showed nothing playable at all. Now every live
+  scene carries ONE adaptive corner control — ⏸ to pause, ▶ to resume (seamless, it continues rather than
+  restarts), ↻ to replay a finite scene that has ended — so motion is always the viewer's to stop and
+  start. And when the reduced-motion floor alone holds a would-move scene to its poster, the host offers a
+  labelled **"Play the motion"** opt-in: the OS setting still governs the default (nothing autoplays), but
+  a viewer who wants the motion can choose it, and the click plays the full author-intended scene. The
+  floor still bounds what the *author* can force; it no longer strips the *viewer's* agency. In the
+  surface-agnostic host, so Studio present + HTML export inherit it. (`docs/src/lib/anima/hydrate.ts`,
+  `scene.styles.css`; ADR §12.2.)
+
 - **Variants are now first-class looks — searchable, insertable, and reshapeable — everywhere in the
   Studio.** A component's variants — its own alternate forms (`kpi › ops/spotlight`,
   `list › numbered/roman`), the 36-of-59 components that have them, exactly the set the playground
