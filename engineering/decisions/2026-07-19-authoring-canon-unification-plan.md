@@ -26,33 +26,51 @@ we already send the model, with everything **up to date**, **generated and combi
 LLM gets **one truth per artifact** (not several overlapping instruction sources), and
 **drift-proof** going forward.
 
-## The target architecture
+> **Revised 2026-07-19 (post-trio).** An adversarial trio on the shipped changes found the
+> original "generate a distillation KERNEL per artifact" framing was over-engineered: the two
+> drifts that actually caused bugs (the retired `THEME_CANON` dark model, the missing
+> `FINISH_SYSTEM` vocab) were both **enum/contract freshness**, which Win 1 already fixes the
+> cheap way — **interpolate the facts from source + a parity gate** (~5 lines, no kernel). The
+> skill-prose-vs-canon-prose duplication is a thin slice not worth a generator. So the plan is
+> **leaned out** to that pattern; the goals are unchanged.
 
-For each artifact, **one source → two generated outputs**:
+## The target architecture (lean)
 
-- The **skill** (`design/skills/X.md`) is the human/agent-facing teaching *source*.
-- The **LLM canon** (what enters the generator's system turn) is **generated** from that
-  skill's teaching **+ the engine's own facts** (enums, token contracts, budgets, the review
-  traps, the finish vocabulary) — distilled to what the model needs, nothing it doesn't.
-- A **freshness gate** fails the build if a generated canon drifts from the skill or the engine.
+For each artifact, **one canon per generator**, in its system turn, where:
 
-**What the LLM receives:** exactly **one canon per artifact**, always current. The genuinely
-per-request inputs stay separate *because they make sense* — the user's prompt, the current
-palette/deck, near-neighbor components, the user's reference doc. Nothing redundant.
+- The **falsifiable facts** — enums (finish vocab, `function.form`), token contracts, word
+  budgets, the review traps — are **interpolated from the engine's own source** (the `as const`
+  arrays, `prose-budgets`, `RUBRIC`, …), so they cannot drift. A **parity/drift gate** fails the
+  build if a canon stops offering what the engine accepts.
+- The **teaching prose** stays hand-written (the persuasive voice), and the **skill**
+  (`design/skills/X.md`) stays the human/agent teaching source. Where a skill and a canon teach
+  the same falsifiable fact, that fact comes from the shared source; the prose is reviewed, not
+  generated. (No distillation kernel; no "generate the skill.")
 
-**Prompt caching (hard constraint):** the canon lives in the **stable system prefix** the
-setup already caches; only the small per-request turns vary. Consolidating truth into a
-bigger-but-stable canon is therefore cache-friendly — paid once, not per call. Every win keeps
-the system prefix stable (no per-request interpolation into it).
+**What the LLM receives:** the canon **+** the genuinely per-request inputs that *make sense* —
+the user's prompt, current palette/deck, near-neighbor components, the user's reference doc.
 
-## What drove this (why generation, not hand-sync)
+**Prompt caching (with the trio's corrections):** the canon lives in the system turn the setup
+caches (`withCachedSystem`, one `cache_control` breakpoint). This is clean for theme / component /
+finish (no per-request voice). **The deck path is the exception the trio caught:** `withStudioVoice`
+appends volatile voice (deck language + standing instructions) *after* the breakpoint, so a
+deck/settings change re-pays the whole canon — **fix: breakpoint after the stable canon, before
+the voice.** Caveats to keep honest: the cache is a ~5-min ephemeral TTL, per-artifact (no
+cross-artifact sharing), first call per window pays the ~1.25× write — "paid once" is really
+"paid once per artifact per burst, then read cheaply."
 
-`2026-07-19-skills-fabricate-authoring-truth.md` found the product's canons are independently
-hand-maintained and had drifted worse than the skills: `deriveTheme`/`THEME_CANON` shipped a
-retired dark-mode categorical model, and `FINISH_SYSTEM` couldn't propose the premium finish
-layers. Hand-sync + a freshness gate was the cheap fix; the owner chose the stronger option —
-**generate the canons from source and combine the assets** — so drift is structurally
-impossible and the skills become the single teaching source that also drives the model.
+**On-device tier (trio):** the small on-device models get the **same full canon** with **no
+caching** — a 5–6K-token system prompt degrades a tiny model. The canon must be **segmented**: a
+short canon (or none) for on-device, the full one for the cloud tier.
+
+## What drove this (freshness, cheaply)
+
+`2026-07-19-skills-fabricate-authoring-truth.md` found the product's canons had drifted from the
+engine: `deriveTheme`/`THEME_CANON` shipped a retired dark-mode categorical model, and
+`FINISH_SYSTEM` couldn't propose the premium finish layers — both **enum/contract freshness**.
+The fix that both the ADR recommended and Win 1 shipped is **interpolate the facts from source +
+a parity gate**: drift becomes structurally impossible for the facts that matter, at ~5 lines per
+artifact and no build-time generator.
 
 ## Already done — banked wins
 
@@ -65,30 +83,37 @@ impossible and the skills become the single teaching source that also drives the
    deleted a wall-of-text, added a referent, closed on one ask). **This is the prototype of the
    pattern rolled out to the other artifacts.** (deck-canon branch.)
 
-## The stack (each ships value, compounds, and is proven with a live before/after)
+## The stack (leaned out; re-sequenced by impact: theme → component → finish)
 
-- **Win 1 — Finish: fix + derive-from-source.** `FINISH_SYSTEM`'s closed vocabularies are now
-  interpolated from `finish-generate.ts`'s `as const` arrays, so the model is offered every
-  shippable layer type — including the premium `mesh`/`pinstripe`/`lattice`/`frame` it silently
-  couldn't propose — and the prompt can't fall behind the engine again. Gated by a vocab-parity
-  test; live A/B confirms the model now returns `pinstripe`/`frame` instead of substituting.
-  **(This win.)**
-- **Win 2 — Make "generated canon" a reusable pattern.** Generalize `DECK_CANON`'s shape (prose
-  + engine-derived facts + freshness `--check`) into one convention every artifact uses.
-- **Win 3 — Theme: single-source it.** Generate the theme LLM-canon from the engine + `theme.md`;
-  the skill and the canon share one truth; gated. Replaces hand-written `THEME_CANON`.
-- **Win 4 — Component: single-source it.** Same, replacing hand-written `COMPONENT_CANON`
-  (already half-derived from `gate.js`).
-- **Win 5 — Finish: single-source it.** Fold Win 1 into the generated pattern, reconciled with
-  `finish.md`.
-- **Win 6 — Close the loop.** One drift gate over all canons; confirm each generator gets exactly
-  one canon; verify the system prefix stayed cache-stable.
+- **Win 1 — Finish vocab: derive-from-source.** `FINISH_SYSTEM` interpolates its closed
+  vocabularies from `finish-generate.ts`'s `as const` arrays, so the model is offered every
+  shippable layer (incl. `mesh`/`pinstripe`/`lattice`/`frame`) and can't fall behind. Vocab-parity
+  gate; live A/B confirms it returns `pinstripe`/`frame` instead of substituting. **(Done, #1095.)**
+- **Fix pass (from the trio, folded into the open PRs):**
+  - Deck-path **cache breakpoint** after the stable canon, before the volatile voice.
+  - **On-device short canon** — segment the canon so the tiny tier isn't degraded.
+  - **Gate hardening** — DECK_CANON drift check catches double-quoted/variable-emitted rule ids;
+    finish parity uses an exact-token (not substring) match.
+  - **Multi-prompt eval** — replace the n=1 A/B with a small multi-prompt before/after to catch
+    formulaic/cookie-cutter output.
+- **Win 2 — Theme canon: facts-from-source + parity gate.** Interpolate the theme canon's
+  falsifiable bits (required tokens, the three-layer contract params) from the engine; gate that
+  `THEME_CANON` stays true to source and agrees with `theme.md`. No kernel — hand prose + sourced
+  facts. (Highest traffic after component; the correctness bug already fixed in #1089.)
+- **Win 3 — Component canon: facts-from-source + parity gate.** `COMPONENT_CANON` already pulls
+  enums from `gate.js`; extend the same interpolate-and-gate to its other falsifiable facts and
+  reconcile with `component.md`.
+- **Win 4 — Finish canon: prose grounding.** With the vocab already sourced (Win 1), add the
+  finish teaching (which layer combos read well) and reconcile with `finish.md`.
+- **Win 5 — Close the loop.** One drift gate that asserts every product canon stays true to its
+  source; confirm each generator gets exactly one canon; verify the cache breakpoint + on-device
+  segmentation hold.
 
-Each win is its own small PR, verified with a live A/B shown to the owner — the lift accumulates
-visibly rather than on trust.
+Each win is its own small PR, verified with a **multi-prompt** before/after shown to the owner.
 
 ## Verification discipline
 
-Every win: machine gates (build:check, unit + docs tests, typecheck, lint) AND a live A/B on the
-real model via the owner's key (a tiny, `.scratch/`, on-demand eval — never committed, never in
-CI, per HARD RULE #24). No claim of "better output" without the before/after to back it.
+Every win: machine gates (build:check, unit + docs tests, typecheck, lint) AND a **multi-prompt**
+live eval on the real model via the owner's key (a tiny, `.scratch/`, on-demand harness — never
+committed, never in CI, per HARD RULE #24). n=1 is an anecdote; a handful of prompts catches the
+formulaic-output failure mode a single A/B can't. No claim of "better output" without it.

@@ -15,16 +15,20 @@ describe('FINISH_SYSTEM vocabulary parity with the engine enums', () => {
     ['edge', EDGE_TYPES],
     ['placement', PLACEMENTS],
   ];
+  // Match each value as a WHOLE token delimited by `|` or `"` in the prompt's
+  // `"type": "a|b|c"` vocab strings — a bare substring check would let `left` ride on
+  // `top-left` (and `none` on everything), masking a real gap.
+  const offered = (v: string) => new RegExp(`["|]${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["|]`).test(FINISH_SYSTEM);
   for (const [label, values] of cases) {
     it(`offers every ${label} value the engine accepts`, () => {
-      const missing = values.filter((v) => !FINISH_SYSTEM.includes(v));
+      const missing = values.filter((v) => !offered(v));
       expect(missing, `FINISH_SYSTEM omits ${label} value(s): ${missing.join(', ')}`).toEqual([]);
     });
   }
 
   it('names the premium layers explicitly (the regression this fixes)', () => {
     for (const premium of ['mesh', 'pinstripe', 'lattice', 'frame']) {
-      expect(FINISH_SYSTEM.includes(premium), `FINISH_SYSTEM must offer the premium layer "${premium}"`).toBe(true);
+      expect(offered(premium), `FINISH_SYSTEM must offer the premium layer "${premium}"`).toBe(true);
     }
   });
 });
