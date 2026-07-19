@@ -59,7 +59,7 @@ describe('table chrome commands', () => {
 	it('setColumnAlign centers the caret column and it serializes to `:---:`', () => {
 		const t = harness(TABLE);
 		t.caret('B'); // header of column 2
-		setColumnAlign('center')(t.state, t.view.dispatch, t.view);
+		setColumnAlign('center')(t.state, t.view.dispatch);
 		expect(t.src()).toContain('| --- | :---: |'); // only column 2 centered
 	});
 
@@ -67,7 +67,7 @@ describe('table chrome commands', () => {
 		const t = harness(TABLE);
 		t.caret('1'); // column 1
 		expect(currentColumnAlign(t.state)).toBe(null);
-		setColumnAlign('right')(t.state, t.view.dispatch, t.view);
+		setColumnAlign('right')(t.state, t.view.dispatch);
 		t.caret('1');
 		expect(currentColumnAlign(t.state)).toBe('right');
 	});
