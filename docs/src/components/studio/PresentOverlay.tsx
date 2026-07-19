@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight, EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
-import DeckPreview from '@/components/DeckPreview';
 import { Tip } from '@/components/ui/tooltip';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
@@ -28,6 +27,7 @@ import { slideToSpeech, useReadAloud, warmNarration } from './read-aloud';
 import { SlideOverview } from './SlideOverview';
 import { getCaption } from './slide-caption';
 import { getNote } from './slide-notes';
+import { hasMermaid } from './slide-thumb';
 import { buildPresenterStageDoc } from './studio-presenter';
 
 // Present = a verb (plan §17): a full-screen takeover you ENTER and exit, with a
@@ -60,9 +60,24 @@ type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
 type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: RehearsalSlide[] };
 
-export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
+export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify, slotRef, onSlide }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void; slotRef?: React.RefObject<HTMLDivElement | null>; onSlide?: (sample: string | null, mermaid: boolean) => void }) {
 	const [lens, setLens] = React.useState<PresentLens>('full');
-	const [idx, setIdx] = React.useState(0);
+	const [idx, setIdx] = React.useState(() => Math.max(0, Math.min(startIndex, slides.length - 1)));
+	// Start Present on the slide you were editing (full lens), set SYNCHRONOUSLY on the
+	// open transition — DURING RENDER, not in an effect — so the first present slide IS
+	// the cursor slide. `idx` state persists across open/close (this component stays
+	// mounted, just returns null when closed), so a plain lazy-init alone wouldn't fix a
+	// RE-open; adjusting state during render re-renders before paint, killing the
+	// persisted-idx / slide-0 flash. It also means the shared preview's first present
+	// sample equals the editor's → opening Present is a patch/no-op, never a write.
+	const prevOpenRef = React.useRef(open);
+	if (open !== prevOpenRef.current) {
+		prevOpenRef.current = open;
+		if (open) {
+			setLens('full');
+			setIdx(Math.max(0, Math.min(startIndex, slides.length - 1)));
+		}
+	}
 	// Read-aloud diagnostics overlay — a first-class, draggable on-brand readout
 	// (ReadAloudOverlay), toggled by the shared cross-surface pref (the Workspace
 	// "Read-aloud diagnostics" switch AND the `?readaloud-debug=1` URL param). When on,
@@ -425,14 +440,19 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const activeBeat = slidePlan?.beats?.filter((b) => frac >= b.at).slice(-1)[0] ?? null;
 	const coach = activeBeat?.text || slidePlan?.why || '';
 
-	// On open, start the full lens on the slide you were editing; the reshaping
-	// lenses always start at the top of their reshaped set.
-	React.useEffect(() => {
-		if (open) {
-			setLens('full');
-			setIdx(Math.max(0, Math.min(startIndex, slides.length - 1)));
-		}
-	}, [open, startIndex, slides.length]);
+	// PUBLISH the current present slide UPWARD so the ONE hoisted preview (StudioShell)
+	// renders it — Present holds NO iframe of its own; it renders an empty slot the shared
+	// preview is positioned into. `null` while a lens is withheld (fail-closed): the shared
+	// preview hides and the slot shows the "unavailable" card instead. `hasMermaid(cur)`
+	// UNIFIES the mermaid flag across both surfaces (the editor already passes it) so the
+	// render signature matches on open and navigation stays a patch. useLayoutEffect so the
+	// publish lands before paint — no cross-surface flash of the previous slide.
+	const presentSample = unavailable ? null : frontMatter ? frontMatter + cur : cur;
+	const presentMermaid = unavailable ? false : hasMermaid(cur);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: publish the shown slide; onSlide is read fresh each change and stable by contract.
+	React.useLayoutEffect(() => {
+		if (open) onSlide?.(presentSample, presentMermaid);
+	}, [open, presentSample, presentMermaid]);
 
 	function pickLens(nextLens: PresentLens) {
 		setLens(nextLens);
@@ -580,19 +600,30 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const showCaption = !rehearse && captionsOn && reader.playing && reader.track.cues.length > 0;
 	// Faint-persistent flanking arrows: never fully gone (mouse-presenter "back" safety),
 	// dim when the slide edge is reached, full on reveal.
-	const arrowCls = (disabled: boolean) => cn('hidden shrink-0 rounded-full border border-border bg-card/85 p-2.5 text-foreground shadow-[0_4px_16px_rgba(10,22,40,.12)] backdrop-blur transition-opacity duration-300 hover:text-[var(--accent)] motion-reduce:transition-none sm:block', disabled ? 'pointer-events-none opacity-20' : revealed ? 'opacity-100' : 'opacity-40');
+	const arrowCls = (disabled: boolean) => cn('hidden shrink-0 rounded-full border border-border bg-card/85 p-2.5 text-foreground shadow-[0_4px_16px_rgba(10,22,40,.12)] backdrop-blur transition-opacity duration-300 hover:text-[var(--accent)] motion-reduce:transition-none sm:block', disabled ? 'pointer-events-none opacity-20' : cn('pointer-events-auto', revealed ? 'opacity-100' : 'opacity-40'));
+	// THREE stacked fixed layers under the studio root (2026-07-19 reshape): the opaque
+	// backdrop (z-100), the SHARED preview host (z-101, owned + positioned by StudioShell
+	// into `slotRef` below — Present holds no iframe), and this chrome (z-102). The chrome
+	// is `pointer-events-none` so the transparent slide region passes taps through to the
+	// z-101 preview; each control re-enables pointer events. Gesture/wake handlers sit on
+	// the backdrop, which receives events wherever no control and no slide sit above it.
 	return (
-		<div
-			role="dialog"
-			aria-modal="true"
-			aria-label="Present"
-			className="lx-ui fixed inset-0 z-[100] flex flex-col items-center overflow-x-hidden bg-background"
-			onPointerMove={wake}
-			onWheel={onWheel}
-			onTouchStart={onTouchStart}
-			onTouchEnd={onTouchEnd}
-		>
-			<div className="flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">
+		<>
+			<div
+				aria-hidden="true"
+				className="lx-ui fixed inset-0 z-[100] bg-background"
+				onPointerMove={wake}
+				onWheel={onWheel}
+				onTouchStart={onTouchStart}
+				onTouchEnd={onTouchEnd}
+			/>
+			<div
+				role="dialog"
+				aria-modal="true"
+				aria-label="Present"
+				className="lx-ui pointer-events-none fixed inset-0 z-[102] flex flex-col items-center overflow-x-hidden"
+			>
+			<div className="pointer-events-auto flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">
 				<button type="button" onClick={onClose} className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:text-foreground" aria-label="Exit present"><X className="size-5" /></button>
 				{/* Lens switch — the shared LensPicker (same widget as the editor's preview
 				    header), centered. Was a horizontally-scrolling chip row that clipped. */}
@@ -623,7 +654,11 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 							<p className="max-w-[420px] text-[13px] leading-relaxed text-muted-foreground">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).body}</p>
 						</div>
 					) : (
-						<DeckPreview options={options} sample={frontMatter ? frontMatter + cur : cur} mermaid={false} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]" aria-label="Presented slide" />
+						// Empty SLOT — the shared preview host (StudioShell) is positioned to overlay
+						// this rect (z-101, beneath this chrome). `pointer-events-none` so a tap here
+						// falls through to that host (poster/video taps); the host provides the slide
+						// card's border/rounding/shadow. Keeps the 16:9 sizing the controller measures.
+						<div ref={slotRef} className="pointer-events-none relative aspect-video w-full" />
 					)}
 				</div>
 				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={arrowCls(clamped >= count - 1)} aria-label="Next slide"><ChevronRight className="size-5" /></button>
@@ -641,17 +676,19 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 					</div>
 				)}
 				{readAloudDebug && (
-					<ReadAloudOverlay
-						live={reader.debugLive}
-						events={reader.debugEvents}
-						source={
-							projected.set === set
-								? narrationText === (projected.texts[clamped] ?? '')
-									? 'projection'
-									: 'fallback (landed, not adopted)'
-								: 'fallback (projection pending)'
-						}
-					/>
+					<div className="pointer-events-auto contents">
+						<ReadAloudOverlay
+							live={reader.debugLive}
+							events={reader.debugEvents}
+							source={
+								projected.set === set
+									? narrationText === (projected.texts[clamped] ?? '')
+										? 'projection'
+										: 'fallback (landed, not adopted)'
+									: 'fallback (projection pending)'
+							}
+						/>
+					</div>
 				)}
 			</div>
 
@@ -659,7 +696,7 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 			    section title → full-width rail (bottom). Pointer-over / focus-within PINS the
 			    bloom open so aiming a click never makes it fold. */}
 			<div
-				className="flex w-full max-w-[760px] flex-col items-center gap-2 px-3 pb-6 pt-1 sm:pb-8"
+				className="pointer-events-auto flex w-full max-w-[760px] flex-col items-center gap-2 px-3 pb-6 pt-1 sm:pb-8"
 				onPointerEnter={() => { pinnedRef.current = true; setRevealed(true); }}
 				onPointerLeave={() => { pinnedRef.current = false; wake(); }}
 				onFocusCapture={() => { pinnedRef.current = true; setRevealed(true); }}
@@ -706,7 +743,10 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				{/* Section title + full-width rail (bottom) — the ONE progress element. */}
 				<PresentRail sections={sections} current={clamped} frac={rehearse ? 0 : reader.progress} onJump={(i) => setIdx(i)} className="w-full" />
 			</div>
-			<SlideOverview open={overviewOpen} onClose={() => setOverviewOpen(false)} options={options} set={set} frontMatter={frontMatter} current={clamped} onJump={setIdx} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} />
-		</div>
+			{/* The overview covers the whole surface when open (its own iframes) — re-enable
+			    pointer events for it above the chrome's `pointer-events-none` root. */}
+			<div className="pointer-events-auto contents"><SlideOverview open={overviewOpen} onClose={() => setOverviewOpen(false)} options={options} set={set} frontMatter={frontMatter} current={clamped} onJump={setIdx} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} /></div>
+			</div>
+		</>
 	);
 }
