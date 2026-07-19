@@ -85,6 +85,18 @@
 			.meter { display: flex; flex-direction: column; gap: 2px; }
 			.meter .k { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 			.meter .v { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 15px; }
+			.meter .vrow { display: inline-flex; align-items: baseline; gap: 7px; }
+			.meter .cs { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; color: var(--muted); transition: color .15s ease; }
+			/* The owned clock is a free-running transport — it ticks while idle and freezes only on
+			   pause. The state tag + color say WHY the number moves, so it doesn't read as a stuck
+			   playback timer. Live = riding a clip (accent); frozen = paused (warm); idle = running
+			   but nothing scheduled (muted). */
+			.meter.clock[data-state="live"] .v,
+			.meter.clock[data-state="live"] .cs { color: var(--accent); }
+			.meter.clock[data-state="paused"] .v { color: var(--glow); }
+			.meter.clock[data-state="paused"] .cs { color: var(--glow); }
+			.meter.clock[data-state="idle"] .v,
+			.meter.clock[data-state="cold"] .v { color: var(--muted); }
 
 			.transport { margin-top: 22px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 			.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-family: var(--sans);
@@ -163,7 +175,10 @@
 				<div class="score" id="score" aria-label="The sequence"></div>
 				<p class="caption" id="caption">Press play, or pick a beat below.</p>
 				<div class="meters">
-					<div class="meter"><span class="k">Owned clock</span><span class="v" id="mClock">0.00s</span></div>
+					<div class="meter clock" id="clockMeter" data-state="cold" title="Suono's owned WebAudio clock — a free-running transport every clip is scheduled onto. It keeps advancing while idle and freezes only when you pause; it is not a per-clip stopwatch.">
+						<span class="k">Owned clock</span>
+						<span class="vrow"><span class="v" id="mClock">0.00s</span><span class="cs" id="mClockState">idle</span></span>
+					</div>
 					<div class="meter"><span class="k">Now playing</span><span class="v" id="mIndex">—</span></div>
 					<div class="meter"><span class="k">produce() calls</span><span class="v" id="mProduce">0</span></div>
 					<div class="meter"><span class="k">Cache hits</span><span class="v" id="mCache">0</span></div>
@@ -217,6 +232,7 @@
 			const root = document.documentElement;
 			const scoreEl = $('#score'), capEl = $('#caption'), diagEl = $('#diag');
 			const mClock = $('#mClock'), mIndex = $('#mIndex'), mProduce = $('#mProduce'), mCache = $('#mCache');
+			const clockMeter = $('#clockMeter'), mClockState = $('#mClockState');
 			const playBtn = $('#playBtn'), pauseBtn = $('#pauseBtn'), bargeBtn = $('#bargeBtn'), stopBtn = $('#stopBtn'), tourBtn = $('#tourBtn');
 			const beatsEl = $('#beats');
 			function setDiag(msg, isErr) { diagEl.textContent = msg || ''; diagEl.classList.toggle('err', !!isErr); }
@@ -261,6 +277,7 @@
 			let seq = null;
 			let produceCount = 0, cacheCount = 0;
 			let clockRaf = 0;
+			let paused = false;          // clock is frozen (a run is paused) vs free-running idle
 			let mode = 'tones';          // 'tones' (keyless) | 'voice' (cloud)
 			let voice = null, selVoice = 'af_heart';
 			let curBeat = null;          // active beat id, for scenario options
@@ -292,7 +309,19 @@
 			function resetChips() { ITEMS.forEach((_, i) => { const c = document.getElementById(`chip-${i}`); if (c) { c.dataset.state = 'idle'; delete c.dataset.cache; } }); }
 
 			function tickClock() {
-				if (stage) mClock.textContent = `${(stage.clockMs() / 1000).toFixed(2)}s`;
+				// The owned clock is a free-running transport (AudioContext.currentTime), so the value
+				// keeps advancing whenever the context is live — it is NOT a per-clip stopwatch and does
+				// not reset per beat. The state tag says WHY it's moving: live (riding a clip), frozen
+				// (paused — clockMs() holds), or idle (running, nothing scheduled).
+				let state = 'cold', tag = 'not started';
+				if (stage) {
+					mClock.textContent = `${(stage.clockMs() / 1000).toFixed(2)}s`;
+					if (seq && seq.playing()) { state = 'live'; tag = 'live'; }
+					else if (paused) { state = 'paused'; tag = 'frozen'; }
+					else { state = 'idle'; tag = 'idle'; }
+				}
+				clockMeter.dataset.state = state;
+				mClockState.textContent = tag;
 				clockRaf = requestAnimationFrame(tickClock);
 			}
 
@@ -328,6 +357,7 @@
 					})
 					.onState(({ playing, aborted }) => {
 						if (!playing) {
+							paused = false; // a run that ends by any path is no longer "frozen"
 							setTransport(false);
 							if (aborted) setDiag('Aborted — the run stopped cleanly mid-clip (barge-in / stop).');
 							else { setDiag('Done.'); mIndex.textContent = '—'; markAllDone(); }
@@ -357,7 +387,7 @@
 				onDone = null;
 				renderScore(opts.gaps !== false);
 				seq = buildSequence(opts);
-				setDiag('Playing…'); setTransport(true);
+				paused = false; setDiag('Playing…'); setTransport(true);
 				seq.play();
 			}
 			// Replay the CURRENT instance. Its closure-held byte cache persists, so keyed items serve
@@ -371,12 +401,13 @@
 			playBtn.addEventListener('click', () => { curBeat = null; setCurrentBeat(null); playFresh({ gaps: true }); });
 			pauseBtn.addEventListener('click', () => {
 				if (!seq) return;
-				if (seq.playing()) { seq.pause(); pauseBtn.textContent = 'Resume'; setDiag('Paused.'); }
-				else { seq.resume(); pauseBtn.textContent = 'Pause'; setDiag('Resumed.'); }
+				if (seq.playing()) { seq.pause(); paused = true; pauseBtn.textContent = 'Resume'; setDiag('Paused.'); }
+				else { seq.resume(); paused = false; pauseBtn.textContent = 'Pause'; setDiag('Resumed.'); }
 			});
-			stopBtn.addEventListener('click', () => { if (seq) seq.stop(); });
+			stopBtn.addEventListener('click', () => { paused = false; if (seq) seq.stop(); });
 			bargeBtn.addEventListener('click', () => {
 				if (!seq) return;
+				paused = false;
 				seq.stop();               // cooperative abort — in-flight produce() is signalled
 				setDiag('Barged in — the sequence aborted; a new intent could start immediately.');
 				setTransport(false);

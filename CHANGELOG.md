@@ -562,6 +562,13 @@ in patch versions.
   scene mounts so it stays discoverable. The reduced-motion "Play the motion" opt-in is exempt (it sits
   over a still poster and is the only way to start, so it stays visible). (`hydrate.ts`, `scene.styles.css`.)
 
+- **The `/suono` demo's "Owned clock" meter now reads as a transport, not a stuck timer.** The owned
+  WebAudio clock is a free-running transport (`AudioContext.currentTime`) — it keeps advancing whenever
+  the context is live and never resets per beat, which looked like a broken playback timer sitting idle.
+  The meter now shows its state at a glance: **live** (accent — riding a clip), **frozen** (warm — paused,
+  the value holds), or **idle** (muted — running but nothing scheduled), with a `title` explaining it is a
+  transport every clip is scheduled onto, not a per-clip stopwatch. Verified live in light + dark across all
+  three states (the value ticks while idle, freezes on pause). (`docs/src/pages/suono.astro`.)
 - **Breaking:** **`@slidewright/lente` `approvalHash` now uses an injective encoding — every previously
   stamped `approved: "sha256:…"` value is invalidated and each lens must be re-approved.** An
   adversarial-trio pass found the old pre-image (member pairs serialized as `` `${index} ${slide}` ``
