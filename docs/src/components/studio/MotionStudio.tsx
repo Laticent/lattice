@@ -168,10 +168,10 @@ function writeMotionMode(m: Mode) {
 	}
 }
 
-// Director refine chips — quick nudges that re-prompt the model with the CURRENT scene.
+// Director refine chips — SEMANTIC nudges that re-prompt the model with the CURRENT scene.
+// Deliberately NOT "Slower"/"Faster": pace is the Pace slider's job (a free, instant spec
+// edit), so a paid model round-trip for it would be strictly worse (red-team/Munger note).
 const REFINE_CHIPS: { label: string; nudge: string }[] = [
-	{ label: 'Slower', nudge: 'Slow the motion down so it is easier to follow.' },
-	{ label: 'Faster', nudge: 'Speed the motion up.' },
 	{ label: 'Calmer', nudge: 'Make it calmer and more restrained.' },
 	{ label: 'Bolder', nudge: 'Make it bolder and more dramatic.' },
 	{ label: 'Simpler', nudge: 'Simplify it — fewer elements, one clear idea.' },
@@ -201,6 +201,16 @@ export function MotionStudio({
 	const switchMode = (m: Mode) => {
 		setMode(m);
 		writeMotionMode(m);
+	};
+
+	// A generation sequence — every MANUAL spec edit (Rig chips/params, prune, Reset, sliders)
+	// bumps it through `editSpec`. A describe/refine snapshots it and, on resolve, drops its
+	// result if the user has edited since — so a slow cloud reply can't silently clobber the
+	// hand-edits the user made while waiting (red-team lost-update finding).
+	const genSeq = React.useRef(0);
+	const editSpec = (u: React.SetStateAction<Scene>) => {
+		genSeq.current++;
+		setSpec(u);
 	};
 
 	const rows = React.useMemo(() => flatten(spec), [spec]);
@@ -268,7 +278,7 @@ export function MotionStudio({
 	// `selectedRow`), so a rapid sequence of chip/param edits can't splice against a stale tree.
 	function toggleVerb(v: MotionVerb) {
 		if (!selPath) return;
-		setSpec((s) => {
+		editSpec((s) => {
 			const el = elementAt(s, selPath);
 			if (!el) return s;
 			const motions = el.motion ?? [];
@@ -278,7 +288,7 @@ export function MotionStudio({
 	}
 	function updateMotion(i: number, patch: Record<string, unknown>) {
 		if (!selPath) return;
-		setSpec((s) => {
+		editSpec((s) => {
 			const el = elementAt(s, selPath);
 			if (!el?.motion) return s;
 			const motions = el.motion.map((m, k) => (k === i ? ({ ...m, ...patch } as Motion) : m));
@@ -287,7 +297,7 @@ export function MotionStudio({
 	}
 	function removeMotion(i: number) {
 		if (!selPath) return;
-		setSpec((s) => {
+		editSpec((s) => {
 			const el = elementAt(s, selPath);
 			if (!el?.motion) return s;
 			return setMotionAt(s, selPath, el.motion.filter((_, k) => k !== i));
@@ -301,10 +311,21 @@ export function MotionStudio({
 	async function runDescribe(text: string, refine: boolean) {
 		const p = text.trim();
 		if (!p || gen === 'working') return;
+		const seq = genSeq.current; // snapshot — drop the reply if the user edits while it's in flight
 		setGen('working');
 		try {
 			const out = await generateScene(p, refine ? spec : undefined);
 			if (out.status === 'ok') {
+				if (genSeq.current !== seq) return; // a manual edit / Reset superseded this generation
+				// The stage transports the spec via `btoa` (Latin1 only); a model that returns a
+				// non-ASCII id/color would throw there and blank the stage. Reject it here so we
+				// never show a false "Generated" over an empty stage (honest degradation, #23).
+				try {
+					btoa(JSON.stringify(out.scene));
+				} catch {
+					notify('That scene used characters we can’t render yet — try describing it without special symbols.');
+					return;
+				}
 				setSpec(out.scene);
 				setSelected(out.scene.elements[0]?.id ?? '');
 				if (!refine) setPrompt('');
@@ -324,8 +345,8 @@ export function MotionStudio({
 	}
 
 	// The two Director "few sliders" (§3.1) — global scene knobs that never touch the tree.
-	const setDuration = (ms: number) => setSpec((s) => ({ ...s, duration: Math.max(1, Math.round(ms)) }));
-	const setHero = (h: number) => setSpec((s) => ({ ...s, hero: clamp01(h) }));
+	const setDuration = (ms: number) => editSpec((s) => ({ ...s, duration: Math.max(1, Math.round(ms)) }));
+	const setHero = (h: number) => editSpec((s) => ({ ...s, hero: clamp01(h) }));
 
 	const nameOk = slugify(name).length > 0;
 	async function save() {
@@ -362,7 +383,7 @@ export function MotionStudio({
 						<SlidersHorizontal className="size-3.5" /> <span className="hidden sm:inline">Rig</span>
 					</button>
 				</div>
-				<Button type="button" variant="ghost" size="sm" title="Reset to the starter scene" onClick={() => { setSpec(STARTER); setSelected('rig'); }} className="shrink-0 gap-1.5 text-muted-foreground">
+				<Button type="button" variant="ghost" size="sm" title="Reset to the starter scene" onClick={() => { editSpec(STARTER); setSelected('rig'); }} className="shrink-0 gap-1.5 text-muted-foreground">
 					<RotateCcw className="size-3.5" /> <span className="hidden sm:inline">Reset</span>
 				</Button>
 				{onOpenWorkspace && (
@@ -470,7 +491,7 @@ export function MotionStudio({
 									{VERBS(r.el).length > 0 && <span className="shrink-0 text-[11px] text-[var(--accent)]">{VERBS(r.el).join('·')}</span>}
 								</button>
 								{canRemove(r) && (
-									<button type="button" aria-label={`Remove ${r.el.id}`} onClick={() => setSpec((s) => removeAt(s, r.path))} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail)] group-hover:opacity-100">
+									<button type="button" aria-label={`Remove ${r.el.id}`} onClick={() => editSpec((s) => removeAt(s, r.path))} className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail)] group-hover:opacity-100">
 										<Trash2 className="size-3" />
 									</button>
 								)}

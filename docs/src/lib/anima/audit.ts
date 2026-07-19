@@ -86,5 +86,14 @@ export function auditScene(scene: Scene): AuditNote[] {
     }
   }
 
-  return notes;
+  // Dedupe identical notes — a model-generated scene can carry two byte-identical motions
+  // (e.g. two same-axis too-fast spins), which would otherwise yield two identical warnings
+  // (and, in the UI, a duplicate React key). One note per distinct (level·element·message).
+  const seen = new Set<string>();
+  return notes.filter((n) => {
+    const k = `${n.level}:${n.elId ?? ''}:${n.message}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
