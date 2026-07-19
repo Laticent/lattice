@@ -208,6 +208,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 
 | Name | What it does |
 |---|---|
+| `anima-player:build` | **TODO: describe `anima-player:build` in tools/build-capabilities.js (SCRIPT_META).** |
+| `anima-player:check` | **TODO: describe `anima-player:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
@@ -312,6 +314,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
 | `tools/build-a11y-textures.js` | Bundle the categorical/chart texture-<defs> kernel for the browser. |
+| `tools/build-anima-player.js` | Bundle the Anima host + vector backends into ONE self-contained IIFE string, for |
 | `tools/build-axis-dom-catalog.js` | Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup |
 | `tools/build-cadenza-lib.js` | Build the Cadenza library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |

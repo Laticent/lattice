@@ -191,6 +191,15 @@ in patch versions.
 
 ### Added
 
+- **A `scene` animates inside an exported standalone `.html`, not just the live tools.** Export a deck
+  with the self-contained player (`--player`, or the Studio's "share as webpage") and a scene now plays
+  right in the portable file — no server, no network. The Anima host + vector backends are pre-bundled
+  into one IIFE and injected into the player's single CSP-hashed script **only when the deck actually
+  carries a live scene**, so a scene-less export is byte-for-byte unchanged and never ships the ~58 KB it
+  doesn't need. Because the player is its own top-level document (not a scaled iframe), scenes lazy-mount
+  as their slide is shown and pause off-screen natively. The PDF is untouched — it keeps the poster still.
+  (`lib/export/player-core.mjs`, `tools/build-anima-player.js` → `lib/export/anima-player-bundle.generated.mjs`.)
+
 - **A `scene` now comes alive in Studio Present mode, not just the Playground.** Stage 6 animated scenes
   on the Playground preview; presenting the same deck showed only the frozen poster. Now a scene hydrates
   on the Present surface too — it **plays when you land on its slide, stops when you leave, and restarts

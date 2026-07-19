@@ -395,11 +395,20 @@ Stage 6 landed as a **split**, recorded so the deferred half is tracked work, no
   the backends. Reuses slice A's `createAnimaScenes` controller; the srcdoc-per-slide lifecycle gives
   enter/exit/restart for free. Verified on the real Present overlay with a real Chromium (HARD RULE #23):
   the presented slide mounts the backend, shows the control, and animates.
-- **Stage 6b — remaining (fast-follow).** **Standalone-HTML-export** hydration — a *different delivery*
-  than the parent-hosted preview (an in-frame injected script carrying the backends) calling the **same**
-  surface-agnostic `hydrateScenes`, so only the delivery bifurcates, not the logic — and the per-scene
-  **`replay: resume`** field (the `restart` default ships now with Present; `resume` needs cross-navigation
-  state the torn-down srcdoc doesn't keep, so the field lands with it).
+- **Stage 6b — standalone-HTML-export (shipped).** A scene animates inside an exported self-contained
+  `.html`. The delivery bifurcates as predicted, not the logic: the host + backends are pre-bundled into
+  one IIFE (`tools/build-anima-player.js` → `lib/export/anima-player-bundle.generated.mjs`) and `playerJs()`
+  injects it + a `hydrateScenes(document)` call into the player's single CSP-hashed `<script>` — the sha256
+  hash covers it, and it's **gated to scene decks** so a scene-less export stays byte-identical (the
+  html-player golden holds). The player is its OWN top-level document, so the host's non-eager IO path
+  works natively (lazy-mount on view, pause off-screen). The bundle is a BUILD artifact read as a string,
+  so `checkAnimaBoundary` is untouched; both the CLI `--player` and the Studio share-export inherit it via
+  the one shared `player-core` assembler. Verified on the real exported file with a real Chromium (HARD
+  RULE #23): the presented slide mounts the backend and animates; export-sign-off gated (below).
+- **Stage 6b — remaining (fast-follow).** The per-scene **`replay`** field. Note the surfaces differ by
+  construction: Present's srcdoc-rewrite restarts a scene on re-entry, while the export player's persistent
+  DOM + IO *resumes* it (continues where it paused off-screen). The field unifies this into an author
+  choice (`restart` | `resume`); until it lands, each surface keeps its natural default.
 - **Poster ↔ spec correspondence (carry).** For **built** (Zdog) scenes the poster still and the spec are
   two hand-authored artifacts today; nothing binds them, so a maintainer editing one can drift the other
   (only the print/`still` surface diverges — the live view is always spec-faithful). **svg** scenes have no

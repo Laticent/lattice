@@ -92,6 +92,8 @@ const STEPS = [
   { label: 'exemplar-core bundle (docs site)', script: 'build-exemplar-core.js' },
   { label: 'standalone-core bundle (docs site)', script: 'build-standalone-core.js' },
   { label: 'a11y-textures bundle (docs site)', script: 'build-a11y-textures.js' },
+  // anima-player IIFE must exist before player-core bundles it in (playerJs injects it).
+  { label: 'anima-player bundle (engine export)', script: 'build-anima-player.js' },
   { label: 'player-core bundle (docs site)', script: 'build-player-core.js' },
   { label: 'player-prune bundle (docs site)', script: 'build-player-prune.js' },
   // Cadenza's dist/ must exist on disk BEFORE read-along-core bundles it in.

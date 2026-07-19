@@ -113,6 +113,8 @@
     "stage-catalog:check": "node tools/build-stage-catalog.js --check",
     "player-core:build": "node tools/build-player-core.js",
     "player-core:check": "node tools/build-player-core.js --check",
+    "anima-player:build": "node tools/build-anima-player.js",
+    "anima-player:check": "node tools/build-anima-player.js --check",
     "player-prune:build": "node tools/build-player-prune.js",
     "player-prune:check": "node tools/build-player-prune.js --check",
     "read-along-core:build": "node tools/build-read-along-core.js",
@@ -241,7 +243,9 @@
     "knip": "^6.24.0",
     "lefthook": "^2.1.6",
     "tinybench": "^6.0.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vivus": "^0.4.6",
+    "zdog": "^1.1.3"
   },
   "optionalDependencies": {
     "css-tree": "^3.2.1",
