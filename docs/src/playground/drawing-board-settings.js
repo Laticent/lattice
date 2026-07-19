@@ -66,6 +66,19 @@ export function recordSpend(cost, tokens = 0) {
   const t = Number(tokens);
   if (Number.isFinite(t) && t > 0) { addTo(ls, SPEND_TOTAL_TOK_KEY, t); addTo(ss, SPEND_SESSION_TOK_KEY, t); }
 }
+
+// A SIGNED correction to the running cost tally. Unlike recordSpend (which only ever
+// ACCUMULATES a positive charge), this can be NEGATIVE — used to reconcile an aborted
+// turn's estimate to its authoritative cost, which is often LOWER than the estimate
+// (prompt caching), so the gauge must be able to true DOWN, not only up. Each store is
+// floored at 0 so a correction can never drive the tally negative.
+export function adjustSpend(costDelta) {
+  const d = Number(costDelta);
+  if (!Number.isFinite(d) || d === 0) return;
+  const bump = (store, key) => { try { if (store) store.setItem(key, String(Math.max(0, (Number(store.getItem(key)) || 0) + d))); } catch {} };
+  bump(globalThis.localStorage, SPEND_TOTAL_KEY);
+  bump(globalThis.sessionStorage, SPEND_SESSION_KEY);
+}
 export function readSpend() {
   const ls = globalThis.localStorage;
   const ss = globalThis.sessionStorage;

@@ -35,6 +35,7 @@ const OPENROUTER_CREDITS_URL = 'https://openrouter.ai/api/v1/credits'; // GET: a
 const OPENROUTER_KEYS_SETTINGS_URL = 'https://openrouter.ai/settings/keys'; // where a user sets a per-key spend limit
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models';
 const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_GENERATION_URL = 'https://openrouter.ai/api/v1/generation'; // GET ?id=<gen> → this request's authoritative total_cost
 // The connect-time default is OpenRouter's server-resolved "latest" ALIAS (the
 // `~vendor/family-latest` ids), not a pinned version — so it can never rot when a
 // model is retired/renamed (a pinned id 404s "No endpoints found"; the alias keeps
@@ -320,6 +321,27 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         return { credits, usage, balance: credits - usage };
       } catch { return null; }
     },
+    // The AUTHORITATIVE cost of one generation, by its stream id — used to correct the
+    // ESTIMATE recorded when a streamed turn is aborted (Stop), where the usage chunk
+    // never arrived. OpenRouter computes cost asynchronously, so it may 404/omit the cost
+    // for a moment after the request ends; retry a few times with backoff. Best-effort:
+    // null on any failure, so the estimate simply stands (never a fabricated correction).
+    async generationCost(id) {
+      const key = readLS(OR_KEY_LS);
+      if (!key || !id) return null;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          const res = await fetch(`${OPENROUTER_GENERATION_URL}?id=${encodeURIComponent(id)}`, { headers: { Authorization: 'Bearer ' + key } });
+          if (res.ok) {
+            const d = (await res.json()).data || {};
+            const cost = Number(d.total_cost);
+            if (Number.isFinite(cost)) return cost;
+          }
+        } catch { /* transient — retry */ }
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+      }
+      return null;
+    },
     // The current model's display name (catalog `name`, e.g. "DeepSeek: R1"), for the
     // reply attribution heading. Falls back to the raw id before the catalog loads.
     modelName() {
@@ -390,7 +412,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(catalogCache);
       return catalogCache;
     },
-    async complete({ messages, json, onToken, signal, onUsage, maxTokens, plugins }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, maxTokens, plugins }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -456,6 +478,9 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
           if (payload === '[DONE]') { reportUsage(); return full; }
           try {
             const obj = JSON.parse(payload);
+            // The generation id (same across chunks) — surfaced once so the caller can
+            // fetch the authoritative cost if this turn is later aborted (usage never arrives).
+            if (obj.id && onGenerationId) { try { onGenerationId(obj.id); } catch {} onGenerationId = null; }
             const t = obj.choices?.[0]?.delta?.content || '';
             if (t) { full += t; onToken(t); }
             if (obj.usage) usage = obj.usage;
@@ -752,6 +777,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     openRouterCredits() { return openrouter.creditsInfo(); }, // the account wallet (balance)
     openRouterKeySettingsUrl() { return openrouter.keySettingsUrl(); }, // where to set a hard per-key cap
     openRouterModelPrice() { return openrouter.modelPrice(); }, // active model's per-M price (for estimates)
+    openRouterGenerationCost(id) { return openrouter.generationCost(id); }, // authoritative cost of one generation (aborted-turn reconciliation)
     // Snapshot/restore the stored key so the settings UI can offer an Undo on
     // Disconnect (mirroring the deck-deletion guardrail) without re-running OAuth.
     openRouterKeySnapshot() { return openrouter.keySnapshot(); },
