@@ -49,8 +49,9 @@ import lintCore from './lint-core.js';
 import reviewCore from './review-core.js';
 import scorecard from './scorecard.js';
 import notesCore from './notes-core.js';
+import deckCanon from './deck-canon.js';
 
-export { lintCore, reviewCore, scorecard, notesCore };
+export { lintCore, reviewCore, scorecard, notesCore, deckCanon };
 `;
 
 const BUILD_OPTIONS = {

@@ -10,6 +10,7 @@ import { AXES, MOTION_VERBS, PRIMITIVES, VERB_SOURCE } from '@/lib/anima/vocabul
 import { applyEdit, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide } from '@/playground/architect-edits.js';
 import { requestSlideFix } from '@/playground/architect-fix.js';
 import { cosineRank } from '@/playground/architect-retrieval.js';
+import { deckCanon } from '@/playground/authoring-core.generated.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/drawing-board-refine.js';
 import { budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
 import { askComponentMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
@@ -37,11 +38,14 @@ export type RefineActionId = 'polish' | 'formalize' | 'elaborate' | 'shorten';
 //     so the UI can point the author at Workspace → connect, instead of toasting
 //     a change that never happened.
 
+// The deck-editor system turn: persona + the full authoring canon (DECK_CANON, sourced
+// from lib/authoring — the boardroom rules, budgets, and the reviewer's own traps, so the
+// generator self-avoids what the review pass would flag) + the edit-block protocol. The
+// canon subsumes the terse inline rules the prompt used to carry.
 const SYSTEM =
-	'You are the Lattice Architect, a boardroom deck editor. Authoring rules: ' +
-	'card-style layouts nest "- Title" then a two-space-indented "  - body" (never ' +
-	'inline "- **Title.** body"); open each slide with its takeaway or headline ' +
-	'number, then the supporting rows; keep prose tight and board-grade. ' +
+	'You are the Lattice Architect, a boardroom deck editor.\n\n' +
+	deckCanon.DECK_CANON +
+	'\n\n' +
 	EDIT_PROTOCOL;
 
 // ── Studio voice ────────────────────────────────────────────────────────────
