@@ -1,6 +1,6 @@
 import type { APIRequestContext } from '@playwright/test';
 import { disposeRelay, injectOpenRouter, LIVE_KEY, routeOpenRouterViaNode } from '../openrouter-live';
-import { checkpointLabels, expect, gotoStudio, openArchitect, persistedSource, railButtons, setEditorContent, test, toastText } from '../studio-fixture';
+import { checkpointLabels, expect, gotoStudio, openArchitect, persistedSource, setEditorContent, test, toastText } from '../studio-fixture';
 
 // AI-assisted productivity, against a LIVE OpenRouter model. These scenarios
 // close the honest-offline gap: with a key present the Architect must produce a
@@ -25,9 +25,9 @@ test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 // A live completion (plus the app's own render debounce) sets the clock here.
 test.describe.configure({ timeout: 180_000 });
 
-// A deliberately rewritable two-slide deck: slide 1 buries its lead in filler,
-// so "Rewrite lead" has real work to do; the last line is long and redundant,
-// so Shorten has real work to do. Small on purpose — the deck IS the prompt.
+// A deliberately rewritable two-slide deck: slide 1 buries its lead in filler
+// and the last line is long and redundant, so the deterministic findings (and
+// Shorten) have real work to do. Small on purpose — the deck IS the prompt.
 const WORDY = 'This paragraph is deliberately long and redundant and it repeats the same point over and over in far more words than the point ever needed.';
 const DECK = [
 	'<!-- _class: big-number -->\n\n`Quarterly result`\n\n- 42%\n  - of the pipeline came from partner referrals, which was an interesting operational detail among several others we noticed this quarter.',
@@ -53,20 +53,25 @@ function sessionTokens(page: import('@playwright/test').Page): Promise<number> {
 	return page.evaluate(() => Number(window.sessionStorage.getItem('lattice-db-spend-session-tok') ?? '0'));
 }
 
-test('Architect "Rewrite lead" edits the deck source and checkpoints the undo path', async ({ page }) => {
-	// Target slide 1 deterministically (the preview follows the caret after authoring).
-	await railButtons(page).nth(0).click();
+test('Architect per-finding AI fix edits the deck source and checkpoints the undo path', async ({ page }) => {
+	// The wordy deck trips a deterministic finding; the Coach offers a per-finding
+	// "Fix" that proposes a reviewable diff (the standalone "Rewrite lead" chip was
+	// removed — per-finding fix + chat are the deck-edit AI actions now).
 	const before = await persistedSource(page);
-
 	await openArchitect(page);
-	await page.getByRole('button', { name: 'Rewrite lead', exact: true }).click();
+	const fix = page.getByRole('button', { name: /Fix ≈/ }).first();
+	await expect(fix).toBeVisible({ timeout: 30_000 });
+	await fix.click();
+
+	// Review-then-apply: the diff card's Apply commits the splice.
+	await page.getByRole('button', { name: 'Apply' }).click();
 
 	// The applied-edit toast is the app's claim; require the outcome behind it.
 	await expect(toastText(page)).toContainText('restore from History to undo', { timeout: 120_000 });
 	await expect.poll(() => persistedSource(page)).not.toBe(before);
 
 	// The undo path: an automatic pre-edit checkpoint reached version history.
-	await expect.poll(() => checkpointLabels(page)).toContain('Before Rewrite lead');
+	await expect.poll(() => checkpointLabels(page)).toContain('Before AI fix');
 
 	// And the spend tally moved — proof the LIVE API answered (the silent floor
 	// records no usage), not a fabricated local edit.

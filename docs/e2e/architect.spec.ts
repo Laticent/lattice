@@ -21,10 +21,13 @@ test('Coach and Chat tabs toggle', async ({ page }) => {
 });
 
 test('the Coach score card scores the seeded deck', async ({ page }) => {
-	await expect(page.getByText('Board-ready')).toBeVisible();
-	await expect(page.getByText(/\/ 10 . boardroom/)).toBeVisible();
-	// A deterministic check row from the shared scorer.
-	await expect(page.getByText('Components valid')).toBeVisible();
+	await expect(page.getByText('Board readiness')).toBeVisible();
+	// The REAL engine scorecard: an overall out of 100 and a per-dimension read
+	// (Structure/Clarity are always-present categories). The toy 3-check heuristic
+	// (Components valid / Opens with a title / Variety, scored / 10) was deleted.
+	await expect(page.getByText(/\/ 100/)).toBeVisible();
+	await expect(page.getByText('Structure')).toBeVisible();
+	await expect(page.getByText('Clarity')).toBeVisible();
 });
 
 test('offline chat degrades honestly and points to Workspace', async ({ page }) => {

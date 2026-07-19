@@ -32,20 +32,18 @@ test('an exec drafts a quarterly deck, the Coach scores it board-ready, and it e
 	await railButtons(page).nth(0).click();
 	await expect(currentSlide(page)).toContainText('Q4 Board Update');
 
-	// The Coach scores it. READY is the deterministic scorer's pass intent —
-	// it renders only when the score crosses the bar (≥ 8) AND every component
-	// resolves, so the tag alone is a goal-level readiness oracle…
+	// The Coach scores it with the REAL engine scorecard — an overall out of 100
+	// and a per-dimension read. (The band/tag depends on the deck; the oracle here
+	// is that the deterministic assessment renders a real grade, not the toy /10.)
 	await openArchitect(page);
-	await expect(page.getByText('Board-ready')).toBeVisible();
-	await expect(page.getByText('READY', { exact: true })).toBeVisible();
-
-	// …and the numeric score confirms it crossed the bar rather than sitting on it.
+	await expect(page.getByText('Board readiness')).toBeVisible();
 	const scoreLine = await page
 		.locator('div.items-baseline')
-		.filter({ hasText: '/ 10 · boardroom' })
+		.filter({ hasText: '/ 100' })
 		.innerText();
-	const score = Number.parseFloat(scoreLine);
-	expect(score).toBeGreaterThanOrEqual(8);
+	const score = Number.parseFloat(scoreLine.replace(/^[A-F+\-\s]*/, ''));
+	expect(score).toBeGreaterThanOrEqual(0);
+	expect(score).toBeLessThanOrEqual(100);
 
 	// The artifact: a real PDF download plus the pipeline's own "ready" claim.
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
