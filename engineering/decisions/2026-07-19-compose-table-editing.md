@@ -202,6 +202,16 @@ render never diverge — the two editors stay perfectly in sync.
 > `⋯` overflow, per the direction "the toolbar on the divider is already context
 > sensitive and we should use it … on mobile we need a `⋯` for less-frequent
 > functions."
+>
+> **Chrome revision 2 (2026-07-19, post-merge):** the hand-rolled `⋯` popover was
+> replaced with the real shadcn **`DropdownMenu`** (Radix — native focus/arrow-key/
+> Escape/outside-click a11y, no bespoke close logic), the trigger became a **table
+> icon** instead of `⋯`, and every menu item carries a lucide icon, in a menu wide
+> enough not to wrap (`w-48`). The controls are now a small React island
+> (`table-controls.tsx`) mounted into a divider-bar slot (owner-keyed), so the
+> trigger is a genuine `DropdownMenuTrigger` — resolving the trio's reuse finding
+> (HARD RULE #15) properly rather than restyling a bespoke popover. Pure commands
+> moved to `lib/compose/table-commands.ts` (shared, no circular import).
 
 ## Phasing (one branch → one PR, HARD RULE #17)
 

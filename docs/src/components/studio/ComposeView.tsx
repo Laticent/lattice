@@ -2,29 +2,19 @@ import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { history, redo, undo } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
-import { Fragment, type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
+import { type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import { type Command, EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
-import {
-	addColumnAfter,
-	addColumnBefore,
-	addRowAfter,
-	addRowBefore,
-	deleteColumn,
-	deleteRow,
-	deleteTable,
-	goToNextCell,
-	isInTable,
-	selectedRect,
-	tableEditing,
-} from 'prosemirror-tables';
+import { EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline } from '@/lib/compose/deck-doc';
 import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideHeadings } from '@/lib/compose/registers';
+import { stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
 import { cn } from '@/lib/utils';
 import { getFrontMatter } from './front-matter';
+import { TableControls } from './table-controls';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
 
 // The slide divider borrows the deck's STRUCTURAL TRIM (`spectrum-trim:`) — the same
@@ -101,90 +91,10 @@ function computeSelBar(view: EditorView): SelBar | null {
 }
 
 // ── Tables ──────────────────────────────────────────────────────────────────
-// GFM tables are real, editable nodes (deck-markdown). The structural ops come from
-// prosemirror-tables (add/delete row+column, delete table); alignment is Lattice's own
-// column command because GFM alignment is per-COLUMN, and it's read from the header row on
-// serialize. We deliberately expose NO merge/split and NO column-resize — neither survives
-// the GFM round-trip (2026-07-19-compose-table-editing.md, Axis B).
-
-/** Set GFM column alignment on every cell of the caret's column (so it renders consistently
- *  and the header cell — which the serializer reads — carries it). `null` clears it. */
-export function setColumnAlign(align: 'left' | 'center' | 'right' | null): Command {
-	return (state, dispatch) => {
-		if (!isInTable(state)) return false;
-		if (dispatch) {
-			const rect = selectedRect(state);
-			const tr = state.tr;
-			const seen = new Set<number>();
-			for (let col = rect.left; col < rect.right; col++) {
-				for (let row = 0; row < rect.map.height; row++) {
-					const rel = rect.map.map[row * rect.map.width + col];
-					if (seen.has(rel)) continue; // a merged cell appears once per span; forbidden here, deduped anyway
-					seen.add(rel);
-					const pos = rect.tableStart + rel;
-					const cell = tr.doc.nodeAt(pos);
-					if (cell) tr.setNodeMarkup(pos, undefined, { ...cell.attrs, align });
-				}
-			}
-			dispatch(tr);
-		}
-		return true;
-	};
-}
-
-type ColAlign = 'left' | 'center' | 'right' | null;
-
-/** The caret column's GFM alignment, read from its top cell — drives the align pressed-state. */
-export function currentColumnAlign(state: EditorState): ColAlign {
-	if (!isInTable(state)) return null;
-	try {
-		const rect = selectedRect(state);
-		const rel = rect.map.map[rect.top * rect.map.width + rect.left];
-		return (state.doc.nodeAt(rect.tableStart + rel)?.attrs.align as ColAlign) ?? null;
-	} catch {
-		return null;
-	}
-}
-
-// Clamp a pasted slice to the GFM-expressible table shape: strip cell spans (colspan/rowspan/
-// colwidth) so a MERGED cell pasted from Excel / a web page / Google Sheets can't enter the doc
-// and later serialize to a corrupted, ragged grid. The design's no-merge rule (Axis B) is enforced
-// on the toolbar; this closes the paste path the toolbar can't see (adversarial-trio gap). The
-// span is dropped to 1×1 — content is preserved in one cell; `fixTables` fills any resulting hole
-// with empty cells, so the grid stays rectangular and round-trips.
-export function stripCellSpans(fragment: Fragment): Fragment {
-	const out: PMNode[] = [];
-	fragment.forEach((node) => {
-		const content = stripCellSpans(node.content);
-		if ((node.type.name === 'table_cell' || node.type.name === 'table_header') && (node.attrs.colspan !== 1 || node.attrs.rowspan !== 1 || node.attrs.colwidth)) {
-			out.push(node.type.create({ ...node.attrs, colspan: 1, rowspan: 1, colwidth: null }, content, node.marks));
-		} else {
-			out.push(node.copy(content));
-		}
-	});
-	return Fragment.fromArray(out);
-}
-
-// Tab inside a table: hop to the next cell, and at the LAST cell append a row and step into it —
-// the behavior a table editor is expected to have (`prosemirror-tables`' `goToNextCell` alone does
-// NOT append; it just returns false at the end). Outside a table it returns false so Tab falls
-// through to list-item sink.
-export const tabToNextCellOrAddRow: Command = (state, dispatch, view) => {
-	if (goToNextCell(1)(state, dispatch, view)) return true;
-	if (!isInTable(state)) return false;
-	if (dispatch && view) {
-		addRowAfter(state, dispatch);
-		goToNextCell(1)(view.state, view.dispatch, view);
-	}
-	return true;
-};
-
-// The table overflow menu's model: where to anchor (the `⋯` button's viewport rect, so the menu
-// portals to <body> and dodges the surface clipping) and the caret column's alignment (pressed
-// L/C/R state). null = closed. The FREQUENT table ops (insert row / column) live inline in the
-// slide's context-sensitive divider bar; this menu holds the LESS-frequent ones so the bar stays
-// compact on mobile — there is NO separate always-on table toolbar.
-type TableMenu = { left: number; top: number; align: ColAlign };
+// The pure table commands live in `@/lib/compose/table-commands` (shared with TableControls);
+// the divider-bar controls are the React `TableControls` island, mounted into a pill slot.
+// We expose NO merge/split and NO column-resize — neither survives the GFM round-trip
+// (2026-07-19-compose-table-editing.md, Axis B).
 
 // The structural guard (the adversarial trio's CRITICAL). Two invariants a stray keystroke
 // must never break: (1) the slide COUNT can't change from editing — Backspace at a slide
@@ -373,6 +283,7 @@ class SlideView {
 	private deleteBtn: HTMLButtonElement;
 	private confirmTimer = 0;
 	private locked: boolean;
+	private tableHosted = false; // whether this slide's Format group currently hosts the React TableControls
 	constructor(
 		node: PMNode,
 		public view: EditorView,
@@ -381,7 +292,7 @@ class SlideView {
 		onSettings?: (index: number) => void,
 		private getHeadings?: () => SlideHeadings | undefined,
 		onInsertBelow?: (index: number) => void,
-		private onTableMenu?: (anchor: DOMRect, align: ColAlign) => void,
+		private mountTable?: (slot: HTMLElement | null, owner: SlideView) => void,
 	) {
 		this.locked = !!node.attrs.locked;
 		const dom = document.createElement('section');
@@ -455,32 +366,32 @@ class SlideView {
 	// slide is active. Runs on every state change (formatSyncPlugin) so it tracks the caret; a
 	// signature check skips the DOM churn when nothing changed.
 	syncFormat() {
-		if (!this.dom.classList.contains('cs-slide-active')) {
+		const active = this.dom.classList.contains('cs-slide-active');
+		// Caret inside an editable table → the Format group hosts the React TableControls island
+		// (a shadcn dropdown + quick inserts), mounted by ComposeView into the slot below. A LOCKED
+		// table slide is read-only (the guard eats every command), so it gets the register path, not
+		// the controls (the register footgun, HARD RULE #18).
+		const inTable = active && !this.locked && isInTable(this.view.state);
+		if (!inTable) this.clearTableHost(); // leaving the table unmounts the React controls
+		if (!active) {
 			if (this.fmtGroup.childElementCount) {
 				this.fmtGroup.replaceChildren();
 				this.fmtGroup.dataset.sig = '';
 			}
 			return;
 		}
-		// When the caret is inside a table, the context-sensitive Format group becomes the TABLE
-		// group — the frequent ops inline (insert row / column) plus a `⋯` that opens the overflow
-		// menu (align, insert-before, deletes). No separate floating toolbar; the divider bar is the
-		// one context-sensitive surface, and it stays compact on mobile (three buttons). A LOCKED
-		// table slide (a cell holds math/HTML/…) is read-only, so it must NOT offer these controls —
-		// the structural guard would silently eat every command (the register footgun, HARD RULE #18).
-		if (isInTable(this.view.state) && !this.locked) {
-			const sig = 'tbl';
-			if (this.fmtGroup.dataset.sig === sig) return;
-			this.fmtGroup.dataset.sig = sig;
-			this.fmtGroup.replaceChildren(
-				this.tblBtn('Insert row below', '＋Row', () => this.runTable(addRowAfter)),
-				this.tblBtn('Insert column right', '＋Col', () => this.runTable(addColumnAfter)),
-				this.tblBtn('More table actions', '⋯', (btn) => this.onTableMenu?.(btn.getBoundingClientRect(), currentColumnAlign(this.view.state)), true),
-			);
+		if (inTable) {
+			if (this.fmtGroup.dataset.sig === 'tbl') return; // already hosting — leave the slot mounted
+			this.fmtGroup.dataset.sig = 'tbl';
+			const slot = document.createElement('span');
+			slot.className = 'cs-tblc-slot';
+			this.fmtGroup.replaceChildren(slot);
+			this.tableHosted = true;
+			this.mountTable?.(slot, this);
 			return;
 		}
-		const { keys, active } = applicableRegisters(this.view.state, this.getHeadings?.());
-		const sig = `${keys.join(',')}|${active ?? ''}`;
+		const { keys, active: activeReg } = applicableRegisters(this.view.state, this.getHeadings?.());
+		const sig = `${keys.join(',')}|${activeReg ?? ''}`;
 		if (this.fmtGroup.dataset.sig === sig) return;
 		this.fmtGroup.dataset.sig = sig;
 		this.fmtGroup.replaceChildren();
@@ -489,11 +400,11 @@ class SlideView {
 			if (!meta) continue;
 			const b = document.createElement('button');
 			b.type = 'button';
-			b.className = `cs-fmt-btn${meta.mono ? ' cs-fmt-mono' : ''}${active === key ? ' cs-fmt-on' : ''}`;
+			b.className = `cs-fmt-btn${meta.mono ? ' cs-fmt-mono' : ''}${activeReg === key ? ' cs-fmt-on' : ''}`;
 			b.textContent = meta.glyph;
 			b.title = `${meta.label} — apply to this block`;
 			b.setAttribute('aria-label', meta.label);
-			b.setAttribute('aria-pressed', active === key ? 'true' : 'false');
+			b.setAttribute('aria-pressed', activeReg === key ? 'true' : 'false');
 			b.addEventListener('mousedown', (e) => e.preventDefault());
 			b.addEventListener('click', (e) => {
 				e.preventDefault();
@@ -502,27 +413,13 @@ class SlideView {
 			this.fmtGroup.append(b);
 		}
 	}
-	// A table-control button in the Format group. Same mono chip as the register buttons, so the
-	// bar reads as ONE context-sensitive toolbar. `fn` receives the button (the `⋯` needs its rect
-	// to anchor the overflow menu).
-	private tblBtn(label: string, glyph: string, fn: (btn: HTMLButtonElement) => void, isMore = false): HTMLButtonElement {
-		const b = document.createElement('button');
-		b.type = 'button';
-		b.className = `cs-fmt-btn cs-fmt-mono cs-fmt-tbl${isMore ? ' cs-fmt-more' : ''}`;
-		b.textContent = glyph;
-		b.title = label;
-		b.setAttribute('aria-label', label);
-		if (isMore) b.setAttribute('aria-haspopup', 'menu');
-		b.addEventListener('mousedown', (e) => e.preventDefault());
-		b.addEventListener('click', (e) => {
-			e.preventDefault();
-			fn(b);
-		});
-		return b;
-	}
-	private runTable(cmd: Command) {
-		cmd(this.view.state, this.view.dispatch);
-		this.view.focus();
+	// Unmount the React TableControls this slide was hosting (caret left the table / slide went
+	// inactive / view destroyed). Owner-keyed on the ComposeView side, so a late null from the
+	// previous host can't clobber the new host.
+	private clearTableHost() {
+		if (!this.tableHosted) return;
+		this.tableHosted = false;
+		this.mountTable?.(null, this);
 	}
 	private applyDecos(decorations: readonly Decoration[]) {
 		const has = (k: 'collapsed' | 'active') => decorations.some((d) => (d.spec as Record<string, boolean> | undefined)?.[k]);
@@ -635,6 +532,7 @@ class SlideView {
 	}
 	destroy() {
 		clearTimeout(this.confirmTimer);
+		this.clearTableHost();
 		liveSlideViews.delete(this);
 	}
 }
@@ -694,10 +592,20 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
 	const [selBar, setSelBar] = React.useState<SelBar | null>(null);
-	// The table OVERFLOW menu (less-frequent ops: align, insert-before, deletes), opened from the
-	// `⋯` button in the slide's divider bar, else null. Portaled to <body> like the selection bar.
-	// The frequent ops (insert row/column) live inline in the bar, so the bar has no separate toolbar.
-	const [tableMenu, setTableMenu] = React.useState<TableMenu | null>(null);
+	// The pill slot (a DOM node owned by the ACTIVE table slide's divider bar) into which the React
+	// `TableControls` island is portaled. null = the caret isn't in an editable table. The mount is
+	// owner-keyed (tableHostRef) so a late unmount from the previous host can't clobber the new one.
+	const [tableSlot, setTableSlot] = React.useState<HTMLElement | null>(null);
+	const tableHostRef = React.useRef<object | null>(null);
+	const mountTable = React.useCallback((slot: HTMLElement | null, owner: object) => {
+		if (slot) {
+			tableHostRef.current = owner;
+			setTableSlot(slot);
+		} else if (tableHostRef.current === owner) {
+			tableHostRef.current = null;
+			setTableSlot(null);
+		}
+	}, []);
 
 	// The mobile shell (coarse pointer / ≤699px) drives the TYPING-MODE chrome collapse: when the
 	// software keyboard is up, the shell's top bands collapse for a full writing surface.
@@ -771,7 +679,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, (anchor, align) => setTableMenu((m) => (m ? null : { left: anchor.left + anchor.width / 2, top: anchor.bottom + 6, align }))),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountTable),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
 				// not just the toolbar — a pasted colspan/rowspan can't corrupt the serialized grid.
@@ -810,12 +718,8 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 				},
 				handleDOMEvents: {
 					// D2: on blur, apply any external source that arrived while focused.
-					blur(_view, event) {
+					blur() {
 						setSelBar(null); // the selection bar never outlives focus
-						// Keep the overflow menu open when focus moves INTO it (keyboard operation);
-						// only close it when focus lands anywhere else.
-						const to = (event as FocusEvent).relatedTarget as HTMLElement | null;
-						if (!to?.closest?.('.cs-tbl-menu')) setTableMenu(null);
 						const pending = pendingResyncRef.current;
 						if (pending != null && viewRef.current) {
 							try {
@@ -837,11 +741,10 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		// The floating bar is positioned in viewport coords; a scroll of the writing surface
 		// would strand it, so hide it on scroll (it returns on the next selection change).
 		const host = hostRef.current;
-		// A scroll of the writing surface would strand the viewport-positioned overlays: hide the
-		// selection bar (it returns on the next selection) and close the table overflow menu.
+		// A scroll of the writing surface would strand the viewport-positioned selection bar; hide it
+		// (it returns on the next selection). The table controls live in the bar, so they scroll with it.
 		const onScroll = () => {
 			setSelBar(null);
-			setTableMenu(null);
 		};
 		host?.addEventListener('scroll', onScroll, { passive: true });
 		return () => {
@@ -885,49 +788,6 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		setSelBar(computeSelBar(view));
 	}, []);
 
-	// Run a table command from the overflow menu, keeping focus in the editor. Structural ops close
-	// the menu; alignment keeps it open (you may retarget L→C→R) and refreshes its pressed state.
-	const runTableCmd = React.useCallback((cmd: Command, keepOpen = false) => {
-		const view = viewRef.current;
-		if (!view) return;
-		cmd(view.state, view.dispatch);
-		if (keepOpen) {
-			// Alignment: keep the menu open (retarget L→C→R) and refresh its pressed state; leave
-			// focus in the menu so a keyboard user stays put.
-			setTableMenu((m) => (m ? { ...m, align: currentColumnAlign(view.state) } : null));
-		} else {
-			// Structural op: return focus to the editor and dismiss.
-			view.focus();
-			setTableMenu(null);
-		}
-	}, []);
-
-	// The overflow menu is a lightweight popover: dismiss it on an outside pointer-down or Escape,
-	// and focus its first item on open so it's keyboard-operable (Tab through items, Enter, Escape).
-	React.useEffect(() => {
-		if (!tableMenu) return;
-		const menu = document.querySelector('.cs-tbl-menu');
-		if (menu && !menu.contains(document.activeElement)) (menu.querySelector('button') as HTMLElement | null)?.focus();
-		const onDown = (e: PointerEvent) => {
-			const t = e.target as HTMLElement | null;
-			// Ignore a click on the `⋯` anchor itself — its own handler toggles the menu; closing here
-			// too would fight it (the close→reopen flicker).
-			if (!t?.closest('.cs-tbl-menu') && !t?.closest('.cs-fmt-more')) setTableMenu(null);
-		};
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				setTableMenu(null);
-				viewRef.current?.focus();
-			}
-		};
-		document.addEventListener('pointerdown', onDown, true);
-		document.addEventListener('keydown', onKey, true);
-		return () => {
-			document.removeEventListener('pointerdown', onDown, true);
-			document.removeEventListener('keydown', onKey, true);
-		};
-	}, [tableMenu]);
-
 	if (failed) {
 		return (
 			<textarea
@@ -968,65 +828,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 					</div>,
 					document.body,
 				)}
-			{tableMenu &&
-				createPortal(
-					<div
-						className="cs-tbl-menu"
-						role="menu"
-						aria-label="Table actions"
-						// Clamp the (translateX(-50%), min-width 132px) menu so it never clips off-screen
-						// on a narrow viewport where `⋯` sits near the right edge.
-						style={{ left: `${Math.max(74, Math.min(tableMenu.left, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 74))}px`, top: `${tableMenu.top}px` }}
-						onMouseDown={(e) => e.preventDefault()}
-					>
-						<div className="cs-tbl-sec" aria-hidden="true">
-							Insert
-						</div>
-						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(addRowBefore)}>
-							Row above
-						</button>
-						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(addRowAfter)}>
-							Row below
-						</button>
-						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(addColumnBefore)}>
-							Column left
-						</button>
-						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(addColumnAfter)}>
-							Column right
-						</button>
-						<div className="cs-tbl-sec" aria-hidden="true">
-							Align column
-						</div>
-						<div className="cs-tbl-aligns">
-							{(['left', 'center', 'right'] as const).map((a) => (
-								<button
-									key={a}
-									type="button"
-									role="menuitemradio"
-									className={cn('cs-tbl-align', tableMenu.align === a && 'cs-tbl-on')}
-									aria-label={`Align column ${a}`}
-									aria-checked={tableMenu.align === a}
-									onClick={() => runTableCmd(setColumnAlign(tableMenu.align === a ? null : a), true)}
-								>
-									{a === 'left' ? 'L' : a === 'center' ? 'C' : 'R'}
-								</button>
-							))}
-						</div>
-						<div className="cs-tbl-sec" aria-hidden="true">
-							Delete
-						</div>
-						<button type="button" role="menuitem" aria-label="Delete row" className="cs-tbl-item" onClick={() => runTableCmd(deleteRow)}>
-							Row
-						</button>
-						<button type="button" role="menuitem" aria-label="Delete column" className="cs-tbl-item" onClick={() => runTableCmd(deleteColumn)}>
-							Column
-						</button>
-						<button type="button" role="menuitem" aria-label="Delete table" className="cs-tbl-item cs-tbl-danger" onClick={() => runTableCmd(deleteTable)}>
-							Table
-						</button>
-					</div>,
-					document.body,
-				)}
+			{tableSlot && createPortal(<TableControls view={viewRef.current as EditorView} />, tableSlot)}
 		</div>
 	);
 }
@@ -1134,9 +936,11 @@ function ComposeStyles() {
 				.cs-fmt-btn:not(.cs-fmt-mono){font-size:15px}
 				.cs-pill-btn{width:28px;height:28px}
 				.cs-pill-btn svg{width:15px;height:15px}
-				/* space is tight — collapse the quick +Row/+Col chips into the ⋯ menu (which already
-				   holds Row below / Column right), leaving just ⋯ inline. Desktop keeps the shortcuts. */
-				.cs-fmt-tbl:not(.cs-fmt-more){display:none}
+				/* space is tight — collapse the quick insert-row/column buttons into the table menu
+				   (which holds all inserts), leaving just the table-icon dropdown. Desktop keeps them. */
+				.cs-tblc-quick{display:none}
+				.cs-tblc-more{width:28px;height:28px}
+				.cs-tblc-more svg{width:16px;height:16px}
 			}
 			/* floating selection bar — inline marks over a text selection (portaled to body).
 			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */
@@ -1146,21 +950,14 @@ function ComposeStyles() {
 			.cs-sb-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:11px}
 			.cs-sb-btn:hover{background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%);color:var(--text-heading,#0a1628)}
 			.cs-sb-on{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
-				/* table controls in the context-sensitive Format group — the insert-row/column chips read
-				   as label voice like the register buttons; the ellipsis opens the overflow menu. */
-				.cs-fmt-tbl{letter-spacing:.01em}
-				.cs-fmt-more{font-size:14px;font-weight:700}
-				/* the table OVERFLOW menu — a small popover of the less-frequent ops (portaled to body),
-				   opened from the ellipsis button. Keeps the divider bar compact on mobile: no second toolbar. */
-				.cs-tbl-menu{position:fixed;z-index:60;transform:translateX(-50%);display:flex;flex-direction:column;min-width:132px;padding:5px;gap:1px;border-radius:10px;background:var(--bg-alt,#fff);border:1px solid var(--border,rgba(0,0,0,.1));box-shadow:0 10px 28px -8px rgba(0,0,0,.32),0 2px 6px -2px rgba(0,0,0,.16);animation:cs-sb-in .1s ease-out}
-				.cs-tbl-sec{font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);padding:6px 8px 2px}
-				.cs-tbl-item{appearance:none;text-align:left;border:none;border-radius:6px;background:transparent;padding:6px 9px;font-family:var(--font-serif,Georgia,serif);font-size:13.5px;color:var(--text-body,#1e3a5f);cursor:pointer;transition:color .1s,background .1s}
-				.cs-tbl-item:hover{background:var(--accent-soft,#eff6fc);color:var(--accent,#006fa8)}
-				.cs-tbl-danger:hover{background:color-mix(in oklab,var(--fail,#b3261e),transparent 90%);color:var(--fail,#b3261e)}
-				.cs-tbl-aligns{display:flex;gap:3px;padding:2px 8px 3px}
-				.cs-tbl-align{flex:1;height:26px;border:1px solid var(--border,#e4eaf2);border-radius:6px;background:transparent;font-family:var(--font-mono,ui-monospace,monospace);font-size:11px;font-weight:700;color:var(--text-muted,#6b7f9a);cursor:pointer;transition:color .1s,background .1s,border-color .1s}
-				.cs-tbl-align:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
-				.cs-tbl-on,.cs-tbl-on:hover{color:var(--on-accent,#fff);background:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
+				/* the React TableControls island, mounted into the divider bar's Format-group slot: quick
+				   insert-row/column buttons + a table-icon trigger for the shadcn dropdown (menu itself is
+				   styled by shadcn/Tailwind, portaled by Radix). Buttons match the pill's icon buttons. */
+				.cs-tblc-slot{display:inline-flex}
+				.cs-tblc{display:inline-flex;align-items:center;gap:2px}
+				.cs-tblc-quick,.cs-tblc-more{flex:none;width:22px;height:22px;padding:0;border:none;border-radius:7px;background:transparent;color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,background .12s}
+				.cs-tblc-quick svg,.cs-tblc-more svg{width:14px;height:14px}
+				.cs-tblc-quick:hover,.cs-tblc-more:hover,.cs-tblc-more[data-state=open]{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 		`}</style>
 	);
 }
