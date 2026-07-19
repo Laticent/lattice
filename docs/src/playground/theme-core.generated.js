@@ -252,6 +252,7 @@ var require_derive = __commonJS({
     var JEWEL_C = 0.12;
     var PALE_MARK_L = 0.82;
     var PALE_MARK_C = 0.085;
+    var CATEGORICAL_COUNT = 12;
     var RAMP_STRATEGIES = Object.freeze(["spectrum", "analogous", "triad", "complementary", "brand-mono"]);
     var DEFAULT_STRATEGY = "spectrum";
     var norm360 = (d) => (d % 360 + 360) % 360;
@@ -303,8 +304,8 @@ var require_derive = __commonJS({
         "scheme-dark-text-muted"
       ],
       categorical: [
-        ...Array.from({ length: 12 }, (_, i) => `cat-${i + 1}-fill`),
-        ...Array.from({ length: 12 }, (_, i) => `cat-${i + 1}-mark`),
+        ...Array.from({ length: CATEGORICAL_COUNT }, (_, i) => `cat-${i + 1}-fill`),
+        ...Array.from({ length: CATEGORICAL_COUNT }, (_, i) => `cat-${i + 1}-mark`),
         "cat-on-fill",
         "cat-on-mark",
         // diagram-structural (flipped to canonical, group 2 — ADR §11.3)
@@ -423,10 +424,10 @@ var require_derive = __commonJS({
       const inkDark = "#ffffff";
       t["cat-on-fill"] = ld(inkLight, inkDark);
       t["cat-on-mark"] = ld(inkDark, inkLight);
-      for (let i = 0; i < 12; i++) {
-        const h = norm360(rampHue(strategy, accentHue, i, 12));
-        const cMul = rampChromaMul(strategy, i, 12);
-        const dL = rampLightnessDelta(strategy, i, 12);
+      for (let i = 0; i < CATEGORICAL_COUNT; i++) {
+        const h = norm360(rampHue(strategy, accentHue, i, CATEGORICAL_COUNT));
+        const cMul = rampChromaMul(strategy, i, CATEGORICAL_COUNT);
+        const dL = rampLightnessDelta(strategy, i, CATEGORICAL_COUNT);
         const fillLight = ensureContrast2(oklchToHex2({ L: PALE_L2 + dL, C: PALE_C * cMul, h }), inkLight, AA2, "lighten");
         let markLight = ensureContrast2(oklchToHex2({ L: DEEP_L2 + dL, C: DEEP_C * cMul, h }), e.bg, AA_LARGE2, "darken");
         markLight = ensureContrast2(markLight, inkDark, AA2, "darken");
@@ -476,6 +477,7 @@ var require_derive = __commonJS({
       RAMP_STRATEGIES,
       DEFAULT_STRATEGY,
       normalizeStrategy,
+      CATEGORICAL_COUNT,
       PALE_L: PALE_L2,
       DEEP_L: DEEP_L2
     };
@@ -761,8 +763,8 @@ var require_starters = __commonJS({
 // lib/theme/ai.js
 var require_ai = __commonJS({
   "lib/theme/ai.js"(exports, module) {
-    var { ESSENTIAL_KEYS: ESSENTIAL_KEYS2, RAMP_STRATEGIES, normalizeStrategy } = require_derive();
-    var { normalizeHex: normalizeHex2 } = require_color();
+    var { ESSENTIAL_KEYS: ESSENTIAL_KEYS2, RAMP_STRATEGIES, normalizeStrategy, CATEGORICAL_COUNT, requiredTokenList: requiredTokenList2 } = require_derive();
+    var { normalizeHex: normalizeHex2, AA_LARGE: AA_LARGE2 } = require_color();
     var KEY_DESCRIPTIONS = {
       bg: "light page canvas, near-white",
       bgAlt: "slightly darker card / alternate surface (still light)",
@@ -775,7 +777,12 @@ var require_ai = __commonJS({
       warn: "warning amber",
       fail: "error red"
     };
-    var THEME_CANON = 'HOW LATTICE THEMES WORK (so you choose well):\n\u2022 Your 10 colours are ESSENTIALS. The engine derives ~70 more from them in OKLCH and repairs every pair to WCAG AA in BOTH light and dark canvases \u2014 you never hand-author the rest. Pick essentials that derive cleanly.\n\u2022 Categorical data-viz uses a THREE-LAYER, mode-flipping contract keyed off the accent HUE: each of 12 slots is one hue drawn as a fill + a mark (its border). Light canvas = pale fill + deep mark; dark canvas = deep "jewel" fill + pale mark; the label ink flips with the fill so it stays legible, and the mark always clears 3:1 against the canvas. The engine derives and AA-repairs all of it \u2014 so pick an accent that is saturated and distinctly hued.\n\u2022 A dark canvas band is derived from the accent hue at low lightness; ink is lifted to stay readable. Choose a textBody that lightens gracefully.\n\u2022 Worked example (indaco): bg #f7f8fb, bgAlt #eef1f6, textHeading #0f1b2d, textBody #243244, textMuted #6b7787, accent #1f5fb0, accentSoft #e6eefb, pass #1f7a4d, warn #b26a00, fail #c0392b.\n';
+    var THEME_CANON = `HOW LATTICE THEMES WORK (so you choose well):
+\u2022 Your 10 colours are ESSENTIALS. The engine derives the rest of the ${requiredTokenList2().length}-token contract from them in OKLCH and repairs every pair to WCAG AA in BOTH light and dark canvases \u2014 you never hand-author the rest. Pick essentials that derive cleanly.
+\u2022 Categorical data-viz uses a THREE-LAYER, mode-flipping contract keyed off the accent HUE: each of ${CATEGORICAL_COUNT} slots is one hue drawn as a fill + a mark (its border). Light canvas = pale fill + deep mark; dark canvas = deep "jewel" fill + pale mark; the label ink flips with the fill so it stays legible, and the mark always clears ${AA_LARGE2}:1 against the canvas. The engine derives and AA-repairs all of it \u2014 so pick an accent that is saturated and distinctly hued.
+\u2022 A dark canvas band is derived from the accent hue at low lightness; ink is lifted to stay readable. Choose a textBody that lightens gracefully.
+\u2022 Worked example (indaco): bg #f7f8fb, bgAlt #eef1f6, textHeading #0f1b2d, textBody #243244, textMuted #6b7787, accent #1f5fb0, accentSoft #e6eefb, pass #1f7a4d, warn #b26a00, fail #c0392b.
+`;
     var ASK_SYSTEM2 = 'You are a palette designer for the Lattice slide engine. You will be given the CURRENT palette (as JSON) and a request. If the request describes a new look, return a complete new palette; if it asks for a change (e.g. "cooler", "more contrast", "navy accent"), adjust the current palette accordingly.\n\n' + THEME_CANON + '\nOutput ONLY a compact JSON object \u2014 no prose, no markdown \u2014 with EXACTLY these keys. The first ten are 6-digit hex colours (e.g. "#1a2b3c"):\n' + ESSENTIAL_KEYS2.map((k) => `  "${k}": ${KEY_DESCRIPTIONS[k]}`).join("\n") + `
   "rampStrategy": the categorical/chart hue layout \u2014 one of ${RAMP_STRATEGIES.map((s) => `"${s}"`).join(", ")}. Pick the one that fits the brief: "spectrum" broad & distinct, "analogous" calm & cohesive, "triad" balanced & lively, "complementary" high-contrast pairs, "brand-mono" restrained single-hue.
   "name": a short lowercase slug naming THIS palette (a\u2013z, 0\u20139, hyphens; start with a letter), evocative of the look \u2014 e.g. "harbor-slate", "terracotta-warm". Not a generic word like "theme" or "palette".

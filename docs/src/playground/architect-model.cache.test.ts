@@ -55,4 +55,32 @@ describe('architect-model — prompt-cache breakpoint (#610)', () => {
 		// every vendor we mark must be one OpenRouter reports as cache-capable
 		for (const id of ['anthropic/x', 'google/x']) expect(orSupportsCache(id)).toBe(true);
 	});
+
+	// A canon/voice split (withStudioVoice's cloud path): the system arrives as
+	// [stable canon, volatile voice] text parts. The breakpoint goes on the FIRST
+	// part so the cached prefix ends AFTER the canon and BEFORE the voice — a
+	// deck-language / standing-instructions change re-pays only the short voice tail.
+	const CANON = { type: 'text', text: 'BIG STATIC CANON …' };
+	const VOICE = { type: 'text', text: 'Output language: English. Standing instructions: …' };
+	it('marks the FIRST part of a [canon, voice] system split, leaving the voice uncached', () => {
+		const split = { role: 'system', content: [CANON, VOICE] };
+		const out = withCachedSystem([split, USER], 'anthropic/claude-sonnet-4.5');
+		expect(out[0].content).toEqual([
+			{ ...CANON, cache_control: { type: 'ephemeral' } }, // canon cached
+			VOICE, // voice trails, uncached
+		]);
+		expect(out[1]).toEqual(USER);
+	});
+
+	it('leaves a [canon, voice] split as plain parts for auto-caching vendors', () => {
+		const split = { role: 'system', content: [CANON, VOICE] };
+		const out = withCachedSystem([split, USER], 'openai/gpt-5');
+		expect(out[0].content).toEqual([CANON, VOICE]); // untouched — no explicit breakpoint needed
+	});
+
+	it('does not double-mark a split that already carries a cache_control', () => {
+		const preMarked = { role: 'system', content: [{ ...CANON, cache_control: { type: 'ephemeral' } }, VOICE] };
+		const out = withCachedSystem([preMarked, USER], 'anthropic/claude-sonnet-4.5');
+		expect(out[0].content).toEqual(preMarked.content); // left as authored, no second breakpoint
+	});
 });
