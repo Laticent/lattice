@@ -225,3 +225,39 @@ describe('parse → apply round trips (the whole protocol)', () => {
     assert.match(out, /## Two\n\nbody two/); // neighbours intact
   });
 });
+
+// A slide that DEMONSTRATES markdown (a `---` inside a code fence) must not desync the
+// slide numbering — the splice is fence-aware now, so the AI fix targets the right slide.
+const FENCED = ['# Intro', '', '---', '', '<!-- _class: code -->', '```', 'a', '---', 'b', '```', '', '---', '', '# Outro'].join('\n');
+
+describe('fence-aware slide boundaries', () => {
+  test('slideCount ignores a --- inside a code fence', async () => {
+    const { slideCount } = await load();
+    assert.equal(slideCount(FENCED), 3); // Intro · code · Outro — NOT 4
+  });
+  test('numberSlides keeps the fenced --- inside its slide', async () => {
+    const { numberSlides } = await load();
+    const view = numberSlides(FENCED);
+    assert.match(view, /\[slide 1\]/);
+    assert.match(view, /\[slide 2\]/);
+    assert.match(view, /\[slide 3\]/);
+    assert.doesNotMatch(view, /\[slide 4\]/);
+    assert.match(view, /a\n---\nb/); // the sample survives intact inside slide 2
+  });
+  test('sliceSlide reads the slide that owns the fenced ---', async () => {
+    const { sliceSlide } = await load();
+    assert.match(sliceSlide(FENCED, 2), /a\n---\nb/);
+    assert.match(sliceSlide(FENCED, 3), /# Outro/);
+  });
+  test('applyEdit replace targets the correct slide past a fenced ---', async () => {
+    const { applyEdit } = await load();
+    const out = applyEdit(FENCED, { action: 'replace', slide: 3, body: '# Outro (edited)' });
+    assert.match(out, /# Outro \(edited\)/);
+    assert.match(out, /a\n---\nb/); // the code sample is untouched
+  });
+  test('applyEdit refuses a replace body that smuggles a top-level --- (would inject a slide)', async () => {
+    const { applyEdit } = await load();
+    const out = applyEdit(DECK, { action: 'replace', slide: 2, body: '## Two\n\n---\n\n## Sneaky extra slide' });
+    assert.equal(out, DECK); // rejected — the deck is unchanged, not corrupted
+  });
+});

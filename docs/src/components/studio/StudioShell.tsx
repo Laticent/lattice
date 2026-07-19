@@ -34,7 +34,7 @@ import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { ComposeView } from './ComposeView';
-import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, hasFencedSeparator, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
+import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
@@ -1657,12 +1657,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		async (finding: Finding, key: string, srcAt?: string): Promise<boolean> => {
 			const src = srcAt ?? source;
 			if (fixStates[key]?.phase === 'working') return false;
-			// K3 guard: the engine slide splitter is fence-blind, so a `---` inside a code
-			// fence would make an AI fix mis-target and corrupt the deck. Refuse honestly.
-			if (hasFencedSeparator(src)) {
-				notify('AI fix is unavailable while a slide has a `---` inside a code fence — it would mis-target. Remove or fence it differently, or edit by hand.');
-				return false;
-			}
+			// (The old K3 guard that disabled the fix when a `---` sat inside a code fence is
+			// gone — the slide splitter is fence-aware now, so the fix targets correctly, and
+			// applyEdit refuses a model body that smuggles a top-level `---`.)
 			const steps = [finding.slide ? `Reading slide ${finding.slide}…` : 'Reading the deck…', 'Drafting a tighter pass…', 'Preparing the diff…'];
 			let si = 0;
 			setFixStates((m) => ({ ...m, [key]: { phase: 'working', step: steps[0] } }));
@@ -1748,7 +1745,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// proposal. Nothing applies (no blind apply-all): the author reviews, then Apply / Apply
 	// all. The target set matches `batchFixable` (both skip proposed + working) — trio #4.
 	const fixAll = React.useCallback(async () => {
-		if (fixingAll || hasFencedSeparator(source)) return;
+		if (fixingAll) return;
 		const snap = source;
 		const targets = rankFindings(findings)
 			.slice(0, 6)
@@ -2062,7 +2059,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	};
 
 	const rankedFindings = rankFindings(findings);
-	const fencedBlocked = hasFencedSeparator(source);
 	const shownFindings = rankedFindings.slice(0, 6);
 	// A finding is DRAFTABLE when it has no active fix (idle) or a previously-stale one to
 	// re-draft — the same set fixAll targets, so the count and the action agree (trio #4).
@@ -2226,7 +2222,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    at once. Never a blind apply-all: "Draft all" only drafts (each still gets a
 					    reviewable diff); it's named for what it does so draft→review→apply reads off
 					    the labels. Each shows only when it beats the single-card pills (2+ to act on). */}
-					{ai.ready && !fencedBlocked && (batchFixable > 1 || proposedCount > 1) && (
+					{ai.ready && (batchFixable > 1 || proposedCount > 1) && (
 						<div className="mt-2 flex flex-wrap items-center gap-1.5">
 							{batchFixable > 1 && (
 								<button type="button" onClick={fixAll} disabled={fixingAll} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)] disabled:opacity-60">
@@ -2248,7 +2244,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 								key={key}
 								finding={f}
 								state={fixStates[key]}
-								canFix={ai.ready && !!f.slide && !fencedBlocked}
+								canFix={ai.ready && !!f.slide}
 								costLabel={fixCostLabel}
 								onFix={() => fixFinding(f, key)}
 								onApply={() => applyFixKey(key)}
@@ -2257,7 +2253,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						))}
 					</ul>
 					{rankedFindings.length > 6 && <p className="mt-2 text-[11px] text-muted-foreground">+{rankedFindings.length - 6} more — the editor underlines them all.</p>}
-					{fencedBlocked && <p className="mt-2 text-[10.5px] leading-snug text-[var(--warn,#9a6a00)]">AI fix is paused — a slide has a `---` inside a code fence, which would mis-target. Edit by hand or fence it differently.</p>}
 				</ArchCard>
 			)}
 		</>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Finding } from '../architect';
-import { assessDeck, countSlides, hasContent, hasFencedSeparator, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach-core';
+import { assessDeck, countSlides, hasContent, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach-core';
 
 const f = (severity: string, message: string, slide?: number): Finding => ({ severity, message, slide, rule: 'r' }) as Finding;
 
@@ -31,18 +31,6 @@ describe('assessDeck', () => {
 		expect(a.hasContent).toBe(true);
 		expect(a.scorecard).not.toBeNull();
 		expect(typeof a.scorecard?.band).toBe('string');
-	});
-});
-
-describe('hasFencedSeparator — K3 guard (--- inside a code fence)', () => {
-	it('detects a --- inside a ``` block', () => {
-		expect(hasFencedSeparator('<!-- _class: code -->\n```yaml\nname: app\n---\nenv: prod\n```')).toBe(true);
-	});
-	it('detects a --- inside a ~~~ block', () => {
-		expect(hasFencedSeparator('~~~md\nfront\n---\nback\n~~~')).toBe(true);
-	});
-	it('is false for a real slide separator', () => {
-		expect(hasFencedSeparator('# A\n\n---\n\n# B')).toBe(false);
 	});
 });
 
