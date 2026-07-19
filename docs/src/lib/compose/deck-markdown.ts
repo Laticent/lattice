@@ -109,11 +109,13 @@ function serializeCell(state: SerializerState, cell: PMNode): string {
 	// bracket stays escaped: a user's `\[literal\]` or an escaped `\[text\](url)` must NOT
 	// silently become a live link/image (checker Bug 2).
 	out = out.replace(/^\\\[([x\-/ ])\\\]/, '[$1]');
-	// GFM: a raw pipe splits cells, so escape EVERY literal pipe. `renderInline` never emits a
-	// SYNTACTIC pipe, so there is nothing pre-escaped to skip — and a lookbehind would misfire on
-	// an escaped backslash (`x\\|y`), leaving that pipe raw and splitting the cell (checker Bug 1).
-	// GFM un-escapes `\|` back to `|` even inside a code span, so escaping unconditionally is safe.
-	out = out.replace(/\|/g, '\\|');
+	// GFM: a raw pipe splits cells, so escape every literal pipe. Match any run of backslashes
+	// BEFORE the pipe and carry them through, so the escape covers the whole escape sequence — a
+	// bare `replace(/\|/g, …)` would be an INCOMPLETE escape (it ignores a preceding backslash, so
+	// a literal `x\|y`, rendered `x\\|y`, would keep its pipe raw and split the cell — checker Bug 1
+	// / CodeQL js/incomplete-sanitization). `renderInline` never emits a syntactic `\|`, so every
+	// pipe here is literal; prefixing one backslash to `(\\*)|` yields the correct GFM escape.
+	out = out.replace(/(\\*)\|/g, (match) => `\\${match}`);
 	return out;
 }
 
