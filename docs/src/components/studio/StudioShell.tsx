@@ -406,11 +406,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	}, []);
 	// Back-compat shims for the demo/walkthrough hook, which speaks the old open/tab
 	// API: open defaults to the Coach panel, and the "tab" setter now SELECTS which of
-	// the two separate panels is shown.
+	// the two separate panels is shown. CLOSE clears the assistant slot UNCONDITIONALLY
+	// (whatever holds it — Coach/Chat/Lenses/Library): the demo's "clean compose canvas"
+	// reset (use-studio-demo.ts) is the only path that clears the slot, so a docked
+	// Lenses/Library must be evicted too (matches the pre-split unconditional-null close).
 	const setArchitectOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => {
 			const was = prev === 'coach' || prev === 'chat';
-			return (typeof v === 'function' ? v(was) : v) ? (was ? prev : 'coach') : was ? null : prev;
+			return (typeof v === 'function' ? v(was) : v) ? (was ? prev : 'coach') : null;
 		});
 	}, []);
 	const setArchitectTab = React.useCallback((t: 'coach' | 'chat') => setActiveAssistant(t), []);
@@ -2533,7 +2536,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Assistants (Coach) top · Settings (Slide/Deck) mid · Globals (Library,
 	// Workspace, account) foot. Group labels + dividers make the grouped
 	// exclusivity legible (Coach is independent; Slide/Deck swap one panel). The
-	// accessible names are the e2e/demo contract — 'Toggle Architect', 'Deck scope',
+	// accessible names are the e2e/demo contract — 'Toggle Coach', 'Toggle Chat', 'Deck scope',
 	// 'Slide settings', 'Open Library', 'Workspace settings' (studio-fixture.ts CHROME
 	// map + tour-kit SEL) — keep them stable.
 	const activityBar = (
@@ -2545,7 +2548,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    sheet-from-a-globals-icon and not a tab inside the AI coach. */}
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
 			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))}><Gauge className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><Sparkles className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><MessageSquareHeart className="size-[18px]" /></BarIcon>
 			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={libraryOpen} onClick={() => setActiveAssistant((p) => (p === 'library' ? null : 'library'))}><FileBox className="size-[18px]" /></BarIcon>
 			<BarIcon label="Toggle Lenses" hint="Lenses — reader views" caption="Lenses" active={lensesOpen} onClick={() => setActiveAssistant((p) => (p === 'lenses' ? null : 'lenses'))}><Eye className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />
@@ -2744,7 +2747,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* Architect + Settings openers — TABLET only. Desktop launches both from the
 				    left activity bar; mobile from the pane bar below. */}
 				{bp === 'tablet' && <Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>}
-				{bp === 'tablet' && <Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><MessageSquareHeart className="size-[18px]" /></Button></Tip>}
 				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
 				{!compact && <Separator orientation="vertical" className="h-5" />}
 
@@ -2851,7 +2854,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<Tip label="Present"><Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button></Tip>
 						<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /></Button></Tip>
 						<Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>
-						<Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>
+						<Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><MessageSquareHeart className="size-[18px]" /></Button></Tip>
 						<Tip label="Settings — deck & slide"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>
 					</div>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
@@ -3011,7 +3014,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<Sheet open={chatOpen} onOpenChange={setChatOpen}>
 						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[320px]">
 							<SheetHeader className="border-b border-border">
-								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><Sparkles className="size-4 text-[var(--accent)]" />Chat</SheetTitle>
+								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><MessageSquareHeart className="size-4 text-[var(--accent)]" />Chat</SheetTitle>
 								<SheetDescription className="sr-only">A conversation with the AI Architect about this deck, with reviewable edits.</SheetDescription>
 							</SheetHeader>
 							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBody}</div>

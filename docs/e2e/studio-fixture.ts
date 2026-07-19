@@ -112,7 +112,7 @@ export async function gotoStudio(page: Page): Promise<void> {
 	// Seed the Build posture BEFORE the island hydrates, so the full surface (the
 	// left activity bar + docked Architect/Inspector) is present — most specs drive
 	// it. The shipped default is the calm Write stop, which has no activity bar, so
-	// without this the 'Toggle Architect' / 'Deck scope' launchers wouldn't exist.
+	// without this the 'Toggle Coach' / 'Toggle Chat' / 'Deck scope' launchers wouldn't exist.
 	// (2026-07-17-studio-persona-dial.md; the newcomer Read/Write surfaces get their
 	// own dedicated specs.) The runtime read is loadSettings().posture.
 	await page.addInitScript(() => {
