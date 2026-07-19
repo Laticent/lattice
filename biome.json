@@ -25,6 +25,7 @@
       "!docs/src/playground/player-core.generated.js",
       "!docs/src/playground/player-prune.generated.js",
       "!docs/src/playground/read-along-core.generated.js",
+      "!lib/export/anima-player-bundle.generated.mjs",
       "!docs/src/lib/cadenza/dist",
       "!docs/src/lib/vetrina/dist",
       "!docs/src/lib/lente/dist",

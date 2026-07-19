@@ -113,6 +113,8 @@
     "stage-catalog:check": "node tools/build-stage-catalog.js --check",
     "player-core:build": "node tools/build-player-core.js",
     "player-core:check": "node tools/build-player-core.js --check",
+    "anima-player:build": "node tools/build-anima-player.js",
+    "anima-player:check": "node tools/build-anima-player.js --check",
     "player-prune:build": "node tools/build-player-prune.js",
     "player-prune:check": "node tools/build-player-prune.js --check",
     "read-along-core:build": "node tools/build-read-along-core.js",
