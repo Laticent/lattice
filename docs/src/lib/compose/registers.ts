@@ -59,7 +59,15 @@ export function activeRegister(state: EditorState): Reg | null {
 	if (!ctx) return null;
 	const { block, isLast, prev, next } = ctx;
 	const isHeading = (n: PMNode | null) => !!n && n.type.name === 'heading';
-	if (block.type.name === 'heading') return (block.attrs.level as number) <= 1 ? 'h1' : 'h2';
+	if (block.type.name === 'heading') {
+		// ONLY level 1 → H1 and level 2 → H2; an H3–H6 (reachable via the `#{1,6}` input rule or pasted
+		// markdown) is a heading the register vocabulary can't name, so it lights NOTHING rather than
+		// mislabeling as an active H2 — which used to make the pill's H2 button toggle the H3 to a
+		// paragraph on click instead of normalizing it. With no register active, the grammar heading
+		// (H1/H2) shows un-lit and applying it converts the H3–H6 to that level.
+		const lvl = block.attrs.level as number;
+		return lvl === 1 ? 'h1' : lvl === 2 ? 'h2' : null;
+	}
 	if (block.type.name === 'blockquote') return isLast ? 'insight' : null;
 	if (block.type.name === 'paragraph') {
 		if (isCodeLabel(block)) {
@@ -73,11 +81,12 @@ export function activeRegister(state: EditorState): Reg | null {
 }
 
 // A per-class HEADING register set, keyed by `_class` name → the heading level(s) the class's GRAMMAR
-// anchors (`['h1']` for the title family, `['h2']` for body classes, `['h1','h2']` for a class whose
-// heading slot lists both, e.g. `journey`). Built at the docs-site build from the component manifests'
-// heading/title slot (`dist/docs/grammar.json`), so Compose offers the SAME heading the engine renders
-// — one source of truth (HARD RULE #1). A class absent from the map (unknown, or one with no heading
-// slot at all, e.g. big-number) falls back to permissive (both).
+// anchors: `['h1']` for the title family, `['h2']` for body classes, `['h1','h2']` for a class whose
+// heading slot lists both (e.g. `journey`), and an EMPTY `[]` for a KNOWN class the grammar gives no
+// heading slot at all (e.g. big-number, whose hero is a list item, not a heading). Built at the
+// docs-site build from every component manifest's heading/title slot (`dist/docs/grammar.json`), so
+// Compose offers the SAME heading the engine renders — one source of truth (HARD RULE #1). A class
+// ABSENT from the map (an unrecognized `_class`) falls back to permissive (both).
 export type SlideHeadings = Record<string, ('h1' | 'h2')[]>;
 
 // Which HEADING register(s) the caret's slide grammar permits: the class's declared level(s), or —
@@ -100,7 +109,11 @@ function headingKeysFor(directives: string[], headings?: SlideHeadings): Reg[] {
 	}
 	if (cls == null) return ['h1', 'h2'];
 	const gh = headings?.[cls];
-	return Array.isArray(gh) && gh.length ? [...gh] : ['h1', 'h2'];
+	// A KNOWN class carries its declared level set — INCLUDING an empty `[]` for a class with no heading
+	// slot (big-number), where we offer no heading register rather than the permissive default. Only a
+	// class ABSENT from the map (unrecognized `_class`) stays permissive. `Array.isArray` also guards the
+	// plain-object lookup against `Object.prototype` keys a slide could name in `_class` (trio CRITICAL).
+	return Array.isArray(gh) ? [...gh] : ['h1', 'h2'];
 }
 
 // The registers that APPLY to the caret's current block — the "truly context-sensitive" set the
@@ -135,6 +148,11 @@ export function applicableRegisters(state: EditorState, headings?: SlideHeadings
 		const keys: Reg[] = [...hk];
 		if (isHeading(next) || active === 'eyebrow') keys.push('eyebrow');
 		if (isHeading(prev) || active === 'subtitle') keys.push('subtitle');
+		// An ORPHAN code label (a lone inline-code paragraph next to no heading) renders as a mono label
+		// but as neither eyebrow nor subtitle, so the two positional rules above skip it — leaving no
+		// pill affordance to clear the code mark (recoverable only in Markdown mode). Offer eyebrow so a
+		// tap toggles the code off; the register glyph is the same construct either way.
+		if (isCodeLabel(block) && !keys.includes('eyebrow') && !keys.includes('subtitle')) keys.push('eyebrow');
 		keys.push('insight', 'note');
 		return { keys, active };
 	}

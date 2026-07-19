@@ -80,24 +80,34 @@ try {
 	components = [];
 }
 
-// The per-class HEADING register for Compose: a `_class` name → the heading level its GRAMMAR
-// anchors ('h1' for the title family, 'h2' for body classes), read from each component's heading/title
-// slot in the generated grammar (`dist/docs/grammar.json`). Threaded into the Compose editor so its
-// Format group offers the grammar-correct heading — never H1 on a body slide, never H2 on a title —
-// sharing the engine's slot contract as the one source of truth (HARD RULE #1).
+// The per-class HEADING register for Compose: a `_class` name → the heading level(s) its GRAMMAR
+// anchors ('h1' for the title family, 'h2' for body classes, both where the slot lists both), read from
+// each component's heading/title slot in the generated grammar (`dist/docs/grammar.json`). A KNOWN class
+// with NO heading slot maps to an empty `[]` (Compose then offers no heading register — e.g. big-number,
+// whose hero is a list item). Threaded into the Compose editor so its Format group offers the grammar-
+// correct heading — never H1 on a body slide, never H2 on a title — sharing the engine's slot contract
+// as the one source of truth (HARD RULE #1).
 let slideHeadings = {};
 try {
 	const grammar = JSON.parse(readFileSync(join(process.cwd(), '..', 'dist/docs/grammar.json'), 'utf8'));
 	for (const c of grammar.components || []) {
+		if (!c.name) continue;
 		const slots = c.slots || {};
-		const sel = (slots.heading || slots.title || {}).selector || '';
+		const headingSlot = slots.heading || slots.title;
+		// A class with NO heading/title slot is KNOWN to render no heading → empty set (offer nothing).
+		if (!headingSlot) {
+			slideHeadings[c.name] = [];
+			continue;
+		}
 		// Collect EVERY heading level the slot's selector lists (a heading slot may name several, e.g.
 		// `h1, h2` on journey — dropping one would over-restrict a class the engine treats as two-level).
 		// Match hN only as an ELEMENT selector (preceded by start / whitespace / a combinator, and not
 		// followed by a word char or hyphen) so a class/id token like `.h2-foo` never false-matches.
-		const levels = [...sel.matchAll(/(?:^|[\s>,(+~])h([1-6])(?![\w-])/g)].map((mm) => (mm[1] === '1' ? 'h1' : 'h2'));
+		const levels = [...String(headingSlot.selector || '').matchAll(/(?:^|[\s>,(+~])h([1-6])(?![\w-])/g)].map((mm) => (mm[1] === '1' ? 'h1' : 'h2'));
 		const uniq = [...new Set(levels)];
-		if (uniq.length && c.name) slideHeadings[c.name] = uniq;
+		// A heading slot whose selector we couldn't parse is left ABSENT (→ permissive), not empty —
+		// never over-restrict a class that DOES take a heading just because the selector was exotic.
+		if (uniq.length) slideHeadings[c.name] = uniq;
 	}
 } catch (e) {
 	// Graceful, but make the degradation OBSERVABLE: a missing/corrupt grammar.json or a slot-shape

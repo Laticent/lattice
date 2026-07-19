@@ -279,6 +279,43 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		expect(applicableRegisters(multi.v.state, headings).keys).toEqual(['h1']); // title, not content
 	});
 
+	// Follow-up B: a KNOWN class with NO heading slot (empty level set) offers no heading register at
+	// all — not the permissive default — while an UNKNOWN class stays permissive.
+	it('offers no heading register for a known no-heading class, permissive for an unknown one', () => {
+		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'], 'big-number': [] };
+		const bn = view('<!-- _class: big-number -->\n\nplain paragraph');
+		bn.caret('plain paragraph');
+		expect(applicableRegisters(bn.v.state, headings).keys).toEqual(['insight', 'note']); // no H1/H2
+		const unknown = view('<!-- _class: totally-made-up -->\n\nplain paragraph');
+		unknown.caret('plain paragraph');
+		expect(applicableRegisters(unknown.v.state, headings).keys).toEqual(['h1', 'h2', 'insight', 'note']);
+	});
+
+	// Follow-up C: an H3–H6 heading is not mislabeled as an active H2. activeRegister lights nothing,
+	// and applying the grammar heading NORMALIZES the level (rather than toggling to a paragraph).
+	it('normalizes an H3–H6 heading instead of mislabeling it H2', () => {
+		const headings: Record<string, ('h1' | 'h2')[]> = { content: ['h2'] };
+		const t = view('<!-- _class: content -->\n\n### Deep head');
+		t.caret('Deep head');
+		const { keys, active } = applicableRegisters(t.v.state, headings);
+		expect(active).toBe(null); // an H3 is not an H1 or H2 register
+		expect(keys).toEqual(['h2']); // the grammar heading, un-lit
+		t.apply('h2'); // apply → convert the H3 to an H2 (NOT to a paragraph)
+		expect(t.src()).toMatch(/^## Deep head/m);
+	});
+
+	// Follow-up A: an ORPHAN code label (no adjacent heading) offers eyebrow so its code mark can be
+	// cleared from the pill, not only in Markdown mode.
+	it('offers a clear affordance for an orphan code label', () => {
+		const t = view('<!-- _class: content -->\n\n`LONE LABEL`\n\nbody');
+		t.caret('LONE LABEL');
+		const { keys } = applicableRegisters(t.v.state);
+		expect(keys).toContain('eyebrow'); // a way to clear the label exists
+		t.apply('eyebrow'); // toggles the code mark off → plain paragraph
+		expect(t.src()).not.toMatch(/`LONE LABEL`/);
+		expect(t.src()).toContain('LONE LABEL');
+	});
+
 	it('a locked slide offers no registers', () => {
 		const t = view('<!-- _class: content -->\n\n# Locked\n\n| a | b |\n| - | - |\n| 1 | 2 |');
 		t.caret('Locked');

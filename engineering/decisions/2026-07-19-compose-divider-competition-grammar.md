@@ -143,9 +143,28 @@ Run against the shipping state (`d5a2ff9`). Findings folded in:
 - **Shape distinguishes register, not safe-vs-destructive** — delete and collapse share the circular
   cap; the two-step in-place confirm (not shape) is the mis-delete safeguard, which is correct.
 
-## Follow-ups (logged, not blocking)
+## Follow-ups
 
-- The orphan code-label affordance from the #1059 checker (a `` `code` `` paragraph cut off from its
-  heading can't clear its mark from the divider) remains open — a "clear label" affordance is the fix.
-- A class KNOWN to have no heading slot (e.g. `big-number`) currently falls to the permissive both-
-  headings default rather than offering neither. Acceptable today; revisit if it misleads.
+**Resolved (a dedicated follow-ups pass, verified on the real surface):**
+
+- **Orphan code-label affordance — DONE.** An orphan `` `code` `` paragraph now offers eyebrow in the
+  pill so its mark can be cleared without dropping to Markdown (`applicableRegisters`).
+- **No-heading-slot classes — DONE.** `slideHeadings` now carries an explicit empty `[]` for a KNOWN
+  class with no heading slot (big-number), so Compose offers no heading register there; only an
+  *unrecognized* class stays permissive (`studio.astro` builds the full map; `headingKeysFor` returns
+  `Array.isArray(gh) ? [...gh] : permissive`).
+- **H3–H6 headings — DONE.** `activeRegister` lights H1/H2 only for levels 1/2 (null for 3–6), so an
+  H3 is no longer a mislabeled active-H2 that toggled to a paragraph; applying the grammar heading
+  normalizes it to H1/H2.
+- **Focus/selection restore on settings close — DONE.** The divider ⚙ snapshots the caret and restores
+  focus + position (clamped to the current doc) when the settings panel closes — "adjust a setting,
+  keep typing" (`ComposeView` `settingsOpen` prop + a deferred restore effect; `StudioShell` threads
+  `inspectorOpen`).
+
+**Still open (not in this pass):**
+
+- **UNVERIFIED on real iOS** — the typing-mode/touch feel across the software-keyboard animation needs a
+  physical device; a headless sandbox can't exercise it (HARD RULE #23).
+- **The `#` input rule isn't grammar-gated** — typing `# ` on a body slide still produces a literal H1.
+  Left BY DESIGN: markdown input should mean what it says, and the mismatch is caught by the live preview
+  + deck lint; gating keystrokes would be a worse surprise than the pill gate.
