@@ -206,7 +206,6 @@ in patch versions.
   unchanged — the list is opt-in. Any `closing` that ends with a list now renders legibly on the dark
   canvas in **both** light and dark themes (the list previously inherited body ink, which vanished
   against the dark canvas under the light theme). (`closing.styles.css`, `closing.manifest.json`.)
-
 - **A live `scene` now has a real play/pause control, and reduced-motion viewers can opt into the
   motion.** Stage 6 gave a live scene only a ↻ replay button — no way to pause a looping animation, and
   a scene held to its poster by `prefers-reduced-motion` showed nothing playable at all. Now every live
@@ -218,7 +217,12 @@ in patch versions.
   floor still bounds what the *author* can force; it no longer strips the *viewer's* agency. In the
   surface-agnostic host, so Studio present + HTML export inherit it. (`docs/src/lib/anima/hydrate.ts`,
   `scene.styles.css`; ADR §12.2.)
-
+- **New docs page — "The craft."** An Introduction-section essay (sidebar: Principles ·
+  **The craft** · The story) answering the belief that AI makes Lattice reproducible by
+  anyone: the artifact got cheap, the judgment behind it didn't, and the standard held
+  across a thousand small choices is the part that doesn't automate. First-person, in the
+  same voice as "The story." (`docs/src/content/docs/craft.md`, sidebar in
+  `docs/astro.config.mjs`.)
 - **Variants are now first-class looks — searchable, insertable, and reshapeable — everywhere in the
   Studio.** A component's variants — its own alternate forms (`kpi › ops/spotlight`,
   `list › numbered/roman`), the 36-of-59 components that have them, exactly the set the playground

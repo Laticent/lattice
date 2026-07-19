@@ -169,6 +169,7 @@ export default defineConfig({
 						{ label: 'Overview', slug: 'overview' },
 						{ label: 'What is Lattice?', slug: 'introduction' },
 						{ label: 'Principles', slug: 'principles' },
+						{ label: 'The craft', slug: 'craft' },
 						{ label: 'The story', slug: 'story' },
 					],
 				},
