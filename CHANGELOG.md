@@ -738,7 +738,12 @@ in patch versions.
   Fabricate open behind it (Escape returns you there with your work intact) and does a small one-time
   reconcile render for Fabricate's live theme. Verified on the real built Studio: 0-render open from the
   editor, exactly one live preview iframe in every state, editor typing/theme-auditioning unregressed, 818
-  Studio unit tests green; the felt on-device speed-up is UNVERIFIED pending a phone check.
+  Studio unit tests green; the felt on-device speed-up is UNVERIFIED pending a phone check. Also fixed a
+  seam bug in the same work (caught on the preview deploy): after `preview → Present → exit → edit` the
+  slide could paint over the code editor, because the shared preview was parked with `visibility:hidden`
+  and the live iframe re-asserts its own `visibility:visible` (which overrides an ancestor per CSS) — it
+  now parks with `opacity:0`, which a child can't override, so the slide is fully hidden on every parked
+  surface (mobile edit pane, Fabricate, collapsed preview).
   (`use-shared-preview-slot.ts` new, `StudioShell.tsx`, `PresentOverlay.tsx`;
   `engineering/decisions/2026-07-19-present-shared-preview.md`.)
 - **The Studio becomes interactive sooner on cold load and refresh — the CodeMirror editor now loads

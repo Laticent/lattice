@@ -63,10 +63,24 @@ export function useSharedPreviewSlot({
 			if (!visible || !r || r.width <= 0 || r.height <= 0) {
 				// Explicit-visibility model (do NOT rely on DOM occlusion): a parked slot
 				// (Fabricate / mobile edit pane / collapsed preview) hides the host outright.
+				//
+				// `opacity:0`, NOT `visibility:hidden` alone, is what actually hides it. The
+				// live engine iframe sets its OWN inline `visibility:visible` (single-slide-
+				// render.ts — its about:blank white-flash gate), and a descendant's explicit
+				// `visibility:visible` OVERRIDES an ancestor's `visibility:hidden` per CSS — so
+				// hiding the host with visibility alone left the slide painting over the code
+				// editor (a tap fell through the pointer-transparent host, so it "bled through").
+				// `opacity` multiplies down the subtree and CANNOT be overridden by a child, and
+				// (unlike `display:none`) it preserves layout, so the frame stays full-size and
+				// warm — per-keystroke renders on the mobile edit pane keep hitting a real box,
+				// exactly as before. Keep `visibility:hidden` too (a11y intent + the not-yet-
+				// revealed case, where the child's own visibility is still hidden).
 				host.style.visibility = 'hidden';
+				host.style.opacity = '0';
 				return;
 			}
 			host.style.visibility = 'visible';
+			host.style.opacity = '1';
 			host.style.top = `${r.top}px`;
 			host.style.left = `${r.left}px`;
 			host.style.width = `${r.width}px`;

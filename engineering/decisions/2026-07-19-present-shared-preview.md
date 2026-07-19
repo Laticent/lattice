@@ -105,6 +105,25 @@ added — **both fixed and re-verified**:
 touch/gesture swipe over the slide (pointer-events layering is correct by construction and matches
 the prior same-origin-iframe contract, but not exercised on a touch device). Wants an on-device look.
 
+## Post-merge-candidate seam fix — parked host must hide with `opacity`, not `visibility`
+Caught on the PR's preview deploy (not the harness): `preview → Present → exit → edit` left the
+slide **painting over the code editor** (you could see the slide but type through it into the
+Markdown). Root cause is a CSS-cascade footgun the reshape introduced. The controller parked the
+shared host with `visibility:hidden`, but the live engine iframe sets its **own** inline
+`visibility:visible` (single-slide-render's about:blank white-flash gate) — and a descendant's
+explicit `visibility:visible` **overrides** an ancestor's `visibility:hidden` (per CSS), so the
+iframe kept painting; the host's `pointer-events:none` is why taps fell *through* to the editor.
+The harness masked it by asserting on the *host's* computed visibility (`hidden` ✓) instead of the
+*iframe's* effective paint. Fix: park with `opacity:0` (multiplies down the subtree, a child
+**cannot** override it) alongside the existing `visibility:hidden`; `opacity` — unlike
+`display:none` — preserves layout, so the frame stays full-size and warm and the mobile edit-pane's
+per-keystroke renders keep hitting a real box, exactly as the reshape was verified. This was a live
+bug on **every** parked surface (mobile edit pane, Fabricate, desktop collapsed-preview), not just
+the Present round-trip. **Verified** (real built `docs/dist`, puppeteer): the iframe's effective
+opacity is **0** when parked (mobile edit pane AND desktop collapsed-preview) and **1** when active
+(start / Present / Write); a mobile edit-pane screenshot shows only Markdown, no slide bleed; 87
+DeckPreview/Studio/Present unit tests pass; lint + typecheck clean.
+
 ## Follow-ups (logged, #18)
 - The positioning controller re-measures on slot/root *size* + scroll, not pure *position* shifts
   between switch boundaries — a narrow residual (Crux A bars transform-based ancestor motion; most
