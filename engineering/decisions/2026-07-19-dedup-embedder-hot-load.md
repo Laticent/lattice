@@ -105,12 +105,18 @@ the model round-trip alone.
 
 ## Not in this change (tracked, off-path — HARD RULE #18)
 
-- `drawing-board-architect.js` retrieval (lines ~569/579) also cold-loads the
+> **Both follow-ups below shipped in `2026-07-19-embedder-web-worker.md`** — the
+> embedder moved into a module Web Worker at the shared `embed()` layer, so it is
+> now off-thread for every caller (Fabricate dedup AND the Drawing Board), with no
+> main-thread fallback. The notes are kept for provenance.
+
+- `drawing-board-architect.js` retrieval (lines ~569/579) also cold-loaded the
   same embedder inline. The Drawing Board is **frozen** (2026-07-03-studio-
-  succession.md), so this is logged, not touched here.
+  succession.md), so it was logged, not touched here — but the worker fix at the
+  shared `embed()` layer covers it without any Drawing Board feature edit.
 - A proper fix for the underlying asymmetry is to run the **embedder in a Web
   Worker** like the generation backend, so semantic dedup could stay always-on
-  without ever touching the main thread. Larger change; deferred.
+  without ever touching the main thread. Larger change; deferred → **done**.
 
 ## Verification
 

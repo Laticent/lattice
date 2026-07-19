@@ -51,6 +51,9 @@ const CATALOG_TTL_MS = 24 * 60 * 60 * 1000; // refetch the catalog at most once 
 // to the rot-proof latest alias (a pinned id the user stored can die under them).
 const isDeadModelError = (status, body) => (status === 400 || status === 404) && /not a valid model|no endpoints found|no allowed providers/i.test(String(body || ''));
 const EMBED_MODEL = 'Xenova/bge-small-en-v1.5';
+// Backstop for a warm embed worker that dies silently (no `onerror`) — resolve the
+// awaiting caller to null (→ lexical fallback) rather than hang the generate path.
+const EMBED_TIMEOUT_MS = 12000;
 const WEBLLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 // The universal generation tier: a small instruct model that runs in WASM via
 // Transformers.js — no WebGPU, works on Safari / mobile. Qwen2.5-0.5B at q4 is
@@ -624,6 +627,108 @@ function transformersGenBackend() {
   };
 }
 
+// ── Embeddings (bge-small) — WORKER-ONLY ──────────────────────────────────────
+// The embedder runs in a module Web Worker, NEVER on the main thread — the same
+// off-thread model the generation tier uses, applied to feature-extraction. This
+// is deliberate and load-bearing: a ~30MB onnxruntime-web WASM pipeline init on
+// the MAIN thread blocks the UI and, on a memory-constrained browser (mobile),
+// OOM-crashes the tab. That was the Fabricate "generate a component" freeze/crash
+// (2026-07-19-dedup-embedder-hot-load.md); this is its structural fix, so semantic
+// dedup can be always-on without ever touching the main thread. There is NO
+// main-thread fallback (unlike generation, which needs *some* backend): every
+// embed caller already degrades to a lexical ranker, so a browser with no module-
+// worker support simply gets null → lexical, never a main-thread load.
+const EMBED_WORKER_SRC = `
+let lib = null, embedder = null;
+self.onmessage = async (e) => {
+  const d = e.data || {};
+  try {
+    if (d.type === 'load') {
+      lib = await import(d.url);
+      embedder = await lib.pipeline('feature-extraction', d.model);
+      self.postMessage({ type: 'loaded' });
+    } else if (d.type === 'embed') {
+      const out = await embedder(d.texts, { pooling: 'mean', normalize: true });
+      const vectors = typeof out.tolist === 'function' ? out.tolist() : out;
+      self.postMessage({ type: 'embedded', id: d.id, vectors });
+    }
+  } catch (err) {
+    self.postMessage({ type: d.type === 'load' ? 'load-error' : 'embed-error', id: d.id, error: String((err && err.message) || err) });
+  }
+};
+`;
+
+// The worker-backed embedder. `load()` is single-flight and NEVER throws — it
+// resolves true when the model is ready, false on any failure (no worker support,
+// blob/module-worker restriction, CDN/model load error), latching the result so a
+// hard failure isn't retried in a loop. `embed()` returns vectors, or null when
+// not ready / on any failure. Both are safe to call from the main thread: the
+// heavy work happens in the worker.
+function embeddingsBackend() {
+  let worker = null;
+  let isReady = false;
+  let loadPromise = null; // single-flight latch (kept on failure — matches the old `embedTried`)
+  let nextId = 1;
+  const pending = new Map(); // embed id -> { resolve }
+  let onLoaded = null;
+  let onLoadErr = null;
+
+  function makeWorker() {
+    const url = URL.createObjectURL(new Blob([EMBED_WORKER_SRC], { type: 'text/javascript' }));
+    const w = new Worker(url, { type: 'module' });
+    w.onmessage = (e) => {
+      const d = e.data || {};
+      if (d.type === 'loaded') { isReady = true; onLoaded?.(true); }
+      else if (d.type === 'load-error') onLoadErr?.(new Error(d.error || 'load failed'));
+      // An embed failure resolves to null (never rejects) — the caller falls back lexically.
+      else if (d.type === 'embedded') { const p = pending.get(d.id); pending.delete(d.id); p?.resolve?.(d.vectors || null); }
+      else if (d.type === 'embed-error') { const p = pending.get(d.id); pending.delete(d.id); p?.resolve?.(null); }
+    };
+    w.onerror = () => {
+      if (!isReady) onLoadErr?.(new Error('worker error'));
+      // A worker error after load: fail every in-flight embed to null, don't hang.
+      else { for (const p of pending.values()) p.resolve?.(null); pending.clear(); }
+    };
+    return w;
+  }
+
+  return {
+    ready() { return isReady; },
+    // Load the model in the worker. Single-flight; never throws; latches its result.
+    load() {
+      if (isReady) return Promise.resolve(true);
+      if (loadPromise) return loadPromise;
+      loadPromise = new Promise((resolve) => {
+        let w;
+        try { w = makeWorker(); } catch { resolve(false); return; }
+        worker = w;
+        onLoaded = () => resolve(true);
+        onLoadErr = () => { try { w.terminate(); } catch {} worker = null; resolve(false); };
+        try { w.postMessage({ type: 'load', url: TRANSFORMERS_URL, model: EMBED_MODEL }); }
+        catch { onLoadErr(); } // terminate + null worker + resolve(false), same as a load failure
+      });
+      return loadPromise;
+    },
+    // Embed via the worker. Null when not ready or on any failure. Never throws.
+    // A timeout backstops a worker that dies SILENTLY mid-embed (a browser OOM-kill
+    // that fires no `onerror`): without it the awaiting caller — including
+    // dedupComponents in the generate hot path — would hang forever. On timeout we
+    // resolve null so the caller falls back to its lexical ranker. Generous enough
+    // that a live (even slow-phone) bge-small embed of a component catalog never
+    // trips it; short enough that a dead worker can't stall generation.
+    embed(list) {
+      if (!worker || !isReady) return Promise.resolve(null);
+      const id = nextId++;
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => { if (pending.delete(id)) resolve(null); }, EMBED_TIMEOUT_MS);
+        pending.set(id, { resolve: (v) => { clearTimeout(timer); resolve(v); } });
+        try { worker.postMessage({ type: 'embed', id, texts: list }); }
+        catch { clearTimeout(timer); pending.delete(id); resolve(null); }
+      });
+    },
+  };
+}
+
 // ── JSON discipline — force structure, validate before returning ──────────────
 
 export function extractJson(text) {
@@ -658,8 +763,7 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
   let openrouter = openRouterBackend(defaultModel, defaultMaxTokens);
   let universal = transformersGenBackend();
   let promptAvail = 'unknown';
-  let embedder = null; // lazy Transformers.js pipeline
-  let embedTried = false;
+  const embeddings = embeddingsBackend(); // bge-small, WORKER-ONLY (never the main thread)
   let tierPref = 'auto'; // 'auto' | 'prompt-api' | 'webllm' | 'universal' | 'floor'
 
   async function refreshAvailability() {
@@ -710,45 +814,29 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     }
   }
 
-  // Cold-load the bge-small embedder ONCE (CDN import + onnxruntime WASM init, on
-  // the MAIN THREAD — ~30MB the first time). Latched via `embedTried` so a failed
-  // load isn't retried in a tight loop. Never throws.
-  async function warmEmbedder() {
-    if (embedder || embedTried) return embedder;
-    embedTried = true;
-    try {
-      const t = await import(/* @vite-ignore */ TRANSFORMERS_URL);
-      embedder = await t.pipeline('feature-extraction', EMBED_MODEL);
-    } catch { embedder = null; }
-    return embedder;
-  }
-
-  // Embeddings — always the same bge-small model. Returns Array<number>[] or null
-  // (the caller keyword-falls back). Never throws.
+  // Embeddings — the bge-small model, run WORKER-ONLY (see embeddingsBackend).
+  // Returns Array<number>[] or null (the caller keyword-falls back). Never throws.
   //
-  // `allowLoad` (default true) gates the COLD load: a latency/​memory-sensitive hot
-  // path passes `allowLoad:false` so it never triggers the ~30MB main-thread WASM
-  // pipeline init inline — that init blocks the UI and, on a memory-constrained
-  // browser, can OOM-crash the tab (the Fabricate "generate a component" freeze/
-  // crash: dedup awaited a cold embed before the model was even called;
-  // engineering/decisions/2026-07-19-dedup-embedder-hot-load.md). With
-  // `allowLoad:false` the embedder is used ONLY if already warm (e.g. loaded by the
-  // Drawing Board); otherwise this returns null immediately and the caller uses its
-  // instant lexical ranker.
+  // `allowLoad` (default true) gates whether we WAIT for a cold load:
+  //   • true  — await the worker load, then embed (e.g. the Drawing Board retrieval,
+  //     which wants the vectors and can wait for the one-time download). Off-thread,
+  //     so the UI never freezes while it loads.
+  //   • false — the latency-sensitive hot path (Fabricate's dedup nudge): embed NOW
+  //     only if the worker is already warm, otherwise kick a BACKGROUND warm and
+  //     return null so the caller ranks lexically this time. The background warm is
+  //     safe (it runs in the worker), so semantic dedup comes online for the next
+  //     generation without ever blocking or crashing this one
+  //     (engineering/decisions/2026-07-19-dedup-embedder-hot-load.md +
+  //     2026-07-19-embedder-web-worker.md).
   async function embed(texts, { allowLoad = true } = {}) {
     if (!modelOn() || !hasWindow) return null;
     const list = Array.isArray(texts) ? texts : [texts];
     if (injected?.embed) return injected.embed(list);
-    if (!embedder) {
-      if (!allowLoad) return null; // never cold-load in a hot path — lexical fallback stands
-      await warmEmbedder();
+    if (!embeddings.ready()) {
+      if (allowLoad) await embeddings.load();
+      else { void embeddings.load(); return null; } // warm off-thread for next time; lexical now
     }
-    if (!embedder) return null;
-    try {
-      const out = await embedder(list, { pooling: 'mean', normalize: true });
-      // transformers.js returns a Tensor; .tolist() → number[][].
-      return typeof out.tolist === 'function' ? out.tolist() : out;
-    } catch { return null; }
+    return embeddings.embed(list); // null when the (worker) load failed → lexical fallback
   }
 
   // Announce a generation-tier change (connect / disconnect / model swap / summon)
