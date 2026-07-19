@@ -1307,7 +1307,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// (activeFullIndex tracks the preview selection). In a reader lens the slide may be filtered out
 	// of the viewed set; rather than silently edit the previously-active slide, drop back to the full
 	// deck so the ⚙ always targets the slide you tapped.
-	function openSlideSettings(fullIdx: number) {
+	// Make a FULL-deck index the active slide, switching to the full lens if that slide
+	// isn't in the current reader view. Shared by "open slide settings" and "insert after
+	// this slide" so both land on the same slide regardless of lens.
+	function focusFullSlide(fullIdx: number) {
 		if (composeLens === 'full') setActiveSlide(fullIdx);
 		else {
 			const vi = viewSlides.indexOf(slides[fullIdx]);
@@ -1317,8 +1320,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				setActiveSlide(fullIdx);
 			}
 		}
+	}
+	function openSlideSettings(fullIdx: number) {
+		focusFullSlide(fullIdx);
 		setInspectorScope('slide');
 		setInspectorOpen(true);
+	}
+	// The Compose divider's "Insert slide below" — focus that slide, then open the unified
+	// add-slide gallery so the new slide lands after it (its Blank tile keeps a quick blank
+	// insert one tap away). This is the #1058 "one insert door" for the divider control.
+	function openInsertAfter(fullIdx: number) {
+		focusFullSlide(fullIdx);
+		setInsertOpen(true);
 	}
 	// Transient bottom-center confirmation, so no action in the prototype is a
 	// dead click (real ones confirm; not-yet-wired ones say so honestly).
@@ -1733,7 +1746,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setActiveSlide(r.active);
 		requestAnimationFrame(() => editorRef.current?.revealSlide(r.active));
 	}
-	const opAddSlide = () => { applyDeckOp(addSlideAfter(source, curIndex)); notify('Slide added.'); };
+	// "Add slide" opens the unified add-slide gallery (its Blank tile keeps a quick blank
+	// insert one tap away) — the #1058 "one insert door" — inserting after the current
+	// slide, rather than dropping a bare blank with no component choice.
+	const opAddSlide = () => setInsertOpen(true);
 	const opDuplicate = () => { applyDeckOp(duplicateSlide(source, curIndex)); notify('Slide duplicated.'); };
 	const opDelete = () => { if (slides.length <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteSlide(source, curIndex)); notify('Slide deleted.'); };
 	const opMove = (dir: -1 | 1) => applyDeckOp(moveSlide(source, curIndex, curIndex + dir));
@@ -1757,10 +1773,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// gallery for the "I keep reaching for this layout" flow.
 	const [recentComponents, setRecentComponents] = React.useState<string[]>([]);
 	// Insert a gallery slide as a new slide after the current one (its authored
-	// skeleton), via the same deck-op the toolbar uses. The empty-deck case (curIndex
-	// -1) is handled by addSlideAfter's clamp; a Blank tile carries the NEW_SLIDE body.
+	// skeleton), via the same deck-op the toolbar uses. Uses the FULL-deck index
+	// (`activeFullIndex`), NOT the viewed `curIndex`: `addSlideAfter` splices the full
+	// deck array, so under a filtering reader lens the viewed index would land the new
+	// slide after the wrong slide. The empty-deck case is handled by addSlideAfter's
+	// clamp; a Blank tile carries the NEW_SLIDE body.
 	const onInsertComponent = (c: ComponentEntry) => {
-		applyDeckOp(addSlideAfter(source, curIndex, c.skeleton));
+		applyDeckOp(addSlideAfter(source, activeFullIndex, c.skeleton));
 		notify(`Inserted “${c.name}”.`);
 		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
 	};
@@ -2210,7 +2229,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			</div>
 			)}
 			{editMode === 'compose' ? (
-				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} />
+				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} onInsertBelow={openInsertAfter} />
 			) : (
 				<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
 			)}

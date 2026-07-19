@@ -254,6 +254,7 @@ class SlideView {
 		decorations: readonly Decoration[] = [],
 		onSettings?: (index: number) => void,
 		private getHeadings?: () => SlideHeadings | undefined,
+		onInsertBelow?: (index: number) => void,
 	) {
 		this.locked = !!node.attrs.locked;
 		const dom = document.createElement('section');
@@ -292,7 +293,10 @@ class SlideView {
 		div.setAttribute('aria-hidden', 'true');
 		const actions = document.createElement('div');
 		actions.className = 'cs-sb-actions';
-		actions.append(this.btn('Insert slide below', 'plus', () => this.insertBelow(), 'cs-pill-btn'));
+		// "Insert below" opens the unified add-slide gallery (SlidePicker) for this slide when
+		// wired (onInsertBelow) — the #1058 "one insert door", its Blank tile a tap away — and
+		// falls back to a direct blank insert if it isn't.
+		actions.append(this.btn('Insert slide below', 'plus', () => { const i = this.index(); if (i < 0) return; if (onInsertBelow) onInsertBelow(i); else this.insertBelow(); }, 'cs-pill-btn'));
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
 		pill.append(this.fmtGroup, div, actions);
 
@@ -499,7 +503,7 @@ function buildPlugins() {
 // preview panes both stay mounted (the inactive one `inert`+hidden), and the grammar rail is
 // portaled to <body> so it ESCAPES that hidden subtree — so it must render only for the active
 // pane, else it would paint over the live preview (the body-portal render-gate).
-export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings }) {
+export function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, onInsertBelow }: { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; onInsertBelow?: (index: number) => void }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -537,6 +541,8 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// the Format group offers the grammar-correct heading register per the caret slide's `_class`.
 	const slideHeadingsRef = React.useRef(slideHeadings);
 	slideHeadingsRef.current = slideHeadings;
+	const onInsertBelowRef = React.useRef(onInsertBelow);
+	onInsertBelowRef.current = onInsertBelow;
 	const [chromeRevealed, setChromeRevealed] = React.useState(true);
 	// Opening the keyboard collapses; closing it always restores the chrome.
 	React.useEffect(() => {
@@ -585,7 +591,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined),
 				},
 				dispatchTransaction(tr) {
 					const prevDoc = view.state.doc;
