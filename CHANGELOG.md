@@ -614,6 +614,19 @@ in patch versions.
 
 ### Fixed
 
+- **Fabricate's "describe a component" no longer freezes (and, on memory-constrained browsers,
+  crash-reloads the tab) on the first generation.** Every component generation ran a dedup "reuse
+  nudge" that `await`ed a bge-small embedding of the whole component catalog **before** the model was
+  even called — and that call cold-loaded a ~30 MB `transformers.js` model, initializing onnxruntime
+  **WASM on the main thread**. The generate click therefore blocked on a large download + main-thread
+  model init: at best the "generating…" state hung; on a low-memory browser (notably mobile) the
+  main-thread WASM init OOM-crashed the page, which the browser then reloaded. (The Theme generator
+  never embeds, so it was unaffected — matching the "theme works, component crashes" symptom.) The
+  dedup pass now uses embeddings **only when the embedder is already warm** (`embed(…, {allowLoad:
+  false})`) and otherwise falls straight through to the instant, shipped lexical (fuse.js / token-
+  overlap) ranker — so generation never triggers a cold main-thread model load in its hot path.
+  (`architect-model.js` `embed`, `architect.ts` `dedupComponents`;
+  `engineering/decisions/2026-07-19-dedup-embedder-hot-load.md`.)
 - **AI-generated (Fabricate) themes now hold the categorical three-layer contrast contract in dark
   mode.** `deriveTheme` — the engine behind the Studio's "describe a look" theme generator — still
   emitted the retired pre-#1022 categorical model: non-flipping single-value `--cat-N-fill`/`-mark`

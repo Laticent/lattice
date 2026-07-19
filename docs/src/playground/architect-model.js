@@ -710,19 +710,38 @@ export function createArchitectModel({ getSettings, explicitTierWins = false, de
     }
   }
 
-  // Embeddings — always the same bge-small model, loaded from CDN once, cached by
-  // the browser Cache API. Returns Array<number>[] or null (caller keyword-falls
-  // back). Never throws.
-  async function embed(texts) {
+  // Cold-load the bge-small embedder ONCE (CDN import + onnxruntime WASM init, on
+  // the MAIN THREAD — ~30MB the first time). Latched via `embedTried` so a failed
+  // load isn't retried in a tight loop. Never throws.
+  async function warmEmbedder() {
+    if (embedder || embedTried) return embedder;
+    embedTried = true;
+    try {
+      const t = await import(/* @vite-ignore */ TRANSFORMERS_URL);
+      embedder = await t.pipeline('feature-extraction', EMBED_MODEL);
+    } catch { embedder = null; }
+    return embedder;
+  }
+
+  // Embeddings — always the same bge-small model. Returns Array<number>[] or null
+  // (the caller keyword-falls back). Never throws.
+  //
+  // `allowLoad` (default true) gates the COLD load: a latency/​memory-sensitive hot
+  // path passes `allowLoad:false` so it never triggers the ~30MB main-thread WASM
+  // pipeline init inline — that init blocks the UI and, on a memory-constrained
+  // browser, can OOM-crash the tab (the Fabricate "generate a component" freeze/
+  // crash: dedup awaited a cold embed before the model was even called;
+  // engineering/decisions/2026-07-19-dedup-embedder-hot-load.md). With
+  // `allowLoad:false` the embedder is used ONLY if already warm (e.g. loaded by the
+  // Drawing Board); otherwise this returns null immediately and the caller uses its
+  // instant lexical ranker.
+  async function embed(texts, { allowLoad = true } = {}) {
     if (!modelOn() || !hasWindow) return null;
     const list = Array.isArray(texts) ? texts : [texts];
     if (injected?.embed) return injected.embed(list);
-    if (!embedder && !embedTried) {
-      embedTried = true;
-      try {
-        const t = await import(/* @vite-ignore */ TRANSFORMERS_URL);
-        embedder = await t.pipeline('feature-extraction', EMBED_MODEL);
-      } catch { embedder = null; }
+    if (!embedder) {
+      if (!allowLoad) return null; // never cold-load in a hot path — lexical fallback stands
+      await warmEmbedder();
     }
     if (!embedder) return null;
     try {
