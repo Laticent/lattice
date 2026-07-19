@@ -1352,6 +1352,14 @@ in patch versions.
 
 ### Fixed
 
+- **"Add slide" buttons open the add-slide gallery again, instead of dropping a blank slide.**
+  Regression from the mobile Compose rework (#1059): the Compose slide-divider "+" ("Insert slide
+  below") and the desktop navigator's "Add slide" both inserted a bare blank `content` slide, so the
+  only way to the live-preview gallery (#1058's unified "insert door") was the buried "Insert
+  component" overflow item or ⌘K — unreachable in one obvious tap, especially on a phone. Both now
+  open the gallery, positioned to insert after the intended slide; the gallery's **Blank** tile keeps
+  a quick blank insert one tap away. (`docs/src/components/studio/ComposeView.tsx` threads an
+  `onInsertBelow` callback; `StudioShell.tsx` `openInsertAfter` / `opAddSlide`.)
 - **Expanding a component's looks in the add-slide gallery now scrolls the looks into view.**
   Tapping the "N looks" chip opens the variant sub-grid as a full-width row after the tile; on a
   narrow or near-bottom tile (especially mobile) that row landed below the fold, hidden behind the

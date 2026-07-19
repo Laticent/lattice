@@ -88,13 +88,16 @@ describe('Studio — every top-bar control responds', () => {
 		await waitFor(() => expect(document.querySelector('.cm-lintRange')).toBeTruthy(), { timeout: 6000 });
 	});
 
-	it('the slide toolbar adds, duplicates, and deletes slides', async () => {
+	it('the slide toolbar adds (via the gallery), duplicates, and deletes slides', async () => {
 		const user = setup();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
 		const start = railCount();
 		expect(start).toBeGreaterThan(1);
-		// Add a slide → the rail grows by one.
+		// Add slide opens the unified add-slide gallery (the #1058 "one insert door"); its
+		// Blank tile inserts a blank slide, so the rail grows by one.
 		await user.click(screen.getByRole('button', { name: 'Add slide' }));
+		const addDialog = await screen.findByRole('dialog', { name: /Add a slide/i });
+		await user.click(within(addDialog).getByRole('button', { name: /Insert Blank/i }));
 		expect(railCount()).toBe(start + 1);
 		// Duplicate → grows again.
 		await user.click(screen.getByRole('button', { name: 'Duplicate slide' }));
