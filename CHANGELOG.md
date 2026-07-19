@@ -583,6 +583,17 @@ in patch versions.
 
 ### Changed
 
+- **The Studio becomes interactive sooner on cold load and refresh — the CodeMirror editor now loads
+  off the critical hydration path.** The Studio is one `client:only` React island, and the editor
+  (CodeMirror 6 + markdown + lint + autocomplete) was statically bundled into it — ~196KB gz that had
+  to parse before *anything* was interactive, on every cold load and (since assets are cached) every
+  refresh. It now lazy-loads via `React.lazy` + `Suspense` (mirroring the existing Fabricate split), so
+  the island hydrates that much lighter and the live preview paints without waiting on CodeMirror; the
+  editor streams in behind a brief "Loading the editor…" fallback. Measured on a real docs build: the
+  studio page's eager JS drops **816KB → 615KB gz (−196KB, −25%)**, with the CodeMirror chunk now fetched
+  *after* the load event (Playwright-confirmed off the critical path) instead of blocking it. Trade: the
+  editor is the default pane, so a short load state shows on cold open. (`StudioShell.tsx`;
+  `engineering/decisions/2026-07-19-defer-editor-hydration.md`.)
 - **The live-preview engine bundle is ~half the size on cold load — the docs Playground/Studio now ships
   highlight.js's 37-language `common` build instead of the full 192-language one.** Syntax highlighting for
   fenced code was quietly the single largest passenger in `lattice-playground.js`: the full highlight.js build

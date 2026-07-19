@@ -36,7 +36,7 @@ import { ComposeView } from './ComposeView';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
-import { Editor, type EditorHandle } from './Editor';
+import type { EditorHandle } from './Editor';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeFinish } from './finish-catalog';
@@ -87,6 +87,45 @@ import { workspaceLensConfig } from './workspace-lenses';
 // initial Studio island payload (the heaviest thing a mobile user waits on) and
 // loads on first open. It's already mount-on-view, so this is a drop-in.
 const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default: m.Fabricate })));
+
+// Editor (CodeMirror) is the single largest passenger on the cold hydration path —
+// ~196KB gz that, statically imported, bundled into the client:only StudioShell island
+// and blocked hydration. Lazy-load it: the island now hydrates that much lighter and the
+// preview paints (dismissing the SSG instant-shell, which keys on the PREVIEW's first
+// render, not the editor) WITHOUT waiting on CodeMirror parse. The editor is the DEFAULT
+// pane ('markdown' source mode), so its chunk is fetched right after load — but off the
+// critical path, streaming in behind the Suspense fallback (measured: requested ~230ms
+// after the load event, vs blocking it before). A React.lazy over a forwardRef component
+// still forwards `ref` (React 19), so `editorRef` reaches its useImperativeHandle; the
+// module is cached after first load, so toggling markdown⟷compose never re-suspends.
+// Mirrors the Fabricate lazy split above. See
+// engineering/decisions/2026-07-19-defer-editor-hydration.md.
+const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Editor })));
+
+// Editor-shaped placeholder shown while the lazy CodeMirror chunk streams in. The SSG
+// instant-shell dismisses on the PREVIEW's first render (decoupled from the editor), so
+// on cold load the shell can lift while this pane is still resolving — a bare "Loading…"
+// box would reveal a half-built app. A gutter + faint code lines read as "an editor,
+// arriving" instead, so the handoff stays seamless. Fixed widths (no Math.random) keep it
+// deterministic; the real text is sr-only for assistive tech.
+const EDITOR_SKELETON_LINES = [82, 63, 71, 44, 78, 57, 88, 38, 67, 74, 51, 80, 60, 46];
+function EditorSkeleton() {
+	return (
+		<div className="flex flex-1 gap-3 overflow-hidden p-3 font-mono text-[13px] leading-[1.5]" aria-hidden="true">
+			<div className="flex select-none flex-col items-end gap-[7px] pr-3 text-muted-foreground/25">
+				{EDITOR_SKELETON_LINES.map((w, i) => (
+					<span key={w}>{i + 1}</span>
+				))}
+			</div>
+			<div className="flex flex-1 flex-col gap-[7px] pt-[3px]">
+				{EDITOR_SKELETON_LINES.map((w) => (
+					<div key={w} className="h-[9px] rounded-sm bg-muted-foreground/10" style={{ width: `${w}%` }} />
+				))}
+			</div>
+			<span className="sr-only">Loading the editor…</span>
+		</div>
+	);
+}
 
 // Deck Inspector pill-tab sections, ordered by likely reach (Look first). The two
 // read-aloud groups collapse into "Speech"; the spectrum/accent family is "Accent"
@@ -597,6 +636,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		return () => window.removeEventListener(SETTINGS_EVENT, sync);
 	}, []);
 	const editorRef = React.useRef<EditorHandle>(null);
+	// Warm the lazy Editor chunk right after hydration (off the critical path, but
+	// eagerly once the island is live) so the CodeMirror module is cached and the
+	// component mounts within ~a frame of the default markdown view — keeping
+	// `editorRef.current` ready before any realistic first interaction. Notably this
+	// closes the narrow cold-load window where the self-driving demo's synchronous
+	// `resetDoc('')` / first `typeTail` (which race a duplicate slide-1, see
+	// createDemoFirstDeck) could no-op against a not-yet-mounted editor. Fire-and-forget:
+	// a warm failure is harmless — React.lazy re-imports on real render. This is the
+	// "load the rest in the background" half of the deferral (decision doc 2026-07-19).
+	React.useEffect(() => {
+		import('./Editor').catch(() => {});
+	}, []);
 	// The Studio root — the demo stage mounts over it and scopes its selectors here.
 	const rootRef = React.useRef<HTMLDivElement>(null);
 	// Indirection so the demo can drive the slide scope's commit funnel —
@@ -1348,6 +1399,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		createFirstDeck: createDemoFirstDeck,
 		setSource,
 		typeTail: (t: string) => editorRef.current?.typeTail(t),
+		// True once the lazy CodeMirror editor has mounted (its imperative handle is set).
+		// The demo uses this to pick its typing channel: native `typeTail` when ready, else
+		// the controlled `setSource` path (the same one the phone uses) so a "Take a tour"
+		// click landing in the brief cold-load window before the editor mounts still types
+		// the deck instead of dropping characters into a not-yet-mounted editor.
+		editorReady: () => editorRef.current != null,
 		goToSlide,
 		setView,
 		setArchitectOpen,
@@ -2231,7 +2288,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{editMode === 'compose' ? (
 				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} onInsertBelow={openInsertAfter} />
 			) : (
-				<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
+				<React.Suspense fallback={<EditorSkeleton />}>
+					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
+				</React.Suspense>
 			)}
 		</section>
 	);

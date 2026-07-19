@@ -23,6 +23,11 @@ export type StudioDemoBindings = {
 	setSource: (source: string) => void;
 	/** Append typed text natively in the editor (the demo's typing channel). */
 	typeTail: (text: string) => void;
+	/** True once the lazy editor has mounted. When false (a "Take a tour" click in the
+	 *  brief cold-load window before the CodeMirror chunk mounts), the demo types through
+	 *  the controlled `setSource` path instead of the native `typeTail`, so no characters
+	 *  drop into a not-yet-mounted editor. */
+	editorReady: () => boolean;
 	goToSlide: (index: number) => void;
 	setView: (view: 'compose' | 'fabricate') => void;
 	setArchitectOpen: (open: boolean) => void;
@@ -149,7 +154,13 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 			);
 		};
 		let acc = '';
-		const type: TypeOps = bindRef.current.mobile
+		// Native `typeTail` needs the mounted editor; fall back to the controlled setSource
+		// path when on a phone OR when the lazy editor hasn't mounted yet (a fast "Take a
+		// tour" click during the cold-load chunk fetch). Decided once per run — if the editor
+		// mounts mid-run the controlled path keeps working (its `value` drives the editor), so
+		// there's never the setSource⟷typeTail race the comment above warns about.
+		const controlledTyping = bindRef.current.mobile || !bindRef.current.editorReady();
+		const type: TypeOps = controlledTyping
 			? {
 					set: (t) => {
 						acc = t;
