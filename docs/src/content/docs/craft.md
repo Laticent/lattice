@@ -4,9 +4,9 @@ description: On the belief that AI means anyone can build what Lattice is — wh
 ---
 
 There's a thing people say when you've built something you care about:
-*with AI, anyone could do that now.* I've had it said about Lattice, and it
-deserves a straight answer — because the belief is half right, and the half
-that's right was never the hard part.
+*with AI, anyone could do that now.* I've heard it said about Lattice, and it
+deserves a straight answer — because the belief is half right, and the right
+half was never the hard part.
 
 *— Sharmarke Aden, who builds Lattice*
 
@@ -16,7 +16,7 @@ AI made the artifact cheaper. Anyone can prompt a model into a slide
 renderer that runs, or a stylesheet that mostly holds together. If *what you
 built* means the object — a thing that renders slides — then yes, it's more
 reachable than it was three years ago. I won't pretend otherwise. And that
-reachable object is the least interesting part of the work.
+object is the least interesting part of the work.
 
 The claim is true about the noun and false about the verb. Anyone can now
 *have* a slide engine. Almost no one can *do* what building Lattice took —
@@ -41,7 +41,7 @@ not the thing that knew the question was worth asking, or which of two
 plausible answers would still be right in six months. Without that judgment,
 the same model produces fluent output on top of an incoherent system: a
 hundred locally reasonable choices that never add up to one whole. It looks
-finished. Push on it and it falls apart.
+finished. Push on it, and it falls apart.
 
 Run the experiment. Give a capable person the same tools I have, the same
 month, and one brief: build a boardroom-quality slide engine. They ship a
@@ -64,7 +64,7 @@ it. Hand it to someone with no eye and the floor jumps while the ceiling stays
 put — the tool was never what held them back, so the work only comes out tidier
 than before. Hand it to someone with real craft and the ceiling rises too:
 freed from the busywork, they reach more of what they already saw. The floor
-comes up for everyone — and most work only ever needed the floor. A status
+comes up for everyone, and most work never needed more than that. A status
 update, a quick internal deck: good-enough is genuinely enough, and the raised
 floor is the whole gift. The ceiling is for the work that earns it, and it
 comes up for whoever brought something to lift. At the top, where the ceiling
@@ -78,25 +78,25 @@ Three things, and a model hands you none of them.
 - **Knowing what good is before you see it.** A model steers toward
   *plausible*, which is a polite word for average. A board deck can't be
   average and survive the room. Someone has to hold a standard the machine
-  has no access to.
+  can't reach.
 - **Deciding what not to build.** Half of those decision documents are
   restraint — vetoes, retirements, *we could, and we won't, and here's why.*
   AI is an engine of more. Saying no is a subtractive skill, and a generative
   tool has no instinct for it.
 - **Owning the reversal.** That means holding a belief loosely enough to kill
   it, yet having believed it enough to ship it in the first place — the rarest
-  move in building anything, and the one a model is worst at. No amount of raw
-  capability stands in for it.
+  move in building anything, and the one a model is worst at. Raw capability is
+  no substitute.
 
 ## Watch what the tool does
 
 I have a stake in believing all this — my work is worth more if it's true — so
 don't take it on my word. Watch the tool instead. Whenever one works inside
-Lattice, it operates downstream of a standard it didn't set: quick within the
-rules, never the source that made them, or decided what *good* means here, or
-noticed when the whole approach has gone wrong. Left alone it drifts
-toward the average of everything it has seen, and what catches the drift is a
-person with taste saying *no, not good enough.*
+Lattice, it operates downstream of a standard it didn't set. It's quick within
+the rules, but it never set them, never decided what *good* means here, never
+noticed when the whole approach went wrong. Left alone it drifts toward the
+average of everything it has seen, and what catches the drift is a person with
+taste saying *no, not good enough.*
 
 There's an honest objection here, the one that should worry me most. Every
 craft that got automated heard this same reassurance first. The scribe, the
@@ -110,8 +110,8 @@ worth hitting. That isn't a gap more capability closes. It's a different kind of
 act, and it stays with the person who owns the result.
 
 So when someone says AI means anyone can do what I did, what they're picturing
-is the tool without that person — and that version produces the confident
-average. The standard was mine the whole time.
+is the tool without the person who set the standard — and that version produces
+the confident average. The standard was mine the whole time.
 
 ## What to do with the belief
 
@@ -123,7 +123,7 @@ judgment on demand, which is the one thing that never got automated.
 
 Better yet, use the belief instead of defending against it. Make the judgment
 legible — that written record already does it, and it's the receipt that tells
-the real thing from a copy of its look. Spend the hours the tool frees you on
+the real thing from a copy of its look. Spend the hours the tool frees up on
 work only a person can do, and treat the commodity part as a commodity. Compete
 where the model can't follow.
 
@@ -147,13 +147,13 @@ mattering is the same act as deciding what *good* was to begin with. A model
 will gladly help you climb. It will never tell you when to stop.
 
 So build the kind of work whose value you can point to but could never prompt
-out of thin air: the reasoning, and the standard held steady across a thousand
-small choices that were only obvious once someone made them. AI doesn't
-replace that work. It waits for it, and rarely finds it.
+out of thin air: the reasoning, and the standard you held steady across a
+thousand small choices that were only obvious once someone made them. AI
+doesn't replace that work — it's the work AI waits for, and rarely finds.
 
 One line runs through all of Lattice, and it answers the whole question too:
 the machine owns what's correct, and you own what's good. Anyone can have the
-engine now. Doing what it's built on is still yours.
+engine now. What it's built on is still yours to do.
 
 ## Where to go next
 
