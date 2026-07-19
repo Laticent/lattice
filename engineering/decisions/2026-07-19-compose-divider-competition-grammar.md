@@ -130,8 +130,11 @@ Run against the shipping state (`d5a2ff9`). Findings folded in:
   content down ~37px. Raised as a decision; the user chose to reserve the pill's space on every slide
   (`visibility:hidden`+`opacity:0`, not `display:none`, so it fades in place) — the bar height is now
   constant and focusing a slide reflows nothing (verified: a reference slide's top is pixel-identical
-  whichever slide is active). Trade-off accepted: each non-active slide's line sits in a slightly taller
-  zone.
+  whichever slide is active). Reserving the pill's space entirely BELOW the line then unbalanced the
+  divider's rhythm (the line hugged the content above, floated far from the content below). Fix (user's
+  call — "move the pill higher"): the bar is a GRID that stacks the line and pill in one cell, so the
+  pill sits centered ON the hairline (a control "bead" on the divider, caps at the ends) and its
+  reserved space is symmetric around the line — even top/bottom rhythm, still zero reflow.
 - **Grammar gate is on the pill, not the `#` input rule** — an author can still type `# ` on a body
   slide and produce an H1 the grammar forbids (the live preview + deck lint still flag it). Design gap,
   logged.

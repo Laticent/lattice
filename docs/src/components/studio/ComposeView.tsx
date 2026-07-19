@@ -744,9 +744,9 @@ function ComposeStyles() {
 			   a centered CONTENT pill (context Format · insert · settings) below it. SHAPE (circle vs rounded
 			   pill), not color, marks the two registers apart, so the split reads for colorblind users. The
 			   line previews the deck's spectrum-trim. */
-			.cs-slide-bar{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;margin:14px calc(-1 * clamp(24px,6cqw,64px)) 10px;padding:0 clamp(16px,4cqw,44px);user-select:none}
+			.cs-slide-bar{position:relative;display:grid;align-items:center;justify-items:center;margin:12px calc(-1 * clamp(24px,6cqw,64px));padding:0 clamp(16px,4cqw,44px);user-select:none}
 			/* the line + caps — structural register, on every slide */
-			.cs-sb-line{position:relative;display:flex;align-items:center;justify-content:space-between;width:100%;height:22px}
+			.cs-sb-line{grid-area:1/1;justify-self:stretch;position:relative;display:flex;align-items:center;justify-content:space-between;height:22px}
 			.cs-sb-line::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;transform:translateY(-50%);border-radius:2px;background:var(--cs-trim,var(--border,#e4eaf2))}
 			.cs-sc-cap{position:relative;z-index:1;flex:none;width:22px;height:22px;padding:0;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .12s,border-color .12s,background .12s}
 			.cs-sc-cap svg{display:block;width:13px;height:13px}
@@ -762,7 +762,7 @@ function ComposeStyles() {
 			   slide's pill is ever shown, so it never becomes a column of glows) */
 			/* The pill RESERVES its space on every slide (visibility, not display) so focusing a slide
 				   never reflows content down — it fades in place. Hidden = non-interactive + out of tab order. */
-			.cs-sb-pill{display:inline-flex;visibility:hidden;opacity:0;align-items:center;gap:3px;padding:3px 5px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-radius:12px;box-shadow:0 5px 15px -8px color-mix(in oklab,var(--accent,#006fa8),transparent 66%),0 1px 3px -1px color-mix(in oklab,var(--text-heading,#0a1628),transparent 84%);transition:opacity .12s ease}
+			.cs-sb-pill{grid-area:1/1;justify-self:center;z-index:1;display:inline-flex;visibility:hidden;opacity:0;align-items:center;gap:3px;padding:3px 5px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-radius:12px;box-shadow:0 5px 15px -8px color-mix(in oklab,var(--accent,#006fa8),transparent 66%),0 1px 3px -1px color-mix(in oklab,var(--text-heading,#0a1628),transparent 84%);transition:opacity .12s ease}
 			.cs-slide-active > .cs-slide-bar > .cs-sb-pill{visibility:visible;opacity:1}
 			.cs-sb-format{display:inline-flex;align-items:center;gap:2px}
 			.cs-sb-actions{display:inline-flex;align-items:center;gap:2px}
@@ -808,7 +808,7 @@ function ComposeStyles() {
 			.cs-host .ProseMirror-selectednode{outline:2px solid var(--accent,#006fa8)}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
-				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px;gap:9px}
+				.cs-slide-bar{margin-left:0;margin-right:0;padding:0 4px}
 				.cs-sb-line{height:28px}
 				.cs-sc-cap{width:28px;height:28px}
 				.cs-sc-cap svg{width:15px;height:15px}
