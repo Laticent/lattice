@@ -140,8 +140,13 @@ a cell `align` attr wired through parse, view, serialize, and one toolbar contro
 The slide is `block+`, so a `table` node followed by a `paragraph` node is
 already legal and the paragraph already round-trips. The below-note is applied by
 *position* at render time — Compose needs to do nothing structural. **→ Captions
-work for free; add a small "add caption" affordance under the table for
-discoverability (optional).**
+work for free; no dedicated caption affordance.** A table caption is not a
+first-class construct in Lattice (nor in CommonMark/GFM, which have no caption
+syntax at all): authors reach for the **universal** concepts — a below-note (the
+trailing paragraph), a key-insight, an eyebrow — which already cover the "labeled
+line near the table" need across every component. Adding a table-only "caption"
+button would fork a bespoke idiom for something the universal vocabulary already
+handles, so we deliberately don't (decided 2026-07-19).
 
 **Axis F — The lock's fate.**
 Remove **only** the pipe-row trigger from `LOSSY_CONSTRUCTS`
@@ -268,7 +273,9 @@ render never diverge — the two editors stay perfectly in sync.
    insert-table register/affordance, portrait-safe styling parity with the
    rendered `compare-table`.
 3. **LFM polish** — the state-marker badge decoration; a class-aware toolbar
-   (a marker picker on obligation-matrix/roadmap); the "add caption" affordance.
+   (a marker picker on obligation-matrix/roadmap). *(No caption affordance — see
+   Axis E: captions ride on the universal below-note / key-insight vocabulary,
+   not a table-specific control.)*
 
 Each phase is independently valuable and verifiable on the real Studio surface
 (HARD RULE #23 — build the docs, open the actual Playground/Studio, edit a real
