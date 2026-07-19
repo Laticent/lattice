@@ -388,10 +388,18 @@ Stage 6 landed as a **split**, recorded so the deferred half is tracked work, no
   the viewer). All in the surface-agnostic host, so Present + export inherit it. Verified on the real
   Playground with a real Chromium (HARD RULE #23): pause freezes, resume continues, the opt-in mounts +
   plays; the decision branches are unit-tested (the interactive clicks are the real-surface test, per #23).
-- **Stage 6b — remaining (fast-follow).** Present-mode advance (still gated on §15's unresolved slide-enter-
-  vs-narrative-step-vs-control question) and **standalone-HTML-export** hydration. Export needs a *different
-  delivery* than the parent-hosted Playground — an in-frame injected script carrying the backends — but it
-  calls the **same** surface-agnostic `hydrateScenes`, so only the delivery bifurcates, not the logic.
+- **Stage 6b — Present-mode (shipped).** A scene now hydrates on the Studio Present surface: plays on
+  slide-enter, stops on exit, restarts from the top on re-entry (§15, resolved slide-enter). Wired into
+  `DeckPreview` — the React host Present renders each slide through — lazily and only when the slide
+  carries a live scene, so every `DeckPreview` surface inherits it and a scene-less preview never pulls
+  the backends. Reuses slice A's `createAnimaScenes` controller; the srcdoc-per-slide lifecycle gives
+  enter/exit/restart for free. Verified on the real Present overlay with a real Chromium (HARD RULE #23):
+  the presented slide mounts the backend, shows the control, and animates.
+- **Stage 6b — remaining (fast-follow).** **Standalone-HTML-export** hydration — a *different delivery*
+  than the parent-hosted preview (an in-frame injected script carrying the backends) calling the **same**
+  surface-agnostic `hydrateScenes`, so only the delivery bifurcates, not the logic — and the per-scene
+  **`replay: resume`** field (the `restart` default ships now with Present; `resume` needs cross-navigation
+  state the torn-down srcdoc doesn't keep, so the field lands with it).
 - **Poster ↔ spec correspondence (carry).** For **built** (Zdog) scenes the poster still and the spec are
   two hand-authored artifacts today; nothing binds them, so a maintainer editing one can drift the other
   (only the print/`still` surface diverges — the live view is always spec-faithful). **svg** scenes have no
@@ -419,6 +427,16 @@ Stage 6 landed as a **split**, recorded so the deferred half is tracked work, no
   the motion roles + params; how `sequence`/`fill`/`explode` are declared).
 - Present-mode integration — does a scene advance on slide-enter, on narrative-step advance
   (`2026-06-16-narrative-step-model.md` — a scene is a candidate steppable unit), or on a control?
+  **RESOLVED (Stage 6b, slice B): slide-enter.** A scene plays when its slide is entered and stops
+  when it is exited; re-entering plays it again from the top. This falls out of the surface's own
+  lifecycle for free — Present renders one slide at a time through `DeckPreview`, rewriting the
+  `srcdoc` on every navigation, so the arriving scene hydrates fresh (play-on-enter, restart) and the
+  departing one is disposed (stop-on-exit). The control from slice A rides along. Wiring lives in
+  `DeckPreview` (lazy-loaded, and only when the rendered slide carries a live scene), so every
+  `DeckPreview` surface inherits it — not Present-only. The author's restart-vs-**resume** preference
+  was scoped to a per-scene ` ```anima ` field that travels with the deck (user pick), but `resume`
+  needs cross-navigation state the torn-down `srcdoc` doesn't keep — so the field ships WITH `resume`
+  as a fast-follow; `restart` (the free, natural behavior) is the default now, needing no field.
 - GLTF import — in scope for the Three tier v1, or Zdog-authored geometry only?
 - The asset bundle shape (spec + poster + caps) and the scene-inspector's tuning controls.
 - The `source: svg` ingest (Vivus) — constraining authored/generated art to strokable line-art, and

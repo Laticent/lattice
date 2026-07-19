@@ -293,6 +293,7 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
     figure.appendChild(stage);
     if (poster) poster.style.display = 'none';
     renderer.mount(stage, playScene, assets);
+    flashControls(); // a brief on-mount hint so the auto-hidden control is discoverable
   }
 
   function mountAndPlay(): void {
@@ -324,6 +325,18 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
   // straight away; an ordinary scene gets ⏸ the moment it mounts.
   figure.appendChild(control.el);
   sync();
+
+  // Auto-hide: CSS reveals the control on hover/focus (desktop + keyboard); on a device with no
+  // hover a tap on the scene flashes it in (then it fades after a beat), and mount() flashes it
+  // once so it stays discoverable. `.scene-controls-shown` is the JS reveal hook (scene.styles.css).
+  let hideTimer: ReturnType<typeof setTimeout> | undefined;
+  function flashControls(): void {
+    if (optInPending) return; // the opt-in is always shown; nothing to flash
+    figure.classList.add('scene-controls-shown');
+    if (hideTimer) clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => figure.classList.remove('scene-controls-shown'), 2500);
+  }
+  figure.addEventListener('pointerdown', flashControls);
 
   // Lazy by default: mount on first view, auto-pause off-screen (the perf NFR); resume on
   // re-entry unless the viewer paused. A floor-suppressed scene never AUTO-mounts (the opt-in
@@ -357,6 +370,8 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
     dispose() {
       disposed = true;
       io?.disconnect();
+      figure.removeEventListener('pointerdown', flashControls);
+      if (hideTimer) clearTimeout(hideTimer);
       unmount();
       control.el.remove();
     },

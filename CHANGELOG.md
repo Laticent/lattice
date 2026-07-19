@@ -191,6 +191,15 @@ in patch versions.
 
 ### Added
 
+- **A `scene` now comes alive in Studio Present mode, not just the Playground.** Stage 6 animated scenes
+  on the Playground preview; presenting the same deck showed only the frozen poster. Now a scene hydrates
+  on the Present surface too — it **plays when you land on its slide, stops when you leave, and restarts
+  from the top when you return** — carrying the same ⏸/▶/↻ control and reduced-motion opt-in. The wiring
+  lives in `DeckPreview` (the host every Present slide renders through), lazy-loaded and only when the
+  slide actually carries a live scene, so a scene-less preview (landing, hero, most specimens) never pulls
+  the animation backends into its bundle. Any surface built on `DeckPreview` inherits live scenes.
+  (`DeckPreview.tsx`; ADR §15.)
+
 - **`closing` gains an `index` variant — a closing that ends on a reference list.** The final slide can
   now carry a short `key — description` index below the takeaway line (see also, next steps, references),
   rendered as a centered set that keeps the bookend's symmetry. The default one-line closing is
@@ -536,6 +545,12 @@ in patch versions.
   catalog max). Affects the generated slide in every component gallery. (`tools/build-component-docs.js`.)
 
 ### Changed
+
+- **A live scene's play/pause control now stays out of the way.** It moved to the top-right corner and
+  hides at rest instead of sitting permanently over the motion — it fades in on hover (desktop) or a tap
+  (touch), reveals on keyboard focus, auto-hides after a couple of seconds, and flashes briefly when the
+  scene mounts so it stays discoverable. The reduced-motion "Play the motion" opt-in is exempt (it sits
+  over a still poster and is the only way to start, so it stays visible). (`hydrate.ts`, `scene.styles.css`.)
 
 - **Breaking:** **`@slidewright/lente` `approvalHash` now uses an injective encoding — every previously
   stamped `approved: "sha256:…"` value is invalidated and each lens must be re-approved.** An
