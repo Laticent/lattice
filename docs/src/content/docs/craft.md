@@ -64,9 +64,12 @@ it to someone with no eye and the floor jumps while the ceiling holds — the
 tool was never the thing holding them back, so the work only comes out tidier
 than before. Hand it to someone with real craft and the ceiling rises too:
 freed from the busywork, they reach more of what they already saw. The floor
-comes up for everyone. The ceiling comes up for whoever brought something to
-lift. The same tool spreads people further apart, then hides the spread behind
-everyone's nicer baseline.
+comes up for everyone — and most work only ever needed the floor. A status
+update, a quick internal deck: good-enough is genuinely enough, and the raised
+floor is the whole gift. The ceiling is for the work that earns it, and it
+comes up for whoever brought something to lift. At the top, where the ceiling
+matters, the same tool spreads people further apart, then hides the spread
+behind everyone's nicer baseline.
 
 ## What actually got scarcer
 
@@ -123,6 +126,13 @@ Cameron with a phone still outshoots an amateur with a full crew, because the
 distance between them was never the gear. The people who hear *I can shoot
 video now* and take it to mean *I can direct now* are wrong in exactly the way
 this belief is wrong.
+
+Judgment cuts the other way too. Cameron keeps pouring that same mastery into
+Avatar sequels the first film already said, and no amount of craft makes the
+next one land like the first. Every ceiling has a height where more effort
+stops changing what matters — and the hardest call in any work is knowing where
+it sits: when the floor is already enough, when the climb has quit paying. A
+model will gladly help you climb. It will never tell you when to stop.
 
 So build the kind of work whose value you can point to but could never prompt
 out of thin air: the reasoning, and the standard held steady across a thousand
