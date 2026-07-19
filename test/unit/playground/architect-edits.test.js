@@ -260,4 +260,43 @@ describe('fence-aware slide boundaries', () => {
     const out = applyEdit(DECK, { action: 'replace', slide: 2, body: '## Two\n\n---\n\n## Sneaky extra slide' });
     assert.equal(out, DECK); // rejected — the deck is unchanged, not corrupted
   });
+  test('applyEdit ACCEPTS a replace body whose --- sits inside a CLOSED fence (fence-aware, not blunt)', async () => {
+    const { applyEdit } = await load();
+    const body = '<!-- _class: code -->\n\n```md\ntitle: X\n---\nbody\n```';
+    const out = applyEdit(DECK, { action: 'replace', slide: 2, body });
+    assert.notEqual(out, DECK); // admitted
+    assert.match(out, /title: X\n---\nbody/); // the fenced sample landed intact
+  });
+  test('applyEdit refuses a replace body with an UNCLOSED fence (would swallow the next real ---)', async () => {
+    const { applyEdit } = await load();
+    // The unclosed ``` would eat the deck's next `---`, trapping slide 3 inside slide 2.
+    const out = applyEdit(DECK, { action: 'replace', slide: 2, body: '## Two\n\n```\n---\nstill in fence' });
+    assert.equal(out, DECK); // rejected — trio red-team finding
+  });
+  test('applyEdit insert refuses a body that would split into multiple slides', async () => {
+    const { applyEdit } = await load();
+    assert.equal(applyEdit(DECK, { action: 'insert', slide: 1, body: '## A\n\n---\n\n## B' }), DECK); // top-level ---
+    assert.equal(applyEdit(DECK, { action: 'insert', slide: 1, body: '## A\n\n```\nunclosed' }), DECK); // unclosed fence
+  });
+  test('the lib splitter and the architect-edits copy agree (no drift between the two hand-maintained fence trackers)', async () => {
+    const lib = require('../../../lib/authoring/slide-split.js');
+    const ae = await load();
+    const corpus = [
+      '',
+      '# one',
+      '---\nmarp: true\n---\n\n# S1\n\n---\n\n# S2\n',
+      FENCED,
+      '# A\n\n---\n\n```\na\n---\nb\n```\n\n---\n\n# C',
+      'a\r\n---\r\nb\r\n---\r\nc', // CRLF
+      '~~~md\nfront\n---\nback\n~~~',
+      '```\nunclosed\n---\nstill in',
+      '--- \n', // trailing space (both preserve naive behavior: not a split)
+    ];
+    for (const src of corpus) {
+      assert.deepEqual(ae.splitTopLevel(src), lib.splitTopLevel(src), `splitTopLevel drift on: ${JSON.stringify(src)}`);
+      assert.equal(ae.fenceOpen(src), lib.fenceOpen(src), `fenceOpen drift on: ${JSON.stringify(src)}`);
+      const lines = src.split('\n');
+      assert.deepEqual([...ae.separatorLines(lines)], [...lib.separatorLines(lines)], `separatorLines drift on: ${JSON.stringify(src)}`);
+    }
+  });
 });

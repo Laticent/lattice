@@ -90,7 +90,41 @@ splits a `---\r\n` line, so a line walk must too) — closing the checker's CRLF
 in the same stroke (and the local `separatorLines` in `architect-edits.js` was made
 CRLF-tolerant to match). New autofix-through-a-fence test added.
 
+## Full adversarial-trio pass (2026-07-19, on request)
+
+The maker-checker was escalated to the full trio (red team + Munger inversion +
+independent checker) on the shipped diff. The core splitter was proven solid —
+byte-faithfulness held across **300k random fence-free inputs (0 mismatches)** and
+`separatorLines ≡ splitTopLevel` across **50k+ adversarial inputs (0 divergences,
+CRLF included)**. Two real defects were found and folded in:
+
+- **BLOCKER (Munger) — the `---`-rejection guard turned a refusal into a false
+  success.** `applyEdit` returns the source unchanged when it refuses a malformed
+  body, but the Coach's `applyFixKey` (and batch `applyAll`) still banked a checkpoint
+  and said "Fix applied" over an unchanged deck — worse than the honest K3 refusal this
+  PR removed. → both now detect the no-op (`next === source`), tell the truth ("Couldn't
+  apply — it would split slide N"), and don't bank a phantom checkpoint; the proposal
+  stays up to Discard/re-draft.
+- **MEDIUM (red team) — the guard was blind to an UNCLOSED fence.** A body like
+  ` ```\n---\nstill in fence ` passed `splitTopLevel(body).length > 1` (the `---` is
+  "inside" the open fence) yet, on whole-deck reparse, swallowed the deck's next real
+  `---` and trapped a later slide. → the guard is now `bodySplitsSlides` (top-level `---`
+  OR `fenceOpen`), applied to **both** replace and insert (insert had no guard before).
+
+New tests: the unclosed-fence rejection, the fenced-body ACCEPTANCE (proving the guard
+is fence-aware, not blunt), the insert guard, direct `separatorLines`/CRLF coverage, and
+a **parity test** pinning the lib splitter and the architect-edits copy to agree on a
+corpus (closing the "two hand-maintained trackers drift" risk the trio flagged).
+
 ## Not in scope / logged (HARD RULE #18, off-path)
+
+- The authoring splitter is byte-faithful to `/^---$/m`, which still diverges from the
+  RENDER splitter (`lib/core/split-slides.js`) on `--- ` (trailing space) and
+  `headingDivider: N` decks — so an AI-fix slide number could still mismatch the rendered
+  deck there. Pre-existing (the naive split had it too; K3 only ever guarded fences, which
+  ARE now correct), so not a regression. The principled fix the Munger pass proposed — gate
+  the fix on splitter AGREEMENT (authoring slide count === rendered `<section>` count), a
+  generalized K3 — is a larger, separate change; logged, not taken here.
 
 - The render/emulator splitter (`lib/core/split-slides.js`) already handled fences;
   this change aligns the *authoring* splitters with it rather than merging the two

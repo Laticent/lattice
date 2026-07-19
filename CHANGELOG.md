@@ -619,9 +619,11 @@ in patch versions.
   no fenced `---`** and only heals the fenced case, so lint/review/scorecard findings, the `[slide N]`
   prompt markers, `sliceSlide`, and the apply splice all agree on slide numbers again. Because the fix now
   targets correctly, the Coach's **"AI fix paused when a slide has a fenced `---`" limitation (the K3
-  guard) is removed** — the fix is offered on those decks. `applyEdit` also now **refuses a model reply
-  whose replace body smuggles a top-level `---`** (which would inject a spurious slide), so a bad
-  completion degrades to a no-op instead of corrupting the deck. (`engineering/decisions/2026-07-19-fence-aware-slide-splitter.md`.)
+  guard) is removed** — the fix is offered on those decks. `applyEdit` (replace **and** insert) now
+  **refuses a model reply whose body would split the slide** — a top-level `---` OR an unclosed code
+  fence (which would swallow the deck's next `---`) — and the Coach reports the refusal honestly
+  ("Couldn't apply — it would split slide N") instead of banking a checkpoint and claiming success over
+  an unchanged deck. (`engineering/decisions/2026-07-19-fence-aware-slide-splitter.md`.)
 - **Compose's slide-divider Format group — three follow-ups.** (1) An **orphan inline-code label** (a
   lone `` `code` `` paragraph next to no heading) now offers a pill affordance to clear its mark instead
   of being editable only in Markdown mode. (2) The heading register is offered strictly per the slide

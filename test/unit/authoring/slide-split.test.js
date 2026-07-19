@@ -11,7 +11,7 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { splitTopLevel, fenceOpen } = require('../../../lib/authoring/slide-split.js');
+const { splitTopLevel, fenceOpen, separatorLines } = require('../../../lib/authoring/slide-split.js');
 
 test('byte-faithful to split(/^---$/m) when there is no fenced ---', () => {
   const decks = [
@@ -52,4 +52,19 @@ test('fenceOpen tracks unclosed fences', () => {
   assert.equal(fenceOpen('```\nx\n```'), false);
   assert.equal(fenceOpen('plain text'), false);
   assert.equal(fenceOpen('~~~~\na\n~~~'), true); // shorter closer can't close a longer opener
+});
+
+test('separatorLines marks the right line indices (plain, fenced-excluded, indented fence, CRLF)', () => {
+  // Plain: the `---` at line 1 is a boundary.
+  assert.deepEqual([...separatorLines(['# A', '---', '# B'])], [1]);
+  // Fenced `---` (line 2) is NOT a boundary; the real `---` (line 5) is.
+  assert.deepEqual([...separatorLines(['```', 'a', '---', 'b', '```', '---', '# C'])], [5]);
+  // An indented (≤3 space) fence still opens; its inner `---` is excluded.
+  assert.deepEqual([...separatorLines(['  ```', '  ---', '  ```', '---'])], [3]);
+  // CRLF: the line is `---\r` after a \n-split, and /^---$/m DOES split it — so
+  // separatorLines must mark it too (the load-bearing \r? branch).
+  assert.deepEqual([...separatorLines('a\r\n---\r\nb'.split('\n'))], [1]);
+  // separatorLines.size + 1 === splitTopLevel().length, on a fenced CRLF deck.
+  const crlfFenced = '# A\r\n---\r\n```\r\n---\r\n```\r\n---\r\n# C';
+  assert.equal(separatorLines(crlfFenced.split('\n')).size + 1, splitTopLevel(crlfFenced).length);
 });

@@ -1732,8 +1732,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				setFixStates((m) => (key in m ? { ...m, [key]: { phase: 'stale', slide: st.slide } } : m));
 				return false;
 			}
+			// applyDeckEdit REFUSES a malformed rewrite (a body that would split the slide —
+			// a top-level `---` or an unclosed fence) by returning the source unchanged. Detect
+			// that no-op and tell the truth instead of banking a phantom checkpoint and claiming
+			// "Fix applied" over a deck that didn't change (trio red team / Munger). Leave the
+			// proposal up so the author can Discard and re-draft.
+			const next = applyDeckEdit(source, st.edit);
+			if (next === source) {
+				notify(`Couldn’t apply this rewrite — it would split slide ${st.slide ?? ''}. Discard and re-draft, or edit by hand.`);
+				return false;
+			}
 			setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
-			setSource(applyDeckEdit(source, st.edit));
+			setSource(next);
 			discardFix(key);
 			notify('Fix applied — ⌘Z or restore from History to undo.');
 			return true;
@@ -1786,7 +1796,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				stale.push({ key, slide: st.slide });
 				continue;
 			}
-			next = applyDeckEdit(next, st.edit);
+			// applyDeckEdit REFUSES a malformed rewrite (would split the slide) by returning the
+			// deck unchanged — count that as a skip that needs a re-draft, not a silent "applied".
+			const after = applyDeckEdit(next, st.edit);
+			if (after === next) {
+				stale.push({ key, slide: st.slide });
+				continue;
+			}
+			next = after;
 			if (st.slide != null) appliedSlides.add(st.slide);
 			applied++;
 			discardFix(key);

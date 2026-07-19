@@ -28,7 +28,7 @@ function fmChunks(source) {
 
 // Does `text` end with an unclosed code fence? (opener char + run length tracked so a
 // shorter inner fence can't close it; up to 3 leading spaces per CommonMark.)
-function fenceOpen(text) {
+export function fenceOpen(text) {
   let inFence = false;
   let fenceChar = '';
   let fenceLen = 0;
@@ -46,7 +46,7 @@ function fenceOpen(text) {
 // Byte-faithful to `source.split(/^---$/m)` EXCEPT a fenced `---` doesn't split (the
 // chunk is re-merged, re-inserting the exact `---` the naive split removed). So the
 // front-matter chunk model + every index calc below are preserved for fence-free decks.
-function splitTopLevel(source) {
+export function splitTopLevel(source) {
   const naive = String(source || '').split(/^---$/m);
   if (naive.length < 2) return naive;
   const out = [];
@@ -59,9 +59,19 @@ function splitTopLevel(source) {
   return out;
 }
 
+// A single-slide edit body must not smuggle a slide boundary. Applying one that does
+// corrupts the deck two ways: a TOP-LEVEL `---` (outside a fence) injects a new separator,
+// AND an UNCLOSED fence in the body swallows the deck's NEXT real `---` on reparse (so a
+// later slide is trapped inside this one's code block). Refuse either — the splice's stated
+// contract is "refuse rather than corrupt" (trio red team).
+function bodySplitsSlides(body) {
+  const t = String(body || '').trim();
+  return splitTopLevel(t).length > 1 || fenceOpen(t);
+}
+
 // Line indices that are TOP-LEVEL slide separators (a `---` line outside any fence) —
 // the line-based analog the surgical splice reads.
-function separatorLines(lines) {
+export function separatorLines(lines) {
   const set = new Set();
   let inFence = false;
   let fenceChar = '';
@@ -192,10 +202,9 @@ export function applyEdit(source, edit) {
   if (edit.action === 'replace') {
     const n = edit.slide + fm; // human slide number → raw chunk index
     if (edit.slide < 1 || n > count) return source;
-    // A replace targets ONE slide. If the model smuggled a top-level `---` into the
-    // body (outside a fence), splicing it in would inject a slide separator and
-    // desync the deck. Refuse rather than corrupt (trio red-team finding).
-    if (splitTopLevel(edit.body.trim()).length > 1) return source;
+    // A replace targets ONE slide; a body that would split slides (top-level `---` or an
+    // unclosed fence) corrupts the deck, so refuse rather than corrupt (trio red team).
+    if (bodySplitsSlides(edit.body)) return source;
     const [a, b] = ranges[n - 1];
     const seg = lines.slice(a, b + 1);
     // Keep the original leading/trailing blank lines; swap only the content.
@@ -226,6 +235,10 @@ export function applyEdit(source, edit) {
     // appends). The old split/rejoin reformatted the `---…---` fence and broke
     // Marp's front-matter parsing, so the front matter is reattached untouched.
     const block = edit.body.trim();
+    // Insert adds ONE new slide; a body that would split slides (top-level `---` or an
+    // unclosed fence) would inject extra separators / swallow a later `---`. Refuse (same
+    // contract as replace — the guard was replace-only before; trio red team).
+    if (bodySplitsSlides(block)) return source;
     const all = splitTopLevel(source);
     const real = all.slice(fm).map((s) => s.replace(/^\n+|\n+$/g, ''));
     const at = edit.slide === Number.MAX_SAFE_INTEGER ? real.length : Math.max(0, Math.min(real.length, edit.slide));
