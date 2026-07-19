@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Design investigation (opened from the #1084 open question): should the hand-written
   authoring skills (design/skills/*.md) FEED the product AI generator ("Fabricate"), or
@@ -35,7 +35,16 @@ companion:
 
 # Skills ↔ Fabricate: one authoring truth, or several channels?
 
-**Date:** 2026-07-19 · **Status:** proposed (design-before-code; decision pending) · **Owner:** Sharmarke
+**Date:** 2026-07-19 · **Status:** in-progress (decision made; implementing) · **Owner:** Sharmarke
+
+> **Decision (2026-07-19).** Direction: **Stage 0 + Stage 1**. Fix both product drifts + the
+> `auditBoth` blind spot (Stage 0), then extend the existing ownership/freshness gate to assert
+> every product prompt (`THEME_CANON`, `FINISH_SYSTEM`, `COMPONENT_CANON`) stays true to its
+> source enums/params (Stage 1). The generated shared kernel / generated skill skeletons
+> (Stage 2) are **not** adopted now — earn them only if the gate proves insufficient. The
+> `deriveTheme` + `THEME_CANON` dark-mode categorical regression ships as its **own fast PR**
+> (a shipped WCAG defect); `FINISH_SYSTEM` + the gate extension follow. The deck-path grounding
+> (parallel move B) is not adopted in this round.
 
 This opens the question left in `2026-07-19-skill-recertification.md`: should the hand-written
 authoring skills (`design/skills/*.md`) also *feed* the product's AI generator ("Fabricate" —
