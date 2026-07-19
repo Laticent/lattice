@@ -358,11 +358,24 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 const CHAT_PREFIX = 'lattice-studio-chat-'; // + deckId → ChatMessage[]
 const CHAT_CAP = 60;
 
+/** A reviewable, re-appliable proposed edit persisted on an assistant turn. Structural
+ *  (matches architect.ts ProposedEdit) so the store doesn't import the AI module. `raw`
+ *  is re-fed to applyEdit against the CURRENT deck at Apply-time — never a stale snapshot. */
+export type ChatProposal = {
+	label: string;
+	slide: number;
+	action: string;
+	raw: { action: string; slide: number; body: string };
+	before: string;
+	after: string;
+	diff: { type: string; text: string }[];
+};
+
 export type ChatMessage = {
 	role: 'user' | 'assistant';
 	content: string;
-	/** Assistant turn only: the full source it proposes (for review/apply). */
-	proposed?: string;
+	/** Assistant turn only: the edits it proposes (reviewable per-slide diffs). */
+	proposed?: ChatProposal[];
 	/** Whether that proposal has been applied. */
 	applied?: boolean;
 };

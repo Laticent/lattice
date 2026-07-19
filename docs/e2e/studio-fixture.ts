@@ -27,8 +27,10 @@ export const CHROME = {
 	deckScope: 'Deck scope',
 	/** Opens the Inspector pointed at SLIDE scope (editor row / mobile preview bar). */
 	slideSettings: 'Slide settings',
-	/** Top-bar toggle for the Architect (AI coach + chat) panel. */
-	architect: 'Toggle Architect',
+	/** Activity-bar toggle for the Coach (deterministic deck assessment) panel. */
+	coach: 'Toggle Coach',
+	/** Activity-bar toggle for the Chat (AI conversation) panel — a separate peer of the Coach. */
+	chat: 'Toggle Chat',
 	/** Activity-bar toggle for the Lenses (reader-views) panel — a first-class peer of the Architect. */
 	lenses: 'Toggle Lenses',
 	/** Activity-bar toggle for the Library (saved themes / components / finishes) panel. */
@@ -110,7 +112,7 @@ export async function gotoStudio(page: Page): Promise<void> {
 	// Seed the Build posture BEFORE the island hydrates, so the full surface (the
 	// left activity bar + docked Architect/Inspector) is present — most specs drive
 	// it. The shipped default is the calm Write stop, which has no activity bar, so
-	// without this the 'Toggle Architect' / 'Deck scope' launchers wouldn't exist.
+	// without this the 'Toggle Coach' / 'Toggle Chat' / 'Deck scope' launchers wouldn't exist.
 	// (2026-07-17-studio-persona-dial.md; the newcomer Read/Write surfaces get their
 	// own dedicated specs.) The runtime read is loadSettings().posture.
 	await page.addInitScript(() => {
@@ -174,10 +176,17 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 	await page.keyboard.insertText(text);
 }
 
-/** Open the Architect panel (collapsed by default) and wait for its tabs. */
+/** Open the Coach panel (collapsed by default) and wait for it. Coach and Chat are
+ *  separate panels now (own toolbar icon, own drawer) — no tabs. */
 export async function openArchitect(page: Page): Promise<void> {
-	await page.getByRole('button', { name: CHROME.architect }).click();
-	await expect(page.getByRole('tab', { name: 'Coach' })).toBeVisible();
+	await page.getByRole('button', { name: CHROME.coach }).click();
+	await expect(page.getByText('Board readiness')).toBeVisible();
+}
+
+/** Open the Chat panel — a separate launcher peer of the Coach. */
+export async function openChat(page: Page): Promise<void> {
+	await page.getByRole('button', { name: CHROME.chat }).click();
+	await expect(page.getByRole('textbox', { name: 'Message the Architect' })).toBeVisible();
 }
 
 /** Open the Lenses (reader-views) panel — a first-class launcher peer of the Architect. */

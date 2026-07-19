@@ -246,6 +246,57 @@ in patch versions.
   as their slide is shown and pause off-screen natively. The PDF is untouched — it keeps the poster still.
   (`lib/export/player-core.mjs`, `tools/build-anima-player.js` → `lib/export/anima-player-bundle.generated.mjs`.)
 
+- **Coach and Chat are two separate Studio panels, each with its own left-toolbar icon and drawer.** The
+  deterministic assessment and the AI conversation have nothing to do with each other, so they are no longer
+  tabs inside one "Architect" panel (which taxed you with a tab-switch for zero benefit). Each now has its own
+  activity-bar launcher — a **Coach** gauge and a **Chat** spark — opens as its own resizable column on desktop
+  and its own slide-in drawer on mobile, and shares the one mutually-exclusive assistant slot. (`StudioShell.tsx`.)
+- **The Studio Coach now runs the engine's real deck assessment, with deterministic "quick reads" and safer fixes.**
+  The Coach's board-readiness card was a 3-check toy heuristic (`lint.ts scoreDeck`); it now renders the **same
+  deterministic scorecard the CLI runs** — an overall grade/band plus a per-dimension read (structure · clarity ·
+  data · pacing · contract) over the engine's lint **and** review findings — so there is one deck assessment, not
+  two that drift. The grade is framed honestly ("checks authoring hygiene, not whether the argument persuades") and
+  a **blank deck shows a prompt, never a fabricated "A"**. New deterministic **quick-read chips** — Top fixes ·
+  Weakest slide · Structure · The ask · Pacing — compute a result card from the deck with **no model** (free, instant),
+  and findings are now **ranked by severity** with jump-to-slide. The per-finding **Fix with AI** is hardened: it
+  re-checks that the target slide hasn't changed since the fix was proposed (no silent clobber), and it's disabled
+  with an honest note when a slide contains a `---` inside a code fence (which would mis-target). Deck-level findings
+  that can't be slide-fixed are marked and excluded from AI fixes. New `coach/coach-core.ts` (assessment + chip
+  kernel); the toy `scoreDeck` and the standalone "Rewrite lead" chip are removed; component `density` is plumbed
+  through `studio.astro` so the review's density findings survive. Part of the Drawing Board → Studio migration
+  (`engineering/decisions/2026-07-03-studio-succession.md` P2a).
+- **The Coach's findings are redesigned as full-width cards with an in-pill fix lifecycle and batch actions.**
+  Each finding is now a full-width card (like the Lenses panel), not a bulleted list row: a single meta line
+  (severity glyph · slide · rule, the rule truncating rather than wrapping), the message on its own line, and the
+  action on its own line — so nothing competes for width. The AI fix no longer fires a toast: the **Fix pill cycles
+  its progress in place** ("Reading slide N…" → "Drafting…" → "Preparing the diff…") and then **splits into two pills,
+  Apply and Discard**, with the diff shown below for review. An open or in-flight fix now **survives a re-lint** — fix
+  state is keyed by finding identity, so editing another slide no longer drops the fix you're on ("stay on Fix"), and
+  the active card is emphasized (its order is held so an unrelated re-rank can't move it under you). New **Draft all**
+  (drafts every fixable finding against one snapshot — never a blind apply) and **Apply all** (applies every reviewed
+  proposal, slide-descending, one checkpoint, each still stale-guarded) batch actions appear at two or more; a proposal
+  that can't apply because its slide changed stays a visible "re-draft" card rather than vanishing. The AI-fix cost cue
+  is a real per-model, per-deck estimate (not a hard-coded guess), degrading to a qualitative cue when the price isn't
+  known. New `coach/FindingCard.tsx`; `StudioShell.tsx` fix state is now a per-finding map. Hardened by an adversarial
+  trio on the shipped diff. (`engineering/decisions/2026-07-19-coach-chat-studio-migration.md`.)
+- **The Studio Architect chat now streams, renders Markdown, and shows what a turn costs.** The
+  Converse chat was a plain-text bubble list; it is rebuilt as a real conversation. Replies **stream
+  in token-by-token** (with a Stop control and Regenerate), render **on-brand Markdown** — bold, lists,
+  links (scheme-checked), and **fenced code blocks** written with `~~~` markers (so ` ``` ` can appear
+  literally inside) that carry a **Copy button** and syntax highlighting reusing the editor's own lezer
+  grammars (no new dependency, no highlight.js). Proposed deck edits arrive as a **per-slide, reviewable
+  diff** (real LCS, long unchanged runs collapsed) that is **re-applied against the current deck at
+  Apply-time** — so it never overwrites edits you made to other slides while reviewing, and a slide that
+  changed under a proposal is flagged before you Apply. A calm **cost strip** shows a per-turn estimate
+  and your session spend against your budget (and simply reads "On-device · free" on the local tier).
+  XSS-safe by construction: prose is escape-first rendered and DOMPurify-sanitized before it reaches the
+  DOM; code is rendered as escaped React text, so a crafted reply can neither inject HTML nor smuggle a
+  payload past the sanitizer. Offline/blocked/error states are shown as an ephemeral notice and never
+  persisted as a chat turn (which previously re-entered the model's history and was re-sent). New
+  `chat-markdown.ts` / `chat-highlight.ts` / `ChatCodeBlock.tsx`; `architect.ts` gains streaming
+  (`onToken`/`signal` through `chatComplete`) and a re-appliable per-slide proposal. Part of the Drawing
+  Board → Studio coaching/conversation migration (`engineering/decisions/2026-07-03-studio-succession.md`
+  P2b).
 - **A `scene` now comes alive in Studio Present mode, not just the Playground.** Stage 6 animated scenes
   on the Playground preview; presenting the same deck showed only the frozen poster. Now a scene hydrates
   on the Present surface too — it **plays when you land on its slide, stops when you leave, and restarts

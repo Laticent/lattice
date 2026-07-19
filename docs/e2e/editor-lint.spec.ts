@@ -29,6 +29,6 @@ test('an unknown component makes Fix-all actionable; validation-off clears it', 
 test('the Coach surfaces the inline-issue count', async ({ page }) => {
 	await appendToEditor(page, UNKNOWN_SLIDE);
 	// The count lives in the Architect Coach, which is collapsed by default.
-	await page.getByRole('button', { name: 'Toggle Architect' }).click();
+	await page.getByRole('button', { name: 'Toggle Coach' }).click();
 	await expect(page.getByText(/\d+ inline issue/)).toBeVisible();
 });

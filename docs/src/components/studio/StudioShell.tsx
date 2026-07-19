@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -25,14 +25,17 @@ import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
+import { sliceSlide } from '@/playground/architect-edits.js';
 import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
-import { ArchitectChat, DiffCard } from './ArchitectChat';
-import { applyDeckEdit, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, runArchitect, useArchitectStatus } from './architect';
+import { ArchitectChat } from './ArchitectChat';
+import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AUTO_LABEL, AutoIcon } from './auto-mark';
 import { CatalogSelect, catalogOptions } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import { ComposeView } from './ComposeView';
+import { assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, hasFencedSeparator, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
+import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide } from './deck-ops';
 import { DECKS, deckSource, type StudioDeck } from './decks';
@@ -50,7 +53,7 @@ import { LensesPanel, type TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
-import { type PresentLens, presentationSet, scoreDeck, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
+import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
 import { PresentOverlay } from './PresentOverlay';
 import { ReshapePicker } from './ReshapePicker';
@@ -68,7 +71,6 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { listFindings } from './studio-lint';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSource, markBackupNudged, metaFor, type Posture, renameDeck as renameDeckStore, SETTINGS_EVENT, saveActiveDeck, saveCheckpoint, saveSettings, saveSource, shouldNudgeBackup, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
@@ -358,11 +360,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// group), sharing one grid track — the layout can't fit three docked columns
 	// beside editor+preview (#721). Settings/Inspector is a SEPARATE independent slot,
 	// so a tool panel + settings can be open together (the coach↔tune loop).
-	const [activeAssistant, setActiveAssistant] = React.useState<'architect' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Build shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
+	const [activeAssistant, setActiveAssistant] = React.useState<'coach' | 'chat' | 'lenses' | 'library' | null>(null); // panels start closed at every stop; Build shows the activity-bar launcher, panels open on demand (T2 §4.5 orthogonality — posture never force-opens a panel)
 	const [activeSettings, setActiveSettings] = React.useState<'slide' | 'deck' | null>(null); // PM-4: preview is sacred
 	// Derived reads — the many aria-pressed / active-color / grid-track sites keep
 	// their old names as pure reads off the two enums (no behavior change).
-	const architectOpen = activeAssistant === 'architect';
+	// Coach and Chat are SEPARATE panels (own toolbar icon, own drawer) — they have
+	// nothing to do with each other, so no shared tab. They share the ONE assistant
+	// slot (mutually exclusive), so `architectOpen` = "an AI panel holds the slot"
+	// still drives every layout/width/effect read unchanged.
+	const coachOpen = activeAssistant === 'coach';
+	const chatOpen = activeAssistant === 'chat';
+	const architectOpen = coachOpen || chatOpen;
 	const lensesOpen = activeAssistant === 'lenses';
 	const libraryOpen = activeAssistant === 'library';
 	const inspectorOpen = activeSettings !== null;
@@ -389,9 +397,27 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// setInspectorScope(s) SELECTS scope s and ensures the panel is open — the only
 	// bare-scope caller (the in-panel segment) renders only while open, so this never
 	// spuriously opens it.
-	const setArchitectOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
-		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'architect') : v) ? 'architect' : null));
+	// Coach + Chat each own the assistant slot (mutually exclusive with each other +
+	// Lenses/Library). Toggling one closes it; it never stomps a sibling it didn't own.
+	const setCoachOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'coach') : v) ? 'coach' : prev === 'coach' ? null : prev));
 	}, []);
+	const setChatOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'chat') : v) ? 'chat' : prev === 'chat' ? null : prev));
+	}, []);
+	// Back-compat shims for the demo/walkthrough hook, which speaks the old open/tab
+	// API: open defaults to the Coach panel, and the "tab" setter now SELECTS which of
+	// the two separate panels is shown. CLOSE clears the assistant slot UNCONDITIONALLY
+	// (whatever holds it — Coach/Chat/Lenses/Library): the demo's "clean compose canvas"
+	// reset (use-studio-demo.ts) is the only path that clears the slot, so a docked
+	// Lenses/Library must be evicted too (matches the pre-split unconditional-null close).
+	const setArchitectOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
+		setActiveAssistant((prev) => {
+			const was = prev === 'coach' || prev === 'chat';
+			return (typeof v === 'function' ? v(was) : v) ? (was ? prev : 'coach') : null;
+		});
+	}, []);
+	const setArchitectTab = React.useCallback((t: 'coach' | 'chat') => setActiveAssistant(t), []);
 	// Lenses + Library share the assistant slot (mutually exclusive with the Architect).
 	const setLensesOpen = React.useCallback((v: boolean | ((was: boolean) => boolean)) => {
 		setActiveAssistant((prev) => ((typeof v === 'function' ? v(prev === 'lenses') : v) ? 'lenses' : null));
@@ -428,7 +454,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
-	const [architectTab, setArchitectTab] = React.useState<'coach' | 'chat'>('coach');
 	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the two
 	// read-aloud groups (Lexicon + Acronyms) fold into one Speech tab so the panel
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
@@ -839,7 +864,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const knownWithLocal = React.useMemo(() => [...catalogNames, ...localNames], [catalogNames, localNames]);
 	const lintKnown = React.useMemo(() => (validation ? knownWithLocal : usedComponents(source)), [validation, source, knownWithLocal]);
 	const issues = React.useMemo(() => unknownComponents(source, lintKnown).length, [source, lintKnown]);
-	const deckScore = React.useMemo(() => scoreDeck(source, lintKnown), [source, lintKnown]);
 
 	// Panels are persistent columns on desktop, on-demand sheets below it. Reset
 	// their open state to the right default whenever the breakpoint flips so a
@@ -1464,15 +1488,42 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 
 	// ── Architect (AI) ───────────────────────────────────────────────────────
 	const ai = useArchitectStatus();
-	const [aiBusy, setAiBusy] = React.useState<string | null>(null);
 	const [hasSelection, setHasSelection] = React.useState(false);
 	const [refineBusy, setRefineBusy] = React.useState(false);
 	// Deck-wide deterministic findings (the real lint-core list the editor underlines)
 	// — surfaced in the Coach panel so each can be fixed with AI. A proposed fix is a
 	// reviewable diff keyed by finding; nothing applies until the author clicks Apply.
 	const [findings, setFindings] = React.useState<Finding[]>([]);
-	const [fixBusy, setFixBusy] = React.useState<string | null>(null);
-	const [fixProposal, setFixProposal] = React.useState<{ key: string; before: string; after: string; edit: unknown } | null>(null);
+	// The REAL engine deck assessment (scorecard + lint/review findings), replacing the
+	// toy lint.ts scoreDeck. `hasContent` false → a blank deck shows a placeholder, never
+	// a fabricated grade (K1). Populated by the debounced effect below.
+	const [scorecard, setScorecard] = React.useState<DeckScorecard | null>(null);
+	const [deckHasContent, setDeckHasContent] = React.useState(false);
+	const [assessing, setAssessing] = React.useState(true);
+	// The active deterministic Coach chip result card (one open at a time). No model.
+	const [coachCard, setCoachCard] = React.useState<{ id: string; card: CoachCard } | null>(null);
+	const [talkMinutes, setTalkMinutes] = React.useState<number | null>(null);
+	// Per-finding fix lifecycle, keyed by finding IDENTITY (findingKeys) — not list index.
+	// Keying by identity is what lets an open/in-flight fix SURVIVE a re-lint: editing
+	// another slide re-runs the assessment, but a finding that persists keeps its fix
+	// state ("if I'm on Fix, I stay on Fix"). A pruning effect drops entries whose finding
+	// no longer exists. `fixAll` is the batch draft (never a blind apply-all).
+	const [fixStates, setFixStates] = React.useState<Record<string, FindingFixState>>({});
+	const [fixingAll, setFixingAll] = React.useState(false);
+	// Live cycling-step timers for in-flight fixes (one per finding key), cleared on
+	// resolve / discard / unmount so a settled pill never keeps ticking.
+	const fixTimersRef = React.useRef<Record<string, ReturnType<typeof setInterval>>>({});
+	// The last card order captured while NO fix was active — the frozen order to hold to
+	// while a fix IS active, so the reviewed card never jumps under a re-rank (trio Munger #5).
+	const frozenOrderRef = React.useRef<string[]>([]);
+	const stopFixTimer = React.useCallback((key: string) => {
+		const t = fixTimersRef.current[key];
+		if (t) {
+			clearInterval(t);
+			delete fixTimersRef.current[key];
+		}
+	}, []);
+	React.useEffect(() => () => { for (const t of Object.values(fixTimersRef.current)) clearInterval(t); }, []);
 	// On return from the OpenRouter OAuth redirect (?code=), finish the exchange.
 	React.useEffect(() => {
 		resumePendingAuth().then((ok) => {
@@ -1498,38 +1549,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			notify(`${edited} decks live only in this browser — a backup takes 10 s: Workspace → General.${isEvictionProneBrowser() ? ' (Safari clears unused site data after a week.)' : ''}`);
 		}
 	}, [notify]);
-	// Run one architect instruction. Applies real edits when a model is connected;
-	// degrades honestly (points at Workspace) when it is not.
-	const runArchitectAction = React.useCallback(
-		async (key: string, label: string, instruction: string) => {
-			if (aiBusy) return;
-			setAiBusy(key);
-			notify(`${label}…`);
-			try {
-				const out = await runArchitect(source, instruction);
-				if (out.status === 'offline') {
-					notify('Connect a model in Workspace → AI, then this applies automatically.');
-					setWorkspaceOpen(true);
-				} else if (out.status === 'blocked') {
-					notify(out.note);
-					setWorkspaceOpen(true);
-				} else if (out.status === 'advice') {
-					notify(out.note);
-				} else {
-					// Checkpoint the pre-edit deck so an AI change is reversible from
-					// history, not just ⌘Z.
-					setCheckpoints(saveCheckpoint(deck.id, source, `Before ${label}`, Date.now()));
-					setSource(out.source);
-					notify(`${out.note} — ⌘Z or restore from History to undo.`);
-				}
-			} catch {
-				notify(`${label} failed — try again.`);
-			} finally {
-				setAiBusy(null);
-			}
-		},
-		[aiBusy, source, notify, deck.id],
-	);
+	// NOTE: the standalone "Rewrite lead" AI action (runArchitectAction) was removed with
+	// the Coach reframe — the deterministic chips + per-finding AI fix + the chat now cover
+	// deck edits, so a single static rewrite chip is redundant (succession doc §2, P2a).
 
 	// Refine the editor SELECTION with the model (Polish/Formalize/Elaborate/
 	// Shorten). Checkpoints the pre-edit deck, applies the rewrite as one undoable
@@ -1576,64 +1598,206 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// (Editor.tsx, debounced 750ms by @codemirror/lint's default), so an
 	// undebounced copy here duplicated that work on every keystroke.
 	React.useEffect(() => {
-		if (!validation) {
-			setFindings([]);
-			return;
-		}
 		let live = true;
+		setAssessing(true);
 		const id = setTimeout(() => {
-			listFindings(lintVocab, source, localNames, savedFinishLintNames).then((f) => {
-				if (live) setFindings(f);
+			assessDeck(source, lintVocab, components, localNames, savedFinishLintNames).then((a: CoachAssessment) => {
+				if (!live) return;
+				setScorecard(a.scorecard);
+				setDeckHasContent(a.hasContent);
+				setFindings(a.findings);
+				setAssessing(false);
 			});
 		}, 400);
 		return () => {
 			live = false;
 			clearTimeout(id);
 		};
-	}, [validation, source, lintVocab, localNames, savedFinishLintNames]);
-	// A clean proposal can outlive its finding after an edit; clear it when the
-	// finding set changes so a stale diff card never lingers.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally keyed on findings identity only — clearing a stale proposal when the list changes.
-	React.useEffect(() => setFixProposal(null), [findings]);
+	}, [source, lintVocab, components, localNames, savedFinishLintNames]);
+	// Disambiguated, STABLE per-finding keys (finding object → key). Content-based so a
+	// fix survives a re-lint; an occurrence ordinal keeps two IDENTICAL findings (e.g. a
+	// repeated `_class` token → two same unknown-class findings) from colliding onto one
+	// card / one fix state — the old index-free key silently merged them (trio red-team #2).
+	const findingKeys = React.useMemo(() => {
+		const seen = new Map<string, number>();
+		const map = new Map<Finding, string>();
+		for (const f of findings) {
+			const base = `${f.slide ?? 0}:${f.rule}:${f.message}`;
+			const n = seen.get(base) ?? 0;
+			seen.set(base, n + 1);
+			map.set(f, n === 0 ? base : `${base}#${n}`);
+		}
+		return map;
+	}, [findings]);
+	const keyFor = React.useCallback((f: Finding): string => findingKeys.get(f) ?? `${f.slide ?? 0}:${f.rule}:${f.message}`, [findingKeys]);
+	// Re-lint housekeeping. A fix keyed by finding identity SURVIVES a re-lint — the
+	// "stay on Fix" contract — so we don't nuke the map; we only PRUNE entries whose
+	// finding no longer exists (resolved / edited away) so a stale diff can't linger. Timer
+	// clears are hoisted OUT of the reducer, which stays pure (trio red-team smell). The
+	// deterministic quick-read card is transient, so it still clears.
+	React.useEffect(() => {
+		const live = new Set(findingKeys.values());
+		for (const k of Object.keys(fixTimersRef.current)) if (!live.has(k)) stopFixTimer(k);
+		setFixStates((m) => {
+			const drop = Object.keys(m).filter((k) => !live.has(k));
+			if (!drop.length) return m;
+			const next = { ...m };
+			for (const k of drop) delete next[k];
+			return next;
+		});
+		setCoachCard(null);
+	}, [findingKeys, stopFixTimer]);
 
-	// Ask the Architect to fix ONE finding — proposes a reviewable diff (nothing
-	// applied yet). Honest degradation with no model / at the cap.
-	const fixFinding = React.useCallback(
-		async (finding: Finding, key: string) => {
-			if (fixBusy) return;
-			setFixBusy(key);
-			setFixProposal(null);
-			notify('Asking the Architect to fix this…');
+	// Draft an AI fix for ONE finding, showing progress IN the pill (no toast) and leaving
+	// a reviewable diff — nothing applies until Apply. The pill cycles through the fix
+	// pipeline's stages (read → draft → diff) while the request is in flight; on resolve it
+	// splits into Apply / Discard. `srcAt` pins the batch draft (fixAll) to ONE source
+	// snapshot; `key` is the caller's disambiguated finding key.
+	const draftFix = React.useCallback(
+		async (finding: Finding, key: string, srcAt?: string): Promise<boolean> => {
+			const src = srcAt ?? source;
+			if (fixStates[key]?.phase === 'working') return false;
+			// K3 guard: the engine slide splitter is fence-blind, so a `---` inside a code
+			// fence would make an AI fix mis-target and corrupt the deck. Refuse honestly.
+			if (hasFencedSeparator(src)) {
+				notify('AI fix is unavailable while a slide has a `---` inside a code fence — it would mis-target. Remove or fence it differently, or edit by hand.');
+				return false;
+			}
+			const steps = [finding.slide ? `Reading slide ${finding.slide}…` : 'Reading the deck…', 'Drafting a tighter pass…', 'Preparing the diff…'];
+			let si = 0;
+			setFixStates((m) => ({ ...m, [key]: { phase: 'working', step: steps[0] } }));
+			stopFixTimer(key);
+			fixTimersRef.current[key] = setInterval(() => {
+				si = Math.min(si + 1, steps.length - 1);
+				setFixStates((m) => (m[key]?.phase === 'working' ? { ...m, [key]: { phase: 'working', step: steps[si] } } : m));
+			}, 650);
+			const clear = () =>
+				setFixStates((m) => {
+					if (!(key in m)) return m;
+					const { [key]: _drop, ...rest } = m;
+					return rest;
+				});
 			try {
-				const out = await requestFindingFix(source, finding, components);
+				const out = await requestFindingFix(src, finding, components);
+				stopFixTimer(key);
 				if (out.status === 'offline') {
 					notify('Connect a model in Workspace → AI to fix a finding.');
 					setWorkspaceOpen(true);
+					clear();
 				} else if (out.status === 'blocked') {
 					notify(out.note);
 					setWorkspaceOpen(true);
+					clear();
 				} else if (out.status === 'nochange') {
 					notify('The model had no rewrite to propose for this one.');
+					clear();
 				} else {
-					setFixProposal({ key, before: out.before, after: out.after, edit: out.edit });
+					// Land the proposal ONLY if this fix is still tracked. A re-lint during the
+					// request may have pruned the finding; writing here unconditionally would
+					// resurrect a PHANTOM proposal (inflates Apply-all, risks a wrong-slide
+					// apply). Guard the write like clear() does (trio red-team #1).
+					// Capture the slide content AT PROPOSAL TIME so Apply can detect a change
+					// under it (K4), independent of what the model reports as `before`.
+					setFixStates((m) => (key in m ? { ...m, [key]: { phase: 'proposed', slide: finding.slide, proposedSlice: finding.slide ? sliceSlide(src, finding.slide) : undefined, before: out.before, after: out.after, edit: out.edit } } : m));
+					return true;
 				}
 			} catch {
+				stopFixTimer(key);
 				notify('Fix failed — try again.');
-			} finally {
-				setFixBusy(null);
+				clear();
 			}
+			return false;
 		},
-		[fixBusy, source, components, notify],
+		[fixStates, source, components, notify, stopFixTimer],
 	);
-	// Apply the reviewed fix — checkpoint first (reversible from History), splice the
-	// edited slide back, and jump the preview to it.
-	const applyFix = React.useCallback(() => {
-		if (!fixProposal) return;
-		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
-		setSource(applyDeckEdit(source, fixProposal.edit));
-		setFixProposal(null);
-		notify('Fix applied — ⌘Z or restore from History to undo.');
-	}, [fixProposal, source, deck.id, notify]);
+	const fixFinding = React.useCallback((finding: Finding, key: string) => void draftFix(finding, key), [draftFix]);
+	const discardFix = React.useCallback(
+		(key: string) => {
+			stopFixTimer(key);
+			setFixStates((m) => {
+				if (!(key in m)) return m;
+				const { [key]: _drop, ...rest } = m;
+				return rest;
+			});
+		},
+		[stopFixTimer],
+	);
+	// Apply ONE reviewed fix by key — checkpoint first (reversible from History), splice
+	// the edited slide back. K4 stale-body guard: if the target slide changed since the fix
+	// was proposed, DON'T clobber — flip the card to a visible `stale` state so the panel
+	// still shows it owing a re-draft, rather than silently dropping it (trio Munger #3).
+	const applyFixKey = React.useCallback(
+		(key: string): boolean => {
+			const st = fixStates[key];
+			if (!st || st.phase !== 'proposed') return false;
+			if (st.slide && st.proposedSlice != null && sliceSlide(source, st.slide).trim() !== st.proposedSlice.trim()) {
+				notify(`Slide ${st.slide} changed since this fix was drafted — re-draft it from your current slide.`);
+				setFixStates((m) => (key in m ? { ...m, [key]: { phase: 'stale', slide: st.slide } } : m));
+				return false;
+			}
+			setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
+			setSource(applyDeckEdit(source, st.edit));
+			discardFix(key);
+			notify('Fix applied — ⌘Z or restore from History to undo.');
+			return true;
+		},
+		[fixStates, source, deck.id, notify, discardFix],
+	);
+	// Draft fixes for EVERY draftable finding (idle OR previously-stale), serialized against
+	// one source snapshot so slide numbers stay coherent — each lands as its own reviewable
+	// proposal. Nothing applies (no blind apply-all): the author reviews, then Apply / Apply
+	// all. The target set matches `batchFixable` (both skip proposed + working) — trio #4.
+	const fixAll = React.useCallback(async () => {
+		if (fixingAll || hasFencedSeparator(source)) return;
+		const snap = source;
+		const targets = rankFindings(findings)
+			.slice(0, 6)
+			.filter((f) => {
+				if (!f.slide) return false;
+				const ph = fixStates[keyFor(f)]?.phase;
+				return ph !== 'proposed' && ph !== 'working';
+			});
+		if (!targets.length) return;
+		setFixingAll(true);
+		try {
+			for (const f of targets) await draftFix(f, keyFor(f), snap);
+		} finally {
+			setFixingAll(false);
+		}
+	}, [fixingAll, source, findings, fixStates, draftFix, keyFor]);
+	// Apply every reviewed proposal, one checkpoint for the batch. Applied slide-descending
+	// (highest slide first) so earlier slide numbers stay valid as the deck shifts. A
+	// proposal is SKIPPED when its slide changed under it — either the user edited it, or an
+	// EARLIER fix in this same batch already rewrote that slide (two whole-slide rewrites for
+	// one slide can't compose). Skipped ones don't vanish: they flip to a visible `stale`
+	// card so the panel still shows what it couldn't apply (trio Munger #3 / red-team #3).
+	const applyAll = React.useCallback(() => {
+		const proposed = Object.entries(fixStates)
+			.filter(([, v]) => v.phase === 'proposed')
+			.map(([k, v]) => ({ key: k, st: v as Extract<FindingFixState, { phase: 'proposed' }> }))
+			.sort((a, b) => (b.st.slide ?? 0) - (a.st.slide ?? 0));
+		if (!proposed.length) return;
+		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fixes', Date.now()));
+		let next = source;
+		const appliedSlides = new Set<number>();
+		const stale: { key: string; slide?: number }[] = [];
+		let applied = 0;
+		for (const { key, st } of proposed) {
+			const supersededInBatch = st.slide != null && appliedSlides.has(st.slide);
+			const changedByUser = st.slide != null && st.proposedSlice != null && sliceSlide(next, st.slide).trim() !== st.proposedSlice.trim();
+			if (supersededInBatch || changedByUser) {
+				stale.push({ key, slide: st.slide });
+				continue;
+			}
+			next = applyDeckEdit(next, st.edit);
+			if (st.slide != null) appliedSlides.add(st.slide);
+			applied++;
+			discardFix(key);
+		}
+		if (applied) setSource(next);
+		if (stale.length) setFixStates((m) => { const n = { ...m }; for (const { key, slide } of stale) if (n[key]) n[key] = { phase: 'stale', slide }; return n; });
+		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${stale.length ? ` · ${stale.length} need a re-draft (slide changed)` : ''} — undo from History.` : 'None applied — those slides changed since they were drafted. Re-draft them.');
+	}, [fixStates, source, deck.id, notify, discardFix]);
 
 	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
 	// popovers/sheets/dialogs handle Escape first and stop its propagation, so `Esc`
@@ -1897,6 +2061,63 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		requestAnimationFrame(() => editorRef.current?.revealSlide(0));
 	};
 
+	const rankedFindings = rankFindings(findings);
+	const fencedBlocked = hasFencedSeparator(source);
+	const shownFindings = rankedFindings.slice(0, 6);
+	// A finding is DRAFTABLE when it has no active fix (idle) or a previously-stale one to
+	// re-draft — the same set fixAll targets, so the count and the action agree (trio #4).
+	const isDraftable = (f: Finding): boolean => {
+		const ph = fixStates[keyFor(f)]?.phase;
+		return ph === undefined || ph === 'stale';
+	};
+	// Batch counts (the shown slice): draftable slide-level findings, and reviewed proposals
+	// waiting to apply.
+	const batchFixable = shownFindings.filter((f) => f.slide && isDraftable(f)).length;
+	const proposedCount = Object.values(fixStates).filter((v) => v.phase === 'proposed').length;
+	// Honest cost cue — the true per-fix cost scales with the connected model's price AND
+	// the deck size (each fix re-sends the whole deck), so derive it from `estimateUsd`
+	// like the Chat strip does; never a hard-coded guess (trio Munger #1). No price yet
+	// (pre-catalog) → a qualitative cue, never a fake number.
+	const usd = (n: number) => `$${n < 0.1 ? n.toFixed(3) : n.toFixed(2)}`;
+	const fixEstimate = ai.price ? estimateUsd(source, ai.price, 1024) : null;
+	const fixCostLabel = fixEstimate != null ? `Fix ≈ ${usd(fixEstimate)}` : 'Fix · on your key';
+	const draftAllLabel = fixEstimate != null ? `Draft all ≈ ${usd(fixEstimate * batchFixable)}` : `Draft all (${batchFixable})`;
+	// Freeze the card order while any fix is ACTIVE so an unrelated re-rank (a new
+	// higher-severity finding elsewhere) can't move the card you're reviewing out from
+	// under you (trio Munger #5). With nothing active, the fresh severity ranking wins.
+	const hasActiveFix = Object.values(fixStates).some((v) => v.phase === 'working' || v.phase === 'proposed' || v.phase === 'stale');
+	const displayFindings = (() => {
+		const keyed = shownFindings.map((f) => ({ f, key: keyFor(f) }));
+		if (!hasActiveFix) {
+			frozenOrderRef.current = keyed.map((x) => x.key);
+			return keyed;
+		}
+		const order = frozenOrderRef.current;
+		const rank = (k: string) => { const i = order.indexOf(k); return i === -1 ? order.length : i; };
+		return [...keyed].sort((a, b) => rank(a.key) - rank(b.key));
+	})();
+	const scoreIntent = (band?: string): 'pass' | 'review' | 'fix' | 'info' => (!band ? 'info' : /^A/.test(band) ? 'pass' : /^[BC]/.test(band) ? 'review' : 'fix');
+	const runChip = async (id: string) => {
+		if (coachCard?.id === id && id !== 'pacing') {
+			setCoachCard(null);
+			return;
+		}
+		let card: CoachCard;
+		if (id === 'top') card = topFixes(findings);
+		else if (id === 'weak') card = weakestSlide(findings);
+		else if (id === 'ask') card = await theAsk(source);
+		else if (id === 'structure') card = await structureCheck(source);
+		else card = await pacing(source, talkMinutes ?? undefined);
+		setCoachCard({ id, card });
+	};
+	const CHIPS: [string, string][] = [
+		['top', 'Top fixes'],
+		['weak', 'Weakest slide'],
+		['structure', 'Structure'],
+		['ask', 'The ask'],
+		['pacing', 'Pacing'],
+	];
+
 	const architectCards = (
 		<>
 			{issues > 0 && (
@@ -1906,41 +2127,139 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<button type="button" onClick={() => editorRef.current?.fixAll()} className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-[var(--accent)]">Fix all</button>
 				</div>
 			)}
-			<ArchCard tag={<IntentTag intent={deckScore.intent} />} title="Board-ready">
-				<div className="flex items-baseline gap-2"><span className="font-sans text-[28px] font-extrabold leading-none text-[var(--text-heading)]">{deckScore.score.toFixed(1)}</span><span className="text-[13px] text-muted-foreground">/ 10 · boardroom</span></div>
-				<div className="mt-2 space-y-1.5 text-xs">
-					{deckScore.rows.map((r) => <ScoreRow key={r.label} ok={r.ok} label={r.label} v={r.note} />)}
-				</div>
-			</ArchCard>
-			{findings.length > 0 && (
-				<ArchCard tag={<IntentTag intent="review" label="FINDINGS" />} title={`${findings.length} to address`}>
-					<p className="text-xs leading-relaxed text-muted-foreground">The deck linter's per-slide notes. {ai.ready ? 'Fix any one with AI — review the diff before it lands.' : <>Connect a model in Workspace to fix these with AI.</>}</p>
-					<ul className="mt-2 space-y-2">
-						{findings.slice(0, 6).map((f, i) => {
-							const key = `${f.slide}:${f.rule}:${i}`;
-							const isErr = f.severity === 'error';
-							return (
-								<li key={key} className="rounded-lg border border-border bg-background px-2.5 py-2">
-									<div className="flex items-start gap-2">
-										<span className="mt-0.5 shrink-0" style={{ color: isErr ? 'var(--chart-2,#9c3f00)' : 'var(--chart-4,#9a6a00)' }}><AlertTriangle className="size-3.5" /></span>
-										<div className="min-w-0 flex-1">
-											<span className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">Slide {f.slide} · {f.rule}</span>
-											<p className="text-[12px] leading-snug text-foreground">{f.message}</p>
-										</div>
-										{ai.ready && <Chip busy={fixBusy === key} onClick={() => fixFinding(f, key)}>Fix with AI</Chip>}
+			{/* Deck-level assessment — the REAL engine scorecard (grade + per-dimension read),
+			    replacing the toy heuristic. Never a fabricated grade for an empty deck (K1). */}
+			<ArchCard tag={<IntentTag intent={scoreIntent(scorecard?.band)} />} title="Board readiness">
+				{!deckHasContent ? (
+					<p className="text-xs leading-relaxed text-muted-foreground">Add a slide or two and I’ll assess the deck — a grade, a per-dimension read, and the fixes that matter most. No grade is shown for an empty deck.</p>
+				) : assessing && !scorecard ? (
+					<div className="space-y-2" role="status" aria-label="Assessing">
+						<div className="h-7 w-16 animate-pulse rounded bg-[var(--bg-alt)]" />
+						<div className="h-2 w-full animate-pulse rounded bg-[var(--bg-alt)]" />
+						<div className="h-2 w-2/3 animate-pulse rounded bg-[var(--bg-alt)]" />
+					</div>
+				) : scorecard ? (
+					<>
+						<div className="flex items-baseline gap-2">
+							<span className="font-sans text-[30px] font-extrabold leading-none" style={{ color: scoreIntent(scorecard.band) === 'fix' ? 'var(--fail,#b3261e)' : 'var(--text-heading)' }}>{scorecard.band}</span>
+							<span className="text-[15px] font-semibold text-[var(--text-heading)]">{Math.round(scorecard.overall)}<span className="text-[13px] font-normal text-muted-foreground"> / 100</span></span>
+						</div>
+						<div className="mt-2.5 space-y-2">
+							{scorecard.categories.map((c) => (
+								<div key={c.key} className="text-xs">
+									<div className="flex items-center justify-between gap-2">
+										<span className="text-[var(--text-body)]">{c.label}</span>
+										<span className="tabular-nums text-muted-foreground">{c.na ? 'n/a' : Math.round(c.score ?? 0)}</span>
 									</div>
-									{fixProposal?.key === key && <DiffCard before={fixProposal.before} after={fixProposal.after} onApply={applyFix} onDiscard={() => setFixProposal(null)} />}
-								</li>
-							);
-						})}
+									{!c.na && (
+										<div className="mt-0.5 h-[4px] overflow-hidden rounded-full bg-border">
+											<span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.max(0, Math.min(100, c.score ?? 0))}%` }} />
+										</div>
+									)}
+									{(c.na || (c.score ?? 100) < 85) && c.notes[0] && <p className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">{c.notes[0]}</p>}
+								</div>
+							))}
+						</div>
+						<p className="mt-2.5 text-[10.5px] leading-snug text-muted-foreground">Live · deterministic — checks authoring hygiene (structure, clarity, contract). It can’t judge whether your argument or numbers will persuade. Free.</p>
+					</>
+				) : (
+					<p className="text-xs text-muted-foreground">Assessment unavailable right now.</p>
+				)}
+			</ArchCard>
+			{/* Deterministic quick reads — chips → one result card. Instant, free, no model. */}
+			<ArchCard tag={<IntentTag intent="info" label="QUICK READS" />} title="Ask the deck">
+				<div className="flex flex-wrap gap-1.5">
+					{CHIPS.map(([id, label]) => (
+						<button key={id} type="button" onClick={() => runChip(id)} className={cn('rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors', coachCard?.id === id ? 'border-transparent bg-[var(--accent)] text-[var(--on-accent)]' : 'border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>
+							{label}
+						</button>
+					))}
+				</div>
+				<p className="mt-1.5 text-[9.5px] font-bold uppercase tracking-widest text-[var(--chart-3,#2e6f00)]">Free · no model</p>
+				{coachCard && (
+					<div className="mt-2 rounded-lg border border-border bg-background px-2.5 py-2">
+						<div className="flex items-center justify-between gap-2">
+							<span className="text-[12px] font-semibold text-foreground">{coachCard.card.title}</span>
+							<button type="button" onClick={() => setCoachCard(null)} aria-label="Close"><X className="size-3 text-muted-foreground" /></button>
+						</div>
+						<ul className="mt-1 space-y-1 text-[11.5px] leading-snug text-muted-foreground">
+							{coachCard.card.body.map((b, i) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: static result-card lines.
+								<li key={i}>{b}</li>
+							))}
+						</ul>
+						{coachCard.card.needMinutes && (
+							<div className="mt-1.5 flex items-center gap-1.5">
+								<input
+									type="number"
+									min={1}
+									placeholder="minutes"
+									aria-label="Talk length in minutes"
+									className="w-20 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:border-[var(--accent)]"
+									onKeyDown={(e) => {
+										if (e.key === 'Enter') {
+											const v = Number((e.target as HTMLInputElement).value);
+											if (v > 0) {
+												setTalkMinutes(v);
+												pacing(source, v).then((card) => setCoachCard({ id: 'pacing', card }));
+											}
+										}
+									}}
+								/>
+								<span className="text-[10.5px] text-muted-foreground">↵ your talk length</span>
+							</div>
+						)}
+						{coachCard.card.jump ? (
+							<button type="button" onClick={() => editorRef.current?.revealSlide((coachCard.card.jump as number) - 1)} className="mt-1.5 text-[11px] font-semibold text-[var(--accent)]">
+								Jump to slide {coachCard.card.jump} →
+							</button>
+						) : null}
+					</div>
+				)}
+			</ArchCard>
+			{/* Slide-level findings — severity-ranked full-width cards; per-finding AI fix
+			    cycles IN the pill then splits into Apply / Discard, the diff below. */}
+			{rankedFindings.length > 0 && (
+				<ArchCard tag={<IntentTag intent={rankedFindings.some((f) => f.severity === 'error') ? 'fix' : 'review'} label="FINDINGS" />} title={`${rankedFindings.length} to address`}>
+					<p className="text-xs leading-relaxed text-muted-foreground">Ranked by severity. {ai.ready ? 'Fix one with AI — review the diff before it lands (spends on your key; billed to generate, not to apply).' : 'Connect a model in Workspace to fix these with AI.'}</p>
+					{/* Batch actions — DRAFT every fixable finding, or apply the reviewed proposals
+					    at once. Never a blind apply-all: "Draft all" only drafts (each still gets a
+					    reviewable diff); it's named for what it does so draft→review→apply reads off
+					    the labels. Each shows only when it beats the single-card pills (2+ to act on). */}
+					{ai.ready && !fencedBlocked && (batchFixable > 1 || proposedCount > 1) && (
+						<div className="mt-2 flex flex-wrap items-center gap-1.5">
+							{batchFixable > 1 && (
+								<button type="button" onClick={fixAll} disabled={fixingAll} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)] disabled:opacity-60">
+									{fixingAll ? <Sparkles className="size-3 animate-pulse" /> : null}
+									{fixingAll ? 'Drafting…' : draftAllLabel}
+								</button>
+							)}
+							{proposedCount > 1 && (
+								<button type="button" onClick={applyAll} className="inline-flex items-center gap-1 rounded-full bg-[var(--accent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--on-accent)]">
+									<Check className="size-3" />
+									Apply all ({proposedCount})
+								</button>
+							)}
+						</div>
+					)}
+					<ul className="mt-2 list-none space-y-2 pl-0">
+						{displayFindings.map(({ f, key }) => (
+							<FindingCard
+								key={key}
+								finding={f}
+								state={fixStates[key]}
+								canFix={ai.ready && !!f.slide && !fencedBlocked}
+								costLabel={fixCostLabel}
+								onFix={() => fixFinding(f, key)}
+								onApply={() => applyFixKey(key)}
+								onDiscard={() => discardFix(key)}
+							/>
+						))}
 					</ul>
-					{findings.length > 6 && <p className="mt-2 text-[11px] text-muted-foreground">+{findings.length - 6} more — the editor underlines them all.</p>}
+					{rankedFindings.length > 6 && <p className="mt-2 text-[11px] text-muted-foreground">+{rankedFindings.length - 6} more — the editor underlines them all.</p>}
+					{fencedBlocked && <p className="mt-2 text-[10.5px] leading-snug text-[var(--warn,#9a6a00)]">AI fix is paused — a slide has a `---` inside a code fence, which would mis-target. Edit by hand or fence it differently.</p>}
 				</ArchCard>
 			)}
-			<ArchCard tag={<IntentTag intent="info" label="COACH" />} title="Tighten the story">
-				<p className="text-xs leading-relaxed text-muted-foreground">Lead every slide with its takeaway, not its detail — the number, then the supporting rows.{!ai.ready && <span className="text-[var(--text-muted)]"> Connect a model in Workspace for one-click rewrites.</span>}</p>
-				<Chip busy={aiBusy === 'lead'} onClick={() => runArchitectAction('lead', 'Rewrite lead', `Rewrite slide ${activeFullIndex + 1} so it opens with its single headline takeaway or number, then the supporting rows. Return the whole slide, same component.`)}>Rewrite lead</Chip>
-			</ArchCard>
 		</>
 	);
 
@@ -1963,25 +2282,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		</div>
 	);
 
-	// The Architect panel: Coach analysis vs the real conversational thread — the AI
-	// faculties only. Reader-views (Lenses) moved OUT to their own panel.
-	const architectBody = (
-		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="shrink-0 px-2.5 pt-2.5">
-				<PillTabs
-					ariaLabel="Architect sections"
-					value={architectTab}
-					onValueChange={(v) => setArchitectTab(v as 'coach' | 'chat')}
-					tabs={[
-						{ value: 'coach', label: 'Coach' },
-						{ value: 'chat', label: 'Chat' },
-					]}
-				/>
-			</div>
-			{architectTab === 'coach' && <div className="min-h-0 flex-1 overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>}
-			{architectTab === 'chat' && <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />}
-		</div>
-	);
+	// Coach and Chat are two SEPARATE panels — the deterministic assessment and the
+	// AI conversation have nothing to do with each other, so each gets its own toolbar
+	// icon + drawer (no tab-switching cognitive load). Reader-views (Lenses) + Library
+	// are their own panels too; all share the one mutually-exclusive assistant slot.
+	const coachBody = <div className="flex min-h-0 flex-1 flex-col overflow-y-auto min-w-0 overscroll-contain [touch-action:pan-y]">{architectCards}</div>;
+	const chatBody = <ArchitectChat deckId={deck.id} source={source} aiReady={ai.ready} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} notify={notify} />;
 
 	// ── Inspector body (groups) — shared by the desktop column and the sheet ──
 	const inspectorBody = (
@@ -2417,7 +2723,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Assistants (Coach) top · Settings (Slide/Deck) mid · Globals (Library,
 	// Workspace, account) foot. Group labels + dividers make the grouped
 	// exclusivity legible (Coach is independent; Slide/Deck swap one panel). The
-	// accessible names are the e2e/demo contract — 'Toggle Architect', 'Deck scope',
+	// accessible names are the e2e/demo contract — 'Toggle Coach', 'Toggle Chat', 'Deck scope',
 	// 'Slide settings', 'Open Library', 'Workspace settings' (studio-fixture.ts CHROME
 	// map + tour-kit SEL) — keep them stable.
 	const activityBar = (
@@ -2428,7 +2734,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    switches the slot. Library + Lenses are first-class panels here, not a
 			    sheet-from-a-globals-icon and not a tab inside the AI coach. */}
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
-			<BarIcon label="Toggle Architect" hint="Architect — AI coach &amp; chat" caption="Coach" active={architectOpen} onClick={() => setActiveAssistant((p) => (p === 'architect' ? null : 'architect'))}><Sparkles className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))}><Gauge className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><MessageSquareHeart className="size-[18px]" /></BarIcon>
 			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={libraryOpen} onClick={() => setActiveAssistant((p) => (p === 'library' ? null : 'library'))}><FileBox className="size-[18px]" /></BarIcon>
 			<BarIcon label="Toggle Lenses" hint="Lenses — reader views" caption="Lenses" active={lensesOpen} onClick={() => setActiveAssistant((p) => (p === 'lenses' ? null : 'lenses'))}><Eye className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />
@@ -2626,7 +2933,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    they ride the pane bar below with Present + Share. */}
 				{/* Architect + Settings openers — TABLET only. Desktop launches both from the
 				    left activity bar; mobile from the pane bar below. */}
-				{bp === 'tablet' && <Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => setActiveAssistant((p) => (p === 'architect' ? null : 'architect'))} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><MessageSquareHeart className="size-[18px]" /></Button></Tip>}
 				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
 				{!compact && <Separator orientation="vertical" className="h-5" />}
 
@@ -2732,7 +3040,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{mobilePane === 'preview' && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
 						<Tip label="Present"><Button variant="outline" size="sm" onClick={() => setPresentOpen(true)} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button></Tip>
 						<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /></Button></Tip>
-						<Tip label="Architect — AI coach & chat"><Button variant="ghost" size="icon-sm" aria-pressed={architectOpen} onClick={() => setArchitectOpen((v) => !v)} aria-label="Toggle Architect" className={cn(architectOpen && 'text-[var(--accent)]')}><Sparkles className="size-[18px]" /></Button></Tip>
+						<Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>
+						<Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><MessageSquareHeart className="size-[18px]" /></Button></Tip>
 						<Tip label="Settings — deck & slide"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>
 					</div>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
@@ -2809,10 +3118,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    launcher toggle (no in-panel X, same as before). */}
 						{desktop && effectiveStop === 'build' && assistantOpen && (
 							<aside className="relative flex min-h-0 flex-col overflow-hidden border-r border-border bg-card">
-								{architectOpen && (
+								{coachOpen && (
 									<>
-										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Architect</div>
-										{architectBody}
+										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>
+										{coachBody}
+									</>
+								)}
+								{chatOpen && (
+									<>
+										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Chat</div>
+										{chatBody}
 									</>
 								)}
 								{lensesOpen && (
@@ -2873,13 +3188,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{/* ── Compact panels as sheets (tablet + mobile) ───────────── */}
 			{compact && view === 'compose' && (
 				<>
-					<Sheet open={architectOpen} onOpenChange={setArchitectOpen}>
+					<Sheet open={coachOpen} onOpenChange={setCoachOpen}>
 						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[320px]">
 							<SheetHeader className="border-b border-border">
-								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><Sparkles className="size-4 text-[var(--accent)]" />Architect</SheetTitle>
-								<SheetDescription className="sr-only">Board-readiness scorecard, coaching, and reshape suggestions for this deck.</SheetDescription>
+								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><Gauge className="size-4 text-[var(--accent)]" />Coach</SheetTitle>
+								<SheetDescription className="sr-only">Board-readiness scorecard, deterministic quick reads, and per-finding fixes for this deck.</SheetDescription>
 							</SheetHeader>
-							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{architectBody}</div>
+							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
+						</SheetContent>
+					</Sheet>
+					{/* Chat — its own compact drawer, a peer of the Coach (they are separate panels). */}
+					<Sheet open={chatOpen} onOpenChange={setChatOpen}>
+						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[320px]">
+							<SheetHeader className="border-b border-border">
+								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><MessageSquareHeart className="size-4 text-[var(--accent)]" />Chat</SheetTitle>
+								<SheetDescription className="sr-only">A conversation with the AI Architect about this deck, with reviewable edits.</SheetDescription>
+							</SheetHeader>
+							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBody}</div>
 						</SheetContent>
 					</Sheet>
 					{/* Lenses (reader views) — its own compact sheet, a peer of the Architect. */}
@@ -3131,22 +3456,10 @@ function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: strin
 		</div>
 	);
 }
-function ScoreRow({ ok, label, v }: { ok?: boolean; label: string; v: string }) {
-	return (
-		<div className="flex items-center gap-1.5">
-			{ok ? <span className="text-[var(--chart-3,#2e6f00)]">✓</span> : <AlertTriangle className="size-3 text-[var(--chart-2,#9c3f00)]" />}
-			<span className="text-foreground">{label}</span>
-			<span className={cn('ml-auto font-mono text-[11px]', ok ? 'text-[var(--chart-3,#2e6f00)]' : 'text-[var(--chart-2,#9c3f00)]')}>{v}</span>
-		</div>
-	);
-}
 function RailOp({ label, onClick, disabled, danger, armed, children }: { label: string; onClick: () => void; disabled?: boolean; danger?: boolean; armed?: boolean; children: React.ReactNode }) {
 	return (
 		<Tip label={label}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn('grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:opacity-30 disabled:hover:bg-transparent', danger && !armed && 'hover:bg-[color-mix(in_srgb,var(--fail,#b3261e)_12%,transparent)] hover:text-[var(--fail,#b3261e)]', armed && 'bg-[var(--fail,#b3261e)] text-white hover:bg-[var(--fail,#b3261e)] hover:text-white')}>{children}</button></Tip>
 	);
-}
-function Chip({ children, onClick, busy }: { children: React.ReactNode; onClick?: () => void; busy?: boolean }) {
-	return <button type="button" onClick={onClick} disabled={busy} className="mt-2 mr-1.5 inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] text-[var(--accent)] disabled:opacity-60">{busy && <Sparkles className="size-3 animate-pulse" />}{children}</button>;
 }
 function InspGroup({ icon, label, desc, last, children }: { icon: React.ReactNode; label: string; desc?: string; last?: boolean; children: React.ReactNode }) {
 	return (

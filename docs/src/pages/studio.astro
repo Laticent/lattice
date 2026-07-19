@@ -65,6 +65,10 @@ try {
 			tags: Array.isArray(c.tags) ? c.tags : [],
 			purpose: c.purpose || '',
 			description: c.description || '',
+			// Prose-density budget (axis/soft/hard). The engine review's density findings
+			// key off it via `densityOf`; without it those findings silently vanish from the
+			// Coach's assessment (succession doc §2.1). Present in components.json.
+			...(c.density ? { density: c.density } : {}),
 			skeleton: String(c.skeleton || ''),
 			// Per-component validity data for the per-slide drawer: which variants /
 			// family modifiers / axes this layout actually accepts, so the drawer only
