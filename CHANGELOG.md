@@ -611,7 +611,7 @@ in patch versions.
   editor is the default pane, so a short load state shows on cold open. (`StudioShell.tsx`;
   `engineering/decisions/2026-07-19-defer-editor-hydration.md`.)
 - **The live-preview engine bundle is ~half the size on cold load — the docs Playground/Studio now ships
-  highlight.js's 37-language `common` build instead of the full 192-language one.** Syntax highlighting for
+  highlight.js's 36-language `common` build instead of the full 192-language one.** Syntax highlighting for
   fenced code was quietly the single largest passenger in `lattice-playground.js`: the full highlight.js build
   is **~1.05MB raw / ~64% of the bundle**, and 90%+ of it is exotic grammars (1C:Enterprise, Mathematica, Arma
   scripting, …) a slide deck never uses. Swapping to the `common` build (JS/TS/Python/YAML/SQL/Bash/JSON/…, all
