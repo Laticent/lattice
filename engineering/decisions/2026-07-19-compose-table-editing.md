@@ -232,6 +232,35 @@ table slide; not a jsdom harness).
 - **Scope creep into list-authored tables** — glossary/list-tabular are explicitly
   out; they already work.
 
+### Adversarial-trio hardening (2026-07-19)
+
+The shipping code went through the full trio (red team · Munger inversion ·
+independent checker, HARD RULE #25). It confirmed the kernel/caching/guard/XSS
+posture is sound, and surfaced fixes that landed before merge:
+
+- **Entity-encoded HTML in a cell** (`&lt;img onerror…&gt;`) slipped the lock (it
+  keys on a literal `<`) and decoded to live markup in the export on the next
+  edit. Now locked — a new `LOSSY_CONSTRUCTS` entry catches entity-encoded tags
+  everywhere (also closes the same pre-existing gap in plain prose).
+- **Borderless tables** (GFM allows omitting the outer pipes) with inline HTML
+  past the first cell weren't locked — the HTML rule anchored on a leading pipe.
+  Now the rule matches a tag on any line that also carries a pipe, either order.
+- **Merged cells via paste** bypassed the Axis-B clamp (that clamp was toolbar-
+  only). A `transformPasted` now strips `colspan`/`rowspan`/`colwidth` so a pasted
+  merged cell can't enter the doc and serialize to a corrupted grid.
+- **Locked-table dead controls** — the divider bar offered table controls on a
+  *locked* table slide, where every command is silently eaten by the structural
+  guard. The table branch now gates on `!locked` (the register footgun, #18).
+- **Chrome polish** — Tab now genuinely appends a row at the last cell
+  (`prosemirror-tables`' `goToNextCell` does not); the `⋯` menu is keyboard-
+  operable (focus-in, Escape restores editor focus) with accessible delete labels;
+  `⋯` toggles instead of flickering; the menu clamps to the viewport.
+
+Residual/non-blocking, logged not fixed: the marker/active-slide decorations walk
+the whole doc per keystroke (same order as the pre-existing plugins — revisit with
+a decoration cache if a very large deck janks); GFM-standard ragged-row truncation
+is render-equivalent (matches how the engine itself parses).
+
 ## Open decisions to confirm before implementation
 
 1. **State-marker rendering in v1** — literal `[x]` text only, or literal text

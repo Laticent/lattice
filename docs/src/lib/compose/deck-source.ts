@@ -58,13 +58,22 @@ export function composeSlideChunk(directives: string[], prose: string): string {
 // table slide is editable in place. A table cell that ITSELF holds an unmodeled construct
 // (math, block HTML, strikethrough, footnote) still trips the matching detector below and
 // locks the whole slide — the guard degrades safely; we only unlock what we can round-trip.
+// An HTML tag opener/closer (not an `<!-- comment -->`): `<div`, `</span>`, `<br/>`.
+const HTML_TAG = String.raw`<(?!!--)\/?[a-zA-Z][\w-]*(?:\s|>|\/)`;
 const LOSSY_CONSTRUCTS: RegExp[] = [
 	/~~/, // strikethrough
-	/^\s*<(?!!--)\/?[a-zA-Z][\w-]*(\s|>|\/)/m, // block-level HTML tag (not a comment)
-	// An HTML tag INSIDE a table row (`| … <tag> … |`). The block-HTML rule above is line-anchored,
-	// so a mid-line tag in a cell slips past it — but the engine renders that HTML (html:true) and a
-	// pipe inside a tag attribute would split the cell, so the slide must lock (Axis F, checker Bug 3).
-	/^\s*\|.*<(?!!--)\/?[a-zA-Z][\w-]*(\s|>|\/)/m,
+	new RegExp(`^\\s*${HTML_TAG}`, 'm'), // block-level HTML tag at line start
+	// Inline HTML on any line that is ALSO a table row — either order, and NOT requiring a leading
+	// pipe (GFM allows borderless tables). The engine renders that HTML (html:true), and a pipe
+	// inside a tag attribute splits the cell, so the slide must lock (Axis F). The old rule anchored
+	// on a leading `|` and missed borderless rows / tag-before-pipe (adversarial-trio gaps).
+	new RegExp(`^[^\\n]*\\|[^\\n]*${HTML_TAG}`, 'm'), // pipe … then a tag
+	new RegExp(`^[^\\n]*${HTML_TAG}[^\\n]*\\|`, 'm'), // a tag … then pipe
+	// An ENTITY-encoded tag (`&lt;img`, `&#60;script`, `&#x3c;div`) — the parser (html:false) decodes
+	// the entity to a literal `<` and the serializer emits it unescaped, turning inert escaped text
+	// into LIVE markup in the export on the next edit. Lock it everywhere (also closes the same
+	// pre-existing gap in plain prose). Harmless entities (`&amp;`, `&copy;`) don't match.
+	/&(?:lt|#0*60|#x0*3c);\/?[a-zA-Z]/i,
 	/^\s*[-*+]\s+\[[ xX]\]/m, // task-list item
 	/\[\^[^\]]+\]/, // footnote reference / definition
 ];

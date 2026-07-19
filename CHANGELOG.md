@@ -220,8 +220,9 @@ in patch versions.
   markers `[x] [-] [ ] [/]` show as tinted chips (green/amber/neutral/strikethrough) while staying literal
   text, so obligation-matrix and roadmap tables read as themselves. The editor is deliberately clamped to
   what GFM can store — no merged cells, no column resize — so what you see always survives the save; a
-  cell holding an unmodeled construct (math, block HTML, strikethrough, a footnote) still locks the slide.
-  glossary and list-tabular are authored as lists and were already editable. (Design:
+  cell holding an unmodeled construct (math, block or entity-encoded HTML, strikethrough, a footnote)
+  still locks the slide, and a table pasted with merged cells is flattened to a plain grid rather than
+  corrupted. glossary and list-tabular are authored as lists and were already editable. (Design:
   `engineering/decisions/2026-07-19-compose-table-editing.md`; `docs/src/lib/compose/deck-markdown.ts`,
   `docs/src/components/studio/ComposeView.tsx`.)
 - **A `scene` animates inside an exported standalone `.html`, not just the live tools.** Export a deck

@@ -2,7 +2,7 @@ import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { history, redo, undo } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
-import type { MarkType, Node as PMNode } from 'prosemirror-model';
+import { Fragment, type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
 import { type Command, EditorState, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import {
@@ -109,7 +109,7 @@ function computeSelBar(view: EditorView): SelBar | null {
 
 /** Set GFM column alignment on every cell of the caret's column (so it renders consistently
  *  and the header cell — which the serializer reads — carries it). `null` clears it. */
-function setColumnAlign(align: 'left' | 'center' | 'right' | null): Command {
+export function setColumnAlign(align: 'left' | 'center' | 'right' | null): Command {
 	return (state, dispatch) => {
 		if (!isInTable(state)) return false;
 		if (dispatch) {
@@ -135,7 +135,7 @@ function setColumnAlign(align: 'left' | 'center' | 'right' | null): Command {
 type ColAlign = 'left' | 'center' | 'right' | null;
 
 /** The caret column's GFM alignment, read from its top cell — drives the align pressed-state. */
-function currentColumnAlign(state: EditorState): ColAlign {
+export function currentColumnAlign(state: EditorState): ColAlign {
 	if (!isInTable(state)) return null;
 	try {
 		const rect = selectedRect(state);
@@ -145,6 +145,39 @@ function currentColumnAlign(state: EditorState): ColAlign {
 		return null;
 	}
 }
+
+// Clamp a pasted slice to the GFM-expressible table shape: strip cell spans (colspan/rowspan/
+// colwidth) so a MERGED cell pasted from Excel / a web page / Google Sheets can't enter the doc
+// and later serialize to a corrupted, ragged grid. The design's no-merge rule (Axis B) is enforced
+// on the toolbar; this closes the paste path the toolbar can't see (adversarial-trio gap). The
+// span is dropped to 1×1 — content is preserved in one cell; `fixTables` fills any resulting hole
+// with empty cells, so the grid stays rectangular and round-trips.
+export function stripCellSpans(fragment: Fragment): Fragment {
+	const out: PMNode[] = [];
+	fragment.forEach((node) => {
+		const content = stripCellSpans(node.content);
+		if ((node.type.name === 'table_cell' || node.type.name === 'table_header') && (node.attrs.colspan !== 1 || node.attrs.rowspan !== 1 || node.attrs.colwidth)) {
+			out.push(node.type.create({ ...node.attrs, colspan: 1, rowspan: 1, colwidth: null }, content, node.marks));
+		} else {
+			out.push(node.copy(content));
+		}
+	});
+	return Fragment.fromArray(out);
+}
+
+// Tab inside a table: hop to the next cell, and at the LAST cell append a row and step into it —
+// the behavior a table editor is expected to have (`prosemirror-tables`' `goToNextCell` alone does
+// NOT append; it just returns false at the end). Outside a table it returns false so Tab falls
+// through to list-item sink.
+export const tabToNextCellOrAddRow: Command = (state, dispatch, view) => {
+	if (goToNextCell(1)(state, dispatch, view)) return true;
+	if (!isInTable(state)) return false;
+	if (dispatch && view) {
+		addRowAfter(state, dispatch);
+		goToNextCell(1)(view.state, view.dispatch, view);
+	}
+	return true;
+};
 
 // The table overflow menu's model: where to anchor (the `⋯` button's viewport rect, so the menu
 // portals to <body> and dodges the surface clipping) and the caret column's alignment (pressed
@@ -432,9 +465,11 @@ class SlideView {
 		// When the caret is inside a table, the context-sensitive Format group becomes the TABLE
 		// group — the frequent ops inline (insert row / column) plus a `⋯` that opens the overflow
 		// menu (align, insert-before, deletes). No separate floating toolbar; the divider bar is the
-		// one context-sensitive surface, and it stays compact on mobile (three buttons).
-		if (isInTable(this.view.state)) {
-			const sig = `tbl|${currentColumnAlign(this.view.state) ?? ''}`;
+		// one context-sensitive surface, and it stays compact on mobile (three buttons). A LOCKED
+		// table slide (a cell holds math/HTML/…) is read-only, so it must NOT offer these controls —
+		// the structural guard would silently eat every command (the register footgun, HARD RULE #18).
+		if (isInTable(this.view.state) && !this.locked) {
+			const sig = 'tbl';
 			if (this.fmtGroup.dataset.sig === sig) return;
 			this.fmtGroup.dataset.sig = sig;
 			this.fmtGroup.replaceChildren(
@@ -613,11 +648,12 @@ function buildPlugins() {
 		formatSyncPlugin(),
 		history(),
 		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
-		// Table cell navigation FIRST — Tab/Shift-Tab hop cells (and append a row off the end).
-		// goToNextCell returns false outside a table, so it falls through to list-item sink/lift.
-		// Enter is a no-op inside a table: a GFM cell is single-line, and the default splitBlock
-		// would fracture the cell (cells are `inline*` textblocks) — corrupting the grid.
-		keymap({ Tab: goToNextCell(1), 'Shift-Tab': goToNextCell(-1), Enter: (state) => isInTable(state) }),
+		// Table cell navigation FIRST — Tab hops cells and appends a row off the end
+		// (tabToNextCellOrAddRow), Shift-Tab hops back. Both return false outside a table, so Tab
+		// falls through to list-item sink/lift. Enter is a no-op inside a table: a GFM cell is
+		// single-line, and the default splitBlock would fracture the cell (cells are `inline*`
+		// textblocks) — corrupting the grid.
+		keymap({ Tab: tabToNextCellOrAddRow, 'Shift-Tab': goToNextCell(-1), Enter: (state) => isInTable(state) }),
 		keymap({
 			Enter: splitListItem(deckSchema.nodes.list_item),
 			Tab: sinkListItem(deckSchema.nodes.list_item),
@@ -735,8 +771,11 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, (anchor, align) => setTableMenu({ left: anchor.left + anchor.width / 2, top: anchor.bottom + 6, align })),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, (anchor, align) => setTableMenu((m) => (m ? null : { left: anchor.left + anchor.width / 2, top: anchor.bottom + 6, align }))),
 				},
+				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
+				// not just the toolbar — a pasted colspan/rowspan can't corrupt the serialized grid.
+				transformPasted: (slice) => new Slice(stripCellSpans(slice.content), slice.openStart, slice.openEnd),
 				dispatchTransaction(tr) {
 					const prevDoc = view.state.doc;
 					const next = view.state.apply(tr);
@@ -771,9 +810,12 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 				},
 				handleDOMEvents: {
 					// D2: on blur, apply any external source that arrived while focused.
-					blur() {
+					blur(_view, event) {
 						setSelBar(null); // the selection bar never outlives focus
-						setTableMenu(null); // nor the table overflow menu
+						// Keep the overflow menu open when focus moves INTO it (keyboard operation);
+						// only close it when focus lands anywhere else.
+						const to = (event as FocusEvent).relatedTarget as HTMLElement | null;
+						if (!to?.closest?.('.cs-tbl-menu')) setTableMenu(null);
 						const pending = pendingResyncRef.current;
 						if (pending != null && viewRef.current) {
 							try {
@@ -849,19 +891,34 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		const view = viewRef.current;
 		if (!view) return;
 		cmd(view.state, view.dispatch);
-		view.focus();
-		if (keepOpen) setTableMenu((m) => (m ? { ...m, align: currentColumnAlign(view.state) } : null));
-		else setTableMenu(null);
+		if (keepOpen) {
+			// Alignment: keep the menu open (retarget L→C→R) and refresh its pressed state; leave
+			// focus in the menu so a keyboard user stays put.
+			setTableMenu((m) => (m ? { ...m, align: currentColumnAlign(view.state) } : null));
+		} else {
+			// Structural op: return focus to the editor and dismiss.
+			view.focus();
+			setTableMenu(null);
+		}
 	}, []);
 
-	// The overflow menu is a lightweight popover: dismiss it on an outside pointer-down or Escape.
+	// The overflow menu is a lightweight popover: dismiss it on an outside pointer-down or Escape,
+	// and focus its first item on open so it's keyboard-operable (Tab through items, Enter, Escape).
 	React.useEffect(() => {
 		if (!tableMenu) return;
+		const menu = document.querySelector('.cs-tbl-menu');
+		if (menu && !menu.contains(document.activeElement)) (menu.querySelector('button') as HTMLElement | null)?.focus();
 		const onDown = (e: PointerEvent) => {
-			if (!(e.target as HTMLElement)?.closest('.cs-tbl-menu')) setTableMenu(null);
+			const t = e.target as HTMLElement | null;
+			// Ignore a click on the `⋯` anchor itself — its own handler toggles the menu; closing here
+			// too would fight it (the close→reopen flicker).
+			if (!t?.closest('.cs-tbl-menu') && !t?.closest('.cs-fmt-more')) setTableMenu(null);
 		};
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') setTableMenu(null);
+			if (e.key === 'Escape') {
+				setTableMenu(null);
+				viewRef.current?.focus();
+			}
 		};
 		document.addEventListener('pointerdown', onDown, true);
 		document.addEventListener('keydown', onKey, true);
@@ -917,7 +974,9 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 						className="cs-tbl-menu"
 						role="menu"
 						aria-label="Table actions"
-						style={{ left: `${tableMenu.left}px`, top: `${tableMenu.top}px` }}
+						// Clamp the (translateX(-50%), min-width 132px) menu so it never clips off-screen
+						// on a narrow viewport where `⋯` sits near the right edge.
+						style={{ left: `${Math.max(74, Math.min(tableMenu.left, (typeof window !== 'undefined' ? window.innerWidth : 9999) - 74))}px`, top: `${tableMenu.top}px` }}
 						onMouseDown={(e) => e.preventDefault()}
 					>
 						<div className="cs-tbl-sec" aria-hidden="true">
@@ -943,9 +1002,10 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 								<button
 									key={a}
 									type="button"
+									role="menuitemradio"
 									className={cn('cs-tbl-align', tableMenu.align === a && 'cs-tbl-on')}
-									aria-label={`Align ${a}`}
-									aria-pressed={tableMenu.align === a}
+									aria-label={`Align column ${a}`}
+									aria-checked={tableMenu.align === a}
 									onClick={() => runTableCmd(setColumnAlign(tableMenu.align === a ? null : a), true)}
 								>
 									{a === 'left' ? 'L' : a === 'center' ? 'C' : 'R'}
@@ -955,13 +1015,13 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 						<div className="cs-tbl-sec" aria-hidden="true">
 							Delete
 						</div>
-						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(deleteRow)}>
+						<button type="button" role="menuitem" aria-label="Delete row" className="cs-tbl-item" onClick={() => runTableCmd(deleteRow)}>
 							Row
 						</button>
-						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(deleteColumn)}>
+						<button type="button" role="menuitem" aria-label="Delete column" className="cs-tbl-item" onClick={() => runTableCmd(deleteColumn)}>
 							Column
 						</button>
-						<button type="button" role="menuitem" className="cs-tbl-item cs-tbl-danger" onClick={() => runTableCmd(deleteTable)}>
+						<button type="button" role="menuitem" aria-label="Delete table" className="cs-tbl-item cs-tbl-danger" onClick={() => runTableCmd(deleteTable)}>
 							Table
 						</button>
 					</div>,

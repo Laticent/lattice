@@ -21,6 +21,20 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| <div>x</div> | 2 |')).toBe(true);
 		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| <span>t</span> | y |')).toBe(true);
 	});
+	it('fires on a BORDERLESS table row with inline HTML — either order (trio gap)', () => {
+		// GFM allows omitting the leading/trailing pipe; the old lock anchored on a leading `|`.
+		expect(hasLossyConstruct('h1 | h2\n---|---\na | b<span title="x|y">c</span>')).toBe(true); // pipe then tag
+		expect(hasLossyConstruct('h1 | h2\n---|---\n<b>a</b> | c')).toBe(true); // tag then pipe
+	});
+	it('fires on an ENTITY-encoded tag in a cell — decodes to live HTML on edit (trio HIGH)', () => {
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| &lt;img src=x onerror=alert(1)&gt; | 2 |')).toBe(true);
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| &#60;script&#62; | 2 |')).toBe(true);
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| &#x3c;div&#x3e; | 2 |')).toBe(true);
+	});
+	it('does NOT over-lock harmless entities or a lone `&lt;` (render-equivalent)', () => {
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| Jack &amp; Jill | © 2026 |')).toBe(false);
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| x &lt; y | ok |')).toBe(false); // `&lt;` + space, not a tag
+	});
 	it('fires on strikethrough', () => {
 		expect(hasLossyConstruct('Price was ~~$5M~~ now $3M.')).toBe(true);
 	});
