@@ -200,6 +200,15 @@ in patch versions.
   spin to a drift, retime it) + the "reads as information?" audit, and a Director (describe-it) mode, follow
   in the next slices. (`MotionStudio.tsx`, `Fabricate.tsx`; `2026-07-18-anima-motion-faculty-modes.md` §3.1.)
 
+- **Rig Mode now authors motion — verb chips, live params, and a "reads as information?" audit.** The
+  Motion inspector is no longer read-only: pick an element and toggle its **motion verbs** (spin · orbit ·
+  explode · reveal · sequence · fill) as chips, then tune each one's **parameters** — axis and period for a
+  spin/orbit, a `to` level for fill, a start/span/easing window for the timed verbs. The **stage re-plays
+  live** on every edit (the same host the decks use), and a scene-wide **audit** flags motion that won't
+  read as meaning — a rotation too fast to track, a duplicated verb, an empty group that moves but shows
+  nothing — the anti-gimmick bar made explicit (`2026-07-18-anima-motion-faculty-modes.md` §3.1–3.2). The
+  audit is pure and advisory; it never blocks. (`MotionStudio.tsx`, `docs/src/lib/anima/audit.ts`.)
+
 - **A `scene` animates inside an exported standalone `.html`, not just the live tools.** Export a deck
   with the self-contained player (`--player`, or the Studio's "share as webpage") and a scene now plays
   right in the portable file — no server, no network. The Anima host + vector backends are pre-bundled
