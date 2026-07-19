@@ -717,7 +717,7 @@ function luminance(c) {
     g = parseInt(h.slice(2, 4), 16);
     b = parseInt(h.slice(4, 6), 16);
   } else {
-    const rgb = m.match(/rgba?\(([^)]+)\)/);
+    const rgb = m.match(/^rgba?\(([^)]+)\)$/);
     if (!rgb) return 0.5;
     const parts = rgb[1].split(",").map((s) => parseFloat(s));
     r = parts[0] ?? 0;

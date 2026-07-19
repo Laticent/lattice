@@ -124,7 +124,10 @@ function luminance(c: string): number {
 		g = parseInt(h.slice(2, 4), 16);
 		b = parseInt(h.slice(4, 6), 16);
 	} else {
-		const rgb = m.match(/rgba?\(([^)]+)\)/);
+		// Anchored ^…$: `m` is a whole trimmed color token, so the match spans it entirely.
+		// Anchoring also keeps this linear — an unanchored `rgba?\(([^)]+)\)` re-scans from
+		// every `rgb(` occurrence, which is quadratic on a crafted string (CodeQL ReDoS).
+		const rgb = m.match(/^rgba?\(([^)]+)\)$/);
 		if (!rgb) return 0.5; // named / var() / gradient - the host's concern
 		const parts = rgb[1].split(',').map((s) => parseFloat(s));
 		r = parts[0] ?? 0;
