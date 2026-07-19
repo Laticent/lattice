@@ -191,6 +191,15 @@ in patch versions.
 
 ### Added
 
+- **A Motion faculty in the Studio — the foundation for authoring a `scene`.** The Fabricate
+  surface gains a fourth tab (Theme · Component · Finish · **Motion**). Its first mode, **Rig**, lays the
+  groundwork: the scene **tree** on the left (inspect and prune elements), a **live stage** in the center
+  that plays the scene through the same host the decks use (so what you tune is exactly what ships), and a
+  read-only per-element inspector on the right. Name it and **Save** lands the scene in your asset library
+  beside your themes and components, ready to drop onto a `scene` slide. Verb-chip motion editing (change a
+  spin to a drift, retime it) + the "reads as information?" audit, and a Director (describe-it) mode, follow
+  in the next slices. (`MotionStudio.tsx`, `Fabricate.tsx`; `2026-07-18-anima-motion-faculty-modes.md` §3.1.)
+
 - **A `scene` animates inside an exported standalone `.html`, not just the live tools.** Export a deck
   with the self-contained player (`--player`, or the Studio's "share as webpage") and a scene now plays
   right in the portable file — no server, no network. The Anima host + vector backends are pre-bundled
