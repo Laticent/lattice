@@ -1,9 +1,12 @@
 import { Check, Cloud, Film, Loader2, RotateCcw, Trash2, X } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { auditScene } from '@/lib/anima/audit';
+import { EASINGS } from '@/lib/anima/easing';
 import { hydrateScene } from '@/lib/anima/hydrate';
 import { parseScene } from '@/lib/anima/schema';
-import type { BuiltElement, Scene } from '@/lib/anima/types';
+import type { BuiltElement, Motion, Scene } from '@/lib/anima/types';
+import { AXES, MOTION_VERBS, type MotionVerb, VERB_SOURCE } from '@/lib/anima/vocabulary';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
 import { cn } from '@/lib/utils';
 import { saveStudioScene, sceneEngine, slugify } from './scene-library';
@@ -71,7 +74,65 @@ export function removeAt(scene: Scene, path: number[]): Scene {
 	return clone;
 }
 
+/** Read the element at `path` in a built scene, or null on a bad path. */
+export function elementAt(scene: Scene, path: number[]): BuiltElement | null {
+	if (scene.source !== 'built' || path.length === 0) return null;
+	let list = scene.elements as BuiltElement[];
+	for (let i = 0; i < path.length - 1; i++) {
+		const child = list[path[i]];
+		if (!child || !Array.isArray(child.children)) return null;
+		list = child.children;
+	}
+	return list[path[path.length - 1]] ?? null;
+}
+
+/** Immutably set (or clear) the motion array on the element at `path`. No-op ref-return on
+ *  a bad path — mirrors `removeAt`, so an edit can never corrupt the tree. */
+export function setMotionAt(scene: Scene, path: number[], motion: Motion[]): Scene {
+	if (scene.source !== 'built' || path.length === 0) return scene;
+	const clone = structuredClone(scene) as Extract<Scene, { source: 'built' }>;
+	let list = clone.elements as BuiltElement[];
+	for (let i = 0; i < path.length - 1; i++) {
+		const child = list[path[i]];
+		if (!child || !Array.isArray(child.children)) return scene;
+		list = child.children;
+	}
+	const el = list[path[path.length - 1]];
+	if (!el) return scene;
+	if (motion.length > 0) el.motion = motion;
+	else delete el.motion;
+	return clone;
+}
+
+/** A newly-added verb's schema-valid defaults — so toggling a chip on never invalidates
+ *  the scene (the stage keeps playing). Params are then tuned in the inspector. */
+export function defaultMotion(verb: MotionVerb): Motion {
+	switch (verb) {
+		case 'spin':
+			return { verb: 'spin', axis: 'y', period: 3000 };
+		case 'orbit':
+			return { verb: 'orbit', axis: 'y', period: 3000 };
+		case 'explode':
+			return { verb: 'explode', distance: 1 };
+		case 'fill':
+			return { verb: 'fill', to: 1 };
+		case 'reveal':
+			return { verb: 'reveal' };
+		case 'sequence':
+			return { verb: 'sequence' };
+		case 'draw':
+			return { verb: 'draw' };
+		case 'trace':
+			return { verb: 'trace' };
+	}
+}
+
 const VERBS = (el: BuiltElement): string[] => (el.motion ?? []).map((m) => m.verb);
+
+// The windowed verbs carry an `at`/`span`/`easing` timeline window; the cyclic ones (spin,
+// orbit) do not. Used to decide which param block the inspector renders.
+const WINDOWED = new Set<MotionVerb>(['explode', 'reveal', 'sequence', 'fill', 'draw', 'trace']);
+const clamp01 = (n: number) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0));
 
 export function MotionStudio({
 	notify,
@@ -139,6 +200,42 @@ export function MotionStudio({
 	// (which the schema rejects → an invalid, unrecoverable scene). Guard that dead-end.
 	const topCount = spec.elements.length;
 	const canRemove = (r: Row) => r.path.length > 1 || topCount > 1;
+
+	// The verbs offerable for this scene's source (built vs svg), and the live audit.
+	const applicable = React.useMemo(() => MOTION_VERBS.filter((v) => VERB_SOURCE[v] === 'both' || VERB_SOURCE[v] === spec.source), [spec.source]);
+	const audit = React.useMemo(() => auditScene(spec), [spec]);
+	const selPath = selectedRow?.path;
+	const elVerbs = selectedRow ? (selectedRow.el.motion ?? []).map((m) => m.verb) : [];
+
+	// Edits read the CURRENT spec inside the functional updater (never a stale closure over
+	// `selectedRow`), so a rapid sequence of chip/param edits can't splice against a stale tree.
+	function toggleVerb(v: MotionVerb) {
+		if (!selPath) return;
+		setSpec((s) => {
+			const el = elementAt(s, selPath);
+			if (!el) return s;
+			const motions = el.motion ?? [];
+			const next = motions.some((m) => m.verb === v) ? motions.filter((m) => m.verb !== v) : [...motions, defaultMotion(v)];
+			return setMotionAt(s, selPath, next);
+		});
+	}
+	function updateMotion(i: number, patch: Record<string, unknown>) {
+		if (!selPath) return;
+		setSpec((s) => {
+			const el = elementAt(s, selPath);
+			if (!el?.motion) return s;
+			const motions = el.motion.map((m, k) => (k === i ? ({ ...m, ...patch } as Motion) : m));
+			return setMotionAt(s, selPath, motions);
+		});
+	}
+	function removeMotion(i: number) {
+		if (!selPath) return;
+		setSpec((s) => {
+			const el = elementAt(s, selPath);
+			if (!el?.motion) return s;
+			return setMotionAt(s, selPath, el.motion.filter((_, k) => k !== i));
+		});
+	}
 
 	const nameOk = slugify(name).length > 0;
 	async function save() {
@@ -214,20 +311,125 @@ export function MotionStudio({
 					)}
 				</div>
 
-				{/* Inspector (read-only in 7a; verb-chip editing is 7b) */}
+				{/* Inspector — verb-chip motion editing + params, and the "reads as information?"
+				    audit (Stage 7b, 2026-07-18 §3.1). */}
 				<div className="min-h-0 overflow-y-auto border-t border-border p-3 sm:border-l sm:border-t-0">
-					<div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Element</div>
 					{selectedRow ? (
-						<dl className="flex flex-col gap-1.5 text-[13px]">
-							<div className="flex justify-between gap-2"><dt className="text-muted-foreground">id</dt><dd className="font-mono font-medium">{selectedRow.el.id}</dd></div>
-							<div className="flex justify-between gap-2"><dt className="text-muted-foreground">shape</dt><dd className="font-medium">{selectedRow.el.shape ?? 'path'}</dd></div>
-							{selectedRow.el.color && <div className="flex items-center justify-between gap-2"><dt className="text-muted-foreground">color</dt><dd className="font-mono text-[11px]">{selectedRow.el.color}</dd></div>}
-							<div className="flex justify-between gap-2"><dt className="text-muted-foreground">motion</dt><dd className="font-medium text-right">{VERBS(selectedRow.el).join(', ') || '—'}</dd></div>
-						</dl>
+						<>
+							<div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Element</div>
+							<div className="flex items-center gap-2 pb-3 text-[13px]">
+								<span className="font-mono font-semibold text-[var(--text-heading)]">{selectedRow.el.id}</span>
+								<span className="text-[11px] text-muted-foreground">{selectedRow.el.shape ?? 'path'}</span>
+								{/* The spec is always STARTER-derived here, so `color` is a schema-checked var(--token).
+								    The inspector renders even when the scene is `invalid`, so once Director/library scenes
+								    (7c) can feed an UNTRUSTED Scene in, gate this inline-style swatch on `validateColor`
+								    (or `valid`) before then — an unvalidated color must not reach `style` un-checked. */}
+								{selectedRow.el.color && <span className="ml-auto inline-block size-3.5 shrink-0 rounded-full border border-border" style={{ background: selectedRow.el.color }} title={selectedRow.el.color} />}
+							</div>
+
+							{/* Verb chips — toggle a motion verb on/off for this element. */}
+							<div className="pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Motion</div>
+							<div className="flex flex-wrap gap-1.5 pb-3">
+								{applicable.map((v) => {
+									const on = elVerbs.includes(v);
+									return (
+										<button key={v} type="button" aria-pressed={on} onClick={() => toggleVerb(v)} className={cn('rounded-full border px-2.5 py-0.5 text-[12px] font-medium transition-colors', on ? 'border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:border-[var(--text-muted)] hover:text-foreground')}>
+											{v}
+										</button>
+									);
+								})}
+							</div>
+
+							{/* Params for each active motion. */}
+							{(selectedRow.el.motion ?? []).length === 0 ? (
+								<p className="pb-3 text-[12px] leading-relaxed text-muted-foreground">No motion yet — tap a verb to animate “{selectedRow.el.id}”.</p>
+							) : (
+								<div className="flex flex-col gap-2 pb-3">
+									{(selectedRow.el.motion ?? []).map((m, i) => {
+										// The window fields live only on the windowed verbs; read them through a
+										// narrow cast (Set.has doesn't narrow the union) — guarded by WINDOWED below.
+										const win = m as { at?: number; span?: number; easing?: string };
+										return (
+										// biome-ignore lint/suspicious/noArrayIndexKey: a verb can legally repeat on one element (the audit flags it), so the index is the only stable disambiguator
+										<div key={`${m.verb}-${i}`} className="rounded-md border border-border p-2">
+											<div className="flex items-center justify-between pb-1.5">
+												<span className="text-[12px] font-semibold text-[var(--accent)]">{m.verb}</span>
+												<button type="button" aria-label={`Remove ${m.verb} from ${selectedRow.el.id}`} onClick={() => removeMotion(i)} className="rounded p-0.5 text-muted-foreground hover:text-[var(--fail)]"><X className="size-3" /></button>
+											</div>
+											{(m.verb === 'spin' || m.verb === 'orbit') && (
+												<div className="flex flex-col gap-1.5">
+													<div className="flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
+														<span>axis</span>
+														<span className="inline-flex overflow-hidden rounded border border-border">
+															{AXES.map((ax) => (
+																<button key={ax} type="button" aria-pressed={m.axis === ax} onClick={() => updateMotion(i, { axis: ax })} className={cn('px-2 py-0.5 text-[12px]', m.axis === ax ? 'bg-[var(--accent)] text-[var(--bg,#fff)]' : 'text-foreground hover:bg-muted')}>{ax}</button>
+															))}
+														</span>
+													</div>
+													<label className="flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
+														<span>period <span className="text-[11px]">(ms/turn)</span></span>
+														<input type="number" min={1} step={100} value={m.period} onChange={(e) => updateMotion(i, { period: Math.max(1, Math.round(Number(e.target.value) || 1)) })} className="w-20 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-[12px] text-foreground outline-none focus:border-[var(--accent)]" />
+													</label>
+												</div>
+											)}
+											{m.verb === 'explode' && (
+												<label className="flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
+													<span>distance</span>
+													<input type="number" min={0} step={0.1} value={m.distance} onChange={(e) => updateMotion(i, { distance: Math.max(0, Number(e.target.value) || 0) })} className="w-20 rounded border border-border bg-transparent px-1.5 py-0.5 text-right text-[12px] text-foreground outline-none focus:border-[var(--accent)]" />
+												</label>
+											)}
+											{m.verb === 'fill' && (
+												<label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+													<span className="shrink-0">to</span>
+													<input type="range" min={0} max={1} step={0.05} value={m.to} onChange={(e) => updateMotion(i, { to: clamp01(Number(e.target.value)) })} className="min-w-0 flex-1 accent-[var(--accent)]" />
+													<span className="w-8 shrink-0 text-right tabular-nums">{m.to.toFixed(2)}</span>
+												</label>
+											)}
+											{WINDOWED.has(m.verb) && (
+												<div className="mt-1.5 flex flex-col gap-1.5 border-t border-border pt-1.5">
+													<label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+														<span className="w-10 shrink-0">start</span>
+														<input type="range" min={0} max={1} step={0.05} value={win.at ?? 0} onChange={(e) => updateMotion(i, { at: clamp01(Number(e.target.value)) })} className="min-w-0 flex-1 accent-[var(--accent)]" />
+														<span className="w-8 shrink-0 text-right tabular-nums">{(win.at ?? 0).toFixed(2)}</span>
+													</label>
+													<label className="flex items-center gap-2 text-[12px] text-muted-foreground">
+														<span className="w-10 shrink-0">span</span>
+														<input type="range" min={0} max={1} step={0.05} value={win.span ?? 1} onChange={(e) => updateMotion(i, { span: clamp01(Number(e.target.value)) })} className="min-w-0 flex-1 accent-[var(--accent)]" />
+														<span className="w-8 shrink-0 text-right tabular-nums">{(win.span ?? 1).toFixed(2)}</span>
+													</label>
+													<label className="flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
+														<span>easing</span>
+														<select value={win.easing ?? 'linear'} onChange={(e) => updateMotion(i, { easing: e.target.value })} className="rounded border border-border bg-transparent px-1.5 py-0.5 text-[12px] text-foreground outline-none focus:border-[var(--accent)]">
+															{EASINGS.map((es) => <option key={es} value={es}>{es}</option>)}
+														</select>
+													</label>
+												</div>
+											)}
+										</div>
+										);
+									})}
+								</div>
+							)}
+						</>
 					) : (
 						<p className="text-[13px] text-muted-foreground">No element selected.</p>
 					)}
-					<p className="mt-4 border-t border-border pt-3 text-[12px] leading-relaxed text-muted-foreground">Verb-chip editing + the “reads as information?” audit arrive in the next slice. For now, tune the spec by pruning the tree; the stage plays it live via the same host the deck uses.</p>
+
+					{/* The "reads as information?" audit — scene-wide, advisory (never blocks). */}
+					<div className="mt-1 border-t border-border pt-3">
+						<div className="pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Reads as information?</div>
+						{audit.length === 0 ? (
+							<p className="flex items-center gap-1.5 text-[12px] text-[var(--accent)]"><Check className="size-3.5 shrink-0" /> Every motion earns its place.</p>
+						) : (
+							<ul className="flex flex-col gap-1.5">
+								{audit.map((n) => (
+									<li key={`${n.elId ?? 'scene'}:${n.message}`} className={cn('flex gap-1.5 text-[12px] leading-snug', n.level === 'warn' ? 'text-[var(--fail)]' : 'text-muted-foreground')}>
+										<span aria-hidden className="shrink-0">{n.level === 'warn' ? '⚠' : 'ℹ'}</span><span>{n.message}</span>
+									</li>
+								))}
+							</ul>
+						)}
+					</div>
 				</div>
 			</div>
 
