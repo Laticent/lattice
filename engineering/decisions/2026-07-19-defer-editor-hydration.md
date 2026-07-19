@@ -47,7 +47,7 @@ import type { EditorHandle } from './Editor';
 const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Editor })));
 // …
 {editMode === 'compose' ? <ComposeView … /> : (
-  <React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the editor…</div>}>
+  <React.Suspense fallback={<EditorSkeleton />}>   {/* gutter + faint lines, not a "Loading" box — see trio §Q2 */}
     <Editor ref={editorRef} … />
   </React.Suspense>
 )}
@@ -132,3 +132,45 @@ window. This is also the "load the rest in the background" half of the deferral.
 **Nits (logged, #18):** a stale test comment at `StudioShell.test.tsx:531` ("editor mounted but inert" — now
 the *pane* is mounted, the Editor may still be the fallback); and the Read-first newcomer's inert 0px editor
 still fetches CodeMirror (markdown is the default mode) — a further deferral opportunity, not a regression.
+
+## Adversarial trio (on the shipped diff — HARD RULE #25)
+
+Owner-requested the full trio (red team + Munger inversion + independent checker) on the ACTUAL diffs of
+both slices, not the design. Net: **both slices are correct and their numbers are honest — no MUST-FIX, no
+merge blocker.** The trio surfaced two real *felt/robustness* improvements on slice 2, both folded in here,
+plus follow-ups for the already-merged slice 1.
+
+- **Independent checker — all numbers reproduce.** Rebuilt the preview bundle (byte-identical to the
+  committed artifact) and independently built slice 2 both ways: eager JS **816→615 gz** confirmed within
+  gzip-level noise; the export path is genuinely unchanged (`lib/engine/index.js` keeps the full build); and
+  **the warm effect does NOT pull CodeMirror onto the critical path** (the CM chunk is not referenced in
+  `dist/studio/index.html`) — the crux holds. Both PR bodies judged honest. One nit: `common` registers **36**
+  languages, not "37" (a factual error in slice-1's merged comment/doc/CHANGELOG → follow-up).
+- **Red team — no MUST-FIX, would not block.** Ref-forwarding through `React.lazy` works; all 13 `editorRef`
+  sites are optional-chained and none derefs on mount; the warm + lazy dedupe to one request. Two follow-ups:
+  (a) slice-1's esbuild alias matches `highlight.js/…` **subpaths** by prefix, so a *future* subpath import
+  would break `playground:build` — latent, wants a hardening comment/exact-match guard; (b) slice-2's
+  demo-typing race isn't 100% closed by the warm (importing the chunk ≠ mounting the component).
+- **Munger inversion — the sharpest felt finding (fixed).** Because the SSG shell dismisses on the
+  **preview's** first render, on cold load it could lift while the editor pane was still a bare "Loading…"
+  box — revealing a **half-built app**. Also: the warm-on-mount reorders rather than eliminates the editor's
+  parse, and *both* slices leave the **~2.7s iframe CSS-reparse frame** (the largest first-render cost, which
+  repeats on refresh) untouched — the honest next lever.
+
+**Folded into this PR (slice 2):**
+1. **Editor-shaped skeleton** (`EditorSkeleton`, `StudioShell.tsx`) replaces the "Loading the editor…" box — a
+   gutter + faint code lines, so the shell handoff reveals an editor silhouette, not an empty box (closes the
+   Munger Q2 regression). Eager JS re-measured **615,566 gz** — CodeMirror still lazy, win intact.
+2. **Demo typing is race-proof** — a new `editorReady()` binding (`= () => editorRef.current != null`) makes
+   the demo pick the controlled `setSource` typing channel (the same one the phone uses) when the editor
+   hasn't mounted yet, instead of dropping characters into a native `typeTail` no-op. Closes the red-team +
+   maker-checker race for good, no setSource⟷typeTail mixing (the mode is fixed per run).
+
+**Logged follow-ups on the merged slice 1 (#1088), NOT in this PR (separate concern, #17):**
+- `36`-not-`37`: correct the language count in `tools/build-playground.js`, `2026-07-19-preview-bundle-hljs-common.md`, `CHANGELOG.md`.
+- Harden the `highlight.js` alias against subpath imports (a comment on the alias line, or an exact-match esbuild resolve plugin).
+
+**Strategic (whole program):** the trio's strongest point is that the dominant felt cost — the ~2.7s iframe
+CSS-reparse on first render, repeated on refresh — is untouched by both JS slices and still parked. If the
+program continues, a **build-time `out.css` prune via native CSSOM** (never touching `dist/lattice.css`, per
+the slice-1 trio's own escape hatch) is the honest next work-reduction, above the remaining minor JS levers.

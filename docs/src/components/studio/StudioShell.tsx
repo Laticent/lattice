@@ -102,6 +102,31 @@ const Fabricate = React.lazy(() => import('./Fabricate').then((m) => ({ default:
 // engineering/decisions/2026-07-19-defer-editor-hydration.md.
 const Editor = React.lazy(() => import('./Editor').then((m) => ({ default: m.Editor })));
 
+// Editor-shaped placeholder shown while the lazy CodeMirror chunk streams in. The SSG
+// instant-shell dismisses on the PREVIEW's first render (decoupled from the editor), so
+// on cold load the shell can lift while this pane is still resolving — a bare "Loading…"
+// box would reveal a half-built app. A gutter + faint code lines read as "an editor,
+// arriving" instead, so the handoff stays seamless. Fixed widths (no Math.random) keep it
+// deterministic; the real text is sr-only for assistive tech.
+const EDITOR_SKELETON_LINES = [82, 63, 71, 44, 78, 57, 88, 38, 67, 74, 51, 80, 60, 46];
+function EditorSkeleton() {
+	return (
+		<div className="flex flex-1 gap-3 overflow-hidden p-3 font-mono text-[13px] leading-[1.5]" aria-hidden="true">
+			<div className="flex select-none flex-col items-end gap-[7px] pr-3 text-muted-foreground/25">
+				{EDITOR_SKELETON_LINES.map((w, i) => (
+					<span key={w}>{i + 1}</span>
+				))}
+			</div>
+			<div className="flex flex-1 flex-col gap-[7px] pt-[3px]">
+				{EDITOR_SKELETON_LINES.map((w) => (
+					<div key={w} className="h-[9px] rounded-sm bg-muted-foreground/10" style={{ width: `${w}%` }} />
+				))}
+			</div>
+			<span className="sr-only">Loading the editor…</span>
+		</div>
+	);
+}
+
 // Deck Inspector pill-tab sections, ordered by likely reach (Look first). The two
 // read-aloud groups collapse into "Speech"; the spectrum/accent family is "Accent"
 // (renamed from "Brand" — a broader, clearer name for everything the accent touches,
@@ -1374,6 +1399,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		createFirstDeck: createDemoFirstDeck,
 		setSource,
 		typeTail: (t: string) => editorRef.current?.typeTail(t),
+		// True once the lazy CodeMirror editor has mounted (its imperative handle is set).
+		// The demo uses this to pick its typing channel: native `typeTail` when ready, else
+		// the controlled `setSource` path (the same one the phone uses) so a "Take a tour"
+		// click landing in the brief cold-load window before the editor mounts still types
+		// the deck instead of dropping characters into a not-yet-mounted editor.
+		editorReady: () => editorRef.current != null,
 		goToSlide,
 		setView,
 		setArchitectOpen,
@@ -2257,7 +2288,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{editMode === 'compose' ? (
 				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} onInsertBelow={openInsertAfter} />
 			) : (
-				<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the editor…</div>}>
+				<React.Suspense fallback={<EditorSkeleton />}>
 					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
 				</React.Suspense>
 			)}
