@@ -139,7 +139,10 @@ mud and value-collapse hide there.
       container class your kernel emits is matched by the frame `bodyRE`.
 5. **Write CSS** `<name>.styles.css`: style only the interior; consume
    `--chart-cat-N-fill/-ink` or `--chart-state-*`. The `.chart-frame` chrome is
-   already styled.
+   already styled. **Unlayered** — no `@layer` wrapper (inert here; a layered rule
+   loses to unlayered base rules, cascade.md) — and anchor every selector on
+   `:is(section.<name>, figure.chart-frame)` so the fills also resolve in the
+   Read·Article figure re-host, not only inside the slide `section`.
 6. **Choose the legend** per the three-way test: color/size-categorical → integrated
    SVG key via `svg-legend.js`; wide diagram → bottom-center key; self-labeling →
    no key.
@@ -198,15 +201,21 @@ const SECTION_BUILDERS = { /* … */ funnel: buildFunnelSection };  // 3b. AND t
 // transformChartSection export exists; a CHART_LAYOUTS name without a builder no-ops.
 ```
 
-The CSS (consumes tokens, cycles by hue):
+The CSS — **unlayered** (no `@layer` wrapper: `@layer` is inert in the engine
+bundle and a layered rule LOSES to an unlayered base rule regardless of
+specificity — `engineering/cascade.md`; every shipped chart CSS is unlayered),
+matched on `:is(section.<name>, figure.chart-frame)` so the colors resolve **both**
+in the slide and in the Read·Article `<figure class="chart-frame">` re-host that
+re-parents the chart SVG outside its `section`. Consumes tokens, cycles by hue:
 
 ```css
-@layer components {
-  section.funnel .funnel-band:nth-of-type(1) { fill: var(--chart-cat-1-fill); stroke: var(--chart-cat-1-ink); }
-  section.funnel .funnel-band:nth-of-type(2) { fill: var(--chart-cat-2-fill); stroke: var(--chart-cat-2-ink); }
-  /* … label text sits on the canvas, not on the band … */
-  section.funnel text { fill: var(--text-heading); }
-}
+/* UNLAYERED — bare selectors, no @layer wrapper (cascade.md). This is the general
+   CATEGORICAL idiom (as piechart's wedges do it): cycle distinct hues by index. A
+   single-hue chart like funnel instead ramps ONE `--chart-cat-N-hue` by `--i`. */
+:is(section.<name>, figure.chart-frame) .mark:nth-of-type(1) { fill: var(--chart-cat-1-fill); stroke: var(--chart-cat-1-ink); }
+:is(section.<name>, figure.chart-frame) .mark:nth-of-type(2) { fill: var(--chart-cat-2-fill); stroke: var(--chart-cat-2-ink); }
+/* … label text sits on the canvas, not on the mark … */
+:is(section.<name>, figure.chart-frame) text { fill: var(--text-heading); }
 ```
 
 ---
@@ -245,7 +254,8 @@ The CSS (consumes tokens, cycles by hue):
 - [ ] Registered in **both** `CHART_LAYOUTS` and `SECTION_BUILDERS`; body class
       matched by `bodyRE`.
 - [ ] CSS consumes `--chart-cat-N-*` / `--chart-state-*` only; cycles via
-      `nth-of-type`.
+      `nth-of-type`; **unlayered** (no `@layer` wrapper, cascade.md) and anchored on
+      `:is(section.<name>, figure.chart-frame)`.
 - [ ] Contrast green on light AND dark (`chart-contrast.test.js`); dark checked
       hardest.
 - [ ] Demo deck + galleries; wired in all three render paths.
@@ -258,11 +268,14 @@ The CSS (consumes tokens, cycles by hue):
 1. **Hardcoded color in the kernel** — always theme tokens in CSS.
 2. **Exceeding 6 categories** or cycling past slot 6.
 3. **`nth-child` instead of `nth-of-type`** — off by one because of `<defs>`.
-4. **Mixing the fill toward `--bg`** on dark — muddies warm hues; mix toward black.
-5. **Labels on the mark** instead of the canvas.
-6. **Front-matter or data-file input** — series data is markdown list + inline-code
+4. **Wrapping the CSS in an `@layer components` block** — inert here; the rule silently
+   loses the cascade to unlayered base rules (cascade.md). Author unlayered, and match
+   `:is(section.<name>, figure.chart-frame)` so it also styles the figure re-host.
+5. **Mixing the fill toward `--bg`** on dark — muddies warm hues; mix toward black.
+6. **Labels on the mark** instead of the canvas.
+7. **Front-matter or data-file input** — series data is markdown list + inline-code
    pills (roadmap's table is the only exception).
-7. **Skipping the dark-canvas contrast check.**
+8. **Skipping the dark-canvas contrast check.**
 
 ---
 
