@@ -109,7 +109,7 @@ interface Part {
   isFade: boolean; // reveal without draw/trace → shows via opacity
   hasHighlight: boolean; // bumps stroke-weight on emphasis
   hasTransform: boolean; // has a base transform or a slide verb → paints a transform
-  baseStrokeWidth: number; // the un-emphasized stroke weight (attribute, or a 2 default)
+  baseStrokeWidth: number; // the un-emphasized stroke weight (attribute, CSS-computed, or a 2 default)
   origTransform: string; // any transform already on the node, kept innermost
   cx: number; // the part's center (bbox), for rotate/scale
   cy: number;
@@ -148,7 +148,11 @@ export function vivusRenderer(opts: VivusOptions = {}): Renderer {
     if (Math.abs(rzDeg) > 1e-4 || Math.abs(s - 1) > 1e-4) {
       out += ` translate(${fmt(part.cx)} ${fmt(part.cy)}) rotate(${fmt(rzDeg)}) scale(${fmt(s)}) translate(${fmt(-part.cx)} ${fmt(-part.cy)})`;
     }
-    return part.origTransform ? `${out} ${part.origTransform}` : out;
+    // The part's own authored transform goes OUTERMOST (applied last), so our motion runs in the
+    // part's LOCAL space — the space `getBBox` measured, where the `cx/cy` rotate/scale pivot is
+    // valid. Innermost would pivot in the already-placed space and swing the part off-position
+    // (checker #1). For a translate-only slide the ordering is immaterial.
+    return part.origTransform ? `${part.origTransform} ${out}` : out;
   }
 
   /** Paint the PER-ELEMENT channels the single-scalar stroke-draw can't: transform (slide +
@@ -163,7 +167,10 @@ export function vivusRenderer(opts: VivusOptions = {}): Renderer {
       if (!es) continue;
       if (part.hasTransform) part.node.setAttribute('transform', composeTransform(es, part));
       if (part.isFade) part.node.setAttribute('opacity', String(clamp01(es.reveal)));
-      if (part.hasHighlight) part.node.setAttribute('stroke-width', String(fmt(part.baseStrokeWidth * (1 + clamp01(es.emphasis) * EMPHASIS_GAIN))));
+      // Write via INLINE STYLE, not the presentation attribute: an (untrusted) asset can style
+      // stroke-width via a <style> rule or inline style, which outranks a presentation attribute
+      // and would make the emphasis a silent no-op (checker #2). Inline style wins over both.
+      if (part.hasHighlight) (part.node as SVGElement).style.strokeWidth = String(fmt(part.baseStrokeWidth * (1 + clamp01(es.emphasis) * EMPHASIS_GAIN)));
     }
   }
 
@@ -217,7 +224,13 @@ export function vivusRenderer(opts: VivusOptions = {}): Renderer {
         if (!node) continue;
         if (el.color) node.setAttribute('stroke', resolveColor(el.color, target));
         const motion = el.motion ?? [];
-        const bw = Number(node.getAttribute('stroke-width'));
+        // Base stroke weight to emphasize FROM: the attribute if present, else the CSS-resolved
+        // width (an asset may style it via a rule), else a 2 default (checker #2).
+        let bw = Number(node.getAttribute('stroke-width'));
+        if (!(Number.isFinite(bw) && bw > 0) && doc.defaultView) {
+          const csw = Number.parseFloat(doc.defaultView.getComputedStyle(node).strokeWidth);
+          if (Number.isFinite(csw) && csw > 0) bw = csw;
+        }
         let cx = 0;
         let cy = 0;
         try {

@@ -129,12 +129,13 @@ describe('vivusRenderer — per-element paint', () => {
     expect(host.querySelector('#s')?.getAttribute('transform')).toContain('translate(0 0)');
   });
 
-  it('bumps stroke-weight on a highlighted part, holding at full emphasis', () => {
+  it('bumps stroke-weight on a highlighted part (via inline style, so asset CSS cannot override), holding at full emphasis', () => {
     const { renderer, tl, host } = mounted(PAINT_SCENE, { m: PAINT_MARKUP });
+    const width = () => Number.parseFloat((host.querySelector('#h') as unknown as SVGElement).style.strokeWidth);
     renderer.draw(tl.at(0));
-    expect(Number(host.querySelector('#h')?.getAttribute('stroke-width'))).toBeCloseTo(1.5, 3); // base
+    expect(width()).toBeCloseTo(1.5, 3); // base (from the attribute)
     renderer.draw(tl.at(1000));
-    expect(Number(host.querySelector('#h')?.getAttribute('stroke-width'))).toBeCloseTo(1.5 * 1.9, 3); // +90%
+    expect(width()).toBeCloseTo(1.5 * 1.9, 3); // +90% at full emphasis
   });
 
   it('does not paint opacity on a stroke-drawn (non-fade) part', () => {
@@ -148,5 +149,19 @@ describe('vivusRenderer — per-element paint', () => {
     const p = renderer.poster(tl.poster()); // hero = 1 → arrived, fully revealed, full emphasis
     expect(p.svg).toContain('opacity="1"');
     expect(p.svg).toContain('transform="translate(0 0)"');
+  });
+});
+
+describe('vivusRenderer — transform composition order (checker #1)', () => {
+  it("keeps a part's OWN authored transform outermost, so base rotate/scale pivots in local space", () => {
+    // The rect carries its own placement transform; Pathformer preserves it onto the <path>.
+    const M = '<svg viewBox="0 0 200 200"><rect id="r" x="0" y="0" width="10" height="10" transform="translate(100 50)"/></svg>';
+    const S = { source: 'svg', duration: 1000, hero: 1, asset: 'm', elements: [{ id: 'e', pathRef: 'r', transform: { rotate: [0, 0, 1.5708] } }] };
+    const { renderer, tl, host } = mounted(S, { m: M });
+    renderer.draw(tl.at(0));
+    const t = host.querySelector('#r')?.getAttribute('transform') ?? '';
+    // authored placement first (outermost) → our rotate composes in the part's local frame
+    expect(t.startsWith('translate(100 50)')).toBe(true);
+    expect(t).toContain('rotate(90)'); // 1.5708 rad ≈ 90°
   });
 });
