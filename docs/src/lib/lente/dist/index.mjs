@@ -293,10 +293,8 @@ function approvalHash(slides, reg, lensId) {
   const pairs = lensPairs(slides, reg, lensId);
   const lens2 = reg.lenses.find((l) => l.id === lensId);
   const base = lens2?.base ?? "none";
-  const body = pairs.map((p) => `${p.index} ${p.slide}`).join("\n");
-  return `sha256:${sha256Hex(`${lensId}
-${base}
-${body}`)}`;
+  const preimage = JSON.stringify([lensId, base, pairs.map((p) => [p.index, p.slide])]);
+  return `sha256:${sha256Hex(preimage)}`;
 }
 function lensEligibility(slides, reg, lensId) {
   const lens2 = reg.lenses.find((l) => l.id === lensId);
