@@ -112,7 +112,17 @@ export function MotionStudio({
 		figure.className = 'scene-figure';
 		section.appendChild(figure);
 		host.appendChild(section);
-		const ctrl = hydrateScene(section, { eager: true, sanitize: sanitizeSlideHtml });
+		// `hydrateScene` runs compile + renderer mount, which can throw on a spec that PARSES but
+		// fails downstream (a shape/param combo a future verb edit reaches). There is no error
+		// boundary in the Studio, so an uncaught throw here white-screens the whole surface. Guard
+		// it the way the sibling `hydrateScenes` guards each section — fall back to the empty stage.
+		let ctrl: ReturnType<typeof hydrateScene> | undefined;
+		try {
+			ctrl = hydrateScene(section, { eager: true, sanitize: sanitizeSlideHtml });
+		} catch {
+			host.textContent = '';
+			return;
+		}
 		return () => {
 			ctrl?.dispose();
 			host.textContent = '';
@@ -230,7 +240,8 @@ export function MotionStudio({
 .motion-stage .scene-control{position:absolute;right:10px;top:10px;z-index:3;height:28px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:color-mix(in oklab,var(--bg,#fff) 86%,transparent);color:var(--text-muted);font-size:13px;line-height:1;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .18s ease}
 .motion-stage .scene-figure:hover .scene-control,.motion-stage .scene-figure:focus-within .scene-control,.motion-stage .scene-figure.scene-controls-shown .scene-control{opacity:1;pointer-events:auto}
 .motion-stage .scene-control[data-mode="optin"]{opacity:1;pointer-events:auto}
-.motion-stage .scene-control::before{font-size:1.05em}
+@media (prefers-reduced-motion: reduce){.motion-stage .scene-control{transition:none}}
+.motion-stage .scene-control::before{font-size:1.1em}
 .motion-stage .scene-control[data-mode="pause"]::before{content:"\\23f8"}
 .motion-stage .scene-control[data-mode="play"]::before{content:"\\25b6"}
 .motion-stage .scene-control[data-mode="replay"]::before{content:"\\21bb"}
