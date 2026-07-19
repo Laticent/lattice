@@ -301,6 +301,17 @@ free-easing/keyframe surface to build ornament with.
 reveal; `still` collapses to the poster. `system` resolves a reduced-motion device to `legible`, or
 to the poster for a scene whose whole content is vestibular.
 
+**The floor bounds the DEFAULT and the AUTHOR, not the VIEWER (Stage 6b).** `prefers-reduced-motion`
+is why a scene does not *autoplay* motion the viewer didn't ask for, and it's a ceiling the author
+cannot raise — but a viewer who explicitly chooses to see the motion is exercising their own agency,
+not being subjected to it. So when the floor alone holds a would-move scene to its poster (`still`,
+and *only* because the OS setting floored a scene the author declared to move — never when the author
+declared `still`, and never a motionless scene with nothing to play), the host shows the poster plus a
+labelled **"Play the motion"** opt-in; the click mounts the FULL author-intended motion. A scene that
+survives to `legible` still autoplays its safe, vestibular-stripped projection as before. Every live
+scene also carries ONE adaptive control (⏸ pause · ▶ resume — seamless, not a restart · ↻ replay when
+a finite scene ends), so motion is always the viewer's to stop and start.
+
 ## 13. Honest risk read
 
 - **The utility bar is a discipline, not a gate.** No machine can see "this rotation is
@@ -370,8 +381,15 @@ Stage 6 landed as a **split**, recorded so the deferred half is tracked work, no
   across the scaled iframe — Munger's ship-blocker + the red team's IO-coverage HIGH); a spec **size-cap**
   before decode (client-DoS guard); `data-scene-motion` value validation; a `disposed` guard; a broadened
   stray-placeholder strip; and `usedVerbs` made **recursive** (dropping the host's duplicate `sceneVerbs`).
-- **Stage 6b (fast-follow).** Present-mode advance (still gated on §15's unresolved slide-enter-vs-
-  narrative-step-vs-control question) and **standalone-HTML-export** hydration. Export needs a *different
+- **Stage 6b — the control + reduced-motion opt-in (shipped).** One adaptive corner control per live
+  scene (⏸ pause · ▶ resume, seamless not restart · ↻ replay on a finite end) replaces the replay-only
+  button, and a **"Play the motion" opt-in** now lets a reduced-motion viewer choose the full motion a
+  floor-suppressed scene would otherwise hide (§12.2 — the floor bounds the default + the author, not
+  the viewer). All in the surface-agnostic host, so Present + export inherit it. Verified on the real
+  Playground with a real Chromium (HARD RULE #23): pause freezes, resume continues, the opt-in mounts +
+  plays; the decision branches are unit-tested (the interactive clicks are the real-surface test, per #23).
+- **Stage 6b — remaining (fast-follow).** Present-mode advance (still gated on §15's unresolved slide-enter-
+  vs-narrative-step-vs-control question) and **standalone-HTML-export** hydration. Export needs a *different
   delivery* than the parent-hosted Playground — an in-frame injected script carrying the backends — but it
   calls the **same** surface-agnostic `hydrateScenes`, so only the delivery bifurcates, not the logic.
 - **Poster ↔ spec correspondence (carry).** For **built** (Zdog) scenes the poster still and the spec are

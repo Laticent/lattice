@@ -66,8 +66,9 @@ section.scene .scene-figure svg {
 
 /* Stage 6 — the live animation. The host (hydrate.ts) hides the poster svg and mounts the
  * backend surface into `.scene-live`, which fills the figure exactly where the poster sat;
- * a subtle replay control sits in the corner. Both are added by JS only, so the PDF (no JS)
- * always shows the authored poster still. */
+ * a single adaptive control (⏸ / ▶ / ↻, or a labelled "Play the motion" opt-in under
+ * reduced motion) sits in the corner. Both are added by JS only, so the PDF (no JS) always
+ * shows the authored poster still. */
 section.scene .scene-figure .scene-live {
   width: 100%;
   height: 100%;
@@ -83,29 +84,41 @@ section.scene .scene-figure .scene-live canvas {
   max-width: 100%;
   max-height: 100%;
 }
-section.scene .scene-replay {
+section.scene .scene-control {
   position: absolute;
   right: 2.5cqi;
   bottom: 2.5cqi;
   z-index: 3;
-  width: 5cqi;
   height: 5cqi;
-  min-width: 26px;
   min-height: 26px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0;
+  gap: 1.2cqi;
+  padding: 0 1.8cqi;
   border: 1px solid var(--border);
-  border-radius: 50%;
+  border-radius: 999px;
   background: color-mix(in oklab, var(--bg) 86%, transparent);
   color: var(--text-muted);
   font-size: var(--fs-message);
   line-height: 1;
   cursor: pointer;
 }
-section.scene .scene-replay::before { content: "\21bb"; } /* ↻ replay glyph */
-section.scene .scene-replay:hover {
+/* The glyph is the ACTION the button performs. */
+section.scene .scene-control::before { font-size: 1.1em; }
+section.scene .scene-control[data-mode="pause"]::before { content: "\23f8"; } /* ⏸ */
+section.scene .scene-control[data-mode="play"]::before { content: "\25b6"; } /* ▶ */
+section.scene .scene-control[data-mode="replay"]::before { content: "\21bb"; } /* ↻ */
+section.scene .scene-control[data-mode="optin"]::before { content: "\25b6"; } /* ▶ */
+/* Icon-only modes stay a circular puck; the opt-in grows to seat its label. */
+section.scene .scene-control:not([data-mode="optin"]) {
+  width: 5cqi;
+  min-width: 26px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+}
+section.scene .scene-control-label:empty { display: none; }
+section.scene .scene-control:hover {
   color: var(--text-heading);
   border-color: var(--text-muted);
 }

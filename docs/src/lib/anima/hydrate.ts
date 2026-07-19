@@ -137,13 +137,37 @@ function assetsFor(scene: Scene, figure: Element, sanitize: (m: string) => strin
   return { [scene.asset]: sanitize(poster.outerHTML) };
 }
 
-function makeReplayButton(doc: Document, onReplay: () => void): HTMLButtonElement {
+/** The four faces of the single corner control (user pick, Stage 6b). */
+type ControlMode = 'pause' | 'play' | 'replay' | 'optin';
+
+const CONTROL_ARIA: Record<ControlMode, string> = {
+  pause: 'Pause the animation',
+  play: 'Play the animation',
+  replay: 'Replay the animation',
+  optin: 'Play the motion',
+};
+
+/** One adaptive playback control in the figure's corner: ⏸ while a scene plays, ▶ to resume
+ *  a paused one, ↻ to replay a finished one, and a labelled "Play the motion" opt-in when
+ *  `prefers-reduced-motion` has held a scene to its poster. The floor governs the DEFAULT and
+ *  what the AUTHOR can force; it does not strip the VIEWER's agency to choose the motion (the
+ *  opt-in never autoplays and is per-view). The glyph per mode lives in `scene.styles.css`. */
+function makeControl(doc: Document, onClick: () => void): { el: HTMLButtonElement; set(mode: ControlMode): void } {
   const btn = doc.createElement('button');
   btn.type = 'button';
-  btn.className = 'scene-replay';
-  btn.setAttribute('aria-label', 'Replay the animation');
-  btn.addEventListener('click', onReplay);
-  return btn;
+  btn.className = 'scene-control';
+  const label = doc.createElement('span');
+  label.className = 'scene-control-label';
+  btn.appendChild(label);
+  btn.addEventListener('click', onClick);
+  return {
+    el: btn,
+    set(mode: ControlMode): void {
+      btn.dataset.mode = mode;
+      btn.setAttribute('aria-label', CONTROL_ARIA[mode]);
+      label.textContent = mode === 'optin' ? 'Play the motion' : '';
+    },
+  };
 }
 
 /** Hydrate ONE `section.scene[data-scene-spec]`. Returns a controller, or null if the
@@ -160,14 +184,24 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
     rawMotion === 'full' || rawMotion === 'legible' || rawMotion === 'still' || rawMotion === 'system'
       ? rawMotion
       : 'system'; // unknown/absent → system (resolves prefers-reduced-motion)
-  const tier = effectiveTier(declared, prefersReducedMotion(opts), scene);
-  if (tier === 'still') return null; // poster stands
+  const reduced = prefersReducedMotion(opts);
+  const tier = effectiveTier(declared, reduced, scene);
+
+  // `still` splits two ways. The AUTHOR asking for a still (or a motionless scene that renders
+  // identically to its poster) keeps the poster and returns null. But a scene the reduced-motion
+  // FLOOR *alone* held to its poster — declared to move, held still only by the viewer's OS
+  // setting — instead offers a "Play the motion" opt-in (mount deferred until asked), so the
+  // viewer keeps agency. `usedVerbs > 0` excludes the motionless case (nothing to opt into).
+  const floorSuppressed = tier === 'still' && declared !== 'still' && reduced && usedVerbs(scene).length > 0;
+  if (tier === 'still' && !floorSuppressed) return null; // poster stands
 
   const figureEl = section.querySelector('.scene-figure');
   if (!figureEl) return null;
   const figure: Element = figureEl; // non-null for the closures below
 
-  const playScene = tier === 'legible' ? toLegible(scene) : scene;
+  // A floor-suppressed opt-in plays the FULL author-intended motion (the viewer explicitly asked
+  // to see it); an un-suppressed `legible` scene autoplays its safe, vestibular-stripped projection.
+  const playScene = floorSuppressed ? scene : tier === 'legible' ? toLegible(scene) : scene;
   const maybeRenderer = rendererFor(playScene);
   if (!maybeRenderer) return null;
   const renderer: Renderer = maybeRenderer; // non-null for the closures below
@@ -176,35 +210,79 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
   const assets = assetsFor(playScene, figure, opts.sanitize ?? ((m) => m));
   const poster = figure.querySelector('svg'); // SVGSVGElement | null
 
+  const control = makeControl(doc, onControlClick);
   let stage: HTMLElement | null = null;
-  let replay: HTMLButtonElement | null = null;
   let raf = 0;
-  let start = 0;
+  let startTs = 0; // timestamp the current play segment began (0 → set on next frame)
+  let baseElapsed = 0; // ms elapsed before the current segment, so pause → play resumes seamlessly
+  let lastElapsed = 0; // last elapsed drawn (freeze reads it so resume continues, not restarts)
   let mounted = false;
   let playing = false;
+  let ended = false; // a one-shot has run to its final frame → offer ↻
+  let userPaused = false; // the viewer paused (vs. an off-screen auto-pause) → don't auto-resume
+  let autoPaused = false; // frozen because scrolled off-screen → resume on re-entry
+  let optInPending = floorSuppressed; // show poster + opt-in until the viewer plays
   let disposed = false;
 
+  function sync(): void {
+    if (optInPending) control.set('optin');
+    else if (playing) control.set('pause');
+    else if (ended) control.set('replay');
+    else control.set('play');
+  }
+
   function tick(t: number): void {
-    if (start === 0) start = t;
-    let e = t - start;
-    if (loop) e = e % timeline.durationMs;
+    if (!startTs) startTs = t;
+    let e = baseElapsed + (t - startTs);
+    if (loop) e = timeline.durationMs > 0 ? e % timeline.durationMs : 0; // guard 0-length loop → NaN
     else if (e > timeline.durationMs) e = timeline.durationMs;
+    lastElapsed = e;
     renderer.draw(timeline.at(e));
-    if (playing && (loop || e < timeline.durationMs)) raf = requestAnimationFrame(tick);
-    else playing = false; // one-shot finished: hold the final frame
+    if (playing && (loop || e < timeline.durationMs)) {
+      raf = requestAnimationFrame(tick);
+    } else {
+      playing = false;
+      if (!loop) ended = true; // one-shot finished: hold the final frame
+      sync();
+    }
+  }
+
+  function stopRaf(): void {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
   }
 
   function play(): void {
-    if (playing) return;
+    if (playing || disposed) return;
     playing = true;
-    start = 0;
+    ended = false;
+    userPaused = false;
+    autoPaused = false;
+    startTs = 0;
     raf = requestAnimationFrame(tick);
+    sync();
   }
 
-  function pause(): void {
+  /** Freeze in place, remembering elapsed time so play() resumes rather than restarts. */
+  function freeze(): void {
+    if (!playing) return;
     playing = false;
-    if (raf) cancelAnimationFrame(raf);
-    raf = 0;
+    stopRaf();
+    baseElapsed = lastElapsed;
+    startTs = 0;
+  }
+
+  function pauseByUser(): void {
+    freeze();
+    userPaused = true;
+    sync();
+  }
+
+  function replay(): void {
+    baseElapsed = 0;
+    lastElapsed = 0;
+    ended = false;
+    play();
   }
 
   function mount(): void {
@@ -215,37 +293,64 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
     figure.appendChild(stage);
     if (poster) poster.style.display = 'none';
     renderer.mount(stage, playScene, assets);
-    replay = makeReplayButton(doc, () => play());
-    figure.appendChild(replay);
+  }
+
+  function mountAndPlay(): void {
+    mount();
     play();
   }
 
+  function onControlClick(): void {
+    if (optInPending) { optInPending = false; mountAndPlay(); return; }
+    if (ended) { replay(); return; }
+    if (playing) { pauseByUser(); return; }
+    // Was user-paused → resume; or clicked ▶ before the lazy IntersectionObserver has mounted
+    // it → mount then play. `mountAndPlay` no-ops the mount when already mounted, so resume
+    // still continues from `baseElapsed` (never a phantom rAF that draws into nothing).
+    mountAndPlay();
+  }
+
   function unmount(): void {
-    pause();
+    freeze();
     if (!mounted) return;
     mounted = false;
     renderer.dispose();
     stage?.remove();
-    replay?.remove();
+    stage = null;
     if (poster) poster.style.display = '';
   }
 
-  // Lazy by default: mount on first view, pause off-screen (present-mode autoplay-on-enter
-  // rides the same signal). `eager` (or no IntersectionObserver) mounts immediately.
+  // The control is present from the start: a floor-suppressed scene shows the poster + opt-in
+  // straight away; an ordinary scene gets ⏸ the moment it mounts.
+  figure.appendChild(control.el);
+  sync();
+
+  // Lazy by default: mount on first view, auto-pause off-screen (the perf NFR); resume on
+  // re-entry unless the viewer paused. A floor-suppressed scene never AUTO-mounts (the opt-in
+  // click is its only trigger) — but once opted in it still auto-pauses off-screen like any
+  // other live scene, so the observer is created for it too and only the autoplay is gated.
+  // `eager` (or no IntersectionObserver) mounts immediately; an eager opt-in scene waits for
+  // the click and, being always on screen, needs no observer.
   let io: IntersectionObserver | null = null;
   if (!opts.eager && typeof IntersectionObserver === 'function') {
     io = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting) { mount(); play(); }
-          else pause();
+          if (entry.isIntersecting) {
+            if (optInPending) continue; // floor: never auto-mount a suppressed scene
+            if (!mounted) mountAndPlay();
+            else if (autoPaused && !userPaused && !ended) play();
+          } else if (playing) {
+            freeze();
+            autoPaused = true;
+          }
         }
       },
       { threshold: 0.25 },
     );
     io.observe(section);
-  } else {
-    mount();
+  } else if (!optInPending) {
+    mountAndPlay();
   }
 
   return {
@@ -253,6 +358,7 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
       disposed = true;
       io?.disconnect();
       unmount();
+      control.el.remove();
     },
   };
 }
