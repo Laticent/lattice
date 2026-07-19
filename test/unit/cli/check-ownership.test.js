@@ -453,6 +453,44 @@ describe('check-ownership', () => {
         assert.ok(dropped.includes(needle), `removing "${needle}" from theme.md must be detected as a dropped concept`);
       }
     });
+
+    // Both CSS-authoring skills (component + chart) must stay unlayered — a chart is a
+    // component and every shipped chart CSS is unlayered (engineering/cascade.md).
+    const CSS_AUTHORING_SKILLS = ['component.md', 'chart-component.md'];
+
+    test('the CSS-authoring skills carry no `@layer components {` wrapper and teach "unlayered"', () => {
+      for (const skill of CSS_AUTHORING_SKILLS) {
+        const src = fs.readFileSync(path.join(ROOT, 'design', 'skills', skill), 'utf8');
+        assert.ok(!/@layer\s+components\s*\{/.test(src), `${skill} must not show an \`@layer components {\` wrapper`);
+        assert.ok(/unlayered/i.test(src), `${skill} must teach the unlayered CSS convention`);
+      }
+    });
+
+    test('the gate bites: an `@layer … {` wrapper in a CSS-authoring skill is flagged', () => {
+      // Drive the REAL gate, not just its regex: temporarily poison chart-component.md
+      // on disk, confirm checkSkillFreshness populates `errors` for it, then restore in
+      // a finally. checkSkillFreshness reads SKILLS_DIR directly and exports no pure
+      // predicate, so a faithful "the gate bites" test must exercise the file loop.
+      const target = path.join(ROOT, 'design', 'skills', 'chart-component.md');
+      const original = fs.readFileSync(target, 'utf8');
+      for (const wrapper of ['@layer components { section.x { color: red } }', '@layer { section.x { color: red } }']) {
+        try {
+          fs.writeFileSync(target, `${original}\n\n\`\`\`css\n${wrapper}\n\`\`\`\n`);
+          const errors = [];
+          checkSkillFreshness(errors);
+          assert.ok(
+            errors.some((e) => e.includes('chart-component.md') && /@layer/.test(e)),
+            `poisoning chart-component.md with "${wrapper}" must make checkSkillFreshness flag it; got:\n${errors.join('\n')}`,
+          );
+        } finally {
+          fs.writeFileSync(target, original);
+        }
+      }
+      // The restored tree is clean again (guards against a botched restore).
+      const errors = [];
+      checkSkillFreshness(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
   });
 
   // HARD RULE #22 — every docs-site preview-frame builder sanitizes its slide HTML.

@@ -2392,24 +2392,36 @@ function checkSkillFreshness(errors) {
     }
   }
   // component.md taught `@layer components` (2026-07), but @layer is inert here and
-  // a layered component rule LOSES to an unlayered base rule regardless of
-  // specificity (engineering/cascade.md) — following it produced a component whose
-  // CSS silently lost the cascade. Pin the correction: the skill must NOT reintroduce
-  // the `@layer components {` skeleton wrapper, and must teach the unlayered convention.
-  const componentFile = path.join(SKILLS_DIR, 'component.md');
-  if (fs.existsSync(componentFile)) {
-    const src = fs.readFileSync(componentFile, 'utf8');
-    if (/@layer\s+components\s*\{/.test(src)) {
+  // a layered component rule LOSES to an unlayered base rule regardless of specificity
+  // (engineering/cascade.md) — following it produced a component whose CSS silently lost
+  // the cascade. chart-component.md carried the SAME wrapper in its CSS skeleton (a chart
+  // IS a component; every shipped chart CSS — piechart, funnel, map — is unlayered), and
+  // the original guard only covered component.md, so it survived the #1032 pass. Pin the
+  // correction across BOTH CSS-authoring skills: neither may show an `@layer … {` block
+  // wrapper in its CSS, and each must TEACH the unlayered convention (the word "unlayered").
+  const CSS_AUTHORING_SKILLS = ['component.md', 'chart-component.md'];
+  for (const skill of CSS_AUTHORING_SKILLS) {
+    const f = path.join(SKILLS_DIR, skill);
+    if (!fs.existsSync(f)) continue;
+    const src = fs.readFileSync(f, 'utf8');
+    // Match any @layer BLOCK wrapper — `@layer {`, `@layer components {`, `@layer x {` —
+    // not just the exact historical string, so a differently-named or anonymous wrapper
+    // can't slip the guard. The optional-single-name + `\s*\{` shape deliberately does NOT
+    // match the sanctioned declaration form `@layer a, b, c;` (no block), and avoids the
+    // cross-file greedy false-match a broad `[^;{]*\{` would cause against prose that
+    // mentions `@layer` far above some later `{`.
+    if (/@layer(\s+[\w-]+)?\s*\{/.test(src)) {
       errors.push(
-        'design/skills/component.md reintroduces an `@layer components {` wrapper. Component CSS is ' +
-        'UNLAYERED here (engineering/cascade.md) — a layered rule loses to unlayered base rules. ' +
-        'Remove the wrapper; use bare selectors.',
+        `design/skills/${skill} shows an \`@layer … {\` block wrapper in its CSS. Component/chart CSS is ` +
+        'UNLAYERED here (engineering/cascade.md) — a layered rule loses to unlayered base rules regardless ' +
+        'of specificity. Remove the wrapper; use bare selectors. (Keep any prose mention of the wrapper ' +
+        'without an opening brace so this gate does not false-fire.)',
       );
     }
     if (!/unlayered/i.test(src)) {
       errors.push(
-        'design/skills/component.md no longer teaches the UNLAYERED CSS convention (expected the word ' +
-        '"unlayered"). Component files carry no `@layer` wrapper (cascade.md); the skill must say so.',
+        `design/skills/${skill} no longer teaches the UNLAYERED CSS convention (expected the word ` +
+        '"unlayered"). Component/chart CSS carries no `@layer` wrapper (cascade.md); the skill must say so.',
       );
     }
   }

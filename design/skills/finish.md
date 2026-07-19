@@ -46,6 +46,12 @@ beneath the content, bottom to top:
 | z4 | **edge** — vignette / frame | `--fin-edge` / `--fin-frame` | vignette, fold, margin rule, keyline |
 | z5 | content | — | painted above every layer, untouched |
 
+> **Naming note — two unrelated "textures."** This `--fin-texture` is a *backdrop
+> pattern layer* (z2 above). It is **not** the categorical `--cat-N-texture` channel
+> from the theme skill (`engineering/textures.md`), which fills diagram categories
+> with a pattern in place of hue. Same word, different mechanism and prefix — a
+> finish never touches `--cat-*`, and a theme never touches `--fin-*`.
+
 The wash and texture ride the `.backdrop`'s `background-image`; the mark rides
 `.backdrop::before`; the vignette rides `.backdrop::after`, but a full keyline
 **frame** must be stacked inset box-shadows via `--fin-frame` — the *section*'s
