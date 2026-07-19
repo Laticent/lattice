@@ -213,8 +213,10 @@ in patch versions.
   with a `|…|` table used to be locked read-only in Compose (the rich editor) because its round-trip ran
   on a CommonMark-only serializer that couldn't emit a table. Compose now models GFM tables as real
   ProseMirror nodes and round-trips them losslessly, so you edit a table in place: click into a cell and
-  type; **Tab**/**Shift-Tab** hop cells and append a row off the end; a floating toolbar over the table
-  inserts/deletes rows and columns, sets per-column alignment, and deletes the table. The LFM state
+  type; **Tab**/**Shift-Tab** hop cells and append a row off the end; the slide's own context-sensitive
+  divider bar grows table controls when the caret is in a table — quick insert-row/column inline, and a
+  `⋯` overflow menu (align a column, insert before, delete row/column/table) that keeps the bar compact on
+  mobile. No separate floating toolbar. The LFM state
   markers `[x] [-] [ ] [/]` show as tinted chips (green/amber/neutral/strikethrough) while staying literal
   text, so obligation-matrix and roadmap tables read as themselves. The editor is deliberately clamped to
   what GFM can store — no merged cells, no column resize — so what you see always survives the save; a

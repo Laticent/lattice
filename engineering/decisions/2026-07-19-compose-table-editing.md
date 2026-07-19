@@ -182,14 +182,26 @@ and list-tabular are untouched.
 ## What the experience looks like
 
 Click into a cell and type. **Tab** / **Shift-Tab** walk across cells and append
-a new row when you run off the end. A small table toolbar (or a `⋯` menu on the
-table) offers **+Row / +Column / delete row / delete column / delete table** and
-a per-column **align** toggle. Insert a table from the slide's block "register"
-gutter (a new *Table* register) or an `Insert ▸ Table` affordance. On
-`obligation-matrix`/`roadmap` slides the four state markers show as small badge
+a new row when you run off the end. The table controls live in the slide's **own
+context-sensitive divider bar** — the same bar that offers the prose registers
+(H1/insight/note) becomes the *table* bar when the caret is in a table: quick
+**+Row / +Column** inline, plus a **`⋯` overflow menu** holding the
+less-frequent ops (align a column left/center/right, insert-before, delete
+row/column/table). There is **no separate floating toolbar** — one
+context-sensitive surface — and on mobile the inline quick-adds collapse into the
+`⋯` so the bar stays compact (space was the explicit constraint). Insert a
+brand-new table from the gallery (a `compare-table` slide ships a starter grid).
+On `obligation-matrix`/`roadmap` slides the four state markers show as small badge
 chips (the decoration) instead of raw `[x]`. Under it all, Compose is still
 emitting clean GFM into the same `source`, so the markdown mode and the final
 render never diverge — the two editors stay perfectly in sync.
+
+> **Chrome revision (2026-07-19, post-review):** the first cut used a separate
+> floating toolbar anchored over the table; on review that was a redundant second
+> toolbar. It was folded into the existing context-sensitive divider bar with a
+> `⋯` overflow, per the direction "the toolbar on the divider is already context
+> sensitive and we should use it … on mobile we need a `⋯` for less-frequent
+> functions."
 
 ## Phasing (one branch → one PR, HARD RULE #17)
 

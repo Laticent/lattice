@@ -132,31 +132,26 @@ function setColumnAlign(align: 'left' | 'center' | 'right' | null): Command {
 	};
 }
 
-// The floating table toolbar's model: where to sit (viewport coords, portaled to <body> like
-// the selection bar) and the caret column's current alignment (for the pressed L/C/R state).
-// null = the caret is not inside a table, so no toolbar.
-type TableBar = { left: number; top: number; align: 'left' | 'center' | 'right' | null };
+type ColAlign = 'left' | 'center' | 'right' | null;
 
-function computeTableBar(view: EditorView): TableBar | null {
-	const { state } = view;
+/** The caret column's GFM alignment, read from its top cell — drives the align pressed-state. */
+function currentColumnAlign(state: EditorState): ColAlign {
 	if (!isInTable(state)) return null;
-	let rect: ReturnType<typeof selectedRect>;
 	try {
-		rect = selectedRect(state);
+		const rect = selectedRect(state);
+		const rel = rect.map.map[rect.top * rect.map.width + rect.left];
+		return (state.doc.nodeAt(rect.tableStart + rel)?.attrs.align as ColAlign) ?? null;
 	} catch {
 		return null;
 	}
-	const tablePos = rect.tableStart - 1; // the table node's own position
-	const dom = view.nodeDOM(tablePos);
-	if (!(dom instanceof HTMLElement)) return null;
-	const r = dom.getBoundingClientRect();
-	// The caret column's alignment, read from its top cell — drives the L/C/R pressed state.
-	let align: 'left' | 'center' | 'right' | null = null;
-	const topRel = rect.map.map[rect.top * rect.map.width + rect.left];
-	const topCell = state.doc.nodeAt(rect.tableStart + topRel);
-	if (topCell) align = (topCell.attrs.align as typeof align) ?? null;
-	return { left: r.left + r.width / 2, top: Math.max(r.top, 52), align };
 }
+
+// The table overflow menu's model: where to anchor (the `⋯` button's viewport rect, so the menu
+// portals to <body> and dodges the surface clipping) and the caret column's alignment (pressed
+// L/C/R state). null = closed. The FREQUENT table ops (insert row / column) live inline in the
+// slide's context-sensitive divider bar; this menu holds the LESS-frequent ones so the bar stays
+// compact on mobile — there is NO separate always-on table toolbar.
+type TableMenu = { left: number; top: number; align: ColAlign };
 
 // The structural guard (the adversarial trio's CRITICAL). Two invariants a stray keystroke
 // must never break: (1) the slide COUNT can't change from editing — Backspace at a slide
@@ -353,6 +348,7 @@ class SlideView {
 		onSettings?: (index: number) => void,
 		private getHeadings?: () => SlideHeadings | undefined,
 		onInsertBelow?: (index: number) => void,
+		private onTableMenu?: (anchor: DOMRect, align: ColAlign) => void,
 	) {
 		this.locked = !!node.attrs.locked;
 		const dom = document.createElement('section');
@@ -433,6 +429,21 @@ class SlideView {
 			}
 			return;
 		}
+		// When the caret is inside a table, the context-sensitive Format group becomes the TABLE
+		// group — the frequent ops inline (insert row / column) plus a `⋯` that opens the overflow
+		// menu (align, insert-before, deletes). No separate floating toolbar; the divider bar is the
+		// one context-sensitive surface, and it stays compact on mobile (three buttons).
+		if (isInTable(this.view.state)) {
+			const sig = `tbl|${currentColumnAlign(this.view.state) ?? ''}`;
+			if (this.fmtGroup.dataset.sig === sig) return;
+			this.fmtGroup.dataset.sig = sig;
+			this.fmtGroup.replaceChildren(
+				this.tblBtn('Insert row below', '＋Row', () => this.runTable(addRowAfter)),
+				this.tblBtn('Insert column right', '＋Col', () => this.runTable(addColumnAfter)),
+				this.tblBtn('More table actions', '⋯', (btn) => this.onTableMenu?.(btn.getBoundingClientRect(), currentColumnAlign(this.view.state)), true),
+			);
+			return;
+		}
 		const { keys, active } = applicableRegisters(this.view.state, this.getHeadings?.());
 		const sig = `${keys.join(',')}|${active ?? ''}`;
 		if (this.fmtGroup.dataset.sig === sig) return;
@@ -455,6 +466,28 @@ class SlideView {
 			});
 			this.fmtGroup.append(b);
 		}
+	}
+	// A table-control button in the Format group. Same mono chip as the register buttons, so the
+	// bar reads as ONE context-sensitive toolbar. `fn` receives the button (the `⋯` needs its rect
+	// to anchor the overflow menu).
+	private tblBtn(label: string, glyph: string, fn: (btn: HTMLButtonElement) => void, isMore = false): HTMLButtonElement {
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = `cs-fmt-btn cs-fmt-mono cs-fmt-tbl${isMore ? ' cs-fmt-more' : ''}`;
+		b.textContent = glyph;
+		b.title = label;
+		b.setAttribute('aria-label', label);
+		if (isMore) b.setAttribute('aria-haspopup', 'menu');
+		b.addEventListener('mousedown', (e) => e.preventDefault());
+		b.addEventListener('click', (e) => {
+			e.preventDefault();
+			fn(b);
+		});
+		return b;
+	}
+	private runTable(cmd: Command) {
+		cmd(this.view.state, this.view.dispatch);
+		this.view.focus();
 	}
 	private applyDecos(decorations: readonly Decoration[]) {
 		const has = (k: 'collapsed' | 'active') => decorations.some((d) => (d.spec as Record<string, boolean> | undefined)?.[k]);
@@ -625,9 +658,10 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
 	const [selBar, setSelBar] = React.useState<SelBar | null>(null);
-	// The floating table toolbar (structural ops + column align) when the caret is inside a
-	// table, else null. Portaled to <body> like the selection bar.
-	const [tableBar, setTableBar] = React.useState<TableBar | null>(null);
+	// The table OVERFLOW menu (less-frequent ops: align, insert-before, deletes), opened from the
+	// `⋯` button in the slide's divider bar, else null. Portaled to <body> like the selection bar.
+	// The frequent ops (insert row/column) live inline in the bar, so the bar has no separate toolbar.
+	const [tableMenu, setTableMenu] = React.useState<TableMenu | null>(null);
 
 	// The mobile shell (coarse pointer / ≤699px) drives the TYPING-MODE chrome collapse: when the
 	// software keyboard is up, the shell's top bands collapse for a full writing surface.
@@ -701,7 +735,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 				state: EditorState.create({ doc, plugins: buildPlugins() }),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, (anchor, align) => setTableMenu({ left: anchor.left + anchor.width / 2, top: anchor.bottom + 6, align })),
 				},
 				dispatchTransaction(tr) {
 					const prevDoc = view.state.doc;
@@ -727,24 +761,19 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 						lastEmittedRef.current = src;
 						onChangeRef.current(src);
 					}
-					// Selection-bar + table-bar geometry LAST and guarded — a throw in coordsAtPos
-					// must never abort the transaction and swallow the emit above.
+					// Selection-bar geometry LAST and guarded — a throw in coordsAtPos must never
+					// abort the transaction and swallow the emit above.
 					try {
 						setSelBar(computeSelBar(view));
 					} catch {
 						setSelBar(null);
-					}
-					try {
-						setTableBar(computeTableBar(view));
-					} catch {
-						setTableBar(null);
 					}
 				},
 				handleDOMEvents: {
 					// D2: on blur, apply any external source that arrived while focused.
 					blur() {
 						setSelBar(null); // the selection bar never outlives focus
-						setTableBar(null); // nor the table toolbar
+						setTableMenu(null); // nor the table overflow menu
 						const pending = pendingResyncRef.current;
 						if (pending != null && viewRef.current) {
 							try {
@@ -766,16 +795,11 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		// The floating bar is positioned in viewport coords; a scroll of the writing surface
 		// would strand it, so hide it on scroll (it returns on the next selection change).
 		const host = hostRef.current;
-		// A scroll of the writing surface would strand the viewport-positioned bars: hide the
-		// transient selection bar (it returns on the next selection), and RE-ANCHOR the table
-		// toolbar to the table's new position (it should stay put while you edit a long table).
+		// A scroll of the writing surface would strand the viewport-positioned overlays: hide the
+		// selection bar (it returns on the next selection) and close the table overflow menu.
 		const onScroll = () => {
 			setSelBar(null);
-			try {
-				setTableBar(computeTableBar(view));
-			} catch {
-				setTableBar(null);
-			}
+			setTableMenu(null);
 		};
 		host?.addEventListener('scroll', onScroll, { passive: true });
 		return () => {
@@ -819,19 +843,33 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		setSelBar(computeSelBar(view));
 	}, []);
 
-	// Run a table command from the toolbar, keeping focus in the editor, then re-anchor the bar
-	// (a row/column op moves the table; delete-table dismisses it).
-	const onTableCmd = React.useCallback((cmd: Command) => {
+	// Run a table command from the overflow menu, keeping focus in the editor. Structural ops close
+	// the menu; alignment keeps it open (you may retarget L→C→R) and refreshes its pressed state.
+	const runTableCmd = React.useCallback((cmd: Command, keepOpen = false) => {
 		const view = viewRef.current;
 		if (!view) return;
 		cmd(view.state, view.dispatch);
 		view.focus();
-		try {
-			setTableBar(computeTableBar(view));
-		} catch {
-			setTableBar(null);
-		}
+		if (keepOpen) setTableMenu((m) => (m ? { ...m, align: currentColumnAlign(view.state) } : null));
+		else setTableMenu(null);
 	}, []);
+
+	// The overflow menu is a lightweight popover: dismiss it on an outside pointer-down or Escape.
+	React.useEffect(() => {
+		if (!tableMenu) return;
+		const onDown = (e: PointerEvent) => {
+			if (!(e.target as HTMLElement)?.closest('.cs-tbl-menu')) setTableMenu(null);
+		};
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') setTableMenu(null);
+		};
+		document.addEventListener('pointerdown', onDown, true);
+		document.addEventListener('keydown', onKey, true);
+		return () => {
+			document.removeEventListener('pointerdown', onDown, true);
+			document.removeEventListener('keydown', onKey, true);
+		};
+	}, [tableMenu]);
 
 	if (failed) {
 		return (
@@ -873,77 +911,58 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 					</div>,
 					document.body,
 				)}
-			{tableBar &&
+			{tableMenu &&
 				createPortal(
 					<div
-						className="cs-tablebar"
-						role="toolbar"
-						aria-label="Table"
-						style={{ left: `${tableBar.left}px`, top: `${tableBar.top}px` }}
+						className="cs-tbl-menu"
+						role="menu"
+						aria-label="Table actions"
+						style={{ left: `${tableMenu.left}px`, top: `${tableMenu.top}px` }}
 						onMouseDown={(e) => e.preventDefault()}
 					>
-						<span className="cs-tb-label" aria-hidden="true">
+						<div className="cs-tbl-sec" aria-hidden="true">
+							Insert
+						</div>
+						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(addRowBefore)}>
+							Row above
+						</button>
+						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(addRowAfter)}>
+							Row below
+						</button>
+						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(addColumnBefore)}>
+							Column left
+						</button>
+						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(addColumnAfter)}>
+							Column right
+						</button>
+						<div className="cs-tbl-sec" aria-hidden="true">
+							Align column
+						</div>
+						<div className="cs-tbl-aligns">
+							{(['left', 'center', 'right'] as const).map((a) => (
+								<button
+									key={a}
+									type="button"
+									className={cn('cs-tbl-align', tableMenu.align === a && 'cs-tbl-on')}
+									aria-label={`Align ${a}`}
+									aria-pressed={tableMenu.align === a}
+									onClick={() => runTableCmd(setColumnAlign(tableMenu.align === a ? null : a), true)}
+								>
+									{a === 'left' ? 'L' : a === 'center' ? 'C' : 'R'}
+								</button>
+							))}
+						</div>
+						<div className="cs-tbl-sec" aria-hidden="true">
+							Delete
+						</div>
+						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(deleteRow)}>
 							Row
-						</span>
-						<button type="button" className="cs-tb-btn" aria-label="Insert row above" title="Insert row above" onClick={() => onTableCmd(addRowBefore)}>
-							+↑
 						</button>
-						<button type="button" className="cs-tb-btn" aria-label="Insert row below" title="Insert row below" onClick={() => onTableCmd(addRowAfter)}>
-							+↓
+						<button type="button" role="menuitem" className="cs-tbl-item" onClick={() => runTableCmd(deleteColumn)}>
+							Column
 						</button>
-						<button type="button" className="cs-tb-btn" aria-label="Delete row" title="Delete row" onClick={() => onTableCmd(deleteRow)}>
-							✕
-						</button>
-						<span className="cs-tb-sep" aria-hidden="true" />
-						<span className="cs-tb-label" aria-hidden="true">
-							Col
-						</span>
-						<button type="button" className="cs-tb-btn" aria-label="Insert column left" title="Insert column left" onClick={() => onTableCmd(addColumnBefore)}>
-							+←
-						</button>
-						<button type="button" className="cs-tb-btn" aria-label="Insert column right" title="Insert column right" onClick={() => onTableCmd(addColumnAfter)}>
-							+→
-						</button>
-						<button type="button" className="cs-tb-btn" aria-label="Delete column" title="Delete column" onClick={() => onTableCmd(deleteColumn)}>
-							✕
-						</button>
-						<span className="cs-tb-sep" aria-hidden="true" />
-						<span className="cs-tb-label" aria-hidden="true">
-							Align
-						</span>
-						<button
-							type="button"
-							className={cn('cs-tb-btn cs-tb-align', tableBar.align === 'left' && 'cs-tb-on')}
-							aria-label="Align column left"
-							aria-pressed={tableBar.align === 'left'}
-							title="Align column left"
-							onClick={() => onTableCmd(setColumnAlign(tableBar.align === 'left' ? null : 'left'))}
-						>
-							L
-						</button>
-						<button
-							type="button"
-							className={cn('cs-tb-btn cs-tb-align', tableBar.align === 'center' && 'cs-tb-on')}
-							aria-label="Align column center"
-							aria-pressed={tableBar.align === 'center'}
-							title="Align column center"
-							onClick={() => onTableCmd(setColumnAlign(tableBar.align === 'center' ? null : 'center'))}
-						>
-							C
-						</button>
-						<button
-							type="button"
-							className={cn('cs-tb-btn cs-tb-align', tableBar.align === 'right' && 'cs-tb-on')}
-							aria-label="Align column right"
-							aria-pressed={tableBar.align === 'right'}
-							title="Align column right"
-							onClick={() => onTableCmd(setColumnAlign(tableBar.align === 'right' ? null : 'right'))}
-						>
-							R
-						</button>
-						<span className="cs-tb-sep" aria-hidden="true" />
-						<button type="button" className="cs-tb-btn cs-tb-danger" aria-label="Delete table" title="Delete table" onClick={() => onTableCmd(deleteTable)}>
-							⌦
+						<button type="button" role="menuitem" className="cs-tbl-item cs-tbl-danger" onClick={() => runTableCmd(deleteTable)}>
+							Table
 						</button>
 					</div>,
 					document.body,
@@ -1055,6 +1074,9 @@ function ComposeStyles() {
 				.cs-fmt-btn:not(.cs-fmt-mono){font-size:15px}
 				.cs-pill-btn{width:28px;height:28px}
 				.cs-pill-btn svg{width:15px;height:15px}
+				/* space is tight — collapse the quick +Row/+Col chips into the ⋯ menu (which already
+				   holds Row below / Column right), leaving just ⋯ inline. Desktop keeps the shortcuts. */
+				.cs-fmt-tbl:not(.cs-fmt-more){display:none}
 			}
 			/* floating selection bar — inline marks over a text selection (portaled to body).
 			   DESKTOP ONLY: on touch the OS selection menu owns formatting (see canFloatBar). */
@@ -1064,16 +1086,21 @@ function ComposeStyles() {
 			.cs-sb-mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:11px}
 			.cs-sb-btn:hover{background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%);color:var(--text-heading,#0a1628)}
 			.cs-sb-on{color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
-				/* floating TABLE toolbar — structural ops + column align, over the caret's table
-				   (portaled to body). Shown whenever the caret is inside a table, on any pointer. */
-				.cs-tablebar{position:fixed;z-index:60;display:flex;align-items:center;gap:2px;padding:3px 5px;border-radius:9px;background:var(--bg-alt,#fff);border:1px solid var(--border,rgba(0,0,0,.1));box-shadow:0 6px 20px -6px rgba(0,0,0,.28),0 1px 2px rgba(0,0,0,.14);transform:translate(-50%,calc(-100% - 8px));animation:cs-sb-in .1s ease-out}
-				.cs-tb-label{font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);padding:0 2px}
-				.cs-tb-btn{min-width:24px;height:24px;padding:0 5px;border:none;border-radius:6px;background:transparent;color:var(--text-body,#1e3a5f);font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .1s,background .1s}
-				.cs-tb-align{font-weight:700;font-size:11px}
-				.cs-tb-btn:hover{background:color-mix(in oklab,var(--bg-alt,#eee),var(--text-muted) 16%);color:var(--text-heading,#0a1628)}
-				.cs-tb-on,.cs-tb-on:hover{color:var(--on-accent,#fff);background:var(--accent,#006fa8)}
-				.cs-tb-danger:hover{color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e),transparent 88%)}
-				.cs-tb-sep{flex:none;width:1px;height:15px;background:var(--border,#e4eaf2);margin:0 2px}
+				/* table controls in the context-sensitive Format group — the insert-row/column chips read
+				   as label voice like the register buttons; the ellipsis opens the overflow menu. */
+				.cs-fmt-tbl{letter-spacing:.01em}
+				.cs-fmt-more{font-size:14px;font-weight:700}
+				/* the table OVERFLOW menu — a small popover of the less-frequent ops (portaled to body),
+				   opened from the ellipsis button. Keeps the divider bar compact on mobile: no second toolbar. */
+				.cs-tbl-menu{position:fixed;z-index:60;transform:translateX(-50%);display:flex;flex-direction:column;min-width:132px;padding:5px;gap:1px;border-radius:10px;background:var(--bg-alt,#fff);border:1px solid var(--border,rgba(0,0,0,.1));box-shadow:0 10px 28px -8px rgba(0,0,0,.32),0 2px 6px -2px rgba(0,0,0,.16);animation:cs-sb-in .1s ease-out}
+				.cs-tbl-sec{font-family:var(--font-mono,ui-monospace,monospace);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#6b7f9a);padding:6px 8px 2px}
+				.cs-tbl-item{appearance:none;text-align:left;border:none;border-radius:6px;background:transparent;padding:6px 9px;font-family:var(--font-serif,Georgia,serif);font-size:13.5px;color:var(--text-body,#1e3a5f);cursor:pointer;transition:color .1s,background .1s}
+				.cs-tbl-item:hover{background:var(--accent-soft,#eff6fc);color:var(--accent,#006fa8)}
+				.cs-tbl-danger:hover{background:color-mix(in oklab,var(--fail,#b3261e),transparent 90%);color:var(--fail,#b3261e)}
+				.cs-tbl-aligns{display:flex;gap:3px;padding:2px 8px 3px}
+				.cs-tbl-align{flex:1;height:26px;border:1px solid var(--border,#e4eaf2);border-radius:6px;background:transparent;font-family:var(--font-mono,ui-monospace,monospace);font-size:11px;font-weight:700;color:var(--text-muted,#6b7f9a);cursor:pointer;transition:color .1s,background .1s,border-color .1s}
+				.cs-tbl-align:hover{color:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
+				.cs-tbl-on,.cs-tbl-on:hover{color:var(--on-accent,#fff);background:var(--accent,#006fa8);border-color:var(--accent,#006fa8)}
 		`}</style>
 	);
 }
