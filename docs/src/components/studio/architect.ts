@@ -7,7 +7,7 @@ import * as React from 'react';
 import { parseScene } from '@/lib/anima/schema';
 import type { Scene } from '@/lib/anima/types';
 import { AXES, MOTION_VERBS, PRIMITIVES, VERB_SOURCE } from '@/lib/anima/vocabulary';
-import { applyEdit, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits } from '@/playground/architect-edits.js';
+import { applyEdit, diffLines, EDIT_PROTOCOL, numberSlides, parseEdits, sliceSlide } from '@/playground/architect-edits.js';
 import { requestSlideFix } from '@/playground/architect-fix.js';
 import { cosineRank } from '@/playground/architect-retrieval.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/drawing-board-refine.js';
@@ -144,7 +144,7 @@ export type ModelAvailability = {
 export type TierProgress = { progress: number; text?: string; status?: string };
 
 type ArchitectModel = {
-	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; maxTokens?: number; plugins?: unknown[] }) => Promise<string>;
+	complete: (o: { messages: { role: string; content: MsgContent }[]; json?: boolean; fallback?: string; onUsage?: (u: Usage) => void; onToken?: (t: string) => void; signal?: AbortSignal; maxTokens?: number; plugins?: unknown[] }) => Promise<string>;
 	// bge-small sentence embeddings (CDN, on-device) — null on Safari/mobile/no-CDN/model-off.
 	embed?: (texts: string | string[]) => Promise<number[][] | null>;
 	availability: () => ModelAvailability;
@@ -805,8 +805,22 @@ export function applyDeckEdit(source: string, edit: unknown): string {
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
 export type DiffRow = { type: 'same' | 'add' | 'del'; text: string };
+/** One proposed edit, carried so the UI can RE-APPLY it against the CURRENT deck at
+ *  Apply-time (not overwrite the whole deck with a stale snapshot) and show a real
+ *  per-slide diff. `raw` is the parsed edit block re-fed to applyEdit; `before` is the
+ *  target slide's content AT PROPOSE TIME, so the UI can detect a slide that changed
+ *  under it and force a re-review. */
+export type ProposedEdit = {
+	label: string;
+	slide: number;
+	action: 'replace' | 'insert' | 'delete';
+	raw: { action: string; slide: number; body: string };
+	before: string;
+	after: string;
+	diff: DiffRow[];
+};
 export type ChatResult =
-	| { status: 'ok'; reply: string; proposed: { source: string; count: number; diff: DiffRow[] } | null }
+	| { status: 'ok'; reply: string; proposed: { edits: ProposedEdit[]; count: number; source: string } | null }
 	| { status: 'offline' }
 	| { status: 'blocked'; reply: string };
 
@@ -816,7 +830,7 @@ export type ChatResult =
  * resulting source + a line diff for a review-then-apply card (nothing is applied
  * here). Degrades to `offline`/`blocked` honestly — never a fabricated answer.
  */
-export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[]): Promise<ChatResult> {
+export async function chatComplete(history: ChatTurn[], source: string, docs?: ReferenceDoc[], opts?: { onToken?: (t: string) => void; signal?: AbortSignal }): Promise<ChatResult> {
 	const model = await architectModel();
 	if (!model) return { status: 'offline' };
 	const generation = model.availability().generation;
@@ -833,21 +847,79 @@ export async function chatComplete(history: ChatTurn[], source: string, docs?: R
 		{ role: 'user', content: `${last?.content ?? ''}\n\nThe current deck — address slides by their [slide N] markers, never include a marker in an edit body:\n\n${numberSlides(source)}` },
 	], generation, deckOutputLang(source)), docs, generation === 'openrouter');
 	let reply = '';
+	// A local copy of the streamed text so an explicit Stop keeps the partial reply
+	// (model.complete throws on abort before returning, so its return value is lost).
+	let streamed = '';
 	try {
 		reply = await model.complete({
 			messages: ground.messages,
 			plugins: ground.plugins,
 			fallback: '',
+			// Streaming: tokens are painted live by the caller. All tiers that emit a chat
+			// reply stream (OpenRouter SSE, Prompt API, WebLLM, Transformers); floor never
+			// reaches here (offline above). Only an explicit Stop aborts (signal).
+			onToken: (t: string) => {
+				streamed += t;
+				opts?.onToken?.(t);
+			},
+			signal: opts?.signal,
 			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
 		});
-	} catch {
+	} catch (e) {
+		// An explicit abort (Stop) is not a failure — keep whatever streamed so far. The
+		// usage chunk never arrived, so recordSpend didn't fire; charge an ESTIMATE of the
+		// aborted turn (prompt + streamed tokens) so the budget gauge/cap aren't blind to
+		// real spend (exact cost would need a /generation fetch — a follow-up).
+		if ((e as { name?: string })?.name === 'AbortError') {
+			if (generation === 'openrouter' && streamed) {
+				const est = estimateUsd(`${last?.content ?? ''}\n${source}`, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), refDocsTokens(docs));
+				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
+			}
+			return finalizeChat(streamed || reply, source);
+		}
 		return { status: 'offline' };
 	}
+	return finalizeChat(reply, source);
+}
+
+// Parse a (possibly partial) reply into prose + a set of reviewable, RE-APPLIABLE
+// edits. Each edit carries its parsed block (`raw`, re-fed to applyEdit against the
+// CURRENT deck at Apply-time — never a stale whole-deck snapshot) and its propose-time
+// before/after + diff for the review card.
+function finalizeChat(reply: string, source: string): ChatResult {
 	const { text, edits } = parseEdits(reply);
 	if (!edits.length) return { status: 'ok', reply: text || 'No change suggested.', proposed: null };
+	// The propose-time full result, kept only as a fallback; the UI re-applies `raw`.
 	let next = source;
 	for (const e of [...edits].sort((a, b) => b.slide - a.slide)) next = applyEdit(next, e);
-	return { status: 'ok', reply: text || `Proposed ${edits.length} edit${edits.length > 1 ? 's' : ''} — review and apply below.`, proposed: { source: next, count: edits.length, diff: diffLines(source, next) as DiffRow[] } };
+	const proposedEdits: ProposedEdit[] = edits.map((e: { action: string; slide: number; body: string }) => {
+		const before = e.action === 'insert' ? '' : sliceSlide(source, e.slide);
+		const after = e.action === 'delete' ? '' : String(e.body || '').trim();
+		const label = e.action === 'insert' ? `Insert after slide ${e.slide}` : e.action === 'delete' ? `Delete slide ${e.slide}` : `Slide ${e.slide}`;
+		return { label, slide: e.slide, action: e.action as ProposedEdit['action'], raw: e, before, after, diff: diffLines(before, after) as DiffRow[] };
+	});
+	const count = proposedEdits.length;
+	return {
+		status: 'ok',
+		reply: text || `Proposed ${count} edit${count > 1 ? 's' : ''} — review and apply below.`,
+		proposed: { edits: proposedEdits, count, source: next },
+	};
+}
+
+/** Re-apply a set of proposed edit blocks against the CURRENT deck (slide-descending so
+ *  earlier indices stay valid), so intervening edits to OTHER slides are preserved. */
+export function applyProposedEdits(source: string, edits: { raw: { action: string; slide: number; body: string } }[]): string {
+	let next = source;
+	for (const e of [...edits].sort((a, b) => b.raw.slide - a.raw.slide)) next = applyEdit(next, e.raw);
+	return next;
+}
+
+/** True when the target slide's CURRENT content no longer matches what a replace/delete
+ *  edit was diffed against — the UI uses this to force a re-review instead of clobbering
+ *  an edit the author made to that slide after the proposal arrived (K1 stale guard). */
+export function isProposedEditStale(source: string, edit: ProposedEdit): boolean {
+	if (edit.action === 'insert') return false;
+	return sliceSlide(source, edit.slide).trim() !== edit.before.trim();
 }
 
 // The latest fetched spend context (wallet + key acct), cached from useArchitectStatus

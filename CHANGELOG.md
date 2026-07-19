@@ -246,6 +246,24 @@ in patch versions.
   as their slide is shown and pause off-screen natively. The PDF is untouched — it keeps the poster still.
   (`lib/export/player-core.mjs`, `tools/build-anima-player.js` → `lib/export/anima-player-bundle.generated.mjs`.)
 
+- **The Studio Architect chat now streams, renders Markdown, and shows what a turn costs.** The
+  Converse chat was a plain-text bubble list; it is rebuilt as a real conversation. Replies **stream
+  in token-by-token** (with a Stop control and Regenerate), render **on-brand Markdown** — bold, lists,
+  links (scheme-checked), and **fenced code blocks** written with `~~~` markers (so ` ``` ` can appear
+  literally inside) that carry a **Copy button** and syntax highlighting reusing the editor's own lezer
+  grammars (no new dependency, no highlight.js). Proposed deck edits arrive as a **per-slide, reviewable
+  diff** (real LCS, long unchanged runs collapsed) that is **re-applied against the current deck at
+  Apply-time** — so it never overwrites edits you made to other slides while reviewing, and a slide that
+  changed under a proposal is flagged before you Apply. A calm **cost strip** shows a per-turn estimate
+  and your session spend against your budget (and simply reads "On-device · free" on the local tier).
+  XSS-safe by construction: prose is escape-first rendered and DOMPurify-sanitized before it reaches the
+  DOM; code is rendered as escaped React text, so a crafted reply can neither inject HTML nor smuggle a
+  payload past the sanitizer. Offline/blocked/error states are shown as an ephemeral notice and never
+  persisted as a chat turn (which previously re-entered the model's history and was re-sent). New
+  `chat-markdown.ts` / `chat-highlight.ts` / `ChatCodeBlock.tsx`; `architect.ts` gains streaming
+  (`onToken`/`signal` through `chatComplete`) and a re-appliable per-slide proposal. Part of the Drawing
+  Board → Studio coaching/conversation migration (`engineering/decisions/2026-07-03-studio-succession.md`
+  P2b).
 - **A `scene` now comes alive in Studio Present mode, not just the Playground.** Stage 6 animated scenes
   on the Playground preview; presenting the same deck showed only the frozen poster. Now a scene hydrates
   on the Present surface too — it **plays when you land on its slide, stops when you leave, and restarts
