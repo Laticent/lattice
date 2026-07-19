@@ -75,7 +75,8 @@ describe('collapse state survives structural ops (Finding 3)', () => {
 // external resync and silently drop an external edit.
 describe('a rejected edit leaves the doc unchanged though tr.docChanged is true (Finding 1)', () => {
 	it('typing into a locked slide is filtered — same doc, but the tr reports docChanged', () => {
-		const src = '<!-- _class: content -->\n\n# Locked\n\n| a | b |\n| - | - |\n| 1 | 2 |';
+		// A table no longer locks (modeled + round-trippable); inline math still does.
+		const src = '<!-- _class: content -->\n\n# Locked\n\nThe area is $A = \\pi r^2$ here.';
 		const state = EditorState.create({ doc: deckToDoc(src), plugins: [structuralGuard()] });
 		expect(state.doc.child(0).attrs.locked).toBe(true);
 		// caret inside the locked slide, then type a character

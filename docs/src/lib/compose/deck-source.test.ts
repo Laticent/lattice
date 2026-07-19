@@ -6,8 +6,14 @@ import { hasLossyConstruct } from './deck-source';
 // NOT on prose or the constructs that round-trip byte-exact (inline HTML, `<!-- -->`).
 
 describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
-	it('fires on a markdown table', () => {
-		expect(hasLossyConstruct('## Data\n\n| A | B |\n| --- | --- |\n| 1 | 2 |')).toBe(true);
+	it('does NOT fire on a plain GFM table (Compose models tables as real nodes and round-trips them)', () => {
+		expect(hasLossyConstruct('## Data\n\n| A | B |\n| --- | --- |\n| 1 | 2 |')).toBe(false);
+	});
+	it('does NOT fire on a table with LFM state markers (they are literal cell text that round-trips)', () => {
+		expect(hasLossyConstruct('| Regime | Access |\n| --- | :---: |\n| GDPR | [x] |\n| CCPA | [-] |')).toBe(false);
+	});
+	it('STILL fires on a table whose cell holds an unmodeled construct (math), locking the whole slide', () => {
+		expect(hasLossyConstruct('| Shape | Area |\n| --- | --- |\n| Circle | $\\pi r^2$ |')).toBe(true);
 	});
 	it('fires on strikethrough', () => {
 		expect(hasLossyConstruct('Price was ~~$5M~~ now $3M.')).toBe(true);

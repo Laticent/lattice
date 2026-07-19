@@ -86,3 +86,41 @@ describe('slide-prose round-trip — structure is preserved (the Lexical killer)
 		}
 	});
 });
+
+// GFM tables become real, editable, round-trippable nodes (2026-07-19-compose-table-editing.md).
+// The serializer has a CANONICAL output form (delimiter row `:---`/`:---:`/`---:`/`---`), so the
+// contract is idempotence to that form — a table the author edits re-serializes to render-equivalent
+// GFM, and re-parsing is stable. (An UNTOUCHED table slide never runs the serializer at all — it emits
+// its `raw` bytes via emitDeck — so arbitrary source spacing is preserved there, tested in deck-doc.)
+describe('table round-trip — the reason table slides stop locking', () => {
+	// Each fixture is written in the serializer's canonical form, so a byte-exact round-trip
+	// IS the idempotence proof. Drawn from the real gallery / examples decks.
+	const canonical: Record<string, string> = {
+		'compare-table with an empty cell': ['| Capability | Ours | Theirs |', '| --- | --- | --- |', '| Speed | ✓ | ✗ |', '| Cost | Low |  |'].join('\n'),
+		'obligation-matrix: centered marker columns, [-] marker': ['| Regime | Access | Erasure |', '| --- | :---: | :---: |', '| GDPR | [x] | [x] |', '| CCPA/CPRA | [x] | [-] |'].join('\n'),
+		'roadmap: marker + trailing text + inline-code header': ['| Workstream | Foundation `Q2` | Scale |', '| --- | --- | --- |', '| Framework | [x] Signal taxonomy | [ ] Weighting |', '| Tooling | [/] Dashboards | [ ] Exports |'].join('\n'),
+		'inline marks in cells + right alignment': ['| Metric | Value |', '| --- | ---: |', '| **Revenue** | $400M |', '| *Growth* | 12% |'].join('\n'),
+		'literal pipe inside a cell (escaped)': ['| Expr | Meaning |', '| --- | --- |', '| \\| | pipe |', '| a \\| b | or |'].join('\n'),
+	};
+	for (const [name, md] of Object.entries(canonical)) {
+		it(`round-trips byte-exact: ${name}`, () => {
+			expect(norm(roundTripSlideProse(md))).toBe(norm(md));
+		});
+		it(`is idempotent (a second pass changes nothing): ${name}`, () => {
+			const once = roundTripSlideProse(md);
+			expect(roundTripSlideProse(once)).toBe(once);
+		});
+	}
+
+	it('all four LFM state markers survive verbatim in cells (never escaped to \\[x\\])', () => {
+		const out = roundTripSlideProse('| A | B |\n| --- | --- |\n| [x] | [-] |\n| [ ] | [/] |');
+		for (const marker of ['[x]', '[-]', '[ ]', '[/]']) expect(out).toContain(`| ${marker}`);
+		expect(out).not.toContain('\\[');
+	});
+
+	it('non-canonical delimiter widths normalize but preserve alignment (only ever hits an edited slide)', () => {
+		// `:----:` (4 dashes) → canonical `:---:`; the center alignment is what matters and is kept.
+		const out = roundTripSlideProse('| A | B |\n| :----: | ----: |\n| 1 | 2 |');
+		expect(out).toContain('| :---: | ---: |');
+	});
+});

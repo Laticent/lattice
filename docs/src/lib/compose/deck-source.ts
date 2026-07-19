@@ -47,13 +47,18 @@ export function composeSlideChunk(directives: string[], prose: string): string {
 	return body ? `${head}\n\n${body}` : head;
 }
 
-// Constructs the engine renders (commonmark + html:true + tables + strikethrough) but
-// the Compose parser (plain CommonMark, html:false) does NOT model — so re-serializing a
-// slide that contains one would flatten/escape it. A slide whose prose matches is LOCKED
-// in Compose (read-only, "edit in Markdown"), so a keystroke can never reflow it. Inline
-// HTML and `<!-- … -->` comments are excluded: they round-trip as literal text byte-exact.
+// Constructs the engine renders (commonmark + html:true + strikethrough) but the Compose
+// parser does NOT model — so re-serializing a slide that contains one would flatten/escape
+// it. A slide whose prose matches is LOCKED in Compose (read-only, "edit in Markdown"), so a
+// keystroke can never reflow it. Inline HTML and `<!-- … -->` comments are excluded: they
+// round-trip as literal text byte-exact.
+//
+// GFM pipe TABLES are NOT here: the Compose parser now models them as real schema nodes and
+// round-trips them to pipe syntax (deck-markdown, 2026-07-19-compose-table-editing.md), so a
+// table slide is editable in place. A table cell that ITSELF holds an unmodeled construct
+// (math, block HTML, strikethrough, footnote) still trips the matching detector below and
+// locks the whole slide — the guard degrades safely; we only unlock what we can round-trip.
 const LOSSY_CONSTRUCTS: RegExp[] = [
-	/^\s*\|.*\|/m, // pipe-table row
 	/~~/, // strikethrough
 	/^\s*<(?!!--)\/?[a-zA-Z][\w-]*(\s|>|\/)/m, // block-level HTML tag (not a comment)
 	/^\s*[-*+]\s+\[[ xX]\]/m, // task-list item

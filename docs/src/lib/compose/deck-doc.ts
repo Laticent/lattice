@@ -1,6 +1,5 @@
-import { schema as mdSchema } from 'prosemirror-markdown';
 import { Fragment, type Node as PMNode, Schema } from 'prosemirror-model';
-import { latticeMarkdownSerializer, parseSlideProse } from './deck-markdown';
+import { latticeMarkdownSerializer, parseSlideProse, proseSchema } from './deck-markdown';
 import { composeSlideChunk, hasLossyConstruct, parseDeck } from './deck-source';
 
 // The ONE-DOCUMENT model (Option B). The whole deck is a single ProseMirror
@@ -11,7 +10,7 @@ import { composeSlideChunk, hasLossyConstruct, parseDeck } from './deck-source';
 // just text: only the slide-node boundary makes a slide, so boundaries can't be
 // corrupted (the containment win, kept, without the fragmentation).
 
-const nodes = mdSchema.spec.nodes
+const nodes = proseSchema.spec.nodes
 	.update('doc', { content: 'slide+', attrs: { frontMatter: { default: '' } } })
 	.addToEnd('slide', {
 		content: 'block+',
@@ -27,8 +26,8 @@ const nodes = mdSchema.spec.nodes
 		parseDOM: [{ tag: 'section.cs-slide' }],
 	});
 
-/** The deck schema — prosemirror-markdown's block/mark set, wrapped in slide nodes. */
-export const deckSchema = new Schema({ nodes, marks: mdSchema.spec.marks });
+/** The deck schema — prosemirror-markdown's block/mark set + table nodes, wrapped in slide nodes. */
+export const deckSchema = new Schema({ nodes, marks: proseSchema.spec.marks });
 
 const EMPTY_PARAGRAPH = () => Fragment.from(deckSchema.nodes.paragraph.create());
 
