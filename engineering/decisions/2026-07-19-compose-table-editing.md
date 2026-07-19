@@ -1,0 +1,243 @@
+---
+status: proposed
+summary: Make LFM tables editable in the Compose rich editor instead of locking them. Today any slide with a `|…|` table is locked read-only ("edit in Markdown") because Compose's round-trip runs on prosemirror-markdown's CommonMark-only serializer, which cannot emit a table. This is the future work the compose-prosemirror doc named (§"editable-and-lossless real schema nodes"). The design: adopt the official `prosemirror-tables` module CONSTRAINED to what GFM can serialize losslessly (rectangular grid + per-column alignment; NO merge/split, NO column-resize — GFM stores neither), keep the table node `_class`-agnostic (the compare-table/obligation-matrix/roadmap binding already lives in the slide's `directives` attr, not the table), carry LFM state markers (`[x] [-] [ ] [/]`) as literal cell text that round-trips byte-stable with an OPTIONAL view-only decoration painting badge chips, and add a dedicated GFM table serializer + a tables-enabled markdown-it parser for Compose — guarded by a round-trip fixture suite drawn from the real gallery decks and a maker-checker pass (round-trip kernel = real blast radius). Only the pipe-row trigger leaves `LOSSY_CONSTRUCTS`; math/HTML/strikethrough/footnote in a cell still lock the slide, so the guard degrades safely. glossary and list-tabular are OUT of scope — they are authored as nested lists, already round-trip losslessly, and are already editable in Compose today.
+---
+
+# Compose table editing — LFM tables become editable, not locked (2026-07-19)
+
+> Status: **design model, no code yet** (CLAUDE.md design-before-code). This
+> names the axes, the candidate moves, and a recommendation, and lists the open
+> decisions to confirm before implementation. Parent:
+> `2026-07-18-compose-prosemirror.md` — this is the "future work" its Known
+> Limitations named ("Making these constructs editable-and-lossless (real schema
+> nodes) is still future work; today they lock rather than risk a reflow",
+> lines 151–152). This doc does not change the render engine or exported bytes;
+> it changes only the Compose editing surface (`docs/src`).
+
+## The ask
+
+The Compose rich editor (the WYSIWYG mode of the Studio editor pane) can't edit
+tables. A slide whose prose contains a `|…|` row is detected, marked `locked`,
+dimmed, and stamped "◔ edit in Markdown" — you must flip to the plain-markdown
+CodeMirror mode to touch it. The user wants tables to be a first-class,
+editable thing in Compose, and — importantly — **Lattice tables**, not a generic
+grid: the tables carry state markers, component classes, and caption lines that a
+plain-GFM editor would flatten.
+
+Hand-editing markdown tables is genuinely one of the worst parts of the format
+(pipes to align by eye; adding a column means editing every row), so this is
+high user value. The whole design turns on one constraint below.
+
+## The one hard constraint: the round-trip is lossless
+
+Compose is not a separate document — it is a **second view of the same
+`source` string** the markdown editor writes (HARD RULE #1). Its correctness rests
+on a lossless round-trip: markdown → ProseMirror doc → *the same* markdown, byte
+for byte on any slice the author didn't touch (`docs/src/lib/compose/deck-markdown.ts`,
+`deck-doc.ts` `emitDeck`). It uses `prosemirror-markdown`, whose parser and
+serializer are **CommonMark-only** — and CommonMark has no tables. That is the
+entire reason tables are on the `LOSSY_CONSTRUCTS` list and locked
+(`deck-source.ts:55–61`): the serializer literally cannot emit a `|…|` table, so
+letting a table through the round-trip would destroy it.
+
+So "support tables" is really: **teach the round-trip to model a table as real
+schema nodes and serialize it back to GFM losslessly** — including the LFM extras
+the render engine reads. Everything below serves that.
+
+## What makes a Lattice table a Lattice table (the inventory we must preserve)
+
+From `spec/LFM-1.0.md` §3.2/§5.1/§6, `lib/integrations/markdown-it/plugins.js`
+(lines 634–1078), `lib/components/chart/roadmap/roadmap.transform.js`,
+`lib/core/below-note.js`, and the four table-component `.docs.md`/`.styles.css`:
+
+1. **The grid** is plain **GFM pipe tables** — cells, a header row, a `---`
+   delimiter row, and GFM `:---:` column alignment. There is *no* Lattice-specific
+   table parser; every Lattice behavior is a post-parse transform gated on the
+   slide's `_class`.
+2. **`_class` binds the grid to a component** — `compare-table`,
+   `obligation-matrix`, `roadmap` (`<!-- _class: … -->` plus modifier tokens).
+   Crucially, in Compose that directive **already lives on the slide node's
+   `directives` attr** (`deckToDoc`), edited through the existing per-slide
+   settings UI — *not* inside the table.
+3. **State markers in cells** — `[x] [-] [ ] [/]`, optionally with trailing text
+   (`[x] Signal taxonomy`). `[-]`/`[/]` are LFM's *only* non-GFM-clean syntax
+   (§5.1). The engine turns them into stoplight spans at render time
+   (`obligationMatrixBadges`, `roadmap` status cells) — in the *source* they are
+   just literal characters at the start of a cell.
+4. **A trailing paragraph = the caption / legend / footnote** — a `<p>`
+   immediately after the table becomes a `.below-note` at render time
+   (`lib/core/below-note.js`). In the source it is just an ordinary paragraph
+   after the table.
+5. **GFM column alignment used semantically** — marker columns are centered with
+   `:---:`. There is no alignment syntax beyond GFM's.
+6. **Inline-code chips** in headers/cells (`Foundation \`Q2 2026\``) — ordinary
+   markdown inline code; nothing table-specific.
+7. **A `<!-- _focus: row N / col N -->`** per-table highlight directive — lives in
+   `directives`, like `_class`.
+
+**Out of scope — and already handled:** `glossary` (`- Term` / `  - Definition`)
+and `list-tabular` (`1. Name` / `   - value`) *render* as tables but are
+**authored as nested lists**. They already round-trip losslessly and are already
+editable in Compose today. They are not `|…|` tables and this work does not touch
+them.
+
+The load-bearing realization from the inventory: **almost all of the "Lattice"
+in a Lattice table lives outside the grid** — in the slide's `directives`
+(`_class`, `_focus`), in render-time transforms (state spans, below-note, the
+header spectrum rail, first-column emphasis), or in ordinary markdown inline
+(code chips). What Compose actually has to newly model is small: **the grid, its
+column alignment, and literal marker text in cells.** Everything else it already
+carries or never needs to.
+
+## Design axes and the recommended move
+
+**Axis A — Node model: reuse or hand-roll?**
+Reuse **`prosemirror-tables`** (the official ProseMirror module — same
+maintainer). It ships the table schema nodes (`table`/`table_row`/`table_cell`/
+`table_header`), the `tableEditing` plugin (cell selection, Tab navigation,
+auto-append row), and the row/column commands (add/delete before/after, delete
+table). Hand-rolling a table node would reinvent exactly this (HARD RULE #15 —
+don't reinvent; reuse). **→ Adopt `prosemirror-tables`.**
+
+**Axis B — How much of prosemirror-tables do we allow?**
+prosemirror-tables also supports **merged cells** (colspan/rowspan) and
+**column resizing** (pixel `colwidth` attrs). **GFM can serialize neither.** If
+we enabled them, the editor would offer affordances whose results *silently
+vanish* on the next round-trip — a broken-window UX (HARD RULE #18) and a
+losslessness break. **→ Constrain to GFM-expressible tables: rectangular grid +
+per-column alignment only. Disable merge/split; do NOT enable `columnResizing`.**
+This is the central design decision — the editor's capabilities are clamped to
+what markdown can store, so what you see always survives the trip.
+
+**Axis C — Where do LFM state markers live?**
+The cell text is `[x] Signal taxonomy`. Two moves:
+- **(v1, recommended) Literal inline text.** The cell holds plain inline
+  content; `[x]` is just characters the author types. Round-trips trivially
+  (it's text in a cell), zero new schema, and it matches exactly what the source
+  and the markdown mode show. The pretty stoplight badge appears where it already
+  does — at render time, in the preview.
+- **(v1 polish, recommended if cheap) A view-only decoration.** A ProseMirror
+  plugin paints a badge chip over a leading `[x] [-] [ ] [/]` in a cell while the
+  underlying text stays literal — the *same decoration pattern* Compose already
+  uses for slide collapse. No schema change, no serializer change, fully lossless;
+  it just makes Compose feel WYSIWYG for the four markers.
+- **(later) A real inline marker node** with a picker. More schema + a serializer
+  rule; only worth it if authors want click-to-set markers. Deferred.
+**→ Markers are literal cell text; add the view-only badge decoration as a fast-follow.**
+
+**Axis D — Column alignment.**
+GFM alignment is core and must round-trip. prosemirror-tables is
+markdown-agnostic, so we add an **`align` attr** to the cell spec, read it from
+the markdown-it token on parse (markdown-it emits `style="text-align:center"`),
+render it in the editor, and emit the delimiter row from it on serialize. A small
+per-column align control (left/center/right) lives in the table toolbar. **→ Add
+a cell `align` attr wired through parse, view, serialize, and one toolbar control.**
+
+**Axis E — The caption paragraph.**
+The slide is `block+`, so a `table` node followed by a `paragraph` node is
+already legal and the paragraph already round-trips. The below-note is applied by
+*position* at render time — Compose needs to do nothing structural. **→ Captions
+work for free; add a small "add caption" affordance under the table for
+discoverability (optional).**
+
+**Axis F — The lock's fate.**
+Remove **only** the pipe-row trigger from `LOSSY_CONSTRUCTS`
+(`deck-source.ts:56`). Keep every other trigger. So a table whose cell contains
+`$math$`, block HTML, `~~strike~~`, or a footnote ref still locks the whole slide
+(the existing detectors — `sourceHasMath`, the HTML/strikethrough/footnote
+regexes — still fire on the cell text). The guard degrades safely: we only unlock
+tables we can prove we round-trip. **→ Delete one regex; keep the safety net.**
+
+**Axis G — The parser + serializer (the risky code).**
+- *Parser:* Compose's parser is `defaultMarkdownParser` (CommonMark). Build a
+  Compose-local `MarkdownParser` on a `markdown-it` with `table` enabled plus
+  token→node handlers (`table_open`/`thead`/`tbody`/`tr`/`th`/`td`), reading
+  alignment from the token attrs. Enable **only** tables — strikethrough,
+  tasklists, etc. stay locked for now.
+- *Serializer:* prosemirror-markdown has **no** table serializer, so we write one
+  in `deck-markdown.ts` (`table`/`table_row`/`table_cell`/`table_header` nodes)
+  emitting GFM pipe syntax. This is the single riskiest piece — the GFM footguns
+  are a literal `|` in a cell (escape `\|`), empty cells, inline marks inside
+  cells, and computing the delimiter row width + alignment. **→ Guard it with a
+  round-trip fixture suite** built from the *real* gallery tables (compare-table
+  with an empty cell, obligation-matrix with `[-]` + centered columns, roadmap
+  with marker+text + inline-code headers), and run a **maker-checker** pass on the
+  round-trip kernel (real blast radius per the MAKER-CHECKER rule).
+
+## Recommended shape, in one paragraph
+
+Add `prosemirror-tables`; extend `deckSchema` with its four nodes plus a cell
+`align` attr; build a tables-enabled Compose parser and a GFM table serializer,
+proven by a gallery-derived round-trip fixture suite; clamp the editor to
+rectangular + per-column-align tables (no merge, no resize); keep the table node
+`_class`-agnostic (component binding stays in the slide `directives` UI); carry
+state markers as literal cell text with an optional view-only badge decoration;
+let the caption ride as the following paragraph; and remove only the pipe-row
+trigger from `LOSSY_CONSTRUCTS` so math/HTML/etc. in a cell still lock. glossary
+and list-tabular are untouched.
+
+## What the experience looks like
+
+Click into a cell and type. **Tab** / **Shift-Tab** walk across cells and append
+a new row when you run off the end. A small table toolbar (or a `⋯` menu on the
+table) offers **+Row / +Column / delete row / delete column / delete table** and
+a per-column **align** toggle. Insert a table from the slide's block "register"
+gutter (a new *Table* register) or an `Insert ▸ Table` affordance. On
+`obligation-matrix`/`roadmap` slides the four state markers show as small badge
+chips (the decoration) instead of raw `[x]`. Under it all, Compose is still
+emitting clean GFM into the same `source`, so the markdown mode and the final
+render never diverge — the two editors stay perfectly in sync.
+
+## Phasing (one branch → one PR, HARD RULE #17)
+
+1. **Lossless foundation** — schema nodes + `align` attr, Compose parser, GFM
+   serializer, round-trip fixtures, remove the pipe-row lock. Tables become
+   editable as plain grids; markers are literal text. *This is the whole
+   correctness story; it ships behind the existing Compose surface with no new
+   chrome.*
+2. **Editing chrome** — table toolbar (row/col/align/delete), Tab keymap, the
+   insert-table register/affordance, portrait-safe styling parity with the
+   rendered `compare-table`.
+3. **LFM polish** — the state-marker badge decoration; a class-aware toolbar
+   (a marker picker on obligation-matrix/roadmap); the "add caption" affordance.
+
+Each phase is independently valuable and verifiable on the real Studio surface
+(HARD RULE #23 — build the docs, open the actual Playground/Studio, edit a real
+table slide; not a jsdom harness).
+
+## Risks and how the design retires them
+
+- **Serializer corruption** (the big one) — retired by the gallery-derived
+  round-trip fixture suite + maker-checker on the kernel; any table we can't prove
+  round-trips stays locked (Axis F keeps the net).
+- **Silent capability leaks** (merge/resize the author does but GFM drops) —
+  retired by clamping the editor to GFM-expressible tables up front (Axis B).
+- **Cell content we don't model** (math/HTML in a cell) — retired by keeping the
+  other `LOSSY_CONSTRUCTS` detectors live (Axis F).
+- **Scope creep into list-authored tables** — glossary/list-tabular are explicitly
+  out; they already work.
+
+## Open decisions to confirm before implementation
+
+1. **State-marker rendering in v1** — literal `[x]` text only, or literal text
+   **plus** the view-only badge decoration? (Recommend: include the decoration —
+   it's cheap, reuses the collapse-decoration pattern, and it's the difference
+   between "a grid editor" and "a Lattice table editor.")
+2. **Column resize** — confirm we **omit** it (GFM has no column widths, so a
+   resize can't be saved). (Recommend: omit; revisit only if we ever add a
+   width-carrying table variant.)
+3. **Ship phase 1 alone first, or land 1–3 as one PR?** (Recommend: one branch,
+   incremental commits, one PR when the feature reads as whole — phase 1's
+   lock-removal shouldn't ship without at least minimal insert/edit chrome, or a
+   user could unlock a table with no way to add a row.)
+
+## References
+
+- Parent: `engineering/decisions/2026-07-18-compose-prosemirror.md` (lines 147–152)
+- Round-trip core: `docs/src/lib/compose/deck-markdown.ts`, `deck-doc.ts`, `deck-source.ts`
+- Editor UI: `docs/src/components/studio/ComposeView.tsx`
+- LFM standard: `spec/LFM-1.0.md` §3.2 (state markers), §5.1 (non-GFM-clean), §6
+- Table transforms: `lib/integrations/markdown-it/plugins.js` (634–1078),
+  `lib/components/chart/roadmap/roadmap.transform.js`, `lib/core/below-note.js`
+- Table components: `compare-table`, `obligation-matrix`, `roadmap` `.docs.md` / `.styles.css`
+- Module to adopt: `prosemirror-tables` (schema nodes, `tableEditing`, row/col commands)
