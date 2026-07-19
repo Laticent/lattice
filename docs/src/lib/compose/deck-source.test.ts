@@ -6,8 +6,34 @@ import { hasLossyConstruct } from './deck-source';
 // NOT on prose or the constructs that round-trip byte-exact (inline HTML, `<!-- -->`).
 
 describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
-	it('fires on a markdown table', () => {
-		expect(hasLossyConstruct('## Data\n\n| A | B |\n| --- | --- |\n| 1 | 2 |')).toBe(true);
+	it('does NOT fire on a plain GFM table (Compose models tables as real nodes and round-trips them)', () => {
+		expect(hasLossyConstruct('## Data\n\n| A | B |\n| --- | --- |\n| 1 | 2 |')).toBe(false);
+	});
+	it('does NOT fire on a table with LFM state markers (they are literal cell text that round-trips)', () => {
+		expect(hasLossyConstruct('| Regime | Access |\n| --- | :---: |\n| GDPR | [x] |\n| CCPA | [-] |')).toBe(false);
+	});
+	it('STILL fires on a table whose cell holds an unmodeled construct (math), locking the whole slide', () => {
+		expect(hasLossyConstruct('| Shape | Area |\n| --- | --- |\n| Circle | $\\pi r^2$ |')).toBe(true);
+	});
+	it('STILL fires on a table whose cell holds inline HTML (Axis F / checker Bug 3)', () => {
+		// The block-HTML rule is line-anchored, so a mid-line tag in a cell slipped past it; the
+		// engine renders that HTML and a pipe in an attribute would split the cell, so it must lock.
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| <div>x</div> | 2 |')).toBe(true);
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| <span>t</span> | y |')).toBe(true);
+	});
+	it('fires on a BORDERLESS table row with inline HTML — either order (trio gap)', () => {
+		// GFM allows omitting the leading/trailing pipe; the old lock anchored on a leading `|`.
+		expect(hasLossyConstruct('h1 | h2\n---|---\na | b<span title="x|y">c</span>')).toBe(true); // pipe then tag
+		expect(hasLossyConstruct('h1 | h2\n---|---\n<b>a</b> | c')).toBe(true); // tag then pipe
+	});
+	it('fires on an ENTITY-encoded tag in a cell — decodes to live HTML on edit (trio HIGH)', () => {
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| &lt;img src=x onerror=alert(1)&gt; | 2 |')).toBe(true);
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| &#60;script&#62; | 2 |')).toBe(true);
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| &#x3c;div&#x3e; | 2 |')).toBe(true);
+	});
+	it('does NOT over-lock harmless entities or a lone `&lt;` (render-equivalent)', () => {
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| Jack &amp; Jill | © 2026 |')).toBe(false);
+		expect(hasLossyConstruct('| a | b |\n| --- | --- |\n| x &lt; y | ok |')).toBe(false); // `&lt;` + space, not a tag
 	});
 	it('fires on strikethrough', () => {
 		expect(hasLossyConstruct('Price was ~~$5M~~ now $3M.')).toBe(true);

@@ -144,12 +144,15 @@ and verified on the real built Studio (HARD RULE #23):
 
 ## Known limits (tracked)
 
-- Slides with a table / block HTML / strikethrough / tasklist / footnote / **math** are
-  **locked read-only** in Compose (edited in Markdown mode) — a deliberate guard, not a bug.
-  Math uses the ENGINE's own currency-safe detector (`lib/engine/math-detect.mjs`'s
-  `sourceHasMath`), so `$a_1$` locks a slide but a `$400M` figure does not — the lock matches
-  what the engine actually renders. Making these constructs editable-and-lossless (real
-  schema nodes) is still future work; today they lock rather than risk a reflow.
+- Slides with block HTML / strikethrough / tasklist / footnote / **math** are **locked
+  read-only** in Compose (edited in Markdown mode) — a deliberate guard, not a bug. Math uses
+  the ENGINE's own currency-safe detector (`lib/engine/math-detect.mjs`'s `sourceHasMath`), so
+  `$a_1$` locks a slide but a `$400M` figure does not — the lock matches what the engine
+  actually renders. Making each of these editable-and-lossless (real schema nodes) is the
+  path forward. **Tables took that path (2026-07-19):** GFM tables are now real, editable,
+  losslessly-round-tripped nodes, so a table slide edits in place — see
+  `2026-07-19-compose-table-editing.md`. (A cell that itself holds one of the still-unmodeled
+  constructs above keeps the slide locked, so the guard degrades safely.)
 - Non-`_` HTML comments (speaker notes / captions) inside prose round-trip byte-stable but
   show as literal editable text — no dedicated hidden node yet.
 - The grammar-gutter register read is now EXACT — it mirrors the engine's positional rules

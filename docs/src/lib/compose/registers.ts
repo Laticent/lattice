@@ -195,7 +195,7 @@ export function applyRegister(view: EditorView, reg: Reg, current: Reg | null) {
 		view.focus();
 		return;
 	}
-	// A LOCKED slide (a construct Compose can't round-trip — a table, block HTML…) is immutable:
+	// A LOCKED slide (a construct Compose can't round-trip — math, block HTML…) is immutable:
 	// the structural guard would silently FILTER any register transaction, leaving the button
 	// looking like it did something. Short-circuit to a clean no-op instead of dispatching a
 	// doomed change (which would also trip the emit path's parked-resync clobber). No-op is right —

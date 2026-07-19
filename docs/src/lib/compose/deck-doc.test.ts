@@ -76,17 +76,17 @@ describe('deck round-trip (one document)', () => {
 });
 
 describe('edit-local emit — untouched slides re-emit their bytes verbatim', () => {
-	// A markdown table is a construct the Compose parser (CommonMark) does NOT model, so a
-	// full re-serialize would flatten it. Edit-local emit must leave a slide the author
-	// never touched byte-for-byte, so such a slide can never degrade from a keystroke made
-	// elsewhere. This is the master mitigation for parser-parity gaps.
+	// Edit-local emit leaves a slide the author never touched byte-for-byte, so it can never
+	// degrade from a keystroke made elsewhere. A GFM table is now a MODELED construct (real
+	// schema nodes, round-trippable), so it survives even a full re-serialize — but the
+	// raw-bytes path still guarantees untouched slides keep their exact source spacing.
 	const TABLE = '<!-- _class: content -->\n\n## Data\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
 	const source = ['<!-- _class: title -->\n\n# Deck', TABLE, '<!-- _class: content -->\n\n## End'].join('\n\n---\n\n');
 
-	it('a full re-serialize (docToDeck) WOULD corrupt the table — proving the risk is real', () => {
-		// The CommonMark parser flattens the table's rows onto a single soft-broken line,
-		// so the multi-line pipe grid is gone.
-		expect(docToDeck(deckToDoc(source))).not.toContain('| A | B |\n| --- | --- |');
+	it('a full re-serialize (docToDeck) now PRESERVES the table (modeled nodes, not flattened)', () => {
+		// The Compose parser models the table as real nodes and the serializer re-emits the
+		// pipe grid, so a full re-serialize keeps it intact — this is the feature.
+		expect(docToDeck(deckToDoc(source))).toContain('| A | B |\n| --- | --- |\n| 1 | 2 |');
 	});
 
 	it('editing slide 0 leaves the untouched table slide byte-exact', () => {
@@ -126,10 +126,16 @@ describe('edit-local emit — untouched slides re-emit their bytes verbatim', ()
 		expect((out.match(/<!-- _class:/g) || []).length).toBe(2);
 	});
 
-	it('marks a slide with a lossy construct (table) as locked, and a prose slide as unlocked', () => {
+	it('a plain GFM table slide is NOT locked (tables are modeled + round-trippable now)', () => {
 		const doc = deckToDoc(source); // [title, TABLE, content]
 		expect(doc.child(0).attrs.locked).toBe(false); // "# Deck" — plain prose
-		expect(doc.child(1).attrs.locked).toBe(true); // the table slide
+		expect(doc.child(1).attrs.locked).toBe(false); // the table slide — editable in place
 		expect(doc.child(2).attrs.locked).toBe(false); // "## End" — plain prose
+	});
+
+	it('a table whose cell holds an unmodeled construct (math) STILL locks the whole slide', () => {
+		const mathCell = '<!-- _class: content -->\n\n## Areas\n\n| Shape | Area |\n| --- | --- |\n| Circle | $\\pi r^2$ |';
+		const doc = deckToDoc(['<!-- _class: title -->\n\n# Deck', mathCell].join('\n\n---\n\n'));
+		expect(doc.child(1).attrs.locked).toBe(true); // math in a cell → safe degradation to lock
 	});
 });

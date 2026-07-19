@@ -317,7 +317,8 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 	});
 
 	it('a locked slide offers no registers', () => {
-		const t = view('<!-- _class: content -->\n\n# Locked\n\n| a | b |\n| - | - |\n| 1 | 2 |');
+		// A table no longer locks (it's modeled + round-trippable); use inline math, which still does.
+		const t = view('<!-- _class: content -->\n\n# Locked\n\nThe area is $A = \\pi r^2$ here.');
 		t.caret('Locked');
 		expect(applicableRegisters(t.v.state)).toEqual({ keys: [], active: null });
 	});
@@ -329,10 +330,10 @@ describe('adversarial register sweep — never corrupts, never nests unbounded',
 		stable(t);
 	});
 
-	// Finding 4: a locked slide (a construct Compose can't round-trip, e.g. a table) is immutable —
+	// Finding 4: a locked slide (a construct Compose can't round-trip, e.g. inline math) is immutable —
 	// the register must be a clean no-op, not a doomed dispatch the structural guard silently eats.
 	it('every register is a no-op on a locked slide', () => {
-		const src = '<!-- _class: content -->\n\n# Locked head\n\n| a | b |\n| - | - |\n| 1 | 2 |';
+		const src = '<!-- _class: content -->\n\n# Locked head\n\nThe area is $A = \\pi r^2$ here.';
 		const t = view(src);
 		// sanity: the slide really is locked
 		expect(t.v.state.doc.child(0).attrs.locked).toBe(true);
