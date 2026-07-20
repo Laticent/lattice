@@ -287,10 +287,10 @@ const REPLAY_JS = shell
 					if (!returning) for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('lattice-studio-src-') === 0) { returning = true; break; } }
 					if (!returning) { try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || '{}'); if (st && (st.onboarded || (st.posture && st.posture !== 'read'))) returning = true; } catch (e2) {} }
 					if (!returning && palette === 'indaco' && mode === 'light') r.setAttribute('data-ssr-shell', 'on');
-					// (The editor|preview split ratio no longer needs a pre-paint CSS-var
-					// seed: react-resizable-panels restores the saved layout itself on mount
-					// via useDefaultLayout — 2026-07-19 splitter migration. Studio is
-					// client:only, so there is no SSR split to seed anyway.)
+					// (The editor|preview split ratio's pre-paint CSS-var seed is retired
+					// with the react-resizable-panels migration: the hook restores the saved
+					// ratio post-mount via the panel imperative API. Studio is client:only,
+					// so there is no SSR split paint to seed anyway. 2026-07-19.)
 				} catch (e) {}
 			})();
 		</script>

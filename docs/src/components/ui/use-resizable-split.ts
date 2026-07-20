@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { type Layout, type LayoutChangedMeta, useDefaultLayout, useGroupRef, usePanelRef } from "react-resizable-panels"
+import { type Layout, type LayoutChangedMeta, useGroupRef, usePanelRef } from "react-resizable-panels"
 
 // Shared editor|preview split state for the Playground + Studio, backed by
 // react-resizable-panels v4 (2026-07-19 splitter migration). It presents the
@@ -9,23 +9,75 @@ import { type Layout, type LayoutChangedMeta, useDefaultLayout, useGroupRef, use
 // collapse, reset }` — so the ~20 consumer call sites keep working; only the
 // render (a <ResizablePanelGroup> instead of a CSS grid) changes.
 //
-// The library owns pointer capture, keyboard/ARIA, double-click reset, and
-// persistence (useDefaultLayout). The consumer owns the two things no splitter
-// solves — the srcdoc preview-iframe pointer shield and the FIT re-fit — via the
-// callbacks below: onDragStart/onDragEnd fire on the first/last layout change of
-// a drag (suspend the FIT agent, then run one authoritative re-fit); onCollapse/
-// onExpand fire once per transition; onSettle fires once per committed resize.
-
-const SSR_NOOP_STORAGE = { getItem: () => null, setItem: () => {} }
+// The library owns pointer capture, keyboard/ARIA, and double-click reset. The
+// consumer owns the two things no splitter solves — the srcdoc preview-iframe
+// pointer shield and the FIT re-fit — via onDragStart/onDragEnd (suspend the FIT
+// agent on the first layout change of a drag, re-fit once on release) and
+// onCollapse/onExpand/onSettle.
+//
+// PERSISTENCE is hand-rolled (localStorage ratio + sessionStorage collapse),
+// NOT useDefaultLayout: that hook's save and restore paths key storage
+// differently in v4.12 and never round-trip a two-panel layout (verified). We
+// persist exactly what the old useSplit did — the editor's share of the pair
+// (survives reload) and the collapsed side (survives reload, not a new tab) —
+// and restore post-mount via the panel imperative API (editorRef.resize /
+// panelRef.collapse), the same post-hydration-restore contract useSplit used.
 
 export type SplitSide = "a" | "b"
 
+const RATIO_MIN = 5
+const RATIO_MAX = 95
+
+function ratioKey(storageKey: string) {
+	return storageKey
+}
+function collapseKey(storageKey: string) {
+	return `${storageKey}-collapsed`
+}
+
+/** Read the persisted editor share (%). Sanitize-on-read: out-of-band → null. */
+function readStoredRatio(storageKey: string): number | null {
+	try {
+		const raw = localStorage.getItem(ratioKey(storageKey))
+		if (raw == null) return null
+		const n = Number(raw)
+		return Number.isFinite(n) && n >= RATIO_MIN && n <= RATIO_MAX ? n : null
+	} catch {
+		return null
+	}
+}
+function writeStoredRatio(storageKey: string, pct: number) {
+	try {
+		localStorage.setItem(ratioKey(storageKey), String(Math.round(pct * 100) / 100))
+	} catch {
+		/* private mode — the ratio still applies for the session */
+	}
+}
+function readStoredCollapse(storageKey: string): SplitSide | null {
+	try {
+		const v = sessionStorage.getItem(collapseKey(storageKey))
+		return v === "a" || v === "b" ? v : null
+	} catch {
+		return null
+	}
+}
+function writeStoredCollapse(storageKey: string, side: SplitSide | null) {
+	try {
+		if (side) sessionStorage.setItem(collapseKey(storageKey), side)
+		else sessionStorage.removeItem(collapseKey(storageKey))
+	} catch {
+		/* storage disabled */
+	}
+}
+
 export interface UseResizableSplitOptions {
-	/** localStorage key for the persisted layout (per surface). */
+	/** localStorage key for the persisted editor ratio (per surface). */
 	storageKey: string
 	/** When false (mobile tabs own layout / Fabricate hides the grid) the hook
 	 *  keeps its state inert: `collapsible` stays off and nothing collapses. */
 	active: boolean
+	/** Editor's default share of the pair (%). The ⌘K / double-click reset target. */
+	defaultRatio: number
 	onCollapse?: (side: SplitSide) => void
 	onExpand?: (side: SplitSide) => void
 	/** Once per committed resize (drag release or keyboard step). */
@@ -37,25 +89,19 @@ export interface UseResizableSplitOptions {
 }
 
 export interface ResizableSplit {
-	/** Attach to the editor Panel via `panelRef`. */
 	editorRef: React.RefObject<import("react-resizable-panels").PanelImperativeHandle | null>
-	/** Attach to the preview Panel via `panelRef`. */
 	previewRef: React.RefObject<import("react-resizable-panels").PanelImperativeHandle | null>
-	/** Which pane is collapsed to its rail, or null. */
 	collapsed: SplitSide | null
-	/** True while a divider drag is live. */
 	dragging: boolean
-	/** True after mount — gate `collapsible` on this so hydration's 0-width
-	 *  measure can't auto-collapse a pane. */
+	/** True after mount — gate `collapsible` on this so hydration's 0-width measure
+	 *  can't auto-collapse a pane. */
 	ready: boolean
-	/** Imperative collapse/expand/reset (header glyphs, ⌘K, programmatic reveal). */
 	collapse: (side: SplitSide) => void
 	expand: (side: SplitSide) => void
 	reset: () => void
 	/** Spread onto the <ResizablePanelGroup>. */
 	groupProps: {
 		groupRef: React.RefObject<import("react-resizable-panels").GroupImperativeHandle | null>
-		defaultLayout: Layout | undefined
 		onLayoutChange: (layout: Layout) => void
 		onLayoutChanged: (layout: Layout, meta: LayoutChangedMeta) => void
 	}
@@ -91,14 +137,33 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	const [ready, setReady] = React.useState(false)
 	React.useEffect(() => setReady(true), [])
 
-	const persist = useDefaultLayout({
-		id: storageKey,
-		storage: typeof localStorage !== "undefined" ? localStorage : SSR_NOOP_STORAGE,
-	})
+	// Restore the persisted ratio + collapse ONCE, after the group has laid out
+	// (ready + double rAF), via the panel imperative API — the post-hydration
+	// restore contract (React 19 drops inline-style hydration mismatches, so an
+	// initializer-time restore would never reach the DOM).
+	const restoredRef = React.useRef(false)
+	React.useEffect(() => {
+		if (!ready || !active || restoredRef.current) return
+		const raf = requestAnimationFrame(() =>
+			requestAnimationFrame(() => {
+				// Flip the one-shot INSIDE the rAF: if `active` toggles during the
+				// 2-frame window the cleanup cancels this rAF, and the re-run must
+				// still restore (setting it synchronously would skip it forever).
+				restoredRef.current = true
+				const pct = readStoredRatio(storageKey)
+				// A bare number is PIXELS to the library; a "%"-suffixed string is a
+				// percentage — the editor share is a percent.
+				if (pct != null) editorRef.current?.resize(`${pct}%`)
+				const side = readStoredCollapse(storageKey)
+				if (side) panelRefOf(side).current?.collapse()
+			}),
+		)
+		return () => cancelAnimationFrame(raf)
+	}, [ready, active, storageKey, editorRef, panelRefOf])
 
 	// Track collapse via the panel's authoritative isCollapsed() (the library has
 	// no onCollapse event; onResize is our poll). Per-side prev guards the edge so
-	// the callbacks fire once per transition, not per frame.
+	// the callbacks + collapse persistence fire once per transition, not per frame.
 	const collapsedRef = React.useRef({ a: false, b: false })
 	const pollCollapse = React.useCallback(
 		(side: SplitSide) => {
@@ -107,41 +172,52 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 			collapsedRef.current[side] = now
 			if (now) {
 				setCollapsed(side)
+				writeStoredCollapse(storageKey, side)
 				optsRef.current.onCollapse?.(side)
 			} else {
 				setCollapsed((c) => (c === side ? null : c))
+				writeStoredCollapse(storageKey, null)
 				optsRef.current.onExpand?.(side)
 			}
 		},
-		[panelRefOf],
+		[panelRefOf, storageKey],
 	)
 	const onEditorResize = React.useCallback(() => pollCollapse("a"), [pollCollapse])
 	const onPreviewResize = React.useCallback(() => pollCollapse("b"), [pollCollapse])
 
 	const collapse = React.useCallback((side: SplitSide) => panelRefOf(side).current?.collapse(), [panelRefOf])
 	const expand = React.useCallback((side: SplitSide) => panelRefOf(side).current?.expand(), [panelRefOf])
-	// Reset restores the persisted default layout (⌘K "Reset split"); the library
-	// also resets on separator double-click natively. Clearing storage first makes
-	// the default authoritative.
+	// Reset restores the default editor share (⌘K "Reset split"): expand any
+	// collapsed pane, clear BOTH persisted keys (ratio + collapse) so the default
+	// is authoritative on the next load, and resize to the default ratio.
 	const reset = React.useCallback(() => {
+		if (collapsedRef.current.a) editorRef.current?.expand()
+		if (collapsedRef.current.b) previewRef.current?.expand()
+		writeStoredCollapse(storageKey, null)
 		try {
-			localStorage?.removeItem(storageKey)
+			localStorage?.removeItem(ratioKey(storageKey))
 		} catch {
 			/* private mode */
 		}
-		if (persist.defaultLayout) groupRef.current?.setLayout(persist.defaultLayout)
-	}, [storageKey, persist.defaultLayout, groupRef])
+		editorRef.current?.resize(`${optsRef.current.defaultRatio}%`)
+	}, [storageKey, editorRef, previewRef])
 
 	const onLayoutChange = React.useCallback(() => {
 		if (active) setDrag(true)
 	}, [active, setDrag])
 	const onLayoutChanged = React.useCallback(
-		(layout: Layout, meta: LayoutChangedMeta) => {
-			persist.onLayoutChanged(layout, meta)
+		(_layout: Layout, meta: LayoutChangedMeta) => {
 			setDrag(false)
-			if (meta.isUserInteraction) optsRef.current.onSettle?.()
+			if (!meta.isUserInteraction) return
+			// Persist the editor share only when neither pane is collapsed — a
+			// collapse is its own (sessionStorage) state, not the ratio.
+			if (!collapsedRef.current.a && !collapsedRef.current.b) {
+				const pct = editorRef.current?.getSize().asPercentage
+				if (typeof pct === "number" && pct >= RATIO_MIN && pct <= RATIO_MAX) writeStoredRatio(storageKey, pct)
+			}
+			optsRef.current.onSettle?.()
 		},
-		[persist, setDrag],
+		[setDrag, storageKey, editorRef],
 	)
 
 	return {
@@ -153,7 +229,7 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		collapse,
 		expand,
 		reset,
-		groupProps: { groupRef, defaultLayout: persist.defaultLayout, onLayoutChange, onLayoutChanged },
+		groupProps: { groupRef, onLayoutChange, onLayoutChanged },
 		onEditorResize,
 		onPreviewResize,
 	}

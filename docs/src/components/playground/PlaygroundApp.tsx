@@ -578,6 +578,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const split = useResizableSplit({
 		storageKey: 'lattice-docs-split-playground',
 		active: splitActive,
+		defaultRatio: 45,
 		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onExpand: (side) => {
 			if (side === 'b') onPreviewExpand();
@@ -601,9 +602,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const collapseFromHeader = React.useCallback(
 		(side: 'a' | 'b') => {
 			split.collapse(side);
-			requestAnimationFrame(() => {
-				document.querySelector<HTMLButtonElement>(`.pg-split [data-slot='split-rail'][data-side='${side}']`)?.focus();
-			});
+			// Double rAF: the rail is display:none until React commits the collapse
+			// (onResize→isCollapsed()→setState), so one frame can beat the reveal and
+			// focus a hidden element (dropping focus to <body>). Two frames clear the commit.
+			requestAnimationFrame(() =>
+				requestAnimationFrame(() => {
+					document.querySelector<HTMLButtonElement>(`.pg-split [data-slot='split-rail'][data-side='${side}']`)?.focus();
+				}),
+			);
 		},
 		[split.collapse],
 	);
@@ -1524,6 +1530,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				data-split-dragging={split.dragging ? '' : undefined}
 			>
 				<ResizablePanel
+					id="pg-split-editor"
 					className="pg-pane editor"
 					panelRef={split.editorRef}
 					minSize={280}
@@ -1566,6 +1573,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				</ResizablePanel>
 				<ResizableHandle aria-label="Resize editor and preview" />
 				<ResizablePanel
+					id="pg-split-preview"
 					className="pg-pane preview"
 					panelRef={split.previewRef}
 					minSize={320}

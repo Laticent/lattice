@@ -169,9 +169,11 @@ const pgData = {
 					// hydrates so a returning focus-mode visitor never sees the SSR toolbar
 					// flash then vanish. PlaygroundApp owns the attribute after hydration.
 					if (localStorage.getItem('lattice-docs-pg-focus') === '1') r.setAttribute('data-pg-focus', '');
-					// (The editor|preview split ratio no longer needs a pre-paint CSS-var
-					// seed: react-resizable-panels restores the saved layout itself on
-					// mount via useDefaultLayout — 2026-07-19 splitter migration.)
+					// (The editor|preview split ratio's pre-paint CSS-var seed is retired
+					// with the react-resizable-panels migration: the library owns the
+					// panel's inline flex, so a CSS var can't seed it, and the hook restores
+					// the saved ratio post-mount via the panel imperative API — a returning
+					// resizer briefly paints at the default before the restore. 2026-07-19.)
 				} catch (e) {}
 			})();
 		</script>

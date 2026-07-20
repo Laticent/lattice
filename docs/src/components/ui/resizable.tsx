@@ -17,11 +17,12 @@ import { cn } from "@/lib/utils"
 // the px pane minimums (editor 240, preview 280, panel mins) are expressed
 // directly — retiring the fr-pair "void" math (#721) that made the CSS-Grid
 // approach fragile. `collapsible` + `collapsedSize` + the panelRef imperative
-// `collapse()`/`expand()` give the collapse-to-rail affordance; `useDefaultLayout`
-// (or our own onLayoutChanged) owns persistence. The library owns pointer
-// capture, keyboard/ARIA (role="separator" + arrow keys), and the coarse-pointer
-// hit target — the parts the custom primitive hand-rolled and the field kept
-// finding bugs in.
+// `collapse()`/`expand()` give the collapse-to-rail affordance. The library owns
+// pointer capture, keyboard/ARIA (role="separator" + arrow keys), and the
+// coarse-pointer hit target — the parts the custom primitive hand-rolled and the
+// field kept finding bugs in. Layout PERSISTENCE is hand-rolled in
+// use-resizable-split.ts (v4.12's useDefaultLayout keys its save and restore paths
+// differently and never round-trips a two-panel layout).
 //
 // The consumer still owns the two things no splitter library solves: the srcdoc
 // preview-iframe pointer shield and the __latticeFit re-fit choreography. Both

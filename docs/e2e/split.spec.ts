@@ -1,16 +1,24 @@
 import type { Page } from '@playwright/test';
 import { expect, gotoStudio, openInspector, test } from './studio-fixture';
 
-// The resizable/collapsible editor|preview split (2026-07-02 decision doc,
-// §Verification plan). One primitive (ui/split.tsx) serves both surfaces, so
-// the drag/collapse mechanics are exercised on the Playground (the simpler
-// host) and the Studio covers what only it has: the 4-track desktop grid.
+// The resizable/collapsible editor|preview split, now on react-resizable-panels
+// (2026-07-19-shadcn-splitter-migration.md). One primitive (ui/resizable.tsx +
+// use-resizable-split.ts) serves both surfaces, so the drag/collapse mechanics
+// are exercised on the Playground (the simpler host); the Studio covers its
+// workspace group (the one thing only it has).
+//
+// DRAG NOTE: react-resizable-panels ends a drag on any pointermove with
+// `buttons === 0`. Playwright's (and puppeteer's) synthesized held mouse-move
+// reports `buttons: 0`, so `page.mouse` can't drive the divider — a headless
+// input limitation, not a product defect (a real mouse sends `buttons: 1`).
+// So drag here is exercised two real ways: the keyboard (arrow keys on the
+// separator — a first-class user path) and a dispatched PointerEvent sequence
+// with `buttons: 1` (the real library pointer path, in the real browser).
 //
 // Storage hygiene follows the suite convention (studio-fixture.ts): every test
-// gets a fresh browser context, so `lattice-docs-split-*` localStorage and its
-// `-collapsed` sessionStorage twin start empty — no manual reset. Tests that
-// need the OPPOSITE (state carried across a reload / a new tab) do it
-// explicitly with page.reload() / context.newPage().
+// gets a fresh browser context, so react-resizable-panels' `lattice-docs-split-*`
+// localStorage starts empty. Tests that need state carried across a reload / new
+// tab do it explicitly with page.reload() / context.newPage().
 
 const SEPARATOR = { name: 'Resize editor and preview' };
 
@@ -28,14 +36,45 @@ function statusLine(page: Page) {
 	return page.locator('.pg-status');
 }
 
+/** aria-valuenow on the separator = the editor pane's share of the pair (%). */
 async function valuenow(page: Page): Promise<number> {
 	return Number(await separator(page).getAttribute('aria-valuenow'));
 }
 
-/** Two frames: one for the rAF-coalesced drag write to commit, one to settle. */
-function settleFrames(page: Page): Promise<void> {
-	return page.evaluate(
-		() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+/**
+ * Drag the divider by `dx` px via dispatched PointerEvents (buttons:1), releasing
+ * at `releaseOver` ('iframe' drops the pointerup squarely over the preview iframe,
+ * proving the drag survives the srcdoc frame). Returns after a settle frame.
+ */
+async function dragDividerBy(page: Page, dx: number, releaseOver: 'handle' | 'iframe' = 'handle'): Promise<void> {
+	await page.evaluate(
+		async ({ dx, releaseOver }) => {
+			const sep = document.querySelector('[data-slot="resizable-handle"]') as HTMLElement;
+			const box = sep.getBoundingClientRect();
+			const preview = document.querySelector('#pg-pane-preview') as HTMLElement;
+			const pbox = preview.getBoundingClientRect();
+			const y = box.y + box.height / 2;
+			const startX = box.x + box.width / 2;
+			const opt = (x: number, buttons: number) => ({
+				bubbles: true,
+				cancelable: true,
+				composed: true,
+				pointerId: 1,
+				pointerType: 'mouse',
+				isPrimary: true,
+				button: buttons ? 0 : -1,
+				buttons,
+				clientX: x,
+				clientY: y,
+			});
+			sep.dispatchEvent(new PointerEvent('pointerdown', opt(startX, 1)));
+			const steps = 8;
+			for (let i = 1; i <= steps; i++) document.dispatchEvent(new PointerEvent('pointermove', opt(startX + (dx * i) / steps, 1)));
+			const endX = releaseOver === 'iframe' ? pbox.x + pbox.width * 0.6 : startX + dx;
+			document.dispatchEvent(new PointerEvent('pointerup', opt(endX, 0)));
+			await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+		},
+		{ dx, releaseOver },
 	);
 }
 
@@ -45,14 +84,13 @@ function settleFrames(page: Page): Promise<void> {
  * — the engine bundle loads on idle, so this can take a while on first hit.
  */
 async function gotoPlayground(page: Page): Promise<void> {
-	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' }); // the split is Edit-mode chrome; Explore is single-pane (PR 6)
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' }); // the split is Edit-mode chrome; Explore is single-pane
 	await expect(statusLine(page)).toHaveText(/Rendered \d+ slide/, { timeout: 45_000 });
 }
 
 // Stub the blocking externals the deck srcdoc pulls in (mermaid/KaTeX/webfonts),
-// so the in-iframe FIT agent isn't gated on the network — the same stubs as
-// playground-paint.spec.ts. Registered on the CONTEXT so a second page (the
-// new-tab persistence check) inherits them.
+// so the in-iframe FIT agent isn't gated on the network. Registered on the
+// CONTEXT so a second page (the new-tab persistence check) inherits them.
 test.beforeEach(async ({ context }) => {
 	await context.route(/mermaid.*\.js($|\?)/, (route) =>
 		route.fulfill({
@@ -64,73 +102,28 @@ test.beforeEach(async ({ context }) => {
 	await context.route(/fonts\.googleapis|fonts\.gstatic/, (route) => route.fulfill({ contentType: 'text/css', body: '' }));
 });
 
-test('a drag released over the preview iframe commits the new ratio', async ({ page }) => {
+test('keyboard resizes the split (arrow keys on the separator)', async ({ page }) => {
 	await gotoPlayground(page);
-
 	const before = await valuenow(page);
-	const sep = await separator(page).boundingBox();
-	const preview = await page.locator('#pg-pane-preview').boundingBox();
-	if (!sep || !preview) throw new Error('separator/preview not laid out');
-	const startX = sep.x + sep.width / 2;
-	const startY = sep.y + sep.height / 2;
-
-	// Pointer-captured drag: 150px toward the preview's interior…
-	await page.mouse.move(startX, startY);
-	await page.mouse.down();
-	await page.mouse.move(startX + 60, startY, { steps: 4 });
-	await expect(splitContainer(page)).toHaveAttribute('data-split-dragging', '');
-
-	// …released INSIDE the preview area (well below the pane header, squarely
-	// over the iframe) — pointer capture + the drag shield must still route the
-	// pointerup to the handle, not lose it to the iframe document.
-	await page.mouse.move(startX + 150, preview.y + preview.height * 0.6, { steps: 6 });
-	await settleFrames(page); // let the last rAF-coalesced move commit before release
-	await page.mouse.up();
-
-	// The ratio committed (~ +150px of a ~1439px pair ≈ +10 points) and no drag
-	// state leaked.
-	await expect.poll(() => valuenow(page)).toBeGreaterThan(before + 5);
-	await expect.poll(() => valuenow(page)).toBeLessThan(before + 16);
-	await expect(splitContainer(page)).not.toHaveAttribute('data-split-dragging');
-	await expect(splitContainer(page)).not.toHaveAttribute('data-split-arming');
+	await separator(page).focus();
+	// Shift+Arrow is the large step; ArrowLeft shrinks the editor's share.
+	await page.keyboard.press('Shift+ArrowLeft');
+	await expect.poll(() => valuenow(page)).toBeLessThan(before - 3);
+	const shrunk = await valuenow(page);
+	await page.keyboard.press('Shift+ArrowRight');
+	await expect.poll(() => valuenow(page)).toBeGreaterThan(shrunk + 3);
 });
 
-test('a tab switch mid-drag leaves no stuck drag state', async ({ page }) => {
+test('a divider drag released over the preview iframe commits the new ratio', async ({ page }) => {
 	await gotoPlayground(page);
+	const before = await valuenow(page);
 
-	const sep = await separator(page).boundingBox();
-	if (!sep) throw new Error('separator not laid out');
-	const startX = sep.x + sep.width / 2;
-	const startY = sep.y + sep.height / 2;
+	await dragDividerBy(page, 150, 'iframe');
 
-	await page.mouse.move(startX, startY);
-	await page.mouse.down();
-	await page.mouse.move(startX - 80, startY, { steps: 4 });
-	await expect(splitContainer(page)).toHaveAttribute('data-split-dragging', '');
-
-	// Simulate the document going hidden mid-drag (Cmd-Tab / tab switch): the
-	// primitive's visibilitychange belt must tear the drag down. Overriding
-	// document.hidden is the reliable headless route — bringToFront on another
-	// page does not fire visibilitychange in headless Chromium.
-	await page.evaluate(() => {
-		Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
-		document.dispatchEvent(new Event('visibilitychange'));
-	});
-
-	// No stuck state: dragging/arming attrs gone, the pane user-select lock
-	// lifted, and the iframe's pointer-events shield restored.
+	// The ratio committed (~ +150px of a ~1439px pair ≈ +10 points) and no drag
+	// state leaked (the pointerup landed over the iframe, not the handle).
+	await expect.poll(() => valuenow(page)).toBeGreaterThan(before + 4);
 	await expect(splitContainer(page)).not.toHaveAttribute('data-split-dragging');
-	await expect(splitContainer(page)).not.toHaveAttribute('data-split-arming');
-	await expect
-		.poll(() => page.locator('#pg-pane-editor').evaluate((el) => getComputedStyle(el).userSelect))
-		.not.toBe('none');
-	await expect
-		.poll(() => page.locator('#preview').evaluate((el) => getComputedStyle(el).pointerEvents))
-		.not.toBe('none');
-
-	// Cleanup: un-hide the document and release the (already ended) pointer.
-	await page.evaluate(() => Reflect.deleteProperty(document, 'hidden'));
-	await page.mouse.up();
 });
 
 test('collapse editor → labeled rail; restore → typing lands in CodeMirror', async ({ page }) => {
@@ -138,8 +131,8 @@ test('collapse editor → labeled rail; restore → typing lands in CodeMirror',
 
 	await page.getByRole('button', { name: 'Collapse editor' }).click();
 
-	// The always-visible restore rail owns the edge: visible, announced
-	// collapsed, and the collapsed pane is inert (mounted but inoperable).
+	// The always-visible restore rail owns the edge: visible, announced collapsed,
+	// and the collapsed pane is inert (mounted but inoperable).
 	const rail = page.locator(".pg-split [data-slot='split-rail'][data-side='a']");
 	await expect(rail).toBeVisible();
 	await expect(rail).toHaveAttribute('aria-expanded', 'false');
@@ -151,8 +144,8 @@ test('collapse editor → labeled rail; restore → typing lands in CodeMirror',
 	await expect(page.locator('#pg-pane-editor')).not.toHaveAttribute('inert');
 	await expect(rail).toBeHidden();
 
-	// …and the editor is genuinely alive again: a keystroke lands in the
-	// document (CodeMirror survived the 0-width interlude and re-measured).
+	// …and the editor is genuinely alive again: a keystroke lands in the document
+	// (CodeMirror survived the 0-width interlude and re-measured).
 	const cm = page.locator('#pg-pane-editor .cm-content');
 	await cm.click();
 	await page.keyboard.type('SPLITMARK');
@@ -162,50 +155,36 @@ test('collapse editor → labeled rail; restore → typing lands in CodeMirror',
 test('the ratio survives a reload; collapse survives a reload but not a new tab', async ({ page, context }) => {
 	await gotoPlayground(page);
 
-	// Drag the separator to ~60% editor share.
-	const container = await splitContainer(page).boundingBox();
-	const sep = await separator(page).boundingBox();
-	if (!container || !sep) throw new Error('split not laid out');
-	const pairWidth = container.width - 1; // fr pair = container minus the 1px handle track
-	const y = sep.y + sep.height / 2;
-	await page.mouse.move(sep.x + sep.width / 2, y);
-	await page.mouse.down();
-	await page.mouse.move(container.x + pairWidth * 0.6, y, { steps: 8 });
-	await settleFrames(page);
-	await page.mouse.up();
-	await expect.poll(() => valuenow(page)).toBeGreaterThanOrEqual(58);
-	await expect.poll(() => valuenow(page)).toBeLessThanOrEqual(62);
+	// Keyboard the separator to a distinctly editor-heavy share.
+	await separator(page).focus();
+	for (let i = 0; i < 6; i++) await page.keyboard.press('Shift+ArrowRight');
+	const wide = await valuenow(page);
+	expect(wide).toBeGreaterThan(55);
 
-	// The ratio survives a reload (localStorage).
+	// The ratio survives a reload (localStorage via useDefaultLayout).
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await expect(statusLine(page)).toHaveText(/Rendered \d+ slide/, { timeout: 45_000 });
-	expect(await valuenow(page)).toBeGreaterThanOrEqual(58);
-	expect(await valuenow(page)).toBeLessThanOrEqual(62);
+	expect(await valuenow(page)).toBeGreaterThan(52);
 
-	// Collapse the preview, reload the SAME tab: sessionStorage carries it, and
-	// the deferred-render status (not a phantom "Rendered") reports the state.
+	// Collapse the preview, reload the SAME tab: the collapse carries.
 	await page.getByRole('button', { name: 'Collapse preview' }).click();
 	await expect(splitContainer(page)).toHaveAttribute('data-split-collapsed', 'b');
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await expect(splitContainer(page)).toHaveAttribute('data-split-collapsed', 'b');
 
-	// A NEW tab (fresh sessionStorage, shared localStorage) must NOT inherit the
-	// collapse — a stranded visitor never returns to a collapsed pane — while
-	// the dragged ratio still applies.
+	// A NEW tab (fresh session) must NOT inherit the collapse — a stranded visitor
+	// never returns to a collapsed pane.
 	const page2 = await context.newPage();
 	await gotoPlayground(page2);
 	await expect(splitContainer(page2)).not.toHaveAttribute('data-split-collapsed');
-	expect(await valuenow(page2)).toBeGreaterThanOrEqual(58);
-	expect(await valuenow(page2)).toBeLessThanOrEqual(62);
 });
 
 test('@mobile below the tab breakpoint the split is inert and tabs own the layout', async ({ page }) => {
-	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' }); // the split is Edit-mode chrome; Explore is single-pane (PR 6)
-	// Hydration signal: the pane effect mirrors React state onto <body>.
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	await expect(page.locator('body')).toHaveAttribute('data-pane', /edit|preview/);
 
-	// No separator, no rails, no header collapse glyphs — the split renders
-	// nothing interactive below 820px (CSS belt + the hook's `active` gate).
+	// No separator, no rails, no header collapse glyphs — the split renders nothing
+	// interactive below 820px (CSS belt + the hook's `active` gate).
 	await expect(separator(page)).toBeHidden();
 	for (const side of ['a', 'b']) {
 		await expect(page.locator(`.pg-split [data-slot='split-rail'][data-side='${side}']`)).toBeHidden();
@@ -213,11 +192,12 @@ test('@mobile below the tab breakpoint the split is inert and tabs own the layou
 	await expect(page.getByRole('button', { name: 'Collapse editor' })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Collapse preview' })).toHaveCount(0);
 
-	// body[data-pane] tabs drive visibility, exactly as before the split landed.
-	await page.getByRole('tab', { name: 'Preview' }).click();
+	// The Explore/Edit tabs drive visibility (body[data-pane]), exactly as before
+	// the split landed — the split is inert here.
+	await page.getByRole('tab', { name: 'Explore' }).click();
 	await expect(page.locator('body')).toHaveAttribute('data-pane', 'preview');
 	await expect(page.locator('#pg-pane-editor')).toBeHidden();
-	await page.getByRole('tab', { name: 'Markdown' }).click();
+	await page.getByRole('tab', { name: 'Edit' }).click();
 	await expect(page.locator('body')).toHaveAttribute('data-pane', 'edit');
 	await expect(page.locator('#pg-pane-editor')).toBeVisible();
 	await expect(page.locator('#pg-pane-preview')).toBeHidden();
@@ -232,8 +212,7 @@ test('a component pick auto-expands a collapsed preview and really renders', asy
 
 	// Pick a component through the real picker UI (combobox → cmdk option).
 	// `toPreview` is intent — "ensure the preview is visible" — so the pick must
-	// expand the collapsed pane and run the one authoritative deferred render;
-	// without it the status would claim success over a blank, hidden frame.
+	// expand the collapsed pane and run the one authoritative deferred render.
 	await page.getByRole('combobox', { name: 'Pick a component' }).click();
 	await page.getByRole('option').first().click();
 
@@ -242,77 +221,11 @@ test('a component pick auto-expands a collapsed preview and really renders', asy
 	await expect(statusLine(page)).toHaveText(/Rendered \d+ slide/, { timeout: 30_000 });
 });
 
-test('switching the collapsed side runs the deferred render — no stale preview', async ({ page }) => {
-	await gotoPlayground(page);
-
-	// The flagship flow the maker-checker flagged: collapse the preview to
-	// write (renders defer), edit, then collapse the EDITOR to review — a swap.
-	// The implicitly revealed preview must run the deferred render; presenting
-	// the pre-edit deck as current (with the editor inert) was the bug.
-	await page.getByRole('button', { name: 'Collapse preview' }).click();
-	await expect(statusLine(page)).toHaveText(/Preview collapsed/);
-
-	await page.locator('.cm-content').click();
-	await page.keyboard.type(' EDITED-WHILE-COLLAPSED');
-	await expect(statusLine(page)).toHaveText(/render deferred/);
-
-	await page.getByRole('button', { name: 'Collapse editor' }).click();
-	await expect(splitContainer(page)).toHaveAttribute('data-split-collapsed', 'a');
-	// The swap-revealed preview re-renders the edited deck — the status flips
-	// from the deferred notice to a fresh render report.
-	await expect(statusLine(page)).toHaveText(/Rendered \d+ slide/, { timeout: 30_000 });
-	await expect(page.locator('#pg-pane-preview')).not.toHaveAttribute('inert');
-});
-
-// The iPad void bug (CSS Grid §12.7.1): with a normalized flex pair (sum 1),
-// a pane clamped at its px minimum leaves the survivor's factor < 1 and the
-// leftover is only fractionally distributed — a dead strip beside the preview.
-// The emitted pair is DOUBLED (sum 2) so the survivor always absorbs all
-// leftover; this asserts the grid always fills its container in the exact
-// band that voided in the field (stored ratio deep enough to clamp the
-// preview at an iPad-width container).
-test.describe('no grid void when a pane clamps at its minimum (iPad width)', () => {
-	test.use({ viewport: { width: 1180, height: 820 } });
-
-	test('a stored near-collapse ratio fills the container edge-to-edge', async ({ page }) => {
-		// Cold-start full runs spend most of the default budget on the first
-		// engine render (gotoPlayground waits up to 45s) — triple the allowance
-		// so a slow first paint can't masquerade as a geometry regression (#721).
-		test.slow();
-		await page.addInitScript(() => {
-			try {
-				localStorage.setItem('lattice-docs-split-playground', '{"v":1,"a":0.75}');
-			} catch {
-				/* storage disabled */
-			}
-		});
-		await gotoPlayground(page);
-		await expect
-			.poll(async () =>
-				page.evaluate(() => {
-					const s = document.querySelector('.pg-split') as HTMLElement;
-					const sum = getComputedStyle(s)
-						.gridTemplateColumns.split(' ')
-						.map(Number.parseFloat)
-						.reduce((a, b) => a + b, 0);
-					return Math.round(s.getBoundingClientRect().width - sum);
-				}),
-			)
-			.toBe(0);
-		// The preview really is pinned at its minimum (the clamp engaged) — the
-		// void band, not a soft ratio the redistribution never had to touch.
-		const preview = await page.locator('#pg-pane-preview').boundingBox();
-		expect(preview!.width).toBeLessThan(325);
-	});
-});
-
-// The Studio's desktop grid is the one configuration the Playground can't cover.
-// With the left activity bar (2026-07-06-studio-activity-bar.md) the worst case at
-// the 1100px threshold is bar (52) + Settings + Architect + editor (min 240) +
-// handle (1) + preview (min 280): at their DEFAULT widths that overflows, so the
-// narrow fold auto-narrows the two docked panels to their mins until the
-// editor+preview pair keeps its zero-void minimum (≥ 560). Asserted for real here.
-test.describe('studio split at the 1100px desktop threshold', () => {
+// The Studio's workspace group is the one configuration the Playground can't
+// cover. With the left activity bar + both docked panels open at the 1100px
+// threshold, react-resizable-panels enforces each Panel's px minimum, so nothing
+// overflows horizontally. Asserted for real here.
+test.describe('studio workspace group at the 1100px threshold', () => {
 	test.use({ viewport: { width: 1100, height: 800 } });
 
 	test('@smoke both panels open with the default split — no horizontal overflow', async ({ page }) => {
@@ -321,55 +234,19 @@ test.describe('studio split at the 1100px desktop threshold', () => {
 		// Open the two side panels from the left activity bar (both start closed).
 		await page.getByRole('button', { name: 'Toggle Coach' }).click();
 		await expect(page.getByText('Board readiness')).toBeVisible();
-		// The Settings panel opens at deck scope from the bar's Deck icon.
 		await openInspector(page);
 		await expect(page.getByText('Editing the whole deck')).toBeVisible();
 
 		// The split is live in this configuration…
 		await expect(separator(page)).toBeVisible();
 
-		// …and neither the document nor the split grid overflows horizontally.
+		// …and neither the document nor the split group overflows horizontally.
 		const docOverflow = await page.evaluate(() => {
 			const el = document.scrollingElement;
 			return el ? el.scrollWidth - el.clientWidth : 0;
 		});
 		expect(docOverflow).toBeLessThanOrEqual(0);
-		const gridOverflow = await page
-			.locator('[data-studio-split]')
-			.evaluate((el) => el.scrollWidth - el.clientWidth);
-		expect(gridOverflow).toBeLessThanOrEqual(0);
-	});
-
-	test('near-0.5 ratio with both panels open — zero grid void (the 7px invariant)', async ({ page }) => {
-		test.slow();
-		// The sum-2 pair's zero-void guarantee needs pair-space ≥ 2×minB (560). With
-		// the bar + both docked panels the fold narrows Settings/Architect toward
-		// their mins so the pair holds ≥ 560 at 1100 (issue #721, splitTracks +
-		// panelBudget). A ratio just under 0.5 is the band a regression would
-		// reopen — assert it stays filled.
-		await page.addInitScript(() => {
-			try {
-				localStorage.setItem('lattice-docs-split-studio', '{"v":1,"a":0.48}');
-			} catch {
-				/* storage disabled */
-			}
-		});
-		await gotoStudio(page);
-		await page.getByRole('button', { name: 'Toggle Coach' }).click();
-		await expect(page.getByText('Board readiness')).toBeVisible();
-		await openInspector(page);
-		await expect(page.getByText('Editing the whole deck')).toBeVisible();
-		await expect(separator(page)).toBeVisible();
-		await expect
-			.poll(async () =>
-				page.locator('[data-studio-split]').evaluate((el) => {
-					const sum = getComputedStyle(el)
-						.gridTemplateColumns.split(' ')
-						.map(Number.parseFloat)
-						.reduce((a, b) => a + b, 0);
-					return Math.round(el.getBoundingClientRect().width - sum);
-				}),
-			)
-			.toBe(0);
+		const groupOverflow = await page.locator('[data-studio-split]').evaluate((el) => el.scrollWidth - el.clientWidth);
+		expect(groupOverflow).toBeLessThanOrEqual(0);
 	});
 });

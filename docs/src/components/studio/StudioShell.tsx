@@ -1438,6 +1438,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const split = useResizableSplit({
 		storageKey: 'lattice-docs-split-studio',
 		active: splitUsable,
+		defaultRatio: 46,
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onDragStart: () => suspendScaleObservers(true),
 		onDragEnd: () => suspendScaleObservers(false),
@@ -1450,9 +1451,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// now-inert pane it would drop to <body>; hand it to the always-visible rail.
 	const collapseFromHeader = React.useCallback((side: SplitSide) => {
 		splitApiRef.current.collapse(side);
-		requestAnimationFrame(() => {
-			document.querySelector<HTMLButtonElement>(`[data-studio-split] [data-slot='split-rail'][data-side='${side}']`)?.focus();
-		});
+		// Double rAF: the rail is display:none until React commits the collapse, so
+		// one frame can beat the reveal and focus a hidden element (dropping focus to
+		// <body>). Two frames clear the commit.
+		requestAnimationFrame(() =>
+			requestAnimationFrame(() => {
+				document.querySelector<HTMLButtonElement>(`[data-studio-split] [data-slot='split-rail'][data-side='${side}']`)?.focus();
+			}),
+		);
 	}, []);
 
 	// ── Architect (AI) ───────────────────────────────────────────────────────

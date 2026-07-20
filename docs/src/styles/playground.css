@@ -522,13 +522,13 @@ body[data-view='read'] .pg-pane-label {
    Explore forces body[data-pane='preview'], so the walked deck owns the
    column. Un-scoped, these five tracks would misplace the phone's panes. */
 @media not (max-width: 820px) {
-	body[data-view='read'] .pg-split > .pg-pane.editor,
+	/* Hide the editor Panel's OUTER (sizing) div by id + the divider so the preview
+	   goes full-bleed. react-resizable-panels wraps each Panel in an outer div
+	   (carrying the id) around the inner div that holds .pg-pane, so a .pg-pane rule
+	   lands on the grandchild and can't shrink the outer track. */
+	body[data-view='read'] .pg-split > #pg-split-editor,
 	body[data-view='read'] .pg-split > [data-slot='resizable-handle'] {
 		display: none !important;
-	}
-	body[data-view='read'] .pg-split > .pg-pane.preview {
-		flex: 1 1 100% !important;
-		width: 100% !important;
 	}
 	body[data-view='read'] .pg-pane.preview .pg-rail {
 		display: none !important;
