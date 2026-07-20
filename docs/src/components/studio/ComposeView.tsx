@@ -313,6 +313,18 @@ class SlideView {
 	private dangerGroup: HTMLElement;
 	private deleteBtn: HTMLButtonElement;
 	private confirmTimer = 0;
+	// Explicit teardown hygiene: every button listener this view adds (structural btn() + the format
+	// group rebuilt on each caret move) rides this ONE signal, so destroy() removes them all in a
+	// single abort instead of relying on GC to reclaim them with the detached node. NOTE: the
+	// "+91 listeners/cycle compose leak" that originally motivated this (2026-07-20-studio-degradation-
+	// audit) turned out to be a TORTURE-HARNESS ARTIFACT — undisposed puppeteer ElementHandles pinned
+	// each cycle's editor; clean measurement shows compose listeners creep ~1.7/cyc (EditorView/
+	// CodeMirror internals, not these buttons). So this abort is kept as correct, cheap lifecycle
+	// hygiene, NOT as a measured perf win. A per-rebuild controller for the format group was trialed
+	// and dropped: the red-team measured that Chromium holds an AbortSignal's removal step WEAKLY, so
+	// churned detached buttons + their listeners are GC'd even while this controller is alive — a
+	// second controller fixed nothing observable. (Correction: 2026-07-20-studio-audit-instrument-fix.)
+	private ac = new AbortController();
 	private locked: boolean;
 	private stateful: boolean; // slide is a stateful table component (obligation-matrix / roadmap) → offer the marker picker
 	private tableHosted = false; // whether this slide's Format group currently hosts the React TableControls
@@ -391,17 +403,22 @@ class SlideView {
 		b.title = label;
 		b.setAttribute('aria-label', label);
 		b.innerHTML = lucideSvg(icon);
-		b.addEventListener('mousedown', (e) => e.preventDefault());
+		b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
 		b.addEventListener('click', (e) => {
 			e.preventDefault();
 			fn();
-		});
+		}, { signal: this.ac.signal });
 		return b;
 	}
 	// Rebuild the Format group from the registers that APPLY to the caret's block — only when THIS
 	// slide is active. Runs on every state change (formatSyncPlugin) so it tracks the caret; a
 	// signature check skips the DOM churn when nothing changed.
 	syncFormat() {
+		// A destroyed view is dropped from `liveSlideViews`, so formatSyncPlugin never reaches it —
+		// but guard anyway: after destroy() aborts `ac`, any stray call here would build buttons whose
+		// listeners are silent no-ops (aborted signal) — dead buttons on a detached tree (red-team
+		// latent-path #4 on Fix B). Cheap insurance against a future caller outside the plugin.
+		if (this.ac.signal.aborted) return;
 		const active = this.dom.classList.contains('cs-slide-active');
 		// Caret inside an editable table → the Format group hosts the React TableControls island
 		// (a shadcn dropdown + quick inserts), mounted by ComposeView into the slot below. A LOCKED
@@ -444,11 +461,11 @@ class SlideView {
 			b.title = `${meta.label} — apply to this block`;
 			b.setAttribute('aria-label', meta.label);
 			b.setAttribute('aria-pressed', activeReg === key ? 'true' : 'false');
-			b.addEventListener('mousedown', (e) => e.preventDefault());
+			b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
 			b.addEventListener('click', (e) => {
 				e.preventDefault();
 				applyRegister(this.view, key, activeRegister(this.view.state));
-			});
+			}, { signal: this.ac.signal });
 			this.fmtGroup.append(b);
 		}
 	}
@@ -572,6 +589,7 @@ class SlideView {
 	}
 	destroy() {
 		clearTimeout(this.confirmTimer);
+		this.ac.abort(); // remove ALL button listeners in one shot (structural + format group)
 		this.clearTableHost();
 		liveSlideViews.delete(this);
 	}

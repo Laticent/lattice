@@ -161,7 +161,10 @@ async function sample(inst, label, peakHeap) {
 }
 
 const wait = (page, ms) => page.evaluate((m) => new Promise((r) => setTimeout(r, m)), ms);
-const clickIf = async (page, sel) => { const el = await page.$(sel); if (el) { await el.click(); return true; } return false; };
+// In-page click-if-present — returns a boolean, so no ElementHandle leaks into the DevTools remote
+// group (see the OBSERVER-POLLUTION GUARD note by clickSel; an undisposed handle pins a node that
+// later detaches and fabricates a per-cycle leak).
+const clickIf = (page, sel) => page.evaluate((s) => { const el = document.querySelector(s); if (el) { el.click(); return true; } return false; }, sel);
 async function peakDuring(inst, fn) {
 	// crude peak: sample heap a few times during the action, take max (pre-GC). The poll's
 	// perf() is guarded (a closing/navigating target rejects it) and a try/finally guarantees
@@ -214,7 +217,24 @@ const SURFACES = {
 const CYCLE_SURFACE = { landing: 'landing', pgslide: 'playground', pgvariant: 'playground', pgscroll: 'playground' };
 
 // ── driving helpers ────────────────────────────────────────────────────────────
-async function clickSel(page, sel, timeout = 4000) { await page.waitForSelector(sel, { timeout, visible: true }); await page.click(sel); }
+// OBSERVER-POLLUTION GUARD (2026-07-20): every ElementHandle returned by waitForSelector / page.$ /
+// page.$$ is a reference in the DevTools remote-object group. If it is NOT disposed and the DOM node
+// it points at later DETACHES (an editor toggled off, a dialog closed, a menu item unmounted), that
+// handle PINS the detached node — GC can't reclaim it, and it stays counted in Performance.getMetrics
+// `Nodes`/`JSEventListeners`. Held once per cycle, this fabricates a per-cycle "leak" that is purely
+// the instrument observing the app (proven: a held-handle A/B turned a flat compose toggle into
+// +513 nodes/cyc + 3574 detached — the exact shape a prior run misread as an app leak). So: dispose
+// every handle, and prefer in-page evaluate (returns primitives, never a DOM handle) for existence
+// checks and clicks on transient targets. Readiness waits use waitForFunction (its handle is a
+// boolean, not a node) or settle() which disposes.
+async function clickSel(page, sel, timeout = 4000) { const h = await page.waitForSelector(sel, { timeout, visible: true }); await h.click(); await h.dispose(); }
+// Wait for a selector to appear, then DISPOSE the handle (readiness without pinning the node).
+async function settle(page, sel, timeout = 6000) { const h = await page.waitForSelector(sel, { timeout }); await h.dispose(); }
+// In-page existence check / click — return primitives so no DOM handle escapes to the remote group.
+const exists = (page, sel) => page.evaluate((s) => !!document.querySelector(s), sel);
+const clickIn = (page, sel) => page.evaluate((s) => { const el = document.querySelector(s); if (el) { el.click(); return true; } return false; }, sel);
+const clickNth = (page, sel, i) => page.evaluate(([s, n]) => { const els = document.querySelectorAll(s); if (els[n]) { els[n].click(); return true; } return false; }, [sel, i]);
+const countSel = (page, sel) => page.evaluate((s) => document.querySelectorAll(s).length, sel);
 const railCount = (page) => page.evaluate(() => document.querySelectorAll('nav[aria-label="Slide navigator"] > button').length);
 const clickTabByText = (page, text) => page.evaluate((t) => { for (const b of document.querySelectorAll('[role="tab"]')) if (b.textContent.trim() === t) { b.click(); return true; } return false; }, text);
 
@@ -239,11 +259,11 @@ const PREP = {
 // ── cycle bodies (real UI; each asserts its action or throws so a no-op can't read as clean) ──
 async function COMPOSE(page) {
 	await clickSel(page, 'button[aria-label="Compose — rich editor"]');
-	await page.waitForSelector('.ProseMirror', { timeout: 6000 });
+	await settle(page, '.ProseMirror', 6000); // was: undisposed waitForSelector → pinned each cycle's editor (the fabricated compose leak)
 	await page.evaluate(() => document.querySelector('.ProseMirror p, .ProseMirror h1, .ProseMirror')?.focus());
 	await page.keyboard.type('x'); await wait(page, 200); await page.keyboard.press('Backspace'); await wait(page, 150);
 	await clickSel(page, 'button[aria-label="Markdown source"]');
-	await page.waitForSelector('.cm-content', { timeout: 5000 }); await wait(page, 250);
+	await settle(page, '.cm-content', 5000); await wait(page, 250); // was: undisposed waitForSelector → pinned each cycle's CodeMirror
 }
 async function SLIDENAV(page) {
 	const n = await railCount(page); if (n < 2) throw new Error('slidenav: <2 slides');
@@ -256,16 +276,16 @@ async function INSERT(page) {
 	// covered by the fullwrite/render cycles. (A real splice+2-tap-delete revert proved flaky to drive.)
 	const before = await railCount(page);
 	await clickSel(page, 'button[aria-label="Add slide"]');
-	await page.waitForSelector('button[aria-label^="Insert Blank"]', { timeout: 5000 });
+	await settle(page, 'button[aria-label^="Insert Blank"]', 5000); // dispose: the gallery's Insert buttons unmount on close
 	await wait(page, 800); // let the gallery's thumbnail iframes render
 	await page.keyboard.press('Escape'); await wait(page, 500);
 	// CRITICAL: confirm the gallery actually CLOSED — else we'd be stacking open dialogs (a
 	// harness artifact, not an after-close leak). If Escape didn't close it, click the X / backdrop.
-	if (await page.$('button[aria-label^="Insert Blank"]')) {
+	if (await exists(page, 'button[aria-label^="Insert Blank"]')) {
 		await page.keyboard.press('Escape'); await wait(page, 300);
 		await page.evaluate(() => document.querySelector('[role="dialog"] [aria-label="Close"], [role="dialog"] button')?.click()).catch(() => {});
 		await wait(page, 300);
-		if (await page.$('button[aria-label^="Insert Blank"]')) throw new Error('insert-gallery: dialog did NOT close (would stack — measurement invalid)');
+		if (await exists(page, 'button[aria-label^="Insert Blank"]')) throw new Error('insert-gallery: dialog did NOT close (would stack — measurement invalid)');
 	}
 	if (await railCount(page) !== before) throw new Error('insert-gallery: deck changed unexpectedly');
 }
@@ -274,24 +294,23 @@ async function INSERT(page) {
 // switch on+off (source stays stable). Self-heals if a re-render closed the panel mid-run.
 async function ensureAndToggle(page, openSels, tabText, switchSel) {
 	for (let attempt = 0; attempt < 3; attempt++) {
-		if (await page.$(switchSel)) break;
-		for (const s of openSels) { const el = await page.$(s); if (el) { await el.click(); break; } }
+		if (await exists(page, switchSel)) break;
+		for (const s of openSels) { if (await clickIn(page, s)) break; }
 		await wait(page, 350);
 		if (tabText) await clickTabByText(page, tabText).catch(() => {});
 		await wait(page, 250);
 	}
-	await page.waitForSelector(switchSel, { timeout: 4000 });
-	await page.click(switchSel); await wait(page, 300); await page.click(switchSel); await wait(page, 300);
+	await settle(page, switchSel, 4000);
+	await clickIn(page, switchSel); await wait(page, 300); await clickIn(page, switchSel); await wait(page, 300);
 }
 async function SLIDESETTINGS(page) { await ensureAndToggle(page, ['button[aria-label="Slide settings"]'], 'Look', 'button[role="switch"][aria-label="Compact spacing"]'); }
 async function DECKSETTINGS(page) { await ensureAndToggle(page, ['button[aria-label="Deck scope"]', 'button[aria-label="Settings"]'], 'Marks', 'button[role="switch"][aria-label="Page numbers"]'); }
 async function DECKSWITCH(page) {
-	const trig = await page.$('button[data-demo="deck-switcher"]');
-	if (!trig) { console.error('    deckswitch: switcher not present in this regime — SKIPPED (no signal)'); await wait(page, 200); return; }
-	await trig.click(); await wait(page, 350);
-	const items = await page.$$('[role="menuitem"]');
+	if (!(await exists(page, 'button[data-demo="deck-switcher"]'))) { console.error('    deckswitch: switcher not present in this regime — SKIPPED (no signal)'); await wait(page, 200); return; }
+	await clickIn(page, 'button[data-demo="deck-switcher"]'); await wait(page, 350);
+	const nItems = await countSel(page, '[role="menuitem"]');
 	// pick a deck item other than the current (best-effort; ≥2 decks needed to truly switch)
-	if (items.length >= 2) { await items[1].click(); await wait(page, 500); }
+	if (nItems >= 2) { await clickNth(page, '[role="menuitem"]', 1); await wait(page, 500); }
 	else { await page.keyboard.press('Escape'); await wait(page, 200); }
 }
 async function READALOUD(page) {
@@ -315,9 +334,9 @@ async function PG_SLIDE(page) {
 async function PG_VARIANT(page) {
 	// swap the component via the ComponentPicker → full srcdoc rewrite (the heavy re-render torture)
 	await clickSel(page, '#pg-template-trigger', 4000); await wait(page, 400);
-	const opts = await page.$$('[role="option"]');
-	if (!opts.length) { await page.keyboard.press('Escape'); throw new Error('pgvariant: no component options'); }
-	await opts[Math.floor(opts.length / 3)].click();
+	const nOpts = await countSel(page, '[role="option"]');
+	if (!nOpts) { await page.keyboard.press('Escape'); throw new Error('pgvariant: no component options'); }
+	await clickNth(page, '[role="option"]', Math.floor(nOpts / 3));
 	await page.waitForFunction(() => /Rendered\s+\d+\s+slide/.test(document.querySelector('[role="status"].pg-status')?.textContent || ''), { timeout: 8000 }).catch(() => {});
 	await wait(page, 400);
 }
@@ -452,7 +471,7 @@ async function withinSession(browser, base, opts, cycleName) {
 	const surfKey = CYCLE_SURFACE[cycleName] || 'studio';
 	const surf = SURFACES[surfKey];
 	await page.goto(`${base}${surf.url}`, { waitUntil: 'networkidle0', timeout: 90000 });
-	await page.waitForSelector(surf.ready, { timeout: 30000 });
+	await settle(page, surf.ready, 30000); // dispose the readiness handle (surf.ready can be replaced later — don't pin it)
 	await wait(page, surf.settle ?? 1500);
 	// Studio: dial to the BUILD posture so the full UI (activity bar → Slide/Deck settings,
 	// the op rail → Add slide, both editor toggles) is present + selectors are deterministic.

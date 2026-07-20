@@ -18,6 +18,17 @@ summary: >
 
 # Studio degradation — comprehensive audit (torture-test + profiling)
 
+> **⚠️ CORRECTION (2026-07-20) — see `2026-07-20-studio-audit-instrument-fix.md`.** The harness
+> used here drove the UI with UNDISPOSED puppeteer ElementHandles, which pinned the very nodes it
+> measured and FABRICATED the loudest findings. The node-count, detached-DOM, and listener leaks
+> below (compose +91, insert "+137 / catastrophic 32MB", pgvariant +64, and the detached-DOM
+> evidence for "retained iframe realms") are **instrument artifacts** — clean re-audit shows nodes
+> flat and listeners creeping 1–3/cyc. The `typing`/warmup heap rise is a **plateau**, not a leak.
+> The one genuinely serious, sustained leak is **landing** (~2MB/cyc, unfixed). The theme-string
+> retention (palette/fullwrite → Fix A / Fix #1) is real, but its magnitudes here ("~70×") came
+> through the polluted instrument and are unproven. **Read the correction doc for the true picture;
+> the method below is retained, the magnitudes and rankings are superseded.**
+
 **Date:** 2026-07-20 · **Status:** IN-PROGRESS
 **Trigger:** field report — "the more it is USED the slower it gets; the more it is REFRESHED the slower it
 gets. No amount of optimization will help because with use it will eventually get shitty. Things used and not
