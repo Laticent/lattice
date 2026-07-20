@@ -109,3 +109,64 @@ The export-sensitive shared runtime (`lib/runtime`) stays out unless evidence po
 disproved the runtime-oscillation theory; touching it changes export bytes). The harness is a DIAGNOSTIC
 (on-demand), not a blocking CI gate (wall-clock/memory bands would flake the merge train), mirroring the
 #19 `bench:check` precedent.
+
+---
+
+# EXHAUSTIVE MATRIX (every feature × every surface) — 2026-07-20 update
+
+The harness now tortures all three surfaces in the full Build layout, driving REAL UI for every
+feature (each cycle asserts its action or throws — no silent no-ops). k=10, cpu 1, real prod dist,
+idle-control-calibrated Sen's-slope + Mann-Kendall verdict. **The realm leak is NOT the only issue.**
+
+| Cycle | Surface | Retained heap / cycle | Listeners / cycle | Verdict |
+|---|---|---|---|---|
+| idle (control) | studio | ~15 KB | 0 | flat ✓ |
+| pgslide (scroll filmstrip) | playground | ~0 | 0 | flat ✓ |
+| pgscroll | playground | ~1 KB | 0 | flat ✓ |
+| overview | studio | ~69 KB | +1.2 | RISING |
+| deckswitch | studio | ~76 KB | +8.5 | RISING |
+| readaloud (captions-only) | studio | ~128 KB | +1 | RISING |
+| slidenav | studio | ~129 KB | 0 | RISING |
+| present | studio | ~145 KB | ~0 | RISING |
+| typing (Build layout) | studio | ~260 KB | ~0 | RISING (clean in bare Write) |
+| decksettings | studio | ~282 KB | +4.3 | RISING |
+| pgvariant (component swap) | playground | ~304 KB | +64 | RISING |
+| palette / mode flip | studio | ~438 KB | 0 | RISING |
+| full-write render | studio | ~439 KB | 0 | RISING |
+| compose (rich editor switch) | studio | ~508 KB | **+91** | RISING |
+| **landing (hero tab-flip + palette)** | landing | **~1.47 MB** | 0 | RISING |
+| **insert (add-slide gallery open/close)** | studio | **~32 MB** | **+137** | RISING (catastrophic) |
+
+(slidesettings driving is inconsistent on the sample deck's first slide — Look tab hidden when the
+`_class` isn't round-trippable; decksettings covers the settings-panel leak. deckswitch is best-effort.)
+
+## THE UNIFIED ROOT CAUSE — retained detached preview/thumbnail iframe realms
+Heap-diff attribution is consistent across every riser and definitive on the gallery (k=5, +159 MB):
+the growers are **`lattice-engine scaffold` strings (+85 MB) and `lattice.min.css` theme strings
+(+71 MB), Δcount +70 each = ~14 per gallery open** — one retained copy per thumbnail iframe, none
+released on close. Same signature (scaffold+theme strings + V8 realm structures, 0/low detached DOM)
+on fullwrite/palette/present/compose/landing. **Mechanism:** every preview/thumbnail iframe, after
+its DOM is torn down, keeps its JS global environment alive — its ~560 KB theme CSS string, engine
+scaffold, and ~10 listeners. So:
+- **add-slide gallery** (~14 iframes/open, none disposed) → **~32 MB/open** — the dominant defect.
+- **landing** hero Preview/Source tab flip remounts the hero iframe (×8 islands re-render) → ~1.47 MB/cyc.
+- **every full render** (theme/mode/size/palette/present/compose-preview/pgvariant swap) retains its
+  one realm → 100–500 KB each.
+- **listener leaks** compound on mount/unmount surfaces (compose ProseMirror +91, gallery +138,
+  pgvariant +64, deckswitch +8.5) — add-without-remove on those specific components.
+
+The 2026-07-17 `dispose()` fix added teardown to DeckPreview unmount, but the retained theme/scaffold
+STRINGS prove the realm is still pinned after dispose — a reference survives (candidates: the per-host
+theme fetcher's CSS-string cache C1, `installVideoBridge(fr.contentWindow)`, the `fr.onload` closure,
+or `scaleTargets`). **Fixing the realm-release at the single-slide-render kernel would fix the gallery,
+landing, and every per-render leak at once** — the highest-leverage fix. The listener leaks are
+separate per-component add/remove bugs (compose, gallery, picker, switcher).
+
+## Clean (no leak) — the controls that validate the instrument
+idle, plain typing in bare Write, playground filmstrip scroll (pgslide), playground editor/preview
+scroll (pgscroll). These stay flat → the RISING verdicts are real, not instrument drift.
+
+## Still open
+- Retainer-path walk to name the exact reference pinning the detached `contentWindow` (the one fix
+  that cascades). - Voiced TTS run (captions-only done; `--tts` + operator key wired). - Across-refresh
+  A-axis (boot cost) — separate, recon-confirmed (4× parse, unbounded IDB). - slidesettings driving.

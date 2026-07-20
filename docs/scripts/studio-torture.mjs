@@ -161,10 +161,13 @@ async function sample(inst, label, peakHeap) {
 const wait = (page, ms) => page.evaluate((m) => new Promise((r) => setTimeout(r, m)), ms);
 const clickIf = async (page, sel) => { const el = await page.$(sel); if (el) { await el.click(); return true; } return false; };
 async function peakDuring(inst, fn) {
-	// crude peak: sample heap a few times during the action, take max (pre-GC)
+	// crude peak: sample heap a few times during the action, take max (pre-GC). The poll's
+	// perf() is guarded (a closing/navigating target rejects it) and a try/finally guarantees
+	// the poll is stopped + awaited even if fn() throws — else its late rejection floats and
+	// crashes the process (an unhandled TargetCloseError).
 	let peak = 0; let stop = false;
-	const poll = (async () => { while (!stop) { const p = await inst.perf(); peak = Math.max(peak, p.heapUsed); await new Promise((r) => setTimeout(r, 60)); } })();
-	await fn(); stop = true; await poll;
+	const poll = (async () => { while (!stop) { try { const p = await inst.perf(); peak = Math.max(peak, p.heapUsed); } catch { break; } await new Promise((r) => setTimeout(r, 60)); } })();
+	try { await fn(); } finally { stop = true; await poll.catch(() => {}); }
 	return peak;
 }
 
@@ -203,47 +206,123 @@ const CYCLES = {
 // Which SURFACE (route + ready-selector) each cycle runs on. Default = studio.
 const SURFACES = {
 	studio: { url: '/studio?perf', ready: '.cm-content', settle: 1500 },
-	landing: { url: '/', ready: 'body', settle: 1800 },
-	playground: { url: '/playground', ready: '.cm-content', settle: 1800 },
+	landing: { url: '/', ready: '[role="tablist"][aria-label="Hero view"]', settle: 2000 },
+	playground: { url: '/playground', ready: '#editor-host .cm-editor', settle: 2000 },
 };
 const CYCLE_SURFACE = { landing: 'landing', pgslide: 'playground', pgvariant: 'playground', pgscroll: 'playground' };
 
+// ── driving helpers ────────────────────────────────────────────────────────────
+async function clickSel(page, sel, timeout = 4000) { await page.waitForSelector(sel, { timeout, visible: true }); await page.click(sel); }
+const railCount = (page) => page.evaluate(() => document.querySelectorAll('nav[aria-label="Slide navigator"] > button').length);
+const clickTabByText = (page, text) => page.evaluate((t) => { for (const b of document.querySelectorAll('[role="tab"]')) if (b.textContent.trim() === t) { b.click(); return true; } return false; }, text);
+
 // Optional ONE-TIME setup per cycle, run after navigation & instrument, before the K-loop.
-// (e.g. read-aloud needs the BYOK key injected + Present opened once.) HARD RULE #24: the key
-// is read from a NEUTRAL env var (never OPEN_ROUTER_KEY) supplied by the operator at runtime —
-// the "drive the Playground on the user's own key" pattern the gate explicitly allows.
+// HARD RULE #24: the key is read from a NEUTRAL operator-supplied env var (never the server key
+// name) — the "drive the Playground on the user's own key" pattern the gate explicitly allows.
 const PREP = {
-	async readaloud(page, opts) { await READALOUD_PREP(page, opts); },
+	async readaloud(page, opts) {
+		const key = process.env.TORTURE_TTS_KEY;
+		if (opts.tts && key) { await page.evaluate((k) => { try { localStorage.setItem('lattice-db-or-key', k); } catch {} }, key); console.error('    readaloud: VOICED (operator key via TORTURE_TTS_KEY — spends budget)'); }
+		else console.error('    readaloud: captions-only (muted; no synth, no spend)');
+		await clickSel(page, 'button[aria-label="Present"]'); await wait(page, 900);
+		if (opts.tts && key) { await page.click('button[aria-label^="Voice off"]').catch(() => {}); await wait(page, 300); }
+	},
+	async landing(page) { // scroll top→bottom to mount the scroll-gated islands (FieldCards 300px, RestyleShowcase 200px), then dwell so the Showcase auto-cycle runs, then back to top
+		for (let y = 0; y < 8; y++) { await page.evaluate(() => window.scrollBy(0, 700)); await wait(page, 350); }
+		await wait(page, 2600); // one RestyleShowcase cycle
+		await page.evaluate(() => window.scrollTo(0, 0)); await wait(page, 400);
+	},
 };
 
-// Driving-cheat-sheet cycle bodies — placeholders until the recon lands; each is a NO-OP-safe
-// best-effort that the run harness flags if it fails to move the DOM (so a silent no-op can't
-// masquerade as "clean").
-async function COMPOSE(page) { await wait(page, 200); }
-async function SLIDENAV(page) { await wait(page, 200); }
-async function INSERT(page) { await wait(page, 200); }
-async function SLIDESETTINGS(page) { await wait(page, 200); }
-async function DECKSETTINGS(page) { await wait(page, 200); }
-async function DECKSWITCH(page) { await wait(page, 200); }
-async function READALOUD(page) { await wait(page, 200); }
-// HARD RULE #24: read the key from a NEUTRAL operator-supplied env var (NOT OPEN_ROUTER_KEY —
-// that literal must never appear in docs/**). Invoke voiced runs as:
-//   TORTURE_TTS_KEY="$OPEN_ROUTER_KEY" node scripts/studio-torture.mjs --cycle readaloud --tts
-// Without --tts / a key, read-aloud runs the captions-only transport (muted, no synth, no spend)
-// — which still tortures the reader rAF + caption DOM + track machinery (the leak surface).
-async function READALOUD_PREP(page, opts) {
-	const key = process.env.TORTURE_TTS_KEY;
-	if (opts.tts && key) {
-		await page.evaluate((k) => { try { localStorage.setItem('lattice-db-or-key', k); } catch {} }, key);
-		console.error('    readaloud: voiced (real TTS via operator TORTURE_TTS_KEY — SPENDS budget)');
-	} else {
-		console.error('    readaloud: captions-only (muted; no key/--tts → no synth, no spend)');
-	}
+// ── cycle bodies (real UI; each asserts its action or throws so a no-op can't read as clean) ──
+async function COMPOSE(page) {
+	await clickSel(page, 'button[aria-label="Compose — rich editor"]');
+	await page.waitForSelector('.ProseMirror', { timeout: 6000 });
+	await page.evaluate(() => document.querySelector('.ProseMirror p, .ProseMirror h1, .ProseMirror')?.focus());
+	await page.keyboard.type('x'); await wait(page, 200); await page.keyboard.press('Backspace'); await wait(page, 150);
+	await clickSel(page, 'button[aria-label="Markdown source"]');
+	await page.waitForSelector('.cm-content', { timeout: 5000 }); await wait(page, 250);
 }
-async function LANDING_CYCLE(page) { await wait(page, 200); }
-async function PG_SLIDE(page) { await wait(page, 200); }
-async function PG_VARIANT(page) { await wait(page, 200); }
-async function PG_SCROLL(page) { await wait(page, 200); }
+async function SLIDENAV(page) {
+	const n = await railCount(page); if (n < 2) throw new Error('slidenav: <2 slides');
+	for (const idx of [1, Math.min(2, n - 1), 0]) { await page.evaluate((i) => document.querySelectorAll('nav[aria-label="Slide navigator"] > button')[i]?.click(), idx); await wait(page, 220); }
+}
+async function INSERT(page) {
+	// Exercise the add-slide gallery (SlidePicker) OPEN → render its live thumbnail iframes → CLOSE.
+	// This is the heavy leak surface of the insert flow (N live engine iframes per open, disposed on
+	// close — recon B2/C2); it's deterministic and mutates no deck. The splice-render leak itself is
+	// covered by the fullwrite/render cycles. (A real splice+2-tap-delete revert proved flaky to drive.)
+	const before = await railCount(page);
+	await clickSel(page, 'button[aria-label="Add slide"]');
+	await page.waitForSelector('button[aria-label^="Insert Blank"]', { timeout: 5000 });
+	await wait(page, 800); // let the gallery's thumbnail iframes render
+	await page.keyboard.press('Escape'); await wait(page, 500);
+	// CRITICAL: confirm the gallery actually CLOSED — else we'd be stacking open dialogs (a
+	// harness artifact, not an after-close leak). If Escape didn't close it, click the X / backdrop.
+	if (await page.$('button[aria-label^="Insert Blank"]')) {
+		await page.keyboard.press('Escape'); await wait(page, 300);
+		await page.evaluate(() => document.querySelector('[role="dialog"] [aria-label="Close"], [role="dialog"] button')?.click()).catch(() => {});
+		await wait(page, 300);
+		if (await page.$('button[aria-label^="Insert Blank"]')) throw new Error('insert-gallery: dialog did NOT close (would stack — measurement invalid)');
+	}
+	if (await railCount(page) !== before) throw new Error('insert-gallery: deck changed unexpectedly');
+}
+// Ensure a settings panel is OPEN (its toggle-button would CLOSE an already-open panel, so only
+// click-to-open when the target switch is absent), the right tab is selected, then flip the
+// switch on+off (source stays stable). Self-heals if a re-render closed the panel mid-run.
+async function ensureAndToggle(page, openSels, tabText, switchSel) {
+	for (let attempt = 0; attempt < 3; attempt++) {
+		if (await page.$(switchSel)) break;
+		for (const s of openSels) { const el = await page.$(s); if (el) { await el.click(); break; } }
+		await wait(page, 350);
+		if (tabText) await clickTabByText(page, tabText).catch(() => {});
+		await wait(page, 250);
+	}
+	await page.waitForSelector(switchSel, { timeout: 4000 });
+	await page.click(switchSel); await wait(page, 300); await page.click(switchSel); await wait(page, 300);
+}
+async function SLIDESETTINGS(page) { await ensureAndToggle(page, ['button[aria-label="Slide settings"]'], 'Look', 'button[role="switch"][aria-label="Compact spacing"]'); }
+async function DECKSETTINGS(page) { await ensureAndToggle(page, ['button[aria-label="Deck scope"]', 'button[aria-label="Settings"]'], 'Marks', 'button[role="switch"][aria-label="Page numbers"]'); }
+async function DECKSWITCH(page) {
+	const trig = await page.$('button[data-demo="deck-switcher"]');
+	if (!trig) { console.error('    deckswitch: switcher not present in this regime — SKIPPED (no signal)'); await wait(page, 200); return; }
+	await trig.click(); await wait(page, 350);
+	const items = await page.$$('[role="menuitem"]');
+	// pick a deck item other than the current (best-effort; ≥2 decks needed to truly switch)
+	if (items.length >= 2) { await items[1].click(); await wait(page, 500); }
+	else { await page.keyboard.press('Escape'); await wait(page, 200); }
+}
+async function READALOUD(page) {
+	const dlg = '[role="dialog"][aria-label="Present"]';
+	await clickSel(page, `${dlg} button[aria-label="Play the presentation"]`, 4000);
+	await wait(page, 1600); // let the reader transport + caption crawl run
+	await page.click(`${dlg} button[aria-label="Pause"]`).catch(() => {});
+	await wait(page, 200);
+	await page.keyboard.press('ArrowRight'); await wait(page, 300); // next slide
+}
+async function LANDING_CYCLE(page) {
+	// flip the hero Preview/Source tab (remounts the hero iframe — the leak lever) + flip palette
+	// (MutationObserver on <html> re-renders ALL landing islands at once).
+	await page.evaluate(() => { for (const t of document.querySelectorAll('[aria-label="Hero view"] [role="tab"]')) if (/source/i.test(t.textContent)) { t.click(); break; } }); await wait(page, 400);
+	await page.evaluate(() => { for (const t of document.querySelectorAll('[aria-label="Hero view"] [role="tab"]')) if (/preview/i.test(t.textContent)) { t.click(); break; } }); await wait(page, 400);
+	await page.evaluate(() => { const r = document.documentElement; r.setAttribute('data-palette', r.getAttribute('data-palette') === 'cuoio' ? 'indaco' : 'cuoio'); }); await wait(page, 500);
+}
+async function PG_SLIDE(page) {
+	for (const idx of [2, 4, 0]) { await page.evaluate((i) => document.querySelector('#preview')?.contentWindow?.postMessage({ type: 'db-scroll-to', idx: i, smooth: false }, '*'), idx); await wait(page, 300); }
+}
+async function PG_VARIANT(page) {
+	// swap the component via the ComponentPicker → full srcdoc rewrite (the heavy re-render torture)
+	await clickSel(page, '#pg-template-trigger', 4000); await wait(page, 400);
+	const opts = await page.$$('[role="option"]');
+	if (!opts.length) { await page.keyboard.press('Escape'); throw new Error('pgvariant: no component options'); }
+	await opts[Math.floor(opts.length / 3)].click();
+	await page.waitForFunction(() => /Rendered\s+\d+\s+slide/.test(document.querySelector('[role="status"].pg-status')?.textContent || ''), { timeout: 8000 }).catch(() => {});
+	await wait(page, 400);
+}
+async function PG_SCROLL(page) {
+	await page.evaluate(() => { document.querySelector('#editor-host .cm-scroller')?.scrollBy(0, 300); document.querySelector('#preview')?.contentWindow?.scrollBy?.(0, 300); }); await wait(page, 250);
+	await page.evaluate(() => { document.querySelector('#editor-host .cm-scroller')?.scrollTo(0, 0); document.querySelector('#preview')?.contentWindow?.scrollTo?.(0, 0); }); await wait(page, 250);
+}
 
 // ── heap-snapshot capture + per-constructor diff (root-cause attribution) ────────
 async function takeSnapshot(cdp) {
@@ -281,26 +360,42 @@ function diffSnapshots(a, b, topN = 18) {
 
 async function withinSession(browser, base, opts, cycleName) {
 	const page = await browser.newPage();
+	await page.setViewport({ width: 1440, height: 900 }); // deterministic DESKTOP regime (new controls are desktop-only)
 	const cdpThrottle = await page.target().createCDPSession();
 	if (opts.cpu > 1) await cdpThrottle.send('Emulation.setCPUThrottlingRate', { rate: opts.cpu });
-	const surf = SURFACES[CYCLE_SURFACE[cycleName] || 'studio'];
+	const surfKey = CYCLE_SURFACE[cycleName] || 'studio';
+	const surf = SURFACES[surfKey];
 	await page.goto(`${base}${surf.url}`, { waitUntil: 'networkidle0', timeout: 90000 });
 	await page.waitForSelector(surf.ready, { timeout: 30000 });
 	await wait(page, surf.settle ?? 1500);
+	// Studio: dial to the BUILD posture so the full UI (activity bar → Slide/Deck settings,
+	// the op rail → Add slide, both editor toggles) is present + selectors are deterministic.
+	// Every studio cycle (incl. the idle control) shares this layout → matched floors.
+	if (surfKey === 'studio') { await page.click('button[aria-label="Build — every panel"]').catch(() => {}); await wait(page, 700); }
 	const inst = await makeInstrument(page);
 	const cyc = CYCLES[cycleName]; if (!cyc) throw new Error(`unknown cycle ${cycleName}`);
 	if (PREP[cycleName]) { try { await PREP[cycleName](page, opts); } catch (e) { console.error(`    prep(${cycleName}) failed: ${e.message}`); } }
 	const series = [];
-	series.push(await sample(inst, 'baseline'));
-	const snapBase = opts.snapshot ? await takeSnapshot(inst.cdp) : null;
-	for (let i = 0; i < opts.k; i++) {
-		const peak = await peakDuring(inst, () => cyc(page));
-		series.push(await sample(inst, `c${i + 1}`, peak));
-		if (!opts.json && (i + 1) % 5 === 0) process.stderr.write(`    ${cycleName}: ${i + 1}/${opts.k}\r`);
-	}
 	let snapDiff = null;
-	if (opts.snapshot) { await inst.gc(); await inst.gc(); const snapFinal = await takeSnapshot(inst.cdp); snapDiff = diffSnapshots(snapBase, snapFinal); }
-	await page.close();
+	try {
+		series.push(await sample(inst, 'baseline'));
+		const snapBase = opts.snapshot ? await takeSnapshot(inst.cdp) : null;
+		for (let i = 0; i < opts.k; i++) {
+			try {
+				const peak = await peakDuring(inst, () => cyc(page));
+				series.push(await sample(inst, `c${i + 1}`, peak));
+			} catch (e) {
+				// A driving failure (selector gone, target hiccup) ends THIS cycle but keeps the
+				// partial series (still analyzable) and never crashes the matrix. Loud, not silent.
+				console.error(`    ${cycleName}: driving failed at cycle ${i + 1} — ${String(e.message).slice(0, 120)} (partial series kept)`);
+				break;
+			}
+			if (!opts.json && (i + 1) % 5 === 0) process.stderr.write(`    ${cycleName}: ${i + 1}/${opts.k}\r`);
+		}
+		if (opts.snapshot && snapBase) { await inst.gc(); await inst.gc(); const snapFinal = await takeSnapshot(inst.cdp); snapDiff = diffSnapshots(snapBase, snapFinal); }
+	} finally {
+		await page.close().catch(() => {});
+	}
 	return { series, snapDiff };
 }
 
