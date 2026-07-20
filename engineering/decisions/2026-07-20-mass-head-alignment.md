@@ -411,3 +411,150 @@ framing cluster left — even on a layout that centers by default. `resolve-head
 `HEADLINE_NAMES` is `['auto', 'left']`; the rot-guard, lint vocab, and Studio
 catalog track it. `center` / `right` are reserved but not live (the resolver maps
 them to no token; the linter flags them as `unknown-headline`).
+
+---
+
+# RE-ARCHITECTURE (2026-07-20) — components are alignment-agnostic; the author owns alignment
+
+**This section supersedes the alignment MODEL above.** The prior model's premise —
+`auto` = "respect the component's *baked* alignment" — is wrong against a prime
+principle the human named explicitly:
+
+> "Components should be agnostic to design decisions an author makes. We can give
+> them a **preset**, but the author makes the decision. A component doesn't own
+> placement of the masthead, footer, etc. — it shouldn't own alignment. Authors
+> author, and tune via configuration."
+
+A component owns its **structure** (what a masthead *is*, where the bay/footer
+sit, how tiles lay out). It must **not** own a **design decision** the author
+makes — and alignment is one. Today alignment is baked, inconsistently, at
+scattered CSS paint sites (`stats` hard-centers its `h2` while its eyebrow rides
+the left masthead band → the two disagree under `auto`). That is the defect.
+
+## The principle, as a system
+
+Alignment is **one axis**, resolved by a cascade the **author sits on top of**:
+
+```
+author config (headline:)  ▸  component PRESET (manifest)  ▸  house default (left)
+```
+
+- Every framing piece reads one inherited seam (`--headline-align` /
+  `--headline-justify`) — the covered set already does; the scattered baked
+  `text-align`s are **retired** in favor of it.
+- A component contributes a **preset** — a *recommended default*, expressed as
+  **data in its manifest**, not baked CSS. The build turns it into the seam's
+  default for that component, so the component's whole framing (eyebrow, heading,
+  rule, subtitle, note, caption) follows **one** value → internally consistent
+  **by construction**.
+- The **author's `headline:` config always wins** — deck-wide or per slide.
+
+`auto` no longer means "respect whatever the component baked"; it means "no author
+override — the manifest preset shows through," and the preset is a single, clean,
+documented value.
+
+## Manifest-driven, not CSS-driven (decided)
+
+The preset is a **declared design decision**, so it lives in the **contract (the
+manifest)**, not in `*.styles.css`. Precedent: `build-css.js` already generates
+CSS custom properties from manifest data (the Frame `slicing` block →
+`section.form[data-family="…"] { --masthead-cols: … }`). The alignment preset is
+the same move.
+
+- **Schema** — a new manifest field, `"headline"` (values `left` | `center` |
+  `right`). Omitted ⇒ the house default `left`, so only the components that
+  *center* (or right-align) must declare it; the **effective** value is surfaced
+  for *every* component in `dist/docs/components.json` regardless, so it is fully
+  documented and discoverable.
+- **Generator** — `build-css.js` emits, per component with a non-default preset,
+  `section.<name> { --headline-align: <preset>; --headline-justify: <mapped> }`
+  (`left→flex-start`, `center→center`, `right→flex-end`). One generated block =
+  one source of truth; the scattered hand-written `text-align:center`s
+  (`stats.styles.css`, the anchor frames, chart caption, …) are **deleted** and
+  replaced by this.
+- **Docs / Studio / AI** — the effective preset flows to `components.json`, so the
+  docs, `AGENTS.md`, and the Studio all see it. The Studio's `auto` state reads
+  "preset: center — from the component" (provenance), so the author sees the
+  default they'd be overriding.
+- **Gate** — `check-ownership` (or the schema) requires every component's preset
+  to be a known value and the generated CSS to be current, closing the
+  silent-coverage rot two trios flagged (a new component can't forget to opt in —
+  its effective preset is always defined and shown).
+
+## The register (`headline:`) — the author's override, all four values
+
+`headline: auto | left | center | right`, deck-wide + per-slide `_class: head-*`.
+`auto` = no token (the manifest preset shows). `left`/`center`/`right` define the
+seam on the section, overriding the preset. **`center` / `right` are back in
+scope** — the principle *requires* them: a component preset can be `center`, and
+the author must be able to pick any direction, so the seam must support all of
+them. (Deferring them, as the prior section did, is incompatible with the
+principle.)
+
+## The masthead-bay problem — solved for real, not documented away
+
+The blocker that made me defer `center`/`right`: the masthead framing lives in
+`.masthead-lede`, a grid column **structurally inset by the reserved bay** (meta /
+logo / status), while the stage framing (key insight, below-note, caption) spans
+the **full frame**. So `center`/`right` put the two halves on different axes when
+a bay is present. Under this principle that is not an acceptable "edge" — "the
+author centered it" must mean *centered on the slide*.
+
+**Fix:** the masthead framing aligns on the **full frame**, exactly like the
+stage. The bay stops *insetting* the framing — it becomes **corner chrome** (the
+lede spans the full masthead width; the bay overlays the top-right and the title
+wraps/clears it), so the eyebrow, heading, and rule share the stage's centerline.
+The prior `:has(> .masthead-bay:empty)` collapse hack (whitespace-fragile, a
+render-path landmine) is dropped entirely; full-frame alignment is unconditional.
+(Detail to prototype: overlay vs. an explicit two-row masthead when a centered
+title would otherwise collide with the bay.)
+
+## Preset table (proposed — finalized by a per-component audit in build)
+
+House default **`left`** (the masthead band's natural origin). Declare `center`
+where the component's *body* is centered so its framing agrees with it:
+
+| Preset | Components |
+|---|---|
+| `center` | anchors `title` / `closing` / `divider.light`; centered-body evidence `stats` / `kpi`; the chart family (caption/header); `big-number`; `quote` |
+| `left` (default) | everything else — `content`, cards, lists, comparison, inventory, legal, diagram, code, … |
+
+The audit during implementation confirms each; the point is the value is **one per
+component, declared, and documented**, never split across paint sites.
+
+## Byte-identity — a deliberate, signed-off break
+
+The prior invariant ("no deck moves a pixel") **cannot** hold and **shouldn't**:
+making a split component consistent *necessarily* moves the piece that was
+disagreeing (e.g. `stats`' eyebrow snaps from left to center to match its
+heading). That is the fix, not a regression. So:
+
+- `auto`/preset renders **change** for exactly the components whose baked
+  alignment was internally inconsistent; consistent components are unchanged.
+- This is an **export-bytes change → export sign-off** (Quality Bar), in dark +
+  light, before merge.
+- Golden/pixel baselines are **re-blessed** as part of the change, with the diff
+  reviewed as the record of what moved and why.
+
+## Blast radius & sequencing
+
+Real blast radius (schema + generator + every centered component + the register +
+the bay). Maker-checker on the generator + schema; the adversarial trio on the bay
+solution (the genuinely novel part). Likely a **fresh branch/PR** — this is a
+re-architecture, not an increment on the auto+left PR (#1125). Options for #1125:
+(a) land it as the `auto`+`left` foundation and build the re-architecture on top;
+(b) supersede it. Recommend (a) — the seam + register + Studio + lint from #1125
+are the substrate this builds on; the re-architecture adds the manifest preset
+layer, revives center/right on the fixed bay, and retires the baked `text-align`s.
+
+## Open specifics to confirm before coding
+
+1. **Manifest field shape** — `"headline": "center"` (single value, house default
+   `left` when omitted) vs a richer `"alignment": { headline, … }` object for
+   future axes. Recommend the **simple single field** now; widen only if a second
+   alignment axis appears.
+2. **Preset table** — the proposed assignments above (esp. whether `stats`/`kpi`/
+   charts read as *center* or *left* layouts — I lean center, matching their
+   centered bodies).
+3. **#1125** — land as the `auto`+`left` foundation (recommended) or hold and fold
+   everything into one bigger PR.
