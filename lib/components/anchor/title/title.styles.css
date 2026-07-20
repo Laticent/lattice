@@ -6,11 +6,15 @@
  * See lib/components/title/title.manifest.json for the component contract.
  */
 
-section.title { justify-content:center; align-items:center; background:var(--surface-inverse); }
+/* align-items (the flex cross-axis = horizontal, this is a column) + the h1/p text-align read
+ * the headline-alignment seam (`headline:` register). `auto`/no register → the fallback `center`
+ * applies, byte-identical to the centered title bookend. head-left/right re-anchor the whole
+ * cluster (heading, eyebrow, hr, dek) as one. */
+section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.title { border-top: none; }
-section.title h1 { font-size:var(--fs-h1); color:var(--text-display); padding-bottom:var(--sp-xs); text-align:center; }
+section.title h1 { font-size:var(--fs-h1); color:var(--text-display); padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
 section.title hr { background:var(--accent); height:1px; width:64px; margin:0; }
-section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-weight:300; margin:0; padding-top:0; text-align:center; }
+section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-weight:300; margin:0; padding-top:0; text-align:var(--headline-align, center); }
 /* Title layout: inline-code after h1 = eyebrow, rendered visually above h1 via flex order.
  * Overrides the general subtitle rule (italic, body font) for section.title only. */
 section.title h1 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; }

@@ -102,6 +102,30 @@ section.eyebrow-underline
   padding-bottom: 0.2em;
 }
 
+/* ── HEADLINE ALIGNMENT (`headline:`) ── the framing-text cluster's horizontal axis ──────────
+ * Hoists alignment OUT of the components and onto an author register (deck-wide or per slide).
+ * The framing-text cluster — eyebrow, heading, heading rule, subtitle, below-note, key-insight,
+ * caption — used to bake its own alignment at each paint site, so the pieces disagreed (the
+ * 2026-07-04 subtitle patch was one symptom). Now every framing paint site reads ONE inherited
+ * seam, so the pieces move as one and the author owns the choice.
+ *
+ * `auto` (the default) emits NO token: the seam properties stay UNDEFINED, so each paint site
+ * falls back to its own baked default via `var(--headline-align, <default>)` — today's render is
+ * byte-identical (the component still decides). `left` DEFINES the seam on the section; it
+ * inherits to every framing descendant and overrides the fallbacks as one system.
+ *
+ * Two channels: text pieces read `--headline-align` (text-align: left), flex-boxed pieces read
+ * `--headline-justify` (align-items/self: flex-start). No `margin` (HARD RULE #20 — alignment is
+ * text-align / align-*, which measure cleanly); no hex (HARD RULE #3).
+ *
+ * SCOPED TO auto + left. `center`/`right` are a deliberate follow-up: box-aligning capped/inset
+ * framing on the full frame — especially against a masthead bay, where the lede is structurally
+ * inset but the stage is not — needs its own design pass (two adversarial trios found the
+ * center/right machinery a recurring source of edge cases). `left` needs none of it: every
+ * framing box is already left-pinned in plain block flow, so it's a pure seam read. See
+ * engineering/decisions/2026-07-20-mass-head-alignment.md § "Scoped to auto + left". */
+section.head-left { --headline-align: left; --headline-justify: flex-start; }
+
 /* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
  * surfaces ────────────────────────────────────────────────────────────────────────────────
  * OPT-IN and INDEPENDENT of the deck's section-bar STYLE — all spectrum variants are on-brand,

@@ -7,11 +7,14 @@
 
 
 
-section.closing { justify-content:center; align-items:center; background:var(--surface-inverse); }
+/* align-items (horizontal, this is a flex column) + the h2/p text-align read the headline
+ * seam (`headline:` register). `auto`/no register → the fallback `center` — byte-identical to
+ * the centered closing bookend. */
+section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.closing { border-top: none; }
 section.closing hr { margin:0; }
-section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:54.6875cqi; margin:0; padding-bottom:var(--sp-sm); text-align:center; }
-section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:42.1875cqi; margin:0; padding-top:var(--sp-md); text-align:center; }
+section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:54.6875cqi; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
+section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:42.1875cqi; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
 
 /* Mirror of title: the inline-code paragraph after the heading is the
  * eyebrow, rendered visually ABOVE the heading via flex order (overriding
@@ -48,14 +51,14 @@ section.closing h2 + p:has(> code:only-child) > code {
  * `index` variant below refines this into a first-class reference set. */
 section.closing :is(ul,ol) {
   list-style:none; padding:0; margin:0;
-  display:flex; flex-direction:column; align-items:center;
+  display:flex; flex-direction:column; align-items:var(--headline-justify, center);
   gap:var(--sp-xs); padding-top:var(--sp-md);
   max-width:60cqi;
 }
 section.closing :is(ul,ol) li {
   color:var(--on-dark-secondary);
   font-size:var(--fs-message); font-style:normal;
-  line-height:var(--lh-snug); text-align:center;
+  line-height:var(--lh-snug); text-align:var(--headline-align, center);
 }
 /* Inline-code chips ride on-dark already — base.modifiers.css rebinds
  * `section.closing code` to --on-dark-primary, so the wash follows the

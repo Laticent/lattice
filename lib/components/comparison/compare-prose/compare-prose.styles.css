@@ -24,7 +24,10 @@ section.compare-prose .compare-prose-inner .card > ol { list-style:none; padding
 section.compare-prose .compare-prose-inner .card > ul > li,
 section.compare-prose .compare-prose-inner .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 section.compare-prose .connector { display:flex; align-items:center; justify-content:center; font-size:var(--fs-h3); color:var(--text-secondary); padding:0 var(--sp-sm); flex-shrink:0; }
-.below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; }
+/* text-align follows the headline-alignment seam (`headline:` register); inherits to the
+ * note's `p`. `auto` → fallback `left` (today's render). The full-width hairline (::before,
+ * absolute) is a separator, not text, so it stays full-bleed. */
+.below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); }
 .below-note::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(to right, var(--accent), transparent); }
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }

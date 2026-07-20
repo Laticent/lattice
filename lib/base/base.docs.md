@@ -806,9 +806,14 @@ caught as `unknown-rule`. Palette-blind; defaults to today's render.
 |---|---|---|
 | `auto` | *(none)* | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
 | `full` | `rule-full` | An explicit full-width hairline. |
-| `short` | `rule-short` | A short left-aligned rule under the heading. |
+| `short` | `rule-short` | A short rule under the heading. |
 | `accent` | `rule-accent` | A short rule painted in `--accent` — a signature without shouting. |
 | `none` | `rule-none` | No heading underline. |
+
+`rule:` sets the heading rule's **style**; **its alignment follows the `headline:` register in
+effect.** The two are orthogonal: a `short`/`accent` rule sits under the heading wherever the
+headline aligns (left / center / right) — pick the *look* with `rule:`, the *side* with
+`headline:`. (`full` is a full-width divider, so alignment is moot; `none` has nothing to align.)
 
 `rule:` governs the `form` masthead hairline — the canonical heading underline. The
 split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
@@ -834,6 +839,39 @@ Pick **one** eyebrow treatment deck-wide so every kicker reads as one family —
 per slide reads as a ransom note. Together `spectrum:` / `rule:` / `eyebrow:` are the Finish
 axis's **accent** sub-family (marks on chrome), distinct from `finish:` (backdrops behind
 content).
+
+#### The `headline:` front-matter register (framing-text alignment)
+
+`headline:` sets the **horizontal alignment of a slide's framing text** — the eyebrow,
+heading, heading rule, subtitle, below-note, key insight, and caption — as one cluster.
+Alignment used to be baked into each layout (a title centered, a content masthead left, a
+chart header its own way), so the pieces could disagree within a slide. Now one register owns
+the axis: set it deck-wide or per slide, and every framing piece moves together. Sibling
+register (`lib/core/resolve-headline.js`), propagated to every section, overridable per slide;
+a typo is caught as `unknown-headline`.
+
+| `headline:` value | Token | Effect |
+|---|---|---|
+| `auto` | *(none)* | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
+| `left` | `head-left` | Pin the whole framing cluster to the left margin — even on a layout that centers by default (title, closing, stats, charts). |
+
+*(`center` / `right` are a deliberate follow-up — box-aligning capped/inset framing on the full
+frame, especially against a masthead bay, needs its own design pass. This ships the rock-solid
+`auto` + `left` core; the values are reserved, not yet live.)*
+
+Only the **framing** text follows — the slide **body** keeps its own alignment. Two distinct
+controls, on two surfaces: **`headline:`** moves the framing cluster (this register);
+**`align-left`/`align-center`/`align-right`** (the universal `#527` modifiers) move the **body
+block**. They are independent, so a left headline can sit over a differently-aligned body.
+
+Under the hood the register drives one inherited seam, `--headline-align` (+ `--headline-justify`
+for the flex-boxed pieces); a component's default is the `var(--headline-align, <default>)`
+fallback, so `auto` is byte-identical to today's render. Alignment is `text-align` / `align-*`
+(never `margin`), so it measures cleanly.
+
+**Coverage.** A framing surface follows `headline:` only if its CSS reads the seam — a new
+component must opt in (a rot-guard test pins the covered set). Two layouts don't route their
+heading through the seam yet: `split-panel` / `split-compare` (no `masthead-lede`).
 
 #### The `lift:` front-matter register (card elevation)
 

@@ -260,6 +260,16 @@ export function setEyebrow(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'eyebrow-', EYEBROW_VALUES, name);
 }
 
+// The deck key is `headline` but the per-slide token prefix is `head-` (head-left/center/right);
+// overrideProvenance takes the two separately, so the mismatch is fine.
+const HEADLINE_VALUES = ['left'];
+export function headlineProvenance(chunk: string, source: string): Provenance {
+	return overrideProvenance(chunk, source, 'headline', 'head-', HEADLINE_VALUES, 'auto');
+}
+export function setHeadline(chunk: string, name: string | null): string {
+	return setOverride(chunk, 'head-', HEADLINE_VALUES, name);
+}
+
 // ── spectrum-card (card rail STYLE) ──────────────────────────────────────────────────────────
 // An INDEPENDENT card-rail accent, tunable orthogonally to the section bar. Deck values:
 // off (default, no rail) / auto (follow the bar) / solid / duo / mono / rainbow. The per-slide

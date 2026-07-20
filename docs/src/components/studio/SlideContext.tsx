@@ -24,13 +24,14 @@ import { connectOpenRouter, generateDescription, useArchitectStatus } from './ar
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
+import { activeHeadline, HEADLINES } from './headline-catalog';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
 import { getCaption, setCaption } from './slide-caption';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setHeadline, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum } from './spectrum-catalog';
@@ -330,6 +331,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const eyebrowProv = React.useMemo(() => eyebrowProvenance(chunk, source), [chunk, source]);
 	const eyebrowOpt = overrideAxis(eyebrowProv, EYEBROWS, 'plain', activeEyebrow);
 	const onEyebrow = (v: string) => onMutate((c) => setEyebrow(c, v === '__inherit__' ? null : v));
+	const headlineProv = React.useMemo(() => headlineProvenance(chunk, source), [chunk, source]);
+	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline);
+	const onHeadline = (v: string) => onMutate((c) => setHeadline(c, v === '__inherit__' ? null : v));
 	// Card rail STYLE — a full off/auto/solid/duo/mono/rainbow axis, INDEPENDENT of the bar.
 	// Inherit follows the deck; every catalog value is an explicit per-slide choice (auto/off
 	// included). A Picker (not a Seg) keeps it consistent with the other accent pickers and
@@ -624,6 +628,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							</Row>
 							<Row label="Eyebrow" hint={eyebrowProv.state === 'inherited' ? 'from deck' : undefined} desc="The mark on this slide's mono-caps kicker — a dot, bar, arrow, underline, or plain.">
 								<Picker ariaLabel="Eyebrow" value={eyebrowOpt.value} onChange={onEyebrow} options={eyebrowOpt.options} />
+							</Row>
+							<Row label="Headline alignment" hint={headlineProv.state === 'inherited' ? 'from deck' : undefined} desc="Which way this slide's framing text aligns — auto keeps the component default; left, center, or right pin the whole cluster.">
+								<Picker ariaLabel="Headline alignment" value={headlineOpt.value} onChange={onHeadline} options={headlineOpt.options} />
 							</Row>
 						</div>
 					)}

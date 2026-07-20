@@ -248,6 +248,29 @@ in patch versions.
 
 ### Added
 
+- **Headline alignment is now an author register (`headline:`), not a per-layout default.** The
+  horizontal alignment of a slide's framing text — eyebrow, heading, heading rule, subtitle,
+  below-note, key insight, caption — used to be baked into each component, so the pieces could
+  disagree within a slide (a left-lifted title over a centered dek was the recurring symptom). One
+  register now owns the axis: `headline: left` deck-wide, `<!-- _class: head-left -->` per slide, and
+  every framing piece moves as one cluster — even on a layout that centers by default (title,
+  closing, stats, charts). The default, `auto`, emits no token and each component keeps its own baked
+  alignment, so **every existing deck renders byte-identically**. Only the framing follows — the
+  slide body keeps its independent `align-*` axis. New sibling of the accent-finish family
+  (`spectrum:`/`rule:`/`eyebrow:`): one shared resolver across both render paths, an
+  `unknown-headline` lint check, and deck + per-slide Studio pickers. Under the hood it drives one
+  inherited seam, `--headline-align` (alignment is now a token, the way color already is). Ships the
+  rock-solid `auto` + `left` core; `center` / `right` (box-aligning capped/inset framing on the full
+  frame, especially against a masthead bay) are a deliberate follow-up. Demo:
+  `examples/headline-alignment.md`. See `engineering/decisions/2026-07-20-mass-head-alignment.md`.
+- **Breaking: a centered-heading layout now centers its WHOLE masthead under `auto`.** Two layouts
+  centered their heading + body but left the eyebrow and short heading rule (`rule: short`/`accent`)
+  left-anchored, so the framing disagreed within the slide: `stats` and `list-steps` (timeline
+  variant). Under the default `auto` register their eyebrow and heading rule now center to match the
+  heading — the masthead reads as one cluster. This shifts the eyebrow and rule of an existing
+  `stats` / timeline slide from left to center (byte change to those renders). Author-owned as ever:
+  `headline: left` (deck) or `<!-- _class: head-left -->` (slide) pins the whole cluster — eyebrow,
+  heading, and rule — back to the left. See `engineering/decisions/2026-07-20-mass-head-alignment.md`.
 - **Fabricate can now refine a component by hand — quick chips or a freeform nudge — not just generate
   it.** The mirror of the Motion faculty's refine, ported to components. A "Refine" row sits under the
   "describe a component" bar (once a model is connected): four semantic chips — **Simpler · Bolder ·

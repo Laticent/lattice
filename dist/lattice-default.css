@@ -981,7 +981,7 @@ section :is(pre, marp-pre) code { background:none; border:none; padding:0; borde
  * column), NOT `margin:auto` (HARD RULE #20); vertical space comes from the stage
  * gap like any other block. In a non-flex context it falls back to left-aligned —
  * acceptable for the rare raw-block-flow `hr`. */
-section hr { border:none; height:0.15625cqi; background:var(--spectrum-structure); border-radius:0.15625cqi; width:5.625cqi; margin:0; align-self:center; }
+section hr { border:none; height:0.15625cqi; background:var(--spectrum-structure); border-radius:0.15625cqi; width:5.625cqi; margin:0; align-self:var(--headline-justify, center); }
 section ul { list-style:none; padding:0; margin:0; }
 section ol { padding:0; margin:0; }
 section blockquote { margin:0; padding:0; border:none; }
@@ -2641,11 +2641,14 @@ section.citation-card > .cell-stage {
 
 
 
-section.closing { justify-content:center; align-items:center; background:var(--surface-inverse); }
+/* align-items (horizontal, this is a flex column) + the h2/p text-align read the headline
+ * seam (`headline:` register). `auto`/no register → the fallback `center` — byte-identical to
+ * the centered closing bookend. */
+section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.closing { border-top: none; }
 section.closing hr { margin:0; }
-section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:54.6875cqi; margin:0; padding-bottom:var(--sp-sm); text-align:center; }
-section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:42.1875cqi; margin:0; padding-top:var(--sp-md); text-align:center; }
+section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:54.6875cqi; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
+section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:42.1875cqi; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
 
 /* Mirror of title: the inline-code paragraph after the heading is the
  * eyebrow, rendered visually ABOVE the heading via flex order (overriding
@@ -2682,14 +2685,14 @@ section.closing h2 + p:has(> code:only-child) > code {
  * `index` variant below refines this into a first-class reference set. */
 section.closing :is(ul,ol) {
   list-style:none; padding:0; margin:0;
-  display:flex; flex-direction:column; align-items:center;
+  display:flex; flex-direction:column; align-items:var(--headline-justify, center);
   gap:var(--sp-xs); padding-top:var(--sp-md);
   max-width:60cqi;
 }
 section.closing :is(ul,ol) li {
   color:var(--on-dark-secondary);
   font-size:var(--fs-message); font-style:normal;
-  line-height:var(--lh-snug); text-align:center;
+  line-height:var(--lh-snug); text-align:var(--headline-align, center);
 }
 /* Inline-code chips ride on-dark already — base.modifiers.css rebinds
  * `section.closing code` to --on-dark-primary, so the wash follows the
@@ -2883,7 +2886,10 @@ section.compare-prose .compare-prose-inner .card > ol { list-style:none; padding
 section.compare-prose .compare-prose-inner .card > ul > li,
 section.compare-prose .compare-prose-inner .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 section.compare-prose .connector { display:flex; align-items:center; justify-content:center; font-size:var(--fs-h3); color:var(--text-secondary); padding:0 var(--sp-sm); flex-shrink:0; }
-.below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; }
+/* text-align follows the headline-alignment seam (`headline:` register); inherits to the
+ * note's `p`. `auto` → fallback `left` (today's render). The full-width hairline (::before,
+ * absolute) is a separator, not text, so it stays full-bleed. */
+.below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); }
 .below-note::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(to right, var(--accent), transparent); }
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
@@ -3803,7 +3809,9 @@ section.diagram > .cell-stage > p { font-size:var(--fs-meta); line-height:var(--
    title's left edge. Form-scoped: a non-Form diagram has no masthead lift and keeps
    its centered title, so the dek must stay centered to match it. (Under the Form the
    dek always hoists into `.cell-stage`, so only the `> .cell-stage > p` arm is live.) */
-section.form.diagram > .cell-stage > p { align-self:stretch; }
+/* The dek follows the headline-alignment seam (`headline:`). Left fallback preserves the
+ * 2026-07-04 form-left fix; `head-left` pins it left with the title as one cluster. */
+section.form.diagram > .cell-stage > p { align-self:stretch; text-align:var(--headline-align, left); }
 /* Hug the title band when a subtitle leads — mirror of the chart-frame rule: the
    masthead clearance is right below a bare title, too loose below a leading dek. The
    `:has(> .cell-stage > p)` detects the now-hoisted leading dek. */
@@ -3835,7 +3843,7 @@ section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
   flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); max-width:100%; height:auto; min-height:0;
 }
-section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:center; font-style:italic; }
+section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
 /* Key Insight panel on diagram slides must stretch full-width to match every
    other layout. section.diagram uses align-items:center (mirrored onto the stage
    cell) which would shrink the blockquote to fit-content; align-self:stretch
@@ -3858,12 +3866,15 @@ section.diagram > .cell-stage > blockquote { align-self:stretch; }
  * one; background-vs-::before keeps both. (box-shadow can't carry the rainbow gradient,
  * so background is the right layer.) See
  * engineering/decisions/2026-07-03-status-marker-style-variants.md §spectrum. */
-section.divider { background:var(--spectrum-vertical, var(--spectrum)) left / 0.46875cqi 100% no-repeat, var(--surface-inverse); padding-left:calc(var(--_sec-1cqi,1cqi)*9.375); justify-content:center; align-items:flex-start; }
+/* align-items + the h2 text-align read the headline seam (`headline:` register). The default
+ * divider is LEFT (heading in the lower-left) — the fallbacks encode that, so `auto`/no register
+ * is byte-identical; `head-left` re-anchors it left. */
+section.divider { background:var(--spectrum-vertical, var(--spectrum)) left / 0.46875cqi 100% no-repeat, var(--surface-inverse); padding-left:calc(var(--_sec-1cqi,1cqi)*9.375); justify-content:center; align-items:var(--headline-justify, flex-start); }
 section.divider { border-top: none; }
 /* Section heading slot is h2 — a divider names a section of the deck, not
  * its document title; the lone h1 belongs to `title`. Rendered at --fs-h1
  * so the section headline keeps its full dark-canvas weight. */
-section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:62.5cqi; line-height:var(--lh-tight); }
+section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:62.5cqi; line-height:var(--lh-tight); text-align:var(--headline-align, left); }
 
 /* light variant — former `subtopic` component (anchor.divider.light)
  *
@@ -3871,9 +3882,11 @@ section.divider h2 { font-size:var(--fs-h1); color:var(--text-display); max-widt
  * left-edge spectrum rail, re-centers, and shrinks the heading to h2.
  * Sits between a dark divider and a run of content slides for finer
  * orientation. Merged from the standalone subtopic on 2026-06-07. */
-section.divider.light { background:var(--bg); padding-left:0; justify-content:center; align-items:center; }
-section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; padding-bottom:var(--sp-sm); text-align:center; line-height:var(--lh-tight); }
-section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; line-height:var(--lh-relaxed); margin:0; text-align:center; }
+/* The light variant CENTERS by default — its fallbacks encode center, so `auto` is
+ * byte-identical while head-left/right still re-anchor it. */
+section.divider.light { background:var(--bg); padding-left:0; justify-content:center; align-items:var(--headline-justify, center); }
+section.divider.light h2 { font-size:var(--fs-h2); color:var(--text-body); max-width:none; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); line-height:var(--lh-tight); }
+section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; line-height:var(--lh-relaxed); margin:0; text-align:var(--headline-align, center); }
 
 /* === lib/components/chart/funnel/funnel.styles.css === */
 /* funnel — tapering stage chart (chart-family series member).
@@ -7037,7 +7050,33 @@ section.list-steps.vertical ol > li:not(:last-child)::after {
  * + arrow-connector chrome. Merged from the standalone timeline on 2026-06-07.
  * Lifted to <strong> by the timeline token in the shared slot-label-lift paths. */
 section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
-section.list-steps.timeline h2 { text-align:center; }
+/* The heading is framing text — it follows the headline-alignment seam (`headline:`) via its
+ * own align-self, leaving the centered timeline body below untouched. `auto` → center (byte-
+ * identical). */
+section.list-steps.timeline h2 { text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
+/* CONSISTENT-DEFAULTS (Breaking): the timeline centers its heading + spine, so its WHOLE masthead
+ * framing centers to match. The eyebrow rides the SHARED masthead-lede (left by default), so
+ * override its fallback to `center` here; the heading sits in the same lede, so both center as
+ * one. Per-selector fallback → `headline: left` still overrides (the register SETS the seam, and
+ * a set value beats a fallback). The short heading rule (`rule: short`/`accent`) is a
+ * left-anchored `::after`; center it too, except when the author has pinned the slide left. */
+section.form.list-steps.timeline .cell-masthead .masthead-lede { text-align:var(--headline-align, center); }
+/* The short heading rule (`rule: short`/`accent`) is a base `::after` on the FULL .cell-masthead
+ * (left:0 == the lede's left edge). This layout CENTERS the heading in the left masthead-lede track,
+ * so a full-band `left:50%` drifts right of the heading whenever a masthead bay (`meta:`/`logo:`) is
+ * populated. Re-anchor the segment to the lede so it follows the heading with OR without a bay;
+ * `bottom:-sp-md` restores the base's title↔rule gap. Geometry mirrors base.accent-finish.css §rule —
+ * keep in sync. */
+section.form.list-steps.timeline:is(.rule-short, .rule-accent) .cell-masthead::after { content:none; }
+section.form.list-steps.timeline:is(.rule-short, .rule-accent) .masthead-lede { position:relative; }
+section.form.list-steps.timeline:is(.rule-short, .rule-accent) .masthead-lede::after { content:""; position:absolute; left:0; bottom:calc(-1 * var(--sp-md)); width:8cqi; height:0.22cqi; border-radius:0.11cqi; background:var(--border); }
+section.form.list-steps.timeline:is(.rule-accent) .masthead-lede::after { background:var(--accent); }
+section.form.list-steps.timeline:is(.rule-short, .rule-accent):not(.head-left) .masthead-lede::after { left:50%; transform:translateX(-50%); }
+/* The optional dek/subtitle sits in the centered stage; it's framing text too, so wire it to the
+ * seam (align-self, since the stage is a flex column — its `align-items:center` would otherwise
+ * strand it centered under `headline: left` while the heading + eyebrow move). `auto` → the
+ * fallback `center`, byte-identical; `head-left` moves it left with the rest of the cluster. */
+section.list-steps.timeline > .cell-stage > p { text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) {
   display:flex; justify-content:space-between; align-items:flex-start;
   width:100%; position:relative; flex:0 1 auto;
@@ -13037,9 +13076,33 @@ section.state-chart.horizontal .state-chip-arrow {
  */
 
 section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
-section.stats h2 { padding-bottom:var(--sp-xs); text-align:center; }
+/* The heading + subtitle are framing text — they follow the headline-alignment seam
+ * (`headline:`) via their OWN align-self, so the centered stat strip below is untouched (its
+ * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a
+ * default stats slide is byte-identical. */
+section.stats h2 { padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
+/* CONSISTENT-DEFAULTS (Breaking): stats centers its heading + tiles, so its WHOLE masthead
+ * framing centers to match. The eyebrow rides the SHARED masthead-lede (left by default), so
+ * override its fallback to `center` here; the heading is in the same lede, so both center as
+ * one. Per-selector fallback → `headline: left` still overrides (the register SETS the seam,
+ * and a set value beats a fallback). The short heading rule (`rule: short`/`accent`) is a
+ * left-anchored `::after`; center it too, except when the author has pinned the slide left. */
+section.form.stats .cell-masthead .masthead-lede { text-align:var(--headline-align, center); }
+/* The short heading rule (`rule: short`/`accent`) is a base `::after` on the FULL .cell-masthead
+ * (left:0 == the lede's left edge — right for a left heading). This layout CENTERS the heading in
+ * the left masthead-lede track, so a full-band `left:50%` drifts right of the heading whenever a
+ * masthead bay (`meta:`/`logo:`) is populated (the rule tracks the band center, the heading the lede
+ * center). Re-anchor the segment to the lede so it follows the heading with OR without a bay:
+ * left:0 under a left heading, centered under a centered one. `bottom:-sp-md` restores the base's
+ * title↔rule gap (the band's own `padding-bottom`). Geometry mirrors base.accent-finish.css §rule —
+ * keep in sync. */
+section.form.stats:is(.rule-short, .rule-accent) .cell-masthead::after { content:none; }
+section.form.stats:is(.rule-short, .rule-accent) .masthead-lede { position:relative; }
+section.form.stats:is(.rule-short, .rule-accent) .masthead-lede::after { content:""; position:absolute; left:0; bottom:calc(-1 * var(--sp-md)); width:8cqi; height:0.22cqi; border-radius:0.11cqi; background:var(--border); }
+section.form.stats:is(.rule-accent) .masthead-lede::after { background:var(--accent); }
+section.form.stats:is(.rule-short, .rule-accent):not(.head-left) .masthead-lede::after { left:50%; transform:translateX(-50%); }
 section.stats h3 { padding-bottom:0.3125cqi; }
-section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:center; }
+section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 
 /* The stat strip: the top-level list laid out as a centered flex row. */
 section.stats > .cell-stage > ol {
@@ -13706,11 +13769,15 @@ section.statute-stack > .cell-stage {
  * See lib/components/title/title.manifest.json for the component contract.
  */
 
-section.title { justify-content:center; align-items:center; background:var(--surface-inverse); }
+/* align-items (the flex cross-axis = horizontal, this is a column) + the h1/p text-align read
+ * the headline-alignment seam (`headline:` register). `auto`/no register → the fallback `center`
+ * applies, byte-identical to the centered title bookend. head-left/right re-anchor the whole
+ * cluster (heading, eyebrow, hr, dek) as one. */
+section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.title { border-top: none; }
-section.title h1 { font-size:var(--fs-h1); color:var(--text-display); padding-bottom:var(--sp-xs); text-align:center; }
+section.title h1 { font-size:var(--fs-h1); color:var(--text-display); padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
 section.title hr { background:var(--accent); height:1px; width:64px; margin:0; }
-section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-weight:300; margin:0; padding-top:0; text-align:center; }
+section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-weight:300; margin:0; padding-top:0; text-align:var(--headline-align, center); }
 /* Title layout: inline-code after h1 = eyebrow, rendered visually above h1 via flex order.
  * Overrides the general subtitle rule (italic, body font) for section.title only. */
 section.title h1 + p:has(> code:only-child) { order:-1; margin:0; padding-top:0; padding-bottom:0.3125cqi; }
@@ -14587,7 +14654,7 @@ section.closing h2 + p:has(> code:only-child) { color: var(--on-dark-secondary);
  * eyebrow colour above would render near-invisible on it, so reset to the
  * standard muted ink and centre it. */
 section.divider.light h1 + p:has(> code:only-child),
-section.divider.light h2 + p:has(> code:only-child) { color: var(--text-secondary); text-align: center; }
+section.divider.light h2 + p:has(> code:only-child) { color: var(--text-secondary); text-align: var(--headline-align, center); }
 /* .dark modifier: the subtitle uses --text-secondary, a light-dark() pair, and
  * section.dark flips color-scheme:dark — so it resolves to its dark-canvas value
  * automatically. No extra rule needed. (The bookends above hardcode
@@ -14704,6 +14771,10 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   /* Separation from the preceding block is supplied by the flow container's `gap`
    * (the stage cell under Form), not a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
+  /* The framing text follows the headline-alignment seam (`headline:` register); text-align
+   * inherits to the KEY INSIGHT label, body, and list. `auto`/no register → the fallback
+   * `left` (today's render, byte-identical); `head-left` pins it left. */
+  text-align:var(--headline-align, left);
 }
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::before,
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::before {
@@ -16461,13 +16532,15 @@ section.chart-frame .chart-caption {
    * caption text is a `gap`, not the pseudo's `margin: 0 auto var(--sp-sm)` (#20). */
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* The caption is framing text — it follows the headline-alignment seam (`headline:`).
+   * `auto`/no register → the fallback `center` (today's centered caption). */
+  align-items: var(--headline-justify, center);
   gap: var(--sp-sm);
   box-sizing: border-box;
   width: 100%;
   margin: 0;
   padding: var(--sp-sm) var(--sp-2xl);
-  text-align: center;
+  text-align: var(--headline-align, center);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
   font-weight: 500;
@@ -19509,6 +19582,10 @@ section.form .cell-masthead .masthead-bay {
 section.form .cell-masthead .masthead-lede {
   min-width: 0;
   grid-column: masthead-lede;
+  /* Headline-alignment seam (`headline:` register, base.accent-finish.css). text-align
+   * inherits, so the kicker + title follow one axis. `auto` (no register) → the property is
+   * undefined → the fallback `left` applies, byte-identical to today's left-aligned band. */
+  text-align: var(--headline-align, left);
 }
 
 /* === lib/forms/cell/masthead/masthead.css === */
@@ -20175,6 +20252,30 @@ section.eyebrow-underline
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.2em;
 }
+
+/* ── HEADLINE ALIGNMENT (`headline:`) ── the framing-text cluster's horizontal axis ──────────
+ * Hoists alignment OUT of the components and onto an author register (deck-wide or per slide).
+ * The framing-text cluster — eyebrow, heading, heading rule, subtitle, below-note, key-insight,
+ * caption — used to bake its own alignment at each paint site, so the pieces disagreed (the
+ * 2026-07-04 subtitle patch was one symptom). Now every framing paint site reads ONE inherited
+ * seam, so the pieces move as one and the author owns the choice.
+ *
+ * `auto` (the default) emits NO token: the seam properties stay UNDEFINED, so each paint site
+ * falls back to its own baked default via `var(--headline-align, <default>)` — today's render is
+ * byte-identical (the component still decides). `left` DEFINES the seam on the section; it
+ * inherits to every framing descendant and overrides the fallbacks as one system.
+ *
+ * Two channels: text pieces read `--headline-align` (text-align: left), flex-boxed pieces read
+ * `--headline-justify` (align-items/self: flex-start). No `margin` (HARD RULE #20 — alignment is
+ * text-align / align-*, which measure cleanly); no hex (HARD RULE #3).
+ *
+ * SCOPED TO auto + left. `center`/`right` are a deliberate follow-up: box-aligning capped/inset
+ * framing on the full frame — especially against a masthead bay, where the lede is structurally
+ * inset but the stage is not — needs its own design pass (two adversarial trios found the
+ * center/right machinery a recurring source of edge cases). `left` needs none of it: every
+ * framing box is already left-pinned in plain block flow, so it's a pure seam read. See
+ * engineering/decisions/2026-07-20-mass-head-alignment.md § "Scoped to auto + left". */
+section.head-left { --headline-align: left; --headline-justify: flex-start; }
 
 /* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
  * surfaces ────────────────────────────────────────────────────────────────────────────────

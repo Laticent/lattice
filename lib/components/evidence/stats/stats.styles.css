@@ -17,9 +17,33 @@
  */
 
 section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
-section.stats h2 { padding-bottom:var(--sp-xs); text-align:center; }
+/* The heading + subtitle are framing text — they follow the headline-alignment seam
+ * (`headline:`) via their OWN align-self, so the centered stat strip below is untouched (its
+ * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a
+ * default stats slide is byte-identical. */
+section.stats h2 { padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
+/* CONSISTENT-DEFAULTS (Breaking): stats centers its heading + tiles, so its WHOLE masthead
+ * framing centers to match. The eyebrow rides the SHARED masthead-lede (left by default), so
+ * override its fallback to `center` here; the heading is in the same lede, so both center as
+ * one. Per-selector fallback → `headline: left` still overrides (the register SETS the seam,
+ * and a set value beats a fallback). The short heading rule (`rule: short`/`accent`) is a
+ * left-anchored `::after`; center it too, except when the author has pinned the slide left. */
+section.form.stats .cell-masthead .masthead-lede { text-align:var(--headline-align, center); }
+/* The short heading rule (`rule: short`/`accent`) is a base `::after` on the FULL .cell-masthead
+ * (left:0 == the lede's left edge — right for a left heading). This layout CENTERS the heading in
+ * the left masthead-lede track, so a full-band `left:50%` drifts right of the heading whenever a
+ * masthead bay (`meta:`/`logo:`) is populated (the rule tracks the band center, the heading the lede
+ * center). Re-anchor the segment to the lede so it follows the heading with OR without a bay:
+ * left:0 under a left heading, centered under a centered one. `bottom:-sp-md` restores the base's
+ * title↔rule gap (the band's own `padding-bottom`). Geometry mirrors base.accent-finish.css §rule —
+ * keep in sync. */
+section.form.stats:is(.rule-short, .rule-accent) .cell-masthead::after { content:none; }
+section.form.stats:is(.rule-short, .rule-accent) .masthead-lede { position:relative; }
+section.form.stats:is(.rule-short, .rule-accent) .masthead-lede::after { content:""; position:absolute; left:0; bottom:calc(-1 * var(--sp-md)); width:8cqi; height:0.22cqi; border-radius:0.11cqi; background:var(--border); }
+section.form.stats:is(.rule-accent) .masthead-lede::after { background:var(--accent); }
+section.form.stats:is(.rule-short, .rule-accent):not(.head-left) .masthead-lede::after { left:50%; transform:translateX(-50%); }
 section.stats h3 { padding-bottom:0.3125cqi; }
-section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:center; }
+section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 
 /* The stat strip: the top-level list laid out as a centered flex row. */
 section.stats > .cell-stage > ol {

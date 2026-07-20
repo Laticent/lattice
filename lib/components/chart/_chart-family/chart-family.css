@@ -454,13 +454,15 @@ section.chart-frame .chart-caption {
    * caption text is a `gap`, not the pseudo's `margin: 0 auto var(--sp-sm)` (#20). */
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* The caption is framing text — it follows the headline-alignment seam (`headline:`).
+   * `auto`/no register → the fallback `center` (today's centered caption). */
+  align-items: var(--headline-justify, center);
   gap: var(--sp-sm);
   box-sizing: border-box;
   width: 100%;
   margin: 0;
   padding: var(--sp-sm) var(--sp-2xl);
-  text-align: center;
+  text-align: var(--headline-align, center);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
   font-weight: 500;
