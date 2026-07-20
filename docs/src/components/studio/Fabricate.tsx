@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import { readComponentEffort, writeComponentEffort } from '@/playground/drawing-board-settings.js';
 // The REAL layout gate — the deterministic core the engine uses for components
 // (lib/layout/*, bundled). The Component tab's Name/Save/Export now live in this
 // shared header, so Fabricate owns the gate run that the body renders.
@@ -15,7 +16,7 @@ import { BUCKETS, CSS_ONLY_SUBSTANCES, FORMS, FUNCTIONS, gateCss, NAME_RE, scaff
 // (lib/theme/*, bundled browser-safe). deriveTheme → ~80 tokens (contrast-
 // repaired), auditBoth → live WCAG report, serializeTheme → a real themes/*.css.
 import { auditBoth, contrastRatio, deriveTheme, STARTERS, serializeTheme, validateEssentials } from '@/playground/theme-core.generated.js';
-import { type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, useArchitectStatus } from './architect';
+import { COMPONENT_EFFORTS, type ComponentEffort, type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, useArchitectStatus } from './architect';
 import { CodeField } from './CodeField';
 import { type ComponentMeta, saveStudioComponent } from './component-library';
 import { downloadText } from './download';
@@ -195,9 +196,13 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 	// holds the dedup near-neighbors (reuse nudge).
 	const [compPrompt, setCompPrompt] = React.useState('');
 	const [compGen, setCompGen] = React.useState<'idle' | 'working'>('idle');
-	// A live status line during generation — carries "Refining — fixing N issues…" while
-	// the silent gate-repair passes run, so the auto-fix is visible, not a mystery wait.
+	// A live status line during generation — carries "Refining — fixing N issues…" (gate
+	// repair) or "Improving the design — round X/N…" (the effort dial), so the extra work
+	// is visible, not a mystery wait.
 	const [compStatus, setCompStatus] = React.useState('');
+	// The effort dial (low/medium/high/maximum) — how many design self-refine rounds run.
+	// Persisted per browser; the lever is effort, not spend.
+	const [compEffort, setCompEffort] = React.useState<ComponentEffort>(() => readComponentEffort() as ComponentEffort);
 	const [compSimilar, setCompSimilar] = React.useState<ComponentSimilar[]>([]);
 
 	// Reference-doc grounding (#640) — one per surface: a brand guide grounds the
@@ -335,7 +340,15 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 			// N issues…" so the auto-fix is visible (not a mysterious extra wait) before the
 			// draft ever lands in the editor.
 			const out = await generateComponent(p, catalog, compDoc.docs, {
-				onStatus: (s) => setCompStatus(s.phase === 'refining' ? `Refining — fixing ${s.issues} issue${s.issues === 1 ? '' : 's'}…` : ''),
+				effort: compEffort,
+				onStatus: (s) =>
+					setCompStatus(
+						s.phase === 'refining'
+							? `Refining — fixing ${s.issues} issue${s.issues === 1 ? '' : 's'}…`
+							: s.phase === 'improving'
+								? `Improving the design — round ${s.round}/${s.rounds}…`
+								: '',
+					),
 			});
 			if (out.status === 'ok') {
 				compDoc.clear();
@@ -348,9 +361,12 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 				setCompSimilar(out.similar);
 				setCompPrompt('');
 				const issues = out.findings.filter((f) => f.level === 'error').length;
-				// Lead with the auto-fix when it ran, so the user sees the refinement did work.
-				const fixed = out.refined > 0 ? `refined in ${out.refined} pass${out.refined === 1 ? '' : 'es'} — ` : '';
-				notify(issues ? `Generated “.${out.draft.name}” — ${fixed}${issues} gate ${issues === 1 ? 'issue' : 'issues'} still to review below.` : `Generated “.${out.draft.name}” — ${fixed}gate-clean. Review the preview, then Save.`);
+				// Lead with the work the effort dial / auto-fix did, so the refinement is visible.
+				const notes: string[] = [];
+				if (out.improved > 0) notes.push(`refined the design over ${out.improved} round${out.improved === 1 ? '' : 's'}`);
+				if (out.refined > 0) notes.push(`auto-fixed ${out.refined} gate pass${out.refined === 1 ? '' : 'es'}`);
+				const prefix = notes.length ? `${notes.join(', ')} — ` : '';
+				notify(issues ? `Generated “.${out.draft.name}” — ${prefix}${issues} gate ${issues === 1 ? 'issue' : 'issues'} still to review below.` : `Generated “.${out.draft.name}” — ${prefix}gate-clean. Review the preview, then Save.`);
 			} else if (out.status === 'declined') {
 				setCompSimilar(out.similar);
 				notify(`That needs ${out.route === 'dsl' ? 'a first-party build' : `the ${out.route} path`} — ${out.reason}${out.suggestion ? ` (try: ${out.suggestion})` : ''}.`);
@@ -713,7 +729,19 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 							</DropdownMenu>
 						)}
 					</div>
-					{compDoc.chip}
+					{/* The EFFORT dial — design self-refine rounds after generation (low = one-shot ·
+						    maximum = +3). The lever is effort, not spend; persisted per browser. */}
+						<div className="flex items-center gap-2">
+							<span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70" title="How hard the model works on the design — more rounds = better design, more time">Effort</span>
+							<div className="inline-flex rounded-lg border border-border bg-background p-[2px]">
+								{COMPONENT_EFFORTS.map((lvl) => (
+									<button key={lvl} type="button" onClick={() => { setCompEffort(lvl); writeComponentEffort(lvl); }} aria-pressed={compEffort === lvl} aria-label={`Effort ${lvl}`} disabled={compGen === 'working'} className={cn('rounded-md px-2 py-0.5 text-[11px] font-semibold capitalize disabled:opacity-50', compEffort === lvl ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:text-foreground')}>
+										{lvl}
+									</button>
+								))}
+							</div>
+						</div>
+						{compDoc.chip}
 					{compStatus ? (
 							<div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--accent)]" role="status" aria-live="polite">
 								<Loader2 className="size-3 animate-spin" />{compStatus}

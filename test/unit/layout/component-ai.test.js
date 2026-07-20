@@ -11,7 +11,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { ASK_SYSTEM, askComponentMessages, askRepairMessages, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix, MAX_CSS_BYTES } = require('../../../lib/layout/ai.js');
+const { ASK_SYSTEM, askComponentMessages, askRepairMessages, askDesignRefineMessages, coerceRefinement, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix, MAX_CSS_BYTES } = require('../../../lib/layout/ai.js');
 const { gateComponent, findUnscopedSelectors } = require('../../../lib/layout/gate.js');
 
 describe('component-ai — prompt', () => {
@@ -280,6 +280,48 @@ describe('component-ai — silent gate-repair prompt (askRepairMessages)', () =>
     assert.doesNotThrow(() => askRepairMessages(dirtyDraft, []));
     assert.doesNotThrow(() => askRepairMessages(null, null));
     assert.match(askRepairMessages(dirtyDraft, []).at(-1).content, /no specific findings/);
+  });
+});
+
+describe('component-ai — design self-refine (the effort dial)', () => {
+  const draft = {
+    name: 'kpi-trio', description: 'Three KPIs.', function: 'statement', form: 'canvas', substance: 'structure',
+    bucket: 'statement', tags: ['kpi', 'stat', 'metric'], adapt: { mode: 'native' }, capacity: { sweet: 3, soft: 3, hard: 3 },
+    density: null, css: 'section.kpi-trio > .cell-stage { display:flex; }', skeleton: '<!-- _class: kpi-trio -->\n\n## Numbers\n\n- 100\n- 200',
+  };
+
+  test('askDesignRefineMessages carries the rubric + the draft, and asks for a rating', () => {
+    const msgs = askDesignRefineMessages(draft);
+    assert.equal(msgs.length, 2);
+    assert.equal(msgs[0].role, 'system');
+    assert.match(msgs[0].content, /RUBRIC/);
+    assert.match(msgs[0].content, /HIERARCHY/);
+    assert.match(msgs[0].content, /"rating"/);
+    assert.match(msgs[0].content, /KEEP THE COMPONENT'S IDENTITY/);
+    // The system turn must still forbid gate-breaking (a refinement can't introduce hex/margin).
+    assert.match(msgs[0].content, /ZERO\s*\n?\s*hex|ZERO hex/);
+    assert.match(msgs[0].content, /NO `margin`/);
+    assert.match(msgs[1].content, /"css"\s*:/);
+    assert.match(msgs[1].content, /kpi-trio/);
+  });
+
+  test('coerceRefinement returns the component + a clamped integer rating (default 5)', () => {
+    const base = { ...draft, css: 'section.kpi-trio > .cell-stage { color:var(--accent); }' };
+    assert.equal(coerceRefinement({ ...base, rating: 8 }).rating, 8);
+    assert.equal(coerceRefinement({ ...base, rating: 15 }).rating, 10); // clamped high
+    assert.equal(coerceRefinement({ ...base, rating: 0 }).rating, 1); // clamped low
+    assert.equal(coerceRefinement({ ...base, rating: 7.6 }).rating, 8); // rounded
+    assert.equal(coerceRefinement({ ...base }).rating, 5); // missing → neutral default
+    assert.equal(coerceRefinement({ ...base, rating: 'nope' }).rating, 5); // garbled → default
+    // It still carries the coerced component (name/css), so the caller can gate it.
+    assert.equal(coerceRefinement({ ...base, rating: 8 }).manifest.name, 'kpi-trio');
+    assert.ok(coerceRefinement({ ...base, rating: 8 }).ok);
+  });
+
+  test('coerceRefinement tolerates junk without throwing', () => {
+    assert.doesNotThrow(() => coerceRefinement(null));
+    assert.doesNotThrow(() => coerceRefinement('not json'));
+    assert.equal(coerceRefinement(null).rating, 5);
   });
 });
 

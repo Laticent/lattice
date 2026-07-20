@@ -214,6 +214,21 @@ in patch versions.
 
 ### Added
 
+- **Fabricate's component generator has an effort dial — low · medium · high · maximum — that iterates
+  on the design and keeps the best.** Generation used to be one-shot: the model drew a component once,
+  and #1113's repair loop only made sure it was gate-*clean*, never *better*. Now an effort control sits
+  by the "describe a component" bar (persisted per browser; **defaults to `medium`** — one refine out of
+  the box). Above `low` it runs design **self-refine**
+  rounds after generation — 1 / 2 / 3 for medium / high / maximum — where each round the model critiques
+  its current best against the boardroom rubric (restraint, hierarchy, fit, role-sizing, density),
+  returns an improved version with an honest 1–10 self-rating, and the studio keeps the **highest-rated**
+  one. Every candidate still passes through the gate-repair from #1113, so the winner is compliant as
+  well as better; a round that scores lower is rejected (never a regression), and `low` is unchanged
+  one-shot behavior. A live "Improving the design — round X/N…" cue shows while it runs. The lever is
+  effort, not spend. (`lib/layout/ai.js` `askDesignRefineMessages`/`coerceRefinement`, `architect.ts`
+  `improveDesign`, `Fabricate.tsx`, `drawing-board-settings.js`;
+  `engineering/decisions/2026-07-19-component-effort-dial.md`.)
+
 - **Fabricate now silently fixes a generated component's own gate violations before you see it —
   and teaches the model not to make them.** A "describe a component" result could land with a wall of
   gate errors (a real "sci-fi console" came back with 17 — raw `#00ff00` hex for "terminal green" plus a

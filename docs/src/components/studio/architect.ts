@@ -13,7 +13,7 @@ import { cosineRank } from '@/playground/architect-retrieval.js';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/drawing-board-refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
-import { askComponentMessages, askRepairMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
+import { askComponentMessages, askDesignRefineMessages, askRepairMessages, auditComponentDesign, coerceComponent, coerceRefinement, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -690,19 +690,30 @@ export type ComponentDraft = {
 	skeleton: string;
 };
 export type ComponentGenOutcome =
-	// `refined` = how many SILENT repair passes ran to clear gate errors (0 = the first
-	// draft was already clean / had only warnings). The UI can surface "auto-fixed N issues".
-	| { status: 'ok'; draft: ComponentDraft; findings: ComponentFinding[]; fixes: string[]; similar: ComponentSimilar[]; refined: number }
+	// `refined` = SILENT gate-repair passes that cleared errors; `improved` = design
+	// self-refine rounds that raised the quality score (the effort dial). Both 0 when the
+	// first draft was already clean / effort is low. The UI surfaces "auto-fixed / refined".
+	| { status: 'ok'; draft: ComponentDraft; findings: ComponentFinding[]; fixes: string[]; similar: ComponentSimilar[]; refined: number; improved: number }
 	| { status: 'declined'; reason: string; route: string; suggestion: string; similar: ComponentSimilar[] }
 	| { status: 'offline' }
 	| { status: 'blocked'; note: string }
 	| { status: 'nochange'; note: string };
 
-// Progress from a generation, so the UI can show a live "Refining — fixing N issues…"
-// state while the silent gate-repair passes run (before the draft ever reaches the user).
+// The effort dial (2026-07-19-component-effort-dial.md): the lever is EFFORT, not spend.
+// It maps to how many DESIGN self-refine rounds run after generation — each round
+// critiques the current best against the boardroom rubric and returns an improved,
+// self-rated version; the caller keeps the highest-rated. `low` = today's behavior.
+export type ComponentEffort = 'low' | 'medium' | 'high' | 'maximum';
+export const EFFORT_ROUNDS: Record<ComponentEffort, number> = { low: 0, medium: 1, high: 2, maximum: 3 };
+export const COMPONENT_EFFORTS: ComponentEffort[] = ['low', 'medium', 'high', 'maximum'];
+
+// Progress from a generation, so the UI can show a live status: "Refining — fixing N
+// issues…" (gate-repair) or "Improving the design — round X/N…" (the effort dial),
+// before the draft ever reaches the user.
 export type ComponentGenStatus =
 	| { phase: 'generating' }
-	| { phase: 'refining'; pass: number; passes: number; issues: number };
+	| { phase: 'refining'; pass: number; passes: number; issues: number }
+	| { phase: 'improving'; round: number; rounds: number };
 
 type DedupCatalog = { name: string; bucket?: string; description?: string; purpose?: string; tags?: string[] }[];
 // One docstring per component for the dedup signal — the TOP-LEVEL fields only
@@ -763,6 +774,100 @@ type CoercedComponent = {
 // (2026-07-19-component-gate-autofix.md). A constant so it's trivially tunable.
 const MAX_REPAIR_PASSES = 2;
 
+type GatedDraft = { draft: ComponentDraft; findings: ComponentFinding[]; errorCount: number };
+
+// Silent gate-repair: feed a failing draft + its exact findings back to the model to
+// fix, re-gate, up to MAX_REPAIR_PASSES, accepting a pass ONLY if it reduces errors
+// (never a regression) and stopping the instant it's clean. Budget-guarded per pass.
+// `onRefining` reports progress ONLY for the top-level repair (a design round's internal
+// repair passes stay silent). Factored so both the first draft AND each design-refine
+// candidate can be brought to compliance through the identical path.
+async function repairToClean(
+	model: ArchitectModel,
+	initial: GatedDraft,
+	generation: string,
+	onRefining?: (pass: number, issues: number) => void,
+): Promise<GatedDraft & { refined: number }> {
+	let { draft, findings, errorCount } = initial;
+	let refined = 0;
+	for (let pass = 1; pass <= MAX_REPAIR_PASSES && errorCount > 0; pass++) {
+		if (generation === 'openrouter') {
+			const blk = cloudBudgetBlock(model, JSON.stringify(draft));
+			if (blk) break; // out of budget → keep the best draft so far
+		}
+		onRefining?.(pass, errorCount);
+		const errs = findings.filter((f) => f.level === 'error');
+		let fix = '';
+		try {
+			fix = await model.complete({
+				messages: askRepairMessages(draft, errs),
+				json: true,
+				fallback: '',
+				onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+			});
+		} catch {
+			break; // a failed repair call → keep the best draft so far
+		}
+		const rc = coerceComponent(fix) as CoercedComponent;
+		if (rc.decline || !rc.ok || !rc.manifest) break; // unusable repair → keep best
+		const next = gateDraft(rc);
+		if (next.errorCount >= errorCount) break; // no improvement → stop, keep best
+		draft = next.draft;
+		findings = next.findings;
+		errorCount = next.errorCount;
+		refined = pass;
+	}
+	return { draft, findings, errorCount, refined };
+}
+
+// The DESIGN self-refine loop — the effort dial. Runs `rounds` passes; each critiques
+// the current best against the boardroom rubric and returns an improved, self-rated
+// version, which is gate-repaired (so we compare COMPLIANT designs) and accepted ONLY
+// if it is clean AND rated higher than the best so far. The original is the fallback if
+// no round yields a clean, higher-rated candidate. Budget-guarded per round.
+async function improveDesign(
+	model: ArchitectModel,
+	start: GatedDraft,
+	generation: string,
+	rounds: number,
+	onImproving?: (round: number, rounds: number) => void,
+): Promise<{ draft: ComponentDraft; findings: ComponentFinding[]; improved: number }> {
+	let best = start;
+	let bestRating = -1; // the initial is ungraded; any clean, rated refinement can win
+	let improved = 0;
+	for (let round = 1; round <= rounds; round++) {
+		if (generation === 'openrouter') {
+			const blk = cloudBudgetBlock(model, JSON.stringify(best.draft));
+			if (blk) break; // out of budget → keep the best so far
+		}
+		onImproving?.(round, rounds);
+		let reply = '';
+		try {
+			reply = await model.complete({
+				messages: askDesignRefineMessages(best.draft),
+				json: true,
+				fallback: '',
+				onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+			});
+		} catch {
+			break; // a failed refine call → keep the best so far
+		}
+		const rc = coerceRefinement(reply) as CoercedComponent & { rating: number };
+		if (rc.decline || !rc.ok || !rc.manifest) continue; // unusable round → keep best, try the next
+		// Gate-repair the candidate so we compare COMPLIANT designs. NOTE: `rc.rating` is
+		// the model's self-rating of its PRE-repair output; it can drift slightly from the
+		// post-repair `cand.draft` when repair had to alter it — acceptable for a noisy
+		// self-report used only to rank rounds against each other.
+		const cand = await repairToClean(model, gateDraft(rc), generation);
+		if (cand.errorCount === 0 && rc.rating > bestRating) {
+			best = { draft: cand.draft, findings: cand.findings, errorCount: 0 };
+			bestRating = rc.rating;
+			improved++; // COUNT of rounds that raised the design, not the winning round index
+		}
+	}
+	return { draft: best.draft, findings: best.findings, improved };
+}
+
 // Run the SAME gate the Component editor runs — the structural gate + the native-ness
 // design audit — on a coerced draft, returning the draft, its normalized findings, and
 // the ERROR count. The single source of truth for "is this draft clean", so the first
@@ -802,7 +907,7 @@ export async function generateComponent(
 	prompt: string,
 	catalog: { name: string; bucket?: string; description?: string; purpose?: string; tags?: string[] }[] = [],
 	docs?: ReferenceDoc[],
-	opts?: { onStatus?: (s: ComponentGenStatus) => void },
+	opts?: { onStatus?: (s: ComponentGenStatus) => void; effort?: ComponentEffort },
 ): Promise<ComponentGenOutcome> {
 	if (!prompt.trim()) return { status: 'nochange', note: 'Describe a component to generate one.' };
 	const model = await architectModel();
@@ -840,43 +945,28 @@ export async function generateComponent(
 	if (!coerced.ok || !coerced.manifest) {
 		return { status: 'nochange', note: 'The model returned no usable component.' };
 	}
-	// Gate the first draft, then SILENTLY repair any gate ERRORS before the user sees
-	// it: feed the draft + the exact findings back to the model (askRepairMessages
-	// carries the token/margin remediation), re-gate, and accept the pass ONLY if it
-	// reduces errors — never a regression — stopping the instant it's clean. Warnings
-	// are advisory and never trigger a pass. Each pass respects the budget cap.
-	let { draft, findings, errorCount } = gateDraft(coerced);
-	let refined = 0;
-	for (let pass = 1; pass <= MAX_REPAIR_PASSES && errorCount > 0; pass++) {
-		// Check the budget BEFORE announcing "refining", so we never flash the cue for a
-		// pass that immediately bails out of budget.
-		if (generation === 'openrouter') {
-			const blk = cloudBudgetBlock(model, JSON.stringify(draft));
-			if (blk) break; // out of budget → keep the best draft so far, findings shown
-		}
-		opts?.onStatus?.({ phase: 'refining', pass, passes: MAX_REPAIR_PASSES, issues: errorCount });
-		const errs = findings.filter((f) => f.level === 'error');
-		let fix = '';
-		try {
-			fix = await model.complete({
-				messages: askRepairMessages(draft, errs),
-				json: true,
-				fallback: '',
-				onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
-			});
-		} catch {
-			break; // a failed repair call → keep the best draft so far
-		}
-		const rc = coerceComponent(fix) as CoercedComponent;
-		if (rc.decline || !rc.ok || !rc.manifest) break; // unusable repair → keep best
-		const next = gateDraft(rc);
-		if (next.errorCount >= errorCount) break; // no improvement → stop, keep best
-		draft = next.draft;
-		findings = next.findings;
-		errorCount = next.errorCount;
-		refined = pass;
+	// Gate the first draft, then SILENTLY repair any gate ERRORS (compliance) before the
+	// user sees it — the "Refining — fixing N issues…" cue rides on the top-level pass.
+	const repaired = await repairToClean(model, gateDraft(coerced), generation, (pass, issues) =>
+		opts?.onStatus?.({ phase: 'refining', pass, passes: MAX_REPAIR_PASSES, issues }),
+	);
+	let { draft, findings } = repaired;
+	const refined = repaired.refined;
+
+	// Then, per the EFFORT dial, run N design self-refine rounds (quality) — critique vs
+	// the boardroom rubric, keep the best-rated compliant candidate. `low` = 0 rounds
+	// (unchanged behavior); medium/high/maximum = 1/2/3.
+	const rounds = EFFORT_ROUNDS[opts?.effort ?? 'low'];
+	let improved = 0;
+	if (rounds > 0) {
+		const imp = await improveDesign(model, { draft, findings, errorCount: repaired.errorCount }, generation, rounds, (round, r) =>
+			opts?.onStatus?.({ phase: 'improving', round, rounds: r }),
+		);
+		draft = imp.draft;
+		findings = imp.findings;
+		improved = imp.improved;
 	}
-	return { status: 'ok', draft, findings, fixes: coerced.fixes, similar, refined };
+	return { status: 'ok', draft, findings, fixes: coerced.fixes, similar, refined, improved };
 }
 
 // A deterministic lint finding (the shape lint-core's `lintTextWith` returns) — a

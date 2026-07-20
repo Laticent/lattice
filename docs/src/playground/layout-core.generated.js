@@ -1369,6 +1369,38 @@ ${list}
 Return the corrected JSON \u2014 same shape, only these fixed.` }
       ];
     }
+    var REFINE_DESIGN_SYSTEM = 'You are improving the DESIGN QUALITY of a Lattice component that already renders. Critique it hard against the boardroom 10/10 rubric, then return an IMPROVED version plus an honest rating.\n\nTHE RUBRIC (what separates a 10 from a 6):\n\u2022 RESTRAINT \u2014 ONE accent, reserved for the verdict/most important thing; no decoration for its own sake; neutrals carry most of the work.\n\u2022 HIERARCHY \u2014 six distinct levels of emphasis; if two adjacent levels look the same, it is broken. Size to the ROLE: a single number or a one-word verdict is MONUMENTAL (`--fs-hero`/`--fs-emphasis`), never a lonely `--fs-body` line.\n\u2022 FIT \u2014 the structure must FILL the bounded 16:9 stage handsomely: no sparse dead-space, no lonely tile adrift in empty. Cards GROW into the space (`flex:1; min-height:0` on the list so rows distribute), they do not float at intrinsic size.\n\u2022 DENSITY \u2014 tight words-per-element: a label + a short clause, never a sentence that wraps to three lines.\n\u2022 STATE + CATEGORY \u2014 status by SHAPE + a state token (never color alone); categorical hues capped ~6\u20138.\n\nHARD RULES you must NOT break (a change that breaks the gate is NOT an improvement): colors are `var(--\u2026)` tokens only (ZERO hex; a dark panel INVERTS tokens \u2014 `background:var(--text-heading); color:var(--bg)`; status = `--pass`/`--warn`/`--fail`); NO `margin` (use `gap`/`padding`; offsets are `transform`); `font-size` is a `--fs-*` role token; every selector starts `section.<name>`; the skeleton is PURE MARKDOWN.\n\nKEEP THE COMPONENT\'S IDENTITY \u2014 the same name, bucket, core idea, and skeleton CONTENT. Improve the CRAFT (hierarchy, fit, restraint, sizing), do NOT swap it for a different component. If it is already excellent and you cannot honestly improve it, return it UNCHANGED with your rating.\n\nReturn ONLY a compact JSON object \u2014 no prose, no fences \u2014 the SAME component shape (name, description, function, form, substance, bucket, tags, adapt, capacity, density, css, skeleton) PLUS one extra key "rating": an integer 1-10, your honest quality score of the design you are returning (be critical \u2014 reserve 9-10 for genuinely boardroom-ready).';
+    function askDesignRefineMessages2(draft) {
+      const d = draft && typeof draft === "object" ? draft : {};
+      const payload = {
+        name: d.name,
+        description: d.description,
+        function: d.function,
+        form: d.form,
+        substance: d.substance,
+        bucket: d.bucket,
+        tags: d.tags,
+        adapt: d.adapt,
+        capacity: d.capacity,
+        density: d.density,
+        css: d.css,
+        skeleton: d.skeleton
+      };
+      return [
+        { role: "system", content: REFINE_DESIGN_SYSTEM },
+        { role: "user", content: `Component to improve:
+${JSON.stringify(payload)}
+
+Critique it against the rubric, then return the improved JSON + your "rating".` }
+      ];
+    }
+    function coerceRefinement2(raw) {
+      const obj = (typeof raw === "string" ? safeParse(raw) : raw) || {};
+      const c = coerceComponent2(obj);
+      const r = Number(obj.rating);
+      const rating = Number.isFinite(r) ? Math.max(1, Math.min(10, Math.round(r))) : 5;
+      return { ...c, rating };
+    }
     function askComponentMessages2(prompt, { similar = [] } = {}) {
       const msgs = [{ role: "system", content: ASK_SYSTEM2 }];
       if (similar.length) {
@@ -1634,9 +1666,12 @@ Return the corrected JSON \u2014 same shape, only these fixed.` }
     module.exports = {
       ASK_SYSTEM: ASK_SYSTEM2,
       REPAIR_SYSTEM,
+      REFINE_DESIGN_SYSTEM,
       COMPONENT_CANON: COMPONENT_CANON2,
       askComponentMessages: askComponentMessages2,
       askRepairMessages: askRepairMessages2,
+      askDesignRefineMessages: askDesignRefineMessages2,
+      coerceRefinement: coerceRefinement2,
       coerceComponent: coerceComponent2,
       rankSimilar: rankSimilar2,
       auditComponentDesign: auditComponentDesign2,
@@ -1690,6 +1725,8 @@ var {
   COMPONENT_CANON,
   askComponentMessages,
   askRepairMessages,
+  askDesignRefineMessages,
+  coerceRefinement,
   coerceComponent,
   rankSimilar,
   auditComponentDesign,
@@ -1708,9 +1745,11 @@ export {
   SUBSTANCES,
   addScopePrefix,
   askComponentMessages,
+  askDesignRefineMessages,
   askRepairMessages,
   auditComponentDesign,
   coerceComponent,
+  coerceRefinement,
   collidesWithShipped,
   componentAsset,
   embedComponentsInMarkdown,
