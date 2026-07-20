@@ -1,6 +1,6 @@
 ---
 title: The mental model
-description: The whole of Lattice in one picture — a deck of slides, each slide a layout you fill with content, the whole deck wearing one style.
+description: A short primer — the model, the words, your first slides, picking a layout, styling, and how to render a Lattice deck.
 ---
 
 import DeckDiagram from '../../components/mental-model/DeckDiagram.astro';
@@ -9,6 +9,9 @@ A Lattice **deck** is a Markdown file. Each **slide** picks one **layout** — a
 ready-made arrangement — and you fill it with your **content**. One **style**
 dresses the whole deck: its colors and its finish. That is the entire model;
 everything else is detail you reach for only when you need it.
+
+This page is the primer: the model, the handful of words, your first slides, and
+how to turn them into a PDF.
 
 <DeckDiagram />
 
@@ -24,17 +27,26 @@ You can author a boardroom-grade deck knowing only these.
 | **Content** | Your words. You write plain Markdown; the layout places it. |
 | **Style** | The whole deck's look and feel — its palette (the **theme**) and its finish (clean, sketched, and the rest). Set once, up top. |
 
-## Pick a layout, then fill it
+## Your first deck
 
-You never place boxes by hand. You choose a **layout** for what the slide is
-*for* — a number to land, options to weigh, steps to walk — and pour your content
-in. The layout is content-aware: it sizes, wraps, and spaces so the slide reads
-as *composed*, not typed. If you give it more than it's built for, Lattice flags
-it (`npm run lint:deck`) rather than letting the slide overflow.
-
-An author writes one line to pick the layout, then the content beneath it:
+A deck is just Markdown. A **front-matter** block at the top sets the palette; a
+`<!-- _class: … -->` comment picks each slide's **layout**; a `---` line starts
+the next slide.
 
 ```markdown
+---
+theme: indaco
+paginate: true
+---
+
+<!-- _class: title -->
+
+# From Signal to Strategy
+
+A decision framework for product leaders.
+
+---
+
 <!-- _class: big-number -->
 
 ## 38%
@@ -42,19 +54,62 @@ An author writes one line to pick the layout, then the content beneath it:
 of pipeline stalls trace to a single approval step.
 ```
 
-Browse [the layout catalog](/components/) to see every layout, each with its slots
-and options, in any palette.
+Two slides — a title, then a single number. You wrote words; the layouts placed
+them.
 
-## One style, every slide
+## Pick a layout for what the slide is *for*
 
-Change the **theme** and every slide re-colors. Change the **style** and every
-slide takes on the new finish. The layouts never move — color and feel are a coat
-of paint on the *outside*, independent of what each slide holds. Swap the coat as
-often as you like; your content stays exactly where it was.
+You never arrange boxes by hand. You choose the layout that matches the slide's
+job, and pour your content in:
 
-That independence is the point of the whole model: what a slide *says* (its
-layout and content) and how the deck *feels* (its style) are separate choices, so
-changing one never disturbs the other.
+| The slide's job | Layouts to reach for |
+|---|---|
+| **Anchor** a section | `title`, `divider`, `closing` |
+| **Land one point** | `big-number`, `quote` |
+| **Show a set of items** | `cards-grid`, `list`, `agenda` |
+| **Weigh options** | `compare-table`, `verdict-grid` |
+| **Walk a sequence** | `list-steps`, `roadmap` |
+| **Back it with data** | `stats`, `chart`, `diagram` |
+| **Show a visual** | `image` |
+
+The layout is content-aware: it sizes, wraps, and spaces so the slide reads as
+*composed*, not typed. If you give it more than it's built for, Lattice flags it
+(`npm run lint:deck`) rather than letting the slide overflow. Browse
+[the layout catalog](/components/) to see every layout, each with its slots and
+options, in any palette.
+
+## Style it once
+
+Two front-matter keys dress the whole deck:
+
+- **`theme:`** — the palette. One of 14 (`indaco`, `cuoio`, `onyx`, `laguna`, …),
+  each with a light and a dark variant.
+- **`mode:`** — the typographic hand: `boardroom` (clean, the default) or
+  `sketch` (hand-drawn).
+
+Change either and every slide follows. The layouts never move — color and finish
+are a coat of paint on the *outside*, independent of what each slide holds. That
+independence is the point of the whole model: what a slide *says* (its layout and
+content) and how the deck *feels* (its style) are separate choices, so changing
+one never disturbs the other.
+
+## Render it
+
+One command turns your deck into a file. The extension picks the format:
+
+```sh
+npx lattice deck.md deck.pdf     # vector PDF
+npx lattice deck.md deck.pptx    # PowerPoint (image slides)
+npx lattice deck.md deck.png     # one PNG per slide
+```
+
+## Where to go next
+
+- **[Getting started](/getting-started/)** — install the toolchain and render your
+  first deck.
+- **[Authoring decks](/guides/authoring/)** — how to feed each layout, slot by slot.
+- **[Themes & palettes](/guides/themes/)** — pick a palette, or build your own.
+- **[The layout catalog](/components/)** — every layout, browsable in any palette.
 
 :::note[The engine's own words]
 Under the hood, the engine calls a layout a **component** and treats every slide
