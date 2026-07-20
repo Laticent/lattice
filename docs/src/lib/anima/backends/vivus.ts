@@ -104,8 +104,10 @@ function parseSvgInert(markup: string, doc: Document): SVGSVGElement | null {
     }
     for (const attr of Array.from(el.attributes)) {
       const n = attr.name.toLowerCase();
-      // Strip event handlers, javascript: hrefs, AND external resource refs (image/use href,
-      // filter/mask/clip-path url()) that would fetch off-origin from the live DOM.
+      // Strip event handlers and javascript: hrefs. (The main off-origin FETCH vectors —
+      // <image>/<use>/<style>@import — are removed as whole ELEMENTS via STRIP_TAGS above;
+      // external `url()` in a filter/mask/fill attribute is not a fetch vector browsers honor
+      // cross-document, so it's left alone. DOMPurify at the host boundary remains authoritative.)
       if (n.startsWith('on') || ((n === 'href' || n === 'xlink:href') && /^\s*javascript:/i.test(attr.value))) el.removeAttribute(attr.name);
     }
   }

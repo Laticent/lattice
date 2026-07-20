@@ -1,0 +1,77 @@
+// @vitest-environment jsdom
+import { describe, expect, it } from 'vitest';
+import { parseScene } from './anima/schema';
+import { chartToScene } from './chart-anima';
+
+// A funnel-shaped fixture mirroring the real renderer's output (polygon bands + flanking text).
+const FUNNEL =
+  '<svg class="funnel-svg" viewBox="0 0 320 180" role="img" aria-hidden="true">' +
+  '<polygon class="funnel-band" data-mark="0" data-label="Visitors" data-value="10,000" style="--i:0" points="85,16 235,16 184,46 136,46"/>' +
+  '<text class="funnel-label" x="76" y="31">Visitors</text>' +
+  '<text class="funnel-value" x="244" y="31">10,000</text>' +
+  '<polygon class="funnel-band" data-mark="1" data-label="Signups" data-value="3,200" style="--i:1" points="136,58 184,58 168,88 152,88"/>' +
+  '<text class="funnel-label" x="76" y="73">Signups</text>' +
+  '</svg>';
+
+describe('chartToScene', () => {
+  it('maps chart marks to roles and mints stable ids', () => {
+    const out = chartToScene(FUNNEL);
+    expect(out).not.toBeNull();
+    const bars = out?.roles.filter((r) => r.role === 'bar') ?? [];
+    const labels = out?.roles.filter((r) => r.role === 'label') ?? [];
+    expect(bars).toHaveLength(2); // two funnel-band polygons
+    expect(labels).toHaveLength(3); // three <text> nodes
+    // ids are unique and stable
+    const ids = out?.roles.map((r) => r.id) ?? [];
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(bars[0].id).toBe('bar-0');
+  });
+
+  it('produces a scene that PASSES the anima validator', () => {
+    const out = chartToScene(FUNNEL);
+    const r = parseScene(out?.scene);
+    expect(r.ok).toBe(true);
+  });
+
+  it('injects the minted ids into the returned asset SVG (so the backend can address them)', () => {
+    const out = chartToScene(FUNNEL);
+    expect(out?.asset).toContain('id="bar-0"');
+    expect(out?.asset).toContain('id="bar-1"');
+    // every scene element's pathRef resolves to an id present in the asset
+    for (const el of out?.scene.elements ?? []) expect(out?.asset).toContain(`id="${el.id}"`);
+  });
+
+  it('bars fade in staggered (reveal windows advance in document order)', () => {
+    const out = chartToScene(FUNNEL, { buildSpan: 0.6 });
+    const bar0 = out?.scene.elements.find((e) => e.id === 'bar-0');
+    const bar1 = out?.scene.elements.find((e) => e.id === 'bar-1');
+    const at0 = (bar0?.motion?.[0] as { at?: number })?.at ?? 0;
+    const at1 = (bar1?.motion?.[0] as { at?: number })?.at ?? 0;
+    expect(at1).toBeGreaterThan(at0); // later band starts later
+  });
+
+  it('highlights a flagged mark: an inline emphasis stroke + a highlight verb', () => {
+    const out = chartToScene(FUNNEL, { highlightMarks: [0], highlightColor: 'var(--ink)' });
+    const bar0 = out?.scene.elements.find((e) => e.id === 'bar-0');
+    expect(bar0?.motion?.some((m) => m.verb === 'highlight')).toBe(true);
+    // the inline stroke override is baked into the asset (wins over the chart's CSS stroke)
+    expect(out?.asset).toContain('id="bar-0"');
+    expect(out?.asset).toMatch(/stroke:\s*var\(--ink\)/);
+    // a non-highlighted band gets NO highlight verb
+    const bar1 = out?.scene.elements.find((e) => e.id === 'bar-1');
+    expect(bar1?.motion?.some((m) => m.verb === 'highlight')).toBe(false);
+  });
+
+  it('returns null on markup with no <svg> or no marks', () => {
+    expect(chartToScene('<div>not svg</div>')).toBeNull();
+    expect(chartToScene('<svg viewBox="0 0 10 10"></svg>')).toBeNull();
+  });
+
+  it('honors duration / hero / assetKey options', () => {
+    const out = chartToScene(FUNNEL, { duration: 5000, hero: 0.5, assetKey: 'myChart' });
+    expect(out?.scene.duration).toBe(5000);
+    expect(out?.scene.hero).toBe(0.5);
+    expect(out?.assetKey).toBe('myChart');
+    expect(out?.scene.asset).toBe('myChart');
+  });
+});
