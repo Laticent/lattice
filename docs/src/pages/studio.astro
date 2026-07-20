@@ -244,6 +244,13 @@ const REPLAY_JS = shell
 			   body replay script (returning-user snapshot) flips data-ssr-shell="on". */
 			#studio-ssr-shell { display: none; }
 			:root[data-ssr-shell="on"] #studio-ssr-shell { display: flex; }
+			/* Read stop → full-bleed preview: hide the editor Panel's OUTER (sizing)
+			   div by id so the preview reclaims its track. react-resizable-panels wraps
+			   each Panel in an outer div (carrying the id + inline flex) around the inner
+			   div our className lands on, so a Tailwind class can't shrink the outer.
+			   The divider is hidden via its own class (a Separator is a single div).
+			   2026-07-19 splitter migration. */
+			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
 		{shell && <style is:inline set:html={SHELL_CHROME_CSS}></style>}
 		{/* Newcomer critical CSS — inert (media="not all") until the replay script
@@ -280,21 +287,10 @@ const REPLAY_JS = shell
 					if (!returning) for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('lattice-studio-src-') === 0) { returning = true; break; } }
 					if (!returning) { try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || '{}'); if (st && (st.onboarded || (st.posture && st.posture !== 'read'))) returning = true; } catch (e2) {} }
 					if (!returning && palette === 'indaco' && mode === 'light') r.setAttribute('data-ssr-shell', 'on');
-					// Pre-paint seed for the editor|preview split ratio: the Studio grid
-					// consumes these as var() fallbacks, so a returning resizer's saved
-					// width applies before the island hydrates (no first-paint jump).
-					// Clamped to the same [0.2, 0.8] band the split hook enforces.
-					var sp = localStorage.getItem('lattice-docs-split-studio');
-					if (sp) {
-						var sv = JSON.parse(sp);
-						if (sv && sv.v === 1 && typeof sv.a === 'number' && sv.a >= 0.2 && sv.a <= 0.8) {
-							// Doubled flex pair (sum 2, never 1) — a sum-1 pair leaves a
-							// dead void when a pane clamps at its px minimum (CSS Grid
-							// §12.7.1). Must match split.tsx splitFlexPair.
-							r.style.setProperty('--split-studio-a', 2 * sv.a + 'fr');
-							r.style.setProperty('--split-studio-b', 2 * (1 - sv.a) + 'fr');
-						}
-					}
+					// (The editor|preview split ratio no longer needs a pre-paint CSS-var
+					// seed: react-resizable-panels restores the saved layout itself on mount
+					// via useDefaultLayout — 2026-07-19 splitter migration. Studio is
+					// client:only, so there is no SSR split to seed anyway.)
 				} catch (e) {}
 			})();
 		</script>
