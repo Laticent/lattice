@@ -76,7 +76,7 @@ import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteD
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
-import { useBreakpoint } from './use-breakpoint';
+import { useBreakpoint, useLandscapePhone } from './use-breakpoint';
 import { useSharedPreviewSlot } from './use-shared-preview-slot';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
@@ -462,6 +462,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		}
 	});
 	const [mobilePane, setMobilePane] = React.useState<'edit' | 'preview'>('preview');
+	// Bumped on a tap over the iPhone-landscape cinema slide to re-reveal the whisper layer.
+	const [whisperReveal, setWhisperReveal] = React.useState(0);
 	// TYPING MODE: the Compose surface reports when the software keyboard is up (and the user
 	// hasn't scrolled the chrome back into view) so the mobile top bands collapse for a clean
 	// writing surface. Reset whenever we leave the edit pane so preview never starts collapsed.
@@ -705,8 +707,22 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	}, [source, undo]);
 
 	const bp = useBreakpoint();
+	// A phone in landscape is wide enough to fall into the two-pane 'tablet' layout but
+	// far too SHORT to edit in (the keyboard buries the caret). Fold it into the mobile
+	// single-pane shell, then lock that pane to PREVIEW below — a full-bleed, read-only
+	// deck with no editor and therefore no keyboard (2026-07-20 landscape-phone salvage).
+	const landscapePhone = useLandscapePhone();
+	// Opt-in on-device viewport diagnostic for the cinema morph (`?vvdebug`). The overflow
+	// fix itself is the forced fit-by-height on the previewBox (see its className) — a
+	// landscape phone is always wider than a 16:9 slide, so height binds; the container was
+	// never the problem (`100dvh` already equals the visible height). See
+	// 2026-07-20-landscape-phone-preview-lock.md §Real-device fix.
+	const vvDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('vvdebug');
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
-	const mobile = bp === 'mobile'; // single swappable pane
+	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
+	// The mobile pane the shell actually shows. Normally the user's Edit/Preview choice;
+	// on a landscape phone it is FORCED to preview (no editing surface → no keyboard).
+	const effPane: 'edit' | 'preview' = landscapePhone ? 'preview' : mobilePane;
 	// At the narrow end of desktop the rail can't share the row with BOTH open panels
 	// without breaking the split's zero-void invariant (#721: pair-space ≥ 560). There
 	// it collapses to 48px icons (when shown), and — when both panels are open — folds
@@ -1428,7 +1444,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Active on every non-mobile Compose branch (desktop, tablet, focus) — on
 	// mobile the Edit/Preview pane swap owns visibility, and in Fabricate the
 	// Compose grid isn't rendered; state is retained across both.
-	const splitUsable = bp !== 'mobile' && view === 'compose';
+	const splitUsable = !mobile && view === 'compose';
 	// react-resizable-panels split state via the shared hook (2026-07-19 migration).
 	// Same surface the hand-rolled useSplit had ({ collapsed, dragging, expand,
 	// collapse, reset }) so the ~20 downstream call sites are unchanged. The FIT
@@ -1974,7 +1990,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const sharedActive = view === 'fabricate' && !presentOpen ? false : presentOpen || mobile || effectiveStop === 'read' || split.collapsed !== 'b';
 	// Whether the editor SLOT is on-screen (explicit-visibility model — not DOM occlusion):
 	// hidden in Fabricate and on the mobile edit pane (preview stays warm but parked).
-	const editorSlotVisible = view !== 'fabricate' && !presentOpen && (mobile ? mobilePane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
+	const editorSlotVisible = view !== 'fabricate' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
 	useSharedPreviewSlot({
 		hostRef: sharedHostRef,
 		editorSlotRef,
@@ -2617,7 +2633,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			</div>
 			)}
 			{editMode === 'compose' ? (
-				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? mobilePane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} onInsertBelow={openInsertAfter} />
+				<ComposeView source={source} onChange={setSource} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} onInsertBelow={openInsertAfter} />
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					<Editor ref={editorRef} value={source} onChange={setSource} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} lintVocab={lintVocab} extraComponentNames={localNames} onCursorSlide={onEditorCursorSlide} onSelectionChange={setHasSelection} className="flex-1" />
@@ -2630,6 +2646,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Collapsed → inert AND DeckPreview `active=false` below: per-keystroke
 	// renders defer while hidden and ONE render fires on the expand rising edge
 	// (the shipped DeckPreview contract), so nothing renders into a 0-width frame.
+	// Chromeless = strip the pane to just the slide. True at the Read stop (the newcomer's
+	// full-bleed read) AND on an iPhone in landscape (the "cinema" morph — see the body
+	// branch below), where the slide fills the frame and swipe is the only verb.
+	const previewChromeless = effectiveStop === 'read' || landscapePhone;
 	const previewPane = (
 		<section
 			id="studio-pane-preview"
@@ -2640,7 +2660,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    chrome (header, lens, slide counter, the Collapse trap, the op rail, the
 			    debug footer) so it reads as "just the slides" (M3 red-team). Only the
 			    live deck + the "Edit this slide" overlay remain. */}
-			{effectiveStop !== 'read' && (
+			{!previewChromeless && (
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
 				Preview
 				{/* View — the reader lens (shared LensPicker, also used in Present). It
@@ -2660,7 +2680,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
 			    aspect ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className="flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-card p-4 sm:p-5" onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
+			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')} onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -2668,12 +2688,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* The 760px comfort cap LIFTS while the editor is collapsed — otherwise
 				    "collapse editor" delivers the same-size slide in a sea of gutter
 				    (decision §5; landscape only — portrait binds to height already). */}
-				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]',
-					// Fill cases (Read full-bleed, or editor collapsed) CONTAIN via the measured
-					// axis so the whole slide shows, uncropped. Otherwise the pane is width-bound
-					// with the 760px comfort cap (portrait binds to height).
-					split.collapsed === 'a' || effectiveStop === 'read'
-						? (previewFitByHeight ? 'h-full w-auto' : 'h-auto w-full')
+				<div ref={previewBoxRef} className={cn('pointer-events-none relative overflow-hidden bg-background',
+					// On an iPhone in landscape the slide is the whole show — drop the card border
+					// + shadow, but KEEP `rounded-xl` so this backing box matches the live iframe's
+					// own `rounded-xl` corners (a square backing pokes its dark corners past the
+					// slide's rounded ones — the "notch" artifact). Elsewhere keep the full card.
+					landscapePhone ? 'rounded-xl' : 'rounded-xl border border-border shadow-[0_8px_24px_rgba(10,22,40,.10)]',
+					// Fill cases (Read full-bleed, cinema, or editor collapsed) CONTAIN via the
+					// measured axis so the whole slide shows, uncropped. Otherwise the pane is
+					// width-bound with the 760px comfort cap (portrait binds to height).
+					// A landscape PHONE viewport is always wider than a 16:9 slide, so height
+					// always binds — force fit-by-height there rather than trusting the measured
+					// axis (which raced stale and left the slide width-bound = too tall).
+					split.collapsed === 'a' || previewChromeless
+						? (previewFitByHeight || landscapePhone ? 'h-full w-auto' : 'h-auto w-full')
 						: previewPortrait ? 'h-full w-auto' : 'h-auto w-full max-w-[760px]')}
 					style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
 					{/* Empty SLOT — the ONE shared preview (hoisted at the studio root) is positioned
@@ -2681,7 +2709,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<div ref={editorSlotRef} className="size-full" />
 				</div>
 			</div>
-			{/* Slide navigator — jump to any slide, see its component type */}
+			{/* Slide navigator — jump to any slide, see its component type. Dropped in the
+			    cinema morph (iPhone landscape): the whisper layer carries position instead. */}
+			{!landscapePhone && (
 			<div className="flex items-center gap-1.5 border-t border-border bg-background px-3 py-2">
 				{composeLens === 'full' && effectiveStop !== 'read' && (
 					<div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
@@ -2717,7 +2747,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				})}
 			</nav>
 			</div>
-			{effectiveStop !== 'read' && (
+			)}
+			{!previewChromeless && (
 			<div className="flex items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
 				<span className="inline-flex items-center gap-1 text-[var(--chart-3,#2e6f00)]">● Live</span>
 				<span className="truncate">{palette} · {mode}</span>
@@ -2880,7 +2911,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    "exit" — you are never in a mode, only at a stop). On COMPACT widths the
 			    full header stays (its ⋯ overflow carries deck-switch / theme / tours),
 			    since a slim header would strand those; the dial rides the full header. */}
-			{effectiveStop !== 'build' && !compact ? (
+			{/* The cinema morph (iPhone landscape) shows NO header — the slide is the whole
+			    screen. Every other width/stop keeps its header. */}
+			{!landscapePhone && (effectiveStop !== 'build' && !compact ? (
 			<header className="flex h-[54px] shrink-0 items-center gap-3 border-b border-border bg-[color-mix(in_srgb,var(--bg)_92%,transparent)] px-3.5">
 				<LatticeMark mode={mode} className="size-7 shrink-0" />
 				{/* Read is calm — the deck is a label (a newcomer has the one sample deck;
@@ -3009,7 +3042,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    first-edit Inspector pulse always lands on a visible button. On phones
 				    they ride the pane bar below with Present + Share. */}
 				{/* Architect + Settings openers — TABLET only. Desktop launches both from the
-				    left activity bar; mobile from the pane bar below. */}
+				    left activity bar; mobile from the pane bar below. (A landscape phone renders
+				    no header at all — the cinema morph — so no leak here.) */}
 				{bp === 'tablet' && <Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>}
 				{bp === 'tablet' && <Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><MessageSquareHeart className="size-[18px]" /></Button></Tip>}
 				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
@@ -3033,7 +3067,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 							<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
 								{/* Editor actions — relocated here from the (now mobile-hidden) EDIT toolbar
 								    band. Only while EDITING (the edit pane), so the preview pane isn't cluttered. */}
-								{mobile && mobilePane === 'edit' && (
+								{mobile && effPane === 'edit' && (
 									<>
 										<DropdownMenuLabel className="flex items-center gap-2"><PencilLine className="size-4" />Editor</DropdownMenuLabel>
 										{insertComponents.length > 0 && (
@@ -3077,13 +3111,41 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    bar's Globals group; on compact they're in the ⋯ overflow (above). So the
 				    top bar carries neither here. */}
 			</header>
-			)}
+			))}
 
 			{/* ── Body ─────────────────────────────────────────────────── */}
 			{view === 'fabricate' ? (
 				<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
 					<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 				</React.Suspense>
+			) : landscapePhone ? (
+				/* iPhone LANDSCAPE — the "cinema" morph. The slide render is one surface that
+				   already moves between the editor's preview slot and Present's slot (the shared
+				   hoisted iframe); this is its third position: the slide fills the frame, swipe
+				   moves between slides, and every other scrap of chrome is gone (no header, no
+				   toolbar, no navigator — all suppressed above / in previewPane via
+				   previewChromeless). The only visible overlay is the whisper: a slide-progress
+				   counter that fades after ~2s and reappears on a slide change or a tap. Only
+				   previewPane mounts here, so the editor UNMOUNTS on entering landscape (text is
+				   safe — it lives in `source`; undo/caret/scroll reset) and remounts on rotate
+				   back; no editor is mounted, so no software keyboard can appear. Tap (touch-only)
+				   re-reveals the whisper; swipe is the real nav — onTouchEnd, not onClick. AT users
+				   get the sr-only prev/next + aria-live position inside (VoiceOver eats swipes). */
+				/* Fill the `100dvh` root (= the current/visible viewport height on this app's
+				   surfaces) — the real bug was never the container height (`dvh` already tracks the
+				   visible area); it was the slide fitting by WIDTH. The fix is forcing fit-by-height
+				   for the landscape phone (see the previewBox className above). Note: `svh` is NOT a
+				   reliable "always-visible" height here — some mobile browsers report `svh > dvh`. */
+				<div data-cinema-stage onTouchEnd={() => setWhisperReveal((n) => n + 1)} className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted">
+					{previewPane}
+					<LandscapeWhisper current={slideNo} total={viewSlides.length} revealKey={whisperReveal} />
+						{vvDebug && <LandscapeViewportDebug />}
+						{/* Screen-reader nav + live position. Cinema is swipe-only for sighted users, but VoiceOver/TalkBack intercept one-finger swipes, so these give AT users an intro, real controls, and an announced position (the visible counter is aria-hidden). */}
+						<p className="sr-only">Slide deck. Swipe, or use the previous and next buttons below, to move through slides. Rotate the phone upright to edit.</p>
+						<button type="button" className="sr-only" onClick={() => goToSlide(slideNo - 2)} disabled={slideNo <= 1}>Previous slide</button>
+						<button type="button" className="sr-only" onClick={() => goToSlide(slideNo)} disabled={slideNo >= viewSlides.length}>Next slide</button>
+						<div className="sr-only" aria-live="polite">Slide {slideNo} of {viewSlides.length}</div>
+				</div>
 			) : mobile ? (
 				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. The deck
 				   actions stay INLINE and one-tap — an icon-only Edit/Preview toggle reclaims
@@ -3095,7 +3157,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<div role="toolbar" aria-label="Deck actions" className={cn('flex shrink-0 items-center gap-1 border-b border-border bg-card p-1.5 transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 py-0 opacity-0')}>
 						{/* Icon-only Edit/Preview toggle — dropping the two text labels reclaims
 						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
-						    and still fit 390px. */}
+						    and still fit 390px. (A landscape phone never reaches this toolbar — it
+						    renders the cinema morph above.) */}
 						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
 							<PaneBtn active={mobilePane === 'edit'} onClick={() => { setMobilePane('edit'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
 							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" demo="pane-preview" />
@@ -3103,18 +3166,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* Markdown ⟷ Compose — the editing-paradigm toggle, on the EDIT pane. It moved
 						    here from the (mobile-hidden) EDIT band; the default is Markdown, so this must
 						    stay one tap, not buried in ⋯. */}
-						{mobilePane === 'edit' && (
+						{effPane === 'edit' && (
 							<div className="ml-0.5 inline-flex items-center gap-0.5 rounded-lg border border-border bg-background p-[3px]">
 								<button type="button" aria-label="Markdown source" onClick={() => setEditMode('markdown')} aria-pressed={editMode === 'markdown'} className={cn('inline-flex items-center rounded-md p-1.5 transition-colors', editMode === 'markdown' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground')}><FileText className="size-4" /></button>
 								<button type="button" aria-label="Compose — rich editor" onClick={() => setEditMode('compose')} aria-pressed={editMode === 'compose'} className={cn('inline-flex items-center rounded-md p-1.5 transition-colors', editMode === 'compose' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground')}><Sparkles className="size-4" /></button>
 							</div>
 						)}
 						<span className="flex-1" />
-						{mobilePane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
+						{effPane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
 						{/* Version history + Slide settings ride the pane bar only on the PREVIEW
 						    pane — the EDIT pane's own editor header already carries both. */}
-						{mobilePane === 'preview' && <Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>}
-						{mobilePane === 'preview' && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
+						{effPane === 'preview' && <Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>}
+						{effPane === 'preview' && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
 						<Tip label="Present"><Button variant="outline" size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button></Tip>
 						<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /></Button></Tip>
 						<Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>
@@ -3127,13 +3190,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    the demo — and normal editing — feel laborious on a phone). Editor state + the
 					    preview frame both persist across swaps. */}
 					<div className="relative min-h-0 flex-1">
-						<div className={cn('absolute inset-0 flex', mobilePane === 'edit' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'edit' ? true : undefined}>{editorPane}</div>
-						<div className={cn('absolute inset-0 flex', mobilePane === 'preview' ? 'z-10' : 'pointer-events-none invisible')} inert={mobilePane !== 'preview' ? true : undefined}>{previewPane}</div>
+						<div className={cn('absolute inset-0 flex', effPane === 'edit' ? 'z-10' : 'pointer-events-none invisible')} inert={effPane !== 'edit' ? true : undefined}>{editorPane}</div>
+						<div className={cn('absolute inset-0 flex', effPane === 'preview' ? 'z-10' : 'pointer-events-none invisible')} inert={effPane !== 'preview' ? true : undefined}>{previewPane}</div>
 						{/* Mobile Read — the phone newcomer the brief centers (M5). The preview pane
 						    already renders chromeless full-bleed at the Read stop; this adds the one
 						    "Edit this slide" verb + the one-time hint. Tapping it swaps to the edit
 						    pane AND steps the dial to Write — the same Read→Write step as desktop. */}
-						{effectiveStop === 'read' && mobilePane === 'preview' && (
+						{effectiveStop === 'read' && effPane === 'preview' && (
 							<div className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex flex-col items-center gap-2.5 px-4">
 								{!readHintSeen && (
 									<div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] px-3.5 py-1.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
@@ -3491,6 +3554,72 @@ function PaneBtn({ active, onClick, icon, label, demo }: { active: boolean; onCl
 	return (
 		<Tip label={label}><button type="button" onClick={onClick} data-demo={demo} aria-label={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button></Tip>
 	);
+}
+
+// The one whisper of chrome over the iPhone-landscape "cinema" morph (the slide fills
+// the frame, swipe to move, nothing else): a slide-progress counter that fades ~2.2s
+// after each slide change (or a tap, via `revealKey`) and reappears on the next.
+// Decorative only (aria-hidden): the slide itself carries the content; pointer-events-none
+// so it never eats a swipe. See 2026-07-20-landscape-phone-preview-lock.md.
+function LandscapeWhisper({ current, total, revealKey }: { current: number; total: number; revealKey: number }) {
+	const [shown, setShown] = React.useState(true);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: current + revealKey are TRIGGERS, not reads — each slide change (current) or tap (revealKey) must re-run the show-then-fade timer.
+	React.useEffect(() => {
+		setShown(true);
+		const t = setTimeout(() => setShown(false), 2200);
+		return () => clearTimeout(t);
+	}, [current, revealKey]);
+	if (total < 1) return null;
+	return (
+		<div aria-hidden className={cn('pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-opacity duration-500', shown ? 'opacity-100' : 'opacity-0')}>
+			<span className="rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[var(--bg-alt)] px-2.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-[var(--text-heading)] shadow-sm">{current} / {total}</span>
+		</div>
+	);
+}
+// On-device viewport diagnostic for the cinema morph — opt-in via `?vvdebug`. Renders
+// IN-FLOW (never position:fixed, which would inherit the very geometry it measures) so the
+// numbers are trustworthy. Prints the visual-viewport geometry, the resolved svh/dvh/lvh
+// units, the cinema stage height, and the live iframe rect — a device screenshot settles
+// whether the slide fits the visible band (this is the readout that finally exposed the
+// fit-axis bug). To be promoted into a first-class Workspace debug lever (perf-overlay style).
+function LandscapeViewportDebug() {
+	const [txt, setTxt] = React.useState('…');
+	React.useEffect(() => {
+		const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+		// Probe what the CSS viewport units actually resolve to on THIS device (svh/dvh/lvh
+		// can differ from innerHeight — that's the whole question). One hidden probe per unit.
+		const probe = (h: string) => {
+			const d = document.createElement('div');
+			d.style.cssText = `position:fixed;top:0;left:0;width:0;height:${h};visibility:hidden;pointer-events:none`;
+			document.body.appendChild(d);
+			const v = d.getBoundingClientRect().height;
+			d.remove();
+			return Math.round(v);
+		};
+		const read = () => {
+			const f = document.querySelector('iframe')?.getBoundingClientRect();
+			const stage = document.querySelector('[data-cinema-stage]')?.getBoundingClientRect();
+			setTxt(
+				[
+					`inner ${window.innerWidth}x${window.innerHeight}`,
+					vv ? `vv ${Math.round(vv.width)}x${Math.round(vv.height)} off ${Math.round(vv.offsetLeft)},${Math.round(vv.offsetTop)}` : 'vv: none',
+					`svh ${probe('100svh')} dvh ${probe('100dvh')} lvh ${probe('100lvh')}`,
+					stage ? `stage h ${Math.round(stage.height)}` : 'stage: —',
+					f ? `frame top ${Math.round(f.top)} bot ${Math.round(f.bottom)} h ${Math.round(f.height)}` : 'frame: —',
+				].join('\n'),
+			);
+		};
+		read();
+		const id = window.setInterval(read, 300);
+		vv?.addEventListener('resize', read);
+		vv?.addEventListener('scroll', read);
+		return () => {
+			window.clearInterval(id);
+			vv?.removeEventListener('resize', read);
+			vv?.removeEventListener('scroll', read);
+		};
+	}, []);
+	return <pre className="pointer-events-none absolute left-1 top-1 z-30 m-0 whitespace-pre rounded bg-black/70 px-1.5 py-1 font-mono text-[10px] leading-tight text-[#7CFC9B]">{txt}</pre>;
 }
 // One icon on the desktop left activity bar. `caption` is a PERSISTENT label
 // under the glyph (not a hover-only tooltip — those never fire on touch and

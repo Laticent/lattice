@@ -34,6 +34,39 @@ export function useBreakpoint(): Breakpoint {
 	return bp;
 }
 
+// A phone held in LANDSCAPE is the one viewport the width-based breakpoints can't
+// serve: it's wide (~844–932px → the two-pane 'tablet' layout) but only ~360–430px
+// TALL, so the editor|preview split is already cramped and the software keyboard
+// buries the caret the moment you type (there's nowhere for it to go). This detects
+// that state — landscape, short, touch — so the Studio can lock it to a full-bleed
+// PREVIEW (no editor, so no keyboard). The `max-height: 500px` + `orientation:
+// landscape` + `pointer: coarse` triad is the SAME signal the presenter view already
+// uses for landscape phones (drawing-board.css `@media (orientation: landscape) and
+// (max-height: 500px)`); `pointer: coarse` additionally excludes a short desktop
+// window. A small tablet in landscape (iPad mini ~744px tall) clears max-height and
+// keeps the full layout. Width-independent by design: the phone's landscape WIDTH
+// varies (667–932px) but its landscape HEIGHT is reliably ≤ ~430px.
+export function useLandscapePhone(): boolean {
+	const query = '(orientation: landscape) and (max-height: 500px) and (pointer: coarse)';
+	const read = React.useCallback((): boolean => {
+		if (typeof window === 'undefined' || !window.matchMedia) return false;
+		return window.matchMedia(query).matches;
+	}, []);
+
+	const [is, setIs] = React.useState<boolean>(read);
+
+	React.useEffect(() => {
+		if (typeof window === 'undefined' || !window.matchMedia) return;
+		const mq = window.matchMedia(query);
+		const update = () => setIs(mq.matches);
+		update();
+		mq.addEventListener('change', update);
+		return () => mq.removeEventListener('change', update);
+	}, []);
+
+	return is;
+}
+
 // The scope rail shows icon + caption at 72px, but at the NARROW end of desktop
 // (1100–1160px) that column can't share the row with an open Architect + Inspector
 // without breaking the split's zero-void invariant (#721: pair-space ≥ 2×minB =
