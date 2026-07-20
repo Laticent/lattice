@@ -1,13 +1,15 @@
 ---
 # status is one of: proposed | in-progress | blocked | shipped | superseded
 status: in-progress
-summary: The thing an author picks per slide is a "layout" (human word) whose system word is "component" — extending the §2.5 two-register law to the pick itself, not overturning it. Fixes the shipped Style/Finish drift, publishes a user↔internal crosswalk, gates the human word against drift, and builds a user-facing containment diagram. 5 phases, one branch/PR each.
+summary: The thing an author picks per slide is a "layout" (human word) whose system word is "component" — extending the §2.5 two-register law to the pick itself. That core is ratified and source-verified. An adversarial trio (red team · Munger inversion · independent checker) then caught that the first crosswalk over-reached with unaudited coinages (Material, an accent dial, a Content split) and a too-narrow drift gate; this record now separates the ratified core from proposals that need a collision audit, rescopes the gate to catch the class, and leaves one open decision (the Form-axis surface word) before Phase 1 executes.
 ---
 
 # User-facing nomenclature — "layout" for humans, "component" for the machine
 
-**Roll-up:** ◐ in-progress · Phase 1 (ratify) in flight · Phases 2–3 queued · Phase 4
-deferred (owner gate) · Phase 5 optional.
+**Roll-up:** ◐ in-progress · Core naming **ratified + source-verified**. ⚠ Phase 1
+execution **gated** on two items the trio surfaced: (1) decide the Form-axis
+surface word, (2) rescope the Phase 2 gate. Crosswalk narrowed to the verified
+core; speculative renames demoted to *proposed — needs collision audit*.
 
 ## Symptom
 
@@ -15,7 +17,7 @@ An author cannot make sense of the surface vocabulary: `deck`, `slide`, `layout`
 `component`, `chart`, `diagram`, `finish`, `theme`, `content`, `chrome` — with
 `layout` and `component` used interchangeably. `getting-started.md` literally
 apologizes for the synonym: *"every layout (a component, in the catalog's
-vocabulary)."*
+vocabulary)"* (`getting-started.md:94`).
 
 ## Root cause
 
@@ -24,161 +26,192 @@ Cell · Tile is sound. The pain is **register-leak** — engine/designer vocabul
 bleeding onto author-facing pages — plus **three terms doing two jobs each**
 (`layout≡component`, `content` triple-booked, `finish` = the axis *and* the
 `finish:` key), plus **one live drift**: the Finish axis is called **"Style"** in
-the machine source of truth (`lib/concepts/concepts.json`) and the published
-`concepts.mdx`, but **"Finish"** in the prose docs. The §2.5 two-register law
-("one system word + one human word per concept; code uses system, author copy
-uses human") is real and correct — it is simply **enforced only over the four
-axes, only inside `design/`**, and not on the surface a user reads.
+the machine source of truth (`lib/concepts/concepts.json:44`) and three rendered
+docs-site surfaces, but **"Finish"** in the prose docs and §2.5. The §2.5
+two-register law ("one system word + one human word per concept; code uses
+system, author copy uses human") is real and correct — it is simply **enforced
+only over the four axes, only inside `design/`**, and not on the surface a user
+reads. The drift gate never reads the `human` field at all (`lib/concepts/index.js`
+`validateShape` checks `system`/`source`, never `human`), which is why "Style"
+survived.
 
-## Decision
+## Decision (ratified — source-verified)
 
 **The thing an author picks per slide (`<!-- _class: X -->`) is a *layout* to
-every human, and a *component* to the machine.** This is not a new rule — it is
-§2.5 applied to the pick:
+every human, and a *component* to the machine.** Not a new rule — §2.5 applied to
+the pick:
 
 - **`layout`** = the **human word** — author-facing docs, UI, prompts, the
-  reference. It is already §2.5's ratified human word for the Form axis; we
-  extend it to name the pick itself (the author experiences choosing a component
-  as *"choosing how this slide is laid out"*; the formal fact that the pick is a
-  four-axis *join* is invisible and irrelevant to them).
+  reference. §2.5's ratified human word for the Form axis (`design-system.md:103`),
+  extended to name the pick itself (the author experiences choosing a component as
+  *"choosing how this slide is laid out"*; the pick being a four-axis *join* is
+  invisible to them).
 - **`component`** = the **system word** — `lib/components/`, `components.json`,
-  `_class`, `AGENTS.md`, agent navigation, the spine grammar in `concepts.md`.
-  Unchanged. **Zero code churn.** At the spine `component` is the *precise* word
-  (the pick is a join object, which `layout` understates), so it stays there.
+  `_class`, `AGENTS.md`, agent navigation. **Zero code churn** (verified: no
+  `layout:` manifest field, no `--layout` flag; the only "layout" in code is
+  register-leak in user-facing strings, which Phase 3 fixes). At the spine
+  `component` is the precise word (the pick is a join, which `layout` understates).
 
 ### Why `layout` and not `component` on the surface
 
-The decision reversed an initial "component everywhere" lean under adversarial
-review. Three things broke it:
+Reversed an initial "component everywhere" lean under adversarial review:
 
 1. **`component` everywhere violates §2.5.** `component` is a *system* word by
-   construction (it names the join object; it lives in the code). "Keep component
-   on the surface too" collapses both registers onto the machine word — the exact
-   anti-pattern §2.5 exists to prevent. The "everything is already named
-   component in code" fact argues that component is the *system* register, which
-   §2.5 says the surface must not speak.
+   construction (it names the join; it lives in the code). Keeping it on the
+   surface collapses both registers onto the machine word — the anti-pattern §2.5
+   exists to prevent.
 2. **The false-friend reverses for this audience.** For finance/legal/consulting
-   authors, `component` mis-signals "engineering tool, not for me" — the flinch
-   that kills adoption. `layout` keeps them in slide-land, the domain they are
-   actually in. Lattice's users are migrants *from* PowerPoint / Slides / Keynote
-   / Canva — all of which say **"layout."**
-3. **You don't escape a category by renaming its central noun; you escape it by
-   being better.** Tesla owns *"car"*; Notion kept *"page."* Category winners
-   *redefine* a familiar word. Revealed preference: the system docs themselves
-   can't stop saying "layout" for the smart thing — `design-system.md` writes
-   *"a layout overflows when it holds more content it's built for,"* describing
-   the exact content-awareness "layout" was feared too dumb to carry.
-
-### "Shape" is retired
-
-The earlier proposal to rename the Form-axis human word `Layout → Shape` (to stop
-`layout` doing two jobs) is **dropped**. It solved a collision that only exists if
-you surface the Form-axis *value* (grid/stack/panel) to authors as "layout" —
-which we don't. An author only ever meets **one** "layout" (the pick); the
-Form-axis value stays a designer concept (`Form`, system word) or a differently-
-labeled browse facet. And `shape` is already load-bearing in the code
-(`design-system.md` §"data shape"; `forms.md` `shape` field), so it would arrive
-pre-polluted. No third synonym is coined.
+   authors, `component` mis-signals "engineering tool, not for me." `layout` keeps
+   them in slide-land. Lattice's users migrate *from* PowerPoint / Slides /
+   Keynote / Canva — all of which say **"layout."**
+3. **You don't escape a category by renaming its noun; you escape it by being
+   better.** Tesla owns *"car"*; Notion kept *"page."* Revealed preference: the
+   system docs can't stop saying "layout" for the smart thing —
+   `design-system.md` writes *"a layout overflows when it holds more content it's
+   built for."*
 
 The baggage worry (that `layout` imports PowerPoint's passive-placeholder model)
-is handled by **redefinition, not flight**: the copy defines a Lattice layout as
-content-aware and opinionated, and may use "like a PowerPoint layout, but —" as a
-one-line teaching bridge. We pay the familiarity cost once, on purpose, instead
-of forever, by accident.
+is handled by **redefinition, not flight** — but the trio flagged that a single
+optional gloss line won't carry it. Phase 3 makes the content-aware redefinition
+a **required, repeated** element of the onboarding (diagram + intro + first
+authoring page each state it), not one bridge sentence.
 
-## The user ↔ internal crosswalk
+## ⚠ Open decision — the Form-axis surface word
 
-The contract that keeps the two registers from drifting. Each user-facing term
-maps to its internal system term(s) and the one dimension it lives on
-(A = Containment, B = Classification, C = Styling). Phase 2 gates the human word
-against this table.
+"Shape" is **out** (retired: `shape` is already load-bearing —
+`design-system.md:241` "data shape", `forms.md:235` `shape` field). But the trio
+found the deeper problem: **`concepts.mdx:32` is a *published* author-reachable
+page whose "Human word" column already labels the Form axis "Layout."** Once
+"layout" names the pick, that page double-books the word on the author surface —
+the exact overload we're killing. So the Form axis needs a surface word that is
+**neither "Layout" nor "Shape."**
 
-| Dim | User-facing | Internal system term(s) | Note |
+The clean resolution: authors never pick a *bare Form value* (they pick a
+layout/component), so Form barely needs an author word at all — it is a designer
+axis. **Candidate: relabel Form's human word to "Composition"** (a plain
+descriptor — "how the slide is composed"), *pending a collision grep* (do not
+adopt it the way "Material"/"backdrop" were adopted un-audited). Alternative: drop
+Form's human-word entry on the model page and mark the axis designer-only.
+**This is the one call to make before Phase 1 edits the model page.**
+
+## The crosswalk — ratified core
+
+Verified against source (`design/forms.md`, `lib/concepts/concepts.json`,
+`lib/components/index.js`, the resolvers). This is the contract Phase 2 gates.
+
+| Dim | User word | Internal system term(s) | Note |
 |---|---|---|---|
-| A | **Deck** | deck | containment root |
+| A | **Deck** | deck (the file) | containment root |
 | A | **Slide** | root Frame | Frame is internal-only |
-| A | **Chrome** | chrome Cells + Tiles | content's complement (define precisely) |
-| A | **Content** *(region)* | stage Cell + content Tile (z2) | the region you fill |
-| B | **Layout** *(the pick)* | **Component** (the join) | human word = layout; system word = component |
+| A | **Chrome** | chrome-band Cells + Tiles | content's complement (define precisely) |
+| A | **Content** *(region)* | stage Cell + content Tile (z2) | the region you fill — see collision note |
+| B | **Layout** *(the pick)* | **Component** (the join) | human = layout; system = component |
 | B | Purpose | **Function** (7 families) | browse facet — why |
-| B | *(browse: shape)* | **Form** → Frame types (12) | designer concept; not a second author "layout" |
-| B | Material | **Substance** (prose·structure·series·graph) | browse facet — what source |
-| B | **Chart** | component, `substance: series` | a Material value, not a peer kind |
-| B | **Diagram** | component, `substance: graph` | a Material value, not a peer kind |
-| C | Finish *(axis)* | Finish axis | **not "Style"** |
 | C | **Theme** | `theme:` | color / palette |
 | C | **Mode** | `mode:` | the typographic hand |
-| C | Finish *(preset)* | `finish:` | selects the backdrop preset; **key stays `finish:`** — see the collision note below |
-| C | Backdrop *(layer)* | `.backdrop` wrapper; tuned by `finish-override: → backdrop:` | the render layer + its nested tuning map; **not** a top-level key |
-| C | Accent *(adv.)* | `accent:` → `spectrum*`/`rule`/`eyebrow` | one dial over 7 keys |
+| C | **Finish** *(feel/axis)* | Finish axis | **not "Style"** — the drift being fixed |
+| C | Finish *(preset key)* | `finish:` | selects the backdrop preset; **key stays `finish:`** |
+| C | Backdrop *(layer)* | `.backdrop` wrapper; tuned by `finish-override: → backdrop:` | render layer + its nested map; **not** a top-level key |
 
-## Plan — 5 phases, one branch/PR each (HARD RULE #17)
+## Proposed — each needs a collision audit before adoption
 
-Sequenced by downstream impact: ratify the record everything cites, lock it so it
-can't rot, then ship the visible payoff; breaking renames and cosmetic cleanups
-follow, gated.
+The trio found the first crosswalk coined author words that **already collide**.
+None of these is ratified; each is gated on a grep against component names,
+front-matter keys, Substance/Form values, `TAG_GROUPS` terms, and route segments.
 
-### Phase 1 — Ratify the model · **Status:** ◐ in-progress
-This note (the record). Update the canon so it states layout=human / component=
-system for the pick: `design/design-system.md` §2.5 + §6, `design/concepts.md`,
-`docs/src/content/docs/model/concepts.mdx`. Fix the Style→Finish drift in
-`lib/concepts/concepts.json`, `concepts.mdx`, and
-`docs/src/components/model/ConceptWalkthrough.astro`; rebuild `dist`. Non-breaking.
-Maker-checker on the §2.5 edit (shared-vocabulary blast radius). Gate: `build:check`.
+| Candidate | Intended for | What the trio found | Status |
+|---|---|---|---|
+| **"Material"** | Substance's surface word | **Collides** with the live `material` tag dimension (`lib/components/index.js:403`, "I have a ___") — same "what you put on the slide" meaning, different construct | **REJECTED.** Substance is engine-owned; leave its word "Content" (authors don't pick it). No author word coined. |
+| **Form-axis word** | the Form facet on the model page | "Layout" now taken; "Shape" pre-polluted | **OPEN** — see the decision above ("Composition"?, audit pending) |
+| **"category"** (bucket) | rename `bucket` on surface | `bucket` is a manifest field + `groupByBucket()` API + **route segment** (`[bucket]/[name].astro`) + a tag-rule clause — not doc-only | Deferred; re-scope as system-or-drop |
+| **Accent "one dial"** | collapse the accent keys | **No `accent:` key exists** — the 7 registers (`spectrum:`,`spectrum-edge:`,`spectrum-card:`,`spectrum-card-edge:`,`spectrum-trim:`,`rule:`,`eyebrow:`) are independent siblings (`2026-07-15-accent-finish-consolidation.md`) | A *future* consolidation proposal, not a current fact |
+| **Chart / Diagram as "a series/graph component"** | crosswalk shorthand | Chart is a **bucket/family of 13** (3 are `structure`/`graph`, not series); Diagram is one component (`graph`) | Reword to "chart family, prototypically series" |
+| Contract renames `finish:`, `content` | de-overload the two contracts | `backdrop:` + `prose` taken (blocked); floated `body`/`plain` **also not clear** (`plain` = `eyebrow:` default; `body` overloaded) | Phase 4, owner-gated, target TBD by audit |
 
-### Phase 2 — Lock the crosswalk · **Status:** ☐ proposed (ships with Phase 1)
-Extend the concepts drift gate (`tools/check-ownership.js` / `build-concepts`) to
-assert the **human word agrees** across `lib/concepts/concepts.json`, the prose
-docs, and the site. This is the mechanism whose absence let Style/Finish diverge.
+## Plan — phases, one branch/PR each (HARD RULE #17)
 
-### Phase 3 — Diagram + author-facing copy · **Status:** ☐ proposed (new branch)
-Build `docs/src/components/model/LayoutDiagram.astro` — a containment/russian-doll
-figure (Deck ▸ Slide ▸ Layout ▸ your content; theme as the outer coat; chrome at
-the edges), rhyming with `FormDiagram`, light/dark, responsive — plus its page.
-Rewrite onboarding (`getting-started`, `introduction`, `authoring`, `overview`) to
-the layout lexicon: retire `component` from author copy, redefine `layout`, kill
-the apology, keep axes + Frame/Cell/Tile off the author path, present
-theme/mode/backdrop as three flat knobs. Rename docs-site "Component reference" →
-"Layout reference", `/components/` → `/layouts/` (redirect + search alias).
-Gate: website screenshots at 1440/820/390 (HARD RULE #23, QUALITY BAR).
+### Phase 1 — Ratify the model · **Status:** ⏸ gated (see roll-up)
+Blocked until the Form-axis word is decided. Then: update the canon to
+layout=human / component=system for the pick (`design-system.md` §2.5+§6,
+`concepts.md`, `concepts.mdx`), **relabel the Form-axis human word on
+`concepts.mdx`** so "layout" isn't double-booked. Fix the Style→Finish drift in
+**five** surfaces — `lib/concepts/concepts.json`, `concepts.mdx`,
+`ConceptWalkthrough.astro`, **`ConceptLattice.astro` (no-JS fallback), and
+`ConceptGraph.astro`** — plus the now-stale "'look' collides with *Style*"
+sentence (`concepts.mdx:36`); rebuild `dist`. Reconcile stale counts in the edited
+docs (**53→59 components, 12→13 buckets** incl. `connect`; getting-started's "55").
+Do **not** touch the Content/Material split here (deferred). Non-breaking.
+Maker-checker whose charter is a **collision audit** (not just prose review).
+Gate: `build:check`.
+
+### Phase 2 — Lock the crosswalk, gate the *class* · **Status:** ☐ proposed (ships with Phase 1)
+The gate must catch the class, not the instance. It asserts: (a) each axis human
+word matches across **rendered** surfaces (the `concepts.json` field, the mermaid
+node text in `concepts.md`/`concepts.mdx`, and the `s:'…'` JS literals in
+`ConceptWalkthrough`/`ConceptGraph`/`ConceptLattice`) — not just one JSON field;
+(b) **human-word uniqueness** across all concept nodes (so "Layout" can't name two
+things); (c) **cross-namespace collision** — no user-facing word equals a live
+component name, front-matter key, Substance/Form value, `TAG_GROUPS` term, or
+route segment unless sanctioned. Without (c), the Material/backdrop/prose class
+ships green.
+
+### Phase 3 — Diagram + author copy · **Status:** ☐ proposed (new branch)
+Build `LayoutDiagram.astro` (containment/russian-doll: Deck ▸ Slide ▸ Layout ▸
+your content; theme as the outer coat; chrome at the edges), rhyming with
+`FormDiagram`, light/dark, responsive, + its page. Rewrite onboarding
+(`getting-started`, `introduction`, `authoring`, `overview`) to the layout
+lexicon — as **self-consistent slices** (copy sweep first: no author page uses
+both "component" and "layout" for the pick; diagram second; title last). **Relabel,
+don't move** the reference: keep the `/components/` URL canonical (system register;
+~75 static URLs on `lattice.style`, ~15 internal links, README absolute URLs, a
+route test, and `AGENTS.md` all depend on it) and change only the human page
+**title/nav label** to "Layout reference" + sweep the `SiteHeader`/`ComponentsLayout`
+"Components" drawer copy. If a URL move is ever insisted on, it carries enumerated
+per-path `redirects` + a same-commit link sweep — not a search alias.
+Gate: website screenshots at 1440/820/390 (HARD RULE #23).
 
 ### Phase 4 — Contract renames · **Status:** ⏸ deferred (owner gate)
-The two double-booked contracts — the `finish:` key (axis vs. key) and the
-`content` component (vs. the Substance human word) — remain as they are unless a
-focused, aliased PR is later commissioned. **Both of the obvious rename targets
-are already taken and are ruled out:**
-
-- **`finish:` → `backdrop:` is BLOCKED.** `backdrop:` is a live nested key under
-  `finish-override:` (the backdrop layer's `strength`/`clearance`/`texture`), a
-  top-level `backdrop:` is deliberately **retired and lint-guarded**
-  (`retired-backdrop-key`, `2026-07-01-finish-restraint-controls.md` / #674), and
-  the render layer is already `.backdrop`. The codebase draws a useful line —
-  `finish:` = which backdrop *preset*, `backdrop:` = the *layer* + its tuning —
-  that the rename would erase. **Recommendation: keep `finish:`; resolve the mild
-  axis/key overload in docs wording, not a rename.**
-- **`content` component → `prose` is BLOCKED.** `prose` is one of the four
-  Substance values (`prose`/`structure`/`series`/`graph`). A collision-clear
-  target (`body`, `plain`) would need its own audit. Low priority.
-
-Lesson (and the justification for this phase's gate): a contract rename needs a
-real collision audit before a target name is chosen — none of the *settled* work
-(layout/component, the Style→Finish fix, the diagram, the register wall) does.
-Held pending explicit owner go-ahead AND a collision-clear target.
+The `finish:` key and the `content` component stay as-is unless a focused, aliased
+PR is commissioned. `finish:`→`backdrop:` is **BLOCKED** (`backdrop:` is a live
+nested key; top-level is `retired-backdrop-key`-guarded, `lint-core.js:1700`).
+`content`→`prose` is **BLOCKED** (`prose` is a Substance value). Floated `body`/
+`plain` are **also not collision-clear** and would need their own audit.
+Recommendation: keep `finish:`; resolve its mild axis/key overload in docs wording.
 
 ### Phase 5 — Surface cleanups · **Status:** ☐ proposed (optional)
-`bucket`→category, `kicker`→eyebrow, `lede`→subtitle, fold `variant` under
-`modifier`, the accent-dial presentation. Doc-layer, lower urgency.
+`lede`→subtitle, fold `variant` under `modifier`. **`kicker`→eyebrow** and
+**`bucket`→category** are NOT doc-only and hit already-taken words (`eyebrow:` is a
+live key; `bucket` is a field + route segment) — each needs the collision audit
+before adoption. Lower urgency.
+
+## Trio audit — corrections applied (2026-07-20)
+
+An adversarial trio (red team · Munger inversion · independent checker) audited
+this record and the plan against source before Phase 1 executed. Verdict: **not
+safe to execute Phase 1 as first written.** Cross-confirmed findings, folded in
+above: the Form-axis "Layout" overload is already live on a published page
+(→ open decision); "Material" collides with the `material` tag dimension
+(→ rejected); the Phase 2 gate was scoped to the instance not the class
+(→ rescoped to uniqueness + cross-namespace + rendered surfaces); the
+`/components/` rename blast radius (→ relabel, not move). Single-lens catches:
+`accent:` is not a key and Chart is a 13-member bucket (→ crosswalk fixed); the
+Style→Finish fix needs 5 surfaces not 3; stale counts; `body`/`plain` not
+collision-clear. Confirmed solid: component=system / zero churn (both directions),
+§2.5 ratifies Form=Layout and Finish=Finish, the drift is real, the gate never
+reads `human`, the `backdrop:`/`prose` blocks hold.
 
 ## Provenance
 
 Design driven by a three-lens analysis (linguist · communication/learning ·
-systems/ontology) and an adversarial red-team of the naming call. The naming
-verdict is the red-team outcome: "component everywhere" did not survive; the
-§2.5-prescribed split (layout in front of humans, component in the machine) did.
+systems/ontology), an adversarial red-team of the naming call (which settled
+layout-for-humans / component-for-the-machine), and the full adversarial trio
+above (which narrowed the crosswalk to the verified core and rescoped the gate).
 
 ## See also
 
 - `design/design-system.md` §2.5 — the two-register law this decision extends.
-- `design/concepts.md` — the one map (owns the axes ↔ nouns relationships).
-- `engineering/architecture.md` — the concept model in code + the drift gate
-  Phase 2 extends.
+- `design/concepts.md` / `docs/.../model/concepts.mdx` — the one map (the latter is
+  a *published* page; the Form-axis label there is the open decision).
+- `engineering/architecture.md` + `lib/concepts/index.js` — the concept model in
+  code + the drift gate Phase 2 rescopes.
+- `2026-07-15-accent-finish-consolidation.md` — the 7 accent registers (no `accent:` dial).
