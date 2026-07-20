@@ -35,6 +35,12 @@ function isUnit(v: unknown): v is number {
   return isFiniteNumber(v) && v >= 0 && v <= 1;
 }
 
+// A scene-local coordinate bound: keeps a translate/offset renderable in bounded space (the
+// discipline `period`/`sides`/tree-depth already follow). Unbounded `at`/`from` could sum to
+// Infinity or fling a part 1e21 units off-canvas (red-team #5) — still byte-stable, but not
+// "validate ⇒ renderable". Far past any real boardroom scene (viewBox is ~10²–10³ units).
+const MAX_COORD = 1e6;
+
 function validateTransform(t: unknown, at: string, errors: string[]): void {
   if (!t || typeof t !== 'object') {
     errors.push(`${at}.transform must be an object`);
@@ -44,6 +50,22 @@ function validateTransform(t: unknown, at: string, errors: string[]): void {
   if (tf.at != null && !isVec3(tf.at)) errors.push(`${at}.transform.at must be a [x,y,z] of finite numbers`);
   if (tf.rotate != null && !isVec3(tf.rotate)) errors.push(`${at}.transform.rotate must be a [x,y,z] of finite numbers (radians)`);
   if (tf.scale != null && !isFiniteNumber(tf.scale)) errors.push(`${at}.transform.scale must be a finite number`);
+}
+
+/** An svg part's transform is 2-D: the backend paints only `at.x`/`at.y`, `scale`, and
+ *  `rotate.z` (the in-plane angle). Validate the shape, then REJECT the ignored axes (a value
+ *  in `at[2]` / `rotate.x` / `rotate.y` would silently do nothing — a footgun the trio flagged),
+ *  and bound magnitude/scale so the transform stays renderable in bounded space. */
+function validateSvgTransform(t: unknown, at: string, errors: string[]): void {
+  validateTransform(t, at, errors);
+  if (!t || typeof t !== 'object') return;
+  const tf = t as Record<string, unknown>;
+  if (isVec3(tf.at)) {
+    if (tf.at[2] !== 0) errors.push(`${at}.transform.at[2] (z) is ignored for an svg part — 2-D only; use a built scene for depth`);
+    if (Math.abs(tf.at[0]) > MAX_COORD || Math.abs(tf.at[1]) > MAX_COORD) errors.push(`${at}.transform.at exceeds the ±${MAX_COORD} scene-unit bound`);
+  }
+  if (isVec3(tf.rotate) && (tf.rotate[0] !== 0 || tf.rotate[1] !== 0)) errors.push(`${at}.transform.rotate x/y are ignored for an svg part — only rotate.z (in-plane) applies`);
+  if (isFiniteNumber(tf.scale) && (tf.scale < 0 || tf.scale > 1000)) errors.push(`${at}.transform.scale must be in [0, 1000]`);
 }
 
 const PROP_NUMS = ['stroke', 'size', 'width', 'height', 'depth', 'diameter', 'length'] as const;
@@ -103,10 +125,18 @@ function validateMotion(m: unknown, source: SourceModel, at: string, errors: str
       if (!isFiniteNumber(mo.distance) || (mo.distance as number) < 0) errors.push(`${at}.distance must be a non-negative, finite number`);
       validateWindow(mo, at, errors);
       break;
+    case 'slide':
+      // `from` is the [dx, dy] scene-local offset the element moves IN from — two finite
+      // numbers (negatives are legitimate: slide in from the left/top), bounded like `transform.at`.
+      if (!Array.isArray(mo.from) || mo.from.length !== 2 || !mo.from.every(isFiniteNumber)) errors.push(`${at}.from must be a [dx, dy] of two finite numbers (the move-in offset)`);
+      else if (mo.from.some((v) => Math.abs(v as number) > MAX_COORD)) errors.push(`${at}.from exceeds the ±${MAX_COORD} scene-unit bound`);
+      validateWindow(mo, at, errors);
+      break;
     case 'reveal':
     case 'sequence':
     case 'draw':
     case 'trace':
+    case 'highlight':
       validateWindow(mo, at, errors);
       break;
   }
@@ -165,7 +195,9 @@ function validateElement(raw: unknown, at: string, source: SourceModel, ids: Set
   } else {
     if (typeof el.pathRef !== 'string' || !el.pathRef) errors.push(`${at}.pathRef must be a non-empty string (a path/group id in the SVG asset)`);
     if (el.shape != null) errors.push(`${at}.shape is a built-only field, but this is an svg element`);
-    if (el.transform != null) errors.push(`${at}.transform is a built-only field, but this is an svg element`);
+    // A 2-D base transform IS allowed on an svg part (the backend uses at.x/y, scale, rotate.z);
+    // validate the 2-D shape + bounds and reject the ignored 3-D axes.
+    if (el.transform != null) validateSvgTransform(el.transform, at, errors);
     if (el.children != null) errors.push(`${at}.children is a built-only field (an svg scene is flat), but this is an svg element`);
   }
 
@@ -175,6 +207,12 @@ function validateElement(raw: unknown, at: string, source: SourceModel, ids: Set
       el.motion.forEach((m, j) => {
         validateMotion(m, source, `${at}.motion[${j}]`, errors);
       });
+      // `reveal` (opacity fade) and `draw`/`trace` (stroke reveal) both express PRESENCE and are
+      // painted on the same node two incompatible ways — the backend folds them into one scalar
+      // and the reveal silently produces no opacity (red-team #4). Reject the combination so the
+      // author picks one. (svg-only: draw/trace can't appear in a built scene.)
+      const verbs = new Set((el.motion as Array<{ verb?: unknown }>).map((m) => m?.verb));
+      if (verbs.has('reveal') && (verbs.has('draw') || verbs.has('trace'))) errors.push(`${at}: 'reveal' can't be combined with 'draw'/'trace' on one part — both paint presence; pick a fade OR a stroke, not both`);
     }
   }
 }
@@ -216,6 +254,19 @@ export function parseScene(input: unknown): ParseResult {
     o.elements.forEach((raw, i) => {
       validateElement(raw, `elements[${i}]`, src, ids, errors, 0, count);
     });
+    // svg parts are flat and each choreographs a DISTINCT asset node — two elements sharing a
+    // `pathRef` both resolve to the same node and the backend's paint is silently last-wins
+    // (red-team #3). Require unique pathRefs so one part = one node.
+    if (src === 'svg') {
+      const refs = new Set<string>();
+      o.elements.forEach((raw, i) => {
+        const pr = (raw as Record<string, unknown>)?.pathRef;
+        if (typeof pr === 'string' && pr) {
+          if (refs.has(pr)) errors.push(`elements[${i}].pathRef '${pr}' is duplicated — two elements can't choreograph the same part`);
+          else refs.add(pr);
+        }
+      });
+    }
   }
 
   if (errors.length) return { ok: false, errors };

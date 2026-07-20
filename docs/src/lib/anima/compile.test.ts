@@ -194,3 +194,62 @@ describe('compile — timeline invariants', () => {
     expect(tl.at(0).elements[0].color).toBe('var(--accent)');
   });
 });
+
+// ── SVG per-element channels (slice: SvgElement.transform + slide/highlight/emphasis) ──
+const svgScene = (elements: unknown[], extra: Record<string, unknown> = {}): unknown => ({ source: 'svg', asset: 'a.svg', duration: 1000, hero: 1, elements, ...extra });
+const svgEl = (id: string, extra: Record<string, unknown> = {}) => ({ id, pathRef: id, ...extra });
+
+describe('compile — svg per-element channels', () => {
+  it('slide moves the element IN from its `from` offset to 0 over the window', () => {
+    const tl = timeline(svgScene([svgEl('a', { motion: [{ verb: 'slide', from: [40, -20] }] })]));
+    expect(tl.at(0).elements[0].transform.at[0]).toBeCloseTo(40, 6); // fully displaced at t0
+    expect(tl.at(0).elements[0].transform.at[1]).toBeCloseTo(-20, 6);
+    expect(tl.at(500).elements[0].transform.at[0]).toBeCloseTo(20, 6); // half-way in (linear)
+    expect(tl.at(1000).elements[0].transform.at[0]).toBeCloseTo(0, 6); // arrived
+    expect(tl.at(1000).elements[0].transform.at[1]).toBeCloseTo(0, 6);
+  });
+
+  it('slide composes onto a base transform — arrives AT the base position', () => {
+    const tl = timeline(svgScene([svgEl('a', { transform: { at: [100, 0, 0] }, motion: [{ verb: 'slide', from: [40, 0] }] })]));
+    expect(tl.at(0).elements[0].transform.at[0]).toBeCloseTo(140, 6); // base + full offset
+    expect(tl.at(1000).elements[0].transform.at[0]).toBeCloseTo(100, 6); // settled at the base
+  });
+
+  it('highlight raises emphasis over its window and HOLDS at 1 (persists into the poster)', () => {
+    const tl = timeline(svgScene([svgEl('a', { motion: [{ verb: 'highlight', at: 0.5, span: 0.5 }] })]));
+    expect(tl.at(0).elements[0].emphasis).toBeCloseTo(0, 6); // before the window
+    expect(tl.at(750).elements[0].emphasis).toBeCloseTo(0.5, 6); // half-way through [0.5,1]
+    expect(tl.at(1000).elements[0].emphasis).toBeCloseTo(1, 6); // full, and held past the window
+  });
+
+  it('emphasis defaults to 0 and reveal to 1 when nothing drives them', () => {
+    const st = timeline(svgScene([svgEl('a')])).at(500).elements[0];
+    expect(st.emphasis).toBe(0);
+    expect(st.reveal).toBe(1);
+  });
+
+  it('reveal on an svg element fades presence 0→1 over the window', () => {
+    const tl = timeline(svgScene([svgEl('a', { motion: [{ verb: 'reveal', at: 0, span: 1 }] })]));
+    expect(tl.at(0).elements[0].reveal).toBeCloseTo(0, 6);
+    expect(tl.at(500).elements[0].reveal).toBeCloseTo(0.5, 6);
+    expect(tl.at(1000).elements[0].reveal).toBeCloseTo(1, 6);
+  });
+
+  it('an svg base transform threads scale + rotate.z into the ElementState', () => {
+    const st = timeline(svgScene([svgEl('a', { transform: { at: [5, 6, 0], scale: 1.5, rotate: [0, 0, 0.3] } })])).at(0).elements[0];
+    expect(st.transform.at[0]).toBeCloseTo(5, 6);
+    expect(st.transform.at[1]).toBeCloseTo(6, 6);
+    expect(st.transform.scale).toBeCloseTo(1.5, 6);
+    expect(st.transform.rotate[2]).toBeCloseTo(0.3, 6);
+  });
+});
+
+describe('compile — highlight holds past its window (poster guarantee)', () => {
+  it('emphasis stays at full PAST the window end, so a pre-hero highlight shows in the poster', () => {
+    // window [0.3, 0.6]; the hero (progress 1) is PAST it — the hold must keep emphasis at 1.
+    const tl = timeline(svgScene([svgEl('a', { motion: [{ verb: 'highlight', at: 0.3, span: 0.3 }] })]));
+    expect(tl.at(600).elements[0].emphasis).toBeCloseTo(1, 6); // at the window end
+    expect(tl.at(1000).elements[0].emphasis).toBeCloseTo(1, 6); // PAST the window — held, not decayed
+    expect(tl.poster().elements[0].emphasis).toBeCloseTo(1, 6); // hero=1 → the still shows emphasis
+  });
+});

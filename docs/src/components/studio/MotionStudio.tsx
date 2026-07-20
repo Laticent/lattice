@@ -130,6 +130,10 @@ export function defaultMotion(verb: MotionVerb): Motion {
 			return { verb: 'draw' };
 		case 'trace':
 			return { verb: 'trace' };
+		case 'slide':
+			return { verb: 'slide', from: [40, 0] }; // a default rightward move-in (svg only)
+		case 'highlight':
+			return { verb: 'highlight' }; // an emphasis pulse (svg only)
 	}
 }
 
@@ -137,7 +141,7 @@ const VERBS = (el: BuiltElement): string[] => (el.motion ?? []).map((m) => m.ver
 
 // The windowed verbs carry an `at`/`span`/`easing` timeline window; the cyclic ones (spin,
 // orbit) do not. Used to decide which param block the inspector renders.
-const WINDOWED = new Set<MotionVerb>(['explode', 'reveal', 'sequence', 'fill', 'draw', 'trace']);
+const WINDOWED = new Set<MotionVerb>(['explode', 'reveal', 'sequence', 'fill', 'draw', 'trace', 'slide', 'highlight']);
 const clamp01 = (n: number) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0));
 // A `type="number"` field accepts scientific notation, so `Number("1e309")` is Infinity —
 // which is truthy (so `|| fallback` won't catch it) but fails the schema's finite check and

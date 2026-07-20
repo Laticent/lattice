@@ -29,11 +29,13 @@ export const MOTION_VERBS = [
   'spin', // continuous rotation about an axis, in the element's LOCAL frame (built)
   'orbit', // the element's local position circles an axis over a period (built)
   'explode', // children move outward from their parent origin — the exploded view (built)
-  'reveal', // a single element fades in (opacity) over a window (built)
+  'reveal', // a single element fades in (opacity) over a window (built | svg)
   'sequence', // stagger element reveals across the timeline (built | svg)
   'fill', // a data-bound scalar level 0→to over a window (built | svg)
   'draw', // stroke-reveal of an SVG path (svg — needs the `draw` cap)
   'trace', // draw, following path direction (svg — needs the `draw` cap)
+  'slide', // a 2-D directional move-IN: the element arrives from a `from` offset (svg)
+  'highlight', // an emphasis pulse (stroke-weight) that lands on the one part that matters (svg)
 ] as const;
 export type MotionVerb = (typeof MOTION_VERBS)[number];
 
@@ -56,17 +58,22 @@ export const VERB_CAP: Record<MotionVerb, 'draw' | null> = {
   fill: null,
   draw: 'draw',
   trace: 'draw',
+  slide: null, // a per-element transform paint, not a stroke reveal — no `draw` cap
+  highlight: null, // a per-element stroke-weight paint — no `draw` cap
 };
 
-/** verb → which source model it is valid in (`both` = either). Transform verbs are
- *  `built`-only; draw/trace are `svg`-only; sequence/fill work in both. */
+/** verb → which source model it is valid in (`both` = either). 3-D transform verbs
+ *  (spin/orbit/explode) are `built`-only; draw/trace/slide/highlight are `svg`-only;
+ *  reveal/sequence/fill work in both. */
 export const VERB_SOURCE: Record<MotionVerb, SourceModel | 'both'> = {
   spin: 'built',
   orbit: 'built',
   explode: 'built',
-  reveal: 'built',
+  reveal: 'both', // fade-in reads in both models: built opacity, svg per-element opacity
   sequence: 'both',
   fill: 'both',
   draw: 'svg',
   trace: 'svg',
+  slide: 'svg', // 2-D move-in via SVG transform (built already has spin/orbit/explode)
+  highlight: 'svg', // stroke-weight emphasis on a drawn part
 };

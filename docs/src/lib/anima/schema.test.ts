@@ -64,9 +64,29 @@ describe('parseScene — rejects', () => {
   it('a fill level out of [0,1]', () => expect(bad({}, [{ id: 'a', shape: 'box', motion: [{ verb: 'fill', to: 2 }] }]).ok).toBe(false));
   it('a negative explode distance', () => expect(bad({}, [{ id: 'a', shape: 'box', motion: [{ verb: 'explode', distance: -1 }] }]).ok).toBe(false));
   it('a built element carrying a pathRef (cross-shape field)', () => expect(bad({}, [{ id: 'a', shape: 'box', pathRef: 'p1' }]).ok).toBe(false));
-  it('an svg element carrying a built-only field', () => {
+  it('an svg element carrying a built-only field (shape)', () => {
     expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', shape: 'box' }] }).ok).toBe(false);
-    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', transform: { at: [1, 0, 0] } }] }).ok).toBe(false);
+  });
+  it('an svg element with a valid 2-D transform (now allowed — the slide/base-transform channel)', () => {
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', transform: { at: [10, -4, 0], scale: 1.2 } }] }).ok).toBe(true);
+  });
+  it('an svg element with an INVALID transform is still rejected', () => {
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', transform: { at: [1, 0] } }] }).ok).toBe(false);
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', transform: { scale: 'big' } }] }).ok).toBe(false);
+  });
+  it('an svg slide verb needs a [dx,dy] from', () => {
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'slide', from: [40, 0] }] }] }).ok).toBe(true);
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'slide' }] }] }).ok).toBe(false);
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'slide', from: [1, 2, 3] }] }] }).ok).toBe(false);
+  });
+  it('an svg highlight verb validates its window; reveal is now valid in svg', () => {
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'highlight', at: 0.5, span: 0.3 }] }] }).ok).toBe(true);
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'highlight', at: 2 }] }] }).ok).toBe(false);
+    expect(parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'reveal' }] }] }).ok).toBe(true);
+  });
+  it('slide/highlight in a BUILT scene are rejected (svg-only)', () => {
+    expect(bad({}, [{ id: 'a', shape: 'box', motion: [{ verb: 'slide', from: [1, 1] }] }]).ok).toBe(false);
+    expect(bad({}, [{ id: 'a', shape: 'box', motion: [{ verb: 'highlight' }] }]).ok).toBe(false);
   });
   it('an svg scene with no asset', () => {
     const noAsset = { source: 'svg', duration: 4000, hero: 1, elements: [{ id: 'p', pathRef: 'p1', motion: [{ verb: 'draw' }] }] };
@@ -116,5 +136,36 @@ describe('validateColor', () => {
     expect(validateColor('var(--x); background: url(http://evil)')).not.toBeNull();
     expect(validateColor('red')).not.toBeNull();
     expect(validateColor(42)).not.toBeNull();
+  });
+});
+
+describe('parseScene — svg per-element hardening (trio findings)', () => {
+  const one = (extra: Record<string, unknown>) => parseScene({ ...svg, elements: [{ id: 'p', pathRef: 'p1', ...extra }] });
+  it('rejects an svg transform with a non-zero IGNORED axis (silent no-op footgun)', () => {
+    expect(one({ transform: { at: [0, 0, 50] } }).ok).toBe(false); // z
+    expect(one({ transform: { rotate: [0.3, 0, 0] } }).ok).toBe(false); // rotate.x
+    expect(one({ transform: { rotate: [0, 0.3, 0] } }).ok).toBe(false); // rotate.y
+    expect(one({ transform: { at: [10, 20, 0], rotate: [0, 0, 0.5], scale: 2 } }).ok).toBe(true); // pure 2-D is fine
+  });
+  it('rejects an out-of-range svg transform scale', () => {
+    expect(one({ transform: { scale: -1 } }).ok).toBe(false);
+    expect(one({ transform: { scale: 5000 } }).ok).toBe(false);
+  });
+  it('rejects an out-of-bounds transform.at or slide.from magnitude', () => {
+    expect(one({ transform: { at: [1e9, 0, 0] } }).ok).toBe(false);
+    expect(one({ motion: [{ verb: 'slide', from: [1e9, 0] }] }).ok).toBe(false);
+    expect(one({ motion: [{ verb: 'slide', from: [200, -80] }] }).ok).toBe(true); // sane offset ok
+  });
+  it('rejects two svg elements sharing a pathRef (silent last-wins)', () => {
+    const dup = parseScene({ ...svg, elements: [
+      { id: 'a', pathRef: 'shared', motion: [{ verb: 'slide', from: [10, 0] }] },
+      { id: 'b', pathRef: 'shared', motion: [{ verb: 'slide', from: [0, 10] }] },
+    ] });
+    expect(dup.ok).toBe(false);
+  });
+  it('rejects reveal combined with draw/trace on one svg part (both paint presence)', () => {
+    expect(one({ motion: [{ verb: 'draw' }, { verb: 'reveal' }] }).ok).toBe(false);
+    expect(one({ motion: [{ verb: 'trace' }, { verb: 'reveal' }] }).ok).toBe(false);
+    expect(one({ motion: [{ verb: 'draw' }, { verb: 'highlight' }] }).ok).toBe(true); // draw + emphasis is fine
   });
 });
