@@ -170,3 +170,42 @@ scroll (pgscroll). These stay flat → the RISING verdicts are real, not instrum
 - Retainer-path walk to name the exact reference pinning the detached `contentWindow` (the one fix
   that cascades). - Voiced TTS run (captions-only done; `--tts` + operator key wired). - Across-refresh
   A-axis (boot cost) — separate, recon-confirmed (4× parse, unbounded IDB). - slidesettings driving.
+
+## RETAINER-PATH PINPOINT (2026-07-20) — the exact Map that holds the leak
+The harness now walks the heap snapshot's reverse-edge graph from a leaked node to its GC root
+(`--retainers`). On `fullwrite`, the leaked ~560 KB theme-CSS strings trace to:
+
+```
+(GC root, synthetic) → Window (top-level page)
+   --__latticeRegisterKatex--> closure → engine singleton ("Za")
+   --themes--> ThemeStore ("eo")  --byName--> Map  → [leaked theme CSS string]
+```
+
+**Root cause (heap side):** `lib/engine/themes.js` `ThemeStore.add(css)` extracts the `@theme <name>`
+and does `byName.set(name, cssText)` with **NO eviction / no size bound**. The docs-side render path
+registers themes under **per-render-varying names** (candidate: the derived/`extra` theme — C5's
+"ALWAYS re-register", content-hash-named in Fabricate — and/or per-host base registration), so
+`byName` grows ~0.67 entries/render × ~560 KB = ≈ the measured ~400 KB/cycle. The engine singleton
+(a legit module global, pinned via `window.__latticeRegisterKatex`) keeps it alive forever. This is
+the DOMINANT heap leak, and the gallery's 32 MB/open is the same mechanism × ~14 thumbnail registrations
+(plus their un-disposed iframe realms).
+
+## Ranked root causes → fixes (each with a harness before/after target)
+1. **`ThemeStore.byName` unbounded (lib/engine/themes.js)** — the dominant heap leak. Fix options:
+   dedup by content-hash (identical CSS under different names → one entry), LRU/size-bound `byName`,
+   or unregister the ephemeral per-render theme after use. HARD RULE #1 shared kernel → full trio +
+   the engine unit tests + a bench. **Highest leverage — cascades to fullwrite/palette/present/compose/
+   pgvariant/landing/gallery.**
+2. **Add-slide gallery (~32 MB/open)** — SlidePicker thumbnails' renderers/iframes not released on
+   close (compounded by #1 × ~14). Fix: dispose on close / snapshot thumbnails / LRU-recycle live ones.
+3. **Detached iframe realms** — retained `contentWindow`s (the realm-structure bulk). Walk a Window
+   node's retainers next to name the exact pin (installVideoBridge / fr.onload / scaleTargets), then
+   release on dispose.
+4. **Per-host theme fetch (C1)** — module-level shared docs-side theme cache (also lowers peak memory).
+5. **Listener leaks** — compose ProseMirror (+91/cyc), gallery (+137), pgvariant (+64), deckswitch
+   (+8.5): per-component add/remove audits (separate from the heap mechanism).
+
+## Status
+Diagnosis EXHAUSTIVE (every feature × surface tortured; dominant leak pinpointed to an exact Map via
+retainer path). Next phase = fixes, sequenced by leverage (#1 first), each proven with a before/after
+on `studio-torture.mjs` and verified per blast radius (shared-kernel #1 gets the full trio).

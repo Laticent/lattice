@@ -31,7 +31,7 @@ const DIST = join(DOCS, 'dist');
 const FIXED_PORT = 4319; // stable origin so the SW scope + storage persist across relaunches (refresh mode)
 
 function parseArgs(argv) {
-	const o = { mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false };
+	const o = { mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--mode') o.mode = argv[++i];
@@ -43,6 +43,7 @@ function parseArgs(argv) {
 		else if (a === '--json') o.json = true;
 		else if (a === '--snapshot') o.snapshot = true;
 		else if (a === '--tts') o.tts = true;
+		else if (a === '--retainers') o.retainers = true;
 		else throw new Error(`unknown arg: ${a}`);
 	}
 	return o;
@@ -358,6 +359,83 @@ function diffSnapshots(a, b, topN = 18) {
 	return { top: rows.slice(0, topN), totalDelta: B.total - A.total, detachedDelta: B.detachedBytes - A.detachedBytes, detachedCountDelta: B.detachedCount - A.detachedCount };
 }
 
+// ── retainer-path walk (name the exact reference pinning a leaked node) ──────────
+// Builds the reverse-edge graph and BFS-walks from a leaked node back to a GC root, so the
+// edge NAMES on the path spell out the property/closure/Map-entry chain that holds it alive.
+function buildGraph(snap) {
+	const meta = snap.snapshot.meta, nf = meta.node_fields, ef = meta.edge_fields;
+	const NT = meta.node_types[0], ET = meta.edge_types[0];
+	const nodes = snap.nodes, edges = snap.edges, strings = snap.strings;
+	const NS = nf.length, ES = ef.length;
+	const iNType = nf.indexOf('type'), iNName = nf.indexOf('name'), iNSelf = nf.indexOf('self_size'), iNEdge = nf.indexOf('edge_count');
+	const iEType = ef.indexOf('type'), iEName = ef.indexOf('name_or_index'), iETo = ef.indexOf('to_node');
+	const nCount = nodes.length / NS;
+	// edge run start (in edge-records) per node
+	const firstEdge = new Uint32Array(nCount + 1);
+	for (let i = 0; i < nCount; i++) firstEdge[i + 1] = firstEdge[i] + nodes[i * NS + iNEdge];
+	const nodeName = (i) => strings[nodes[i * NS + iNName]] ?? '';
+	const nodeType = (i) => NT[nodes[i * NS + iNType]] || '?';
+	const nodeSelf = (i) => nodes[i * NS + iNSelf];
+	const edgeName = (e) => { const t = ET[edges[e * ES + iEType]]; const v = edges[e * ES + iEName]; return (t === 'element' || t === 'hidden') ? `[${v}]` : (t === 'internal' ? `<${strings[v] ?? v}>` : (strings[v] ?? String(v))); };
+	const edgeType = (e) => ET[edges[e * ES + iEType]];
+	// reverse edges: retainers[toNode] = [{from, e}] (skip weak edges — they don't retain)
+	const retainers = Array.from({ length: nCount }, () => []);
+	for (let i = 0; i < nCount; i++) {
+		for (let e = firstEdge[i]; e < firstEdge[i + 1]; e++) {
+			if (edgeType(e) === 'weak') continue;
+			const to = edges[e * ES + iETo] / NS;
+			retainers[to].push({ from: i, e });
+		}
+	}
+	return { nCount, nodeName, nodeType, nodeSelf, edgeName, retainers };
+}
+// BFS from `start` back to a GC root; return the retainer path (nearest root). Roots = synthetic
+// nodes (the "(GC roots)"/"(Global handles)"/… subtree) — recognizable by type 'synthetic'.
+function retainerPath(g, start, maxDepth = 25) {
+	const seen = new Uint8Array(g.nCount); const q = [[start, []]]; seen[start] = 1;
+	while (q.length) {
+		const [n, path] = q.shift();
+		if (path.length > maxDepth) continue;
+		// A real GC root is a 'synthetic' node (the "(GC roots)" subtree). Do NOT stop at
+		// intermediate rope nodes ('concatenated string'/'sliced string'), whose NAME is also
+		// parenthesized — that was cutting the chain short before the true holder.
+		if (g.nodeType(n) === 'synthetic') return { root: g.nodeName(n) || g.nodeType(n), path };
+		for (const { from, e } of g.retainers[n]) {
+			if (seen[from]) continue; seen[from] = 1;
+			q.push([from, [{ node: `${g.nodeType(from)}:${(g.nodeName(from) || '').slice(0, 32)}`, via: g.edgeName(e).slice(0, 40) }, ...path]]);
+		}
+	}
+	return null;
+}
+// Find leaked target nodes (the retained theme-CSS / scaffold strings) and report the retainer
+// chain that holds them — aggregated so the COMMON pinning reference stands out.
+function retainerReport(snap, opts = {}) {
+	const g = buildGraph(snap);
+	const meta = snap.snapshot.meta, nf = meta.node_fields;
+	const NT = meta.node_types[0]; const strings = snap.strings, nodes = snap.nodes; const NS = nf.length;
+	const iNType = nf.indexOf('type'), iNName = nf.indexOf('name'), iNSelf = nf.indexOf('self_size');
+	const wantBig = opts.minSelf ?? 200000; // only the big retained strings (the ~560KB theme etc.)
+	const targets = [];
+	for (let i = 0; i < g.nCount; i++) {
+		const t = NT[nodes[i * NS + iNType]];
+		if (t !== 'string' && t !== 'concatenated string' && t !== 'sliced string') continue;
+		if (nodes[i * NS + iNSelf] < wantBig) continue;
+		const name = strings[nodes[i * NS + iNName]] ?? '';
+		if (/lattice\.min\.css|lattice-engine scaffold|<div class="lattice">/.test(name)) targets.push(i);
+	}
+	const chains = new Map();
+	let walked = 0;
+	for (const t of targets) {
+		if (walked >= (opts.sample ?? 12)) break;
+		const r = retainerPath(g, t); walked++;
+		if (!r) continue;
+		// signature = the via-edge names near the string (the immediate holders)
+		const sig = r.path.slice(0, 6).map((p) => p.via).join(' ◂ ');
+		chains.set(sig, (chains.get(sig) || 0) + 1);
+	}
+	return { targetsFound: targets.length, sampleWalked: walked, chains: [...chains.entries()].sort((a, b) => b[1] - a[1]), example: targets.length ? retainerPath(g, targets[0]) : null };
+}
+
 async function withinSession(browser, base, opts, cycleName) {
 	const page = await browser.newPage();
 	await page.setViewport({ width: 1440, height: 900 }); // deterministic DESKTOP regime (new controls are desktop-only)
@@ -376,7 +454,7 @@ async function withinSession(browser, base, opts, cycleName) {
 	const cyc = CYCLES[cycleName]; if (!cyc) throw new Error(`unknown cycle ${cycleName}`);
 	if (PREP[cycleName]) { try { await PREP[cycleName](page, opts); } catch (e) { console.error(`    prep(${cycleName}) failed: ${e.message}`); } }
 	const series = [];
-	let snapDiff = null;
+	let snapDiff = null, retReport = null;
 	try {
 		series.push(await sample(inst, 'baseline'));
 		const snapBase = opts.snapshot ? await takeSnapshot(inst.cdp) : null;
@@ -393,10 +471,16 @@ async function withinSession(browser, base, opts, cycleName) {
 			if (!opts.json && (i + 1) % 5 === 0) process.stderr.write(`    ${cycleName}: ${i + 1}/${opts.k}\r`);
 		}
 		if (opts.snapshot && snapBase) { await inst.gc(); await inst.gc(); const snapFinal = await takeSnapshot(inst.cdp); snapDiff = diffSnapshots(snapBase, snapFinal); }
+		if (opts.retainers) {
+			await inst.gc(); await inst.gc();
+			process.stderr.write(`    ${cycleName}: taking retainer snapshot…\n`);
+			const snapR = await takeSnapshot(inst.cdp);
+			retReport = retainerReport(snapR, { sample: 12 });
+		}
 	} finally {
 		await page.close().catch(() => {});
 	}
-	return { series, snapDiff };
+	return { series, snapDiff, retReport };
 }
 
 // Absolute per-cycle floors below which a rising trend is judged NOISE even if MK is
@@ -442,13 +526,13 @@ async function main() {
 		const ALL = ['idle', 'typing', 'present', 'overview', 'palette', 'fullwrite', 'compose', 'slidenav', 'insert', 'slidesettings', 'decksettings', 'deckswitch2', 'readaloud', 'landing', 'pgslide', 'pgvariant', 'pgscroll', 'mixed'];
 		const requested = opts.cycle === 'all' ? ALL : opts.cycle.split(',');
 		const cycles = requested.includes('idle') ? ['idle', ...requested.filter((c) => c !== 'idle')] : requested;
-		const report = {}; const diffs = {}; let controlSlopes = null;
+		const report = {}; const diffs = {}; const rets = {}; let controlSlopes = null;
 		for (const c of cycles) {
 			process.stderr.write(`\n  cycle=${c} (k=${opts.k}, cpu=${opts.cpu})\n`);
 			try {
-				const { series, snapDiff } = await withinSession(browser, base, opts, c);
+				const { series, snapDiff, retReport } = await withinSession(browser, base, opts, c);
 				if (c === 'idle') controlSlopes = controlSlopesFrom(series);
-				report[c] = analyze(series, controlSlopes); diffs[c] = snapDiff;
+				report[c] = analyze(series, controlSlopes); diffs[c] = snapDiff; rets[c] = retReport;
 			} catch (e) { console.error(`  cycle ${c} FAILED: ${e.message}`); }
 		}
 		await browser.close(); server.close();
@@ -461,6 +545,12 @@ async function main() {
 				console.log(`    heap-diff over run: total Δ${(d.totalDelta / 1e6).toFixed(1)}MB · detached-DOM Δ${(d.detachedDelta / 1e3).toFixed(0)}KB (${d.detachedCountDelta} nodes). Top retained-size growers:`);
 				for (const r of d.top) if (r.dSelf > 50000) console.log(`      ${(r.dSelf / 1e6).toFixed(2)}MB  Δcount ${String(r.dCount).padStart(7)}  ${r.k}`);
 			}
+		}
+		for (const [c, rr] of Object.entries(rets)) {
+			if (!rr) continue;
+			console.log(`\n  [${c}] RETAINER paths — ${rr.targetsFound} leaked theme/scaffold strings (walked ${rr.sampleWalked}). Common pinning chain (string ◂ held-by ◂ …):`);
+			for (const [sig, n] of rr.chains) console.log(`      ×${n}  ${sig}`);
+			if (rr.example) { console.log(`    → nearest GC root: ${rr.example.root}. Full path (root → leaked string):`); for (const p of rr.example.path) console.log(`         ${p.node}  --${p.via}-->`); }
 		}
 		if (opts.json) console.log('\nJSON ' + JSON.stringify(report));
 		return;
