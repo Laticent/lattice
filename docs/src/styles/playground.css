@@ -76,68 +76,90 @@
 	white-space: nowrap;
 }
 
-/* Split pane: rail | editor | handle | preview | rail (2026-07-02 decision).
-   Flex child of .pg-page — fills the space left below the topbar + bar.
-   Five grid children whose track count always matches: rails and the handle sit
-   at 0px tracks when unused (never display:none — that desyncs tracks from
-   items). The 1px handle track IS the divider line (the editor's old
-   border-right moved there); --split-a/--split-b carry their fr unit inside the
-   var (`var(--x)fr` is invalid CSS), with the pre-paint seed from
-   playground.astro as the fallback so returning resizers see no width jump. */
+/* Editor | preview split — react-resizable-panels Group (2026-07-19 splitter
+   migration; supersedes the CSS-Grid split of the 2026-07-02 decision). The
+   library renders .pg-split as a locked display:flex row and sizes the two
+   .pg-pane Panels inline from px minimums (editor 280 / preview 320) + a
+   persisted ratio; the 1px Separator between them IS the divider line. We style
+   the seam (resizable.tsx), the collapsed-pane rail, and the drag shield. Below
+   820px the group is `disabled` and body[data-pane] tabs own layout (the mobile
+   block far below flattens the flex row to one stacked column). */
 .pg-split {
-	display: grid;
-	/* The flex pair sums to 2 (0.9/1.1 = ratio 0.45 doubled), NEVER to 1: per
-	   CSS Grid §12.7.1, when one pane clamps at its px minimum a flex sum < 1
-	   distributes only that FRACTION of the leftover — the rest is a dead void
-	   at the grid's right edge (reproduced on iPad + both engines). Doubling
-	   keeps the surviving factor ≥ 1 so it absorbs everything. See split.tsx
-	   splitFlexPair — every emit site (hook, seeds, Studio) must agree. */
-	grid-template-columns:
-		0 minmax(280px, var(--split-a, var(--split-playground-a, 0.9fr))) 1px
-		minmax(320px, var(--split-b, var(--split-playground-b, 1.1fr))) 0;
 	flex: 1 1 auto;
 	min-height: 0;
 }
-/* Collapsed states are desktop/tablet-only (the attribute is also dropped by
-   the island below the breakpoint — this scoping is the CSS belt): mobile's
-   single-column rule must always win there. `not (max-width: 820px)` is the
-   EXACT complement of the tab block below and the island's matchMedia gate —
-   a (min-width: 821px) floor would leave fractional widths in (820, 821)
-   (zoom/DPR) owned by neither side. */
-@media not (max-width: 820px) {
-	.pg-split[data-split-collapsed='a'] {
-		grid-template-columns: 28px 0 0 minmax(0, 1fr) 0;
-	}
-	.pg-split[data-split-collapsed='b'] {
-		grid-template-columns: 0 minmax(0, 1fr) 0 0 28px;
-	}
-}
-/* Drag shield: with pointer capture on the handle the iframe never sees the
-   drag, but pointer-events:none is cheap belt-and-braces — and text selection
-   must not start in either pane mid-drag. */
+/* Drag shield: the handle overlay already hit-tests above the preview iframe,
+   but pointer-events:none on it is cheap belt-and-braces — and text selection
+   must not start in either pane mid-drag. Keyed on data-split-dragging, which
+   the group sets while the library reports a live (pointer) layout change. */
 .pg-split[data-split-dragging] iframe {
 	pointer-events: none;
 }
 .pg-split[data-split-dragging] .pg-pane {
 	user-select: none;
 }
-/* Collapse arming: dragging ≥48px past a pane's minimum dooms it; release
-   collapses, dragging back disarms. */
-.pg-split[data-split-arming='a'] .pg-pane.editor,
-.pg-split[data-split-arming='b'] .pg-pane.preview {
-	opacity: 0.6;
-}
 .pg-pane {
 	min-width: 0;
 	min-height: 0;
+	overflow: hidden; /* a collapsed pane (28px) must clip its inner content */
+}
+/* The pane's real content (label + editor/preview). Kept mounted + inert while
+   collapsed so CodeMirror history and the preview iframe survive the interlude;
+   hidden by the collapsed rule below so only the rail shows in the 28px strip. */
+.pg-pane-inner {
 	display: flex;
 	flex-direction: column;
-	overflow: hidden; /* a collapsed (0px-track) pane must not bleed content */
-	transition: opacity 0.12s ease;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+	width: 100%;
+	overflow: hidden;
 }
-@media (prefers-reduced-motion: reduce) {
-	.pg-pane {
-		transition: none;
+/* The collapsed-pane restore rail: the whole 28px strip is one button. Hidden
+   until its pane collapses (the rule below), then it fills the pane. */
+.pg-rail {
+	display: none;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	height: 100%;
+	padding: 8px 0;
+	border: 0;
+	background: var(--bg-alt);
+	color: var(--text-muted);
+	cursor: pointer;
+}
+.pg-rail:hover {
+	background: color-mix(in srgb, var(--text-heading) 6%, var(--bg-alt));
+	color: var(--accent);
+}
+.pg-rail:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+.pg-rail-chevron {
+	width: 16px;
+	height: 16px;
+	flex: none;
+}
+.pg-rail-label {
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	writing-mode: vertical-rl;
+}
+/* Collapsed state (desktop/tablet only — the attr is dropped below 820px): swap
+   the collapsed pane's inner content for its rail. */
+@media not (max-width: 820px) {
+	.pg-split[data-split-collapsed='a'] .pg-pane.editor .pg-pane-inner,
+	.pg-split[data-split-collapsed='b'] .pg-pane.preview .pg-pane-inner {
+		display: none;
+	}
+	.pg-split[data-split-collapsed='a'] .pg-pane.editor .pg-rail,
+	.pg-split[data-split-collapsed='b'] .pg-pane.preview .pg-rail {
+		display: flex;
 	}
 }
 .pg-pane-label {
@@ -372,25 +394,31 @@ body[data-view='read'] .pg-pane-label {
 		order: 3;
 		flex: 1 1 100%;
 	}
+	/* CSS-side belt for the split (the JS `active` gate uses the same 820px media
+	   string): below the tab breakpoint the group is `disabled`. Flatten the
+	   library's locked flex row to a single stacked column and let body[data-pane]
+	   show exactly one pane. `!important` overrides the library's inline flex
+	   sizing (React can't set !important inline, so the stylesheet wins). */
 	.pg-split {
-		grid-template-columns: 1fr;
+		display: block !important;
 	}
-	/* CSS-side belt for the split (the JS `active` gate uses the same 820px
-	   media string): below the tab breakpoint the handle and rails leave the
-	   grid entirely, so the single 1fr column holds exactly the one visible
-	   pane — and a server-rendered handle can never flash during hydration. */
-	.pg-split > [data-slot='split-handle'],
-	.pg-split > [data-slot='split-rail'],
-	.pg-pane-collapse {
-		display: none;
+	.pg-split > .pg-pane {
+		width: 100% !important;
+		height: 100%;
+		flex: none !important;
+	}
+	.pg-split > [data-slot='resizable-handle'],
+	.pg-pane-collapse,
+	.pg-rail {
+		display: none !important;
 	}
 	/* One pane at a time on phones; the mode toggle sets body[data-pane]
 	   (Explore → preview, Edit → the editor). */
 	body[data-pane='preview'] .pg-pane.editor {
-		display: none;
+		display: none !important;
 	}
 	body[data-pane='edit'] .pg-pane.preview {
-		display: none;
+		display: none !important;
 	}
 }
 
@@ -494,13 +522,16 @@ body[data-view='read'] .pg-pane-label {
    Explore forces body[data-pane='preview'], so the walked deck owns the
    column. Un-scoped, these five tracks would misplace the phone's panes. */
 @media not (max-width: 820px) {
-	body[data-view='read'] .pg-split {
-		grid-template-columns: 0px 0px 0px minmax(0, 1fr) 0px !important;
+	body[data-view='read'] .pg-split > .pg-pane.editor,
+	body[data-view='read'] .pg-split > [data-slot='resizable-handle'] {
+		display: none !important;
 	}
-	body[data-view='read'] .pg-pane.editor,
-	body[data-view='read'] .pg-split [data-slot='split-handle'],
-	body[data-view='read'] .pg-split [data-slot='split-rail'] {
-		visibility: hidden;
+	body[data-view='read'] .pg-split > .pg-pane.preview {
+		flex: 1 1 100% !important;
+		width: 100% !important;
+	}
+	body[data-view='read'] .pg-pane.preview .pg-rail {
+		display: none !important;
 	}
 }
 /* Fit a whole slide to the pane (Explore) — the "first slide fully visible"
