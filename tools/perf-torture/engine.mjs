@@ -178,6 +178,125 @@ const clickNth = (page, sel, i) => page.evaluate(([s, n]) => { const els = docum
 const countSel = (page, sel) => page.evaluate((s) => document.querySelectorAll(s).length, sel);
 const clickTabByText = (page, text) => page.evaluate((t) => { for (const b of document.querySelectorAll('[role="tab"]')) if (b.textContent.trim() === t) { b.click(); return true; } return false; }, text);
 
+// ── autonomous-driving primitives (for the `explore` crawl driver — 2026-07-20-autonomous-torture-profiler.md) ──
+// A greedy crawler can't use author-written selectors — it must DISCOVER controls. These two primitives
+// let it do that WITHOUT breaking the observer-pollution invariant (they run entirely in-page and return
+// PRIMITIVES — descriptors / result objects — never an ElementHandle). resolveAndClick re-resolves the
+// selector and re-checks role+label before clicking as a STALENESS GUARD — but this is a HEURISTIC, not
+// node identity: role+label equality can (a) falsely MATCH a recycled / duplicate-labeled control (two
+// gallery buttons both "Insert Blank") and mis-click, or (b) falsely MISMATCH a volatile label ("Slide 3
+// of 12" → "Slide 4 of 12", §4.1) and abort. Reconciling that with a structural corroborator is a Slice-3
+// watch (see the design doc §8); for now the guard catches the common case, not every case.
+// SCOPE: both primitives query the TOP document only — they do NOT descend into (same-origin srcdoc)
+// iframes, so controls inside Studio/Playground preview realms are invisible to discovery (a coverage
+// hole exactly where realm leaks live; per-frame enumeration is Slice-3 work).
+// The `INTERACTABLE_SEL` set is the clickable surface a leak hunter cares about; extend per scenario.
+const INTERACTABLE_SEL = 'button, a[href], [role="button"], [role="tab"], [role="link"], [role="menuitem"], [role="switch"], [role="checkbox"], summary, [contenteditable="true"]';
+// The in-page a11y probe (accessible-name + role) is defined INLINE in each evaluate below. It can't be
+// shared via a closure (page.evaluate serializes the function and runs it in the page — outer bindings
+// don't cross) nor via injected `eval` (an eval'd `const` doesn't leak to the enclosing scope). So the
+// `norm`/`roleOf`/`labelOf` trio is duplicated in both primitives BY NECESSITY — KEEP THE TWO COPIES
+// IDENTICAL, or enumeration and verification would disagree and resolveAndClick would falsely abort.
+// enumerateInteractables — the visible clickable controls as plain DESCRIPTORS
+// ({ selector, stable, role, label, rect }). Every returned `selector` is VERIFIED to resolve to exactly
+// one node: a semantic key (id / unique aria-label / unique data-*) when one is unique, else a structural
+// nth-of-type path that is itself uniq()-checked (a control whose only selector is non-unique is dropped,
+// not emitted). `stable:false` marks the structural fallback (fragile across mutation — which is exactly
+// why resolveAndClick re-verifies). Returns primitives only → nothing is pinned.
+function enumerateInteractables(page, opts = {}) {
+	return page.evaluate((sel, max) => {
+		// a11y probe — KEEP IDENTICAL to the copy in resolveAndClick (see note above).
+		const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+		const roleOf = (el) => {
+			const r = el.getAttribute('role'); if (r) return r;
+			const t = el.tagName.toLowerCase();
+			if (t === 'a') return 'link';
+			if (t === 'button' || t === 'summary') return 'button';
+			if (t === 'input') return `input:${el.getAttribute('type') || 'text'}`;
+			if (el.isContentEditable) return 'textbox';
+			return t;
+		};
+		const labelOf = (el) => norm(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || el.getAttribute('alt') || '');
+		const isVisible = (el) => {
+			const r = el.getBoundingClientRect();
+			if (r.width < 1 || r.height < 1) return false;
+			const st = getComputedStyle(el);
+			return st.visibility !== 'hidden' && st.display !== 'none' && st.opacity !== '0';
+		};
+		const attrEsc = (v) => v.replace(/["\\]/g, '\\$&');
+		const uniq = (s) => { try { return document.querySelectorAll(s).length === 1; } catch { return false; } };
+		const cssPath = (el) => {
+			const parts = []; let node = el;
+			while (node && node.nodeType === 1 && node !== document.body && parts.length < 8) {
+				if (node.id && uniq(`#${CSS.escape(node.id)}`)) { parts.unshift(`#${CSS.escape(node.id)}`); return parts.join(' > '); }
+				const tag = node.tagName.toLowerCase();
+				const sibs = node.parentNode ? [...node.parentNode.children].filter((c) => c.tagName === node.tagName) : [node];
+				parts.unshift(sibs.length > 1 ? `${tag}:nth-of-type(${sibs.indexOf(node) + 1})` : tag);
+				node = node.parentElement;
+			}
+			return parts.join(' > ');
+		};
+		const selectorFor = (el) => {
+			if (el.id && uniq(`#${CSS.escape(el.id)}`)) return { selector: `#${CSS.escape(el.id)}`, stable: true };
+			const al = el.getAttribute('aria-label');
+			if (al) { const s = `[aria-label="${attrEsc(al)}"]`; if (uniq(s)) return { selector: s, stable: true }; }
+			for (const a of ['data-demo', 'data-testid', 'data-test', 'name']) {
+				const v = el.getAttribute(a); if (v) { const s = `[${a}="${attrEsc(v)}"]`; if (uniq(s)) return { selector: s, stable: true }; }
+			}
+			// Structural fallback: a descendant-relative nth-of-type path can be NON-unique (it caps at 8
+			// hops and isn't anchored to :scope/body — two deep attribute-poor subtrees can share a path).
+			// So verify it too; a non-unique fallback returns null and enumerate skips it (below). This is
+			// what makes the "verified-unique selector" contract actually true, not just for semantic keys.
+			const p = cssPath(el);
+			return p && uniq(p) ? { selector: p, stable: false } : { selector: null, stable: false };
+		};
+		const out = [], seen = new Set();
+		for (const el of document.querySelectorAll(sel)) {
+			if (out.length >= max) break;
+			if (!isVisible(el)) continue;
+			const { selector, stable } = selectorFor(el);
+			if (!selector || seen.has(selector)) continue;
+			seen.add(selector);
+			const r = el.getBoundingClientRect();
+			out.push({ selector, stable, role: roleOf(el), label: labelOf(el), rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } });
+		}
+		return out;
+	}, opts.selector || INTERACTABLE_SEL, opts.max ?? 200);
+}
+// resolveAndClick — resolve a descriptor's selector, re-check the resolved node's role+label against the
+// descriptor (a staleness HEURISTIC — not identity; see the block comment above on its two failure modes),
+// then click — all in ONE in-page evaluate so there is no gap, and returning a plain result
+// ({ ok, reason?, got?, count? }), never a handle. The driver MUST re-enumerate after each action (the
+// state mutated) and act on FRESH descriptors; this primitive is the guard on the individual click.
+function resolveAndClick(page, descriptor) {
+	return page.evaluate((d) => {
+		// a11y probe — KEEP IDENTICAL to the copy in enumerateInteractables (see note above).
+		const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+		const roleOf = (el) => {
+			const r = el.getAttribute('role'); if (r) return r;
+			const t = el.tagName.toLowerCase();
+			if (t === 'a') return 'link';
+			if (t === 'button' || t === 'summary') return 'button';
+			if (t === 'input') return `input:${el.getAttribute('type') || 'text'}`;
+			if (el.isContentEditable) return 'textbox';
+			return t;
+		};
+		const labelOf = (el) => norm(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || el.getAttribute('alt') || '');
+		let els; try { els = document.querySelectorAll(d.selector); } catch { return { ok: false, reason: 'bad-selector' }; }
+		if (els.length === 0) return { ok: false, reason: 'not-found' };
+		if (els.length > 1) return { ok: false, reason: 'ambiguous', count: els.length };
+		const el = els[0];
+		const role = roleOf(el), label = labelOf(el);
+		if (role !== d.role || label !== d.label) return { ok: false, reason: 'mismatch', got: { role, label } };
+		// Keep the "always returns a result object" contract: `el.click` can be non-callable on a matched
+		// non-HTML element (an inline-SVG `a[href]` resolves to an SVGAElement, which has no click()), or
+		// the click can synchronously throw for other reasons. (A throwing click *listener* is NOT caught
+		// here — the DOM reports listener exceptions to window.onerror, not to this caller.)
+		try { el.click(); } catch { return { ok: false, reason: 'click-threw' }; }
+		return { ok: true };
+	}, descriptor);
+}
+
 // ── heap-snapshot capture + per-constructor diff (root-cause attribution) ────────
 // `withRaw` also returns the raw JSON string (the exact V8/DevTools `.heapsnapshot` bytes) so the
 // caller can write it to disk under --out — otherwise the raw chunks are parsed and discarded.
@@ -523,4 +642,9 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 
 // Driving helpers — scenarios import THESE (never raw page.$ / waitForSelector; see the
 // OBSERVER-POLLUTION GUARD above). Plus the internals, for advanced/one-off scenarios.
-export { buildGraph, clickIn, clickNth, clickSel, clickTabByText, countSel, diffSnapshots, exists, makeInstrument, mannKendall, median, retainerPath, retainerReport, sensSlope, settle, takeSnapshot, wait };
+// Autonomous-driving primitives — the `explore` crawl driver (Slice 3) imports THESE to discover +
+// safely click controls it didn't author (2026-07-20-autonomous-torture-profiler.md §6).
+// Measurement seam — exported so a SECOND driver (`explore`/`replay`) reuses the engine's measurement
+// rather than duplicating it (HARD RULE #1). These were private to runTorture/withinSession; the crawl
+// verdict (Slice 4) drives its own lap loop through the same sample/peak/analyze/serve primitives.
+export { analyze, buildGraph, clickIn, clickNth, clickSel, clickTabByText, controlSlopesFrom, countSel, diffSnapshots, enumerateInteractables, exists, INTERACTABLE_SEL, makeInstrument, mannKendall, median, peakDuring, resolveAndClick, retainerPath, retainerReport, sample, sensSlope, serve, settle, takeSnapshot, UNIVERSAL_FLOOR, UNIVERSAL_KEYS, wait };
