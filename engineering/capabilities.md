@@ -160,6 +160,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:tools` | Unit scope: author tools (export-marp, …). |
 | `test:transformers` | Unit scope: transformer registry/adapters. |
 | `test:watch` | Re-run the unit suite on file change. |
+| `torture` | Reusable memory/leak torture profiler (`tools/perf-torture/`): hammer a built site with repeated per-action cycles; verdict per metric (RISING via Mann-Kendall + idle-calibrated Sen slope); `--snapshot`/`--retainers` walk the heap to name the pinning GC root. `-- --scenario studio --cycle …`. On-demand diagnostic; see its README + the Scenario typedef to torture another app. |
 
 ### Lint & audit
 

@@ -167,6 +167,7 @@
     "preview:component": "node tools/preview-component.js",
     "test": "node --test 'test/unit/**/*.test.js'",
     "test:watch": "node --test --watch 'test/unit/**/*.test.js'",
+    "torture": "node tools/perf-torture/cli.mjs",
     "bench": "node test/benchmark/engine-bench.mjs",
     "bench:bless": "node test/benchmark/engine-bench.mjs --bless",
     "bench:check": "node test/benchmark/engine-bench.mjs --check",

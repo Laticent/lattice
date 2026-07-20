@@ -7,7 +7,7 @@ summary: >
   tab under memory pressure and cold-reloads it — so "slower with use" and "slower after refresh" are ONE
   mechanism (in-session peak-memory growth → discard → cold reload), not two independent axes; and forced-
   GC/post-GC-retained-heap is the wrong metric (peak footprint drives discard). A corrected torture harness
-  (docs/scripts/studio-torture.mjs) was built — PWA-faithful, idle-control-calibrated, Sen's-slope + Mann-
+  (tools/perf-torture/, was docs/scripts/studio-torture.mjs) was built — PWA-faithful, idle-control-calibrated, Sen's-slope + Mann-
   Kendall verdict, heap-snapshot attribution — and CONFIRMED the in-session leak with numbers: every FULL-
   WRITE render (theme/mode/size change) retains ~400KB (peak ~1.2MB); Present ~100KB; SlideOverview ~68KB +
   ~1 listener/cycle; typing + idle are clean. Heap-diff attributes it to RETAINED DETACHED IFRAME REALMS —
@@ -61,7 +61,7 @@ not-yet-built arms: drop the headless discard repro (device-only, #23); mark the
 active CDP client blocks bfcache eligibility → `goBack()` = cold reload); separate alloc-tracking from timing
 runs; use IDB `count()`/`usageDetails` not the quantized `storage.estimate()` top-line.
 
-## The instrument — `docs/scripts/studio-torture.mjs`
+## The instrument — `tools/perf-torture/` (was `docs/scripts/studio-torture.mjs`)
 Drives the REAL prod `docs/dist` via Puppeteer + CDP. Per-cycle: double-GC retained heap, peak heap
 (sampled during the action), heapTotal, Nodes/JSEventListeners/Documents/Frames (these DO aggregate across
 same-origin engine srcdoc iframes — verified: Nodes 909 vs top-doc 420, Documents 8), in-page probes

@@ -1,40 +1,39 @@
-// Studio TORTURE harness — the empirical instrument for the "degrades the more it's
-// USED and the more it's REFRESHED" audit (engineering/decisions/2026-07-20-studio-
-// degradation-audit). Built on frame-bench's server/throttle scaffolding (HARD RULE #15),
-// but corrected per the plan's adversarial trio:
-//   • measures PEAK (un-GC'd) heap + retained + gross allocation + GC-garbage, not just
-//     post-GC retained (retained-flat can hide the jank/discard the user feels);
-//   • counts Documents/Frames/Nodes/JSEventListeners which DO aggregate across the
-//     same-origin engine srcdoc iframes (verified) — a rising Documents count is a
-//     detached-document smoking gun; JSHeapUsedSize does NOT count off-heap iframe/GPU
-//     memory, so peak heap is a floor, not the whole footprint (device pass covers the rest);
-//   • PWA-faithful: PROD dist over a PERSISTENT userDataDir + STABLE origin so the service
-//     worker registers and IDB/Cache/localStorage survive reloads (across-refresh mode);
-//   • monotonic-trend test = Mann-Kendall (catches a shallow-but-relentless climb below the
-//     per-cycle noise floor), not just a linear slope-vs-band.
+// perf-torture ENGINE — a reusable memory/leak torture instrument for any built web app.
+// App-AGNOSTIC: a caller supplies a SCENARIO (surfaces + cycles + probes; see
+// scenarios/studio.mjs and the Scenario typedef below) and this engine owns the measurement:
+//   • measures PEAK (un-GC'd) heap + post-GC retained (retained-flat can hide the jank/discard
+//     the user feels), plus Nodes/JSEventListeners/Documents/Frames from Performance.getMetrics
+//     (which aggregate across same-origin srcdoc iframes — a rising Documents/Frames count is a
+//     detached-realm smoking gun; JSHeapUsedSize excludes off-heap iframe/GPU memory, so peak
+//     heap is a floor, not the whole footprint — an on-device pass covers the rest);
+//   • verdict = Mann-Kendall (monotonic trend, catches a shallow-but-relentless climb) AND Sen's
+//     slope (robust magnitude) judged against an IDLE-CONTROL-calibrated noise floor — the memory
+//     series is strongly autocorrelated, so MK alone false-positives (the idle control proves it);
+//   • names the leak: an optional heap-snapshot RETAINER-PATH walk from a leaked node to its GC
+//     root, so the edge names spell out the property/closure/Map chain pinning it;
+//   • drives WITHOUT polluting its own measurement — every ElementHandle is disposed and clicks/
+//     existence-checks on transient nodes go through in-page evaluate (returns primitives). An
+//     undisposed handle PINS the node it points at and fabricates a per-cycle "leak" (proven:
+//     2026-07-20-studio-audit-instrument-fix.md). Scenarios MUST use the exported helpers below.
 //
-// Usage (from docs/, needs a PROD build — `npm run build` — and CHROME_PATH):
-//   node scripts/studio-torture.mjs --mode within  [--cycle present|overview|deckswitch|palette|fullwrite|typing|fabricate|mixed|all] [--k 40] [--cpu 4]
-//   node scripts/studio-torture.mjs --mode refresh  [--refreshes 12] [--seed heavy]     (across-refresh + 3-arm isolation)
-// Within-session runs on a throwaway profile; refresh mode uses the persistent one.
 // This is a DIAGNOSTIC harness (not a blocking gate) — it prints signals + a verdict.
+// Run via the CLI: `node tools/perf-torture/cli.mjs --scenario studio [--mode within] [--cycle …]
+// [--k 40] [--cpu 4] [--snapshot] [--retainers [--realm]]`. Needs the scenario's dist BUILT + CHROME_PATH.
 
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import http from 'node:http';
-import { dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { extname, isAbsolute, join, normalize, relative } from 'node:path';
 import puppeteer from 'puppeteer';
 
-const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DIST = join(DOCS, 'dist');
 const FIXED_PORT = 4319; // stable origin so the SW scope + storage persist across relaunches (refresh mode)
 
 function parseArgs(argv) {
-	const o = { mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false };
+	const o = { scenario: 'studio', mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
-		if (a === '--mode') o.mode = argv[++i];
+		if (a === '--scenario') o.scenario = argv[++i];
+		else if (a === '--mode') o.mode = argv[++i];
 		else if (a === '--cycle') o.cycle = argv[++i];
 		else if (a === '--k') o.k = Number(argv[++i]);
 		else if (a === '--cpu') o.cpu = Number(argv[++i]);
@@ -52,19 +51,19 @@ function parseArgs(argv) {
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.json': 'application/json', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon' };
 
-function safePath(urlPath) {
+function safePath(distDir, urlPath) {
 	let p = decodeURIComponent(urlPath.split('?')[0]);
 	if (p.endsWith('/')) p += 'index.html';
-	const file = join(DIST, normalize(p));
-	const rel = relative(DIST, file);
+	const file = join(distDir, normalize(p));
+	const rel = relative(distDir, file);
 	return rel.startsWith('..') || isAbsolute(rel) ? null : file;
 }
 
-function serve() {
+function serve(distDir) {
 	return http.createServer(async (req, res) => {
 		const fail = (code) => { res.writeHead(code, { 'content-type': 'text/plain' }); res.end(code === 404 ? 'not found' : 'error'); };
 		try {
-			const file = safePath(req.url);
+			const file = safePath(distDir, req.url);
 			if (!file) return fail(404);
 			let target = file, body;
 			try { body = await readFile(target); }
@@ -123,25 +122,6 @@ async function makeInstrument(page) {
 			return total;
 		} catch { return NaN; }
 	};
-	// in-page probes: the observable proxies (module internals aren't exposed)
-	const probes = async () => page.evaluate(() => {
-		const q = (s, r = document) => { try { return r.querySelectorAll(s).length; } catch { return -1; } };
-		let previewSheets = -1; let iframeDocEls = 0;
-		try { for (const f of document.querySelectorAll('iframe.live')) { const d = f.contentDocument; if (d) { iframeDocEls += d.getElementsByTagName('*').length; if (previewSheets < 0) previewSheets = d.styleSheets.length; } } } catch {}
-		// engine theme-registry size, if the playground global exposes it
-		let themeCount = -1;
-		try { const PG = window.LatticePlayground || window.PG; if (PG?.themes) themeCount = (PG.themes.size ?? PG.themes.length ?? Object.keys(PG.themes).length); } catch {}
-		return {
-			liveIframes: q('iframe.live'),
-			allIframes: q('iframe'),
-			cmEditors: q('.cm-editor'),
-			cmContents: q('.cm-content'),
-			toasts: q('[data-sonner-toast], [role="status"]'),
-			iframeDocEls,
-			previewSheets,
-			themeCount,
-		};
-	});
 	const storage = async () => page.evaluate(async () => {
 		const out = { usage: -1, quota: -1, caches: -1, cacheEntries: -1, idb: {} };
 		try { const e = await navigator.storage.estimate(); out.usage = e.usage; out.quota = e.quota; } catch {}
@@ -149,22 +129,20 @@ async function makeInstrument(page) {
 		try { const idbAny = indexedDB.databases ? await indexedDB.databases() : []; out.dbs = idbAny.map((d) => d.name); } catch {}
 		return out;
 	});
-	return { cdp, perf, gc, startAlloc, stopAlloc, probes, storage };
+	return { cdp, perf, gc, startAlloc, stopAlloc, storage };
 }
 
-// Take a full labeled sample: GC, then retained; plus peak (pre-GC) captured by caller.
-async function sample(inst, label, peakHeap) {
+// Take a full labeled sample: GC, then retained; plus peak (pre-GC) captured by caller. `extraProbes`
+// (bound to the page by the caller) layers the scenario's app-specific observables onto the
+// universal Performance.getMetrics counters.
+async function sample(inst, label, peakHeap, extraProbes) {
 	await inst.gc(); await inst.gc(); // double-collect for a steadier retained baseline
 	const p = await inst.perf();
-	const pr = await inst.probes();
+	const pr = extraProbes ? await extraProbes() : {};
 	return { label, retainedHeap: p.heapUsed, peakHeap: peakHeap ?? p.heapUsed, heapTotal: p.heapTotal, nodes: p.nodes, listeners: p.listeners, documents: p.documents, frames: p.frames, ...pr };
 }
 
 const wait = (page, ms) => page.evaluate((m) => new Promise((r) => setTimeout(r, m)), ms);
-// In-page click-if-present — returns a boolean, so no ElementHandle leaks into the DevTools remote
-// group (see the OBSERVER-POLLUTION GUARD note by clickSel; an undisposed handle pins a node that
-// later detaches and fabricates a per-cycle leak).
-const clickIf = (page, sel) => page.evaluate((s) => { const el = document.querySelector(s); if (el) { el.click(); return true; } return false; }, sel);
 async function peakDuring(inst, fn) {
 	// crude peak: sample heap a few times during the action, take max (pre-GC). The poll's
 	// perf() is guarded (a closing/navigating target rejects it) and a try/finally guarantees
@@ -176,47 +154,7 @@ async function peakDuring(inst, fn) {
 	return peak;
 }
 
-// ── cycles: one "user does X once" each. Return after the app settles. ───────────
-const CYCLES = {
-	async present(page) { if (await clickIf(page, '[aria-label="Present"]')) { await wait(page, 500); await page.keyboard.press('ArrowRight').catch(() => {}); await wait(page, 200); await page.keyboard.press('Escape'); await wait(page, 400); } },
-	async overview(page) { if (await clickIf(page, '[aria-label="Present"]')) { await wait(page, 500); await page.keyboard.press('g').catch(() => {}); await wait(page, 900); await page.keyboard.press('Escape'); await wait(page, 300); await page.keyboard.press('Escape'); await wait(page, 400); } },
-	async deckswitch(page) { /* open deck switcher, pick next, come back — best-effort */ await page.evaluate(() => { const b = document.querySelector('[aria-label*="deck" i],[data-deck-switch]'); b?.click?.(); }); await wait(page, 400); await page.keyboard.press('Escape').catch(() => {}); await wait(page, 300); },
-	async palette(page) { await page.evaluate(() => { const r = document.documentElement; r.setAttribute('data-mode', r.getAttribute('data-mode') === 'dark' ? 'light' : 'dark'); }); await wait(page, 500); await clickIf(page, '[data-demo="mode"]'); await wait(page, 400); },
-	async fullwrite(page) { // force full srcdoc rewrites (mode+size flips) — the listener-rebind / theme-reregister stressor
-		await page.evaluate(() => { const r = document.documentElement; r.setAttribute('data-mode', r.getAttribute('data-mode') === 'dark' ? 'light' : 'dark'); });
-		await wait(page, 350); await clickIf(page, '[data-demo="mode"]'); await wait(page, 350); },
-	async typing(page) { await page.evaluate(() => document.querySelector('.cm-content')?.focus()); for (let i = 0; i < 20; i++) await page.keyboard.type('x'); await wait(page, 500); for (let i = 0; i < 20; i++) await page.keyboard.press('Backspace'); await wait(page, 500); },
-	async fabricate(page) { /* placeholder: open Fabricate + generate — surface-dependent, filled once selectors confirmed */ await wait(page, 100); },
-	async mixed(page) { await CYCLES.typing(page); await CYCLES.present(page); await CYCLES.palette(page); },
-	// CONTROL — do nothing but let the same time pass. MUST stay flat; if it rises, the
-	// instrument (GC not settling / the perf HUD / rAF caches) drifts and every other
-	// cycle's "RISING" is suspect until corrected.
-	async idle(page) { await wait(page, 900); },
-	// ── added cycles (bodies filled from the driving cheat-sheet) ──────────────────
-	async compose(page) { await COMPOSE(page); },
-	async slidenav(page) { await SLIDENAV(page); },
-	async insert(page) { await INSERT(page); },
-	async slidesettings(page) { await SLIDESETTINGS(page); },
-	async decksettings(page) { await DECKSETTINGS(page); },
-	async deckswitch2(page) { await DECKSWITCH(page); },
-	async readaloud(page) { await READALOUD(page); },
-	// landing-surface cycles
-	async landing(page) { await LANDING_CYCLE(page); },
-	// playground-surface cycles
-	async pgslide(page) { await PG_SLIDE(page); },
-	async pgvariant(page) { await PG_VARIANT(page); },
-	async pgscroll(page) { await PG_SCROLL(page); },
-};
-
-// Which SURFACE (route + ready-selector) each cycle runs on. Default = studio.
-const SURFACES = {
-	studio: { url: '/studio?perf', ready: '.cm-content', settle: 1500 },
-	landing: { url: '/', ready: '[role="tablist"][aria-label="Hero view"]', settle: 2000 },
-	playground: { url: '/playground', ready: '#editor-host .cm-editor', settle: 2000 },
-};
-const CYCLE_SURFACE = { landing: 'landing', pgslide: 'playground', pgvariant: 'playground', pgscroll: 'playground' };
-
-// ── driving helpers ────────────────────────────────────────────────────────────
+// ── driving helpers (exported — scenarios MUST use these, never raw page.$/waitForSelector) ──────
 // OBSERVER-POLLUTION GUARD (2026-07-20): every ElementHandle returned by waitForSelector / page.$ /
 // page.$$ is a reference in the DevTools remote-object group. If it is NOT disposed and the DOM node
 // it points at later DETACHES (an editor toggled off, a dialog closed, a menu item unmounted), that
@@ -235,115 +173,7 @@ const exists = (page, sel) => page.evaluate((s) => !!document.querySelector(s), 
 const clickIn = (page, sel) => page.evaluate((s) => { const el = document.querySelector(s); if (el) { el.click(); return true; } return false; }, sel);
 const clickNth = (page, sel, i) => page.evaluate(([s, n]) => { const els = document.querySelectorAll(s); if (els[n]) { els[n].click(); return true; } return false; }, [sel, i]);
 const countSel = (page, sel) => page.evaluate((s) => document.querySelectorAll(s).length, sel);
-const railCount = (page) => page.evaluate(() => document.querySelectorAll('nav[aria-label="Slide navigator"] > button').length);
 const clickTabByText = (page, text) => page.evaluate((t) => { for (const b of document.querySelectorAll('[role="tab"]')) if (b.textContent.trim() === t) { b.click(); return true; } return false; }, text);
-
-// Optional ONE-TIME setup per cycle, run after navigation & instrument, before the K-loop.
-// HARD RULE #24: the key is read from a NEUTRAL operator-supplied env var (never the server key
-// name) — the "drive the Playground on the user's own key" pattern the gate explicitly allows.
-const PREP = {
-	async readaloud(page, opts) {
-		const key = process.env.TORTURE_TTS_KEY;
-		if (opts.tts && key) { await page.evaluate((k) => { try { localStorage.setItem('lattice-db-or-key', k); } catch {} }, key); console.error('    readaloud: VOICED (operator key via TORTURE_TTS_KEY — spends budget)'); }
-		else console.error('    readaloud: captions-only (muted; no synth, no spend)');
-		await clickSel(page, 'button[aria-label="Present"]'); await wait(page, 900);
-		if (opts.tts && key) { await page.click('button[aria-label^="Voice off"]').catch(() => {}); await wait(page, 300); }
-	},
-	async landing(page) { // scroll top→bottom to mount the scroll-gated islands (FieldCards 300px, RestyleShowcase 200px), then dwell so the Showcase auto-cycle runs, then back to top
-		for (let y = 0; y < 8; y++) { await page.evaluate(() => window.scrollBy(0, 700)); await wait(page, 350); }
-		await wait(page, 2600); // one RestyleShowcase cycle
-		await page.evaluate(() => window.scrollTo(0, 0)); await wait(page, 400);
-	},
-};
-
-// ── cycle bodies (real UI; each asserts its action or throws so a no-op can't read as clean) ──
-async function COMPOSE(page) {
-	await clickSel(page, 'button[aria-label="Compose — rich editor"]');
-	await settle(page, '.ProseMirror', 6000); // was: undisposed waitForSelector → pinned each cycle's editor (the fabricated compose leak)
-	await page.evaluate(() => document.querySelector('.ProseMirror p, .ProseMirror h1, .ProseMirror')?.focus());
-	await page.keyboard.type('x'); await wait(page, 200); await page.keyboard.press('Backspace'); await wait(page, 150);
-	await clickSel(page, 'button[aria-label="Markdown source"]');
-	await settle(page, '.cm-content', 5000); await wait(page, 250); // was: undisposed waitForSelector → pinned each cycle's CodeMirror
-}
-async function SLIDENAV(page) {
-	const n = await railCount(page); if (n < 2) throw new Error('slidenav: <2 slides');
-	for (const idx of [1, Math.min(2, n - 1), 0]) { await page.evaluate((i) => document.querySelectorAll('nav[aria-label="Slide navigator"] > button')[i]?.click(), idx); await wait(page, 220); }
-}
-async function INSERT(page) {
-	// Exercise the add-slide gallery (SlidePicker) OPEN → render its live thumbnail iframes → CLOSE.
-	// This is the heavy leak surface of the insert flow (N live engine iframes per open, disposed on
-	// close — recon B2/C2); it's deterministic and mutates no deck. The splice-render leak itself is
-	// covered by the fullwrite/render cycles. (A real splice+2-tap-delete revert proved flaky to drive.)
-	const before = await railCount(page);
-	await clickSel(page, 'button[aria-label="Add slide"]');
-	await settle(page, 'button[aria-label^="Insert Blank"]', 5000); // dispose: the gallery's Insert buttons unmount on close
-	await wait(page, 800); // let the gallery's thumbnail iframes render
-	await page.keyboard.press('Escape'); await wait(page, 500);
-	// CRITICAL: confirm the gallery actually CLOSED — else we'd be stacking open dialogs (a
-	// harness artifact, not an after-close leak). If Escape didn't close it, click the X / backdrop.
-	if (await exists(page, 'button[aria-label^="Insert Blank"]')) {
-		await page.keyboard.press('Escape'); await wait(page, 300);
-		await page.evaluate(() => document.querySelector('[role="dialog"] [aria-label="Close"], [role="dialog"] button')?.click()).catch(() => {});
-		await wait(page, 300);
-		if (await exists(page, 'button[aria-label^="Insert Blank"]')) throw new Error('insert-gallery: dialog did NOT close (would stack — measurement invalid)');
-	}
-	if (await railCount(page) !== before) throw new Error('insert-gallery: deck changed unexpectedly');
-}
-// Ensure a settings panel is OPEN (its toggle-button would CLOSE an already-open panel, so only
-// click-to-open when the target switch is absent), the right tab is selected, then flip the
-// switch on+off (source stays stable). Self-heals if a re-render closed the panel mid-run.
-async function ensureAndToggle(page, openSels, tabText, switchSel) {
-	for (let attempt = 0; attempt < 3; attempt++) {
-		if (await exists(page, switchSel)) break;
-		for (const s of openSels) { if (await clickIn(page, s)) break; }
-		await wait(page, 350);
-		if (tabText) await clickTabByText(page, tabText).catch(() => {});
-		await wait(page, 250);
-	}
-	await settle(page, switchSel, 4000);
-	await clickIn(page, switchSel); await wait(page, 300); await clickIn(page, switchSel); await wait(page, 300);
-}
-async function SLIDESETTINGS(page) { await ensureAndToggle(page, ['button[aria-label="Slide settings"]'], 'Look', 'button[role="switch"][aria-label="Compact spacing"]'); }
-async function DECKSETTINGS(page) { await ensureAndToggle(page, ['button[aria-label="Deck scope"]', 'button[aria-label="Settings"]'], 'Marks', 'button[role="switch"][aria-label="Page numbers"]'); }
-async function DECKSWITCH(page) {
-	if (!(await exists(page, 'button[data-demo="deck-switcher"]'))) { console.error('    deckswitch: switcher not present in this regime — SKIPPED (no signal)'); await wait(page, 200); return; }
-	await clickIn(page, 'button[data-demo="deck-switcher"]'); await wait(page, 350);
-	const nItems = await countSel(page, '[role="menuitem"]');
-	// pick a deck item other than the current (best-effort; ≥2 decks needed to truly switch)
-	if (nItems >= 2) { await clickNth(page, '[role="menuitem"]', 1); await wait(page, 500); }
-	else { await page.keyboard.press('Escape'); await wait(page, 200); }
-}
-async function READALOUD(page) {
-	const dlg = '[role="dialog"][aria-label="Present"]';
-	await clickSel(page, `${dlg} button[aria-label="Play the presentation"]`, 4000);
-	await wait(page, 1600); // let the reader transport + caption crawl run
-	await page.click(`${dlg} button[aria-label="Pause"]`).catch(() => {});
-	await wait(page, 200);
-	await page.keyboard.press('ArrowRight'); await wait(page, 300); // next slide
-}
-async function LANDING_CYCLE(page) {
-	// flip the hero Preview/Source tab (remounts the hero iframe — the leak lever) + flip palette
-	// (MutationObserver on <html> re-renders ALL landing islands at once).
-	await page.evaluate(() => { for (const t of document.querySelectorAll('[aria-label="Hero view"] [role="tab"]')) if (/source/i.test(t.textContent)) { t.click(); break; } }); await wait(page, 400);
-	await page.evaluate(() => { for (const t of document.querySelectorAll('[aria-label="Hero view"] [role="tab"]')) if (/preview/i.test(t.textContent)) { t.click(); break; } }); await wait(page, 400);
-	await page.evaluate(() => { const r = document.documentElement; r.setAttribute('data-palette', r.getAttribute('data-palette') === 'cuoio' ? 'indaco' : 'cuoio'); }); await wait(page, 500);
-}
-async function PG_SLIDE(page) {
-	for (const idx of [2, 4, 0]) { await page.evaluate((i) => document.querySelector('#preview')?.contentWindow?.postMessage({ type: 'db-scroll-to', idx: i, smooth: false }, '*'), idx); await wait(page, 300); }
-}
-async function PG_VARIANT(page) {
-	// swap the component via the ComponentPicker → full srcdoc rewrite (the heavy re-render torture)
-	await clickSel(page, '#pg-template-trigger', 4000); await wait(page, 400);
-	const nOpts = await countSel(page, '[role="option"]');
-	if (!nOpts) { await page.keyboard.press('Escape'); throw new Error('pgvariant: no component options'); }
-	await clickNth(page, '[role="option"]', Math.floor(nOpts / 3));
-	await page.waitForFunction(() => /Rendered\s+\d+\s+slide/.test(document.querySelector('[role="status"].pg-status')?.textContent || ''), { timeout: 8000 }).catch(() => {});
-	await wait(page, 400);
-}
-async function PG_SCROLL(page) {
-	await page.evaluate(() => { document.querySelector('#editor-host .cm-scroller')?.scrollBy(0, 300); document.querySelector('#preview')?.contentWindow?.scrollBy?.(0, 300); }); await wait(page, 250);
-	await page.evaluate(() => { document.querySelector('#editor-host .cm-scroller')?.scrollTo(0, 0); document.querySelector('#preview')?.contentWindow?.scrollTo?.(0, 0); }); await wait(page, 250);
-}
 
 // ── heap-snapshot capture + per-constructor diff (root-cause attribution) ────────
 async function takeSnapshot(cdp) {
@@ -447,8 +277,10 @@ function retainerReport(snap, opts = {}) {
 			continue;
 		}
 		if (t !== 'string' && t !== 'concatenated string' && t !== 'sliced string') continue;
-		if (nodes[i * NS + iNSelf] < wantBig) continue;
-		if (/lattice\.min\.css|lattice-engine scaffold|<div class="lattice">/.test(name)) targets.push(i);
+		const self = nodes[i * NS + iNSelf];
+		// The scenario decides what a leaked object looks like (e.g. its big theme-CSS strings);
+		// with no predicate, default to "any big retained string" (the ~560KB-class leak).
+		if (opts.targetMatch ? opts.targetMatch(name, self) : self >= wantBig) targets.push(i);
 	}
 	const chains = new Map();
 	let walked = 0;
@@ -463,32 +295,33 @@ function retainerReport(snap, opts = {}) {
 	return { targetsFound: targets.length, sampleWalked: walked, chains: [...chains.entries()].sort((a, b) => b[1] - a[1]), example: targets.length ? retainerPath(g, targets[0]) : null };
 }
 
-async function withinSession(browser, base, opts, cycleName) {
+async function withinSession(browser, base, opts, scenario, cycleName) {
 	const page = await browser.newPage();
-	await page.setViewport({ width: 1440, height: 900 }); // deterministic DESKTOP regime (new controls are desktop-only)
+	await page.setViewport({ width: 1440, height: 900 }); // deterministic DESKTOP regime
 	const cdpThrottle = await page.target().createCDPSession();
 	if (opts.cpu > 1) await cdpThrottle.send('Emulation.setCPUThrottlingRate', { rate: opts.cpu });
-	const surfKey = CYCLE_SURFACE[cycleName] || 'studio';
-	const surf = SURFACES[surfKey];
+	const surfKey = scenario.cycleSurface?.[cycleName] || Object.keys(scenario.surfaces)[0];
+	const surf = scenario.surfaces[surfKey];
+	if (!surf) throw new Error(`cycle ${cycleName}: unknown surface ${surfKey}`);
 	await page.goto(`${base}${surf.url}`, { waitUntil: 'networkidle0', timeout: 90000 });
 	await settle(page, surf.ready, 30000); // dispose the readiness handle (surf.ready can be replaced later — don't pin it)
 	await wait(page, surf.settle ?? 1500);
-	// Studio: dial to the BUILD posture so the full UI (activity bar → Slide/Deck settings,
-	// the op rail → Add slide, both editor toggles) is present + selectors are deterministic.
-	// Every studio cycle (incl. the idle control) shares this layout → matched floors.
-	if (surfKey === 'studio') { await page.click('button[aria-label="Build — every panel"]').catch(() => {}); await wait(page, 700); }
+	// Per-surface one-time setup (e.g. dial the Studio to its Build posture so every cycle shares
+	// one layout → matched noise floors). App-specific → lives in the scenario's surface.setup.
+	if (surf.setup) { try { await surf.setup(page, opts); } catch (e) { console.error(`    setup(${surfKey}) failed: ${e.message}`); } }
 	const inst = await makeInstrument(page);
-	const cyc = CYCLES[cycleName]; if (!cyc) throw new Error(`unknown cycle ${cycleName}`);
-	if (PREP[cycleName]) { try { await PREP[cycleName](page, opts); } catch (e) { console.error(`    prep(${cycleName}) failed: ${e.message}`); } }
+	const cyc = scenario.cycles[cycleName]; if (!cyc) throw new Error(`unknown cycle ${cycleName}`);
+	const extraProbes = scenario.probes ? () => scenario.probes(page) : undefined;
+	if (scenario.prep?.[cycleName]) { try { await scenario.prep[cycleName](page, opts); } catch (e) { console.error(`    prep(${cycleName}) failed: ${e.message}`); } }
 	const series = [];
 	let snapDiff = null, retReport = null;
 	try {
-		series.push(await sample(inst, 'baseline'));
+		series.push(await sample(inst, 'baseline', undefined, extraProbes));
 		const snapBase = opts.snapshot ? await takeSnapshot(inst.cdp) : null;
 		for (let i = 0; i < opts.k; i++) {
 			try {
 				const peak = await peakDuring(inst, () => cyc(page));
-				series.push(await sample(inst, `c${i + 1}`, peak));
+				series.push(await sample(inst, `c${i + 1}`, peak, extraProbes));
 			} catch (e) {
 				// A driving failure (selector gone, target hiccup) ends THIS cycle but keeps the
 				// partial series (still analyzable) and never crashes the matrix. Loud, not silent.
@@ -502,7 +335,7 @@ async function withinSession(browser, base, opts, cycleName) {
 			await inst.gc(); await inst.gc();
 			process.stderr.write(`    ${cycleName}: taking retainer snapshot…\n`);
 			const snapR = await takeSnapshot(inst.cdp);
-			retReport = retainerReport(snapR, { sample: 16, realm: opts.realm });
+			retReport = retainerReport(snapR, { sample: 16, realm: opts.realm, targetMatch: scenario.retainerTarget });
 		}
 	} finally {
 		await page.close().catch(() => {});
@@ -510,14 +343,16 @@ async function withinSession(browser, base, opts, cycleName) {
 	return { series, snapDiff, retReport };
 }
 
-// Absolute per-cycle floors below which a rising trend is judged NOISE even if MK is
-// "significant" — calibrated from the idle control (heap drifts ~9KB/cyc doing nothing).
-const ABS_FLOOR = { retainedHeap: 40000, peakHeap: 60000, heapTotal: 60000, nodes: 0.4, listeners: 0.4, documents: 0.1, liveIframes: 0.1, cmEditors: 0.1, themeCount: 0.4 };
-// controlSlopes: metric→Sen's slope from the idle run (or null). A cycle is RISING only if
-// its Sen's slope clears BOTH the absolute floor AND 4× the idle control's slope, AND MK is
-// significant. This defeats the autocorrelation false-positive the idle control exposed.
-function analyze(series, controlSlopes) {
-	const keys = ['retainedHeap', 'peakHeap', 'heapTotal', 'nodes', 'listeners', 'documents', 'liveIframes', 'cmEditors', 'themeCount'];
+// Universal metrics every scenario gets from Performance.getMetrics, and their absolute per-cycle
+// noise floors (below which a rising trend is judged NOISE even if MK is "significant" — calibrated
+// from an idle control, where heap drifts ~9KB/cyc doing nothing). A scenario layers its own probe
+// keys + floors on top (studio: liveIframes/cmEditors/themeCount).
+const UNIVERSAL_KEYS = ['retainedHeap', 'peakHeap', 'heapTotal', 'nodes', 'listeners', 'documents', 'frames'];
+const UNIVERSAL_FLOOR = { retainedHeap: 40000, peakHeap: 60000, heapTotal: 60000, nodes: 0.4, listeners: 0.4, documents: 0.1, frames: 0.1 };
+// controlSlopes: metric→Sen's slope from the idle run (or null). A cycle is RISING only if its Sen's
+// slope clears BOTH the absolute floor AND 4× the idle control's slope, AND MK is significant — this
+// defeats the autocorrelation false-positive the idle control exposed.
+function analyze(series, controlSlopes, keys, absFloor) {
 	const rows = [];
 	for (const k of keys) {
 		const ys = series.map((s) => s[k]).filter((v) => Number.isFinite(v) && v >= 0);
@@ -526,44 +361,65 @@ function analyze(series, controlSlopes) {
 		const mk = mannKendall(ys);
 		const sen = sensSlope(ys);
 		const ctrl = controlSlopes && Number.isFinite(controlSlopes[k]) ? controlSlopes[k] : 0;
-		const floor = Math.max(ABS_FLOOR[k] ?? 0, 4 * Math.abs(ctrl));
+		const floor = Math.max(absFloor[k] ?? 0, 4 * Math.abs(ctrl));
 		const grew = mk.z >= 1.96 && sen > floor && last > first;
 		rows.push({ metric: k, first, last, delta: last - first, sen: +sen.toFixed(1), floor: +floor.toFixed(1), z: mk.z, trend: grew ? 'RISING' : 'flat' });
 	}
 	return rows;
 }
-function controlSlopesFrom(series) {
-	const keys = ['retainedHeap', 'peakHeap', 'heapTotal', 'nodes', 'listeners', 'documents', 'liveIframes', 'cmEditors', 'themeCount'];
+function controlSlopesFrom(series, keys) {
 	const out = {};
 	for (const k of keys) { const ys = series.map((s) => s[k]).filter((v) => Number.isFinite(v) && v >= 0); if (ys.length >= 4) out[k] = sensSlope(ys); }
 	return out;
 }
 
-async function main() {
-	const opts = parseArgs(process.argv.slice(2));
-	if (!existsSync(DIST)) { console.error(`studio-torture: no build at ${DIST} — run \`npm run build\` in docs/ first.`); process.exit(2); }
-	const server = serve();
+/**
+ * A Scenario is pure app-knowledge (see scenarios/studio.mjs):
+ * @typedef {Object} Scenario
+ * @property {string}   name          Scenario id (matches the --scenario flag / filename).
+ * @property {string}   distDir       Absolute path to the built site this drives (must exist).
+ * @property {string[]} [defaultCycles] Cycle order for `--cycle all` (idle first = the control).
+ * @property {Record<string,{url:string,ready:string,settle?:number,setup?:(page,opts)=>Promise<void>}>} surfaces
+ * @property {Record<string,string>} [cycleSurface] cycle → surface key (default: first surface).
+ * @property {Record<string,(page)=>Promise<void>>} cycles  "user does X once", using the exported helpers.
+ * @property {Record<string,(page,opts)=>Promise<void>>} [prep] optional one-time per-cycle setup.
+ * @property {(page)=>Promise<Record<string,number>>} [probes] app-specific counters to trend.
+ * @property {Record<string,number>} [probeFloors] noise floors for the probe keys.
+ * @property {(name:string,self:number)=>boolean} [retainerTarget] what a leaked object looks like (--retainers).
+ */
+
+/**
+ * Run the torture matrix for a scenario. Owns the server, browser, cycle loop, verdict + report.
+ * @param {{ scenario: Scenario, argv?: string[] }} args
+ */
+export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
+	const opts = parseArgs(argv);
+	const dist = scenario.distDir;
+	if (!existsSync(dist)) { console.error(`perf-torture[${scenario.name}]: no build at ${dist} — build the site first.`); process.exit(2); }
+	// Universal metrics + the scenario's extra probe keys are trended together; floors merge the same way.
+	const keys = [...UNIVERSAL_KEYS, ...Object.keys(scenario.probeFloors || {})];
+	const absFloor = { ...UNIVERSAL_FLOOR, ...(scenario.probeFloors || {}) };
+	const server = serve(dist);
 	await new Promise((r) => server.listen(opts.mode === 'refresh' ? FIXED_PORT : 0, r));
 	const base = `http://localhost:${server.address().port}`;
 
 	if (opts.mode === 'within') {
 		const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH, args: ['--no-sandbox'] });
-		// idle is always the CONTROL and runs first, so its per-metric drift becomes the
-		// noise floor every other cycle is judged against.
-		const ALL = ['idle', 'typing', 'present', 'overview', 'palette', 'fullwrite', 'compose', 'slidenav', 'insert', 'slidesettings', 'decksettings', 'deckswitch2', 'readaloud', 'landing', 'pgslide', 'pgvariant', 'pgscroll', 'mixed'];
+		// idle is the CONTROL and runs first, so its per-metric drift becomes the noise floor.
+		const ALL = scenario.defaultCycles || Object.keys(scenario.cycles);
 		const requested = opts.cycle === 'all' ? ALL : opts.cycle.split(',');
 		const cycles = requested.includes('idle') ? ['idle', ...requested.filter((c) => c !== 'idle')] : requested;
 		const report = {}; const diffs = {}; const rets = {}; let controlSlopes = null;
 		for (const c of cycles) {
 			process.stderr.write(`\n  cycle=${c} (k=${opts.k}, cpu=${opts.cpu})\n`);
 			try {
-				const { series, snapDiff, retReport } = await withinSession(browser, base, opts, c);
-				if (c === 'idle') controlSlopes = controlSlopesFrom(series);
-				report[c] = analyze(series, controlSlopes); diffs[c] = snapDiff; rets[c] = retReport;
+				const { series, snapDiff, retReport } = await withinSession(browser, base, opts, scenario, c);
+				if (c === 'idle') controlSlopes = controlSlopesFrom(series, keys);
+				report[c] = analyze(series, controlSlopes, keys, absFloor); diffs[c] = snapDiff; rets[c] = retReport;
 			} catch (e) { console.error(`  cycle ${c} FAILED: ${e.message}`); }
 		}
 		await browser.close(); server.close();
-		console.log('\n=== WITHIN-SESSION TORTURE — RISING = MK z≥1.96 AND Sen-slope > max(abs floor, 4× idle-control drift) ===');
+		console.log(`\n=== WITHIN-SESSION TORTURE [${scenario.name}] — RISING = MK z≥1.96 AND Sen-slope > max(abs floor, 4× idle-control drift) ===`);
 		for (const [c, rows] of Object.entries(report)) {
 			console.log(`\n  [${c}]${c === 'idle' ? ' (control — floors calibrated from this)' : ''}`);
 			for (const r of rows) console.log(`    ${r.metric.padEnd(13)} ${String(r.first).padStart(10)} → ${String(r.last).padStart(10)}  Δ${String(r.delta).padStart(9)}  sen/cyc ${String(r.sen).padStart(9)} (floor ${String(r.floor).padStart(8)})  z=${String(r.z).padStart(5)}  ${r.trend}`);
@@ -575,17 +431,19 @@ async function main() {
 		}
 		for (const [c, rr] of Object.entries(rets)) {
 			if (!rr) continue;
-			console.log(`\n  [${c}] RETAINER paths — ${rr.targetsFound} leaked theme/scaffold strings (walked ${rr.sampleWalked}). Common pinning chain (string ◂ held-by ◂ …):`);
+			console.log(`\n  [${c}] RETAINER paths — ${rr.targetsFound} leaked target(s) (walked ${rr.sampleWalked}). Common pinning chain (target ◂ held-by ◂ …):`);
 			for (const [sig, n] of rr.chains) console.log(`      ×${n}  ${sig}`);
-			if (rr.example) { console.log(`    → nearest GC root: ${rr.example.root}. Full path (root → leaked string):`); for (const p of rr.example.path) console.log(`         ${p.node}  --${p.via}-->`); }
+			if (rr.example) { console.log(`    → nearest GC root: ${rr.example.root}. Full path (root → leaked target):`); for (const p of rr.example.path) console.log(`         ${p.node}  --${p.via}-->`); }
 		}
 		if (opts.json) console.log('\nJSON ' + JSON.stringify(report));
-		return;
+		return report;
 	}
 
-	console.error(`studio-torture: mode=${opts.mode} not yet implemented in this build.`);
+	console.error(`perf-torture: mode=${opts.mode} not yet implemented.`);
 	server.close();
 	process.exit(2);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+// Driving helpers — scenarios import THESE (never raw page.$ / waitForSelector; see the
+// OBSERVER-POLLUTION GUARD above). Plus the internals, for advanced/one-off scenarios.
+export { buildGraph, clickIn, clickNth, clickSel, clickTabByText, countSel, diffSnapshots, exists, makeInstrument, mannKendall, median, retainerPath, retainerReport, sensSlope, settle, takeSnapshot, wait };

@@ -71,7 +71,7 @@ detached nodes remain.)
 
 ## The fix — dispose everything; drive transient targets via evaluate
 
-`docs/scripts/studio-torture.mjs`:
+`tools/perf-torture/` (was `docs/scripts/studio-torture.mjs`):
 - `clickSel` now disposes its handle after clicking; new `settle()` waits for a selector then disposes
   (readiness without pinning).
 - Existence checks → `exists()` (in-page `evaluate`, returns a boolean — no DOM handle escapes).
