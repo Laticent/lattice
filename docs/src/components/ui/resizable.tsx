@@ -1,6 +1,5 @@
 "use client"
 
-import { GripVertical } from "lucide-react"
 import * as React from "react"
 import { Group, Panel, Separator, type GroupProps, type PanelProps, type SeparatorProps } from "react-resizable-panels"
 
@@ -59,8 +58,10 @@ function ResizablePanel({ className, ...props }: PanelProps) {
  * hover / focus-visible / active reveal three grip dots and warm the line to
  * accent. The grab hit area is an out-of-flow overlay straddling the line
  * (wider on coarse pointers); the library extends the effective target via the
- * group's `resizeTargetMinimumSize`. `withHandle` (default) shows an always-visible
- * grip nub straddling the seam; `withHandle={false}` is a plain hairline seam.
+ * group's `resizeTargetMinimumSize`. `withHandle` (default) shows the "Rail" grip
+ * — three quiet dots on the seam (always visible so the divider reads as a handle
+ * at rest, incl. on touch where there is no hover) that snap to accent on hover /
+ * focus / drag. `withHandle={false}` is a plain hairline seam.
  */
 function ResizableHandle({
 	className,
@@ -89,21 +90,23 @@ function ResizableHandle({
 			{...props}
 		>
 			{withHandle ? (
-				// An always-visible grip nub centered on the seam — the divider reads as
-				// a handle at rest (not only on hover). Warms to accent on hover / focus /
-				// active drag; grows on coarse pointers for a fat-finger target.
+				// "Rail" grip — three quiet dots on the seam. Always visible (~34%) so the
+				// divider reads as a handle at rest, incl. on touch (no hover there); the
+				// dots go solid accent + full opacity on hover / focus / active drag.
 				<span
 					data-slot="resize-grip"
 					aria-hidden="true"
 					className={cn(
-						"pointer-events-none z-10 flex items-center justify-center rounded-sm border border-border bg-[var(--bg-alt)] text-muted-foreground shadow-sm transition-colors duration-150",
-						"h-6 w-3 pointer-coarse:h-8 pointer-coarse:w-4",
-						"group-hover/resize-handle:border-[color:var(--accent)] group-hover/resize-handle:text-[color:var(--accent)]",
-						"group-focus-visible/resize-handle:border-[color:var(--accent)] group-focus-visible/resize-handle:text-[color:var(--accent)]",
-						"group-active/resize-handle:border-[color:var(--accent)] group-active/resize-handle:text-[color:var(--accent)]",
+						"pointer-events-none z-10 flex flex-col items-center gap-[3px] opacity-[0.34] transition-opacity duration-150",
+						"group-hover/resize-handle:opacity-100 group-focus-visible/resize-handle:opacity-100 group-active/resize-handle:opacity-100 pointer-coarse:opacity-50",
 					)}
 				>
-					<GripVertical className="size-3" />
+					{[0, 1, 2].map((i) => (
+						<span
+							key={i}
+							className="size-[3px] rounded-full bg-muted-foreground transition-colors duration-150 group-hover/resize-handle:bg-[color:var(--accent)] group-focus-visible/resize-handle:bg-[color:var(--accent)] group-active/resize-handle:bg-[color:var(--accent)]"
+						/>
+					))}
 				</span>
 			) : null}
 		</Separator>
