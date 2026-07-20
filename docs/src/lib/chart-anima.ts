@@ -10,6 +10,7 @@
 // sensible default choreography (bars build in, labels follow, flagged marks emphasize). Anima's
 // core + backend stay chart-agnostic; all chart knowledge lives here.
 
+import { validateColor } from './anima/schema';
 import type { Motion, SvgElement, SvgScene } from './anima/types';
 
 /** A chart mark's class → its Anima motion role. Unknown `[data-mark]` geometry defaults to
@@ -80,6 +81,10 @@ function parseSvg(markup: string): SVGSVGElement | null {
  * Turn a chart's rendered SVG into a default-choreographed Anima scene. Returns null if the markup
  * has no <svg> or no recognizable marks (the caller shows the static chart). Pure w.r.t. its
  * inputs (it clones + mutates a fresh parse, never the caller's string).
+ *
+ * SECURITY: the returned `asset` is the chart's own markup with ids/inline-styles injected — it is
+ * NOT re-sanitized here. The caller MUST pass it through the host's `sanitizeSlideHtml` at the
+ * AssetMap boundary before it reaches a preview frame (HARD RULE #22), exactly as for any svg asset.
  */
 export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): ChartAnimaResult | null {
   const svg = parseSvg(markup);
@@ -90,7 +95,9 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   const buildSpan = Math.min(0.9, Math.max(0.1, opts.buildSpan ?? 0.6));
   const assetKey = opts.assetKey ?? 'chart';
   const highlight = new Set(opts.highlightMarks ?? []);
-  const highlightColor = opts.highlightColor ?? 'var(--ink)';
+  // The emphasis stroke must be a palette-blind token (HARD RULE #3) — an invalid/hard-coded value
+  // falls back to the default rather than baking a raw color into the asset.
+  const highlightColor = opts.highlightColor && validateColor(opts.highlightColor) === null ? opts.highlightColor : 'var(--ink)';
 
   // Geometry marks (bars/sectors/…) build; text marks (labels/values) follow. Document order is
   // the build order, which for a top-to-bottom funnel reads correctly.
@@ -99,7 +106,14 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
 
   const elements: SvgElement[] = [];
   const roles: ChartAnimaResult['roles'] = [];
+  // Seed `seen` with ids ALREADY in the SVG (e.g. a chart's `<defs>` gradients `pie-wedge-N`), so a
+  // minted id never collides with — and mis-resolves to — a pre-existing node (maker-checker MED-1;
+  // the backend's nodeById is first-wins in document order, and <defs> come first).
   const seen = new Set<string>();
+  for (const node of Array.from(svg.querySelectorAll('[id]'))) if (node.id) seen.add(node.id);
+  // Track PROCESSED nodes by identity (not by id-in-`seen`), so a `<text>` whose pre-existing id
+  // happens to equal a minted one isn't falsely skipped.
+  const processed = new WeakSet<Element>();
   const uniqueId = (base: string): string => {
     let id = base;
     let n = 1;
@@ -115,9 +129,13 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   markNodes.forEach((node, i) => {
     const role = roleForNode(node) ?? 'bar';
     const markAttr = node.getAttribute('data-mark');
-    const mark = markAttr != null ? Number(markAttr) : null;
-    const id = uniqueId(role === 'label' ? `label-m${i}` : `${role}-${markAttr ?? i}`);
+    // Only a clean integer is a usable mark index; '' / non-numeric → null (unindexed, never
+    // matched by highlightMarks), so `data-mark=""` isn't silently treated as mark 0.
+    const parsed = markAttr != null && markAttr !== '' ? Number(markAttr) : Number.NaN;
+    const mark = Number.isInteger(parsed) ? parsed : null;
+    const id = uniqueId(role === 'label' ? `label-m${i}` : `${role}-${mark ?? i}`);
     node.setAttribute('id', id);
+    processed.add(node);
 
     const motion: Motion[] = [{ verb: 'reveal', at: i * slot, span: slot + 0.08 }];
     const el: SvgElement = { id, pathRef: id, motion };
@@ -136,7 +154,7 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   // ── text marks: fade in as the build completes ([buildSpan·0.85 … end]).
   const labelAt = Math.min(0.95, buildSpan * 0.85);
   textNodes.forEach((node) => {
-    if (node.id && seen.has(node.id)) return; // already handled (a text with data-mark)
+    if (processed.has(node)) return; // already handled in the mark loop (a <text> with data-mark)
     const id = uniqueId('label');
     node.setAttribute('id', id);
     elements.push({ id, pathRef: id, motion: [{ verb: 'reveal', at: labelAt, span: 1 - labelAt }] });

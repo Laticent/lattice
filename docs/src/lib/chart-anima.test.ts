@@ -62,6 +62,25 @@ describe('chartToScene', () => {
     expect(bar1?.motion?.some((m) => m.verb === 'highlight')).toBe(false);
   });
 
+  it('does not collide a minted id with a pre-existing SVG id (e.g. a gradient def)', () => {
+    // A chart like the pie carries <defs> gradient ids; if one happens to equal a minted base, the
+    // mark must get a DIFFERENT id so it resolves to the mark, not the (document-first) def.
+    const withDefs =
+      '<svg viewBox="0 0 100 100"><defs><radialGradient id="bar-0"/></defs>' +
+      '<polygon class="funnel-band" data-mark="0" points="0,0 10,0 5,10"/></svg>';
+    const out = chartToScene(withDefs);
+    const bar = out?.roles.find((r) => r.role === 'bar');
+    expect(bar?.id).not.toBe('bar-0'); // dodged the pre-existing def id
+    expect(out?.asset).toContain(`id="${bar?.id}"`); // the mark carries its unique id
+    expect(out?.asset).toContain('id="bar-0"'); // the def id is untouched
+  });
+
+  it('falls back to a token when highlightColor is not palette-blind (#3)', () => {
+    const out = chartToScene(FUNNEL, { highlightMarks: [0], highlightColor: '#ff0000' });
+    expect(out?.asset).not.toMatch(/stroke:\s*#ff0000/); // the raw hex was rejected
+    expect(out?.asset).toMatch(/stroke:\s*var\(--ink\)/); // fell back to the default token
+  });
+
   it('returns null on markup with no <svg> or no marks', () => {
     expect(chartToScene('<div>not svg</div>')).toBeNull();
     expect(chartToScene('<svg viewBox="0 0 10 10"></svg>')).toBeNull();
