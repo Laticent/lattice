@@ -558,3 +558,69 @@ layer, revives center/right on the fixed bay, and retires the baked `text-align`
    centered bodies).
 3. **#1125** — land as the `auto`+`left` foundation (recommended) or hold and fold
    everything into one bigger PR.
+
+---
+
+# TRIO VERDICT — the manifest re-architecture is REJECTED; bounded path confirmed (2026-07-20)
+
+The RE-ARCHITECTURE section above was stress-tested by the full adversarial trio
+(red team + Munger inversion + independent feasibility checker) **before any code
+was cut** — and all three converged on the same conclusion: **the
+manifest-single-value mechanism is a step backward from what #1125 already ships.**
+The *principle* (authors own alignment; components offer a preset) is sound and is
+**already satisfied** by the shipped seam. Recorded here so the rejection is part
+of the record, not silently dropped.
+
+## Why it was rejected (three independent lenses, convergent)
+
+1. **Less expressive than the shipped fallback mechanism.** Alignment here is
+   scoped **per-variant** and **per-piece**; #1125's per-selector
+   `var(--headline-align, <fallback>)` expresses both for free. A single
+   `section.<name>` manifest value **cannot**:
+   - `divider` is one manifest, two alignments (dark `left` / `.light` `center`,
+     `divider.styles.css:23,34`) — a section-level set would inherit and **silently
+     regress `divider.light`**. The proposal's own preset table listed the
+     *variant* `divider.light`, a granularity the schema can't encode.
+   - `diagram` intentionally splits body `left` / caption `center`
+     (`diagram.styles.css:59,91`) — "consistent by construction" is contradicted by
+     a shipping component whose split is a design choice.
+2. **The cascade would ship backwards.** `section.<name>` (preset) and
+   `section.head-left` (register) are both specificity `(0,1,1)` → source order
+   decides. The cited `slicing` precedent emits **last** (`build-css.js:552-556`;
+   confirmed in `dist/lattice.css`: `head-left` @20220 vs slicing @21263) → the
+   **preset would beat the author's override.** "Author always wins" was not
+   guaranteed.
+3. **The crux (the bay) is unsolved and sequenced last.** Full-frame centering vs.
+   clearing a `meta:`/`logo:` bay are mutually exclusive; portrait/strip reflow
+   collapses the masthead to a single column with no "corner." Marquee "solved for
+   real" was documented-away.
+
+Plus the Munger meta-point: six rounds, each larger; the `auto`+`left` scope-down
+was the process *working* (two trios + a human converged); a schema + generator +
+53-component migration + a byte break to fix ~3 inconsistent components is
+over-building. And coverage was overstated — `kpi`/`quote`/`big-number` don't read
+the seam yet.
+
+## Confirmed path (human-aligned)
+
+1. **Merge #1125 (`auto` + `left`) as the foundation** — it already embodies the
+   principle (author overrides via the register; components offer a preset via the
+   seam fallback), and it handles per-variant / per-piece correctly.
+2. **Bounded consistent-defaults pass** (separate follow-up, `**Breaking:**`):
+   correct the internally-split components' *fallback defaults* in their own CSS —
+   `stats` (eyebrow → match its centered heading), `kpi`, `divider.light`. Per
+   selector, so variants (`divider.light`) and intentional per-piece splits
+   (`diagram`) are preserved. This is the real fix for the `stats`-under-`auto`
+   screenshot.
+3. **"Official / documented"** → **derive** the effective preset into
+   `dist/docs/components.json` (docs / Studio / `AGENTS.md`) *from* the CSS — a
+   read-only computed field, **not** a hand-authored, lossy manifest scalar.
+4. **`center` / `right`** stay deferred; if pursued, **prototype the masthead-bay
+   redesign in isolation and trio *that* first** — it is the load-bearing risk.
+5. **Byte movement** from the consistent-defaults pass ships as a `**Breaking:**`
+   `CHANGELOG` entry (ideally opt-in / major-version), never a silent re-render of
+   shipped decks (HARD RULE #10).
+
+**No manifest `headline` field, no CSS generator, no 53-component migration.** The
+seam + register (#1125) is the mechanism; the follow-up is a bounded CSS pass plus
+a derived docs field.
