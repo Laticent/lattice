@@ -123,7 +123,14 @@ export function createThemeFetcher(themeBase: string) {
 				.then((css) => PG.addThemes([css]))
 				.catch((e) => { state.latticeReady = null; throw e; }); // shared: don't poison all hosts on a transient failure
 		}
-		return state.latticeReady;
+		// Eviction-safe: the memo is now page-lifetime-shared, so it must not outlive the engine's
+		// truth. If a future engine-side eviction (audit fix D — ThemeStore.byName bounding) drops
+		// the base after the memo resolved, re-add from the shared CSS (a hasTheme() Map.has + no-op
+		// when present — negligible on the hot path). Without this, the shared memo would say
+		// "registered" forever and strip the render (Munger inversion on Fix A).
+		return state.latticeReady.then(() => {
+			if (!PG.hasTheme('lattice')) return fetchTheme('lattice').then((css) => { PG.addThemes([css]); });
+		});
 	}
 
 	/**
@@ -155,7 +162,12 @@ export function createThemeFetcher(themeBase: string) {
 				})
 				.catch((e) => { delete registering[name]; throw e; }); // shared: allow a retry after a transient failure
 		}
-		return registering[name];
+		// Eviction-safe (same rationale as ensureBase): re-add the direct theme if a future
+		// engine eviction dropped it after the shared memo resolved. (Deps re-register on the
+		// first call only; a fuller re-walk waits until fix D actually adds eviction.)
+		return registering[name].then(() => {
+			if (!PG.hasTheme(name)) return fetchTheme(name).then((css) => { PG.addThemes([css]); });
+		});
 	}
 
 	function ensure(palette: string, mode: 'light' | 'dark'): Promise<void> {
