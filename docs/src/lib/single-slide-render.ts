@@ -66,10 +66,13 @@ export type RenderStatus = {
 	slides: number;
 	error: string | null;
 	/** Which regime drew this render: 'patch' swapped only the `.lattice` body (cheap,
-	 * ~2ms); 'write' rebuilt the whole srcdoc (a full iframe reparse, tens–hundreds of
-	 * ms). Lets a scheduling caller (DeckPreview's frame loop) render a patch instantly
-	 * but coalesce a heavy write. Absent on a failed render. */
-	writePath?: 'patch' | 'write';
+	 * ~2ms); 'restyle' swapped the resident theme `<style>` in place + the body (a
+	 * theme/mode/palette change with no srcdoc rewrite — no new iframe realm minted, the
+	 * fix for the theme-toggle realm-churn leak); 'write' rebuilt the whole srcdoc (a full
+	 * iframe reparse + a fresh realm, tens–hundreds of ms). Lets a scheduling caller
+	 * (DeckPreview's frame loop) render a patch/restyle instantly but coalesce a heavy
+	 * write. Absent on a failed render. */
+	writePath?: 'patch' | 'restyle' | 'write';
 };
 
 export type SingleSlideOptions = {
@@ -119,7 +122,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticePendingLoad?: boolean };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean };
 
 // Replace ONLY the live document's `.lattice` contents with a new (already
 // sanitized) slide — the resident theme <style> + runtime <script> stay parsed and
@@ -216,6 +219,30 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		return fontFacesReady;
 	}
 
+	// The inner text of the srcdoc's resident `<style id="lattice-theme">` — the ONE place a
+	// slide's theme, mode, size-box, and author CSS are baked. Extracted so srcdoc() (full write)
+	// and the RESTYLE fast path (renderInto) build it identically: a theme/mode change swaps THIS
+	// string into the live document's existing <style> instead of rewriting the whole srcdoc, so
+	// no new iframe realm is minted per palette/mode toggle (the theme-toggle realm-churn leak,
+	// 2026-07-20-studio-audit-instrument-fix). @font-face is position-independent but kept up top
+	// to document intent; color-scheme is forced to the rendered mode so a theme's `light-dark()`
+	// pairs resolve as chosen; author-supplied `extraCss` (Fabricate Layout Studio's live component
+	// styles) is appended AFTER the theme, the same order the Workbench previews it.
+	function themeStyleContent(css: string, mode: 'light' | 'dark', geom: Geom, extraCss = ''): string {
+		const bg = mode === 'dark' ? '#0c0c0c' : '#e7e7ea';
+		return (
+			fontFaceCss +
+			singleSlideFrame(geom.width, geom.height) +
+			':root{color-scheme:' +
+			mode +
+			'}html,body{background:' +
+			bg +
+			'}' +
+			css +
+			(extraCss ? '\n/* studio-extra-css */\n' + extraCss : '')
+		);
+	}
+
 	// Render the slide at its INTRINSIC `@size` box and scale the iframe ELEMENT
 	// (never the SVG) to fit the host — sidesteps the Safari foreignObject scaling
 	// bug (see frame-css.js + index.astro srcdoc note). `geom` is the render's
@@ -227,28 +254,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		const tSanitize = performance.now();
 		html = sanitizeSlideHtml(html);
 		lastSanitizeMs = performance.now() - tSanitize;
-		const bg = mode === 'dark' ? '#0c0c0c' : '#e7e7ea';
-		// Register the vendored faces first (@font-face is position-independent,
-		// but keeping it up top documents intent). Without this the iframe has no
-		// Caveat/Shantell and sketch decks render body in a system sans.
-		// Force the canvas color-scheme to the rendered mode so a theme's
-		// `light-dark()` pairs resolve as chosen (the same knob deck-preview.js's
-		// renderDeck exposes as `colorScheme`). Without it a derived theme rendered
-		// in dark would still resolve its light sides.
 		let s =
-			'<!doctype html><html><head><meta charset="utf-8"><style>' +
-			fontFaceCss +
-			singleSlideFrame(geom.width, geom.height) +
-			':root{color-scheme:' +
-			mode +
-			'}html,body{background:' +
-			bg +
-			'}' +
-			css +
-			// Author-supplied CSS appended AFTER the theme — the Fabricate Layout
-			// Studio's live local-component styles, the same order the Workbench
-			// previews them (out.css + the component CSS).
-			(extraCss ? '\n/* studio-extra-css */\n' + extraCss : '') +
+			// The theme <style> carries an id so the RESTYLE fast path (renderInto) can find
+			// and swap it in place on a theme/mode change — no srcdoc rewrite, no new realm.
+			'<!doctype html><html><head><meta charset="utf-8"><style id="lattice-theme">' +
+			themeStyleContent(css, mode, geom, extraCss) +
 			'</style></head><body>' +
 			html;
 		if (mermaid) s += '<scr' + 'ipt src="' + mermaidUrl + '"></scr' + 'ipt>';
@@ -421,6 +431,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// runtime re-renders the swapped fence. KaTeX needs no flag either: single
 				// -slide never injects a katex <link>; math rides the patch as static HTML.
 				const sig = `${theme}|${mode}|${geom.width}x${geom.height}|${mermaid ? 'M' : ''}|${hashString(extraCss || '')}|${hashString(extra?.css || '')}`;
+				// RESTYLE sig — everything a theme/mode change CANNOT re-render in place: the frame
+				// box (geom, which sizes the resident <style>'s singleSlideFrame + the iframe element)
+				// and the mermaid <script> presence (prop-driven, so it can't be injected post-hoc).
+				// Theme, mode, the composed CSS, and author extraCss all bake into the swappable
+				// <style>, so they are DELIBERATELY absent here — a change in any of them keeps the
+				// same geom+mermaid, hits the restyle path, and swaps the <style> instead of rewriting.
+				const restyleSig = `${geom.width}x${geom.height}|${mermaid ? 'M' : ''}`;
 				const live = host.querySelector<HTMLIFrameElement>('iframe.live');
 				// Skip the patch while a full-write srcdoc is still loading: its
 				// contentDocument is briefly the OUTGOING one (which still has `.lattice`),
@@ -466,6 +483,58 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					}
 					// The live document vanished between the guard and the patch — fall
 					// through to a full write below.
+				}
+
+				// RESTYLE FAST PATH. A theme / mode / palette change (the frame box + mermaid
+				// unchanged) is the DOMINANT repeated action — and the full-write path below rewrites
+				// the whole srcdoc for it, minting a fresh iframe realm every time; those detached
+				// realms accumulate (~1.3 MB per toggle across the live previews — the theme-toggle
+				// realm-churn leak, 2026-07-20-studio-audit-instrument-fix). Instead, when a live doc
+				// already exists, swap the resident `<style id="lattice-theme">` in place and patch
+				// the body — the same iframe + same realm, restyled. No reparse of the runtime, no new
+				// realm. Falls through to a full write only when there is no live doc, a write is still
+				// in flight, or the frame box / mermaid changed (which the resident <style>/<script>
+				// can't express).
+				const themeStyleEl = live?.contentDocument?.getElementById('lattice-theme') as HTMLStyleElement | null | undefined;
+				if (
+					live &&
+					!(host as LiveHost).__latticePendingLoad &&
+					(host as LiveHost).__latticeRestyleSig === restyleSig &&
+					themeStyleEl &&
+					live.contentDocument?.querySelector('.lattice')
+				) {
+					const tSan = performance.now();
+					const safe = sanitizeSlideHtml(out.html);
+					const restyleSanitizeMs = performance.now() - tSan;
+					const tFrame = performance.now();
+					// Swap the theme <style> in place FIRST, then the body — the new palette applies
+					// atomically with the new section, so a viewer never sees the old theme on the new
+					// body (or vice-versa) for a frame.
+					themeStyleEl.textContent = themeStyleContent(out.css, mode, geom, extraCss);
+					if (patchSlideBody(live, safe)) {
+						(host as LiveHost).__latticeFrameSig = sig;
+						(host as LiveHost).__latticeRestyleSig = restyleSig;
+						const tFit = performance.now();
+						scaleFrame(host);
+						const restyleFitMs = performance.now() - tFit;
+						requestAnimationFrame(() => applyDebug(live, { force: null }));
+						const now = performance.now();
+						const rec = recordRenderSample({ engineMs, sanitizeMs: restyleSanitizeMs, frameMs: now - tFrame, fitMs: restyleFitMs, totalMs: now - tStart, slides, srcBytes: markdown.length, coalesced, stats: out.stats, writePath: 'restyle' });
+						if (out.stats) {
+							const countOverflow = () => {
+								try {
+									return live.contentDocument?.querySelectorAll('section.overflow').length ?? 0;
+								} catch {
+									return 0;
+								}
+							};
+							const shown = patchOverflow(rec, countOverflow());
+							setTimeout(() => patchOverflow(shown, countOverflow()), 600);
+						}
+						scheduleVizScan(() => live.contentDocument);
+						return { ok: true, slides, error: null, writePath: 'restyle' as const };
+					}
+					// patchSlideBody failed (the live doc vanished mid-swap) — fall through to a full write.
 				}
 
 				let fr = host.querySelector<HTMLIFrameElement>('iframe.live');
@@ -608,6 +677,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				// Record the sig this full document was built for, so the NEXT render can
 				// take the patch fast path above when nothing outside the section changed.
 				(host as LiveHost).__latticeFrameSig = sig;
+				// Record the frame box + mermaid this srcdoc was built for, so the NEXT theme/mode/
+				// palette change can take the RESTYLE fast path above (swap the <style> in place)
+				// instead of rewriting the whole srcdoc and minting a new realm.
+				(host as LiveHost).__latticeRestyleSig = restyleSig;
 				// Stamp AFTER the synchronous setup (srcdoc build + sanitize + pre-load
 				// fit) so frameMs isolates the browser's async parse/layout — the build
 				// and sanitize costs are still captured by totalMs and sanitizeMs.
