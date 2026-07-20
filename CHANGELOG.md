@@ -277,10 +277,16 @@ in patch versions.
   draggable, on-brand floating panel (its own grip header + persisted position) that reads the live
   geometry headless CI can never see — the layout viewport, the visual viewport (size + offset), what the
   CSS units `svh`/`dvh`/`lvh` resolve to on **this** device, the cinema stage height, and the preview
-  frame's on-screen rect. Off by default; flip it on in **Workspace → General → Diagnostics** (persisted
-  like the other levers) or with the `?vvdebug` URL param so a phone can enable it without the drawer.
-  Studio-only, opt-in, and inert until shown (it measures nothing while off). (`ViewportDebugOverlay.tsx`,
-  `viewport-debug-prefs.ts`; `engineering/decisions/2026-07-20-landscape-phone-preview-lock.md`.)
+  frame's on-screen rect. It's a *real* debugger, not a raw dump: a **verdict strip** computes the
+  at-a-glance answers (keyboard/UI overlap, URL-bar height, and frame-fits-stage ✓/✗), and **every row
+  taps/hovers open** to a plain-language definition of the property plus a **live relationship** to the
+  others (e.g. `visual` is *N*px shorter than `inner` → the keyboard covers that much; `lvh − svh` = the
+  URL-bar height; the frame overflows the stage by *N*px — the #1121 bug). Touch-first: rows latch open on
+  tap (no hover on a phone) and also reveal on hover on a fine pointer. Off by default; flip it on in
+  **Workspace → General → Diagnostics** (persisted like the other levers) or with the `?vvdebug` URL param
+  so a phone can enable it without the drawer. Studio-only, opt-in, and inert until shown (it measures
+  nothing while off). (`ViewportDebugOverlay.tsx`, `viewport-debug-prefs.ts`;
+  `engineering/decisions/2026-07-20-landscape-phone-preview-lock.md`.)
 
 - **Fabricate can now refine a component by hand — quick chips or a freeform nudge — not just generate
   it.** The mirror of the Motion faculty's refine, ported to components. A "Refine" row sits under the

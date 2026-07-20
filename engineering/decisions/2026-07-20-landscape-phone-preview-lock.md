@@ -234,7 +234,21 @@ Performance and Viz-diagnostics overlays** (HARD RULE #15 — reuse, don't reinv
   `<body>`-portaled, grip-headed floating panel the other diagnostics overlays use
   (persisted position, on-screen clamp, singleton claim). It polls the geometry (~300 ms)
   and re-reads on every `visualViewport` resize/scroll. Renders nothing (and measures
-  nothing) until the pref is on.
+  nothing) until the pref is on. It's a *real* debugger, not a raw dump:
+  - a **verdict strip** computes the load-bearing answers — `insetPx` (keyboard / browser-UI
+    overlap = `innerH − vv.h − vv.ot`, the same formula as `--cs-kb-inset`), `urlBarPx`
+    (`lvh − svh`), and `frameFit` (the exact #1121 check: `frame.top ≥ 0 ∧ frame.bottom ≤
+    stageH`, chip goes green/red) — so the raw rows rarely need reading;
+  - **every metric row taps/hovers open** to a plain-language definition (`what`) *and* a
+    **live relationship** to the others (`rel`, recomputed each render) — e.g. "visual is
+    *N*px shorter than inner → the keyboard covers that much", "lvh − svh = the URL-bar
+    height", "frame OVERFLOWS the stage by *N*px". The catalog lives in one `METRICS` table
+    so each property's docs sit next to its value.
+  - **Touch-first interaction.** A phone has no hover, so a **tap latches** the row's detail
+    open (single-open, a second tap closes); hover-preview is *additionally* wired but gated
+    to `(hover: hover) and (pointer: fine)` so a touch tap never sticks a hover state. The
+    body is `max-h-[62svh] overflow-y-auto` so expansions never overflow the small phone
+    panel. This is the "make it a real debug thing + mind the mobile experience" pass.
 - **`WorkspaceSheet.tsx`** — a `<Switch>` row in the General → Diagnostics group, next to
   Performance / Read-aloud / Viz, gated by `VIEWPORT_DEBUG_AVAILABLE`.
 - **`studio.astro`** — includes `<ViewportDebugOverlay />` next to `<VizDiagnosticsOverlay />`.
