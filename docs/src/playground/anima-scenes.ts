@@ -16,7 +16,14 @@
 // `rebind()` re-hydrates after every srcdoc rewrite / live-edit re-render.
 
 import { hydrateScene } from '@/lib/anima/hydrate';
+import { hydrateChart } from '@/lib/chart-anima-hydrate';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
+
+// Opt-in marker for animating a rendered chart in place (§0.75): a section class the author adds
+// via Marp's existing directives — `<!-- _class: chart-anima -->` (slide override) or a deck-level
+// `class: chart-anima` frontmatter (deck default). Any section carrying it that holds an animatable
+// chart is hydrated; a non-chart section with it is a safe no-op (hydrateChart returns null).
+const CHART_ANIMA_SEL = 'section.chart-anima';
 
 export interface AnimaScenes {
   /** Re-sync the frame's scenes after a preview render. DIFF-based: an already-live scene
@@ -50,9 +57,12 @@ export function createAnimaScenes({ getFrame }: { getFrame: () => HTMLIFrameElem
       disposeAll();
       return;
     }
-    // Dispose scenes whose section left the DOM (full srcdoc rewrite / section patch) or lost its spec.
+    // Dispose a tracked section that left the DOM (full srcdoc rewrite / section patch), or a
+    // SCENE that lost its spec. A chart-anima section carries no spec, so guard the spec check to
+    // scenes only (else every chart would be disposed on the next rebind).
     for (const [section, ctrl] of Array.from(live)) {
-      if (!doc.contains(section) || !section.getAttribute('data-scene-spec')) {
+      const staleScene = section.matches('section.scene') && !section.getAttribute('data-scene-spec');
+      if (!doc.contains(section) || staleScene) {
         ctrl.dispose();
         live.delete(section);
       }
@@ -64,6 +74,13 @@ export function createAnimaScenes({ getFrame }: { getFrame: () => HTMLIFrameElem
     for (const section of Array.from(doc.querySelectorAll('section.scene[data-scene-spec]'))) {
       if (live.has(section)) continue;
       const ctrl = hydrateScene(section, { eager: true, sanitize: sanitizeSlideHtml });
+      if (ctrl) live.set(section, ctrl);
+    }
+    // Mount any opted-in chart (`section.chart-anima`) not already tracked — the model-free chart
+    // on-ramp. hydrateChart derives the scene from the chart's own native-roled marks at view time.
+    for (const section of Array.from(doc.querySelectorAll(CHART_ANIMA_SEL))) {
+      if (live.has(section)) continue;
+      const ctrl = hydrateChart(section, { sanitize: sanitizeSlideHtml });
       if (ctrl) live.set(section, ctrl);
     }
   }
