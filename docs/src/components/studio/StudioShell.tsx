@@ -3189,7 +3189,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    2026-07-19 migration adds. */}
 						{desktop && effectiveStop === 'build' && assistantOpen && (
 							<>
-								<ResizablePanel id="studio-assistant" minSize={assistantMin} maxSize={PANEL_MAX} defaultSize={assistantDefault} className="overflow-hidden border-r border-border bg-card">
+								{/* Library gets its own panel id (+ wider default) so switching the
+								    assistant slot Coach→Library is a fresh panel identity — the library
+								    applies Library's 380px default instead of caching Coach's ~232px width
+								    (each keeps its own persisted width via the per-panel-id bucket). */}
+								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={assistantMin} maxSize={PANEL_MAX} defaultSize={assistantDefault} className="overflow-hidden border-r border-border bg-card">
 									{coachOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>

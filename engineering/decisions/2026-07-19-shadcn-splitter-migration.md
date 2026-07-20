@@ -118,6 +118,47 @@ Per HARD RULE #23, on the **real docs site** (headed Chromium via `CHROME_PATH`)
   so it swallows every click and breaks Radix menus. Resize is verified in the
   e2e (real geometry); the full docs unit suite is green.
 
+## Adversarial trio review (HARD RULE #25)
+
+Before merge, the shipping diff went through the full trio — red team, Munger
+inversion, and an independent checker (a maker-checker pass ran earlier, on a
+pre-persistence-rewrite state). Findings fixed + verified on the real surface:
+
+- **`setLayout({})` throws at 0-width restore** — `getLayout()` returns `{}` while
+  the group is measured at 0 width; the restore now guards on a non-empty layout.
+- **Collapse re-expanded when a side panel opened** — a panel toggle makes the
+  library re-lay-out and expand a collapsed pane. The collapse now re-applies on
+  every config change, with a `configChangingRef` window that suppresses the
+  transient (no spurious persist / status / re-fit). *Verified.*
+- **`reset()` was group-relative** — ⌘K "Reset split" now restores the default
+  editor share of the editor|preview PAIR (docked side panels keep their width).
+  *Verified (0.46 of the pair with Coach open).*
+- **configKey could bleed** — the persistence bucket is now derived from the
+  ACTUAL present panel ids (`bucketOf`), so a forgotten configKey extension
+  fails safe (no restore) instead of applying one config's widths to another; the
+  restore effect also cancels its inner rAF so a stale config can't apply.
+
+**Logged follow-ups (bounded / recoverable — #18):**
+
+- **Library opens ~298px, not its 380px ideal, on an in-place Coach→Library
+  switch.** Giving Library its own panel id widened it (was ~232px), but the
+  library's mixed-unit default normalization (editor/preview `%` defaults dilute a
+  px side-panel default) keeps it short. Correct from-closed; fully draggable +
+  persisted. Fix later by honoring px side-panel defaults or an imperative resize.
+- **Docked widths persist as `%`, not px** — a returning user at a *different*
+  window width sees a proportionally-shifted split (the library re-clamps to px
+  min/max, so it degrades gracefully). The old system stored a width-independent
+  ratio. Studio-multi-panel only.
+- **Collapse key is per-surface, not per-config**; **touch: the library's ~20px
+  coarse hit-zone near a divider** (device test outstanding, #23); the first-paint
+  restore is a few frames, not one.
+
+The trio also **cleared** several suspected issues: the library preserves
+`aria-valuenow` + deterministic Enter-collapse and re-clamps `setLayout`; the
+no-remount invariant holds across stops/toggles; the document pointer listener
+doesn't interfere with Radix/CodeMirror; storage is try/catch + bounded; the
+outer-div id-hide is correct (not luck).
+
 ## Removed
 
 `ui/split.tsx` (+ `split.test.tsx`) and `studio/use-panel-width.ts` — both custom

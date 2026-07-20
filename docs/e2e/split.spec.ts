@@ -161,7 +161,7 @@ test('the ratio survives a reload; collapse survives a reload but not a new tab'
 	const wide = await valuenow(page);
 	expect(wide).toBeGreaterThan(55);
 
-	// The ratio survives a reload (localStorage via useDefaultLayout).
+	// The ratio survives a reload (hand-rolled localStorage persistence in the hook).
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await expect(statusLine(page)).toHaveText(/Rendered \d+ slide/, { timeout: 45_000 });
 	expect(await valuenow(page)).toBeGreaterThan(52);

@@ -34,6 +34,17 @@ function collapseKey(storageKey: string) {
 	return `${storageKey}-collapsed`
 }
 
+/**
+ * The persistence bucket for a layout = its panel-id set, sorted + joined. Derived
+ * from the ACTUAL panels present (not a hand-maintained configKey), so a saved
+ * layout can never be applied to a different panel set — the worst case of a
+ * forgotten configKey extension is "no restore", never "wrong widths" (red-team F3
+ * / Munger #2). `configKey` remains only the effect's re-run trigger.
+ */
+function bucketOf(layout: Record<string, unknown>): string {
+	return Object.keys(layout).sort().join(",")
+}
+
 /** Read the full per-config layout store. Sanitize-on-read: bad JSON → {}. */
 function readLayoutStore(storageKey: string): LayoutStore {
 	try {
@@ -45,19 +56,19 @@ function readLayoutStore(storageKey: string): LayoutStore {
 		return {}
 	}
 }
-function writeLayout(storageKey: string, configKey: string, layout: LayoutMap) {
+function writeLayout(storageKey: string, bucket: string, layout: LayoutMap) {
 	try {
 		const store = readLayoutStore(storageKey)
-		store[configKey] = layout
+		store[bucket] = layout
 		localStorage.setItem(storageKey, JSON.stringify(store))
 	} catch {
 		/* private mode — the layout still applies for the session */
 	}
 }
-function clearLayout(storageKey: string, configKey: string) {
+function clearLayout(storageKey: string, bucket: string) {
 	try {
 		const store = readLayoutStore(storageKey)
-		delete store[configKey]
+		delete store[bucket]
 		localStorage.setItem(storageKey, JSON.stringify(store))
 	} catch {
 		/* private mode */
@@ -88,9 +99,11 @@ export interface UseResizableSplitOptions {
 	active: boolean
 	/** Editor's default share of the pair (%). The ⌘K reset target. */
 	defaultRatio: number
-	/** A string identifying which panels are currently present in the group — the
-	 *  persistence bucket. It MUST change whenever a panel is added/removed so each
-	 *  configuration keeps (and restores) its own remembered widths. */
+	/** A string that CHANGES whenever the set of present panels changes — the
+	 *  restore effect's re-run trigger (so a toggled panel gets its remembered
+	 *  width back). The storage bucket itself is derived from the real panel ids
+	 *  (see bucketOf), so this only needs to change on a config change; it can't
+	 *  cause a wrong-config restore even if it under-specifies. */
 	configKey: string
 	onCollapse?: (side: SplitSide) => void
 	onExpand?: (side: SplitSide) => void
@@ -155,64 +168,93 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	// (ready + double rAF) — on mount AND whenever `configKey` changes (a panel
 	// toggled → its remembered width comes back). Programmatic setLayout fires
 	// onLayoutChanged with isUserInteraction=false, so it never re-saves.
+	// Collapse tracking state — declared here so the restore effect below can read
+	// it (skip a width-restore while a pane is collapsed, so setLayout doesn't pop
+	// the pane back open). Updated by pollCollapse (onResize).
+	const collapsedRef = React.useRef({ a: false, b: false })
+	// True during the brief window after a config change (a panel toggled) while
+	// the library re-lays-out. Adding/removing a panel makes the library expand a
+	// collapsed pane; we re-collapse it and, during this window, treat pollCollapse's
+	// transient expand/collapse as noise (no persist, no callbacks).
+	const configChangingRef = React.useRef(false)
+
 	React.useEffect(() => {
 		if (!ready || !active) return
-		const raf = requestAnimationFrame(() =>
-			requestAnimationFrame(() => {
+		// Cancel BOTH frames on cleanup: without capturing the inner handle a stale
+		// config's layout could still apply if configKey churns within two frames.
+		let inner = 0
+		const outer = requestAnimationFrame(() => {
+			inner = requestAnimationFrame(() => {
 				const g = groupRef.current
 				if (!g) return
+				// Don't disturb a collapsed pane: we never save a layout while collapsed,
+				// so the saved one has the pane EXPANDED — setLayout would pop it open
+				// (collapse restore is the separate effect below).
+				if (collapsedRef.current.a || collapsedRef.current.b) return
 				const current = g.getLayout()
-				const saved = readLayoutStore(storageKey)[configKey]
-				if (saved) {
-					// Apply saved sizes ONLY if every present panel has one (the config
-					// matches) — else the setLayout would be partial and the library would
-					// renormalize into a surprise layout.
-					const next: LayoutMap = {}
-					let complete = true
-					for (const id of Object.keys(current)) {
-						if (typeof saved[id] !== "number") {
-							complete = false
-							break
-						}
-						next[id] = saved[id]
-					}
-					if (complete) g.setLayout(next)
+				const ids = Object.keys(current)
+				// getLayout() is {} while the group is measured at 0 width (hydration /
+				// deferred); setLayout({}) would THROW. Skip until it has real panels.
+				if (ids.length === 0) return
+				// Bucket by the ACTUAL present ids (see bucketOf), so a saved layout is
+				// only ever applied to the exact panel set it was saved for.
+				const saved = readLayoutStore(storageKey)[bucketOf(current)]
+				if (!saved) return
+				const next: LayoutMap = {}
+				for (const id of ids) {
+					if (typeof saved[id] !== "number") return // incomplete → leave the layout alone
+					next[id] = saved[id]
 				}
-			}),
-		)
-		return () => cancelAnimationFrame(raf)
+				g.setLayout(next)
+			})
+		})
+		return () => {
+			cancelAnimationFrame(outer)
+			if (inner) cancelAnimationFrame(inner)
+		}
 	}, [ready, active, configKey, storageKey, groupRef])
 
-	// Restore the collapsed side ONCE, after the group lays out.
-	const collapseRestoredRef = React.useRef(false)
+	// Restore / re-apply the collapsed side after the group lays out — on mount AND
+	// on every config change (a panel toggle makes the library expand a collapsed
+	// pane; we put it back). `configChangingRef` suppresses the transient so
+	// pollCollapse doesn't clear the persisted collapse or fire spurious callbacks.
 	React.useEffect(() => {
 		if (!ready || !active) return
-		const raf = requestAnimationFrame(() =>
-			requestAnimationFrame(() => {
-				if (collapseRestoredRef.current) return
-				collapseRestoredRef.current = true
-				const side = readStoredCollapse(storageKey)
-				if (side) panelRefOf(side).current?.collapse()
-			}),
-		)
-		return () => cancelAnimationFrame(raf)
-	}, [ready, active, storageKey, panelRefOf])
+		const side = readStoredCollapse(storageKey)
+		if (!side) return
+		configChangingRef.current = true
+		let inner = 0
+		const outer = requestAnimationFrame(() => {
+			inner = requestAnimationFrame(() => {
+				if (!panelRefOf(side).current?.isCollapsed()) panelRefOf(side).current?.collapse()
+				configChangingRef.current = false
+			})
+		})
+		return () => {
+			cancelAnimationFrame(outer)
+			if (inner) cancelAnimationFrame(inner)
+			configChangingRef.current = false
+		}
+	}, [ready, active, configKey, storageKey, panelRefOf])
 
 	// Track collapse via the panel's authoritative isCollapsed() (the library has
 	// no onCollapse event; onResize is our poll). Per-side prev guards the edge so
 	// the callbacks + collapse persistence fire once per transition, not per frame.
-	const collapsedRef = React.useRef({ a: false, b: false })
 	const pollCollapse = React.useCallback(
 		(side: SplitSide) => {
 			const now = panelRefOf(side).current?.isCollapsed() ?? false
 			if (now === collapsedRef.current[side]) return
 			collapsedRef.current[side] = now
+			// Reflect the live state in the UI always…
+			if (now) setCollapsed(side)
+			else setCollapsed((c) => (c === side ? null : c))
+			// …but during a config-change re-layout, the expand/collapse is the library
+			// churning, not the user — don't persist it or fire callbacks.
+			if (configChangingRef.current) return
 			if (now) {
-				setCollapsed(side)
 				writeStoredCollapse(storageKey, side)
 				optsRef.current.onCollapse?.(side)
 			} else {
-				setCollapsed((c) => (c === side ? null : c))
 				writeStoredCollapse(storageKey, null)
 				optsRef.current.onExpand?.(side)
 			}
@@ -225,15 +267,26 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	const collapse = React.useCallback((side: SplitSide) => panelRefOf(side).current?.collapse(), [panelRefOf])
 	const expand = React.useCallback((side: SplitSide) => panelRefOf(side).current?.expand(), [panelRefOf])
 	// Reset (⌘K "Reset split"): expand any collapsed pane, clear this config's saved
-	// layout + the collapse, and resize the editor to the default share.
+	// layout + collapse, and restore the DEFAULT editor share of the PAIR — keeping
+	// any docked Studio side panels where they are.
 	const reset = React.useCallback(() => {
 		if (collapsedRef.current.a) editorRef.current?.expand()
 		if (collapsedRef.current.b) previewRef.current?.expand()
 		writeStoredCollapse(storageKey, null)
-		clearLayout(storageKey, optsRef.current.configKey)
-		// A bare number is PIXELS to the library; a "%" string is a percentage.
-		editorRef.current?.resize(`${optsRef.current.defaultRatio}%`)
-	}, [storageKey, editorRef, previewRef])
+		const g = groupRef.current
+		if (g) clearLayout(storageKey, bucketOf(g.getLayout()))
+		// resize() is GROUP-relative, but the default ratio is a share of the
+		// editor|preview PAIR — so scale it by the pair's current share of the group
+		// (side panels keep their width). Deferred a frame so any expand() above has
+		// committed before we read the sizes.
+		requestAnimationFrame(() => {
+			const e = editorRef.current?.getSize().asPercentage ?? 0
+			const p = previewRef.current?.getSize().asPercentage ?? 0
+			const pair = e + p || 100
+			// A bare number is PIXELS to the library; a "%" string is a percentage.
+			editorRef.current?.resize(`${(optsRef.current.defaultRatio / 100) * pair}%`)
+		})
+	}, [storageKey, editorRef, previewRef, groupRef])
 
 	const onLayoutChange = React.useCallback(() => {
 		if (active) setDrag(true)
@@ -242,11 +295,11 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		(layout: Layout, meta: LayoutChangedMeta) => {
 			setDrag(false)
 			if (!meta.isUserInteraction) return
-			// Persist the full layout for this config UNLESS a pane is collapsed — a
-			// collapse is its own (sessionStorage) state, and its collapsedSize would
-			// poison the remembered widths.
+			// Persist the full layout for the ACTUAL present panel set UNLESS a pane is
+			// collapsed — a collapse is its own (sessionStorage) state, and its
+			// collapsedSize would poison the remembered widths.
 			if (!collapsedRef.current.a && !collapsedRef.current.b) {
-				writeLayout(storageKey, optsRef.current.configKey, layout as LayoutMap)
+				writeLayout(storageKey, bucketOf(layout as LayoutMap), layout as LayoutMap)
 			}
 			optsRef.current.onSettle?.()
 		},
