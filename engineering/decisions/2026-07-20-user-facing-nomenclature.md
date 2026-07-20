@@ -108,7 +108,8 @@ against this table.
 | C | Finish *(axis)* | Finish axis | **not "Style"** |
 | C | **Theme** | `theme:` | color / palette |
 | C | **Mode** | `mode:` | the typographic hand |
-| C | **Backdrop** | `backdrop:` *(Phase 4; today `finish:`)* | rename kills the self-clash |
+| C | Finish *(preset)* | `finish:` | selects the backdrop preset; **key stays `finish:`** — see the collision note below |
+| C | Backdrop *(layer)* | `.backdrop` wrapper; tuned by `finish-override: → backdrop:` | the render layer + its nested tuning map; **not** a top-level key |
 | C | Accent *(adv.)* | `accent:` → `spectrum*`/`rule`/`eyebrow` | one dial over 7 keys |
 
 ## Plan — 5 phases, one branch/PR each (HARD RULE #17)
@@ -142,10 +143,27 @@ theme/mode/backdrop as three flat knobs. Rename docs-site "Component reference" 
 Gate: website screenshots at 1440/820/390 (HARD RULE #23, QUALITY BAR).
 
 ### Phase 4 — Contract renames · **Status:** ⏸ deferred (owner gate)
-`finish:` → `backdrop:` and the `content` component → `prose`, each with
-back-compat aliases, a **Breaking:** changelog entry, and its own focused PR.
-Touches examples/galleries; export sign-off if rendered bytes move. Held pending
-explicit owner go-ahead (the "rename appetite" decision).
+The two double-booked contracts — the `finish:` key (axis vs. key) and the
+`content` component (vs. the Substance human word) — remain as they are unless a
+focused, aliased PR is later commissioned. **Both of the obvious rename targets
+are already taken and are ruled out:**
+
+- **`finish:` → `backdrop:` is BLOCKED.** `backdrop:` is a live nested key under
+  `finish-override:` (the backdrop layer's `strength`/`clearance`/`texture`), a
+  top-level `backdrop:` is deliberately **retired and lint-guarded**
+  (`retired-backdrop-key`, `2026-07-01-finish-restraint-controls.md` / #674), and
+  the render layer is already `.backdrop`. The codebase draws a useful line —
+  `finish:` = which backdrop *preset*, `backdrop:` = the *layer* + its tuning —
+  that the rename would erase. **Recommendation: keep `finish:`; resolve the mild
+  axis/key overload in docs wording, not a rename.**
+- **`content` component → `prose` is BLOCKED.** `prose` is one of the four
+  Substance values (`prose`/`structure`/`series`/`graph`). A collision-clear
+  target (`body`, `plain`) would need its own audit. Low priority.
+
+Lesson (and the justification for this phase's gate): a contract rename needs a
+real collision audit before a target name is chosen — none of the *settled* work
+(layout/component, the Style→Finish fix, the diagram, the register wall) does.
+Held pending explicit owner go-ahead AND a collision-clear target.
 
 ### Phase 5 — Surface cleanups · **Status:** ☐ proposed (optional)
 `bucket`→category, `kicker`→eyebrow, `lede`→subtitle, fold `variant` under
