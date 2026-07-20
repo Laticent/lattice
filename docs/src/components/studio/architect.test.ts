@@ -337,6 +337,68 @@ describe('generateComponent — silent gate-repair', () => {
 	});
 });
 
+// The effort dial: after generation, run N design self-refine rounds (low/medium/high/
+// maximum → 0/1/2/3), each returning an improved, self-rated draft; keep the highest-
+// rated compliant one (2026-07-19-component-effort-dial.md).
+describe('generateComponent — effort dial (design self-refine)', () => {
+	const draft = (css: string, rating?: number) => ({
+		name: 'kpi-trio', description: 'Three KPIs.', function: 'statement', form: 'canvas', substance: 'structure',
+		bucket: 'statement', tags: ['kpi', 'stat', 'metric'], adapt: { mode: 'native' }, capacity: { sweet: 3, soft: 3, hard: 3 },
+		css: `section.kpi-trio > .cell-stage { ${css} }`, skeleton: '<!-- _class: kpi-trio -->\n\n## Numbers\n\n- 100\n- 200',
+		...(rating == null ? {} : { rating }),
+	});
+	const GEN = draft('color:var(--pass);'); // the initial (clean) generation
+	const ROUND1 = draft('color:var(--accent);', 8); // a better refinement
+	const ROUND2 = draft('color:var(--warn);', 6); // a WORSE refinement (lower rating)
+
+	const seqBackend = (replies: unknown[]) => {
+		let i = 0;
+		return { name: 'mock', async complete() { return replies[Math.min(i++, replies.length - 1)]; }, async embed() { return null; } };
+	};
+	async function withBackend(replies: unknown[], run: () => Promise<void>) {
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend(seqBackend(replies));
+		try { await run(); } finally { m.__setBackend(null); }
+	}
+
+	it('low effort runs ZERO refine rounds — one call, no design pass', async () => {
+		let calls = 0;
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend({ name: 'mock', async complete() { calls++; return GEN; }, async embed() { return null; } });
+		try {
+			const out = await generateComponent('three kpis', [], undefined, { effort: 'low' });
+			expect(out.status).toBe('ok');
+			if (out.status === 'ok') expect(out.improved).toBe(0);
+			expect(calls).toBe(1);
+		} finally {
+			m.__setBackend(null);
+		}
+	});
+
+	it('high effort keeps the highest-rated refinement and rejects a regression', async () => {
+		await withBackend([GEN, ROUND1, ROUND2], async () => {
+			const statuses: string[] = [];
+			const out = await generateComponent('three kpis', [], undefined, { effort: 'high', onStatus: (s) => statuses.push(s.phase) });
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.improved).toBe(1); // round 1 accepted (rating 8); round 2 rejected (6 < 8)
+			expect(out.draft.css).toContain('var(--accent)'); // round 1's design won
+			expect(out.draft.css).not.toContain('var(--warn)'); // the regression was NOT kept
+			expect(statuses).toContain('improving'); // the UI got a live "improving" signal
+		});
+	});
+
+	it('reports gate-repair (refined) and design rounds (improved) independently', async () => {
+		await withBackend([GEN, ROUND1], async () => {
+			const out = await generateComponent('three kpis', [], undefined, { effort: 'medium' });
+			if (out.status === 'ok') {
+				expect(out.refined).toBe(0); // clean gen → no gate-repair
+				expect(out.improved).toBe(1); // one accepted design round
+			}
+		});
+	});
+});
+
 describe('refineSelection — honest selection refine', () => {
 	it('returns `nochange` for empty/whitespace text without touching the model', async () => {
 		expect((await refineSelection('polish', '')).status).toBe('nochange');

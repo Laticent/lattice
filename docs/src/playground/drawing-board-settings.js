@@ -43,6 +43,15 @@ export const readCachingEnabled = () => { try { return localStorage.getItem(OR_C
 // before generating, so the author reuses rather than bloats the catalog (§5/§8).
 export const readDedupEnabled = () => { try { return localStorage.getItem(DEDUP_KEY) !== 'off'; } catch { return true; } };
 export const writeDedupEnabled = (on) => { try { localStorage.setItem(DEDUP_KEY, on ? 'on' : 'off'); } catch { /* unavailable */ } };
+// The component-generation EFFORT dial (2026-07-19-component-effort-dial.md): how many
+// design self-refine rounds run after generation. The lever is effort, not spend —
+// low (today's one-shot) · medium (DEFAULT — one refine) · high · maximum. Persisted
+// per browser. The user-facing default lives HERE; `generateComponent`'s `?? 'low'` is
+// only a programmatic fallback for a caller that passes no effort at all.
+const EFFORT_KEY = 'lattice-db-component-effort';
+const EFFORTS = ['low', 'medium', 'high', 'maximum'];
+export const readComponentEffort = () => { try { const v = localStorage.getItem(EFFORT_KEY); return EFFORTS.includes(v) ? v : 'medium'; } catch { return 'medium'; } };
+export const writeComponentEffort = (level) => { try { if (EFFORTS.includes(level)) localStorage.setItem(EFFORT_KEY, level); } catch { /* unavailable */ } };
 export const readStandingInstructions = () => { try { return localStorage.getItem(OR_INSTR_KEY) || ''; } catch { return ''; } };
 
 // Per-Lattice spend tally — accumulated locally from each reply's authoritative
