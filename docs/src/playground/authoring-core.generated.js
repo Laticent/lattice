@@ -776,6 +776,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.spectrumTrimNames) findings.push(...findUnknownSpectrumTrim(source, vocab.spectrumTrimNames));
       if (vocab.ruleNames) findings.push(...findUnknownRule(source, vocab.ruleNames));
       if (vocab.eyebrowNames) findings.push(...findUnknownEyebrow(source, vocab.eyebrowNames));
+      if (vocab.headlineNames) findings.push(...findUnknownHeadline(source, vocab.headlineNames));
       if (vocab.liftNames) findings.push(...findUnknownLift(source, vocab.liftNames));
       findings.push(...findRetiredBackdrop(source));
       findings.push(...findSingleLetterLexiconKeys(source));
@@ -1263,6 +1264,24 @@ ${indent}   - ${body.trim()}`;
         fix: `Set front-matter \`eyebrow:\` to one of: ${[...eyebrowNames].join(", ")}.`
       }];
     }
+    function findUnknownHeadline(source, headlineNames) {
+      const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+      if (!fmBlock) return [];
+      const fmHeadline = fmBlock[1].match(/^\s*headline:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m);
+      if (!fmHeadline) return [];
+      const value = fmHeadline[1].trim();
+      const known = new Set([...headlineNames].map((n) => String(n).toLowerCase()));
+      if (known.has(value.toLowerCase())) return [];
+      return [{
+        slide: 0,
+        rule: "unknown-headline",
+        severity: "warning",
+        classToken: value,
+        line: fmHeadline[0].trim(),
+        message: `'${value}' is not a known headline value \u2014 the deck would silently keep each component's baked alignment`,
+        fix: `Set front-matter \`headline:\` to one of: ${[...headlineNames].join(", ")}.`
+      }];
+    }
     function findUnknownLift(source, liftNames) {
       const fmBlock = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
       if (!fmBlock) return [];
@@ -1428,6 +1447,7 @@ ${indent}   - ${body.trim()}`;
       findUnknownSpectrumTrim,
       findUnknownRule,
       findUnknownEyebrow,
+      findUnknownHeadline,
       findSingleLetterLexiconKeys,
       nearestRegion,
       editDistance,

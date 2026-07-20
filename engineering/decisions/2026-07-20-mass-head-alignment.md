@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: shipped
 summary: >
   Masthead / framing-text alignment (eyebrow, heading, heading-rule, subtitle,
   below-note, key-insight, caption) is baked per-component and disagrees with
@@ -205,3 +205,60 @@ Adopt a **new `headline:` register** (Fork 2A) covering **the whole framing set*
 eight-times-proven register contract, turns alignment into a token the way color
 already is, and gives the author the deck-wide + per-slide control the brief asks
 for — without disturbing a single zero-config deck.
+
+## Confirmed (2026-07-20) — and shipped
+
+The confirmation round resolved all three forks as recommended:
+
+- **Fork 1 — the whole framing set.** `--headline-align` governs the eyebrow,
+  heading, heading rule (the free `hr`), subtitle, below-note, key insight, and
+  chart/diagram caption. below-note and key insight follow only an *explicit*
+  center/right; their `auto` fallback stays left (a centered panel is unusual).
+- **Fork 2 — a new, orthogonal register.** `headline:` aligns only the framing
+  cluster; the body keeps its own `#527` `align-*`. A centered headline can sit
+  over a left body.
+- **Fork 3 — `headline:`.** Human word "Headline alignment"; per-slide tokens
+  `head-left` / `head-center` / `head-right`.
+
+### As built
+
+The **seam-with-per-site-fallback** pattern (over the `:where()` default-list
+sketched above): the register DEFINES `--headline-align` / `--headline-justify`
+only when set, and every paint site reads `var(--headline-align, <its-current
+default>)`. So `auto` leaves the properties undefined and each site falls back to
+exactly what it renders today — zero-config is provably byte-identical (no
+`:where()` specificity juggling, no centralized default map that could rot). Two
+channels because both text pieces (`text-align: left|center|right`) and
+flex-boxed pieces (`align-items`/`align-self: flex-start|center|flex-end`) read the
+one author choice.
+
+Paint sites retrofitted: `masthead-lede` (eyebrow + title, via inherited
+`text-align`), the anchor frames (`title`, `closing`, `divider` + `divider.light`
+— note `divider` defaults LEFT and `divider.light` CENTER, both preserved by
+their fallbacks), the free `hr` (`base.elements.css`), key insight + below-note
+(`base.modifiers.css` / `compare-prose.styles.css`), the chart caption
+(`chart-family.css`), and the diagram dek + caption (`diagram.styles.css`).
+
+### Verified
+
+- **Zero-config byte-identical.** `npm run preview` reports **0 px** diff across
+  the gallery baselines; the full unit suite (3936) + docs Studio tests pass.
+- **The cluster follows, the body does not.** Computed-style probe on
+  `examples/headline-alignment.md`: on `head-center` / `head-right` the
+  masthead-lede and key insight take the register value while the stage body `<p>`
+  stays `start` (left) — alignment does not leak to content.
+- **Sovereign frames are now overridable.** A `title head-left` / `closing
+  head-left` probe reports `align-items: flex-start` + heading `text-align: left`
+  — the exact "some center, baked in" complaint, now the author's call.
+- Demo `examples/headline-alignment.md` (+ committed PDF) rendered and inspected
+  framed; maker-checker on the cross-cutting CSS seam; dual-engine export
+  sign-off before merge (alignment changes exported bytes).
+
+### Known scope edge
+
+The short heading-rule signatures (`rule: short` / `rule: accent`) draw a
+left-anchored `::after` on the masthead band and do **not** yet follow
+`--headline-align` (they stay at the band's left padding edge). The common full
+hairline (`rule: auto`/`full`) is full-width and alignment-neutral, so this only
+surfaces on the narrow `headline: center` + `rule: short` combination; tracked as
+a follow-up rather than pulled into this diff (HARD RULE #18 off-path).

@@ -194,6 +194,11 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   /* Separation from the preceding block is supplied by the flow container's `gap`
    * (the stage cell under Form), not a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
+  /* The framing text follows the headline-alignment seam (`headline:` register).
+   * text-align inherits, so the KEY INSIGHT label, body, and list move as one. The
+   * panel box stays full-width; only its text aligns. `auto`/no register → the
+   * fallback `left` (today's render); an explicit head-center/right pulls it over. */
+  text-align:var(--headline-align, left);
 }
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::before,
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::before {

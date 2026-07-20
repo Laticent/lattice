@@ -102,6 +102,26 @@ section.eyebrow-underline
   padding-bottom: 0.2em;
 }
 
+/* ── HEADLINE ALIGNMENT (`headline:`) ── the framing-text cluster's horizontal axis ──────────
+ * Hoists alignment OUT of the components and onto an author register (deck-wide or per slide).
+ * The framing-text cluster — eyebrow, heading, heading rule, subtitle, below-note, key-insight,
+ * caption — used to bake its own alignment at each paint site, so the pieces disagreed (the
+ * 2026-07-04 subtitle patch was one symptom). Now every framing paint site reads ONE inherited
+ * seam, so the pieces move as one and the author owns the choice.
+ *
+ * `auto` (the default) emits NO token: the seam properties stay UNDEFINED, so each paint site
+ * falls back to its own baked default via `var(--headline-align, <default>)` — today's render is
+ * byte-identical (the component still decides). `left`/`center`/`right` DEFINE the seam on the
+ * section; it inherits to every framing descendant and overrides the fallbacks as one system.
+ *
+ * Two channels so both text pieces (text-align: left|center|right) and flex-boxed pieces
+ * (align-items/self: flex-start|center|flex-end) read the one author choice. No `margin` (HARD
+ * RULE #20 — alignment is text-align / align-*, which measure cleanly); no hex (HARD RULE #3).
+ * See engineering/decisions/2026-07-20-mass-head-alignment.md. */
+section.head-left   { --headline-align: left;   --headline-justify: flex-start; }
+section.head-center { --headline-align: center; --headline-justify: center; }
+section.head-right  { --headline-align: right;  --headline-justify: flex-end; }
+
 /* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
  * surfaces ────────────────────────────────────────────────────────────────────────────────
  * OPT-IN and INDEPENDENT of the deck's section-bar STYLE — all spectrum variants are on-brand,

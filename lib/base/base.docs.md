@@ -835,6 +835,30 @@ per slide reads as a ransom note. Together `spectrum:` / `rule:` / `eyebrow:` ar
 axis's **accent** sub-family (marks on chrome), distinct from `finish:` (backdrops behind
 content).
 
+#### The `headline:` front-matter register (framing-text alignment)
+
+`headline:` sets the **horizontal alignment of a slide's framing text** — the eyebrow,
+heading, heading rule, subtitle, below-note, key insight, and caption — as one cluster.
+Alignment used to be baked into each layout (a title centered, a content masthead left, a
+chart header its own way), so the pieces could disagree within a slide. Now one register owns
+the axis: set it deck-wide or per slide, and every framing piece moves together. Sibling
+register (`lib/core/resolve-headline.js`), propagated to every section, overridable per slide;
+a typo is caught as `unknown-headline`.
+
+| `headline:` value | Token | Effect |
+|---|---|---|
+| `auto` | *(none)* | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. |
+| `left` | `head-left` | Pin the whole framing cluster to the left margin. |
+| `center` | `head-center` | Center the whole framing cluster. |
+| `right` | `head-right` | Right-align the framing cluster — the rare escape. |
+
+Only the **framing** text follows — the slide **body** keeps its own alignment (the universal
+`align-left`/`align-center`/`align-right` modifiers act on the body block independently), so a
+centered headline can sit over a left-aligned body. Under the hood the register drives one
+inherited seam, `--headline-align`; a component's default is the `var(--headline-align, <default>)`
+fallback, so `auto` is byte-identical to today's render. Alignment is `text-align` / `align-*`
+(never `margin`), so it measures cleanly.
+
 #### The `lift:` front-matter register (card elevation)
 
 `lift:` is the **opt-in card-elevation control** for the "Struck" lift — the box-shadow

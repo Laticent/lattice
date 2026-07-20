@@ -47,6 +47,7 @@ import { activeFinish } from './finish-catalog';
 import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
+import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
@@ -1049,6 +1050,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const setHeadingRule = (value: string) => settingsWrite(`Heading rule → ${value}`, (s) => setFrontMatter(s, 'rule', value === 'auto' ? null : value));
 	const eyebrow = getFrontMatter(source, 'eyebrow') || 'plain';
 	const setEyebrow = (value: string) => settingsWrite(`Eyebrow → ${value}`, (s) => setFrontMatter(s, 'eyebrow', value === 'plain' ? null : value));
+	const headline = getFrontMatter(source, 'headline') || 'auto';
+	const setHeadline = (value: string) => settingsWrite(`Headline → ${value}`, (s) => setFrontMatter(s, 'headline', value === 'auto' ? null : value));
 	// Structural trim (`spectrum-trim:`) — off by default (quiet); `on` flows the spectrum onto
 	// the in-content accents. On writes the key; off clears it.
 	const spectrumTrim = getFrontMatter(source, 'spectrum-trim') || 'off';
@@ -2458,6 +2461,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</Field>
 						<Field label="Eyebrow" desc="The mark on the mono-caps kicker above a heading — a dot, a bar, an arrow, an underline, or plain.">
 							<CatalogSelect ariaLabel="Choose eyebrow" value={activeEyebrow(eyebrow).name} onValueChange={setEyebrow} className="min-w-[116px]" groups={[{ options: catalogOptions(EYEBROWS) }]} />
+						</Field>
+						<Field label="Headline alignment" desc="Which way the framing text — eyebrow, heading, rule, subtitle, note, key insight, caption — aligns. Auto keeps each component's own default; Left / Center / Right pin the whole cluster.">
+							<CatalogSelect ariaLabel="Choose headline alignment" value={activeHeadline(headline).name} onValueChange={setHeadline} className="min-w-[116px]" groups={[{ options: catalogOptions(HEADLINES) }]} />
 						</Field>
 			</div>
 			)}

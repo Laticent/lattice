@@ -54,7 +54,9 @@ section.diagram > .cell-stage > p { font-size:var(--fs-meta); line-height:var(--
    title's left edge. Form-scoped: a non-Form diagram has no masthead lift and keeps
    its centered title, so the dek must stay centered to match it. (Under the Form the
    dek always hoists into `.cell-stage`, so only the `> .cell-stage > p` arm is live.) */
-section.form.diagram > .cell-stage > p { align-self:stretch; }
+/* The dek follows the headline-alignment seam (`headline:`). Left fallback preserves the
+ * 2026-07-04 form-left fix; head-center/right now move it with the title as one cluster. */
+section.form.diagram > .cell-stage > p { align-self:stretch; text-align:var(--headline-align, left); }
 /* Hug the title band when a subtitle leads — mirror of the chart-frame rule: the
    masthead clearance is right below a bare title, too loose below a leading dek. The
    `:has(> .cell-stage > p)` detects the now-hoisted leading dek. */
@@ -86,7 +88,7 @@ section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
   flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); max-width:100%; height:auto; min-height:0;
 }
-section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:center; font-style:italic; }
+section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
 /* Key Insight panel on diagram slides must stretch full-width to match every
    other layout. section.diagram uses align-items:center (mirrored onto the stage
    cell) which would shrink the blockquote to fit-content; align-self:stretch

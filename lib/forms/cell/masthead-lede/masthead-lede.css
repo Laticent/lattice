@@ -11,4 +11,8 @@
 section.form .cell-masthead .masthead-lede {
   min-width: 0;
   grid-column: masthead-lede;
+  /* Headline-alignment seam (`headline:` register, base.accent-finish.css). text-align
+   * inherits, so the kicker + title follow one axis. `auto` (no register) → the property is
+   * undefined → the fallback `left` applies, byte-identical to today's left-aligned band. */
+  text-align: var(--headline-align, left);
 }
