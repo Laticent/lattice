@@ -90,9 +90,12 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   const svg = parseSvg(markup);
   if (!svg) return null;
 
-  const duration = opts.duration ?? 3600;
-  const hero = opts.hero ?? 1;
-  const buildSpan = Math.min(0.9, Math.max(0.1, opts.buildSpan ?? 0.6));
+  // Coerce caller numerics to finite, in-range values so a bad option (e.g. buildSpan: NaN,
+  // duration ≤ 0) can't propagate NaN into every window and make the whole scene unvalidatable
+  // (red-team F3).
+  const duration = Number.isFinite(opts.duration) && (opts.duration as number) > 0 ? (opts.duration as number) : 3600;
+  const hero = Number.isFinite(opts.hero) && (opts.hero as number) >= 0 && (opts.hero as number) <= 1 ? (opts.hero as number) : 1;
+  const buildSpan = Math.min(0.9, Math.max(0.1, Number.isFinite(opts.buildSpan) ? (opts.buildSpan as number) : 0.6));
   const assetKey = opts.assetKey ?? 'chart';
   const highlight = new Set(opts.highlightMarks ?? []);
   // The emphasis stroke must be a palette-blind token (HARD RULE #3) — an invalid/hard-coded value
@@ -103,6 +106,9 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   // the build order, which for a top-to-bottom funnel reads correctly.
   const markNodes = Array.from(svg.querySelectorAll('[data-mark]'));
   const textNodes = Array.from(svg.querySelectorAll('text'));
+  // Bound the work at the schema's element cap BEFORE the per-node loops — parseScene's
+  // MAX_ELEMENTS fires too late to protect the adapter from a pathological chart (red-team F1).
+  if (markNodes.length + textNodes.length > 2000) return null;
 
   const elements: SvgElement[] = [];
   const roles: ChartAnimaResult['roles'] = [];
@@ -114,10 +120,18 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   // Track PROCESSED nodes by identity (not by id-in-`seen`), so a `<text>` whose pre-existing id
   // happens to equal a minted one isn't falsely skipped.
   const processed = new WeakSet<Element>();
+  // O(1) amortized: a per-base counter resumes where the last mint left off, so N nodes sharing
+  // one base cost O(N), not O(N²) (red-team F1 — a linear suffix rescan would hang on a chart
+  // whose marks share a data-mark).
+  const nextSuffix = new Map<string, number>();
   const uniqueId = (base: string): string => {
     let id = base;
-    let n = 1;
-    while (seen.has(id)) id = `${base}-${n++}`;
+    if (seen.has(id)) {
+      let k = nextSuffix.get(base) ?? 1;
+      while (seen.has(`${base}-${k}`)) k++;
+      id = `${base}-${k}`;
+      nextSuffix.set(base, k + 1);
+    }
     seen.add(id);
     return id;
   };

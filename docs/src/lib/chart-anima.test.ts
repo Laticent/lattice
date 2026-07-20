@@ -81,6 +81,39 @@ describe('chartToScene', () => {
     expect(out?.asset).toMatch(/stroke:\s*var\(--ink\)/); // fell back to the default token
   });
 
+  it('treats a non-numeric / empty data-mark as unindexed (never mark 0)', () => {
+    const svg =
+      '<svg viewBox="0 0 9 9"><polygon class="funnel-band" data-mark="" points="0,0 1,0 1,1"/>' +
+      '<polygon class="funnel-band" data-mark="x" points="0,0 1,0 1,1"/></svg>';
+    const out = chartToScene(svg, { highlightMarks: [0] });
+    expect(out?.roles.filter((r) => r.role === 'bar')).toHaveLength(2);
+    expect(out?.roles.every((r) => r.mark === null)).toBe(true); // '' and 'x' → null, not 0
+    // so highlightMarks:[0] matches nothing → no highlight verb anywhere
+    const anyHighlight = out?.scene.elements.some((e) => e.motion?.some((m) => m.verb === 'highlight'));
+    expect(anyHighlight).toBe(false);
+  });
+
+  it('does not double-process a <text> that also carries data-mark (WeakSet guard)', () => {
+    const svg = '<svg viewBox="0 0 9 9"><text class="wc-word" data-mark="0" x="1" y="1">hi</text></svg>';
+    const out = chartToScene(svg);
+    // one element total — handled once in the mark loop, skipped in the text loop
+    expect(out?.scene.elements).toHaveLength(1);
+    const ids = out?.roles.map((r) => r.id) ?? [];
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('returns null on a chart past the element bound (adapter-side DoS guard)', () => {
+    const many = '<svg viewBox="0 0 9 9">' + '<polygon class="funnel-band" data-mark="0" points="0,0 1,0 1,1"/>'.repeat(2001) + '</svg>';
+    expect(chartToScene(many)).toBeNull();
+  });
+
+  it('coerces a bad buildSpan / duration option to a valid scene', () => {
+    const out = chartToScene(FUNNEL, { buildSpan: Number.NaN, duration: -5 });
+    expect(out).not.toBeNull();
+    const r = parseScene(out?.scene);
+    expect(r.ok).toBe(true); // NaN buildSpan / negative duration didn't poison the windows
+  });
+
   it('returns null on markup with no <svg> or no marks', () => {
     expect(chartToScene('<div>not svg</div>')).toBeNull();
     expect(chartToScene('<svg viewBox="0 0 10 10"></svg>')).toBeNull();
