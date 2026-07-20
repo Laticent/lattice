@@ -46,7 +46,7 @@ export type MetricMeta = {
 	 * rebuild can't meet a single-frame budget, so it gets a realistic one. When the
 	 * live regime (passed as the string `extra`) has an entry here, it wins over
 	 * `bands` for both the rating AND the detail-card band label. */
-	regimeBands?: Partial<Record<'patch' | 'write', Bands>>;
+	regimeBands?: Partial<Record<'patch' | 'restyle' | 'write', Bands>>;
 	/** Override rating (MEM rates by heap fraction, passed as `extra`). */
 	rate?: (v: number, extra?: number | string) => Rating | null;
 	/** True for a proxy metric (CPU≈) — the detail card flags the approximation. */
@@ -58,9 +58,10 @@ const round3 = (v: number) => v.toFixed(3);
 
 // The regime a render sample carries (mirrors RenderSample.writePath); passed to
 // rateMetric/bandLabel as `extra` so FRAME/TOTAL judge + explain the live regime.
-export type Regime = 'patch' | 'write';
-/** How each regime reads in the UI — a patch is a quick in-place swap, a write a rebuild. */
-export const REGIME_WORD: Record<Regime, string> = { patch: 'patch', write: 'rebuild' };
+export type Regime = 'patch' | 'restyle' | 'write';
+/** How each regime reads in the UI — a patch/restyle is a quick in-place swap (body / theme
+ * <style>), a write a full rebuild. */
+export const REGIME_WORD: Record<Regime, string> = { patch: 'patch', restyle: 'restyle', write: 'rebuild' };
 
 // The bands that actually govern a metric right now: the live regime's bands when it
 // has an entry in `regimeBands`, else the metric's default `bands`.
@@ -180,24 +181,29 @@ export const RENDER: MetricMeta[] = [
 		key: 'totalMs', label: 'TOTAL', title: 'Edit → paint', group: 'render',
 		format: ms, unit: 'ms', bands: { good: 100, ni: 200 },
 		// Judged by regime, same as FRAME below: a normal edit is engine + sanitize +
-		// a ~2ms body patch; a rebuild adds the full frame reparse.
-		regimeBands: { patch: { good: 100, ni: 200 }, write: { good: 300, ni: 700 } },
+		// a ~2ms body patch; a restyle swaps the theme <style> in place (the browser still
+		// re-parses the sheet, but off the synchronous frame — so TOTAL climbs while FRAME
+		// stays low); a full rebuild adds the frame reparse AND a runtime reload + realm mint.
+		// restyle bands calibrated from a real 4× capture (median ~186ms, max ~565ms).
+		regimeBands: { patch: { good: 100, ni: 200 }, restyle: { good: 250, ni: 600 }, write: { good: 300, ni: 700 } },
 		what: 'The whole edit→paint span: from render start to the slide appearing on screen.',
-		why: 'What you actually feel after an edit. On a normal edit it’s the engine plus a near-instant in-place patch; on a rebuild (theme, size, or light/dark change) it also carries the full frame reparse below.',
+		why: 'What you actually feel after an edit. On a normal edit it’s the engine plus a near-instant in-place patch; on a theme/mode change it’s a restyle (the sheet re-parses off-frame); on a size change it’s a full rebuild (reparse + runtime reload).',
 	},
 	{
 		key: 'frameMs', label: 'FRAME', title: 'Frame parse & layout', group: 'render',
 		format: ms, unit: 'ms', bands: { good: 16, ni: 50 },
-		// FRAME means two very different things depending on the render regime, so it is
-		// rated against two different budgets (perf-diagnosis §C1). A 'patch' swaps only
-		// the slide body in place — a true single-frame op. A 'write' rebuilds the whole
-		// preview document, re-parsing the ~260KB stylesheet + reloading the runtime;
-		// that is inherently tens–hundreds of ms and can NEVER meet a 16ms frame budget,
-		// so judging it by one was the panel's central lie. The write band reflects the
-		// real floor of a full-document reparse (roomier still on a slow phone).
-		regimeBands: { patch: { good: 16, ni: 50 }, write: { good: 250, ni: 600 } },
-		what: 'How the edited slide reached the screen. Normally its body is swapped in place — a patch, near-instant. It climbs only on a rebuild (changing theme, size, or light/dark), when the browser re-parses the whole stylesheet.',
-		why: 'A patch skips the stylesheet reparse entirely; a rebuild pays it. This is a rebuild cost, not a slide-weight one — the size of the sheet drives it, and a rebuild is a one-off, not something you hit while typing.',
+		// FRAME means different things per render regime, so it is rated against per-regime
+		// budgets (perf-diagnosis §C1). A 'patch' swaps only the slide body in place — a true
+		// single-frame op. A 'restyle' swaps the theme <style>'s textContent in place: the
+		// SYNCHRONOUS frame is still cheap (a real 4× capture puts it median ~23ms, max ~84ms —
+		// the browser's sheet reparse lands off-frame, in TOTAL), so its FRAME band sits just
+		// above patch, not up at write. A 'write' rebuilds the whole preview document, re-parsing
+		// the ~260KB stylesheet + reloading the runtime + minting a fresh realm; inherently
+		// tens–hundreds of ms and can NEVER meet a 16ms frame budget — judging it by one was the
+		// panel's central lie. Bands roomier still on a slow phone.
+		regimeBands: { patch: { good: 16, ni: 50 }, restyle: { good: 60, ni: 180 }, write: { good: 250, ni: 600 } },
+		what: 'How the edited slide reached the screen. Normally its body is swapped in place — a patch, near-instant. A theme/mode change is a restyle (still a quick in-place <style> swap); it climbs to a full rebuild only on a size change, when the browser re-parses the whole stylesheet AND reloads the runtime.',
+		why: 'A patch skips the stylesheet reparse; a restyle swaps the sheet in place (the reparse lands off-frame, so FRAME stays low and TOTAL carries it); a rebuild pays the reparse plus a runtime reload on-frame. All are one-offs, not something you hit while typing.',
 	},
 	{
 		key: 'fitMs', label: 'FIT', title: 'Fit to pane', group: 'render',

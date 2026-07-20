@@ -84,7 +84,7 @@ function DetailBody({ meta, datum, reserveClose }: { meta: MetricMeta; datum: Me
 			{regime && (
 				<div className="-mt-1 font-mono text-[10.5px] text-muted-foreground">
 					this render: <span className="text-foreground/80">{REGIME_WORD[regime]}</span>
-					{regime === 'patch' ? ' — slide body swapped in place' : ' — full stylesheet reparse'}
+					{regime === 'patch' ? ' — slide body swapped in place' : regime === 'restyle' ? ' — theme <style> swapped in place (sheet reparses off-frame)' : ' — full rebuild (reparse + runtime reload)'}
 				</div>
 			)}
 
@@ -220,7 +220,7 @@ const Row = React.forwardRef<HTMLButtonElement, { meta: MetricMeta; datum: Metri
 				</span>
 				<span className="flex items-center gap-1 font-mono font-medium tabular-nums text-foreground">
 					{datum.regime && (
-						<span className="rounded-sm bg-muted px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground" title={datum.regime === 'patch' ? 'in-place patch — no stylesheet reparse' : 'full rebuild — stylesheet reparsed'}>
+						<span className="rounded-sm bg-muted px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground" title={datum.regime === 'patch' ? 'in-place body patch — no stylesheet reparse' : datum.regime === 'restyle' ? 'in-place theme <style> swap — sheet reparses off-frame, no realm mint' : 'full rebuild — stylesheet reparsed + runtime reloaded'}>
 							{REGIME_WORD[datum.regime]}
 						</span>
 					)}

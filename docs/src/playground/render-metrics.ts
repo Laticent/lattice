@@ -67,14 +67,17 @@ export type RenderSample = {
 	/** Which render regime produced this sample:
 	 *   'patch' — the resident-document fast path swapped only the `.lattice` body
 	 *             (nothing outside the slide changed); a true frame-budget op (~2ms).
-	 *   'write' — a full `srcdoc` rebuild (first render, or a theme/size/mode change)
-	 *             that re-parses the whole stylesheet + reloads the runtime (tens–
-	 *             hundreds of ms; inherently unable to meet a single-frame budget).
+	 *   'restyle' — swapped the resident theme `<style>` in place + the body (a theme/
+	 *             mode/palette change with NO srcdoc rewrite, so no new iframe realm — the
+	 *             fix for the theme-toggle realm-churn leak); also a frame-budget op.
+	 *   'write' — a full `srcdoc` rebuild (first render, or a size/mermaid change)
+	 *             that re-parses the whole stylesheet + reloads the runtime + mints a fresh
+	 *             realm (tens–hundreds of ms; inherently unable to meet a single-frame budget).
 	 * The overlay rates + smooths FRAME/TOTAL PER regime so the rare rebuild can't
 	 * poison the fast typing number, and so a rebuild isn't judged against a budget it
 	 * can never meet. Undefined on samples from paths that don't distinguish (rated
 	 * as-is). See engineering/decisions/2026-07-11-preview-performance-diagnosis.md §C1. */
-	writePath?: 'patch' | 'write';
+	writePath?: 'patch' | 'restyle' | 'write';
 	/** Per-stage engine breakdown, present only when the overlay requested it. */
 	stats?: RenderStats;
 	/** The unsmoothed sample, attached once a consumer exists. */
