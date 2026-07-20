@@ -31,7 +31,7 @@ const DIST = join(DOCS, 'dist');
 const FIXED_PORT = 4319; // stable origin so the SW scope + storage persist across relaunches (refresh mode)
 
 function parseArgs(argv) {
-	const o = { mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false };
+	const o = { mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--mode') o.mode = argv[++i];
@@ -42,6 +42,7 @@ function parseArgs(argv) {
 		else if (a === '--seed') o.seed = argv[++i];
 		else if (a === '--json') o.json = true;
 		else if (a === '--snapshot') o.snapshot = true;
+		else if (a === '--tts') o.tts = true;
 		else throw new Error(`unknown arg: ${a}`);
 	}
 	return o;
@@ -183,7 +184,66 @@ const CYCLES = {
 	// instrument (GC not settling / the perf HUD / rAF caches) drifts and every other
 	// cycle's "RISING" is suspect until corrected.
 	async idle(page) { await wait(page, 900); },
+	// ── added cycles (bodies filled from the driving cheat-sheet) ──────────────────
+	async compose(page) { await COMPOSE(page); },
+	async slidenav(page) { await SLIDENAV(page); },
+	async insert(page) { await INSERT(page); },
+	async slidesettings(page) { await SLIDESETTINGS(page); },
+	async decksettings(page) { await DECKSETTINGS(page); },
+	async deckswitch2(page) { await DECKSWITCH(page); },
+	async readaloud(page) { await READALOUD(page); },
+	// landing-surface cycles
+	async landing(page) { await LANDING_CYCLE(page); },
+	// playground-surface cycles
+	async pgslide(page) { await PG_SLIDE(page); },
+	async pgvariant(page) { await PG_VARIANT(page); },
+	async pgscroll(page) { await PG_SCROLL(page); },
 };
+
+// Which SURFACE (route + ready-selector) each cycle runs on. Default = studio.
+const SURFACES = {
+	studio: { url: '/studio?perf', ready: '.cm-content', settle: 1500 },
+	landing: { url: '/', ready: 'body', settle: 1800 },
+	playground: { url: '/playground', ready: '.cm-content', settle: 1800 },
+};
+const CYCLE_SURFACE = { landing: 'landing', pgslide: 'playground', pgvariant: 'playground', pgscroll: 'playground' };
+
+// Optional ONE-TIME setup per cycle, run after navigation & instrument, before the K-loop.
+// (e.g. read-aloud needs the BYOK key injected + Present opened once.) HARD RULE #24: the key
+// is read from a NEUTRAL env var (never OPEN_ROUTER_KEY) supplied by the operator at runtime —
+// the "drive the Playground on the user's own key" pattern the gate explicitly allows.
+const PREP = {
+	async readaloud(page, opts) { await READALOUD_PREP(page, opts); },
+};
+
+// Driving-cheat-sheet cycle bodies — placeholders until the recon lands; each is a NO-OP-safe
+// best-effort that the run harness flags if it fails to move the DOM (so a silent no-op can't
+// masquerade as "clean").
+async function COMPOSE(page) { await wait(page, 200); }
+async function SLIDENAV(page) { await wait(page, 200); }
+async function INSERT(page) { await wait(page, 200); }
+async function SLIDESETTINGS(page) { await wait(page, 200); }
+async function DECKSETTINGS(page) { await wait(page, 200); }
+async function DECKSWITCH(page) { await wait(page, 200); }
+async function READALOUD(page) { await wait(page, 200); }
+// HARD RULE #24: read the key from a NEUTRAL operator-supplied env var (NOT OPEN_ROUTER_KEY —
+// that literal must never appear in docs/**). Invoke voiced runs as:
+//   TORTURE_TTS_KEY="$OPEN_ROUTER_KEY" node scripts/studio-torture.mjs --cycle readaloud --tts
+// Without --tts / a key, read-aloud runs the captions-only transport (muted, no synth, no spend)
+// — which still tortures the reader rAF + caption DOM + track machinery (the leak surface).
+async function READALOUD_PREP(page, opts) {
+	const key = process.env.TORTURE_TTS_KEY;
+	if (opts.tts && key) {
+		await page.evaluate((k) => { try { localStorage.setItem('lattice-db-or-key', k); } catch {} }, key);
+		console.error('    readaloud: voiced (real TTS via operator TORTURE_TTS_KEY — SPENDS budget)');
+	} else {
+		console.error('    readaloud: captions-only (muted; no key/--tts → no synth, no spend)');
+	}
+}
+async function LANDING_CYCLE(page) { await wait(page, 200); }
+async function PG_SLIDE(page) { await wait(page, 200); }
+async function PG_VARIANT(page) { await wait(page, 200); }
+async function PG_SCROLL(page) { await wait(page, 200); }
 
 // ── heap-snapshot capture + per-constructor diff (root-cause attribution) ────────
 async function takeSnapshot(cdp) {
@@ -223,11 +283,13 @@ async function withinSession(browser, base, opts, cycleName) {
 	const page = await browser.newPage();
 	const cdpThrottle = await page.target().createCDPSession();
 	if (opts.cpu > 1) await cdpThrottle.send('Emulation.setCPUThrottlingRate', { rate: opts.cpu });
-	await page.goto(`${base}/studio?perf`, { waitUntil: 'networkidle0', timeout: 90000 });
-	await page.waitForSelector('.cm-content', { timeout: 30000 });
-	await wait(page, 1500);
+	const surf = SURFACES[CYCLE_SURFACE[cycleName] || 'studio'];
+	await page.goto(`${base}${surf.url}`, { waitUntil: 'networkidle0', timeout: 90000 });
+	await page.waitForSelector(surf.ready, { timeout: 30000 });
+	await wait(page, surf.settle ?? 1500);
 	const inst = await makeInstrument(page);
 	const cyc = CYCLES[cycleName]; if (!cyc) throw new Error(`unknown cycle ${cycleName}`);
+	if (PREP[cycleName]) { try { await PREP[cycleName](page, opts); } catch (e) { console.error(`    prep(${cycleName}) failed: ${e.message}`); } }
 	const series = [];
 	series.push(await sample(inst, 'baseline'));
 	const snapBase = opts.snapshot ? await takeSnapshot(inst.cdp) : null;
@@ -282,7 +344,8 @@ async function main() {
 		const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH, args: ['--no-sandbox'] });
 		// idle is always the CONTROL and runs first, so its per-metric drift becomes the
 		// noise floor every other cycle is judged against.
-		const requested = opts.cycle === 'all' ? ['idle', 'present', 'overview', 'palette', 'fullwrite', 'typing', 'mixed'] : [opts.cycle];
+		const ALL = ['idle', 'typing', 'present', 'overview', 'palette', 'fullwrite', 'compose', 'slidenav', 'insert', 'slidesettings', 'decksettings', 'deckswitch2', 'readaloud', 'landing', 'pgslide', 'pgvariant', 'pgscroll', 'mixed'];
+		const requested = opts.cycle === 'all' ? ALL : opts.cycle.split(',');
 		const cycles = requested.includes('idle') ? ['idle', ...requested.filter((c) => c !== 'idle')] : requested;
 		const report = {}; const diffs = {}; let controlSlopes = null;
 		for (const c of cycles) {
