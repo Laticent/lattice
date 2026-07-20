@@ -76,12 +76,16 @@ Three v4-specific traps, each fixed and worth recording:
    divider hides via its own Separator class (a Separator is a single div).
 3. **`useDefaultLayout` doesn't round-trip.** In v4.12 the hook's save and restore
    paths key storage differently and never restore a two-panel layout (verified
-   twice on the real surface). So **persistence is hand-rolled** in the hook:
-   localStorage for the editor ratio (survives reload), sessionStorage for the
-   collapsed side (survives reload, not a new tab) — exactly what the old useSplit
-   persisted — restored post-mount via `editorRef.resize("n%")` / `panelRef.collapse()`.
-   Note `resize()` takes a bare number as **pixels**; the share is a percent, so it
-   must be a `"n%"` string.
+   twice on the real surface). So **persistence is hand-rolled** in the hook and
+   covers the **whole structure**, not just the editor ratio: localStorage stores
+   the FULL group layout — every panel's size, so the Studio's Settings/Assistant
+   column widths persist alongside the editor|preview split — keyed by a `configKey`
+   (which panels are present), so each Studio configuration (Coach open, Library
+   open wider, bare Write, tablet Inspector) keeps its own remembered widths. The
+   collapsed side is sessionStorage (survives reload, not a new tab). Restored
+   post-mount AND whenever the config changes, via `groupRef.setLayout()` /
+   `panelRef.collapse()`. Note `resize()` takes a bare number as **pixels**; sizes
+   are percentages, so a `"n%"` string.
 
 **Accepted tradeoff — first-paint ratio jump.** The old hand-rolled split seeded a
 returning resizer's saved ratio into a CSS var *before* hydration (no first-paint

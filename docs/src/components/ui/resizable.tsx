@@ -1,5 +1,6 @@
 "use client"
 
+import { GripVertical } from "lucide-react"
 import * as React from "react"
 import { Group, Panel, Separator, type GroupProps, type PanelProps, type SeparatorProps } from "react-resizable-panels"
 
@@ -58,8 +59,8 @@ function ResizablePanel({ className, ...props }: PanelProps) {
  * hover / focus-visible / active reveal three grip dots and warm the line to
  * accent. The grab hit area is an out-of-flow overlay straddling the line
  * (wider on coarse pointers); the library extends the effective target via the
- * group's `resizeTargetMinimumSize`. Set `withHandle={false}` to drop the dots
- * (a plain hairline seam between docked panels).
+ * group's `resizeTargetMinimumSize`. `withHandle` (default) shows an always-visible
+ * grip nub straddling the seam; `withHandle={false}` is a plain hairline seam.
  */
 function ResizableHandle({
 	className,
@@ -88,14 +89,21 @@ function ResizableHandle({
 			{...props}
 		>
 			{withHandle ? (
+				// An always-visible grip nub centered on the seam — the divider reads as
+				// a handle at rest (not only on hover). Warms to accent on hover / focus /
+				// active drag; grows on coarse pointers for a fat-finger target.
 				<span
 					data-slot="resize-grip"
 					aria-hidden="true"
-					className="pointer-events-none flex flex-col gap-[3px] opacity-0 transition-opacity duration-150 group-hover/resize-handle:opacity-100 group-focus-visible/resize-handle:opacity-100 group-active/resize-handle:opacity-100 pointer-coarse:opacity-50"
+					className={cn(
+						"pointer-events-none z-10 flex items-center justify-center rounded-sm border border-border bg-[var(--bg-alt)] text-muted-foreground shadow-sm transition-colors duration-150",
+						"h-6 w-3 pointer-coarse:h-8 pointer-coarse:w-4",
+						"group-hover/resize-handle:border-[color:var(--accent)] group-hover/resize-handle:text-[color:var(--accent)]",
+						"group-focus-visible/resize-handle:border-[color:var(--accent)] group-focus-visible/resize-handle:text-[color:var(--accent)]",
+						"group-active/resize-handle:border-[color:var(--accent)] group-active/resize-handle:text-[color:var(--accent)]",
+					)}
 				>
-					<span className="size-[3px] rounded-full bg-muted-foreground" />
-					<span className="size-[3px] rounded-full bg-muted-foreground" />
-					<span className="size-[3px] rounded-full bg-muted-foreground" />
+					<GripVertical className="size-3" />
 				</span>
 			) : null}
 		</Separator>

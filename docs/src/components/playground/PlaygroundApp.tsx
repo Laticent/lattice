@@ -579,6 +579,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		storageKey: 'lattice-docs-split-playground',
 		active: splitActive,
 		defaultRatio: 45,
+		configKey: 'ep', // the Playground group is always just editor|preview
+
 		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onExpand: (side) => {
 			if (side === 'b') onPreviewExpand();

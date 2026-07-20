@@ -1435,10 +1435,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// choreography differs from the Playground's: the Studio suspends its per-host
 	// scaleFrame ResizeObservers during a drag (onDragStart) and resumes — running
 	// one authoritative re-fit — at release (onDragEnd).
+	// The persistence bucket — which panels the group currently renders, so each
+	// configuration (Coach open, Library open wider, Settings docked, bare Write,
+	// tablet Inspector) keeps its own remembered widths. Library is 'L' vs the
+	// coach/lenses 'A' because it docks wider and gets its own saved width.
+	const splitConfigKey =
+		(desktop && effectiveStop === 'build' && inspectorOpen ? 'S' : '') +
+		(desktop && effectiveStop === 'build' && assistantOpen ? (libraryOpen ? 'L' : 'A') : '') +
+		'EP' +
+		(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? 'T' : '');
 	const split = useResizableSplit({
 		storageKey: 'lattice-docs-split-studio',
 		active: splitUsable,
 		defaultRatio: 46,
+		configKey: splitConfigKey,
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		onDragStart: () => suspendScaleObservers(true),
 		onDragEnd: () => suspendScaleObservers(false),
@@ -3170,7 +3180,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 								<ResizablePanel id="studio-settings" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={SET_DEFAULT} className="overflow-hidden border-r border-border bg-background">
 									{inspectorScopeContent}
 								</ResizablePanel>
-								<ResizableHandle withHandle={false} aria-label="Resize settings panel" />
+								<ResizableHandle aria-label="Resize settings panel" />
 							</>
 						)}
 						{/* The assistant slot — ONE of Coach / Chat / Lenses / Library, docked next
@@ -3202,7 +3212,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
 									)}
 								</ResizablePanel>
-								<ResizableHandle withHandle={false} aria-label="Resize panel" />
+								<ResizableHandle aria-label="Resize panel" />
 							</>
 						)}
 
@@ -3226,7 +3236,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    activity bar below desktop; the in-panel Slide/Deck segment is its scope). */}
 						{bp === 'tablet' && effectiveStop === 'build' && inspectorOpen && (
 							<>
-								<ResizableHandle withHandle={false} aria-label="Resize inspector panel" />
+								<ResizableHandle aria-label="Resize inspector panel" />
 								<ResizablePanel id="studio-tablet-inspector" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={296} className="overflow-hidden border-l border-border bg-background">
 									{inspectorScopeContent}
 								</ResizablePanel>

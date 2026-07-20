@@ -31,10 +31,12 @@ in patch versions.
   charts; per-chart *choreography* (pie has no top-to-bottom order) still needs its own defaults.
 - **The Playground and Studio splitters are now the shadcn resizable panel (`react-resizable-panels`),
   and the Studio's Coach / Chat / Library / Settings side panels are resizable too.** The
-  editor|preview divider (drag, or arrow keys on the separator) and its collapse-to-rail are
-  unchanged in feel but now ride the proven library instead of the hand-rolled splitter; in the
-  Studio the whole workspace is one resizable group, so you can widen the Coach or Library panel by
-  dragging, not just the editor. The split persists per surface. Under the hood this retires the two
+  divider now carries an always-visible grip handle (drag, or arrow keys on the separator) and its
+  collapse-to-rail is unchanged in feel but now rides the proven library instead of the hand-rolled
+  splitter; in the Studio the whole workspace is one resizable group, so you can widen the Coach or
+  Library panel by dragging, not just the editor. **The full split structure persists per surface —
+  every panel width (including the docked Coach / Library / Settings columns) and the collapse state
+  survive a refresh**, remembered per configuration. Under the hood this retires the two
   custom resize systems (`ui/split.tsx` + `studio/use-panel-width.ts`) and the fr-pair "void" math
   (#721) — react-resizable-panels v4's native pixel minimums express the same constraint directly.
   (`ui/resizable.tsx`, `ui/use-resizable-split.ts`, `PlaygroundApp.tsx`, `StudioShell.tsx`;
