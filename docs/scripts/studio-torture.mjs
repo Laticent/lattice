@@ -43,7 +43,8 @@ function parseArgs(argv) {
 		else if (a === '--json') o.json = true;
 		else if (a === '--snapshot') o.snapshot = true;
 		else if (a === '--tts') o.tts = true;
-		else if (a === '--retainers') o.retainers = true;
+		else if (a === "--retainers") o.retainers = true;
+		else if (a === "--realm") o.realm = true;
 		else throw new Error(`unknown arg: ${a}`);
 	}
 	return o;
@@ -418,9 +419,16 @@ function retainerReport(snap, opts = {}) {
 	const targets = [];
 	for (let i = 0; i < g.nCount; i++) {
 		const t = NT[nodes[i * NS + iNType]];
+		const name = strings[nodes[i * NS + iNName]] ?? '';
+		if (opts.realm) {
+			// realm targets: the JS global environments of (detached) iframes — the true holder
+			// of the FunctionTemplateInfo/AccessorInfo/PrototypeInfo bulk. A retained Window /
+			// Document / native Context that is NOT the top-level page is a leaked realm.
+			if (t === 'object' && (name === 'Window' || name === 'Document' || name === 'global' || /Context/.test(name))) targets.push(i);
+			continue;
+		}
 		if (t !== 'string' && t !== 'concatenated string' && t !== 'sliced string') continue;
 		if (nodes[i * NS + iNSelf] < wantBig) continue;
-		const name = strings[nodes[i * NS + iNName]] ?? '';
 		if (/lattice\.min\.css|lattice-engine scaffold|<div class="lattice">/.test(name)) targets.push(i);
 	}
 	const chains = new Map();
@@ -475,7 +483,7 @@ async function withinSession(browser, base, opts, cycleName) {
 			await inst.gc(); await inst.gc();
 			process.stderr.write(`    ${cycleName}: taking retainer snapshot…\n`);
 			const snapR = await takeSnapshot(inst.cdp);
-			retReport = retainerReport(snapR, { sample: 12 });
+			retReport = retainerReport(snapR, { sample: 16, realm: opts.realm });
 		}
 	} finally {
 		await page.close().catch(() => {});
