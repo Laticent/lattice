@@ -2871,12 +2871,10 @@ section.compare-prose .compare-prose-inner .card > ol { list-style:none; padding
 section.compare-prose .compare-prose-inner .card > ul > li,
 section.compare-prose .compare-prose-inner .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 section.compare-prose .connector { display:flex; align-items:center; justify-content:center; font-size:var(--fs-h3); color:var(--text-secondary); padding:0 var(--sp-sm); flex-shrink:0; }
-/* Content follows the headline-alignment seam (`headline:` register). `text-align` handles
- * multi-line wrapping; `align-items` (flex column) aligns the capped note BOX so a short line
- * center/right-aligns on the frame, not within its own measure cap. `auto` → left/flex-start
- * (byte-identical). The full-width hairline (::before, absolute) is a separator, not text, so
- * it stays full-bleed. */
-.below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); display:flex; flex-direction:column; align-items:var(--headline-justify, flex-start); }
+/* text-align follows the headline-alignment seam (`headline:` register); inherits to the
+ * note's `p`. `auto` → fallback `left` (today's render). The full-width hairline (::before,
+ * absolute) is a separator, not text, so it stays full-bleed. */
+.below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); }
 .below-note::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(to right, var(--accent), transparent); }
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
@@ -3797,7 +3795,7 @@ section.diagram > .cell-stage > p { font-size:var(--fs-meta); line-height:var(--
    its centered title, so the dek must stay centered to match it. (Under the Form the
    dek always hoists into `.cell-stage`, so only the `> .cell-stage > p` arm is live.) */
 /* The dek follows the headline-alignment seam (`headline:`). Left fallback preserves the
- * 2026-07-04 form-left fix; head-center/right now move it with the title as one cluster. */
+ * 2026-07-04 form-left fix; `head-left` pins it left with the title as one cluster. */
 section.form.diagram > .cell-stage > p { align-self:stretch; text-align:var(--headline-align, left); }
 /* Hug the title band when a subtitle leads — mirror of the chart-frame rule: the
    masthead clearance is right below a bare title, too loose below a leading dek. The
@@ -3830,7 +3828,7 @@ section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
   flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); max-width:100%; height:auto; min-height:0;
 }
-section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; display:flex; flex-direction:column; align-items:var(--headline-justify, center); }
+section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
 /* Key Insight panel on diagram slides must stretch full-width to match every
    other layout. section.diagram uses align-items:center (mirrored onto the stage
    cell) which would shrink the blockquote to fit-content; align-self:stretch
@@ -3855,7 +3853,7 @@ section.diagram > .cell-stage > blockquote { align-self:stretch; }
  * engineering/decisions/2026-07-03-status-marker-style-variants.md §spectrum. */
 /* align-items + the h2 text-align read the headline seam (`headline:` register). The default
  * divider is LEFT (heading in the lower-left) — the fallbacks encode that, so `auto`/no register
- * is byte-identical; head-center/right re-anchor it. */
+ * is byte-identical; `head-left` re-anchors it left. */
 section.divider { background:var(--spectrum-vertical, var(--spectrum)) left / 0.46875cqi 100% no-repeat, var(--surface-inverse); padding-left:calc(var(--_sec-1cqi,1cqi)*9.375); justify-content:center; align-items:var(--headline-justify, flex-start); }
 section.divider { border-top: none; }
 /* Section heading slot is h2 — a divider names a section of the deck, not
@@ -14715,14 +14713,10 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   /* Separation from the preceding block is supplied by the flow container's `gap`
    * (the stage cell under Form), not a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
-  /* The framing text follows the headline-alignment seam (`headline:` register). The panel
-   * box stays full-width; its CONTENT aligns. `text-align` handles multi-line wrapping;
-   * `align-items` (flex column) aligns the readable-measure-capped label/body/list BOXES so a
-   * short line centers/right-aligns on the PANEL, not just within its own cap. `auto`/no
-   * register → left/flex-start (today's render, byte-identical). */
+  /* The framing text follows the headline-alignment seam (`headline:` register); text-align
+   * inherits to the KEY INSIGHT label, body, and list. `auto`/no register → the fallback
+   * `left` (today's render, byte-identical); `head-left` pins it left. */
   text-align:var(--headline-align, left);
-  display:flex; flex-direction:column;
-  align-items:var(--headline-justify, flex-start);
 }
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::before,
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::before {
@@ -19535,16 +19529,6 @@ section.form .cell-masthead .masthead-lede {
    * undefined → the fallback `left` applies, byte-identical to today's left-aligned band. */
   text-align: var(--headline-align, left);
 }
-/* Box-alignment for center/right ONLY. text-align can't move a max-width-capped heading BOX
- * (it centers text WITHIN the cap, pooling it off-frame), so head-center/right flex the lede
- * column and align the boxes. Scoped to the register classes so `auto`/`head-left` stay in
- * plain BLOCK flow — the heading keeps its full lede width, which components like `glossary`
- * (a `justify-content:space-between` range pill on the `h2`) depend on. Flexing under `auto`
- * shrank that `h2` to content width and collapsed the pill (byte-identical regression). */
-section.form:is(.head-center, .head-right) .cell-masthead .masthead-lede {
-  display: flex; flex-direction: column;
-  align-items: var(--headline-justify);
-}
 
 /* === lib/forms/cell/masthead/masthead.css === */
 /* ── MASTHEAD Cell — the named top band (opt-in via `form`) ──────────────────
@@ -20153,14 +20137,6 @@ section:is(.rule-short, .rule-accent).form .cell-masthead::after {
   background: var(--border);
 }
 section.rule-accent.form .cell-masthead::after { background: var(--accent); }
-/* The short rule IS the "heading rule" framing piece, so it follows the headline-alignment
- * seam — it must not stay left-anchored while the heading centers/right-aligns (that was the
- * exact within-slide disagreement the feature exists to kill). The pseudo is absolutely
- * positioned, so it can't read `--headline-justify` (a flex property); position it per the
- * alignment instead. head-left / auto keep the default `left: 0`. (With a masthead bay the
- * cluster aligns beside the bay — same documented caveat as the rest of the framing.) */
-section:is(.rule-short, .rule-accent).form.head-center .cell-masthead::after { left: 50%; transform: translateX(-50%); }
-section:is(.rule-short, .rule-accent).form.head-right  .cell-masthead::after { left: auto; right: 0; }
 
 /* accent — recolor the split-panel kicker rule to match; none already handled above. */
 section.rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }
@@ -20228,30 +20204,20 @@ section.eyebrow-underline
  *
  * `auto` (the default) emits NO token: the seam properties stay UNDEFINED, so each paint site
  * falls back to its own baked default via `var(--headline-align, <default>)` — today's render is
- * byte-identical (the component still decides). `left`/`center`/`right` DEFINE the seam on the
- * section; it inherits to every framing descendant and overrides the fallbacks as one system.
+ * byte-identical (the component still decides). `left` DEFINES the seam on the section; it
+ * inherits to every framing descendant and overrides the fallbacks as one system.
  *
- * Two channels so both text pieces (text-align: left|center|right) and flex-boxed pieces
- * (align-items/self: flex-start|center|flex-end) read the one author choice. No `margin` (HARD
- * RULE #20 — alignment is text-align / align-*, which measure cleanly); no hex (HARD RULE #3).
- * See engineering/decisions/2026-07-20-mass-head-alignment.md. */
-section.head-left   { --headline-align: left;   --headline-justify: flex-start; }
-section.head-center { --headline-align: center; --headline-justify: center; }
-section.head-right  { --headline-align: right;  --headline-justify: flex-end; }
-
-/* Center/right align the masthead cluster on the FULL frame when the masthead has NO bay.
- * The masthead is a grid — `[masthead-lede] 1fr [masthead-bay] auto` + a column-gap — so the
- * lede column is always inset from the frame's right edge by the (possibly empty) bay column
- * + gap. Under head-left that's invisible (shared left origin); under head-center/right the
- * cluster would otherwise center/right-align ~½-gap left of the full-width stage framing (key
- * insight, below-note, caption). When the bay is empty, collapse it so the lede spans the full
- * frame and the cluster shares the stage's axis. A masthead WITH a bay keeps its reserved
- * column (the title must not run under the meta/logo) — there the cluster aligns beside the
- * bay, a documented scope edge. Plain `:has()` in engine CSS is allowed (HARD RULE #12 retired). */
-section.form:is(.head-center, .head-right) .cell-masthead:has(> .masthead-bay:empty) {
-  grid-template-columns: [masthead-lede] 1fr [masthead-bay] 0;
-  column-gap: 0;
-}
+ * Two channels: text pieces read `--headline-align` (text-align: left), flex-boxed pieces read
+ * `--headline-justify` (align-items/self: flex-start). No `margin` (HARD RULE #20 — alignment is
+ * text-align / align-*, which measure cleanly); no hex (HARD RULE #3).
+ *
+ * SCOPED TO auto + left. `center`/`right` are a deliberate follow-up: box-aligning capped/inset
+ * framing on the full frame — especially against a masthead bay, where the lede is structurally
+ * inset but the stage is not — needs its own design pass (two adversarial trios found the
+ * center/right machinery a recurring source of edge cases). `left` needs none of it: every
+ * framing box is already left-pinned in plain block flow, so it's a pure seam read. See
+ * engineering/decisions/2026-07-20-mass-head-alignment.md § "Scoped to auto + left". */
+section.head-left { --headline-align: left; --headline-justify: flex-start; }
 
 /* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
  * surfaces ────────────────────────────────────────────────────────────────────────────────

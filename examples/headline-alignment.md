@@ -11,7 +11,7 @@ header: "Lattice · Headline alignment"
 
 # Headline alignment
 
-The alignment of a slide's **framing text** — eyebrow, heading, rule, subtitle, below-note, key insight, caption — is no longer baked into each layout. One register, `headline:`, sets it deck-wide or per slide. Every value defaults to `auto`, so today's decks are unchanged.
+The alignment of a slide's **framing text** — eyebrow, heading, rule, subtitle, below-note, key insight, caption — is no longer baked into each layout. One register, `headline:`, sets it. `auto` keeps each component's own default; `left` pins the whole cluster to the margin.
 
 ---
 
@@ -21,51 +21,36 @@ The alignment of a slide's **framing text** — eyebrow, heading, rule, subtitle
 
 ## The component keeps its default
 
-By default the register emits nothing and each layout keeps its own alignment — a content masthead sits **left**, a title stays **centered**. `headline:` only moves when you ask.
+By default the register emits nothing and each layout renders exactly as before — a content masthead sits **left**, a title stays **centered**. `headline:` only moves when you ask, so no existing deck shifts a pixel.
 
-> Left by default — the eyebrow, heading, and this panel share one axis.
-
----
-
-<!-- _class: content head-center -->
-
-`Register · center`
-
-## The same slide, centered
-
-This slide carries `_class: head-center`. Every framing piece follows — no eyebrow left over a centered title, no note left behind.
-
-> Centered here — the panel stays full-width; only its text re-anchors.
+> Left by default here — the eyebrow, heading, and this Key Insight already share one axis on a content slide.
 
 ---
 
-<!-- _class: content head-right -->
+<!-- _class: title head-left -->
 
-`Register · right`
+`Same title · head-left`
 
-## And right, as one cluster
+# Left-aligned, on demand
 
-`head-right` anchors the framing to the right edge — the rare escape, included for symmetry with the body `align-*` controls, which stay independent.
-
-> The body `align-*` axis is untouched, so a right headline can sit over a left body.
+A title centers by default. `_class: head-left` pins its eyebrow, heading, and subtitle to the left margin together — the whole framing cluster, not one piece.
 
 ---
 
-<!-- _class: piechart head-center -->
+<!-- _class: stats head-left -->
 
-`H1 2026 · centered header`
+`Metrics · head-left`
 
-## Charts follow, too
+## Even a centered layout follows
 
-`headline: center` re-centers the chart's masthead and caption in lock-step — no left title over a centered caption.
-
-- Deck production `46%`
-- Meetings `22%`
-- Realigning `18%`
-- Stakeholder work `9%`
-- Deciding `5%`
-
-Figure 1 — the caption follows the same axis as the title above it.
+1. 53
+   - components
+2. 14
+   - themes
+3. 4
+   - export formats
+4. 1
+   - source file
 
 ---
 
@@ -73,29 +58,33 @@ Figure 1 — the caption follows the same axis as the title above it.
 
 `Deck-wide · front matter`
 
-## Set it once for the whole deck
+## Set it once, or per slide
 
-Add `headline: center` to the front matter and every slide centers its framing — the title and closing bookends included. A single slide opts back out with `<!-- _class: head-left -->`.
+Add `headline: left` to the front matter and every slide left-aligns its framing — the title and closing bookends included. Or leave the deck on `auto` and pin just the slides that need it.
 
 - Deck-wide
-  - `headline: center` in the `---` block.
-- One exception
-  - `_class: head-left` on the slide that needs it.
+  - `headline: left` in the `---` block.
+- Per slide
+  - `_class: head-left` on one slide.
 
 ---
 
-<!-- _class: divider -->
+<!-- _class: content -->
 
-`Section · two`
+`Roadmap · what's next`
 
-## Dividers keep their own default
+## Center and right are coming
+
+This ships the rock-solid core — `auto` and `left`. Centering and right-aligning the cluster on the full frame (especially against a masthead bay) is a deliberate follow-up, so it lands designed, not patched.
+
+> Alignment is a token the author owns now — `var(--headline-align)` — the way color already is. `left` is the first value; the rest follow.
 
 ---
 
-<!-- _class: closing head-center -->
+<!-- _class: closing head-left -->
 
 `Wrap`
 
 ## One axis, every framing piece
 
-Alignment is now a token the author owns — `var(--headline-align)` — the way color already is. Set it deck-wide, override it per slide, and the framing text never disagrees with itself again.
+Set `headline:` deck-wide or per slide, and the framing text stops disagreeing with itself. `auto` respects each component; `left` makes them all agree.

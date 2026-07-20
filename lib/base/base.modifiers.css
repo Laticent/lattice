@@ -194,14 +194,10 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   /* Separation from the preceding block is supplied by the flow container's `gap`
    * (the stage cell under Form), not a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
-  /* The framing text follows the headline-alignment seam (`headline:` register). The panel
-   * box stays full-width; its CONTENT aligns. `text-align` handles multi-line wrapping;
-   * `align-items` (flex column) aligns the readable-measure-capped label/body/list BOXES so a
-   * short line centers/right-aligns on the PANEL, not just within its own cap. `auto`/no
-   * register → left/flex-start (today's render, byte-identical). */
+  /* The framing text follows the headline-alignment seam (`headline:` register); text-align
+   * inherits to the KEY INSIGHT label, body, and list. `auto`/no register → the fallback
+   * `left` (today's render, byte-identical); `head-left` pins it left. */
   text-align:var(--headline-align, left);
-  display:flex; flex-direction:column;
-  align-items:var(--headline-justify, flex-start);
 }
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::before,
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::before {

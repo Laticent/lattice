@@ -4,7 +4,7 @@
 // HEADLINE_NAMES (lib/core/resolve-headline.js). THIS file adds only the human layer the picker
 // needs; the rot-guard is headline-catalog.test.ts.
 //
-// Authored deck-wide via `headline:` or per-slide via `_class: head-center` etc.
+// Authored deck-wide via `headline:` or per-slide via `_class: head-left`.
 
 export type HeadlineEntry = {
 	/** the `headline:` register value (and engine HEADLINE_NAMES member) */
@@ -34,16 +34,8 @@ export const HEADLINES: HeadlineEntry[] = [
 		blurb: 'Pin the framing cluster to the left margin.',
 		swatch: { background: bars('left') },
 	},
-	{
-		name: 'center', label: 'Center',
-		blurb: 'Center the framing cluster.',
-		swatch: { background: bars('center') },
-	},
-	{
-		name: 'right', label: 'Right',
-		blurb: 'Right-align the framing cluster — the rare escape.',
-		swatch: { background: bars('right') },
-	},
+	// `center` / `right` are a deferred follow-up (box-aligning capped/inset framing on the full
+	// frame needs its own design pass); the engine only ships `auto` / `left` today.
 ];
 
 export const HEADLINE_BY_NAME: Record<string, HeadlineEntry> = Object.fromEntries(

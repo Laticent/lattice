@@ -16,13 +16,3 @@ section.form .cell-masthead .masthead-lede {
    * undefined → the fallback `left` applies, byte-identical to today's left-aligned band. */
   text-align: var(--headline-align, left);
 }
-/* Box-alignment for center/right ONLY. text-align can't move a max-width-capped heading BOX
- * (it centers text WITHIN the cap, pooling it off-frame), so head-center/right flex the lede
- * column and align the boxes. Scoped to the register classes so `auto`/`head-left` stay in
- * plain BLOCK flow — the heading keeps its full lede width, which components like `glossary`
- * (a `justify-content:space-between` range pill on the `h2`) depend on. Flexing under `auto`
- * shrank that `h2` to content width and collapsed the pill (byte-identical regression). */
-section.form:is(.head-center, .head-right) .cell-masthead .masthead-lede {
-  display: flex; flex-direction: column;
-  align-items: var(--headline-justify);
-}

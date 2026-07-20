@@ -852,28 +852,26 @@ a typo is caught as `unknown-headline`.
 
 | `headline:` value | Token | Effect |
 |---|---|---|
-| `auto` | *(none)* | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. |
-| `left` | `head-left` | Pin the whole framing cluster to the left margin. |
-| `center` | `head-center` | Center the whole framing cluster. |
-| `right` | `head-right` | Right-align the framing cluster — the rare escape. |
+| `auto` | *(none)* | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
+| `left` | `head-left` | Pin the whole framing cluster to the left margin — even on a layout that centers by default (title, closing, stats, charts). |
+
+*(`center` / `right` are a deliberate follow-up — box-aligning capped/inset framing on the full
+frame, especially against a masthead bay, needs its own design pass. This ships the rock-solid
+`auto` + `left` core; the values are reserved, not yet live.)*
 
 Only the **framing** text follows — the slide **body** keeps its own alignment. Two distinct
 controls, on two surfaces: **`headline:`** moves the framing cluster (this register);
 **`align-left`/`align-center`/`align-right`** (the universal `#527` modifiers) move the **body
-block**. They are independent, so a centered headline can sit over a left-aligned body.
+block**. They are independent, so a left headline can sit over a differently-aligned body.
 
 Under the hood the register drives one inherited seam, `--headline-align` (+ `--headline-justify`
 for the flex-boxed pieces); a component's default is the `var(--headline-align, <default>)`
 fallback, so `auto` is byte-identical to today's render. Alignment is `text-align` / `align-*`
 (never `margin`), so it measures cleanly.
 
-**What follows, and the edges.** `left` is always exact (every piece shares the left origin).
-`center` / `right` align the whole cluster on the frame **when the masthead has no bay** — with a
-`meta:`/`logo:`/`status:` tile the cluster aligns in the space *beside* the bay (the title must
-not run under it). A few layouts are partial: `split-panel` / `split-compare` don't route their
-panel heading through the seam (no-op there); and `quote` / `citation-card` / `math` / `redline` /
-`inventory` move their heading but not their body. A framing surface follows `headline:` only if
-its CSS reads the seam — a new component must opt in (a rot-guard test pins the covered set).
+**Coverage.** A framing surface follows `headline:` only if its CSS reads the seam — a new
+component must opt in (a rot-guard test pins the covered set). Two layouts don't route their
+heading through the seam yet: `split-panel` / `split-compare` (no `masthead-lede`).
 
 #### The `lift:` front-matter register (card elevation)
 

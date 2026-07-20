@@ -362,3 +362,52 @@ heading rule is one of the named framing pieces, so this was in scope, not an ed
   test (`resolve-headline.test.js`) pins every currently-covered site — dropping a
   seam read fails the build. It cannot catch a brand-new unretrofitted component;
   that boundary is documented here and in `base.docs.md`.
+
+## Scoped to auto + left — the shipping decision (2026-07-20)
+
+A **second adversarial trio** (run on the post-first-trio fixes) plus a live
+review pass changed the shipping shape. The pattern across both trios was
+unambiguous:
+
+- **`auto` + `left` is rock-solid** — byte-identical, clean, a pure `text-align` /
+  `align-*` seam read, and it *is* the brief's actual complaint ("components
+  hard-center; let me left-align"). No trio found a single defect on this path.
+- **`center` / `right` was a recurring edge-case source** — because `text-align`
+  cannot move a max-width-capped or bay-inset **box**, center/right needed a pile
+  of box-level machinery (flex-ified framing containers, a `:has(:empty)` bay
+  collapse, per-alignment pseudo positioning). Each fix spawned another edge:
+  - the flex rework broke `auto` byte-identity on `glossary` (its
+    `justify-content:space-between` range pill collapsed when the heading shrank to
+    content width — second-trio checker, HIGH);
+  - with a **non-empty masthead bay**, the masthead cluster aligns *beside* the bay
+    while the stage framing (key insight, below-note, caption) and the accent rule
+    align on the *full frame* — the cluster splits, and this is **structural**
+    (the lede is inset by the bay; the stage is not), so it has no clean fix
+    (second-trio red team, HIGH);
+  - bulleted key-insight dash markers detach under center/right;
+  - the Munger inversion flagged the `:has(:empty)` collapse as a silent
+    render-path landmine (a future persistent bay child disables it globally) and
+    the flex-on-prose as a permanent trap for future content.
+
+**Decision (human, A/A):** ship the `auto` + `left` core now; make `center` /
+`right` a **separate, properly-designed follow-up** that decides the bay behavior
+up front rather than patching it reactively. Also deferred: a **consistent-defaults
+pass** (making each component's *own* default framing internally consistent so
+`auto` stops reproducing pre-existing splits like `stats`' centered-heading /
+left-eyebrow — surfaced live on the docs preview).
+
+**Removed from the shipping diff** (all center/right-only machinery):
+`head-center` / `head-right` tokens and section rules; the `:has(> .masthead-bay:empty)`
+collapse; the accent-rule per-alignment `::after` repositioning; and the
+flex-ification of the framing containers (`masthead-lede`, key-insight blockquote,
+`.below-note`, diagram/caption) — `left` needs none of it, since every framing box
+is already left-pinned in plain block flow.
+
+**What ships:** `headline: auto | left`. `auto` = byte-identical (respect the
+component); `left` = one inherited seam (`--headline-align` for text pieces,
+`--headline-justify` for the already-flex pieces: `hr`, the anchor frames, the
+chart caption, `stats` / `list-steps.timeline` headings) that pins the whole
+framing cluster left — even on a layout that centers by default. `resolve-headline.js`
+`HEADLINE_NAMES` is `['auto', 'left']`; the rot-guard, lint vocab, and Studio
+catalog track it. `center` / `right` are reserved but not live (the resolver maps
+them to no token; the linter flags them as `unknown-headline`).

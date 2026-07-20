@@ -44,14 +44,6 @@ section:is(.rule-short, .rule-accent).form .cell-masthead::after {
   background: var(--border);
 }
 section.rule-accent.form .cell-masthead::after { background: var(--accent); }
-/* The short rule IS the "heading rule" framing piece, so it follows the headline-alignment
- * seam — it must not stay left-anchored while the heading centers/right-aligns (that was the
- * exact within-slide disagreement the feature exists to kill). The pseudo is absolutely
- * positioned, so it can't read `--headline-justify` (a flex property); position it per the
- * alignment instead. head-left / auto keep the default `left: 0`. (With a masthead bay the
- * cluster aligns beside the bay — same documented caveat as the rest of the framing.) */
-section:is(.rule-short, .rule-accent).form.head-center .cell-masthead::after { left: 50%; transform: translateX(-50%); }
-section:is(.rule-short, .rule-accent).form.head-right  .cell-masthead::after { left: auto; right: 0; }
 
 /* accent — recolor the split-panel kicker rule to match; none already handled above. */
 section.rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }
@@ -119,30 +111,20 @@ section.eyebrow-underline
  *
  * `auto` (the default) emits NO token: the seam properties stay UNDEFINED, so each paint site
  * falls back to its own baked default via `var(--headline-align, <default>)` — today's render is
- * byte-identical (the component still decides). `left`/`center`/`right` DEFINE the seam on the
- * section; it inherits to every framing descendant and overrides the fallbacks as one system.
+ * byte-identical (the component still decides). `left` DEFINES the seam on the section; it
+ * inherits to every framing descendant and overrides the fallbacks as one system.
  *
- * Two channels so both text pieces (text-align: left|center|right) and flex-boxed pieces
- * (align-items/self: flex-start|center|flex-end) read the one author choice. No `margin` (HARD
- * RULE #20 — alignment is text-align / align-*, which measure cleanly); no hex (HARD RULE #3).
- * See engineering/decisions/2026-07-20-mass-head-alignment.md. */
-section.head-left   { --headline-align: left;   --headline-justify: flex-start; }
-section.head-center { --headline-align: center; --headline-justify: center; }
-section.head-right  { --headline-align: right;  --headline-justify: flex-end; }
-
-/* Center/right align the masthead cluster on the FULL frame when the masthead has NO bay.
- * The masthead is a grid — `[masthead-lede] 1fr [masthead-bay] auto` + a column-gap — so the
- * lede column is always inset from the frame's right edge by the (possibly empty) bay column
- * + gap. Under head-left that's invisible (shared left origin); under head-center/right the
- * cluster would otherwise center/right-align ~½-gap left of the full-width stage framing (key
- * insight, below-note, caption). When the bay is empty, collapse it so the lede spans the full
- * frame and the cluster shares the stage's axis. A masthead WITH a bay keeps its reserved
- * column (the title must not run under the meta/logo) — there the cluster aligns beside the
- * bay, a documented scope edge. Plain `:has()` in engine CSS is allowed (HARD RULE #12 retired). */
-section.form:is(.head-center, .head-right) .cell-masthead:has(> .masthead-bay:empty) {
-  grid-template-columns: [masthead-lede] 1fr [masthead-bay] 0;
-  column-gap: 0;
-}
+ * Two channels: text pieces read `--headline-align` (text-align: left), flex-boxed pieces read
+ * `--headline-justify` (align-items/self: flex-start). No `margin` (HARD RULE #20 — alignment is
+ * text-align / align-*, which measure cleanly); no hex (HARD RULE #3).
+ *
+ * SCOPED TO auto + left. `center`/`right` are a deliberate follow-up: box-aligning capped/inset
+ * framing on the full frame — especially against a masthead bay, where the lede is structurally
+ * inset but the stage is not — needs its own design pass (two adversarial trios found the
+ * center/right machinery a recurring source of edge cases). `left` needs none of it: every
+ * framing box is already left-pinned in plain block flow, so it's a pure seam read. See
+ * engineering/decisions/2026-07-20-mass-head-alignment.md § "Scoped to auto + left". */
+section.head-left { --headline-align: left; --headline-justify: flex-start; }
 
 /* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
  * surfaces ────────────────────────────────────────────────────────────────────────────────
