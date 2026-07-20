@@ -10,9 +10,23 @@
 // a build-breaker.
 
 import { existsSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { extractCriticalCss } from './critical-css.mjs';
+
+// The owned engine (lib/playground → lib/core/*) is CommonJS. Load it through a
+// native `createRequire`, NOT a dynamic `import()`: under Vite's dev SSR the module
+// runner re-transforms the required CJS files to ESM, where `require` is undefined
+// (`ReferenceError: require is not defined` in lib/core/bake-splits.js) — which
+// silently killed the whole instant-shell in `astro dev` while `astro build` (native
+// Node loader) worked, so the feature could never be seen or tested locally. Node's
+// own require resolves the CJS graph directly (require-of-ESM is supported on the
+// engine's ESM entry too), so the SAME path now works in dev AND build.
+// NOTE: require()-of-ESM is on by default only on Node >=22.12 / >=20.19 — the deploy
+// pins node 22 (docs.yml), so it's covered. On older Node the engine's ESM entry would
+// throw ERR_REQUIRE_ESM here; that's caught below, logged loudly, and degrades to null
+// (a local-dev-only concern on unsupported Node — the deploy build is unaffected).
+const requireEngine = createRequire(import.meta.url);
 
 /**
  * Render one slide to static HTML + critical CSS, themed by `palette` in light mode.
@@ -30,14 +44,18 @@ import { extractCriticalCss } from './critical-css.mjs';
  * @returns {Promise<{html:string, css:string, width:number, height:number}|null>}
  */
 export async function renderFirstSlideShell(slideSource, palette, repoRoot, themeUrlBase) {
-	try {
-		if (!repoRoot) return null;
-		const enginePath = join(repoRoot, 'lib/playground/index.js');
-		const latticeCss = join(repoRoot, 'dist/lattice.css');
-		const themeCss = join(repoRoot, `themes/${palette}.css`);
-		if (!existsSync(enginePath) || !existsSync(latticeCss) || !existsSync(themeCss)) return null;
+	if (!repoRoot) return null;
+	const enginePath = join(repoRoot, 'lib/playground/index.js');
+	const latticeCss = join(repoRoot, 'dist/lattice.css');
+	const themeCss = join(repoRoot, `themes/${palette}.css`);
+	// GENUINELY ABSENT engine/theme (a fresh checkout before `npm run build` writes
+	// dist/lattice.css) → quiet null: the shell is a pure enhancement, and this is an
+	// expected degradation, not a defect. Only the render path below is a "loud" failure.
+	if (!existsSync(enginePath) || !existsSync(latticeCss) || !existsSync(themeCss)) return null;
 
-		const { default: api } = await import(pathToFileURL(enginePath).href);
+	try {
+		const mod = requireEngine(enginePath);
+		const api = mod?.default ?? mod;
 		api.addThemes([readFileSync(latticeCss, 'utf8'), readFileSync(themeCss, 'utf8')]);
 
 		const out = api.render(slideSource, palette);
@@ -46,7 +64,16 @@ export async function renderFirstSlideShell(slideSource, palette, repoRoot, them
 		let css = extractCriticalCss(out.css, out.html);
 		if (themeUrlBase) css = css.replace(/url\((['"]?)fonts\//g, `url($1${themeUrlBase}fonts/`);
 		return { html: out.html, css, width: out.width || 1280, height: out.height || 720 };
-	} catch {
+	} catch (e) {
+		// The engine IS present but rendering the shell threw — a real defect, not an
+		// expected absence. Do NOT swallow it silently: a null return here ships a Studio
+		// with no instant-shell, so a returning visitor's cached last slide has nothing to
+		// replay into and reload paints blank (the exact regression this whole path exists
+		// to prevent). Surface it LOUD in the dev-server + `astro build` logs so it can't
+		// hide; still return null so it stays a non-fatal enhancement, never a build-breaker.
+		// The `check:studio-shell` gate (chained into the docs `build` script) then turns a
+		// shell-less build into an actual, blocking failure — loud AND fatal at the gate.
+		console.error('[ssg-first-slide] instant-shell render FAILED — Studio will ship with no cached-slide replay:', e?.stack ? e.stack : e);
 		return null;
 	}
 }

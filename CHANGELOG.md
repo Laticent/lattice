@@ -878,6 +878,21 @@ in patch versions.
   the bar genuinely fills (no arbitrary width cap), dropping its slide-count meta when tight — so the
   bar never crowds and the title is never clipped needlessly; the search box expands again on a wide screen. (`docs/src/components/studio/{StudioShell.tsx,Library.tsx,lens-picker.tsx,SlideContext.tsx,use-shared-preview-slot.ts}`;
   `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
+
+- **The Studio's instant-shell / cached last-slide replay no longer silently vanishes — and can't ship
+  missing unnoticed.** The build-time shell generator (`docs/scripts/ssg-first-slide.mjs`) loads the owned
+  engine to bake the newcomer's first slide; it did so through a dynamic `import()`, which Vite's dev SSR
+  re-transforms — so the CommonJS engine (`lib/core/*`) threw `require is not defined` and the generator
+  returned null. Effect: in local `astro dev` the whole instant-shell + returning-visitor snapshot-replay
+  was **completely absent** (a reload showed a blank preview until the island hydrated), so the feature
+  could never be seen or tested locally, and the swallowed error hid it. It now loads the engine through a
+  native `createRequire`, so the **same path works in dev and build**; a genuine render failure is logged
+  **loudly** instead of swallowed; and a new `check:studio-shell` gate (chained into the docs `build`)
+  **fails the build** if the shipped `dist/studio/index.html` lost its shell scaffold — turning a silent
+  blank-on-reload regression into a blocking CI failure. Production output is unchanged (the build already
+  rendered the shell); this restores dev parity and guards the shell for good. (`docs/scripts/ssg-first-slide.mjs`,
+  `docs/scripts/check-studio-shell.mjs`, `docs/package.json`;
+  `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.)
 - **Fabricate's component generator got a hardening pass (Undo, an effort-regression guard, and a few
   honesty fixes).** Four guards from the adversarial review of the generation increments. (1) **Undo before
   overwrite** — generate/refine/effort replace the whole component, so one prompt could silently eat a
