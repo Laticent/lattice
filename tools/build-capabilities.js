@@ -170,6 +170,7 @@ const SCRIPT_META = {
   'test:integration:mermaid':['Test & verify', 'Integration scope: mermaid smoke render.'],
   'test:integration:screenshot':['Test & verify', 'Integration scope: the screenshot harness.'],
   'test:integration:exemplars':['Test & verify', 'Integration scope: the 45 worked exemplars render + committed-PDF freshness (page-count gate).'],
+  'torture':                  ['Test & verify', 'Reusable memory/leak torture profiler (`tools/perf-torture/`): hammer a built site with repeated per-action cycles; verdict per metric (RISING via Mann-Kendall + idle-calibrated Sen slope); `--snapshot`/`--retainers` walk the heap to name the pinning GC root. `-- --scenario studio --cycle …`. On-demand diagnostic; see its README + the Scenario typedef to torture another app.'],
   'bench':                    ['Test & verify', 'tinybench render benchmark — the owned engine over time (on-demand; not in `npm test`). `-- --export` / `-- --json`.'],
   'bench:bless':              ['Test & verify', 'Write the committed perf baseline (test/benchmark/baseline.json) from a fresh bench run — the ratchet a perf PR updates (HARD RULE #19).'],
   'bench:check':              ['Test & verify', 'Re-run the bench and compare vs the committed baseline; flags a regression only beyond the variance band (max of tolerancePct and combined RME). On-demand, not a blocking CI gate.'],
