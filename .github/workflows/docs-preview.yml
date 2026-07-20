@@ -60,6 +60,16 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
+      # The SSG instant-shell (studio.astro) loads the owned engine (lib/**) at build
+      # time, which `require()`s ROOT deps (markdown-it, …) resolved from the repo-root
+      # node_modules — NOT docs/. Without this the shell renders null and the studio
+      # ships blank-on-reload (now caught by `check:studio-shell`). Mirrors ci.yml's
+      # docs-build job, which already installs root deps for the same reason.
+      - name: Install root deps (engine deps for the SSG instant-shell)
+        if: steps.guard.outputs.have == 'true'
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
       - name: Build docs site
         if: steps.guard.outputs.have == 'true'
         working-directory: docs

@@ -901,10 +901,15 @@ in patch versions.
   native `createRequire`, so the **same path works in dev and build**; a genuine render failure is logged
   **loudly** instead of swallowed; and a new `check:studio-shell` gate (chained into the docs `build`)
   **fails the build** if the shipped `dist/studio/index.html` lost its shell scaffold — turning a silent
-  blank-on-reload regression into a blocking CI failure. Production output is unchanged (the build already
-  rendered the shell); this restores dev parity and guards the shell for good. (`docs/scripts/ssg-first-slide.mjs`,
-  `docs/scripts/check-studio-shell.mjs`, `docs/package.json`;
-  `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.)
+  blank-on-reload regression into a blocking CI failure. **That gate immediately caught the real
+  production bug:** the docs *deploy* and *PR-preview* workflows ran `npm ci` only inside `docs/`, so the
+  engine's root deps (`markdown-it`, …) weren't installed and `renderFirstSlideShell` returned null on
+  every deploy — the deployed studio has been shipping **shell-less** (reload → blank) all along, and only
+  looked fine locally because a full checkout has root deps. Fixed by installing root deps in
+  `.github/workflows/docs.yml` + `docs-preview.yml` before the docs build (mirroring `ci.yml`'s
+  `docs-build`), so the shell now actually builds on deploy. (`docs/scripts/ssg-first-slide.mjs`,
+  `docs/scripts/check-studio-shell.mjs`, `docs/package.json`, `.github/workflows/docs.yml`,
+  `.github/workflows/docs-preview.yml`; `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.)
 - **Fabricate's component generator got a hardening pass (Undo, an effort-regression guard, and a few
   honesty fixes).** Four guards from the adversarial review of the generation increments. (1) **Undo before
   overwrite** — generate/refine/effort replace the whole component, so one prompt could silently eat a

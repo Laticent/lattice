@@ -525,3 +525,15 @@ dev and build**, and log a genuine render failure LOUDLY instead of swallowing i
 shipped `dist/studio/index.html` lost its shell scaffold — so a silent null can never ship a
 blank-on-reload Studio again. Lesson: a "resilient, never a build-breaker" enhancement needs a
 build-time assertion that it actually shipped, or its degradation is invisible.
+
+**Update (2026-07-20, same day):** the new `check:studio-shell` gate immediately earned its
+keep — it went red on the PR's docs-preview build with `Cannot find module 'markdown-it'`
+(require stack: `lib/core/bake-splits.js`). Root cause: the docs *deploy* (`docs.yml`) and
+*PR-preview* (`docs-preview.yml`) workflows ran `npm ci` only inside `docs/`, so the engine's
+ROOT deps were never installed and `renderFirstSlideShell` returned null on **every deploy** —
+the deployed studio has been shipping shell-less (reload → blank) the whole time. It only
+looked fine locally (and in `ci.yml`'s `docs-build`, which installs root deps for the cadenza
+workspace link) because a full checkout has the root deps. Fixed by installing root deps before
+the docs build in both workflows. So the original "reload shows blank" report was NOT merely a
+stale deploy — it was a genuine, long-standing deploy breakage the silent `catch` had hidden,
+exactly the failure mode the loud-log + gate were added to surface.
