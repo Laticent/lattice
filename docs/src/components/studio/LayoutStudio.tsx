@@ -79,6 +79,12 @@ export function LayoutStudio({
 	const errors = findings.filter((f) => f.level === 'error');
 	const warnings = findings.filter((f) => f.level !== 'error');
 	const ok = errors.length === 0;
+	// #22 / #616 §5.1 — CSS with a blocked remote reference (@import, url(), a CSS
+	// binding/expression, an image-set) must NEVER reach the same-origin preview
+	// iframe: that srcdoc frame concatenates extraCss RAW after sanitizing only the
+	// HTML, so a css-* exfil finding is a live XSS/key-theft channel. Pause the CSS
+	// (keep the skeleton preview) until the author fixes it below.
+	const cssBlocked = findings.some((f) => f.rule.startsWith('css-'));
 
 	return (
 		<div className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto md:grid md:overflow-hidden', manifest ? 'md:[grid-template-columns:340px_1fr_360px]' : 'md:[grid-template-columns:360px_1fr]')}>
@@ -117,9 +123,12 @@ export function LayoutStudio({
 			<div className="flex flex-col items-center gap-4 bg-card p-4 md:overflow-y-auto md:p-7">
 				<span className="self-start font-mono text-[11px] uppercase tracking-widest text-muted-foreground">Live preview — your component, rendered</span>
 				{nameOk ? (
-					<DeckPreview options={options} sample={skeleton} mermaid={false} extraCss={css} coalesce className="relative aspect-video w-full max-w-[620px] overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]" aria-label="Component preview" />
+					<DeckPreview options={options} sample={skeleton} mermaid={false} extraCss={cssBlocked ? '' : css} coalesce className="relative aspect-video w-full max-w-[620px] overflow-hidden rounded-xl border border-border bg-background shadow-[0_8px_24px_rgba(10,22,40,.10)]" aria-label="Component preview" />
 				) : (
 					<div className="grid aspect-video w-full max-w-[620px] place-content-center rounded-xl border border-dashed border-border bg-background text-center text-[13px] text-muted-foreground">Name your component to preview it.</div>
+				)}
+				{nameOk && cssBlocked && (
+					<p role="status" className="flex items-center gap-1.5 self-start text-[12px] text-[var(--chart-2,#9c3f00)]"><TriangleAlert className="size-3.5 shrink-0" />Preview paused: the CSS has a blocked remote reference. Fix the <span className="font-mono text-[11px]">css-</span> finding above to restore it.</p>
 				)}
 			</div>
 			{manifest && <aside className="shrink-0 border-t border-border bg-card md:overflow-y-auto md:border-l md:border-t-0">{manifest}</aside>}

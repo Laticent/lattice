@@ -397,6 +397,33 @@ describe('generateComponent — effort dial (design self-refine)', () => {
 			}
 		});
 	});
+
+	it('rejects a round that does not beat its own baselineRating (effort-regression guard)', async () => {
+		// The round rates the ORIGINAL a 9 (baselineRating) but its own output only a 7 — it
+		// did NOT improve the craft, so the guard must reject it and keep the original draft,
+		// even though 7 would beat the old ungraded bar (-1).
+		const WORSE = { ...draft('color:var(--accent);', 7), baselineRating: 9 };
+		await withBackend([GEN, WORSE], async () => {
+			const out = await generateComponent('three kpis', [], undefined, { effort: 'medium' });
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.improved).toBe(0); // nothing cleared the baseline → no improvement counted
+			expect(out.draft.css).toContain('var(--pass)'); // the original generation stands
+			expect(out.draft.css).not.toContain('var(--accent)'); // the non-improving round was dropped
+		});
+	});
+
+	it('accepts a round that DOES beat its baselineRating', async () => {
+		// Same baseline (7) but the round rates its output an 8 → a genuine improvement, kept.
+		const BETTER = { ...draft('color:var(--accent);', 8), baselineRating: 7 };
+		await withBackend([GEN, BETTER], async () => {
+			const out = await generateComponent('three kpis', [], undefined, { effort: 'medium' });
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.improved).toBe(1);
+			expect(out.draft.css).toContain('var(--accent)');
+		});
+	});
 });
 
 // The manual refine (the Motion faculty's shape): the author gives a directed nudge
@@ -433,6 +460,19 @@ describe('refineComponent — author-directed nudge', () => {
 			expect(out.improved).toBe(0); // refine never runs the effort self-refine loop
 			expect(out.similar).toEqual([]); // no dedup on a refine
 			expect(calls).toBe(1); // clean result → one call, no gate-repair pass
+		} finally {
+			m.__setBackend(null);
+		}
+	});
+
+	it('returns `nochange` when the model echoes the draft unchanged (no-op guard)', async () => {
+		// The model applied nothing and handed the same component back — refineComponent must
+		// not claim a refine that didn't happen; the author's draft already stands.
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend({ name: 'mock', async complete() { return current; }, async embed() { return null; } });
+		try {
+			const out = await refineComponent('make it bolder', current);
+			expect(out.status).toBe('nochange');
 		} finally {
 			m.__setBackend(null);
 		}

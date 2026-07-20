@@ -217,6 +217,11 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 	// The freeform manual-refine nudge ("make the cards bigger") — the Motion-style refine.
 	const [compRefine, setCompRefine] = React.useState('');
 	const [compSimilar, setCompSimilar] = React.useState<ComponentSimilar[]>([]);
+	// The pre-overwrite snapshot for one-click Undo — generate/refine REPLACES the whole
+	// component (name/desc/css/skeleton/meta), so a hand-tuned draft can be lost to one
+	// prompt. We stash the outgoing draft the instant before it's overwritten; the Undo
+	// control restores it. Cleared on Undo (single level — the last overwrite, not a stack).
+	const [compUndo, setCompUndo] = React.useState<null | { name: string; description: string; css: string; skeleton: string; meta: ComponentMeta }>(null);
 
 	// Reference-doc grounding (#640) — one per surface: a brand guide grounds the
 	// theme, an existing component/deck grounds the component. Fed to generate*,
@@ -368,6 +373,9 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 				? await refineComponent(p, { name: compName, description: compDesc, function: compMeta.function ?? '', form: compMeta.form ?? '', substance: compMeta.substance ?? '', bucket: compMeta.bucket ?? '', tags: compMeta.tags ?? [], adapt: compMeta.adapt ?? { mode: 'native' }, capacity: compMeta.capacity ?? null, density: compMeta.density ?? null, css: compCss, skeleton: compSkeleton }, { onStatus })
 				: await generateComponent(p, catalog, compDoc.docs, { effort: compEffort, onStatus });
 			if (out.status === 'ok') {
+				// Snapshot the OUTGOING draft before this result overwrites it, so one click
+				// restores it (a prompt shouldn't be able to silently eat a hand-tuned draft).
+				setCompUndo({ name: compName, description: compDesc, css: compCss, skeleton: compSkeleton, meta: compMeta });
 				if (!refine) compDoc.clear();
 				setCompName(out.draft.name);
 				setCompDesc(out.draft.description);
@@ -402,6 +410,19 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 			setCompGen('idle');
 			setCompStatus('');
 		}
+	}
+
+	// Restore the draft that the last generate/refine overwrote. Single level — the last
+	// overwrite only; clears the snapshot so the button hides until the next overwrite.
+	function undoComponent() {
+		if (!compUndo) return;
+		setCompName(compUndo.name);
+		setCompDesc(compUndo.description);
+		setCompCss(compUndo.css);
+		setCompSkeleton(compUndo.skeleton);
+		setCompMeta(compUndo.meta);
+		setCompUndo(null);
+		notify('Restored your previous draft.');
 	}
 
 	// ── Shared, tab-agnostic Name / Description / Export / Save ────────────────
@@ -760,6 +781,13 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 								))}
 							</div>
 						</div>
+						{/* Undo — restore the draft the last generate/refine overwrote. Only shown once
+						    there's a snapshot, so a prompt can't silently eat a hand-tuned draft. */}
+						{compUndo && (
+							<div className="flex items-center">
+								<button type="button" onClick={undoComponent} disabled={compGen === 'working'} aria-label="Undo — restore the previous draft" className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:border-[var(--accent)] hover:text-[var(--text-heading)] disabled:opacity-40"><RotateCcw className="size-3.5" />Undo last change</button>
+							</div>
+						)}
 						{/* Refine — quick chips + a freeform nudge, both re-prompt with the CURRENT
 						    draft (apply the change, then gate-repair). Shown once a model is connected. */}
 						{modelReady && (

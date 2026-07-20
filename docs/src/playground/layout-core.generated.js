@@ -829,7 +829,8 @@ var require_gate = __commonJS({
       const src = stripComments(css);
       let i = 0;
       const n = src.length;
-      function block(end) {
+      const MAX_NEST = 32;
+      function block(end, depth) {
         let chunkStart = i;
         while (i < end) {
           const ch = src[i];
@@ -837,17 +838,17 @@ var require_gate = __commonJS({
             const raw = src.slice(chunkStart, i);
             const head = raw.trim();
             const lead = raw.length - raw.trimStart().length;
-            let depth = 1;
+            let depth2 = 1;
             let j = i + 1;
-            for (; j < end && depth > 0; j++) {
-              if (src[j] === "{") depth++;
-              else if (src[j] === "}") depth--;
+            for (; j < end && depth2 > 0; j++) {
+              if (src[j] === "{") depth2++;
+              else if (src[j] === "}") depth2--;
             }
             const bodyStart = i + 1;
             const bodyEnd = j - 1;
             if (head.startsWith("@")) {
               const at = head.split(/\s/)[0].toLowerCase();
-              if (at === "@media" || at === "@supports") block2(bodyStart, bodyEnd);
+              if ((at === "@media" || at === "@supports") && depth < MAX_NEST) block2(bodyStart, bodyEnd, depth + 1);
             } else if (head) {
               visit({ selector: head, line: lineAt(src, chunkStart + lead) });
             }
@@ -858,13 +859,13 @@ var require_gate = __commonJS({
           }
         }
       }
-      function block2(s, e) {
+      function block2(s, e, depth) {
         const savedI = i;
         i = s;
-        block(e);
+        block(e, depth);
         i = savedI;
       }
-      block(n);
+      block(n, 0);
     }
     function partScoped(part, name) {
       const re = new RegExp(`\\.${name.replace(/[-]/g, "\\$&")}(?![\\w-])`);
@@ -1369,7 +1370,7 @@ ${list}
 Return the corrected JSON \u2014 same shape, only these fixed.` }
       ];
     }
-    var REFINE_DESIGN_SYSTEM = 'You are improving the DESIGN QUALITY of a Lattice component that already renders. Critique it hard against the boardroom 10/10 rubric, then return an IMPROVED version plus an honest rating.\n\nTHE RUBRIC (what separates a 10 from a 6):\n\u2022 RESTRAINT \u2014 ONE accent, reserved for the verdict/most important thing; no decoration for its own sake; neutrals carry most of the work.\n\u2022 HIERARCHY \u2014 six distinct levels of emphasis; if two adjacent levels look the same, it is broken. Size to the ROLE: a single number or a one-word verdict is MONUMENTAL (`--fs-hero`/`--fs-emphasis`), never a lonely `--fs-body` line.\n\u2022 FIT \u2014 the structure must FILL the bounded 16:9 stage handsomely: no sparse dead-space, no lonely tile adrift in empty. Cards GROW into the space (`flex:1; min-height:0` on the list so rows distribute), they do not float at intrinsic size.\n\u2022 DENSITY \u2014 tight words-per-element: a label + a short clause, never a sentence that wraps to three lines.\n\u2022 STATE + CATEGORY \u2014 status by SHAPE + a state token (never color alone); categorical hues capped ~6\u20138.\n\nHARD RULES you must NOT break (a change that breaks the gate is NOT an improvement): colors are `var(--\u2026)` tokens only (ZERO hex; a dark panel INVERTS tokens \u2014 `background:var(--text-heading); color:var(--bg)`; status = `--pass`/`--warn`/`--fail`); NO `margin` (use `gap`/`padding`; offsets are `transform`); `font-size` is a `--fs-*` role token; every selector starts `section.<name>`; the skeleton is PURE MARKDOWN.\n\nKEEP THE COMPONENT\'S IDENTITY \u2014 the same name, bucket, core idea, and skeleton CONTENT. Improve the CRAFT (hierarchy, fit, restraint, sizing), do NOT swap it for a different component. If it is already excellent and you cannot honestly improve it, return it UNCHANGED with your rating.\n\nReturn ONLY a compact JSON object \u2014 no prose, no fences \u2014 the SAME component shape (name, description, function, form, substance, bucket, tags, adapt, capacity, density, css, skeleton) PLUS one extra key "rating": an integer 1-10, your honest quality score of the design you are returning (be critical \u2014 reserve 9-10 for genuinely boardroom-ready).';
+    var REFINE_DESIGN_SYSTEM = 'You are improving the DESIGN QUALITY of a Lattice component that already renders. Critique it hard against the boardroom 10/10 rubric, then return an IMPROVED version plus an honest rating.\n\nTHE RUBRIC (what separates a 10 from a 6):\n\u2022 RESTRAINT \u2014 ONE accent, reserved for the verdict/most important thing; no decoration for its own sake; neutrals carry most of the work.\n\u2022 HIERARCHY \u2014 six distinct levels of emphasis; if two adjacent levels look the same, it is broken. Size to the ROLE: a single number or a one-word verdict is MONUMENTAL (`--fs-hero`/`--fs-emphasis`), never a lonely `--fs-body` line.\n\u2022 FIT \u2014 the structure must FILL the bounded 16:9 stage handsomely: no sparse dead-space, no lonely tile adrift in empty. Cards GROW into the space (`flex:1; min-height:0` on the list so rows distribute), they do not float at intrinsic size.\n\u2022 DENSITY \u2014 tight words-per-element: a label + a short clause, never a sentence that wraps to three lines.\n\u2022 STATE + CATEGORY \u2014 status by SHAPE + a state token (never color alone); categorical hues capped ~6\u20138.\n\nHARD RULES you must NOT break (a change that breaks the gate is NOT an improvement): colors are `var(--\u2026)` tokens only (ZERO hex; a dark panel INVERTS tokens \u2014 `background:var(--text-heading); color:var(--bg)`; status = `--pass`/`--warn`/`--fail`); NO `margin` (use `gap`/`padding`; offsets are `transform`); `font-size` is a `--fs-*` role token; every selector starts `section.<name>`; the skeleton is PURE MARKDOWN.\n\nKEEP THE COMPONENT\'S IDENTITY \u2014 the same name, bucket, core idea, and skeleton CONTENT. Improve the CRAFT (hierarchy, fit, restraint, sizing), do NOT swap it for a different component. If it is already excellent and you cannot honestly improve it, return it UNCHANGED with your rating.\n\nReturn ONLY a compact JSON object \u2014 no prose, no fences \u2014 the SAME component shape (name, description, function, form, substance, bucket, tags, adapt, capacity, density, css, skeleton) PLUS two integer keys, both 1-10 and on the SAME scale: "baselineRating" \u2014 your honest score of the component AS GIVEN TO YOU, before any change; and "rating" \u2014 your honest score of the improved design you are returning. Be critical and consistent between them (reserve 9-10 for genuinely boardroom-ready): raise "rating" above "baselineRating" ONLY if you genuinely improved the craft, and if you could not honestly improve it, return it UNCHANGED with "rating" equal to "baselineRating".';
     function askDesignRefineMessages2(draft) {
       const d = draft && typeof draft === "object" ? draft : {};
       const payload = {
@@ -1399,7 +1400,9 @@ Critique it against the rubric, then return the improved JSON + your "rating".` 
       const c = coerceComponent2(obj);
       const r = Number(obj.rating);
       const rating = Number.isFinite(r) ? Math.max(1, Math.min(10, Math.round(r))) : 5;
-      return { ...c, rating };
+      const b = Number(obj.baselineRating);
+      const baselineRating = Number.isFinite(b) ? Math.max(1, Math.min(10, Math.round(b))) : null;
+      return { ...c, rating, baselineRating };
     }
     var REFINE_NUDGE_SYSTEM = "You are REFINING an existing Lattice component per the author's instruction. Apply ONLY the change they ask for and keep EVERYTHING else \u2014 the name, bucket, the core idea, and the parts the instruction does not touch. Do not rebuild it from scratch or swap it for a different component; make the smallest change that satisfies the instruction well.\n\nPRESERVE THE GATE INVARIANTS (a refinement that breaks the gate is wrong): colors are `var(--\u2026)` tokens only (ZERO hex; a dark panel INVERTS tokens \u2014 `background:var(--text-heading); color:var(--bg)`; status = `--pass`/`--warn`/`--fail`); NO `margin` (use `gap`/`padding`; offsets are `transform`); `font-size` is a `--fs-*` role token; every selector starts `section.<name>`; the skeleton is PURE MARKDOWN.\n\nReturn ONLY the full corrected component as a compact JSON object \u2014 the SAME shape (name, description, function, form, substance, bucket, tags, adapt, capacity, density, css, skeleton). No prose, no fences.";
     function askComponentRefineMessages2(draft, instruction) {
@@ -1574,7 +1577,8 @@ Return the full updated component JSON \u2014 same shape, only this change.` }
         }
         return -1;
       };
-      const rewrite = (str) => {
+      const MAX_NEST = 32;
+      const rewrite = (str, depth = 0) => {
         let res = "", pos = 0;
         while (pos < str.length) {
           const open = nextOpen(str, pos);
@@ -1590,9 +1594,13 @@ Return the full updated component JSON \u2014 same shape, only this change.` }
           const lead = str.slice(pos, open).match(/^\s*/)[0];
           const prelude = str.slice(pos, open).trim();
           const inner = str.slice(open + 1, close - 1);
+          if (depth >= MAX_NEST) {
+            ok = false;
+            return str;
+          }
           if (prelude.startsWith("@")) {
             const at = prelude.slice(1).split(/[\s({]/)[0].toLowerCase();
-            res += lead + prelude + " {" + (/keyframes|font-face/.test(at) ? inner : rewrite(inner)) + "}";
+            res += lead + prelude + " {" + (/keyframes|font-face/.test(at) ? inner : rewrite(inner, depth + 1)) + "}";
           } else if (/["']/.test(prelude)) {
             ok = false;
             return str;

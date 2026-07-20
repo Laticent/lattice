@@ -297,6 +297,10 @@ describe('component-ai — design self-refine (the effort dial)', () => {
     assert.match(msgs[0].content, /RUBRIC/);
     assert.match(msgs[0].content, /HIERARCHY/);
     assert.match(msgs[0].content, /"rating"/);
+    // The effort-regression guard: the prompt asks for a baselineRating (the model's score
+    // of the ORIGINAL) on the same scale, so a round must STRICTLY beat it to win.
+    assert.match(msgs[0].content, /"baselineRating"/);
+    assert.match(msgs[0].content, /SAME scale/);
     assert.match(msgs[0].content, /KEEP THE COMPONENT'S IDENTITY/);
     // The system turn must still forbid gate-breaking (a refinement can't introduce hex/margin).
     assert.match(msgs[0].content, /ZERO\s*\n?\s*hex|ZERO hex/);
@@ -318,10 +322,23 @@ describe('component-ai — design self-refine (the effort dial)', () => {
     assert.ok(coerceRefinement({ ...base, rating: 8 }).ok);
   });
 
+  test('coerceRefinement parses baselineRating (clamped), null when absent — the regression bar', () => {
+    const base = { ...draft, css: 'section.kpi-trio > .cell-stage { color:var(--accent); }' };
+    assert.equal(coerceRefinement({ ...base, rating: 8, baselineRating: 6 }).baselineRating, 6);
+    assert.equal(coerceRefinement({ ...base, baselineRating: 99 }).baselineRating, 10); // clamped high
+    assert.equal(coerceRefinement({ ...base, baselineRating: -3 }).baselineRating, 1); // clamped low
+    assert.equal(coerceRefinement({ ...base, baselineRating: 6.7 }).baselineRating, 7); // rounded
+    // Absent/garbled → null (NOT a default): the caller must not accidentally get a bar it
+    // never earned, so a model that omits it falls back to the ungraded behavior.
+    assert.equal(coerceRefinement({ ...base }).baselineRating, null);
+    assert.equal(coerceRefinement({ ...base, baselineRating: 'nope' }).baselineRating, null);
+  });
+
   test('coerceRefinement tolerates junk without throwing', () => {
     assert.doesNotThrow(() => coerceRefinement(null));
     assert.doesNotThrow(() => coerceRefinement('not json'));
     assert.equal(coerceRefinement(null).rating, 5);
+    assert.equal(coerceRefinement(null).baselineRating, null);
   });
 });
 
@@ -444,6 +461,19 @@ describe('component-ai — scope-prefix safe fix (§6, self-verifying)', () => {
     const r = addScopePrefix(css, 'x');
     assert.equal(r.fixed, false, 'declines to auto-fix a quoted selector');
     assert.equal(r.css, css, 'returns the original untouched — no corruption');
+  });
+  test('pathologically deep at-rule nesting can NOT blow the stack — it bails safely', () => {
+    // Untrusted, AI-generated CSS could nest @media absurdly deep; the rewriter (and the
+    // gate walker it verifies against) must cap the recursion, not overflow the JS stack.
+    const deep = `${'@media all {'.repeat(200)}ul{color:var(--text-body)}${'}'.repeat(200)}`;
+    let r;
+    assert.doesNotThrow(() => { r = addScopePrefix(deep, 'x'); });
+    // Past the cap it declines to auto-fix (fixed:false) and returns the source untouched —
+    // no corruption, and the structural gate's own regex checks still apply to the whole CSS.
+    assert.equal(r.fixed, false);
+    assert.equal(r.css, deep);
+    // The gate's rule walker must also survive the same input without throwing.
+    assert.doesNotThrow(() => findUnscopedSelectors(deep, 'x'));
   });
 });
 

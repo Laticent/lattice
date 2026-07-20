@@ -212,6 +212,18 @@ in patch versions.
 
 ## Unreleased
 
+### Security
+
+- **Fabricate's component preview no longer renders CSS that carries a blocked remote reference.** The
+  Component tab previews your draft in a same-origin `srcdoc` iframe; it sanitizes the slide HTML
+  (HARD RULE #22) but used to concatenate the component CSS in **raw**, so an AI-generated (or pasted)
+  stylesheet with a remote `@import` / `url()` / CSS binding — the exact exfiltration channel the
+  sanitizer exists to close (#616 §5.1) — reached the live frame and fired. The gate already flags these
+  as `css-*` findings; the preview now **withholds** the CSS whenever such a finding is present (the
+  skeleton still previews) and shows a "Preview paused: the CSS has a blocked remote reference" note
+  until you fix it. (`docs/src/components/studio/LayoutStudio.tsx`;
+  `engineering/decisions/2026-07-20-component-gen-hardening.md`.)
+
 ### Added
 
 - **Fabricate can now refine a component by hand — quick chips or a freeform nudge — not just generate
@@ -676,6 +688,19 @@ in patch versions.
   `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.
 
 ### Fixed
+
+- **Fabricate's component generator got a hardening pass (Undo, an effort-regression guard, and a few
+  honesty fixes).** Four guards from the adversarial review of the generation increments. (1) **Undo before
+  overwrite** — generate/refine/effort replace the whole component, so one prompt could silently eat a
+  hand-tuned draft; a one-click **Undo last change** now restores the draft the last overwrite replaced.
+  (2) **Effort-regression guard** — a self-refine round used to beat an *ungraded* first draft, so it could
+  trade a strong draft for a weaker "improved" one; the model now also reports a `baselineRating` of the
+  original, and a round must rate its output **strictly above** that to win. (3) **No-op refine** — if a
+  nudge changes nothing, Fabricate says so instead of claiming a "Refined". (4) **Honest repair count** —
+  the "auto-fixed N gate passes" note now describes the draft actually shown, not a discarded first draft.
+  Plus a recursion cap on the two untrusted-CSS walkers so a pathologically nested stylesheet can't blow
+  the stack. (`lib/layout/ai.js`, `lib/layout/gate.js`, `architect.ts`, `Fabricate.tsx`;
+  `engineering/decisions/2026-07-20-component-gen-hardening.md`.)
 
 - **Fabricate's "describe a component" no longer freezes (and, on memory-constrained browsers,
   crash-reloads the tab) on the first generation.** Every component generation ran a dedup "reuse
