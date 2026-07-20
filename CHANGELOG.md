@@ -39,6 +39,18 @@ in patch versions.
   output is unit-tested; the §5.2 proof gate (the same animation on the **real Studio**, via native
   `data-anima-role` emission) is the next slice. The reveal machinery generalizes to the other SVG
   charts; per-chart *choreography* (pie has no top-to-bottom order) still needs its own defaults.
+- **The Playground and Studio splitters are now the shadcn resizable panel (`react-resizable-panels`),
+  and the Studio's Coach / Chat / Library / Settings side panels are resizable too.** The
+  divider now carries an always-visible grip handle (drag, or arrow keys on the separator) and its
+  collapse-to-rail is unchanged in feel but now rides the proven library instead of the hand-rolled
+  splitter; in the Studio the whole workspace is one resizable group, so you can widen the Coach or
+  Library panel by dragging, not just the editor. **The full split structure persists per surface —
+  every panel width (including the docked Coach / Library / Settings columns) and the collapse state
+  survive a refresh**, remembered per configuration. Under the hood this retires the two
+  custom resize systems (`ui/split.tsx` + `studio/use-panel-width.ts`) and the fr-pair "void" math
+  (#721) — react-resizable-panels v4's native pixel minimums express the same constraint directly.
+  (`ui/resizable.tsx`, `ui/use-resizable-split.ts`, `PlaygroundApp.tsx`, `StudioShell.tsx`;
+  `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
 - **Anima's SVG engine now animates each part on its own — move, fade, and emphasize, not just
   draw.** The `source:'svg'` motion set gains three per-element channels: **`slide`** (a 2-D
   move-in — a part arrives from a `from: [dx, dy]` offset, so "value flows left→right" is real),
