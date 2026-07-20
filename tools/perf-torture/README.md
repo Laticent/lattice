@@ -126,3 +126,17 @@ Rules that matter: **use only the exported helpers** (never raw `page.$`/`waitFo
 statically lints for this and warns); **every cycle asserts its action** so a no-op can't read as
 "flat"; **every cycle is state-neutral** (returns to its start); the engine trends your `probes`
 alongside the universal metrics (heap / nodes / listeners / documents / frames) against `probeFloors`.
+
+## Engine exports for a second driver (autonomous crawl — WIP)
+
+The engine also exports the seam an autonomous `explore`/`replay` driver reuses instead of duplicating
+(`2026-07-20-autonomous-torture-profiler.md`; the driver itself is not built yet):
+
+- **Measurement seam** — `sample` · `peakDuring` · `analyze` · `controlSlopesFrom` · `serve` ·
+  `UNIVERSAL_KEYS` · `UNIVERSAL_FLOOR`: the same measurement the scenario runner uses, so a second driver
+  computes an identical, calibrated verdict.
+- **Autonomous-driving primitives** — `enumerateInteractables(page, {selector?, max?})` returns visible
+  clickable controls as plain **descriptors** (`{selector, stable, role, label, rect}`) with a
+  **verified-unique** selector (never an `ElementHandle` — observer-safe); `resolveAndClick(page, descriptor)`
+  re-resolves the selector, **verifies the node still matches the descriptor's role+label** (aborts on a
+  stale/mismatched selector instead of mis-clicking), then clicks — returning `{ok, reason?}`, never a handle.
