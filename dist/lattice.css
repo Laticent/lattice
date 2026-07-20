@@ -7035,7 +7035,10 @@ section.list-steps.vertical ol > li:not(:last-child)::after {
  * + arrow-connector chrome. Merged from the standalone timeline on 2026-06-07.
  * Lifted to <strong> by the timeline token in the shared slot-label-lift paths. */
 section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
-section.list-steps.timeline h2 { text-align:center; }
+/* The heading is framing text — it follows the headline-alignment seam (`headline:`) via its
+ * own align-self, leaving the centered timeline body below untouched. `auto` → center (byte-
+ * identical). */
+section.list-steps.timeline h2 { text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 section.list-steps.timeline > .cell-stage > :is(ol,ul) {
   display:flex; justify-content:space-between; align-items:flex-start;
   width:100%; position:relative; flex:0 1 auto;
@@ -13035,9 +13038,13 @@ section.state-chart.horizontal .state-chip-arrow {
  */
 
 section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
-section.stats h2 { padding-bottom:var(--sp-xs); text-align:center; }
+/* The heading + subtitle are framing text — they follow the headline-alignment seam
+ * (`headline:`) via their OWN align-self, so the centered stat strip below is untouched (its
+ * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a
+ * default stats slide is byte-identical. */
+section.stats h2 { padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 section.stats h3 { padding-bottom:0.3125cqi; }
-section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:center; }
+section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 
 /* The stat strip: the top-level list laid out as a centered flex row. */
 section.stats > .cell-stage > ol {
@@ -14589,7 +14596,7 @@ section.closing h2 + p:has(> code:only-child) { color: var(--on-dark-secondary);
  * eyebrow colour above would render near-invisible on it, so reset to the
  * standard muted ink and centre it. */
 section.divider.light h1 + p:has(> code:only-child),
-section.divider.light h2 + p:has(> code:only-child) { color: var(--text-secondary); text-align: center; }
+section.divider.light h2 + p:has(> code:only-child) { color: var(--text-secondary); text-align: var(--headline-align, center); }
 /* .dark modifier: the subtitle uses --text-secondary, a light-dark() pair, and
  * section.dark flips color-scheme:dark — so it resolves to its dark-canvas value
  * automatically. No extra rule needed. (The bookends above hardcode

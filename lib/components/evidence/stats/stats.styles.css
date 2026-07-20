@@ -17,9 +17,13 @@
  */
 
 section.stats > .cell-stage { display:flex; flex-direction:column; justify-content:center; align-items:center; }
-section.stats h2 { padding-bottom:var(--sp-xs); text-align:center; }
+/* The heading + subtitle are framing text — they follow the headline-alignment seam
+ * (`headline:`) via their OWN align-self, so the centered stat strip below is untouched (its
+ * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a
+ * default stats slide is byte-identical. */
+section.stats h2 { padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 section.stats h3 { padding-bottom:0.3125cqi; }
-section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:center; }
+section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 
 /* The stat strip: the top-level list laid out as a centered flex row. */
 section.stats > .cell-stage > ol {

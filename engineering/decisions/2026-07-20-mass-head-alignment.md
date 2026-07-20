@@ -254,6 +254,28 @@ their fallbacks), the free `hr` (`base.elements.css`), key insight + below-note
   framed; maker-checker on the cross-cutting CSS seam; dual-engine export
   sign-off before merge (alignment changes exported bytes).
 
+### Maker-checker fold (2026-07-20)
+
+An independent checker cleared all five correctness axes (render-path parity,
+zero-config byte-identical fallbacks, no body leak, no `head-` prefix collision,
+lint vocab) and found three **coverage gaps** — framing headings that centered by
+default but weren't routed to the seam, so `headline: left`/`right` wouldn't move
+them. All three folded in before merge (on-path — same feature, same
+consistency promise):
+
+- **`divider.light` eyebrow** (`base.modifiers.css:80`) — the worst: a *partial*
+  retrofit. Its heading + dek already followed the seam, but the eyebrow kept a
+  hard `text-align: center`, so `headline: left` would have left-aligned the
+  heading while the eyebrow stayed centered — the exact within-slide disagreement
+  the feature exists to kill. Now reads the seam.
+- **`stats` heading + subtitle** (`stats.styles.css`) and **`list-steps.timeline`
+  heading** (`list-steps.styles.css`) — both center via the stage's
+  `align-items: center`, which is *coupled* to the centered body (the stat strip /
+  timeline). Routed the **framing** heading/subtitle through their own
+  `align-self: var(--headline-justify, center)` (+ text-align), so they follow the
+  register while the centered body composition stays put — preserving the
+  body-independence principle.
+
 ### Known scope edge
 
 The short heading-rule signatures (`rule: short` / `rule: accent`) draw a
