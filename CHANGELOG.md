@@ -711,6 +711,29 @@ in patch versions.
 
 ### Fixed
 
+- **A phone held in landscape is no longer a dead editing surface — the slide fills the screen and you
+  swipe through the deck (the "cinema" morph).** A landscape phone is wide enough (~844–932px) to fall
+  into the Studio's two-pane *tablet* layout but only ~360–430px *tall*, so the editor|preview split was
+  already cramped and the software keyboard buried the caret the moment you typed. That state is now
+  detected (`useLandscapePhone`: `orientation: landscape` + `max-height: 500px` + `pointer: coarse` —
+  the same signal the presenter view already uses) and repurposed into a third *morph* of the one shared
+  slide render (the hoisted preview iframe that already moves between the editor's preview slot and
+  Present's slot): the slide fills the frame edge-to-edge on a letterboxed backdrop, **swipe** moves
+  between slides, and every scrap of chrome is gone — no header, no toolbar, no navigator, **no editor
+  and therefore no keyboard**. The only overlay is a *whisper*: a slide-progress counter that fades ~2s
+  after each slide change (or a tap) and reappears on the next. It stays screen-reader-navigable —
+  since VoiceOver/TalkBack intercept swipes, the morph carries `sr-only` Previous/Next controls and an
+  `aria-live` slide position. The slide is **forced to fit by height** on a landscape phone (its
+  viewport is always wider than a 16:9 slide, so height binds) — the earlier overflow was the slide
+  sizing to viewport *width* and running taller than the visible area, not a container-height problem
+  (an opt-in `?vvdebug` readout prints the live viewport numbers for on-device triage).
+  Rotating back to portrait (or onto a tablet, which clears the height cutoff) restores the full
+  editing surface untouched. Verified on a real browser at landscape-phone (844×390, 932×430),
+  portrait-phone, and landscape-tablet viewports, plus a shrunken-visual-viewport simulation; the
+  exact iOS Safari keyboard + URL-bar geometry is reasoned, not fully device-tested from the sandbox
+  (no editable element can summon a keyboard; the visual-viewport fit resolves an overflow seen on a
+  real iPhone and awaits on-device reconfirmation).
+
 - **Fabricate's component generator got a hardening pass (Undo, an effort-regression guard, and a few
   honesty fixes).** Four guards from the adversarial review of the generation increments. (1) **Undo before
   overwrite** — generate/refine/effort replace the whole component, so one prompt could silently eat a
