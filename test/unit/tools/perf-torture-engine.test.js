@@ -35,6 +35,23 @@ test('perf-torture engine exports the measurement seam + autonomous-driving prim
 	}
 });
 
+// The realm-class over-count guard (2026-07-20-playground-theme-toggle-not-a-leak.md): a snapshot diff
+// whose growers are V8 realm scaffolding must be flagged UNCONFIRMED (HeapProfiler over-counts detached
+// realms a real GC reclaims), but an ordinary JS-object leak must NOT be flagged.
+test('perf-torture: realmClassGrowth flags realm scaffolding but not ordinary object growth', async () => {
+	const { realmClassGrowth } = await import('../../../tools/perf-torture/engine.mjs');
+	assert.equal(realmClassGrowth(null), null, 'no snapDiff → null');
+	assert.equal(realmClassGrowth({ top: [] }), null, 'empty diff → null');
+	// A real detached-realm diff (the Playground shape) → flagged.
+	const realm = realmClassGrowth({ top: [{ k: 'hidden:system / NativeContext', dCount: 30, dSelf: 37000 }, { k: 'code:system / FunctionTemplateInfo', dCount: 1260, dSelf: 81000 }] });
+	assert.ok(Array.isArray(realm) && realm.length >= 1, 'realm scaffolding growth is flagged');
+	assert.match(realm[0], /NativeContext/, 'names the realm constructor');
+	// An ordinary JS-object leak (a growing Map/array) → NOT flagged (that IS real retained heap).
+	assert.equal(realmClassGrowth({ top: [{ k: 'object:Object', dCount: 5000, dSelf: 900000 }, { k: 'object:Array', dCount: 400, dSelf: 300000 }] }), null, 'ordinary object growth is not a realm over-count');
+	// A realm constructor below the count threshold (noise) → not flagged.
+	assert.equal(realmClassGrowth({ top: [{ k: 'hidden:system / NativeContext', dCount: 2, dSelf: 3000 }] }), null, 'sub-threshold realm noise is not flagged');
+});
+
 // The a11y probe (norm/roleOf/labelOf) is inlined SEPARATELY in enumerateInteractables and
 // resolveAndClick — a closure can't cross into page.evaluate, so the source is duplicated by necessity.
 // If the two copies ever drift, resolveAndClick would recompute role/label differently from what

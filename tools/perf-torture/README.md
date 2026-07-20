@@ -73,6 +73,21 @@ targets big (≥200 KB) retained *strings*; supply `retainerTarget(name, self)` 
 node type) to name a listener/closure/object leak instead.
 
 ### Limits (inherent — know them)
+- **Retained heap OVER-COUNTS detached iframe realms — realm-class "leaks" need a no-CDP re-measure.**
+  The verdict trends `JSHeapUsedSize` after `HeapProfiler.collectGarbage`, a V8 GC that does **not** force
+  Blink's detached-context disposal. So a detached iframe *realm* (its `NativeContext` +
+  `FunctionTemplateInfo`/`AccessorInfo` scaffold) stays counted across the CDP GC even though a **real**
+  idle GC reclaims it. When `--snapshot`/`--retainers` shows V8 realm scaffolding growing, the tool prints
+  a **`⚠ REALM-CLASS GROWTH … UNCONFIRMED`** banner (and sets `realmUnconfirmed` in `report.json`). Confirm
+  before believing it, without a heap client:
+  ```js
+  // COOP:same-origin + COEP:credentialless on the server so crossOriginIsolated → the API is exposed.
+  const bytes = () => performance.measureUserAgentSpecificMemory().then(m => m.bytes); // own GC, no CDP
+  // baseline → drive the action N× → measure → idle ~30s → measure. Recovers on idle ⇒ reclaimable, not a leak.
+  ```
+  This is a real trap we hit: the Playground light/dark toggle read 361 KB/lap via `HeapProfiler` retained
+  heap; the no-CDP measure showed ~16 KB/toggle, reclaimed on idle — **not** a leak
+  (`engineering/decisions/2026-07-20-playground-theme-toggle-not-a-leak.md`).
 - **`peakHeap` is duration-sensitive** — it's a max over 60 ms polls, so a slower cycle gets more polls
   and a higher observed max at the same true memory. Trust `retainedHeap`/`nodes` for the verdict.
 - **Cycles must be state-neutral** — a cycle that opens without closing (or appends without removing)

@@ -531,6 +531,24 @@ function controlSlopesFrom(series, keys) {
 	return out;
 }
 
+// ── realm-class over-count guard (2026-07-20-playground-theme-toggle-not-a-leak.md) ──────────────
+// The retained-heap number this tool trends is `JSHeapUsedSize` after `HeapProfiler.collectGarbage` — a
+// V8 GC that does NOT force Blink's detached-context disposal. So a detached iframe REALM (its
+// NativeContext + FunctionTemplateInfo/AccessorInfo scaffolding) stays counted across the CDP GC even
+// though a REAL idle GC reclaims it — inflating "retained heap" for a leak that isn't one. This bit us
+// once (the Playground light/dark toggle read 361 KB/lap via this path; measured with no heap client via
+// performance.measureUserAgentSpecificMemory it was ~16 KB/toggle, reclaimed on idle). So: when a
+// snapshot diff shows V8 realm scaffolding growing, FLAG the verdict UNCONFIRMED until re-measured
+// without a heap client. Keyed on constructor names, so an ordinary JS-object leak (a real retained Map)
+// is NOT flagged — only realm/native-context growth, the specific thing HeapProfiler over-counts.
+const REALM_CTORS = /NativeContext|FunctionTemplateInfo|ObjectTemplateInfo|AccessorInfo|AccessorPair|PrototypeInfo|ScriptContext|system \/ Context\b/;
+function realmClassGrowth(snapDiff) {
+	if (!snapDiff?.top) return null;
+	const hits = snapDiff.top.filter((r) => r.dCount > 20 && REALM_CTORS.test(r.k));
+	return hits.length ? hits.map((r) => `${r.k} (Δ${r.dCount})`) : null;
+}
+const REALM_UNCONFIRMED = 'realm-class growth is a KNOWN HeapProfiler OVER-COUNT — detached contexts that HeapProfiler.collectGarbage does not release but a REAL GC reclaims. UNCONFIRMED as a leak until re-measured WITHOUT a heap client: performance.measureUserAgentSpecificMemory() (its own GC) or a real device. See tools/perf-torture/README.md §Limits + 2026-07-20-playground-theme-toggle-not-a-leak.md.';
+
 /**
  * A Scenario is pure app-knowledge (see scenarios/studio.mjs):
  * @typedef {Object} Scenario
@@ -613,6 +631,8 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 			if (d) {
 				console.log(`    heap-diff over run: total Δ${(d.totalDelta / 1e6).toFixed(1)}MB · detached-DOM Δ${(d.detachedDelta / 1e3).toFixed(0)}KB (${d.detachedCountDelta} nodes). Top retained-size growers:`);
 				for (const r of d.top) if (r.dSelf > 50000) console.log(`      ${(r.dSelf / 1e6).toFixed(2)}MB  Δcount ${String(r.dCount).padStart(7)}  ${r.k}`);
+				const realm = realmClassGrowth(d);
+				if (realm) console.log(`    ⚠ REALM-CLASS GROWTH (${realm.slice(0, 3).join(', ')}${realm.length > 3 ? ', …' : ''}) — ${REALM_UNCONFIRMED}`);
 			}
 		}
 		for (const [c, rr] of Object.entries(rets)) {
@@ -624,12 +644,15 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 			console.log(`\n  [${c}] RETAINER paths — ${rr.targetsFound} large retained target(s)${note}; static snapshot, NOT a growth diff (walked ${rr.sampleWalked}). Common pinning chain (target ◂ held-by ◂ …):`);
 			for (const [sig, n] of rr.chains) console.log(`      ×${n}  ${sig}`);
 			if (rr.example) { console.log(`    → nearest GC root: ${rr.example.root}. Full path (root → target):`); for (const p of rr.example.path) console.log(`         ${p.node}  --${p.via}-->`); }
+			// --realm walks the leaked GLOBAL ENVIRONMENTS themselves — the retained-heap number that names
+			// them is the exact one HeapProfiler over-counts. Always flag it UNCONFIRMED.
+			if (opts.realm) console.log(`    ⚠ ${REALM_UNCONFIRMED}`);
 		}
 		if (opts.json) console.log('\nJSON ' + JSON.stringify(report));
 		// Report artifacts (--out): versioned JSON = source of truth; Markdown+Mermaid = human view;
 		// JUnit = opt-in CI projection. .heapsnapshot files were already written by withinSession.
 		if (outDir) {
-			const cycleResults = Object.keys(report).map((c) => ({ name: c, isControl: c === 'idle', rows: report[c], series: seriesByCycle[c] || [], snapDiff: diffs[c], retReport: rets[c], heapSnapshotFile: snapFiles[c] }));
+			const cycleResults = Object.keys(report).map((c) => ({ name: c, isControl: c === 'idle', rows: report[c], series: seriesByCycle[c] || [], snapDiff: diffs[c], retReport: rets[c], heapSnapshotFile: snapFiles[c], realmUnconfirmed: !!realmClassGrowth(diffs[c]) || !!(opts.realm && rets[c] && rets[c].targetsFound > 0) }));
 			const obj = buildReport({ scenario, opts, cycles: cycleResults, calibrated, floorBasis, durationMs: Date.now() - startedAt, generatedAt: new Date().toISOString() });
 			await writeFile(join(outDir, 'report.json'), JSON.stringify(obj, null, 2));
 			await writeFile(join(outDir, 'report.md'), renderMarkdown(obj));
@@ -647,4 +670,4 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 // Measurement seam — exported so a SECOND driver (`explore`/`replay`) reuses the engine's measurement
 // rather than duplicating it (HARD RULE #1). These were private to runTorture/withinSession; the crawl
 // verdict (Slice 4) drives its own lap loop through the same sample/peak/analyze/serve primitives.
-export { analyze, buildGraph, clickIn, clickNth, clickSel, clickTabByText, controlSlopesFrom, countSel, diffSnapshots, enumerateInteractables, exists, INTERACTABLE_SEL, makeInstrument, mannKendall, median, peakDuring, resolveAndClick, retainerPath, retainerReport, sample, sensSlope, serve, settle, takeSnapshot, UNIVERSAL_FLOOR, UNIVERSAL_KEYS, wait };
+export { analyze, buildGraph, clickIn, clickNth, clickSel, clickTabByText, controlSlopesFrom, countSel, diffSnapshots, enumerateInteractables, exists, INTERACTABLE_SEL, makeInstrument, mannKendall, median, peakDuring, realmClassGrowth, resolveAndClick, retainerPath, retainerReport, sample, sensSlope, serve, settle, takeSnapshot, UNIVERSAL_FLOOR, UNIVERSAL_KEYS, wait };

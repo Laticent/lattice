@@ -47,6 +47,9 @@ export function buildReport(run) {
 		cycles: cycles.map((c) => ({
 			name: c.name,
 			isControl: c.isControl,
+			// A RISING verdict whose growth is detached-realm scaffolding is a KNOWN HeapProfiler over-count —
+			// UNCONFIRMED until re-measured without a heap client (see engine.mjs realmClassGrowth).
+			realmUnconfirmed: !!c.realmUnconfirmed,
 			// The verdict rows, plus the raw series each metric was judged on (charting + reproducibility).
 			metrics: c.rows.map((r) => ({ ...r, series: seriesFor(c.series, r.metric) })),
 			heapDiff: c.snapDiff
@@ -89,6 +92,7 @@ export function renderMarkdown(report) {
 
 	for (const c of report.cycles) {
 		L.push(`## ${c.name}${c.isControl ? ' _(control — floors calibrated from this)_' : ''}`, '');
+		if (c.realmUnconfirmed) L.push('> ⚠ **Realm-class growth — UNCONFIRMED.** The heap growth here is detached-iframe-realm scaffolding, a known `HeapProfiler` over-count (a real GC reclaims it). Re-measure without a heap client (`performance.measureUserAgentSpecificMemory()` / a real device) before believing it. See `2026-07-20-playground-theme-toggle-not-a-leak.md`.', '');
 		L.push('| metric | first → last | Δ | sen/cyc | floor | z | trend |', '|---|---|---|---|---|---|---|');
 		for (const m of c.metrics) {
 			const trend = m.trend === 'RISING' ? '**RISING**' : m.trend;
