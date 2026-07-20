@@ -806,9 +806,14 @@ caught as `unknown-rule`. Palette-blind; defaults to today's render.
 |---|---|---|
 | `auto` | *(none)* | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
 | `full` | `rule-full` | An explicit full-width hairline. |
-| `short` | `rule-short` | A short left-aligned rule under the heading. |
+| `short` | `rule-short` | A short rule under the heading. |
 | `accent` | `rule-accent` | A short rule painted in `--accent` — a signature without shouting. |
 | `none` | `rule-none` | No heading underline. |
+
+`rule:` sets the heading rule's **style**; **its alignment follows the `headline:` register in
+effect.** The two are orthogonal: a `short`/`accent` rule sits under the heading wherever the
+headline aligns (left / center / right) — pick the *look* with `rule:`, the *side* with
+`headline:`. (`full` is a full-width divider, so alignment is moot; `none` has nothing to align.)
 
 `rule:` governs the `form` masthead hairline — the canonical heading underline. The
 split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
