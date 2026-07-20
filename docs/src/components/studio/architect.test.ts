@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { applyDeckEdit, architectModel, architectSpend, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { applyDeckEdit, architectModel, architectSpend, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -396,6 +396,46 @@ describe('generateComponent — effort dial (design self-refine)', () => {
 				expect(out.improved).toBe(1); // one accepted design round
 			}
 		});
+	});
+});
+
+// The manual refine (the Motion faculty's shape): the author gives a directed nudge
+// and refineComponent applies it to the CURRENT draft, then gate-repairs it — no dedup,
+// no effort loop (2026-07-19-component-refine.md).
+describe('refineComponent — author-directed nudge', () => {
+	const current = {
+		name: 'kpi-trio', description: 'Three KPIs.', function: 'statement', form: 'canvas', substance: 'structure',
+		bucket: 'statement', tags: ['kpi', 'stat', 'metric'], adapt: { mode: 'native' }, capacity: { sweet: 3, soft: 3, hard: 3 },
+		density: null, css: 'section.kpi-trio > .cell-stage { color:var(--text-body); }', skeleton: '<!-- _class: kpi-trio -->\n\n## Numbers\n\n- 100\n- 200',
+	} as unknown as Parameters<typeof refineComponent>[1];
+
+	it('returns `nochange` for an empty instruction without touching the model', async () => {
+		expect((await refineComponent('', current)).status).toBe('nochange');
+		expect((await refineComponent('   ', current)).status).toBe('nochange');
+	});
+
+	it('returns `offline` with no model connected — never a fabricated refinement', async () => {
+		expect((await refineComponent('make it bolder', current)).status).toBe('offline');
+	});
+
+	it('applies the nudge and gate-repairs the result (no dedup, no effort loop)', async () => {
+		// The model returns the nudged draft (a bolder accent); refineComponent coerces +
+		// gate-repairs it and hands back the ok outcome.
+		const bolder = { ...current, css: 'section.kpi-trio > .cell-stage { color:var(--accent); font-size:var(--fs-hero); }' };
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		let calls = 0;
+		m.__setBackend({ name: 'mock', async complete() { calls++; return bolder; }, async embed() { return null; } });
+		try {
+			const out = await refineComponent('make the numbers bigger and bolder', current);
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.draft.css).toContain('var(--accent)'); // the nudge landed
+			expect(out.improved).toBe(0); // refine never runs the effort self-refine loop
+			expect(out.similar).toEqual([]); // no dedup on a refine
+			expect(calls).toBe(1); // clean result → one call, no gate-repair pass
+		} finally {
+			m.__setBackend(null);
+		}
 	});
 });
 

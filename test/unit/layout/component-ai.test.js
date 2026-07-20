@@ -11,7 +11,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { ASK_SYSTEM, askComponentMessages, askRepairMessages, askDesignRefineMessages, coerceRefinement, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix, MAX_CSS_BYTES } = require('../../../lib/layout/ai.js');
+const { ASK_SYSTEM, askComponentMessages, askRepairMessages, askDesignRefineMessages, askComponentRefineMessages, coerceRefinement, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix, MAX_CSS_BYTES } = require('../../../lib/layout/ai.js');
 const { gateComponent, findUnscopedSelectors } = require('../../../lib/layout/gate.js');
 
 describe('component-ai — prompt', () => {
@@ -322,6 +322,35 @@ describe('component-ai — design self-refine (the effort dial)', () => {
     assert.doesNotThrow(() => coerceRefinement(null));
     assert.doesNotThrow(() => coerceRefinement('not json'));
     assert.equal(coerceRefinement(null).rating, 5);
+  });
+});
+
+describe('component-ai — manual refine (askComponentRefineMessages)', () => {
+  const draft = {
+    name: 'kpi-trio', description: 'Three KPIs.', function: 'statement', form: 'canvas', substance: 'structure',
+    bucket: 'statement', tags: ['kpi', 'stat', 'metric'], adapt: { mode: 'native' }, capacity: { sweet: 3, soft: 3, hard: 3 },
+    density: null, css: 'section.kpi-trio > .cell-stage { color:var(--text-body); }', skeleton: '<!-- _class: kpi-trio -->\n\n## Numbers\n\n- 100\n- 200',
+  };
+
+  test('carries the current draft + the author instruction, and preserves the gate rules', () => {
+    const msgs = askComponentRefineMessages(draft, 'make the numbers bigger');
+    assert.equal(msgs.length, 2);
+    assert.equal(msgs[0].role, 'system');
+    // The system turn preserves the component's identity + forbids gate-breaking.
+    assert.match(msgs[0].content, /REFINING/);
+    assert.match(msgs[0].content, /keep EVERYTHING else/i);
+    assert.match(msgs[0].content, /ZERO hex/);
+    assert.match(msgs[0].content, /NO `margin`/);
+    // The user turn carries the draft JSON + the exact instruction.
+    assert.equal(msgs[1].role, 'user');
+    assert.match(msgs[1].content, /"css"\s*:/);
+    assert.match(msgs[1].content, /kpi-trio/);
+    assert.match(msgs[1].content, /Change to apply: make the numbers bigger/);
+  });
+
+  test('falls back to a generic nudge for an empty instruction; tolerates a junk draft', () => {
+    assert.match(askComponentRefineMessages(draft, '').at(-1).content, /Change to apply: Improve it\./);
+    assert.doesNotThrow(() => askComponentRefineMessages(null, null));
   });
 });
 

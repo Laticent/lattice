@@ -214,6 +214,17 @@ in patch versions.
 
 ### Added
 
+- **Fabricate can now refine a component by hand — quick chips or a freeform nudge — not just generate
+  it.** The mirror of the Motion faculty's refine, ported to components. A "Refine" row sits under the
+  "describe a component" bar (once a model is connected): four semantic chips — **Simpler · Bolder ·
+  Tighter copy · More whitespace** — plus a freeform box ("make the cards bigger"). Both re-prompt the
+  model with the **current** draft to apply *that one change* and keep everything else, then run the
+  result through the same gate-repair, so a nudge can't smuggle a hex or a margin past the gate. It's
+  distinct from the effort dial (which the model self-directs) — here you steer. On success the refined
+  draft loads into the editors where the live gate re-checks it; if the model returns nothing usable,
+  your draft stands. (`lib/layout/ai.js` `askComponentRefineMessages`, `architect.ts` `refineComponent`,
+  `Fabricate.tsx`; `engineering/decisions/2026-07-19-component-refine.md`.)
+
 - **Fabricate's component generator has an effort dial — low · medium · high · maximum — that iterates
   on the design and keeps the best.** Generation used to be one-shot: the model drew a component once,
   and #1113's repair loop only made sure it was gate-*clean*, never *better*. Now an effort control sits

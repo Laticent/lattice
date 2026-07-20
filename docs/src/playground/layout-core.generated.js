@@ -1401,6 +1401,34 @@ Critique it against the rubric, then return the improved JSON + your "rating".` 
       const rating = Number.isFinite(r) ? Math.max(1, Math.min(10, Math.round(r))) : 5;
       return { ...c, rating };
     }
+    var REFINE_NUDGE_SYSTEM = "You are REFINING an existing Lattice component per the author's instruction. Apply ONLY the change they ask for and keep EVERYTHING else \u2014 the name, bucket, the core idea, and the parts the instruction does not touch. Do not rebuild it from scratch or swap it for a different component; make the smallest change that satisfies the instruction well.\n\nPRESERVE THE GATE INVARIANTS (a refinement that breaks the gate is wrong): colors are `var(--\u2026)` tokens only (ZERO hex; a dark panel INVERTS tokens \u2014 `background:var(--text-heading); color:var(--bg)`; status = `--pass`/`--warn`/`--fail`); NO `margin` (use `gap`/`padding`; offsets are `transform`); `font-size` is a `--fs-*` role token; every selector starts `section.<name>`; the skeleton is PURE MARKDOWN.\n\nReturn ONLY the full corrected component as a compact JSON object \u2014 the SAME shape (name, description, function, form, substance, bucket, tags, adapt, capacity, density, css, skeleton). No prose, no fences.";
+    function askComponentRefineMessages2(draft, instruction) {
+      const d = draft && typeof draft === "object" ? draft : {};
+      const payload = {
+        name: d.name,
+        description: d.description,
+        function: d.function,
+        form: d.form,
+        substance: d.substance,
+        bucket: d.bucket,
+        tags: d.tags,
+        adapt: d.adapt,
+        capacity: d.capacity,
+        density: d.density,
+        css: d.css,
+        skeleton: d.skeleton
+      };
+      const nudge = String(instruction || "").trim() || "Improve it.";
+      return [
+        { role: "system", content: REFINE_NUDGE_SYSTEM },
+        { role: "user", content: `Current component:
+${JSON.stringify(payload)}
+
+Change to apply: ${nudge}
+
+Return the full updated component JSON \u2014 same shape, only this change.` }
+      ];
+    }
     function askComponentMessages2(prompt, { similar = [] } = {}) {
       const msgs = [{ role: "system", content: ASK_SYSTEM2 }];
       if (similar.length) {
@@ -1667,10 +1695,12 @@ Critique it against the rubric, then return the improved JSON + your "rating".` 
       ASK_SYSTEM: ASK_SYSTEM2,
       REPAIR_SYSTEM,
       REFINE_DESIGN_SYSTEM,
+      REFINE_NUDGE_SYSTEM,
       COMPONENT_CANON: COMPONENT_CANON2,
       askComponentMessages: askComponentMessages2,
       askRepairMessages: askRepairMessages2,
       askDesignRefineMessages: askDesignRefineMessages2,
+      askComponentRefineMessages: askComponentRefineMessages2,
       coerceRefinement: coerceRefinement2,
       coerceComponent: coerceComponent2,
       rankSimilar: rankSimilar2,
@@ -1726,6 +1756,7 @@ var {
   askComponentMessages,
   askRepairMessages,
   askDesignRefineMessages,
+  askComponentRefineMessages,
   coerceRefinement,
   coerceComponent,
   rankSimilar,
@@ -1745,6 +1776,7 @@ export {
   SUBSTANCES,
   addScopePrefix,
   askComponentMessages,
+  askComponentRefineMessages,
   askDesignRefineMessages,
   askRepairMessages,
   auditComponentDesign,

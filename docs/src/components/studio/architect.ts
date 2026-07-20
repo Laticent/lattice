@@ -13,7 +13,7 @@ import { cosineRank } from '@/playground/architect-retrieval.js';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/drawing-board-refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
-import { askComponentMessages, askDesignRefineMessages, askRepairMessages, auditComponentDesign, coerceComponent, coerceRefinement, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
+import { askComponentMessages, askComponentRefineMessages, askDesignRefineMessages, askRepairMessages, auditComponentDesign, coerceComponent, coerceRefinement, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -967,6 +967,58 @@ export async function generateComponent(
 		improved = imp.improved;
 	}
 	return { status: 'ok', draft, findings, fixes: coerced.fixes, similar, refined, improved };
+}
+
+/**
+ * Refine an EXISTING component draft with the author's DIRECTED nudge ("simpler",
+ * "bolder cards", "tighter copy") — the Motion faculty's refine, ported to
+ * components. The model applies THAT change to `current` and returns the full
+ * component; the SAME gate-repair brings it to compliance before it reaches the
+ * editor, so a nudge can never smuggle a violation past the gate. Distinct from the
+ * effort dial's self-refine (which the model self-directs). Honest like
+ * generateComponent: `offline` / `blocked` / `nochange`, and any surviving findings
+ * are SHOWN. No dedup (we're editing an existing draft), no effort loop (the nudge
+ * IS the direction). `improved` is always 0; `similar` is [].
+ */
+export async function refineComponent(
+	instruction: string,
+	current: ComponentDraft,
+	opts?: { onStatus?: (s: ComponentGenStatus) => void },
+): Promise<ComponentGenOutcome> {
+	if (!instruction.trim()) return { status: 'nochange', note: 'Describe a change to refine.' };
+	const model = await architectModel();
+	if (!model) return { status: 'offline' };
+	const generation = model.availability().generation;
+	if (generation === 'floor') return { status: 'offline' };
+	if (generation === 'openrouter') {
+		const blk = cloudBudgetBlock(model, `${instruction}\n${JSON.stringify(current)}`);
+		if (blk) return { status: 'blocked', note: blk };
+	}
+	opts?.onStatus?.({ phase: 'generating' });
+	let reply = '';
+	try {
+		reply = await model.complete({
+			messages: askComponentRefineMessages(current, instruction),
+			json: true,
+			fallback: '',
+			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+		});
+	} catch {
+		return { status: 'offline' };
+	}
+	const coerced = coerceComponent(reply) as CoercedComponent;
+	// A refine shouldn't decline (it's editing, not creating), but honor one if it comes.
+	if (coerced.decline) {
+		return { status: 'declined', reason: coerced.decline.reason, route: coerced.decline.route, suggestion: coerced.decline.suggestion, similar: [] };
+	}
+	if (!coerced.ok || !coerced.manifest) {
+		return { status: 'nochange', note: 'The model returned no usable refinement — your draft stands.' };
+	}
+	// Gate-repair the nudged draft (compliance), same as generation.
+	const repaired = await repairToClean(model, gateDraft(coerced), generation, (pass, issues) =>
+		opts?.onStatus?.({ phase: 'refining', pass, passes: MAX_REPAIR_PASSES, issues }),
+	);
+	return { status: 'ok', draft: repaired.draft, findings: repaired.findings, fixes: coerced.fixes, similar: [], refined: repaired.refined, improved: 0 };
 }
 
 // A deterministic lint finding (the shape lint-core's `lintTextWith` returns) — a

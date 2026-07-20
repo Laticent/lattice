@@ -56,7 +56,7 @@ export const {
 // ai (the model-proposes pieces — knowledge file + coerce + dedup ranking + audit)
 export const {
   ASK_SYSTEM, COMPONENT_CANON, askComponentMessages, askRepairMessages, askDesignRefineMessages,
-  coerceRefinement, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix,
+  askComponentRefineMessages, coerceRefinement, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix,
 } = ai;
 `;
 
