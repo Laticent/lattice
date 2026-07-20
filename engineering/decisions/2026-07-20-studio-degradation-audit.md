@@ -209,3 +209,27 @@ the DOMINANT heap leak, and the gallery's 32 MB/open is the same mechanism × ~1
 Diagnosis EXHAUSTIVE (every feature × surface tortured; dominant leak pinpointed to an exact Map via
 retainer path). Next phase = fixes, sequenced by leverage (#1 first), each proven with a before/after
 on `studio-torture.mjs` and verified per blast radius (shared-kernel #1 gets the full trio).
+
+## FIXES — execution log (one PR, trio after each)
+
+### Fix A (C1): module-level shared theme cache — SHIPPED-pending-trio
+`docs/src/lib/theme-fetch.ts`: hoisted the per-host `fetched`/`registering`/`latticeReady` caches to a
+module-level `sharedState` Map keyed by `themeBase`, so every preview host of the same theme root shares
+ONE fetch + ONE decoded/rewritten ~560 KB CSS string (was: each host allocated + retained its own).
+Added rejection self-heal (drop the shared entry on a failed fetch so a host can retry — sharing must
+not lose the per-host retry) + a test-only `__resetThemeFetcherCache()`.
+**Before/after (harness, real prod dist, cpu 1):** add-slide gallery open/close retained heap
+**~32 MB/open → ~0.6 MB/open (~50×)**. The per-host theme-CSS duplication WAS the bulk of the
+catastrophic gallery leak. typecheck clean, 11 theme-fetch tests pass, lint clean. Trio in flight.
+(Note: the gallery's +137 listeners/cycle is a SEPARATE leak — Fix for the listener leaks is next.)
+
+### Scope correction (honesty, HARD RULE #23)
+Deeper retainer analysis refined the diagnosis: `ThemeStore.byName` grows unboundedly only for
+**Fabricate/gallery** (varying `@theme` names), NOT for fullwrite (same-name overwrite). The dominant
+fullwrite/palette ~400 KB/cycle retained-heap growth roots at **browser-level V8 context handles**
+("(Global handles)"/NativeContext) from rewriting the shared preview iframe's srcdoc in place —
+`installVideoBridge` is confirmed NOT to pin the contentWindow. So the "realm-release" fix is NOT a
+confirmed app-level leak; it needs **on-device confirmation** (does it accumulate + trigger iOS discard,
+or collect after the GC window?) before any export-sensitive kernel change. Revised fix set: (A) shared
+theme cache ✓, (B) listener leaks (compose/gallery/pgvariant/deckswitch), (C) gallery thumbnail
+disposal, (D) byName eviction for Fabricate/gallery [export gate], (E-realm) deferred pending device.

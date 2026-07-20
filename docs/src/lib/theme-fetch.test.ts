@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createThemeFetcher } from './theme-fetch';
+import { __resetThemeFetcherCache, createThemeFetcher } from './theme-fetch';
 
 // Regression guard for the multi-level theme @import closure. The engine's
 // resolveThemeImports only inlines an import whose target is already REGISTERED,
@@ -27,6 +27,7 @@ describe('createThemeFetcher — transitive @import closure', () => {
 	let registered: Set<string>;
 
 	beforeEach(() => {
+		__resetThemeFetcherCache();
 		registered = new Set();
 		(globalThis as unknown as { window: unknown }).window = {
 			LatticePlayground: {
@@ -82,6 +83,7 @@ describe('createThemeFetcher — relative font url() rewriting', () => {
 	let registeredCss: string[];
 
 	beforeEach(() => {
+		__resetThemeFetcherCache();
 		registeredCss = [];
 		(globalThis as unknown as { window: unknown }).window = {
 			LatticePlayground: {
