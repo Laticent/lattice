@@ -1315,7 +1315,8 @@ var require_ai = __commonJS({
     var EXAMPLE_REUSE = 'WORKED EXAMPLE C \u2014 REUSE a near neighbor. When dedup surfaces a similar component (e.g. "capability-cards"), adapt ITS pattern rather than invent a new structure. Request: "status cards \u2014 each capability with a pass/warn/fail status". This reuses the SAME card-as-li matrix grid and adds ONLY a status accent (state carried by a left border + a state token, not a new layout).\nmanifest: {"name":"status-cards","function":"inventory","form":"grid","substance":"structure","bucket":"inventory","tags":["cards","status","grid"],"description":"A 2-up grid of capability cards, each carrying a pass/warn/fail status accent.","adapt":{"mode":"native"},"capacity":{"sweet":4,"soft":6,"hard":8}}\ncss:\nsection.status-cards > .cell-stage { display:flex; flex-direction:column; }\nsection.status-cards > .cell-stage > ul {\n  display:flex; flex-wrap:wrap; gap:var(--sp-md); flex:1; min-height:0;\n  list-style:none; padding:0; margin:0;\n}\nsection.status-cards > .cell-stage > ul > li {\n  box-sizing:border-box; width:calc(50% - var(--sp-md) / 2);\n  background:var(--bg-alt); border:1px solid var(--border); border-left:3px solid var(--text-muted);\n  border-radius:var(--radius-md); padding:var(--sp-sm) var(--sp-md);\n  font-size:var(--fs-body); font-weight:700; color:var(--text-heading);\n}\n/* status = SHAPE (the left border) + a state token, never color alone */\nsection.status-cards > .cell-stage > ul > li.pass { border-left-color:var(--pass); }\nsection.status-cards > .cell-stage > ul > li.warn { border-left-color:var(--warn); }\nsection.status-cards > .cell-stage > ul > li.fail { border-left-color:var(--fail); }\n@container lattice (aspect-ratio <= 1.05) {\n  section.status-cards.status-cards > .cell-stage > ul > li { width:100%; }\n}\nskeleton:\n<!-- _class: status-cards -->\n\n## Capability status\n\n- Ingest pipeline\n- Scoring engine\n- Audit trail\n';
     var EXAMPLE_COMPARE = 'WORKED EXAMPLE D \u2014 a two-column comparison ("build vs buy", "pros and cons", "two plans side by side"). The two sides are the TWO top-level list items; FLEX splits them evenly (`display:flex` on the list, `flex:1 1 0` per side) with `gap` \u2014 NEVER `margin` to space the columns (the #1 mistake here), and NEVER `grid` for a plain even split (flex is the default \u2014 PREFER FLEX bullet). Each side is a panel; its points are the nested list. Portrait collapses to one column with a one-line `flex-direction:column`.\nmanifest: {"name":"build-buy","function":"comparison","form":"split","substance":"structure","bucket":"comparison","tags":["comparison","two-column","tradeoff"],"description":"Two options side by side \u2014 a titled panel each, the points listed below.","adapt":{"mode":"native"},"capacity":{"sweet":2,"soft":2,"hard":3}}\ncss:\nsection.build-buy > .cell-stage > ul {\n  display:flex; gap:var(--sp-lg); align-items:stretch; flex:1; min-height:0;\n  list-style:none; padding:0; margin:0;\n}\nsection.build-buy > .cell-stage > ul > li {\n  flex:1 1 0; min-width:0;\n  background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md);\n  padding:var(--sp-md);\n  font-size:var(--fs-message); font-weight:700; color:var(--text-heading);\n}\nsection.build-buy > .cell-stage > ul > li > ul {\n  list-style:none; padding:var(--sp-sm) 0 0 0; margin:0; display:flex; flex-direction:column; gap:var(--sp-xs);\n  font-size:var(--fs-body); font-weight:400; color:var(--text-body);\n}\n@container lattice (aspect-ratio <= 0.9) {\n  section.build-buy.build-buy > .cell-stage > ul { flex-direction:column; }\n}\nskeleton:\n<!-- _class: build-buy -->\n\n## Build vs buy\n\n- Build\n  - Full control of the roadmap\n  - Higher upfront cost\n- Buy\n  - Faster to launch\n  - Vendor lock-in\n';
     var EXAMPLE_TABLE = 'WORKED EXAMPLE E \u2014 a feature MATRIX as a real table ("compare three plans across a set of features", "a duties-by-party grid"). The data is a GRID read ACROSS columns, so the skeleton is a GFM markdown table (header row, a `| --- |` divider, then one row per feature) \u2014 NOT a list or a grid of divs. It renders to a native `<table>`; style `section.<name> table/thead th/td` with tokens and `border-bottom` (NEVER margin), `border-collapse:collapse`.\nmanifest: {"name":"plan-matrix","function":"comparison","form":"matrix","substance":"structure","bucket":"comparison","tags":["comparison","table","matrix","pricing"],"description":"A feature matrix \u2014 features down the rows, plans across the columns.","adapt":{"mode":"native"},"capacity":{"sweet":4,"soft":6,"hard":8},"density":{"axis":"row","soft":6,"hard":10}}\ncss:\nsection.plan-matrix > .cell-stage { display:flex; flex-direction:column; }\nsection.plan-matrix table {\n  width:100%; border-collapse:collapse; table-layout:auto; flex:1;\n  font-size:var(--fs-meta);\n}\nsection.plan-matrix thead th {\n  text-align:left; padding:var(--sp-xs) var(--sp-sm);\n  font-size:var(--fs-meta); font-weight:700; color:var(--text-label);\n  border-bottom:2px solid var(--border);\n}\nsection.plan-matrix tbody td {\n  padding:var(--sp-xs) var(--sp-sm); border-bottom:1px solid var(--border);\n  color:var(--text-body);\n}\nsection.plan-matrix tbody td:first-child {\n  font-weight:600; color:var(--text-heading);\n}\nskeleton:\n<!-- _class: plan-matrix -->\n\n## Plans at a glance\n\n| Feature | Starter | Team | Scale |\n| --- | --- | --- | --- |\n| Seats | 3 | 25 | Unlimited |\n| SSO | \u2014 | Yes | Yes |\n| Audit log | \u2014 | 30 days | 1 year |\n';
-    var ASK_SYSTEM2 = "You are a component designer for the Lattice slide engine. Given a request, you propose ONE local component as a compact JSON object \u2014 a manifest + scoped CSS + a skeleton slide \u2014 that feels native to Lattice's boardroom-quality set.\n\n" + COMPONENT_CANON2 + "\n" + EXAMPLE_CARDS + "\n" + EXAMPLE_LEDGER + "\n" + EXAMPLE_REUSE + "\n" + EXAMPLE_COMPARE + "\n" + EXAMPLE_TABLE + `
+    var EXAMPLE_TERMINAL = 'WORKED EXAMPLE F \u2014 a terminal/console STATUS panel ("a sci-fi diagnostic console", "a hacker-green status readout"). The dark "screen" is NOT `#00ff00` on `#000` \u2014 that is hex, which the gate REJECTS. INVERT the tokens: the panel background is `var(--text-heading)` (darkest ink), its text is `var(--bg)` (lightest surface); the status chips are `var(--pass)`/`var(--warn)`/`var(--fail)` (green/amber/red). Spacing is gap/padding (NEVER margin); a monospace look is a `font-family` only.\nmanifest: {"name":"status-console","function":"inventory","form":"panel","substance":"structure","bucket":"inventory","tags":["console","status","terminal"],"description":"A dark diagnostic console \u2014 systems each with a status chip.","adapt":{"mode":"native"},"capacity":{"sweet":4,"soft":6,"hard":8},"density":{"axis":"item","soft":8,"hard":14}}\ncss:\nsection.status-console > .cell-stage {\n  display:flex; flex-direction:column; gap:var(--sp-sm);\n  background:var(--text-heading); color:var(--bg);\n  border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md);\n  font-family:ui-monospace, monospace;\n}\nsection.status-console > .cell-stage > ul {\n  display:flex; flex-direction:column; gap:var(--sp-xs); flex:1; min-height:0;\n  list-style:none; padding:0; margin:0;\n}\nsection.status-console > .cell-stage > ul > li {\n  display:flex; align-items:center; gap:var(--sp-sm);\n  padding:var(--sp-xs) var(--sp-sm);\n  border-bottom:1px solid color-mix(in srgb, var(--bg) 20%, transparent);\n  font-size:var(--fs-body-compact); color:var(--bg);\n}\nsection.status-console > .cell-stage > ul > li > code {\n  padding:0 var(--sp-2xs); border:1px solid var(--pass); border-radius:var(--radius-sm);\n  font-size:var(--fs-meta); color:var(--pass);\n}\nskeleton:\n<!-- _class: status-console -->\n\n`Starbase diagnostic`\n\n## System status\n\n- Warp core `NOMINAL`\n  - Dilithium levels at 94%\n- Shields `ONLINE`\n  - Starboard grid reinforced\n';
+    var ASK_SYSTEM2 = "You are a component designer for the Lattice slide engine. Given a request, you propose ONE local component as a compact JSON object \u2014 a manifest + scoped CSS + a skeleton slide \u2014 that feels native to Lattice's boardroom-quality set.\n\n" + COMPONENT_CANON2 + "\n" + EXAMPLE_CARDS + "\n" + EXAMPLE_LEDGER + "\n" + EXAMPLE_REUSE + "\n" + EXAMPLE_COMPARE + "\n" + EXAMPLE_TABLE + "\n" + EXAMPLE_TERMINAL + `
 
 OUTPUT CONTRACT. Return ONLY a compact JSON object \u2014 no prose, no markdown fences \u2014 with EXACTLY these keys:
   "name": a short lowercase slug (a\u2013z, 0\u20139, hyphens; starts with a letter), evocative of the component \u2014 e.g. "verdict-grid".
@@ -1330,7 +1331,44 @@ OUTPUT CONTRACT. Return ONLY a compact JSON object \u2014 no prose, no markdown 
   "density": {"axis":"item"|"row","soft":N,"hard":N} \u2014 the words-per-element budget (a label + short clause is ~\`soft\`; \`hard\` is the wall-of-text ceiling, \u2265 soft), e.g. {"axis":"item","soft":6,"hard":12}. Author the skeleton sample to sit within \`soft\` so it demonstrates the brevity. Omit only when no element carries prose.
   "css": the scoped stylesheet \u2014 every selector under \`section.<name>\`, palette-blind (var(--\u2026) tokens only, no hex), \`--fs-*\` type only, NO non-reset margin, the \`> .cell-stage\` root, cards as \`<li>\` (or a \`<table>\` styled via \`thead th\`/\`td\`).
   "skeleton": a PURE-MARKDOWN slide (no raw HTML tags \u2014 only the \`<!-- _class: <name> -->\` comment) that invokes the component and exercises it (lists as \`- Title\` / \`  - body\`, or a GFM pipe table for a matrix).
-Decline ONLY when a TRANSFORM is required \u2014 a chart, a diagram, generated/highlighted code, a math render, or a positioned track (timeline/roadmap/journey). Lists, TABLES, prose, and plain fenced code are IN SCOPE \u2014 never decline a matrix (it is a table). To decline, return \`{"decline": true, "reason": "<one sentence>", "route": "<chart|diagram|code|math|dsl>", "suggestion": "<an existing component or a first-party build>"}\`.`;
+Decline ONLY when a TRANSFORM is required \u2014 a chart, a diagram, generated/highlighted code, a math render, or a positioned track (timeline/roadmap/journey). Lists, TABLES, prose, and plain fenced code are IN SCOPE \u2014 never decline a matrix (it is a table). To decline, return \`{"decline": true, "reason": "<one sentence>", "route": "<chart|diagram|code|math|dsl>", "suggestion": "<an existing component or a first-party build>"}\`.
+
+HARD CONSTRAINTS \u2014 the gate REJECTS a draft that breaks ANY of these. Scan your own CSS before returning:
+  1. ZERO hex colors \u2014 every color is a \`var(--\u2026)\` token. There is a token PATH for every color you want, so a hex is never needed. A "terminal/console/hacker-green" or any dark panel is NOT \`#00ff00\`/\`#000\`: INVERT the tokens (\`background:var(--text-heading); color:var(--bg)\`), status green/amber/red = \`var(--pass)\`/\`var(--warn)\`/\`var(--fail)\`, a material tint = \`color-mix(in srgb, var(--cat-3-mark) 12-22%, var(--bg))\`, neutrals = \`var(--text-body)\`/\`var(--text-muted)\`/\`var(--border)\`.
+  2. NO \`margin\` except a bare \`margin:0\` reset \u2014 space with \`gap\` (flex/grid children) or \`padding\` (inside a box); every decorative offset/tilt/scatter is a \`transform\`. A non-zero margin (incl. on a \`::before\`/\`::after\`) is rejected.
+  3. \`font-size\` is a \`--fs-*\` role token ONLY (\`var(--fs-body)\`, \`var(--fs-h2)\`, \u2026) \u2014 never a raw px/rem/cqi.
+  4. EVERY selector starts \`section.<name>\` \u2014 no bare \`ul\`/\`h2\`/\`table\`.
+  5. The skeleton is PURE MARKDOWN \u2014 no raw HTML tags (only the \`<!-- _class: <name> -->\` comment); show code with \`\` \`inline\` \`\` or a \`\`\`fence.
+These are the SAME rules every worked example above already follows \u2014 match them exactly.`;
+    var REPAIR_SYSTEM = "You are fixing a Lattice component draft that FAILED the deterministic gate. Return the SAME compact JSON object shape (name, description, function, form, substance, bucket, tags, adapt, capacity, density, css, skeleton) with ONLY the listed violations corrected \u2014 preserve the design, structure, copy, and intent; change nothing the gate did not flag. No prose, no markdown fences \u2014 JSON only.\n\nHOW TO FIX EACH RULE:\n\u2022 no-hex \u2014 replace the hex with the token that matches its INTENT (never invent a value): a terminal/console/dark panel INVERTS the tokens (`background:var(--text-heading); color:var(--bg)`, inset bar `var(--bg-alt)`/`var(--border)`); status green/amber/red = `var(--pass)`/`var(--warn)`/`var(--fail)`; the brand accent = `var(--accent)`/`var(--accent-soft)`; a material/paper tint = `color-mix(in srgb, var(--cat-3-mark) 12-22%, var(--bg))`; neutrals = `var(--text-body)`/`var(--text-secondary)`/`var(--text-muted)`/`var(--border)`. Categorical hues are `var(--cat-1-mark) \u2026 var(--cat-12-mark)`.\n\u2022 no-margin \u2014 margin is BANNED (it corrupts the height math a measuring layout depends on). Replace every non-zero margin (a bare `margin:0` reset is fine) with `gap` (between flex/grid children) or `padding` (inside a box); a decorative offset or tilt becomes a `transform`. This includes margins on a `::before`/`::after`.\n\u2022 fs-token \u2014 `font-size` must be a `--fs-*` role token (`var(--fs-meta)`/`var(--fs-body-compact)`/`var(--fs-body)`/`var(--fs-h2)`/\u2026), never a raw px/rem/cqi.\n\u2022 scope \u2014 prefix every selector with `section.<name>` so styles can't leak onto other slides.\n\u2022 skeleton-html / skeleton-script \u2014 the skeleton is PURE MARKDOWN; delete any raw `<tag>`/script (show code as `` `inline` `` or a ```fence). Keep the `<!-- _class: <name> -->` directive.\n\u2022 manifest:* \u2014 correct the flagged field to a valid enum/shape (see the field list above).\nReturn ONLY the corrected JSON.";
+    function askRepairMessages2(draft, findings) {
+      const d = draft && typeof draft === "object" ? draft : {};
+      const payload = {
+        name: d.name,
+        description: d.description,
+        function: d.function,
+        form: d.form,
+        substance: d.substance,
+        bucket: d.bucket,
+        tags: d.tags,
+        adapt: d.adapt,
+        capacity: d.capacity,
+        density: d.density,
+        css: d.css,
+        skeleton: d.skeleton
+      };
+      const list = (Array.isArray(findings) ? findings : []).map((f) => `- ${f.rule}${f.line ? ` (line ${f.line})` : ""}: ${f.message}`).join("\n") || "- (no specific findings provided)";
+      return [
+        { role: "system", content: REPAIR_SYSTEM },
+        { role: "user", content: `Component JSON to fix:
+${JSON.stringify(payload)}
+
+Gate violations to correct:
+${list}
+
+Return the corrected JSON \u2014 same shape, only these fixed.` }
+      ];
+    }
     function askComponentMessages2(prompt, { similar = [] } = {}) {
       const msgs = [{ role: "system", content: ASK_SYSTEM2 }];
       if (similar.length) {
@@ -1595,8 +1633,10 @@ Decline ONLY when a TRANSFORM is required \u2014 a chart, a diagram, generated/h
     }
     module.exports = {
       ASK_SYSTEM: ASK_SYSTEM2,
+      REPAIR_SYSTEM,
       COMPONENT_CANON: COMPONENT_CANON2,
       askComponentMessages: askComponentMessages2,
+      askRepairMessages: askRepairMessages2,
       coerceComponent: coerceComponent2,
       rankSimilar: rankSimilar2,
       auditComponentDesign: auditComponentDesign2,
@@ -1649,6 +1689,7 @@ var {
   ASK_SYSTEM,
   COMPONENT_CANON,
   askComponentMessages,
+  askRepairMessages,
   coerceComponent,
   rankSimilar,
   auditComponentDesign,
@@ -1667,6 +1708,7 @@ export {
   SUBSTANCES,
   addScopePrefix,
   askComponentMessages,
+  askRepairMessages,
   auditComponentDesign,
   coerceComponent,
   collidesWithShipped,

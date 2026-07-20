@@ -202,6 +202,20 @@ in patch versions.
 
 ### Added
 
+- **Fabricate now silently fixes a generated component's own gate violations before you see it —
+  and teaches the model not to make them.** A "describe a component" result could land with a wall of
+  gate errors (a real "sci-fi console" came back with 17 — raw `#00ff00` hex for "terminal green" plus a
+  stray `margin`), and the studio just reported them and stopped. Two changes close that. (1) **Prevention**:
+  the generation prompt gained a worked terminal/console example (the exact failure mode, gate-clean) and a
+  terse **HARD CONSTRAINTS** restatement at the very end — "ZERO hex (a dark panel INVERTS the tokens:
+  `background:var(--text-heading); color:var(--bg)`; status = `--pass`/`--warn`/`--fail`), NO margin (use
+  `gap`/`padding`), `--fs-*` type only, `section.<name>` scoping" — so the model has the token map front of
+  mind. (2) **Silent repair**: when a draft still fails the gate, the studio feeds it plus the exact
+  violations back to the model to correct — up to 2 passes, stopping the instant it's clean, accepting a
+  pass only if it reduces errors — **before the draft ever reaches the editor**, showing a live
+  "Refining — fixing N issues…" cue. Anything that survives is still shown (never hidden), and Save stays
+  gated on a clean gate. (`lib/layout/ai.js` `askRepairMessages` + prompt, `architect.ts` `generateComponent`,
+  `Fabricate.tsx`; `engineering/decisions/2026-07-19-component-gate-autofix.md`.)
 - **The Studio chat can preserve the facts, and always shows when an edit changes a number.** Two
   content-truth guards for editing a numbers deck. (1) A **"Preserve facts"** toggle in the chat
   composer: when on, the model is asked to improve wording, structure, and clarity but not change any

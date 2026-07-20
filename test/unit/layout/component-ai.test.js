@@ -11,7 +11,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { askComponentMessages, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix, MAX_CSS_BYTES } = require('../../../lib/layout/ai.js');
+const { ASK_SYSTEM, askComponentMessages, askRepairMessages, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix, MAX_CSS_BYTES } = require('../../../lib/layout/ai.js');
 const { gateComponent, findUnscopedSelectors } = require('../../../lib/layout/gate.js');
 
 describe('component-ai — prompt', () => {
@@ -204,6 +204,82 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
   };
   test('worked example E (matrix table) passes gateComponent — native table, token-styled, pure-markdown skeleton', () => {
     assert.equal(gateComponent(TABLE).ok, true, JSON.stringify(gateComponent(TABLE).errors));
+  });
+
+  // Example F — the TERMINAL/CONSOLE panel, added after a real generation came back
+  // with a wall of #00ff00 hex + a stray margin (the "hacker-green" failure mode). It
+  // teaches the token INVERSION for a dark panel + the state tokens for status, so the
+  // model has a concrete gate-clean instance to copy instead of reaching for hex.
+  const TERMINAL = {
+    css: [
+      'section.status-console > .cell-stage {',
+      '  display:flex; flex-direction:column; gap:var(--sp-sm);',
+      '  background:var(--text-heading); color:var(--bg);',
+      '  border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md);',
+      '  font-family:ui-monospace, monospace;',
+      '}',
+      'section.status-console > .cell-stage > ul { display:flex; flex-direction:column; gap:var(--sp-xs); flex:1; min-height:0; list-style:none; padding:0; margin:0; }',
+      'section.status-console > .cell-stage > ul > li { display:flex; align-items:center; gap:var(--sp-sm); padding:var(--sp-xs) var(--sp-sm); border-bottom:1px solid color-mix(in srgb, var(--bg) 20%, transparent); font-size:var(--fs-body-compact); color:var(--bg); }',
+      'section.status-console > .cell-stage > ul > li > code { padding:0 var(--sp-2xs); border:1px solid var(--pass); border-radius:var(--radius-sm); font-size:var(--fs-meta); color:var(--pass); }',
+    ].join('\n'),
+    manifest: {
+      name: 'status-console', function: 'inventory', form: 'panel', substance: 'structure', bucket: 'inventory',
+      tags: ['console', 'status', 'terminal'], description: 'A dark diagnostic console — systems each with a status chip.',
+      skeleton: '<!-- _class: status-console -->\n\n`Starbase diagnostic`\n\n## System status\n\n- Warp core `NOMINAL`\n  - Dilithium levels at 94%',
+    },
+  };
+  test('worked example F (terminal console) passes gateComponent — INVERTED tokens, ZERO hex, no margin', () => {
+    assert.equal(gateComponent(TERMINAL).ok, true, JSON.stringify(gateComponent(TERMINAL).errors));
+  });
+
+  // Prevention content must not silently vanish: the prompt carries the terminal
+  // example + the trailing HARD CONSTRAINTS restatement (the recency backstop for the
+  // rules models miss — hex, margin). These are what keep the failure mode from
+  // recurring, so lock their presence.
+  test('ASK_SYSTEM carries the terminal example and the trailing HARD CONSTRAINTS block', () => {
+    assert.match(ASK_SYSTEM, /status-console/);
+    assert.match(ASK_SYSTEM, /INVERT the tokens/);
+    assert.match(ASK_SYSTEM, /HARD CONSTRAINTS/);
+    assert.match(ASK_SYSTEM, /ZERO hex/);
+    // The HARD CONSTRAINTS block sits at the VERY END (recency) — after the output contract.
+    assert.ok(ASK_SYSTEM.lastIndexOf('HARD CONSTRAINTS') > ASK_SYSTEM.indexOf('OUTPUT CONTRACT'));
+  });
+});
+
+describe('component-ai — silent gate-repair prompt (askRepairMessages)', () => {
+  const dirtyDraft = {
+    name: 'neon', description: 'A neon terminal.', function: 'inventory', form: 'panel', substance: 'structure',
+    bucket: 'inventory', tags: ['neon', 'terminal', 'status'], adapt: { mode: 'native' },
+    capacity: { sweet: 1, soft: 1, hard: 1 }, density: null,
+    css: 'section.neon > .cell-stage { color:#00ff00; margin:4px; }', skeleton: '<!-- _class: neon -->\n\n## X\n\ntext',
+  };
+  const findings = [
+    { rule: 'no-hex', level: 'error', line: 1, message: 'hex literal "#00ff00" — use a palette token instead.' },
+    { rule: 'no-margin', level: 'error', line: 1, message: 'margin "4px" — space with gap/padding instead.' },
+  ];
+
+  test('builds a system+user pair that carries the remediation and the exact findings', () => {
+    const msgs = askRepairMessages(dirtyDraft, findings);
+    assert.equal(msgs.length, 2);
+    assert.equal(msgs[0].role, 'system');
+    // The system turn teaches the token map + margin rule (so the model can actually fix it).
+    assert.match(msgs[0].content, /no-hex/);
+    assert.match(msgs[0].content, /INVERTS the tokens/);
+    assert.match(msgs[0].content, /margin is BANNED/);
+    // The user turn carries the draft JSON + the specific violations to fix.
+    assert.equal(msgs[1].role, 'user');
+    assert.match(msgs[1].content, /"css"\s*:/);
+    assert.match(msgs[1].content, /no-hex \(line 1\)/);
+    assert.match(msgs[1].content, /no-margin \(line 1\)/);
+    // Round-trips the draft so the model edits IN PLACE, not from scratch.
+    assert.match(msgs[1].content, /#00ff00/);
+    assert.match(msgs[1].content, /status-console|neon/);
+  });
+
+  test('tolerates an empty findings list and a junk draft without throwing', () => {
+    assert.doesNotThrow(() => askRepairMessages(dirtyDraft, []));
+    assert.doesNotThrow(() => askRepairMessages(null, null));
+    assert.match(askRepairMessages(dirtyDraft, []).at(-1).content, /no specific findings/);
   });
 });
 

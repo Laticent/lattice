@@ -13,7 +13,7 @@ import { cosineRank } from '@/playground/architect-retrieval.js';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/drawing-board-refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
-import { askComponentMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
+import { askComponentMessages, askRepairMessages, auditComponentDesign, coerceComponent, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -690,11 +690,19 @@ export type ComponentDraft = {
 	skeleton: string;
 };
 export type ComponentGenOutcome =
-	| { status: 'ok'; draft: ComponentDraft; findings: ComponentFinding[]; fixes: string[]; similar: ComponentSimilar[] }
+	// `refined` = how many SILENT repair passes ran to clear gate errors (0 = the first
+	// draft was already clean / had only warnings). The UI can surface "auto-fixed N issues".
+	| { status: 'ok'; draft: ComponentDraft; findings: ComponentFinding[]; fixes: string[]; similar: ComponentSimilar[]; refined: number }
 	| { status: 'declined'; reason: string; route: string; suggestion: string; similar: ComponentSimilar[] }
 	| { status: 'offline' }
 	| { status: 'blocked'; note: string }
 	| { status: 'nochange'; note: string };
+
+// Progress from a generation, so the UI can show a live "Refining — fixing N issues…"
+// state while the silent gate-repair passes run (before the draft ever reaches the user).
+export type ComponentGenStatus =
+	| { phase: 'generating' }
+	| { phase: 'refining'; pass: number; passes: number; issues: number };
 
 type DedupCatalog = { name: string; bucket?: string; description?: string; purpose?: string; tags?: string[] }[];
 // One docstring per component for the dedup signal — the TOP-LEVEL fields only
@@ -741,6 +749,39 @@ async function dedupComponents(prompt: string, catalog: DedupCatalog, model: Arc
 	return rankSimilar(prompt, catalog, { limit }) as ComponentSimilar[];
 }
 
+// The shape coerceComponent returns (a decline, or a coerced draft to gate).
+type CoercedComponent = {
+	ok: boolean;
+	decline: { reason: string; route: string; suggestion: string } | null;
+	manifest: Omit<ComponentDraft, 'css' | 'skeleton'> | null;
+	css: string;
+	skeleton: string;
+	fixes: string[];
+};
+
+// The silent gate-repair budget: up to 2 passes, stop the instant it's clean
+// (2026-07-19-component-gate-autofix.md). A constant so it's trivially tunable.
+const MAX_REPAIR_PASSES = 2;
+
+// Run the SAME gate the Component editor runs — the structural gate + the native-ness
+// design audit — on a coerced draft, returning the draft, its normalized findings, and
+// the ERROR count. The single source of truth for "is this draft clean", so the first
+// pass and every repair pass judge it identically.
+function gateDraft(coerced: CoercedComponent): { draft: ComponentDraft; findings: ComponentFinding[]; errorCount: number } {
+	const m = coerced.manifest as Omit<ComponentDraft, 'css' | 'skeleton'>;
+	const gate = gateComponent({ css: coerced.css, manifest: { ...m, skeleton: coerced.skeleton } }) as { ok: boolean; errors: ComponentFinding[] };
+	// The native-ness design audit (§6) — adapt/capacity coherence + the data: URI size
+	// cap — beyond the structural gate. Advisory + hard findings, both shown.
+	const design = auditComponentDesign(m, coerced.css) as ComponentFinding[];
+	const findings = [...(gate.errors ?? []), ...design];
+	const draft: ComponentDraft = {
+		name: m.name, description: m.description, function: m.function, form: m.form,
+		substance: m.substance, bucket: m.bucket, tags: m.tags, adapt: m.adapt, capacity: m.capacity, density: m.density,
+		css: coerced.css, skeleton: coerced.skeleton,
+	};
+	return { draft, findings, errorCount: findings.filter((f) => f.level === 'error').length };
+}
+
 /**
  * Generate a local component from a "describe a component" prompt. The model
  * PROPOSES a manifest + scoped CSS + skeleton grounded in the knowledge file; the
@@ -749,13 +790,19 @@ async function dedupComponents(prompt: string, catalog: DedupCatalog, model: Arc
  * duplicates, and threaded to the model as reuse hints. Honest like the deck
  * bridges: `offline` with no model, `blocked` at the budget cap, `declined` when
  * the request needs a transform (chart/diagram/code/non-`ul>li`) the CSS-only path
- * can't author, `nochange` for an empty prompt or an unusable reply. A returned
- * `ok` draft may still carry gate `findings` — they are SHOWN, never papered over.
+ * can't author, `nochange` for an empty prompt or an unusable reply.
+ *
+ * SILENT GATE-REPAIR: a first draft that fails the gate is fed back to the model —
+ * with the exact violations + their token/margin remediation — to fix, BEFORE the
+ * user sees it (up to MAX_REPAIR_PASSES, stopping when clean, accepting a pass only
+ * if it reduces errors). `opts.onStatus` reports "refining" so the UI can show it.
+ * Any `findings` that survive the passes are still SHOWN, never papered over.
  */
 export async function generateComponent(
 	prompt: string,
 	catalog: { name: string; bucket?: string; description?: string; purpose?: string; tags?: string[] }[] = [],
 	docs?: ReferenceDoc[],
+	opts?: { onStatus?: (s: ComponentGenStatus) => void },
 ): Promise<ComponentGenOutcome> {
 	if (!prompt.trim()) return { status: 'nochange', note: 'Describe a component to generate one.' };
 	const model = await architectModel();
@@ -773,6 +820,7 @@ export async function generateComponent(
 	// Ground in the user's reference doc (#640) — prepended to the user turn as
 	// untrusted DATA; a PDF rides as an inlined file-part + the parser plugin.
 	const ground = groundMessages(askComponentMessages(prompt, { similar }), docs, generation === 'openrouter');
+	opts?.onStatus?.({ phase: 'generating' });
 	let reply = '';
 	try {
 		reply = await model.complete({
@@ -785,36 +833,50 @@ export async function generateComponent(
 	} catch {
 		return { status: 'offline' };
 	}
-	const coerced = coerceComponent(reply) as {
-		ok: boolean;
-		decline: { reason: string; route: string; suggestion: string } | null;
-		manifest: Omit<ComponentDraft, 'css' | 'skeleton'> | null;
-		css: string;
-		skeleton: string;
-		fixes: string[];
-	};
+	const coerced = coerceComponent(reply) as CoercedComponent;
 	if (coerced.decline) {
 		return { status: 'declined', reason: coerced.decline.reason, route: coerced.decline.route, suggestion: coerced.decline.suggestion, similar };
 	}
 	if (!coerced.ok || !coerced.manifest) {
 		return { status: 'nochange', note: 'The model returned no usable component.' };
 	}
-	const m = coerced.manifest;
-	const gate = gateComponent({ css: coerced.css, manifest: { ...m, skeleton: coerced.skeleton } }) as { ok: boolean; errors: ComponentFinding[] };
-	// The native-ness design audit (§6) — adapt/capacity coherence + the data: URI
-	// size cap — beyond the structural gate. Advisory + hard findings, both shown.
-	const design = auditComponentDesign(m, coerced.css) as ComponentFinding[];
-	const md = m as typeof m & {
-		adapt: { mode: string };
-		capacity: { sweet?: number; soft?: number; hard?: number } | null;
-		density: { axis: string; soft?: number; hard?: number } | null;
-	};
-	const draft: ComponentDraft = {
-		name: m.name, description: m.description, function: m.function, form: m.form,
-		substance: m.substance, bucket: m.bucket, tags: m.tags, adapt: md.adapt, capacity: md.capacity, density: md.density,
-		css: coerced.css, skeleton: coerced.skeleton,
-	};
-	return { status: 'ok', draft, findings: [...(gate.errors ?? []), ...design], fixes: coerced.fixes, similar };
+	// Gate the first draft, then SILENTLY repair any gate ERRORS before the user sees
+	// it: feed the draft + the exact findings back to the model (askRepairMessages
+	// carries the token/margin remediation), re-gate, and accept the pass ONLY if it
+	// reduces errors — never a regression — stopping the instant it's clean. Warnings
+	// are advisory and never trigger a pass. Each pass respects the budget cap.
+	let { draft, findings, errorCount } = gateDraft(coerced);
+	let refined = 0;
+	for (let pass = 1; pass <= MAX_REPAIR_PASSES && errorCount > 0; pass++) {
+		// Check the budget BEFORE announcing "refining", so we never flash the cue for a
+		// pass that immediately bails out of budget.
+		if (generation === 'openrouter') {
+			const blk = cloudBudgetBlock(model, JSON.stringify(draft));
+			if (blk) break; // out of budget → keep the best draft so far, findings shown
+		}
+		opts?.onStatus?.({ phase: 'refining', pass, passes: MAX_REPAIR_PASSES, issues: errorCount });
+		const errs = findings.filter((f) => f.level === 'error');
+		let fix = '';
+		try {
+			fix = await model.complete({
+				messages: askRepairMessages(draft, errs),
+				json: true,
+				fallback: '',
+				onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+			});
+		} catch {
+			break; // a failed repair call → keep the best draft so far
+		}
+		const rc = coerceComponent(fix) as CoercedComponent;
+		if (rc.decline || !rc.ok || !rc.manifest) break; // unusable repair → keep best
+		const next = gateDraft(rc);
+		if (next.errorCount >= errorCount) break; // no improvement → stop, keep best
+		draft = next.draft;
+		findings = next.findings;
+		errorCount = next.errorCount;
+		refined = pass;
+	}
+	return { status: 'ok', draft, findings, fixes: coerced.fixes, similar, refined };
 }
 
 // A deterministic lint finding (the shape lint-core's `lintTextWith` returns) — a
