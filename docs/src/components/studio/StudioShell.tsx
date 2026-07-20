@@ -2938,7 +2938,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				style={{ position: 'fixed', top: 0, left: 0, visibility: 'hidden', opacity: 0, zIndex: presentOpen ? 101 : 15, pointerEvents: 'none' }}
 				className={cn('overflow-hidden', presentOpen ? 'rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]' : 'rounded-xl')}
 			>
-				<DeckPreview options={options} sample={sharedSample} mermaid={sharedMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={sharedActive} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
+				<DeckPreview options={options} sample={sharedSample} mermaid={sharedMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={sharedActive} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader />
 			</div>
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* Read + Write stops (DESKTOP only): a slim header — deck title · ⌘K · Present ·

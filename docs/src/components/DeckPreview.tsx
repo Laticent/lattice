@@ -6,6 +6,7 @@ import {
 	type SingleSlideRenderer,
 } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import '@/styles/nacre-loader.css';
 
 // The React single-slide wrapper over single-slide-render.ts — the plain
 // single-stage bridge HeroPreview renders through for its Preview face: a figure
@@ -68,6 +69,12 @@ export type DeckPreviewProps = {
 	 * is ready (never a blank-preview gap).
 	 */
 	onFirstRender?: () => void;
+	/**
+	 * Show the Nacre "no slide yet" loader behind the live iframe until the first slide
+	 * paints (then it fades + freezes). Opt-in — only the Studio's live preview wants it;
+	 * landing/showcase hosts render a known static sample with no meaningful load gap.
+	 */
+	loader?: boolean;
 };
 
 /**
@@ -88,8 +95,23 @@ export function DeckPreview({
 	className,
 	role,
 	onFirstRender,
+	loader = false,
 	...aria
 }: DeckPreviewProps) {
+	// Nacre loader hand-off: mounted once (a stable child, so it never disturbs the
+	// imperatively-appended `iframe.live` trailing it), flipped to `is-done` on the first
+	// successful paint — which fades it out and freezes its animation. Held in state so the
+	// class flip re-renders; the render closure below does NOT depend on it.
+	const [painted, setPainted] = React.useState(false);
+	// Belt-and-suspenders: `painted` normally flips on the iframe's `load` (see fire()
+	// below). If that event is ever dropped (teardown race / pathological doc), freeze the
+	// loader after a generous ceiling so its 3 blend layers can't composite forever behind
+	// an already-painted slide. A real load flips it far sooner, making this a no-op.
+	React.useEffect(() => {
+		if (!loader || painted) return;
+		const t = setTimeout(() => setPainted(true), 10000);
+		return () => clearTimeout(t);
+	}, [loader, painted]);
 	// One renderer instance for this host (holds the theme + font caches).
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
@@ -123,6 +145,7 @@ export function DeckPreview({
 					const fire = () => {
 						if (firstRenderFiredRef.current) return;
 						firstRenderFiredRef.current = true;
+						setPainted(true); // fade + freeze the Nacre loader now the slide covers it
 						onFirstRenderRef.current?.();
 					};
 					// renderInto resolves when the srcdoc is SET — the iframe's own load
@@ -312,7 +335,38 @@ export function DeckPreview({
 	// `m-0` neutralizes the `<figure>` UA default margin (`0 40px`) — Tailwind
 	// preflight doesn't reach inside the studio island, and that 40px inline margin
 	// shoves a `w-full` preview off its track and overflows narrow viewports.
-	return <figure ref={stageRef} className={cn('m-0', className)} role={role} {...aria} />;
+	// `relative` so the Nacre loader (absolute inset:0) and the imperatively-appended
+	// `iframe.live` both anchor to the figure. The loader is the ONLY React child; the
+	// engine appends the iframe AFTER it, so the iframe paints on top and — once opaque —
+	// covers the loader, which `is-done` then fades + freezes. A stable single child means
+	// React never adds/removes around the foreign iframe node.
+	// `relative` ONLY when the loader is on — so the iframe anchors to the figure that
+	// holds the loader. Non-loader hosts stay static (byte-for-byte unchanged anchoring).
+	return (
+		<figure ref={stageRef} className={cn(loader && 'relative', 'm-0', className)} role={role} {...aria}>
+			{loader && (
+				<span className={cn('nacre-loader', painted && 'is-done')} aria-hidden="true">
+					<span className="nacre-loader__core" />
+					<span className="nacre-loader__layer nacre-loader__layer--0">
+						<i className="nacre-loader__blob" />
+						<i className="nacre-loader__blob" />
+						<i className="nacre-loader__blob" />
+					</span>
+					<span className="nacre-loader__layer nacre-loader__layer--1">
+						<i className="nacre-loader__blob" />
+						<i className="nacre-loader__blob" />
+						<i className="nacre-loader__blob" />
+					</span>
+					<span className="nacre-loader__layer nacre-loader__layer--2">
+						<i className="nacre-loader__blob" />
+						<i className="nacre-loader__blob" />
+						<i className="nacre-loader__blob" />
+					</span>
+					<span className="nacre-loader__vig" />
+				</span>
+			)}
+		</figure>
+	);
 }
 
 export default DeckPreview;

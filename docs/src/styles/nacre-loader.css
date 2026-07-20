@@ -1,0 +1,99 @@
+/* Nacre preview loader — the screen-only "no slide yet" atmosphere for the Studio
+ * live preview. Three hue-offset accent layers COUNTER-ROTATE: their overlaps remix
+ * into spatially-varying iridescence and their offset orbits morph like fluid.
+ *
+ * PERFORMANCE is the whole point: `blur` + `hue-rotate` are STATIC filters (rasterized
+ * ONCE per layer); only `transform: rotate` animates, so the compositor spins cached
+ * bitmaps with NO per-frame re-blur and NO scale — cheap enough to run during React
+ * hydration + the engine-bundle load. Palette-blind via the docs-root --accent / --bg
+ * tokens, so it auto-matches theme + dark/light. Screen-only (never exported).
+ * Design: engineering/decisions/2026-07-20-nacre-preview-loader.md.
+ */
+.nacre-loader {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	isolation: isolate; /* blend the layers against THIS box's --bg, not the page behind */
+	background: var(--bg, #0c1626);
+	pointer-events: none;
+	/* Hand-off: once the real slide has painted (opaque, same --bg ground) it covers this,
+	   and we fade + freeze it so nothing keeps compositing behind the slide. */
+	opacity: 1;
+	transition: opacity 0.5s ease;
+}
+.nacre-loader.is-done {
+	opacity: 0;
+}
+.nacre-loader.is-done .nacre-loader__layer {
+	animation: none; /* stop the GPU work the instant the slide takes over */
+	will-change: auto; /* release the compositor-layer hint too (host is never remounted) */
+}
+
+.nacre-loader__layer {
+	position: absolute;
+	inset: -35%; /* oversized so rotation never reveals a corner */
+	mix-blend-mode: screen;
+	transform-origin: 50% 50%;
+	will-change: transform;
+}
+.nacre-loader__layer--0 {
+	filter: blur(26px);
+	animation: nacre-rot 9s linear infinite;
+}
+.nacre-loader__layer--1 {
+	filter: blur(26px) hue-rotate(34deg); /* +hue → a second, distinct nacre tone */
+	animation: nacre-rot 12s linear infinite reverse;
+}
+.nacre-loader__layer--2 {
+	filter: blur(26px) hue-rotate(-28deg); /* −hue → a third tone; three co-present = iridescence */
+	animation: nacre-rot 15s linear infinite;
+}
+.nacre-loader__blob {
+	position: absolute;
+	border-radius: 50%;
+	background: radial-gradient(circle, color-mix(in srgb, var(--accent, #5b8fc7) 60%, transparent), transparent 64%);
+}
+.nacre-loader__blob:nth-child(1) {
+	width: 54%;
+	aspect-ratio: 1;
+	left: 10%;
+	top: 16%;
+}
+.nacre-loader__blob:nth-child(2) {
+	width: 46%;
+	aspect-ratio: 1;
+	left: 56%;
+	top: 20%;
+}
+.nacre-loader__blob:nth-child(3) {
+	width: 50%;
+	aspect-ratio: 1;
+	left: 32%;
+	top: 56%;
+}
+.nacre-loader__core {
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(58% 58% at 50% 46%, color-mix(in srgb, var(--accent, #5b8fc7) 15%, transparent), transparent 72%);
+}
+.nacre-loader__vig {
+	position: absolute;
+	inset: 0;
+	box-shadow: inset 0 0 70px 14px color-mix(in srgb, var(--bg, #0c1626) 92%, transparent);
+}
+@keyframes nacre-rot {
+	to {
+		transform: rotate(360deg);
+	}
+}
+/* Light ground: screen washes out toward white, so the hue layers DARKEN (multiply)
+   the bright sky instead — the cloud stays visible on every palette in light mode. */
+:root[data-mode='light'] .nacre-loader__layer {
+	mix-blend-mode: multiply;
+}
+/* Accessibility: a viewer who asked for less motion gets a calm static nacre. */
+@media (prefers-reduced-motion: reduce) {
+	.nacre-loader__layer {
+		animation: none;
+	}
+}

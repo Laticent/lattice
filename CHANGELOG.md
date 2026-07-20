@@ -341,7 +341,19 @@ in patch versions.
   so a phone can enable it without the drawer. Studio-only, opt-in, and inert until shown (it measures
   nothing while off). (`ViewportDebugOverlay.tsx`, `viewport-debug-prefs.ts`;
   `engineering/decisions/2026-07-20-landscape-phone-preview-lock.md`.)
-
+- **The Studio's live preview no longer flashes a blank card while a slide loads — it shows a living
+  "Nacre" cloud.** A screen-only animated finish fills the "no slide yet" moment (cold boot, reload,
+  the post-hydration gap while the engine bundle loads) with a soft, iridescent accent cloud, then
+  fades out the instant the real slide paints over it. It's palette-blind (auto-matches every theme +
+  dark/light off the live `--accent` / `--bg` tokens; the layer blend flips `screen → multiply` on a
+  light ground so it stays visible on white), and honors `prefers-reduced-motion` with a calm static
+  cloud. The iridescence is real — three accent layers at different hues counter-rotate so their
+  overlaps continuously remix — and it's built to be cheap during load: `blur` + `hue-rotate` are baked
+  once and only `transform: rotate` animates, so the GPU spins cached bitmaps with no per-frame re-blur.
+  Opt-in per preview host (Studio only); exported PDF/PPTX/HTML bytes are unchanged (preview-only).
+  Real-device (iOS) perf sign-off and a pre-hydration instant-shell variant are tracked follow-ups.
+  (`docs/src/styles/nacre-loader.css`, `docs/src/components/DeckPreview.tsx`, `StudioShell.tsx`;
+  `engineering/decisions/2026-07-20-nacre-preview-loader.md`.)
 - **Fabricate can now refine a component by hand — quick chips or a freeform nudge — not just generate
   it.** The mirror of the Motion faculty's refine, ported to components. A "Refine" row sits under the
   "describe a component" bar (once a model is connected): four semantic chips — **Simpler · Bolder ·
