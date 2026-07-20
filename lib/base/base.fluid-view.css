@@ -64,6 +64,43 @@
  * section's own themed background fills the fluid box edge to edge. */
 :root[data-lattice-view="fluid"] .lattice-bg { display: none !important; }
 
+/* Honest overflow marker — the READER variant (Fit Ladder move 4: never a silent
+ * clip). The runtime overflow watcher flags a section whose content exceeds the
+ * box with `.overflow`; the authoring signal (base.modifiers.css) is a loud red
+ * danger ring + "OVERFLOWS" banner — right for the author, alarming for a
+ * boardroom reader. In the viewer we drop the red ring and restyle the same
+ * (text-labeled, WCAG 1.4.1) tab into a calm "More below" cue, bottom-center so
+ * it never collides with the top-right toggle.
+ *
+ * Gated on `data-lattice-fluid-capable` — the export-viewer marker — NOT
+ * `data-lattice-view="fluid"`: the watcher runs for the whole viewer export, and
+ * a slide can overflow in the FIXED state too (an ultrawide default, or a reader
+ * toggled to Fluid: off). Both are readers and must get the calm marker, never
+ * the red author ring. The author live-preview has no fluid-capable marker, so it
+ * keeps the red ring untouched. The real fix — reflow/split so nothing clips — is
+ * the later slice; this is the honest floor until then.
+ * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1. */
+:root[data-lattice-fluid-capable] section.overflow {
+  box-shadow: none !important;                 /* drop the author red inset ring */
+}
+:root[data-lattice-fluid-capable] section.overflow > .overflow-tab {
+  top: auto !important;
+  right: auto !important;
+  bottom: max(0.6rem, env(safe-area-inset-bottom)) !important;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */
+  color: var(--bg) !important;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  box-shadow: 0 0.125rem 0.5rem rgb(0 0 0 / 0.28); /* neutral drop shadow (HTML viewer only, never in PDF) */
+  opacity: 0.9;
+}
+:root[data-lattice-fluid-capable] section.overflow > .overflow-tab::after {
+  content: " \2193";                            /* down arrow — "more below" affordance */
+}
+
 /* The opt-in toggle the runtime injects on a fluid-capable page (lib/runtime/
  * index.js → initFluidView). Ungated: it shows in both fixed and fluid states so
  * the reader can switch back. It only exists on a fluid viewer, so the id never

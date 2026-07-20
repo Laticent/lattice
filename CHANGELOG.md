@@ -248,6 +248,15 @@ in patch versions.
 
 ### Added
 
+- **The fluid-box viewer now fills landscape screens, not just phones.** Opening a `--fluid` deck on a
+  laptop, tablet, or 4:3 projector used to letterbox the fixed 16:9 deck; now any non-ultrawide screen
+  fills the viewport by default and the slide reflows to it — the same machinery that already served
+  phones, extended to landscape within a tolerance band. **Ultrawide (aspect > ~1.9) still keeps the
+  fixed deck** until the edge-cap slice lands, so it never shows a dead band. Dense slides that can't
+  fit now show a calm, palette-blind **"More below ↓"** cue (the honest overflow floor) instead of
+  silently clipping — the reader never loses content without a signal, and never sees the author's red
+  QA ring. Opt-in and viewer-only: **PDF / PPTX / PNG and the canonical export HTML are byte-identical.**
+  First slice (P1) of `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`.
 - **Headline alignment is now an author register (`headline:`), not a per-layout default.** The
   horizontal alignment of a slide's framing text — eyebrow, heading, heading rule, subtitle,
   below-note, key insight, caption — used to be baked into each component, so the pieces could
