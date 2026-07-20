@@ -174,6 +174,11 @@ export default {
 		try { const PG = window.LatticePlayground || window.PG; if (PG?.themes) themeCount = (PG.themes.size ?? PG.themes.length ?? Object.keys(PG.themes).length); } catch {}
 		return { liveIframes: q('iframe.live'), cmEditors: q('.cm-editor'), themeCount };
 	}),
+	// Absolute per-cycle noise floors for the UNIVERSAL heap/DOM metrics, calibrated to the docs site
+	// (a heavy app: CodeMirror + srcdoc iframes + ~560KB theme strings) from its idle control. Owned
+	// here rather than inherited from the engine's built-in defaults, so a lighter app writing its own
+	// scenario is forced to set its own (or gets warned) instead of silently reusing Studio's.
+	universalFloors: { retainedHeap: 40000, peakHeap: 60000, heapTotal: 60000, nodes: 0.4, listeners: 0.4, documents: 0.1, frames: 0.1 },
 	probeFloors: { liveIframes: 0.1, cmEditors: 0.1, themeCount: 0.4 },
 	// What a leaked object looks like for the `--retainers` walk: the big (~560KB) retained theme-CSS
 	// / engine-scaffold strings. (Detached-realm targeting via `--realm` is generic, in the engine.)

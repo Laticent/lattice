@@ -26,8 +26,6 @@ import http from 'node:http';
 import { extname, isAbsolute, join, normalize, relative } from 'node:path';
 import puppeteer from 'puppeteer';
 
-const FIXED_PORT = 4319; // stable origin so the SW scope + storage persist across relaunches (refresh mode)
-
 function parseArgs(argv) {
 	const o = { scenario: 'studio', mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false };
 	for (let i = 0; i < argv.length; i++) {
@@ -139,7 +137,9 @@ async function sample(inst, label, peakHeap, extraProbes) {
 	await inst.gc(); await inst.gc(); // double-collect for a steadier retained baseline
 	const p = await inst.perf();
 	const pr = extraProbes ? await extraProbes() : {};
-	return { label, retainedHeap: p.heapUsed, peakHeap: peakHeap ?? p.heapUsed, heapTotal: p.heapTotal, nodes: p.nodes, listeners: p.listeners, documents: p.documents, frames: p.frames, ...pr };
+	// `|| p.heapUsed` (not `??`): a peakDuring that never got a successful poll returns 0, which is
+	// not a valid peak — fall back to the post-GC retained rather than recording a spurious 0.
+	return { label, retainedHeap: p.heapUsed, peakHeap: peakHeap || p.heapUsed, heapTotal: p.heapTotal, nodes: p.nodes, listeners: p.listeners, documents: p.documents, frames: p.frames, ...pr };
 }
 
 const wait = (page, ms) => page.evaluate((m) => new Promise((r) => setTimeout(r, m)), ms);
@@ -276,11 +276,15 @@ function retainerReport(snap, opts = {}) {
 			if (t === 'object' && (name === 'Window' || name === 'Document' || name === 'global' || /Context/.test(name))) targets.push(i);
 			continue;
 		}
-		if (t !== 'string' && t !== 'concatenated string' && t !== 'sliced string') continue;
 		const self = nodes[i * NS + iNSelf];
-		// The scenario decides what a leaked object looks like (e.g. its big theme-CSS strings);
-		// with no predicate, default to "any big retained string" (the ~560KB-class leak).
-		if (opts.targetMatch ? opts.targetMatch(name, self) : self >= wantBig) targets.push(i);
+		// A scenario's `retainerTarget(name, self)` decides what a leaked object looks like — applied
+		// to EVERY node type, so an app whose leak is a listener/closure/accumulating-object (the most
+		// COMMON JS leak), not a big string, can name it too. With no predicate, default to "any big
+		// retained STRING" (the ~560KB-class leak this tool was born on) — strings only, to keep the
+		// default signal legible rather than dumping every large native object.
+		if (opts.targetMatch) { if (opts.targetMatch(name, self)) targets.push(i); continue; }
+		if (t !== 'string' && t !== 'concatenated string' && t !== 'sliced string') continue;
+		if (self >= wantBig) targets.push(i);
 	}
 	const chains = new Map();
 	let walked = 0;
@@ -330,12 +334,21 @@ async function withinSession(browser, base, opts, scenario, cycleName) {
 			}
 			if (!opts.json && (i + 1) % 5 === 0) process.stderr.write(`    ${cycleName}: ${i + 1}/${opts.k}\r`);
 		}
-		if (opts.snapshot && snapBase) { await inst.gc(); await inst.gc(); const snapFinal = await takeSnapshot(inst.cdp); snapDiff = diffSnapshots(snapBase, snapFinal); }
+		// Snapshot + retainer are OPTIONAL attribution on top of the series — and the likeliest to
+		// blow (takeSnapshot buffers the whole heap → JSON.parse hits V8's ~512MB string cap or OOMs
+		// exactly when the app is leaking, the case you most want the run for). Each is guarded so a
+		// heap-dump failure logs and is dropped WITHOUT discarding the K-loop series already collected.
+		if (opts.snapshot && snapBase) {
+			try { await inst.gc(); await inst.gc(); const snapFinal = await takeSnapshot(inst.cdp); snapDiff = diffSnapshots(snapBase, snapFinal); }
+			catch (e) { console.error(`    ${cycleName}: snapshot diff unavailable — ${String(e.message).slice(0, 120)} (series kept)`); }
+		}
 		if (opts.retainers) {
-			await inst.gc(); await inst.gc();
-			process.stderr.write(`    ${cycleName}: taking retainer snapshot…\n`);
-			const snapR = await takeSnapshot(inst.cdp);
-			retReport = retainerReport(snapR, { sample: 16, realm: opts.realm, targetMatch: scenario.retainerTarget });
+			try {
+				await inst.gc(); await inst.gc();
+				process.stderr.write(`    ${cycleName}: taking retainer snapshot…\n`);
+				const snapR = await takeSnapshot(inst.cdp);
+				retReport = retainerReport(snapR, { sample: 16, realm: opts.realm, targetMatch: scenario.retainerTarget });
+			} catch (e) { console.error(`    ${cycleName}: retainer report unavailable — ${String(e.message).slice(0, 120)} (series kept)`); }
 		}
 	} finally {
 		await page.close().catch(() => {});
@@ -355,8 +368,15 @@ const UNIVERSAL_FLOOR = { retainedHeap: 40000, peakHeap: 60000, heapTotal: 60000
 function analyze(series, controlSlopes, keys, absFloor) {
 	const rows = [];
 	for (const k of keys) {
-		const ys = series.map((s) => s[k]).filter((v) => Number.isFinite(v) && v >= 0);
-		if (ys.length < 4) continue;
+		const raw = series.map((s) => s[k]);
+		const ys = raw.filter((v) => Number.isFinite(v) && v >= 0);
+		if (ys.length < 4) {
+			// Distinguish "never measured" from "flat": a probe that returned its unavailable
+			// sentinel (a negative, e.g. themeCount=-1 when the global is absent) every sample would
+			// otherwise silently vanish — you'd read no row as "fine" when it was never observed.
+			if (raw.some((v) => Number.isFinite(v) && v < 0)) rows.push({ metric: k, first: '—', last: '—', delta: '—', sen: '—', floor: '—', z: '—', trend: 'unavailable' });
+			continue;
+		}
 		const first = ys[0], last = ys[ys.length - 1];
 		const mk = mannKendall(ys);
 		const sen = sensSlope(ys);
@@ -383,9 +403,10 @@ function controlSlopesFrom(series, keys) {
  * @property {Record<string,string>} [cycleSurface] cycle → surface key (default: first surface).
  * @property {Record<string,(page)=>Promise<void>>} cycles  "user does X once", using the exported helpers.
  * @property {Record<string,(page,opts)=>Promise<void>>} [prep] optional one-time per-cycle setup.
- * @property {(page)=>Promise<Record<string,number>>} [probes] app-specific counters to trend.
- * @property {Record<string,number>} [probeFloors] noise floors for the probe keys.
- * @property {(name:string,self:number)=>boolean} [retainerTarget] what a leaked object looks like (--retainers).
+ * @property {(page)=>Promise<Record<string,number>>} [probes] app-specific counters to trend (numbers; a NEGATIVE is treated as an "unavailable" sentinel, reported as such — not flat).
+ * @property {Record<string,number>} [probeFloors] noise floors for the probe keys — a probe key MUST appear here to be trended.
+ * @property {Record<string,number>} [universalFloors] override the built-in (Studio-derived) absolute floors for the universal heap/DOM metrics; set these for a lighter app or a real slow leak may read as "flat".
+ * @property {(name:string,self:number)=>boolean} [retainerTarget] what a leaked object looks like (--retainers); applied to EVERY node type, so a listener/closure/object leak (not just a big string) can be named.
  */
 
 /**
@@ -394,21 +415,37 @@ function controlSlopesFrom(series, keys) {
  */
 export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 	const opts = parseArgs(argv);
+	// Fail loud + actionable BEFORE spinning up a server/browser — a silent empty run reads as "clean".
+	if (opts.mode !== 'within') { console.error(`perf-torture: mode=${opts.mode} not yet implemented (only --mode within).`); process.exit(2); }
+	if (!Number.isInteger(opts.k) || opts.k < 3) { console.error(`perf-torture: --k must be an integer ≥ 3 (the trend test needs ≥4 samples); got ${opts.k}.`); process.exit(2); }
+	if (!Number.isFinite(opts.cpu) || opts.cpu < 1) { console.error(`perf-torture: --cpu must be a number ≥ 1; got ${opts.cpu}.`); process.exit(2); }
+	// Unset CHROME_PATH → puppeteer silently launches its OWN bundled Chromium (a DIFFERENT browser,
+	// different GC), or throws a raw stack. Demand it, mirroring the dist pre-check.
+	if (!process.env.CHROME_PATH) { console.error('perf-torture: CHROME_PATH is not set — export it to a Chromium (see engineering/development.md).'); process.exit(2); }
 	const dist = scenario.distDir;
 	if (!existsSync(dist)) { console.error(`perf-torture[${scenario.name}]: no build at ${dist} — build the site first.`); process.exit(2); }
-	// Universal metrics + the scenario's extra probe keys are trended together; floors merge the same way.
+	// Universal metrics + the scenario's extra probe keys trend together; floors merge the same way.
+	// UNIVERSAL_FLOOR is a Studio-DERIVED last resort (tuned to a heavy app: CodeMirror + srcdoc
+	// iframes + ~560KB theme strings). A lighter app should override it via `scenario.universalFloors`,
+	// or a small-but-real slow leak sits below the floor and reads as "flat" (a false negative — the
+	// scariest verdict for a leak-hunter). Warn when a scenario relies on the built-in defaults.
+	if (!scenario.universalFloors) console.error(`  ⚠ [${scenario.name}] no scenario.universalFloors — heap/node floors use the built-in Studio-derived defaults; on a lighter app a real slow leak can read as "flat". See tools/perf-torture/README.md.`);
 	const keys = [...UNIVERSAL_KEYS, ...Object.keys(scenario.probeFloors || {})];
-	const absFloor = { ...UNIVERSAL_FLOOR, ...(scenario.probeFloors || {}) };
+	const absFloor = { ...UNIVERSAL_FLOOR, ...(scenario.universalFloors || {}), ...(scenario.probeFloors || {}) };
 	const server = serve(dist);
-	await new Promise((r) => server.listen(opts.mode === 'refresh' ? FIXED_PORT : 0, r));
+	await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, resolve); });
 	const base = `http://localhost:${server.address().port}`;
 
-	if (opts.mode === 'within') {
+	{
 		const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH, args: ['--no-sandbox'] });
-		// idle is the CONTROL and runs first, so its per-metric drift becomes the noise floor.
+		// idle is the CONTROL — it calibrates the noise floor + defeats the autocorrelation false-
+		// positive. ALWAYS run it first when the scenario defines one, even for a single-cycle run
+		// (`--cycle compose`), so the verdict is never silently uncalibrated. Warn if there is none.
 		const ALL = scenario.defaultCycles || Object.keys(scenario.cycles);
 		const requested = opts.cycle === 'all' ? ALL : opts.cycle.split(',');
-		const cycles = requested.includes('idle') ? ['idle', ...requested.filter((c) => c !== 'idle')] : requested;
+		const hasIdle = typeof scenario.cycles.idle === 'function';
+		const cycles = hasIdle ? ['idle', ...requested.filter((c) => c !== 'idle')] : requested;
+		if (!hasIdle) console.error('  ⚠ scenario has no `idle` control cycle — verdict is UNCALIBRATED (floors are absolute-only; RISING may false-positive).');
 		const report = {}; const diffs = {}; const rets = {}; let controlSlopes = null;
 		for (const c of cycles) {
 			process.stderr.write(`\n  cycle=${c} (k=${opts.k}, cpu=${opts.cpu})\n`);
@@ -419,7 +456,11 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 			} catch (e) { console.error(`  cycle ${c} FAILED: ${e.message}`); }
 		}
 		await browser.close(); server.close();
-		console.log(`\n=== WITHIN-SESSION TORTURE [${scenario.name}] — RISING = MK z≥1.96 AND Sen-slope > max(abs floor, 4× idle-control drift) ===`);
+		// The verdict's stated basis must match what actually ran: only claim the idle-control term
+		// when a control was measured (controlSlopes !== null), else say the floors are absolute-only.
+		const calibrated = controlSlopes !== null;
+		const floorBasis = calibrated ? 'max(abs floor, 4× idle-control drift)' : 'the absolute floor ONLY — UNCALIBRATED, no idle control ran; RISING may false-positive';
+		console.log(`\n=== WITHIN-SESSION TORTURE [${scenario.name}] — RISING = MK z≥1.96 AND Sen-slope > ${floorBasis} ===`);
 		for (const [c, rows] of Object.entries(report)) {
 			console.log(`\n  [${c}]${c === 'idle' ? ' (control — floors calibrated from this)' : ''}`);
 			for (const r of rows) console.log(`    ${r.metric.padEnd(13)} ${String(r.first).padStart(10)} → ${String(r.last).padStart(10)}  Δ${String(r.delta).padStart(9)}  sen/cyc ${String(r.sen).padStart(9)} (floor ${String(r.floor).padStart(8)})  z=${String(r.z).padStart(5)}  ${r.trend}`);
@@ -431,17 +472,17 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 		}
 		for (const [c, rr] of Object.entries(rets)) {
 			if (!rr) continue;
-			console.log(`\n  [${c}] RETAINER paths — ${rr.targetsFound} leaked target(s) (walked ${rr.sampleWalked}). Common pinning chain (target ◂ held-by ◂ …):`);
+			// Honest label: this walks ONE final snapshot — it names who HOLDS the big/targeted objects,
+			// it does NOT prove they grew. Pair with --snapshot (a baseline→final diff) to establish a
+			// leak first. Under --realm the count includes the live top-level Window/Document (~1–2).
+			const note = opts.realm ? ' (incl. the live top-level realm — ~1–2 are not leaks)' : '';
+			console.log(`\n  [${c}] RETAINER paths — ${rr.targetsFound} large retained target(s)${note}; static snapshot, NOT a growth diff (walked ${rr.sampleWalked}). Common pinning chain (target ◂ held-by ◂ …):`);
 			for (const [sig, n] of rr.chains) console.log(`      ×${n}  ${sig}`);
-			if (rr.example) { console.log(`    → nearest GC root: ${rr.example.root}. Full path (root → leaked target):`); for (const p of rr.example.path) console.log(`         ${p.node}  --${p.via}-->`); }
+			if (rr.example) { console.log(`    → nearest GC root: ${rr.example.root}. Full path (root → target):`); for (const p of rr.example.path) console.log(`         ${p.node}  --${p.via}-->`); }
 		}
 		if (opts.json) console.log('\nJSON ' + JSON.stringify(report));
 		return report;
 	}
-
-	console.error(`perf-torture: mode=${opts.mode} not yet implemented.`);
-	server.close();
-	process.exit(2);
 }
 
 // Driving helpers — scenarios import THESE (never raw page.$ / waitForSelector; see the
