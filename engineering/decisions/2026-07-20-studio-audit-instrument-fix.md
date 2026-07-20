@@ -13,11 +13,16 @@ summary: >
   clean: the dramatic node/detached-DOM/listener leaks (compose +91, insert "+137 / catastrophic 32MB",
   pgvariant +64, the whole "retained detached iframe realm" NODE evidence) are ARTIFACTS. What survives:
   a retainedHeap rise — but `typing` (a near-no-op) shows it too and it DECAYS ~3× from k=10→k=40, i.e.
-  warmup PLATEAU, not leak. The one REAL, sustained leak is LANDING (hero tab-flip + palette re-render):
-  ~2MB/cyc, heap 16.8MB→93.9MB over 40 cycles, nodes/listeners flat — genuine retained JS/realm memory,
-  driven purely via evaluate (no handles). Fix B (compose listener abort) therefore targets a non-leak
-  and is kept only as teardown hygiene, not a perf win. Fix A / Fix #1 (theme-string dedup + ThemeStore
-  bounding) still target the real palette/fullwrite theme-registration retention.
+  warmup PLATEAU, not leak. The one REAL, sustained growth is on THEME/PALETTE/MODE change: ~1.3MB/cyc,
+  heap climbing to ~94MB over 40 cycles, with DOM nodes/frames/documents FLAT — the isolating clean test
+  pins it precisely: the hero tab-flip ALONE (DeckPreview remount) is ZERO-growth (dispose() works), and
+  it is the PALETTE TOGGLE that drives it. Fingerprint = srcdoc-realm churn: a theme change rewrites every
+  live preview's srcdoc, keeping the same iframe element (frames flat) but replacing its document/realm,
+  and the detached realms accumulate at the V8 level (the retainer walk bottoms out at browser
+  NativeContext / Global handles, NOT an app Map/closure — so it is realm churn, not a fixable app-Map
+  leak). Fix A (merged) cut PEAK duplication but not this per-toggle churn; the mitigation is to swap theme
+  CSS in place instead of rewriting srcdoc per theme change (a render-pipeline change, not a one-line
+  bound). Fix B (compose listener abort) targets a NON-leak — kept only as teardown hygiene, not a perf win.
 ---
 
 # Studio degradation audit — instrument correction (the harness was fabricating leaks)
@@ -111,11 +116,23 @@ removed the artifact, not the signal (nodes went flat on compose while retainedH
    leak, and their retainer walk (>200KB theme strings) can't be a handle artifact. Their headline
    MAGNITUDES ("~70×", "catastrophic 32MB") came through the polluted instrument and should be treated
    as unproven pending a clean before/after; the *direction* (dedup one 560KB copy instead of N) is sound.
-4. **`landing` → the one clearly REAL, serious leak.** Hero Preview/Source tab-flip remounts the hero
-   iframe and the palette flip re-renders 8 islands; heap climbs ~2MB/cyc and does NOT plateau
-   (16.8MB→93.9MB over 40 cycles), with nodes/listeners/liveIframes flat. Retained JS/realm memory —
-   almost certainly the detached hero-iframe realm kept alive across remounts. This is the real
-   "degrades the more it's used" mechanism, and it is **not yet fixed**.
+4. **THEME/PALETTE/MODE change → the one clearly REAL, sustained growth (~1.3MB/cyc).** Isolated with a
+   clean two-arm test on landing: the hero Preview/Source tab-flip ALONE (a `DeckPreview` remount) is
+   **zero-growth** — `dispose()` works, nodes/frames/heap all flat over 12 flips — so the hero iframe does
+   NOT leak. Adding the **palette toggle** to the same loop makes heap climb ~1.3MB/cyc (13.6MB→29.4MB
+   over 12) while **DOM nodes/frames/documents stay flat** (frames pinned at 12). That fingerprint is
+   **srcdoc-realm churn**: a theme/palette/mode change re-renders every live preview through the frame
+   scheduler → `renderInto` rewrites the iframe's `srcdoc`, keeping the same `<iframe>` element (frame
+   count flat) but replacing its document + JS realm; the detached realms accumulate at the V8 level. The
+   retainer walk on them bottoms out at browser `NativeContext` / `(Global handles)` — **not** an app
+   `Map`/closure — so this is realm churn, not a fixable app-Map delete. The big retained theme strings do
+   trace to the engine `_cssCache` `Map`, but that cache is BOUNDED (`add()` clears it; `byName` is keyed
+   by theme name and overwrites), so it is not itself unbounded. **Fix A (merged) cut the PEAK duplication
+   (one shared 560KB copy instead of N) but did not stop the per-toggle realm churn.** Mitigation (not yet
+   built): on a theme/mode change, swap the theme `<style>` inside the existing srcdoc in place (postMessage
+   / direct DOM) instead of rewriting the whole srcdoc — avoids minting a new realm per toggle. This is the
+   real "degrades the more it's used" mechanism (and, per the audit's iOS inversion, the peak-memory driver
+   of tab discard); it is a render-pipeline change, **not yet fixed**.
 
 ## Consequences
 
