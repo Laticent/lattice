@@ -19,7 +19,7 @@ You can author a boardroom-grade deck knowing only these.
 | Word | What it is |
 |---|---|
 | **Deck** | Your Markdown file. One deck renders to one PDF (or PPTX, or a set of PNGs). |
-| **Slide** | One page. A new heading — or a `---` — starts the next slide. |
+| **Slide** | One page of the deck. A `---` line separates one slide from the next. |
 | **Layout** | The ready-made arrangement a slide picks: `cards-grid`, `big-number`, `chart`, and so on. You choose one; it does the composition and typography for you. |
 | **Content** | Your words. You write plain Markdown; the layout places it. |
 | **Style** | The whole deck's look and feel — its palette (the **theme**) and its finish (clean, sketched, and the rest). Set once, up top. |
@@ -29,8 +29,8 @@ You can author a boardroom-grade deck knowing only these.
 You never place boxes by hand. You choose a **layout** for what the slide is
 *for* — a number to land, options to weigh, steps to walk — and pour your content
 in. The layout is content-aware: it sizes, wraps, and spaces so the slide reads
-as *composed*, not typed. When it holds more than it should, it tells you rather
-than overflowing.
+as *composed*, not typed. If you give it more than it's built for, Lattice flags
+it (`npm run lint:deck`) rather than letting the slide overflow.
 
 An author writes one line to pick the layout, then the content beneath it:
 

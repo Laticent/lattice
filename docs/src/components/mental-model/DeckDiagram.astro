@@ -19,7 +19,7 @@ const { fig = "containment" } = Astro.props;
 ---
 
 {fig === "containment" && (
-  <div class="mm" role="img" aria-label="A Lattice deck is a Markdown file. It contains slides. Each slide picks one layout — a ready-made arrangement — and you fill that layout with your content. Around the whole deck, one style sets the look and feel — its colors (the theme) and its finish. Each slide carries optional running marks (a header, footer, and page number) at its edges.">
+  <div class="mm" role="img" aria-label="A Lattice deck is a Markdown file. It contains slides. Each slide picks one layout — a ready-made arrangement — and you fill that layout with your content. At the top of each slide is a masthead holding its eyebrow and title; in the middle, the layout holds your content; at the bottom, a footer row with the footer, the section progress, and the page number. Around the whole deck, one style sets the look and feel — its colors (the theme) and its finish.">
     <div class="coat">
       <span class="coat-lbl">Style <em>— colors &amp; finish, set once</em></span>
       <div class="deck">
@@ -28,9 +28,9 @@ const { fig = "containment" } = Astro.props;
           <div class="slide ghost" aria-hidden="true"><span>slide</span></div>
           <div class="slide focus">
             <span class="box-lbl">SLIDE</span>
-            <div class="strip">header · page number <em>(optional)</em></div>
+            <div class="strip masthead">eyebrow · title <em>— the masthead (your heading)</em></div>
             <div class="region">
-              <span class="region-lbl">your content lives here</span>
+              <span class="region-lbl">the stage — your content lives here</span>
               <div class="layout">
                 <span class="layout-tag">layout: <b>cards-grid</b></span>
                 <div class="fill">
@@ -41,7 +41,7 @@ const { fig = "containment" } = Astro.props;
                 </div>
               </div>
             </div>
-            <div class="strip">footer <em>(optional)</em></div>
+            <div class="strip footrow">footer · section progress · page number</div>
           </div>
           <div class="slide ghost" aria-hidden="true"><span>slide</span></div>
         </div>
