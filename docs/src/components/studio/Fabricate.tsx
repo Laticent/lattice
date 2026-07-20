@@ -16,7 +16,7 @@ import { BUCKETS, CSS_ONLY_SUBSTANCES, FORMS, FUNCTIONS, gateCss, NAME_RE, scaff
 // (lib/theme/*, bundled browser-safe). deriveTheme → ~80 tokens (contrast-
 // repaired), auditBoth → live WCAG report, serializeTheme → a real themes/*.css.
 import { auditBoth, contrastRatio, deriveTheme, STARTERS, serializeTheme, validateEssentials } from '@/playground/theme-core.generated.js';
-import { COMPONENT_EFFORTS, type ComponentEffort, type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, useArchitectStatus } from './architect';
+import { COMPONENT_EFFORTS, type ComponentEffort, type ComponentSimilar, connectOpenRouter, generateComponent, generateTheme, refineComponent, useArchitectStatus } from './architect';
 import { CodeField } from './CodeField';
 import { type ComponentMeta, saveStudioComponent } from './component-library';
 import { downloadText } from './download';
@@ -46,6 +46,17 @@ const ESSENTIALS: { key: EssKey; label: string; group: string }[] = [
 	{ key: 'fail', label: 'Error', group: 'Signals' },
 ];
 const SPECIMEN = '<!-- _class: kpi -->\n\n`Theme · live specimen`\n\n## Your theme, derived & audited\n\n1. 100\n   - Tokens derived\n2. AA\n   - Contrast floor\n3. 10\n   - Colors you picked';
+
+// Component refine chips — SEMANTIC nudges that re-prompt the model with the CURRENT
+// draft (the Motion faculty's refine, ported). Each applies ONE directed change and
+// gate-repairs the result. Deliberately not "fix the hex/margin" (that's the automatic
+// gate-repair's job) — these are taste/craft moves the author reaches for by hand.
+const COMP_REFINE_CHIPS: { label: string; nudge: string }[] = [
+	{ label: 'Simpler', nudge: 'Simplify it — fewer elements, one clear idea, more restraint.' },
+	{ label: 'Bolder', nudge: 'Make it bolder — stronger hierarchy, a more monumental lead, size to the role.' },
+	{ label: 'Tighter copy', nudge: 'Tighten the copy — a short label + a one-line clause per item, no wrapping sentences.' },
+	{ label: 'More whitespace', nudge: 'Give it more breathing room — more padding and gap, let the content fill the stage calmly.' },
+];
 
 const hash = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 // A slug → a human display title for the export header / README ("harbor-slate"
@@ -203,7 +214,14 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 	// The effort dial (low/medium/high/maximum) — how many design self-refine rounds run.
 	// Persisted per browser; the lever is effort, not spend.
 	const [compEffort, setCompEffort] = React.useState<ComponentEffort>(() => readComponentEffort() as ComponentEffort);
+	// The freeform manual-refine nudge ("make the cards bigger") — the Motion-style refine.
+	const [compRefine, setCompRefine] = React.useState('');
 	const [compSimilar, setCompSimilar] = React.useState<ComponentSimilar[]>([]);
+	// The pre-overwrite snapshot for one-click Undo — generate/refine REPLACES the whole
+	// component (name/desc/css/skeleton/meta), so a hand-tuned draft can be lost to one
+	// prompt. We stash the outgoing draft the instant before it's overwritten; the Undo
+	// control restores it. Cleared on Undo (single level — the last overwrite, not a stack).
+	const [compUndo, setCompUndo] = React.useState<null | { name: string; description: string; css: string; skeleton: string; meta: ComponentMeta }>(null);
 
 	// Reference-doc grounding (#640) — one per surface: a brand guide grounds the
 	// theme, an existing component/deck grounds the component. Fed to generate*,
@@ -330,43 +348,52 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 	// grounded in the knowledge file; dedup surfaces near neighbors; the draft loads
 	// into the editor where the SAME live gate re-checks it. Honest degradation: a
 	// clear note for no-model / budget-blocked / out-of-scope (declined) — never a fake.
-	async function runDescribeComponent(text: string) {
+	// One handler for BOTH the fresh "describe" and the author-directed "refine" (the
+	// Motion faculty's shape): `refine` swaps the model call to refineComponent, which
+	// nudges the CURRENT editor draft instead of generating anew. On success both load
+	// the result into the editors where the live gate re-checks it. Honest degradation:
+	// a clear note for no-model / budget-blocked / out-of-scope (declined) — never a fake.
+	async function runDescribeComponent(text: string, refine = false) {
 		const p = text.trim();
 		if (!p || compGen === 'working') return;
 		setCompGen('working');
 		setCompStatus('');
 		try {
-			// Live status: while the silent gate-repair passes run, show "Refining — fixing
-			// N issues…" so the auto-fix is visible (not a mysterious extra wait) before the
-			// draft ever lands in the editor.
-			const out = await generateComponent(p, catalog, compDoc.docs, {
-				effort: compEffort,
-				onStatus: (s) =>
-					setCompStatus(
-						s.phase === 'refining'
-							? `Refining — fixing ${s.issues} issue${s.issues === 1 ? '' : 's'}…`
-							: s.phase === 'improving'
-								? `Improving the design — round ${s.round}/${s.rounds}…`
-								: '',
-					),
-			});
+			// Live status while the passes run: "Refining — fixing N issues…" (gate-repair)
+			// or "Improving the design — round X/N…" (the effort dial), before the draft lands.
+			const onStatus = (s: { phase: string; issues?: number; round?: number; rounds?: number }) =>
+				setCompStatus(
+					s.phase === 'refining'
+						? `Refining — fixing ${s.issues} issue${s.issues === 1 ? '' : 's'}…`
+						: s.phase === 'improving'
+							? `Improving the design — round ${s.round}/${s.rounds}…`
+							: '',
+				);
+			const out = refine
+				? await refineComponent(p, { name: compName, description: compDesc, function: compMeta.function ?? '', form: compMeta.form ?? '', substance: compMeta.substance ?? '', bucket: compMeta.bucket ?? '', tags: compMeta.tags ?? [], adapt: compMeta.adapt ?? { mode: 'native' }, capacity: compMeta.capacity ?? null, density: compMeta.density ?? null, css: compCss, skeleton: compSkeleton }, { onStatus })
+				: await generateComponent(p, catalog, compDoc.docs, { effort: compEffort, onStatus });
 			if (out.status === 'ok') {
-				compDoc.clear();
+				// Snapshot the OUTGOING draft before this result overwrites it, so one click
+				// restores it (a prompt shouldn't be able to silently eat a hand-tuned draft).
+				setCompUndo({ name: compName, description: compDesc, css: compCss, skeleton: compSkeleton, meta: compMeta });
+				if (!refine) compDoc.clear();
 				setCompName(out.draft.name);
 				setCompDesc(out.draft.description);
 				setCompCss(out.draft.css);
 				setCompSkeleton(out.draft.skeleton);
 				// Capture the FULL manifest the model proposed — not just name/css/skeleton.
 				setCompMeta({ function: out.draft.function, form: out.draft.form, substance: out.draft.substance, bucket: out.draft.bucket, tags: out.draft.tags, adapt: out.draft.adapt, capacity: out.draft.capacity ?? undefined, density: out.draft.density ?? undefined });
-				setCompSimilar(out.similar);
-				setCompPrompt('');
+				if (!refine) setCompSimilar(out.similar);
+				if (refine) setCompRefine('');
+				else setCompPrompt('');
 				const issues = out.findings.filter((f) => f.level === 'error').length;
+				const verb = refine ? 'Refined' : 'Generated';
 				// Lead with the work the effort dial / auto-fix did, so the refinement is visible.
 				const notes: string[] = [];
 				if (out.improved > 0) notes.push(`refined the design over ${out.improved} round${out.improved === 1 ? '' : 's'}`);
 				if (out.refined > 0) notes.push(`auto-fixed ${out.refined} gate pass${out.refined === 1 ? '' : 'es'}`);
 				const prefix = notes.length ? `${notes.join(', ')} — ` : '';
-				notify(issues ? `Generated “.${out.draft.name}” — ${prefix}${issues} gate ${issues === 1 ? 'issue' : 'issues'} still to review below.` : `Generated “.${out.draft.name}” — ${prefix}gate-clean. Review the preview, then Save.`);
+				notify(issues ? `${verb} “.${out.draft.name}” — ${prefix}${issues} gate ${issues === 1 ? 'issue' : 'issues'} still to review below.` : `${verb} “.${out.draft.name}” — ${prefix}gate-clean. Review the preview, then Save.`);
 			} else if (out.status === 'declined') {
 				setCompSimilar(out.similar);
 				notify(`That needs ${out.route === 'dsl' ? 'a first-party build' : `the ${out.route} path`} — ${out.reason}${out.suggestion ? ` (try: ${out.suggestion})` : ''}.`);
@@ -383,6 +410,19 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 			setCompGen('idle');
 			setCompStatus('');
 		}
+	}
+
+	// Restore the draft that the last generate/refine overwrote. Single level — the last
+	// overwrite only; clears the snapshot so the button hides until the next overwrite.
+	function undoComponent() {
+		if (!compUndo) return;
+		setCompName(compUndo.name);
+		setCompDesc(compUndo.description);
+		setCompCss(compUndo.css);
+		setCompSkeleton(compUndo.skeleton);
+		setCompMeta(compUndo.meta);
+		setCompUndo(null);
+		notify('Restored your previous draft.');
 	}
 
 	// ── Shared, tab-agnostic Name / Description / Export / Save ────────────────
@@ -741,6 +781,27 @@ export function Fabricate({ options, catalog = [], onClose, notify, onSaved, onO
 								))}
 							</div>
 						</div>
+						{/* Undo — restore the draft the last generate/refine overwrote. Only shown once
+						    there's a snapshot, so a prompt can't silently eat a hand-tuned draft. */}
+						{compUndo && (
+							<div className="flex items-center">
+								<button type="button" onClick={undoComponent} disabled={compGen === 'working'} aria-label="Undo — restore the previous draft" className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground hover:border-[var(--accent)] hover:text-[var(--text-heading)] disabled:opacity-40"><RotateCcw className="size-3.5" />Undo last change</button>
+							</div>
+						)}
+						{/* Refine — quick chips + a freeform nudge, both re-prompt with the CURRENT
+						    draft (apply the change, then gate-repair). Shown once a model is connected. */}
+						{modelReady && (
+							<div className="flex flex-wrap items-center gap-1.5">
+								<span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70" title="Nudge the current draft — applies one change, then gate-repairs it">Refine</span>
+								{COMP_REFINE_CHIPS.map((c) => (
+									<button key={c.label} type="button" disabled={compGen === 'working'} onClick={() => runDescribeComponent(c.nudge, true)} className="rounded-full border border-border px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:border-[var(--accent)] hover:text-[var(--text-heading)] disabled:opacity-40">{c.label}</button>
+								))}
+								<div className="flex min-w-0 flex-1 items-center gap-1.5">
+									<input value={compRefine} onChange={(e) => setCompRefine(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && compRefine.trim()) runDescribeComponent(compRefine, true); }} disabled={compGen === 'working'} placeholder="or nudge it — e.g. “make the cards bigger”" aria-label="Refine the component" className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-[11.5px] text-[var(--text-heading)] outline-none placeholder:text-muted-foreground focus:border-[var(--accent)] disabled:opacity-50" />
+									<button type="button" disabled={compGen === 'working' || !compRefine.trim()} onClick={() => runDescribeComponent(compRefine, true)} aria-label="Apply refinement" className="grid size-6 shrink-0 place-items-center rounded-md border border-border text-muted-foreground hover:text-[var(--accent)] disabled:opacity-40"><ArrowUp className="size-3.5" /></button>
+								</div>
+							</div>
+						)}
 						{compDoc.chip}
 					{compStatus ? (
 							<div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--accent)]" role="status" aria-live="polite">

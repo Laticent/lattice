@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
-import { applyDeckEdit, architectModel, architectSpend, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
+import { applyDeckEdit, architectModel, architectSpend, deckSystem, estimateUsd, generateComponent, generateTheme, normalizeGeneration, refineComponent, refineSelection, requestFindingFix, runArchitect, setBudget, withStudioVoice } from './architect';
 import { suggestFor } from './Editor';
 import { saveInstructions, saveOnDeviceInstructions, saveSettings } from './studio-store';
 
@@ -396,6 +396,86 @@ describe('generateComponent — effort dial (design self-refine)', () => {
 				expect(out.improved).toBe(1); // one accepted design round
 			}
 		});
+	});
+
+	it('rejects a round that does not beat its own baselineRating (effort-regression guard)', async () => {
+		// The round rates the ORIGINAL a 9 (baselineRating) but its own output only a 7 — it
+		// did NOT improve the craft, so the guard must reject it and keep the original draft,
+		// even though 7 would beat the old ungraded bar (-1).
+		const WORSE = { ...draft('color:var(--accent);', 7), baselineRating: 9 };
+		await withBackend([GEN, WORSE], async () => {
+			const out = await generateComponent('three kpis', [], undefined, { effort: 'medium' });
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.improved).toBe(0); // nothing cleared the baseline → no improvement counted
+			expect(out.draft.css).toContain('var(--pass)'); // the original generation stands
+			expect(out.draft.css).not.toContain('var(--accent)'); // the non-improving round was dropped
+		});
+	});
+
+	it('accepts a round that DOES beat its baselineRating', async () => {
+		// Same baseline (7) but the round rates its output an 8 → a genuine improvement, kept.
+		const BETTER = { ...draft('color:var(--accent);', 8), baselineRating: 7 };
+		await withBackend([GEN, BETTER], async () => {
+			const out = await generateComponent('three kpis', [], undefined, { effort: 'medium' });
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.improved).toBe(1);
+			expect(out.draft.css).toContain('var(--accent)');
+		});
+	});
+});
+
+// The manual refine (the Motion faculty's shape): the author gives a directed nudge
+// and refineComponent applies it to the CURRENT draft, then gate-repairs it — no dedup,
+// no effort loop (2026-07-19-component-refine.md).
+describe('refineComponent — author-directed nudge', () => {
+	const current = {
+		name: 'kpi-trio', description: 'Three KPIs.', function: 'statement', form: 'canvas', substance: 'structure',
+		bucket: 'statement', tags: ['kpi', 'stat', 'metric'], adapt: { mode: 'native' }, capacity: { sweet: 3, soft: 3, hard: 3 },
+		density: null, css: 'section.kpi-trio > .cell-stage { color:var(--text-body); }', skeleton: '<!-- _class: kpi-trio -->\n\n## Numbers\n\n- 100\n- 200',
+	} as unknown as Parameters<typeof refineComponent>[1];
+
+	it('returns `nochange` for an empty instruction without touching the model', async () => {
+		expect((await refineComponent('', current)).status).toBe('nochange');
+		expect((await refineComponent('   ', current)).status).toBe('nochange');
+	});
+
+	it('returns `offline` with no model connected — never a fabricated refinement', async () => {
+		expect((await refineComponent('make it bolder', current)).status).toBe('offline');
+	});
+
+	it('applies the nudge and gate-repairs the result (no dedup, no effort loop)', async () => {
+		// The model returns the nudged draft (a bolder accent); refineComponent coerces +
+		// gate-repairs it and hands back the ok outcome.
+		const bolder = { ...current, css: 'section.kpi-trio > .cell-stage { color:var(--accent); font-size:var(--fs-hero); }' };
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		let calls = 0;
+		m.__setBackend({ name: 'mock', async complete() { calls++; return bolder; }, async embed() { return null; } });
+		try {
+			const out = await refineComponent('make the numbers bigger and bolder', current);
+			expect(out.status).toBe('ok');
+			if (out.status !== 'ok') return;
+			expect(out.draft.css).toContain('var(--accent)'); // the nudge landed
+			expect(out.improved).toBe(0); // refine never runs the effort self-refine loop
+			expect(out.similar).toEqual([]); // no dedup on a refine
+			expect(calls).toBe(1); // clean result → one call, no gate-repair pass
+		} finally {
+			m.__setBackend(null);
+		}
+	});
+
+	it('returns `nochange` when the model echoes the draft unchanged (no-op guard)', async () => {
+		// The model applied nothing and handed the same component back — refineComponent must
+		// not claim a refine that didn't happen; the author's draft already stands.
+		const m = (await architectModel()) as unknown as { __setBackend: (b: unknown) => void };
+		m.__setBackend({ name: 'mock', async complete() { return current; }, async embed() { return null; } });
+		try {
+			const out = await refineComponent('make it bolder', current);
+			expect(out.status).toBe('nochange');
+		} finally {
+			m.__setBackend(null);
+		}
 	});
 });
 

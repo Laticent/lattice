@@ -32,6 +32,26 @@ describe('LayoutStudio — controlled component body', () => {
 		expect(screen.getByText(/use a palette token/)).toBeInTheDocument();
 	});
 
+	it('withholds extraCss from the preview when the CSS has a blocked remote reference (#22)', () => {
+		// A css-* exfil finding (e.g. a remote @import) must NEVER reach the same-origin
+		// srcdoc preview — it concatenates extraCss raw. The skeleton still previews; the CSS
+		// is paused with a note until the author fixes it. This is the F1 security seam.
+		const evil = 'section.callout { background: url(https://evil.example/x.png); }';
+		render(<LayoutStudio options={options} name="callout" css={evil} skeleton={STARTER_SKELETON} onCss={noop} onSkeleton={noop} findings={[{ level: 'error', rule: 'css-url-remote', line: 1, message: 'remote url() blocked' }]} nameOk />);
+		const dp = screen.getByTestId('dp');
+		expect(dp.getAttribute('data-extracss')).toBe(''); // the exfil CSS was withheld
+		expect(dp.getAttribute('data-sample')).toMatch(/_class: callout/); // the skeleton still previews
+		expect(screen.getByText(/Preview paused/i)).toBeInTheDocument();
+	});
+
+	it('still previews CSS when the only finding is a non-exfil gate error', () => {
+		// A plain no-hex/margin finding is NOT an exfil channel — the preview keeps the CSS so
+		// the author sees their live edit; only css-* findings pause it.
+		render(<LayoutStudio options={options} name="callout" css={STARTER_CSS} skeleton={STARTER_SKELETON} onCss={noop} onSkeleton={noop} findings={[{ level: 'error', rule: 'no-hex', line: 3, message: 'use a palette token' }]} nameOk />);
+		expect(screen.getByTestId('dp').getAttribute('data-extracss')).toMatch(/section\.callout/);
+		expect(screen.queryByText(/Preview paused/i)).toBeNull();
+	});
+
 	it('hides the preview when the name is invalid', () => {
 		render(<LayoutStudio options={options} name="" css={STARTER_CSS} skeleton={STARTER_SKELETON} onCss={noop} onSkeleton={noop} findings={[{ level: 'error', rule: 'name', message: 'lowercase slug required' }]} nameOk={false} />);
 		expect(screen.queryByTestId('dp')).toBeNull();

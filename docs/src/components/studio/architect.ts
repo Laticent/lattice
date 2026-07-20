@@ -13,7 +13,7 @@ import { cosineRank } from '@/playground/architect-retrieval.js';
 import { deckCanon } from '@/playground/authoring-core.generated.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/playground/drawing-board-refine.js';
 import { adjustSpend, budgetStatus, readBudgetCap, readBudgetFloor, readBudgetMode, readDedupEnabled, readSpend, recordSpend } from '@/playground/drawing-board-settings.js';
-import { askComponentMessages, askDesignRefineMessages, askRepairMessages, auditComponentDesign, coerceComponent, coerceRefinement, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
+import { askComponentMessages, askComponentRefineMessages, askDesignRefineMessages, askRepairMessages, auditComponentDesign, coerceComponent, coerceRefinement, gateComponent, rankSimilar } from '@/playground/layout-core.generated.js';
 import { askMessages, auditBoth, coerceEssentials, deriveTheme, STARTERS } from '@/playground/theme-core.generated.js';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -831,9 +831,21 @@ async function improveDesign(
 	generation: string,
 	rounds: number,
 	onImproving?: (round: number, rounds: number) => void,
-): Promise<{ draft: ComponentDraft; findings: ComponentFinding[]; improved: number }> {
+): Promise<{ draft: ComponentDraft; findings: ComponentFinding[]; improved: number; refined: number }> {
 	let best = start;
-	let bestRating = -1; // the initial is ungraded; any clean, rated refinement can win
+	// The gate-repair passes on the CURRENT best. The start draft was repaired by the
+	// caller (its count is the caller's own `repaired.refined`); once a DESIGN round wins,
+	// the shown draft is that candidate, so the "auto-fixed N gate passes" attribution must
+	// switch to ITS repair count — not the discarded first draft's. Tracked here, returned
+	// so the caller reports the repair work on whatever draft actually ships.
+	let bestRefined = 0;
+	// The bar a refinement must BEAT. Seeded from the model's own `baselineRating` of the
+	// ORIGINAL on the first usable round (the effort-regression guard, 2026-07-20): a round
+	// only wins if it rates its output STRICTLY above how it rated the design it started
+	// from — so effort can't trade a good first draft for a worse "refined" one. Starts at
+	// -1 so, if the model never reports a baseline, any clean rated refinement can still win
+	// (unchanged pre-guard behavior).
+	let bestRating = -1;
 	let improved = 0;
 	for (let round = 1; round <= rounds; round++) {
 		if (generation === 'openrouter') {
@@ -852,7 +864,10 @@ async function improveDesign(
 		} catch {
 			break; // a failed refine call → keep the best so far
 		}
-		const rc = coerceRefinement(reply) as CoercedComponent & { rating: number };
+		const rc = coerceRefinement(reply) as CoercedComponent & { rating: number; baselineRating: number | null };
+		// Adopt the model's rating of the ORIGINAL as the bar to beat, once — a later round
+		// re-rates the already-improved best, so only the first baseline reflects the input.
+		if (bestRating < 0 && rc.baselineRating != null) bestRating = rc.baselineRating;
 		if (rc.decline || !rc.ok || !rc.manifest) continue; // unusable round → keep best, try the next
 		// Gate-repair the candidate so we compare COMPLIANT designs. NOTE: `rc.rating` is
 		// the model's self-rating of its PRE-repair output; it can drift slightly from the
@@ -862,10 +877,11 @@ async function improveDesign(
 		if (cand.errorCount === 0 && rc.rating > bestRating) {
 			best = { draft: cand.draft, findings: cand.findings, errorCount: 0 };
 			bestRating = rc.rating;
+			bestRefined = cand.refined; // the winning candidate's own repair passes
 			improved++; // COUNT of rounds that raised the design, not the winning round index
 		}
 	}
-	return { draft: best.draft, findings: best.findings, improved };
+	return { draft: best.draft, findings: best.findings, improved, refined: bestRefined };
 }
 
 // Run the SAME gate the Component editor runs — the structural gate + the native-ness
@@ -951,7 +967,11 @@ export async function generateComponent(
 		opts?.onStatus?.({ phase: 'refining', pass, passes: MAX_REPAIR_PASSES, issues }),
 	);
 	let { draft, findings } = repaired;
-	const refined = repaired.refined;
+	// The repair passes on the draft actually shown. Starts as the first draft's count; if a
+	// design round wins below, it becomes THAT candidate's repair count (the first draft is
+	// discarded, so its count would misattribute). Keeps the "auto-fixed N gate passes" toast
+	// honest about the draft in front of the user.
+	let refined = repaired.refined;
 
 	// Then, per the EFFORT dial, run N design self-refine rounds (quality) — critique vs
 	// the boardroom rubric, keep the best-rated compliant candidate. `low` = 0 rounds
@@ -965,8 +985,88 @@ export async function generateComponent(
 		draft = imp.draft;
 		findings = imp.findings;
 		improved = imp.improved;
+		if (imp.improved > 0) refined = imp.refined; // shown draft came from a design round → report ITS repairs
 	}
 	return { status: 'ok', draft, findings, fixes: coerced.fixes, similar, refined, improved };
+}
+
+// Do two drafts carry the same authored content + manifest? Used by refineComponent's
+// no-op guard: the model can echo the input unchanged (applied nothing), and calling that
+// a "refine" is dishonest — mirror refineSelection's `next === text` check. Compares the
+// authored strings (css/skeleton) and every manifest field; the sub-objects go through a
+// stable stringify since both drafts are built field-by-field in the same order.
+function sameComponentDraft(a: ComponentDraft, b: ComponentDraft): boolean {
+	return (
+		a.css === b.css &&
+		a.skeleton === b.skeleton &&
+		a.name === b.name &&
+		a.description === b.description &&
+		a.function === b.function &&
+		a.form === b.form &&
+		a.substance === b.substance &&
+		a.bucket === b.bucket &&
+		JSON.stringify(a.tags ?? []) === JSON.stringify(b.tags ?? []) &&
+		JSON.stringify(a.adapt ?? null) === JSON.stringify(b.adapt ?? null) &&
+		JSON.stringify(a.capacity ?? null) === JSON.stringify(b.capacity ?? null) &&
+		JSON.stringify(a.density ?? null) === JSON.stringify(b.density ?? null)
+	);
+}
+
+/**
+ * Refine an EXISTING component draft with the author's DIRECTED nudge ("simpler",
+ * "bolder cards", "tighter copy") — the Motion faculty's refine, ported to
+ * components. The model applies THAT change to `current` and returns the full
+ * component; the SAME gate-repair brings it to compliance before it reaches the
+ * editor, so a nudge can never smuggle a violation past the gate. Distinct from the
+ * effort dial's self-refine (which the model self-directs). Honest like
+ * generateComponent: `offline` / `blocked` / `nochange`, and any surviving findings
+ * are SHOWN. No dedup (we're editing an existing draft), no effort loop (the nudge
+ * IS the direction). `improved` is always 0; `similar` is [].
+ */
+export async function refineComponent(
+	instruction: string,
+	current: ComponentDraft,
+	opts?: { onStatus?: (s: ComponentGenStatus) => void },
+): Promise<ComponentGenOutcome> {
+	if (!instruction.trim()) return { status: 'nochange', note: 'Describe a change to refine.' };
+	const model = await architectModel();
+	if (!model) return { status: 'offline' };
+	const generation = model.availability().generation;
+	if (generation === 'floor') return { status: 'offline' };
+	if (generation === 'openrouter') {
+		const blk = cloudBudgetBlock(model, `${instruction}\n${JSON.stringify(current)}`);
+		if (blk) return { status: 'blocked', note: blk };
+	}
+	opts?.onStatus?.({ phase: 'generating' });
+	let reply = '';
+	try {
+		reply = await model.complete({
+			messages: askComponentRefineMessages(current, instruction),
+			json: true,
+			fallback: '',
+			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+		});
+	} catch {
+		return { status: 'offline' };
+	}
+	const coerced = coerceComponent(reply) as CoercedComponent;
+	// A refine shouldn't decline (it's editing, not creating), but honor one if it comes.
+	if (coerced.decline) {
+		return { status: 'declined', reason: coerced.decline.reason, route: coerced.decline.route, suggestion: coerced.decline.suggestion, similar: [] };
+	}
+	if (!coerced.ok || !coerced.manifest) {
+		return { status: 'nochange', note: 'The model returned no usable refinement — your draft stands.' };
+	}
+	// Gate-repair the nudged draft (compliance), same as generation.
+	const repaired = await repairToClean(model, gateDraft(coerced), generation, (pass, issues) =>
+		opts?.onStatus?.({ phase: 'refining', pass, passes: MAX_REPAIR_PASSES, issues }),
+	);
+	// No-op guard: the model echoed the draft back unchanged (applied nothing) — don't claim
+	// a refine that didn't happen; the author's draft already stands. Mirror refineSelection.
+	if (sameComponentDraft(repaired.draft, current)) {
+		return { status: 'nochange', note: 'That refinement changed nothing — your draft stands.' };
+	}
+	return { status: 'ok', draft: repaired.draft, findings: repaired.findings, fixes: coerced.fixes, similar: [], refined: repaired.refined, improved: 0 };
 }
 
 // A deterministic lint finding (the shape lint-core's `lintTextWith` returns) — a
