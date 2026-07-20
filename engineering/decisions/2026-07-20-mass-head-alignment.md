@@ -624,3 +624,86 @@ the seam yet.
 **No manifest `headline` field, no CSS generator, no 53-component migration.** The
 seam + register (#1125) is the mechanism; the follow-up is a bounded CSS pass plus
 a derived docs field.
+
+## Consistent-defaults pass — shipped (2026-07-20)
+
+Step 2 of the confirmed path, done. The scope narrowed on inspection: the fix
+applies only to a layout that **centers its heading by default while leaving its
+eyebrow + heading rule left** — an internal disagreement. Grepping every
+`text-align:var(--headline-align, center)` heading:
+
+- **`stats`** and **`list-steps` (timeline variant)** — in scope. Both center
+  heading + body but their eyebrow rode the shared `masthead-lede` (fallback
+  `left`) and their short rule (`rule: short`/`accent`) was a left-anchored
+  `::after`. Fixed in each component's own CSS: override the `masthead-lede`
+  fallback to `center` and center the rule `::after` (`left:50%` + translate),
+  both scoped `:not(.head-left)` so `headline: left` still pins the cluster left.
+  - **Subtitle:** `stats` already routed its dek through the seam (align-self +
+    text-align read `--headline-align`/`--headline-justify`). The timeline's dek
+    was centered only by the stage's hardcoded `align-items:center`, so under
+    `headline: left` it stayed stranded center while the heading moved — wired it
+    to the seam too. A **single-line** timeline dek is byte-identical under `auto`
+    (AE=0 — the box was already centered); a **multi-line** dek, which was
+    ragged-left inside its centered box, now centers its text under `auto` too (a
+    cosmetic-improvement byte move the CHANGELOG's "eyebrow + rule" enumeration
+    doesn't call out — the "WHOLE masthead" headline covers it). `head-left` moves
+    the dek left with the rest of the cluster in both cases.
+- **`kpi`** — NOT in scope: its heading is left by default (no `--headline-align`
+  center), so eyebrow + heading already agree. (The confirmed-path list named it
+  speculatively; the grep corrected that.)
+- **`divider.light`** — NOT in scope: it centers heading AND subtitle AND eyebrow
+  already (full anchor centering) — internally consistent. Only `divider` (dark)
+  is left, deliberately.
+- **`title` / `closing`** (anchors) — center the whole cluster via the section
+  flex; eyebrow already centers. Consistent.
+- **`diagram` / `chart`** — their `--headline-align, center` match is the *caption*
+  below the body, not the masthead heading (which is left). The body/caption split
+  is intentional (per-piece), preserved by per-selector fallbacks.
+
+Verified by rendering both layouts under `auto` (eyebrow + heading + short rule all
+center) and `headline: left` (all three move left as one cluster, rule at `left:0`).
+Ships `**Breaking:**` — the eyebrow + rule of an existing `stats` / timeline slide
+move left→center under the default `auto`.
+
+## Trio review of the consistent-defaults pass (2026-07-20)
+
+Red team + Munger inversion + independent checker, run against the shipping diff.
+
+- **[MAJOR — FIXED] Rule drifts right of a centered heading when the masthead bay
+  is populated (red team).** The short/accent rule is a base `::after` on the full
+  `.cell-masthead`; my first cut centered it with `left:50%` of that full band. But
+  the heading centers inside the left `masthead-lede` track (the grid is
+  `[masthead-lede] 1fr [masthead-bay] auto`), so with a `meta:`/`logo:` bay filled —
+  the common boardroom case — the rule sat ~half-a-bay right of the heading it
+  underlines (measured ~72px @1280). **Fix:** re-anchor the segment to the lede
+  (`content:none` on the base pseudo; redraw on `.masthead-lede::after`,
+  `bottom:calc(-1*--sp-md)` to keep the band gap). Now it tracks the heading with OR
+  without a bay. Verified: no-bay **AE=0** (byte-identical, both components); bay
+  `rule:short` and `rule:accent` centered under the heading; `head-left`+bay anchors
+  the segment at the lede's left; light + dark.
+- **[Scope — CONFIRMED COMPLETE] (Munger).** Inverting on "what centered heading did
+  the grep miss?" found nothing: `closing`/`divider.light` center the whole cluster
+  (anchor), `diagram`/`chart`'s centered match is the *caption* not the heading, and
+  every other Form `h2` inherits the lede's left. `stats` + `list-steps.timeline`
+  genuinely are the only two.
+- **[Framing — NOTED, human-owned] center-vs-left (Munger).** The pass centered the
+  eyebrow/rule to match the baked *centered heading*; the inverse (left the heading to
+  match the Form band) would have been zero-Breaking. Resolved by the author's explicit
+  instruction ("center the eyebrow/subtitle/rule to match the centered header") and
+  justified by these two layouts having horizontally **centered bodies** (stat strip /
+  timeline spine) — a centered masthead matches the body. Recorded, not silently taken.
+- **[Follow-up — head-right] (Munger axis 5).** The rule centering keys on
+  `:not(.head-left)`, so a future `head-right` (deferred center/right work) would leave
+  the rule centered under a right heading. The center/right follow-up must extend these
+  two component-local rules; noted here as the pointer.
+- **[Nits — done] (checker/red team).** Dropped the dead `> em` from the timeline
+  subtitle selector (a bare `<em>` is never a direct `.cell-stage` child). Corrected the
+  multi-line-dek byte-move note above. Checker verdict: **ship-with-nits**; all five
+  author claims (auto byte-identity, head-left cluster move, cascade specificity, three
+  paths agree, gates green) verified empirically, light + dark.
+- **[Deferred — example-deck PDFs] (Munger axis 2).** ~20 `examples/*.md` carry default
+  `auto` stats/timeline slides; those with an eyebrow or `rule:short|accent` now render
+  the framing centered, so their committed PDFs are stale. No CI gate gates example-PDF
+  freshness (the sanctioned regression baseline is the per-component `.gallery.pdf`
+  goldens, re-blessed here); the long-running galleries are isolated (HARD RULE #8) and
+  graduate separately. Scope of the example-deck refresh is a human call (see PR).

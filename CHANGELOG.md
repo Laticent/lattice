@@ -263,6 +263,14 @@ in patch versions.
   rock-solid `auto` + `left` core; `center` / `right` (box-aligning capped/inset framing on the full
   frame, especially against a masthead bay) are a deliberate follow-up. Demo:
   `examples/headline-alignment.md`. See `engineering/decisions/2026-07-20-mass-head-alignment.md`.
+- **Breaking: a centered-heading layout now centers its WHOLE masthead under `auto`.** Two layouts
+  centered their heading + body but left the eyebrow and short heading rule (`rule: short`/`accent`)
+  left-anchored, so the framing disagreed within the slide: `stats` and `list-steps` (timeline
+  variant). Under the default `auto` register their eyebrow and heading rule now center to match the
+  heading — the masthead reads as one cluster. This shifts the eyebrow and rule of an existing
+  `stats` / timeline slide from left to center (byte change to those renders). Author-owned as ever:
+  `headline: left` (deck) or `<!-- _class: head-left -->` (slide) pins the whole cluster — eyebrow,
+  heading, and rule — back to the left. See `engineering/decisions/2026-07-20-mass-head-alignment.md`.
 - **Fabricate can now refine a component by hand — quick chips or a freeform nudge — not just generate
   it.** The mirror of the Motion faculty's refine, ported to components. A "Refine" row sits under the
   "describe a component" bar (once a model is connected): four semantic chips — **Simpler · Bolder ·
