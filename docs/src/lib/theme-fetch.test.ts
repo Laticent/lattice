@@ -71,6 +71,25 @@ describe('createThemeFetcher — transitive @import closure', () => {
 		await expect(f.ensure('a11y-deuteranopia', 'dark')).resolves.toBeUndefined();
 		expect(registered.has('a11y-base')).toBe(true); // light chain still fully registered
 	});
+
+	// Red-team regression (Fix A): a palette with NO `-dark` companion (carbone, the a11y set)
+	// 404s on `ensure(dark)`. The module-shared cache's transient self-heal must NOT drop a 404
+	// (a designed negative result) — else it re-fetches the 404 on EVERY render. Fetched ONCE.
+	it('negative-caches an absent -dark companion — fetched once, not per render', async () => {
+		const calls: Record<string, number> = {};
+		vi.stubGlobal('fetch', (url: string) => {
+			const file = url.split('/').pop() as string;
+			calls[file] = (calls[file] || 0) + 1;
+			const body = GRAPH[file];
+			return Promise.resolve({ ok: body != null, status: body != null ? 200 : 404, text: () => Promise.resolve(body ?? '') } as Response);
+		});
+		const f = createThemeFetcher('/themes/');
+		await f.ensure('indaco', 'dark'); // indaco-dark.css is absent → 404
+		await f.ensure('indaco', 'dark');
+		await f.ensure('indaco', 'dark');
+		expect(calls['indaco-dark.css']).toBe(1); // 404 stayed negatively cached across renders
+		expect(registered.has('indaco')).toBe(true); // the light palette still registered
+	});
 });
 
 // Regression guard for #876: lattice.css's @font-face block ships a package-

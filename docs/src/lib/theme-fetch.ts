@@ -68,14 +68,16 @@ export function createThemeFetcher(themeBase: string) {
 		if (!fetched[name]) {
 			fetched[name] = fetch(themeBase + name + '.css')
 				.then((r) => {
-					if (!r.ok) throw new Error('theme ' + name + ' (' + r.status + ')');
+					if (!r.ok) throw Object.assign(new Error('theme ' + name + ' (' + r.status + ')'), { status: r.status });
 					return r.text().then(rewriteRelativeFontUrls);
 				})
 				// The cache is now SHARED across hosts (module-level), so a rejected promise would
-				// poison EVERY host forever on a transient failure — drop the entry on rejection so
-				// the next host retries (per-host caching self-healed for free; sharing must not lose it).
+				// poison EVERY host on a TRANSIENT failure — drop the entry so the next host retries.
+				// But a 404 is a DESIGNED negative result (many palettes ship no `-dark` companion;
+				// `ensure(dark)` fetches it with a swallowing `.catch`), so keep it negatively cached —
+				// else we'd re-fetch the 404 on every render (red-team finding on Fix A).
 				.catch((e) => {
-					delete fetched[name];
+					if (e?.status !== 404) delete fetched[name];
 					throw e;
 				});
 		}
@@ -121,7 +123,7 @@ export function createThemeFetcher(themeBase: string) {
 		if (!state.latticeReady) {
 			state.latticeReady = fetchTheme('lattice')
 				.then((css) => PG.addThemes([css]))
-				.catch((e) => { state.latticeReady = null; throw e; }); // shared: don't poison all hosts on a transient failure
+				.catch((e) => { if (e?.status !== 404) state.latticeReady = null; throw e; }); // self-heal transient only (keep a 404 negatively cached)
 		}
 		// Eviction-safe: the memo is now page-lifetime-shared, so it must not outlive the engine's
 		// truth. If a future engine-side eviction (audit fix D — ThemeStore.byName bounding) drops
@@ -160,7 +162,7 @@ export function createThemeFetcher(themeBase: string) {
 					const deps = themeImportNames(css).filter((d) => d && d !== name);
 					return Promise.all([ensureBase(), ...deps.map(register)]).then(() => undefined);
 				})
-				.catch((e) => { delete registering[name]; throw e; }); // shared: allow a retry after a transient failure
+				.catch((e) => { if (e?.status !== 404) delete registering[name]; throw e; }); // self-heal transient only; keep a 404 (absent `-dark`) negatively cached
 		}
 		// Eviction-safe (same rationale as ensureBase): re-add the direct theme if a future
 		// engine eviction dropped it after the shared memo resolved. (Deps re-register on the
