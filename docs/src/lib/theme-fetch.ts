@@ -37,17 +37,49 @@ export function themeImportNames(css: string): string[] {
 	return [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/@import\s*['"]([A-Za-z0-9_-]+)['"]/g)].map((m) => m[1]);
 }
 
+// Module-level shared cache keyed by themeBase — so EVERY preview host that renders against
+// the same theme root shares ONE fetch + ONE decoded/rewritten ~560KB CSS string, instead of
+// each host allocating + retaining its own copy (the per-host theme-fetch leak / peak-memory
+// cost, audit 2026-07-20-studio-degradation-audit). The CSS for a given (themeBase, name) is
+// identical across hosts, so sharing is safe; the engine-side registry (PG.addThemes/hasTheme)
+// was already globally deduped — this closes the docs-side duplication the audit measured.
+type FetcherState = { fetched: Record<string, Promise<string>>; registering: Record<string, Promise<void>>; latticeReady: Promise<void> | null };
+const sharedState = new Map<string, FetcherState>();
+function stateFor(themeBase: string): FetcherState {
+	let s = sharedState.get(themeBase);
+	if (!s) {
+		s = { fetched: {}, registering: {}, latticeReady: null };
+		sharedState.set(themeBase, s);
+	}
+	return s;
+}
+/** Test-only: clear the module-level shared cache so each case starts isolated (the shared
+ *  cache is the production contract; tests reset it in beforeEach). Not for runtime use. */
+export function __resetThemeFetcherCache(): void {
+	sharedState.clear();
+}
+
 export function createThemeFetcher(themeBase: string) {
-	const fetched: Record<string, Promise<string>> = {}; // theme name → Promise<cssText>
-	let latticeReady: Promise<void> | null = null;
+	const state = stateFor(themeBase);
+	const fetched = state.fetched; // theme name → Promise<cssText>, SHARED across hosts of this themeBase
 
 	/** Fetch `<themeBase><name>.css` once; cache the Promise per name. */
 	function fetchTheme(name: string): Promise<string> {
 		if (!fetched[name]) {
-			fetched[name] = fetch(themeBase + name + '.css').then((r) => {
-				if (!r.ok) throw new Error('theme ' + name + ' (' + r.status + ')');
-				return r.text().then(rewriteRelativeFontUrls);
-			});
+			fetched[name] = fetch(themeBase + name + '.css')
+				.then((r) => {
+					if (!r.ok) throw Object.assign(new Error('theme ' + name + ' (' + r.status + ')'), { status: r.status });
+					return r.text().then(rewriteRelativeFontUrls);
+				})
+				// The cache is now SHARED across hosts (module-level), so a rejected promise would
+				// poison EVERY host on a TRANSIENT failure — drop the entry so the next host retries.
+				// But a 404 is a DESIGNED negative result (many palettes ship no `-dark` companion;
+				// `ensure(dark)` fetches it with a swallowing `.catch`), so keep it negatively cached —
+				// else we'd re-fetch the 404 on every render (red-team finding on Fix A).
+				.catch((e) => {
+					if (e?.status !== 404) delete fetched[name];
+					throw e;
+				});
 		}
 		return fetched[name];
 	}
@@ -88,8 +120,19 @@ export function createThemeFetcher(themeBase: string) {
 	function ensureBase(): Promise<void> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.reject(new Error('engine not ready'));
-		if (!latticeReady) latticeReady = fetchTheme('lattice').then((css) => PG.addThemes([css]));
-		return latticeReady;
+		if (!state.latticeReady) {
+			state.latticeReady = fetchTheme('lattice')
+				.then((css) => PG.addThemes([css]))
+				.catch((e) => { if (e?.status !== 404) state.latticeReady = null; throw e; }); // self-heal transient only (keep a 404 negatively cached)
+		}
+		// Eviction-safe: the memo is now page-lifetime-shared, so it must not outlive the engine's
+		// truth. If a future engine-side eviction (audit fix D — ThemeStore.byName bounding) drops
+		// the base after the memo resolved, re-add from the shared CSS (a hasTheme() Map.has + no-op
+		// when present — negligible on the hot path). Without this, the shared memo would say
+		// "registered" forever and strip the render (Munger inversion on Fix A).
+		return state.latticeReady.then(() => {
+			if (!PG.hasTheme('lattice')) return fetchTheme('lattice').then((css) => { PG.addThemes([css]); });
+		});
 	}
 
 	/**
@@ -103,23 +146,30 @@ export function createThemeFetcher(themeBase: string) {
 	// a11y-base → onyx → lattice) renders STRIPPED unless every link is present.
 	// Follows bare `@import 'name'` directives (url() font imports are ignored);
 	// `lattice` routes through ensureBase(). Each name registered at most once.
-	const registering: Record<string, Promise<void>> = {};
+	const registering = state.registering;
 	function register(name: string): Promise<void> {
 		const PG = window.LatticePlayground;
 		if (!PG) return Promise.reject(new Error('engine not ready'));
 		if (name === 'lattice') return ensureBase();
 		if (!registering[name]) {
-			registering[name] = fetchTheme(name).then((css) => {
-				if (!PG.hasTheme(name)) PG.addThemes([css]);
-				// Walk the transitive theme-name @import closure — the engine inlines
-				// an import only if its target is already registered, so a multi-level
-				// chain (a11y-deuteranopia → a11y-base → onyx → lattice) renders
-				// STRIPPED unless every link is present. `lattice` routes via ensureBase.
-				const deps = themeImportNames(css).filter((d) => d && d !== name);
-				return Promise.all([ensureBase(), ...deps.map(register)]).then(() => undefined);
-			});
+			registering[name] = fetchTheme(name)
+				.then((css) => {
+					if (!PG.hasTheme(name)) PG.addThemes([css]);
+					// Walk the transitive theme-name @import closure — the engine inlines
+					// an import only if its target is already registered, so a multi-level
+					// chain (a11y-deuteranopia → a11y-base → onyx → lattice) renders
+					// STRIPPED unless every link is present. `lattice` routes via ensureBase.
+					const deps = themeImportNames(css).filter((d) => d && d !== name);
+					return Promise.all([ensureBase(), ...deps.map(register)]).then(() => undefined);
+				})
+				.catch((e) => { if (e?.status !== 404) delete registering[name]; throw e; }); // self-heal transient only; keep a 404 (absent `-dark`) negatively cached
 		}
-		return registering[name];
+		// Eviction-safe (same rationale as ensureBase): re-add the direct theme if a future
+		// engine eviction dropped it after the shared memo resolved. (Deps re-register on the
+		// first call only; a fuller re-walk waits until fix D actually adds eviction.)
+		return registering[name].then(() => {
+			if (!PG.hasTheme(name)) return fetchTheme(name).then((css) => { PG.addThemes([css]); });
+		});
 	}
 
 	function ensure(palette: string, mode: 'light' | 'dark'): Promise<void> {
