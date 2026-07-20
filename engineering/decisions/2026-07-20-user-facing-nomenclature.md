@@ -6,10 +6,10 @@ summary: The thing an author picks per slide is a "layout" (human word) whose sy
 
 # User-facing nomenclature — "layout" for humans, "component" for the machine
 
-**Roll-up:** ◐ in-progress · Core naming **ratified + source-verified**. ⚠ Phase 1
-execution **gated** on two items the trio surfaced: (1) decide the Form-axis
-surface word, (2) rescope the Phase 2 gate. Crosswalk narrowed to the verified
-core; speculative renames demoted to *proposed — needs collision audit*.
+**Roll-up:** ◐ in-progress · Core naming **ratified + source-verified**. Both trio
+gates cleared: the Form-axis word is resolved ("Arrangement", audited) and the
+Phase 2 gate is rescoped (below). Phase 1 executing. Crosswalk narrowed to the
+verified core; speculative renames demoted to *proposed — needs collision audit*.
 
 ## Symptom
 
@@ -76,23 +76,22 @@ optional gloss line won't carry it. Phase 3 makes the content-aware redefinition
 a **required, repeated** element of the onboarding (diagram + intro + first
 authoring page each state it), not one bridge sentence.
 
-## ⚠ Open decision — the Form-axis surface word
+## Form-axis surface word — RESOLVED: "Arrangement"
 
-"Shape" is **out** (retired: `shape` is already load-bearing —
-`design-system.md:241` "data shape", `forms.md:235` `shape` field). But the trio
+"Shape" was **out** (retired: `shape` is already load-bearing —
+`design-system.md:241` "data shape", `forms.md:235` `shape` field). And the trio
 found the deeper problem: **`concepts.mdx:32` is a *published* author-reachable
-page whose "Human word" column already labels the Form axis "Layout."** Once
-"layout" names the pick, that page double-books the word on the author surface —
-the exact overload we're killing. So the Form axis needs a surface word that is
-**neither "Layout" nor "Shape."**
+page whose "Human word" column labeled the Form axis "Layout."** Once "layout"
+names the pick, that page double-booked the word — the exact overload we're
+killing. So the Form axis needed a word that is **neither "Layout" nor "Shape."**
 
-The clean resolution: authors never pick a *bare Form value* (they pick a
-layout/component), so Form barely needs an author word at all — it is a designer
-axis. **Candidate: relabel Form's human word to "Composition"** (a plain
-descriptor — "how the slide is composed"), *pending a collision grep* (do not
-adopt it the way "Material"/"backdrop" were adopted un-audited). Alternative: drop
-Form's human-word entry on the model page and mark the axis designer-only.
-**This is the one call to make before Phase 1 edits the model page.**
+**Resolved (owner, 2026-07-20): the Form axis's human word is "Arrangement."**
+Collision-audited before adoption (0 hits as a key/class/value/tag across
+`lib/components/index.js`, `lib/concepts/concepts.json`, `lib/forms/` — unlike
+"Composition", whose gallery-footer use made it a soft collision). Form's system
+word stays "Form"; its human word becomes "Arrangement"; the *pick* keeps "layout"
+(human) / "component" (system). Three distinct words, no double-book — which the
+Phase 2 uniqueness gate now enforces.
 
 ## The crosswalk — ratified core
 
@@ -106,6 +105,7 @@ Verified against source (`design/forms.md`, `lib/concepts/concepts.json`,
 | A | **Chrome** | chrome-band Cells + Tiles | content's complement (define precisely) |
 | A | **Content** *(region)* | stage Cell + content Tile (z2) | the region you fill — see collision note |
 | B | **Layout** *(the pick)* | **Component** (the join) | human = layout; system = component |
+| B | **Arrangement** | **Form** (12 Frame types) | how it's composed; NOT "layout" (that's the pick) |
 | B | Purpose | **Function** (7 families) | browse facet — why |
 | C | **Theme** | `theme:` | color / palette |
 | C | **Mode** | `mode:` | the typographic hand |
@@ -122,7 +122,7 @@ front-matter keys, Substance/Form values, `TAG_GROUPS` terms, and route segments
 | Candidate | Intended for | What the trio found | Status |
 |---|---|---|---|
 | **"Material"** | Substance's surface word | **Collides** with the live `material` tag dimension (`lib/components/index.js:403`, "I have a ___") — same "what you put on the slide" meaning, different construct | **REJECTED.** Substance is engine-owned; leave its word "Content" (authors don't pick it). No author word coined. |
-| **Form-axis word** | the Form facet on the model page | "Layout" now taken; "Shape" pre-polluted | **OPEN** — see the decision above ("Composition"?, audit pending) |
+| ~~**Form-axis word**~~ | the Form facet on the model page | "Layout" taken; "Shape" pre-polluted | **RESOLVED → "Arrangement"** (0-collision audited); now in the ratified crosswalk |
 | **"category"** (bucket) | rename `bucket` on surface | `bucket` is a manifest field + `groupByBucket()` API + **route segment** (`[bucket]/[name].astro`) + a tag-rule clause — not doc-only | Deferred; re-scope as system-or-drop |
 | **Accent "one dial"** | collapse the accent keys | **No `accent:` key exists** — the 7 registers (`spectrum:`,`spectrum-edge:`,`spectrum-card:`,`spectrum-card-edge:`,`spectrum-trim:`,`rule:`,`eyebrow:`) are independent siblings (`2026-07-15-accent-finish-consolidation.md`) | A *future* consolidation proposal, not a current fact |
 | **Chart / Diagram as "a series/graph component"** | crosswalk shorthand | Chart is a **bucket/family of 13** (3 are `structure`/`graph`, not series); Diagram is one component (`graph`) | Reword to "chart family, prototypically series" |
@@ -130,11 +130,11 @@ front-matter keys, Substance/Form values, `TAG_GROUPS` terms, and route segments
 
 ## Plan — phases, one branch/PR each (HARD RULE #17)
 
-### Phase 1 — Ratify the model · **Status:** ⏸ gated (see roll-up)
-Blocked until the Form-axis word is decided. Then: update the canon to
-layout=human / component=system for the pick (`design-system.md` §2.5+§6,
-`concepts.md`, `concepts.mdx`), **relabel the Form-axis human word on
-`concepts.mdx`** so "layout" isn't double-booked. Fix the Style→Finish drift in
+### Phase 1 — Ratify the model · **Status:** ◐ in-progress
+Update the canon to layout=human / component=system for the pick
+(`design-system.md` §2.5+§6, `concepts.md`, `concepts.mdx`), **relabel the
+Form-axis human word to "Arrangement"** (on `concepts.mdx`, §2.5, and the concept
+catalog) so "layout" isn't double-booked. Fix the Style→Finish drift in
 **five** surfaces — `lib/concepts/concepts.json`, `concepts.mdx`,
 `ConceptWalkthrough.astro`, **`ConceptLattice.astro` (no-JS fallback), and
 `ConceptGraph.astro`** — plus the now-stale "'look' collides with *Style*"
@@ -143,6 +143,18 @@ docs (**53→59 components, 12→13 buckets** incl. `connect`; getting-started's
 Do **not** touch the Content/Material split here (deferred). Non-breaking.
 Maker-checker whose charter is a **collision audit** (not just prose review).
 Gate: `build:check`.
+
+**Landed (2026-07-20):** canon edits in — `concepts.json` (form.human→Arrangement,
+finish.human→Finish, component gains human "Layout"), the five Style→Finish
+surfaces (`concepts.json`, `concepts.mdx`, `ConceptWalkthrough`, `ConceptGraph`,
+`ConceptLattice`), §2.5+§6, `concepts.md`, and — caught by the maker-checker —
+`forms.md` (which owns the Form vocabulary and still mapped Form→"Layout").
+`dist/docs/concepts.json` regenerated; `build:check`, 6/6 concept tests, and lint
+green; "Arrangement" collision-audited (0 identifier hits). **Deferred (off the
+naming path, logged per HARD RULE #18):** the stale component/bucket counts
+(53→59, 12→13 incl. `connect`, "55") in `design-system.md` §1/§3/§9 and
+`getting-started.md` — a separate count-reconciliation, folded into Phase 3's
+docs pass rather than smeared into this naming diff. **Next:** Phase 2 gate.
 
 ### Phase 2 — Lock the crosswalk, gate the *class* · **Status:** ☐ proposed (ships with Phase 1)
 The gate must catch the class, not the instance. It asserts: (a) each axis human

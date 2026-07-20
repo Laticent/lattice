@@ -36,9 +36,9 @@ Frame produces, and it *receives* Finish.
 graph TD
   subgraph AXES["The four axes — every slide is a stack of four orthogonal decisions"]
     FUNC["Function — Purpose<br/>what's the point?"]
-    FORM["Form — Layout<br/>how is it composed?"]
+    FORM["Form — Arrangement<br/>how is it composed?"]
     SUBS["Substance — Content<br/>what fills it?"]
-    FIN["Finish<br/>what should it feel like?<br/>theme · style · finish"]
+    FIN["Finish<br/>what should it feel like?<br/>theme · mode · finish"]
   end
 
   subgraph STRUCT["Form resolves into structure — the Composite tree"]
@@ -86,7 +86,7 @@ another's.
 | Axis | Human word | The question | Owned by |
 |---|---|---|---|
 | **Function** | Purpose | what's the point of this slide? | deck authors |
-| **Form** | Layout | how is it composed? | layout designers |
+| **Form** | Arrangement | how is it composed? | layout designers |
 | **Substance** | Content | what fills it? | engine maintainers |
 | **Finish** | Finish | what should it feel like? | theme designers |
 
@@ -97,7 +97,7 @@ stack: `none` / `atrium` …). *"Mode" is the human word for that rendering-hand
 register specifically.* (The key is `mode:`, not `style:` — Marp already owns
 `style:` for inline-CSS injection.)
 
-**The one word we legislate against is "look"** — it collides between *Layout*
+**The one word we legislate against is "look"** — it collides between *Arrangement*
 (Form) and the *Mode/Finish* feel. Resolve "make it look different" into one or
 the other before acting.
 

@@ -81,8 +81,8 @@ same type at different scales.
 
 `design/design-system.md` §2.5 sets a vocabulary law: **one system word and one
 human word per concept, no third synonym.** This doc deliberately *promotes* one
-of those words, and that change must land in §2.5 in the **same rename sweep** so
-the two canonical docs never contradict. The promotion:
+of those words, and that promotion is now reflected in §2.5 so the two canonical
+docs never contradict. The promotion:
 
 - **`Form`** moves from "the layout *axis* of a component" to "the composition
   *system*" (axis included). It is still one word, still owned here; its scope
@@ -92,11 +92,13 @@ the two canonical docs never contradict. The promotion:
 - The twelve values (`split`, `panel`, `grid`, …) are a Form's **Frame types**.
   "Frame" is the new system word for *a Form value acting as a slicer* — it is
   **not** a third synonym for "Form"; it names the slicer object, where "Form"
-  names the system. Their human word stays **Layout** (per §2.5).
+  names the system. The Form axis's human word is **Arrangement** (per §2.5) —
+  "layout" now names the *pick* (the Component join), not the Form axis, so one
+  word does one job.
 
-Until that §2.5 edit lands, treat this section as the authority and §2.5 as
-pending. A reader should never have to ask "is a `split` a Form or a Frame?" — it
-is a **Frame type** *of* the Form system.
+A reader should never have to ask "is a `split` a Form or a Frame?" — it is a
+**Frame type** *of* the Form system. (Vocabulary decision:
+`engineering/decisions/2026-07-20-user-facing-nomenclature.md`.)
 
 ---
 
