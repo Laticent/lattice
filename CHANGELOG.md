@@ -271,6 +271,17 @@ in patch versions.
   `stats` / timeline slide from left to center (byte change to those renders). Author-owned as ever:
   `headline: left` (deck) or `<!-- _class: head-left -->` (slide) pins the whole cluster — eyebrow,
   heading, and rule — back to the left. See `engineering/decisions/2026-07-20-mass-head-alignment.md`.
+- **A "Viewport debug" diagnostics lever — the on-device geometry readout, now a first-class Workspace
+  toggle.** The throwaway `?vvdebug` probe that diagnosed the landscape-cinema overflow (below) is now a
+  standing debug overlay, built to the same pattern as the Performance and Viz-diagnostics overlays: a
+  draggable, on-brand floating panel (its own grip header + persisted position) that reads the live
+  geometry headless CI can never see — the layout viewport, the visual viewport (size + offset), what the
+  CSS units `svh`/`dvh`/`lvh` resolve to on **this** device, the cinema stage height, and the preview
+  frame's on-screen rect. Off by default; flip it on in **Workspace → General → Diagnostics** (persisted
+  like the other levers) or with the `?vvdebug` URL param so a phone can enable it without the drawer.
+  Studio-only, opt-in, and inert until shown (it measures nothing while off). (`ViewportDebugOverlay.tsx`,
+  `viewport-debug-prefs.ts`; `engineering/decisions/2026-07-20-landscape-phone-preview-lock.md`.)
+
 - **Fabricate can now refine a component by hand — quick chips or a freeform nudge — not just generate
   it.** The mirror of the Motion faculty's refine, ported to components. A "Refine" row sits under the
   "describe a component" bar (once a model is connected): four semantic chips — **Simpler · Bolder ·

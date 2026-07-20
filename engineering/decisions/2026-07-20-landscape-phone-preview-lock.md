@@ -214,6 +214,39 @@ real surface and read numbers before theorizing** — the *comprehensive* `?vvde
 completely missed. (3) Don't trust the `svh/dvh/lvh` ordering — a real browser reported
 `svh > dvh`. The `?vvdebug` readout stays shipped (opt-in) for future triage.
 
+## Promotion — `?vvdebug` is now a first-class Viewport-debug overlay
+
+The comprehensive readout that finally cracked this (§Real-device fix) was, in the fix
+commit, an inline `LandscapeViewportDebug` component: a `<pre>` pinned to the cinema
+stage, gated on a raw `?vvdebug` URLSearchParams check, only ever mounted on a landscape
+phone. Useful enough to keep — the geometry it surfaces (layout vs. visual viewport,
+what `svh`/`dvh`/`lvh` actually resolve to, the stage + preview-frame rects) is exactly
+what headless CI can't see and what any future on-device layout bug will need — so it was
+promoted to a standing debug lever, built to the **same pattern as the existing
+Performance and Viz-diagnostics overlays** (HARD RULE #15 — reuse, don't reinvent):
+
+- **`docs/src/playground/viewport-debug-prefs.ts`** — the shared-pref SSOT (localStorage
+  key `lattice-viewport-debug`), mirroring `viz-overlay-prefs.ts`: `viewportDebugEnabled()`
+  / `setViewportDebugEnabled()` / `onViewportDebugEnabledChange()` (same-page listener
+  fan-out, so a switch flip mounts/unmounts the overlay live) / `applyViewportDebugUrlParam()`
+  (the `?vvdebug` param writes the same flag — a phone still enables it without the drawer).
+- **`ViewportDebugOverlay.tsx` / `.astro`** — a cloned `PanelPortal`: the draggable,
+  `<body>`-portaled, grip-headed floating panel the other diagnostics overlays use
+  (persisted position, on-screen clamp, singleton claim). It polls the geometry (~300 ms)
+  and re-reads on every `visualViewport` resize/scroll. Renders nothing (and measures
+  nothing) until the pref is on.
+- **`WorkspaceSheet.tsx`** — a `<Switch>` row in the General → Diagnostics group, next to
+  Performance / Read-aloud / Viz, gated by `VIEWPORT_DEBUG_AVAILABLE`.
+- **`studio.astro`** — includes `<ViewportDebugOverlay />` next to `<VizDiagnosticsOverlay />`.
+
+The inline `LandscapeViewportDebug` + the `vvDebug` const in `StudioShell.tsx` were
+retired; the `data-cinema-stage` attribute on the cinema `<div>` stays — the new overlay
+reads it. The overlay is no longer landscape-only: it reads on any surface (on desktop the
+stage row simply shows `—`, since there's no cinema stage), so it's a general viewport
+probe now, not a one-bug artifact. Verified on the real built Studio: hidden by default,
+appears on `?vvdebug` with correct live numbers (desktop + landscape-phone), and the
+Workspace switch mounts/unmounts it live (the overlay's own × writes the pref off).
+
 ## Known limitations / follow-up (logged, not fixed here — HARD RULE #18)
 
 Off the path of this change; recorded so they aren't lost:
@@ -243,10 +276,12 @@ Off the path of this change; recorded so they aren't lost:
 - `docs/src/components/studio/use-breakpoint.ts` — `useLandscapePhone()`.
 - `StudioShell.tsx` previewBox fit — `previewFitByHeight || landscapePhone` forces fit-by-height
   on the landscape phone (the actual fix); the cinema `<div>` just fills the `100dvh` root.
-- `StudioShell.tsx` `LandscapeViewportDebug` — the comprehensive `?vvdebug` readout
-  (svh/dvh/lvh + stage + frame), kept opt-in for future triage. (Rounds 1–3 —
-  `useVisualViewportHeight`, the `use-shared-preview-slot` dual-hoist, and the `svh` height —
-  were all reverted; see §Real-device fix.)
+- `ViewportDebugOverlay.tsx` / `.astro` + `viewport-debug-prefs.ts` — the comprehensive
+  `?vvdebug` readout (svh/dvh/lvh + stage + frame), promoted from the inline
+  `LandscapeViewportDebug` into a first-class Workspace debug lever (see §Promotion). Opt-in,
+  drag-repositionable, off by default. (Rounds 1–3 — `useVisualViewportHeight`, the
+  `use-shared-preview-slot` dual-hoist, and the `svh` height — were all reverted; see
+  §Real-device fix.)
 - `docs/src/components/studio/StudioShell.tsx` — `landscapePhone` / `effPane` /
   `previewChromeless` derivation, `splitUsable`, the header suppression, the cinema
   body branch (incl. `sr-only` Prev/Next + `aria-live` position for AT), `previewPane`

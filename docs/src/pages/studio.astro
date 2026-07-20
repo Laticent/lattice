@@ -9,6 +9,7 @@
 import '../styles/landing.css';
 import StudioShell from '../components/studio/StudioShell.tsx';
 import VizDiagnosticsOverlay from '../components/studio/VizDiagnosticsOverlay.astro';
+import ViewportDebugOverlay from '../components/studio/ViewportDebugOverlay.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
@@ -323,6 +324,12 @@ const REPLAY_JS = shell
 		    switch (or ?viz) turns it on; then reads dropped-to-black chart paint from
 		    the render pipeline. */}
 		<VizDiagnosticsOverlay />
+		{/* Live viewport-debug readout — renders nothing until the Workspace →
+		    Diagnostics switch (or ?vvdebug) turns it on; then reads the live viewport
+		    geometry (layout + visual viewport, svh/dvh/lvh, cinema stage, iframe rect)
+		    on the real device — the on-device probe that diagnosed the #1121 landscape
+		    overflow. */}
+		<ViewportDebugOverlay />
 		{/* Intent-gated engine warm (was allowEager): the eager 505KB fetch competed
 		    with first paint/hydration. StudioShell loads the engine on mount, so
 		    warming only needs to fire on pointer/focus intent — off the paint path. */}
