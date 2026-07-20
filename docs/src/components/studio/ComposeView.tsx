@@ -313,6 +313,11 @@ class SlideView {
 	private dangerGroup: HTMLElement;
 	private deleteBtn: HTMLButtonElement;
 	private confirmTimer = 0;
+	// Every button listener this view adds (structural btn() + the format group rebuilt on each
+	// caret move) rides this signal, so destroy() removes them ALL in one abort — else ~10
+	// listeners/slide survive teardown and accumulate on every compose↔markdown switch (the
+	// +91 listeners/cycle the leak audit measured; 2026-07-20-studio-degradation-audit, Fix B).
+	private ac = new AbortController();
 	private locked: boolean;
 	private stateful: boolean; // slide is a stateful table component (obligation-matrix / roadmap) → offer the marker picker
 	private tableHosted = false; // whether this slide's Format group currently hosts the React TableControls
@@ -391,11 +396,11 @@ class SlideView {
 		b.title = label;
 		b.setAttribute('aria-label', label);
 		b.innerHTML = lucideSvg(icon);
-		b.addEventListener('mousedown', (e) => e.preventDefault());
+		b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
 		b.addEventListener('click', (e) => {
 			e.preventDefault();
 			fn();
-		});
+		}, { signal: this.ac.signal });
 		return b;
 	}
 	// Rebuild the Format group from the registers that APPLY to the caret's block — only when THIS
@@ -444,11 +449,11 @@ class SlideView {
 			b.title = `${meta.label} — apply to this block`;
 			b.setAttribute('aria-label', meta.label);
 			b.setAttribute('aria-pressed', activeReg === key ? 'true' : 'false');
-			b.addEventListener('mousedown', (e) => e.preventDefault());
+			b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
 			b.addEventListener('click', (e) => {
 				e.preventDefault();
 				applyRegister(this.view, key, activeRegister(this.view.state));
-			});
+			}, { signal: this.ac.signal });
 			this.fmtGroup.append(b);
 		}
 	}
@@ -572,6 +577,7 @@ class SlideView {
 	}
 	destroy() {
 		clearTimeout(this.confirmTimer);
+		this.ac.abort(); // remove ALL button listeners in one shot (structural + format group)
 		this.clearTableHost();
 		liveSlideViews.delete(this);
 	}
