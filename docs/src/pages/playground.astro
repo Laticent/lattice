@@ -169,21 +169,11 @@ const pgData = {
 					// hydrates so a returning focus-mode visitor never sees the SSR toolbar
 					// flash then vanish. PlaygroundApp owns the attribute after hydration.
 					if (localStorage.getItem('lattice-docs-pg-focus') === '1') r.setAttribute('data-pg-focus', '');
-					// Pre-paint seed for the editor|preview split ratio: playground.css
-					// consumes these as var() fallbacks, so a returning resizer's saved
-					// width applies before the island hydrates (no first-paint jump).
-					// Clamped to the same [0.2, 0.8] band the split hook enforces.
-					var sp = localStorage.getItem('lattice-docs-split-playground');
-					if (sp) {
-						var sv = JSON.parse(sp);
-						if (sv && sv.v === 1 && typeof sv.a === 'number' && sv.a >= 0.2 && sv.a <= 0.8) {
-							// Doubled flex pair (sum 2, never 1) — a sum-1 pair leaves a
-							// dead void when a pane clamps at its px minimum (CSS Grid
-							// §12.7.1 fraction-of-leftover). Must match split.tsx splitFlexPair.
-							r.style.setProperty('--split-playground-a', 2 * sv.a + 'fr');
-							r.style.setProperty('--split-playground-b', 2 * (1 - sv.a) + 'fr');
-						}
-					}
+					// (The editor|preview split ratio's pre-paint CSS-var seed is retired
+					// with the react-resizable-panels migration: the library owns the
+					// panel's inline flex, so a CSS var can't seed it, and the hook restores
+					// the saved ratio post-mount via the panel imperative API — a returning
+					// resizer briefly paints at the default before the restore. 2026-07-19.)
 				} catch (e) {}
 			})();
 		</script>

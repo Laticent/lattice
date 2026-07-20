@@ -5,7 +5,15 @@ summary: The Playground and Studio ship fixed editor|preview splits — users ca
 
 # Resizable & collapsible editor/preview panes — Playground + Studio
 
-*2026-07-02* · Status: **shipped** (PR #717).
+*2026-07-02* · Status: **shipped** (PR #717), **implementation superseded 2026-07-19**.
+
+> **Superseded (mechanism, not behavior):** the hand-rolled `ui/split.tsx` this
+> doc chose — and the `use-panel-width.ts` docked-column widths — were replaced by
+> `react-resizable-panels` (the shadcn resizable panel) once a new requirement
+> (resizable Studio Coach/Chat/Library panels) dissolved the "side columns can't
+> be Panels" premise that rejected the library here. The resize/collapse *behavior*
+> below still holds; the primitive underneath is now the library. See
+> `2026-07-19-shadcn-splitter-migration.md`.
 
 ## Shipped deviations
 
