@@ -21,13 +21,14 @@
 // [--k 40] [--cpu 4] [--snapshot] [--retainers [--realm]]`. Needs the scenario's dist BUILT + CHROME_PATH.
 
 import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import { extname, isAbsolute, join, normalize, relative } from 'node:path';
 import puppeteer from 'puppeteer';
+import { buildReport, renderJUnit, renderMarkdown } from './report.mjs';
 
 function parseArgs(argv) {
-	const o = { scenario: 'studio', mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false };
+	const o = { scenario: 'studio', mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false, out: null, junit: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--scenario') o.scenario = argv[++i];
@@ -42,6 +43,8 @@ function parseArgs(argv) {
 		else if (a === '--tts') o.tts = true;
 		else if (a === "--retainers") o.retainers = true;
 		else if (a === "--realm") o.realm = true;
+		else if (a === '--out') o.out = argv[++i];
+		else if (a === '--junit') o.junit = true;
 		else throw new Error(`unknown arg: ${a}`);
 	}
 	return o;
@@ -176,13 +179,17 @@ const countSel = (page, sel) => page.evaluate((s) => document.querySelectorAll(s
 const clickTabByText = (page, text) => page.evaluate((t) => { for (const b of document.querySelectorAll('[role="tab"]')) if (b.textContent.trim() === t) { b.click(); return true; } return false; }, text);
 
 // ── heap-snapshot capture + per-constructor diff (root-cause attribution) ────────
-async function takeSnapshot(cdp) {
+// `withRaw` also returns the raw JSON string (the exact V8/DevTools `.heapsnapshot` bytes) so the
+// caller can write it to disk under --out — otherwise the raw chunks are parsed and discarded.
+async function takeSnapshot(cdp, { withRaw = false } = {}) {
 	const chunks = [];
 	const onChunk = (c) => chunks.push(c.chunk);
 	cdp.on('HeapProfiler.addHeapSnapshotChunk', onChunk);
 	await cdp.send('HeapProfiler.takeHeapSnapshot', { reportProgress: false, captureNumericValue: false });
 	cdp.off('HeapProfiler.addHeapSnapshotChunk', onChunk);
-	return JSON.parse(chunks.join(''));
+	const raw = chunks.join('');
+	const snap = JSON.parse(raw);
+	return withRaw ? { snap, raw } : snap;
 }
 // Aggregate retained self-size by "type:name" (constructor), + detached-DOM bytes.
 function snapshotByClass(snap) {
@@ -318,7 +325,8 @@ async function withinSession(browser, base, opts, scenario, cycleName) {
 	const extraProbes = scenario.probes ? () => scenario.probes(page) : undefined;
 	if (scenario.prep?.[cycleName]) { try { await scenario.prep[cycleName](page, opts); } catch (e) { console.error(`    prep(${cycleName}) failed: ${e.message}`); } }
 	const series = [];
-	let snapDiff = null, retReport = null;
+	let snapDiff = null, retReport = null, heapSnapshotFile = null;
+	const outDir = opts._outDir; // resolved absolute dir (or undefined) — see runTorture
 	try {
 		series.push(await sample(inst, 'baseline', undefined, extraProbes));
 		const snapBase = opts.snapshot ? await takeSnapshot(inst.cdp) : null;
@@ -339,21 +347,32 @@ async function withinSession(browser, base, opts, scenario, cycleName) {
 		// exactly when the app is leaking, the case you most want the run for). Each is guarded so a
 		// heap-dump failure logs and is dropped WITHOUT discarding the K-loop series already collected.
 		if (opts.snapshot && snapBase) {
-			try { await inst.gc(); await inst.gc(); const snapFinal = await takeSnapshot(inst.cdp); snapDiff = diffSnapshots(snapBase, snapFinal); }
-			catch (e) { console.error(`    ${cycleName}: snapshot diff unavailable — ${String(e.message).slice(0, 120)} (series kept)`); }
+			try {
+				await inst.gc(); await inst.gc();
+				// Under --out, capture the raw V8 bytes of the FINAL snapshot and write a loadable
+				// `.heapsnapshot` alongside the report (DevTools ▸ Memory ▸ Load).
+				const taken = await takeSnapshot(inst.cdp, { withRaw: !!outDir });
+				const snapFinal = outDir ? taken.snap : taken;
+				snapDiff = diffSnapshots(snapBase, snapFinal);
+				if (outDir) { heapSnapshotFile = `${cycleName}.heapsnapshot`; await writeFile(join(outDir, heapSnapshotFile), taken.raw); }
+			} catch (e) { console.error(`    ${cycleName}: snapshot diff unavailable — ${String(e.message).slice(0, 120)} (series kept)`); }
 		}
 		if (opts.retainers) {
 			try {
 				await inst.gc(); await inst.gc();
 				process.stderr.write(`    ${cycleName}: taking retainer snapshot…\n`);
-				const snapR = await takeSnapshot(inst.cdp);
+				// Only capture raw here if the snapshot path above didn't already write the file.
+				const needRaw = !!outDir && !heapSnapshotFile;
+				const taken = await takeSnapshot(inst.cdp, { withRaw: needRaw });
+				const snapR = needRaw ? taken.snap : taken;
 				retReport = retainerReport(snapR, { sample: 16, realm: opts.realm, targetMatch: scenario.retainerTarget });
+				if (needRaw) { heapSnapshotFile = `${cycleName}.heapsnapshot`; await writeFile(join(outDir, heapSnapshotFile), taken.raw); }
 			} catch (e) { console.error(`    ${cycleName}: retainer report unavailable — ${String(e.message).slice(0, 120)} (series kept)`); }
 		}
 	} finally {
 		await page.close().catch(() => {});
 	}
-	return { series, snapDiff, retReport };
+	return { series, snapDiff, retReport, heapSnapshotFile };
 }
 
 // Universal metrics every scenario gets from Performance.getMetrics, and their absolute per-cycle
@@ -432,6 +451,13 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 	if (!scenario.universalFloors) console.error(`  ⚠ [${scenario.name}] no scenario.universalFloors — heap/node floors use the built-in Studio-derived defaults; on a lighter app a real slow leak can read as "flat". See tools/perf-torture/README.md.`);
 	const keys = [...UNIVERSAL_KEYS, ...Object.keys(scenario.probeFloors || {})];
 	const absFloor = { ...UNIVERSAL_FLOOR, ...(scenario.universalFloors || {}), ...(scenario.probeFloors || {}) };
+	// --out <dir>: write the report artifacts (report.json + report.md, + .heapsnapshot under
+	// --snapshot/--retainers, + report.junit.xml under --junit). Resolve + create it up front so a
+	// bad path fails before the long run, not after. --junit without --out is a no-op → warn.
+	let outDir;
+	if (opts.out) { outDir = isAbsolute(opts.out) ? opts.out : join(process.cwd(), opts.out); await mkdir(outDir, { recursive: true }); opts._outDir = outDir; }
+	else if (opts.junit) console.error('  ⚠ --junit has no effect without --out <dir> (nothing is written).');
+	const startedAt = Date.now();
 	const server = serve(dist);
 	await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, resolve); });
 	const base = `http://localhost:${server.address().port}`;
@@ -446,13 +472,13 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 		const hasIdle = typeof scenario.cycles.idle === 'function';
 		const cycles = hasIdle ? ['idle', ...requested.filter((c) => c !== 'idle')] : requested;
 		if (!hasIdle) console.error('  ⚠ scenario has no `idle` control cycle — verdict is UNCALIBRATED (floors are absolute-only; RISING may false-positive).');
-		const report = {}; const diffs = {}; const rets = {}; let controlSlopes = null;
+		const report = {}; const diffs = {}; const rets = {}; const seriesByCycle = {}; const snapFiles = {}; let controlSlopes = null;
 		for (const c of cycles) {
 			process.stderr.write(`\n  cycle=${c} (k=${opts.k}, cpu=${opts.cpu})\n`);
 			try {
-				const { series, snapDiff, retReport } = await withinSession(browser, base, opts, scenario, c);
+				const { series, snapDiff, retReport, heapSnapshotFile } = await withinSession(browser, base, opts, scenario, c);
 				if (c === 'idle') controlSlopes = controlSlopesFrom(series, keys);
-				report[c] = analyze(series, controlSlopes, keys, absFloor); diffs[c] = snapDiff; rets[c] = retReport;
+				report[c] = analyze(series, controlSlopes, keys, absFloor); diffs[c] = snapDiff; rets[c] = retReport; seriesByCycle[c] = series; snapFiles[c] = heapSnapshotFile;
 			} catch (e) { console.error(`  cycle ${c} FAILED: ${e.message}`); }
 		}
 		await browser.close(); server.close();
@@ -481,6 +507,16 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 			if (rr.example) { console.log(`    → nearest GC root: ${rr.example.root}. Full path (root → target):`); for (const p of rr.example.path) console.log(`         ${p.node}  --${p.via}-->`); }
 		}
 		if (opts.json) console.log('\nJSON ' + JSON.stringify(report));
+		// Report artifacts (--out): versioned JSON = source of truth; Markdown+Mermaid = human view;
+		// JUnit = opt-in CI projection. .heapsnapshot files were already written by withinSession.
+		if (outDir) {
+			const cycleResults = Object.keys(report).map((c) => ({ name: c, isControl: c === 'idle', rows: report[c], series: seriesByCycle[c] || [], snapDiff: diffs[c], retReport: rets[c], heapSnapshotFile: snapFiles[c] }));
+			const obj = buildReport({ scenario, opts, cycles: cycleResults, calibrated, floorBasis, durationMs: Date.now() - startedAt, generatedAt: new Date().toISOString() });
+			await writeFile(join(outDir, 'report.json'), JSON.stringify(obj, null, 2));
+			await writeFile(join(outDir, 'report.md'), renderMarkdown(obj));
+			if (opts.junit) await writeFile(join(outDir, 'report.junit.xml'), renderJUnit(obj));
+			console.log(`\n  wrote report → ${relative(process.cwd(), join(outDir, 'report.json'))}, report.md${opts.junit ? ', report.junit.xml' : ''}${Object.values(snapFiles).some(Boolean) ? ', *.heapsnapshot' : ''}`);
+		}
 		return report;
 	}
 }

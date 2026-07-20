@@ -22,7 +22,28 @@ npm run torture -- --scenario studio --cycle idle,compose,palette --k 40 --cpu 4
 Flags: `--scenario <name>` (default `studio`) · `--mode within` (across-refresh mode is stubbed) ·
 `--cycle a,b,c | all` · `--k <iterations>` · `--cpu <throttle×>` · `--snapshot` (per-constructor
 heap diff) · `--retainers [--realm]` (walk the retainer path to the GC root) · `--tts` (voiced
-read-aloud, needs `TORTURE_TTS_KEY`) · `--json`.
+read-aloud, needs `TORTURE_TTS_KEY`) · `--json` · `--out <dir>` / `--junit` (write report artifacts —
+see below).
+
+## Report artifacts (`--out <dir>`)
+
+`--out <dir>` writes consumable, standard-ish artifacts (the run still prints to the console as well):
+
+| file | format | what it's for |
+|---|---|---|
+| `report.json` | **owned**, `schemaVersion`-pinned | the source of truth — every number a consumer needs, incl. the raw per-cycle series |
+| `report.md` | Markdown + Mermaid | human summary: a verdict, a table per cycle, and a `xychart` per RISING metric (renders natively on GitHub / the docs site) |
+| `<cycle>.heapsnapshot` | **adopted** V8/DevTools | written under `--snapshot`/`--retainers`; open in Chrome DevTools ▸ Memory ▸ Load for a deep dive |
+| `report.junit.xml` | JUnit XML (opt-in `--junit`) | a lossy CI-dashboard projection — one `<testcase>` per metric, a RISING metric is a `<failure>` |
+
+We own the JSON + Markdown because no test framework models "per-action metric TREND + verdict +
+retainer chain"; we adopt `.heapsnapshot` (the DevTools standard) and offer JUnit as a projection for
+CI, never as the source of truth. `report.json` is the schema to consume programmatically; treat the
+Markdown/JUnit as views of it.
+
+```sh
+npm run torture -- --scenario studio --cycle idle,compose --k 40 --snapshot --out .scratch/torture --junit
+```
 
 ## Reading the verdict
 
