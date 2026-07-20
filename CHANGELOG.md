@@ -17,6 +17,18 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **Anima can now animate a real Lattice chart — with zero model calls.** A new ingest bridge
+  (`docs/src/lib/chart-anima.ts` `chartToScene`) reads a rendered chart's own marks (the
+  `[data-mark]` bands + `<text>` the chart already emits), maps each class to a motion role
+  (bar / label / …), mints stable ids, and returns a choreographed Anima scene — bands build in
+  top-to-bottom, labels follow, and a flagged mark (e.g. a funnel's worst drop-off) emphasizes.
+  The chart renderers are **untouched** (tagging happens at ingest, so the exported PDF stays
+  byte-identical), and there is **no LLM in the loop** — this is the model-free "animate what we
+  already render" on-ramp (`2026-07-19-anima-svg-first-cut-zdog.md` §0.75). The *mechanism* is
+  verified end-to-end on the funnel in a real browser (a scratch render harness) + the adapter's
+  output is unit-tested; the §5.2 proof gate (the same animation on the **real Studio**, via native
+  `data-anima-role` emission) is the next slice. The reveal machinery generalizes to the other SVG
+  charts; per-chart *choreography* (pie has no top-to-bottom order) still needs its own defaults.
 - **Anima's SVG engine now animates each part on its own — move, fade, and emphasize, not just
   draw.** The `source:'svg'` motion set gains three per-element channels: **`slide`** (a 2-D
   move-in — a part arrives from a `from: [dx, dy]` offset, so "value flows left→right" is real),
