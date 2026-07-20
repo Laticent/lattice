@@ -335,8 +335,14 @@ The declarations are correct; the mechanism is the flexed lede, not the stage.
   `inventory`): their masthead heading follows the seam, but their body (pull-quote,
   equation, …) keeps its own alignment — so `head-center`/`right` can reintroduce a
   heading-vs-body split for these few layouts.
-- **`rule: short` / `rule: accent`**: the short heading-rule `::after` stays
-  left-anchored (the full hairline is alignment-neutral).
+
+**Fixed after review (2026-07-20):** the `rule: short` / `rule: accent` short
+heading-rule `::after` now follows the seam too — it was left-anchored while the
+heading centered/right-aligned (caught live on the docs preview: a right headline
+over a left accent rule). The pseudo is absolute so it can't read
+`--headline-justify`; it's positioned per alignment instead
+(`head-center` → centered, `head-right` → right, `head-left`/auto → left). The
+heading rule is one of the named framing pieces, so this was in scope, not an edge.
 
 ### Munger inversion — disclosures & process
 

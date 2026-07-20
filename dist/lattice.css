@@ -20145,6 +20145,14 @@ section:is(.rule-short, .rule-accent).form .cell-masthead::after {
   background: var(--border);
 }
 section.rule-accent.form .cell-masthead::after { background: var(--accent); }
+/* The short rule IS the "heading rule" framing piece, so it follows the headline-alignment
+ * seam — it must not stay left-anchored while the heading centers/right-aligns (that was the
+ * exact within-slide disagreement the feature exists to kill). The pseudo is absolutely
+ * positioned, so it can't read `--headline-justify` (a flex property); position it per the
+ * alignment instead. head-left / auto keep the default `left: 0`. (With a masthead bay the
+ * cluster aligns beside the bay — same documented caveat as the rest of the framing.) */
+section:is(.rule-short, .rule-accent).form.head-center .cell-masthead::after { left: 50%; transform: translateX(-50%); }
+section:is(.rule-short, .rule-accent).form.head-right  .cell-masthead::after { left: auto; right: 0; }
 
 /* accent — recolor the split-panel kicker rule to match; none already handled above. */
 section.rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }

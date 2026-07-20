@@ -866,10 +866,9 @@ fallback, so `auto` is byte-identical to today's render. Alignment is `text-alig
 `center` / `right` align the whole cluster on the frame **when the masthead has no bay** — with a
 `meta:`/`logo:`/`status:` tile the cluster aligns in the space *beside* the bay (the title must
 not run under it). A few layouts are partial: `split-panel` / `split-compare` don't route their
-panel heading through the seam (no-op there); `quote` / `citation-card` / `math` / `redline` /
-`inventory` move their heading but not their body; and `rule: short` / `rule: accent` keep their
-short rule left-anchored. A framing surface follows `headline:` only if its CSS reads the seam —
-a new component must opt in (a rot-guard test pins the covered set).
+panel heading through the seam (no-op there); and `quote` / `citation-card` / `math` / `redline` /
+`inventory` move their heading but not their body. A framing surface follows `headline:` only if
+its CSS reads the seam — a new component must opt in (a rot-guard test pins the covered set).
 
 #### The `lift:` front-matter register (card elevation)
 
