@@ -17,6 +17,16 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **Live previews no longer leak memory on every palette / mode change.** A theme, palette, or
+  dark/light-mode change used to re-render each live preview by rewriting the iframe's whole `srcdoc`,
+  which keeps the same `<iframe>` but mints a fresh document + JS realm each time; the detached realms
+  accumulated (~1.3 MB per toggle across the previews — the peak-memory driver of iOS PWA tab-discard).
+  A new **restyle** render regime (`docs/src/lib/single-slide-render.ts`) swaps the resident
+  `<style id="lattice-theme">` in place and patches the body instead — same iframe, same realm,
+  restyled — when only the theme/mode/palette changed. Measured on landing: per-toggle heap growth
+  dropped from +1.32 MB/cyc to +0.17 MB/cyc (~88%), with the palette and dark mode both still re-coloring
+  correctly. Preview-only; exported PDF/PPTX/HTML bytes are unchanged.
+  (`engineering/decisions/2026-07-20-preview-theme-restyle-in-place.md`.)
 - **Anima can now animate a real Lattice chart — with zero model calls.** A new ingest bridge
   (`docs/src/lib/chart-anima.ts` `chartToScene`) reads a rendered chart's own marks (the
   `[data-mark]` bands + `<text>` the chart already emits), maps each class to a motion role
