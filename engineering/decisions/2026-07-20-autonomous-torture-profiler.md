@@ -205,6 +205,26 @@ README, a name — parked candidates: Segugio / Tormenta / Setaccio — and a sh
    persistent-store subtraction, burn-in/plateau handling, the crawl report (lap-map + site-map).
 5. **Headful + slowMo + live banner** — the watchable discovery mode.
 
+### Slice-3 watches (logged from the Slice-2 trio — HARD RULE #18)
+
+The Slice-2 primitives shipped CI-green + trio-reviewed (red team + Munger + checker: observer-safety
+upheld, nothing fatal); the trio logged these to retire in Slice 3, not silently defer:
+
+- **Run the §9 autonomy ROI control FIRST** — before building the Slice-3 driver machinery (levers,
+  manifest, salience), run the "does greedy clicking find an un-scripted leak?" probe cheaply in
+  `.scratch/` on the two primitives. Munger's whole-ballgame point: that single result decides whether
+  slices 3–5 should exist. Sequence the killing experiment ahead of the plumbing.
+- **role+label re-check is a heuristic, not identity** — it can mis-click a duplicate/recycled label OR
+  false-abort a volatile one ("Slide 3 of 12", §4.1). Corroborate with a structural signal (stored
+  `nth-of-type` position / subtree fingerprint) and reconcile the verify with §4.1's volatile-label reality.
+- **Visibility misses ancestor `opacity:0` / off-canvas transforms** (`isVisible` reads own-opacity only;
+  Radix menus fade the container while items stay mounted) → use `el.checkVisibility({opacityProperty,
+  visibilityProperty})` + an in-viewport check, and re-check visibility in `resolveAndClick`.
+- **Per-frame enumeration** — the primitives query the top document only; decide how `explore` reaches
+  same-origin srcdoc realms (where the gallery/preview leaks live).
+- **Single-source the a11y probe** — when the probe must diverge (a looser label match, app-specific role
+  derivation), replace the byte-identity duplication + drift test with one injected probe-source string.
+
 Slices are a **serialized chain** (each needs its predecessor), landing one PR at a time — permitted under
 HARD RULE #17 (sequential PRs, not a stacked chain). The prior "each builds against `main` alone" wording
 was imprecise and is corrected here.

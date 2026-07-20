@@ -138,5 +138,10 @@ The engine also exports the seam an autonomous `explore`/`replay` driver reuses 
 - **Autonomous-driving primitives** — `enumerateInteractables(page, {selector?, max?})` returns visible
   clickable controls as plain **descriptors** (`{selector, stable, role, label, rect}`) with a
   **verified-unique** selector (never an `ElementHandle` — observer-safe); `resolveAndClick(page, descriptor)`
-  re-resolves the selector, **verifies the node still matches the descriptor's role+label** (aborts on a
-  stale/mismatched selector instead of mis-clicking), then clicks — returning `{ok, reason?}`, never a handle.
+  re-resolves the selector, **re-checks role+label** as a staleness heuristic, then `el.click()`s —
+  returning `{ok, reason?}`, never a handle.
+  - **Known boundaries (Slice-3 watches):** both query the **top document only** — controls inside
+    same-origin srcdoc iframes (Studio/Playground preview realms) are not discovered. The role+label
+    re-check is a **heuristic, not identity** — a duplicate/recycled label can mis-resolve and a volatile
+    label ("Slide 3 of 12") can false-abort. `el.click()` fires a synthetic click only (no focus/pointer/
+    keyboard), and `a[href]` is not navigation-gated — the driver's scope lever owns that.

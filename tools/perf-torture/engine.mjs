@@ -181,9 +181,15 @@ const clickTabByText = (page, text) => page.evaluate((t) => { for (const b of do
 // ── autonomous-driving primitives (for the `explore` crawl driver — 2026-07-20-autonomous-torture-profiler.md) ──
 // A greedy crawler can't use author-written selectors — it must DISCOVER controls. These two primitives
 // let it do that WITHOUT breaking the observer-pollution invariant (they run entirely in-page and return
-// PRIMITIVES — descriptors / result objects — never an ElementHandle) and WITHOUT the descriptor-staleness
-// bug the trio flagged (resolveAndClick re-finds the node and verifies role+label before clicking, so a
-// selector that now points at a DIFFERENT control after a mutation aborts instead of mis-clicking).
+// PRIMITIVES — descriptors / result objects — never an ElementHandle). resolveAndClick re-resolves the
+// selector and re-checks role+label before clicking as a STALENESS GUARD — but this is a HEURISTIC, not
+// node identity: role+label equality can (a) falsely MATCH a recycled / duplicate-labeled control (two
+// gallery buttons both "Insert Blank") and mis-click, or (b) falsely MISMATCH a volatile label ("Slide 3
+// of 12" → "Slide 4 of 12", §4.1) and abort. Reconciling that with a structural corroborator is a Slice-3
+// watch (see the design doc §8); for now the guard catches the common case, not every case.
+// SCOPE: both primitives query the TOP document only — they do NOT descend into (same-origin srcdoc)
+// iframes, so controls inside Studio/Playground preview realms are invisible to discovery (a coverage
+// hole exactly where realm leaks live; per-frame enumeration is Slice-3 work).
 // The `INTERACTABLE_SEL` set is the clickable surface a leak hunter cares about; extend per scenario.
 const INTERACTABLE_SEL = 'button, a[href], [role="button"], [role="tab"], [role="link"], [role="menuitem"], [role="switch"], [role="checkbox"], summary, [contenteditable="true"]';
 // The in-page a11y probe (accessible-name + role) is defined INLINE in each evaluate below. It can't be
@@ -257,9 +263,9 @@ function enumerateInteractables(page, opts = {}) {
 		return out;
 	}, opts.selector || INTERACTABLE_SEL, opts.max ?? 200);
 }
-// resolveAndClick — resolve a descriptor's selector, VERIFY the resolved node still matches the
-// descriptor's role+label (defeats staleness: after a mutation the selector may now point at a different
-// control), then click — all in ONE in-page evaluate so there is no gap, and returning a plain result
+// resolveAndClick — resolve a descriptor's selector, re-check the resolved node's role+label against the
+// descriptor (a staleness HEURISTIC — not identity; see the block comment above on its two failure modes),
+// then click — all in ONE in-page evaluate so there is no gap, and returning a plain result
 // ({ ok, reason?, got?, count? }), never a handle. The driver MUST re-enumerate after each action (the
 // state mutated) and act on FRESH descriptors; this primitive is the guard on the individual click.
 function resolveAndClick(page, descriptor) {
@@ -282,8 +288,10 @@ function resolveAndClick(page, descriptor) {
 		const el = els[0];
 		const role = roleOf(el), label = labelOf(el);
 		if (role !== d.role || label !== d.label) return { ok: false, reason: 'mismatch', got: { role, label } };
-		// A synchronously-throwing click handler would otherwise reject the evaluate and make this
-		// primitive throw — keep the "always returns a result object" contract by catching it.
+		// Keep the "always returns a result object" contract: `el.click` can be non-callable on a matched
+		// non-HTML element (an inline-SVG `a[href]` resolves to an SVGAElement, which has no click()), or
+		// the click can synchronously throw for other reasons. (A throwing click *listener* is NOT caught
+		// here — the DOM reports listener exceptions to window.onerror, not to this caller.)
 		try { el.click(); } catch { return { ok: false, reason: 'click-threw' }; }
 		return { ok: true };
 	}, descriptor);

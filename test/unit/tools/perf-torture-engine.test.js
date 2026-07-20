@@ -1,9 +1,11 @@
 // Guards the perf-torture engine's PUBLIC CONTRACT — the measurement seam + the autonomous-driving
 // primitives that the `explore`/`replay` crawl driver (Slice 3/4) reuses rather than duplicates
 // (HARD RULE #1; 2026-07-20-autonomous-torture-profiler.md §8, slice 2). A silent drop of any of these
-// exports would break the driver at a distance; this is the cheap tripwire. Browser behavior of the
-// primitives is verified against a real surface (not here — that needs Chromium); this asserts the
-// shape only.
+// exports would break the driver at a distance; this is the cheap tripwire. These tests assert the
+// export/contract SHAPE only — the primitives run entirely in page.evaluate, so their browser behavior
+// (visibility filtering, selector uniqueness, role/label match) is NOT exercised in CI (needs Chromium).
+// It was smoke-tested against the built Studio during development (real-surface, HARD RULE #23) and is
+// driven for real by the Slice-3 `explore` driver; here it remains UNVERIFIED.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { readFileSync } = require('node:fs');
