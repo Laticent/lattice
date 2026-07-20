@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, Copy, Eye, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -13,12 +13,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
 import { PillTabs } from '@/components/ui/pill-tabs';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Toaster } from '@/components/ui/sonner';
-import { SplitHandle, SplitRail, type SplitSide, useSplit } from '@/components/ui/split';
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
@@ -76,7 +77,6 @@ import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePick
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
 import { useBreakpoint } from './use-breakpoint';
-import { usePanelWidth } from './use-panel-width';
 import { useSharedPreviewSlot } from './use-shared-preview-slot';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
@@ -193,62 +193,20 @@ function timeAgo(ts: number): string {
 	if (h < 24) return `${h}h ago`;
 	return `${Math.round(h / 24)}d ago`;
 }
-// The editor|preview split's five middle tracks: rail-a | editor | handle |
-// preview | rail-b (2026-07-02 resizable-panes decision §5). ONE source of
-// truth consumed by EVERY non-mobile grid branch (desktop, tablet, focus) so
-// their track lists can't drift; the desktop branch appends its flanking
-// Architect/Inspector columns around these. The fr custom properties carry the
-// unit INSIDE the var (`0.92fr` — `var(--x)fr` is invalid CSS) and fall back to
-// the pre-paint seed (studio.astro writes --split-studio-a/-b) then the default.
-// The flex pair sums to 2 (ratio DOUBLED — 0.92/1.08, never 0.46/0.54): per CSS
-// Grid §12.7.1, when one pane clamps at its px minimum a flex sum < 1 leaves a
-// dead void instead of redistributing (the iPad void bug — see splitFlexPair in
-// ui/split.tsx, whose emitted vars these fallbacks must match). A collapsed
-// side's pane+handle tracks drop to 0px and its 46px rail (the Inspector-rail
-// geometry) takes the edge.
-//
-// INVARIANT — the editor+preview pair keeps its 560px (2×minB) zero-void minimum.
-// This is ENFORCED, not merely observed: `panelBudget = gridW − handle − PAIR_MIN
-// (560) − FOLD_SAFETY (12)`, where `gridW` excludes the 52px activity bar, and the
-// two docked panels' effective widths (setEff/archEff, below) are each clamped so
-// their sum ≤ panelBudget. So the pair always retains ≥ 560 + 12px no matter how
-// wide the panels are dragged — the hairline void band near ratio 0.5 (issue #721)
-// cannot reopen. The near-0.5 case is asserted by the 1100px e2e in
-// docs/e2e/split.spec.ts (whose comment carries the full bar+panels width model).
-function splitTracks(collapsed: SplitSide | null): string[] {
-	if (collapsed === 'a') return ['46px', '0px', '0px', 'minmax(0,1fr)', '0px'];
-	if (collapsed === 'b') return ['0px', 'minmax(0,1fr)', '0px', '0px', '46px'];
-	return [
-		'0px',
-		'minmax(240px, var(--split-a, var(--split-studio-a, 0.92fr)))',
-		'1px',
-		'minmax(280px, var(--split-b, var(--split-studio-b, 1.08fr)))',
-		'0px',
-	];
-}
-// ── Activity-bar layout constants (2026-07-06-studio-activity-bar.md) ────────
-// The desktop chrome is: [ bar ][ Settings ][ Architect ][ editor ][ preview ].
-// The bar is a fixed flex rail OUTSIDE the split grid; Settings + Architect are
-// resizable grid columns that dock left. Panel MINs are the narrow-fold floor —
-// below the both-open threshold the panels auto-narrow to these so the pair
-// never clips below PAIR_MIN (the #721 zero-void invariant, = 2×preview-min).
-const BAR_W = 52; // the left activity bar (flex rail, outside the split grid)
-const HANDLE_W = 1; // the editor|preview split handle track
-const PAIR_MIN = 560; // editor+preview zero-void minimum (2 × preview min 280, #721)
-const FOLD_SAFETY = 12; // headroom so sub-pixel rounding / a stray scrollbar never reopens the void
-const ARCH_MIN = 200; // Architect min width (coach cards stay legible)
-const ARCH_DEFAULT = 232; // Architect default (matches the old fixed column)
+// ── Docked-panel size constants (activity-bar model, 2026-07-06 + the 2026-07-19
+// react-resizable-panels migration) ─────────────────────────────────────────
+// The desktop chrome is: [ bar ][ Settings ][ Assistant ][ editor ][ preview ].
+// The bar is a fixed flex rail OUTSIDE the resizable group; Settings + Assistant
+// are ResizablePanels that dock left, editor + preview are the collapsible pair.
+// The library enforces each panel's px min itself, so the old narrow-fold budget
+// math (BAR_W/HANDLE_W/PAIR_MIN/FOLD_SAFETY/panelBudget → the #721 zero-void
+// invariant) is retired — v4's pixel min/max express the same constraint directly.
+const ARCH_MIN = 200; // Assistant (Coach/Chat/Lenses) min width — cards stay legible
+const ARCH_DEFAULT = 232; // Assistant default (matches the old fixed column)
 const SET_MIN = 260; // Settings min width (the inspector fields stay usable)
 const SET_DEFAULT = 296; // Settings default (matches the old inspector column)
-const PANEL_MAX = 420; // drag ceiling for either panel (the fold caps it further when narrow)
-// Library shares the assistant slot with the Architect, so it MUST share the
-// narrow-fold floor (ARCH_MIN): the fold budget guarantees the pair keeps
-// PAIR_MIN only if `assistantMin + SET_MIN ≤ panelBudget` at the narrowest
-// desktop (vw 1100 → panelBudget 475). A taller LIB_MIN (e.g. 300) makes the
-// `Math.max(assistantMin, …)` floor override the budget clamp when the Inspector
-// is also open, springing the #721 void (overflow at vw 1100–1184). The Library
-// still opens at its wider LIB_DEFAULT; only the both-open-narrow floor yields.
-const LIB_MIN = ARCH_MIN; // = 200; keep in lockstep with the slot's fold floor (#721)
+const PANEL_MAX = 420; // drag ceiling for a docked panel
+const LIB_MIN = 200; // Library min when it holds the assistant slot
 const LIB_DEFAULT = 380; // Library docked default — wider than the coach; asset cards need room
 
 // Theme constants + the grouped picker live in ThemePicker.tsx (every shipped
@@ -763,37 +721,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// panels are sheets. (`compact` gates the in-panel scope segment; there is no
 	// desktop scope rail any more — the bar's Slide/Deck icons are the switch.)
 	const desktop = bp === 'desktop';
-	const archPanel = usePanelWidth({ storageKey: 'lattice-studio-arch-w', defaultWidth: ARCH_DEFAULT, min: ARCH_MIN, max: PANEL_MAX });
-	// The Library docks wider than the coach (asset cards), with its own persisted width;
-	// Architect + Lenses share archPanel. The active one drives the shared slot's track.
-	const libPanel = usePanelWidth({ storageKey: 'lattice-studio-lib-w', defaultWidth: LIB_DEFAULT, min: LIB_MIN, max: PANEL_MAX });
-	const setPanel = usePanelWidth({ storageKey: 'lattice-studio-set-w', defaultWidth: SET_DEFAULT, min: SET_MIN, max: PANEL_MAX });
-	// Live viewport width — drives the narrow fold. Read on mount + resize (not
-	// during a panel drag, so the fold clamp is stable while dragging).
-	const [vw, setVw] = React.useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1440));
-	React.useEffect(() => {
-		const on = () => setVw(window.innerWidth);
-		on();
-		window.addEventListener('resize', on);
-		return () => window.removeEventListener('resize', on);
-	}, []);
-	// px available for the two docked panels combined, leaving the pair its 560px
-	// zero-void minimum (+ a small safety). The 52px bar and the panels exist ONLY
-	// at Build, so all three gate on `effectiveStop === 'build'` — one predicate
-	// governs the bar deduction, the effective widths, AND the grid tracks/children,
-	// so they can never drift (M2 red-team: don't deduct the bar on a barless Write).
-	const barShown = desktop && effectiveStop === 'build';
-	const gridW = vw - (barShown ? BAR_W : 0);
-	const panelBudget = Math.max(0, gridW - HANDLE_W - PAIR_MIN - FOLD_SAFETY);
-	// Effective (rendered) widths: the Architect keeps priority (the coach you're
-	// reading), Settings yields first; both floored at their mins. Zero unless open at Build.
-	// The assistant slot holds ONE of Architect / Lenses / Library (mutually exclusive);
-	// the active panel picks the width hook + min. Settings yields first; both floored.
+	// Docked panel sizes for the resizable workspace (react-resizable-panels).
+	// Settings + Assistant are Panels with px min/max/default — the library enforces
+	// the min constraints itself, so the old narrow-fold budget math (#721: the
+	// panelBudget / archEff / setEff clamps) is retired. The Assistant slot holds ONE
+	// of Architect / Lenses / Library (mutually exclusive); Library docks wider
+	// (asset cards) so it carries its own default + min.
 	const assistantOpen = architectOpen || lensesOpen || libraryOpen;
-	const assistantPanel = libraryOpen ? libPanel : archPanel;
 	const assistantMin = libraryOpen ? LIB_MIN : ARCH_MIN;
-	const archEff = barShown && assistantOpen ? Math.max(assistantMin, Math.min(assistantPanel.width, panelBudget - (inspectorOpen ? SET_MIN : 0))) : 0;
-	const setEff = barShown && inspectorOpen ? Math.max(SET_MIN, Math.min(setPanel.width, panelBudget - archEff)) : 0;
+	const assistantDefault = libraryOpen ? LIB_DEFAULT : ARCH_DEFAULT;
 
 	// Deck-level front-matter (size / paginate / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
@@ -1493,34 +1429,46 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// mobile the Edit/Preview pane swap owns visibility, and in Fabricate the
 	// Compose grid isn't rendered; state is retained across both.
 	const splitUsable = bp !== 'mobile' && view === 'compose';
-	const split = useSplit({
+	// react-resizable-panels split state via the shared hook (2026-07-19 migration).
+	// Same surface the hand-rolled useSplit had ({ collapsed, dragging, expand,
+	// collapse, reset }) so the ~20 downstream call sites are unchanged. The FIT
+	// choreography differs from the Playground's: the Studio suspends its per-host
+	// scaleFrame ResizeObservers during a drag (onDragStart) and resumes — running
+	// one authoritative re-fit — at release (onDragEnd).
+	// The persistence bucket — which panels the group currently renders, so each
+	// configuration (Coach open, Library open wider, Settings docked, bare Write,
+	// tablet Inspector) keeps its own remembered widths. Library is 'L' vs the
+	// coach/lenses 'A' because it docks wider and gets its own saved width.
+	const splitConfigKey =
+		(desktop && effectiveStop === 'build' && inspectorOpen ? 'S' : '') +
+		(desktop && effectiveStop === 'build' && assistantOpen ? (libraryOpen ? 'L' : 'A') : '') +
+		'EP' +
+		(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? 'T' : '');
+	const split = useResizableSplit({
 		storageKey: 'lattice-docs-split-studio',
-		defaultRatio: 0.46, // mirrors the historical 0.92fr/1.08fr grid
-		min: [240, 280],
-		railWidth: 46, // the Inspector rail's geometry — collapsed rails read as a rail group
 		active: splitUsable,
-		paneIds: ['studio-pane-editor', 'studio-pane-preview'],
+		defaultRatio: 46,
+		configKey: splitConfigKey,
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
+		onDragStart: () => suspendScaleObservers(true),
+		onDragEnd: () => suspendScaleObservers(false),
 	});
 	// Stable handle for callbacks defined above/below without dep churn (the
 	// Playground's splitApiRef pattern).
 	const splitApiRef = React.useRef(split);
 	splitApiRef.current = split;
-	// Suspend the per-host scaleFrame ResizeObservers during a divider drag —
-	// otherwise every drag frame rescales the preview iframe; resume runs one
-	// authoritative re-fit per live host (mirrors the Playground's FIT suspend).
-	React.useEffect(() => {
-		if (!split.dragging) return;
-		suspendScaleObservers(true);
-		return () => suspendScaleObservers(false);
-	}, [split.dragging]);
 	// Collapse via a header glyph (or a ⌘K command): if focus was inside the
 	// now-inert pane it would drop to <body>; hand it to the always-visible rail.
 	const collapseFromHeader = React.useCallback((side: SplitSide) => {
 		splitApiRef.current.collapse(side);
-		requestAnimationFrame(() => {
-			document.querySelector<HTMLButtonElement>(`[data-studio-split] [data-slot='split-rail'][data-side='${side}']`)?.focus();
-		});
+		// Double rAF: the rail is display:none until React commits the collapse, so
+		// one frame can beat the reveal and focus a hidden element (dropping focus to
+		// <body>). Two frames clear the commit.
+		requestAnimationFrame(() =>
+			requestAnimationFrame(() => {
+				document.querySelector<HTMLButtonElement>(`[data-studio-split] [data-slot='split-rail'][data-side='${side}']`)?.focus();
+			}),
+		);
 	}, []);
 
 	// ── Architect (AI) ───────────────────────────────────────────────────────
@@ -2612,7 +2560,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			// Without this, a keyboard / screen-reader user could Tab into an invisible
 			// editable region in the newcomer's first view (M3 Munger a11y finding).
 			inert={!mobile && (effectiveStop === 'read' || split.collapsed === 'a') ? true : undefined}
-			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-arming=a]/split:opacity-60 group-data-[split-dragging]/split:select-none"
+			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-collapsed=a]/split:hidden group-data-[split-dragging]/split:select-none"
 		>
 			{/* The EDIT toolbar band — HIDDEN on mobile (its actions move to the ⋯ menu below), so
 			    the phone rests at two bands, not three. Desktop/tablet keep it. */}
@@ -2686,7 +2634,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		<section
 			id="studio-pane-preview"
 			inert={!mobile && split.collapsed === 'b' && effectiveStop !== 'read' ? true : undefined}
-			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity group-data-[split-arming=b]/split:opacity-60 group-data-[split-dragging]/split:select-none"
+			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity group-data-[split-collapsed=b]/split:hidden group-data-[split-dragging]/split:select-none"
 		>
 			{/* At the Read stop the preview is the whole surface — strip its editorial
 			    chrome (header, lens, slide counter, the Collapse trap, the op rail, the
@@ -2779,23 +2727,45 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		</section>
 	);
 
-	// The split's fixed grid children — rails + handle, shared by EVERY non-mobile
-	// branch so the five splitTracks() columns always match five children (rails
-	// are always rendered; a 0px track + visibility gating hides them). Rail
-	// badges keep the collapsed pane honest: the editor rail carries the existing
-	// amber issue pill (never editing blind), the preview rail a slide count.
+	// The collapsed-pane restore rails + the divider. The rail lives INSIDE its
+	// pane's Panel (react-resizable-panels collapses the pane to `collapsedSize`
+	// = 46px); it's hidden until the group carries data-split-collapsed for that
+	// side, then it fills the 46px strip (the pane section hides in tandem). Rail
+	// badges keep the collapsed pane honest: the editor rail carries the amber
+	// issue pill (never editing blind), the preview rail a slide count. 46px
+	// matches the Inspector rail geometry so adjacent rails read as a group.
 	const splitRailA = (
-		<SplitRail direction="right" label="Edit" labelExpand="Expand editor" {...split.railProps('a')}>
+		<button
+			type="button"
+			data-slot="split-rail"
+			data-side="a"
+			className="hidden h-full w-full cursor-pointer flex-col items-center gap-2 border-r border-border bg-[var(--bg-alt)] py-2 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)] group-data-[split-collapsed=a]/split:flex"
+			aria-label="Expand editor"
+			title="Expand editor"
+			onClick={() => splitApiRef.current.expand('a')}
+		>
+			<ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+			<span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">Edit</span>
 			{issues > 0 && (
 				<span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>
 			)}
-		</SplitRail>
+		</button>
 	);
-	const splitHandle = <SplitHandle {...split.handleProps} />;
+	const splitHandle = <ResizableHandle aria-label="Resize editor and preview" className="group-data-[studio-stop=read]/split:hidden" />;
 	const splitRailB = (
-		<SplitRail direction="left" label="Preview" labelExpand="Expand preview" {...split.railProps('b')}>
+		<button
+			type="button"
+			data-slot="split-rail"
+			data-side="b"
+			className="hidden h-full w-full cursor-pointer flex-col items-center gap-2 border-l border-border bg-[var(--bg-alt)] py-2 outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--accent)] group-data-[split-collapsed=b]/split:flex"
+			aria-label="Expand preview"
+			title="Expand preview"
+			onClick={() => splitApiRef.current.expand('b')}
+		>
+			<ChevronLeft aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+			<span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground [writing-mode:vertical-rl]">Preview</span>
 			<span className="font-mono text-[10px] text-muted-foreground">{viewSlides.length}</span>
-		</SplitRail>
+		</button>
 	);
 
 	// ── Left activity bar (desktop) — the ONE launcher for every panel ────────
@@ -3192,79 +3162,91 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				   drift (#721 zero-void invariant). */
 				<div className={cn('relative flex min-h-0 flex-1', desktop && 'flex-row')}>
 					{desktop && effectiveStop === 'build' && activityBar}
-					<div
-						className="group/split grid min-h-0 flex-1"
+					<ResizablePanelGroup
+						className="group/split min-h-0 flex-1"
 						data-studio-split=""
-						data-split-collapsed={split.collapsed ?? undefined}
-						style={{
-							...split.gridVars,
-							// Track count MUST match the rendered children (always 5 split tracks +
-							// the Build-gated panel tracks). Desktop-Build docks Settings + Architect
-							// LEFT at the FOLD-clamped widths (#721/#720); tablet-Build docks the
-							// Inspector RIGHT at 296px. READ uses an all-zero-but-preview five-track
-							// list (editor pane kept mounted at 0px → full-bleed preview, no remount).
-							// At Write every panel condition is false → the bare five tracks.
-							gridTemplateColumns: [
-								...(desktop && effectiveStop === 'build' && inspectorOpen ? [`${setEff}px`] : []),
-								...(desktop && effectiveStop === 'build' && assistantOpen ? [`${archEff}px`] : []),
-								...(effectiveStop === 'read' ? ['0px', '0px', '0px', 'minmax(0,1fr)', '0px'] : splitTracks(split.collapsed)),
-								...(bp === 'tablet' && effectiveStop === 'build' && inspectorOpen ? ['296px'] : []),
-							].join(' '),
-						}}
-						{...split.containerProps}
+						orientation="horizontal"
+						disabled={!splitUsable}
+						{...split.groupProps}
+						data-studio-stop={effectiveStop}
+						data-split-collapsed={splitUsable && split.collapsed ? split.collapsed : undefined}
+						data-split-dragging={split.dragging ? '' : undefined}
 					>
-						{/* Settings — docks next to the bar (desktop-Build). Resizable; close = gone. */}
+						{/* Settings — docks next to the bar (desktop-Build) as a resizable Panel.
+						    react-resizable-panels enforces the px min itself; close = the Panel is
+						    simply not rendered (the activity-bar icon reopens it). */}
 						{desktop && effectiveStop === 'build' && inspectorOpen && (
-							<aside className="relative flex min-h-0 flex-col border-r border-border bg-background">
-								{inspectorScopeContent}
-								<PanelGrip dragging={setPanel.dragging} {...setPanel.gripProps} aria-label="Resize settings panel" />
-							</aside>
+							<>
+								<ResizablePanel id="studio-settings" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={SET_DEFAULT} className="overflow-hidden border-r border-border bg-background">
+									{inspectorScopeContent}
+								</ResizablePanel>
+								<ResizableHandle aria-label="Resize settings panel" />
+							</>
 						)}
-						{/* The assistant slot — ONE of Architect / Lenses / Library, docked next to
-						    the editor (desktop-Build). Mutually exclusive; resizable; close = the
-						    launcher toggle (no in-panel X, same as before). */}
+						{/* The assistant slot — ONE of Coach / Chat / Lenses / Library, docked next
+						    to the editor (desktop-Build) as a resizable Panel. Mutually exclusive;
+						    close = the launcher toggle. This is the Coach/Library/Chat resize the
+						    2026-07-19 migration adds. */}
 						{desktop && effectiveStop === 'build' && assistantOpen && (
-							<aside className="relative flex min-h-0 flex-col overflow-hidden border-r border-border bg-card">
-								{coachOpen && (
-									<>
-										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>
-										{coachBody}
-									</>
-								)}
-								{chatOpen && (
-									<>
-										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Chat</div>
-										{chatBody}
-									</>
-								)}
-								{lensesOpen && (
-									<>
-										<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Lenses</div>
-										{lensesBody}
-									</>
-								)}
-								{libraryOpen && (
-									<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
-								)}
-								<PanelGrip dragging={assistantPanel.dragging} {...assistantPanel.gripProps} aria-label="Resize panel" />
-							</aside>
+							<>
+								{/* Library gets its own panel id (+ wider default) so switching the
+								    assistant slot Coach→Library is a fresh panel identity — the library
+								    applies Library's 380px default instead of caching Coach's ~232px width
+								    (each keeps its own persisted width via the per-panel-id bucket). */}
+								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={assistantMin} maxSize={PANEL_MAX} defaultSize={assistantDefault} className="overflow-hidden border-r border-border bg-card">
+									{coachOpen && (
+										<>
+											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>
+											{coachBody}
+										</>
+									)}
+									{chatOpen && (
+										<>
+											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Chat</div>
+											{chatBody}
+										</>
+									)}
+									{lensesOpen && (
+										<>
+											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Lenses</div>
+											{lensesBody}
+										</>
+									)}
+									{libraryOpen && (
+										<Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, curIndex, skeleton))} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} notify={notify} />
+									)}
+								</ResizablePanel>
+								<ResizableHandle aria-label="Resize panel" />
+							</>
 						)}
 
-						{/* The stationary spine — fixed child indices across Write and Build. */}
-						{splitRailA}
-						{editorPane}
+						{/* Editor pane — collapsible to its rail (46px). Hidden at the Read stop so
+						    the preview fills the surface (the pane stays MOUNTED → no remount on the
+						    Read→Write step). */}
+						<ResizablePanel id="studio-editor" data-pane-role="editor" minSize={240} defaultSize="46" collapsible={split.ready} collapsedSize={46} panelRef={split.editorRef} onResize={split.onEditorResize} className="overflow-hidden">
+							{editorPane}
+							{splitRailA}
+						</ResizablePanel>
 						{splitHandle}
-						{previewPane}
-						{splitRailB}
+						{/* Preview pane — collapsible to its rail (46px); fills the surface at Read
+						    (the editor Panel's OUTER div is hidden by id in studio.astro's is:global
+						    block; a Tailwind class lands on the inner div and can't shrink the outer). */}
+						<ResizablePanel id="studio-preview" data-pane-role="preview" minSize={280} defaultSize="54" collapsible={split.ready} collapsedSize={46} panelRef={split.previewRef} onResize={split.onPreviewResize} className="overflow-hidden">
+							{previewPane}
+							{splitRailB}
+						</ResizablePanel>
 
-						{/* Tablet-Build: the Inspector docks on the RIGHT (no bar below desktop; the
-						    in-panel Slide/Deck segment is its scope switch). The deck stays visible. */}
+						{/* Tablet-Build: the Inspector docks on the RIGHT as a resizable Panel (no
+						    activity bar below desktop; the in-panel Slide/Deck segment is its scope). */}
 						{bp === 'tablet' && effectiveStop === 'build' && inspectorOpen && (
-							<aside className="flex min-h-0 flex-col border-l border-border bg-background">
-								{inspectorScopeContent}
-							</aside>
+							<>
+								<ResizableHandle aria-label="Resize inspector panel" />
+								<ResizablePanel id="studio-tablet-inspector" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={296} className="overflow-hidden border-l border-border bg-background">
+									{inspectorScopeContent}
+								</ResizablePanel>
+							</>
 						)}
-					</div>
+					</ResizablePanelGroup>
 
 					{/* READ overlay — the one primary verb over the full-bleed preview. Absolutely
 					    positioned in the (relative) spine wrapper, so it is NOT a grid item and
@@ -3532,26 +3514,6 @@ function BarIcon({ label, hint, caption, active, onClick, children }: { label: s
 			{children}
 			<span className="tracking-tight">{caption}</span>
 		</button></Tip>
-	);
-}
-// The drag handle on a docked panel's inner (editor-facing) edge — spread the
-// panel's `gripProps` onto it. At rest it's the border line; hover / focus /
-// drag reveal an accent line. Mirrors the SplitHandle idiom for editor|preview.
-function PanelGrip({ dragging, className, ...props }: { dragging?: boolean } & React.ComponentProps<'div'>) {
-	return (
-		<div
-			data-slot="panel-grip"
-			className={cn('group/grip absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize touch-none select-none outline-none', className)}
-			{...props}
-		>
-			<span
-				aria-hidden="true"
-				className={cn(
-					'absolute inset-y-0 right-0 w-px transition-colors',
-					dragging ? 'bg-[var(--accent)]' : 'bg-transparent group-hover/grip:bg-[color-mix(in_srgb,var(--accent)_45%,var(--border))] group-focus-visible/grip:bg-[var(--accent)]',
-				)}
-			/>
-		</div>
 	);
 }
 function ArchCard({ tag, title, children }: { tag: React.ReactNode; title: string; children: React.ReactNode }) {
