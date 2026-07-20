@@ -3,7 +3,6 @@ marp: true
 theme: indaco
 paginate: true
 header: "Lattice · Headline alignment"
-meta: "Headline alignment · the headline: register"
 ---
 
 <!-- _class: title silent -->

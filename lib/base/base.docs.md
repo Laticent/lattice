@@ -852,12 +852,24 @@ a typo is caught as `unknown-headline`.
 | `center` | `head-center` | Center the whole framing cluster. |
 | `right` | `head-right` | Right-align the framing cluster — the rare escape. |
 
-Only the **framing** text follows — the slide **body** keeps its own alignment (the universal
-`align-left`/`align-center`/`align-right` modifiers act on the body block independently), so a
-centered headline can sit over a left-aligned body. Under the hood the register drives one
-inherited seam, `--headline-align`; a component's default is the `var(--headline-align, <default>)`
+Only the **framing** text follows — the slide **body** keeps its own alignment. Two distinct
+controls, on two surfaces: **`headline:`** moves the framing cluster (this register);
+**`align-left`/`align-center`/`align-right`** (the universal `#527` modifiers) move the **body
+block**. They are independent, so a centered headline can sit over a left-aligned body.
+
+Under the hood the register drives one inherited seam, `--headline-align` (+ `--headline-justify`
+for the flex-boxed pieces); a component's default is the `var(--headline-align, <default>)`
 fallback, so `auto` is byte-identical to today's render. Alignment is `text-align` / `align-*`
 (never `margin`), so it measures cleanly.
+
+**What follows, and the edges.** `left` is always exact (every piece shares the left origin).
+`center` / `right` align the whole cluster on the frame **when the masthead has no bay** — with a
+`meta:`/`logo:`/`status:` tile the cluster aligns in the space *beside* the bay (the title must
+not run under it). A few layouts are partial: `split-panel` / `split-compare` don't route their
+panel heading through the seam (no-op there); `quote` / `citation-card` / `math` / `redline` /
+`inventory` move their heading but not their body; and `rule: short` / `rule: accent` keep their
+short rule left-anchored. A framing surface follows `headline:` only if its CSS reads the seam —
+a new component must opt in (a rot-guard test pins the covered set).
 
 #### The `lift:` front-matter register (card elevation)
 

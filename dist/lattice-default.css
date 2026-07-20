@@ -2886,10 +2886,12 @@ section.compare-prose .compare-prose-inner .card > ol { list-style:none; padding
 section.compare-prose .compare-prose-inner .card > ul > li,
 section.compare-prose .compare-prose-inner .card > ol > li { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-base); font-weight:400; }
 section.compare-prose .connector { display:flex; align-items:center; justify-content:center; font-size:var(--fs-h3); color:var(--text-secondary); padding:0 var(--sp-sm); flex-shrink:0; }
-/* text-align follows the headline-alignment seam (`headline:` register); inherits to the
- * note's `p`. `auto`/no register → fallback `left` (today's render). The full-width hairline
- * (::before) is a separator, not text, so it stays full-bleed. */
-.below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); }
+/* Content follows the headline-alignment seam (`headline:` register). `text-align` handles
+ * multi-line wrapping; `align-items` (flex column) aligns the capped note BOX so a short line
+ * center/right-aligns on the frame, not within its own measure cap. `auto` → left/flex-start
+ * (byte-identical). The full-width hairline (::before, absolute) is a separator, not text, so
+ * it stays full-bleed. */
+.below-note { padding-top:var(--sp-xs); flex-shrink:0; position:relative; text-align:var(--headline-align, left); display:flex; flex-direction:column; align-items:var(--headline-justify, flex-start); }
 .below-note::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(to right, var(--accent), transparent); }
 .below-note p { font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); margin:0; }
 section.compare-prose > .cell-stage > :is(ul, ol) + p { padding-top:var(--sp-xs); flex-shrink:0; font-size:var(--fs-body); color:var(--text-body); line-height:var(--lh-relaxed); }
@@ -3843,7 +3845,7 @@ section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
   flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); max-width:100%; height:auto; min-height:0;
 }
-section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
+section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; display:flex; flex-direction:column; align-items:var(--headline-justify, center); }
 /* Key Insight panel on diagram slides must stretch full-width to match every
    other layout. section.diagram uses align-items:center (mirrored onto the stage
    cell) which would shrink the blockquote to fit-content; align-self:stretch
@@ -14728,11 +14730,14 @@ section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
   /* Separation from the preceding block is supplied by the flow container's `gap`
    * (the stage cell under Form), not a `margin-top` — HARD RULE #20. */
   flex-shrink:0;
-  /* The framing text follows the headline-alignment seam (`headline:` register).
-   * text-align inherits, so the KEY INSIGHT label, body, and list move as one. The
-   * panel box stays full-width; only its text aligns. `auto`/no register → the
-   * fallback `left` (today's render); an explicit head-center/right pulls it over. */
+  /* The framing text follows the headline-alignment seam (`headline:` register). The panel
+   * box stays full-width; its CONTENT aligns. `text-align` handles multi-line wrapping;
+   * `align-items` (flex column) aligns the readable-measure-capped label/body/list BOXES so a
+   * short line centers/right-aligns on the PANEL, not just within its own cap. `auto`/no
+   * register → left/flex-start (today's render, byte-identical). */
   text-align:var(--headline-align, left);
+  display:flex; flex-direction:column;
+  align-items:var(--headline-justify, flex-start);
 }
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.policy-recommendation):not([class*="layout-"]) > blockquote::before,
 section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote::before {
@@ -19544,6 +19549,8 @@ section.form .cell-masthead .masthead-lede {
    * inherits, so the kicker + title follow one axis. `auto` (no register) → the property is
    * undefined → the fallback `left` applies, byte-identical to today's left-aligned band. */
   text-align: var(--headline-align, left);
+  display: flex; flex-direction: column;
+  align-items: var(--headline-justify, flex-start);
 }
 
 /* === lib/forms/cell/masthead/masthead.css === */
@@ -20230,6 +20237,20 @@ section.eyebrow-underline
 section.head-left   { --headline-align: left;   --headline-justify: flex-start; }
 section.head-center { --headline-align: center; --headline-justify: center; }
 section.head-right  { --headline-align: right;  --headline-justify: flex-end; }
+
+/* Center/right align the masthead cluster on the FULL frame when the masthead has NO bay.
+ * The masthead is a grid — `[masthead-lede] 1fr [masthead-bay] auto` + a column-gap — so the
+ * lede column is always inset from the frame's right edge by the (possibly empty) bay column
+ * + gap. Under head-left that's invisible (shared left origin); under head-center/right the
+ * cluster would otherwise center/right-align ~½-gap left of the full-width stage framing (key
+ * insight, below-note, caption). When the bay is empty, collapse it so the lede spans the full
+ * frame and the cluster shares the stage's axis. A masthead WITH a bay keeps its reserved
+ * column (the title must not run under the meta/logo) — there the cluster aligns beside the
+ * bay, a documented scope edge. Plain `:has()` in engine CSS is allowed (HARD RULE #12 retired). */
+section.form:is(.head-center, .head-right) .cell-masthead:has(> .masthead-bay:empty) {
+  grid-template-columns: [masthead-lede] 1fr [masthead-bay] 0;
+  column-gap: 0;
+}
 
 /* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
  * surfaces ────────────────────────────────────────────────────────────────────────────────

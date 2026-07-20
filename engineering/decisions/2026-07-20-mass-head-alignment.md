@@ -276,11 +276,83 @@ consistency promise):
   register while the centered body composition stays put — preserving the
   body-independence principle.
 
-### Known scope edge
+## Adversarial trio (2026-07-20)
 
-The short heading-rule signatures (`rule: short` / `rule: accent`) draw a
-left-anchored `::after` on the masthead band and do **not** yet follow
-`--headline-align` (they stay at the band's left padding edge). The common full
-hairline (`rule: auto`/`full`) is full-width and alignment-neutral, so this only
-surfaces on the narrow `headline: center` + `rule: short` combination; tracked as
-a follow-up rather than pulled into this diff (HARD RULE #18 off-path).
+Ran the full trio on the shipping diff (HARD RULE #25): red team + Munger
+inversion + a second independent checker. The checker cleared correctness a
+second time. The **red team found the one real defect**, now fixed; Munger
+surfaced disclosure/process gaps, addressed below.
+
+### Red-team F1 — center/right did not put the cluster on ONE axis (FIXED)
+
+`text-align: center/right` resolves against *each element's own box*. But two
+kinds of framing box coexist and have **different widths**: the masthead cluster
+lives in the `masthead-lede` grid column (inset from the frame's right edge by the
+bay column + gap), and the readable-measure-capped prose boxes — the heading
+(`max-width` ~64ch), the key-insight/below-note `<p>` (~64ch) — are pinned inside
+their caps. So `head-center`/`head-right` centered/right-aligned each piece within
+*its own* box, and the pieces landed on visibly different axes (measured ~200px
+apart with a bay; the shipped demo baked it in). `head-left` was unaffected (every
+box shares the left origin).
+
+**Root cause:** `text-align` aligns *text within a box*; it cannot move a
+capped/inset **box**. The fix aligns the boxes, not just their text:
+
+1. **Flex the capped framing containers** — `masthead-lede`, the key-insight
+   `blockquote`, `.below-note`, and the chart/diagram caption become
+   `display:flex; flex-direction:column; align-items: var(--headline-justify, …)`.
+   Now the capped label/heading/body **boxes** center/right-align on their full
+   parent (panel or frame), so a short line lands on the frame axis — not inside
+   its own measure cap. `text-align` still handles multi-line wrapping.
+2. **Collapse the empty bay** — `section.form:is(.head-center,.head-right)
+   .cell-masthead:has(> .masthead-bay:empty)` drops the reserved bay column + gap,
+   so a bay-less masthead centers/right-aligns the cluster on the **full frame**,
+   matching the stage-level framing.
+
+Verified on the real PDF (both center and right): eyebrow, heading, key-insight
+label, and key-insight body all land on one axis. **Byte-identical under `auto`**
+re-confirmed AE=0 across the gallery baselines (flex column with
+`align-items:flex-start` == the prior block-left flow for these single-column
+stacks).
+
+**Correcting the earlier fold note:** the "As built" text above said `stats` /
+`list-steps.timeline` headings follow via `align-self` "through the stage's
+`align-items:center`." Under the Form those headings actually lift into
+`masthead-lede`; with that cell now flexed, their `align-self` (and the cell's
+`align-items`) is what carries them — and `text-align` covers the non-Form path.
+The declarations are correct; the mechanism is the flexed lede, not the stage.
+
+### Remaining scope edges (documented, not fixed — HARD RULE #18 off-path)
+
+- **Masthead WITH a bay** (a `meta:`/`logo:`/`status:` tile): the cluster centers/
+  right-aligns in the space *beside* the bay, not the full frame — the title must
+  not run under the meta. So with a bay, center/right can sit inset from the
+  stage-level framing. `head-left` is always exact; a bay-less masthead is exact.
+- **`split-panel` / `split-compare`**: the two-column layouts have no
+  `masthead-lede`, so `headline:` sets the token but no paint site reads it — a
+  silent no-op on their panel headings.
+- **Excluded layouts** (`quote` / `citation-card` / `math` / `redline` /
+  `inventory`): their masthead heading follows the seam, but their body (pull-quote,
+  equation, …) keeps its own alignment — so `head-center`/`right` can reintroduce a
+  heading-vs-body split for these few layouts.
+- **`rule: short` / `rule: accent`**: the short heading-rule `::after` stays
+  left-anchored (the full hairline is alignment-neutral).
+
+### Munger inversion — disclosures & process
+
+- **`auto` preserves the per-component inconsistency BY DESIGN.** The brief asked
+  for `auto` = "respect the component," and byte-identical `auto` is a hard
+  requirement, so the default output is deliberately unchanged — consistency is
+  opt-in. A curated *consistent default* (or `headline:` shipped in the deck
+  template) is the real follow-up to the root cause; filed, not silently skipped.
+- **Two alignment controls** — `#527` `align-*` (body block) and `headline:`
+  (framing cluster) — share value words. They are two concepts on two surfaces
+  (Fork 2 kept them orthogonal on purpose), not a §2.5 one-concept-two-names
+  violation, but "align" is now ambiguous. Disambiguation added to `base.docs.md`
+  and the Studio labels the pickers by surface.
+- **The seam is opt-in by convention and ungated.** There is no machine definition
+  of "all framing text," so a *new* component can silently forget to read the seam
+  (the trio found several missed sites by hand). Mitigation shipped: a rot-guard
+  test (`resolve-headline.test.js`) pins every currently-covered site — dropping a
+  seam read fails the build. It cannot catch a brand-new unretrofitted component;
+  that boundary is documented here and in `base.docs.md`.

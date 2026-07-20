@@ -122,6 +122,20 @@ section.head-left   { --headline-align: left;   --headline-justify: flex-start; 
 section.head-center { --headline-align: center; --headline-justify: center; }
 section.head-right  { --headline-align: right;  --headline-justify: flex-end; }
 
+/* Center/right align the masthead cluster on the FULL frame when the masthead has NO bay.
+ * The masthead is a grid — `[masthead-lede] 1fr [masthead-bay] auto` + a column-gap — so the
+ * lede column is always inset from the frame's right edge by the (possibly empty) bay column
+ * + gap. Under head-left that's invisible (shared left origin); under head-center/right the
+ * cluster would otherwise center/right-align ~½-gap left of the full-width stage framing (key
+ * insight, below-note, caption). When the bay is empty, collapse it so the lede spans the full
+ * frame and the cluster shares the stage's axis. A masthead WITH a bay keeps its reserved
+ * column (the title must not run under the meta/logo) — there the cluster aligns beside the
+ * bay, a documented scope edge. Plain `:has()` in engine CSS is allowed (HARD RULE #12 retired). */
+section.form:is(.head-center, .head-right) .cell-masthead:has(> .masthead-bay:empty) {
+  grid-template-columns: [masthead-lede] 1fr [masthead-bay] 0;
+  column-gap: 0;
+}
+
 /* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
  * surfaces ────────────────────────────────────────────────────────────────────────────────
  * OPT-IN and INDEPENDENT of the deck's section-bar STYLE — all spectrum variants are on-brand,

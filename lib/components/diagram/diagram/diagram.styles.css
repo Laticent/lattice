@@ -88,7 +88,7 @@ section.diagram > :is(pre, marp-pre):not([data-mermaid-state="rendered"]),
 section.diagram > .cell-stage > :is(pre, marp-pre):not([data-mermaid-state="rendered"]) {
   flex:1; width:calc(100cqi - 2 * var(--sp-2xl)); max-width:100%; height:auto; min-height:0;
 }
-section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; }
+section.diagram .diagram-caption { font-family:var(--font-mono); font-size:var(--fs-meta); color:var(--text-secondary); letter-spacing:0.08em; padding-top:var(--sp-md); text-align:var(--headline-align, center); font-style:italic; display:flex; flex-direction:column; align-items:var(--headline-justify, center); }
 /* Key Insight panel on diagram slides must stretch full-width to match every
    other layout. section.diagram uses align-items:center (mirrored onto the stage
    cell) which would shrink the blockquote to fit-content; align-self:stretch

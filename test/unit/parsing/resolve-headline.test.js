@@ -68,4 +68,33 @@ describe('resolve-headline', () => {
     assert.ok(!/section\.head-[a-z]+[^{]*\{[^}]*margin/.test(css), 'headline alignment must not use margin');
     assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), 'accent-finish CSS must be palette-blind (var(--token) only)');
   });
+
+  // Rot-guard (2026-07-20 trio, Munger #1): the seam is opt-in by convention — a framing paint
+  // site only follows `headline:` if it READS `var(--headline-align/-justify, …)`. There is no
+  // machine definition of "all framing text", so this can't catch a NEW component that forgets to
+  // opt in (documented coverage boundary). What it DOES catch: a regression that drops the seam
+  // read from a currently-covered site. Each entry pins one covered framing surface; removing its
+  // seam read fails here, not silently in a deck. Extend this list when a new site is retrofitted.
+  test('rot-guard — every covered framing paint site reads the seam', () => {
+    const read = (p) => fs.readFileSync(path.join(__dirname, '../../../', p), 'utf8');
+    const COVERED = [
+      ['lib/forms/cell/masthead-lede/masthead-lede.css', /--headline-align/, /--headline-justify/],   // eyebrow + heading
+      ['lib/base/base.elements.css', /section hr[^}]*--headline-justify/],                              // the free hr
+      ['lib/base/base.modifiers.css', /--headline-align/, /--headline-justify/],                        // key insight
+      ['lib/components/comparison/compare-prose/compare-prose.styles.css', /\.below-note[^}]*--headline-align/, /\.below-note[^}]*--headline-justify/], // below-note
+      ['lib/components/chart/_chart-family/chart-family.css', /--headline-align/, /--headline-justify/],// chart caption
+      ['lib/components/diagram/diagram/diagram.styles.css', /--headline-align/, /--headline-justify/],  // diagram dek + caption
+      ['lib/components/anchor/title/title.styles.css', /--headline-align/, /--headline-justify/],
+      ['lib/components/anchor/closing/closing.styles.css', /--headline-align/, /--headline-justify/],
+      ['lib/components/anchor/divider/divider.styles.css', /--headline-align/, /--headline-justify/],
+      ['lib/components/evidence/stats/stats.styles.css', /--headline-align/, /--headline-justify/],
+      ['lib/components/progression/list-steps/list-steps.styles.css', /--headline-align/, /--headline-justify/],
+    ];
+    for (const [file, ...patterns] of COVERED) {
+      const css = read(file);
+      for (const re of patterns) {
+        assert.ok(re.test(css), `${file} no longer reads the headline seam (${re}) — coverage regressed`);
+      }
+    }
+  });
 });

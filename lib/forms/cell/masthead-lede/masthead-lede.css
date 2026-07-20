@@ -15,4 +15,6 @@ section.form .cell-masthead .masthead-lede {
    * inherits, so the kicker + title follow one axis. `auto` (no register) → the property is
    * undefined → the fallback `left` applies, byte-identical to today's left-aligned band. */
   text-align: var(--headline-align, left);
+  display: flex; flex-direction: column;
+  align-items: var(--headline-justify, flex-start);
 }
