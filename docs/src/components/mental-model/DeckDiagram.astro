@@ -1,0 +1,230 @@
+---
+/**
+ * The user-facing mental-model diagram for /mental-model/.
+ *
+ * A CONTAINMENT (russian-doll) figure — the author's twin of the internal
+ * Frame/Cell/Tile FormDiagram. Where FormDiagram is a builder's exploded
+ * cross-section, this answers the author's question: "what do I write, and what
+ * holds what?" — Deck ▸ Slide ▸ Layout ▸ your content, with Theme · Style as the
+ * coat of paint on the outside and the running marks (chrome) at the edges.
+ *
+ * Live HTML/CSS on Starlight tokens (--sl-color-*), so it scales, adapts to
+ * light/dark, and needs no regen step. Overlap- and clip-proof by construction:
+ * every box is a flow container with its label as an in-flow caption above its
+ * children, and the whole figure grows to fit (no fixed aspect-ratio).
+ *
+ *   fig="containment"  (default)
+ */
+const { fig = "containment" } = Astro.props;
+---
+
+{fig === "containment" && (
+  <div class="mm" role="img" aria-label="A Lattice deck is a Markdown file. It contains slides. Each slide picks one layout — a ready-made arrangement — and you fill that layout with your content. Around the whole deck, one style sets the look and feel — its colors (the theme) and its finish. Each slide carries optional running marks (a header, footer, and page number) at its edges.">
+    <div class="coat">
+      <span class="coat-lbl">Style <em>— colors &amp; finish, set once</em></span>
+      <div class="deck">
+        <span class="box-lbl">DECK <em>— one Markdown file → one PDF</em></span>
+        <div class="slides">
+          <div class="slide ghost" aria-hidden="true"><span>slide</span></div>
+          <div class="slide focus">
+            <span class="box-lbl">SLIDE</span>
+            <div class="strip">header · page number <em>(optional)</em></div>
+            <div class="region">
+              <span class="region-lbl">your content lives here</span>
+              <div class="layout">
+                <span class="layout-tag">layout: <b>cards-grid</b></span>
+                <div class="fill">
+                  <span class="bar w1"></span>
+                  <span class="bar w2"></span>
+                  <span class="bar w3"></span>
+                  <span class="yours">↑ your words, poured in</span>
+                </div>
+              </div>
+            </div>
+            <div class="strip">footer <em>(optional)</em></div>
+          </div>
+          <div class="slide ghost" aria-hidden="true"><span>slide</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="spine">
+      <b>Deck</b> <span class="arw">▸</span> <b>Slide</b> <span class="arw">▸</span>
+      <b>Layout</b> <span class="arw">▸</span> <b>your content</b>
+      <span class="tail">— pick a layout, fill it; paint the whole deck once</span>
+    </p>
+  </div>
+)}
+
+<style>
+  .mm {
+    margin: 1.5rem 0 0.5rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  /* the outer coat — Theme · Style wraps everything */
+  .coat {
+    position: relative;
+    border: 1.5px dashed color-mix(in srgb, var(--sl-color-accent) 55%, var(--sl-color-gray-4));
+    border-radius: 18px;
+    padding: 2.5rem 1.1rem 1.1rem;
+    background: color-mix(in srgb, var(--sl-color-accent) 5%, transparent);
+  }
+  .coat-lbl {
+    position: absolute;
+    top: 0;
+    left: 1.4rem;
+    transform: translateY(-50%);
+    background: var(--sl-color-bg);
+    padding: 0.25rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--sl-color-accent) 40%, var(--sl-color-gray-4));
+    font: 600 0.72rem/1 var(--sl-font-system-mono, monospace);
+    letter-spacing: 0.04em;
+    color: var(--sl-color-accent-high, var(--sl-color-accent));
+    white-space: nowrap;
+  }
+  .coat-lbl em, .box-lbl em, .strip em, .spine .tail {
+    font-style: normal;
+    font-weight: 400;
+    color: var(--sl-color-gray-3);
+  }
+
+  /* deck box */
+  .deck {
+    position: relative;
+    border: 1.5px solid var(--sl-color-gray-4);
+    border-radius: 12px;
+    background: var(--sl-color-bg);
+    padding: 2.2rem 1rem 1rem;
+  }
+  .box-lbl {
+    position: absolute;
+    top: 0.65rem;
+    left: 1rem;
+    font: 700 0.72rem/1 var(--sl-font-system-mono, monospace);
+    letter-spacing: 0.05em;
+    color: var(--sl-color-gray-2);
+  }
+
+  .slides {
+    display: grid;
+    grid-template-columns: 0.8fr 1.9fr 0.8fr;
+    gap: 0.8rem;
+    align-items: stretch;
+  }
+  @media (max-width: 680px) {
+    .slides { grid-template-columns: 1fr; }
+    .slide.ghost { display: none; }
+  }
+
+  .slide {
+    position: relative;
+    border: 1.5px solid var(--sl-color-gray-4);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--sl-color-gray-5) 40%, var(--sl-color-bg));
+    padding: 2rem 0.75rem 0.75rem;
+    min-height: 210px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .slide.ghost {
+    justify-content: center;
+    align-items: center;
+    opacity: 0.5;
+    min-height: 0;
+  }
+  .slide.ghost span {
+    font: 600 0.72rem/1 var(--sl-font-system-mono, monospace);
+    color: var(--sl-color-gray-3);
+  }
+  .slide.focus {
+    border-color: color-mix(in srgb, var(--sl-color-accent) 45%, var(--sl-color-gray-4));
+    background: var(--sl-color-bg);
+  }
+
+  .strip {
+    font: 600 0.64rem/1.2 var(--sl-font-system-mono, monospace);
+    color: var(--sl-color-gray-3);
+    background: color-mix(in srgb, var(--sl-color-gray-4) 22%, transparent);
+    border: 1px dashed var(--sl-color-gray-4);
+    border-radius: 5px;
+    padding: 0.3rem 0.45rem;
+    text-align: center;
+  }
+
+  /* content region — the author-owned zone */
+  .region {
+    flex: 1;
+    border: 1.5px solid color-mix(in srgb, var(--sl-color-accent) 42%, var(--sl-color-gray-4));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--sl-color-accent) 7%, transparent);
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .region-lbl {
+    font: 700 0.62rem/1 var(--sl-font-system-mono, monospace);
+    letter-spacing: 0.04em;
+    color: var(--sl-color-accent-high, var(--sl-color-accent));
+  }
+
+  /* the layout the author picks */
+  .layout {
+    flex: 1;
+    border: 1.5px solid var(--sl-color-accent);
+    border-radius: 6px;
+    background: var(--sl-color-bg);
+    padding: 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .layout-tag {
+    align-self: flex-start;
+    font: 600 0.62rem/1 var(--sl-font-system-mono, monospace);
+    color: var(--sl-color-white);
+    background: var(--sl-color-accent);
+    padding: 0.18rem 0.46rem;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+  }
+  .layout-tag b { font-weight: 700; }
+
+  .fill {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.1rem 0.15rem 0.2rem;
+  }
+  .fill .bar {
+    height: 7px;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--sl-color-gray-1) 22%, transparent);
+  }
+  .fill .bar.w1 { width: 84%; }
+  .fill .bar.w2 { width: 66%; }
+  .fill .bar.w3 { width: 74%; }
+  .fill .yours {
+    margin-top: 0.15rem;
+    font: 600 0.58rem/1.2 var(--sl-font-system-mono, monospace);
+    color: var(--sl-color-gray-3);
+  }
+
+  /* the recitable spine under the figure */
+  .spine {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin: 1.3rem 0 0;
+    font: 600 0.86rem/1.4 var(--sl-font-system-mono, monospace);
+    color: var(--sl-color-gray-2);
+    text-align: center;
+  }
+  .spine b { color: var(--sl-color-accent-high, var(--sl-color-accent)); }
+  .spine .arw { color: var(--sl-color-gray-3); }
+</style>

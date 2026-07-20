@@ -29,13 +29,11 @@ Four independently-swappable decisions, each owned by a different audience and e
 | Axis | Human word | The question | Owned by |
 |---|---|---|---|
 | **Function** | Purpose | what's the point of this slide? | deck authors |
-| **Form** | Arrangement | how is it composed? | layout designers |
+| **Form** | Layout | how is it composed? | layout designers |
 | **Substance** | Content | what fills it? | engine maintainers |
-| **Finish** | Finish | what should it feel like? | theme designers |
+| **Finish** | Style | what should it feel like? | theme designers |
 
-"Layout" is deliberately absent from this axis table: it is the human word for the **thing an author picks per slide** (the Component join below), not for the Form axis — whose human word is **Arrangement**. Keeping them distinct is what stops the one word doing two jobs.
-
-The one word the model legislates against is **"look"** — it collides between *Arrangement* (Form) and *Finish* (the feel), so "make it look different" is resolved into one or the other before acting.
+The one word the model legislates against is **"look"** — it collides between *Layout* (Form) and *Style* (Finish), so "make it look different" is resolved into one or the other before acting.
 
 ## Level 2 — why only Form decomposes
 
@@ -51,7 +49,7 @@ The full structural model — z-planes, the resolution-blind Cell contract, the 
 
 ## The join — Component and Bucket
 
-A **Component** — the thing an author picks per slide, called a **layout** in author-facing docs — **fills the content Tile and owns its own internal arrangement** there. It **selects** a Frame for the slide and binds Substance into the Cells that Frame produces; it carries a Function and receives Finish — the join, on one slide. ("Component" is the system word used in code, manifests, and `_class`; "layout" is the human word an author reads.) A **Bucket** is orthogonal bookkeeping: the disk grouping of components (mostly one-to-one with Function; a few — `chart`, `diagram`, `math`, `code`, `legal` — diverge to colocate a shared renderer or authoring vocabulary).
+A **Component fills the content Tile and owns its own internal layout** there. It **selects** a Frame for the slide and binds Substance into the Cells that Frame produces; it carries a Function and receives Finish — the join, on one slide. A **Bucket** is orthogonal bookkeeping: the disk grouping of components (mostly one-to-one with Function; a few — `chart`, `diagram`, `math`, `code`, `legal` — diverge to colocate a shared renderer or authoring vocabulary).
 
 ## Abstract vs. concrete — the three rungs
 

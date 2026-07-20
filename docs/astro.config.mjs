@@ -168,6 +168,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Overview', slug: 'overview' },
 						{ label: 'What is Lattice?', slug: 'introduction' },
+						{ label: 'The mental model', slug: 'mental-model' },
 						{ label: 'Principles', slug: 'principles' },
 						{ label: 'The story', slug: 'story' },
 					],

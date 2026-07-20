@@ -32,7 +32,7 @@
       "kind": "axis",
       "level": 1,
       "system": "Form",
-      "human": "Arrangement",
+      "human": "Layout",
       "question": "how is it composed?",
       "owner": "layout designers",
       "definition": "The spatial composition that holds the answer. The one axis whose answer is itself a composed structure, so the only one that decomposes into structural nouns.",
@@ -60,7 +60,7 @@
       "kind": "axis",
       "level": 1,
       "system": "Finish",
-      "human": "Finish",
+      "human": "Style",
       "question": "what should it feel like?",
       "owner": "theme designers",
       "definition": "Palette tokens + cross-cutting variant tiers, applied across the whole tree. A flat vocabulary, not a single catalog field.",
@@ -104,8 +104,7 @@
       "kind": "join",
       "level": 2,
       "system": "Component",
-      "human": "Layout",
-      "definition": "The join: it is-a Function, selects a Frame, binds Substance into the Cells that Frame produces, and receives Finish. The thing an author picks per slide — 'layout' to a human, 'component' to the machine.",
+      "definition": "The join: it is-a Function, selects a Frame, binds Substance into the Cells that Frame produces, and receives Finish.",
       "source": {
         "catalog": "components",
         "vocab": "components"

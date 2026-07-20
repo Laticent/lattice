@@ -100,17 +100,9 @@ system register and speaks in the human register.
 | System (spine) | Human (surface) | The author's question | The author's verb |
 |---|---|---|---|
 | **Function** | **Purpose** | "what's the point of this slide?" | *(rarely changed — it's the intent)* |
-| **Form** | **Arrangement** | "how is it arranged?" | "show it as cards / steps / a list" |
+| **Form** | **Layout** | "how is it laid out?" | "show it as cards / steps / a list" |
 | **Substance** | **Content** | "what goes on it?" | "write / paste this" |
 | **Finish** | **Finish** | "what should it feel like?" | "make it formal / sketchy / dark" |
-
-**The thing an author picks per slide — the Component — is the fifth named thing in
-this system, and it too has two names.** Its human word is **layout** (author-facing
-docs, UI, prompts, the reference); its system word is **component** (code, manifests,
-`_class`, agent navigation). The pick is the four-axis *join*, so "component" is the
-precise spine word and "layout" is what a human reads. This is exactly why the Form
-axis's human word is **Arrangement**, not "Layout": "layout" names the pick, so one
-word does one job. (See `engineering/decisions/2026-07-20-user-facing-nomenclature.md`.)
 
 **The Finish axis is surfaced through THREE composable author registers, each
 its own front-matter key — no single key does two jobs:**
@@ -143,18 +135,16 @@ not `style:` — Marp already owns `style:` for inline-CSS injection — and the
 Finish axis's human word is just "Finish.")*
 
 **The one word we legislate against: "look."** It is ambiguous — it means
-**Arrangement** (Form) *or* the **Mode/Finish** feel, the only collision in the
+**Layout** (Form) *or* the **Mode/Finish** feel, the only collision in the
 model. It is never a canonical term; resolving "make it look different" into
-*Arrangement* vs *Mode* is an explicit interpretation step (the AI asks or infers).
+*Layout* vs *Mode* is an explicit interpretation step (the AI asks or infers).
 Any word outside the canonical columns is a convenience term, not a concept, and
 is scoped or retired rather than allowed to drift.
 
 **Form is now the composition *system*, axis included.** `design/forms.md`
 ratified the slide-scale model (Form = Frame + Cell + Tile) and *promotes* the
 word: **Form** is the system that answers "how is this composed?", and the axis
-of a component is one part of it. Its human word is **Arrangement** — the word
-"layout" is reserved for the *pick* (the Component; see the two-register table
-above), so it no longer doubles as the Form axis's word. The twelve
+of a component is one part of it. Its human word stays **Layout**. The twelve
 values (`split`, `panel`, `grid`, …) are a Form's **Frame types** — "Frame" is
 the system word for *a Form value acting as a slicer* (the object that carves a
 box into Cells). It is **not** a third synonym for "Form": "Form" names the
@@ -295,10 +285,9 @@ authoring grammar. Authors write:
 <!-- _class: cards-grid compact dark -->
 ```
 
-The first token names the **layout** — the thing an author picks (the
-**component**, in system/catalog vocabulary; the two are one thing, two
-registers). The rest are **modifiers** (the variants). This is exactly how it has
-always worked. Nothing to migrate.
+The first token is the **component name** (the layout). The rest are
+**modifiers** (the variants). This is exactly how it has always
+worked. Nothing to migrate.
 
 ### What's new
 

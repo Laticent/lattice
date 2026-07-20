@@ -1,15 +1,33 @@
 ---
 # status is one of: proposed | in-progress | blocked | shipped | superseded
 status: in-progress
-summary: The thing an author picks per slide is a "layout" (human word) whose system word is "component" — extending the §2.5 two-register law to the pick itself. That core is ratified and source-verified. An adversarial trio (red team · Munger inversion · independent checker) then caught that the first crosswalk over-reached with unaudited coinages (Material, an accent dial, a Content split) and a too-narrow drift gate; this record now separates the ratified core from proposals that need a collision audit, rescopes the gate to catch the class, and leaves one open decision (the Form-axis surface word) before Phase 1 executes.
+summary: Canonical public-facing terms — "layout" (the thing an author picks per slide) and "Style" (the deck's look and feel). Per owner direction, the internal Function·Form·Substance·Finish / Frame·Cell·Tile model is left sovereign (NOT rewritten); the user-facing mental model ships as a NEW page + containment diagram, and the component→layout / Finish→Style renames across the author docs, /model/ tech docs, and Studio UI are deferred to their own lanes. The analysis + adversarial trio below are the reasoning of record.
 ---
 
 # User-facing nomenclature — "layout" for humans, "component" for the machine
 
-**Roll-up:** ◐ in-progress · Core naming **ratified + source-verified**. Both trio
-gates cleared: the Form-axis word is resolved ("Arrangement", audited) and the
-Phase 2 gate is rescoped (below). Phase 1 executing. Crosswalk narrowed to the
-verified core; speculative renames demoted to *proposed — needs collision audit*.
+**⟳ Owner redirect (2026-07-20) — read this first; it supersedes the execution
+plan below.** The approach changed after the analysis. We do **not** rewrite the
+internal model docs — the Function·Form·Substance·Finish / Frame·Cell·Tile model
+stays sovereign. Instead:
+
+1. The **user-facing mental model ships as a NEW page** —
+   `docs/src/content/docs/mental-model.mdx` + `components/mental-model/DeckDiagram.astro`
+   (a containment/russian-doll diagram: Deck ▸ Slide ▸ Layout ▸ content). **Done on
+   this branch**, rendered-verified at desktop + mobile.
+2. **Canonical public terms:** **layout** (the pick) and **Style** (the look/feel).
+   *"Style" stays canonical — this reverses the earlier "Finish wins" call in the
+   analysis below (owner: "style fits our lattice style").*
+3. Renaming `component`→`layout` and `Finish`→`Style` across the **author docs, the
+   `/model/` tech docs, and the Studio UI is deferred** to its own lanes — not in
+   scope here.
+
+The earlier model-doc edits (commit `b4b2229`) were **reverted**. Everything below
+(the three-lens analysis, the red-team, the adversarial trio, the crosswalk) stands
+as the **reasoning of record**; only its "edit the existing model docs" execution
+plan is superseded by (1)–(3). *Note: the drift the analysis calls "Style→Finish"
+resolves the opposite way now — Style is canonical, so the catalog's existing
+"Style" is correct and stays.*
 
 ## Symptom
 

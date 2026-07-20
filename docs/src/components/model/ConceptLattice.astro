@@ -19,18 +19,18 @@ const { fig = 'lattice' } = Astro.props;
   <div
     class="cl"
     role="img"
-    aria-label="The Lattice concept model on two levels. Top: four orthogonal axes — Function (Purpose, what's the point?), Form (Arrangement, how is it composed?), Substance (Content, what fills it?), Finish (what should it feel like?). Form is the structural axis: it decomposes into a Frame that produces Cells, and each Cell holds a Tile. Bottom: the Component is the join — the thing an author picks per slide (a 'layout' to a human) — it is-a Function, selects a Frame, binds Substance into the Cells, and receives Finish."
+    aria-label="The Lattice concept model on two levels. Top: four orthogonal axes — Function (Purpose, what's the point?), Form (Layout, how is it composed?), Substance (Content, what fills it?), Finish (Style, what should it feel like?). Form is the structural axis: it decomposes into a Frame that produces Cells, and each Cell holds a Tile. Bottom: the Component is the join — it is-a Function, selects a Frame, binds Substance into the Cells, and receives Finish."
   >
     <div class="tier">
       <span class="tier-lbl">The four axes <small>orthogonal — swap one, the others hold</small></span>
       <div class="axes">
         <div class="axis"><b>Function</b><span>Purpose</span><small>what's the point?</small></div>
         <div class="axis is-form">
-          <b>Form</b><span>Arrangement</span><small>how is it composed?</small>
+          <b>Form</b><span>Layout</span><small>how is it composed?</small>
           <em aria-hidden="true">the structural axis ↓</em>
         </div>
         <div class="axis"><b>Substance</b><span>Content</span><small>what fills it?</small></div>
-        <div class="axis"><b>Finish</b><span>Finish</span><small>what should it feel like?</small></div>
+        <div class="axis"><b>Finish</b><span>Style</span><small>what should it feel like?</small></div>
       </div>
     </div>
 

@@ -1,0 +1,64 @@
+---
+title: The mental model
+description: The whole of Lattice in one picture — a deck of slides, each slide a layout you fill with content, the whole deck wearing one style.
+---
+
+import DeckDiagram from '../../components/mental-model/DeckDiagram.astro';
+
+A Lattice **deck** is a Markdown file. Each **slide** picks one **layout** — a
+ready-made arrangement — and you fill it with your **content**. One **style**
+dresses the whole deck: its colors and its finish. That is the entire model;
+everything else is detail you reach for only when you need it.
+
+<DeckDiagram />
+
+## The five words you need
+
+You can author a boardroom-grade deck knowing only these.
+
+| Word | What it is |
+|---|---|
+| **Deck** | Your Markdown file. One deck renders to one PDF (or PPTX, or a set of PNGs). |
+| **Slide** | One page. A new heading — or a `---` — starts the next slide. |
+| **Layout** | The ready-made arrangement a slide picks: `cards-grid`, `big-number`, `chart`, and so on. You choose one; it does the composition and typography for you. |
+| **Content** | Your words. You write plain Markdown; the layout places it. |
+| **Style** | The whole deck's look and feel — its palette (the **theme**) and its finish (clean, sketched, and the rest). Set once, up top. |
+
+## Pick a layout, then fill it
+
+You never place boxes by hand. You choose a **layout** for what the slide is
+*for* — a number to land, options to weigh, steps to walk — and pour your content
+in. The layout is content-aware: it sizes, wraps, and spaces so the slide reads
+as *composed*, not typed. When it holds more than it should, it tells you rather
+than overflowing.
+
+An author writes one line to pick the layout, then the content beneath it:
+
+```markdown
+<!-- _class: big-number -->
+
+## 38%
+
+of pipeline stalls trace to a single approval step.
+```
+
+Browse [the layout catalog](/components/) to see every layout, each with its slots
+and options, in any palette.
+
+## One style, every slide
+
+Change the **theme** and every slide re-colors. Change the **style** and every
+slide takes on the new finish. The layouts never move — color and feel are a coat
+of paint on the *outside*, independent of what each slide holds. Swap the coat as
+often as you like; your content stays exactly where it was.
+
+That independence is the point of the whole model: what a slide *says* (its
+layout and content) and how the deck *feels* (its style) are separate choices, so
+changing one never disturbs the other.
+
+:::note[The engine's own words]
+Under the hood, the engine calls a layout a **component** and treats every slide
+as a few independent choices at once. You never need that to author a deck — it
+is the designer's view of the same thing. If you're curious, see
+[the concept map](/model/concepts/).
+:::
