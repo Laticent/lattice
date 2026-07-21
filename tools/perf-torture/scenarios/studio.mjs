@@ -155,6 +155,16 @@ export default {
 	defaultCycles: ['idle', 'typing', 'present', 'overview', 'palette', 'fullwrite', 'compose', 'slidenav', 'insert', 'slidesettings', 'decksettings', 'deckswitch2', 'readaloud', 'landing', 'pgslide', 'pgvariant', 'pgscroll', 'mixed'],
 	surfaces: {
 		studio: {
+			// ⚠ CONTAMINATION CAVEAT (2026-07-21-studio-compose-listener-leak-is-a-perf-overlay-artifact.md):
+			// `?perf` mounts PerfOverlay, which dynamically imports `web-vitals`. web-vitals arms a
+			// `visibilitychange` listener on `document` per metric report (INP re-arms on every interaction)
+			// and never unsubscribes — so the `listeners` metric here carries ~1 web-vitals add PER
+			// INTERACTING CYCLE that does NOT exist in the production Studio (`/studio`, overlay off). A
+			// LISTENER verdict on this surface is not trustworthy until re-confirmed WITHOUT `?perf`
+			// (production `/studio` compose is flat: JSEventListeners Δ0/cyc). `?perf` is kept for now because
+			// the overlay's readout aids manual runs and every cycle shares it (matched floors); dropping it
+			// shifts the calibrated `universalFloors`/baselines and is a deliberate #32 re-calibration, not a
+			// silent edit. Heap/node metrics are far less exposed than `listeners`.
 			url: '/studio?perf', ready: '.cm-content', settle: 1500,
 			// dial to the BUILD posture so the full UI (activity bar, op rail, both editor toggles)
 			// is present + selectors deterministic; every studio cycle shares this → matched floors.

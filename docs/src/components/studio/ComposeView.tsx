@@ -318,9 +318,13 @@ class SlideView {
 	// single abort instead of relying on GC to reclaim them with the detached node. NOTE: the
 	// "+91 listeners/cycle compose leak" that originally motivated this (2026-07-20-studio-degradation-
 	// audit) turned out to be a TORTURE-HARNESS ARTIFACT — undisposed puppeteer ElementHandles pinned
-	// each cycle's editor; clean measurement shows compose listeners creep ~1.7/cyc (EditorView/
-	// CodeMirror internals, not these buttons). So this abort is kept as correct, cheap lifecycle
-	// hygiene, NOT as a measured perf win. A per-rebuild controller for the format group was trialed
+	// each cycle's editor. A later "~1.7/cyc creep" reading was ALSO an artifact: the studio scenario
+	// drives /studio?perf, whose PerfOverlay loads web-vitals, which arms a visibilitychange listener per
+	// interaction; on production /studio the compose listener count is FLAT (0/cyc, JSEventListeners
+	// 688→688 over 20 cycles even as these SlideView buttons mount+detach each cycle). So this abort is
+	// kept as correct, cheap lifecycle hygiene, NOT as a measured perf win
+	// (2026-07-21-studio-compose-listener-leak-is-a-perf-overlay-artifact.md). A per-rebuild controller
+	// for the format group was trialed
 	// and dropped: the red-team measured that Chromium holds an AbortSignal's removal step WEAKLY, so
 	// churned detached buttons + their listeners are GC'd even while this controller is alive — a
 	// second controller fixed nothing observable. (Correction: 2026-07-20-studio-audit-instrument-fix.)
