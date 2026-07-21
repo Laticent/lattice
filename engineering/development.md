@@ -322,6 +322,21 @@ The universal search is the ⌘K command palette: it navigates anywhere, switche
 and full-text-searches the docs via Starlight's Pagefind index (built site only — in
 `npm run dev` the palette still navigates/themes, just without doc-text results).
 
+### React StrictMode on the island roots
+
+The Studio and Playground island roots hydrate through thin wrapper components —
+`StudioIsland.tsx` / `PlaygroundIsland.tsx` — that mount the real shell inside
+`<StrictMode>`. StrictMode must be an *ancestor* of the component whose effects
+you want double-invoked, so wrapping at the island entry (not inside the shell's
+own `return`) is what makes the shell's own top-level effects double-mount in dev.
+That double-mount is the only automatic net for a missing-cleanup leak — an effect
+that adds a listener / timer / subscription with no cleanup return — which no lint
+rule catches (Biome's `useExhaustiveDependencies` checks the deps array, not the
+cleanup). It's dev-only (StrictMode compiles to a pass-through in production
+builds), so it ships on the island for free. When you add a new imperative island,
+wrap it the same way and re-run the console probe — watch for errors thrown during
+the mount → unmount → remount cycle, the tell for a cleanup gap.
+
 ### Screenshot matrix for the pane split (Playground + Studio)
 
 The editor|preview split (`docs/src/components/ui/split.tsx`, decision
