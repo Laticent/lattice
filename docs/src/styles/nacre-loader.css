@@ -19,7 +19,7 @@
 	/* Center the brand mark (the ONE in-flow child) over the absolutely-positioned nacre layers. */
 	display: grid;
 	place-items: center;
-	/* Brand mark colors — "structure is ink, colour is signal": the lattice BONDS follow light/dark
+	/* Brand mark colors — "structure is ink, color is signal": the lattice BONDS follow light/dark
 	   (Indaco navy / sky), the spectrum nodes + gold core are mode-invariant brand constants. Kept in
 	   lockstep with LatticeMark.tsx + the studio.astro shell copy. */
 	--mark-bond: #003d66;

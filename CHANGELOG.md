@@ -256,7 +256,7 @@ in patch versions.
   pre-hydration instant shell (and the matching post-hydration React loader) now center the real Lattice
   **"Spectrum Cell"** mark — the rotated-lattice bonds + the five spectrum nodes — gently *breathing* over
   the nacre glow, and the shell topbar shows the actual mark instead of a placeholder gradient chip. Bonds
-  follow light/dark ("structure is ink, colour is signal"); the nodes are brand constants. So a reload reads
+  follow light/dark ("structure is ink, color is signal"); the nodes are brand constants. So a reload reads
   unmistakably as Lattice at HTML-parse time, matching the mark the hydrated app's topbar hands off to (no
   logo swap). One inline SVG kept in lockstep across `LatticeMark.tsx`, `nacre-loader.css`, and the
   `studio.astro` shell copy; the `check:studio-shell` gate now also asserts the mark ships.

@@ -11,7 +11,7 @@
  * Geometry and palette are a 1:1 copy of docs/public/lattice-mark-min.svg
  * (source of truth: design/logo/generate.py) — bonds are Indaco navy in
  * light / sky in dark, spectrum nodes and the gold core are mode-invariant
- * brand constants ("structure is ink, colour is signal").
+ * brand constants ("structure is ink, color is signal").
  */
 export function LatticeMark({ mode, className }: { mode: string; className?: string }) {
 	const dark = mode === 'dark';

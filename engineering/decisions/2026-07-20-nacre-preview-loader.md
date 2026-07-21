@@ -111,7 +111,7 @@ real-device reload). Fix: center the brand **"Spectrum Cell"** mark (the rotated
 spectrum nodes, 1:1 with `LatticeMark.tsx`) in the loader, gently *breathing* (`nacre-breathe`, a
 3.2s scale+opacity pulse, reduced-motion-safe) over the nacre as ambient; and swap the shell topbar's
 placeholder gradient chip for the real mark, so the pre-paint chrome matches what the hydrated app hands
-off to (no logo swap). Bonds follow mode via `--mark-bond`/`--mark-halo` ("structure is ink, colour is
+off to (no logo swap). Bonds follow mode via `--mark-bond`/`--mark-halo` ("structure is ink, color is
 signal"); nodes + gold core are brand constants. The mark SVG is inlined in three lockstep places
 (`nacre-loader.css` + `DeckPreview.tsx` for the React loader, `studio.astro` for the pre-hydration copy),
 and `check:studio-shell` now asserts `nacre-loader__mark` ships.
