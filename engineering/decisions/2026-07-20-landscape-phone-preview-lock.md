@@ -257,9 +257,16 @@ The inline `LandscapeViewportDebug` + the `vvDebug` const in `StudioShell.tsx` w
 retired; the `data-cinema-stage` attribute on the cinema `<div>` stays — the new overlay
 reads it. The overlay is no longer landscape-only: it reads on any surface (on desktop the
 stage row simply shows `—`, since there's no cinema stage), so it's a general viewport
-probe now, not a one-bug artifact. Verified on the real built Studio: hidden by default,
-appears on `?vvdebug` with correct live numbers (desktop + landscape-phone), and the
-Workspace switch mounts/unmounts it live (the overlay's own × writes the pref off).
+probe now, not a one-bug artifact. Verified on the *built* Studio driven in a headless
+Chromium over `astro preview` (the shipped bundle, not the dev server): hidden by default;
+`?vvdebug` shows correct live numbers at a desktop viewport (1440×900) AND an **emulated**
+landscape-phone viewport (844×390 with touch — the cinema morph engaged, `stage h 390`,
+frame fitting `[0,390]`); the Workspace switch mounts/unmounts the overlay live and its ×
+writes the pref off; dark-mode chip legibility re-checked with a dark render. **UNVERIFIED
+on real iOS/Android hardware** (HARD RULE #23 — an emulated width is not a device): the
+geometry the tool reports is only ever as true as the device you actually read it on, which
+is the whole point of shipping it. The chrome, the interaction, and the light/dark styling
+are what's verified here.
 
 ## Known limitations / follow-up (logged, not fixed here — HARD RULE #18)
 
@@ -284,6 +291,17 @@ Off the path of this change; recorded so they aren't lost:
   sighted, orientation-lock-**off** newcomer who opens a shared deck already in landscape
   sees no sign an editor exists. The `sr-only` intro covers AT users; the visible cue was
   removed by explicit request. Revisit if landscape shared-link entry proves common.
+- **`PanelPortal` is now cloned 4× (HARD RULE #15 debt — logged, not fixed here).** The
+  draggable/on-brand diagnostics panel (grip drag, on-screen clamp, `<body>` portal,
+  singleton claim, ~80 lines) now lives copy-pasted in `PerfOverlay`, `ReadAloudOverlay`,
+  `VizDiagnosticsOverlay`, and `ViewportDebugOverlay`. Each was cloned deliberately (the
+  in-file comment argues a shared helper would couple independently-evolving overlays), but
+  a fourth copy crosses the rule-of-three line — four-way drift is now a real maintenance
+  risk. **Follow-up (its own PR, off the path of this feature per #17/#8):** extract a
+  shared `<DraggableDiagnosticPanel>` (drag + clamp + portal + singleton + grip header) and
+  refactor all four overlays onto it; each keeps only its own pref module, testid,
+  close-class, and body content. Surfaced by the PR #1129 adversarial-trio (Munger
+  inversion). Not pulled into #1129 to keep that diff one-feature-one-PR.
 
 ## Touchpoints
 

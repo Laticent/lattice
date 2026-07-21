@@ -102,7 +102,7 @@ const METRICS: Metric[] = [
 		label: 'inner',
 		value: (g) => `${g.innerW} × ${g.innerH}`,
 		what: 'The CSS layout viewport — what 100vw/100vh and position:fixed resolve against. It does NOT shrink when the software keyboard opens, which is exactly why a fixed bottom bar hides behind the keyboard.',
-		rel: (g) => (g.vv ? `visual is ${g.innerH - g.vv.h}px shorter — the keyboard / URL bar covers that much of it.` : null),
+		rel: (g) => (g.vv ? `the keyboard / URL bar covers ${insetPx(g)}px of it — that much of the layout viewport is no longer visible.` : null),
 	},
 	{
 		key: 'visual',
@@ -150,7 +150,7 @@ const METRICS: Metric[] = [
 		key: 'stage h',
 		label: 'stage h',
 		value: (g) => (g.stageH == null ? '—' : `${g.stageH}`),
-		what: 'The cinema stage ([data-cinema-stage]) height — the box the slide must fit inside on a landscape phone. — when there’s no cinema stage (desktop / portrait).',
+		what: 'The cinema stage ([data-cinema-stage]) height — the box the slide must fit inside on a landscape phone. Shows “—” when there’s no cinema stage (desktop / portrait).',
 		rel: (g) => {
 			const fit = frameFit(g);
 			return fit ? `the preview frame leaves ${fit.slack}px of slack inside it.` : null;
@@ -197,7 +197,11 @@ function Overlay() {
 			return Math.round(v);
 		};
 		const read = () => {
-			const f = document.querySelector('iframe')?.getBoundingClientRect();
+			// `iframe.live` — the shell's own class for the shared engine preview
+			// (StudioShell reads it the same way). A bare `iframe` selector would grab the
+			// FIRST iframe in the document (e.g. a print-panel `pod-frame`), making the
+			// fit verdict judge the wrong box.
+			const f = document.querySelector('iframe.live')?.getBoundingClientRect();
 			const stage = document.querySelector('[data-cinema-stage]')?.getBoundingClientRect();
 			setGeom({
 				innerW: window.innerWidth,
@@ -278,20 +282,26 @@ function Overlay() {
 	);
 }
 
-// A verdict chip — one computed answer. `tone` maps to the shared pass/fail tokens (same as
-// the viz overlay) so it reads on-brand in both themes.
+// A verdict chip — one computed answer. The status tones (pass/fail/warn) are FILLED solid
+// pills with white text, NOT the outlined-token style the viz overlay uses for a lone icon:
+// the panel is portaled to <body>, where the slide-theme --pass/--warn/--fail tokens don't
+// resolve, so an outlined chip would fall back to a dark hue that goes muddy on the dark
+// popover (verified). A self-sufficient fill reads on any panel background in BOTH modes —
+// the fallbacks are chosen for ≥4.5:1 against white text, and the `var(--token, …)` form
+// still lets a resolved token win if one is ever supplied here. `muted` stays outlined (its
+// --border / --muted-foreground tokens DO resolve on the chrome).
 function Chip({ label, value, tone }: { label: string; value: string; tone: 'pass' | 'fail' | 'warn' | 'muted' }) {
-	const cls =
+	const filled =
 		tone === 'pass'
-			? 'border-[color:var(--pass,#3c6a40)] text-[color:var(--pass,#3c6a40)]'
+			? 'border-transparent bg-[var(--pass,#1f7a3d)] text-white'
 			: tone === 'fail'
-				? 'border-[color:var(--fail,#9e2222)] text-[color:var(--fail,#9e2222)]'
+				? 'border-transparent bg-[var(--fail,#b3261e)] text-white'
 				: tone === 'warn'
-					? 'border-[color:var(--warn,#8f6000)] text-[color:var(--warn,#8f6000)]'
+					? 'border-transparent bg-[var(--warn,#8a6100)] text-white'
 					: 'border-border text-muted-foreground';
 	return (
-		<span className={`inline-flex items-baseline gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${cls}`}>
-			<span className="opacity-70">{label}</span>
+		<span className={`inline-flex items-baseline gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${filled}`}>
+			<span className={tone === 'muted' ? 'opacity-70' : 'opacity-80'}>{label}</span>
 			<span className="font-semibold tabular-nums">{value}</span>
 		</span>
 	);
@@ -315,12 +325,12 @@ function Row({ metric, geom, expanded, pinned, onToggle, onHover }: { metric: Me
 			>
 				<span aria-hidden className={`shrink-0 self-center text-[8px] text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
 				<span className="w-[52px] shrink-0 text-muted-foreground">{metric.label}</span>
-				<span className={`flex-1 tabular-nums ${warn && !expanded ? 'text-[color:var(--fail,#9e2222)]' : 'text-popover-foreground'}`}>{metric.value(geom)}</span>
+				<span className={`flex-1 tabular-nums ${warn && !expanded ? 'text-[color:var(--fail,#c0392b)]' : 'text-popover-foreground'}`}>{metric.value(geom)}</span>
 			</button>
 			{expanded && (
 				<div className="pb-1.5 pl-[68px] pr-1 text-[10.5px] leading-[1.4]">
 					<p className="m-0 text-muted-foreground">{metric.what}</p>
-					{rel && <p className={`m-0 mt-1 ${warn ? 'font-semibold text-[color:var(--fail,#9e2222)]' : 'text-popover-foreground'}`}>{rel}</p>}
+					{rel && <p className={`m-0 mt-1 ${warn ? 'font-semibold text-[color:var(--fail,#c0392b)]' : 'text-popover-foreground'}`}>{rel}</p>}
 					{pinned && <span className="sr-only">(pinned — tap again to close)</span>}
 				</div>
 			)}
