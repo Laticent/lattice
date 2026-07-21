@@ -605,8 +605,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// we cannot wait on it (on-device: frame scaled but stuck hidden forever,
 					// rev:NO — the blank). Poll on a rAF-ish cadence: each tick re-fits + reveals
 					// the moment BOTH the host has width AND the slide has painted, with no
-					// dependence on the load event or a host-resize firing. Stops on reveal or
-					// when the ~10s window elapses. There is deliberately NO force-reveal of a
+					// dependence on the load event or a host-resize firing. Stops once the load-work
+					// has cleared pendingLoad or the ~30s budget elapses. There is deliberately NO force-reveal of a
 					// still-not-good frame: the SKELETON model prefers the loader staying up over
 					// flashing an unscaled/broken slide (DeckPreview keys its loader-fade on this
 					// reveal), and the persistent host ResizeObserver keeps re-fitting after the
@@ -623,7 +623,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// whether or not `onload` ever comes.
 					const revealPoll = setInterval(() => {
 						revealTicks++;
-						if (disposed || !host.isConnected || revealFr.style.opacity !== '0' || revealTicks > 100) {
+						// Stop once the load-work has cleared `__latticePendingLoad` (its once-guarded run
+						// both reveals the frame AND re-enables the patch/restyle fast paths) — or the host
+						// is gone, or the ~30s budget is spent. Keying the stop on pendingLoad (NOT "looks
+						// revealed", `opacity !== '0'`) is load-bearing: the persistent ResizeObserver can
+						// reveal the frame via its OWN scaleFrame before this poll fires onFrameLoad, and
+						// stopping on opacity there would strand `pendingLoad = true` → the fast paths stay
+						// disabled and every edit falls to a full realm-churning re-write. The budget is
+						// generous (~30s): a first paint this slow is pathological, but until pendingLoad
+						// clears we KEEP polling so even a slow paint re-enables the fast paths. A frame that
+						// truly never paints simply stays on the safe write path (we never patch an unpainted doc).
+						if (disposed || !host.isConnected || (host as LiveHost).__latticePendingLoad === false || revealTicks > 300) {
 							clearInterval(revealPoll);
 							ownedIntervals.delete(revealPoll);
 							return;

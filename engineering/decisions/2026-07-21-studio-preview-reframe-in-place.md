@@ -5,8 +5,10 @@ summary: A 6-lens expert panel (UI/UX, visual design, frontend-systems architect
 
 # Studio live preview — can the competing interests co-exist? (holistic assessment + reframe-in-place)
 
-**Date:** 2026-07-21 · **Status:** PROPOSED (design; not yet implemented) · **Method:** 6-lens
-expert panel over a shared brief (`scratchpad/preview-architecture-brief.md`), reconciled here.
+**Date:** 2026-07-21 · **Status:** IN PROGRESS — design accepted and IMPLEMENTED as the *decoupled*
+variant (direction D), not the shared-node reframe originally recommended; see the implementation note
+at the end. iOS zero-drift remains UNVERIFIED on-device (#23). · **Method:** 6-lens expert panel over a
+shared brief (`scratchpad/preview-architecture-brief.md`), reconciled here.
 
 ## The question
 
@@ -185,6 +187,17 @@ confirmation of zero drift is still required (#23).
   by its own test. It was already latent-dead (its sole caller, `ssg-first-slide.mjs`, was itself dead
   before removal), so deleting it (module + `critical-css.test.mjs`) is a separate cleanup, off the
   path of this reframe — tracked here rather than pulled into this PR (#8/#17).
+- **Subsequent full writes on iOS have no reveal-poll backup (pre-existing).** The reveal poll that
+  clears `__latticePendingLoad` when iOS drops the srcdoc `onload` is created ONCE, in the iframe's
+  `if (!fr)` create branch — so it only guards the FIRST write. A later full write (a slide change, a
+  structural edit the patch path can't absorb) re-arms `pendingLoad` but relies solely on `onload` to
+  clear it; if iOS drops that `onload`, `pendingLoad` sticks true and edits fall to the slow
+  realm-churning write path until a patch-eligible render. Correctness is fine (the frame still reveals
+  via the content gate); it's an intermittent iOS *perf* degradation. The robust fix is a persistent
+  paint-watcher (or re-arming the poll per full write) that clears `pendingLoad` off the `frameHasPainted`
+  gate regardless of `onload` — a shared-kernel change worth its own PR + maker-checker, not folded into
+  this reframe. UNVERIFIED here (needs on-device iOS, #23). This review's fix hardened only the
+  first-write poll (stop on pendingLoad-cleared, ~30s budget), which is what changed in this PR.
 - **Nacre loader CSS inlines into every docs page (~1.5KB).** `nacre-loader.css` is imported by
   `DeckPreview`, so Vite folds it into a shared chunk (`resolve-captions`, in `single-slide-render`'s
   graph) that every DeckPreview host — including landing's `HeroPreview` — pulls, and Astro's
