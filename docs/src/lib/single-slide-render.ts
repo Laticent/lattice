@@ -41,11 +41,15 @@ const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
 
 // ── Drag-time observer gating (2026-07-02 resizable-panes decision §8) ──────
 // Every live host gets a ResizeObserver that re-runs scaleFrame on any host
-// resize — during a split-divider drag that's one rescale per host per frame.
-// The Studio suspends the callbacks for the drag's duration and resumes with
-// ONE authoritative re-fit per live host (the single-slide analog of the
-// Playground's __latticeFitSuspend/__latticeFitResume pair). Module-level so
-// one gate covers every renderer instance on the page.
+// resize. The single-slide preview scales via one cheap outer CSS transform, so
+// the Studio lets it (and the shared host's positioning) track the divider LIVE
+// through a drag — suspending it froze the `position:fixed` host at its pre-drag
+// geometry and bled the slide over the neighbor pane (2026-07-19 post-ship fix).
+// So `suspendScaleObservers(true)` is no longer called on drag; the Studio calls
+// only `suspendScaleObservers(false)` at drag-END, which is now purely the
+// authoritative "refit every live host once + prune unmounted hosts" pass (the
+// `on=true` suspend branch is retired but kept inert for any future re-fit gate).
+// Module-level so one gate covers every renderer instance on the page.
 let scaleSuspended = false;
 const scaleTargets = new Map<HTMLElement, () => void>();
 export function suspendScaleObservers(on: boolean): void {

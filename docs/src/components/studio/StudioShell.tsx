@@ -207,8 +207,19 @@ const ARCH_DEFAULT = 232; // Assistant default (matches the old fixed column)
 const SET_MIN = 260; // Settings min width (the inspector fields stay usable)
 const SET_DEFAULT = 296; // Settings default (matches the old inspector column)
 const PANEL_MAX = 420; // drag ceiling for a docked panel
-const LIB_MIN = 200; // Library min when it holds the assistant slot
+const LIB_MIN = 240; // Library min — fits its header floor (title + a usable search field + the icon-only Import button); tabs scroll below this
 const LIB_DEFAULT = 380; // Library docked default — wider than the coach; asset cards need room
+// Editor/preview pane MINIMUMS — the width at which the pane's HEADER toolbar stops
+// clipping, so "drag to the minimum" never cuts an icon off (it collapses to the rail
+// instead). Measured on the real surface (a width sweep reading header.scrollWidth vs
+// clientWidth): the editor toolbar floors at ~284px (Insert · Fix all · History ·
+// Markdown/Compose · collapse, labels already container-query-hidden), the preview at
+// ~260px (the always-labeled LensPicker + Slide N/M pill). 300 clears both with margin
+// for the editor's conditional Refine/issue controls. Kept ≤ so the 1100px both-panels
+// desktop config still fits (bar-fold + side-panel mins; verified). Below this the panes
+// collapse to the 46px rail.
+const EDITOR_MIN = 300;
+const PREVIEW_MIN = 300;
 
 // Theme constants + the grouped picker live in ThemePicker.tsx (every shipped
 // theme, incl. the AA color-blind-safe set). BUILTIN_PALETTES = anything we can
@@ -1450,10 +1461,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const splitUsable = !mobile && view === 'compose';
 	// react-resizable-panels split state via the shared hook (2026-07-19 migration).
 	// Same surface the hand-rolled useSplit had ({ collapsed, dragging, expand,
-	// collapse, reset }) so the ~20 downstream call sites are unchanged. The FIT
-	// choreography differs from the Playground's: the Studio suspends its per-host
-	// scaleFrame ResizeObservers during a drag (onDragStart) and resumes — running
-	// one authoritative re-fit — at release (onDragEnd).
+	// collapse, reset }) so the ~20 downstream call sites are unchanged. The single-
+	// slide preview scales via a cheap outer CSS transform (scaleFrame) and the shared
+	// host tracks its slot LIVE, so both follow the divider THROUGH the drag — matching
+	// the Playground's in-flow iframe. It deliberately does NOT suspend scaleFrame for
+	// the drag's duration: the old suspend froze the fixed host at its pre-drag geometry
+	// so the slide overhung the shrinking neighbor pane (the "bleed"). One transform
+	// write on one host per frame is negligible; onDragEnd runs one authoritative refit
+	// as a belt-and-suspenders snap.
 	// The persistence bucket — which panels the group currently renders, so each
 	// configuration (Coach open, Library open wider, Settings docked, bare Write,
 	// tablet Inspector) keeps its own remembered widths. Library is 'L' vs the
@@ -1469,7 +1484,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		defaultRatio: 46,
 		configKey: splitConfigKey,
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
-		onDragStart: () => suspendScaleObservers(true),
+		// No onDragStart suspend — scaleFrame tracks the pane live (see above). One
+		// authoritative refit of every live host on release covers any host that was
+		// disconnected mid-drag.
 		onDragEnd: () => suspendScaleObservers(false),
 	});
 	// Stable handle for callbacks defined above/below without dep churn (the
@@ -2539,20 +2556,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
 				{inspectorScope === 'deck' ? (
 					<>
-						<div className="flex items-center gap-2">
-							<SlidersHorizontal className="size-4 text-[var(--accent)]" />
-							<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
-							<span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
+						<div className="flex min-w-0 items-center gap-2">
+							<SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
+							<span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
+							<span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
 							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
 					</>
 				) : (
 					<>
-						<div className="flex items-center gap-2">
-							<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
-							<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
-							<span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
+						<div className="flex min-w-0 items-center gap-2">
+							<FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />
+							<span className="min-w-0 flex-1 truncate text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1}</span>
+							<span className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
 							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
@@ -2660,7 +2677,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		<section
 			id="studio-pane-preview"
 			inert={!mobile && split.collapsed === 'b' && effectiveStop !== 'read' ? true : undefined}
-			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity group-data-[split-collapsed=b]/split:hidden group-data-[split-dragging]/split:select-none"
+			// [container-type:inline-size]: make the pane a size container so its header
+			// controls collapse on PANE width (mirrors the editor pane) — the shared
+			// preview host is a hoisted position:fixed sibling, NOT a descendant, so this
+			// containment can't establish a containing block for it (Crux A holds).
+			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-collapsed=b]/split:hidden group-data-[split-dragging]/split:select-none"
 		>
 			{/* At the Read stop the preview is the whole surface — strip its editorial
 			    chrome (header, lens, slide counter, the Collapse trap, the op rail, the
@@ -2668,17 +2689,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    live deck + the "Edit this slide" overlay remain. */}
 			{!previewChromeless && (
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-				Preview
-				{/* View — the reader lens (shared LensPicker, also used in Present). It
-				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { revealBuildDock(); setLensesOpen(true); notify('Reader views live in the Lenses panel — add one there.'); }} />
+				<span className="hidden shrink-0 @[24rem]:inline">Preview</span>
+				{/* View — the reader lens (shared LensPicker, also used in Present). It filters
+				    the PREVIEW; the source stays whole. `dense` collapses its label to an icon
+				    when the PANE is narrow (the pane is a size container above), so a tight
+				    preview keeps a usable header instead of overflowing. */}
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} dense onAddView={() => { revealBuildDock(); setLensesOpen(true); notify('Reader views live in the Lenses panel — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
 				<span className="flex-1" />
-				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
-				<span className="rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]">Slide {slideNo} / {viewSlides.length}</span>
-				<button type="button" onClick={() => goToSlide(slideNo)} className="rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
+				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
+				<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]">Slide {slideNo} / {viewSlides.length}</span>
+				<button type="button" onClick={() => goToSlide(slideNo)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
 				{splitUsable && (
 					<Tip label="Collapse preview — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse preview" onClick={() => collapseFromHeader('b')}><PanelRightClose className="size-4" /></Button></Tip>
 				)}
@@ -2756,9 +2779,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 			{!previewChromeless && (
 			<div className="flex items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
-				<span className="inline-flex items-center gap-1 text-[var(--chart-3,#2e6f00)]">● Live</span>
+				<span className="inline-flex shrink-0 items-center gap-1 text-[var(--chart-3,#2e6f00)]">● Live</span>
 				<span className="truncate">{palette} · {mode}</span>
-				<span className="flex-1" /><span className="hidden sm:inline">{ratioText(previewRatio)} · {viewSlides.length} slide{viewSlides.length === 1 ? '' : 's'}</span>
+				{/* Ratio + count hide on a NARROW PANE (container query, not the sm: viewport —
+				    a wide iPad viewport with a dragged-narrow pane would otherwise keep showing
+				    it and crowd the row). */}
+				<span className="flex-1" /><span className="hidden shrink-0 @[20rem]:inline">{ratioText(previewRatio)} · {viewSlides.length} slide{viewSlides.length === 1 ? '' : 's'}</span>
 			</div>
 			)}
 		</section>
@@ -2843,14 +2869,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const deckSwitcher = (
 		<DropdownMenu open={deckMenuOpen} onOpenChange={setDeckMenuOpen}>
 			<DropdownMenuTrigger asChild>
-				{/* No width cap on phones — the deck title is the user's orientation, so
-				    it absorbs the bar's free width (siblings are shrink-0; this pill is
-				    the one shrinkable item, truncating only when the title outgrows the
-				    actual free space instead of a fixed 150px). */}
-				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
+				{/* No fixed width cap at ANY width — the deck title is the user's orientation,
+				    so the pill sizes to its content and lets the flex-1 spacer to its right
+				    absorb the bar's free space. It's the one shrinkable item (min-w-0 + a
+				    truncating title; every sibling is shrink-0), so it shows the title in FULL
+				    whenever there's room and truncates only when the bar genuinely fills —
+				    never clipped to an arbitrary 180/260px. */}
+				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:px-2.5">
 					<span className="size-2 shrink-0 rounded-full bg-primary" />
 					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
-					<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
+					{/* Slide-count meta shows only when the bar has room (≥xl); on a tight
+					    desktop/tablet the deck title takes priority. */}
+					<span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground xl:inline">{metaFor(source)}</span>
 					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
 				</button>
 			</DropdownMenuTrigger>
@@ -2932,10 +2962,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					</>
 				) : deckSwitcher}
 				<div className="flex-1" />
-				<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex" aria-label="Search or run a command">
-					<Search className="size-4" />Search or run…
-					<Kbd className="ml-2">⌘K</Kbd>
-				</button>
+				<Tip label="Search or run a command (⌘K)">
+					<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
+						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
+						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
+					</button>
+				</Tip>
 				{/* Present + Share are deliverable verbs — they stay reachable at EVERY stop,
 				    never hidden behind a posture (2026-07-17-studio-persona-dial.md, T5 graft). */}
 				<Tip label="Present"><Button variant="outline" size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
@@ -2976,10 +3008,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* ⌘K pill — desktop only (≥1100). On compact the "Search / commands" row
 				    inside ⋯ is the search affordance; the ⌘K shortcut stays always-bound. */}
 				{!compact && (
-					<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex" aria-label="Search or run a command">
-						<Search className="size-4" />Search or run…
-						<Kbd className="ml-2">⌘K</Kbd>
-					</button>
+					<Tip label="Search or run a command (⌘K)">
+						<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
+							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
+							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
+						</button>
+					</Tip>
 				)}
 
 				{/* Appearance — desktop groups theme + light/dark into one bordered segment,
@@ -3291,7 +3325,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* Editor pane — collapsible to its rail (46px). Hidden at the Read stop so
 						    the preview fills the surface (the pane stays MOUNTED → no remount on the
 						    Read→Write step). */}
-						<ResizablePanel id="studio-editor" data-pane-role="editor" minSize={240} defaultSize="46" collapsible={split.ready} collapsedSize={46} panelRef={split.editorRef} onResize={split.onEditorResize} className="overflow-hidden">
+						<ResizablePanel id="studio-editor" data-pane-role="editor" minSize={EDITOR_MIN} defaultSize="46" collapsible={split.ready} collapsedSize={46} panelRef={split.editorRef} onResize={split.onEditorResize} className="overflow-hidden">
 							{editorPane}
 							{splitRailA}
 						</ResizablePanel>
@@ -3299,7 +3333,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* Preview pane — collapsible to its rail (46px); fills the surface at Read
 						    (the editor Panel's OUTER div is hidden by id in studio.astro's is:global
 						    block; a Tailwind class lands on the inner div and can't shrink the outer). */}
-						<ResizablePanel id="studio-preview" data-pane-role="preview" minSize={280} defaultSize="54" collapsible={split.ready} collapsedSize={46} panelRef={split.previewRef} onResize={split.onPreviewResize} className="overflow-hidden">
+						<ResizablePanel id="studio-preview" data-pane-role="preview" minSize={PREVIEW_MIN} defaultSize="54" collapsible={split.ready} collapsedSize={46} panelRef={split.previewRef} onResize={split.onPreviewResize} className="overflow-hidden">
 							{previewPane}
 							{splitRailB}
 						</ResizablePanel>

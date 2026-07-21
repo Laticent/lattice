@@ -78,7 +78,10 @@ export type SlideContextBodyProps = {
 function Row({ label, hint, desc, children }: { label: string; hint?: string; desc?: string; children: React.ReactNode }) {
 	return (
 		<div className="my-1.5">
-			<div className="flex items-center justify-between gap-2.5">
+			{/* flex-wrap: on a narrow pane the control (a segmented Seg, a dropdown) drops
+			    below the label instead of overflowing the row — so the inspector stays usable
+			    when the Settings panel is dragged narrow. */}
+			<div className="flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1.5">
 				<span className="text-[12.5px] text-foreground">{label}{hint && <span className="ml-1.5 text-[11px] text-muted-foreground">{hint}</span>}</span>
 				{children}
 			</div>

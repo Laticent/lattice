@@ -87,6 +87,97 @@ Three v4-specific traps, each fixed and worth recording:
    `panelRef.collapse()`. Note `resize()` takes a bare number as **pixels**; sizes
    are percentages, so a `"n%"` string.
 
+## Post-ship fixes — drag bleed + header-clip minimums
+
+Two defects surfaced on a real iPad after ship (both Studio-only; the Playground's
+in-flow iframe never had either). Fixed together, verified on the real docs surface.
+
+1. **The preview "bled" over the editor during a drag.** The Studio preview is the
+   ONE shared `position:fixed` host (§Architecture) overlaying a slot in the preview
+   pane. During a divider drag the host repositioning was *frozen* (the
+   `useSharedPreviewSlot` `suspended` gate) AND the outer CSS-transform scale
+   (`scaleFrame`) was frozen (`suspendScaleObservers(true)` on `onDragStart`) — a
+   deliberate "hold, then snap once on release" borrowed from the Playground's
+   `__latticeFitSuspend`. But the Playground preview is an *in-flow* iframe that
+   resizes with its pane; the Studio's `position:fixed` host does not. So mid-drag the
+   frozen host stayed at its pre-drag geometry while the slot shrank underneath it, and
+   the slide overhung the neighbor pane for the whole gesture (measured: the host
+   left/width lagged the slot by 216px mid-drag). A brief flash under a fast mouse; a
+   glaring, sustained overlap under a slow iPad touch-drag. **Fix:** track live. The
+   single-slide preview has *no in-iframe FIT agent* to protect — `scaleFrame` is one
+   cheap transform write on one host — so freezing it during the drag bought nothing and
+   caused the bleed. Removed the freeze in `useSharedPreviewSlot` (the slot's
+   ResizeObserver now repositions the host every frame of the drag) and dropped
+   `onDragStart: suspendScaleObservers(true)` (scaleFrame's own ResizeObserver now
+   rescales live as the host resizes). `onDragEnd` keeps one authoritative refit as a
+   belt-and-suspenders snap. *Verified: mid-drag host rect === slot rect (0px gap).*
+
+2. **A pane dragged to its minimum clipped its header icons.** The editor/preview
+   `minSize` (240 / 280) were below the pane HEADER toolbar's intrinsic floor. Measured
+   on the real surface (a width sweep reading `header.scrollWidth` vs `clientWidth`):
+   editor floors at ~284px, preview ~260px. So "drag to the minimum" cut icons off
+   instead of collapsing cleanly to the rail. **Fix:** raise both to 300px (`EDITOR_MIN`
+   / `PREVIEW_MIN`), the measured floor with margin for the editor's conditional
+   Refine/issue controls. Chosen ≤ the both-panels budget: the 1100px desktop config
+   (bar + Settings 260 + Assistant 200 + editor 300 + preview 300, with the
+   narrow-desktop bar-fold) still shows 0 doc/group overflow — verified at 1100 AND
+   1180. *Verified: editor at its 300px min → header `overflow` 0.*
+
+3. **Every side panel now adapts to its own width — not the viewport's.** After the
+   editor/preview fix, the docked side panels still clipped on a narrow *pane* over a
+   wide iPad viewport, because none was a `[container-type:inline-size]` size container
+   and their controls collapsed only on `sm:` (a VIEWPORT breakpoint that never fires on
+   a wide screen). Root cause: the editor's container-query adaptation was never extended
+   to the panels. Fix — mirror the editor on each:
+   - **Preview** — the pane is now a size container; the shared `LensPicker` gained an
+     opt-in `dense` flag that collapses its label to a discoverable icon+chevron on a
+     narrow pane (Present, a reader takeover with room, stays labeled — its default); the
+     "Preview" title and the footer's ratio/count hide via `@[…]` container queries. The
+     `position:fixed` preview host is a hoisted sibling, NOT a descendant, so the pane's
+     size containment can't establish a containing block for it (Crux A holds — verified:
+     no dev-assert warning, no bleed regression).
+   - **Library** — a size container; the Import button goes icon-only (`@[20rem]`) and the
+     filter-tab segment scrolls horizontally inside a `min-w-0` track instead of clipping;
+     the count hides when narrow. `LIB_MIN` 200 → 240 so the header (title + a usable
+     search + the icon Import) always fits.
+   - **Settings (Slide/Deck)** — the scope-echo title truncates on one line (`flex-1
+     truncate`, badge `shrink-0`) instead of wrapping, and the slide title drops the
+     redundant "only" (the OVERRIDE badge + warn-tint already say it). The inspector's
+     `Row` gained `flex-wrap` so a segmented control (Canvas, Type scale) drops below its
+     label rather than overflowing.
+   - **Coach/Chat/Lenses** — already fine (single-word headers; the scorecard reserves
+     its badge space with `pr-16`), so unchanged.
+   - **Top toolbar** — this bar spans the VIEWPORT (not a pane), so it uses viewport
+     breakpoints, not container queries: the "Search or run… ⌘K" box collapses to an icon
+     button below `xl` (the ⌘K shortcut + a tooltip keep it discoverable), and the deck
+     switcher **flexes** — no fixed width cap at any width; it sizes to its content (the
+     `flex-1` spacer to its right absorbs the surplus) and, as the one `min-w-0` shrinkable
+     item, shows the title in full when there's room and truncates only when the bar fills
+     (its slide-count meta hides below `xl`). Verified 0 header/doc overflow at 1180 (icon
+     search, full title, no meta), 1440 (full box + title + meta), and with a pathologically
+     long injected title (pill grows then truncates, no overflow).
+   Verified on the real surface at each panel's min: Preview header 0 overflow at 300 (no
+   Crux-A warning, no bleed), Library header 0 overflow with the icon Import at 200–260,
+   Settings one-line header + the Canvas segment fully visible at 260. Shared-component
+   text split (the `LensPicker`/pill) was avoided where the nightly e2e matches "Slide N /
+   N", so those specs stay green.
+
+This resolves the desktop "collapse to rail vs clip" edge; the %-vs-px persistence
+drift and the Library 298-vs-380 default remain open. **One new logged follow-up —
+the tablet header floor.** The tablet editor header is taller-content than desktop's:
+it carries a compact-only Slide-settings launcher (there's no activity bar below
+desktop), so its measured floor is **~324px**, not desktop's 284. So on tablet the
+editor header can still clip when narrow — in the 2-panel case only if dragged near
+the min, and more readily in Build with the docked Inspector ALSO open (editor 300 +
+preview 300 + inspector 260 = 860 > an iPad-portrait 768–834, so react-resizable-
+panels clamps the panes below their mins to avoid a document scroll — verified 0
+doc/group overflow at 768/834/1024). This is **milder than before**, not a regression:
+the old 240 min sat ~84px under the 324 floor and clipped there whenever narrow; 300
+is 24px under, so it clips less. Fully clearing tablet via `minSize` alone fights the
+3-panel width budget; the real fix is to trim the tablet header (fold the extra
+launcher into the ⋯ overflow) or make the tablet Inspector a sheet below some width —
+out of scope for this desktop-reported bug.
+
 **Accepted tradeoff — first-paint ratio jump.** The old hand-rolled split seeded a
 returning resizer's saved ratio into a CSS var *before* hydration (no first-paint
 jump). react-resizable-panels owns the panel's inline flex, so a CSS-var seed

@@ -816,7 +816,29 @@ in patch versions.
   exact iOS Safari keyboard + URL-bar geometry is reasoned, not fully device-tested from the sandbox
   (no editable element can summon a keyboard; the visual-viewport fit resolves an overflow seen on a
   real iPhone and awaits on-device reconfirmation).
-
+- **The Studio's editor|preview split no longer bleeds the slide over the code while you drag it, and
+  a pane dragged to its minimum keeps its toolbar icons.** Two fixes to the shadcn splitter migration
+  (above). (1) **No more bleed.** The Studio preview is one shared `position:fixed` iframe overlaying
+  the pane; during a divider drag it was frozen at its pre-drag position while the pane shrank
+  underneath it, so the slide overhung the neighboring editor for the whole gesture (a brief flash
+  under a fast mouse, glaringly visible on a slow iPad touch-drag). It now tracks the pane **live**
+  through the drag — the same way the Playground's in-flow preview always has. (2) **No more clipped
+  icons.** The editor/preview pane minimums were below what their header toolbars actually need
+  (measured ~284 / ~260px), so dragging to the minimum cut icons off; the minimums are now 300px, the
+  measured floor with margin — the tight 1100px both-panels desktop layout still fits. (3) **Every side
+  panel now adapts to its own width, like the editor.** The docked panels weren't width-aware — their
+  controls only collapsed on the *viewport* breakpoint, so on a wide iPad a dragged-narrow panel kept
+  clipping. Each is now a size container: the **Preview** header's reader-view dropdown shrinks to an
+  icon and its "Preview"/ratio labels drop out when the pane is narrow; the **Library** header's Import
+  button goes icon-only and its filter tabs (All / Themes / Components / Finishes / Docs) scroll instead
+  of clipping; the **Slide/Deck settings** header truncates on one line (and drops the redundant word
+  "only") and its fields wrap the control below the label when tight; the Library's minimum widened so
+  its header always fits. The **top toolbar** is responsive too: on a tight desktop/tablet width the
+  search box collapses to an icon button (the ⌘K palette is one tap or the shortcut) and the deck
+  switcher flexes — it shows the deck title in FULL whenever the bar has room and truncates only when
+  the bar genuinely fills (no arbitrary width cap), dropping its slide-count meta when tight — so the
+  bar never crowds and the title is never clipped needlessly; the search box expands again on a wide screen. (`docs/src/components/studio/{StudioShell.tsx,Library.tsx,lens-picker.tsx,SlideContext.tsx,use-shared-preview-slot.ts}`;
+  `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
 - **Fabricate's component generator got a hardening pass (Undo, an effort-regression guard, and a few
   honesty fixes).** Four guards from the adversarial review of the generation increments. (1) **Undo before
   overwrite** — generate/refine/effort replace the whole component, so one prompt could silently eat a

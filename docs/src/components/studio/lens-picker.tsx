@@ -34,13 +34,20 @@ export function lensEntriesFrom(defs: LensDef[]): LensEntry[] {
  * `onAddView`, when a deck has no reader views yet, turns the otherwise-inert "Full deck" label into a
  * discoverable entry point to the Lenses panel (the editor passes it; Present, a reader takeover, omits it).
  */
-export function LensPicker({ value, onChange, count, total, align = 'start', className, menuClassName, onAddView, lenses = LENSES }: {
+export function LensPicker({ value, onChange, count, total, align = 'start', className, menuClassName, onAddView, lenses = LENSES, dense = false }: {
 	value: PresentLens;
 	onChange: (l: PresentLens) => void;
 	count?: number;
 	total?: number;
 	align?: 'start' | 'center' | 'end';
 	className?: string;
+	/** Opt-in: collapse the label to its icon on a NARROW CONTAINER (a `@[…]` container
+	 *  query — the parent must be a `[container-type:inline-size]` size container). The
+	 *  editor's preview-pane header passes this so the picker shrinks to a discoverable
+	 *  icon+chevron when the pane is dragged narrow, instead of forcing the whole header
+	 *  wider. Present (a reader takeover with room) omits it → labeled at every width, per
+	 *  the component's default intent. */
+	dense?: boolean;
 	/** Extra classes for the portaled menu — e.g. a z-index above a full-screen overlay. The menu
 	 *  portals to `<body>`, so inside Present (a `z-[100]` takeover) the default `z-50` would render it
 	 *  BEHIND the overlay (invisible + unclickable); Present passes a higher z here. */
@@ -60,16 +67,16 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 			return (
 				<button type="button" onClick={onAddView} aria-label="New reader view" title="No reader views yet — add one in the Lenses panel" className={cn('group inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', className)}>
 					<span className="shrink-0">{active.icon}</span>
-					<span className="truncate">{active.label}</span>
-					<span className="shrink-0 text-muted-foreground group-hover:text-[var(--accent)]">·</span>
-					<span className="inline-flex shrink-0 items-center gap-0.5 text-[var(--accent)]"><Plus className="size-3.5" />Reader view</span>
+					<span className={cn('truncate', dense && 'hidden @[21rem]:inline')}>{active.label}</span>
+					<span className={cn('shrink-0 text-muted-foreground group-hover:text-[var(--accent)]', dense && 'hidden @[27rem]:inline')}>·</span>
+					<span className={cn('inline-flex shrink-0 items-center gap-0.5 text-[var(--accent)]', dense && 'hidden @[27rem]:inline-flex')}><Plus className="size-3.5" />Reader view</span>
 				</button>
 			);
 		}
 		return (
 			<span className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-muted-foreground', className)}>
 				<span className="shrink-0">{active.icon}</span>
-				<span className="truncate">{active.label}</span>
+				<span className={cn('truncate', dense && 'hidden @[21rem]:inline')}>{active.label}</span>
 			</span>
 		);
 	}
@@ -78,8 +85,8 @@ export function LensPicker({ value, onChange, count, total, align = 'start', cla
 			<DropdownMenuTrigger asChild>
 				<button type="button" aria-label="Reader view" className={cn('inline-flex min-w-0 shrink items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 font-sans text-[12.5px] font-semibold normal-case tracking-normal text-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]', className)}>
 					<span className="shrink-0">{active.icon}</span>
-					<span className="truncate">{active.label}</span>
-					{value !== 'full' && count != null && total != null && <span className="shrink-0 text-muted-foreground">· {count}/{total}</span>}
+					<span className={cn('truncate', dense && 'hidden @[21rem]:inline')}>{active.label}</span>
+					{value !== 'full' && count != null && total != null && <span className={cn('shrink-0 text-muted-foreground', dense && 'hidden @[24rem]:inline')}>· {count}/{total}</span>}
 					<ChevronDown className="size-3.5 shrink-0" />
 				</button>
 			</DropdownMenuTrigger>
