@@ -46,7 +46,11 @@ const GRAPH_PATH = path.join(DIST, 'chunk-graph.json');
 const ENTRIES = [
 	{
 		page: 'studio/index.html',
-		sourceSuffix: 'src/components/studio/StudioShell.tsx',
+		// The astro-island's component-url points at the StrictMode wrapper
+		// (StudioIsland), so THAT is the facade chunk Astro loads and the entry
+		// whose static closure we preload; it statically imports StudioShell, so
+		// the shell + its deps are still fully covered.
+		sourceSuffix: 'src/components/studio/StudioIsland.tsx',
 		// Editor.tsx's loadLintCore() dynamically imports this for CodeMirror's
 		// linter() extension, which fires automatically on/shortly after mount
 		// whenever build-time lintVocab resolves — true in every production
@@ -56,7 +60,9 @@ const ENTRIES = [
 		eagerDynamicImportSuffixes: ['src/playground/authoring-core.generated.js'],
 	},
 	{ page: 'workbench/index.html', sourceSuffix: 'src/components/workbench/WorkbenchApp.tsx' },
-	{ page: 'playground/index.html', sourceSuffix: 'src/components/playground/PlaygroundApp.tsx' },
+	// PlaygroundIsland is the StrictMode wrapper the astro-island loads; it
+	// statically imports PlaygroundApp, so the app + its deps stay covered.
+	{ page: 'playground/index.html', sourceSuffix: 'src/components/playground/PlaygroundIsland.tsx' },
 ];
 
 const MARKER = '<!-- lattice:modulepreload -->';

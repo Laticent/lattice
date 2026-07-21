@@ -252,9 +252,14 @@ describe('processEntry', () => {
 		const studioEntry = ENTRIES.find((e) => e.page === 'studio/index.html');
 		expect(studioEntry.eagerDynamicImportSuffixes).toEqual(['src/playground/authoring-core.generated.js']);
 		writeDist(studioEntry.page, '<html><head></head><body></body></html>');
-		writeDist('_astro/StudioShell.js', '// entry facade');
+		writeDist('_astro/StudioIsland.js', '// entry facade (StrictMode wrapper)');
+		writeDist('_astro/StudioShell.js', '// shell, statically imported by the wrapper');
 		writeDist('_astro/lint-kernel.js', '// lint kernel');
+		// The astro-island entry is now the StrictMode wrapper (StudioIsland),
+		// which statically imports StudioShell; the eager lint-kernel is reached
+		// via StudioShell's dynamic import, still inside the entry's static closure.
 		const graph = {
+			'_astro/StudioIsland.js': chunk({ facadeModuleId: '/repo/src/components/studio/StudioIsland.tsx', imports: ['_astro/StudioShell.js'] }),
 			'_astro/StudioShell.js': chunk({ facadeModuleId: '/repo/src/components/studio/StudioShell.tsx', dynamicImports: ['_astro/lint-kernel.js'] }),
 			'_astro/lint-kernel.js': chunk({ facadeModuleId: '/repo/src/playground/authoring-core.generated.js' }),
 		};
