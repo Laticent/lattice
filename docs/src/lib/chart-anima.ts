@@ -109,8 +109,11 @@ function namespaceInternalRefs(svg: SVGSVGElement): void {
     rename.set(old, nu);
     el.setAttribute('id', nu);
   }
-  // Longest ids first, so `#foo` can't rewrite inside `#foobar`; the `(?![\w-])` boundary also
-  // guards it (an id fragment ends at `)` or `"`, never an id-continuation char).
+  // The leading `#` stops a match INSIDE a longer id (`#foo` won't hit `#barfoo`); the trailing
+  // `(?![\w-])` stops it at the END (`#foo` won't hit `#foobar` — a fragment ends at `)`/`"`, never
+  // an id char). Longest-first is redundant belt-and-suspenders. Coverage is ATTRIBUTE VALUES ONLY
+  // (`style` + presentation attrs like `fill`/`clip-path`) — the only ref form the chart renderers
+  // emit; SMIL `begin="id.evt"` / `<style>`-text refs are out of scope (and STRIP_TAGS-removed downstream).
   const olds = Array.from(rename.keys()).sort((a, b) => b.length - a.length);
   for (const el of [svg, ...Array.from(svg.querySelectorAll('*'))]) {
     for (const name of el.getAttributeNames()) {
@@ -138,6 +141,12 @@ function namespaceInternalRefs(svg: SVGSVGElement): void {
 export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): ChartAnimaResult | null {
   const svg = parseSvg(markup);
   if (!svg) return null;
+
+  // Bound total work BEFORE the namespacing pass + the per-node loops. chartToScene can be handed
+  // sanitized shared / AI-generated markup in the Studio (#22 threat model), so a pathological svg
+  // with tens of thousands of nodes must be rejected before the O(nodes × ids) reference rewrite —
+  // the mark cap below fires too late to protect it. Any real chart is < ~200 nodes; 3000 is slack.
+  if (svg.querySelectorAll('*').length > 3000) return null;
 
   // Self-contain the copy's paint-server references BEFORE minting mark ids, so a gradient-filled
   // chart resolves its `url(#…)` fills against its OWN defs, not the identical (hidden) poster's.

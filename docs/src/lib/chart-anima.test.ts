@@ -151,6 +151,14 @@ describe('chartToScene', () => {
     expect(chartToScene(many)).toBeNull();
   });
 
+  it('rejects a pathological node count BEFORE the namespacing rewrite (untrusted-svg DoS guard)', () => {
+    // The O(nodes × ids) reference rewrite must not run on tens of thousands of nodes (sanitized
+    // shared / AI markup in the Studio). A svg past the node cap is rejected up front — no marks,
+    // no ids to trip the quadratic pass.
+    const huge = '<svg viewBox="0 0 9 9">' + '<g></g>'.repeat(3100) + '</svg>';
+    expect(chartToScene(huge)).toBeNull();
+  });
+
   it('coerces a bad buildSpan / duration option to a valid scene', () => {
     const out = chartToScene(FUNNEL, { buildSpan: Number.NaN, duration: -5 });
     expect(out).not.toBeNull();
