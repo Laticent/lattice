@@ -76,17 +76,97 @@ describe('chartToScene', () => {
     expect(bar1?.motion?.some((m) => m.verb === 'highlight')).toBe(false);
   });
 
-  it('does not collide a minted id with a pre-existing SVG id (e.g. a gradient def)', () => {
-    // A chart like the pie carries <defs> gradient ids; if one happens to equal a minted base, the
-    // mark must get a DIFFERENT id so it resolves to the mark, not the (document-first) def.
+  it('namespaces renderer-emitted defs ids + their url() references (gradient-filled charts)', () => {
+    // A pie/quadrant/radar wedge fills via `url(#pie-wedge-N)` → a `<radialGradient>` def. The scene
+    // mounts a COPY beside the hidden poster (same document, same ids), so an un-namespaced copy would
+    // resolve `url(#pie-wedge-1)` to the display:none poster's def and paint NOTHING. The ingest must
+    // give the copy's defs + refs a unique prefix so the animated svg is self-contained.
+    const pie =
+      '<svg viewBox="0 0 100 100"><defs>' +
+      '<radialGradient id="pie-wedge-1"><stop offset="0" style="stop-color:red"/></radialGradient>' +
+      '<radialGradient id="pie-wedge-2"><stop offset="0" style="stop-color:blue"/></radialGradient>' +
+      '</defs>' +
+      '<path class="wedge" data-mark="0" data-anima-role="sector" style="fill:url(#pie-wedge-1)" d="M50 50 L90 50 A40 40 0 0 1 50 90 Z"/>' +
+      '<path class="wedge" data-mark="1" data-anima-role="sector" style="fill:url(#pie-wedge-2)" d="M50 50 L50 10 A40 40 0 0 1 90 50 Z"/></svg>';
+    const out = chartToScene(pie);
+    expect(out).not.toBeNull();
+    const asset = out?.asset ?? '';
+    // The bare renderer ids are gone; every def id carries the unique prefix, and no `url(#pie-wedge-N)`
+    // reference is left pointing at the un-prefixed (poster-colliding) id.
+    expect(asset).not.toMatch(/id="pie-wedge-1"/);
+    expect(asset).not.toMatch(/url\(#pie-wedge-1\)/);
+    expect(asset).toMatch(/<radialGradient id="ca[0-9a-z]+-pie-wedge-1"/);
+    // The fill still resolves — the wedge's url() points at the SAME namespaced def id that now exists.
+    const gradId = (asset.match(/<radialGradient id="(ca[0-9a-z]+-pie-wedge-1)"/) || [])[1];
+    expect(gradId).toBeTruthy();
+    expect(asset).toContain(`fill:url(#${gradId})`);
+    // `#pie-wedge-1` must not be a prefix-collision victim of `#pie-wedge-1` vs a longer id.
+    expect(asset).toContain('-pie-wedge-2"');
+  });
+
+  it('namespaces an id containing `$` without corruption (replacement-string $-substitution guard)', () => {
+    // JS String.replace expands `$'`/`$&`/`$$`/`$n` in a STRING replacement. A namespaced id derived
+    // from an id containing `$'` (= "text after the match") would corrupt the ref into a dangling
+    // pointer (the original bug) unless a FUNCTION replacement is used.
+    const svg =
+      '<svg viewBox="0 0 10 10"><defs><radialGradient id="g$\'x"><stop offset="0" style="stop-color:red"/></radialGradient></defs>' +
+      '<path class="wedge" data-mark="0" data-anima-role="sector" style="fill:url(#g$\'x)" d="M0 0 L5 0 L5 5 Z"/></svg>';
+    const out = chartToScene(svg);
+    expect(out).not.toBeNull();
+    const asset = out?.asset ?? '';
+    // The def id and the wedge's url() must point at the SAME namespaced id — no `$`-expansion artifacts.
+    const gradId = (asset.match(/<radialGradient id="(ca[0-9a-z]+-g\$'x)"/) || [])[1];
+    expect(gradId).toBeTruthy(); // the id survived intact through the rename
+    expect(asset).toContain(`fill:url(#${gradId})`); // the ref resolves to it (not a corrupted fragment)
+  });
+
+  it('rewrites href / xlink:href fragment references, not just url() fills', () => {
+    // The rewrite scans ALL attributes, so a fragment `href`/`xlink:href` (e.g. a <use> or a
+    // gradient's template ref) is namespaced consistently with its target def.
+    const svg =
+      '<svg viewBox="0 0 10 10"><defs><linearGradient id="base"><stop offset="0" style="stop-color:red"/></linearGradient>' +
+      '<radialGradient id="grad" href="#base"/></defs>' +
+      '<path class="wedge" data-mark="0" data-anima-role="sector" style="fill:url(#grad)" d="M0 0 L5 0 L5 5 Z"/></svg>';
+    const out = chartToScene(svg);
+    const asset = out?.asset ?? '';
+    const baseId = (asset.match(/<linearGradient id="(ca[0-9a-z]+-base)"/) || [])[1];
+    expect(baseId).toBeTruthy();
+    expect(asset).toContain(`href="#${baseId}"`); // the href tracks the renamed target
+    expect(asset).not.toMatch(/href="#base"/); // no dangling reference to the bare id
+  });
+
+  it('reveals sector marks SYNCHRONIZED (whole disc), bars STAGGERED (sequential build)', () => {
+    // A pie's wedges must fade in together so the disc is never a slice short mid-build (trio: Munger).
+    const pie =
+      '<svg viewBox="0 0 10 10">' +
+      '<path class="wedge" data-mark="0" data-anima-role="sector" d="M0 0 L5 0 Z"/>' +
+      '<path class="wedge" data-mark="1" data-anima-role="sector" d="M0 0 L0 5 Z"/></svg>';
+    const pieOut = chartToScene(pie);
+    const ats = (pieOut?.scene.elements ?? []).map((e) => (e.motion?.[0] as { at?: number })?.at ?? -1);
+    expect(ats).toEqual([0, 0]); // both wedges start together — no staggered hole
+    // Bars still stagger (the funnel build is the story) — regression guard on the funnel path.
+    const bars =
+      '<svg viewBox="0 0 10 10">' +
+      '<polygon class="funnel-band" data-mark="0" points="0,0 1,0 1,1"/>' +
+      '<polygon class="funnel-band" data-mark="1" points="0,0 1,0 1,1"/></svg>';
+    const barsOut = chartToScene(bars);
+    const barAts = (barsOut?.scene.elements ?? []).map((e) => (e.motion?.[0] as { at?: number })?.at ?? -1);
+    expect(barAts[1]).toBeGreaterThan(barAts[0]); // staggered
+  });
+
+  it('a pre-existing def id never collides with a minted mark id (both resolve distinctly)', () => {
+    // A chart's <defs> gradient could share a base with a minted mark id. Namespacing the def FIRST
+    // (`ca…-bar-0`) frees the base, so the mark cleanly mints `bar-0` — two DISTINCT ids in the asset,
+    // and the wedge/mark resolves to itself, never the def.
     const withDefs =
       '<svg viewBox="0 0 100 100"><defs><radialGradient id="bar-0"/></defs>' +
       '<polygon class="funnel-band" data-mark="0" points="0,0 10,0 5,10"/></svg>';
     const out = chartToScene(withDefs);
     const bar = out?.roles.find((r) => r.role === 'bar');
-    expect(bar?.id).not.toBe('bar-0'); // dodged the pre-existing def id
-    expect(out?.asset).toContain(`id="${bar?.id}"`); // the mark carries its unique id
-    expect(out?.asset).toContain('id="bar-0"'); // the def id is untouched
+    expect(bar?.id).toBe('bar-0'); // the base is free — the def was namespaced away
+    expect(out?.asset).toContain('id="bar-0"'); // the mark carries it
+    expect(out?.asset).toMatch(/<radialGradient id="ca[0-9a-z]+-bar-0"/); // the def is namespaced, distinct
+    expect(out?.asset).not.toMatch(/<radialGradient id="bar-0"/); // NOT the bare id (would collide)
   });
 
   it('falls back to a token when highlightColor is not palette-blind (#3)', () => {
@@ -119,6 +199,34 @@ describe('chartToScene', () => {
   it('returns null on a chart past the element bound (adapter-side DoS guard)', () => {
     const many = '<svg viewBox="0 0 9 9">' + '<polygon class="funnel-band" data-mark="0" points="0,0 1,0 1,1"/>'.repeat(2001) + '</svg>';
     expect(chartToScene(many)).toBeNull();
+  });
+
+  it('rejects a pathological NODE count before the namespacing rewrite — even with a valid mark', () => {
+    // The node guard must fire on an svg that WOULD otherwise produce a scene: > 3000 id-less nodes
+    // (so the id cap does NOT catch it first) + one real mark (< the 2000 mark cap, so that isn't it
+    // either). Remove the node guard and this returns a scene, not null.
+    const filler = '<g></g>'.repeat(3100); // 3100 nodes, ZERO ids → only the NODE guard applies
+    const huge = `<svg viewBox="0 0 9 9">${filler}<polygon class="funnel-band" data-mark="0" points="0,0 1,0 1,1"/></svg>`;
+    expect(huge.length).toBeLessThan(256 * 1024); // under the markup cap; 0 ids → under the id cap
+    expect(chartToScene(huge)).toBeNull();
+  });
+
+  it('rejects an svg with too many [id] nodes (bounds the O(ids × attr-length) rewrite product)', () => {
+    // The hostile shape red-team F1 / the Copilot review flagged: many small `<defs id>` (few total
+    // nodes, small markup) + one ref-dense attribute. An explicit id cap rejects it up front.
+    const defs = Array.from({ length: 520 }, (_, k) => `<radialGradient id="g${k}"/>`).join('');
+    const svg = `<svg viewBox="0 0 9 9"><defs>${defs}</defs><polygon class="funnel-band" data-mark="0" points="0,0 1,0 1,1"/></svg>`;
+    expect(svg.length).toBeLessThan(256 * 1024); // under the markup cap
+    expect(chartToScene(svg)).toBeNull(); // rejected by the id cap (would otherwise namespace 520 ids)
+  });
+
+  it('rejects oversized raw markup before parse (attribute-length DoS the node cap misses)', () => {
+    // A svg with FEW nodes but a multi-hundred-KB attribute (the red-team PoC shape: the rewrite is
+    // O(ids × attr-length)) must be rejected by the MARKUP cap, which the node cap cannot catch.
+    const bigAttr = '0,0 '.repeat(70000); // ~280 KB of points on ONE mark node
+    const svg = `<svg viewBox="0 0 9 9"><polygon class="funnel-band" data-mark="0" points="${bigAttr}"/></svg>`;
+    expect(svg.length).toBeGreaterThan(256 * 1024);
+    expect(chartToScene(svg)).toBeNull(); // remove the markup cap and this returns a (1-mark) scene
   });
 
   it('coerces a bad buildSpan / duration option to a valid scene', () => {

@@ -98,6 +98,10 @@ describe('chart-family', () => {
     const swatches = (pc[0].match(/<rect class="chart-key-swatch"/g) || []).length;
     const labels = (pc[0].match(/<text class="chart-key-label"/g) || []).length;
     assert.equal(wedges, 5, `expected 5 wedges, got ${wedges}`);
+    // Native Anima role on every wedge — the renderer declares `sector` so the chart-anima on-ramp
+    // choreographs by the role, not by class-guessing (2026-07-19 §0.75). Attribute-only, non-painting.
+    const roled = (pc[0].match(/<path class="wedge" data-mark="\d+" data-anima-role="sector"/g) || []).length;
+    assert.equal(roled, 5, `expected 5 sector-roled wedges, got ${roled}`);
     assert.equal(swatches, 5, `expected 5 legend swatches, got ${swatches}`);
     assert.equal(labels, 5, `expected 5 legend labels, got ${labels}`);
   });
