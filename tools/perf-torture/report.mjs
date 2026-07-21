@@ -92,7 +92,7 @@ export function renderMarkdown(report) {
 
 	for (const c of report.cycles) {
 		L.push(`## ${c.name}${c.isControl ? ' _(control — floors calibrated from this)_' : ''}`, '');
-		if (c.realmUnconfirmed) L.push('> ⚠ **Realm-class growth — UNCONFIRMED.** The heap growth here is detached-iframe-realm scaffolding, a known `HeapProfiler` over-count (a real GC reclaims it). Re-measure without a heap client (`performance.measureUserAgentSpecificMemory()` / a real device) before believing it. See `2026-07-20-playground-theme-toggle-not-a-leak.md`.', '');
+		if (c.realmUnconfirmed) L.push('> ⚠ **Realm-class growth — UNCONFIRMED.** The heap growth here includes V8 realm-binding scaffolding. The retained-heap metric is a known blind spot: this **may** be a reclaimable `HeapProfiler` over-count (detached contexts a real GC frees) **or** a genuinely pinned realm leak — the two are indistinguishable from a heap dump. Re-measure without a heap client (`performance.measureUserAgentSpecificMemory()` / a real device) to decide, before dismissing **or** believing it. See `2026-07-20-playground-theme-toggle-not-a-leak.md`.', '');
 		L.push('| metric | first → last | Δ | sen/cyc | floor | z | trend |', '|---|---|---|---|---|---|---|');
 		for (const m of c.metrics) {
 			const trend = m.trend === 'RISING' ? '**RISING**' : m.trend;

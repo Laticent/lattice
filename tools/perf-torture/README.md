@@ -73,18 +73,25 @@ targets big (≥200 KB) retained *strings*; supply `retainerTarget(name, self)` 
 node type) to name a listener/closure/object leak instead.
 
 ### Limits (inherent — know them)
-- **Retained heap OVER-COUNTS detached iframe realms — realm-class "leaks" need a no-CDP re-measure.**
-  The verdict trends `JSHeapUsedSize` after `HeapProfiler.collectGarbage`, a V8 GC that does **not** force
-  Blink's detached-context disposal. So a detached iframe *realm* (its `NativeContext` +
-  `FunctionTemplateInfo`/`AccessorInfo` scaffold) stays counted across the CDP GC even though a **real**
-  idle GC reclaims it. When `--snapshot`/`--retainers` shows V8 realm scaffolding growing, the tool prints
-  a **`⚠ REALM-CLASS GROWTH … UNCONFIRMED`** banner (and sets `realmUnconfirmed` in `report.json`). Confirm
-  before believing it, without a heap client:
+- **Retained heap can't tell a reclaimable detached realm from a pinned one — realm-class growth needs a
+  no-CDP re-measure.** The verdict trends `JSHeapUsedSize` after `HeapProfiler.collectGarbage`, a V8 GC
+  that does **not** force Blink's detached-context disposal. So a detached iframe *realm* stays counted
+  across the CDP GC — which **may** mean a reclaimable over-count (a real idle GC frees it) **or** a
+  genuinely pinned realm leak (a JS ref holds it forever); the two are **indistinguishable** from a heap
+  dump. When `--snapshot` shows realm-binding scaffolding growing (`FunctionTemplateInfo` /
+  `ObjectTemplateInfo` / `NativeContext` / `ScriptContext` — classes ordinary JS can't mint; the loud but
+  ambiguous `AccessorPair`/closure-`Context`/`PropertyCell` growers are deliberately **not** triggers, so a
+  real closure/accessor leak is never mislabeled "realm"), the tool prints a **`⚠ REALM-CLASS GROWTH`**
+  banner and sets `realmUnconfirmed` in `report.json`. Decide it — don't dismiss OR believe it — without a
+  heap client:
   ```js
   // COOP:same-origin + COEP:credentialless on the server so crossOriginIsolated → the API is exposed.
-  const bytes = () => performance.measureUserAgentSpecificMemory().then(m => m.bytes); // own GC, no CDP
+  const bytes = () => performance.measureUserAgentSpecificMemory().then(m => m.bytes); // own GC, no CDP; await it
   // baseline → drive the action N× → measure → idle ~30s → measure. Recovers on idle ⇒ reclaimable, not a leak.
   ```
+  ⚠ Enabling COEP can BLOCK cross-origin subresources (fonts/images without CORP) — verify the page still
+  loads fully under isolation, or you're measuring a broken page. `measureUserAgentSpecificMemory()` is
+  async and UA-timed (may be throttled) — always `await`; "own GC" ≠ an instant synchronous collection.
   This is a real trap we hit: the Playground light/dark toggle read 361 KB/lap via `HeapProfiler` retained
   heap; the no-CDP measure showed ~16 KB/toggle, reclaimed on idle — **not** a leak
   (`engineering/decisions/2026-07-20-playground-theme-toggle-not-a-leak.md`).

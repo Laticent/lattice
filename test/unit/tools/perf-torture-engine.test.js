@@ -35,20 +35,26 @@ test('perf-torture engine exports the measurement seam + autonomous-driving prim
 	}
 });
 
-// The realm-class over-count guard (2026-07-20-playground-theme-toggle-not-a-leak.md): a snapshot diff
-// whose growers are V8 realm scaffolding must be flagged UNCONFIRMED (HeapProfiler over-counts detached
-// realms a real GC reclaims), but an ordinary JS-object leak must NOT be flagged.
-test('perf-torture: realmClassGrowth flags realm scaffolding but not ordinary object growth', async () => {
+// The realm-class growth guard (2026-07-20-playground-theme-toggle-not-a-leak.md). Keys below are the
+// REAL `type:name` strings a Playground-toggle snapshot emits (captured, not invented). The trigger MUST
+// anchor on JS-unmintable realm-binding classes (FunctionTemplateInfo/ObjectTemplateInfo/NativeContext/
+// ScriptContext) and MUST NOT fire on the loud-but-ambiguous classes realm churn also produces yet
+// ordinary leaks produce too — else a real closure/accessor/object leak gets mislabeled "realm, reclaimed"
+// and dismissed (the dangerous false-negative the adversarial trio flagged).
+test('perf-torture: realmClassGrowth anchors on realm-binding classes, never dismisses ordinary leaks', async () => {
 	const { realmClassGrowth } = await import('../../../tools/perf-torture/engine.mjs');
 	assert.equal(realmClassGrowth(null), null, 'no snapDiff → null');
 	assert.equal(realmClassGrowth({ top: [] }), null, 'empty diff → null');
-	// A real detached-realm diff (the Playground shape) → flagged.
-	const realm = realmClassGrowth({ top: [{ k: 'hidden:system / NativeContext', dCount: 30, dSelf: 37000 }, { k: 'code:system / FunctionTemplateInfo', dCount: 1260, dSelf: 81000 }] });
-	assert.ok(Array.isArray(realm) && realm.length >= 1, 'realm scaffolding growth is flagged');
-	assert.match(realm[0], /NativeContext/, 'names the realm constructor');
-	// An ordinary JS-object leak (a growing Map/array) → NOT flagged (that IS real retained heap).
-	assert.equal(realmClassGrowth({ top: [{ k: 'object:Object', dCount: 5000, dSelf: 900000 }, { k: 'object:Array', dCount: 400, dSelf: 300000 }] }), null, 'ordinary object growth is not a realm over-count');
-	// A realm constructor below the count threshold (noise) → not flagged.
+	// Real realm churn (FunctionTemplateInfo / NativeContext grow) → flagged.
+	const realm = realmClassGrowth({ top: [{ k: 'hidden:system / FunctionTemplateInfo', dCount: 959, dSelf: 61000 }, { k: 'hidden:system / NativeContext', dCount: 30, dSelf: 37000 }] });
+	assert.ok(Array.isArray(realm) && realm.length >= 1, 'realm-binding growth is flagged');
+	assert.match(realm.join(' '), /FunctionTemplateInfo|NativeContext/, 'names the realm-binding class');
+	// MUST NOT fire on the ambiguous classes alone — these grow for ORDINARY JS too:
+	assert.equal(realmClassGrowth({ top: [{ k: 'object:system / Context', dCount: 932, dSelf: 18000 }] }), null, 'closure Context (accumulating closures) is NOT dismissed as realm');
+	assert.equal(realmClassGrowth({ top: [{ k: 'hidden:system / AccessorPair', dCount: 9722, dSelf: 117000 }] }), null, 'AccessorPair (any getter/setter) is NOT dismissed as realm');
+	assert.equal(realmClassGrowth({ top: [{ k: 'object shape:system / PrototypeInfo', dCount: 1592, dSelf: 45000 }] }), null, 'PrototypeInfo (any prototype) is NOT dismissed as realm');
+	assert.equal(realmClassGrowth({ top: [{ k: 'object:Object', dCount: 5000, dSelf: 900000 }, { k: 'closure:next', dCount: 299, dSelf: 8000 }] }), null, 'a real object/closure leak is NOT dismissed as realm');
+	// A realm anchor below the count threshold (noise) → not flagged.
 	assert.equal(realmClassGrowth({ top: [{ k: 'hidden:system / NativeContext', dCount: 2, dSelf: 3000 }] }), null, 'sub-threshold realm noise is not flagged');
 });
 
