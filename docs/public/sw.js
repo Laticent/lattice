@@ -12,7 +12,13 @@
  *     Query-stringed navigations are served but never cached: Cache Storage
  *     ignores Cache-Control, and the OpenRouter OAuth callback (?code=…) — or
  *     any future secret-bearing URL — must not be persisted to disk.
- *   • Same-origin assets      stale-while-revalidate (CSS/JS/images/JSON/fonts).
+ *   • Content-hashed assets  cache-first — IMMUTABLE (the hash IS the version; a byte
+ *     change ships under a NEW path). Two families: our /playground/v/<hash>/ bundle
+ *     (engine, runtime, theme CSS, KaTeX, Mermaid) AND Astro's own /_astro/ build chunks
+ *     (the docs pages' JS/CSS). No revalidation — this is the bulk of the cache, and
+ *     re-fetching it on every reload was pure waste (the reload storm #storage surfaced).
+ *   • Other same-origin assets  stale-while-revalidate (a page's inline image, the
+ *     manifest, favicon — things that CAN change at a stable url).
  *     Heavy downloadables (.pdf/.pptx/.zip) are never cached — they'd blow the
  *     storage quota for artifacts the browser download manager already handles.
  *     That skip applies to BOTH branches: /gallery.pdf opens as a top-level
@@ -20,8 +26,12 @@
  *   • Google Fonts            stylesheet SWR; .woff2 cache-first (immutable).
  *   • Any other cross-origin  untouched (OpenRouter API calls, GitHub, …).
  *
- * VERSION only needs a bump when the caching STRATEGY changes (old caches are
- * dropped on activate); content freshness never depends on it.
+ * VERSION only needs a bump when a caching-STRATEGY change could make an EXISTING
+ * cached entry WRONG to serve (old caches are dropped on activate); content freshness
+ * never depends on it. Switching versioned assets from SWR to cache-first (2026-07-21)
+ * is bump-EXEMPT: it only changes HOW already-valid IMMUTABLE entries are served — none
+ * becomes wrong — and a bump would force a needless one-time full re-download of the
+ * whole cache (the very storm this reduces).
  */
 
 const VERSION = 'v1';
@@ -38,7 +48,17 @@ const OFFLINE_URL = '/offline/';
 // Never runtime-cache these: large, download-manager territory.
 const SKIP_EXTENSIONS = /\.(pdf|pptx|zip)$/i;
 // Per-cache entry caps — a coarse FIFO trim keeps storage bounded.
-const CAP = { [PAGES]: 60, [ASSETS]: 300, [FONTS]: 40 };
+// ASSETS holds BOTH immutable families served cache-first (a single deploy is ~280 /_astro/
+// chunks + ~213 /playground/v/ files ≈ 500) plus mutable SWR assets. Since cache-first no
+// longer re-`put`s an asset on a hit, the FIFO trim lost the incidental "re-put moves it
+// young" LRU protection SWR gave — so the cap must clear one deploy's whole immutable
+// inventory with headroom, or a heavy single-session working set could FIFO-evict an
+// in-use core chunk and break it OFFLINE. 800 clears ~500 + transitional cross-deploy
+// overlap; the browser's own storage-pressure eviction is the real backstop. (Old-deploy
+// /_astro/ orphans are NOT version-evicted — see the dispatch comment — but a new deploy's
+// HTML references new hashes, so orphans are never re-requested → stay oldest-inserted →
+// FIFO ages them out before current entries.)
+const CAP = { [PAGES]: 60, [ASSETS]: 800, [FONTS]: 40 };
 // Content-hashed asset path: `/…/playground/v/<hash>/<suffix>`. The engine
 // bundle, runtime, every theme CSS, fonts, KaTeX and Mermaid all live here
 // (asset-version.mjs). Capture <suffix> so a fresh-hash copy can evict every
@@ -92,9 +112,11 @@ async function put(cacheName, request, response) {
 	//
 	// LAST-WRITER-WINS across tabs: the "current" hash is whichever a put() saw most
 	// recently, not a globally-pinned deploy. Two tabs straddling a deploy can evict
-	// each other's same-suffix copies (SWR re-puts on the next request, so no break —
-	// just a little cross-deploy churn). Acceptable: a tab's in-use assets are already
-	// loaded, and a page only ever references ONE hash dir (asset-version.mjs).
+	// each other's same-suffix copies. These families are now CACHE-FIRST (no re-put on a
+	// hit), so an evicted copy is not silently re-cached the way SWR did — but the straddling
+	// tab's assets are already loaded + parsed, so the only concrete break is an OFFLINE
+	// reload of that tab (online, its evicted hash is a miss → re-fetched). Narrow and
+	// acceptable: a page only ever references ONE hash dir (asset-version.mjs).
 	const cur = new URL(request.url).pathname.match(VERSIONED);
 	if (cur) {
 		for (const key of await cache.keys()) {
@@ -179,6 +201,31 @@ self.addEventListener('fetch', (event) => {
 
 	if (url.origin === self.location.origin) {
 		if (SKIP_EXTENSIONS.test(url.pathname)) return;
+		// Content-hashed assets are IMMUTABLE: the hash IS the version, so a byte change ships
+		// under a NEW path (→ a cache miss → fetched fresh). Two families qualify — OUR
+		// playground bundle under /playground/v/<hash>/ (engine, runtime, themes, KaTeX,
+		// Mermaid), and Astro's OWN build chunks under /_astro/ (Astro emits ONLY content-
+		// hashed, immutable assets there — its long-cache dir; the docs pages' JS/CSS). For
+		// both, stale-while-revalidate would re-fetch + re-`put` every one on EVERY reload for
+		// nothing — the revalidation storm the storage overlay surfaced on a warm (100+ entry)
+		// cache. Serve them cache-first, like the immutable gstatic .woff2: read the saved copy,
+		// no network.
+		//
+		// EVICTION differs per family. A /playground/v/ put runs `put`'s version-eviction
+		// (reaps older-hash siblings by suffix) on the cache MISS a new deploy produces — once
+		// per new asset. `/_astro/` names do NOT match VERSIONED, so they get NO suffix-eviction
+		// and are bounded ONLY by the ASSETS FIFO cap; that's fine because a new deploy's HTML
+		// references new-hash /_astro/ URLs, so old-deploy orphans are never re-requested → stay
+		// oldest-inserted → FIFO ages them out before current entries. The 800 cap (above) is
+		// sized so this can't evict an in-use current chunk within one deploy.
+		//
+		// `/_astro/` is trusted as all-immutable — an unenforced Astro invariant (it emits only
+		// content-hashed assets there). If a future Astro/integration drops a STABLE-named file
+		// under /_astro/, cache-first would pin it until eviction; revisit this match then.
+		if (VERSIONED.test(url.pathname) || url.pathname.startsWith('/_astro/')) {
+			event.respondWith(cacheFirst(event, ASSETS));
+			return;
+		}
 		event.respondWith(staleWhileRevalidate(event, ASSETS));
 		return;
 	}

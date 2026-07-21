@@ -34,11 +34,17 @@ const MIME: Record<string, string> = {
 	'.wasm': 'application/wasm',
 };
 
-/** Minimal static server over the built site — just enough for the worker to install. */
-function serveDist(): Promise<{ server: Server; origin: string }> {
+/** Minimal static server over the built site — just enough for the worker to install.
+ *  `hits` records every request path so a test can PROVE a strategy (cache-first serves
+ *  with zero server hits; SWR fires a background revalidation that DOES hit). Responses
+ *  are `no-store` so the browser's own HTTP cache can't mask a real network fetch —
+ *  Cache Storage ignores Cache-Control, so the service worker still caches + serves. */
+function serveDist(): Promise<{ server: Server; origin: string; hits: string[] }> {
+	const hits: string[] = [];
 	const server = createServer(async (req, res) => {
 		try {
 			const pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
+			hits.push(pathname);
 			const rel = normalize(pathname).replace(/^([/\\.])+/, '');
 			let file = join(DIST, rel);
 			if (pathname.endsWith('/')) file = join(file, 'index.html');
@@ -49,7 +55,7 @@ function serveDist(): Promise<{ server: Server; origin: string }> {
 				body = await readFile(join(DIST, rel, 'index.html')); // extensionless route
 				file = 'index.html';
 			}
-			res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
+			res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream', 'cache-control': 'no-store' });
 			res.end(body);
 		} catch {
 			res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
@@ -62,7 +68,7 @@ function serveDist(): Promise<{ server: Server; origin: string }> {
 		server.listen(0, '127.0.0.1', () => {
 			const address = server.address();
 			if (typeof address === 'string' || address === null) return reject(new Error('no port assigned'));
-			resolve({ server, origin: `http://127.0.0.1:${address.port}` });
+			resolve({ server, origin: `http://127.0.0.1:${address.port}`, hits });
 		});
 	});
 }
@@ -129,6 +135,69 @@ test('service worker activates and serves navigation offline', async ({ page }) 
 		// Unvisited page → the branded offline fallback.
 		await page.goto(`${origin}/never-visited-while-online/`);
 		await expect(page.getByRole('heading', { name: "You're offline" })).toBeVisible();
+	} finally {
+		server.closeAllConnections();
+		server.close();
+	}
+});
+
+// Content-hashed assets — OUR /playground/v/<hash>/ bundle AND Astro's /_astro/ build
+// chunks — are immutable, so the worker serves them CACHE-FIRST (2026-07-21): a
+// warm-cache reload must not re-fetch them (the reload-revalidation storm the storage
+// overlay surfaced). This proves such an asset serves with ZERO server hits, and — as a
+// control that the counter works — that a NON-hashed same-origin asset (SWR) DOES fire a
+// revalidation hit.
+test('content-hashed assets are served cache-first; non-hashed stay stale-while-revalidate', async ({ page }) => {
+	const { server, origin, hits } = await serveDist();
+	try {
+		await page.goto(`${origin}/`);
+		await page.evaluate(() => navigator.serviceWorker.ready);
+		await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+		// A controlled reload populates the ASSETS cache (deferred via waitUntil).
+		await page.reload();
+
+		// Poll until BOTH immutable families are cached, capturing ONE path from each —
+		// /playground/v/<hash>/ AND Astro's /_astro/ — so the added `_astro` branch (the one
+		// with no version-eviction) is asserted deterministically, not left to insertion order.
+		// The homepage reliably loads both (hero live-preview engine + its React island chunks).
+		let paths: { versioned: string | null; astro: string | null } = { versioned: null, astro: null };
+		await expect
+			.poll(
+				async () => {
+					paths = await page.evaluate(async () => {
+						const assetsName = (await caches.keys()).find((k) => k.includes('assets'));
+						if (!assetsName) return { versioned: null, astro: null };
+						const cache = await caches.open(assetsName);
+						const ps = (await cache.keys()).map((r) => new URL(r.url).pathname);
+						return {
+							versioned: ps.find((p) => /\/playground\/v\/[0-9a-f]{8,}\//.test(p)) ?? null,
+							astro: ps.find((p) => p.startsWith('/_astro/')) ?? null,
+						};
+					});
+					return Boolean(paths.versioned && paths.astro);
+				},
+				{ timeout: 15000 },
+			)
+			.toBe(true);
+
+		// CACHE-FIRST: fetching a cached immutable asset serves it from the cache with NO
+		// network touch, so the server sees no new hit — asserted for one asset of EACH family.
+		// Wait for the reload to settle first so a still-in-flight populate fetch can't be
+		// mistaken for a revalidation.
+		await page.waitForLoadState('networkidle');
+		for (const p of [paths.versioned as string, paths.astro as string]) {
+			const before = hits.filter((h) => h === p).length;
+			await page.evaluate((u) => fetch(u).then((r) => r.text()), p);
+			await page.waitForTimeout(600); // give any (wrongly) fired revalidation time to land
+			expect(hits.filter((h) => h === p).length, `${p} should serve cache-first (no server hit)`).toBe(before);
+		}
+
+		// CONTROL — SWR: the manifest is same-origin and NOT versioned, so fetching it
+		// fires a background revalidation that DOES reach the server. Proves the zero above
+		// is real cache-first behavior, not a dead counter / HTTP-cache artifact.
+		const mBefore = hits.filter((h) => h === '/site.webmanifest').length;
+		await page.evaluate(() => fetch('/site.webmanifest').then((r) => r.text()));
+		await expect.poll(() => hits.filter((h) => h === '/site.webmanifest').length, { timeout: 5000 }).toBeGreaterThan(mBefore);
 	} finally {
 		server.closeAllConnections();
 		server.close();
