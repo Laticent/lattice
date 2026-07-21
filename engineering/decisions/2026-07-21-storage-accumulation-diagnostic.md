@@ -60,9 +60,14 @@ can read on the surface where it actually bites.
   (deck sources, checkpoints, AI chats, chat drafts, review comments, preview
   snapshots, settings & prefs, other origins) and the single largest entry.
 - **caches · entries** — the SW's `lattice-v1-{pages,assets,fonts}` bucket entry counts.
-- **boot cost · scan** — a **live** timing of a full localStorage enumeration: the same
-  O(n) read the boot path pays, near zero on an empty (or private-browsing) store and
-  climbing with accumulation. This is the degradation, quantified.
+- **boot cost · scan** — a **live** timing of a full localStorage *read* enumeration: the
+  O(n) cost the boot path pays (`hasPriorStudioUse` / `deckContentStats`), near zero on an
+  empty (or private-browsing) store and climbing with accumulation. It is the READ only —
+  the per-deck parse the boot adds on top (`splitSlides` / `JSON.parse` in `loadDeckList`)
+  is the larger cost and is NOT counted here (counting it would need the Studio import this
+  module deliberately avoids), so the row is labeled a floor, not the whole boot. Browsers
+  also coarsen `performance.now()` (up to ~100ms under Firefox private browsing), so the
+  figure is shown as a coarse threshold (whole ms, "<1ms" floor), never a precise stopwatch.
 
 Each row taps open a plain-language explanation (the debug-popup convention). Off by
 default; flipped from **Workspace → General → Diagnostics** or the `?storage` URL param
@@ -88,6 +93,35 @@ default; flipped from **Workspace → General → Diagnostics** or the `?storage
   `?storage`, but no new switch is added to a frozen surface.
 - **Docs-site only.** Nothing about the engine or exported artifact bytes changes.
 
+## Adversarial trio (HARD RULE #25) — applied to the shipped diff
+
+This is a new, human-facing diagnostic whose entire worth is being *trustworthy* about
+storage, so it got the full trio (red team + Munger inversion + independent checker) on the
+shipped code. The inversion caught the sharpest class of bug — a diagnostic that reassures
+you during the slowdown it exists to explain — and its findings were folded back:
+- **SCAN over-claimed (Munger, fixed).** It timed only the localStorage *read* but was
+  labeled "the same O(n) cost as `loadDeckList`," whose per-deck `splitSlides`/`JSON.parse`
+  is the larger, uncounted part. Relabeled honestly as a READ floor (row text, comments,
+  CHANGELOG, this doc).
+- **Quota chip green-by-construction (Munger, fixed).** `storage.estimate()` returns a
+  coarse, padded quota (often GBs; some browsers exclude localStorage from `usage`), so the
+  ratio is ~0% however bloated the profile is. Dropped the rating (neutral dot) and added a
+  caveat, so it can't show a false "good."
+- **SCAN hidden from the glance-view (Munger, fixed).** Added a `scan` chip to the verdict
+  strip — the thesis metric now leads instead of being buried.
+- **Timer precision faked (Munger, fixed).** `performance.now()` is coarsened (≤100ms under
+  Firefox private browsing); `formatMs` now shows whole ms / "<1ms", read as a threshold.
+- **Unthrottled `storage` handler (red team, fixed).** A cross-tab write burst could fire
+  one full synchronous store scan per write; coalesced to ≤1 rescan per animation frame.
+- **Async poll race + hidden-tab churn (checker + red team, fixed).** Added a generation
+  guard so a slow scan can't clobber a fresher one, and gated the 1.5s poll on tab visibility.
+- **Category drift (Munger/checker, fixed).** The matchers are hand-mirrored from
+  studio-store; exported the real prefixes and added a routing test that fails if one drifts.
+- Labels made truthful ("other origins" → "other keys"; the `lattice-` catch-all →
+  "app state & prefs"); `caches` state renamed to avoid shadowing the global; boundary +
+  render tests added. Clean bills: XSS, data-leak (values are never rendered, only key
+  names + sizes), ReDoS, cross-origin cache reads.
+
 ## Logged follow-ups (#18) — the fixes the overlay makes measurable
 
 Not in this change (which is the diagnostic); each wants HARD RULE #19 before/after
@@ -97,3 +131,13 @@ evidence, now capturable via the overlay's SCAN readout:
 - **Trim the O(n) localStorage full-scans** off the hot boot path (`hasPriorStudioUse` /
   `deckContentStats` / `derivePosture`), or memoize them.
 - **Cheaper SW `put()`** — skip the double whole-cache enumeration on every hit.
+
+Residual from the trio (lower priority):
+- **Full new-prefix drift detection.** The routing test catches a *renamed* studio-store
+  prefix; a brand-new content prefix with no exported const still can't fail CI automatically.
+  A canonical exported prefix LIST on studio-store (also usable by `deckContentStats` /
+  `clearAllDecks`, which enumerate the same set inline) would close it — but that refactors a
+  shared file, so it's out of this diagnostic's scope.
+- **`deckContentStats` mislabels code-units as "bytes" (×1).** The overlay reports the
+  byte-honest ×2; the in-app stat under-reports by half. Fix the label/×2 in studio-store
+  (off-path here).

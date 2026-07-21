@@ -20,6 +20,9 @@
 // localStorage stores UTF-16, so a stored string costs ~2 bytes per code unit
 // (key + value). The browser counts its ~5MB origin quota the same way, so this
 // is the honest on-disk figure (still an approximation — implementations vary).
+// NOTE: studio-store's own `deckContentStats` counts code UNITS (×1), so this
+// overlay reports ~2× its figure for the same decks — this one is the byte-honest
+// number; the divergence is intentional, not a bug.
 export const BYTES_PER_UNIT = 2;
 
 /** A rough localStorage ceiling (~5MB origin quota) — the yardstick the footprint
@@ -56,8 +59,14 @@ const CATEGORY_DEFS: CategoryDef[] = [
 	{ key: 'drafts', label: 'chat drafts', match: (k) => k.startsWith('lattice-studio-chatdraft-') },
 	{ key: 'comments', label: 'review comments', match: (k) => k.startsWith('lattice-studio-comments-') },
 	{ key: 'snapshots', label: 'preview snapshots', match: (k) => k === 'lattice-studio-last-slide' || k === 'lattice-docs-pg-last-slide' },
-	{ key: 'settings', label: 'settings & prefs', match: (k) => k.startsWith('lattice-') },
-	{ key: 'other', label: 'other origins', match: () => true },
+	// Catch-all for every OTHER lattice- key (settings, instructions, overlay prefs, the
+	// deck index, the active pointer, backups, …) — deliberately last so the content
+	// prefixes above win. If a NEW content prefix is added to studio-store without a
+	// matcher here, it lands in this bucket silently — the drift the routing test guards.
+	{ key: 'app', label: 'app state & prefs', match: (k) => k.startsWith('lattice-') },
+	// Same-origin keys that aren't ours (analytics, injected scripts). localStorage is
+	// single-origin, so these are NOT "other origins" — just other keys on this origin.
+	{ key: 'other', label: 'other keys', match: () => true },
 ];
 
 export type LocalScan = {
@@ -191,7 +200,13 @@ export function formatBytes(n: number): string {
 	return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Format milliseconds for the SCAN readout: "0.4ms" under 10ms, "12ms" above. */
+/** Format milliseconds for the SCAN readout as a COARSE figure. Browsers clamp
+ *  `performance.now()` (Chrome ~100µs, Firefox 1ms, and up to ~100ms under private
+ *  browsing / resistFingerprinting), so a sub-millisecond decimal would advertise a
+ *  precision the clock doesn't have — it's jitter, not signal. Whole ms, and "<1ms"
+ *  below the resolution floor, keeps the readout honest as a threshold indicator. */
 export function formatMs(ms: number): string {
-	return ms < 10 ? `${ms.toFixed(1)}ms` : `${Math.round(ms)}ms`;
+	if (ms <= 0) return '0ms';
+	if (ms < 1) return '<1ms';
+	return `${Math.round(ms)}ms`;
 }

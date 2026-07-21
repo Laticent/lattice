@@ -3,6 +3,11 @@
 // so those functions are asserted to degrade to null rather than throw.
 
 import { afterEach, describe, expect, it } from 'vitest';
+import { COMMENTS_KEY_PREFIX } from '@/components/studio/slide-comments';
+// Import the REAL key prefixes so the category matchers are drift-tested against
+// their source, not against strings this test independently re-declares.
+import { CHAT_DRAFT_PREFIX, CHAT_PREFIX, SNAP_PREFIX, SRC_PREFIX } from '@/components/studio/studio-store';
+import { PG_SNAPSHOT_KEY, SNAPSHOT_KEY } from './snapshot-cache';
 import { BYTES_PER_UNIT, estimateQuota, formatBytes, formatMs, rate, scanCaches, scanLocalStorage } from './storage-metrics';
 
 afterEach(() => localStorage.clear());
@@ -28,8 +33,8 @@ describe('scanLocalStorage', () => {
 		localStorage.setItem('lattice-studio-chatdraft-deck1', 'd'); // drafts (NOT chats)
 		localStorage.setItem('lattice-studio-comments-deck1', 'c');
 		localStorage.setItem('lattice-studio-last-slide', 's'); // snapshots
-		localStorage.setItem('lattice-studio-settings', '{}'); // settings & prefs
-		localStorage.setItem('unrelated-key', 'other'); // other origins
+		localStorage.setItem('lattice-studio-settings', '{}'); // app state & prefs
+		localStorage.setItem('unrelated-key', 'other'); // other keys
 
 		const s = scanLocalStorage();
 		const byKey = Object.fromEntries(s.categories.map((c) => [c.key, c]));
@@ -39,8 +44,32 @@ describe('scanLocalStorage', () => {
 		expect(byKey.drafts.keys).toBe(1); // chatdraft did NOT fall into chats
 		expect(byKey.comments.keys).toBe(1);
 		expect(byKey.snapshots.keys).toBe(1);
-		expect(byKey.settings.keys).toBe(1);
+		expect(byKey.app.keys).toBe(1);
 		expect(byKey.other.keys).toBe(1);
+	});
+
+	// Drift guard (adversarial-trio, Munger #5): the category matchers are hand-mirrored
+	// from studio-store's key prefixes. Assert each REAL prefix (imported from its source)
+	// still routes to its DEDICATED category — so renaming a prefix in studio-store, or a
+	// matcher falling out of sync, fails here instead of silently dumping that data into
+	// the 'app' catch-all and rotting the breakdown. A brand-new content prefix with no
+	// const of its own still can't be caught automatically (logged follow-up).
+	it('every real studio-store content prefix routes to its dedicated category (no catch-all drift)', () => {
+		const cases: [string, string][] = [
+			[`${SRC_PREFIX}deck1`, 'sources'],
+			[`${SNAP_PREFIX}deck1`, 'checkpoints'],
+			[`${CHAT_PREFIX}deck1`, 'chats'],
+			[`${CHAT_DRAFT_PREFIX}deck1`, 'drafts'],
+			[`${COMMENTS_KEY_PREFIX}deck1`, 'comments'],
+			[SNAPSHOT_KEY, 'snapshots'],
+			[PG_SNAPSHOT_KEY, 'snapshots'],
+		];
+		for (const [key, expected] of cases) {
+			localStorage.clear();
+			localStorage.setItem(key, 'v');
+			const [cat] = scanLocalStorage().categories;
+			expect(cat.key, `${key} should route to '${expected}', not the '${cat.key}' catch-all`).toBe(expected);
+		}
 	});
 
 	it('reports the single largest entry', () => {
@@ -91,8 +120,21 @@ describe('formatBytes / formatMs', () => {
 		expect(formatBytes(2048)).toBe('2.0 KB');
 		expect(formatBytes(2 * 1024 * 1024)).toBe('2.0 MB');
 	});
-	it('formats sub-10ms with a decimal, above as whole ms', () => {
-		expect(formatMs(0.4)).toBe('0.4ms');
+	it('pins the unit boundaries (a < → <= regression must fail here)', () => {
+		expect(formatBytes(0)).toBe('0 B');
+		expect(formatBytes(1023)).toBe('1023 B');
+		expect(formatBytes(1024)).toBe('1.0 KB'); // exactly 1KB crosses into KB
+		expect(formatBytes(10 * 1024)).toBe('10 KB'); // ≥10KB drops the decimal
+		expect(formatBytes(1024 * 1024 - 1)).toBe('1024 KB');
+		expect(formatBytes(1024 * 1024)).toBe('1.0 MB'); // exactly 1MB crosses into MB
+	});
+	it('formats scan time as a COARSE figure — whole ms, <1ms floor, 0ms empty', () => {
+		expect(formatMs(0)).toBe('0ms');
+		expect(formatMs(-0)).toBe('0ms');
+		expect(formatMs(0.4)).toBe('<1ms'); // sub-ms is below the clock's real resolution
+		expect(formatMs(0.999)).toBe('<1ms');
+		expect(formatMs(1)).toBe('1ms');
+		expect(formatMs(5.5)).toBe('6ms');
 		expect(formatMs(12.6)).toBe('13ms');
 	});
 });

@@ -27,6 +27,10 @@ export type SlideComment = {
 };
 
 const PREFIX = 'lattice-studio-comments-'; // + deckId → SlideComment[]
+
+// Alias export so the storage-overlay's category matcher can be drift-tested
+// against the real prefix (storage-metrics.test.ts) without renaming PREFIX here.
+export { PREFIX as COMMENTS_KEY_PREFIX };
 /** Fired (window event) whenever a deck's comments change, so open views refresh. */
 export const COMMENTS_EVENT = 'lattice-studio-comments-changed';
 

@@ -308,9 +308,12 @@ in patch versions.
   browsing — the exact reason an incognito reload is instant while a normal one degrades over a
   session. It shows the origin's storage-quota usage, the Studio's localStorage footprint broken
   down by category (deck sources, checkpoints, AI chats, preview snapshots, comments), the
-  service-worker Cache Storage entry counts, and a **live full-scan timing** — the same O(n)
-  boot-path cost (`hasPriorStudioUse` / `deckContentStats` / `loadDeckList`) that grows as the store
-  fills. Each row taps open a plain-language explanation. Off by default; the shared cross-surface
+  service-worker Cache Storage entry counts, and a **live localStorage read-scan timing** — the
+  O(n) enumeration the boot path pays (`hasPriorStudioUse` / `deckContentStats`); the per-deck parse
+  the boot adds on top (`splitSlides` / `JSON.parse` in `loadDeckList`) costs more and is called out
+  as uncounted, so the number reads as a floor. Each row taps open a plain-language explanation
+  (and the quota row is shown unrated — browsers report it too coarsely to be a health signal). Off
+  by default; the shared cross-surface
   pref is flipped from **Workspace → General → Diagnostics** or the `?storage` URL param, and it
   reuses the shared draggable diagnostic-overlay chassis. Docs-site only; nothing about exports or
   the engine changes. `engineering/decisions/2026-07-21-storage-accumulation-diagnostic.md`.

@@ -14,7 +14,10 @@ import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
 //   3. SETTINGS — the Workspace/Inspector toggles that should survive a reload.
 
 const INDEX_LS = 'lattice-studio-deck-index'; // [{id,title,builtin}]
-const SRC_PREFIX = 'lattice-studio-src-'; // + deckId → edited source
+// Exported so the storage-overlay's category matchers can be drift-tested against
+// the REAL prefix (storage-metrics.test.ts) — a rename here then fails that test
+// instead of silently mis-bucketing the overlay's breakdown.
+export const SRC_PREFIX = 'lattice-studio-src-'; // + deckId → edited source
 const ACTIVE_LS = 'lattice-studio-active'; // { deckId, slideIndex } — the deck+slide last viewed, so a reload boots where you left off
 const SETTINGS_LS = 'lattice-studio-settings'; // { validation, pageNumbers, headerFooter, language }
 const INSTRUCTIONS_LS = 'lattice-studio-instructions'; // CLOUD standing instructions (free text)
@@ -331,7 +334,7 @@ export function clearAllDecks(): void {
 export const DECKS_CLEARED_EVENT = 'lattice:decks-cleared';
 
 // ── Version history (checkpoints) ──────────────────────────────────────────
-const SNAP_PREFIX = 'lattice-studio-snap-'; // + deckId → Checkpoint[]
+export const SNAP_PREFIX = 'lattice-studio-snap-'; // + deckId → Checkpoint[] (exported for the storage-overlay drift test)
 const SNAP_CAP = 25; // keep the most recent N per deck
 
 export type Checkpoint = { id: string; ts: number; label: string; source: string };
@@ -355,7 +358,7 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 }
 
 // ── Architect chat history (per deck) ──────────────────────────────────────
-const CHAT_PREFIX = 'lattice-studio-chat-'; // + deckId → ChatMessage[]
+export const CHAT_PREFIX = 'lattice-studio-chat-'; // + deckId → ChatMessage[] (exported for the storage-overlay drift test)
 const CHAT_CAP = 60;
 
 /** A reviewable, re-appliable proposed edit persisted on an assistant turn. Structural
@@ -391,7 +394,7 @@ export function saveChat(deckId: string, messages: ChatMessage[]): void {
 // keeps what the author was typing. Paired with the persisted history above, the
 // chat's full state survives the panel going away (the activity-bar model closes
 // it entirely; nothing should be lost on the way out).
-const CHAT_DRAFT_PREFIX = 'lattice-studio-chatdraft-'; // + deckId → string
+export const CHAT_DRAFT_PREFIX = 'lattice-studio-chatdraft-'; // + deckId → string (exported for the storage-overlay drift test)
 export function loadChatDraft(deckId: string): string {
 	return read<string>(CHAT_DRAFT_PREFIX + deckId) ?? '';
 }

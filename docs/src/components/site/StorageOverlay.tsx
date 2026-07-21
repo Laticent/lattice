@@ -67,7 +67,9 @@ const colorFor = (r: Rating | null) => (r ? RATING_COLOR[r] : NEUTRAL);
 function Overlay() {
 	const [local, setLocal] = React.useState<LocalScan | null>(null);
 	const [quota, setQuota] = React.useState<QuotaEstimate | null>(null);
-	const [caches, setCaches] = React.useState<CacheScan | null>(null);
+	// `cacheScan`, not `caches` — the global Cache Storage `caches` API lives in this
+	// scope too, and shadowing it invites a future direct-`caches.*` footgun.
+	const [cacheScan, setCacheScan] = React.useState<CacheScan | null>(null);
 	// Whether the async APIs (quota / Cache Storage) have answered at least once, so
 	// "—" reads as "measuring" on first paint but "unavailable" once they've resolved null.
 	const [asyncReady, setAsyncReady] = React.useState(false);
@@ -83,11 +85,16 @@ function Overlay() {
 	React.useEffect(() => {
 		let alive = true;
 		const readSync = () => setLocal(scanLocalStorage());
+		// A monotonic generation guards against out-of-order async resolution: a slow
+		// scan (the Cache Storage walk is slower exactly when the cache is bloated — the
+		// case this tool is for) from tick N must not clobber tick N+1's fresher answer.
+		let gen = 0;
 		const readAsync = async () => {
+			const mine = ++gen;
 			const [q, c] = await Promise.all([estimateQuota(), scanCaches()]);
-			if (!alive) return;
+			if (!alive || mine !== gen) return;
 			setQuota(q);
-			setCaches(c);
+			setCacheScan(c);
 			setAsyncReady(true);
 		};
 		const readAll = () => {
@@ -95,29 +102,48 @@ function Overlay() {
 			void readAsync();
 		};
 		readAll();
-		const id = window.setInterval(readAll, 1500);
-		// A write in ANOTHER tab fires `storage`; a return-to-tab may have changed the
-		// footprint (the Studio snapshots on leave). Re-read on both.
-		const onStorage = () => readSync();
+		// Skip the poll's work while the tab is hidden — a backgrounded overlay measuring
+		// nothing anyone's looking at is pure GC churn on the (big) store; the
+		// `visibilitychange` handler re-reads the moment the tab returns.
+		const id = window.setInterval(() => {
+			if (document.visibilityState === 'visible') readAll();
+		}, 1500);
+		// A write in ANOTHER tab fires `storage`; a burst (tab A autosaving while this
+		// overlay is open in tab B) would otherwise fire one full synchronous store scan
+		// PER write. Coalesce to at most one rescan per animation frame.
+		let rafId = 0;
+		const onStorage = () => {
+			if (rafId) return;
+			rafId = requestAnimationFrame(() => {
+				rafId = 0;
+				readSync();
+			});
+		};
 		const onVis = () => document.visibilityState === 'visible' && readAll();
 		window.addEventListener('storage', onStorage);
 		document.addEventListener('visibilitychange', onVis);
 		return () => {
 			alive = false;
 			window.clearInterval(id);
+			if (rafId) cancelAnimationFrame(rafId);
 			window.removeEventListener('storage', onStorage);
 			document.removeEventListener('visibilitychange', onVis);
 		};
 	}, []);
 
 	// ── Derived ratings ───────────────────────────────────────────────────────
+	// Quota %: shown for context but DELIBERATELY UNRATED. `storage.estimate()` returns a
+	// coarse, padded quota (often tens–hundreds of GB — ~60% of free disk on Chrome), and
+	// some browsers exclude localStorage from `usage` entirely, so the ratio is ~0% no
+	// matter how bloated the profile is. A green "quota" chip here would be false comfort
+	// during the exact slowdown this tool explains — so it gets a neutral dot, never a rating.
 	const pct = quota && quota.quota > 0 ? Math.round((quota.usage / quota.quota) * 100) : null;
-	const quotaRating: Rating | null = pct == null ? null : rate(pct, 50, 80);
 	// localStorage caps at ~5MB: green under 1MB, amber to 3MB, red beyond.
 	const localRating: Rating | null = local ? rate(local.bytes, 1024 * 1024, 3 * 1024 * 1024) : null;
 	// The SW assets cache caps at 300 (+ pages 60 + fonts 40 = 400): green under 250, red near the cap.
-	const cacheRating: Rating | null = caches ? rate(caches.totalEntries, 250, 350) : null;
-	// The boot-scan proxy: a healthy store scans in ~1ms; a bloated one drags.
+	const cacheRating: Rating | null = cacheScan ? rate(cacheScan.totalEntries, 250, 350) : null;
+	// The boot-scan proxy: a healthy store reads in <1ms; a bloated one drags. (This is the
+	// localStorage READ time only — the parse the boot adds on top is not counted; see the row.)
 	const scanRating: Rating | null = local ? rate(local.scanMs, 5, 20) : null;
 
 	const rowState = (key: string) => ({
@@ -128,7 +154,7 @@ function Overlay() {
 	});
 
 	const maxCat = local?.categories.length ? Math.max(...local.categories.map((c) => c.bytes)) : 0;
-	const maxCache = caches?.caches.length ? Math.max(...caches.caches.map((c) => c.entries)) : 0;
+	const maxCache = cacheScan?.caches.length ? Math.max(...cacheScan.caches.map((c) => c.entries)) : 0;
 
 	return (
 		<DiagnosticPanel
@@ -143,11 +169,14 @@ function Overlay() {
 				<div className="text-[11px] text-muted-foreground">Measuring…</div>
 			) : (
 				<div className="max-h-[64svh] overflow-y-auto overscroll-contain">
-					{/* Verdict strip — the at-a-glance answers. */}
+					{/* Verdict strip — the at-a-glance answers. SCAN is here too: it's the
+					    thesis metric (the boot read cost), so it belongs in the glance-view,
+					    not buried below. Quota is unrated (neutral dot) — see above. */}
 					<div className="mb-1.5 flex flex-wrap gap-1">
-						<Chip label="quota" value={pct == null ? '—' : `${pct}%`} rating={quotaRating} />
 						<Chip label="local" value={formatBytes(local.bytes)} rating={localRating} />
-						<Chip label="caches" value={caches == null ? '—' : `${caches.totalEntries}`} rating={cacheRating} />
+						<Chip label="scan" value={formatMs(local.scanMs)} rating={scanRating} />
+						<Chip label="caches" value={cacheScan == null ? '—' : `${cacheScan.totalEntries}`} rating={cacheRating} />
+						<Chip label="quota" value={pct == null ? '—' : `${pct}%`} rating={null} />
 					</div>
 
 					<Sep label="quota" />
@@ -155,9 +184,9 @@ function Overlay() {
 						{...rowState('quota')}
 						label="used"
 						value={quota == null ? (asyncReady ? 'n/a' : '…') : `${formatBytes(quota.usage)} / ${formatBytes(quota.quota)}`}
-						rating={quotaRating}
-						what="Everything this site has stored on your device, from the browser's own Storage API — it counts Cache Storage and IndexedDB, not just the decks below. Private browsing starts this at zero every session."
-						rel={quota == null ? (asyncReady ? 'the Storage API is unavailable on this browser.' : null) : pct != null ? `${pct}% of the ${formatBytes(quota.quota)} this origin is allowed.` : null}
+						rating={null}
+						what="Everything this site has stored on your device, from the browser's own Storage API — it counts Cache Storage and IndexedDB, not just the decks below."
+						rel={quota == null ? (asyncReady ? 'the Storage API is unavailable on this browser.' : null) : pct != null ? `${pct}% of a quota the browser reports coarsely (often GBs) — a low % here does NOT mean the boot is cheap; read local + scan below.` : null}
 					/>
 
 					<Sep label="local storage" />
@@ -181,14 +210,14 @@ function Overlay() {
 					<Row
 						{...rowState('caches')}
 						label="entries"
-						value={caches == null ? (asyncReady ? 'n/a' : '…') : `${caches.totalEntries}`}
+						value={cacheScan == null ? (asyncReady ? 'n/a' : '…') : `${cacheScan.totalEntries}`}
 						rating={cacheRating}
 						what="The service worker keeps a stale-while-revalidate copy of assets so the site works offline. It re-validates and trims on every request, and accumulates across deploys — a fresh private window's cache is empty, so it skips that work."
-						rel={caches == null ? (asyncReady ? 'no service worker / Cache API on this page.' : null) : `${caches.caches.length} cache${caches.caches.length === 1 ? '' : 's'} · assets cap is 300.`}
+						rel={cacheScan == null ? (asyncReady ? "no service worker here (dev / private browsing), so this row can't show the cache a returning visitor accumulates in a normal, deployed window." : null) : `${cacheScan.caches.length} cache${cacheScan.caches.length === 1 ? '' : 's'} · assets cap is 300.`}
 					/>
-					{caches && caches.caches.length > 0 && (
+					{cacheScan && cacheScan.caches.length > 0 && (
 						<div className="mt-0.5 flex flex-col gap-1 pb-0.5">
-							{caches.caches.map((c) => (
+							{cacheScan.caches.map((c) => (
 								<Bar key={c.name} label={cacheShort(c.name)} count={c.entries} frac={maxCache ? c.entries / maxCache : 0} />
 							))}
 						</div>
@@ -200,8 +229,8 @@ function Overlay() {
 						label="scan"
 						value={formatMs(local.scanMs)}
 						rating={scanRating}
-						what="How long it just took to read every localStorage entry — the same O(n) scan the boot path runs on load (hasPriorStudioUse / deckContentStats). It's near zero on an empty store and climbs with accumulation; this is the degradation you feel across a session."
-						rel={`over ${local.keys} key${local.keys === 1 ? '' : 's'}. Clear decks in Workspace → Privacy & Data to reset it.`}
+						what="How long it just took to READ every localStorage entry — the O(n) scan the boot path pays (like hasPriorStudioUse / deckContentStats). The per-deck parse the boot ALSO does (splitSlides / JSON.parse in loadDeckList) costs more and isn't counted here, so treat this as a floor, not the whole boot. Near zero on an empty store; climbs as it fills."
+						rel={`over ${local.keys} key${local.keys === 1 ? '' : 's'}. Browsers coarsen this timer (Firefox private rounds it hard), so read it as a threshold, not a stopwatch. Clear decks in Workspace → Privacy & Data to reset it.`}
 					/>
 
 					<p className="mb-0 mt-1.5 text-[9.5px] leading-[1.4] text-muted-foreground">
