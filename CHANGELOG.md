@@ -276,7 +276,6 @@ in patch versions.
 
 ### Added
 
-<<<<<<< HEAD
 - **The fluid-box viewer now fills every screen, not just phones — with an ultrawide edge cap.** Opening
   a `--fluid` deck on a laptop, tablet, or 4:3 projector used to letterbox the fixed 16:9 deck; now the
   viewport is filled by default and the slide reflows to it — the same machinery that already served
@@ -288,20 +287,6 @@ in patch versions.
   PPTX / PNG are byte-identical, and every export renders identically** — all the new rules are gated on
   the viewer marker, so a non-fluid export's inlined stylesheet only gains a few inert, unmatched lines.
   P1–P2 of `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`.
-=======
-<<<<<<< HEAD
-- **The fluid-box viewer now fills landscape screens, not just phones.** Opening a `--fluid` deck on a
-  laptop, tablet, or 4:3 projector used to letterbox the fixed 16:9 deck; now any non-ultrawide screen
-  fills the viewport by default and the slide reflows to it — the same machinery that already served
-  phones, extended to landscape within a tolerance band. **Ultrawide (aspect > ~1.9) still keeps the
-  fixed deck** until the edge-cap slice lands, so it never shows a dead band. Dense slides that can't
-  fit now show a calm, palette-blind **"More below ↓"** cue (the honest overflow floor) instead of
-  silently clipping — the reader never loses content without a signal, and never sees the author's red
-  QA ring. Opt-in and viewer-only: **PDF / PPTX / PNG are byte-identical, and every export renders
-  identically** — all the new rules are gated on the viewer marker, so a non-fluid export's inlined
-  stylesheet only gains a few inert, unmatched lines. First slice (P1) of
-  `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`.
-=======
 - **`headline: center`, and the heading rule is now a real `<hr>` element.** Two coupled changes.
   (1) `headline: center` completes the common register set (`auto`/`left`/`center`), closing a gap
   where a left-defaulting layout (the content masthead, `kpi`, most Form layouts) could not be
@@ -317,8 +302,6 @@ in patch versions.
   register moves framing only. `right` remains a deferred follow-up. Deck-wide `headline: center` or
   per-slide `<!-- _class: head-center -->`; typo-caught as `unknown-headline`; Studio picker +
   provenance updated. See `engineering/decisions/2026-07-20-mass-head-alignment.md`.
->>>>>>> a8894d2 (feat(headline): ship `center`, and make the heading rule a real <hr>)
->>>>>>> 3c5fc28 (feat(headline): ship `center`, and make the heading rule a real <hr>)
 - **Headline alignment is now an author register (`headline:`), not a per-layout default.** The
   horizontal alignment of a slide's framing text — eyebrow, heading, heading rule, subtitle,
   below-note, key insight, caption — used to be baked into each component, so the pieces could
