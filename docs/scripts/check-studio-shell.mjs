@@ -37,9 +37,6 @@ const REQUIRED = [
 	// `nacre-loader__layer` (no boundary before `_`), so this stays distinct from the layer marker below.
 	['nacre skeleton', /class="[^"]*\bnacre-loader\b/],
 	['nacre animated layer', /nacre-loader__layer--0/],
-	// The Lattice brand mark ("Spectrum Cell") centered in the loader — the on-brand anchor of the
-	// pre-paint state. If it drops, the shell reverts to a brand-agnostic glow.
-	['brand mark', /class="[^"]*\bnacre-loader__mark\b/],
 	// Match the SEED SCRIPT's setAttribute call, NOT a bare `data-ssr-shell` — the latter also
 	// appears in the always-present CSS selector `:root[data-ssr-shell="on"]`, so the gate would
 	// pass even if the seed that actually flips the attribute were removed (shell stays hidden →

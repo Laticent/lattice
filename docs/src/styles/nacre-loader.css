@@ -16,54 +16,17 @@
 	isolation: isolate; /* blend the layers against THIS box's --bg, not the page behind */
 	background: var(--bg, #0c1626);
 	pointer-events: none;
-	/* Center the brand mark (the ONE in-flow child) over the absolutely-positioned nacre layers. */
-	display: grid;
-	place-items: center;
-	/* Brand mark colors — "structure is ink, color is signal": the lattice BONDS follow light/dark
-	   (Indaco navy / sky), the spectrum nodes + gold core are mode-invariant brand constants. Kept in
-	   lockstep with LatticeMark.tsx + the studio.astro shell copy. */
-	--mark-bond: #003d66;
-	--mark-halo: #faf7f2;
 	/* Hand-off: once the real slide has painted (opaque, same --bg ground) it covers this,
 	   and we fade + freeze it so nothing keeps compositing behind the slide. */
 	opacity: 1;
 	transition: opacity 0.5s ease;
 }
-:root[data-mode='dark'] .nacre-loader {
-	--mark-bond: #4fa8da;
-	--mark-halo: #15110d;
-}
 .nacre-loader.is-done {
 	opacity: 0;
 }
-.nacre-loader.is-done .nacre-loader__layer,
-.nacre-loader.is-done .nacre-loader__mark {
+.nacre-loader.is-done .nacre-loader__layer {
 	animation: none; /* stop the GPU work the instant the slide takes over */
 	will-change: auto; /* release the compositor-layer hint too (host is never remounted) */
-}
-
-/* The Lattice brand mark — the "Spectrum Cell" — centered and gently breathing, so the load
-   state reads unmistakably as Lattice (not a generic shimmer) over the nacre's ambient glow.
-   z-index lifts the crisp mark above the blurred, blend-mode layers. Sized to the box's short
-   side and capped, so it stays a badge (never fills the slide). */
-.nacre-loader__mark {
-	position: relative;
-	z-index: 1;
-	width: clamp(64px, 26%, 176px);
-	aspect-ratio: 1;
-	animation: nacre-breathe 3.2s ease-in-out infinite;
-	filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.22));
-}
-@keyframes nacre-breathe {
-	0%,
-	100% {
-		transform: scale(1);
-		opacity: 0.94;
-	}
-	50% {
-		transform: scale(1.045);
-		opacity: 1;
-	}
 }
 
 .nacre-loader__layer {
@@ -136,8 +99,7 @@
 }
 /* Accessibility: a viewer who asked for less motion gets a calm static nacre. */
 @media (prefers-reduced-motion: reduce) {
-	.nacre-loader__layer,
-	.nacre-loader__mark {
+	.nacre-loader__layer {
 		animation: none;
 	}
 }

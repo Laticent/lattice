@@ -252,16 +252,13 @@ in patch versions.
 
 ### Fixed
 
-- **The Studio's pre-paint load state is now on-brand — the Lattice mark, not a generic shimmer.** The
-  pre-hydration instant shell (and the matching post-hydration React loader) now center the real Lattice
-  **"Spectrum Cell"** mark — the rotated-lattice bonds + the five spectrum nodes — gently *breathing* over
-  the nacre glow, and the shell topbar shows the actual mark instead of a placeholder gradient chip. Bonds
-  follow light/dark ("structure is ink, color is signal"); the nodes are brand constants. So a reload reads
-  unmistakably as Lattice at HTML-parse time, matching the mark the hydrated app's topbar hands off to (no
-  logo swap). One inline SVG kept in lockstep across `LatticeMark.tsx`, `nacre-loader.css`, and the
-  `studio.astro` shell copy; the `check:studio-shell` gate now also asserts the mark ships.
-  (`docs/src/styles/nacre-loader.css`, `docs/src/components/DeckPreview.tsx`, `docs/src/pages/studio.astro`,
-  `docs/scripts/check-studio-shell.mjs`; `engineering/decisions/2026-07-20-nacre-preview-loader.md`.)
+- **The Studio's pre-hydration shell title bar is now on-brand and theme-aware, not a grey placeholder.**
+  The shell topbar showed a generic gradient-chip logo on a hardcoded grey bar. It now renders the real
+  Lattice **"Spectrum Cell"** mark (inline SVG, bonds keyed to light/dark) and tints the bar with the
+  visitor's own theme — `background: color-mix(var(--bg) 92%)`, `var(--border)`, `var(--text-heading)`
+  title — matching the hydrated app's topbar, so there's no grey flash or logo swap at hand-off. The shell
+  already seeds the visitor's persisted **palette + mode** before first paint, so the whole pre-paint
+  surface (topbar + nacre) reflects their chosen theme, not a default. (`docs/src/pages/studio.astro`.)
 - **The Studio live preview no longer uses a hoisted `position:fixed` host that drifted on iOS.** Real-device
   testing showed the shared preview iframe mis-tracking its slot on iPhone/iPad during viewport changes
   (software keyboard, pinch-zoom, URL-bar): the slide bled over the editor or overflowed behind the keyboard.

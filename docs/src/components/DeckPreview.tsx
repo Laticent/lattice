@@ -404,29 +404,6 @@ export function DeckPreview({
 						<i className="nacre-loader__blob" />
 					</span>
 					<span className="nacre-loader__vig" />
-					{/* The Lattice brand mark ("Spectrum Cell"), centered + breathing — so the load
-					    state is unmistakably Lattice. Bonds/halo follow mode via CSS vars; the spectrum
-					    nodes + gold core are brand constants. 1:1 geometry with LatticeMark.tsx + the
-					    studio.astro shell copy (keep the three in lockstep). */}
-					<svg className="nacre-loader__mark" viewBox="0 0 128 128" fill="none" aria-hidden="true">
-						<g transform="rotate(45 64 64)" stroke="var(--mark-bond, #003d66)" strokeWidth="6.4" strokeLinecap="round">
-							<line x1="31" y1="31" x2="97" y2="31" />
-							<line x1="97" y1="31" x2="97" y2="97" />
-							<line x1="97" y1="97" x2="31" y2="97" />
-							<line x1="31" y1="97" x2="31" y2="31" />
-						</g>
-						<circle cx="64" cy="17.3" r="12.7" fill="var(--mark-halo, #faf7f2)" />
-						<circle cx="64" cy="17.3" r="11" fill="#5b86b8" />
-						<circle cx="110.7" cy="64" r="12.7" fill="var(--mark-halo, #faf7f2)" />
-						<circle cx="110.7" cy="64" r="11" fill="#a8628a" />
-						<circle cx="64" cy="110.7" r="12.7" fill="var(--mark-halo, #faf7f2)" />
-						<circle cx="64" cy="110.7" r="11" fill="#d08c42" />
-						<circle cx="17.3" cy="64" r="12.7" fill="var(--mark-halo, #faf7f2)" />
-						<circle cx="17.3" cy="64" r="11" fill="#7b72c0" />
-						<circle cx="64" cy="64" r="16.2" fill="var(--mark-halo, #faf7f2)" />
-						<circle cx="64" cy="64" r="14" fill="#c8a040" />
-						<circle cx="64" cy="64" r="10.4" fill="none" stroke="#7a5a10" strokeWidth="1.5" opacity="0.55" />
-					</svg>
 				</span>
 			)}
 		</figure>

@@ -104,17 +104,16 @@ the live tokens and the fade/freeze hand-off fires on first paint.
   > `2026-07-21-studio-preview-reframe-in-place.md`).
 - **Light-mode intensity** is a touch bold on some palettes; a blob-alpha trim is a cheap tuning pass.
 
-## Update (2026-07-21) — brand the load state with the Lattice mark
+## Update (2026-07-21) — brand the shell TITLE BAR (the loader stays plain nacre)
 
-The nacre alone read as a *generic* premium shimmer, not distinctly **Lattice** (owner feedback on a
-real-device reload). Fix: center the brand **"Spectrum Cell"** mark (the rotated-lattice bonds + five
-spectrum nodes, 1:1 with `LatticeMark.tsx`) in the loader, gently *breathing* (`nacre-breathe`, a
-3.2s scale+opacity pulse, reduced-motion-safe) over the nacre as ambient; and swap the shell topbar's
-placeholder gradient chip for the real mark, so the pre-paint chrome matches what the hydrated app hands
-off to (no logo swap). Bonds follow mode via `--mark-bond`/`--mark-halo` ("structure is ink, color is
-signal"); nodes + gold core are brand constants. The mark SVG is inlined in three lockstep places
-(`nacre-loader.css` + `DeckPreview.tsx` for the React loader, `studio.astro` for the pre-hydration copy),
-and `check:studio-shell` now asserts `nacre-loader__mark` ships.
+Owner feedback on a real-device reload: the shell **title bar** read grey/off-brand, and the shell should
+honor the visitor's chosen theme. Scope is the topbar ONLY — the nacre remains the loading placeholder in
+the slide box (a brand mark *on* the loader was tried and rejected as too heavy). Fix: (1) the topbar logo
+is the real Lattice **"Spectrum Cell"** mark (inline SVG, bonds keyed to mode via `--mark-bond`/`--mark-halo`
+on `#studio-ssr-shell`), matching the hydrated app's `LatticeMark` so nothing swaps at hand-off; (2) the
+topbar is **theme-tinted** — `background: color-mix(var(--bg) 92%)`, `border: var(--border)`, title
+`var(--text-heading)` — instead of hardcoded grey. Theme respect was already in place (the seed reads the
+persisted palette + mode before first paint); this extends it to the topbar, which had been hardcoded.
 
 ## Files
 
