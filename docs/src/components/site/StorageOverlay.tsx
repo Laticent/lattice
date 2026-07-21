@@ -186,7 +186,17 @@ function Overlay() {
 						value={quota == null ? (asyncReady ? 'n/a' : '…') : `${formatBytes(quota.usage)} / ${formatBytes(quota.quota)}`}
 						rating={null}
 						what="Everything this site has stored on your device, from the browser's own Storage API — it counts Cache Storage and IndexedDB, not just the decks below."
-						rel={quota == null ? (asyncReady ? 'the Storage API is unavailable on this browser.' : null) : pct != null ? `${pct}% of a quota the browser reports coarsely (often GBs) — a low % here does NOT mean the boot is cheap; read local + scan below.` : null}
+						rel={
+							quota == null
+								? asyncReady
+									? 'the Storage API is unavailable on this browser.'
+									: null
+								: quota.usage < local.bytes
+									? `only ${formatBytes(quota.usage)} — LESS than the ${formatBytes(local.bytes)} of local storage below, because this browser (e.g. iOS Safari) excludes localStorage from the estimate. Trust the footprint + scan, not this.`
+									: pct != null
+										? `${pct}% of a quota the browser reports coarsely (often GBs) — a low % here does NOT mean the boot is cheap; read local + scan below.`
+										: null
+						}
 					/>
 
 					<Sep label="local storage" />

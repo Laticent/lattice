@@ -127,6 +127,9 @@ describe('formatBytes / formatMs', () => {
 		expect(formatBytes(10 * 1024)).toBe('10 KB'); // ≥10KB drops the decimal
 		expect(formatBytes(1024 * 1024 - 1)).toBe('1024 KB');
 		expect(formatBytes(1024 * 1024)).toBe('1.0 MB'); // exactly 1MB crosses into MB
+		expect(formatBytes(1024 * 1024 * 1024 - 1)).toBe('1024.0 MB');
+		expect(formatBytes(1024 * 1024 * 1024)).toBe('1.0 GB'); // exactly 1GB crosses into GB
+		expect(formatBytes(38 * 1024 * 1024 * 1024)).toBe('38.0 GB'); // disk-scale quota reads in GB, not "38912 MB"
 	});
 	it('formats scan time as a COARSE figure — whole ms, <1ms floor, 0ms empty', () => {
 		expect(formatMs(0)).toBe('0ms');

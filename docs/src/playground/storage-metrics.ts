@@ -193,11 +193,15 @@ export async function scanCaches(): Promise<CacheScan | null> {
 	}
 }
 
-/** Format a byte count as a compact human string: "512 B" / "1.2 KB" / "3.4 MB". */
+/** Format a byte count as a compact human string: "512 B" / "1.2 KB" / "3.4 MB"
+ *  / "38.4 GB". The GB tier matters: `storage.estimate()` quotas are disk-scale
+ *  (a real iOS Safari device reported ~38 GB), so without it the quota row printed
+ *  an unreadable "39321.6 MB". */
 export function formatBytes(n: number): string {
 	if (n < 1024) return `${Math.round(n)} B`;
 	if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)} KB`;
-	return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+	if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+	return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 /** Format milliseconds for the SCAN readout as a COARSE figure. Browsers clamp

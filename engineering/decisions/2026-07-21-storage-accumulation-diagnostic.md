@@ -122,6 +122,31 @@ you during the slowdown it exists to explain — and its findings were folded ba
   render tests added. Clean bills: XSS, data-leak (values are never rendered, only key
   names + sizes), ReDoS, cross-origin cache reads.
 
+## Real-device iOS Safari verification (HARD RULE #23) — was UNVERIFIED, now VERIFIED
+
+The build/screenshot verification ran in headless Chromium, so the overlay on **real
+iOS Safari** (both normal and private) was explicitly marked UNVERIFIED. User-captured
+screenshots on the deployed Cloudflare Pages site (`*.pages.dev`, iPhone, iOS Safari,
+normal + private) close that gap and confirm the behavior:
+- **It renders + reads correctly on the real device** in both modes — the drag chassis,
+  the verdict strip, the breakdown bars, and the tap-for-detail all work.
+- **Cache Storage genuinely populates on iOS** (normal: 2 entries just-opened; private:
+  113 after browsing) — the row that read `0` in headless dev shows real numbers on device.
+- **Two trio predictions confirmed on hardware, and folded into the shipped UI:**
+  - *Quota excludes localStorage (Munger #2).* `estimate().usage` read **2.2 KB** while the
+    localStorage footprint right below was **278 KB** — iOS Safari omits localStorage from the
+    estimate. This is exactly why quota is UNRATED; the quota row now also *detects* the case
+    (`usage < footprint`) and says so, turning the contradiction into an insight.
+  - *Timer is coarsened (Munger #4).* SCAN read **0ms** on device (iOS clamps
+    `performance.now()`), so the honest whole-ms / "<1ms" formatting was right — a decimal
+    would have faked precision the clock doesn't have.
+- **Surfaced one real bug, fixed:** quotas are disk-scale (~**38 GB** on the device), and
+  `formatBytes` topped out at MB → it printed an unreadable "39321.6 MB". Added a GB tier.
+
+Note the screenshots are point-in-time (a freshly-opened normal window had fewer cached
+assets than a browsed-around private one), so they verify the *overlay*, not the long-term
+accumulation curve — that still wants a genuinely aged profile to display in full.
+
 ## Logged follow-ups (#18) — the fixes the overlay makes measurable
 
 Not in this change (which is the diagnostic); each wants HARD RULE #19 before/after
