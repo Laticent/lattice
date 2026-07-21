@@ -302,7 +302,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							var sz = '';
 							if (edited) {
 								var fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(edited);
-								var sm = fm && /(?:^|\n)[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/.exec(fm[1]);
+								var sm = fm && /^[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/m.exec(fm[1]); // /m: end-of-LINE, not just last line (mirrors sizeFromSource)
 								if (sm) sz = sm[1].replace(/^['"]|['"]$/g, '').trim();
 							}
 							if (sz && (SIZE_RATIO[sz] || SIZE_RATIO[sz.toLowerCase()])) rr = SIZE_RATIO[sz] || SIZE_RATIO[sz.toLowerCase()];
@@ -350,8 +350,21 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							var C = PREVIEW_CHROME;
 							var vw2 = window.innerWidth, vh2 = window.innerHeight;
 							var bpMobile = vw2 <= 699;
-							var posture = 'read';
+							// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
+							// stored posture wins; otherwise a returning visitor (prior deck index or any
+							// edited-source key) derives to 'write' (the editor|preview split), a fresh one to
+							// 'read'. Defaulting to 'read' made every upgrading user's first load compute a
+							// full-bleed box while the app rendered the split — a hand-off jump.
+							var posture = null;
 							try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e5) {}
+							if (!posture) {
+								var prior = false;
+								try {
+									if (localStorage.getItem('lattice-studio-deck-index')) prior = true;
+									else { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('lattice-studio-src-') === 0) { prior = true; break; } } }
+								} catch (e6) {}
+								posture = prior ? 'write' : 'read';
+							}
 							var chromeless = posture === 'read';
 							var pad = vw2 < 640 ? C.padMobile : C.padDesktop;
 							var paneTop = C.topbarH + (bpMobile ? C.mobileBarH : 0);

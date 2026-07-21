@@ -33,7 +33,11 @@ export function sizeRatio(size: string): [number, number] {
 export function sizeFromSource(source: string): string {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source ?? ''));
 	if (!fm) return '';
-	const m = /(?:^|\n)[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/.exec(fm[1]);
+	// `/m` is REQUIRED: without it `$` anchors to end-of-string, so `size:` is only found
+	// when it is the LAST front-matter line — but `setFrontMatter` pushes the last-edited key
+	// to the end, so a deck with `size:` above another directive (theme, paginate, …) would
+	// silently fall back to 16:9. With `/m`, `$` matches end-of-LINE.
+	const m = /^[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/m.exec(fm[1]);
 	return m ? m[1].replace(/^['"]|['"]$/g, '').trim() : '';
 }
 

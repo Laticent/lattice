@@ -117,7 +117,21 @@ stop (read/write), the editor|preview split share, the deck ratio, and a handful
 chrome constants (topbar 54, mobile bar 53, holder pad 20/16, read chrome 0/49, write chrome
 47/81.6, cap 760). `computePreviewRect()` (`preview-rect.ts`) implements it, and a probe of the
 live app across the breakpoint × stop matrix confirms it reproduces the measured box to
-**≤0.1px**. A `preview-rect.test.ts` fixture locks the constants so app-side drift fails a gate.
+**≤0.1px**.
+
+**Honest limits of the "shared source of truth" (an adversarial pass corrected the original
+framing):** only the `PREVIEW_CHROME` constants are genuinely shared — via `define:vars` into
+the seed. The seed does NOT import `computePreviewRect` (an inline `<script>` can't import), so
+it **re-implements the same formula by hand**; and the app still sizes its box with CSS
+(`min(100%, 100cqh × ratio, 760px)`) rather than calling the function. So the *math* lives in
+three places (the TS function, the inline seed copy, the app CSS), kept in agreement by
+transcription, not by a single call site. `preview-rect.test.ts` locks the FUNCTION to frozen
+measured fixtures — it catches an edit to `PREVIEW_CHROME`, but it does **not** catch app-side
+drift (change `h-[54px]`→`h-[60px]` in StudioShell and the test stays green while the seed
+silently diverges). A genuine drift gate would measure the live app and compare — a tracked
+follow-up. Until then the compute tier is a *first-load-only* nicety (returning users replay an
+exact captured rect regardless of any constant drift), which bounds the blast radius of a stale
+constant to one un-replayed first paint.
 
 The shell now **computes** its box when there is no persisted rect (a brand-new visitor, a
 cross-device first load) instead of falling back to the approximate centered box — verified
