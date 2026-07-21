@@ -282,14 +282,29 @@ P1–P2 are opt-in and leave the shipped bytes untouched.
   red ring, no author tags). Opt-in + viewer-only; **PDF/PPTX/PNG byte-identical and every export renders
   identically** (the new rules are marker-gated — a non-fluid export's inlined CSS only gains inert lines).
   Hardened by the full HARD RULE #25 trio (red team + Munger inversion + checker); both prior maker-checker
-  fixes re-verified correct. *Recorded follow-ups (P2 supersedes each): the once-at-load decision isn't
-  re-evaluated on a live resize/rotation across 1.9 (drag a window wide → stays fluid); the ultrawide fixed
-  fallback left-aligns rather than centering; the "More below" pill can occlude the last content line on a
-  very short viewport (wants a translucent/nudged treatment).*
-- **P2 — the present-preserving fill box + the wide edge cap.** Build the resize-the-section,
-  keep-one-slide-nav box for present mode + the player Present view; **converge** the player-CSP,
-  docs-filmstrip, and fluid boxes onto one `data-lattice-view` selector (§2.2/§7); add the **new
-  upper wide boundary** + cap + wide-but-tall vertical distribution (Gap 2). Still opt-in.
+  fixes re-verified correct. *Recorded follow-ups: the once-at-load decision isn't re-evaluated on a live
+  resize/rotation (drag a window wide → stays fluid); the "More below" pill can occlude the last content
+  line on a very short viewport (wants a translucent/nudged treatment). (The ultrawide left-align is now
+  resolved by the P2 edge cap below.)*
+- **P2 — the present-preserving fill box + the wide edge cap.** Still opt-in.
+  - **Edge cap (Gap 2) — ◐ Landed** (for the fluid viewer). The viewer now fills *every* screen
+    (P1's ultrawide exclusion retired); an ultrawide box caps at `--fill-max-aspect` (1.9) and the
+    body's flex centering frames it in the deck's themed ground (`base.fluid-view.css`) — a capped
+    fill, not a dead band and not the old left-aligned fixed fallback. `width: min(100%, 100dvh ×
+    var(--fill-max-aspect))`; verified at 21:9 (2052-wide, 254px frame) / 32:9 (894px frame) / 16:9–4:3
+    (full width, cap inert) / portrait (fill), scroll-snap intact. Hardened by the full HARD RULE #25
+    trio (all SHIP; folded the honest-frame-copy fix, the `100dvw`→`100%` doc sync, and the single-source
+    cap value). *Follow-ups (tracked in #1138): the frame is the deck-default `var(--bg)`, seamless
+    on a light slide but a modest neutral band beside a dark/finish/gradient slide — the per-slide
+    bg-bleed is the polish, held off as it risks the content-cap vs. footer/component-stretch layout; no
+    committed geometry test yet exercises the fluid viewer (verified via throwaway renders only); an
+    ultrawide-aspect touch device (a landscape phone > 1.9) now caps-fills where P1 letterboxed and the
+    frame width breathes with the mobile URL bar — **UNVERIFIED** on a real device (HARD #23).*
+  - **The present-preserving fill box + convergence — ☐ next.** Build the resize-the-section,
+    keep-one-slide-nav box for present mode + the player Present view; **converge** the player-CSP,
+    docs-filmstrip, and fluid boxes onto one `data-lattice-view` selector (§2.2/§7); extend the cap +
+    wide-but-tall vertical distribution to it. The player Present view is an **export-sign-off** change
+    (§6.1).
 - **P3 — promote fill to DEFAULT on present/player.** Gated behind: ring (P1) + edge cap (P2)
   landed and reviewed + the **owner-signed §5 reversal** (§6). Player `.html` bytes change →
   **golden + CSP re-bless, export-sign-off** (§6.1). `CHANGELOG.md` `## Unreleased` entry (HARD #10).
