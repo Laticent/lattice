@@ -54,3 +54,30 @@ test('perf-torture report: retainer inspector-contamination is flagged in JSON a
 	const md = renderMarkdown(obj);
 	assert.match(md, /root at the DevTools inspector/, 'markdown warns about inspector contamination');
 });
+
+// --confirm-realm: the no-heap-client confirmation projects into report.json + report.md. The verdict
+// keys on NET-survived-idle; the report must carry it and render honestly (coarse single-shot → the
+// PINNED label is hedged, RECLAIMABLE names the over-count). Guards the confirm branch (#32; trio checker).
+test('perf-torture report: --confirm-realm verdict projects to JSON and renders honestly', async () => {
+	const { buildReport, renderMarkdown } = await import('../../../tools/perf-torture/report.mjs');
+	const MB = 1e6;
+	const withConfirm = (name, confirm) => ({ name, isControl: name === 'idle', rows: [{ metric: 'listeners', first: 685, last: 685, delta: 0, sen: 0, floor: 0.4, z: 0, trend: 'flat' }], series: [{ listeners: 685 }, { listeners: 685 }], snapDiff: null, retReport: null, heapSnapshotFile: null, realmUnconfirmed: false, listenerReport: null, confirm });
+	const run = (cycles) => ({ scenario: { name: 'studio' }, opts: { mode: 'within', k: 20, cpu: 4, confirmRealm: true }, cycles, calibrated: true, floorBasis: 'test', durationMs: 1000, generatedAt: '2026-07-21T00:00:00Z' });
+	// A pinned verdict (net survived idle) + a reclaimable + an unavailable, all in one report.
+	const obj = buildReport(run([
+		withConfirm('compose', { verdict: 'pinned', before: 100 * MB, afterDrive: 200 * MB, afterIdle: 140 * MB, retained: 100 * MB, reclaimed: 60 * MB, net: 40 * MB, floorBytes: 4 * MB }),
+		withConfirm('palette', { verdict: 'reclaimable', before: 30 * MB, afterDrive: 50 * MB, afterIdle: 32 * MB, retained: 20 * MB, reclaimed: 18 * MB, net: 2 * MB, floorBytes: 4 * MB }),
+		withConfirm('insert', { unavailable: 'not crossOriginIsolated' }),
+	]));
+	assert.equal(obj.options.confirmRealm, true, 'options record the mode');
+	const compose = obj.cycles.find((c) => c.name === 'compose');
+	assert.equal(compose.confirm.verdict, 'pinned', 'pinned verdict in JSON');
+	assert.equal(compose.confirm.netBytes, 40 * MB, 'net (the verdict driver) is in JSON');
+	assert.equal(obj.cycles.find((c) => c.name === 'insert').confirm.unavailable, 'not crossOriginIsolated', 'unavailable passes through');
+	const md = renderMarkdown(obj);
+	assert.match(md, /confirm-realm/, 'markdown has the confirm section');
+	assert.match(md, /PINNED\?/, 'the PINNED label is HEDGED (coarse single-shot), not asserted as fact');
+	assert.match(md, /net keys the verdict|keys on \*\*net\*\*/i, 'the section explains it keys on net');
+	assert.match(md, /RECLAIMABLE/, 'the reclaimable over-count is named');
+	assert.match(md, /UNAVAILABLE/, 'the unavailable cycle is flagged, not silently dropped');
+});

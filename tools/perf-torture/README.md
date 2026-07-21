@@ -22,8 +22,9 @@ npm run torture -- --scenario studio --cycle idle,compose,palette --k 40 --cpu 4
 Flags: `--scenario <name>` (default `studio`) · `--mode within` (across-refresh mode is stubbed) ·
 `--cycle a,b,c | all` · `--k <iterations>` · `--cpu <throttle×>` · `--snapshot` (per-constructor
 heap diff) · `--retainers [--realm]` (walk the retainer path to the GC root) · `--listeners`
-(net-live event-listener tally — see below) · `--tts` (voiced read-aloud, needs `TORTURE_TTS_KEY`) ·
-`--json` · `--out <dir>` / `--junit` (write report artifacts — see below).
+(net-live event-listener tally — see below) · `--confirm-realm [--confirm-idle <ms>]` (no-heap-client
+re-measure to confirm/deny a realm-class RISING — see §Limits) · `--tts` (voiced read-aloud, needs
+`TORTURE_TTS_KEY`) · `--json` · `--out <dir>` / `--junit` (write report artifacts — see below).
 
 ### `--listeners` — where listeners leak, and whether they *stay*
 
@@ -121,7 +122,19 @@ add-site directly and is immune to this.
   ambiguous `AccessorPair`/closure-`Context`/`PropertyCell` growers are deliberately **not** triggers, so a
   real closure/accessor leak is never mislabeled "realm"), the tool prints a **`⚠ REALM-CLASS GROWTH`**
   banner and sets `realmUnconfirmed` in `report.json`. Decide it — don't dismiss OR believe it — without a
-  heap client:
+  heap client. **`--confirm-realm` automates exactly this:** it re-serves the dist crossOriginIsolated
+  (COOP `same-origin` + COEP `credentialless` + CORP `same-origin`), drives the SAME cycle with NO heap
+  client, and measures via `performance.measureUserAgentSpecificMemory()` — baseline → drive k× → measure
+  → idle (`--confirm-idle`, default 30 s) → measure. The verdict keys on **net** (`afterIdle − before`,
+  what SURVIVED idle), NOT the reclaimed/retained ratio — a ratio test lets a real pinned leak hide behind
+  transient churn (100 → 200 → 140 MB reclaims 60 % yet leaves +40 MB pinned). `RECLAIMABLE` = net returned
+  to ~baseline (over-count); `PINNED?` = net stayed elevated (likely real). `measureUserAgentSpecificMemory()`
+  is a *coarse* (≈MB), rate-limited, single-shot estimate, so the floor is **idle-calibrated** from the
+  control's own swing (`max(4 MB, 2× idle swing)`) — growth under it reads `no meaningful growth`, not a
+  noise-level false `PINNED`. It therefore **corroborates** MB-scale realm growth; it does not settle it —
+  a `PINNED?` is a prompt to re-run at higher `--k` / `--confirm-idle`, not a proven leak.
+  Typical use: a normal run flags `realmUnconfirmed`, then
+  `npm run torture -- --cycle <that-cycle> --confirm-realm` decides it. The equivalent by hand:
   ```js
   // COOP:same-origin + COEP:credentialless on the server so crossOriginIsolated → the API is exposed.
   const bytes = () => performance.measureUserAgentSpecificMemory().then(m => m.bytes); // own GC, no CDP; await it

@@ -63,7 +63,13 @@ async function ensureAndToggle(page, openSels, tabText, switchSel) {
 	await settle(page, switchSel, 4000);
 	await clickIn(page, switchSel); await wait(page, 300); await clickIn(page, switchSel); await wait(page, 300);
 }
-async function SLIDESETTINGS(page) { await ensureAndToggle(page, ['button[aria-label="Slide settings"]'], 'Look', 'button[role="switch"][aria-label="Compact spacing"]'); }
+// Target the CHROME tab's "Hide section rail" switch: it is present for any EDITABLE slide (the Chrome
+// tab is gated only on `editable` — the same gate the old cycle needed), unlike the Look tab's "Compact
+// spacing" which carried an EXTRA `accepts('compact')` gate absent on most slide classes → the old
+// selector timed out whenever the active slide didn't accept it. The torture deck's slides are editable;
+// a non-editable (array-/duplicate-shape `_class`) slide would strand BOTH selectors, so this is a
+// strict improvement, not a new failure mode. 2026-07-21 scenario-drift fix.
+async function SLIDESETTINGS(page) { await ensureAndToggle(page, ['button[aria-label="Slide settings"]'], 'Chrome', 'button[role="switch"][aria-label="Hide section rail"]'); }
 async function DECKSETTINGS(page) { await ensureAndToggle(page, ['button[aria-label="Deck scope"]', 'button[aria-label="Settings"]'], 'Marks', 'button[role="switch"][aria-label="Page numbers"]'); }
 async function DECKSWITCH(page) {
 	if (!(await exists(page, 'button[data-demo="deck-switcher"]'))) { console.error('    deckswitch: switcher not present in this regime — SKIPPED (no signal)'); await wait(page, 200); return; }

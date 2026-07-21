@@ -120,3 +120,40 @@ test('perf-torture: isInspectorChain flags DevTools-rooted chains, not real app 
 	assert.ok(isInspectorChain({ root: '(GC roots)', path: [{ node: 'blink::ScriptStateProtectingContext', via: 'context' }] }), 'a ScriptStateProtectingContext link is flagged');
 	assert.equal(isInspectorChain({ root: '(Global handles)', path: [{ node: 'object:Window', via: 'native' }] }), false, 'a real global-handles hold is not inspector');
 });
+
+// --confirm-realm: classifyConfirm turns three no-heap-client memory readings (before → after-drive →
+// after-idle) into a verdict. The verdict keys on NET (what SURVIVED idle), not the reclaimed/retained
+// ratio — a ratio test lets a real pinned leak hide behind transient churn (the red-team false-negative,
+// below). RECLAIMED-to-baseline ⇒ a HeapProfiler over-count (not a leak); NET stays elevated ⇒ real.
+// (2026-07-20-playground-theme-toggle-not-a-leak.md; #32 no-CDP confirmation.)
+test('perf-torture: classifyConfirm keys the verdict on NET-survived-idle, not the reclaimed ratio', async () => {
+	const { classifyConfirm } = await import('../../../tools/perf-torture/engine.mjs');
+	const MB = 1e6; // default floor is 4MB
+	// Grew 20MB driving, idle returned to ~baseline (net +2MB < floor) → reclaimable over-count.
+	assert.equal(classifyConfirm(30 * MB, 50 * MB, 32 * MB).verdict, 'reclaimable', 'net returned to ~baseline → over-count, not a leak');
+	// Grew 20MB, net +18MB survived idle → pinned.
+	assert.equal(classifyConfirm(30 * MB, 50 * MB, 48 * MB).verdict, 'pinned', 'net stayed elevated → real leak');
+	// THE RED-TEAM CASE: large transient (100MB) + a 40MB pinned leak. reclaimed=60MB is exactly 60% of
+	// retained=100MB — a ratio test would call this "reclaimable, not a leak" while +40MB net survived
+	// idle. NET-keyed classification correctly calls it PINNED.
+	assert.equal(classifyConfirm(100 * MB, 200 * MB, 140 * MB).verdict, 'pinned', 'net +40MB survived idle despite 60% reclaimed → real leak, NOT reclaimable');
+	// Barely moved (retained below the 4MB noise floor) → nothing to confirm.
+	assert.equal(classifyConfirm(30 * MB, 30.5 * MB, 30.4 * MB).verdict, 'no-growth', 'sub-floor growth carries no signal');
+	// Boundary: net exactly at the floor is NOT below it → pinned (floor is the reclaimable ceiling, exclusive).
+	assert.equal(classifyConfirm(0, 10 * MB, 4 * MB).verdict, 'pinned', 'net exactly at 4MB floor → pinned (net < floor is exclusive)');
+	assert.equal(classifyConfirm(0, 10 * MB, 3.9 * MB).verdict, 'reclaimable', 'net 3.9MB < 4MB floor → reclaimable');
+	// Boundary: retained exactly at the floor is NOT below it → proceeds to the net test (net 0 < floor → reclaimable).
+	assert.equal(classifyConfirm(0, 4 * MB, 0).verdict, 'reclaimable', 'retained exactly at floor, fully reclaimed → reclaimable');
+	// A shrinking / all-equal / grew-during-idle set never fabricates a leak.
+	assert.equal(classifyConfirm(30 * MB, 28 * MB, 27 * MB).verdict, 'no-growth', 'negative retained → no-growth, never a false pinned');
+	assert.equal(classifyConfirm(30 * MB, 30 * MB, 30 * MB).verdict, 'no-growth', 'all-equal readings → no-growth');
+	assert.equal(classifyConfirm(30 * MB, 50 * MB, 55 * MB).verdict, 'pinned', 'grew during idle (net +25MB) → pinned (conservative)');
+	// Any non-finite reading → unavailable, never a false verdict (each slot).
+	assert.equal(classifyConfirm(30 * MB, NaN, 30 * MB).verdict, 'unavailable', 'a NaN reading is unavailable, not a leak');
+	assert.equal(classifyConfirm(NaN, NaN, NaN).verdict, 'unavailable', 'all-NaN → unavailable');
+	// The arithmetic is exposed for the report.
+	const r = classifyConfirm(30 * MB, 50 * MB, 33 * MB);
+	assert.equal(r.retained, 20 * MB, 'retained = afterDrive - before');
+	assert.equal(r.reclaimed, 17 * MB, 'reclaimed = afterDrive - afterIdle');
+	assert.equal(r.net, 3 * MB, 'net = afterIdle - before');
+});
