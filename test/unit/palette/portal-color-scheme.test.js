@@ -115,7 +115,9 @@ describe('status fill tokens (white-text-safe)', () => {
     for (let m; (m = re.exec(css)); ) {
       const [, palette, mode, body] = m;
       for (const t of FILLS) {
-        const v = new RegExp(`--${t}:([^;]+);`).exec(body)[1];
+        const match = new RegExp(`--${t}:([^;]+);`).exec(body);
+        assert.ok(match, `${palette}/${mode}: missing --${t}`);
+        const v = match[1];
         const ratio = contrastRatio(v, '#ffffff');
         assert.ok(ratio >= 4.5, `${palette}/${mode}: white on --${t} ${v} is ${ratio.toFixed(3)}:1 (< 4.5)`);
       }
