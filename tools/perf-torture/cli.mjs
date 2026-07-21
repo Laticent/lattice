@@ -2,7 +2,7 @@
 // perf-torture CLI — resolve `--scenario <name>` to scenarios/<name>.mjs and run the engine.
 //
 //   node tools/perf-torture/cli.mjs [--scenario studio] [--mode within] [--cycle idle,compose|all]
-//        [--k 40] [--cpu 4] [--snapshot] [--retainers [--realm]] [--tts] [--json]
+//        [--k 40] [--cpu 4] [--snapshot] [--retainers [--realm]] [--listeners] [--tts] [--json]
 //        [--out <dir>] [--junit]   ← write report.json + report.md (+ .heapsnapshot / report.junit.xml)
 //
 // Needs the scenario's site BUILT (studio: `cd docs && npm run build`) and CHROME_PATH set.

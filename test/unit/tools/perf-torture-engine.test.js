@@ -70,3 +70,53 @@ test('perf-torture: the two inlined a11y probes stay byte-identical (no drift)',
 	assert.equal(blocks.length, 2, `expected exactly two inlined a11y probes, found ${blocks.length}`);
 	assert.equal(blocks[0], blocks[1], 'the two inlined a11y probes (norm/roleOf/labelOf) must be byte-identical — they drifted');
 });
+
+// --listeners: diffListeners splits per-cycle net-live growth into PERSISTENT (document/window → a real
+// leak) vs transient churn, and rates the persistent growth per cycle. The pure diff is what the report
+// verdict keys on, so its split + rate must be exact (2026-07-21-studio-compose-listener-leak-is-a-perf-
+// overlay-artifact.md — the instrument that told a real leak from the ?perf/web-vitals artifact).
+test('perf-torture: diffListeners splits persistent vs transient net-live growth and rates it', async () => {
+	const { diffListeners } = await import('../../../tools/perf-torture/engine.mjs');
+	assert.equal(diffListeners(null, [], 10), null, 'no baseline → null');
+	const base = [
+		{ key: 'click @ button.x (detached)', live: 2, persistent: false, stack: 's1' },
+		{ key: 'visibilitychange @ document', live: 1, persistent: true, stack: 's2' },
+	];
+	const final = [
+		{ key: 'click @ button.x (detached)', live: 16, persistent: false, stack: 's1' }, // +14 churn
+		{ key: 'visibilitychange @ document', live: 21, persistent: true, stack: 's2' },   // +20 persistent
+		{ key: 'resize @ window', live: 4, persistent: true, stack: 's3' },                // +4 persistent (new key)
+	];
+	const r = diffListeners(base, final, 20);
+	assert.equal(r.totalPersistentDelta, 24, 'persistent Δ = 20 (visibilitychange) + 4 (resize)');
+	assert.equal(r.persistentPerCyc, 1.2, '24 / 20 cycles = 1.2/cyc');
+	assert.equal(r.persistentGrowth.length, 2, 'two persistent growers');
+	// The leak verdict is computed in diffListeners (pure) so it is testable — not inline at the call site.
+	assert.equal(r.leak, true, '1.2/cyc ≥ 0.4 default floor → leak');
+	assert.equal(r.floor, 0.4, 'default floor is exposed on the result');
+	assert.equal(diffListeners(base, final, 100).leak, false, 'same growth over 100 cycles = 0.24/cyc < 0.4 → not a leak');
+	assert.equal(diffListeners(base, final, 20, 2.0).leak, false, 'a higher explicit floor (2.0) is respected — 1.2/cyc is below it');
+	assert.equal(diffListeners(base, final, 20, 1.2).leak, true, 'the floor is inclusive (≥): 1.2/cyc at floor 1.2 is a leak');
+	// Persistent sorts before transient; the biggest persistent grower leads.
+	assert.equal(r.grown[0].key, 'visibilitychange @ document', 'largest persistent grower leads');
+	assert.ok(r.grown[0].persistent, 'lead grower is persistent');
+	// A bucket that did not grow is excluded; the transient grower carries its add-site for context.
+	const transient = r.grown.filter((g) => !g.persistent);
+	assert.equal(transient.length, 1, 'one transient grower');
+	assert.equal(transient[0].delta, 14, 'transient delta preserved');
+	// A flat run (final === baseline) → zero persistent growth, no leak.
+	assert.equal(diffListeners(base, base, 20).totalPersistentDelta, 0, 'flat run → no persistent growth');
+	assert.equal(diffListeners(base, base, 20).leak, false, 'flat run is not a leak');
+});
+
+// Inspector-contamination guard: a retainer chain rooted at (or threaded through) the attached DevTools
+// heap client is an ARTIFACT, not an app holder. isInspectorChain flags it so the report says
+// "re-measure without a heap client" instead of misattributing the hold (#1139 meta-follow-up).
+test('perf-torture: isInspectorChain flags DevTools-rooted chains, not real app holders', async () => {
+	const { isInspectorChain } = await import('../../../tools/perf-torture/engine.mjs');
+	assert.equal(isInspectorChain(null), false, 'no chain → false');
+	assert.equal(isInspectorChain({ root: '(GC roots)', path: [{ node: 'object:Foo', via: 'bar' }] }), false, 'a real GC-root chain is not inspector');
+	assert.ok(isInspectorChain({ root: '<DevTools console>', path: [] }), 'a DevTools-console root is flagged');
+	assert.ok(isInspectorChain({ root: '(GC roots)', path: [{ node: 'blink::ScriptStateProtectingContext', via: 'context' }] }), 'a ScriptStateProtectingContext link is flagged');
+	assert.equal(isInspectorChain({ root: '(Global handles)', path: [{ node: 'object:Window', via: 'native' }] }), false, 'a real global-handles hold is not inspector');
+});

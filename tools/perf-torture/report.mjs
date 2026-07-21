@@ -18,13 +18,17 @@ export const SCHEMA_VERSION = 1;
 
 const MB = 1e6;
 const mb = (n) => (Number.isFinite(n) ? `${(n / MB).toFixed(2)}MB` : String(n));
+// Make a value safe to drop into a GFM table cell: encode `|` as its HTML entity (renders as `|`), so a
+// literal pipe in a listener key or add-site stack can't split the cell. Entity encoding, not backslash
+// escaping — nothing to leave half-escaped.
+const pipeSafe = (v) => String(v ?? '').replace(/\|/g, '&#124;');
 
 /**
  * Assemble the versioned report object (the source of truth) from a completed run.
  * @param {{
  *   scenario: {name:string, distDir?:string},
  *   opts: object,                              // parsed CLI options
- *   cycles: Array<{name:string, isControl:boolean, rows:object[], series:object[], snapDiff:?object, retReport:?object, heapSnapshotFile:?string}>,
+ *   cycles: Array<{name:string, isControl:boolean, rows:object[], series:object[], snapDiff:?object, retReport:?object, heapSnapshotFile:?string, listenerReport:?object}>,
  *   calibrated: boolean,
  *   floorBasis: string,
  *   durationMs: number,
@@ -40,10 +44,10 @@ export function buildReport(run) {
 		scenario: scenario.name,
 		generatedAt,
 		durationMs,
-		options: { mode: opts.mode, k: opts.k, cpu: opts.cpu, cycles: cycles.map((c) => c.name), snapshot: !!opts.snapshot, retainers: !!opts.retainers, realm: !!opts.realm },
+		options: { mode: opts.mode, k: opts.k, cpu: opts.cpu, cycles: cycles.map((c) => c.name), snapshot: !!opts.snapshot, retainers: !!opts.retainers, realm: !!opts.realm, listeners: !!opts.listeners },
 		calibrated,
 		floorBasis,
-		verdict: { anyRising: risingCycles.length > 0, risingCycles },
+		verdict: { anyRising: risingCycles.length > 0, risingCycles, listenerLeakCycles: cycles.filter((c) => c.listenerReport?.leak).map((c) => c.name) },
 		cycles: cycles.map((c) => ({
 			name: c.name,
 			isControl: c.isControl,
@@ -61,7 +65,19 @@ export function buildReport(run) {
 					}
 				: null,
 			retainers: c.retReport
-				? { targetsFound: c.retReport.targetsFound, sampleWalked: c.retReport.sampleWalked, chains: c.retReport.chains.map(([sig, n]) => ({ sig, count: n })), example: c.retReport.example }
+				? { targetsFound: c.retReport.targetsFound, sampleWalked: c.retReport.sampleWalked, inspectorContaminated: c.retReport.inspectorContaminated || 0, chains: c.retReport.chains.map(([sig, n]) => ({ sig, count: n })), example: c.retReport.example }
+				: null,
+			// --listeners: net-live growth split persistent (document/window → real leak) vs transient (GC churn),
+			// with the add-SITE that named each persistent grower (the #1139 web-vitals discriminator).
+			listeners: c.listenerReport
+				? {
+						persistentDelta: c.listenerReport.totalPersistentDelta,
+						persistentPerCyc: c.listenerReport.persistentPerCyc,
+						leak: !!c.listenerReport.leak,
+						floor: c.listenerReport.floor ?? null,
+						persistentGrowth: c.listenerReport.persistentGrowth.map((g) => ({ key: g.key, delta: g.delta, addSite: g.stack })),
+						transientGrowth: c.listenerReport.grown.filter((g) => !g.persistent).slice(0, 5).map((g) => ({ key: g.key, delta: g.delta })),
+					}
 				: null,
 			heapSnapshotFile: c.heapSnapshotFile || null,
 		})),
@@ -76,8 +92,13 @@ function seriesFor(series, metric) {
 // ── Markdown (+ Mermaid) ─────────────────────────────────────────────────────────
 export function renderMarkdown(report) {
 	const L = [];
-	const verdictIcon = report.verdict.anyRising ? '🔴' : '🟢';
-	const verdictText = report.verdict.anyRising ? `RISING in ${report.verdict.risingCycles.map((c) => `\`${c}\``).join(', ')}` : 'all metrics flat';
+	const leakCycles = report.verdict.listenerLeakCycles || [];
+	const bad = report.verdict.anyRising || leakCycles.length > 0;
+	const verdictIcon = bad ? '🔴' : '🟢';
+	const parts = [];
+	if (report.verdict.anyRising) parts.push(`RISING in ${report.verdict.risingCycles.map((c) => `\`${c}\``).join(', ')}`);
+	if (leakCycles.length) parts.push(`persistent listener leak in ${leakCycles.map((c) => `\`${c}\``).join(', ')}`);
+	const verdictText = parts.length ? parts.join('; ') : 'all metrics flat';
 	L.push(`# perf-torture — ${report.scenario}`, '');
 	L.push(`**Verdict:** ${verdictIcon} ${verdictText}`, '');
 	L.push('| | |', '|---|---|');
@@ -114,9 +135,27 @@ export function renderMarkdown(report) {
 				L.push('');
 			}
 		}
+		if (c.listeners) {
+			L.push('### listeners (net-live, post-GC)', '');
+			const lk = c.listeners.leak;
+			const state = lk ? '🔴 **persistent leak**' : c.listeners.persistentDelta ? 'below floor (one-time/steady, not a per-cycle leak)' : '🟢 flat';
+			L.push(`persistent Δ **+${c.listeners.persistentDelta}** on document/window·html·body (${c.listeners.persistentPerCyc}/cyc) — ${state}`, '');
+			L.push('> Persistent = a listener on a target that never GCs (a real leak). Transient growth is churn a real GC frees. The add-site names *where* the growth comes from — the discriminator that told web-vitals from a real Studio leak (`2026-07-21-studio-compose-listener-leak-is-a-perf-overlay-artifact.md`).', '');
+			if (c.listeners.persistentGrowth.length) {
+				L.push('| Δ | listener @ target | add-site |', '|---|---|---|');
+				// Encode any `|` as its HTML entity so it can't break the GFM table cell. Entity-encoding
+				// (not backslash-escaping) sidesteps the incomplete-escape trap — there is no escape char to
+				// leave un-escaped, and `&#124;` renders as `|`. `addSite`/`key` are our own strings, never
+				// user input, but a URL/regex in a stack can carry a literal pipe.
+				for (const g of c.listeners.persistentGrowth) L.push(`| +${g.delta} | \`${pipeSafe(g.key)}\` | ${pipeSafe(g.addSite)} |`);
+				L.push('');
+			}
+			if (c.listeners.transientGrowth.length) L.push(`_Transient churn (GCs, not a leak): ${c.listeners.transientGrowth.map((t) => `+${t.delta} \`${t.key}\``).join(', ')}._`, '');
+		}
 		if (c.retainers) {
 			L.push('### retainer chains', '');
 			L.push(`${c.retainers.targetsFound} large retained target(s); static snapshot (walked ${c.retainers.sampleWalked}) — names the holder, does **not** prove growth.`, '');
+			if (c.retainers.inspectorContaminated) L.push(`> ⚠ **${c.retainers.inspectorContaminated}/${c.retainers.sampleWalked} chain(s) root at the DevTools inspector** (\`DevTools console\` / \`ScriptStateProtectingContext\`) — an artifact of the attached heap client, **not** an app holder. Re-measure without a heap client to name the real retainer.`, '');
 			for (const ch of c.retainers.chains) L.push(`- ×${ch.count} — ${ch.sig}`);
 			L.push('');
 		}
