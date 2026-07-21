@@ -352,6 +352,25 @@ bar.**
    AI-generated leg fails, Describe is gated/deferred but the layer still ships. Either way, zdog is
    not cut until its replacement clears the bar** — we keep both engines and re-scope rather than
    delete a working path for an unproven one.
+
+   > **STATUS (chart on-ramp leg — LANDED).** The model-free chart leg is built and verified on the
+   > **real Playground** (`localhost:4321/playground`, the shipped React app — not a `.scratch`
+   > harness): a `chart-anima` funnel animating in place, the staggered build captured mid-flight and
+   > at rest (`examples/anima-chart.playground.{mid,final}.png`; the in-frame opacity telemetry read
+   > `[0.70, 0.05, 0, 0] → [1, 1, 0.75, 0.10] → [1, 1, 1, 1]` across the build, with the host control
+   > mounted and the poster hidden). Two design points settled while building it:
+   > - **Roles are the native contract; ids are minted at ingest.** A chart renderer emits a
+   >   `data-anima-role` per mark (the funnel does now) — the *role* Anima choreographs by, read from
+   >   the chart rather than guessed from a class. It emits **no** per-mark `id`: a fixed `funnel-band-N`
+   >   is not document-unique (two funnels collide → invalid export HTML), and the ingest (`chartToScene`)
+   >   overwrites it anyway. So the renderer declares *semantics*; the ingest owns the *addressable ids*.
+   > - **One host, two sources — no forked lifecycle.** The in-place chart path does NOT get its own
+   >   player. It resolves the chart's svg into a scene and hands it to the SAME `hydrateResolved`
+   >   primitive a baked `data-scene-spec` scene uses (`anima/hydrate.ts`), so a chart inherits the
+   >   playback control, the reduced-motion accessibility floor + viewer opt-in, and lazy/off-screen
+   >   mounting for free. The author opt-in is a `chart-anima` section class (`_class:` slide override
+   >   or deck-level `class:` frontmatter) — the §0.75 "deck default / slide override" settings surface.
+   > The model-*gated* (AI-generated) leg is still pending; the pivot's chart-moat claim is proven.
 3. **THEN excise zdog in one deletion pass** (only after the gate passes): remove `source:'built'`,
    `PRIMITIVES`, the built-only verbs, `backends/zdog.ts` + its adapter allowlist entry, the
    primitive-tree Rig (`flatten`/`removeAt`/`setMotionAt` + the tree/verb-chip inspector), zdog from
