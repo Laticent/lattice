@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: A 6-lens expert panel (UI/UX, visual design, frontend-systems architecture, iOS/mobile-web, Munger inversion, red-team) assessed whether the Studio live-preview architecture's competing interests can co-exist. Verdict: MOSTLY yes, but ONE pairing is irreducible under the current design — "share one warm iframe via a hoisted position:fixed host measured onto an in-flow slot" ⟂ "iOS's split of visual vs layout viewport." The red-team proved no single visualViewport-offset formula reconciles keyboard-drift (needs +offset) with pinch-zoom-pan (fixed layers already move with the page → +offset double-applies), so patching keeps emitting bugs. The KEYSTONE root cause (architect): the box is sized with 100cqh on a container-type:size holder; container-type:size establishes a containing block for position:fixed descendants, so the iframe can't be a fixed child of the box → it's hoisted to a fixed root sibling → a controller must measure-and-track it every frame → the iOS drift. RECOMMENDATION — "reframe-in-place": size the box as a plain aspect-ratio letterbox (no 100cqh, no container-type), make the editor preview an IN-FLOW CSS member (so the drift is unreachable — no fixed element tracks anything), and reframe the SAME iframe node to position:fixed;inset:0 for Present (ancestor CSS toggles, node never reparents → never reloads → Present stays instant). Delete use-shared-preview-slot.ts, the empty anchor slots, and the inline compute-seed. This is a net deletion, Studio-only, does not touch the shared render kernel (HARD RULE #1), and preserves every UX bar (instant paint, ONE warm instant-open Present, deck-size-accurate box, full responsiveness). Ship the visualViewport-offset patch (direction A) only as a carefully-scoped interim (gate on scale===1, ?? 0-guard, decide Present's branch) — it fixes the confirmed steady-state drift but NOT animated jitter, zoom, or the never-paint blank. Independent hardening (orthogonal to the primitive): a never-paint reveal floor (the earlier trio's open blocker), the 100dvh keyboard-overlap gap (add interactive-widget=resizes-content, un-gate keyboard handling from the 699px cutoff to pointer:coarse), and the loader-ground (var(--bg)) vs slide-ground (hardcoded gray) light/dark mismatch. Everything iOS is UNVERIFIED until real-device (HARD RULE #23).
 ---
 
@@ -154,6 +154,24 @@ readout:
   pinch drift (no fixed element tracks it), and Present-open is a patch (no cold reload).
 - the interim offset patch (if shipped): confirm it does not regress pinch-zoom (the `scale===1`
   gate) and does not vanish where `visualViewport` is absent.
+
+## Implementation note (2026-07-21) — the DECOUPLED variant was chosen over shared-node reframe
+
+Going into the code, the shared-node "reframe the wrapper to fullscreen for Present" version proved
+much larger than the sketch: Present holds no iframe of its own — its chrome layers over a slide slot
+the shared host was *positioned into* — so keeping ONE node meant restructuring PresentOverlay's whole
+slot + sizing model to layer its chrome over a reframed editor box. That is a deep, cross-component
+rewrite of the most-scarred code, unverifiable on iOS here — high risk of a Present/desktop regression.
+
+So the **decoupled** variant (direction D) was implemented instead: the editor preview is in-flow in its
+box (the drift fix — nothing is a fixed element tracking a slot), and Present renders its OWN in-flow
+preview. Deleted: the hoisted host, `use-shared-preview-slot.ts`, the anchor slots, the
+`presentPreview`/`onSlide` plumbing, and the dismiss-on-host-visible observer (shell dismissal now rides
+the editor preview's `onFirstRender` + the 8s backstop). Verified in WebKit across write/read/mobile
+(`fixed ancestor: null` — in-flow) and Present-open (own iframe, full chrome). The one cost vs today:
+Present's iframe unmounts on close and remounts on open (a brief loader). **Follow-up (pending):**
+keep-warm — keep Present's iframe mounted after first open so reopen is instant. Real-iPhone/iPad
+confirmation of zero drift is still required (#23).
 
 ## Files (for the implementation that follows this decision)
 

@@ -250,6 +250,22 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **The Studio live preview no longer uses a hoisted `position:fixed` host that drifted on iOS.** Real-device
+  testing showed the shared preview iframe mis-tracking its slot on iPhone/iPad during viewport changes
+  (software keyboard, pinch-zoom, URL-bar): the slide bled over the editor or overflowed behind the keyboard.
+  Root cause was structural — a `position:fixed` element positioned from a `getBoundingClientRect` (which
+  returns *visual*-viewport coords while `fixed` lays out against the *layout* viewport), so any visual/layout
+  viewport divergence moved it off its slot. The preview is now **decoupled and in-flow**: the editor preview
+  is a normal layout child of its box (the browser keeps it glued through keyboard/zoom/URL-bar/split-drag for
+  free — no fixed element, nothing to mis-measure), and Present renders its **own** in-flow preview. The
+  hoisted host, the measure-and-track controller (`use-shared-preview-slot.ts`), and the empty anchor slots are
+  deleted. Assessment + design: `engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md`.
+  (`docs/src/components/studio/StudioShell.tsx`, `docs/src/components/studio/PresentOverlay.tsx`.) *(iOS
+  freedom-from-drift is structural but UNVERIFIED on real hardware per the verification bar; opening Present
+  currently shows a brief loader — instant reopen (keep-warm) is a follow-up.)*
+
 ### Security
 
 - **Fabricate's component preview no longer renders CSS that carries a blocked remote reference.** The

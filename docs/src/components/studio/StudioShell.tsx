@@ -78,7 +78,6 @@ import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePick
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
 import { useBreakpoint, useLandscapePhone } from './use-breakpoint';
-import { useSharedPreviewSlot } from './use-shared-preview-slot';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
 import { isEvictionProneBrowser } from './workspace-backup';
@@ -404,26 +403,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// NEXT open lands on the default filter, not Docs.
 	React.useEffect(() => { if (!libraryOpen) setLibInitialFilter(undefined); }, [libraryOpen]);
 	const [presentOpen, setPresentOpen] = React.useState(false);
-	// The slide Present wants shown, PUBLISHED up from PresentOverlay so the ONE shared
-	// preview (hoisted below) renders it — Present holds no iframe of its own. `null` while
-	// a lens is withheld (fail-closed) → the shared preview hides and Present shows its own
-	// "unavailable" card. Stable setter so the child can publish from a layout effect.
-	const [presentPreview, setPresentPreview] = React.useState<{ sample: string; mermaid: boolean } | null>(null);
-	const onPresentSlide = React.useCallback((sample: string | null, mermaid: boolean) => setPresentPreview(sample == null ? null : { sample, mermaid }), []);
 	// Present OVERLAYS the current view (its z-100 backdrop fully covers Fabricate), so it
 	// does NOT leave Fabricate — Escape returns you there with your in-progress theme/component
-	// work intact. The reshape's real invariant is ONE warm *deck* preview (the shared host,
-	// parked warm through Fabricate), which holds regardless of Fabricate's separate specimen
-	// iframes; an earlier version unmounted Fabricate to force a global iframe count of 1, which
-	// silently destroyed unsaved fabrication state (Fabricate keeps it in un-persisted useState) —
-	// the adversarial trio flagged that as data loss, so Present now leaves Fabricate mounted.
+	// work intact. Present renders its OWN preview (PresentOverlay), so opening it never
+	// disturbs the editor's in-flow preview; an earlier version unmounted Fabricate to force a
+	// global iframe count of 1, which silently destroyed unsaved fabrication state (Fabricate
+	// keeps it in un-persisted useState) — the adversarial trio flagged that as data loss, so
+	// Present now leaves Fabricate mounted.
 	const openPresent = React.useCallback(() => { setPresentOpen(true); }, []);
-	// Clear the published present slide on CLOSE so the NEXT open provably starts from
-	// `editorSample` (guaranteed same render signature as the warm frame) until Present
-	// republishes the equal present sample — the warm-patch-on-open invariant then holds by
-	// construction, not by a coalescing timing side-effect (a stale slide's differing
-	// `mermaid` flag could otherwise flip the signature and force a cold write).
-	React.useEffect(() => { if (!presentOpen) setPresentPreview(null); }, [presentOpen]);
 	// PERSIST the live preview-box rect (viewport fractions) on unload, so the next reload's
 	// pre-hydration Nacre shell (studio.astro) can place its skeleton at the EXACT rect the
 	// app will re-measure — a same-device reload then shows zero geometry jump at hand-off.
@@ -547,42 +534,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		return () => clearTimeout(t);
 	}, [dismissSsrShell]);
 	const previewBoxRef = React.useRef<HTMLDivElement>(null);
-	// The ONE shared preview: a `position:fixed` host (parked below the studio root,
-	// never moved in the DOM) holding the single DeckPreview, positioned by the controller
-	// to overlay whichever SLOT is active — the editor pane's `editorSlotRef` or Present's
-	// `presentSlotRef`. Moving the iframe would reload it, so we portal by positioning.
-	const sharedHostRef = React.useRef<HTMLDivElement>(null);
-	const editorSlotRef = React.useRef<HTMLDivElement>(null);
-	const presentSlotRef = React.useRef<HTMLDivElement>(null);
-	// Decouple the instant-shell dismissal from the live-iframe reveal. The app's OWN shared
-	// host carries the SAME Nacre skeleton; the instant-shell and the host Nacre are identical, so
-	// we dismiss the SSR shell as soon as the shared host is VISIBLE (its Nacre now covers the
-	// preview area) — NOT when the live iframe reveals, which iOS signals unreliably. The live
-	// slide then reveals under the host Nacre later. This removes the window where the SSR
-	// shell and the host coexisted; the 8s backstop above stays as the ultimate floor.
-	React.useEffect(() => {
-		const host = sharedHostRef.current;
-		if (!host) return;
-		const up = () => {
-			const cs = getComputedStyle(host);
-			return cs.opacity !== '0' && cs.visibility !== 'hidden';
-		};
-		if (up()) {
-			dismissSsrShell();
-			return;
-		}
-		const mo = new MutationObserver(() => {
-			if (up()) {
-				dismissSsrShell();
-				mo.disconnect();
-			}
-		});
-		mo.observe(host, { attributes: true, attributeFilter: ['style'] });
-		return () => mo.disconnect();
-	}, [dismissSsrShell]);
-	// First-render handler for the preview: dismiss the instant-shell (idempotent — the
-	// host-up effect above usually got there first; this covers the case where the host was
-	// already visible at mount and the reveal is the first clear signal).
+	// Dismiss the instant-shell when the editor preview first renders (its own Nacre loader
+	// now covers the preview area) OR at the 8s backstop above. The editor DeckPreview lives
+	// in-flow in `previewBoxRef` and fires `onFirstRender` on its first paint — idempotent.
 	const onPreviewFirstRender = React.useCallback(() => {
 		dismissSsrShell();
 	}, [dismissSsrShell]);
@@ -1956,33 +1910,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		goToSlide(e.deltaX > 0 ? slideNo : slideNo - 2);
 	};
 
-	// ── The ONE shared preview: inputs + positioning controller ───────────────────
-	// The single hoisted DeckPreview renders EITHER the editor's cursor slide OR (when
-	// Present is open and showable) Present's current slide — one warm iframe, never a
-	// second cold write on Present open. `mermaid` is unified to the SHOWN slide on both
-	// surfaces so the frame signature matches across the editor↔Present hand-off.
+	// ── The editor's live preview (in-flow; Present owns its own) ──────────────────
+	// The editor preview is a normal layout child of `previewBoxRef` (see below) — no
+	// hoisted fixed host, no measure-and-track. Present renders its OWN preview
+	// (PresentOverlay), so there is no shared iframe to re-aim and no iOS fixed-vs-visual
+	// drift. `mermaid` is unified to the shown slide so a same-signature edit stays a patch.
 	const editorSample = previewFm ? previewFm + slide : slide;
 	const editorMermaid = hasMermaid(slide);
-	const presentShowing = presentOpen && presentPreview !== null;
-	const sharedSample = presentShowing ? (presentPreview as { sample: string }).sample : editorSample;
-	const sharedMermaid = presentShowing ? (presentPreview as { mermaid: boolean }).mermaid : editorMermaid;
-	// Render (keep warm) whenever a surface may need it — Present, mobile (both panes stay
-	// mounted), Read full-bleed, or the desktop/tablet preview pane while it isn't
-	// collapsed. Parked warm (active=false, iframe kept) only in Fabricate when not
-	// presenting, so ⌘K→Present from Fabricate resumes as a PATCH, not a cold write.
-	const sharedActive = view === 'fabricate' && !presentOpen ? false : presentOpen || mobile || effectiveStop === 'read' || split.collapsed !== 'b';
-	// Whether the editor SLOT is on-screen (explicit-visibility model — not DOM occlusion):
-	// hidden in Fabricate and on the mobile edit pane (preview stays warm but parked).
+	// Whether the editor preview should render (else it parks — iframe kept warm, per-keystroke
+	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
+	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
 	const editorSlotVisible = view !== 'fabricate' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
-	useSharedPreviewSlot({
-		hostRef: sharedHostRef,
-		editorSlotRef,
-		presentSlotRef,
-		rootRef,
-		presentActive: presentShowing,
-		editorVisible: editorSlotVisible,
-		suspended: split.dragging,
-	});
 
 	// Structural slide ops (full lens only). Each rewrites the source, moves the
 	// active slide to follow the edit, and reveals it in the editor next frame
@@ -2704,9 +2642,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 								? `min(100%, calc(100cqh * ${(previewRatio[0] / previewRatio[1]).toFixed(4)}))`
 								: `min(100%, calc(100cqh * ${(previewRatio[0] / previewRatio[1]).toFixed(4)}), 760px)`,
 					}}>
-					{/* Empty SLOT — the ONE shared preview (hoisted at the studio root) is positioned
-					    to overlay this box; the iframe never lives here (moving it would reload it). */}
-					<div ref={editorSlotRef} className="size-full" />
+					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no
+					    measure-and-track controller). Being a normal layout child, the browser keeps
+					    it glued to this box through split-drag, keyboard, pinch-zoom, and the iOS
+					    URL-bar for free — the fixed-vs-visual-viewport drift is structurally
+					    unreachable because nothing is a position:fixed element chasing a slot.
+					    Present renders its OWN preview (PresentOverlay), so this one idles
+					    (active=false) while presenting but stays warm. */}
+					<DeckPreview options={options} sample={editorSample} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type. Dropped in the
@@ -2883,34 +2826,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    silent (M3/M4 a11y). `stopAnnounce` starts empty and is updated only on a
 			    real change (never on mount, never behind Fabricate) by the effect above. */}
 			<div role="status" aria-live="polite" className="sr-only">{stopAnnounce}</div>
-			{/* ── The ONE shared preview ────────────────────────────────
-			    A `position:fixed` host, ALWAYS mounted (outside the Fabricate/mobile/desktop
-			    branches below) so it stays warm in every Present-open path, and NEVER moved in
-			    the DOM (moving an <iframe> reloads it). `useSharedPreviewSlot` writes its
-			    top/left/width/height each frame to overlay the active slot — the editor pane's
-			    slot, or (when Present is open) Present's slide-row slot. z-101 sits BETWEEN
-			    Present's backdrop (z-100) and chrome (z-102); in the editor it drops to z-15 (above
-			    the mobile pane's z-10, under the READ overlay z-20 and sheets/dialogs z-50) and goes
-			    pointer-transparent so a swipe over the slide still reaches
-			    the pane. The card frame differs per surface: Present draws the full card here;
-			    the editor keeps its frame on `previewBoxRef` and this host only clips the corners. */}
-			<div
-				ref={sharedHostRef}
-				// z: Present → 101 (between backdrop 100 and chrome 102). Editor → 15, which sits
-				// ABOVE the mobile pane's own `z-10` (whose opaque bg would else cover the slide)
-				// yet BELOW the READ "Edit this slide" overlay (z-20) and sheets/dialogs (z-50).
-				// visibility/opacity/pointer-events are all CONSTANTS here (parked defaults) and
-				// owned imperatively by the controller (useSharedPreviewSlot) — a constant in the
-				// JSX means React's diff skips it on re-render, so the controller's imperative
-				// value survives (never clobbered back to the default). opacity is the real hide
-				// (the live iframe re-asserts its own visibility:visible, which overrides an
-				// ancestor's visibility:hidden per CSS); pointer-events:none is the parked default
-				// so an invisible host never eats a click. See use-shared-preview-slot.ts.
-				style={{ position: 'fixed', top: 0, left: 0, visibility: 'hidden', opacity: 0, zIndex: presentOpen ? 101 : 15, pointerEvents: 'none' }}
-				className={cn('overflow-hidden', presentOpen ? 'rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]' : 'rounded-xl')}
-			>
-				<DeckPreview options={options} sample={sharedSample} mermaid={sharedMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={sharedActive} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader />
-			</div>
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* Read + Write stops (DESKTOP only): a slim header — deck title · ⌘K · Present ·
 			    Share · the dial. Most of the control cluster is gone; ⌘K still reaches
@@ -3448,7 +3363,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					notify={notify}
 				/>
 			)}
-			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} slotRef={presentSlotRef} onSlide={onPresentSlide} />
+			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
 			<CommandPalette
 				open={cmdOpen}
 				onOpenChange={setCmdOpen}
