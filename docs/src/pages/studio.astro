@@ -1,13 +1,16 @@
 ---
 // The Studio — the unified workspace prototype from the redesign decision doc
 // (engineering/decisions/2026-06-21-app-redesign.md). A single standalone route
-// that renders the v4 lean shell as ONE React island (StudioShell), wired live:
+// that renders the v4 lean shell as ONE React island — StudioShell, mounted
+// through the StudioIsland wrapper so its effects run under React StrictMode
+// (a dev-only double-mount that surfaces missing-cleanup leaks; no-op in prod) —
+// wired live:
 // a real CodeMirror editor, a live engine preview (DeckPreview), the Architect,
 // the deck Inspector, Share / Workspace / Present overlays, the ⌘K palette, and
 // the Fabricate studio. It is ADDITIVE — it does not touch the shipped Drawing
 // Board / Playground; the engine is loaded on demand exactly as those do.
 import '../styles/landing.css';
-import StudioShell from '../components/studio/StudioShell.tsx';
+import StudioIsland from '../components/studio/StudioIsland.tsx';
 import VizDiagnosticsOverlay from '../components/studio/VizDiagnosticsOverlay.astro';
 import ViewportDebugOverlay from '../components/studio/ViewportDebugOverlay.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
@@ -319,7 +322,7 @@ const REPLAY_JS = shell
 		)}
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
-		<StudioShell client:only="react" options={options} components={components} lintVocab={lintVocab} slideHeadings={slideHeadings} />
+		<StudioIsland client:only="react" options={options} components={components} lintVocab={lintVocab} slideHeadings={slideHeadings} />
 		{/* Live viz diagnostics — renders nothing until the Workspace → Diagnostics
 		    switch (or ?viz) turns it on; then reads dropped-to-black chart paint from
 		    the render pipeline. */}

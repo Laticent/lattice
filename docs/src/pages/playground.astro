@@ -5,7 +5,9 @@
 // it render live in the chosen palette.
 //
 // Phase 3 of the shadcn migration: the surface is a React + shadcn island
-// (PlaygroundApp). Astro owns the page shell (head, topbar, the engine
+// (PlaygroundApp, mounted through the PlaygroundIsland wrapper so its effects
+// run under React StrictMode — a dev-only double-mount that surfaces
+// missing-cleanup leaks; no-op in prod). Astro owns the page shell (head, topbar, the engine
 // <script> tags); React owns the toolbar, editor host, preview iframe, and the
 // Sheets — WRAPPING the irreducible engine pieces (CodeMirror editor.js, the
 // filmstrip deck-preview.js, the shared deck-config.js, window.LatticePlayground)
@@ -21,7 +23,7 @@ import SiteHeader from '../components/site/SiteHeader.astro';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
-import PlaygroundApp from '../components/playground/PlaygroundApp.tsx';
+import PlaygroundIsland from '../components/playground/PlaygroundIsland.tsx';
 import { buildCatalog, buildLenses } from '../lib/families.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import { isPreviewDeploy } from '../lib/deploy-env.mjs';
@@ -185,7 +187,7 @@ const pgData = {
 		     (component Popover+Command picker, variant Select, mobile Edit/Preview
 		     Tabs, status, the Deck-setup + Galleries Sheets), the CodeMirror editor
 		     host, and the preview iframe. -->
-		<PlaygroundApp client:load data={pgData} />
+		<PlaygroundIsland client:load data={pgData} />
 
 		<!-- Instant-shell pre-paint replay (kill the cold-load preview flash). Runs
 		     inline during body parse — BEFORE the island hydrates + the on-demand engine
