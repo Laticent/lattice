@@ -185,8 +185,8 @@ const DEFAULT_RATIO = DECK_RATIOS[firstDeck.id] ?? [16, 9];
 // near-black. A hardcoded `#0c0c0c` made the pre-hydration letterbox flash BLACK around the navy
 // Nacre card, then jump to the app's navy `--bg` on hydration (reported on iPhone reload). Using
 // `var(--bg)` makes the letterbox, the Nacre card, and the hydrated pane one continuous ground.
-const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;}
-:root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:#e8e8e8;--mark-bond:#4fa8da;--mark-halo:#15110d;}
+const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;}
+:root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:var(--text-body,#e8e8e8);--mark-bond:#4fa8da;--mark-halo:#15110d;}
 #studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border,rgba(127,127,127,.16));background:color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
 #studio-ssr-shell .ssr-logo{width:26px;height:26px;flex:0 0 auto;}
 #studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-heading,inherit);}
