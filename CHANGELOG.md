@@ -39,6 +39,22 @@ in patch versions.
   output is unit-tested; the §5.2 proof gate (the same animation on the **real Studio**, via native
   `data-anima-role` emission) is the next slice. The reveal machinery generalizes to the other SVG
   charts; per-chart *choreography* (pie has no top-to-bottom order) still needs its own defaults.
+- **You can now animate a chart in place, model-free — add `chart-anima` to a slide or deck.** This
+  is the §0.75 in-place settings surface and the follow-through on the ingest bridge above: a
+  `<!-- _class: chart-anima -->` slide override (or a deck-level `class: chart-anima` in the
+  frontmatter) tells the live Studio to bring a rendered chart to life — the bands build in
+  top-to-bottom, labels follow, and the worst drop-off emphasizes — with **no LLM in the loop** and
+  the **exported PDF/PPTX byte-identical** (motion is preview-only; the still bakes into the export).
+  Two pieces make it authoritative rather than guesswork: the funnel renderer now emits a native
+  **`data-anima-role`** on each mark (the *role* Anima choreographs by — `bar` / `label` — read from
+  the chart itself, not inferred from a class name), and the animation runs through the **same host**
+  as a baked scene, so a chart gets the identical playback control (⏸ / ▶ / ↻), the reduced-motion
+  accessibility floor, and off-screen pausing — one animation lifecycle, not a fork. The renderer
+  emits the *role* only and no `id` (a fixed per-mark id isn't document-unique — two funnels would
+  collide); Anima's ingest mints the addressable ids at view time. Funnel-first; the other SVG charts
+  follow as each gets its choreography defaults. Verified on the real Playground
+  (`engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75, §5.2; funnel renderer,
+  `docs/src/lib/chart-anima-hydrate.ts`, `docs/src/playground/anima-scenes.ts`).
 - **The Playground and Studio splitters are now the shadcn resizable panel (`react-resizable-panels`),
   and the Studio's Coach / Chat / Library / Settings side panels are resizable too.** The
   divider now carries an always-visible grip handle (drag, or arrow keys on the separator) and its
