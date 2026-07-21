@@ -104,6 +104,18 @@ the live tokens and the fade/freeze hand-off fires on first paint.
   > `2026-07-21-studio-preview-reframe-in-place.md`).
 - **Light-mode intensity** is a touch bold on some palettes; a blob-alpha trim is a cheap tuning pass.
 
+## Update (2026-07-21) — brand the load state with the Lattice mark
+
+The nacre alone read as a *generic* premium shimmer, not distinctly **Lattice** (owner feedback on a
+real-device reload). Fix: center the brand **"Spectrum Cell"** mark (the rotated-lattice bonds + five
+spectrum nodes, 1:1 with `LatticeMark.tsx`) in the loader, gently *breathing* (`nacre-breathe`, a
+3.2s scale+opacity pulse, reduced-motion-safe) over the nacre as ambient; and swap the shell topbar's
+placeholder gradient chip for the real mark, so the pre-paint chrome matches what the hydrated app hands
+off to (no logo swap). Bonds follow mode via `--mark-bond`/`--mark-halo` ("structure is ink, colour is
+signal"); nodes + gold core are brand constants. The mark SVG is inlined in three lockstep places
+(`nacre-loader.css` + `DeckPreview.tsx` for the React loader, `studio.astro` for the pre-hydration copy),
+and `check:studio-shell` now asserts `nacre-loader__mark` ships.
+
 ## Files
 
 `docs/src/styles/nacre-loader.css`, `docs/src/components/DeckPreview.tsx`,

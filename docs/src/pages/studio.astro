@@ -185,11 +185,11 @@ const DEFAULT_RATIO = DECK_RATIOS[firstDeck.id] ?? [16, 9];
 // near-black. A hardcoded `#0c0c0c` made the pre-hydration letterbox flash BLACK around the navy
 // Nacre card, then jump to the app's navy `--bg` on hydration (reported on iPhone reload). Using
 // `var(--bg)` makes the letterbox, the Nacre card, and the hydrated pane one continuous ground.
-const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
-:root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:#e8e8e8;}
+const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;}
+:root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:#e8e8e8;--mark-bond:#4fa8da;--mark-halo:#15110d;}
 #studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(0,0,0,.08);background:#fbfbfa;}
 :root[data-mode="dark"] #studio-ssr-shell .ssr-topbar{background:#161616;border-bottom-color:rgba(255,255,255,.08);}
-#studio-ssr-shell .ssr-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 45deg,#1a3a5c,#3f6d9c,#1a3a5c);flex:0 0 auto;}
+#studio-ssr-shell .ssr-logo{width:26px;height:26px;flex:0 0 auto;}
 #studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);container-type:size;}
 /* FALLBACK box (a visitor with no persisted rect): ONE full-bleed box at the deck's
@@ -213,7 +213,7 @@ const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;poi
 // island's stylesheet doesn't exist pre-hydration). It fills the 16:9 .ssr-slidebox exactly
 // (inset:0), so it can never bleed past the slide rect. Palette-blind via the render-blocking
 // --accent/--bg tokens. KEEP IN SYNC with nacre-loader.css (keyframes name + fallback hexes).
-const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset:0;overflow:hidden;isolation:isolate;background:var(--bg,#0c1626);}
+const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset:0;overflow:hidden;isolation:isolate;background:var(--bg,#0c1626);display:grid;place-items:center;}
 #studio-ssr-shell .nacre-loader__layer{position:absolute;inset:-35%;mix-blend-mode:screen;transform-origin:50% 50%;will-change:transform;}
 #studio-ssr-shell .nacre-loader__layer--0{filter:blur(26px);animation:nacre-rot 9s linear infinite;}
 #studio-ssr-shell .nacre-loader__layer--1{filter:blur(26px) hue-rotate(34deg);animation:nacre-rot 12s linear infinite reverse;}
@@ -224,10 +224,12 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 #studio-ssr-shell .nacre-loader__blob:nth-child(3){width:50%;aspect-ratio:1;left:32%;top:56%;}
 #studio-ssr-shell .nacre-loader__core{position:absolute;inset:0;background:radial-gradient(58% 58% at 50% 46%,color-mix(in srgb,var(--accent,#5b8fc7) 15%,transparent),transparent 72%);}
 #studio-ssr-shell .nacre-loader__vig{position:absolute;inset:0;box-shadow:inset 0 0 70px 14px color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
+#studio-ssr-shell .nacre-loader__mark{position:relative;z-index:1;width:clamp(64px,26%,176px);aspect-ratio:1;animation:nacre-breathe 3.2s ease-in-out infinite;filter:drop-shadow(0 6px 18px rgb(0 0 0/.22));}
+@keyframes nacre-breathe{0%,100%{transform:scale(1);opacity:.94}50%{transform:scale(1.045);opacity:1}}
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader{background:var(--bg,#e9eef5);}
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader__layer{mix-blend-mode:multiply;}
 @keyframes nacre-rot{to{transform:rotate(360deg);}}
-@media (prefers-reduced-motion: reduce){#studio-ssr-shell .nacre-loader__layer{animation:none;}}`;
+@media (prefers-reduced-motion: reduce){#studio-ssr-shell .nacre-loader__layer,#studio-ssr-shell .nacre-loader__mark{animation:none;}}`;
 
 // (The old pre-paint REPLAY_JS — a per-visitor snapshot-replay / newcomer welcome-slide
 // selection — is retired with the Nacre-only shell: there is no per-visitor content to
@@ -410,7 +412,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    No baked slide, no snapshot replay — one surface, no seam. */}
 		<div id="studio-ssr-shell" aria-hidden="true">
 			<div class="ssr-topbar">
-				<span class="ssr-logo"></span>
+				<svg class="ssr-logo" viewBox="0 0 128 128" fill="none" aria-hidden="true"><g transform="rotate(45 64 64)" stroke="var(--mark-bond)" stroke-width="6.4" stroke-linecap="round"><line x1="31" y1="31" x2="97" y2="31"></line><line x1="97" y1="31" x2="97" y2="97"></line><line x1="97" y1="97" x2="31" y2="97"></line><line x1="31" y1="97" x2="31" y2="31"></line></g><circle cx="64" cy="17.3" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="17.3" r="11" fill="#5b86b8"></circle><circle cx="110.7" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="110.7" cy="64" r="11" fill="#a8628a"></circle><circle cx="64" cy="110.7" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="110.7" r="11" fill="#d08c42"></circle><circle cx="17.3" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="17.3" cy="64" r="11" fill="#7b72c0"></circle><circle cx="64" cy="64" r="16.2" fill="var(--mark-halo)"></circle><circle cx="64" cy="64" r="14" fill="#c8a040"></circle><circle cx="64" cy="64" r="10.4" fill="none" stroke="#7a5a10" stroke-width="1.5" opacity="0.55"></circle></svg>
 				<span class="ssr-deck-title" id="ssr-deck-title">{firstDeck.title}</span>
 			</div>
 			<div class="ssr-stage">
@@ -420,7 +422,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						<span class="nacre-loader__layer nacre-loader__layer--0"><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i></span>
 						<span class="nacre-loader__layer nacre-loader__layer--1"><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i></span>
 						<span class="nacre-loader__layer nacre-loader__layer--2"><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i></span>
-						<span class="nacre-loader__vig"></span>
+						<span class="nacre-loader__vig"></span><svg class="nacre-loader__mark" viewBox="0 0 128 128" fill="none" aria-hidden="true"><g transform="rotate(45 64 64)" stroke="var(--mark-bond)" stroke-width="6.4" stroke-linecap="round"><line x1="31" y1="31" x2="97" y2="31"></line><line x1="97" y1="31" x2="97" y2="97"></line><line x1="97" y1="97" x2="31" y2="97"></line><line x1="31" y1="97" x2="31" y2="31"></line></g><circle cx="64" cy="17.3" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="17.3" r="11" fill="#5b86b8"></circle><circle cx="110.7" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="110.7" cy="64" r="11" fill="#a8628a"></circle><circle cx="64" cy="110.7" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="110.7" r="11" fill="#d08c42"></circle><circle cx="17.3" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="17.3" cy="64" r="11" fill="#7b72c0"></circle><circle cx="64" cy="64" r="16.2" fill="var(--mark-halo)"></circle><circle cx="64" cy="64" r="14" fill="#c8a040"></circle><circle cx="64" cy="64" r="10.4" fill="none" stroke="#7a5a10" stroke-width="1.5" opacity="0.55"></circle></svg>
 					</span>
 				</div>
 			</div>
