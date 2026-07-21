@@ -308,7 +308,12 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							var edited = localStorage.getItem('lattice-studio-src-' + did);
 							var sz = '';
 							if (edited) {
-								var fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(edited);
+								// studio-store persists edited source via write() = JSON.stringify(source), so the raw value
+								// is a QUOTED json string (leading ", escaped \n) that /^---/ would never match. Parse it
+								// back to real markdown first; inner guard degrades a corrupt value to the deck default.
+								var src = '';
+								try { var parsed = JSON.parse(edited); if (typeof parsed === 'string') src = parsed; } catch (e4) { src = ''; }
+								var fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src);
 								var sm = fm && /^[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/m.exec(fm[1]); // /m: end-of-LINE, not just last line (mirrors sizeFromSource)
 								if (sm) sz = sm[1].replace(/^['"]|['"]$/g, '').trim();
 							}
