@@ -160,19 +160,27 @@ export function DeckPreview({
 		return () => mo.disconnect();
 	}, [loader, onFirstRender]);
 
-	// Anti-stuck FLOOR — reveal-VERIFYING. The reveal-watcher above is the primary fade; this is
+	// Anti-stuck FLOOR — reveal-VERIFYING. The reveal-watcher above is the primary handoff; this is
 	// its safety net for ONE failure: the frame IS good but the MutationObserver missed the opacity
-	// flip. Recovering means fading the skeleton — but ONLY if the live frame was genuinely revealed
-	// (the engine set a non-'0' opacity once its slide painted + scaled). We must NOT fade onto a
-	// never-painted frame: that would swap "loader forever" for a BLANK, which the skeleton contract
-	// explicitly rejects (prefer the honest loader over a blank/broken slide). On a real never-paint
-	// failure the loader keeps spinning — honest, and the preview is in-flow/boxed so the app stays
-	// fully usable around it. The normal reveal (~1–3s) fires far sooner; 14s only ever reaches a defect.
+	// flip. Recovery does the SAME full handoff the watcher would — fade the skeleton AND fire the
+	// once-guarded onFirstRender (dismiss the SSG instant-shell) — but ONLY if the live frame was
+	// genuinely revealed (the engine set a non-'0' opacity once its slide painted + scaled). Firing
+	// onFirstRender here too matters: without it a missed flip would strand the pre-hydration shell
+	// until its own 8s backstop even though the slide is already up. We must NOT act on a never-painted
+	// frame: that would swap "loader forever" for a BLANK, which the skeleton contract explicitly
+	// rejects (prefer the honest loader over a blank/broken slide). On a real never-paint failure the
+	// loader keeps spinning — honest, and the preview is in-flow/boxed so the app stays fully usable
+	// around it. The normal reveal (~1–3s) fires far sooner; 14s only ever reaches a defect.
 	React.useEffect(() => {
 		if (!loader || painted) return;
 		const t = setTimeout(() => {
 			const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-			if (fr?.style.opacity && fr.style.opacity !== '0') setPainted(true);
+			if (!fr?.style.opacity || fr.style.opacity === '0') return; // not genuinely revealed — keep the loader
+			setPainted(true);
+			if (!firstRenderFiredRef.current) {
+				firstRenderFiredRef.current = true;
+				onFirstRenderRef.current?.();
+			}
 		}, 14000);
 		return () => clearTimeout(t);
 	}, [loader, painted]);
