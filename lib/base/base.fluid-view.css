@@ -23,22 +23,45 @@
  * real render. Do NOT wrap this file in `@layer` (the documented trap). */
 
 /* The deck root becomes a vertical scroll-snap scroller: one slide per screen,
- * swipe/snap down to the next (reading model locked in the design). */
+ * swipe/snap down to the next (reading model locked in the design).
+ *
+ * It is also the CENTERING frame for the edge cap (P2, Gap 2): a flex column
+ * that centers each slide horizontally, so a slide capped narrower than an
+ * ultrawide viewport sits in a symmetric frame rather than spreading edge-to-edge
+ * into a dead band. The frame is the DECK's default ground (`--bg` at the body,
+ * below) — so it is seamless for a slide at that default bg, and shows a modest
+ * neutral frame beside a dark/finish/gradient slide (that slide paints its own
+ * bg, which the frame does NOT match — the per-slide bg-bleed is the logged
+ * refinement, §9). On any screen at or below the cap aspect the slide is full
+ * width and the frame is zero-width, so this is inert for phones/laptops/projectors. */
 :root[data-lattice-view="fluid"] body {
+  --fill-max-aspect: 1.9; /* SINGLE SOURCE for the cap: the fill box never exceeds this wide; past it, a symmetric frame appears (P2 cap; supersedes P1's ultrawide exclusion) */
   margin: 0 !important;
   height: 100dvh;
   overflow-x: hidden;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
   -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg); /* the frame ground beside a capped slide — the DECK default bg (not the current slide's); palette-blind */
 }
 
 /* Each slide fills the viewport and is a snap stop. `dvh`/`svh` ride the mobile
  * browser's disappearing URL bar so a slide neither clips nor jumps as it hides. */
 :root[data-lattice-view="fluid"] section[data-lattice-slide] {
-  width: 100dvw !important;
+  /* Fill the viewport width, but never wider than the cap aspect (P2, Gap 2):
+   * on an ultrawide screen the slide caps at `100dvh × --fill-max-aspect` and the
+   * body's flex centering frames it symmetrically instead of a dead band. `min()`
+   * makes this inert at or below the cap. `100%` (the body's CONTENT width, which
+   * excludes the body scrollbar) — not `100dvw` — so at/below the cap the slide is
+   * exactly the visible width and the flex centering can't split a scrollbar's
+   * width across both edges (a classic-scrollbar clip the maker-checker caught). */
+  width: min(100%, 100dvh * var(--fill-max-aspect)) !important;
   height: 100dvh !important;
   min-height: 100svh;
+  flex-shrink: 0; /* a full-screen snap stop must not shrink in the body flex column */
   margin: 0 !important;
   scroll-snap-align: start;
   scroll-snap-stop: always;
