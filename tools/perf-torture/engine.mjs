@@ -28,7 +28,7 @@ import puppeteer from 'puppeteer';
 import { buildReport, renderJUnit, renderMarkdown } from './report.mjs';
 
 function parseArgs(argv) {
-	const o = { scenario: 'studio', mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false, out: null, junit: false };
+	const o = { scenario: 'studio', mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false, listeners: false, out: null, junit: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--scenario') o.scenario = argv[++i];
@@ -43,6 +43,7 @@ function parseArgs(argv) {
 		else if (a === '--tts') o.tts = true;
 		else if (a === "--retainers") o.retainers = true;
 		else if (a === "--realm") o.realm = true;
+		else if (a === '--listeners') o.listeners = true;
 		else if (a === '--out') o.out = argv[++i];
 		else if (a === '--junit') o.junit = true;
 		else throw new Error(`unknown arg: ${a}`);
@@ -383,6 +384,18 @@ function retainerPath(g, start, maxDepth = 25) {
 	}
 	return null;
 }
+// A retainer chain rooted at (or threaded through) the attached DevTools inspector is an ARTIFACT, not
+// an app holder: with a heap client attached, closures/objects the console evaluated or the protocol
+// pinned are held by `<DevTools console>` / `blink::ScriptStateProtectingContext`, so the nearest-root
+// BFS lands on the inspector instead of the real retainer. Naming it lets the report say "re-measure
+// without a heap client" rather than misattributing the hold (2026-07-21-studio-compose-listener-leak-
+// is-a-perf-overlay-artifact.md meta-follow-up; same contamination class as the realm over-count).
+const INSPECTOR_RE = /DevTools|ScriptStateProtectingContext|InspectorConsole|V8DebuggerAgent|<inspector>/i;
+function isInspectorChain(r) {
+	if (!r) return false;
+	if (INSPECTOR_RE.test(r.root || '')) return true;
+	return (r.path || []).some((p) => INSPECTOR_RE.test(p.node || '') || INSPECTOR_RE.test(p.via || ''));
+}
 // Find leaked target nodes (the retained theme-CSS / scaffold strings) and report the retainer
 // chain that holds them — aggregated so the COMMON pinning reference stands out.
 function retainerReport(snap, opts = {}) {
@@ -413,16 +426,110 @@ function retainerReport(snap, opts = {}) {
 		if (self >= wantBig) targets.push(i);
 	}
 	const chains = new Map();
-	let walked = 0;
+	let walked = 0, inspectorContaminated = 0;
 	for (const t of targets) {
 		if (walked >= (opts.sample ?? 12)) break;
 		const r = retainerPath(g, t); walked++;
 		if (!r) continue;
+		if (isInspectorChain(r)) inspectorContaminated++;
 		// signature = the via-edge names near the string (the immediate holders)
 		const sig = r.path.slice(0, 6).map((p) => p.via).join(' ◂ ');
 		chains.set(sig, (chains.get(sig) || 0) + 1);
 	}
-	return { targetsFound: targets.length, sampleWalked: walked, chains: [...chains.entries()].sort((a, b) => b[1] - a[1]), example: targets.length ? retainerPath(g, targets[0]) : null };
+	const example = targets.length ? retainerPath(g, targets[0]) : null;
+	return { targetsFound: targets.length, sampleWalked: walked, inspectorContaminated, chains: [...chains.entries()].sort((a, b) => b[1] - a[1]), example, exampleIsInspector: isInspectorChain(example) };
+}
+
+// ── --listeners: net-live event-listener tally (opt-in) ────────────────────────
+// WHY a bespoke tally when Performance already reports JSEventListeners: the raw counter says a number
+// MOVED, never WHERE or WHETHER-IT-STAYS. A listener churned onto a button that then GCs is not a leak;
+// one added to `document`/`window` (which never GC) is. This patch, installed via evaluateOnNewDocument
+// BEFORE any app code, holds a WeakRef to each target and matches removes, so after a forced GC the
+// survivors are the genuinely-live listeners — and it records the ADD-SITE stack, so the growth is
+// NAMED. This is the method that caught the #1139 web-vitals artifact (2026-07-21-studio-compose-
+// listener-leak-is-a-perf-overlay-artifact.md): an add-CALL tally over-counted Radix/ProseMirror churn
+// and buried the real source. Deliberately conservative — it can over-count churn, but a real
+// document/window leak always derefs live, so it can NOT be under-counted. Trustworthy magnitude stays
+// the JSEventListeners metric; this mode's job is WHERE + WHETHER-PERSISTENT, not sizing.
+const LISTENER_PATCH = () => {
+	const idOf = new WeakMap(); let nextId = 1;
+	const lid = (l) => { if (!l || (typeof l !== 'function' && typeof l !== 'object')) return 'x'; let id = idOf.get(l); if (!id) { id = nextId++; idOf.set(l, id); } return id; };
+	const perTarget = new WeakMap();
+	const entries = [];
+	const cap = (o) => (typeof o === 'boolean' ? o : !!o?.capture);
+	const key = (type, l, c) => `${type}|${c ? 1 : 0}|${lid(l)}`;
+	const oAdd = EventTarget.prototype.addEventListener;
+	const oRem = EventTarget.prototype.removeEventListener;
+	EventTarget.prototype.addEventListener = function (type, listener, opts) {
+		try {
+			// A {once:true} listener removes ITSELF after it fires — WITHOUT a removeEventListener call this
+			// patch can observe — so counting it would fabricate a persistent "leak" the browser already
+			// reclaimed (and the JSEventListeners metric never showed). It is self-cleaning by contract, not
+			// a leak vector, so it is deliberately not tracked.
+			const once = typeof opts === 'object' && !!opts?.once;
+			if (!once) {
+				const c = cap(opts);
+				let m = perTarget.get(this); if (!m) { m = new Map(); perTarget.set(this, m); }
+				const k = key(type, listener, c);
+				// Dedup identical (target,type,listener,capture) the way the browser does, so re-adds of a
+				// stable handler don't inflate the count; a fresh closure per add (the leak shape) is distinct.
+				if (!m.has(k)) { const e = { ref: new WeakRef(this), type, removed: false, stack: (new Error().stack || '').split('\n').slice(2, 7).map((s) => s.trim()).join(' <- ') }; m.set(k, e); entries.push(e); }
+			}
+		} catch {}
+		return oAdd.call(this, type, listener, opts);
+	};
+	EventTarget.prototype.removeEventListener = function (type, listener, opts) {
+		try { const m = perTarget.get(this); if (m) { const k = key(type, listener, cap(opts)); const e = m.get(k); if (e) { e.removed = true; m.delete(k); } } } catch {}
+		return oRem.call(this, type, listener, opts);
+	};
+	// A target is PERSISTENT if it won't be reclaimed by GC — so a listener added there and never
+	// removed is a genuine permanent leak. That's not just document/window: `document.head`, a
+	// `MediaQueryList` from matchMedia (never-removed `change` listeners are one of the MOST common real
+	// leaks), `visualViewport`/`screen`, and any element STILL CONNECTED to the live DOM (a persistent
+	// app-root / portal / toast container) all outlive GC too. Everything else — detached nodes, buttons
+	// recreated each cycle — is churn a real GC frees. (Narrowing this to document/window was the review's
+	// #1 finding: it mislabeled head/MQL/app-root leaks as "transient, not a leak" — the exact false
+	// negative this instrument exists to prevent.)
+	const persistent = (t) => {
+		if (t === document || t === window || t === document.documentElement || t === document.body || t === document.head) return true;
+		if (typeof MediaQueryList !== 'undefined' && t instanceof MediaQueryList) return true;
+		if (t === window.visualViewport || t === window.screen) return true;
+		if (t && t.nodeType === 1 && t.isConnected) return true; // still in the live DOM tree → won't GC while connected
+		return false;
+	};
+	const describe = (t) => {
+		if (t === document) return 'document'; if (t === window) return 'window';
+		if (t === document.documentElement) return 'html'; if (t === document.body) return 'body';
+		if (t && t.nodeType === 1) { const el = t; const slot = el.getAttribute?.('data-slot'); const cls = typeof el.className === 'string' && el.className ? '.' + el.className.split(/\s+/).filter(Boolean).slice(0, 2).join('.') : ''; return `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${cls}${slot ? `[slot=${slot}]` : ''}${el.isConnected ? '' : ' (detached)'}`; }
+		return Object.prototype.toString.call(t);
+	};
+	// Live snapshot, bucketed by `type @ target-description`. `persistent` = on a target that never GCs
+	// (document/window/html/body) → growth here is a genuine permanent leak; everything else is churn.
+	window.__perfTortureListeners = () => {
+		const buckets = new Map();
+		for (const e of entries) {
+			if (e.removed) continue; const t = e.ref.deref(); if (!t) continue;
+			const k = `${e.type} @ ${describe(t)}`;
+			const b = buckets.get(k) || { live: 0, persistent: persistent(t), stack: e.stack };
+			b.live++; buckets.set(k, b);
+		}
+		return [...buckets.entries()].map(([k, v]) => ({ key: k, live: v.live, persistent: v.persistent, stack: v.stack }));
+	};
+};
+// Diff two `__perfTortureListeners()` snapshots (baseline → final) into the buckets that GREW, and rate
+// the PERSISTENT growth (targets that never GC → a real leak) against the per-cycle floor. Transient
+// growth is churn a real GC frees. `k` is the number of cycles BETWEEN the two snapshots. The `leak`
+// verdict is computed HERE (pure) rather than inline at the call site, so it is unit-testable.
+function diffListeners(base, final, k, floor = 0.4) {
+	if (!base || !final) return null;
+	const baseMap = new Map(base.map((b) => [b.key, b.live]));
+	const grown = final.map((f) => ({ key: f.key, live: f.live, delta: f.live - (baseMap.get(f.key) || 0), persistent: f.persistent, stack: f.stack }))
+		.filter((f) => f.delta > 0)
+		.sort((a, b) => (Number(b.persistent) - Number(a.persistent)) || (b.delta - a.delta));
+	const persistentGrowth = grown.filter((f) => f.persistent);
+	const totalPersistentDelta = persistentGrowth.reduce((s, f) => s + f.delta, 0);
+	const persistentPerCyc = k ? +(totalPersistentDelta / k).toFixed(2) : 0;
+	return { grown, persistentGrowth, totalPersistentDelta, persistentPerCyc, floor, leak: persistentPerCyc >= floor };
 }
 
 async function withinSession(browser, base, opts, scenario, cycleName) {
@@ -433,6 +540,9 @@ async function withinSession(browser, base, opts, scenario, cycleName) {
 	const surfKey = scenario.cycleSurface?.[cycleName] || Object.keys(scenario.surfaces)[0];
 	const surf = scenario.surfaces[surfKey];
 	if (!surf) throw new Error(`cycle ${cycleName}: unknown surface ${surfKey}`);
+	// --listeners: install the add/removeEventListener tally BEFORE any app script runs, so no
+	// registration escapes it (evaluateOnNewDocument fires on every fresh document, before scripts).
+	if (opts.listeners) await page.evaluateOnNewDocument(LISTENER_PATCH);
 	await page.goto(`${base}${surf.url}`, { waitUntil: 'networkidle0', timeout: 90000 });
 	await settle(page, surf.ready, 30000); // dispose the readiness handle (surf.ready can be replaced later — don't pin it)
 	await wait(page, surf.settle ?? 1500);
@@ -444,11 +554,20 @@ async function withinSession(browser, base, opts, scenario, cycleName) {
 	const extraProbes = scenario.probes ? () => scenario.probes(page) : undefined;
 	if (scenario.prep?.[cycleName]) { try { await scenario.prep[cycleName](page, opts); } catch (e) { console.error(`    prep(${cycleName}) failed: ${e.message}`); } }
 	const series = [];
-	let snapDiff = null, retReport = null, heapSnapshotFile = null;
+	let snapDiff = null, retReport = null, heapSnapshotFile = null, listenerReport = null;
 	const outDir = opts._outDir; // resolved absolute dir (or undefined) — see runTorture
 	try {
 		series.push(await sample(inst, 'baseline', undefined, extraProbes));
 		const snapBase = opts.snapshot ? await takeSnapshot(inst.cdp) : null;
+		// --listeners: the baseline listener snapshot is taken AFTER the FIRST measured cycle, not before
+		// the loop. That first cycle is the warm-up: a one-time lazy attach (a handler a component installs
+		// on its FIRST interaction, then leaves) lands during it and folds into the baseline, so only
+		// SUSTAINED growth over the remaining k−1 cycles survives — matching JSEventListeners. Doing it
+		// in-loop (vs an extra pre-loop cycle) means the heap/node baseline (`series[0]`) is UNPERTURBED,
+		// so `--listeners` doesn't shift the RISING verdict for the other metrics (review finding #3). No
+		// GC before this read: persistent targets (document/window/MQL/…) never GC, so the persistent diff
+		// is GC-invariant; only the final read GCs, to drop transient churn from the display.
+		let listenerBase = null, listenerCycles = 0;
 		for (let i = 0; i < opts.k; i++) {
 			try {
 				const peak = await peakDuring(inst, () => cyc(page));
@@ -459,6 +578,8 @@ async function withinSession(browser, base, opts, scenario, cycleName) {
 				console.error(`    ${cycleName}: driving failed at cycle ${i + 1} — ${String(e.message).slice(0, 120)} (partial series kept)`);
 				break;
 			}
+			if (opts.listeners && i === 0) listenerBase = await page.evaluate(() => window.__perfTortureListeners());
+			else if (opts.listeners) listenerCycles++; // cycles measured AFTER the warm-up baseline
 			if (!opts.json && (i + 1) % 5 === 0) process.stderr.write(`    ${cycleName}: ${i + 1}/${opts.k}\r`);
 		}
 		// Snapshot + retainer are OPTIONAL attribution on top of the series — and the likeliest to
@@ -488,10 +609,22 @@ async function withinSession(browser, base, opts, scenario, cycleName) {
 				if (needRaw) { heapSnapshotFile = `${cycleName}.heapsnapshot`; await writeFile(join(outDir, heapSnapshotFile), taken.raw); }
 			} catch (e) { console.error(`    ${cycleName}: retainer report unavailable — ${String(e.message).slice(0, 120)} (series kept)`); }
 		}
+		if (opts.listeners && listenerBase) {
+			try {
+				// Force GC first so churned (reachable-but-detached) listeners drop out and only the
+				// genuinely-live survivors remain — the whole point of a NET-LIVE (not add-call) tally.
+				await inst.gc(); await inst.gc();
+				const listenerFinal = await page.evaluate(() => window.__perfTortureListeners());
+				// Rate over the cycles measured AFTER the warm-up baseline, against the scenario's listener
+				// floor (same basis as the JSEventListeners metric verdict).
+				const lFloor = scenario.universalFloors?.listeners ?? UNIVERSAL_FLOOR.listeners ?? 0.4;
+				listenerReport = diffListeners(listenerBase, listenerFinal, listenerCycles, lFloor);
+			} catch (e) { console.error(`    ${cycleName}: listener tally unavailable — ${String(e.message).slice(0, 120)} (series kept)`); }
+		}
 	} finally {
 		await page.close().catch(() => {});
 	}
-	return { series, snapDiff, retReport, heapSnapshotFile };
+	return { series, snapDiff, retReport, heapSnapshotFile, listenerReport };
 }
 
 // Universal metrics every scenario gets from Performance.getMetrics, and their absolute per-cycle
@@ -618,13 +751,13 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 		const hasIdle = typeof scenario.cycles.idle === 'function';
 		const cycles = hasIdle ? ['idle', ...requested.filter((c) => c !== 'idle')] : requested;
 		if (!hasIdle) console.error('  ⚠ scenario has no `idle` control cycle — verdict is UNCALIBRATED (floors are absolute-only; RISING may false-positive).');
-		const report = {}; const diffs = {}; const rets = {}; const seriesByCycle = {}; const snapFiles = {}; let controlSlopes = null;
+		const report = {}; const diffs = {}; const rets = {}; const seriesByCycle = {}; const snapFiles = {}; const lsts = {}; let controlSlopes = null;
 		for (const c of cycles) {
 			process.stderr.write(`\n  cycle=${c} (k=${opts.k}, cpu=${opts.cpu})\n`);
 			try {
-				const { series, snapDiff, retReport, heapSnapshotFile } = await withinSession(browser, base, opts, scenario, c);
+				const { series, snapDiff, retReport, heapSnapshotFile, listenerReport } = await withinSession(browser, base, opts, scenario, c);
 				if (c === 'idle') controlSlopes = controlSlopesFrom(series, keys);
-				report[c] = analyze(series, controlSlopes, keys, absFloor); diffs[c] = snapDiff; rets[c] = retReport; seriesByCycle[c] = series; snapFiles[c] = heapSnapshotFile;
+				report[c] = analyze(series, controlSlopes, keys, absFloor); diffs[c] = snapDiff; rets[c] = retReport; seriesByCycle[c] = series; snapFiles[c] = heapSnapshotFile; lsts[c] = listenerReport;
 			} catch (e) { console.error(`  cycle ${c} FAILED: ${e.message}`); }
 		}
 		await browser.close(); server.close();
@@ -653,11 +786,24 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 			console.log(`\n  [${c}] RETAINER paths — ${rr.targetsFound} large retained target(s)${note}; static snapshot, NOT a growth diff (walked ${rr.sampleWalked}). Common pinning chain (target ◂ held-by ◂ …):`);
 			for (const [sig, n] of rr.chains) console.log(`      ×${n}  ${sig}`);
 			if (rr.example) { console.log(`    → nearest GC root: ${rr.example.root}. Full path (root → target):`); for (const p of rr.example.path) console.log(`         ${p.node}  --${p.via}-->`); }
+			if (rr.inspectorContaminated) console.log(`    \u26a0 ${rr.inspectorContaminated}/${rr.sampleWalked} walked chain(s) root at the DEVTOOLS INSPECTOR (DevTools console / ScriptStateProtectingContext) \u2014 an ARTIFACT of the attached heap client, NOT an app holder${rr.exampleIsInspector ? ' (incl. the example above)' : ''}. Re-measure WITHOUT a heap client to name the real holder (README \u00a7Limits).`);
 			// A method caveat (NOT an assertion this run leaked): --realm names retained realms but this is a
 			// static snapshot, and the count includes the live top-level realm — so it can't establish GROWTH.
 			// Only the --snapshot realm-class banner (gated on measured growth) flags a verdict.
 			if (opts.realm) console.log('    ℹ realm targets are a STATIC snapshot, not a growth diff — run with --snapshot to establish realm-class GROWTH, and re-measure any growth without a heap client (see README §Limits) to tell a pinned leak from a reclaimable over-count.');
 		}
+			// --listeners: NET-LIVE growth per cycle (post-GC), split persistent (document/window/html/body →
+			// never GC → a real leak) vs transient (churn a real GC frees). The add-SITE is printed so growth
+			// is NAMED, not just counted — the discriminator that caught the #1139 web-vitals artifact.
+			for (const [c, lr] of Object.entries(lsts)) {
+				if (!lr) continue;
+				// `leak`/`floor` are computed in diffListeners (pure, tested); just render them.
+				const tag = lr.leak ? '  \u26a0 PERSISTENT LISTENER LEAK' : lr.totalPersistentDelta ? '  (below floor \u2014 one-time/steady, not a per-cycle leak)' : '  \u2014 persistent listeners flat';
+				console.log(`\n  [${c}] LISTENERS (net-live, post-GC) \u2014 persistent \u0394+${lr.totalPersistentDelta} on document/window/head/MQL/connected (${lr.persistentPerCyc}/cyc)${tag}`);
+				for (const g of lr.persistentGrowth.slice(0, 8)) console.log(`      +${String(g.delta).padStart(4)}  ${g.key}\n            \u21b3 add-site: ${g.stack}`);
+				const transient = lr.grown.filter((g) => !g.persistent).slice(0, 3);
+				if (transient.length) console.log(`    (transient churn \u2014 reclaimed by GC, not a leak: ${transient.map((t) => `+${t.delta} ${t.key}`).join('; ')})`);
+			}
 		if (opts.json) console.log('\nJSON ' + JSON.stringify(report));
 		// Report artifacts (--out): versioned JSON = source of truth; Markdown+Mermaid = human view;
 		// JUnit = opt-in CI projection. .heapsnapshot files were already written by withinSession.
@@ -665,7 +811,7 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 			// realmUnconfirmed is gated ONLY on measured realm-CLASS growth in the snapshot diff — NOT on the
 			// static --realm target count (which always includes the live top-level realm, so it would be
 			// perpetually true and carry no signal). No snapshot diff → no realm verdict.
-			const cycleResults = Object.keys(report).map((c) => ({ name: c, isControl: c === 'idle', rows: report[c], series: seriesByCycle[c] || [], snapDiff: diffs[c], retReport: rets[c], heapSnapshotFile: snapFiles[c], realmUnconfirmed: !!realmClassGrowth(diffs[c]) }));
+			const cycleResults = Object.keys(report).map((c) => ({ name: c, isControl: c === 'idle', rows: report[c], series: seriesByCycle[c] || [], snapDiff: diffs[c], retReport: rets[c], heapSnapshotFile: snapFiles[c], realmUnconfirmed: !!realmClassGrowth(diffs[c]), listenerReport: lsts[c] }));
 			const obj = buildReport({ scenario, opts, cycles: cycleResults, calibrated, floorBasis, durationMs: Date.now() - startedAt, generatedAt: new Date().toISOString() });
 			await writeFile(join(outDir, 'report.json'), JSON.stringify(obj, null, 2));
 			await writeFile(join(outDir, 'report.md'), renderMarkdown(obj));
@@ -683,4 +829,4 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 // Measurement seam — exported so a SECOND driver (`explore`/`replay`) reuses the engine's measurement
 // rather than duplicating it (HARD RULE #1). These were private to runTorture/withinSession; the crawl
 // verdict (Slice 4) drives its own lap loop through the same sample/peak/analyze/serve primitives.
-export { analyze, buildGraph, clickIn, clickNth, clickSel, clickTabByText, controlSlopesFrom, countSel, diffSnapshots, enumerateInteractables, exists, INTERACTABLE_SEL, makeInstrument, mannKendall, median, peakDuring, realmClassGrowth, resolveAndClick, retainerPath, retainerReport, sample, sensSlope, serve, settle, takeSnapshot, UNIVERSAL_FLOOR, UNIVERSAL_KEYS, wait };
+export { analyze, buildGraph, clickIn, clickNth, clickSel, clickTabByText, controlSlopesFrom, countSel, diffListeners, diffSnapshots, enumerateInteractables, exists, INTERACTABLE_SEL, isInspectorChain, makeInstrument, mannKendall, median, peakDuring, realmClassGrowth, resolveAndClick, retainerPath, retainerReport, sample, sensSlope, serve, settle, takeSnapshot, UNIVERSAL_FLOOR, UNIVERSAL_KEYS, wait };

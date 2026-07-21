@@ -21,9 +21,38 @@ npm run torture -- --scenario studio --cycle idle,compose,palette --k 40 --cpu 4
 
 Flags: `--scenario <name>` (default `studio`) · `--mode within` (across-refresh mode is stubbed) ·
 `--cycle a,b,c | all` · `--k <iterations>` · `--cpu <throttle×>` · `--snapshot` (per-constructor
-heap diff) · `--retainers [--realm]` (walk the retainer path to the GC root) · `--tts` (voiced
-read-aloud, needs `TORTURE_TTS_KEY`) · `--json` · `--out <dir>` / `--junit` (write report artifacts —
-see below).
+heap diff) · `--retainers [--realm]` (walk the retainer path to the GC root) · `--listeners`
+(net-live event-listener tally — see below) · `--tts` (voiced read-aloud, needs `TORTURE_TTS_KEY`) ·
+`--json` · `--out <dir>` / `--junit` (write report artifacts — see below).
+
+### `--listeners` — where listeners leak, and whether they *stay*
+
+`JSEventListeners` (a universal metric) tells you the live listener count MOVED; it never tells you
+WHERE or WHETHER-IT-STAYS. `--listeners` patches `add`/`removeEventListener` before any app code, holds
+a `WeakRef` to each target, matches removes, and — after a forced GC — reports the **net-live** growth
+per cycle, split two ways:
+
+- **persistent** — a listener on a target that never GCs (`document` / `window` / `html` / `body`).
+  Sustained growth here is a **real leak**, and each grower is printed **with its add-site stack** so
+  it is *named*, not just counted.
+- **transient** — churn on nodes that detach and GC (buttons, editor divs). Not a leak; shown for
+  context.
+
+The **first measured cycle is the warm-up**: the baseline listener snapshot is taken *after* it (growth
+is rated over the remaining `k−1`), so a one-time lazy attach (a handler a component installs on its
+first interaction, then leaves) folds into the baseline instead of masquerading as per-cycle growth —
+and because that's done in-loop, the heap/node baseline (`series[0]`) is unperturbed, so `--listeners`
+doesn't shift the RISING verdict for the other metrics. `{once:true}` listeners are skipped (they
+self-remove after firing — not a leak vector). The trustworthy *magnitude* stays the `JSEventListeners`
+metric; this mode's job is WHERE + WHETHER-PERSISTENT. **`persistent`** covers targets that never GC:
+`document` / `window` / `html` / `body` / `head`, any `MediaQueryList` (never-removed `matchMedia`
+`change` listeners are a classic leak), `visualViewport` / `screen`, and any element still connected to
+the live DOM. **Scope:** the tally reads the **main frame only** — a listener leaked inside a same-origin
+preview `srcdoc` iframe (the Studio/Playground render realm) is counted in *that* frame's patch, which
+isn't queried, so it won't show here (drive the iframe's own realm to catch those). This is the instrument that separated a real listener leak
+from the `?perf`/web-vitals artifact in `2026-07-21-studio-compose-listener-leak-is-a-perf-overlay-artifact.md`
+— run it on `--cycle idle,compose` and the production Studio is flat; point the surface at `/studio?perf`
+and it fires `⚠ PERSISTENT LISTENER LEAK: visibilitychange @ document` and names the web-vitals site.
 
 ## Report artifacts (`--out <dir>`)
 
@@ -71,6 +100,15 @@ objects — it does **not** prove they grew. Establish growth first with `--snap
 per-constructor diff), then use `--retainers` to name the holder. With no `retainerTarget` the default
 targets big (≥200 KB) retained *strings*; supply `retainerTarget(name, self)` (matched against **every**
 node type) to name a listener/closure/object leak instead.
+
+**Inspector-contaminated chains are flagged.** With a heap client attached, refs the DevTools console
+evaluated or the protocol pinned are held by `<DevTools console>` / `blink::ScriptStateProtectingContext`,
+so the nearest-root walk can land on the *inspector* instead of the real holder (the same contamination
+class as the realm over-count — it once defeated an attempt to name the compose leak). When a walked
+chain roots at one of those, the report says so (`⚠ N/M chain(s) root at the DevTools inspector …` +
+`retainers.inspectorContaminated` in `report.json`) — re-measure without a heap client to name the real
+retainer. For a listener leak specifically, skip the heap graph entirely: `--listeners` names the
+add-site directly and is immune to this.
 
 ### Limits (inherent — know them)
 - **Retained heap can't tell a reclaimable detached realm from a pinned one — realm-class growth needs a

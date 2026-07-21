@@ -155,17 +155,17 @@ export default {
 	defaultCycles: ['idle', 'typing', 'present', 'overview', 'palette', 'fullwrite', 'compose', 'slidenav', 'insert', 'slidesettings', 'decksettings', 'deckswitch2', 'readaloud', 'landing', 'pgslide', 'pgvariant', 'pgscroll', 'mixed'],
 	surfaces: {
 		studio: {
-			// ⚠ CONTAMINATION CAVEAT (2026-07-21-studio-compose-listener-leak-is-a-perf-overlay-artifact.md):
-			// `?perf` mounts PerfOverlay, which dynamically imports `web-vitals`. web-vitals arms a
-			// `visibilitychange` listener on `document` per metric report (INP re-arms on every interaction)
-			// and never unsubscribes — so the `listeners` metric here carries ~1 web-vitals add PER
-			// INTERACTING CYCLE that does NOT exist in the production Studio (`/studio`, overlay off). A
-			// LISTENER verdict on this surface is not trustworthy until re-confirmed WITHOUT `?perf`
-			// (production `/studio` compose is flat: JSEventListeners Δ0/cyc). `?perf` is kept for now because
-			// the overlay's readout aids manual runs and every cycle shares it (matched floors); dropping it
-			// shifts the calibrated `universalFloors`/baselines and is a deliberate #32 re-calibration, not a
-			// silent edit. Heap/node metrics are far less exposed than `listeners`.
-			url: '/studio?perf', ready: '.cm-content', settle: 1500,
+			// NB: drive the PRODUCTION surface `/studio`, NOT `/studio?perf` (2026-07-21-studio-compose-
+			// listener-leak-is-a-perf-overlay-artifact.md, #32). `?perf` mounts PerfOverlay, which dynamically
+			// imports `web-vitals`; web-vitals arms a `visibilitychange` listener on `document` per metric
+			// report (INP re-arms on every interaction) and never unsubscribes — so under `?perf` the
+			// `listeners` metric carried ~1 phantom add PER INTERACTING CYCLE that no real user hits, which is
+			// exactly what fooled #1139 into "confirming" a compose leak. The torture engine reads all metrics
+			// over CDP, never through the overlay, so `?perf` bought nothing but contamination. The overlay is
+			// gated on the `lattice-perf-overlay` pref (default off), so a bare `/studio` never loads
+			// web-vitals. Selector determinism comes from the BUILD-posture `setup` below, not from `?perf`.
+			// Confirm the honest surface with: `npm run torture -- --scenario studio --cycle idle,compose --listeners`.
+			url: '/studio', ready: '.cm-content', settle: 1500,
 			// dial to the BUILD posture so the full UI (activity bar, op rail, both editor toggles)
 			// is present + selectors deterministic; every studio cycle shares this → matched floors.
 			setup: async (page) => { await page.click('button[aria-label="Build — every panel"]').catch(() => {}); await wait(page, 700); },
