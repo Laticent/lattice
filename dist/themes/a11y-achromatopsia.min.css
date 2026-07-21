@@ -25,5 +25,5 @@
  * luminance: the categorical ramp + textures (a11y-base) do all the categorical
  * work, and the status trio is itself luminance-separated greys — fail darkest,
  * warn lightest. Verified AA + distinct by luminance via tools/cvd-audit.js. */
-@import"a11y-base";:root{--pass: #4d4d4d;--warn: #7a7a7a;--fail: #2e2e2e;--chart-state-pass: #4d4d4d;--chart-state-warn: #7a7a7a;--chart-state-fail: #2e2e2e;--diagram-critical: #2e2e2e}
+@import"a11y-base";:root{--pass: #4d4d4d;--warn: #6E6E6E;--fail: #2e2e2e;--chart-state-pass: #4d4d4d;--chart-state-warn: #6E6E6E;--chart-state-fail: #2e2e2e;--diagram-critical: #2e2e2e}
 

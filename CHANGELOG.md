@@ -864,6 +864,18 @@ in patch versions.
 
 ### Fixed
 
+- **Foreground status + text ink now clears WCAG AA on the card surface (`bg-alt`), across every theme.**
+  The contrast audit (`tools/contrast-audit.js`) only ever checked status colors as *fills* (`bg` on a
+  `--fail` chip) and text roles on the main canvas — it never checked `--pass`/`--warn`/`--fail` used as
+  *foreground ink* (state labels, stamps, stance markers) or `text-secondary`/`text-label` on the slightly
+  darker card surface. Extending the audit to those directions surfaced **19 sub-AA pairs across 15 themes**
+  — dominated by warn ambers tuned to clear `--bg` but landing 4.1–4.4:1 on `--bg-alt`. Every one is now
+  fixed at the theme source by nudging the light-mode ink a touch darker (target ~4.6:1 for margin): `--warn`
+  in ardesia, atelier, brina, burgundy, crepuscolo, indaco, laguna, magnolia, mustard and the four a11y
+  palettes; `--pass` in laguna; `--text-label` in atelier, mustard; `--text-secondary` in cuoio, concrete
+  (dark). The a11y darkening was verified CVD-neutral (0 change in `cvd-audit` collapses; the achromatopsia
+  grayscale ramp stays evenly separated). Dark-mode arms are untouched. (`tools/contrast-audit.js`,
+  `themes/*.css`.)
 - **Status-fill and accent chrome controls are now contrast-safe and colorblind-aware in dark mode.**
   Follows the chrome status-token fix: (1) new generated `--pass-fill`/`--warn-fill`/`--fail-fill`
   tokens back the white-text status FILLS (the Stop / armed-delete buttons, the diagnostics verdict

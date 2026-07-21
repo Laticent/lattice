@@ -90,7 +90,7 @@
   /* Self-curated semantic trio — cool green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
   --pass: light-dark(#1C7A4A, #4FD08C);
-  --warn: light-dark(#976500, #E6B255);
+  --warn: light-dark(#906000, #E6B255);
   --fail: light-dark(#A81E38, #F07F92);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);

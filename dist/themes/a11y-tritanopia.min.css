@@ -24,5 +24,5 @@
  * Tritanopia collapses the blue-yellow axis, so the status trio moves OFF it —
  * green / orange / purple, luminance-separated. Verified CVD-distinct (OKLab
  * ΔE ≥ 0.15 under tritanopia) + AA by tools/cvd-audit.js. */
-@import"a11y-base";:root{--pass: #007131;--warn: #ba5a42;--fail: #6b1667;--chart-state-pass: #007131;--chart-state-warn: #ba5a42;--chart-state-fail: #6b1667;--diagram-critical: #6b1667}
+@import"a11y-base";:root{--pass: #007131;--warn: #B05139;--fail: #6b1667;--chart-state-pass: #007131;--chart-state-warn: #B05139;--chart-state-fail: #6b1667;--diagram-critical: #6b1667}
 

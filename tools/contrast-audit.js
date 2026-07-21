@@ -224,6 +224,26 @@ const PAIRS = [
 
   // ── Edge labels ───────────────────────────────────────────────────────
   ['text-heading', 'bg', 'mermaid: edge label text on canvas bg'],
+
+  // ── Foreground status INK on both slide surfaces ──────────────────────
+  // pass/warn/fail are consumed as TEXT / --state-color / --stamp-color / --stance
+  // ink (obligation-matrix state cells, policy-recommendation stance, status-cards,
+  // regulatory stamps) — on the canvas AND on card/table surfaces (bg-alt). They
+  // were historically tuned against --bg only; a card is bg-alt, a touch lighter,
+  // so a warn amber that clears bg can slip under AA on bg-alt. Held to 4.5 (ink).
+  ['pass', 'bg',     'slide: pass status ink on canvas'],
+  ['warn', 'bg',     'slide: warn status ink on canvas'],
+  ['fail', 'bg',     'slide: fail status ink on canvas'],
+  ['pass', 'bg-alt', 'slide: pass status ink on card'],
+  ['warn', 'bg-alt', 'slide: warn status ink on card'],
+  ['fail', 'bg-alt', 'slide: fail status ink on card'],
+
+  // ── Secondary text roles on the card surface (bg-alt) ─────────────────
+  // Only heading-on-bg-alt was checked before; body/secondary/label render on
+  // cards too (captions, eyebrows, list bodies inside bg-alt containers).
+  ['text-body',      'bg-alt', 'slide: body on card'],
+  ['text-secondary', 'bg-alt', 'slide: secondary text on card'],
+  ['text-label',     'bg-alt', 'slide: label / eyebrow on card'],
 ];
 
 const CHART_TOKENS = ['chart-1','chart-2','chart-3','chart-4','chart-5','chart-6'];

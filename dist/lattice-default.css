@@ -21466,7 +21466,7 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
   --text-heading: light-dark(var(--brand-canvas), var(--scheme-dark-text-heading)); /* 16.19:1 / 17.58:1 */
   --text-body:    light-dark(#6B5D4F, var(--scheme-dark-text-body));   /* 5.95:1 / 11.02:1 AA  */
   --text-label:   light-dark(#6F604F, var(--scheme-dark-text-label));  /* 5.68:1 /  9.63:1 AA  */
-  --text-secondary: light-dark(#7B6E62, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA both sides */
+  --text-secondary: light-dark(#75685C, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA on bg + bg-alt both sides */
   --text-muted:   light-dark(#A69882, var(--scheme-dark-text-muted));      /* decorative / de-emphasized — chrome, empty/skipped marks, glyphs; WCAG-exempt */
 
   /* ── Brand accent ──────────────────────────────────────────────────────
