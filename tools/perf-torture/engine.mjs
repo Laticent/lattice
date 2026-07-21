@@ -531,6 +531,33 @@ function controlSlopesFrom(series, keys) {
 	return out;
 }
 
+// ── realm-class growth guard (2026-07-20-playground-theme-toggle-not-a-leak.md) ──────────────
+// The retained-heap number this tool trends is `JSHeapUsedSize` after `HeapProfiler.collectGarbage` — a
+// V8 GC that does NOT force Blink's detached-context disposal. So a detached iframe REALM stays counted
+// across the CDP GC even when a real idle GC would reclaim it — which once read as a 361 KB/lap
+// "leak" that a no-CDP measure showed was ~16 KB/toggle, reclaimed on idle. BUT the reverse is also
+// possible: a JS reference that PINS a detached realm forever presents IDENTICALLY in the snapshot. The
+// tool CANNOT tell the two apart from a heap dump — so it must not assert either; it flags realm-class
+// growth as needing a no-CDP re-measure to decide.
+//
+// ANCHOR precisely (grounded in a real Playground-toggle snapshot): trigger only on classes ORDINARY app
+// JS cannot mint — `FunctionTemplateInfo`/`ObjectTemplateInfo` (V8 C++ native-binding templates, created
+// per realm/context, not by any JS), `NativeContext`/`ScriptContext` (the realm roots). Deliberately NOT
+// the LOUD-but-AMBIGUOUS growers that realm churn *also* produces yet ordinary leaks produce too:
+// `system / Context` (a CLOSURE context — accumulating closures is the commonest JS leak),
+// `AccessorPair`/`AccessorInfo`/`PrototypeInfo` (any getter/setter/prototype), `PropertyCell`. Anchoring
+// on the JS-unmintable classes means a real closure/accessor/object leak is NOT mislabeled "realm" and
+// dismissed — the dangerous false-negative the adversarial trio flagged.
+const REALM_ANCHORS = /NativeContext|FunctionTemplateInfo|ObjectTemplateInfo|ScriptContext/;
+function realmClassGrowth(snapDiff) {
+	if (!snapDiff?.top) return null;
+	const hits = snapDiff.top.filter((r) => r.dCount > 20 && REALM_ANCHORS.test(r.k));
+	return hits.length ? hits.map((r) => `${r.k} (Δ${r.dCount})`) : null;
+}
+// Possibility, NOT fact — the tool has no signal to distinguish a reclaimable detached realm from a
+// forever-pinned one; it must not assert either.
+const REALM_UNCONFIRMED = 'realm-class growth — the retained-heap metric is a KNOWN blind spot here: this MAY be a reclaimable HeapProfiler over-count (detached contexts a real GC frees) OR a genuinely pinned realm leak (a JS ref holding a detached realm forever) — they are INDISTINGUISHABLE from a heap dump. Re-measure WITHOUT a heap client to decide: performance.measureUserAgentSpecificMemory() (its own GC) or a real device. See tools/perf-torture/README.md §Limits + 2026-07-20-playground-theme-toggle-not-a-leak.md.';
+
 /**
  * A Scenario is pure app-knowledge (see scenarios/studio.mjs):
  * @typedef {Object} Scenario
@@ -613,6 +640,8 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 			if (d) {
 				console.log(`    heap-diff over run: total Δ${(d.totalDelta / 1e6).toFixed(1)}MB · detached-DOM Δ${(d.detachedDelta / 1e3).toFixed(0)}KB (${d.detachedCountDelta} nodes). Top retained-size growers:`);
 				for (const r of d.top) if (r.dSelf > 50000) console.log(`      ${(r.dSelf / 1e6).toFixed(2)}MB  Δcount ${String(r.dCount).padStart(7)}  ${r.k}`);
+				const realm = realmClassGrowth(d);
+				if (realm) console.log(`    ⚠ REALM-CLASS GROWTH (${realm.slice(0, 3).join(', ')}${realm.length > 3 ? ', …' : ''}) — ${REALM_UNCONFIRMED}`);
 			}
 		}
 		for (const [c, rr] of Object.entries(rets)) {
@@ -624,12 +653,19 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 			console.log(`\n  [${c}] RETAINER paths — ${rr.targetsFound} large retained target(s)${note}; static snapshot, NOT a growth diff (walked ${rr.sampleWalked}). Common pinning chain (target ◂ held-by ◂ …):`);
 			for (const [sig, n] of rr.chains) console.log(`      ×${n}  ${sig}`);
 			if (rr.example) { console.log(`    → nearest GC root: ${rr.example.root}. Full path (root → target):`); for (const p of rr.example.path) console.log(`         ${p.node}  --${p.via}-->`); }
+			// A method caveat (NOT an assertion this run leaked): --realm names retained realms but this is a
+			// static snapshot, and the count includes the live top-level realm — so it can't establish GROWTH.
+			// Only the --snapshot realm-class banner (gated on measured growth) flags a verdict.
+			if (opts.realm) console.log('    ℹ realm targets are a STATIC snapshot, not a growth diff — run with --snapshot to establish realm-class GROWTH, and re-measure any growth without a heap client (see README §Limits) to tell a pinned leak from a reclaimable over-count.');
 		}
 		if (opts.json) console.log('\nJSON ' + JSON.stringify(report));
 		// Report artifacts (--out): versioned JSON = source of truth; Markdown+Mermaid = human view;
 		// JUnit = opt-in CI projection. .heapsnapshot files were already written by withinSession.
 		if (outDir) {
-			const cycleResults = Object.keys(report).map((c) => ({ name: c, isControl: c === 'idle', rows: report[c], series: seriesByCycle[c] || [], snapDiff: diffs[c], retReport: rets[c], heapSnapshotFile: snapFiles[c] }));
+			// realmUnconfirmed is gated ONLY on measured realm-CLASS growth in the snapshot diff — NOT on the
+			// static --realm target count (which always includes the live top-level realm, so it would be
+			// perpetually true and carry no signal). No snapshot diff → no realm verdict.
+			const cycleResults = Object.keys(report).map((c) => ({ name: c, isControl: c === 'idle', rows: report[c], series: seriesByCycle[c] || [], snapDiff: diffs[c], retReport: rets[c], heapSnapshotFile: snapFiles[c], realmUnconfirmed: !!realmClassGrowth(diffs[c]) }));
 			const obj = buildReport({ scenario, opts, cycles: cycleResults, calibrated, floorBasis, durationMs: Date.now() - startedAt, generatedAt: new Date().toISOString() });
 			await writeFile(join(outDir, 'report.json'), JSON.stringify(obj, null, 2));
 			await writeFile(join(outDir, 'report.md'), renderMarkdown(obj));
@@ -647,4 +683,4 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 // Measurement seam — exported so a SECOND driver (`explore`/`replay`) reuses the engine's measurement
 // rather than duplicating it (HARD RULE #1). These were private to runTorture/withinSession; the crawl
 // verdict (Slice 4) drives its own lap loop through the same sample/peak/analyze/serve primitives.
-export { analyze, buildGraph, clickIn, clickNth, clickSel, clickTabByText, controlSlopesFrom, countSel, diffSnapshots, enumerateInteractables, exists, INTERACTABLE_SEL, makeInstrument, mannKendall, median, peakDuring, resolveAndClick, retainerPath, retainerReport, sample, sensSlope, serve, settle, takeSnapshot, UNIVERSAL_FLOOR, UNIVERSAL_KEYS, wait };
+export { analyze, buildGraph, clickIn, clickNth, clickSel, clickTabByText, controlSlopesFrom, countSel, diffSnapshots, enumerateInteractables, exists, INTERACTABLE_SEL, makeInstrument, mannKendall, median, peakDuring, realmClassGrowth, resolveAndClick, retainerPath, retainerReport, sample, sensSlope, serve, settle, takeSnapshot, UNIVERSAL_FLOOR, UNIVERSAL_KEYS, wait };
