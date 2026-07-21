@@ -1,0 +1,424 @@
+// Live viewport-debug overlay — a small on-screen readout of the viewport geometry
+// headless CI can never see: the layout viewport (`innerWidth/Height`), the visual
+// viewport (`visualViewport` size + offset), what the CSS units `svh`/`dvh`/`lvh`
+// actually resolve to on THIS device, the cinema stage height, and the live preview
+// iframe's on-screen rect. Born from the cinema-morph landscape overflow (#1121):
+// the only way to finally diagnose a fit/offset/URL-bar bug is to read these numbers
+// on the REAL phone (HARD RULE #23 — emulation is not verification).
+//
+// Mirrors VizDiagnosticsOverlay.tsx / PerfOverlay.tsx: a React island that renders
+// NOTHING (and measures nothing) until the shared pref is on (viewport-debug-prefs.ts
+// — the Studio switch + the `?vvdebug` param), so a normal page view pays nothing. A
+// module-level singleton claim makes a duplicate include a no-op. While mounted it
+// polls the geometry (~300ms) and re-reads on every visualViewport resize/scroll.
+
+import { X } from 'lucide-react';
+import * as React from 'react';
+import { createPortal } from 'react-dom';
+import {
+	applyViewportDebugUrlParam,
+	onViewportDebugEnabledChange,
+	setViewportDebugEnabled,
+	VIEWPORT_DEBUG_AVAILABLE,
+	viewportDebugEnabled,
+} from '@/playground/viewport-debug-prefs';
+
+// Singleton claim — shared across island instances in the one bundle, so a page
+// that includes the overlay twice still shows one.
+let claimed = false;
+
+const POS_KEY = 'lattice-viewport-debug-pos';
+type Pos = { left: number; top: number } | null;
+
+export default function ViewportDebugOverlay() {
+	const [enabled, setEnabled] = React.useState(false);
+	const [owner, setOwner] = React.useState(false);
+
+	React.useEffect(() => {
+		applyViewportDebugUrlParam();
+		setEnabled(viewportDebugEnabled());
+		const off = onViewportDebugEnabledChange(setEnabled);
+		return off;
+	}, []);
+
+	React.useEffect(() => {
+		if (!VIEWPORT_DEBUG_AVAILABLE || claimed) return;
+		claimed = true;
+		setOwner(true);
+		return () => {
+			claimed = false;
+			setOwner(false);
+		};
+	}, []);
+
+	if (!(VIEWPORT_DEBUG_AVAILABLE && enabled && owner)) return null;
+	return <Overlay />;
+}
+
+type Geom = {
+	innerW: number;
+	innerH: number;
+	vv: { w: number; h: number; ol: number; ot: number } | null;
+	svh: number;
+	dvh: number;
+	lvh: number;
+	stageH: number | null;
+	frame: { top: number; bottom: number; height: number } | null;
+};
+
+// ─── Derived relationships — the numbers a viewport debugger is actually FOR ──────────
+// Raw geometry is only half the story; the deltas between the properties are what expose a
+// bug. These three are the load-bearing ones (keyboard/URL-bar overlap, URL-bar height, and
+// whether the slide fits its stage — the #1121 question), surfaced both in the verdict strip
+// and inside each row's live "relationship" line.
+
+// How much of the layout viewport the visual viewport no longer covers — the software
+// keyboard + any bottom browser UI. 0 on desktop / keyboard-down. (Same formula as
+// use-visual-viewport.ts `--cs-kb-inset`.)
+function insetPx(g: Geom): number {
+	return g.vv ? Math.max(0, g.innerH - g.vv.h - g.vv.ot) : 0;
+}
+// The browser's retractable URL bar height = the gap between the largest and smallest
+// viewport-height units. 0 when the browser has no collapsible chrome (most desktops).
+function urlBarPx(g: Geom): number {
+	return Math.max(0, g.lvh - g.svh);
+}
+// Does the preview frame fit inside the cinema stage? top ≥ 0 AND bottom ≤ stage height —
+// the exact #1121 overflow check. Returns null when there's no stage (desktop / portrait).
+function frameFit(g: Geom): { fits: boolean; over: number; slack: number } | null {
+	if (!g.frame || g.stageH == null) return null;
+	const over = Math.max(0, g.frame.bottom - g.stageH, -g.frame.top);
+	return { fits: over <= 1, over: Math.round(over), slack: Math.round(g.stageH - g.frame.height) };
+}
+
+// The metric catalog — one entry per row. `what` is the plain-language definition (the
+// hover/tap explanation the user asked for); `rel` is the LIVE relationship to the other
+// properties, recomputed each render from the current geometry. Kept in one table so the
+// docs live next to the value, not in scattered JSX.
+type Metric = { key: string; label: string; value: (g: Geom) => string; what: string; rel: (g: Geom) => string | null };
+const METRICS: Metric[] = [
+	{
+		key: 'inner',
+		label: 'inner',
+		value: (g) => `${g.innerW} × ${g.innerH}`,
+		what: 'The CSS layout viewport — what 100vw/100vh and position:fixed resolve against. It does NOT shrink when the software keyboard opens, which is exactly why a fixed bottom bar hides behind the keyboard.',
+		rel: (g) => (g.vv ? `the keyboard / URL bar covers ${insetPx(g)}px of it — that much of the layout viewport is no longer visible.` : null),
+	},
+	{
+		key: 'visual',
+		label: 'visual',
+		value: (g) => (g.vv ? `${g.vv.w} × ${g.vv.h}` : 'none'),
+		what: "What's actually visible right now (window.visualViewport) — it shrinks under the software keyboard and pinch-zoom. The only truthful 'how much can the user see' on iOS.",
+		rel: (g) => {
+			if (!g.vv) return 'window.visualViewport is unavailable on this browser.';
+			const i = insetPx(g);
+			return i > 0 ? `${i}px of the layout viewport is currently covered (keyboard / browser UI).` : 'nothing covering it — the full layout viewport is visible.';
+		},
+	},
+	{
+		key: 'offset',
+		label: 'offset',
+		value: (g) => (g.vv ? `${g.vv.ol}, ${g.vv.ot}` : '—'),
+		what: 'How far the visual viewport is shifted from the layout viewport’s top-left (offsetLeft, offsetTop). position:fixed and getBoundingClientRect() are blind to this shift.',
+		rel: (g) => {
+			if (!g.vv) return null;
+			return g.vv.ol || g.vv.ot ? `shifted — the visible area starts ${g.vv.ot}px down and ${g.vv.ol}px in (scrolled under the keyboard, or pinch-zoomed).` : 'no shift — the visual viewport is aligned to the layout viewport.';
+		},
+	},
+	{
+		key: 'svh',
+		label: 'svh',
+		value: (g) => `${g.svh}`,
+		what: '100svh — the SMALL viewport height: the browser’s retractable UI (URL bar) treated as SHOWN. The smallest the viewport ever gets.',
+		rel: (g) => (g.svh > g.dvh ? `⚠ svh (${g.svh}) > dvh (${g.dvh}) — this browser reports them inverted; do not assume svh is the always-visible height.` : `dvh ${g.dvh}, lvh ${g.lvh} — svh is the floor.`),
+	},
+	{
+		key: 'dvh',
+		label: 'dvh',
+		value: (g) => `${g.dvh}`,
+		what: '100dvh — the DYNAMIC viewport height: the CURRENT height, tracking the URL bar as it shows and hides. Usually the right unit for a full-height fill (it’s what the cinema stage uses).',
+		rel: (g) => `= ${g.dvh}px now; ${g.dvh === g.innerH ? 'matches inner height.' : `inner height is ${g.innerH}.`}`,
+	},
+	{
+		key: 'lvh',
+		label: 'lvh',
+		value: (g) => `${g.lvh}`,
+		what: '100lvh — the LARGE viewport height: the URL bar treated as HIDDEN. The largest the viewport ever gets. Overflows the screen while the URL bar is still showing.',
+		rel: (g) => `lvh − svh = ${urlBarPx(g)}px — that’s the URL bar’s height.`,
+	},
+	{
+		key: 'stage h',
+		label: 'stage h',
+		value: (g) => (g.stageH == null ? '—' : `${g.stageH}`),
+		what: 'The cinema stage ([data-cinema-stage]) height — the box the slide must fit inside on a landscape phone. Shows “—” when there’s no cinema stage (desktop / portrait).',
+		rel: (g) => {
+			const fit = frameFit(g);
+			return fit ? `the preview frame leaves ${fit.slack}px of slack inside it.` : null;
+		},
+	},
+	{
+		key: 'frame',
+		label: 'frame',
+		value: (g) => (g.frame ? `top ${g.frame.top} · bot ${g.frame.bottom} · h ${g.frame.height}` : '—'),
+		what: 'The live preview iframe’s on-screen rectangle (top / bottom / height). This is the slide the user sees.',
+		rel: (g) => {
+			const fit = frameFit(g);
+			if (!fit) return g.frame ? 'no cinema stage to fit against on this surface.' : null;
+			return fit.fits ? `fits: top ≥ 0 and bottom ≤ stage (${g.stageH}). ${fit.slack}px slack.` : `⚠ OVERFLOWS by ${fit.over}px — the slide spills past the visible band (the #1121 bug).`;
+		},
+	},
+];
+
+// The mounted overlay — measures the live geometry only while shown (mount = poll,
+// unmount = the interval + listeners are torn down).
+function Overlay() {
+	const [geom, setGeom] = React.useState<Geom | null>(null);
+	// Which row's explanation is PINNED open (tap / click). Touch has no hover, so a tap must
+	// latch the detail; a second tap closes it. Single-open keeps the small phone panel calm.
+	const [open, setOpen] = React.useState<string | null>(null);
+	// Which row is hover-previewed (desktop only). Gated to fine+hover pointers so a touch tap
+	// never triggers a stuck hover state — on a phone the tap-to-pin path is the only one.
+	const [hover, setHover] = React.useState<string | null>(null);
+	const canHover = React.useRef(false);
+	React.useEffect(() => {
+		canHover.current = typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+	}, []);
+
+	React.useEffect(() => {
+		const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+		// Probe what the CSS viewport units actually resolve to on THIS device (svh/dvh/lvh
+		// can differ from innerHeight — that's the whole question). One hidden probe per unit.
+		const probe = (h: string) => {
+			const d = document.createElement('div');
+			d.style.cssText = `position:fixed;top:0;left:0;width:0;height:${h};visibility:hidden;pointer-events:none`;
+			document.body.appendChild(d);
+			const v = d.getBoundingClientRect().height;
+			d.remove();
+			return Math.round(v);
+		};
+		const read = () => {
+			// `iframe.live` — the shell's own class for the shared engine preview
+			// (StudioShell reads it the same way). A bare `iframe` selector would grab the
+			// FIRST iframe in the document (e.g. a print-panel `pod-frame`), making the
+			// fit verdict judge the wrong box.
+			const f = document.querySelector('iframe.live')?.getBoundingClientRect();
+			const stage = document.querySelector('[data-cinema-stage]')?.getBoundingClientRect();
+			setGeom({
+				innerW: window.innerWidth,
+				innerH: window.innerHeight,
+				vv: vv ? { w: Math.round(vv.width), h: Math.round(vv.height), ol: Math.round(vv.offsetLeft), ot: Math.round(vv.offsetTop) } : null,
+				svh: probe('100svh'),
+				dvh: probe('100dvh'),
+				lvh: probe('100lvh'),
+				stageH: stage ? Math.round(stage.height) : null,
+				frame: f ? { top: Math.round(f.top), bottom: Math.round(f.bottom), height: Math.round(f.height) } : null,
+			});
+		};
+		read();
+		const id = window.setInterval(read, 300);
+		vv?.addEventListener('resize', read);
+		vv?.addEventListener('scroll', read);
+		return () => {
+			window.clearInterval(id);
+			vv?.removeEventListener('resize', read);
+			vv?.removeEventListener('scroll', read);
+		};
+	}, []);
+
+	// Header pattern mirrors VizDiagnosticsOverlay / PerfOverlay: a drag-grip + label +
+	// close, portaled to <body> and draggable, so it shares the on-brand surface AND the
+	// "grab the header to reposition" affordance the other diagnostics overlays have.
+	const header = (
+		<>
+			<span aria-hidden className="grid grid-cols-2 gap-[2px] p-px opacity-60">
+				{['a', 'b', 'c', 'd', 'e', 'f'].map((k) => (
+					<i key={k} className="block size-[3px] rounded-full bg-muted-foreground" />
+				))}
+			</span>
+			<span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">viewport · live</span>
+			<button
+				type="button"
+				aria-label="Hide viewport debug"
+				onClick={() => setViewportDebugEnabled(false)}
+				className="vp-close -my-1 -mr-1 cursor-pointer rounded border-0 bg-transparent px-1 py-0.5 text-muted-foreground transition-colors hover:text-foreground"
+			>
+				<X className="size-3.5" aria-hidden />
+			</button>
+		</>
+	);
+
+	const fit = geom ? frameFit(geom) : null;
+
+	return (
+		<PanelPortal header={header}>
+			{geom == null ? (
+				<div className="text-[11px] text-muted-foreground">Measuring…</div>
+			) : (
+				<div className="max-h-[62svh] overflow-y-auto overscroll-contain">
+					{/* Verdict strip — the computed at-a-glance answers, so the numbers below rarely
+					    need reading. The frame-fit chip goes green (fits) / red (overflows). */}
+					<div className="mb-1.5 flex flex-wrap gap-1">
+						<Chip label="keyboard / UI" value={`${insetPx(geom)}px`} tone={insetPx(geom) > 0 ? 'warn' : 'muted'} />
+						<Chip label="URL bar" value={`${urlBarPx(geom)}px`} tone="muted" />
+						{fit == null ? <Chip label="fit" value="no stage" tone="muted" /> : <Chip label="fit" value={fit.fits ? '✓' : `overflow ${fit.over}px`} tone={fit.fits ? 'pass' : 'fail'} />}
+					</div>
+					<div className="flex flex-col">
+						{METRICS.map((m) => (
+							<Row
+								key={m.key}
+								metric={m}
+								geom={geom}
+								expanded={open === m.key || (canHover.current && hover === m.key)}
+								pinned={open === m.key}
+								onToggle={() => setOpen((o) => (o === m.key ? null : m.key))}
+								onHover={(on) => canHover.current && setHover(on ? m.key : (h) => (h === m.key ? null : h))}
+							/>
+						))}
+					</div>
+					<p className="mb-0 mt-1.5 text-[9.5px] leading-[1.35] text-muted-foreground">Tap a row for what it means + how it relates. Live on this device — the numbers headless CI can’t see.</p>
+				</div>
+			)}
+		</PanelPortal>
+	);
+}
+
+// A verdict chip — one computed answer. The status tones (pass/fail/warn) are FILLED solid
+// pills with white text, NOT the outlined-token style the viz overlay uses for a lone icon:
+// the panel is portaled to <body>, where the slide-theme --pass/--warn/--fail tokens don't
+// resolve, so an outlined chip would fall back to a dark hue that goes muddy on the dark
+// popover (verified). A self-sufficient fill reads on any panel background in BOTH modes —
+// the fallbacks are chosen for ≥4.5:1 against white text, and the `var(--token, …)` form
+// still lets a resolved token win if one is ever supplied here. `muted` stays outlined (its
+// --border / --muted-foreground tokens DO resolve on the chrome).
+function Chip({ label, value, tone }: { label: string; value: string; tone: 'pass' | 'fail' | 'warn' | 'muted' }) {
+	const filled =
+		tone === 'pass'
+			? 'border-transparent bg-[var(--pass,#1f7a3d)] text-white'
+			: tone === 'fail'
+				? 'border-transparent bg-[var(--fail,#b3261e)] text-white'
+				: tone === 'warn'
+					? 'border-transparent bg-[var(--warn,#8a6100)] text-white'
+					: 'border-border text-muted-foreground';
+	return (
+		<span className={`inline-flex items-baseline gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${filled}`}>
+			<span className={tone === 'muted' ? 'opacity-70' : 'opacity-80'}>{label}</span>
+			<span className="font-semibold tabular-nums">{value}</span>
+		</span>
+	);
+}
+
+// One metric row: label + live value, tappable (touch) / hoverable (desktop) to reveal its
+// definition + a live relationship line. A real <button> so it's keyboard-focusable and
+// announces aria-expanded; the caret rotates when open.
+function Row({ metric, geom, expanded, pinned, onToggle, onHover }: { metric: Metric; geom: Geom; expanded: boolean; pinned: boolean; onToggle: () => void; onHover: (on: boolean) => void }) {
+	const rel = metric.rel(geom);
+	const warn = !!rel && rel.startsWith('⚠');
+	return (
+		<div className="border-b border-border/40 last:border-b-0">
+			<button
+				type="button"
+				aria-expanded={expanded}
+				onClick={onToggle}
+				onPointerEnter={() => onHover(true)}
+				onPointerLeave={() => onHover(false)}
+				className="flex w-full items-baseline gap-2.5 rounded px-0.5 py-1 text-left text-[11px] hover:bg-muted/40"
+			>
+				<span aria-hidden className={`shrink-0 self-center text-[8px] text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
+				<span className="w-[52px] shrink-0 text-muted-foreground">{metric.label}</span>
+				<span className={`flex-1 tabular-nums ${warn && !expanded ? 'text-[color:var(--fail,#c0392b)]' : 'text-popover-foreground'}`}>{metric.value(geom)}</span>
+			</button>
+			{expanded && (
+				<div className="pb-1.5 pl-[68px] pr-1 text-[10.5px] leading-[1.4]">
+					<p className="m-0 text-muted-foreground">{metric.what}</p>
+					{rel && <p className={`m-0 mt-1 ${warn ? 'font-semibold text-[color:var(--fail,#c0392b)]' : 'text-popover-foreground'}`}>{rel}</p>}
+					{pinned && <span className="sr-only">(pinned — tap again to close)</span>}
+				</div>
+			)}
+		</div>
+	);
+}
+
+// The draggable panel, portaled to <body> so `position:fixed` is relative to the
+// viewport regardless of a transformed ancestor at the include site. Drag the
+// header to reposition (persisted); clamped on-screen on mount + resize. The same
+// pattern VizDiagnosticsOverlay / PerfOverlay use — kept in parallel deliberately (a
+// shared helper would couple independently-evolving overlays for ~30 lines).
+function PanelPortal({ header, children }: { header: React.ReactNode; children: React.ReactNode }) {
+	const ref = React.useRef<HTMLDivElement>(null);
+	const [pos, setPos] = React.useState<Pos>(() => {
+		try {
+			const p = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
+			return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { left: p.x, top: p.y } : null;
+		} catch {
+			return null;
+		}
+	});
+
+	// Keep a restored / dragged position on-screen across a resize to a narrower
+	// viewport (else a panel saved near a wide edge renders offscreen, ungrabbable).
+	React.useEffect(() => {
+		const clamp = () => {
+			const el = ref.current;
+			if (!el) return;
+			setPos((p) => {
+				if (!p) return p;
+				const left = Math.max(4, Math.min(p.left, window.innerWidth - el.offsetWidth - 4));
+				const top = Math.max(4, Math.min(p.top, window.innerHeight - el.offsetHeight - 4));
+				return left === p.left && top === p.top ? p : { left, top };
+			});
+		};
+		clamp();
+		window.addEventListener('resize', clamp);
+		return () => window.removeEventListener('resize', clamp);
+	}, []);
+
+	// Drag the header. Move/up listen on document for the drag's duration so it
+	// keeps tracking when the pointer leaves the small header.
+	const onHeaderPointerDown = (e: React.PointerEvent) => {
+		if ((e.target as HTMLElement).closest('.vp-close')) return;
+		const el = ref.current;
+		if (!el) return;
+		const r = el.getBoundingClientRect();
+		const ox = r.left;
+		const oy = r.top;
+		const sx = e.clientX;
+		const sy = e.clientY;
+		const onMove = (ev: PointerEvent) => {
+			const nx = Math.max(4, Math.min(ox + ev.clientX - sx, window.innerWidth - el.offsetWidth - 4));
+			const ny = Math.max(4, Math.min(oy + ev.clientY - sy, window.innerHeight - el.offsetHeight - 4));
+			setPos({ left: nx, top: ny });
+		};
+		const onUp = () => {
+			document.removeEventListener('pointermove', onMove);
+			const r2 = el.getBoundingClientRect();
+			try {
+				localStorage.setItem(POS_KEY, JSON.stringify({ x: r2.left, y: r2.top }));
+			} catch {}
+		};
+		document.addEventListener('pointermove', onMove);
+		document.addEventListener('pointerup', onUp, { once: true });
+		e.preventDefault();
+	};
+
+	const style: React.CSSProperties = pos
+		? { left: pos.left, top: pos.top, right: 'auto', bottom: 'auto' }
+		: { left: 'max(8px, env(safe-area-inset-left))', top: 'max(8px, env(safe-area-inset-top))' };
+
+	const panel = (
+		<div
+			ref={ref}
+			data-testid="viewport-debug-overlay"
+			role="status"
+			aria-live="off"
+			className="lx-ui fixed z-[2147483646] max-w-[280px] select-none rounded-xl border border-border bg-popover/95 px-2.5 pt-2 pb-2.5 font-mono text-[12px] leading-[1.4] text-popover-foreground shadow-lg backdrop-blur-sm"
+			style={style}
+		>
+			<div className="mb-1.5 flex cursor-grab touch-none items-center gap-2 active:cursor-grabbing" onPointerDown={onHeaderPointerDown}>
+				{header}
+			</div>
+			{children}
+		</div>
+	);
+
+	return createPortal(panel, document.body);
+}

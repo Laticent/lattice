@@ -713,12 +713,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// single-pane shell, then lock that pane to PREVIEW below — a full-bleed, read-only
 	// deck with no editor and therefore no keyboard (2026-07-20 landscape-phone salvage).
 	const landscapePhone = useLandscapePhone();
-	// Opt-in on-device viewport diagnostic for the cinema morph (`?vvdebug`). The overflow
-	// fix itself is the forced fit-by-height on the previewBox (see its className) — a
+	// The overflow fix is the forced fit-by-height on the previewBox (see its className) — a
 	// landscape phone is always wider than a 16:9 slide, so height binds; the container was
-	// never the problem (`100dvh` already equals the visible height). See
-	// 2026-07-20-landscape-phone-preview-lock.md §Real-device fix.
-	const vvDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('vvdebug');
+	// never the problem (`100dvh` already equals the visible height). The on-device geometry
+	// probe that diagnosed it is now the standalone Viewport-debug overlay (ViewportDebugOverlay
+	// + Workspace → Diagnostics + `?vvdebug`); it reads the `data-cinema-stage` element below.
+	// See 2026-07-20-landscape-phone-preview-lock.md §Real-device fix.
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
 	// The mobile pane the shell actually shows. Normally the user's Edit/Preview choice;
@@ -3145,7 +3145,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				<div data-cinema-stage onTouchEnd={() => setWhisperReveal((n) => n + 1)} className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted">
 					{previewPane}
 					<LandscapeWhisper current={slideNo} total={viewSlides.length} revealKey={whisperReveal} />
-						{vvDebug && <LandscapeViewportDebug />}
 						{/* Screen-reader nav + live position. Cinema is swipe-only for sighted users, but VoiceOver/TalkBack intercept one-finger swipes, so these give AT users an intro, real controls, and an announced position (the visible counter is aria-hidden). */}
 						<p className="sr-only">Slide deck. Swipe, or use the previous and next buttons below, to move through slides. Rotate the phone upright to edit.</p>
 						<button type="button" className="sr-only" onClick={() => goToSlide(slideNo - 2)} disabled={slideNo <= 1}>Previous slide</button>
@@ -3581,51 +3580,6 @@ function LandscapeWhisper({ current, total, revealKey }: { current: number; tota
 			<span className="rounded-full border border-[color-mix(in_srgb,var(--border)_70%,transparent)] bg-[var(--bg-alt)] px-2.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-[var(--text-heading)] shadow-sm">{current} / {total}</span>
 		</div>
 	);
-}
-// On-device viewport diagnostic for the cinema morph — opt-in via `?vvdebug`. Renders
-// IN-FLOW (never position:fixed, which would inherit the very geometry it measures) so the
-// numbers are trustworthy. Prints the visual-viewport geometry, the resolved svh/dvh/lvh
-// units, the cinema stage height, and the live iframe rect — a device screenshot settles
-// whether the slide fits the visible band (this is the readout that finally exposed the
-// fit-axis bug). To be promoted into a first-class Workspace debug lever (perf-overlay style).
-function LandscapeViewportDebug() {
-	const [txt, setTxt] = React.useState('…');
-	React.useEffect(() => {
-		const vv = typeof window !== 'undefined' ? window.visualViewport : null;
-		// Probe what the CSS viewport units actually resolve to on THIS device (svh/dvh/lvh
-		// can differ from innerHeight — that's the whole question). One hidden probe per unit.
-		const probe = (h: string) => {
-			const d = document.createElement('div');
-			d.style.cssText = `position:fixed;top:0;left:0;width:0;height:${h};visibility:hidden;pointer-events:none`;
-			document.body.appendChild(d);
-			const v = d.getBoundingClientRect().height;
-			d.remove();
-			return Math.round(v);
-		};
-		const read = () => {
-			const f = document.querySelector('iframe')?.getBoundingClientRect();
-			const stage = document.querySelector('[data-cinema-stage]')?.getBoundingClientRect();
-			setTxt(
-				[
-					`inner ${window.innerWidth}x${window.innerHeight}`,
-					vv ? `vv ${Math.round(vv.width)}x${Math.round(vv.height)} off ${Math.round(vv.offsetLeft)},${Math.round(vv.offsetTop)}` : 'vv: none',
-					`svh ${probe('100svh')} dvh ${probe('100dvh')} lvh ${probe('100lvh')}`,
-					stage ? `stage h ${Math.round(stage.height)}` : 'stage: —',
-					f ? `frame top ${Math.round(f.top)} bot ${Math.round(f.bottom)} h ${Math.round(f.height)}` : 'frame: —',
-				].join('\n'),
-			);
-		};
-		read();
-		const id = window.setInterval(read, 300);
-		vv?.addEventListener('resize', read);
-		vv?.addEventListener('scroll', read);
-		return () => {
-			window.clearInterval(id);
-			vv?.removeEventListener('resize', read);
-			vv?.removeEventListener('scroll', read);
-		};
-	}, []);
-	return <pre className="pointer-events-none absolute left-1 top-1 z-30 m-0 whitespace-pre rounded bg-black/70 px-1.5 py-1 font-mono text-[10px] leading-tight text-[#7CFC9B]">{txt}</pre>;
 }
 // One icon on the desktop left activity bar. `caption` is a PERSISTENT label
 // under the glyph (not a hover-only tooltip — those never fire on touch and

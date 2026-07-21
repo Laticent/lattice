@@ -11,6 +11,7 @@ import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-
 import { fmtPrice, fmtTokens, fmtUSD } from '@/playground/or-catalog.js';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { onReadAloudOverlayEnabledChange, READALOUD_OVERLAY_AVAILABLE, readAloudOverlayEnabled, setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
+import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_AVAILABLE, viewportDebugEnabled } from '@/playground/viewport-debug-prefs';
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
@@ -161,6 +162,13 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 	React.useEffect(() => {
 		setVizOverlay(vizOverlayEnabled());
 		return onVizOverlayEnabledChange(setVizOverlay);
+	}, []);
+	// Viewport-debug overlay — same shared-pref pattern; the `?vvdebug` URL param and
+	// the overlay's own × write the same flag.
+	const [viewportDebug, setViewportDebug] = React.useState(false);
+	React.useEffect(() => {
+		setViewportDebug(viewportDebugEnabled());
+		return onViewportDebugEnabledChange(setViewportDebug);
 	}, []);
 	// Bump on open so the live status (incl. the authoritative account spend) re-fetches.
 	const [pulse, setPulse] = React.useState(0);
@@ -501,6 +509,15 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 											<span className="min-w-0">
 												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Viz diagnostics</span>
 												<span className="block text-[11px] text-muted-foreground">A live readout on the slide you're editing: SVG chart paint (map/quadrant/radar/…) that resolved to black because a themed color dropped — a scoping or token break. The on-device twin of the <code>check:render</code> CI guard; also via <code>?viz</code>.</span>
+											</span>
+										</label>
+									)}
+									{VIEWPORT_DEBUG_AVAILABLE && (
+										<label htmlFor="ws-viewport-debug" className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+											<Switch id="ws-viewport-debug" aria-label="Viewport debug" checked={viewportDebug} onCheckedChange={(next) => { setViewportDebug(next); setViewportDebugEnabled(next); notify(next ? 'Viewport debug on — live layout/visual-viewport geometry.' : 'Viewport debug off.'); }} />
+											<span className="min-w-0">
+												<span className="block text-[12.5px] font-semibold text-[var(--text-heading)]">Viewport debug</span>
+												<span className="block text-[11px] text-muted-foreground">A live readout of the geometry headless CI can't see: layout viewport, visual viewport (size + offset), what <code>svh</code>/<code>dvh</code>/<code>lvh</code> resolve to on this device, the cinema stage height, and the preview frame's rect. Drag to reposition; also via <code>?vvdebug</code>.</span>
 											</span>
 										</label>
 									)}

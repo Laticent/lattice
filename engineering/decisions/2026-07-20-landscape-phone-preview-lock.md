@@ -214,6 +214,60 @@ real surface and read numbers before theorizing** — the *comprehensive* `?vvde
 completely missed. (3) Don't trust the `svh/dvh/lvh` ordering — a real browser reported
 `svh > dvh`. The `?vvdebug` readout stays shipped (opt-in) for future triage.
 
+## Promotion — `?vvdebug` is now a first-class Viewport-debug overlay
+
+The comprehensive readout that finally cracked this (§Real-device fix) was, in the fix
+commit, an inline `LandscapeViewportDebug` component: a `<pre>` pinned to the cinema
+stage, gated on a raw `?vvdebug` URLSearchParams check, only ever mounted on a landscape
+phone. Useful enough to keep — the geometry it surfaces (layout vs. visual viewport,
+what `svh`/`dvh`/`lvh` actually resolve to, the stage + preview-frame rects) is exactly
+what headless CI can't see and what any future on-device layout bug will need — so it was
+promoted to a standing debug lever, built to the **same pattern as the existing
+Performance and Viz-diagnostics overlays** (HARD RULE #15 — reuse, don't reinvent):
+
+- **`docs/src/playground/viewport-debug-prefs.ts`** — the shared-pref SSOT (localStorage
+  key `lattice-viewport-debug`), mirroring `viz-overlay-prefs.ts`: `viewportDebugEnabled()`
+  / `setViewportDebugEnabled()` / `onViewportDebugEnabledChange()` (same-page listener
+  fan-out, so a switch flip mounts/unmounts the overlay live) / `applyViewportDebugUrlParam()`
+  (the `?vvdebug` param writes the same flag — a phone still enables it without the drawer).
+- **`ViewportDebugOverlay.tsx` / `.astro`** — a cloned `PanelPortal`: the draggable,
+  `<body>`-portaled, grip-headed floating panel the other diagnostics overlays use
+  (persisted position, on-screen clamp, singleton claim). It polls the geometry (~300 ms)
+  and re-reads on every `visualViewport` resize/scroll. Renders nothing (and measures
+  nothing) until the pref is on. It's a *real* debugger, not a raw dump:
+  - a **verdict strip** computes the load-bearing answers — `insetPx` (keyboard / browser-UI
+    overlap = `innerH − vv.h − vv.ot`, the same formula as `--cs-kb-inset`), `urlBarPx`
+    (`lvh − svh`), and `frameFit` (the exact #1121 check: `frame.top ≥ 0 ∧ frame.bottom ≤
+    stageH`, chip goes green/red) — so the raw rows rarely need reading;
+  - **every metric row taps/hovers open** to a plain-language definition (`what`) *and* a
+    **live relationship** to the others (`rel`, recomputed each render) — e.g. "visual is
+    *N*px shorter than inner → the keyboard covers that much", "lvh − svh = the URL-bar
+    height", "frame OVERFLOWS the stage by *N*px". The catalog lives in one `METRICS` table
+    so each property's docs sit next to its value.
+  - **Touch-first interaction.** A phone has no hover, so a **tap latches** the row's detail
+    open (single-open, a second tap closes); hover-preview is *additionally* wired but gated
+    to `(hover: hover) and (pointer: fine)` so a touch tap never sticks a hover state. The
+    body is `max-h-[62svh] overflow-y-auto` so expansions never overflow the small phone
+    panel. This is the "make it a real debug thing + mind the mobile experience" pass.
+- **`WorkspaceSheet.tsx`** — a `<Switch>` row in the General → Diagnostics group, next to
+  Performance / Read-aloud / Viz, gated by `VIEWPORT_DEBUG_AVAILABLE`.
+- **`studio.astro`** — includes `<ViewportDebugOverlay />` next to `<VizDiagnosticsOverlay />`.
+
+The inline `LandscapeViewportDebug` + the `vvDebug` const in `StudioShell.tsx` were
+retired; the `data-cinema-stage` attribute on the cinema `<div>` stays — the new overlay
+reads it. The overlay is no longer landscape-only: it reads on any surface (on desktop the
+stage row simply shows `—`, since there's no cinema stage), so it's a general viewport
+probe now, not a one-bug artifact. Verified on the *built* Studio driven in a headless
+Chromium over `astro preview` (the shipped bundle, not the dev server): hidden by default;
+`?vvdebug` shows correct live numbers at a desktop viewport (1440×900) AND an **emulated**
+landscape-phone viewport (844×390 with touch — the cinema morph engaged, `stage h 390`,
+frame fitting `[0,390]`); the Workspace switch mounts/unmounts the overlay live and its ×
+writes the pref off; dark-mode chip legibility re-checked with a dark render. **UNVERIFIED
+on real iOS/Android hardware** (HARD RULE #23 — an emulated width is not a device): the
+geometry the tool reports is only ever as true as the device you actually read it on, which
+is the whole point of shipping it. The chrome, the interaction, and the light/dark styling
+are what's verified here.
+
 ## Known limitations / follow-up (logged, not fixed here — HARD RULE #18)
 
 Off the path of this change; recorded so they aren't lost:
@@ -237,16 +291,29 @@ Off the path of this change; recorded so they aren't lost:
   sighted, orientation-lock-**off** newcomer who opens a shared deck already in landscape
   sees no sign an editor exists. The `sr-only` intro covers AT users; the visible cue was
   removed by explicit request. Revisit if landscape shared-link entry proves common.
+- **`PanelPortal` is now cloned 4× (HARD RULE #15 debt — logged, not fixed here).** The
+  draggable/on-brand diagnostics panel (grip drag, on-screen clamp, `<body>` portal,
+  singleton claim, ~80 lines) now lives copy-pasted in `PerfOverlay`, `ReadAloudOverlay`,
+  `VizDiagnosticsOverlay`, and `ViewportDebugOverlay`. Each was cloned deliberately (the
+  in-file comment argues a shared helper would couple independently-evolving overlays), but
+  a fourth copy crosses the rule-of-three line — four-way drift is now a real maintenance
+  risk. **Follow-up (its own PR, off the path of this feature per #17/#8):** extract a
+  shared `<DraggableDiagnosticPanel>` (drag + clamp + portal + singleton + grip header) and
+  refactor all four overlays onto it; each keeps only its own pref module, testid,
+  close-class, and body content. Surfaced by the PR #1129 adversarial-trio (Munger
+  inversion). Not pulled into #1129 to keep that diff one-feature-one-PR.
 
 ## Touchpoints
 
 - `docs/src/components/studio/use-breakpoint.ts` — `useLandscapePhone()`.
 - `StudioShell.tsx` previewBox fit — `previewFitByHeight || landscapePhone` forces fit-by-height
   on the landscape phone (the actual fix); the cinema `<div>` just fills the `100dvh` root.
-- `StudioShell.tsx` `LandscapeViewportDebug` — the comprehensive `?vvdebug` readout
-  (svh/dvh/lvh + stage + frame), kept opt-in for future triage. (Rounds 1–3 —
-  `useVisualViewportHeight`, the `use-shared-preview-slot` dual-hoist, and the `svh` height —
-  were all reverted; see §Real-device fix.)
+- `ViewportDebugOverlay.tsx` / `.astro` + `viewport-debug-prefs.ts` — the comprehensive
+  `?vvdebug` readout (svh/dvh/lvh + stage + frame), promoted from the inline
+  `LandscapeViewportDebug` into a first-class Workspace debug lever (see §Promotion). Opt-in,
+  drag-repositionable, off by default. (Rounds 1–3 — `useVisualViewportHeight`, the
+  `use-shared-preview-slot` dual-hoist, and the `svh` height — were all reverted; see
+  §Real-device fix.)
 - `docs/src/components/studio/StudioShell.tsx` — `landscapePhone` / `effPane` /
   `previewChromeless` derivation, `splitUsable`, the header suppression, the cinema
   body branch (incl. `sr-only` Prev/Next + `aria-live` position for AT), `previewPane`

@@ -1,0 +1,16 @@
+---
+// Live viewport-debug overlay — mounts the React island (ViewportDebugOverlay.tsx)
+// that reads the live viewport geometry (layout + visual viewport, svh/dvh/lvh, the
+// cinema stage height, the preview iframe rect) and shows a small readout. The
+// on-device answer to the questions headless CI can never see — born from the
+// cinema-morph landscape overflow (#1121), where the fix was only found by reading
+// these numbers on a real phone.
+//
+// client:only — browser-only (reads localStorage + `window.visualViewport`). Renders
+// NOTHING until the shared pref is on (viewport-debug-prefs.ts: the Studio "Viewport
+// debug" switch + the `?vvdebug` param), so a normal view pays nothing. A module-level
+// singleton claim makes a double include a no-op.
+import ViewportDebugOverlay from './ViewportDebugOverlay.tsx';
+---
+
+<ViewportDebugOverlay client:only="react" />
