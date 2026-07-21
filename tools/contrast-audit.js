@@ -251,41 +251,27 @@ const CHART_TOKENS = ['chart-1','chart-2','chart-3','chart-4','chart-5','chart-6
 // Well-designed palettes target ≥ 0.20 for adjacent slots.
 const OKLAB_THRESHOLD = 0.15;
 
-// ── Runner ────────────────────────────────────────────────────────────────
+// ── Per-theme audit (pure; shared by the CLI runner AND the unit gate) ──────
 
-const args       = process.argv.slice(2);
-const failsOnly  = args.includes('--fails-only');
-const themeArgs  = args.filter(a => !a.startsWith('-'));
+function listAllThemes() {
+  return fs.readdirSync(THEMES_DIR)
+    .filter(f => f.endsWith('.css'))
+    .map(f => f.replace('.css', ''))
+    .sort();
+}
 
-const allThemes = fs.readdirSync(THEMES_DIR)
-  .filter(f => f.endsWith('.css'))
-  .map(f => f.replace('.css', ''))
-  .sort();
-
-const themes = themeArgs.length ? themeArgs : allThemes;
-
-let totalFails = 0;
-const totalWarns = 0;
-let totalChecks = 0;
-
-console.log('');
-console.log('  Lattice · Contrast & Colour-Theory Audit');
-console.log('  ══════════════════════════════════════════════════════════════');
-console.log('  WCAG AA = 4.5:1 · AAA = 7:1 · OKLab ΔE threshold = 0.15');
-console.log('');
-
-for (const theme of themes) {
+/** Audit one theme against PAIRS. Returns { fails, missing, weakPairs, checks,
+ *  chartHexes, isDark } — or null if the theme file is absent. Pure: no console,
+ *  no process state, so a test can assert on it and the CLI can print it. */
+function auditTheme(theme) {
   const cssFile = path.join(THEMES_DIR, `${theme}.css`);
-  if (!fs.existsSync(cssFile)) {
-    console.log(`  [skip] ${theme} — file not found`);
-    continue;
-  }
+  if (!fs.existsSync(cssFile)) return null;
 
   const css  = loadPaletteWithImports(cssFile);
   const vars = parsePaletteVars(css);
-
   const fails = [];
   const missing = [];
+  let checks = 0;
 
   for (const [fg, bg, ctx] of PAIRS) {
     const bgHex = vars[bg];
@@ -296,18 +282,13 @@ for (const theme of themes) {
     }
     // fg: plain hex, or a translucent on-dark ink composited over bg.
     const fgHex = parseHex(vars[fg]) ? vars[fg] : resolveTranslucent(fg, vars, bgHex);
-
     if (!fgHex) {
       if (vars[fg]) missing.push({ ctx, fg: vars[fg], bg: bgHex });
       continue;
     }
-
-    totalChecks++;
+    checks++;
     const ratio = contrastRatio(fgHex, bgHex);
-    if (ratio < 4.5) {
-      totalFails++;
-      fails.push({ ctx, fgHex, bgHex, ratio });
-    }
+    if (ratio < 4.5) fails.push({ ctx, fgHex, bgHex, ratio });
   }
 
   // Chart palette: OKLab pairwise distinctness.
@@ -317,51 +298,78 @@ for (const theme of themes) {
     for (let j = i + 1; j < chartHexes.length; j++) {
       const d = oklabDist(chartHexes[i], chartHexes[j]);
       if (d !== null && d < OKLAB_THRESHOLD) {
-        weakPairs.push({
-          a: `chart-${i+1}(${chartHexes[i]})`,
-          b: `chart-${j+1}(${chartHexes[j]})`,
-          d,
-        });
+        weakPairs.push({ a: `chart-${i+1}(${chartHexes[i]})`, b: `chart-${j+1}(${chartHexes[j]})`, d });
       }
     }
   }
 
-  const hasIssues = fails.length || weakPairs.length || missing.length;
+  const isDark = /:root\b[^{}]*\{[^}]*color-scheme\s*:\s*dark\b/
+    .test(css.replace(/\/\*[\s\S]*?\*\//g, ''));
 
-  if (!hasIssues && failsOnly) continue;
-
-  const isDark = css.replace(/\/\*[\s\S]*?\*\//g, '')
-    .match(/:root\b[^{}]*\{[^}]*color-scheme\s*:\s*dark\b/) ? ' [dark]' : '';
-  console.log(`  ── ${theme}${isDark} ${'─'.repeat(Math.max(1, 52 - theme.length - isDark.length))}`);
-
-  if (!hasIssues) {
-    const minDist = chartHexes.length >= 2
-      ? Math.min(...CHART_TOKENS.slice(0, chartHexes.length).flatMap((_, i) =>
-          CHART_TOKENS.slice(i+1, chartHexes.length).map((__, j) => {
-            const d = oklabDist(chartHexes[i], chartHexes[i+1+j]);
-            return d ?? Infinity;
-          })
-        ))
-      : Infinity;
-    const distStr = Number.isFinite(minDist) ? `  chart min ΔE ${minDist.toFixed(3)}` : '';
-    console.log(`     ✓ all checks pass${distStr}`);
-  } else {
-    for (const f of fails) {
-      const r = f.ratio.toFixed(2).padStart(5);
-      console.log(`     ✗ ${r}:1  ${f.fgHex} on ${f.bgHex}`);
-      console.log(`          ${f.ctx}`);
-    }
-    for (const w of weakPairs) {
-      console.log(`     ⚠ chart ΔE ${w.d.toFixed(3)}  ${w.a} ↔ ${w.b}`);
-    }
-    for (const u of missing) {
-      console.log(`     ?  unresolved pair [${u.ctx}]`);
-      console.log(`          fg=${u.fg}  bg=${u.bg}`);
-    }
-  }
-  console.log('');
+  return { theme, fails, missing, weakPairs, checks, chartHexes, isDark };
 }
 
-console.log('  ══════════════════════════════════════════════════════════════');
-console.log(`  ${totalFails} contrast failures · ${totalWarns} warnings · ${totalChecks} pairs checked across ${themes.length} themes`);
-console.log('');
+module.exports = { auditTheme, listAllThemes, PAIRS };
+
+// ── CLI runner ──────────────────────────────────────────────────────────────
+
+if (require.main === module) {
+  const args      = process.argv.slice(2);
+  const failsOnly = args.includes('--fails-only');
+  const themeArgs = args.filter(a => !a.startsWith('-'));
+  const themes    = themeArgs.length ? themeArgs : listAllThemes();
+
+  let totalFails = 0;
+  let totalChecks = 0;
+
+  console.log('');
+  console.log('  Lattice · Contrast & Colour-Theory Audit');
+  console.log('  ══════════════════════════════════════════════════════════════');
+  console.log('  WCAG AA = 4.5:1 · AAA = 7:1 · OKLab ΔE threshold = 0.15');
+  console.log('');
+
+  for (const theme of themes) {
+    const res = auditTheme(theme);
+    if (!res) { console.log(`  [skip] ${theme} — file not found`); continue; }
+
+    totalFails += res.fails.length;
+    totalChecks += res.checks;
+    const { fails, missing, weakPairs, chartHexes } = res;
+    const hasIssues = fails.length || weakPairs.length || missing.length;
+    if (!hasIssues && failsOnly) continue;
+
+    const dark = res.isDark ? ' [dark]' : '';
+    console.log(`  ── ${theme}${dark} ${'─'.repeat(Math.max(1, 52 - theme.length - dark.length))}`);
+
+    if (!hasIssues) {
+      const minDist = chartHexes.length >= 2
+        ? Math.min(...CHART_TOKENS.slice(0, chartHexes.length).flatMap((_, i) =>
+            CHART_TOKENS.slice(i+1, chartHexes.length).map((__, j) => {
+              const d = oklabDist(chartHexes[i], chartHexes[i+1+j]);
+              return d ?? Infinity;
+            })
+          ))
+        : Infinity;
+      const distStr = Number.isFinite(minDist) ? `  chart min ΔE ${minDist.toFixed(3)}` : '';
+      console.log(`     ✓ all checks pass${distStr}`);
+    } else {
+      for (const f of fails) {
+        console.log(`     ✗ ${f.ratio.toFixed(2).padStart(5)}:1  ${f.fgHex} on ${f.bgHex}`);
+        console.log(`          ${f.ctx}`);
+      }
+      for (const w of weakPairs) {
+        console.log(`     ⚠ chart ΔE ${w.d.toFixed(3)}  ${w.a} ↔ ${w.b}`);
+      }
+      for (const u of missing) {
+        console.log(`     ?  unresolved pair [${u.ctx}]`);
+        console.log(`          fg=${u.fg}  bg=${u.bg}`);
+      }
+    }
+    console.log('');
+  }
+
+  console.log('  ══════════════════════════════════════════════════════════════');
+  console.log(`  ${totalFails} contrast failures · 0 warnings · ${totalChecks} pairs checked across ${themes.length} themes`);
+  console.log('');
+  process.exitCode = totalFails ? 1 : 0;
+}
