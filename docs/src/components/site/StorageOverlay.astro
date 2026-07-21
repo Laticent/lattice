@@ -1,0 +1,18 @@
+---
+// Storage diagnostic overlay — mounts the React island (StorageOverlay.tsx) that
+// renders a draggable, tappable readout of the client-side storage that
+// accumulates in a REGULAR profile but never in private browsing: the origin's
+// quota usage, the Studio's localStorage footprint by category, the service-worker
+// Cache Storage entry counts, and a live full-scan timing (the O(n) boot cost).
+//
+// client:only — the overlay is browser-only (reads localStorage / caches / the
+// Storage API) and never needs SSR/SEO. It renders NOTHING until the shared pref is
+// on (storage-overlay-prefs.ts: the Studio/Workspace switch + the `?storage` param),
+// so a normal page view pays nothing. Included once per page via ResourceHints
+// (standalone routes), Header (docs zone), and features.astro — the same reach as
+// PerfOverlay; a module-level singleton claim in the island makes a double-include
+// a no-op.
+import StorageOverlay from './StorageOverlay.tsx';
+---
+
+<StorageOverlay client:only="react" />
