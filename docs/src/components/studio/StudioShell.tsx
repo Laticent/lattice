@@ -64,6 +64,7 @@ import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
+import { sizeRatio } from './slide-size';
 import { hasMermaid } from './slide-thumb';
 import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
@@ -168,20 +169,9 @@ const SIZES = [
 	{ value: 'story', label: 'Story 9 : 16' },
 ];
 const SIZE_LABELS: Record<string, string> = Object.fromEntries(SIZES.map((s) => [s.value, s.label.replace(/ \(.*\)/, '')]));
-// Aspect ratio (w:h) per engine `@size` token, so the preview CARD matches the
-// deck's real shape — not a hardcoded 16:9. Covers the @size table in lib/_theme.css
-// (incl. aliases); an unknown size falls back to 16:9.
-const SIZE_RATIO: Record<string, [number, number]> = {
-	'16:9': [16, 9], hd: [16, 9], '4k': [16, 9], '4K': [16, 9],
-	standard: [4, 3], '4:3': [4, 3],
-	square: [1, 1], '1:1': [1, 1],
-	portrait: [4, 5], '4:5': [4, 5],
-	story: [9, 16], '9:16': [9, 16], reel: [9, 16],
-	mobile: [1080, 2340],
-};
-function sizeRatio(size: string): [number, number] {
-	return SIZE_RATIO[size] ?? SIZE_RATIO[(size || '').toLowerCase()] ?? [16, 9];
-}
+// Aspect ratio (w:h) per engine `@size` token — the preview CARD matches the deck's real
+// shape, never a hardcoded 16:9. SIZE_RATIO/sizeRatio are the shared source of truth (also
+// used by the pre-hydration instant shell); see slide-size.ts.
 const ratioText = ([w, h]: [number, number]): string => (w === 1080 ? '9 : 19.5' : `${w} : ${h}`);
 // Relative time for the version-history list (just now / Nm / Nh / Nd).
 function timeAgo(ts: number): string {

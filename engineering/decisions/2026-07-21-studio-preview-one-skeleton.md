@@ -83,9 +83,15 @@ guaranteed to drift), the shell now **replays the app's OWN measured box rect**:
    `vw/vh` units, so it matches whatever the app measures now), clamps it on-screen, and sets
    `--sb-*` + `data-ssr-rect`. The shell CSS then positions the Nacre box **absolutely** at
    that rect (its containing block is the `position:fixed` shell = the viewport).
-3. No saved rect (newcomer) → the CSS falls back to a **centered full-bleed 16:9** box that
-   mirrors the app's newcomer boot (the Read stop), with the topbar corrected `52→54px` and
-   the `960` cap removed.
+3. No saved rect (newcomer, or the one transitional reload right after this ships) → the CSS
+   falls back to a **centered full-bleed** box at the **deck's author-chosen aspect** — the
+   seed resolves the active deck's `size:` the same way the app does (front-matter → the
+   shared `SIZE_RATIO`, resting on the engine's own 16:9 only when a deck names no size), and
+   the box fits the stage via container-query units so it letterboxes correctly for *any*
+   aspect (square/portrait bind on height, landscape on width). Topbar corrected `52→54px`,
+   the `960` cap removed. Slides have chosen sizes — the skeleton never assumes 16:9. The
+   `SIZE_RATIO` map is now a single source of truth (`slide-size.ts`) shared by the app
+   (`previewRatio`) and this seed, so the two can't drift.
 
 Because the shell reimplements none of the layout math and just replays the app's own number,
 it **cannot drift** from the app. A future layout change moves the persisted rect automatically.
@@ -99,8 +105,11 @@ and hydration; the on-screen clamp and same-viewport px resolution bound that er
 
 ## Files
 
-`docs/src/pages/studio.astro` (Nacre-only shell + geometry seed + rect-replay CSS), `docs/src/components/studio/StudioShell.tsx`
-(decoupled dismissal, removed Studio snapshot capture, persist preview-box rect on unload),
+`docs/src/pages/studio.astro` (Nacre-only shell + geometry + ratio seed + rect-replay CSS),
+`docs/src/components/studio/slide-size.ts` (shared SIZE_RATIO source of truth),
+`docs/src/components/studio/StudioShell.tsx`
+(decoupled dismissal, removed Studio snapshot capture, persist preview-box rect on unload,
+import shared `sizeRatio`),
 `docs/src/components/DeckPreview.tsx` (skeleton reveal-watcher + anti-stuck floor),
 `docs/src/lib/single-slide-render.ts` (content-driven reveal, no force-reveal of a broken
 frame), `docs/src/components/studio/use-shared-preview-slot.ts` (on-screen size/position

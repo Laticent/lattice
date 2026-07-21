@@ -868,8 +868,10 @@ in patch versions.
   impossible. The skeleton box also no longer **jumps** at hand-off (worst on tablet, where the app uses
   a two-pane split the fixed shell didn't reproduce): the app persists its real preview-box rect on
   unload, and the pre-hydration shell replays that exact rect — a same-device reload now lands the Nacre
-  pixel-identical to where the app re-measures it (`dx=dy=dw=dh=0` at desktop/tablet/mobile), with a
-  centered full-bleed fallback for a first visit. **Breaking (behavior):** a returning visitor no longer sees their real last slide flash
+  pixel-identical to where the app re-measures it (`dx=dy=dw=dh=0` at desktop/tablet/mobile). A first
+  visit falls back to a centered full-bleed box at the **deck's author-chosen aspect** (resolved from the
+  active deck's `size:` the same way the app derives it — square, 4:3, 9:16, … all fit correctly; the
+  skeleton never assumes 16:9). **Breaking (behavior):** a returning visitor no longer sees their real last slide flash
   instantly on reload — everyone sees the calm Nacre skeleton, then the live slide. (`docs/src/pages/studio.astro`,
   `docs/src/components/studio/StudioShell.tsx`, `docs/src/components/DeckPreview.tsx`,
   `docs/src/lib/single-slide-render.ts`, `docs/src/components/studio/use-shared-preview-slot.ts`,

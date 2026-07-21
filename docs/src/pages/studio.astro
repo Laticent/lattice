@@ -19,7 +19,8 @@ import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
-import { DECKS } from '../components/studio/decks';
+import { DECKS, deckSource } from '../components/studio/decks';
+import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -162,17 +163,21 @@ try {
 // skeleton at HTML-parse time so a reload never stares at a blank preview while the
 // client:only island + engine bundle load.
 const firstDeck = DECKS[0];
+// Aspect ratio (w:h) each builtin deck renders at — its AUTHOR-CHOSEN size, never assumed
+// 16:9 — so the instant shell's fallback box matches the deck the visitor actually boots
+// into. Injected into the seed below (with the size map, for resolving a user-edited deck's
+// size pre-paint). DEFAULT_RATIO is the newcomer's deck (DECKS[0]).
+const DECK_RATIOS: Record<string, [number, number]> = Object.fromEntries(DECKS.map((d) => [d.id, deckRatio(deckSource(d))]));
+const DEFAULT_RATIO = DECK_RATIOS[firstDeck.id] ?? [16, 9];
 // The Studio's pre-hydration INSTANT SHELL is Nacre-ONLY: a single animated skeleton in one
-// contained 16:9 box, shown to EVERY visitor at HTML-parse time (before the client:only
-// island + the ~505KB engine load) and dismissed by the app once its own (identical) Nacre
-// is up. There is deliberately NO cached-last-slide replay and NO server-rendered welcome
-// slide: a second, REAL-CONTENT surface racing the live preview at a mismatched geometry was
-// the root of the "slide in the top half, shimmer bleeding into the bottom, seam down the
-// middle" bug on mobile (two surfaces, two coordinate systems, one gated on the flaky iOS
-// reveal). One skeleton, one rect, one honest ground — the seam is now structurally
-// impossible. See engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
-const SHELL_W = 1280;
-const SHELL_H = 720;
+// contained box (at the deck's chosen aspect), shown to EVERY visitor at HTML-parse time
+// (before the client:only island + the ~505KB engine load) and dismissed by the app once its
+// own (identical) Nacre is up. There is deliberately NO cached-last-slide replay and NO
+// server-rendered welcome slide: a second, REAL-CONTENT surface racing the live preview at a
+// mismatched geometry was the root of the "slide in the top half, shimmer bleeding into the
+// bottom, seam down the middle" bug on mobile (two surfaces, two coordinate systems, one gated
+// on the flaky iOS reveal). One skeleton, one rect, one honest ground — the seam is now
+// structurally impossible. See engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
 // Chrome for the instant shell (topbar + centered stage). Keyed under #studio-ssr-shell so
 // it never touches the hydrated island.
 const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:#e7e7ea;color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
@@ -181,19 +186,22 @@ const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;poi
 :root[data-mode="dark"] #studio-ssr-shell .ssr-topbar{background:#161616;border-bottom-color:rgba(255,255,255,.08);}
 #studio-ssr-shell .ssr-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 45deg,#1a3a5c,#3f6d9c,#1a3a5c);flex:0 0 auto;}
 #studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);}
-/* FALLBACK box (newcomer, no persisted rect): ONE full-bleed 16:9 box (CONTAIN via
-   aspect-ratio + max-height) centered in the stage — width binds on a portrait phone,
-   height binds on landscape. Mirrors the app's newcomer boot (the Read stop's full-bleed
-   preview). The letterbox bands are the flat shell background — never Nacre — the invariant
-   that kills the bleed. */
-#studio-ssr-shell .ssr-slidebox{position:relative;width:100%;max-width:100%;aspect-ratio:${SHELL_W}/${SHELL_H};max-height:100%;box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
+#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);container-type:size;}
+/* FALLBACK box (a visitor with no persisted rect): ONE full-bleed box at the deck's
+   AUTHOR-CHOSEN aspect (--sb-ratio / numeric --sb-ar, seeded below; the engine's own 16:9
+   only when a deck names no size), fit into the stage the SAME way the app fits its preview:
+   width = min(available width, available height × ratio) via container-query units, so it
+   letterboxes correctly for ANY aspect — a square/portrait deck binds on height on a wide
+   viewport, a landscape deck binds on width on a phone. Mirrors the app's newcomer boot (the
+   Read stop's full-bleed preview). The letterbox bands are flat shell background — never
+   Nacre — the invariant that kills the bleed. */
+#studio-ssr-shell .ssr-slidebox{position:relative;width:min(100cqw, calc(100cqh * var(--sb-ar, 1.7778)));aspect-ratio:var(--sb-ratio, 16 / 9);box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
 /* RECT-REPLAY mode: a returning visitor's seed script (below) resolved the app's OWN last
    preview-box rect from localStorage and set --sb-* to px in the CURRENT viewport. Position
    the box ABSOLUTELY at that rect (its containing block is the position:fixed shell = the
    viewport), so the Nacre lands exactly where the hydrated app will re-measure its box — no
    geometry reimplementation here, so it can't drift from the app's split/stop/ratio layout. */
-:root[data-ssr-rect] #studio-ssr-shell .ssr-stage{display:block;padding:0;}
+:root[data-ssr-rect] #studio-ssr-shell .ssr-stage{display:block;padding:0;container-type:normal;}
 :root[data-ssr-rect] #studio-ssr-shell .ssr-slidebox{position:absolute;left:var(--sb-l);top:var(--sb-t);width:var(--sb-w);height:var(--sb-h);max-width:none;max-height:none;aspect-ratio:auto;}`;
 
 // The Nacre skeleton — a scoped inline COPY of docs/src/styles/nacre-loader.css (the
@@ -258,7 +266,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES }}>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DEFAULT_RATIO }}>
 			(function () {
 				var r = document.documentElement;
 				try {
@@ -279,6 +287,29 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					// returning-user vs newcomer distinction to make — everyone gets the same
 					// calm shimmer until the live preview is ready.
 					r.setAttribute('data-ssr-shell', 'on');
+					// RATIO SEED — the fallback box (a visitor with no persisted rect: a newcomer, or
+					// the one transitional reload right after this ships) must match the AUTHOR-CHOSEN
+					// size of the deck they boot into, never an assumed 16:9. Resolve it from the deck
+					// they last viewed the same way the app does (its `size:` front-matter → SIZE_RATIO,
+					// falling back to the engine's own 16:9 only when a deck names no size).
+					try {
+						var rr = DEFAULT_RATIO;
+						var act = JSON.parse(localStorage.getItem('lattice-studio-active') || 'null');
+						var did = act && act.deckId;
+						if (did) {
+							var edited = localStorage.getItem('lattice-studio-src-' + did);
+							var sz = '';
+							if (edited) {
+								var fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(edited);
+								var sm = fm && /(?:^|\n)[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/.exec(fm[1]);
+								if (sm) sz = sm[1].replace(/^['"]|['"]$/g, '').trim();
+							}
+							if (sz && (SIZE_RATIO[sz] || SIZE_RATIO[sz.toLowerCase()])) rr = SIZE_RATIO[sz] || SIZE_RATIO[sz.toLowerCase()];
+							else if (DECK_RATIOS[did]) rr = DECK_RATIOS[did];
+						}
+						r.style.setProperty('--sb-ratio', rr[0] + ' / ' + rr[1]);
+						r.style.setProperty('--sb-ar', String(rr[0] / rr[1]));
+					} catch (e3) {}
 					// GEOMETRY SEED — place the Nacre box at the EXACT rect the app last had its
 					// preview box (persisted by StudioShell on unload as viewport fractions). On a
 					// same-device reload the shell box then lands pixel-identical to where the
