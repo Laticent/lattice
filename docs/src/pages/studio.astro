@@ -21,6 +21,7 @@ import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
 import { DECKS, deckSource } from '../components/studio/decks';
 import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
+import { PREVIEW_CHROME } from '../components/studio/preview-rect';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -266,7 +267,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DEFAULT_RATIO }}>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DEFAULT_RATIO, PREVIEW_CHROME }}>
 			(function () {
 				var r = document.documentElement;
 				try {
@@ -335,6 +336,45 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							}
 						}
 					} catch (e2) {}
+					// COMPUTE SEED (prototype, option B) — when there is NO persisted rect (a
+					// brand-new visitor, a cross-device first load), don't fall back to an
+					// approximate centered box: COMPUTE the exact rect from known inputs, the same
+					// pure function the validation proved matches the app to 0.1px. Inputs: the
+					// posture (chromeless = the full-bleed Read stop), the breakpoint (from vw), the
+					// deck ratio (rr, above), and the editor|preview split share. Mirrors
+					// computePreviewRect() in preview-rect.ts. Not modeled: the Build stop's side
+					// panels + landscape-phone cinema (rect-replay still covers a returning visitor
+					// there); this only runs on a FIRST load, where replay has nothing to give.
+					try {
+						if (!r.hasAttribute('data-ssr-rect')) {
+							var C = PREVIEW_CHROME;
+							var vw2 = window.innerWidth, vh2 = window.innerHeight;
+							var bpMobile = vw2 <= 699;
+							var posture = 'read';
+							try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e5) {}
+							var chromeless = posture === 'read';
+							var pad = vw2 < 640 ? C.padMobile : C.padDesktop;
+							var paneTop = C.topbarH + (bpMobile ? C.mobileBarH : 0);
+							var headerH = chromeless ? C.headerRead : C.headerWrite;
+							var footerH = chromeless ? C.footerRead : C.footerWrite;
+							var cap = chromeless ? Infinity : C.cap;
+							var frac = C.defaultPreviewFrac; // exact persisted split is a follow-up; default is the common case
+							var paneX, paneW;
+							if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = vw2 * frac; paneX = vw2 - paneW; }
+							var paneH = vh2 - paneTop;
+							var ar2 = rr[0] / rr[1];
+							var cw = paneW - 2 * pad, ch = paneH - headerH - footerH - 2 * pad;
+							var bw2 = Math.max(0, Math.min(cw, ch * ar2, cap));
+							var bh2 = bw2 / ar2;
+							if (bw2 > 1 && bh2 > 1) {
+								r.style.setProperty('--sb-l', (paneX + pad + (cw - bw2) / 2) + 'px');
+								r.style.setProperty('--sb-t', (paneTop + headerH + pad + (ch - bh2) / 2) + 'px');
+								r.style.setProperty('--sb-w', bw2 + 'px');
+								r.style.setProperty('--sb-h', bh2 + 'px');
+								r.setAttribute('data-ssr-rect', '1');
+							}
+						}
+					} catch (e4) {}
 					// (The editor|preview split ratio's pre-paint CSS-var seed is retired
 					// with the react-resizable-panels migration: the hook restores the saved
 					// ratio post-mount via the panel imperative API. Studio is client:only,

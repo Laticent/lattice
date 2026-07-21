@@ -103,10 +103,42 @@ three widths); the newcomer fallback is within a few px on mobile/tablet and ~50
 (headless WebKit can't reproduce the URL-bar reflow that shifts `innerHeight` between the seed
 and hydration; the on-screen clamp and same-viewport px resolution bound that error).
 
+## Follow-up 2 — computed rect (option B): the box size is a function, not a measurement
+
+Rect-replay works but exposes a deeper truth surfaced in review: the preview box has **no
+explicit size** — the app derives it by laying out a flex chain (`container-type:size` +
+`width: min(100%, 100cqh × ratio, 760px)`) and then **measuring** the result to place the
+hoisted host. That is the root of two fragilities: the shell can't measure pre-hydration (so
+it must replay), and the `100cqh` cross-axis dependency is what makes the red team's 0-width
+collapse possible (a measured height of 0 → a 0 width).
+
+**The box rect is actually a closed-form function of known inputs** — viewport, breakpoint,
+stop (read/write), the editor|preview split share, the deck ratio, and a handful of CSS-fixed
+chrome constants (topbar 54, mobile bar 53, holder pad 20/16, read chrome 0/49, write chrome
+47/81.6, cap 760). `computePreviewRect()` (`preview-rect.ts`) implements it, and a probe of the
+live app across the breakpoint × stop matrix confirms it reproduces the measured box to
+**≤0.1px**. A `preview-rect.test.ts` fixture locks the constants so app-side drift fails a gate.
+
+The shell now **computes** its box when there is no persisted rect (a brand-new visitor, a
+cross-device first load) instead of falling back to the approximate centered box — verified
+zero-jump on a FIRST load (read 0px all breakpoints; write split ≤1px at the default split,
+exact once the persisted split is read). The geometry chain is: **persisted rect (replay,
+exact, covers the Build stop's panels) → computed rect (exact for read/write/mobile) →
+ratio-only CSS fallback**. Not yet modeled: the Build stop's side panels and the landscape-phone
+cinema (replay still covers a returning visitor there).
+
+The larger prize this unlocks (not yet taken): if the **app** and the **engine host** consumed
+`computePreviewRect()` too — setting the box explicitly instead of measuring `100cqh` — the
+measured-flex 0-collapse class of bug (red team #2) would be eliminated at the root, and all
+three surfaces would share one source of truth. That is a StudioShell rendering change, tracked
+as the next step.
+
 ## Files
 
-`docs/src/pages/studio.astro` (Nacre-only shell + geometry + ratio seed + rect-replay CSS),
+`docs/src/pages/studio.astro` (Nacre-only shell + geometry + ratio seed + rect-replay/compute CSS),
 `docs/src/components/studio/slide-size.ts` (shared SIZE_RATIO source of truth),
+`docs/src/components/studio/preview-rect.ts` + `preview-rect.test.ts` (computePreviewRect: the
+closed-form box rect, shared by the shell; validated ≤0.1px vs the live app),
 `docs/src/components/studio/StudioShell.tsx`
 (decoupled dismissal, removed Studio snapshot capture, persist preview-box rect on unload,
 import shared `sizeRatio`),

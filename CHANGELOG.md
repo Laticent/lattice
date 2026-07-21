@@ -871,7 +871,11 @@ in patch versions.
   pixel-identical to where the app re-measures it (`dx=dy=dw=dh=0` at desktop/tablet/mobile). A first
   visit falls back to a centered full-bleed box at the **deck's author-chosen aspect** (resolved from the
   active deck's `size:` the same way the app derives it — square, 4:3, 9:16, … all fit correctly; the
-  skeleton never assumes 16:9). **Breaking (behavior):** a returning visitor no longer sees their real last slide flash
+  skeleton never assumes 16:9). And when there is no rect to replay at all (a brand-new or cross-device
+  first load), the shell now **computes** the exact box from known inputs — a shared `computePreviewRect()`
+  that a probe of the live app confirms matches to ≤0.1px across the breakpoint × stop matrix — so even a
+  first load lands the skeleton on the real box (read 0px, split ≤1px) instead of an approximation.
+  **Breaking (behavior):** a returning visitor no longer sees their real last slide flash
   instantly on reload — everyone sees the calm Nacre skeleton, then the live slide. (`docs/src/pages/studio.astro`,
   `docs/src/components/studio/StudioShell.tsx`, `docs/src/components/DeckPreview.tsx`,
   `docs/src/lib/single-slide-render.ts`, `docs/src/components/studio/use-shared-preview-slot.ts`,
