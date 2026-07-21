@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
+import DeckPreview from '@/components/DeckPreview';
 import { Tip } from '@/components/ui/tooltip';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
@@ -17,7 +18,6 @@ import { applyReadAloudDebugParam, onReadAloudOverlayEnabledChange, readAloudOve
 // The frozen shared transport kernel (HARD RULE #1) — the SAME swipe geometry the
 // vanilla export player uses, so a swipe means the same thing in both surfaces.
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
-import DeckPreview from '../DeckPreview';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
 import { PresentCaption } from './PresentCaption';

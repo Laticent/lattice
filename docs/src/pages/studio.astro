@@ -170,6 +170,9 @@ const firstDeck = DECKS[0];
 // size pre-paint). DEFAULT_RATIO is the newcomer's deck (DECKS[0]).
 const DECK_RATIOS: Record<string, [number, number]> = Object.fromEntries(DECKS.map((d) => [d.id, deckRatio(deckSource(d))]));
 const DEFAULT_RATIO = DECK_RATIOS[firstDeck.id] ?? [16, 9];
+// Built-in deckId → title, so the seed can best-effort correct the shell topbar title to the
+// LAST-ACTIVE deck (not just DECKS[0]) for a returning visitor — a title, never slide content.
+const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => [d.id, d.title]));
 // The Studio's pre-hydration INSTANT SHELL is Nacre-ONLY: a single animated skeleton in one
 // contained box (at the deck's chosen aspect), shown to EVERY visitor at HTML-parse time
 // (before the client:only island + the ~505KB engine load) and dismissed by the app once its
@@ -270,7 +273,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
 		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_NACRE_CSS}></style>
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DEFAULT_RATIO, PREVIEW_CHROME }}>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME }}>
 			(function () {
 				var r = document.documentElement;
 				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
@@ -304,6 +307,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 						var rr = DEFAULT_RATIO;
 						var act = JSON.parse(localStorage.getItem('lattice-studio-active') || 'null');
 						var did = act && act.deckId;
+						if (did && typeof DECK_TITLES[did] === 'string') r.setAttribute('data-ssr-title', DECK_TITLES[did]); // returning user's actual deck, not the default
 						if (did) {
 							var edited = localStorage.getItem('lattice-studio-src-' + did);
 							var sz = '';
@@ -320,8 +324,10 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							if (sz && (SIZE_RATIO[sz] || SIZE_RATIO[sz.toLowerCase()])) rr = SIZE_RATIO[sz] || SIZE_RATIO[sz.toLowerCase()];
 							else if (DECK_RATIOS[did]) rr = DECK_RATIOS[did];
 						}
-						r.style.setProperty('--sb-ratio', rr[0] + ' / ' + rr[1]);
-						r.style.setProperty('--sb-ar', String(rr[0] / rr[1]));
+						if (Array.isArray(rr)) { // a corrupt/prototype size key can make rr a non-array — never emit NaN/undefined
+							r.style.setProperty('--sb-ratio', rr[0] + ' / ' + rr[1]);
+							r.style.setProperty('--sb-ar', String(rr[0] / rr[1]));
+						}
 					} catch (e3) {}
 					// GEOMETRY SEED — place the Nacre box at the EXACT rect the app last had its
 					// preview box (persisted by StudioShell on unload as viewport fractions). On a
@@ -416,6 +422,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 			<div class="ssr-topbar">
 				<svg class="ssr-logo" viewBox="0 0 128 128" fill="none" aria-hidden="true"><g transform="rotate(45 64 64)" stroke="var(--mark-bond)" stroke-width="6.4" stroke-linecap="round"><line x1="31" y1="31" x2="97" y2="31"></line><line x1="97" y1="31" x2="97" y2="97"></line><line x1="97" y1="97" x2="31" y2="97"></line><line x1="31" y1="97" x2="31" y2="31"></line></g><circle cx="64" cy="17.3" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="17.3" r="11" fill="#5b86b8"></circle><circle cx="110.7" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="110.7" cy="64" r="11" fill="#a8628a"></circle><circle cx="64" cy="110.7" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="110.7" r="11" fill="#d08c42"></circle><circle cx="17.3" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="17.3" cy="64" r="11" fill="#7b72c0"></circle><circle cx="64" cy="64" r="16.2" fill="var(--mark-halo)"></circle><circle cx="64" cy="64" r="14" fill="#c8a040"></circle><circle cx="64" cy="64" r="10.4" fill="none" stroke="#7a5a10" stroke-width="1.5" opacity="0.55"></circle></svg>
 				<span class="ssr-deck-title" id="ssr-deck-title">{firstDeck.title}</span>
+				<script is:inline>(function(){var t=document.getElementById("ssr-deck-title"),v=document.documentElement.getAttribute("data-ssr-title");if(t&&v)t.textContent=v;})();</script>
 			</div>
 			<div class="ssr-stage">
 				<div class="ssr-slidebox" id="ssr-slidebox">
