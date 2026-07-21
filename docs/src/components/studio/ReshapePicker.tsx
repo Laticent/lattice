@@ -90,7 +90,7 @@ function ReshapeTile({ sample, label, active, options, paletteOverride, extraThe
 		>
 			<SlideThumbFace options={options} sample={sample} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={visible} className="pointer-events-none aspect-video w-full" />
 			<div className="truncate px-1.5 py-1 font-mono text-[9.5px] font-semibold text-[var(--text-heading)]">{label}</div>
-			{active && <span className="absolute right-1 top-1 rounded bg-[var(--accent)] px-1 py-0.5 font-mono text-[8px] font-bold uppercase text-white">Current</span>}
+			{active && <span className="absolute right-1 top-1 rounded bg-[var(--accent)] px-1 py-0.5 font-mono text-[8px] font-bold uppercase text-[var(--on-accent)]">Current</span>}
 		</button>
 	);
 }

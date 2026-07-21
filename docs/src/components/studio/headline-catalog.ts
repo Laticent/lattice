@@ -15,7 +15,12 @@ export type HeadlineEntry = {
 	swatch: { background: string; backgroundSize?: string; backgroundPosition?: string; backgroundRepeat?: string };
 };
 
-const INK = 'var(--text-secondary)';
+// --text-secondary is a slide-theme token NOT emitted on the docs chrome (it isn't in
+// PORTAL_TOKENS, and not every base palette defines it — so it can't be added without a
+// throw). Fall back to --text-muted, which IS a chrome token, so these preview swatches
+// stay visible when rendered outside a slide. (Gotchas: "Chrome tokens are the
+// PORTAL_TOKENS subset".)
+const INK = 'var(--text-secondary, var(--text-muted))';
 // Two stacked hairline bars (a "heading" + a shorter "line") anchored to one edge.
 const bars = (pos: string) =>
 	`linear-gradient(${INK}, ${INK}) ${pos} 38% / 62% 2.5px no-repeat, ` +
