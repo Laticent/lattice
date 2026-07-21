@@ -7,11 +7,15 @@
 // `?readaloud-debug=1` URL param both flip it (the param the skips/races regression
 // was pinned with). It renders nothing until enabled, and PARENT-fed: PresentOverlay
 // owns the reader, so it passes the live snapshot + event trace down (this island
-// can't measure them itself). Portaled to <body> so `position:fixed` is relative to
-// the viewport regardless of a transformed ancestor.
+// can't measure them itself).
+//
+// The draggable shell (drag / on-screen clamp / <body> portal / grip / × header) is the
+// shared diagnostic-overlay chassis (diagnostic-overlay.tsx `DiagnosticPanel`); this file
+// is only the readout body. It's parent-fed, so it uses the panel WITHOUT the gate hook.
 
 import * as React from 'react';
 import { DiagnosticPanel } from '@/components/diagnostics/diagnostic-overlay';
+import { Sep } from '@/components/diagnostics/Sep';
 import { cn } from '@/lib/utils';
 import { onCalibrationChange, resetCalibration } from '@/playground/readaloud-calibration';
 import { setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
@@ -33,15 +37,6 @@ function Row({ label, value, tone = 'none' }: { label: string; value: React.Reac
 			<span className="text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground">{label}</span>
 			<span className="h-px flex-1" />
 			<span className="shrink-0 font-mono text-[12px] tabular-nums text-popover-foreground">{value}</span>
-		</div>
-	);
-}
-
-function Sep({ label }: { label: string }) {
-	return (
-		<div className="mt-[7px] mb-1 flex items-center gap-2">
-			<span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
-			<span className="h-px flex-1 bg-border" />
 		</div>
 	);
 }
