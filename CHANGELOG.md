@@ -897,8 +897,9 @@ in patch versions.
   first load), the shell now **computes** the exact box from known inputs — a shared `computePreviewRect()`
   that a probe of the live app confirms matches to ≤0.1px across the breakpoint × stop matrix — so even a
   first load lands the skeleton on the real box (read 0px, split ≤1px) instead of an approximation.
-  **Breaking (behavior):** a returning visitor no longer sees their real last slide flash
-  instantly on reload — everyone sees the calm Nacre skeleton, then the live slide. (`docs/src/pages/studio.astro`,
+  **Behavior change:** a returning visitor no longer sees their real last slide flash
+  instantly on reload — everyone sees the calm Nacre skeleton, then the live slide. (Studio-prototype
+  UX only — not an engine/consumer break, so it carries no `**Breaking:**` semver marker.) (`docs/src/pages/studio.astro`,
   `docs/src/components/studio/StudioShell.tsx`, `docs/src/components/DeckPreview.tsx`,
   `docs/src/lib/single-slide-render.ts`, `docs/scripts/check-studio-shell.mjs`;
   `engineering/decisions/2026-07-21-studio-preview-one-skeleton.md`.)
