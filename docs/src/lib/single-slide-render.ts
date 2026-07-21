@@ -313,7 +313,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// Reveal by fading OPACITY 0→1 (a quick ~180ms transition set on the element) rather
 			// than a hard visibility cut, so the slide eases in over the loader instead of
 			// popping — no flicker. opacity:0 hides the about:blank white just as well.
-			if (fr.style.opacity === '0' && frameHasPainted(fr)) fr.style.opacity = '1';
+			if (fr.style.opacity === '0' && frameHasPainted(fr)) {
+				fr.style.opacity = '1';
+				// Restore hit-testing on reveal — an opacity:0 iframe is still hit-testable, so it was
+				// held `pointer-events:none` (below) to not swallow scroll/clicks during the load window.
+				fr.style.pointerEvents = '';
+			}
 		}
 	}
 
@@ -598,6 +603,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// so the reveal is a quick fade-in (transition below) instead of a hard pop.
 					fr.style.opacity = '0';
 					fr.style.transition = 'opacity 180ms ease-out';
+					// An opacity:0 element is still HIT-TESTABLE (unlike visibility:hidden, which the
+					// reveal used to be) — so while hidden the frame would intercept scroll/clicks meant
+					// for what's behind it (e.g. the landing hero preview) during the load window. Hold
+					// pointer-events off until scaleFrame reveals it (which clears this alongside opacity).
+					fr.style.pointerEvents = 'none';
 					host.appendChild(fr);
 					// Reveal is CONTENT-DRIVEN, not onload-driven. The reveal rides scaleFrame's
 					// `frameHasPainted` gate, but we must call scaleFrame once the srcdoc has

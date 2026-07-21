@@ -172,7 +172,7 @@ export function DeckPreview({
 		if (!loader || painted) return;
 		const t = setTimeout(() => {
 			const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-			if (fr && fr.style.opacity && fr.style.opacity !== '0') setPainted(true);
+			if (fr?.style.opacity && fr.style.opacity !== '0') setPainted(true);
 		}, 14000);
 		return () => clearTimeout(t);
 	}, [loader, painted]);
