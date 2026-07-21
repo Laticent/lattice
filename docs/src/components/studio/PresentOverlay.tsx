@@ -648,8 +648,14 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						</div>
 					) : (
 						// Present's OWN live preview — IN-FLOW in this 16:9 card (no hoisted host, no
-						// positioning controller). `pointer-events-none` so a swipe reaches the gesture
-						// surface behind; the card frame (border/rounding/shadow) lives here.
+						// positioning controller). INTENTIONALLY `pointer-events-none`: Present is a
+						// swipe/arrow DELIVERY surface, so the slide is a non-interactive poster and taps
+						// pass straight through to the gesture layer behind. This preserves the prior
+						// hoisted-host model, whose slot was ALSO pointer-events-none — not a regression.
+						// Tradeoff, by design: in-slide links and the video-bridge lightbox do NOT fire in
+						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
+						// so it inherits `none` from this card); that interactivity lives in the editor
+						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
 						<div className="pointer-events-none relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
 							<DeckPreview options={options} sample={presentSample ?? ''} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader />
 						</div>
