@@ -497,6 +497,33 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   Compare the SAME tool's measurement before vs. after an explicit
   `document.fonts.load()` + `document.fonts.ready` wait on the SAME page.
 
+### Exported fluid viewer: an overflowing slide shows NO marker tab, or the red author ring leaks to a reader
+
+- **Symptom:** in the opt-in `--fluid` viewer, either (a) a genuinely over-dense
+  slide shows the ring but **no** "More below" reader cue / tab, or (b) the
+  **author's loud red** overflow ring + "OVERFLOWS" banner appears to a *reader* —
+  specifically in the viewer's FIXED state (an ultrawide default, or after
+  toggling Fluid: off) — instead of the calm reader cue.
+- **Cause:** two separate traps, both specific to the exported viewer (neither
+  reproduces in the live author preview).
+  - **(a)** the export STAMPS `.overflow` at build time (the emulator's measured
+    pass), so on a pre-stamped slide the runtime watcher's class never **flips** —
+    and the tab-add used to live inside the `classList.contains('overflow') !== over`
+    flip guard, so it never fired. A build-baked slide got a ring but no tab.
+  - **(b)** the reader restyle (drop the red ring → calm cue) was gated on
+    `:root[data-lattice-view="fluid"]`, which is only set while FILLING. The
+    watcher runs for the whole capable export, so in the fixed state the reader
+    gate was inert and the **ungated** author red ring (`base.modifiers.css`) won.
+- **Fix:** (a) track the tab on the measured `over` state **independent of the
+  class flip** — add when `over && !tab`, remove when `!over && tab` (presence-
+  guarded, so the mutation loop still settles). (b) Gate reader-facing viewer
+  styling on `:root[data-lattice-fluid-capable]` — the export-viewer marker, set in
+  BOTH fill and fixed states — NOT `data-lattice-view="fluid"`; the author preview
+  has no capable marker, so it keeps the red ring. Both caught by maker-checker,
+  not CI (no committed test exercises the fluid viewer yet — #1138). See
+  `lib/runtime/index.js` `startOverflowWatcher`, `lib/base/base.fluid-view.css`,
+  `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`.
+
 ### A committed render golden doesn't match a fresh render — check staleness FIRST
 
 - **Symptom:** a committed gallery golden
@@ -1746,6 +1773,27 @@ of how many rows are here.
 - **Removable when:** Never — `$` is a meaningful CSS operator (ends-
   with attribute match) and a meaningful KaTeX delimiter; extractor
   must treat HTML blocks injected before math extraction as opaque.
+
+### `100dvw`/`100vw` includes the scrollbar — a full-width child of a scroll container clips when centered
+
+- **Symptom:** a full-width element sized `width: 100dvw` (or `100vw`) inside a
+  vertically-scrolling container looks fine while it's left-aligned, but the
+  moment it's centered (e.g. `align-items: center` on the scroll container) a
+  sliver of **both** the left and right edges is clipped. Invisible on
+  macOS/mobile overlay scrollbars (width 0); visible on Windows/Linux desktop or
+  any pinned classic scrollbar.
+- **Cause:** `100dvw`/`100vw` is the full **viewport** width — it **includes** the
+  vertical scrollbar. The scroll container's **content box** is narrower by the
+  scrollbar's width, so a `100dvw` child is ~scrollbar-width wider than its
+  container's content box. Left-aligned, that overflow all falls on the right and
+  is hidden by `overflow-x: hidden`; centered, it splits across both edges and
+  clips symmetrically.
+- **Fix:** size a child of a scroll container `100%` (the container's **content**
+  width, which excludes its own scrollbar), not `100dvw`/`100vw`. Keep viewport
+  units for elements with no scrolling ancestor. The fluid-box viewer's slide cap
+  is `width: min(100%, 100dvh × var(--fill-max-aspect))` for exactly this reason
+  (`lib/base/base.fluid-view.css`; caught by an adversarial review, not CI —
+  `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`).
 
 ---
 
