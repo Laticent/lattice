@@ -45,7 +45,8 @@ Three earlier pure-CSS approaches all capped at ~7.5, held back by the SAME thre
 
 **Nacre breaks all three at once.** Three layers, each a set of soft accent blobs, each carrying
 a *different* hue (accent, +34°, −28° via a **static** `hue-rotate` filter), **counter-rotate**
-at coprime speeds:
+at distinct, offset speeds (9s / 12s / 15s — their cycles realign only every 180s, far beyond any
+load window, so the motion never visibly repeats):
 
 - `blur` + `hue-rotate` are static filters → **rasterized once per layer**; only `transform:
   rotate` animates, so the compositor spins **cached bitmaps** with no per-frame re-blur and no
