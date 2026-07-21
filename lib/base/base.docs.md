@@ -812,8 +812,12 @@ caught as `unknown-rule`. Palette-blind; defaults to today's render.
 
 `rule:` sets the heading rule's **style**; **its alignment follows the `headline:` register in
 effect.** The two are orthogonal: a `short`/`accent` rule sits under the heading wherever the
-headline aligns (left / center / right) — pick the *look* with `rule:`, the *side* with
-`headline:`. (`full` is a full-width divider, so alignment is moot; `none` has nothing to align.)
+headline aligns (left / center) — pick the *look* with `rule:`, the *side* with `headline:`.
+(`full` is a full-width divider, so alignment is moot; `none` has nothing to align.) The
+`short`/`accent` rule is a **real `<hr class="masthead-rule">` element** — the last child of the
+masthead-lede flex column — so it aligns with the eyebrow + heading via the cluster's one
+`align-items`, tracking the heading with or without a masthead bay. (It used to be an absolutely
+positioned pseudo that had to be hand-placed; the element makes alignment a plain flex property.)
 
 `rule:` governs the `form` masthead hairline — the canonical heading underline. The
 split-panel kicker rule honors `none` / `accent` (drop or recolor it); `short` / `full` are
@@ -854,10 +858,10 @@ a typo is caught as `unknown-headline`.
 |---|---|---|
 | `auto` | *(none)* | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
 | `left` | `head-left` | Pin the whole framing cluster to the left margin — even on a layout that centers by default (title, closing, stats, charts). |
+| `center` | `head-center` | Center the whole framing cluster — **even on a layout that lefts by default** (the content masthead, kpi, most Form layouts). Aligns the framing *boxes*, not just their text, so a capped heading and its eyebrow/rule land on one axis; with a masthead bay (`meta:`/`logo:`) the cluster centers *beside* the bay, never under it. |
 
-*(`center` / `right` are a deliberate follow-up — box-aligning capped/inset framing on the full
-frame, especially against a masthead bay, needs its own design pass. This ships the rock-solid
-`auto` + `left` core; the values are reserved, not yet live.)*
+*(`right` is a deliberate follow-up — same box machinery as `center`, rarely wanted; reserved,
+not yet live.)*
 
 Only the **framing** text follows — the slide **body** keeps its own alignment. Two distinct
 controls, on two surfaces: **`headline:`** moves the framing cluster (this register);

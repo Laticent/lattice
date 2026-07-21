@@ -62,8 +62,9 @@ describe('resolve-rule', () => {
     for (const cls of RULE_TOKENS) {
       assert.ok(css.includes(`.${cls}`), `${cls} has no rule in base.accent-finish.css`);
     }
-    // accent draws in --accent; short/none/full are token-driven.
-    assert.match(css, /section\.rule-accent\.form \.cell-masthead::after\s*\{\s*background:\s*var\(--accent\)/);
+    // accent draws in --accent; short/none/full are token-driven. The heading rule is a real
+    // <hr class="masthead-rule"> in the lede (not a pseudo), so `accent` recolors that element.
+    assert.match(css, /section\.rule-accent\.form \.cell-masthead \.masthead-rule\s*\{\s*background:\s*var\(--accent\)/);
     assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), 'accent-finish CSS must be palette-blind (var(--token) only)');
   });
 });

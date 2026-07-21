@@ -103,24 +103,12 @@ section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column;
  * own align-self, leaving the centered timeline body below untouched. `auto` → center (byte-
  * identical). */
 section.list-steps.timeline h2 { text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
-/* CONSISTENT-DEFAULTS (Breaking): the timeline centers its heading + spine, so its WHOLE masthead
- * framing centers to match. The eyebrow rides the SHARED masthead-lede (left by default), so
- * override its fallback to `center` here; the heading sits in the same lede, so both center as
- * one. Per-selector fallback → `headline: left` still overrides (the register SETS the seam, and
- * a set value beats a fallback). The short heading rule (`rule: short`/`accent`) is a
- * left-anchored `::after`; center it too, except when the author has pinned the slide left. */
-section.form.list-steps.timeline .cell-masthead .masthead-lede { text-align:var(--headline-align, center); }
-/* The short heading rule (`rule: short`/`accent`) is a base `::after` on the FULL .cell-masthead
- * (left:0 == the lede's left edge). This layout CENTERS the heading in the left masthead-lede track,
- * so a full-band `left:50%` drifts right of the heading whenever a masthead bay (`meta:`/`logo:`) is
- * populated. Re-anchor the segment to the lede so it follows the heading with OR without a bay;
- * `bottom:-sp-md` restores the base's title↔rule gap. Geometry mirrors base.accent-finish.css §rule —
- * keep in sync. */
-section.form.list-steps.timeline:is(.rule-short, .rule-accent) .cell-masthead::after { content:none; }
-section.form.list-steps.timeline:is(.rule-short, .rule-accent) .masthead-lede { position:relative; }
-section.form.list-steps.timeline:is(.rule-short, .rule-accent) .masthead-lede::after { content:""; position:absolute; left:0; bottom:calc(-1 * var(--sp-md)); width:8cqi; height:0.22cqi; border-radius:0.11cqi; background:var(--border); }
-section.form.list-steps.timeline:is(.rule-accent) .masthead-lede::after { background:var(--accent); }
-section.form.list-steps.timeline:is(.rule-short, .rule-accent):not(.head-left) .masthead-lede::after { left:50%; transform:translateX(-50%); }
+/* CONSISTENT-DEFAULTS: the timeline centers its heading + spine, so its WHOLE masthead framing
+ * centers to match. The lede is a flex column (masthead-lede.css); override its fallbacks to
+ * `center` so the eyebrow, heading, and heading-rule <hr> center as one cluster by default.
+ * Per-selector fallback → `headline: left` still overrides. The rule <hr> follows the cluster
+ * automatically (flex child) — no per-component rule handling, no bay-drift. */
+section.form.list-steps.timeline .cell-masthead .masthead-lede { text-align:var(--headline-align, center); align-items:var(--headline-justify, center); }
 /* The optional dek/subtitle sits in the centered stage; it's framing text too, so wire it to the
  * seam (align-self, since the stage is a flex column — its `align-items:center` would otherwise
  * strand it centered under `headline: left` while the heading + eyebrow move). `auto` → the

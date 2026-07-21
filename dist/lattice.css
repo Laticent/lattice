@@ -4395,7 +4395,11 @@ section.glossary td { padding:0.46875cqi var(--sp-sm); color:var(--text-body); v
 section.glossary tbody tr:nth-child(odd) { background:var(--bg-alt); }
 section.glossary td:first-child,
 section.glossary td:first-child strong { color:var(--accent); padding-right:var(--sp-md); white-space:nowrap; font-weight:600; }
-section.glossary h2 { display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-md); }
+/* The heading is a justified row (title left · auto-derived range pill right), so it must span the
+ * full lede width. The masthead-lede is a flex column with `align-items:flex-start` (masthead-lede.css),
+ * which would otherwise shrink this h2 to its content and collapse the pill against the title —
+ * `align-self:stretch` opts back into full width so `justify-content:space-between` works. */
+section.glossary h2 { display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-md); align-self:stretch; }
 /* Auto-derived alphabet range pill, emitted into the h2 by the runtime
  * (lib/engine) and the markdown-it plugin. Matches the
  * neutral .badge pill recipe so it sits naturally alongside other
@@ -7039,24 +7043,12 @@ section.list-steps.timeline > .cell-stage { display:flex; flex-direction:column;
  * own align-self, leaving the centered timeline body below untouched. `auto` → center (byte-
  * identical). */
 section.list-steps.timeline h2 { text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
-/* CONSISTENT-DEFAULTS (Breaking): the timeline centers its heading + spine, so its WHOLE masthead
- * framing centers to match. The eyebrow rides the SHARED masthead-lede (left by default), so
- * override its fallback to `center` here; the heading sits in the same lede, so both center as
- * one. Per-selector fallback → `headline: left` still overrides (the register SETS the seam, and
- * a set value beats a fallback). The short heading rule (`rule: short`/`accent`) is a
- * left-anchored `::after`; center it too, except when the author has pinned the slide left. */
-section.form.list-steps.timeline .cell-masthead .masthead-lede { text-align:var(--headline-align, center); }
-/* The short heading rule (`rule: short`/`accent`) is a base `::after` on the FULL .cell-masthead
- * (left:0 == the lede's left edge). This layout CENTERS the heading in the left masthead-lede track,
- * so a full-band `left:50%` drifts right of the heading whenever a masthead bay (`meta:`/`logo:`) is
- * populated. Re-anchor the segment to the lede so it follows the heading with OR without a bay;
- * `bottom:-sp-md` restores the base's title↔rule gap. Geometry mirrors base.accent-finish.css §rule —
- * keep in sync. */
-section.form.list-steps.timeline:is(.rule-short, .rule-accent) .cell-masthead::after { content:none; }
-section.form.list-steps.timeline:is(.rule-short, .rule-accent) .masthead-lede { position:relative; }
-section.form.list-steps.timeline:is(.rule-short, .rule-accent) .masthead-lede::after { content:""; position:absolute; left:0; bottom:calc(-1 * var(--sp-md)); width:8cqi; height:0.22cqi; border-radius:0.11cqi; background:var(--border); }
-section.form.list-steps.timeline:is(.rule-accent) .masthead-lede::after { background:var(--accent); }
-section.form.list-steps.timeline:is(.rule-short, .rule-accent):not(.head-left) .masthead-lede::after { left:50%; transform:translateX(-50%); }
+/* CONSISTENT-DEFAULTS: the timeline centers its heading + spine, so its WHOLE masthead framing
+ * centers to match. The lede is a flex column (masthead-lede.css); override its fallbacks to
+ * `center` so the eyebrow, heading, and heading-rule <hr> center as one cluster by default.
+ * Per-selector fallback → `headline: left` still overrides. The rule <hr> follows the cluster
+ * automatically (flex child) — no per-component rule handling, no bay-drift. */
+section.form.list-steps.timeline .cell-masthead .masthead-lede { text-align:var(--headline-align, center); align-items:var(--headline-justify, center); }
 /* The optional dek/subtitle sits in the centered stage; it's framing text too, so wire it to the
  * seam (align-self, since the stage is a flex column — its `align-items:center` would otherwise
  * strand it centered under `headline: left` while the heading + eyebrow move). `auto` → the
@@ -13066,26 +13058,13 @@ section.stats > .cell-stage { display:flex; flex-direction:column; justify-conte
  * `align-items:center` on the stage stays). `auto`/no register → the fallback `center`, so a
  * default stats slide is byte-identical. */
 section.stats h2 { padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
-/* CONSISTENT-DEFAULTS (Breaking): stats centers its heading + tiles, so its WHOLE masthead
- * framing centers to match. The eyebrow rides the SHARED masthead-lede (left by default), so
- * override its fallback to `center` here; the heading is in the same lede, so both center as
- * one. Per-selector fallback → `headline: left` still overrides (the register SETS the seam,
- * and a set value beats a fallback). The short heading rule (`rule: short`/`accent`) is a
- * left-anchored `::after`; center it too, except when the author has pinned the slide left. */
-section.form.stats .cell-masthead .masthead-lede { text-align:var(--headline-align, center); }
-/* The short heading rule (`rule: short`/`accent`) is a base `::after` on the FULL .cell-masthead
- * (left:0 == the lede's left edge — right for a left heading). This layout CENTERS the heading in
- * the left masthead-lede track, so a full-band `left:50%` drifts right of the heading whenever a
- * masthead bay (`meta:`/`logo:`) is populated (the rule tracks the band center, the heading the lede
- * center). Re-anchor the segment to the lede so it follows the heading with OR without a bay:
- * left:0 under a left heading, centered under a centered one. `bottom:-sp-md` restores the base's
- * title↔rule gap (the band's own `padding-bottom`). Geometry mirrors base.accent-finish.css §rule —
- * keep in sync. */
-section.form.stats:is(.rule-short, .rule-accent) .cell-masthead::after { content:none; }
-section.form.stats:is(.rule-short, .rule-accent) .masthead-lede { position:relative; }
-section.form.stats:is(.rule-short, .rule-accent) .masthead-lede::after { content:""; position:absolute; left:0; bottom:calc(-1 * var(--sp-md)); width:8cqi; height:0.22cqi; border-radius:0.11cqi; background:var(--border); }
-section.form.stats:is(.rule-accent) .masthead-lede::after { background:var(--accent); }
-section.form.stats:is(.rule-short, .rule-accent):not(.head-left) .masthead-lede::after { left:50%; transform:translateX(-50%); }
+/* CONSISTENT-DEFAULTS: stats centers its heading + tiles, so its WHOLE masthead framing centers to
+ * match. The lede is a flex column (masthead-lede.css); override its fallbacks to `center` here so
+ * the eyebrow, heading, and heading-rule <hr> all center as one cluster by default. Per-selector
+ * fallback → `headline: left` still overrides (the register SETS the seam; a set value beats a
+ * fallback). The rule <hr> follows the cluster automatically (it's a flex child) — no per-component
+ * rule handling, no bay-drift. */
+section.form.stats .cell-masthead .masthead-lede { text-align:var(--headline-align, center); align-items:var(--headline-justify, center); }
 section.stats h3 { padding-bottom:0.3125cqi; }
 section.stats > .cell-stage > p, section.stats > .cell-stage > em { font-size:var(--fs-body); line-height:var(--lh-relaxed); padding-bottom:var(--sp-lg); color:var(--text-label); font-style:italic; display:block; text-align:var(--headline-align, center); align-self:var(--headline-justify, center); }
 
@@ -19567,9 +19546,16 @@ section.form .cell-masthead .masthead-bay {
 section.form .cell-masthead .masthead-lede {
   min-width: 0;
   grid-column: masthead-lede;
-  /* Headline-alignment seam (`headline:` register, base.accent-finish.css). text-align
-   * inherits, so the kicker + title follow one axis. `auto` (no register) → the property is
-   * undefined → the fallback `left` applies, byte-identical to today's left-aligned band. */
+  /* A flex COLUMN, so the whole framing cluster — eyebrow, heading, subtitle, and the heading-rule
+   * <hr> — are flex siblings that align as ONE unit via `align-items`. Headline-alignment seam
+   * (`headline:` register, base.accent-finish.css): `align-items` positions each box and `text-align`
+   * handles multi-line wrapping; both read the seam and fall back to the component's baked default
+   * (`flex-start` / `left` here — overridden to center on stats/list-steps.timeline). This is why the
+   * rule no longer needs a hand-placed `::after`: as a flex child it simply rides `align-items`, so it
+   * tracks the heading with or without a masthead bay. */
+  display: flex;
+  flex-direction: column;
+  align-items: var(--headline-justify, flex-start);
   text-align: var(--headline-align, left);
 }
 
@@ -20161,25 +20147,35 @@ section.rule-full.form .cell-masthead { border-bottom: 1px solid var(--border); 
 section.rule-none.form .cell-masthead { border-bottom: none; }
 section.rule-none.split-panel .panel-right h3 { border-bottom: none; }
 
-/* short / accent — replace the full hairline with a short left-aligned segment, drawn as a
- * pseudo so it does not span the masthead grid. `short` is neutral (--border); `accent`
- * paints it in the deck's --accent so it reads as a signature. The segment sits at the
- * band's padding edge (bottom:0), exactly where the border-bottom used to. */
-section:is(.rule-short, .rule-accent).form .cell-masthead {
-  border-bottom: none;
-  position: relative;
-}
-section:is(.rule-short, .rule-accent).form .cell-masthead::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: 0;
+/* short / accent — the heading rule is a REAL <hr class="masthead-rule">, the last child of the
+ * lede flex column (emitted by the masthead transform). It aligns with the eyebrow + heading via
+ * the lede's ONE `align-items` (align-self:auto follows the container), so it tracks the heading
+ * left/center with or without a masthead bay — no hand-placed pseudo, no bay-drift. `short` is
+ * neutral (--border); `accent` paints it in --accent. `full`/`none` keep the hr hidden — the
+ * border-bottom (or nothing) is the rule there. The `padding-top` restores the band's title↔rule
+ * gap the old bottom-edge segment got from the masthead padding (margin is barred — HARD RULE #20). */
+section.form .cell-masthead .masthead-rule { display: none; }
+section:is(.rule-short, .rule-accent).form .cell-masthead { border-bottom: none; }
+section:is(.rule-short, .rule-accent).form .cell-masthead .masthead-rule {
+  display: block;
+  align-self: auto;
+  box-sizing: content-box;
   width: 8cqi;
   height: 0.22cqi;
+  /* Now a real <hr>, so element-level finishes that target `section … hr` reach it — reset the
+   * sketch wave mask (base.sketch.css), which would smear this 2px segment into a 7px tile and
+   * near-erase it. A free body <hr> still gets the sketch treatment; only the heading rule opts out. */
+  -webkit-mask: none;
+  mask: none;
+  /* Gap between the heading and the rule. margin is barred (HARD RULE #20), so the space is a
+   * transparent padding-top and the segment paints only in the content box (background-clip). */
+  padding-top: var(--sp-sm);
+  border: none;
   border-radius: 0.11cqi;
   background: var(--border);
+  background-clip: content-box;
 }
-section.rule-accent.form .cell-masthead::after { background: var(--accent); }
+section.rule-accent.form .cell-masthead .masthead-rule { background: var(--accent); background-clip: content-box; }
 
 /* accent — recolor the split-panel kicker rule to match; none already handled above. */
 section.rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }
@@ -20261,6 +20257,25 @@ section.eyebrow-underline
  * framing box is already left-pinned in plain block flow, so it's a pure seam read. See
  * engineering/decisions/2026-07-20-mass-head-alignment.md § "Scoped to auto + left". */
 section.head-left { --headline-align: left; --headline-justify: flex-start; }
+
+/* head-center — the missing lever: center the framing CLUSTER on a layout that lefts by default.
+ * The masthead-lede is ALWAYS a flex column (masthead-lede.css) that reads --headline-justify, so
+ * its eyebrow + heading + heading-rule <hr> center as one unit automatically; here we only flex the
+ * OTHER capped framing containers (the trailing key-insight panel, below-note, chart/diagram
+ * caption) so their boxes center on one axis too. `text-align:center` (via --headline-align) only
+ * centers TEXT within a box — flexing centers the BOX. The key-insight blockquote carries the SAME
+ * body-exclusion guard as its base rule (base.modifiers.css) so head-center never centers a BODY
+ * blockquote (quote / math / citation-card / redline / inventory / policy-recommendation / layout-*).
+ * No margin (HARD RULE #20); no hex (#3). The slide body keeps its own align-* axis (issue-527) —
+ * the register moves framing only. */
+section.head-center { --headline-align: center; --headline-justify: center; }
+section.head-center:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
+section.head-center:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote,
+section.head-center .below-note,
+section.head-center.diagram .diagram-caption,
+section.head-center .chart-caption {
+  display: flex; flex-direction: column; align-items: var(--headline-justify, flex-start);
+}
 
 /* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
  * surfaces ────────────────────────────────────────────────────────────────────────────────
