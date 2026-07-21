@@ -257,8 +257,9 @@ function Overlay() {
 // pills with white text, backed by the dedicated `--pass-fill/--warn-fill/--fail-fill` chrome
 // tokens: a white-text FILL needs a color dark enough for white text in BOTH modes, which the
 // FOREGROUND --pass/--warn/--fail are NOT (they go bright in dark mode → ~2:1 on white). The
-// -fill tokens are the status hue darkened to clear AA on white, per palette + mode — so the
-// chip is theme-aware AND colorblind-safe (an a11y palette gets blue/amber/gray, not red/green)
+// -fill tokens are the status hue darkened to clear AA on white — one value per palette, emitted
+// identically into both mode blocks so the chip never flips color — so the chip is theme-aware
+// AND colorblind-safe (an a11y palette gets blue/amber/gray, not red/green)
 // instead of a hardcoded hex. The hex fallback covers the pre-resolution / SSR frame. `muted`
 // stays outlined (--border / --muted-foreground chrome tokens are safe).
 function Chip({ label, value, tone }: { label: string; value: string; tone: 'pass' | 'fail' | 'warn' | 'muted' }) {
