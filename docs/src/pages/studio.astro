@@ -359,10 +359,10 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					// approximate centered box: COMPUTE the exact rect from known inputs, the same
 					// pure function the validation proved matches the app to 0.1px. Inputs: the
 					// posture (chromeless = the full-bleed Read stop), the breakpoint (from vw), the
-					// deck ratio (rr, above), and the editor|preview split share. Mirrors
-					// computePreviewRect() in preview-rect.ts. Not modeled: the Build stop's side
-					// panels + landscape-phone cinema (rect-replay still covers a returning visitor
-					// there); this only runs on a FIRST load, where replay has nothing to give.
+					// deck ratio (rr, above), and the editor|preview split share, using the shared
+					// PREVIEW_CHROME constants. Not modeled: the Build stop's side panels +
+					// landscape-phone cinema (rect-replay still covers a returning visitor there);
+					// this only runs on a FIRST load, where replay has nothing to give.
 					try {
 						if (!r.hasAttribute('data-ssr-rect')) {
 							var C = PREVIEW_CHROME;

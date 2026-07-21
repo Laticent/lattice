@@ -1139,8 +1139,9 @@ in patch versions.
   and the live iframe re-asserts its own `visibility:visible` (which overrides an ancestor per CSS) — it
   now parks with `opacity:0`, which a child can't override, so the slide is fully hidden on every parked
   surface (mobile edit pane, Fabricate, collapsed preview).
-  (`use-shared-preview-slot.ts` new, `StudioShell.tsx`, `PresentOverlay.tsx`;
-  `engineering/decisions/2026-07-19-present-shared-preview.md`.)
+  (`use-shared-preview-slot.ts` new — **since deleted by the in-flow reframe in this same release**
+  (see the "no longer uses a hoisted `position:fixed` host" entry above); `StudioShell.tsx`,
+  `PresentOverlay.tsx`; `engineering/decisions/2026-07-19-present-shared-preview.md`.)
 - **The component-dedup embedder now runs in a Web Worker — never on the main thread — so semantic
   "similar components" suggestions can stay on without any risk of freezing or crashing the tab.**
   Follow-on to the #1110 hot-path fix. The bge-small model that ranks near-duplicate components (the
