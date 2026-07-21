@@ -254,21 +254,21 @@ function Overlay() {
 }
 
 // A verdict chip — one computed answer. The status tones (pass/fail/warn) are FILLED solid
-// pills with white text, NOT the outlined-token style the viz overlay uses for a lone icon:
-// the panel is portaled to <body>, where the slide-theme --pass/--warn/--fail tokens don't
-// resolve, so an outlined chip would fall back to a dark hue that goes muddy on the dark
-// popover (verified). A self-sufficient fill reads on any panel background in BOTH modes —
-// the fallbacks are chosen for ≥4.5:1 against white text, and the `var(--token, …)` form
-// still lets a resolved token win if one is ever supplied here. `muted` stays outlined (its
-// --border / --muted-foreground tokens DO resolve on the chrome).
+// pills with white text. The fills are FIXED dark hexes, NOT `var(--pass/--warn/--fail)`:
+// those tokens now resolve on chrome (they're in PORTAL_TOKENS) but are tuned for FOREGROUND
+// use and go BRIGHT in dark mode (e.g. --pass #6fcc4d), which fails white-on-fill contrast
+// (~2:1). A white-text fill needs a dark color in both modes, so we pin the hex (each ≥4.5:1
+// on white) rather than let the foreground token win. `muted` stays outlined (its --border /
+// --muted-foreground chrome tokens are safe). (Foreground uses of the status tokens — text /
+// icon color, like VizDiagnosticsOverlay — DO want the resolved token; those aren't pinned.)
 function Chip({ label, value, tone }: { label: string; value: string; tone: 'pass' | 'fail' | 'warn' | 'muted' }) {
 	const filled =
 		tone === 'pass'
-			? 'border-transparent bg-[var(--pass,#1f7a3d)] text-white'
+			? 'border-transparent bg-[#1f7a3d] text-white'
 			: tone === 'fail'
-				? 'border-transparent bg-[var(--fail,#b3261e)] text-white'
+				? 'border-transparent bg-[#b3261e] text-white'
 				: tone === 'warn'
-					? 'border-transparent bg-[var(--warn,#8a6100)] text-white'
+					? 'border-transparent bg-[#8a6100] text-white'
 					: 'border-border text-muted-foreground';
 	return (
 		<span className={`inline-flex items-baseline gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${filled}`}>

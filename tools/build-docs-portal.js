@@ -104,6 +104,13 @@ const PORTAL_TOKENS = [
   // icon tiles cycle through these instead of Starlight's fixed rainbow.
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4',
   'chart-cat5', 'chart-cat6', 'chart-cat7', 'chart-cat8',
+  // The status trio (pass/warn/fail). Every base palette defines it (as a
+  // light-dark() pair), but until it was on this list it lived ONLY inside the
+  // slide iframe's theme — so any docs CHROME outside a slide (a diagnostics
+  // overlay, a badge, a status pill portaled to <body>) that used var(--pass)
+  // fell through to a static hex fallback and couldn't adapt to light/dark.
+  // Emitting it here makes the trio resolve on `document.body`, per palette + mode.
+  'pass', 'warn', 'fail',
 ];
 
 // Palettes surfaced first in the dropdown (the two canonical palettes
@@ -120,10 +127,17 @@ const PALETTE_PRIORITY = ['indaco', 'cuoio'];
 // blocks keyed by [data-palette][data-mode].
 
 /** Parse a theme stylesheet into a flat var map, :root winning over
- *  :where(:root). Comments are stripped first so braces in prose don't
- *  confuse the block scan; theme token blocks have no nested braces. */
+ *  :where(:root). Comments AND `@import` statements are stripped first: comments
+ *  so braces in prose don't confuse the block scan, and @imports because the
+ *  block regex captures everything up to `{` as the selector — so a `:root {…}`
+ *  sitting right after `@import 'a11y-base';` would otherwise take the selector
+ *  `@import 'a11y-base'; :root`, fail the `:root` test, and be dropped. That
+ *  silently lost the a11y palettes' OWN status trio (they override only
+ *  --pass/--warn/--fail in that post-import :root block), so they fell through to
+ *  onyx's green/red — the exact red-green colours those palettes exist to avoid.
+ *  Theme token blocks have no nested braces. */
 function parseThemeVars(css) {
-  const clean = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@import[^;]*;/g, '');
   const whereMap = new Map();
   const rootMap = new Map();
   for (const m of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {

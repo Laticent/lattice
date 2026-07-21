@@ -315,7 +315,7 @@ export function ArchitectChat({ deckId, source, aiReady, onApply, onConnect, onM
 						</button>
 					)}
 					{busy ? (
-						<button type="button" onClick={stop} aria-label="Stop" className="grid size-7 shrink-0 place-items-center rounded-lg bg-[var(--fail,#b3261e)] text-white">
+						<button type="button" onClick={stop} aria-label="Stop" className="grid size-7 shrink-0 place-items-center rounded-lg bg-[#b3261e] text-white">
 							<Square className="size-3.5" />
 						</button>
 					) : (
