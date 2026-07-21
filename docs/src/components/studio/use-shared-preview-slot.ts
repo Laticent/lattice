@@ -126,11 +126,23 @@ export function useSharedPreviewSlot({
 		// Capture-phase scroll so a scroll in ANY nested scroller (not just the window)
 		// re-measures — the slot's viewport rect moves with it.
 		window.addEventListener('scroll', schedule, true);
+		// iOS Safari collapses/expands its URL bar during load, which shifts where a
+		// `position:fixed` host sits relative to the slot it overlays — but iOS fires that
+		// as a `visualViewport` resize/scroll and often NOT a `window` resize/scroll, so
+		// without these the host is positioned against a stale rect and can strand
+		// off-screen / oversized (the "huge card" blank preview reported on iPhone). This
+		// is the one gap headless WebKit can't reproduce (it doesn't model the URL bar),
+		// so it's added deliberately from the mechanism, verified on-device via ?previewdiag.
+		const vv = window.visualViewport;
+		vv?.addEventListener('resize', schedule);
+		vv?.addEventListener('scroll', schedule);
 		return () => {
 			if (raf) cancelAnimationFrame(raf);
 			ro?.disconnect();
 			window.removeEventListener('resize', schedule);
 			window.removeEventListener('scroll', schedule, true);
+			vv?.removeEventListener('resize', schedule);
+			vv?.removeEventListener('scroll', schedule);
 		};
 	}, [presentActive, editorVisible, suspended, hostRef, editorSlotRef, presentSlotRef, rootRef]);
 }
