@@ -104,11 +104,20 @@ export function DeckPreview({
 	// REVEALED `iframe.live` (visibility:visible), which single-slide-render.ts does only
 	// once the slide has painted AND is scaled to a real width, and the shared-host clamp
 	// keeps on-screen. So "revealed" == "good", and a broken/racing render is never exposed:
-	// the skeleton simply stays until the real thing is right (or forever, which is the
-	// deliberate preference over flashing a huge/shoved/blank frame). The reveal-watcher
-	// effect (below, once stageRef exists) flips this. NO time-based auto-fade — a timeout
-	// would defeat the whole model by dropping the skeleton onto a not-yet-good slide.
+	// the skeleton simply stays until the real thing is right. The reveal-watcher effect
+	// (below, once stageRef exists) flips this on the reveal signal — NOT on a "a render
+	// happened" timer, which would drop the skeleton onto a not-yet-good slide.
 	const [painted, setPainted] = React.useState(false);
+	// Anti-stuck FLOOR (not the primary fade): if the reveal-watcher somehow never fires
+	// (a defect, a pathological doc), don't strand the user behind the skeleton forever —
+	// fade it after a long ceiling so the app is at least reachable. The normal reveal
+	// (~1–3s) fires far sooner, making this a no-op; 14s is generous enough that it only
+	// ever triggers on a genuine failure, never on a merely-slow good render.
+	React.useEffect(() => {
+		if (!loader || painted) return;
+		const t = setTimeout(() => setPainted(true), 14000);
+		return () => clearTimeout(t);
+	}, [loader, painted]);
 	// On-device diagnostic (Studio preview only, opt-in via `?previewdiag`): a live
 	// green readout of the exact state behind a "blank preview" — host size, the live
 	// frame's visibility/transform, whether the in-iframe `.lattice` is present + visible,

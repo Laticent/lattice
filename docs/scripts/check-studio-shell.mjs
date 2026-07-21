@@ -1,16 +1,17 @@
 // Studio instant-shell build gate — fails the build if `dist/studio/index.html`
-// shipped WITHOUT the pre-paint instant-shell + last-slide snapshot-replay scaffold.
+// shipped WITHOUT the pre-paint Nacre skeleton scaffold.
 //
-// Why this exists: the shell is generated at build time by renderFirstSlideShell
-// (scripts/ssg-first-slide.mjs), which loads the owned engine and, by design, is a
-// RESILIENT pure enhancement — any failure returns null and studio.astro renders
-// with no shell rather than breaking the build. That resilience has a failure mode:
-// a broken engine load (e.g. the Vite-dev `require is not defined` regression, or a
-// future build-env change) returns null SILENTLY, and the Studio ships with no
-// instant-shell — so a returning visitor's cached last slide has nothing to replay
-// into and RELOAD PAINTS BLANK. That is invisible in a green build until a user hits
-// it on a phone. This gate turns that silent null into a loud, blocking failure:
-// after the build, the shipped studio HTML MUST carry the scaffold.
+// Why this exists: the instant shell is what a visitor sees at HTML-parse time — before
+// the client:only island hydrates and the ~505KB engine loads. If it's missing, a reload
+// paints a blank preview until hydration (the bug this whole area exists to prevent). The
+// shell is static markup in studio.astro, so a silent regression here is a stray edit that
+// drops the container / box / skeleton — this gate turns that into a loud, blocking failure.
+//
+// (History: the shell used to be a build-time RENDERED first slide + a cached-last-slide
+// snapshot replay — a second real-content surface that raced the live preview and, on
+// mobile, produced a "slide in the top half, shimmer bleeding into the bottom, seam down
+// the middle" bug. That machinery was retired for a Nacre-ONLY skeleton: one surface, one
+// 16:9 box, no seam. See engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.)
 //
 // Runs post-`astro build` in the docs `build` script (the deploy path), alongside
 // inject-modulepreload. Standalone: `npm run check:studio-shell` (needs a built dist/).
@@ -22,21 +23,18 @@ import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STUDIO_HTML = path.join(HERE, '..', 'dist', 'studio', 'index.html');
 
-// Markers the scaffold MUST leave in the shipped HTML. Each is load-bearing:
-//  • the shell container + slide box the replay paints into,
-//  • the newcomer template (build-time first slide) proving the engine rendered,
-//  • the replay script itself, keyed on the snapshot localStorage key.
-// These strings are OWNED ELSEWHERE — a legitimate rename there will (intentionally)
-// red this gate until updated in lockstep: the `ssr-*` ids + `id="studio-ssr-shell"`
-// live in docs/src/pages/studio.astro; `class="lattice"` is the engine's top-level
-// wrapper (emitted regardless of slide content); `lattice-studio-last-slide` is
-// SNAPSHOT_KEY in docs/src/playground/snapshot-cache.js. Keep them in sync there.
+// Markers the Nacre-only shell MUST leave in the shipped HTML:
+//  • the shell container + the one 16:9 slide box,
+//  • the Nacre skeleton itself (its loader element + at least one animated layer),
+//  • the seed script that flips data-ssr-shell="on" so the shell is actually shown.
+// The `ssr-*` ids + `nacre-loader*` classes live in docs/src/pages/studio.astro; a
+// legitimate rename there will (intentionally) red this gate until updated in lockstep.
 const REQUIRED = [
 	['instant-shell container', /id="studio-ssr-shell"/],
-	['snapshot slide box', /id="ssr-slidebox"/],
-	['newcomer slide template', /id="ssr-newcomer"/],
-	['baked newcomer slide', /class="lattice"/],
-	['snapshot-replay script', /lattice-studio-last-slide/],
+	['slide box', /id="ssr-slidebox"/],
+	['nacre skeleton', /class="nacre-loader"/],
+	['nacre animated layer', /nacre-loader__layer--0/],
+	['shell-on seed', /data-ssr-shell/],
 ];
 
 function main() {
@@ -52,20 +50,19 @@ function main() {
 		console.error(
 			[
 				'',
-				'✗ check:studio-shell — the Studio shipped WITHOUT its instant-shell / cached-slide replay.',
+				'✗ check:studio-shell — the Studio shipped WITHOUT its pre-paint Nacre skeleton.',
 				`  Missing from dist/studio/index.html: ${missing.join(', ')}`,
 				'',
-				'  This means renderFirstSlideShell (scripts/ssg-first-slide.mjs) returned null at build',
-				'  time — the engine failed to load or render. A returning visitor\'s cached last slide',
-				'  then has nothing to replay into, so RELOAD PAINTS BLANK. Look for a',
-				'  "[ssg-first-slide] instant-shell render FAILED" line earlier in the build log for the',
-				'  underlying error (a missing dist/lattice.css, an engine load/parse failure, etc.).',
+				'  Without the instant shell, a reload paints a BLANK preview until the island',
+				'  hydrates. The shell is static markup in docs/src/pages/studio.astro — check that',
+				'  the #studio-ssr-shell container, #ssr-slidebox, the .nacre-loader skeleton, and',
+				'  the data-ssr-shell="on" seed are all still emitted.',
 				'',
 			].join('\n'),
 		);
 		process.exit(1);
 	}
-	console.log('✓ check:studio-shell — Studio instant-shell + cached-slide replay present in the build.');
+	console.log('✓ check:studio-shell — Studio pre-paint Nacre skeleton present in the build.');
 }
 
 main();

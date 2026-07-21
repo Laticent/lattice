@@ -1326,19 +1326,21 @@ const SNAPSHOT_INJECT_MARKER = /\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHT
 const SNAPSHOT_WRITE_MARKER = /\.setItem\s*\(/;
 const SANCTIONED_SNAPSHOT_SINKS = [
   { file: 'docs/src/playground/snapshot-cache.js', role: 'producer', why: 'The SOLE writer of BOTH snapshot keys — saveSnapshotTo sanitizes at the storage boundary AND captureFromFrame / captureFirstSectionFromFrame at the capture chokepoint, so every stored value is clean.' },
-  { file: 'docs/src/pages/studio.astro', role: 'sink', why: 'REPLAY_JS pre-paint injects the already-sanitized Studio snapshot into the instant-shell; safe because the producer is the only writer.' },
   { file: 'docs/src/pages/playground.astro', role: 'sink', why: 'The pre-paint replay injects the already-sanitized Playground first-section snapshot into #pg-ssr-slidebox; safe because the producer is the only writer.' },
   { file: 'docs/src/components/playground/PlaygroundApp.tsx', role: 'sink', why: 'React adopts the pre-painted shell via dangerouslySetInnerHTML; the value flows only from window.__pgShellHtml, set by the sanctioned playground.astro replay from the sanitized snapshot (the producer is the only writer).' },
+  // (The Studio retired its snapshot capture + replay entirely — its instant-shell is now a
+  // static Nacre skeleton with no per-visitor content — so studio.astro / StudioShell are no
+  // longer on the snapshot path. Only the Playground still uses snapshot-cache.js. See
+  // engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.)
 ];
 
 // A file is "part of the snapshot path" if it names a raw key OR pulls a key/loader/
 // capture/save symbol from snapshot-cache — the exported API. The capture/save symbols
 // matter because a SINK can source the HTML INDIRECTLY (React reads window.__pgShellHtml,
 // not loadSnapshot), so keying only on the reader symbols left the real injection sink
-// (PlaygroundApp's dangerouslySetInnerHTML) invisible to the gate (red-team finding). The
-// two symbols added are PLAYGROUND-specific on purpose: the Studio's captureFromFrame/
-// saveSnapshot importer (StudioShell) is a writer-via-producer with no inject marker, and
-// roping it in would false-positive on its unrelated localStorage.setItem calls.
+// (PlaygroundApp's dangerouslySetInnerHTML) invisible to the gate (red-team finding). These
+// symbols are PLAYGROUND-specific on purpose (the Studio no longer touches the snapshot path
+// at all), so an unrelated `localStorage.setItem` elsewhere can't false-positive.
 function referencesSnapshot(src) {
   if (SNAPSHOT_KEY_LITERALS.some((k) => src.includes(k))) return true;
   return /from\s+['"][^'"]*snapshot-cache/.test(src) && /\b(?:SNAPSHOT_KEY|PG_SNAPSHOT_KEY|loadSnapshot|loadPlaygroundSnapshot|captureFirstSectionFromFrame|savePlaygroundSnapshot)\b/.test(src);

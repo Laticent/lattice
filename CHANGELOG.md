@@ -850,6 +850,27 @@ in patch versions.
   AA-safe values. White-text status *fill* controls (the Stop / armed-delete buttons, the verdict chips)
   pin a fixed dark hex rather than the now-resolving foreground-tuned token, which would be too bright
   for white text in dark mode.
+- **The Studio preview no longer shows a broken split loading state on mobile — the loading placeholder
+  is now ONE Nacre skeleton, and nothing else.** On a real iPhone, a reload could paint the slide in the
+  top half of the preview and the Nacre shimmer bleeding into the bottom with a seam down the middle
+  (sometimes also huge, shoved off-screen, or blank). Root cause was architectural, not timing: three
+  surfaces drew into the preview area during load — the pre-hydration instant-shell (which painted a
+  **real** cached-last-slide or a build-time welcome slide, centered in the full viewport), the hoisted
+  live-preview host (the Nacre), and the live iframe — in two different coordinate systems, with the
+  shell's dismissal gated on the live-iframe reveal that iOS signals unreliably. The opaque host Nacre
+  covered its own rect while the real SSR slide showed through everywhere else — the seam. Reshaped to
+  **one skeleton**: the instant-shell is now **Nacre-only** (a single contained 16:9 box shown to every
+  visitor — the cached-last-slide replay and the server-rendered welcome slide are retired); the shell
+  dismisses when the app's own identical Nacre is up (not on the flaky reveal); the preview box is a
+  reliably-contained 16:9 (a portrait phone is width-bound, so the Nacre can't bleed into a letterbox);
+  and the live slide reveals only when it is genuinely good (painted + width-scaled + clamped on-screen),
+  with the skeleton holding until then. One surface, one coordinate system — the seam is structurally
+  impossible. **Breaking (behavior):** a returning visitor no longer sees their real last slide flash
+  instantly on reload — everyone sees the calm Nacre skeleton, then the live slide. (`docs/src/pages/studio.astro`,
+  `docs/src/components/studio/StudioShell.tsx`, `docs/src/components/DeckPreview.tsx`,
+  `docs/src/lib/single-slide-render.ts`, `docs/src/components/studio/use-shared-preview-slot.ts`,
+  `docs/scripts/check-studio-shell.mjs`; `engineering/decisions/2026-07-21-studio-preview-one-skeleton.md`.)
+
 - **The live preview no longer reveals a blank/unscaled slide when the pane is measured mid-reflow.**
   The single-slide renderer scaled the frame only when the host had a non-zero width (`if (w > 0)`), but
   it revealed the frame on `onload` **regardless** — so if the shared preview host was briefly 0-wide

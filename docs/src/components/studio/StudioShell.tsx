@@ -27,7 +27,6 @@ import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-sli
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
 import { sliceSlide } from '@/playground/architect-edits.js';
-import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -248,13 +247,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
 	const [activeSlide, setActiveSlide] = React.useState(() => loadBootSlide()); // 0-based index into the VIEWED set; boot at the slide you left on (clamped below)
-	// Live mirrors of the active deck id + slide index, so the leave-capture (a stable
-	// callback that must NOT re-subscribe its pagehide listener per deck/slide change)
-	// can stamp WHICH deck/slide it snapshotted without taking them as deps.
-	const captureDeckRef = React.useRef('');
-	captureDeckRef.current = deck.id;
-	const activeSlideRef = React.useRef(0);
-	activeSlideRef.current = activeSlide;
 	const [composeLens, setComposeLens] = React.useState<PresentLens>('full'); // reader lens for the preview
 	// Persona posture — the always-visible, reversible density stop that replaced the
 	// one-way `onboarded` ratchet + welcome banner (2026-07-17-studio-persona-dial.md).
@@ -442,12 +434,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// construction, not by a coalescing timing side-effect (a stale slide's differing
 	// `mermaid` flag could otherwise flip the signature and force a cold write).
 	React.useEffect(() => { if (!presentOpen) setPresentPreview(null); }, [presentOpen]);
-	// Read in captureLastSlide (a stable useCallback) without re-binding its listeners: while
-	// Present is open the shared iframe shows the PRESENT slide (a lens projection that maps to
-	// no editor slide), so capturing it would stamp present HTML under the editor's slideIndex
-	// and the next boot's instant-shell would replay that artifact. Skip capture while presenting.
-	const presentOpenRef = React.useRef(presentOpen);
-	presentOpenRef.current = presentOpen;
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
@@ -515,16 +501,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		el.style.transition = 'opacity 220ms ease';
 		el.style.opacity = '0';
 		el.style.pointerEvents = 'none';
-		setTimeout(() => {
-			el.remove();
-			// Remove the shell's SLIDE CSS too, or its bare element selectors (the engine
-			// theme styles `section`/`li`/`h1` etc.) would bleed onto the hydrated app's
-			// own chrome once the shell is gone. The snapshot CSS is a tagged <style>;
-			// the newcomer critical CSS goes back inert (it was flipped to media="all").
-			document.getElementById('ssr-snap-css')?.remove();
-			const nc = document.getElementById('ssr-newcomer-css') as HTMLStyleElement | null;
-			if (nc) nc.media = 'not all';
-		}, 260);
+		// The Nacre-only shell carries no slide CSS to clean up (the retired snapshot/newcomer
+		// paths owned `#ssr-snap-css` / `#ssr-newcomer-css`); just remove the node after the fade.
+		setTimeout(() => el.remove(), 260);
 	}, []);
 	React.useEffect(() => {
 		// Backstop: never trap the user behind the static shell if the engine never
@@ -540,11 +519,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		const t = setTimeout(dismissSsrShell, 8000);
 		return () => clearTimeout(t);
 	}, [dismissSsrShell]);
-	// Snapshot the live preview's CURRENT slide (rendered HTML + just the CSS it
-	// uses, from the iframe's CSSOM) into localStorage, so a RETURNING visit paints
-	// the real last slide in the instant-shell instead of a blank screen (front A
-	// only bakes the newcomer slide at build time). Captured on leave (pagehide /
-	// tab-hide) and once shortly after the first render — never per-keystroke.
 	const previewBoxRef = React.useRef<HTMLDivElement>(null);
 	// The ONE shared preview: a `position:fixed` host (parked below the studio root,
 	// never moved in the DOM) holding the single DeckPreview, positioned by the controller
@@ -553,56 +527,38 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const sharedHostRef = React.useRef<HTMLDivElement>(null);
 	const editorSlotRef = React.useRef<HTMLDivElement>(null);
 	const presentSlotRef = React.useRef<HTMLDivElement>(null);
-	const lastCaptureRef = React.useRef(0);
-	const captureLastSlide = React.useCallback(() => {
-		try {
-			if (presentOpenRef.current) return; // never snapshot the present-lens slide as an editor slide
-			const fr = sharedHostRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-			if (!fr) return;
-			// Dedupe back-to-back captures: pagehide + visibilitychange both fire on a
-			// mobile nav, and the post-first-render timer can overlap — the CSSOM walk +
-			// ~140KB write isn't worth running twice within a beat.
-			const now = Date.now();
-			if (now - lastCaptureRef.current < 500) return;
-			lastCaptureRef.current = now;
-			const root = document.documentElement;
-			const geom = (fr.parentElement as { __latticeGeom?: { width: number; height: number } } | null)?.__latticeGeom;
-			// captureFromFrame sanitizes the slide HTML at the chokepoint (#22) before it
-			// can ever be stored + replayed into the top document — nothing to do here.
-			const snap = captureFromFrame(fr, {
-				w: geom?.width || 1280,
-				h: geom?.height || 720,
-				palette: root.getAttribute('data-palette') || 'indaco',
-				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
-				// Stamp WHICH deck/slide this is, so the pre-paint replay paints it only when
-				// the app is about to boot this same deck — never deck B's slide over deck A.
-				deckId: captureDeckRef.current,
-				slideIndex: activeSlideRef.current,
-				themeUrlBase: options.themeBase,
-				ts: now,
-			});
-			if (snap) saveSnapshot(snap);
-		} catch {
-			/* best-effort — a failed capture just means the next visit uses the newcomer/none path */
-		}
-	}, [options.themeBase]);
+	// Decouple the instant-shell dismissal from the live-iframe reveal. The app's OWN shared
+	// host carries the SAME Nacre skeleton; the instant-shell and the host Nacre are identical, so
+	// we dismiss the SSR shell as soon as the shared host is VISIBLE (its Nacre now covers the
+	// preview area) — NOT when the live iframe reveals, which iOS signals unreliably. The live
+	// slide then reveals under the host Nacre later. This removes the window where the SSR
+	// shell and the host coexisted; the 8s backstop above stays as the ultimate floor.
 	React.useEffect(() => {
-		const onHide = () => {
-			if (document.visibilityState === 'hidden') captureLastSlide();
+		const host = sharedHostRef.current;
+		if (!host) return;
+		const up = () => {
+			const cs = getComputedStyle(host);
+			return cs.opacity !== '0' && cs.visibility !== 'hidden';
 		};
-		window.addEventListener('pagehide', captureLastSlide);
-		document.addEventListener('visibilitychange', onHide);
-		return () => {
-			window.removeEventListener('pagehide', captureLastSlide);
-			document.removeEventListener('visibilitychange', onHide);
-		};
-	}, [captureLastSlide]);
-	// First-render handler for the preview: dismiss the instant-shell, then capture
-	// the freshly-rendered slide (delayed so async chart/mermaid draws are included).
+		if (up()) {
+			dismissSsrShell();
+			return;
+		}
+		const mo = new MutationObserver(() => {
+			if (up()) {
+				dismissSsrShell();
+				mo.disconnect();
+			}
+		});
+		mo.observe(host, { attributes: true, attributeFilter: ['style'] });
+		return () => mo.disconnect();
+	}, [dismissSsrShell]);
+	// First-render handler for the preview: dismiss the instant-shell (idempotent — the
+	// host-up effect above usually got there first; this covers the case where the host was
+	// already visible at mount and the reveal is the first clear signal).
 	const onPreviewFirstRender = React.useCallback(() => {
 		dismissSsrShell();
-		setTimeout(captureLastSlide, 1500);
-	}, [dismissSsrShell, captureLastSlide]);
+	}, [dismissSsrShell]);
 	// Saved LOCAL components from the same shared library (kind:'component') —
 	// authored + saved in the Fabricate Component Studio. They become insertable AND
 	// render styled (their CSS is injected where the deck uses them).
@@ -1953,8 +1909,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// the sides); pane taller → bind width (letterbox top/bottom). Measured, because
 	// no single static class contains both pane orientations without distorting.
 	const previewHolderRef = React.useRef<HTMLDivElement>(null);
-	const [previewFitByHeight, setPreviewFitByHeight] = React.useState(true);
 	const slideRatio = previewRatio[0] / previewRatio[1];
+	// Fit-by-height only when the pane is WIDER than the slide aspect (a landscape pane);
+	// a PORTRAIT pane (phone) is width-bound → a contained 16:9 box, letterboxed top/bottom.
+	// The default is computed from the initial window aspect rather than hardcoded `true`:
+	// a hardcoded `true` on a portrait phone made the box height-bound (derived width far
+	// wider than the screen) until the measure effect corrected it — and on iOS that measure
+	// can bail on a 0-dim read during the load reflow and never correct, leaving the box
+	// non-16:9 (the tall host the Nacre then bled through, below the 16:9 slide). Starting
+	// from the correct orientation removes that race window; the measure refines it once laid
+	// out with the real pane rect.
+	const [previewFitByHeight, setPreviewFitByHeight] = React.useState(() => {
+		if (typeof window === 'undefined') return false;
+		return window.innerWidth / window.innerHeight >= slideRatio;
+	});
 	React.useEffect(() => {
 		const holder = previewHolderRef.current;
 		if (!holder) return;
