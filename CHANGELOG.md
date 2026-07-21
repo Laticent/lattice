@@ -255,8 +255,10 @@ in patch versions.
   fixed deck** until the edge-cap slice lands, so it never shows a dead band. Dense slides that can't
   fit now show a calm, palette-blind **"More below ↓"** cue (the honest overflow floor) instead of
   silently clipping — the reader never loses content without a signal, and never sees the author's red
-  QA ring. Opt-in and viewer-only: **PDF / PPTX / PNG and the canonical export HTML are byte-identical.**
-  First slice (P1) of `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`.
+  QA ring. Opt-in and viewer-only: **PDF / PPTX / PNG are byte-identical, and every export renders
+  identically** — all the new rules are gated on the viewer marker, so a non-fluid export's inlined
+  stylesheet only gains a few inert, unmatched lines. First slice (P1) of
+  `engineering/decisions/2026-07-20-adaptive-viewport-fill.md`.
 - **Headline alignment is now an author register (`headline:`), not a per-layout default.** The
   horizontal alignment of a slide's framing text — eyebrow, heading, heading rule, subtitle,
   below-note, key insight, caption — used to be baked into each component, so the pieces could

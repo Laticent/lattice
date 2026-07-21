@@ -53,7 +53,15 @@
  * from growing to fill the over-tall box, so a light slide stays compact and
  * centred. Visual/media blocks that are MEANT to fill — images and the diagram /
  * chart bodies that set their own flex:1 (mermaid, chart-body, function-plot) —
- * are exempted so they still fill the fluid box rather than collapsing. */
+ * are exempted so they still fill the fluid box rather than collapsing.
+ *
+ * NB (P1 landscape fill): the decision doc §7 flagged scoping this to portrait,
+ * on the worry it would fight multi-column fill on a wide box. Verified on real
+ * landscape renders (16:9/16:10/4:3) it does NOT: this constrains the section's
+ * COLUMN (vertical) axis only, while horizontal multi-column fill is driven by
+ * cqi/flex-basis independently — so a sparse landscape slide stays cleanly
+ * centered instead of spreading airily, exactly as intended. Kept unscoped;
+ * deviation from §7 recorded, not silent (HARD #18). */
 :root[data-lattice-view="fluid"] section[data-lattice-slide]
   > :not(:is(header, footer, figure, img, picture, svg, canvas, video,
              .mermaid, .mermaid-svg, .chart-body, .functionplot)) {
@@ -84,6 +92,11 @@
   box-shadow: none !important;                 /* drop the author red inset ring */
 }
 :root[data-lattice-fluid-capable] section.overflow > .overflow-tab {
+  /* Self-contained (not inherited from base.modifiers.css): the settle guarantee
+   * relies on the tab being out of flow so it can't change the measured height —
+   * assert it here so a future edit to the author rule can't silently reintroduce
+   * a measure→mutate→measure loop. */
+  position: absolute !important;
   top: auto !important;
   right: auto !important;
   bottom: max(0.6rem, env(safe-area-inset-bottom)) !important;
