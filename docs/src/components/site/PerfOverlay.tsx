@@ -11,11 +11,15 @@
 // Drawing Board switch, and the `?perf` URL param all flip it, and this island
 // mounts/unmounts live in response. It renders NOTHING (and starts no loops)
 // until enabled, so a normal page view pays nothing. Availability is GA-gated in
-// perf-overlay-prefs.ts. Included once per page via ResourceHints/Header/
-// features; a module-level singleton claim makes extra includes no-ops.
+// perf-overlay-prefs.ts. Included once per page via ResourceHints/Header/features.
+//
+// The draggable shell + the enable/singleton gate are the shared diagnostic-overlay
+// chassis (diagnostic-overlay.tsx: DiagnosticPanel + useDiagnosticGate); this file is only
+// the metric collection (web-vitals / runtime / render) + the readout body.
 
 import * as React from 'react';
 import { DiagnosticPanel, type OverlayClaim, useDiagnosticGate } from '@/components/diagnostics/diagnostic-overlay';
+import { Sep } from '@/components/diagnostics/Sep';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { latestRenderSample, onRenderSample, type RenderSample } from '@/playground/render-metrics';
 import { type MetricDatum, MetricDetail } from './MetricDetail';
@@ -223,14 +227,5 @@ function Group({ rows, datumFor }: { rows: MetricMeta[]; datumFor: (m: MetricMet
 				<MetricDetail key={m.key} meta={m} datum={datumFor(m)} />
 			))}
 		</>
-	);
-}
-
-function Sep({ label }: { label: string }) {
-	return (
-		<div className="mt-[7px] mb-1 flex items-center gap-2">
-			<span className="text-[9px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
-			<span className="h-px flex-1 bg-border" />
-		</div>
 	);
 }

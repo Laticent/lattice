@@ -51,7 +51,16 @@ export function useDiagnosticGate(cfg: {
 		return cfg.subscribe(setEnabled);
 	}, []);
 
-	// Claim the singleton so duplicate includes don't stack overlays.
+	// Claim the singleton so duplicate includes don't stack overlays: the FIRST to mount
+	// wins and renders, later instances early-return (owner stays false).
+	//
+	// KNOWN LIMITATION (pre-existing, carried over verbatim from the four originals): this
+	// assumes overlay instances of one type mount/unmount TOGETHER. If two instances of the
+	// same overlay are on a page (e.g. PerfOverlay on both the Header and a features block)
+	// and the winner unmounts ALONE, `held` flips false but the loser's mount-effect has
+	// already run and won't re-fire, so nothing renders until a full remount. Not reached in
+	// practice (co-located includes mount/unmount together at nav); a ref-counted claim would
+	// close it if a real dual-mount surface ever appears.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: claim is a stable module token; claim/release once on mount.
 	React.useEffect(() => {
 		if (!cfg.available || cfg.claim.held) return;
@@ -69,18 +78,12 @@ export function useDiagnosticGate(cfg: {
 // ── The draggable panel ────────────────────────────────────────────────────────
 type Pos = { left: number; top: number } | null;
 
-export function DiagnosticPanel({
-	posKey,
-	label,
-	onClose,
-	closeLabel,
-	id,
-	testId,
-	ariaLive,
-	corner = 'bottom-left',
-	panelClassName,
-	children,
-}: {
+// EXACTLY ONE selector attribute — a compile-time XOR, so a caller can't pass both (two
+// selector attributes on one node) or neither (an unselectable panel). Perf/ReadAloud use
+// a DOM `id`; Viz/Viewport use `data-testid`.
+type PanelIdentity = { id: string; testId?: never } | { testId: string; id?: never };
+
+type DiagnosticPanelProps = PanelIdentity & {
 	/** localStorage key for the persisted drag position (unique per overlay). */
 	posKey: string;
 	/** Uppercase header label, e.g. "performance · live". */
@@ -89,10 +92,6 @@ export function DiagnosticPanel({
 	onClose: () => void;
 	/** aria-label for the × button, e.g. "Hide performance overlay". */
 	closeLabel: string;
-	/** DOM id (perf/read-aloud use this) — set at most one of id / testId. */
-	id?: string;
-	/** data-testid (viz/viewport use this). */
-	testId?: string;
 	/** Optional live-region politeness; omitted = no aria-live. */
 	ariaLive?: 'polite' | 'off';
 	/** Which corner the panel rests in before it's ever dragged. */
@@ -100,7 +99,9 @@ export function DiagnosticPanel({
 	/** Extra classes for width / shape / font (the one part that varies per overlay). */
 	panelClassName?: string;
 	children: React.ReactNode;
-}) {
+};
+
+export function DiagnosticPanel({ posKey, label, onClose, closeLabel, id, testId, ariaLive, corner = 'bottom-left', panelClassName, children }: DiagnosticPanelProps) {
 	const ref = React.useRef<HTMLDivElement>(null);
 	const [pos, setPos] = React.useState<Pos>(() => {
 		try {
@@ -174,7 +175,9 @@ export function DiagnosticPanel({
 			className={cn('lx-ui fixed z-[2147483646] select-none rounded-xl border border-border bg-popover/95 px-2.5 pt-2 pb-2.5 text-[12px] leading-[1.4] text-popover-foreground shadow-lg backdrop-blur-sm', panelClassName)}
 			style={style}
 		>
-			<div className="mb-1.5 flex shrink-0 cursor-grab touch-none items-center gap-2 active:cursor-grabbing" onPointerDown={onHeaderPointerDown}>
+			{/* `dp-grip` is the stable DRAG-HANDLE contract hook (paired with `.dp-close`) — tests
+			    and any future tooling key on it, NOT the `cursor-grab` styling utility. */}
+			<div className="dp-grip mb-1.5 flex shrink-0 cursor-grab touch-none items-center gap-2 active:cursor-grabbing" onPointerDown={onHeaderPointerDown}>
 				<span aria-hidden className="grid grid-cols-2 gap-[2px] p-px opacity-60">
 					{['a', 'b', 'c', 'd', 'e', 'f'].map((k) => (
 						<i key={k} className="block size-[3px] rounded-full bg-muted-foreground" />
