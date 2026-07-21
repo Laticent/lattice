@@ -1897,47 +1897,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const activeFullIndex = composeLens === 'full' ? slideNo - 1 : Math.max(0, slides.indexOf(viewSlides[slideNo - 1]));
 
 	// The preview card's aspect follows the deck's selected Size (not a fixed 16:9);
-	// portrait shapes bind to height so they fit the pane, landscape to width.
+	// The preview box CONTAINS the slide (whole slide visible, never cropped) at the deck's
+	// aspect ratio, letterboxing the pane's spare axis. This is now done with PURE CSS at the
+	// box itself — `width: min(100%, 100cqh × ratio)` against `container-type:size` on the pane
+	// — so there is NO measured fit state to race (the old `previewFitByHeight` measure could
+	// bail on a 0-dim read during the iOS load reflow and leave the box the wrong shape, which
+	// the hoisted host then faithfully mirrored → the misplaced/oversized preview). See the box
+	// style below and engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
 	const previewRatio = sizeRatio(deckSize);
-	const previewPortrait = previewRatio[1] > previewRatio[0];
-	// When the preview FILLS the pane (Read full-bleed, or editor collapsed) the card
-	// must CONTAIN the slide — the whole slide visible, never cropped — not cover the
-	// width and clip the slide's header / footer / page number off the top and bottom
-	// (the Read bug: a 16:9 slide in a pane wider than 16:9 derived a height taller
-	// than the pane). A slide is a fixed-aspect artifact; cropping it hides content.
-	// So bind the AXIS that fits: pane wider than the slide → bind height (letterbox
-	// the sides); pane taller → bind width (letterbox top/bottom). Measured, because
-	// no single static class contains both pane orientations without distorting.
 	const previewHolderRef = React.useRef<HTMLDivElement>(null);
-	const slideRatio = previewRatio[0] / previewRatio[1];
-	// Fit-by-height only when the pane is WIDER than the slide aspect (a landscape pane);
-	// a PORTRAIT pane (phone) is width-bound → a contained 16:9 box, letterboxed top/bottom.
-	// The default is computed from the initial window aspect rather than hardcoded `true`:
-	// a hardcoded `true` on a portrait phone made the box height-bound (derived width far
-	// wider than the screen) until the measure effect corrected it — and on iOS that measure
-	// can bail on a 0-dim read during the load reflow and never correct, leaving the box
-	// non-16:9 (the tall host the Nacre then bled through, below the 16:9 slide). Starting
-	// from the correct orientation removes that race window; the measure refines it once laid
-	// out with the real pane rect.
-	const [previewFitByHeight, setPreviewFitByHeight] = React.useState(() => {
-		if (typeof window === 'undefined') return false;
-		return window.innerWidth / window.innerHeight >= slideRatio;
-	});
-	React.useEffect(() => {
-		const holder = previewHolderRef.current;
-		if (!holder) return;
-		const measure = () => {
-			const cs = getComputedStyle(holder);
-			const cw = holder.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-			const ch = holder.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-			if (cw <= 0 || ch <= 0) return;
-			setPreviewFitByHeight(cw / ch >= slideRatio);
-		};
-		measure();
-		const ro = new ResizeObserver(measure);
-		ro.observe(holder);
-		return () => ro.disconnect();
-	}, [slideRatio]);
 	// Touch swipe (mobile) + horizontal wheel (trackpad) change the viewed slide.
 	// goToSlide(slideNo) is next, goToSlide(slideNo - 2) is prev (both clamp).
 	const swipeRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -2677,7 +2645,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
 			    aspect ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')} onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
+			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')} style={{ containerType: 'size' }} onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -2690,24 +2658,25 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					// + shadow, but KEEP `rounded-xl` so this backing box matches the live iframe's
 					// own `rounded-xl` corners (a square backing pokes its dark corners past the
 					// slide's rounded ones — the "notch" artifact). Elsewhere keep the full card.
-					landscapePhone ? 'rounded-xl' : 'rounded-xl border border-border shadow-[0_8px_24px_rgba(10,22,40,.10)]',
-					// Fill cases (Read full-bleed, cinema, or editor collapsed) CONTAIN via the
-					// measured axis so the whole slide shows, uncropped. Otherwise the pane is
-					// width-bound with the 760px comfort cap (portrait binds to height).
-					// A landscape PHONE viewport is always wider than a 16:9 slide, so height
-					// always binds — force fit-by-height there rather than trusting the measured
-					// axis (which raced stale and left the slide width-bound = too tall).
-					// max-w-full / max-h-full are CONTAIN GUARDS on the derived axis: a `h-full
-					// w-auto` box derives width = paneHeight × ratio, which on a PORTRAIT phone
-					// (tall pane) overflows the viewport into the "huge, cut-off card" whenever
-					// previewFitByHeight is stuck at its default (the iOS measurement race). The
-					// clamp caps the derived axis to the container so the box can never exceed
-					// the screen — it degrades to a correctly width-fit, letterboxed slide
-					// instead of a giant off-screen one, independent of any measurement timing.
-					split.collapsed === 'a' || previewChromeless
-						? (previewFitByHeight || landscapePhone ? 'h-full w-auto max-w-full' : 'h-auto w-full max-h-full')
-						: previewPortrait ? 'h-full w-auto max-w-full' : 'h-auto w-full max-w-[760px] max-h-full')}
-					style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
+					landscapePhone ? 'rounded-xl' : 'rounded-xl border border-border shadow-[0_8px_24px_rgba(10,22,40,.10)]')}
+					// CONTAIN to a clean deck-ratio (usually 16:9) box with PURE CSS — no JS, no
+					// race. Width = the SMALLER of the available width (`100%`, padding-aware) and
+					// the height-derived width (`100cqh × ratio`, `100cqh` = the pane height via
+					// container-type:size on previewHolder). So it fits inside the pane on ANY
+					// shape: a portrait phone binds to width (letterboxed top/bottom), landscape
+					// binds to height — deterministically, with nothing to measure or go stale.
+					// THIS BOX IS THE ANCHOR the hoisted preview host tracks; a race-free anchor is
+					// a correctly-placed preview (the host tracking itself was never the drift — the
+					// old JS `previewFitByHeight` produced a wrong-shape anchor the host then
+					// faithfully mirrored). The 760px comfort cap applies except in the fill cases
+					// (Read full-bleed / cinema / editor collapsed).
+					style={{
+						aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}`,
+						width:
+							split.collapsed === 'a' || previewChromeless
+								? `min(100%, calc(100cqh * ${(previewRatio[0] / previewRatio[1]).toFixed(4)}))`
+								: `min(100%, calc(100cqh * ${(previewRatio[0] / previewRatio[1]).toFixed(4)}), 760px)`,
+					}}>
 					{/* Empty SLOT — the ONE shared preview (hoisted at the studio root) is positioned
 					    to overlay this box; the iframe never lives here (moving it would reload it). */}
 					<div ref={editorSlotRef} className="size-full" />
