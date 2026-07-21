@@ -34,8 +34,13 @@ export const HEADLINES: HeadlineEntry[] = [
 		blurb: 'Pin the framing cluster to the left margin.',
 		swatch: { background: bars('left') },
 	},
-	// `center` / `right` are a deferred follow-up (box-aligning capped/inset framing on the full
-	// frame needs its own design pass); the engine only ships `auto` / `left` today.
+	{
+		name: 'center', label: 'Center',
+		blurb: 'Center the framing cluster — even on a layout that lefts by default.',
+		swatch: { background: bars('center') },
+	},
+	// `right` is a deferred follow-up (same box machinery as center, rarely wanted); the engine
+	// ships `auto` / `left` / `center` today.
 ];
 
 export const HEADLINE_BY_NAME: Record<string, HeadlineEntry> = Object.fromEntries(

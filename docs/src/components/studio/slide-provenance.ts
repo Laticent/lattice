@@ -262,7 +262,7 @@ export function setEyebrow(chunk: string, name: string | null): string {
 
 // The deck key is `headline` but the per-slide token prefix is `head-` (head-left/center/right);
 // overrideProvenance takes the two separately, so the mismatch is fine.
-const HEADLINE_VALUES = ['left'];
+const HEADLINE_VALUES = ['left', 'center'];
 export function headlineProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'headline', 'head-', HEADLINE_VALUES, 'auto');
 }

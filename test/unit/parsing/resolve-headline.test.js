@@ -2,8 +2,8 @@
  * Unit: the `headline:` register resolver (lib/core/resolve-headline.js) — the HEADLINE
  * ALIGNMENT register. Maps the deck front-matter `headline:` value to the `head-<value>`
  * class token both render paths append to every section. `auto` is the default and carries
- * NO token (the component keeps its baked alignment); only `left` does. (`center`/`right`
- * are a deferred follow-up — see the decision doc § "Scoped to auto + left".)
+ * NO token (the component keeps its baked alignment); `left` and `center` carry tokens.
+ * (`right` is a deferred follow-up — same box machinery as center, rarely wanted.)
  * Sibling of resolve-eyebrow / resolve-rule / resolve-spectrum / resolve-lift.
  */
 
@@ -21,15 +21,15 @@ const {
 } = require('../../../lib/core/resolve-headline');
 
 describe('resolve-headline', () => {
-  test('left maps to its class token; auto maps to no token (default)', () => {
+  test('left / center map to their class tokens; auto maps to no token (default)', () => {
     assert.equal(headlineClass('left'), 'head-left');
+    assert.equal(headlineClass('center'), 'head-center');
     assert.equal(headlineClass('auto'), '', 'auto is the default — no class, component keeps its alignment');
+    assert.ok(isKnownHeadline('center'));
   });
 
-  test('center / right are not (yet) recognized — deferred follow-up', () => {
-    assert.equal(headlineClass('center'), '', 'center is deferred → no class (deck-lint flags it)');
-    assert.equal(headlineClass('right'), '', 'right is deferred → no class');
-    assert.ok(!isKnownHeadline('center'));
+  test('right is not (yet) recognized — deferred follow-up', () => {
+    assert.equal(headlineClass('right'), '', 'right is deferred → no class (deck-lint flags it)');
     assert.ok(!isKnownHeadline('right'));
   });
 
@@ -42,16 +42,17 @@ describe('resolve-headline', () => {
     assert.equal(headlineClass('  LEFT '), 'head-left');
   });
 
-  test('isKnownHeadline recognizes the two names only', () => {
-    for (const n of ['auto', 'left']) assert.ok(isKnownHeadline(n), n);
+  test('isKnownHeadline recognizes the three names only', () => {
+    for (const n of ['auto', 'left', 'center']) assert.ok(isKnownHeadline(n), n);
     assert.ok(!isKnownHeadline('centre'));
+    assert.ok(!isKnownHeadline('right'));
     assert.ok(!isKnownHeadline(''));
     assert.ok(!isKnownHeadline(undefined));
   });
 
   test('HEADLINE_NAMES / HEADLINE_TOKENS list the recognized set', () => {
-    assert.deepEqual([...HEADLINE_NAMES], ['auto', 'left']);
-    assert.deepEqual([...HEADLINE_TOKENS], ['head-left']);
+    assert.deepEqual([...HEADLINE_NAMES], ['auto', 'left', 'center']);
+    assert.deepEqual([...HEADLINE_TOKENS], ['head-left', 'head-center']);
   });
 
   test('readFrontMatterHeadline extracts from the front-matter block only; quotes + absence', () => {
@@ -70,9 +71,12 @@ describe('resolve-headline', () => {
     }
     // The register drives one inherited property, not a scattered set of text-aligns.
     assert.ok(css.includes('--headline-align'), 'the register must set the shared --headline-align seam');
-    // center/right machinery is deferred — it must NOT ship (no head-center/right, no bay collapse).
-    assert.ok(!css.includes('head-center') && !css.includes('head-right'), 'center/right are deferred — no head-center/head-right in shipped CSS');
-    assert.ok(!css.includes(':empty'), 'the empty-bay collapse was center/right-only — deferred');
+    // center ships (box machinery via flexed containers); right is still deferred.
+    assert.ok(css.includes('head-center'), 'head-center must have a rule (center ships)');
+    assert.ok(!css.includes('head-right'), 'right is deferred — no head-right in shipped CSS');
+    // center anchors to the lede (spans-frame with no bay, beside-the-bay with one), so no
+    // fragile `:has(:empty)` bay-collapse is needed — it must NOT ship.
+    assert.ok(!css.includes(':empty'), 'center uses the lede anchor, not an empty-bay collapse');
     // Alignment is text-align/align-*, never margin (HARD RULE #20).
     assert.ok(!/section\.head-[a-z]+[^{]*\{[^}]*margin/.test(css), 'headline alignment must not use margin');
     assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), 'accent-finish CSS must be palette-blind (var(--token) only)');

@@ -22,7 +22,8 @@ describe('headline-catalog ↔ HEADLINE_NAMES', () => {
 	it('activeHeadline falls back to the auto default for unknown / empty', () => {
 		expect(activeHeadline('nonsense').name).toBe('auto');
 		expect(activeHeadline('').name).toBe('auto');
-		expect(activeHeadline('center').name).toBe('auto'); // center is deferred → falls back to auto
+		expect(activeHeadline('right').name).toBe('auto'); // right is deferred → falls back to auto
 		expect(activeHeadline('left').name).toBe('left');
+		expect(activeHeadline('center').name).toBe('center'); // center now ships
 	});
 });

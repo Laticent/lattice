@@ -11,8 +11,15 @@
 section.form .cell-masthead .masthead-lede {
   min-width: 0;
   grid-column: masthead-lede;
-  /* Headline-alignment seam (`headline:` register, base.accent-finish.css). text-align
-   * inherits, so the kicker + title follow one axis. `auto` (no register) → the property is
-   * undefined → the fallback `left` applies, byte-identical to today's left-aligned band. */
+  /* A flex COLUMN, so the whole framing cluster — eyebrow, heading, subtitle, and the heading-rule
+   * <hr> — are flex siblings that align as ONE unit via `align-items`. Headline-alignment seam
+   * (`headline:` register, base.accent-finish.css): `align-items` positions each box and `text-align`
+   * handles multi-line wrapping; both read the seam and fall back to the component's baked default
+   * (`flex-start` / `left` here — overridden to center on stats/list-steps.timeline). This is why the
+   * rule no longer needs a hand-placed `::after`: as a flex child it simply rides `align-items`, so it
+   * tracks the heading with or without a masthead bay. */
+  display: flex;
+  flex-direction: column;
+  align-items: var(--headline-justify, flex-start);
   text-align: var(--headline-align, left);
 }

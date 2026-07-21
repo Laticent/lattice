@@ -25,25 +25,35 @@ section.rule-full.form .cell-masthead { border-bottom: 1px solid var(--border); 
 section.rule-none.form .cell-masthead { border-bottom: none; }
 section.rule-none.split-panel .panel-right h3 { border-bottom: none; }
 
-/* short / accent — replace the full hairline with a short left-aligned segment, drawn as a
- * pseudo so it does not span the masthead grid. `short` is neutral (--border); `accent`
- * paints it in the deck's --accent so it reads as a signature. The segment sits at the
- * band's padding edge (bottom:0), exactly where the border-bottom used to. */
-section:is(.rule-short, .rule-accent).form .cell-masthead {
-  border-bottom: none;
-  position: relative;
-}
-section:is(.rule-short, .rule-accent).form .cell-masthead::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: 0;
+/* short / accent — the heading rule is a REAL <hr class="masthead-rule">, the last child of the
+ * lede flex column (emitted by the masthead transform). It aligns with the eyebrow + heading via
+ * the lede's ONE `align-items` (align-self:auto follows the container), so it tracks the heading
+ * left/center with or without a masthead bay — no hand-placed pseudo, no bay-drift. `short` is
+ * neutral (--border); `accent` paints it in --accent. `full`/`none` keep the hr hidden — the
+ * border-bottom (or nothing) is the rule there. The `padding-top` restores the band's title↔rule
+ * gap the old bottom-edge segment got from the masthead padding (margin is barred — HARD RULE #20). */
+section.form .cell-masthead .masthead-rule { display: none; }
+section:is(.rule-short, .rule-accent).form .cell-masthead { border-bottom: none; }
+section:is(.rule-short, .rule-accent).form .cell-masthead .masthead-rule {
+  display: block;
+  align-self: auto;
+  box-sizing: content-box;
   width: 8cqi;
   height: 0.22cqi;
+  /* Now a real <hr>, so element-level finishes that target `section … hr` reach it — reset the
+   * sketch wave mask (base.sketch.css), which would smear this 2px segment into a 7px tile and
+   * near-erase it. A free body <hr> still gets the sketch treatment; only the heading rule opts out. */
+  -webkit-mask: none;
+  mask: none;
+  /* Gap between the heading and the rule. margin is barred (HARD RULE #20), so the space is a
+   * transparent padding-top and the segment paints only in the content box (background-clip). */
+  padding-top: var(--sp-sm);
+  border: none;
   border-radius: 0.11cqi;
   background: var(--border);
+  background-clip: content-box;
 }
-section.rule-accent.form .cell-masthead::after { background: var(--accent); }
+section.rule-accent.form .cell-masthead .masthead-rule { background: var(--accent); background-clip: content-box; }
 
 /* accent — recolor the split-panel kicker rule to match; none already handled above. */
 section.rule-accent.split-panel .panel-right h3 { border-bottom-color: var(--accent); }
@@ -125,6 +135,25 @@ section.eyebrow-underline
  * framing box is already left-pinned in plain block flow, so it's a pure seam read. See
  * engineering/decisions/2026-07-20-mass-head-alignment.md § "Scoped to auto + left". */
 section.head-left { --headline-align: left; --headline-justify: flex-start; }
+
+/* head-center — the missing lever: center the framing CLUSTER on a layout that lefts by default.
+ * The masthead-lede is ALWAYS a flex column (masthead-lede.css) that reads --headline-justify, so
+ * its eyebrow + heading + heading-rule <hr> center as one unit automatically; here we only flex the
+ * OTHER capped framing containers (the trailing key-insight panel, below-note, chart/diagram
+ * caption) so their boxes center on one axis too. `text-align:center` (via --headline-align) only
+ * centers TEXT within a box — flexing centers the BOX. The key-insight blockquote carries the SAME
+ * body-exclusion guard as its base rule (base.modifiers.css) so head-center never centers a BODY
+ * blockquote (quote / math / citation-card / redline / inventory / policy-recommendation / layout-*).
+ * No margin (HARD RULE #20); no hex (#3). The slide body keeps its own align-* axis (issue-527) —
+ * the register moves framing only. */
+section.head-center { --headline-align: center; --headline-justify: center; }
+section.head-center:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
+section.head-center:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote,
+section.head-center .below-note,
+section.head-center.diagram .diagram-caption,
+section.head-center .chart-caption {
+  display: flex; flex-direction: column; align-items: var(--headline-justify, flex-start);
+}
 
 /* ── SPECTRUM CARD (`spectrum-card:` + `spectrum-card-edge:`) ── an INDEPENDENT rail on card
  * surfaces ────────────────────────────────────────────────────────────────────────────────

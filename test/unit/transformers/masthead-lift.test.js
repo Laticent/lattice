@@ -29,14 +29,14 @@ describe('masthead-lift — HTML-string kernel', () => {
   test('lifts eyebrow + h2 into .cell-masthead; generic body goes in .cell-stage', () => {
     const inner = '<p><code>Kicker</code></p><h2>Title</h2><ul><li>body</li></ul>';
     const out = kernel.transformMastheadSection(inner, 'content form');
-    assert.match(out, /<div class="cell-masthead"><div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><\/div><div class="masthead-bay"><\/div><\/div>/);
+    assert.match(out, /<div class="cell-masthead"><div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><hr class="masthead-rule"><\/div><div class="masthead-bay"><\/div><\/div>/);
     // generic prose (content) → body wrapped into the frame's stage cell (flex cell-tree)
     assert.match(out, /<\/div><div class="cell-stage"><ul><li>body<\/li><\/ul><\/div>$/);
   });
 
   test('works without an eyebrow (title only); body in the stage cell', () => {
     const out = kernel.transformMastheadSection('<h2>Just a title</h2><p>Body.</p>', 'form');
-    assert.match(out, /<div class="masthead-lede"><h2>Just a title<\/h2><\/div>/);
+    assert.match(out, /<div class="masthead-lede"><h2>Just a title<\/h2><hr class="masthead-rule"><\/div>/);
     assert.match(out, /<div class="cell-stage"><p>Body\.<\/p><\/div>$/);
   });
 
@@ -79,7 +79,7 @@ describe('masthead-lift — HTML-string kernel', () => {
     assert.match(chart, /cell-masthead/, 'a chart now builds a masthead band');
     assert.match(
       chart,
-      /<div class="masthead-lede"><p class="chart-eyebrow"><code>Kicker<\/code><\/p><h2>Chart title<\/h2><p class="chart-subtitle">Sub<\/p><\/div>/,
+      /<div class="masthead-lede"><p class="chart-eyebrow"><code>Kicker<\/code><\/p><h2>Chart title<\/h2><p class="chart-subtitle">Sub<\/p><hr class="masthead-rule"><\/div>/,
       'eyebrow + title + subtitle hoist together into masthead-lede, in order',
     );
     assert.match(chart, /<div class="cell-stage"><div class="chart-body"><\/div><\/div>/, 'the chart body wraps into the stage cell');
@@ -153,19 +153,19 @@ describe('masthead-lift — HTML-string kernel', () => {
   test('a trailing subtitle (code-only <p> AFTER h2) stays after h2 — not misidentified as a leading eyebrow', () => {
     const inner = '<h2>Title</h2><p><code>A subtitle after the heading</code></p><p>Body.</p>';
     const out = kernel.transformMastheadSection(inner, 'content form');
-    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><p><code>A subtitle after the heading<\/code><\/p><\/div>/);
+    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><p><code>A subtitle after the heading<\/code><\/p><hr class="masthead-rule"><\/div>/);
   });
 
   test('a leading eyebrow (code-only <p> BEFORE h2) is unaffected by subtitle scoping', () => {
     const inner = '<p><code>Kicker</code></p><h2>Title</h2><p>Body.</p>';
     const out = kernel.transformMastheadSection(inner, 'content form');
-    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><\/div>/);
+    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><hr class="masthead-rule"><\/div>/);
   });
 
   test('both a leading eyebrow AND a trailing subtitle are captured, in order', () => {
     const inner = '<p><code>Kicker</code></p><h2>Title</h2><p><code>Subtitle</code></p><p>Body.</p>';
     const out = kernel.transformMastheadSection(inner, 'content form');
-    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><p><code>Subtitle<\/code><\/p><\/div>/);
+    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><p><code>Subtitle<\/code><\/p><hr class="masthead-rule"><\/div>/);
     // and the subtitle is NOT left behind in the stage body
     assert.match(out, /<div class="cell-stage"><p>Body\.<\/p><\/div>$/);
   });
@@ -173,7 +173,7 @@ describe('masthead-lift — HTML-string kernel', () => {
   test('a subtitle-shaped paragraph further down the body (not immediately after h2) is real content, left alone', () => {
     const inner = '<h2>Title</h2><p>Intro.</p><p><code>Not a subtitle</code></p>';
     const out = kernel.transformMastheadSection(inner, 'content form');
-    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><\/div>/);
+    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><hr class="masthead-rule"><\/div>/);
     assert.match(out, /<div class="cell-stage"><p>Intro\.<\/p><p><code>Not a subtitle<\/code><\/p><\/div>$/);
   });
 
@@ -186,7 +186,7 @@ describe('masthead-lift — HTML-string kernel', () => {
   test('a code-only <p> nested inside a <div> before h2 is real content, not hoisted as the eyebrow', () => {
     const inner = '<div class="custom"><p><code>Nested</code></p></div><h2>Title</h2><p>Body.</p>';
     const out = kernel.transformMastheadSection(inner, 'content form');
-    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><\/div>/);
+    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><hr class="masthead-rule"><\/div>/);
     assert.doesNotMatch(out, /masthead-lede"><p>/, 'nested <p> must not become the eyebrow');
     assert.match(out, /<div class="cell-stage"><div class="custom"><p><code>Nested<\/code><\/p><\/div><p>Body\.<\/p><\/div>$/);
   });
@@ -194,7 +194,7 @@ describe('masthead-lift — HTML-string kernel', () => {
   test('a code-only <p> nested inside a loose <li> before h2 is real content, not hoisted as the eyebrow', () => {
     const inner = '<ul><li><p><code>Nested</code></p></li></ul><h2>Title</h2><p>Body.</p>';
     const out = kernel.transformMastheadSection(inner, 'content form');
-    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><\/div>/);
+    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><hr class="masthead-rule"><\/div>/);
     assert.doesNotMatch(out, /masthead-lede"><p>/, 'nested <p> must not become the eyebrow');
     assert.match(out, /<div class="cell-stage"><ul><li><p><code>Nested<\/code><\/p><\/li><\/ul><p>Body\.<\/p><\/div>$/);
   });
@@ -206,7 +206,7 @@ describe('masthead-lift — HTML-string kernel', () => {
     // eyebrow must not block detection.
     const inner = '<div class="tag">NEW</div><p><code>Kicker</code></p><h2>Title</h2>';
     const out = kernel.transformMastheadSection(inner, 'content form');
-    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><\/div>/);
+    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><hr class="masthead-rule"><\/div>/);
     assert.match(out, /<div class="cell-stage"><div class="tag">NEW<\/div><\/div>$/);
   });
 });
@@ -336,6 +336,7 @@ describe('masthead-lift — DOM mirror agrees with the kernel', () => {
       'P:Kicker',
       'H2:Title',
       'P:Subtitle',
+      'HR:', // the heading-rule <hr>, always the last lede child
     ]);
     assert.equal(doc.querySelector('.cell-stage').textContent, 'Body.');
   });
@@ -465,8 +466,8 @@ describe('chart .viz-frame hoist — engine↔web parity (HARD RULE #1)', () => 
       const lede = sec.querySelector('.cell-masthead .masthead-lede');
       assert.ok(lede, `${label}: a masthead band is built for a chart`);
       const kinds = [...lede.children].map((el) => el.tagName + '.' + el.className);
-      assert.deepEqual(kinds, ['P.chart-eyebrow', 'H2.', 'P.chart-subtitle'],
-        `${label}: eyebrow → title → subtitle, hoisted together into masthead-lede`);
+      assert.deepEqual(kinds, ['P.chart-eyebrow', 'H2.', 'P.chart-subtitle', 'HR.masthead-rule'],
+        `${label}: eyebrow → title → subtitle → rule, hoisted together into masthead-lede`);
       assert.equal(sec.querySelector('.chart-header'), null, `${label}: no leftover .chart-header wrapper`);
       const stage = sec.querySelector(':scope > .cell-stage');
       assert.ok(stage, `${label}: the body is wrapped in a stage cell`);

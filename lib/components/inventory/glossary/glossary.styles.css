@@ -23,7 +23,11 @@ section.glossary td { padding:0.46875cqi var(--sp-sm); color:var(--text-body); v
 section.glossary tbody tr:nth-child(odd) { background:var(--bg-alt); }
 section.glossary td:first-child,
 section.glossary td:first-child strong { color:var(--accent); padding-right:var(--sp-md); white-space:nowrap; font-weight:600; }
-section.glossary h2 { display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-md); }
+/* The heading is a justified row (title left · auto-derived range pill right), so it must span the
+ * full lede width. The masthead-lede is a flex column with `align-items:flex-start` (masthead-lede.css),
+ * which would otherwise shrink this h2 to its content and collapse the pill against the title —
+ * `align-self:stretch` opts back into full width so `justify-content:space-between` works. */
+section.glossary h2 { display:flex; align-items:baseline; justify-content:space-between; gap:var(--sp-md); align-self:stretch; }
 /* Auto-derived alphabet range pill, emitted into the h2 by the runtime
  * (lib/engine) and the markdown-it plugin. Matches the
  * neutral .badge pill recipe so it sits naturally alongside other
