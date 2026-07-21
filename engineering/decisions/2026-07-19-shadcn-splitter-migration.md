@@ -123,6 +123,36 @@ in-flow iframe never had either). Fixed together, verified on the real docs surf
    narrow-desktop bar-fold) still shows 0 doc/group overflow — verified at 1100 AND
    1180. *Verified: editor at its 300px min → header `overflow` 0.*
 
+3. **Every side panel now adapts to its own width — not the viewport's.** After the
+   editor/preview fix, the docked side panels still clipped on a narrow *pane* over a
+   wide iPad viewport, because none was a `[container-type:inline-size]` size container
+   and their controls collapsed only on `sm:` (a VIEWPORT breakpoint that never fires on
+   a wide screen). Root cause: the editor's container-query adaptation was never extended
+   to the panels. Fix — mirror the editor on each:
+   - **Preview** — the pane is now a size container; the shared `LensPicker` gained an
+     opt-in `dense` flag that collapses its label to a discoverable icon+chevron on a
+     narrow pane (Present, a reader takeover with room, stays labeled — its default); the
+     "Preview" title and the footer's ratio/count hide via `@[…]` container queries. The
+     `position:fixed` preview host is a hoisted sibling, NOT a descendant, so the pane's
+     size containment can't establish a containing block for it (Crux A holds — verified:
+     no dev-assert warning, no bleed regression).
+   - **Library** — a size container; the Import button goes icon-only (`@[20rem]`) and the
+     filter-tab segment scrolls horizontally inside a `min-w-0` track instead of clipping;
+     the count hides when narrow. `LIB_MIN` 200 → 240 so the header (title + a usable
+     search + the icon Import) always fits.
+   - **Settings (Slide/Deck)** — the scope-echo title truncates on one line (`flex-1
+     truncate`, badge `shrink-0`) instead of wrapping, and the slide title drops the
+     redundant "only" (the OVERRIDE badge + warn-tint already say it). The inspector's
+     `Row` gained `flex-wrap` so a segmented control (Canvas, Type scale) drops below its
+     label rather than overflowing.
+   - **Coach/Chat/Lenses** — already fine (single-word headers; the scorecard reserves
+     its badge space with `pr-16`), so unchanged.
+   Verified on the real surface at each panel's min: Preview header 0 overflow at 300 (no
+   Crux-A warning, no bleed), Library header 0 overflow with the icon Import at 200–260,
+   Settings one-line header + the Canvas segment fully visible at 260. Shared-component
+   text split (the `LensPicker`/pill) was avoided where the nightly e2e matches "Slide N /
+   N", so those specs stay green.
+
 This resolves the desktop "collapse to rail vs clip" edge; the %-vs-px persistence
 drift and the Library 298-vs-380 default remain open. **One new logged follow-up —
 the tablet header floor.** The tablet editor header is taller-content than desktop's:

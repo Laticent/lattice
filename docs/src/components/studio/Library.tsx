@@ -65,7 +65,10 @@ function themeSwatches(t: StudioTheme): string[] {
 // differ (a plain <h2> when docked — SheetTitle needs a Dialog context it wouldn't
 // have — vs SheetHeader/SheetTitle in the Sheet).
 function LibraryFrame({ docked, open, onOpenChange, children }: { docked?: boolean; open: boolean; onOpenChange: (o: boolean) => void; children: React.ReactNode }) {
-	if (docked) return <div className="flex h-full min-h-0 flex-col">{children}</div>;
+	// [container-type:inline-size]: the docked column is a size container so its header
+	// controls (the Import label, the filter-tab count) collapse on PANE width when it's
+	// dragged narrow — the Sheet is viewport-wide, so it doesn't need it.
+	if (docked) return <div className="flex h-full min-h-0 flex-col [container-type:inline-size]">{children}</div>;
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[720px]">
@@ -271,9 +274,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					{/* Contextual add: the Docs tab attaches .txt/.md/.pdf reference docs; every
 					    other tab imports a lattice-asset .zip — one button, meaning by tab. */}
 					{filter === 'refdoc' ? (
-						<Tip label="Add a .txt/.md/.pdf reference doc"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => docFileRef.current?.click()} aria-label="Add a reference doc"><Plus className="size-3.5" /><span className="hidden sm:inline">Add file</span></Button></Tip>
+						<Tip label="Add a .txt/.md/.pdf reference doc"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => docFileRef.current?.click()} aria-label="Add a reference doc"><Plus className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Add file</span></Button></Tip>
 					) : (
-						<Tip label="Import a .zip"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => fileRef.current?.click()} aria-label="Import .zip"><Upload className="size-3.5" /><span className="hidden sm:inline">Import</span></Button></Tip>
+						<Tip label="Import a .zip"><Button variant="outline" size="sm" className="shrink-0 gap-1.5" onClick={() => fileRef.current?.click()} aria-label="Import .zip"><Upload className="size-3.5" /><span className={cn('hidden', docked ? '@[20rem]:inline' : 'sm:inline')}>Import</span></Button></Tip>
 					)}
 					<input ref={fileRef} type="file" accept=".zip" multiple hidden onChange={(e) => importFiles(e.target.files)} />
 					<input ref={docFileRef} type="file" accept={REF_DOC_ACCEPT} multiple hidden onChange={(e) => addDocFiles(e.target.files)} />
@@ -300,12 +303,18 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			{header}
 
 				<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
-					<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-						{(['all', 'theme', 'component', 'finish', 'refdoc'] as Filter[]).map((f) => (
-							<button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f} className={cn('rounded-md px-3 py-1 text-[12px] font-semibold capitalize', filter === f ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{f === 'all' ? 'All' : f === 'refdoc' ? 'Docs' : f === 'finish' ? 'Finishes' : `${f}s`}</button>
-						))}
+					{/* The pill segment scrolls horizontally inside a min-w-0 track, so a narrow
+					    pane never clips a filter (All / Themes / Components / Finishes / Docs) —
+					    swipe/scroll to reach the rest instead. */}
+					<div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
+							{(['all', 'theme', 'component', 'finish', 'refdoc'] as Filter[]).map((f) => (
+								<button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f} className={cn('whitespace-nowrap rounded-md px-3 py-1 text-[12px] font-semibold capitalize', filter === f ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{f === 'all' ? 'All' : f === 'refdoc' ? 'Docs' : f === 'finish' ? 'Finishes' : `${f}s`}</button>
+							))}
+						</div>
 					</div>
-					<span className="ml-auto font-mono text-[11px] text-muted-foreground">{selCount > 0 ? `${selCount} selected · ` : ''}{total} total</span>
+					{/* The count hides on a narrow docked pane (container query); the Sheet keeps it. */}
+					<span className={cn('shrink-0 whitespace-nowrap font-mono text-[11px] text-muted-foreground', docked ? 'hidden @[22rem]:inline' : 'inline')}>{selCount > 0 ? `${selCount} selected · ` : ''}{total} total</span>
 				</div>
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">

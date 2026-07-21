@@ -567,10 +567,10 @@ describe('StudioShell — desktop activity bar', () => {
 		expect(await screen.findByText(/Editing the whole deck/)).toBeInTheDocument();
 		// Switching to Slide swaps the one panel in place (grouped exclusivity).
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
-		expect(await screen.findByText(/Editing Slide \d+ only/)).toBeInTheDocument();
+		expect(await screen.findByText(/Editing Slide \d+/)).toBeInTheDocument();
 		// Clicking the ACTIVE scope icon closes the panel — the one collapse rule.
 		await user.click(screen.getByRole('button', { name: 'Slide settings' }));
-		expect(screen.queryByText(/Editing Slide \d+ only/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/Editing Slide \d+/)).not.toBeInTheDocument();
 	});
 
 	it('the Architect stays independent of settings — the coach can be up WHILE you tune (grouped, not global)', async () => {
@@ -673,7 +673,7 @@ describe('StudioShell — topbar information architecture', () => {
 		// without leaving the sheet — the deterministic scope switch, one surface.
 		const scopeSheet = screen.getByRole('dialog');
 		await user.click(within(scopeSheet).getByRole('button', { name: 'Slide scope' }));
-		expect(await within(scopeSheet).findByText(/Editing Slide \d+ only/)).toBeInTheDocument();
+		expect(await within(scopeSheet).findByText(/Editing Slide \d+/)).toBeInTheDocument();
 	});
 
 	it('the launcher and deck switcher no longer duplicate "New deck" (deck CRUD lives in the switcher)', async () => {

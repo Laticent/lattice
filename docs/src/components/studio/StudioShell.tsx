@@ -207,7 +207,7 @@ const ARCH_DEFAULT = 232; // Assistant default (matches the old fixed column)
 const SET_MIN = 260; // Settings min width (the inspector fields stay usable)
 const SET_DEFAULT = 296; // Settings default (matches the old inspector column)
 const PANEL_MAX = 420; // drag ceiling for a docked panel
-const LIB_MIN = 200; // Library min when it holds the assistant slot
+const LIB_MIN = 240; // Library min — fits its header floor (title + a usable search field + the icon-only Import button); tabs scroll below this
 const LIB_DEFAULT = 380; // Library docked default — wider than the coach; asset cards need room
 // Editor/preview pane MINIMUMS — the width at which the pane's HEADER toolbar stops
 // clipping, so "drag to the minimum" never cuts an icon off (it collapses to the rail
@@ -2556,20 +2556,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			<div role="status" aria-live="polite" className="border-b border-border px-3.5 py-2.5" style={{ background: inspectorScope === 'deck' ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--warn, #9a6a00) 12%, transparent)' }}>
 				{inspectorScope === 'deck' ? (
 					<>
-						<div className="flex items-center gap-2">
-							<SlidersHorizontal className="size-4 text-[var(--accent)]" />
-							<span className="text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
-							<span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
+						<div className="flex min-w-0 items-center gap-2">
+							<SlidersHorizontal className="size-4 shrink-0 text-[var(--accent)]" />
+							<span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[var(--accent)]">Editing the whole deck</span>
+							<span className="shrink-0 rounded-full bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[var(--accent)]">Deck-wide</span>
 							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_14%,transparent)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Every change here applies to all {slides.length} slides — each inherits it.</p>
 					</>
 				) : (
 					<>
-						<div className="flex items-center gap-2">
-							<FileSliders className="size-4" style={{ color: 'var(--warn, #9a6a00)' }} />
-							<span className="text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1} only</span>
-							<span className="ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
+						<div className="flex min-w-0 items-center gap-2">
+							<FileSliders className="size-4 shrink-0" style={{ color: 'var(--warn, #9a6a00)' }} />
+							<span className="min-w-0 flex-1 truncate text-[13px] font-bold" style={{ color: 'var(--warn, #9a6a00)' }}>Editing Slide {activeFullIndex + 1}</span>
+							<span className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-wider" style={{ background: 'color-mix(in srgb, var(--warn, #9a6a00) 16%, transparent)', color: 'var(--warn, #9a6a00)' }}>Override</span>
 							{!mobile && <Tip label="Close settings"><button type="button" onClick={() => setInspectorOpen(false)} aria-label="Collapse settings" className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:text-[var(--text-heading)]"><X className="size-4" /></button></Tip>}
 						</div>
 						<p className="mt-1 text-[11px] leading-snug text-muted-foreground">Overrides the deck for this slide — blank inherits.</p>
@@ -2677,7 +2677,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		<section
 			id="studio-pane-preview"
 			inert={!mobile && split.collapsed === 'b' && effectiveStop !== 'read' ? true : undefined}
-			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity group-data-[split-collapsed=b]/split:hidden group-data-[split-dragging]/split:select-none"
+			// [container-type:inline-size]: make the pane a size container so its header
+			// controls collapse on PANE width (mirrors the editor pane) — the shared
+			// preview host is a hoisted position:fixed sibling, NOT a descendant, so this
+			// containment can't establish a containing block for it (Crux A holds).
+			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-collapsed=b]/split:hidden group-data-[split-dragging]/split:select-none"
 		>
 			{/* At the Read stop the preview is the whole surface — strip its editorial
 			    chrome (header, lens, slide counter, the Collapse trap, the op rail, the
@@ -2685,17 +2689,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    live deck + the "Edit this slide" overlay remain. */}
 			{!previewChromeless && (
 			<div className="flex items-center gap-2 border-b border-border px-3.5 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-				Preview
-				{/* View — the reader lens (shared LensPicker, also used in Present). It
-				    filters the PREVIEW; the source stays whole. Labeled at every width. */}
-				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} onAddView={() => { revealBuildDock(); setLensesOpen(true); notify('Reader views live in the Lenses panel — add one there.'); }} />
+				<span className="hidden shrink-0 @[24rem]:inline">Preview</span>
+				{/* View — the reader lens (shared LensPicker, also used in Present). It filters
+				    the PREVIEW; the source stays whole. `dense` collapses its label to an icon
+				    when the PANE is narrow (the pane is a size container above), so a tight
+				    preview keeps a usable header instead of overflowing. */}
+				<LensPicker value={composeLens} onChange={setLens} count={viewSlides.length} total={slides.length} align="start" lenses={composeLensEntries} dense onAddView={() => { revealBuildDock(); setLensesOpen(true); notify('Reader views live in the Lenses panel — add one there.'); }} />
 				{composeLens !== 'full' && (
 					<Tip label="Clear reader lens"><button type="button" onClick={() => setLens('full')} className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Clear reader lens"><X className="size-3.5" /></button></Tip>
 				)}
 				<span className="flex-1" />
-				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
-				<span className="rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]">Slide {slideNo} / {viewSlides.length}</span>
-				<button type="button" onClick={() => goToSlide(slideNo)} className="rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
+				<button type="button" onClick={() => goToSlide(slideNo - 2)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
+				<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]">Slide {slideNo} / {viewSlides.length}</span>
+				<button type="button" onClick={() => goToSlide(slideNo)} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
 				{splitUsable && (
 					<Tip label="Collapse preview — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse preview" onClick={() => collapseFromHeader('b')}><PanelRightClose className="size-4" /></Button></Tip>
 				)}
@@ -2773,9 +2779,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 			{!previewChromeless && (
 			<div className="flex items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
-				<span className="inline-flex items-center gap-1 text-[var(--chart-3,#2e6f00)]">● Live</span>
+				<span className="inline-flex shrink-0 items-center gap-1 text-[var(--chart-3,#2e6f00)]">● Live</span>
 				<span className="truncate">{palette} · {mode}</span>
-				<span className="flex-1" /><span className="hidden sm:inline">{ratioText(previewRatio)} · {viewSlides.length} slide{viewSlides.length === 1 ? '' : 's'}</span>
+				{/* Ratio + count hide on a NARROW PANE (container query, not the sm: viewport —
+				    a wide iPad viewport with a dragged-narrow pane would otherwise keep showing
+				    it and crowd the row). */}
+				<span className="flex-1" /><span className="hidden shrink-0 @[20rem]:inline">{ratioText(previewRatio)} · {viewSlides.length} slide{viewSlides.length === 1 ? '' : 's'}</span>
 			</div>
 			)}
 		</section>
