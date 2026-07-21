@@ -307,11 +307,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// AND (b) the srcdoc has actually PAINTED its slide, detected by a `.lattice` in the
 			// frame's document. Keying on CONTENT, not the `onload` event, is load-bearing:
 			// iOS Safari fires `onload` UNRELIABLY for srcdoc (re)assignment, which left the
-			// frame correctly scaled but stuck `visibility:hidden` forever (rev:NO on-device —
-			// the "blank"). Content-presence is onload-independent AND still closes the white
-			// about:blank window (about:blank has no `.lattice`, so the pre-load scaleFrame
-			// below can't reveal a blank white frame). Cross-origin can't occur for srcdoc.
-			if (fr.style.visibility === 'hidden' && frameHasPainted(fr)) fr.style.visibility = 'visible';
+			// frame stuck hidden forever (rev:NO on-device — the "blank"). Content-presence is
+			// onload-independent AND closes the white about:blank window (about:blank has no
+			// `.lattice`, so the pre-load scaleFrame below can't reveal a blank white frame).
+			// Reveal by fading OPACITY 0→1 (a quick ~180ms transition set on the element) rather
+			// than a hard visibility cut, so the slide eases in over the loader instead of
+			// popping — no flicker. opacity:0 hides the about:blank white just as well.
+			if (fr.style.opacity === '0' && frameHasPainted(fr)) fr.style.opacity = '1';
 		}
 	}
 
@@ -583,16 +585,15 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					fr.style.width = geom.width + 'px';
 					fr.style.height = geom.height + 'px';
 					fr.style.transformOrigin = 'top left';
-					// Hidden until the FIRST srcdoc actually paints (revealed in onload below).
-					// A freshly-appended iframe with no srcdoc is `about:blank`, which iOS
-					// Safari paints as an OPAQUE WHITE document ON TOP OF the element's CSS
-					// `background` — so `iframe.live{background:var(--bg)}` can't cover it and
-					// a cold load flashed a white slide card (device report). Keeping the
-					// element `visibility:hidden` until its document has painted means the
-					// dark pane behind it (the host's `bg-background` / the instant-shell)
-					// covers that window instead of white. This is the single-slide twin of
-					// the Playground filmstrip's `#preview` visibility gate.
-					fr.style.visibility = 'hidden';
+					// Invisible until the FIRST srcdoc actually paints (revealed by scaleFrame's
+					// content gate). A freshly-appended iframe with no srcdoc is `about:blank`,
+					// which iOS Safari paints as an OPAQUE WHITE document ON TOP OF the element's
+					// CSS `background` — so a cold load flashed a white slide card. `opacity:0`
+					// makes the whole element (white content included) transparent, so the dark
+					// pane behind covers that window — AND, unlike `visibility`, opacity animates,
+					// so the reveal is a quick fade-in (transition below) instead of a hard pop.
+					fr.style.opacity = '0';
+					fr.style.transition = 'opacity 180ms ease-out';
 					host.appendChild(fr);
 					// Reveal is CONTENT-DRIVEN, not onload-driven. The reveal rides scaleFrame's
 					// `frameHasPainted` gate, but we must call scaleFrame once the srcdoc has
@@ -611,7 +612,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					let revealTicks = 0;
 					const revealPoll = setInterval(() => {
 						revealTicks++;
-						if (disposed || !host.isConnected || revealFr.style.visibility !== 'hidden' || revealTicks > 100) {
+						if (disposed || !host.isConnected || revealFr.style.opacity !== '0' || revealTicks > 100) {
 							clearInterval(revealPoll);
 							ownedIntervals.delete(revealPoll);
 							return;

@@ -882,14 +882,9 @@ in patch versions.
   preview's `position:fixed` host now also re-measures on `visualViewport` resize/scroll — iOS Safari
   collapses its URL bar during load and fires *only* those events (not `window` resize/scroll), so the
   host was positioned against a stale rect and could strand off-screen/oversized (the reported "huge
-  card"). Also adds an opt-in on-device
-  diagnostic (`?previewdiag`) — a live readout of host size · frame visibility/transform · in-iframe
-  `.lattice` presence+visibility · loader state — so a real phone can screenshot the exact failure mode
-  (something no headless check here can confirm, #23). Verified non-regressing on desktop; the iOS blank
-  itself is **UNVERIFIED pending an on-device `?previewdiag` capture** — reproduced clean across every
-  scenario in real WebKit (Safari's engine) on an iPhone profile incl. a URL-bar-reflow simulation, which
-  confirmed it is NOT a rendering bug and localised it to iOS viewport behavior WebKit-on-Linux can't
-  model. (`docs/src/lib/single-slide-render.ts`, `docs/src/components/studio/use-shared-preview-slot.ts`,
+  card"). (Superseded in part by the one-skeleton reshape above, which makes the preview box a race-free
+  CSS-contained 16:9 anchor so the host always tracks a correct rectangle.)
+  (`docs/src/lib/single-slide-render.ts`, `docs/src/components/studio/use-shared-preview-slot.ts`,
   `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
 - **A phone held in landscape is no longer a dead editing surface — the slide fills the screen and you
   swipe through the deck (the "cinema" morph).** A landscape phone is wide enough (~844–932px) to fall

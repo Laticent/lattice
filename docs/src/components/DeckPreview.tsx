@@ -1,5 +1,4 @@
 import * as React from 'react';
-import * as ReactDOM from 'react-dom';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	createSingleSlideRenderer,
@@ -118,96 +117,6 @@ export function DeckPreview({
 		const t = setTimeout(() => setPainted(true), 14000);
 		return () => clearTimeout(t);
 	}, [loader, painted]);
-	// On-device diagnostic (Studio preview only, opt-in via `?previewdiag`): a live
-	// green readout of the exact state behind a "blank preview" — host size, the live
-	// frame's visibility/transform, whether the in-iframe `.lattice` is present + visible,
-	// and the loader state. Read-only. Lets a real phone screenshot pin whether the slide
-	// is 0-scaled, hidden inside the frame, or genuinely not rendered — something no
-	// headless check here can confirm (#23).
-	const diag = loader && typeof window !== 'undefined' && /[?&]previewdiag\b/.test(window.location.search);
-	const diagRef = React.useRef<HTMLPreElement>(null);
-	// Last resolved render status (set in `render`), surfaced by the diag readout.
-	const lastStatusRef = React.useRef<string>('pending');
-	React.useEffect(() => {
-		if (!diag) return;
-		// One-screenshot timeline: track the story, not just the instant — so a single
-		// on-device capture answers WHICH blank-mode fired (engine/render failure vs.
-		// host stranded 0-wide/oversized vs. rendered-but-not-revealed) without a
-		// back-and-forth. Refs persist across ticks.
-		const t0 = performance.now();
-		let wMin = Infinity;
-		let wMax = 0;
-		let everHidden = false;
-		let revealedAt = 0;
-		let hostWMin = Infinity;
-		let hostWMax = 0;
-		const tick = () => {
-			const host = stageRef.current;
-			const el = diagRef.current;
-			if (!host || !el) return;
-			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
-			// Walk up to the position:fixed shared host and read its geometry — the node
-			// the iOS "huge card" stranding actually mis-sizes.
-			let fixed: HTMLElement | null = null;
-			for (let p = host.parentElement; p && p !== document.body; p = p.parentElement) {
-				if (getComputedStyle(p).position === 'fixed') {
-					fixed = p;
-					break;
-				}
-			}
-			const fhr = fixed?.getBoundingClientRect();
-			const fcw = fixed ? Math.round(fixed.clientWidth) : 0;
-			if (fixed) {
-				hostWMin = Math.min(hostWMin, fcw);
-				hostWMax = Math.max(hostWMax, fcw);
-			}
-			// Crux-A: any transformed/filtered/contained ancestor breaking position:fixed?
-			let crux = 'none';
-			for (let p = fixed?.parentElement ?? null; p && p !== document.documentElement; p = p.parentElement) {
-				const s = getComputedStyle(p);
-				if (s.transform !== 'none' || s.filter !== 'none' || s.perspective !== 'none' || /transform|filter|perspective/.test(s.willChange) || (s.contain !== 'none' && /paint|layout|strict|content/.test(s.contain)) || s.backdropFilter !== 'none') {
-					crux = (typeof p.className === 'string' ? p.className : p.tagName).slice(0, 22);
-					break;
-				}
-			}
-			let inner = 'none';
-			try {
-				const d = fr?.contentDocument;
-				const lat = d?.querySelector('.lattice');
-				const sec = d?.querySelector('.lattice section');
-				if (fr) inner = `lat:${lat ? 'y' : 'n'} vis:${lat ? getComputedStyle(lat).visibility : '-'} sec:${sec ? 'y' : 'n'}`;
-			} catch {
-				inner = 'x-origin';
-			}
-			if (fr) {
-				const cw = Math.round(fr.clientWidth || 0);
-				wMin = Math.min(wMin, cw);
-				wMax = Math.max(wMax, cw);
-				const vis = fr.style.visibility || 'default';
-				if (vis === 'hidden') everHidden = true;
-				else if (!revealedAt && vis !== 'hidden') revealedAt = Math.round(performance.now() - t0);
-			}
-			const vv = window.visualViewport;
-			const frr = fr?.getBoundingClientRect();
-			el.textContent = [
-				`eng:${window.LatticePlayground ? 'y' : 'n'} stat:${lastStatusRef.current}`,
-				`figure ${Math.round(host.clientWidth)}×${Math.round(host.clientHeight)}`,
-				fixed ? `host ${fixed.style.position} ${Math.round(fhr?.left ?? 0)},${Math.round(fhr?.top ?? 0)} ${Math.round(fhr?.width ?? 0)}×${Math.round(fhr?.height ?? 0)} cw:${fcw}` : 'host: NO fixed ancestor',
-				fixed ? `host op:${getComputedStyle(fixed).opacity} vis:${getComputedStyle(fixed).visibility}` : '',
-				fr ? `fr vis:${fr.style.visibility || 'default'} tf:${fr.style.transform || 'none'}` : 'fr: none',
-				frr ? `fr@ ${Math.round(frr.left)},${Math.round(frr.top)} ${Math.round(frr.width)}×${Math.round(frr.height)}` : '',
-				inner,
-				`vv ${vv ? `${Math.round(vv.width)}×${Math.round(vv.height)}@${Math.round(vv.offsetTop)}` : '-'} win ${window.innerWidth}×${window.innerHeight}`,
-				`seen fr-w:${wMin === Infinity ? '-' : wMin}→${wMax} host-w:${hostWMin === Infinity ? '-' : hostWMin}→${hostWMax} hid:${everHidden ? 'Y' : 'n'} rev:${revealedAt ? `${revealedAt}ms` : 'NO'}`,
-				`cruxA:${crux} nacre:${painted ? 'done' : 'run'}`,
-			]
-				.filter(Boolean)
-				.join('\n');
-		};
-		tick();
-		const id = window.setInterval(tick, 250);
-		return () => window.clearInterval(id);
-	}, [diag, painted]);
 	// One renderer instance for this host (holds the theme + font caches).
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
@@ -224,21 +133,21 @@ export function DeckPreview({
 	const firstRenderFiredRef = React.useRef(false);
 
 	// Reveal-watcher — the skeleton hand-off. Fade the Nacre loader AND fire onFirstRender
-	// (dismiss the SSG instant-shell) exactly when the live `iframe.live` is made VISIBLE.
-	// single-slide-render reveals the frame only once its slide has painted and is scaled to
-	// a real width (never a broken/unscaled/0-wide frame), and the shared-host clamp keeps it
-	// on-screen — so "visibility:visible" is our single source of truth for "the live slide is
-	// genuinely good". Watching the frame's own style (MutationObserver) is reliable where the
-	// srcdoc `load` event is not (iOS drops it). Until this fires, the skeleton owns the screen.
-	// Only relevant to loader hosts (the shared Studio preview); others never mount the Nacre.
+	// (dismiss the SSG instant-shell) exactly when the live `iframe.live` starts fading in.
+	// single-slide-render reveals the frame (opacity 0→1) only once its slide has painted and
+	// is scaled to a real width (never a broken/unscaled/0-wide frame) — so a non-'0' opacity
+	// is our single source of truth for "the live slide is genuinely good". Watching the
+	// frame's own style (MutationObserver) is reliable where the srcdoc `load` event is not
+	// (iOS drops it). Until this fires, the skeleton owns the screen. The slide fades in over
+	// the loader (both ease out together → a clean cross-fade, no pop). Loader hosts only.
 	React.useEffect(() => {
 		if (!loader) return;
 		const host = stageRef.current;
 		if (!host) return;
 		const handoff = () => {
 			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
-			if (!fr || fr.style.visibility === 'hidden' || !fr.style.visibility) return false;
-			setPainted(true); // fade + freeze the skeleton — the good slide now covers it
+			if (!fr || fr.style.opacity === '0' || !fr.style.opacity) return false;
+			setPainted(true); // fade + freeze the skeleton — the good slide now fades in over it
 			if (!firstRenderFiredRef.current) {
 				firstRenderFiredRef.current = true;
 				onFirstRenderRef.current?.();
@@ -264,15 +173,6 @@ export function DeckPreview({
 		const host = stageRef.current;
 		if (!host || !activeRef.current) return;
 		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss);
-		// On-device diagnostic: stash the resolved render status so ?previewdiag can show
-		// whether the render SUCCEEDED, ERRORED, or never ran — the discriminator between a
-		// blank that's "engine/render failed" vs "rendered but not painted" on real iOS (#23).
-		lastStatusRef.current = 'rendering…';
-		done?.then((st) => {
-			lastStatusRef.current = st ? (st.ok ? `ok ${st.writePath ?? ''} slides:${st.slides}` : `ERR:${st.error ?? '?'}`) : 'no-status';
-		}).catch((e) => {
-			lastStatusRef.current = `THROW:${String((e as Error)?.message || e).slice(0, 40)}`;
-		});
 		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
 		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
 		// when the live frame is actually made visible (== genuinely good). Keying it on the
@@ -483,11 +383,6 @@ export function DeckPreview({
 					<span className="nacre-loader__vig" />
 				</span>
 			)}
-			{/* The diag readout is PORTALED to <body> as position:fixed — so it stays
-			    visible even when the failure mode is a hidden/off-screen/stranded host
-			    (rendering it inside the figure would hide the diagnostic exactly when
-			    it's needed). Opt-in via ?previewdiag; only the loader host mounts it. */}
-			{diag && typeof document !== 'undefined' && ReactDOM.createPortal(<pre ref={diagRef} className="preview-diag" aria-hidden="true" />, document.body)}
 		</figure>
 	);
 }

@@ -149,7 +149,7 @@ export function useSharedPreviewSlot({
 		// without these the host is positioned against a stale rect and can strand
 		// off-screen / oversized (the "huge card" blank preview reported on iPhone). This
 		// is the one gap headless WebKit can't reproduce (it doesn't model the URL bar),
-		// so it's added deliberately from the mechanism, verified on-device via ?previewdiag.
+		// so it's added deliberately from the mechanism.
 		const vv = window.visualViewport;
 		vv?.addEventListener('resize', schedule);
 		vv?.addEventListener('scroll', schedule);
