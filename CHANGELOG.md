@@ -864,6 +864,15 @@ in patch versions.
 
 ### Fixed
 
+- **Carbone's docs-site chrome no longer renders sub-AA status text in light mode.** Carbone's `--bg`
+  is a flat dark `#1A1A1C` in both modes, but its `--pass`/`--warn`/`--fail` are `light-dark()` — and the
+  portal generator flattens `light-dark()` per `data-mode`, so the `[data-mode="light"]` chrome block
+  paired the *light*-side `--fail` (`#A02323`) against the dark canvas at **2.28:1**. `resolvePalettes`
+  now resolves each block's tokens to the arg matching **that block's own canvas scheme** (`isDarkSurface`
+  of its `--bg`) rather than the toggle — so a dark-in-both palette takes the dark args in both blocks
+  (carbone light-mode status now 6.2–8.2:1). One rule that also subsumes the a11y mode-invariant case;
+  the unused `singleMode` flag it replaces is removed. A portal test locks foreground status ≥4.5:1 on its
+  own chrome `--bg`. (`tools/build-docs-portal.js`, `test/unit/palette/portal-color-scheme.test.js`.)
 - **Foreground status + text ink now clears WCAG AA on the card surface (`bg-alt`), across every theme.**
   The contrast audit (`tools/contrast-audit.js`) only ever checked status colors as *fills* (`bg` on a
   `--fail` chip) and text roles on the main canvas — it never checked `--pass`/`--warn`/`--fail` used as

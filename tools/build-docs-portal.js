@@ -268,15 +268,27 @@ function resolvePalettes() {
     // resolves the full token contract, not just its own overrides.
     const map = flattenThemeVars(name);
     const invariant = isModeInvariant(name);
+    // Each mode block must resolve light-dark() to the arg matching THAT block's
+    // actual canvas scheme — a dark surface takes the dark arg, a light surface
+    // the light arg — because the block's --bg is what the token is painted on.
+    // For a normal palette this is just per-mode. It also fixes the two edge
+    // shapes with ONE rule: (a) a11y-* render their LIGHT (white) canvas in both
+    // toggles → light arg in both (the old `invariant` special-case); (b) carbone
+    // has a FLAT dark --bg in both toggles → dark arg in BOTH, so the light-mode
+    // block stops pairing a light-tuned --fail (#A02323) against its dark canvas
+    // at 2.28:1. Derived from --bg, never the toggle — same source of truth as the
+    // color-scheme emission below (isDarkSurface).
+    const bgR = resolveToken(map, 'bg');
+    const lightSchemeDark = isDarkSurface(bgR.light);
+    const darkSchemeDark = isDarkSurface(invariant ? bgR.light : bgR.dark);
+    const pick = (r, schemeDark) => (schemeDark ? r.dark : r.light);
     const light = {};
     const dark = {};
     for (const t of PORTAL_TOKENS) {
       const r = resolveToken(map, t);
       if (!r) throw new Error(`theme "${name}" is missing token --${t}`);
-      light[t] = r.light;
-      // Mode-invariant palettes (a11y-*) force the light scheme — emit the light
-      // resolution in both modes so the dark toggle is inert on the site too.
-      dark[t] = invariant ? r.light : r.dark;
+      light[t] = pick(r, lightSchemeDark);
+      dark[t] = pick(r, darkSchemeDark);
     }
     // --spectrum is a GRADIENT (not part of the flat-colour PORTAL_TOKENS contract), so
     // it's resolved and carried separately. Emitting it onto the token blocks lets the
@@ -285,8 +297,8 @@ function resolvePalettes() {
     const spec = resolveToken(map, 'spectrum');
     if (spec) {
       const tidy = (s) => s.replace(/\s+/g, ' ').trim(); // collapse the multi-line gradient source
-      light.spectrum = tidy(spec.light);
-      dark.spectrum = tidy(invariant ? spec.light : spec.dark);
+      light.spectrum = tidy(pick(spec, lightSchemeDark));
+      dark.spectrum = tidy(pick(spec, darkSchemeDark));
     }
     // Status FILL tokens — a white-text-safe companion to the foreground trio. The
     // foreground --pass/--warn/--fail are tuned to READ as text and go BRIGHT in dark mode,
@@ -316,10 +328,7 @@ function resolvePalettes() {
       light[`${s}-fill`] = base;
       dark[`${s}-fill`] = base;
     }
-    // A palette whose light and dark surfaces are identical is single-mode
-    // (e.g. carbone — inherently dark, or the mode-invariant a11y palettes).
-    const singleMode = light.bg === dark.bg && light['text-heading'] === dark['text-heading'];
-    return { name, light, dark, singleMode };
+    return { name, light, dark };
   });
 }
 
