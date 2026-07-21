@@ -17,6 +17,18 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **The in-place chart animation now covers the piechart — and gradient-filled charts render
+  correctly.** `chart-anima` extends to the pie: add it to a slide or deck and the wedges reveal in
+  sequence on the live Studio / Playground (model-free; exported PDF/PPTX byte-identical). This also
+  fixes a latent bug that would have hit every gradient-filled chart (pie / quadrant / radar): the
+  animated copy mounts beside the hidden still, so the renderer's `<defs>` gradient ids
+  (`pie-wedge-N`) appeared **twice** in the document and a wedge's `fill:url(#pie-wedge-N)` resolved
+  to the `display:none` poster's def — painting the wedges as bare outlines. The ingest
+  (`chartToScene`) now namespaces the copy's def ids and their `url(#…)` / `href` references so the
+  animated svg is self-contained. The funnel was unaffected (CSS fills, no gradients). Native
+  `data-anima-role="sector"` is emitted on wedges so Anima choreographs by the declared role.
+  Verified on the real Playground (`docs/src/lib/chart-anima.ts`,
+  `lib/components/chart/_chart-family/chart-family.js`; `2026-07-19-anima-svg-first-cut-zdog.md` §0.75).
 - **Live previews no longer leak memory on every palette / mode change.** A theme, palette, or
   dark/light-mode change used to re-render each live preview by rewriting the iframe's whole `srcdoc`,
   which keeps the same `<iframe>` but mints a fresh document + JS realm each time; the detached realms

@@ -51,6 +51,22 @@ animates in place; in this PDF it renders as the finished still, unchanged.
 
 ---
 
+<!-- _class: piechart chart-anima -->
+
+## Revenue by segment.
+
+- Enterprise `48`
+- Mid-market `27`
+- SMB `15`
+- Self-serve `10`
+
+<!--
+Not just funnels: any chart on the model-free on-ramp animates. A pie's wedges
+reveal in sequence; the gradient fills come through intact on the live copy.
+-->
+
+---
+
 <!-- _class: content -->
 
 ## Set it once for the whole deck.

@@ -40,12 +40,12 @@ See `engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md`.
 
 ## Animate a chart in place — the `chart-anima` modifier
 
-On the live surfaces (Studio, Playground, Present), **`chart-anima`** brings a rendered chart to life — a funnel's bands build in top-to-bottom, its labels follow, and the worst drop-off emphasizes. Model-free: the motion is derived from the chart's own marks, no LLM.
+On the live surfaces (Studio, Playground, Present), **`chart-anima`** brings a rendered chart to life — a funnel's bands build in top-to-bottom (its labels follow, the worst drop-off emphasizes); a pie's wedges reveal in sequence. Model-free: the motion is derived from the chart's own marks, no LLM.
 
-- **Opt-in.** Add `chart-anima` to a slide (`<!-- _class: funnel chart-anima -->`) or deck-wide via `class: chart-anima` in the front matter. A section with the class but no animatable chart is a safe no-op.
-- **Preview-only, export byte-identical.** The motion plays only on the live surfaces; the exported **PDF / PPTX / HTML show the finished chart still** (unchanged from a funnel without the modifier).
+- **Opt-in.** Add `chart-anima` to a slide (`<!-- _class: funnel chart-anima -->`, `<!-- _class: piechart chart-anima -->`) or deck-wide via `class: chart-anima` in the front matter. A section with the class but no animatable chart is a safe no-op.
+- **Preview-only, export byte-identical.** The motion plays only on the live surfaces; the exported **PDF / PPTX / HTML show the finished chart still** (unchanged from a chart without the modifier).
 - **Playback + accessibility for free.** An animated chart runs through the same host as an Anima `scene`, so it gets the corner playback control (pause / play / replay), honors the viewer's `prefers-reduced-motion` (dropping to the safe, legible build), and pauses off-screen. Bound the policy per slide/deck with `data-scene-motion` (`still` / `legible`).
-- **Funnel-first.** The other SVG charts follow as each gets its choreography defaults.
+- **Funnel + pie today.** The remaining SVG charts (quadrant, radar, map) follow as each gets its choreography defaults; the gradient-fill plumbing they share already works.
 
 See `engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75.
 
