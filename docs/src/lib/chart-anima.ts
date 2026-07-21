@@ -165,6 +165,11 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   // AI-generated markup in the Studio (#22), so a svg with tens of thousands of nodes must be rejected
   // before the reference rewrite — the mark cap below fires too late. Any real chart is < ~200 nodes.
   if (svg.querySelectorAll('*').length > 3000) return null;
+  // And explicitly bound the number of `[id]` nodes: the rewrite is O(ids × attr-length). The markup
+  // cap bounds attr-length and the node cap bounds ids ≤ 3000, but an id cap keeps the PRODUCT small
+  // on a hostile "many small `<defs id>` + one big ref-dense attr" shape that stays under both other
+  // caps (red-team F1 / Copilot review). A real chart carries a handful of defs; 512 is deep slack.
+  if (svg.querySelectorAll('[id]').length > 512) return null;
 
   // Self-contain the copy's paint-server references BEFORE minting mark ids, so a gradient-filled
   // chart resolves its `url(#…)` fills against its OWN defs, not the identical (hidden) poster's.

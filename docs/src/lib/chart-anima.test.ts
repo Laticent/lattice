@@ -201,14 +201,23 @@ describe('chartToScene', () => {
     expect(chartToScene(many)).toBeNull();
   });
 
-  it('rejects a pathological NODE count before the namespacing rewrite — even with valid marks', () => {
-    // The node guard must fire on an svg that WOULD otherwise produce a scene: many `<defs>` ids
-    // (the O(nodes × ids) rewrite target) + a few real marks (< the 2000 mark cap, so the mark cap
-    // is NOT what rejects it). Remove the node guard and this returns a scene, not null.
-    const defs = Array.from({ length: 3100 }, (_, k) => `<radialGradient id="g${k}"/>`).join('');
-    const huge = `<svg viewBox="0 0 9 9"><defs>${defs}</defs><polygon class="funnel-band" data-mark="0" points="0,0 1,0 1,1"/></svg>`;
-    expect(huge.length).toBeLessThan(256 * 1024); // stays under the MARKUP cap → isolates the NODE guard
+  it('rejects a pathological NODE count before the namespacing rewrite — even with a valid mark', () => {
+    // The node guard must fire on an svg that WOULD otherwise produce a scene: > 3000 id-less nodes
+    // (so the id cap does NOT catch it first) + one real mark (< the 2000 mark cap, so that isn't it
+    // either). Remove the node guard and this returns a scene, not null.
+    const filler = '<g></g>'.repeat(3100); // 3100 nodes, ZERO ids → only the NODE guard applies
+    const huge = `<svg viewBox="0 0 9 9">${filler}<polygon class="funnel-band" data-mark="0" points="0,0 1,0 1,1"/></svg>`;
+    expect(huge.length).toBeLessThan(256 * 1024); // under the markup cap; 0 ids → under the id cap
     expect(chartToScene(huge)).toBeNull();
+  });
+
+  it('rejects an svg with too many [id] nodes (bounds the O(ids × attr-length) rewrite product)', () => {
+    // The hostile shape red-team F1 / the Copilot review flagged: many small `<defs id>` (few total
+    // nodes, small markup) + one ref-dense attribute. An explicit id cap rejects it up front.
+    const defs = Array.from({ length: 520 }, (_, k) => `<radialGradient id="g${k}"/>`).join('');
+    const svg = `<svg viewBox="0 0 9 9"><defs>${defs}</defs><polygon class="funnel-band" data-mark="0" points="0,0 1,0 1,1"/></svg>`;
+    expect(svg.length).toBeLessThan(256 * 1024); // under the markup cap
+    expect(chartToScene(svg)).toBeNull(); // rejected by the id cap (would otherwise namespace 520 ids)
   });
 
   it('rejects oversized raw markup before parse (attribute-length DoS the node cap misses)', () => {
