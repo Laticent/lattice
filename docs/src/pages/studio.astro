@@ -203,6 +203,37 @@ const SHELL_CHROME_CSS = shell
 #studio-ssr-shell .ssr-slidebox .lattice>section{width:var(--ssr-w,${shell.width}px)!important;height:var(--ssr-h,${shell.height}px)!important;max-width:none!important;margin:0!important;transform:scale(var(--ssr-scale,1));transform-origin:top left;}`
 	: '';
 
+// Nacre loader for the instant shell — the UNIVERSAL pre-hydration fallback. The snapshot
+// (returning) and welcome (newcomer) paths paint a real slide into #ssr-slidebox; when
+// NEITHER matches (the common dark-mode / non-default-palette reload the user hit as a
+// blank), the replay drops this animated nacre in instead, so a reload ALWAYS paints
+// something immediately — never a blank stare while React hydrates + the 505KB engine
+// loads + the first live render lands. Palette-blind via the render-blocking --accent/--bg
+// tokens; scoped under #studio-ssr-shell so it never touches the hydrated island (which
+// carries its own nacre-loader.css), and it's torn down with the shell by dismissSsrShell.
+// KEEP IN SYNC with docs/src/styles/nacre-loader.css: this is a scoped inline COPY of the
+// same look (the island's stylesheet doesn't exist pre-hydration). The @keyframes name and
+// the --bg/--accent fallback hexes are intentionally duplicated — edit both together.
+// Design + scoring: engineering/decisions/2026-07-20-nacre-preview-loader.md.
+const SHELL_NACRE_CSS = shell
+	? `#studio-ssr-shell .ssr-nacre{display:block;position:relative;width:100%;aspect-ratio:${shell.width}/${shell.height};overflow:hidden;}
+#studio-ssr-shell .nacre-loader{position:absolute;inset:0;overflow:hidden;isolation:isolate;background:var(--bg,#0c1626);}
+#studio-ssr-shell .nacre-loader__layer{position:absolute;inset:-35%;mix-blend-mode:screen;transform-origin:50% 50%;will-change:transform;}
+#studio-ssr-shell .nacre-loader__layer--0{filter:blur(26px);animation:nacre-rot 9s linear infinite;}
+#studio-ssr-shell .nacre-loader__layer--1{filter:blur(26px) hue-rotate(34deg);animation:nacre-rot 12s linear infinite reverse;}
+#studio-ssr-shell .nacre-loader__layer--2{filter:blur(26px) hue-rotate(-28deg);animation:nacre-rot 15s linear infinite;}
+#studio-ssr-shell .nacre-loader__blob{position:absolute;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--accent,#5b8fc7) 60%,transparent),transparent 64%);}
+#studio-ssr-shell .nacre-loader__blob:nth-child(1){width:54%;aspect-ratio:1;left:10%;top:16%;}
+#studio-ssr-shell .nacre-loader__blob:nth-child(2){width:46%;aspect-ratio:1;left:56%;top:20%;}
+#studio-ssr-shell .nacre-loader__blob:nth-child(3){width:50%;aspect-ratio:1;left:32%;top:56%;}
+#studio-ssr-shell .nacre-loader__core{position:absolute;inset:0;background:radial-gradient(58% 58% at 50% 46%,color-mix(in srgb,var(--accent,#5b8fc7) 15%,transparent),transparent 72%);}
+#studio-ssr-shell .nacre-loader__vig{position:absolute;inset:0;box-shadow:inset 0 0 70px 14px color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
+:root[data-mode="light"] #studio-ssr-shell .nacre-loader{background:var(--bg,#e9eef5);}
+:root[data-mode="light"] #studio-ssr-shell .nacre-loader__layer{mix-blend-mode:multiply;}
+@keyframes nacre-rot{to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion: reduce){#studio-ssr-shell .nacre-loader__layer{animation:none;}}`
+	: '';
+
 // Pre-paint replay: pick what the instant-shell shows. (1) A RETURNING visitor with
 // a cached last-slide snapshot (matching palette+mode AND whose deckId is the deck the
 // app will boot) → paint their real slide. The deckId gate is load-bearing: a snapshot
@@ -220,7 +251,7 @@ const SHELL_CHROME_CSS = shell
 // banner. (3) Otherwise the shell stays hidden. Runs inline during body parse, so the
 // choice is committed before first paint.
 const REPLAY_JS = shell
-	? `(function(){var root=document.documentElement,box=document.getElementById('ssr-slidebox');if(!box)return;function setScale(sw,sh){try{var vw=window.innerWidth||390;var pad=Math.min(32,Math.max(12,0.04*vw));var target=Math.min(960,vw-2*pad);var sc=sw?target/sw:1;box.style.setProperty('--ssr-w',sw+'px');box.style.setProperty('--ssr-h',sh+'px');box.style.setProperty('--ssr-scale',String(sc));}catch(e){}}var palette=root.getAttribute('data-palette')||'indaco';var mode=root.getAttribute('data-mode')==='dark'?'dark':'light';var idx=[];try{var pi=JSON.parse(localStorage.getItem('lattice-studio-deck-index')||'[]');if(Array.isArray(pi))idx=pi;}catch(e){}var BD=${JSON.stringify(builtinDecks)};var activeId=null;try{var a=JSON.parse(localStorage.getItem('lattice-studio-active')||'null');if(a&&typeof a.deckId==='string'&&a.deckId)activeId=a.deckId;}catch(e){}var isKnown=function(id){if(!id)return false;for(var i=0;i<idx.length;i++)if(idx[i]&&idx[i].id===id)return true;if(idx.length)return false;for(var j=0;j<BD.length;j++)if(BD[j].id===id)return true;return false;};var bootId=(activeId&&isKnown(activeId)?activeId:(idx[0]&&idx[0].id))||${JSON.stringify(firstDeck.id)};var bootTitle=function(id){for(var i=0;i<idx.length;i++)if(idx[i]&&idx[i].id===id)return idx[i].title;for(var j=0;j<BD.length;j++)if(BD[j].id===id)return BD[j].title;return null;};var shown=false;try{var raw=localStorage.getItem('lattice-studio-last-slide');if(raw){var snap=JSON.parse(raw);if(snap&&snap.v===1&&snap.palette===palette&&snap.mode===mode&&snap.html&&snap.css&&snap.deckId===bootId){var st=document.createElement('style');st.id='ssr-snap-css';st.textContent=snap.css;document.head.appendChild(st);box.innerHTML=snap.html;setScale(snap.w||${shell.width},snap.h||${shell.height});shown=true;var title=bootTitle(bootId);if(title){var t=document.getElementById('ssr-deck-title');if(t)t.textContent=title;}}}}catch(e){}if(!shown&&root.getAttribute('data-ssr-shell')==='on'){var nc=document.getElementById('ssr-newcomer-css');if(nc)nc.media='all';var tpl=document.getElementById('ssr-newcomer');if(tpl)box.innerHTML=tpl.innerHTML;setScale(${shell.width},${shell.height});shown=true;}if(shown)root.setAttribute('data-ssr-shell','on');})();`
+	? `(function(){var root=document.documentElement,box=document.getElementById('ssr-slidebox');if(!box)return;function setScale(sw,sh){try{var vw=window.innerWidth||390;var pad=Math.min(32,Math.max(12,0.04*vw));var target=Math.min(960,vw-2*pad);var sc=sw?target/sw:1;box.style.setProperty('--ssr-w',sw+'px');box.style.setProperty('--ssr-h',sh+'px');box.style.setProperty('--ssr-scale',String(sc));}catch(e){}}var palette=root.getAttribute('data-palette')||'indaco';var mode=root.getAttribute('data-mode')==='dark'?'dark':'light';var idx=[];try{var pi=JSON.parse(localStorage.getItem('lattice-studio-deck-index')||'[]');if(Array.isArray(pi))idx=pi;}catch(e){}var BD=${JSON.stringify(builtinDecks)};var activeId=null;try{var a=JSON.parse(localStorage.getItem('lattice-studio-active')||'null');if(a&&typeof a.deckId==='string'&&a.deckId)activeId=a.deckId;}catch(e){}var isKnown=function(id){if(!id)return false;for(var i=0;i<idx.length;i++)if(idx[i]&&idx[i].id===id)return true;if(idx.length)return false;for(var j=0;j<BD.length;j++)if(BD[j].id===id)return true;return false;};var bootId=(activeId&&isKnown(activeId)?activeId:(idx[0]&&idx[0].id))||${JSON.stringify(firstDeck.id)};var bootTitle=function(id){for(var i=0;i<idx.length;i++)if(idx[i]&&idx[i].id===id)return idx[i].title;for(var j=0;j<BD.length;j++)if(BD[j].id===id)return BD[j].title;return null;};var shown=false;try{var raw=localStorage.getItem('lattice-studio-last-slide');if(raw){var snap=JSON.parse(raw);if(snap&&snap.v===1&&snap.palette===palette&&snap.mode===mode&&snap.html&&snap.css&&snap.deckId===bootId){var st=document.createElement('style');st.id='ssr-snap-css';st.textContent=snap.css;document.head.appendChild(st);box.innerHTML=snap.html;setScale(snap.w||${shell.width},snap.h||${shell.height});shown=true;var title=bootTitle(bootId);if(title){var t=document.getElementById('ssr-deck-title');if(t)t.textContent=title;}}}}catch(e){}if(!shown&&root.getAttribute('data-ssr-shell')==='on'){var nc=document.getElementById('ssr-newcomer-css');if(nc)nc.media='all';var tpl=document.getElementById('ssr-newcomer');if(tpl)box.innerHTML=tpl.innerHTML;setScale(${shell.width},${shell.height});shown=true;}if(!shown){var ntpl=document.getElementById('ssr-nacre');if(ntpl){box.innerHTML=ntpl.innerHTML;setScale(${shell.width},${shell.height});var nt=bootTitle(bootId);if(nt){var td=document.getElementById('ssr-deck-title');if(td)td.textContent=nt;}shown=true;}}if(shown)root.setAttribute('data-ssr-shell','on');})();`
 	: '';
 ---
 
@@ -256,7 +287,7 @@ const REPLAY_JS = shell
 			   2026-07-19 splitter migration. */
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
-		{shell && <style is:inline set:html={SHELL_CHROME_CSS}></style>}
+		{shell && <style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_NACRE_CSS}></style>}
 		{/* Newcomer critical CSS — inert (media="not all") until the replay script
 		    picks the newcomer path and flips it to media="all". A returning user uses
 		    the snapshot's own CSS instead, so this never applies for them. */}
@@ -317,6 +348,20 @@ const REPLAY_JS = shell
 				{/* Build-time newcomer slide, inert until the replay script moves it into
 				    the box for a first-time visitor (a returning user gets their snapshot). */}
 				<template id="ssr-newcomer" set:html={shell.html}></template>
+				{/* Universal fallback: the replay drops this animated nacre into the box when
+				    NEITHER a matching snapshot NOR the newcomer path applies (returning
+				    dark-mode / non-default-palette reload), so no reload ever paints blank. */}
+				<template id="ssr-nacre">
+					<span class="ssr-nacre">
+						<span class="nacre-loader" aria-hidden="true">
+							<span class="nacre-loader__core"></span>
+							<span class="nacre-loader__layer nacre-loader__layer--0"><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i></span>
+							<span class="nacre-loader__layer nacre-loader__layer--1"><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i></span>
+							<span class="nacre-loader__layer nacre-loader__layer--2"><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i></span>
+							<span class="nacre-loader__vig"></span>
+						</span>
+					</span>
+				</template>
 				<script is:inline set:html={REPLAY_JS}></script>
 			</Fragment>
 		)}

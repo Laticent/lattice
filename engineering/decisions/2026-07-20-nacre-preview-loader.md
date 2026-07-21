@@ -78,14 +78,24 @@ the live tokens and the fade/freeze hand-off fires on first paint.
   reasoning about how compositing works, not a measurement on a real iPhone during real hydration.
   Confirming it on-device — or finding it needs a tweak (e.g. a smaller blur radius) — is what earns
   the "Performance 10 / honest 9.5." Do this before calling it done for mobile.
-- **Pre-hydration instant-shell.** This React loader only exists *after* hydration, so it covers the
-  post-hydration render gap. A returning user whose snapshot doesn't match still sees a blank
-  *pre-hydration* card. Fast-follow: seed the same nacre (inline CSS) as the `#ssr-slidebox` fallback
-  in `studio.astro` for the no-snapshot/no-welcome case, so no one ever sees a pre-hydration blank.
-  Deferred here to avoid touching the load-bearing pre-paint replay script in the same change.
+- **Pre-hydration instant-shell — DONE (2026-07-21).** This React loader only exists *after*
+  hydration, so it covers the post-hydration render gap. A returning user whose snapshot doesn't
+  match used to still see a blank *pre-hydration* card — the exact blank-on-reload reported on the
+  user's iPhone (dark mode → newcomer instant-shell is gated to indaco+light, and no matching
+  snapshot → the shell stayed `display:none` = blank). The fast-follow is now shipped: `studio.astro`
+  inlines the nacre (scoped `SHELL_NACRE_CSS` + an `<template id="ssr-nacre">`) and `REPLAY_JS` drops
+  it into `#ssr-slidebox` as the **universal fallback** whenever neither the snapshot nor the newcomer
+  path fires, then flips `data-ssr-shell="on"`. So every reload now paints *something* immediately —
+  cached slide, welcome slide, or nacre — with zero dependence on the live preview or iOS timing, and
+  it's torn down with the shell by `dismissSsrShell`. Palette-blind via the render-blocking
+  `--accent`/`--bg` tokens. Verified in the production `dist` build under Playwright WebKit (iPhone 13,
+  dark mode, returning user, no snapshot): blank → animating indaco-dark nacre card (359×202) → shell
+  torn down after hydration. (The live-preview render bug on real iOS Safari remains separately
+  UNVERIFIED per below — this fallback makes the *load window* never blank regardless.)
 - **Light-mode intensity** is a touch bold on some palettes; a blob-alpha trim is a cheap tuning pass.
 
 ## Files
 
 `docs/src/styles/nacre-loader.css`, `docs/src/components/DeckPreview.tsx`,
-`docs/src/components/studio/StudioShell.tsx`.
+`docs/src/components/studio/StudioShell.tsx`, `docs/src/pages/studio.astro` (pre-hydration
+instant-shell fallback).

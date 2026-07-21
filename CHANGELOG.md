@@ -351,8 +351,13 @@ in patch versions.
   overlaps continuously remix — and it's built to be cheap during load: `blur` + `hue-rotate` are baked
   once and only `transform: rotate` animates, so the GPU spins cached bitmaps with no per-frame re-blur.
   Opt-in per preview host (Studio only); exported PDF/PPTX/HTML bytes are unchanged (preview-only).
-  Real-device (iOS) perf sign-off and a pre-hydration instant-shell variant are tracked follow-ups.
-  (`docs/src/styles/nacre-loader.css`, `docs/src/components/DeckPreview.tsx`, `StudioShell.tsx`;
+  The nacre now also seeds the **pre-hydration instant shell**: on any reload where neither a cached
+  last-slide snapshot nor the newcomer welcome slide applies (e.g. a returning dark-mode or
+  non-default-palette visitor — previously a **blank card until the island hydrated**), `studio.astro`
+  paints the nacre into `#ssr-slidebox` before first paint, so every reload shows *something*
+  immediately with zero dependence on the live preview or iOS timing. Real-device (iOS) perf sign-off
+  remains a tracked follow-up. (`docs/src/styles/nacre-loader.css`, `docs/src/components/DeckPreview.tsx`,
+  `StudioShell.tsx`, `docs/src/pages/studio.astro`;
   `engineering/decisions/2026-07-20-nacre-preview-loader.md`.)
 - **Fabricate can now refine a component by hand — quick chips or a freeform nudge — not just generate
   it.** The mirror of the Motion faculty's refine, ported to components. A "Refine" row sits under the
