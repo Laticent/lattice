@@ -897,8 +897,8 @@ in patch versions.
   **Breaking (behavior):** a returning visitor no longer sees their real last slide flash
   instantly on reload — everyone sees the calm Nacre skeleton, then the live slide. (`docs/src/pages/studio.astro`,
   `docs/src/components/studio/StudioShell.tsx`, `docs/src/components/DeckPreview.tsx`,
-  `docs/src/lib/single-slide-render.ts`, `docs/src/components/studio/use-shared-preview-slot.ts`,
-  `docs/scripts/check-studio-shell.mjs`; `engineering/decisions/2026-07-21-studio-preview-one-skeleton.md`.)
+  `docs/src/lib/single-slide-render.ts`, `docs/scripts/check-studio-shell.mjs`;
+  `engineering/decisions/2026-07-21-studio-preview-one-skeleton.md`.)
 
 - **The live preview no longer reveals a blank/unscaled slide when the pane is measured mid-reflow.**
   The single-slide renderer scaled the frame only when the host had a non-zero width (`if (w > 0)`), but
@@ -913,7 +913,7 @@ in patch versions.
   host was positioned against a stale rect and could strand off-screen/oversized (the reported "huge
   card"). (Superseded in part by the one-skeleton reshape above, which makes the preview box a race-free
   CSS-contained 16:9 anchor so the host always tracks a correct rectangle.)
-  (`docs/src/lib/single-slide-render.ts`, `docs/src/components/studio/use-shared-preview-slot.ts`,
+  (`docs/src/lib/single-slide-render.ts`,
   `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
 - **A phone held in landscape is no longer a dead editing surface — the slide fills the screen and you
   swipe through the deck (the "cinema" morph).** A landscape phone is wide enough (~844–932px) to fall
@@ -958,7 +958,7 @@ in patch versions.
   search box collapses to an icon button (the ⌘K palette is one tap or the shortcut) and the deck
   switcher flexes — it shows the deck title in FULL whenever the bar has room and truncates only when
   the bar genuinely fills (no arbitrary width cap), dropping its slide-count meta when tight — so the
-  bar never crowds and the title is never clipped needlessly; the search box expands again on a wide screen. (`docs/src/components/studio/{StudioShell.tsx,Library.tsx,lens-picker.tsx,SlideContext.tsx,use-shared-preview-slot.ts}`;
+  bar never crowds and the title is never clipped needlessly; the search box expands again on a wide screen. (`docs/src/components/studio/{StudioShell.tsx,Library.tsx,lens-picker.tsx,SlideContext.tsx}`;
   `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
 
 - **The Studio's instant-shell / cached last-slide replay no longer silently vanishes — and can't ship

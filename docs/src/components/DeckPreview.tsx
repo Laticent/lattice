@@ -100,9 +100,9 @@ export function DeckPreview({
 }: DeckPreviewProps) {
 	// Nacre loader = the SKELETON. It owns the screen for the whole load and yields ONLY
 	// when the live slide is verified genuinely good — i.e. the renderer has actually
-	// REVEALED `iframe.live` (visibility:visible), which single-slide-render.ts does only
-	// once the slide has painted AND is scaled to a real width, and the shared-host clamp
-	// keeps on-screen. So "revealed" == "good", and a broken/racing render is never exposed:
+	// REVEALED `iframe.live` by fading its `opacity` 0→1, which single-slide-render.ts does
+	// only once the slide has painted AND is scaled to a real width. The reveal-watcher below
+	// keys off that same `opacity`. So "revealed" == "good", and a broken/racing render is never exposed:
 	// the skeleton simply stays until the real thing is right. The reveal-watcher effect
 	// (below, once stageRef exists) flips this on the reveal signal — NOT on a "a render
 	// happened" timer, which would drop the skeleton onto a not-yet-good slide.

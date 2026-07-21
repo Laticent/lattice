@@ -569,6 +569,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				}
 
 				let fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+				// The once-guarded onload-side work, shared by the reveal poll (below, iOS paint
+				// path) and the browser `onload` (assigned near the srcdoc write). Declared out here
+				// so both the `if (!fr)` create branch's poll and the write path can see it.
+				let onFrameLoad: (() => void) | null = null;
 				if (!fr) {
 					fr = document.createElement('iframe');
 					fr.className = 'live';
@@ -610,6 +614,13 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// good. A frame that never becomes good simply stays behind the skeleton.
 					const revealFr = fr;
 					let revealTicks = 0;
+					// The onload-side work (clear __latticePendingLoad → re-enable the patch/restyle
+					// fast-paths; run the debug overlay / video bridge / render sample) must happen
+					// even when iOS Safari DROPS the srcdoc `onload` — else pendingLoad stays true
+					// forever and every subsequent edit falls back to a full realm-churning re-write.
+					// `onFrameLoad` (declared above the create branch, assigned after the synchronous
+					// setup below) is once-guarded, so the poll can safely fire it on first paint
+					// whether or not `onload` ever comes.
 					const revealPoll = setInterval(() => {
 						revealTicks++;
 						if (disposed || !host.isConnected || revealFr.style.opacity !== '0' || revealTicks > 100) {
@@ -618,6 +629,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 							return;
 						}
 						scaleFrame(host); // reveals IFF host width>0 AND the srcdoc has painted .lattice — never a broken frame
+						if (frameHasPainted(revealFr)) onFrameLoad?.(); // iOS: onload may never fire — run its work on paint (once-guarded)
 					}, 100);
 					ownedIntervals.add(revealPoll);
 					if (typeof ResizeObserver !== 'undefined') {
@@ -650,7 +662,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				let tFrameStart = 0;
 				let sanitizeMs = 0;
 				const srcBytes = markdown.length;
-				fr.onload = () => {
+				// Run exactly once — via the browser's `onload` (normal) OR the reveal poll's paint
+				// detection (iOS, where onload is unreliable). The guard makes a double-trigger a no-op.
+				let loadRan = false;
+				onFrameLoad = () => {
+					if (loadRan) return;
+					loadRan = true;
 					// Fit first (timed around the existing clientWidth read — no extra
 					// reflow), then debug overlay + video bridge which are outside the
 					// measured fit. frameMs is the browser's own parse/layout of the
@@ -705,6 +722,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					}
 					scheduleVizScan(() => fr?.contentDocument);
 				};
+				fr.onload = onFrameLoad;
 				// Mark the navigation in flight BEFORE assigning srcdoc: until onload
 				// clears it, the patch guard above must not touch the outgoing document.
 				(host as LiveHost).__latticePendingLoad = true;
