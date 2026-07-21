@@ -25,7 +25,7 @@ import { join } from 'node:path';
 
 // css-tree + jsdom are loaded LAZILY (first extract call), not at import time, so
 // merely importing this module can never throw — a missing dep degrades to the
-// caller's graceful null (ssg-first-slide.mjs), never a hard `astro build` break.
+// caller's graceful null, never a hard `astro build` break.
 // Anchor createRequire at the real cwd (docs/ under `astro build`, repo root under
 // a standalone node run) so bare specifiers resolve via node's upward
 // node_modules walk; import.meta.url would point at the bundled Vite chunk.

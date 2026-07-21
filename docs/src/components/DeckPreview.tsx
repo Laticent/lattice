@@ -6,6 +6,12 @@ import {
 	type SingleSlideRenderer,
 } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+// The Nacre loader's CSS. Imported here beside the loader markup it styles (below). NOTE: this
+// does NOT gate payload by consumer — Vite co-locates it into a shared chunk (resolve-captions,
+// in single-slide-render's graph) that every DeckPreview host pulls, so Astro inlines the ~1.5KB
+// into every page regardless of which component declares the import. It's screen-only and fully
+// scoped to `.nacre-loader*` (no global leak); detaching it from the shared chunk is a separate
+// bundling task (tracked in 2026-07-21-studio-preview-reframe-in-place.md), not an import-site move.
 import '@/styles/nacre-loader.css';
 
 // The React single-slide wrapper over single-slide-render.ts — the plain
@@ -107,16 +113,6 @@ export function DeckPreview({
 	// (below, once stageRef exists) flips this on the reveal signal — NOT on a "a render
 	// happened" timer, which would drop the skeleton onto a not-yet-good slide.
 	const [painted, setPainted] = React.useState(false);
-	// Anti-stuck FLOOR (not the primary fade): if the reveal-watcher somehow never fires
-	// (a defect, a pathological doc), don't strand the user behind the skeleton forever —
-	// fade it after a long ceiling so the app is at least reachable. The normal reveal
-	// (~1–3s) fires far sooner, making this a no-op; 14s is generous enough that it only
-	// ever triggers on a genuine failure, never on a merely-slow good render.
-	React.useEffect(() => {
-		if (!loader || painted) return;
-		const t = setTimeout(() => setPainted(true), 14000);
-		return () => clearTimeout(t);
-	}, [loader, painted]);
 	// One renderer instance for this host (holds the theme + font caches).
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
@@ -163,6 +159,23 @@ export function DeckPreview({
 		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
 		return () => mo.disconnect();
 	}, [loader, onFirstRender]);
+
+	// Anti-stuck FLOOR — reveal-VERIFYING. The reveal-watcher above is the primary fade; this is
+	// its safety net for ONE failure: the frame IS good but the MutationObserver missed the opacity
+	// flip. Recovering means fading the skeleton — but ONLY if the live frame was genuinely revealed
+	// (the engine set a non-'0' opacity once its slide painted + scaled). We must NOT fade onto a
+	// never-painted frame: that would swap "loader forever" for a BLANK, which the skeleton contract
+	// explicitly rejects (prefer the honest loader over a blank/broken slide). On a real never-paint
+	// failure the loader keeps spinning — honest, and the preview is in-flow/boxed so the app stays
+	// fully usable around it. The normal reveal (~1–3s) fires far sooner; 14s only ever reaches a defect.
+	React.useEffect(() => {
+		if (!loader || painted) return;
+		const t = setTimeout(() => {
+			const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+			if (fr && fr.style.opacity && fr.style.opacity !== '0') setPainted(true);
+		}, 14000);
+		return () => clearTimeout(t);
+	}, [loader, painted]);
 
 	// Re-render when the theme's NAME or its CSS CONTENT changes. The live-derived
 	// specimen has a content-hash name (so name alone would suffice), but a SAVED

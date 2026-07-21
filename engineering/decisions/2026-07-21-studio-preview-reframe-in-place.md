@@ -179,6 +179,21 @@ Present's iframe unmounts on close and remounts on open (a brief loader). **Foll
 keep-warm — keep Present's iframe mounted after first open so reopen is instant. Real-iPhone/iPad
 confirmation of zero drift is still required (#23).
 
+**Off-path findings logged (not fixed here, #18).**
+- **`critical-css.mjs` is now orphaned.** Removing the pre-hydration `ssg-first-slide.mjs` (orphaned
+  dead code) left `docs/scripts/critical-css.mjs` with no production caller — it is now imported only
+  by its own test. It was already latent-dead (its sole caller, `ssg-first-slide.mjs`, was itself dead
+  before removal), so deleting it (module + `critical-css.test.mjs`) is a separate cleanup, off the
+  path of this reframe — tracked here rather than pulled into this PR (#8/#17).
+- **Nacre loader CSS inlines into every docs page (~1.5KB).** `nacre-loader.css` is imported by
+  `DeckPreview`, so Vite folds it into a shared chunk (`resolve-captions`, in `single-slide-render`'s
+  graph) that every DeckPreview host — including landing's `HeroPreview` — pulls, and Astro's
+  `inlineStylesheets: 'auto'` then inlines that small chunk into all ~13 pages. It's screen-only and
+  fully scoped to `.nacre-loader*` (no visual/global leak), and moving the import between components
+  does NOT change the chunking. Detaching it (an async CSS chunk, or splitting the loader into a
+  lazily-imported component) is a bundling task worth a follow-up if the payload ever matters — not an
+  import-site move, and off the path of the drift fix.
+
 ## Files (for the implementation that follows this decision)
 
 `docs/src/components/studio/StudioShell.tsx` (box CSS 2683–2710; hoisted host 2897–2913;

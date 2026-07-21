@@ -52,9 +52,16 @@ User direction: *"strip things to the bare minimum and just have Nacre as the on
    its slide has painted AND scaled to a real width, and the host clamp keeps it on-screen;
    the loader fades on that reveal. A broken/racing render is never exposed.
 
-**Kept deliberately:** the shared hoisted host (desktop's warm editor↔Present hand-off is
-worth it); `snapshot-cache.js` (the **Playground** still uses it — only the Studio's capture +
-replay were removed); `ssg-first-slide.mjs` (used by `critical-css.mjs`).
+**Kept deliberately (at the time of this pass):** the shared hoisted host (desktop's warm
+editor↔Present hand-off is worth it); `snapshot-cache.js` (the **Playground** still uses it — only
+the Studio's capture + replay were removed); `ssg-first-slide.mjs`.
+
+> **Superseded within the same PR (2026-07-21).** The follow-on *reframe* deleted two of the three
+> "kept" items: the **shared hoisted host** is gone — the editor preview went **in-flow** inside its
+> own box, so there is no fixed host left to keep warm (and the drift it caused is structurally
+> unreachable); and **`ssg-first-slide.mjs`** was removed as orphaned dead code (its only caller had
+> already been retired). Only `snapshot-cache.js` (Playground) still stands. See
+> `engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md`.
 
 ## Verification
 

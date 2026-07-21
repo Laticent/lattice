@@ -370,11 +370,12 @@ in patch versions.
   overlaps continuously remix — and it's built to be cheap during load: `blur` + `hue-rotate` are baked
   once and only `transform: rotate` animates, so the GPU spins cached bitmaps with no per-frame re-blur.
   Opt-in per preview host (Studio only); exported PDF/PPTX/HTML bytes are unchanged (preview-only).
-  The nacre now also seeds the **pre-hydration instant shell**: on any reload where neither a cached
-  last-slide snapshot nor the newcomer welcome slide applies (e.g. a returning dark-mode or
-  non-default-palette visitor — previously a **blank card until the island hydrated**), `studio.astro`
-  paints the nacre into `#ssr-slidebox` before first paint, so every reload shows *something*
-  immediately with zero dependence on the live preview or iOS timing. Real-device (iOS) perf sign-off
+  The nacre now also seeds the **pre-hydration instant shell**: `studio.astro` paints it into
+  `#ssr-slidebox` on **every** reload — a single Nacre skeleton shown to every visitor (the later
+  one-skeleton pass retired the earlier per-visitor snapshot / newcomer-welcome-slide fallbacks, so
+  it's unconditional now) — before first paint. A reload that used to show a **blank card until the
+  island hydrated** now always paints *something* immediately, with zero dependence on the live
+  preview or iOS timing. Real-device (iOS) perf sign-off
   remains a tracked follow-up. (`docs/src/styles/nacre-loader.css`, `docs/src/components/DeckPreview.tsx`,
   `StudioShell.tsx`, `docs/src/pages/studio.astro`;
   `engineering/decisions/2026-07-20-nacre-preview-loader.md`.)
@@ -961,25 +962,19 @@ in patch versions.
   bar never crowds and the title is never clipped needlessly; the search box expands again on a wide screen. (`docs/src/components/studio/{StudioShell.tsx,Library.tsx,lens-picker.tsx,SlideContext.tsx}`;
   `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
 
-- **The Studio's instant-shell / cached last-slide replay no longer silently vanishes — and can't ship
-  missing unnoticed.** The build-time shell generator (`docs/scripts/ssg-first-slide.mjs`) loads the owned
-  engine to bake the newcomer's first slide; it did so through a dynamic `import()`, which Vite's dev SSR
-  re-transforms — so the CommonJS engine (`lib/core/*`) threw `require is not defined` and the generator
-  returned null. Effect: in local `astro dev` the whole instant-shell + returning-visitor snapshot-replay
-  was **completely absent** (a reload showed a blank preview until the island hydrated), so the feature
-  could never be seen or tested locally, and the swallowed error hid it. It now loads the engine through a
-  native `createRequire`, so the **same path works in dev and build**; a genuine render failure is logged
-  **loudly** instead of swallowed; and a new `check:studio-shell` gate (chained into the docs `build`)
-  **fails the build** if the shipped `dist/studio/index.html` lost its shell scaffold — turning a silent
-  blank-on-reload regression into a blocking CI failure. **That gate immediately caught the real
-  production bug:** the docs *deploy* and *PR-preview* workflows ran `npm ci` only inside `docs/`, so the
-  engine's root deps (`markdown-it`, …) weren't installed and `renderFirstSlideShell` returned null on
-  every deploy — the deployed studio has been shipping **shell-less** (reload → blank) all along, and only
-  looked fine locally because a full checkout has root deps. Fixed by installing root deps in
-  `.github/workflows/docs.yml` + `docs-preview.yml` before the docs build (mirroring `ci.yml`'s
-  `docs-build`), so the shell now actually builds on deploy. (`docs/scripts/ssg-first-slide.mjs`,
-  `docs/scripts/check-studio-shell.mjs`, `docs/package.json`, `.github/workflows/docs.yml`,
-  `.github/workflows/docs-preview.yml`; `engineering/decisions/2026-07-11-preview-performance-diagnosis.md`.)
+- **The Studio's pre-paint shell can't ship broken unnoticed — two build-integrity guards.** (1) A
+  `check:studio-shell` gate (chained into the docs `build`) **fails the build** if the shipped
+  `dist/studio/index.html` lost its pre-paint **Nacre skeleton** scaffold — the container, the 16:9
+  box, the `.nacre-loader`, and the seed script that flips `data-ssr-shell="on"` — turning a silent
+  **blank-preview-until-hydration** regression (the bug this whole area exists to prevent) into a
+  blocking CI failure. (2) The docs *deploy* and *PR-preview* workflows now install the engine's **root
+  deps** (`markdown-it`, …) before the docs build: `studio.astro` `require()`s the owned engine
+  (`lib/**`) at build time for the component catalog/vocab, so a `docs/`-only `npm ci` left those
+  uninstalled and the deployed studio could build wrong while looking fine locally (a full checkout has
+  root deps). Fixed by mirroring `ci.yml`'s `docs-build` install in `.github/workflows/docs.yml` +
+  `docs-preview.yml`. (`docs/scripts/check-studio-shell.mjs`, `docs/package.json`,
+  `.github/workflows/docs.yml`, `.github/workflows/docs-preview.yml`;
+  `engineering/decisions/2026-07-21-studio-preview-one-skeleton.md`.)
 - **Fabricate's component generator got a hardening pass (Undo, an effort-regression guard, and a few
   honesty fixes).** Four guards from the adversarial review of the generation increments. (1) **Undo before
   overwrite** — generate/refine/effort replace the whole component, so one prompt could silently eat a

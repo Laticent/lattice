@@ -92,6 +92,15 @@ the live tokens and the fade/freeze hand-off fires on first paint.
   dark mode, returning user, no snapshot): blank → animating indaco-dark nacre card (359×202) → shell
   torn down after hydration. (The live-preview render bug on real iOS Safari remains separately
   UNVERIFIED per below — this fallback makes the *load window* never blank regardless.)
+
+  > **Superseded within the same PR (2026-07-21).** The `<template id="ssr-nacre">` + `REPLAY_JS`
+  > *conditional fallback* described here (nacre only "whenever neither the snapshot nor the newcomer
+  > path fires") was retired by the **one-skeleton** pass: the per-visitor snapshot-replay and the
+  > server-rendered welcome slide are gone, so `studio.astro` now inlines the Nacre skeleton
+  > **unconditionally** (scoped `SHELL_NACRE_CSS` in a single 16:9 `#ssr-slidebox`, shown to *every*
+  > visitor) — one surface, no `REPLAY_JS`, no `ssr-nacre` template branch. See
+  > `engineering/decisions/2026-07-21-studio-preview-one-skeleton.md` (and the in-flow *reframe*,
+  > `2026-07-21-studio-preview-reframe-in-place.md`).
 - **Light-mode intensity** is a touch bold on some palettes; a blob-alpha trim is a cheap tuning pass.
 
 ## Files
