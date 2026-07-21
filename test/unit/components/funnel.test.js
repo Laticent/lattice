@@ -90,6 +90,17 @@ describe('funnel kernel', () => {
       const marks = [...html.matchAll(/funnel-band" data-mark="(\d+)"/g)].map((x) => +x[1]);
       assert.deepEqual(marks, [0, 1, 2]);
     });
+
+    test('emits native data-anima-role metadata (bar on bands, label on text) and NO id', () => {
+      // The renderer declares the ANIMATION ROLE so Anima choreographs authoritatively (not by
+      // class-guessing) — but mints per-mark ids at ingest, so the marks carry no id (a fixed
+      // funnel-band-N would collide across two funnels). 2026-07-19 §0.75.
+      const html = buildFunnel(parseFunnel(ul([['A', '100'], ['B', '50'], ['C', '25']])));
+      assert.equal((html.match(/class="funnel-band" data-mark="\d+" data-anima-role="bar"/g) || []).length, 3, 'each band roled "bar"');
+      assert.match(html, /class="funnel-label" data-anima-role="label"/, 'labels roled "label"');
+      assert.match(html, /class="funnel-conv" data-anima-role="label"/, 'conversion text roled "label"');
+      assert.doesNotMatch(html, /\bid="funnel-/, 'no non-unique funnel-* ids baked into the export');
+    });
   });
 
   describe('buildFunnel — per-mark detail (interactive reveal substrate)', () => {

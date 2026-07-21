@@ -130,14 +130,49 @@ function prefersReducedMotion(opts: HydrateOptions): boolean {
   return typeof matchMedia === 'function' ? matchMedia(RM_QUERY).matches : false;
 }
 
-/** Resolve an `svg` scene's asset markup from the poster already in the figure. The poster
- *  went through `sanitizeSlideHtml` when the frame was built; we sanitize AGAIN here to
- *  honour the AssetMap contract at the point of use (renderer.ts). */
-function assetsFor(scene: Scene, figure: Element, sanitize: (m: string) => string): AssetMap | undefined {
-  if (scene.source !== 'svg') return undefined;
+/** Read a section's declared motion tier from `data-scene-motion` (a bounded per-deck / per-slide
+ *  policy, §0.75). Unknown / absent → `system` (resolves the viewer's prefers-reduced-motion). */
+export function readDeclaredTier(section: Element): MotionTier {
+  const raw = section.getAttribute('data-scene-motion');
+  return raw === 'full' || raw === 'legible' || raw === 'still' || raw === 'system' ? raw : 'system';
+}
+
+/** Everything section-specific the host needs, resolved by a SOURCE adapter. The two sources — a
+ *  baked `data-scene-spec` scene (resolveSpecSource) and a chart derived at view time (hydrateChart,
+ *  outside the Anima boundary) — differ ONLY here; the whole lifecycle below is shared. */
+export interface ResolvedScene {
+  /** The validated scene to play. */
+  scene: Scene;
+  /** The declared motion tier (from `data-scene-motion`, or a source default). */
+  declared: MotionTier;
+  /** The figure the live stage + control mount into (gets the `.anima-live` host marker). */
+  figure: Element;
+  /** The static poster to hide on mount and restore on dispose (null → nothing to hide). */
+  poster: Element | null;
+  /** For an `svg` scene: the ALREADY-SANITIZED asset markup for the AssetMap (HARD RULE #22).
+   *  The source adapter owns the sanitize call; null for a `built` scene. */
+  assetMarkup: string | null;
+}
+
+/** Resolve a baked `section.scene[data-scene-spec]` into a ResolvedScene, or null if it has no
+ *  usable spec / figure. The poster went through `sanitizeSlideHtml` when the frame was built; we
+ *  sanitize AGAIN here to honour the AssetMap contract at the point of use (renderer.ts). */
+function resolveSpecSource(section: Element, sanitize: (m: string) => string): ResolvedScene | null {
+  const b64 = section.getAttribute('data-scene-spec');
+  if (!b64) return null;
+  const scene = decodeSpec(b64);
+  if (!scene) return null;
+  const figure = section.querySelector('.scene-figure');
+  if (!figure) return null;
   const poster = figure.querySelector('svg');
-  if (!poster) return undefined;
-  return { [scene.asset]: sanitize(poster.outerHTML) };
+  const assetMarkup = scene.source === 'svg' && poster ? sanitize(poster.outerHTML) : null;
+  return { scene, declared: readDeclaredTier(section), figure, poster, assetMarkup };
+}
+
+/** Build the AssetMap for a playing scene from its resolved (pre-sanitized) markup. */
+function assetsFor(scene: Scene, assetMarkup: string | null): AssetMap | undefined {
+  if (scene.source !== 'svg' || assetMarkup == null) return undefined;
+  return { [scene.asset]: assetMarkup };
 }
 
 /** The four faces of the single corner control (user pick, Stage 6b). */
@@ -173,20 +208,15 @@ function makeControl(doc: Document, onClick: () => void): { el: HTMLButtonElemen
   };
 }
 
-/** Hydrate ONE `section.scene[data-scene-spec]`. Returns a controller, or null if the
- *  scene should stay a static poster (bad spec, `still` tier, no backend, no figure). */
-function hydrateOne(section: Element, opts: HydrateOptions): SceneController | null {
+/** Hydrate ONE already-resolved scene. Returns a controller, or null if the scene should stay a
+ *  static poster (`still` tier with nothing to opt into, or no backend advertises its needs). The
+ *  scene/figure/asset/poster were resolved by a SOURCE adapter (spec or chart) — everything here is
+ *  source-agnostic, so a chart animation gets the SAME controls, tiers, opt-in, and lazy-mount. */
+function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOptions): SceneController | null {
   const doc = section.ownerDocument;
-  const b64 = section.getAttribute('data-scene-spec');
-  if (!doc || !b64) return null;
-  const scene = decodeSpec(b64);
-  if (!scene) return null;
+  if (!doc) return null;
+  const { scene, declared, figure } = resolved;
 
-  const rawMotion = section.getAttribute('data-scene-motion');
-  const declared: MotionTier =
-    rawMotion === 'full' || rawMotion === 'legible' || rawMotion === 'still' || rawMotion === 'system'
-      ? rawMotion
-      : 'system'; // unknown/absent → system (resolves prefers-reduced-motion)
   const reduced = prefersReducedMotion(opts);
   const tier = effectiveTier(declared, reduced, scene);
 
@@ -198,10 +228,6 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
   const floorSuppressed = tier === 'still' && declared !== 'still' && reduced && usedVerbs(scene).length > 0;
   if (tier === 'still' && !floorSuppressed) return null; // poster stands
 
-  const figureEl = section.querySelector('.scene-figure');
-  if (!figureEl) return null;
-  const figure: Element = figureEl; // non-null for the closures below
-
   // A floor-suppressed opt-in plays the FULL author-intended motion (the viewer explicitly asked
   // to see it); an un-suppressed `legible` scene autoplays its safe, vestibular-stripped projection.
   const playScene = floorSuppressed ? scene : tier === 'legible' ? toLegible(scene) : scene;
@@ -210,8 +236,8 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
   const renderer: Renderer = maybeRenderer; // non-null for the closures below
   const timeline = compile(playScene);
   const loop = hasContinuousMotion(playScene);
-  const assets = assetsFor(playScene, figure, opts.sanitize ?? ((m) => m));
-  const poster = figure.querySelector('svg'); // SVGSVGElement | null
+  const assets = assetsFor(playScene, resolved.assetMarkup);
+  const poster = resolved.poster as HTMLElement | SVGElement | null; // hidden on mount, restored on dispose
 
   const control = makeControl(doc, onControlClick);
   let stage: HTMLElement | null = null;
@@ -325,7 +351,10 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
   }
 
   // The control is present from the start: a floor-suppressed scene shows the poster + opt-in
-  // straight away; an ordinary scene gets ⏸ the moment it mounts.
+  // straight away; an ordinary scene gets ⏸ the moment it mounts. `.anima-live` is the HOST marker
+  // the control + stage CSS keys off (scene.styles.css) — applied to WHATEVER figure we mount into
+  // (a `.scene-figure` or a chart's `.funnel-figure`), so both surfaces share one control style.
+  figure.classList.add('anima-live');
   figure.appendChild(control.el);
   sync();
 
@@ -377,18 +406,21 @@ function hydrateOne(section: Element, opts: HydrateOptions): SceneController | n
       if (hideTimer) clearTimeout(hideTimer);
       unmount();
       control.el.remove();
+      figure.classList.remove('anima-live');
     },
   };
 }
 
-/** Hydrate ONE `section.scene[data-scene-spec]`. Returns a controller (whose `dispose`
- *  also clears the `data-scene-live` marker), or null if the scene should stay a static
- *  poster (bad spec / `still` tier / no backend / no figure) OR is already live. This is
- *  the per-section primitive a re-rendering surface diffs against so unchanged scenes keep
- *  running across a re-render (see docs/src/playground/anima-scenes.ts). */
-export function hydrateScene(section: Element, opts: HydrateOptions = {}): { dispose(): void } | null {
+/** Hydrate ONE already-resolved scene on `section`. The SHARED host primitive both surfaces go
+ *  through — the `data-scene-spec` scene path (hydrateScene) and the chart path (hydrateChart, in
+ *  chart-anima-hydrate.ts, which resolves via chartToScene OUTSIDE the Anima boundary). Owns the
+ *  single `data-scene-live` liveness marker (so a re-rendering surface can diff either kind), and
+ *  returns a controller whose `dispose` clears it. Returns null if already live or the scene stays
+ *  a poster. This is the per-section primitive createAnimaScenes diffs against so unchanged scenes
+ *  keep running across a re-render. */
+export function hydrateResolved(section: Element, resolved: ResolvedScene, opts: HydrateOptions = {}): { dispose(): void } | null {
   if (section.getAttribute('data-scene-live') === '1') return null; // already live
-  const c = hydrateOne(section, opts);
+  const c = hydrateOne(section, resolved, opts);
   if (!c) return null;
   section.setAttribute('data-scene-live', '1');
   return {
@@ -397,6 +429,15 @@ export function hydrateScene(section: Element, opts: HydrateOptions = {}): { dis
       section.removeAttribute('data-scene-live');
     },
   };
+}
+
+/** Hydrate ONE `section.scene[data-scene-spec]`. Resolves the baked spec source, then delegates
+ *  to the shared `hydrateResolved`. Returns a controller or null (bad spec / `still` / no backend /
+ *  no figure / already live). */
+export function hydrateScene(section: Element, opts: HydrateOptions = {}): { dispose(): void } | null {
+  const resolved = resolveSpecSource(section, opts.sanitize ?? ((m) => m));
+  if (!resolved) return null;
+  return hydrateResolved(section, resolved, opts);
 }
 
 /** Hydrate every `section.scene[data-scene-spec]` under `root`. Idempotent (skips an

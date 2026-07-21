@@ -51,36 +51,44 @@ export function createAnimaScenes({ getFrame }: { getFrame: () => HTMLIFrameElem
     live.clear();
   }
 
+  // A section is an eligible live target if it is a baked scene OR an opted-in chart. Both kinds now
+  // flow through ONE host (hydrateResolved) and share the `data-scene-live` marker, so the diff is
+  // KIND-AGNOSTIC: a tracked section is disposed the moment it stops being either — whether it left
+  // the DOM, a scene lost its spec, OR a chart lost its opt-in class on a reused node. That single
+  // rule fixes the two forked-diff bugs: a `scene chart-anima` section no longer thrashes
+  // (still eligible → kept), and an opted-out chart no longer leaks (no longer eligible → disposed).
+  const isEligible = (s: Element): boolean => s.matches('section.scene[data-scene-spec]') || s.matches(CHART_ANIMA_SEL);
+
   function rebind(): void {
     const doc = frameDoc();
     if (!doc) {
       disposeAll();
       return;
     }
-    // Dispose a tracked section that left the DOM (full srcdoc rewrite / section patch), or a
-    // SCENE that lost its spec. A chart-anima section carries no spec, so guard the spec check to
-    // scenes only (else every chart would be disposed on the next rebind).
     for (const [section, ctrl] of Array.from(live)) {
-      const staleScene = section.matches('section.scene') && !section.getAttribute('data-scene-spec');
-      if (!doc.contains(section) || staleScene) {
+      if (!doc.contains(section) || !isEligible(section)) {
         ctrl.dispose();
         live.delete(section);
       }
     }
-    // Mount any scene not already tracked. An unchanged section is the SAME node → still in
-    // `live` → skipped (it keeps running). `eager` mounts immediately rather than via a
-    // parent-context IntersectionObserver, which is unreliable across the transform-scaled
-    // child iframe; a typical deck has a handful of scenes, and diffing keeps them stable.
+    // Mount any target not already tracked. An unchanged section is the SAME node → still in `live`
+    // → skipped (it keeps running). `eager` mounts immediately rather than via a parent-context
+    // IntersectionObserver, which is unreliable across the transform-scaled child iframe; a typical
+    // deck has a handful of targets, and diffing keeps them stable. SCENES scan FIRST so a baked
+    // spec wins over the chart on-ramp on a both-classes section (the chart loop then skips it as
+    // already live; hydrateResolved's marker is the belt-and-suspenders guard).
     for (const section of Array.from(doc.querySelectorAll('section.scene[data-scene-spec]'))) {
       if (live.has(section)) continue;
       const ctrl = hydrateScene(section, { eager: true, sanitize: sanitizeSlideHtml });
       if (ctrl) live.set(section, ctrl);
     }
-    // Mount any opted-in chart (`section.chart-anima`) not already tracked — the model-free chart
-    // on-ramp. hydrateChart derives the scene from the chart's own native-roled marks at view time.
+    // Any opted-in chart (`section.chart-anima`) not already tracked — the model-free chart on-ramp.
+    // hydrateChart derives the scene from the chart's own native-roled marks at view time, then goes
+    // through the SAME host, so a chart gets the control, reduced-motion tiers + opt-in, and (off the
+    // Playground, where IO is reliable) lazy mount. `eager` here for the same scaled-iframe reason.
     for (const section of Array.from(doc.querySelectorAll(CHART_ANIMA_SEL))) {
       if (live.has(section)) continue;
-      const ctrl = hydrateChart(section, { sanitize: sanitizeSlideHtml });
+      const ctrl = hydrateChart(section, { eager: true, sanitize: sanitizeSlideHtml });
       if (ctrl) live.set(section, ctrl);
     }
   }

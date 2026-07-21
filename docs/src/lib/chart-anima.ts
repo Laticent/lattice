@@ -55,7 +55,9 @@ export interface ChartAnimaResult {
 
 /** The first class on a node that we know a role for (else null). */
 function roleForNode(el: Element): ChartRole | null {
-  // A per-node `data-anima-role` wins if a renderer ever emits one (forward-compatible); else the class map.
+  // A per-node `data-anima-role` is AUTHORITATIVE — the renderer declares the role (the funnel emits
+  // it natively; §0.75), so we honor it over the class map rather than guessing from the class name.
+  // The class map is the fallback for charts that don't yet emit roles.
   const explicit = el.getAttribute('data-anima-role');
   if (explicit && isRole(explicit)) return explicit;
   for (const cls of Array.from(el.classList)) {

@@ -27,6 +27,20 @@ describe('chartToScene', () => {
     expect(bars[0].id).toBe('bar-0');
   });
 
+  it('reads data-anima-role AUTHORITATIVELY — a non-default role wins over the class map', () => {
+    // A geometry mark with NO class we know, tagged data-anima-role="sector". If the attribute were
+    // ignored, roleForNode would fall through to the geometry default 'bar' — so asserting 'sector'
+    // fails unless data-anima-role is genuinely read. (This is the guard the trivial old test lacked.)
+    const svg =
+      '<svg viewBox="0 0 100 100">' +
+      '<polygon data-mark="0" data-anima-role="sector" points="0,0 10,0 5,10"/>' +
+      '<polygon class="funnel-band" data-mark="1" data-anima-role="point" points="0,0 10,0 5,10"/>' +
+      '</svg>';
+    const out = chartToScene(svg);
+    const roles = out?.roles.filter((r) => r.mark != null).map((r) => r.role) ?? [];
+    expect(roles).toEqual(['sector', 'point']); // 'sector' (no class) and 'point' (overriding funnel-band→bar)
+  });
+
   it('produces a scene that PASSES the anima validator', () => {
     const out = chartToScene(FUNNEL);
     const r = parseScene(out?.scene);
