@@ -910,12 +910,16 @@ in patch versions.
   was revealed **unscaled** at its intrinsic 1280px, pushing the slide's centered content outside the
   visible box → a blank card. Reveal is now owned by `scaleFrame` and gated on a real width: the frame
   stays hidden until it can be correctly scaled, the host `ResizeObserver` reveals it the instant width
-  arrives, and the 4s backstop re-fits before its last-ditch reveal. As a companion iOS fix, the shared
+  arrives, and a backstop re-fits before its last-ditch reveal. As a companion iOS fix, the shared
   preview's `position:fixed` host now also re-measures on `visualViewport` resize/scroll — iOS Safari
   collapses its URL bar during load and fires *only* those events (not `window` resize/scroll), so the
   host was positioned against a stale rect and could strand off-screen/oversized (the reported "huge
-  card"). (Superseded in part by the one-skeleton reshape above, which makes the preview box a race-free
-  CSS-contained 16:9 anchor so the host always tracks a correct rectangle.)
+  card"). (**Superseded by the in-flow reframe above:** the shared `position:fixed` host and its
+  `visualViewport` re-measure are DELETED — the editor preview is a normal in-flow layout child, so
+  nothing tracks a rect and the drift is structurally unreachable. The width-gated reveal survives but
+  is now driven by an `opacity` 0→1 **content gate** — `scaleFrame` reveals once `.lattice` has painted
+  AND the host has real width — polled (iOS drops the srcdoc `onload`) until `__latticePendingLoad`
+  clears, not by `onload`/a fixed timer.)
   (`docs/src/lib/single-slide-render.ts`,
   `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
 - **A phone held in landscape is no longer a dead editing surface — the slide fills the screen and you
