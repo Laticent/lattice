@@ -2729,9 +2729,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					// A landscape PHONE viewport is always wider than a 16:9 slide, so height
 					// always binds — force fit-by-height there rather than trusting the measured
 					// axis (which raced stale and left the slide width-bound = too tall).
+					// max-w-full / max-h-full are CONTAIN GUARDS on the derived axis: a `h-full
+					// w-auto` box derives width = paneHeight × ratio, which on a PORTRAIT phone
+					// (tall pane) overflows the viewport into the "huge, cut-off card" whenever
+					// previewFitByHeight is stuck at its default (the iOS measurement race). The
+					// clamp caps the derived axis to the container so the box can never exceed
+					// the screen — it degrades to a correctly width-fit, letterboxed slide
+					// instead of a giant off-screen one, independent of any measurement timing.
 					split.collapsed === 'a' || previewChromeless
-						? (previewFitByHeight || landscapePhone ? 'h-full w-auto' : 'h-auto w-full')
-						: previewPortrait ? 'h-full w-auto' : 'h-auto w-full max-w-[760px]')}
+						? (previewFitByHeight || landscapePhone ? 'h-full w-auto max-w-full' : 'h-auto w-full max-h-full')
+						: previewPortrait ? 'h-full w-auto max-w-full' : 'h-auto w-full max-w-[760px] max-h-full')}
 					style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
 					{/* Empty SLOT — the ONE shared preview (hoisted at the studio root) is positioned
 					    to overlay this box; the iframe never lives here (moving it would reload it). */}

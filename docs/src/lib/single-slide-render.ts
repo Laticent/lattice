@@ -127,6 +127,11 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
 type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean };
+// The live iframe carries a one-way "its srcdoc has painted" latch (set in onload) so
+// scaleFrame reveals it only AFTER paint — never while it's the pre-load `about:blank`
+// white document. Never reset: subsequent full-writes keep the old doc visible until the
+// new one commits, so the frame must stay revealed across re-renders.
+type LiveFrame = HTMLIFrameElement & { __latticeLoaded?: boolean };
 
 // Replace ONLY the live document's `.lattice` contents with a new (already
 // sanitized) slide — the resident theme <style> + runtime <script> stay parsed and
@@ -289,14 +294,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		fr.style.height = geom.height + 'px';
 		if (w > 0) {
 			fr.style.transform = 'scale(' + (w / geom.width).toFixed(5) + ')';
-			// Reveal ONLY once we have a real width to scale to. Revealing while the host
-			// measures 0 leaves the frame UNSCALED at its intrinsic geom.width (e.g. 1280px),
-			// overflowing its container so the slide's centered content falls outside the
-			// visible box and reads as BLANK — observed on iOS Safari's load reflow, where the
-			// shared preview host is briefly 0-wide (the huge off-screen card in the device
-			// report). The host ResizeObserver re-runs this the instant width arrives, revealing
-			// the correctly-scaled slide then; the onload path no longer force-reveals at w===0.
-			if (fr.style.visibility === 'hidden') fr.style.visibility = 'visible';
+			// Reveal ONLY once we have a real width to scale to (else the frame reveals
+			// UNSCALED at its intrinsic geom.width, e.g. 1280px, overflowing the box so the
+			// slide's centered content falls outside it and reads as BLANK — iOS load reflow,
+			// host briefly 0-wide) AND once the srcdoc has actually PAINTED (onload set
+			// __latticeLoaded). The loaded gate is load-bearing: scaleFrame also runs
+			// SYNCHRONOUSLY pre-load (right after `fr.srcdoc = …` below) when the frame is
+			// still `about:blank` — an OPAQUE WHITE document on iOS — so revealing there
+			// flashes white before the dark slide paints. Waiting for onload closes that
+			// white-about:blank window; the host ResizeObserver + the 4s backstop still
+			// reveal once width/paint arrive.
+			if (fr.style.visibility === 'hidden' && (fr as LiveFrame).__latticeLoaded) fr.style.visibility = 'visible';
 		}
 	}
 
@@ -635,6 +643,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// This srcdoc has committed — future same-sig renders may now patch it.
 					(host as LiveHost).__latticePendingLoad = false;
 					const tFit = performance.now();
+					// The srcdoc has now PAINTED — latch it so scaleFrame is allowed to reveal
+					// (the pre-load scaleFrame is gated OUT by this flag, closing the white-
+					// about:blank window). Set BEFORE scaleFrame so this same call can reveal.
+					(fr as LiveFrame).__latticeLoaded = true;
 					// scaleFrame both fits AND reveals — but ONLY once the host has a real
 					// width. When the srcdoc paints while the host is still 0-wide (iOS load
 					// reflow), it stays hidden here rather than revealing an unscaled, blank

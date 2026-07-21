@@ -95,8 +95,18 @@ export function useSharedPreviewSlot({
 			host.style.pointerEvents = presentActive ? 'auto' : 'none';
 			host.style.top = `${r.top}px`;
 			host.style.left = `${r.left}px`;
-			host.style.width = `${r.width}px`;
-			host.style.height = `${r.height}px`;
+			// CLAMP the host SIZE to the viewport — a HARD invariant, independent of WHY the
+			// slot measured the way it did. A preview host can never legitimately exceed the
+			// screen; but on iOS the slot's getBoundingClientRect can come back oversized during
+			// the URL-bar/layout reflow (the "huge, cut-off card" reported on iPhone — a slot
+			// the fit-by-height preview box briefly derives far wider than the viewport). Capping
+			// to the visual viewport degrades the worst case to a correctly-sized, on-screen
+			// preview instead of a giant one — regardless of the measurement bug behind it, and a
+			// no-op whenever the slot already fits. Only SIZE is clamped (not position): the slot
+			// can legitimately scroll partially off-screen in Present, and pinning the origin
+			// would detach the host from its slot mid-scroll.
+			host.style.width = `${Math.min(r.width, window.visualViewport?.width ?? window.innerWidth)}px`;
+			host.style.height = `${Math.min(r.height, window.visualViewport?.height ?? window.innerHeight)}px`;
 			assertNoTransformedAncestor(host);
 		};
 		// Coalesce observer-driven re-measures to ONE rAF so the controller can't
