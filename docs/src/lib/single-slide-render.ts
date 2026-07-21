@@ -600,24 +600,23 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// we cannot wait on it (on-device: frame scaled but stuck hidden forever,
 					// rev:NO — the blank). Poll on a rAF-ish cadence: each tick re-fits + reveals
 					// the moment BOTH the host has width AND the slide has painted, with no
-					// dependence on the load event or a host-resize firing. Stops on reveal; a
-					// hard ceiling (~4s) force-reveals as the ultimate backstop (an unscaled frame
-					// beats a permanently hidden one) and also bounds the poll if the host unmounts.
+					// dependence on the load event or a host-resize firing. Stops on reveal or
+					// when the ~10s window elapses. There is deliberately NO force-reveal of a
+					// still-not-good frame: the SKELETON model prefers the loader staying up over
+					// flashing an unscaled/broken slide (DeckPreview keys its loader-fade on this
+					// reveal), and the persistent host ResizeObserver keeps re-fitting after the
+					// poll ends, so a later width change still reveals the frame the instant it's
+					// good. A frame that never becomes good simply stays behind the skeleton.
 					const revealFr = fr;
 					let revealTicks = 0;
 					const revealPoll = setInterval(() => {
 						revealTicks++;
-						if (disposed || !host.isConnected) {
+						if (disposed || !host.isConnected || revealFr.style.visibility !== 'hidden' || revealTicks > 100) {
 							clearInterval(revealPoll);
 							ownedIntervals.delete(revealPoll);
 							return;
 						}
-						scaleFrame(host); // reveals iff host width>0 AND the srcdoc has painted .lattice
-						if (revealFr.style.visibility !== 'hidden' || revealTicks >= 40) {
-							clearInterval(revealPoll);
-							ownedIntervals.delete(revealPoll);
-							if (revealFr.style.visibility === 'hidden') revealFr.style.visibility = 'visible'; // last-ditch
-						}
+						scaleFrame(host); // reveals IFF host width>0 AND the srcdoc has painted .lattice — never a broken frame
 					}, 100);
 					ownedIntervals.add(revealPoll);
 					if (typeof ResizeObserver !== 'undefined') {

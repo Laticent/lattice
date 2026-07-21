@@ -99,20 +99,16 @@ export function DeckPreview({
 	loader = false,
 	...aria
 }: DeckPreviewProps) {
-	// Nacre loader hand-off: mounted once (a stable child, so it never disturbs the
-	// imperatively-appended `iframe.live` trailing it), flipped to `is-done` on the first
-	// successful paint — which fades it out and freezes its animation. Held in state so the
-	// class flip re-renders; the render closure below does NOT depend on it.
+	// Nacre loader = the SKELETON. It owns the screen for the whole load and yields ONLY
+	// when the live slide is verified genuinely good — i.e. the renderer has actually
+	// REVEALED `iframe.live` (visibility:visible), which single-slide-render.ts does only
+	// once the slide has painted AND is scaled to a real width, and the shared-host clamp
+	// keeps on-screen. So "revealed" == "good", and a broken/racing render is never exposed:
+	// the skeleton simply stays until the real thing is right (or forever, which is the
+	// deliberate preference over flashing a huge/shoved/blank frame). The reveal-watcher
+	// effect (below, once stageRef exists) flips this. NO time-based auto-fade — a timeout
+	// would defeat the whole model by dropping the skeleton onto a not-yet-good slide.
 	const [painted, setPainted] = React.useState(false);
-	// Belt-and-suspenders: `painted` normally flips on the iframe's `load` (see fire()
-	// below). If that event is ever dropped (teardown race / pathological doc), freeze the
-	// loader after a generous ceiling so its 3 blend layers can't composite forever behind
-	// an already-painted slide. A real load flips it far sooner, making this a no-op.
-	React.useEffect(() => {
-		if (!loader || painted) return;
-		const t = setTimeout(() => setPainted(true), 10000);
-		return () => clearTimeout(t);
-	}, [loader, painted]);
 	// On-device diagnostic (Studio preview only, opt-in via `?previewdiag`): a live
 	// green readout of the exact state behind a "blank preview" — host size, the live
 	// frame's visibility/transform, whether the in-iframe `.lattice` is present + visible,
@@ -218,6 +214,36 @@ export function DeckPreview({
 	onFirstRenderRef.current = onFirstRender;
 	const firstRenderFiredRef = React.useRef(false);
 
+	// Reveal-watcher — the skeleton hand-off. Fade the Nacre loader AND fire onFirstRender
+	// (dismiss the SSG instant-shell) exactly when the live `iframe.live` is made VISIBLE.
+	// single-slide-render reveals the frame only once its slide has painted and is scaled to
+	// a real width (never a broken/unscaled/0-wide frame), and the shared-host clamp keeps it
+	// on-screen — so "visibility:visible" is our single source of truth for "the live slide is
+	// genuinely good". Watching the frame's own style (MutationObserver) is reliable where the
+	// srcdoc `load` event is not (iOS drops it). Until this fires, the skeleton owns the screen.
+	// Only relevant to loader hosts (the shared Studio preview); others never mount the Nacre.
+	React.useEffect(() => {
+		if (!loader) return;
+		const host = stageRef.current;
+		if (!host) return;
+		const handoff = () => {
+			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+			if (!fr || fr.style.visibility === 'hidden' || !fr.style.visibility) return false;
+			setPainted(true); // fade + freeze the skeleton — the good slide now covers it
+			if (!firstRenderFiredRef.current) {
+				firstRenderFiredRef.current = true;
+				onFirstRenderRef.current?.();
+			}
+			return true;
+		};
+		if (handoff()) return;
+		const mo = new MutationObserver(() => {
+			if (handoff()) mo.disconnect();
+		});
+		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
+		return () => mo.disconnect();
+	}, [loader]);
+
 	// Re-render when the theme's NAME or its CSS CONTENT changes. The live-derived
 	// specimen has a content-hash name (so name alone would suffice), but a SAVED
 	// library theme keeps a stable slug name while its CSS can change (re-save after
@@ -238,29 +264,12 @@ export function DeckPreview({
 		}).catch((e) => {
 			lastStatusRef.current = `THROW:${String((e as Error)?.message || e).slice(0, 40)}`;
 		});
-		if (done && !firstRenderFiredRef.current) {
-			done
-				.then((st) => {
-					if (!st?.ok || firstRenderFiredRef.current) return;
-					const fire = () => {
-						if (firstRenderFiredRef.current) return;
-						firstRenderFiredRef.current = true;
-						setPainted(true); // fade + freeze the Nacre loader now the slide covers it
-						onFirstRenderRef.current?.();
-					};
-					// renderInto resolves when the srcdoc is SET — the iframe's own load
-					// (parse + scale/reveal) fires LATER. Wait for that so a consumer
-					// (the SSG instant-shell dismissal) doesn't swap out its static slide
-					// while the live frame is still blank. Resolve runs as a microtask
-					// before the load macrotask, so the listener attaches in time; the
-					// readyState guard covers the already-loaded edge.
-					const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
-					if (!fr) fire();
-					else if (fr.contentDocument?.readyState === 'complete') fire();
-					else fr.addEventListener('load', fire, { once: true });
-				})
-				.catch(() => {});
-		}
+		// The skeleton hand-off (fade the loader + dismiss the SSG instant-shell) is NOT
+		// driven from here on "a render happened" — it's driven by the reveal-watcher effect
+		// when the live frame is actually made visible (== genuinely good). Keying it on the
+		// render/load event was the bug: iOS fires the srcdoc load unreliably, and even when
+		// it fired it fired before the frame was revealed/scaled, dropping the skeleton onto a
+		// still-blank or broken slide.
 		// Return the render promise so the frame scheduler can await it for
 		// backpressure — never overlap two renders on the same host.
 		return done;
