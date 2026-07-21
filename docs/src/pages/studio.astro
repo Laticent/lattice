@@ -180,9 +180,13 @@ const DEFAULT_RATIO = DECK_RATIOS[firstDeck.id] ?? [16, 9];
 // on the flaky iOS reveal). One skeleton, one rect, one honest ground — the seam is now
 // structurally impossible. See engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
 // Chrome for the instant shell (topbar + centered stage). Keyed under #studio-ssr-shell so
-// it never touches the hydrated island.
-const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:#e7e7ea;color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
-:root[data-mode="dark"] #studio-ssr-shell{background:#0c0c0c;color:#e8e8e8;}
+// it never touches the hydrated island. The shell ground is the theme `var(--bg)` (the SAME
+// token the hydrated app's root `bg-background` and the Nacre card resolve to) — NOT a hardcoded
+// near-black. A hardcoded `#0c0c0c` made the pre-hydration letterbox flash BLACK around the navy
+// Nacre card, then jump to the app's navy `--bg` on hydration (reported on iPhone reload). Using
+// `var(--bg)` makes the letterbox, the Nacre card, and the hydrated pane one continuous ground.
+const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
+:root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:#e8e8e8;}
 #studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(0,0,0,.08);background:#fbfbfa;}
 :root[data-mode="dark"] #studio-ssr-shell .ssr-topbar{background:#161616;border-bottom-color:rgba(255,255,255,.08);}
 #studio-ssr-shell .ssr-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 45deg,#1a3a5c,#3f6d9c,#1a3a5c);flex:0 0 auto;}

@@ -885,7 +885,9 @@ in patch versions.
   reliably-contained 16:9 (a portrait phone is width-bound, so the Nacre can't bleed into a letterbox);
   and the live slide reveals only when it is genuinely good (painted + width-scaled + clamped on-screen),
   with the skeleton holding until then. One surface, one coordinate system — the seam is structurally
-  impossible. The skeleton box also no longer **jumps** at hand-off (worst on tablet, where the app uses
+  impossible. The letterbox bands sit on the theme `var(--bg)` — the SAME ground the hydrated app's pane
+  and the Nacre card resolve to — so a reload no longer flashes a **black** letterbox before the app's
+  themed background paints (a hardcoded near-black `#0c0c0c` shell ground, reported on iPhone reload). The skeleton box also no longer **jumps** at hand-off (worst on tablet, where the app uses
   a two-pane split the fixed shell didn't reproduce): the app persists its real preview-box rect on
   unload, and the pre-hydration shell replays that exact rect — a same-device reload now lands the Nacre
   pixel-identical to where the app re-measures it (`dx=dy=dw=dh=0` at desktop/tablet/mobile). A first
