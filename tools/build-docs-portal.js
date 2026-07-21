@@ -296,7 +296,20 @@ function resolvePalettes() {
     // light/dark. Hue-preserving, so the a11y palettes keep their colorblind-safe fill
     // (blue/amber, grayscale) instead of a hardcoded red/green.
     for (const s of ['pass', 'warn', 'fail']) {
-      const base = /^#[0-9a-f]{6}$/i.test(light[s]) ? ensureContrast(light[s], '#ffffff', 4.5, 'darken') : light[s];
+      // FAIL LOUD on a non-hex status value, exactly like isDarkSurface below. Every
+      // palette resolves --pass/--warn/--fail to a literal hex today, so a non-hex value
+      // means a future theme expressed its status color as color-mix()/oklch()/light-dark()
+      // we can't darken here. Passing it through un-repaired would ship an un-contrast-checked
+      // fill under white text — the ~2:1 failure this token exists to prevent — so we throw
+      // and force the author to extend the parser rather than silently regress AA.
+      if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(String(light[s]).trim())) {
+        throw new Error(
+          `status fill: --${s} "${light[s]}" (palette "${name}") is not a hex literal, so ` +
+            `its white-text-safe fill can't be derived. Extend the parser (or resolve --${s} ` +
+            `to hex) rather than let a bright status color ship as an un-checked fill.`,
+        );
+      }
+      const base = ensureContrast(light[s], '#ffffff', 4.5, 'darken');
       light[`${s}-fill`] = base;
       dark[`${s}-fill`] = base;
     }

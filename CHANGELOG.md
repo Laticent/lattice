@@ -816,10 +816,12 @@ in patch versions.
   chips) — the plain `--pass`/`--warn`/`--fail` are foreground-tuned and go bright in dark mode, so a
   `text-white` fill on them dropped to ~2:1. The generator darkens each status hue until white text
   clears AA, per palette + mode, so a FILL is theme-aware AND colorblind-safe (an a11y palette shows a
-  blue/amber/gray chip, not red/green). (2) `bg-[var(--accent)] text-white` controls (the Library
-  select checkboxes, the ReshapePicker "Current" badge) now use `text-[var(--on-accent)]` — `--accent`
-  resolves *light* in dark mode for some palettes, so white text was low-contrast. (3) `cuoio`'s light
-  `--warn` `#B47200` (3.67:1) darkened to `#8A5A00` (5.5:1) — the same sub-AA issue as carta's. (4) the
+  blue/amber/gray chip, not red/green). The derivation now *fails loud* on a non-hex status value
+  instead of shipping an un-contrast-checked fill. (2) `bg-[var(--accent)] text-white` controls (the
+  Library select checkboxes, the ReshapePicker "Current" badge, the SlidePicker "Insert" hover label)
+  now use `text-[var(--on-accent)]` — `--accent` resolves *light* in dark mode for some palettes, so
+  white text was low-contrast. (3) `cuoio`'s light `--warn` `#B47200` (3.67:1) darkened to `#8A5A00`
+  (5.5:1) — the same sub-AA issue as carta's. (4) the
   headline-picker swatches (`var(--text-secondary)`, a non-chrome token) fall back to `--text-muted` so
   they stay visible on chrome. (5) the token generator's `@import` strip is now `url()`-aware.
 - **Status colors (pass / warn / fail) now theme correctly on the docs-site chrome — including the

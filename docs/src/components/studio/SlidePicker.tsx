@@ -351,7 +351,7 @@ function Tile({ item, options, frontMatter, paletteOverride, extraTheme, modeOve
 					<span className="min-w-0 flex-1 truncate font-mono text-[11px] font-semibold text-[var(--text-heading)]">{item.name}</span>
 				</div>
 				{/* Insert affordance on hover/focus — decorative; the button fills the tile. */}
-				<span className="pointer-events-none absolute inset-x-2 bottom-9 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+				<span className="pointer-events-none absolute inset-x-2 bottom-9 flex items-center justify-center gap-1 rounded-lg bg-[color-mix(in_srgb,var(--accent)_92%,#000)] py-1.5 text-[12px] font-semibold text-[var(--on-accent)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
 					<Plus className="size-3.5" /> Insert
 				</span>
 			</button>
