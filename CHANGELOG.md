@@ -1113,6 +1113,24 @@ in patch versions.
 
 ### Changed
 
+- **The docs PWA now serves content-hashed assets cache-first, killing the reload-revalidation storm.**
+  The service worker (`docs/public/sw.js`) used one strategy for all same-origin files —
+  stale-while-revalidate — which re-fetches and re-writes *every* cached asset on *every* reload, with
+  each write scanning the whole cache twice. On a returning normal-browsing profile that's a real
+  per-reload cost that grows over time (a real iOS Safari device showed **114** cached entries vs **2**
+  in a fresh private window — the reload-speed gap the new storage overlay surfaced). But the bulk of
+  that cache is content-hashed — our `/playground/v/<hash>/…` bundle (engine, runtime, theme CSS, KaTeX,
+  Mermaid) AND Astro's own `/_astro/` build chunks (the docs pages' JS/CSS) — so it's **immutable** (a
+  byte change ships under a new path). Both now serve **cache-first**
+  (like the fonts already do): read the saved copy, no network. Everything else same-origin stays
+  stale-while-revalidate, offline still works, and a deploy still lands instantly (navigations are
+  network-first). The asset-cache cap was raised (300 → 800) so a heavy session's working set across both
+  immutable families can't FIFO-evict an in-use chunk that a page needs offline. No SW VERSION bump — the
+  change only alters how already-valid immutable entries are served, so nothing becomes stale, and a bump
+  would force a needless full re-download. Verified on the real worker (`docs/e2e/pwa.spec.ts`): a cached
+  asset from *each* immutable family serves with zero network revalidation while a non-hashed one still
+  revalidates. The *felt* iOS reload win is UNVERIFIED (can't bench iOS from CI; confirm on-device via the
+  storage overlay's per-reload request count). `engineering/decisions/2026-07-02-docs-pwa.md` (2026-07-21 update).
 - **The four diagnostics overlays now share one draggable-panel chassis (internal; no behavior change).**
   `PerfOverlay`, `VizDiagnosticsOverlay`, `ViewportDebugOverlay`, and `ReadAloudOverlay` had each grown
   their own ~80-line copy of the same draggable, `<body>`-portaled panel (grip drag, on-screen clamp,
