@@ -34,7 +34,11 @@ const REQUIRED = [
 	['slide box', /id="ssr-slidebox"/],
 	['nacre skeleton', /class="nacre-loader"/],
 	['nacre animated layer', /nacre-loader__layer--0/],
-	['shell-on seed', /data-ssr-shell/],
+	// Match the SEED SCRIPT's setAttribute call, NOT a bare `data-ssr-shell` — the latter also
+	// appears in the always-present CSS selector `:root[data-ssr-shell="on"]`, so the gate would
+	// pass even if the seed that actually flips the attribute were removed (shell stays hidden →
+	// blank-on-reload returns). This substring only exists in the inline seed.
+	['shell-on seed', /setAttribute\(\s*['"]data-ssr-shell['"]\s*,\s*['"]on['"]/],
 ];
 
 function main() {

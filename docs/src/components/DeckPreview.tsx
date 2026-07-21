@@ -139,15 +139,17 @@ export function DeckPreview({
 	// is our single source of truth for "the live slide is genuinely good". Watching the
 	// frame's own style (MutationObserver) is reliable where the srcdoc `load` event is not
 	// (iOS drops it). Until this fires, the skeleton owns the screen. The slide fades in over
-	// the loader (both ease out together → a clean cross-fade, no pop). Loader hosts only.
+	// the loader (both ease out together → a clean cross-fade, no pop). Runs for ANY host with
+	// a loader OR an onFirstRender callback; the loader FADE is loader-gated, so onFirstRender
+	// still fires on a non-loader host (it isn't silently coupled to the loader).
 	React.useEffect(() => {
-		if (!loader) return;
+		if (!loader && !onFirstRender) return;
 		const host = stageRef.current;
 		if (!host) return;
 		const handoff = () => {
 			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
 			if (!fr || fr.style.opacity === '0' || !fr.style.opacity) return false;
-			setPainted(true); // fade + freeze the skeleton — the good slide now fades in over it
+			if (loader) setPainted(true); // fade + freeze the skeleton (loader hosts only)
 			if (!firstRenderFiredRef.current) {
 				firstRenderFiredRef.current = true;
 				onFirstRenderRef.current?.();
@@ -160,7 +162,7 @@ export function DeckPreview({
 		});
 		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
 		return () => mo.disconnect();
-	}, [loader]);
+	}, [loader, onFirstRender]);
 
 	// Re-render when the theme's NAME or its CSS CONTENT changes. The live-derived
 	// specimen has a content-hash name (so name alone would suffice), but a SAVED

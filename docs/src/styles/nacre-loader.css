@@ -91,6 +91,12 @@
 :root[data-mode='light'] .nacre-loader__layer {
 	mix-blend-mode: multiply;
 }
+/* Light-mode ground fallback — kept in lockstep with the inline shell copy in
+   studio.astro (`var(--bg, #e9eef5)`). Without it, a moment where `--bg` is unset/late
+   would flash the DARK default (#0c1626) on a light page. */
+:root[data-mode='light'] .nacre-loader {
+	background: var(--bg, #e9eef5);
+}
 /* Accessibility: a viewer who asked for less motion gets a calm static nacre. */
 @media (prefers-reduced-motion: reduce) {
 	.nacre-loader__layer {
