@@ -1663,7 +1663,9 @@ of how many rows are here.
 - **Triggered by:** Referencing any slide-theme token from chrome that lives outside a
   slide (a `<body>`-portaled overlay / popover / toast).
 - **Commits:** status trio → `PORTAL_TOKENS` + `@import`-scan fix (a11y) + `carta` completion
-  + white-text-fill pins (#1142); the overlay dark-mode workaround it superseded (#1129).
+  + white-text-fill pins (#1142); the derived `--*-fill` trio + `--on-accent` fills +
+  `headline-catalog` fallback + `url()`-aware `@import` strip + cuoio `--warn` AA (#1149);
+  the overlay dark-mode workaround it superseded (#1129).
 
 ### Blurred `box-shadow` → opaque grey box around the element in some PDF viewers
 
