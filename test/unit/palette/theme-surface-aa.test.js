@@ -31,6 +31,13 @@ describe('theme surface AA (contrast-audit PAIRS over every theme)', () => {
         (f) => `${f.fgHex} on ${f.bgHex} = ${f.ratio.toFixed(2)}:1 — ${f.ctx}`,
       );
       assert.equal(res.fails.length, 0, `${name} sub-AA pairs:\n  ${lines.join('\n  ')}`);
+      // Also fail on UNRESOLVED pairs: a fg/bg the audit couldn't reduce to hex
+      // (a future color-mix()/oklch()/var(--x,fallback) surface resolveSurface
+      // doesn't handle) is silently skipped otherwise — turning a real sub-AA
+      // regression into a phantom "0 fails". Force the resolver to be extended
+      // instead of letting coverage rot. (0 missing across all themes today.)
+      const miss = res.missing.map((m) => `${m.fg} on ${m.bg} — ${m.ctx}`);
+      assert.equal(res.missing.length, 0, `${name} UNRESOLVED (extend resolveSurface):\n  ${miss.join('\n  ')}`);
     });
   }
 });
