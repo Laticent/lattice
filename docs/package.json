@@ -3,6 +3,7 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
+    "postinstall": "patch-package",
     "sync:portal": "node scripts/sync-portal.mjs",
     "sync:playground": "node scripts/sync-playground-assets.mjs",
     "showcase": "node scripts/rasterize-showcase.mjs",
@@ -103,6 +104,7 @@
     "esbuild": "^0.27.7",
     "fast-check": "^4.8.0",
     "jsdom": "^25.0.1",
+    "patch-package": "^8.0.1",
     "puppeteer-core": "^25.1.0",
     "typescript": "^6.0.3",
     "vitest": "^3.2.6"
