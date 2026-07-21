@@ -69,8 +69,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// the cursor slide. `idx` state persists across open/close (this component stays
 	// mounted, just returns null when closed), so a plain lazy-init alone wouldn't fix a
 	// RE-open; adjusting state during render re-renders before paint, killing the
-	// persisted-idx / slide-0 flash. It also means the shared preview's first present
-	// sample equals the editor's → opening Present is a patch/no-op, never a write.
+	// persisted-idx / slide-0 flash — Present's own preview mounts already showing the
+	// cursor slide, not slide 0.
 	const prevOpenRef = React.useRef(open);
 	if (open !== prevOpenRef.current) {
 		prevOpenRef.current = open;
@@ -647,13 +647,12 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 							<p className="max-w-[420px] text-[13px] leading-relaxed text-muted-foreground">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).body}</p>
 						</div>
 					) : (
-						// Empty SLOT — the shared preview host (StudioShell) is positioned to overlay
-						// this rect (z-101, beneath this chrome). `pointer-events-none` so a tap here
-						// falls through to that host (poster/video taps); the host provides the slide
-						// card's border/rounding/shadow. Keeps the 16:9 sizing the controller measures.
+						// Present's OWN live preview — IN-FLOW in this 16:9 card (no hoisted host, no
+						// positioning controller). `pointer-events-none` so a swipe reaches the gesture
+						// surface behind; the card frame (border/rounding/shadow) lives here.
 						<div className="pointer-events-none relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
-								<DeckPreview options={options} sample={presentSample ?? ''} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader />
-							</div>
+							<DeckPreview options={options} sample={presentSample ?? ''} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader />
+						</div>
 					)}
 				</div>
 				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={arrowCls(clamped >= count - 1)} aria-label="Next slide"><ChevronRight className="size-5" /></button>

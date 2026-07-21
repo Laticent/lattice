@@ -263,8 +263,11 @@ in patch versions.
   hoisted host, the measure-and-track controller (`use-shared-preview-slot.ts`), and the empty anchor slots are
   deleted. Assessment + design: `engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md`.
   (`docs/src/components/studio/StudioShell.tsx`, `docs/src/components/studio/PresentOverlay.tsx`.) *(iOS
-  freedom-from-drift is structural but UNVERIFIED on real hardware per the verification bar; opening Present
-  currently shows a brief loader — instant reopen (keep-warm) is a follow-up.)*
+  freedom-from-drift is structural but UNVERIFIED on real hardware per the verification bar. Warmth
+  tradeoffs, all loader-covered and pending the keep-warm follow-up: opening Present shows a brief loader
+  (its iframe mounts on open), the editor preview cold-remounts when entering/leaving Fabricate and across a
+  breakpoint/orientation change (the old hoisted host stayed warm through those), and while Present is open
+  two engine iframes coexist briefly (editor parked + Present's own).)*
 
 ### Security
 

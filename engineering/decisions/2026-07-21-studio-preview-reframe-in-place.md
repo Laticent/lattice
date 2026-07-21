@@ -74,6 +74,12 @@ paid to keep the fixed host out of the `container-type` box. **Change the box so
 
 ## Recommendation — reframe-in-place (change the sharing primitive, keep the warm iframe)
 
+> **What actually shipped (2026-07-21):** the DECOUPLED variant below (direction D), NOT this
+> shared-node reframe — see "Implementation note" further down for why. So the "Present stays
+> instant" promise in this section describes the *unbuilt* shared-node version; the shipped
+> decoupled Present shows a brief loader on open (keep-warm is a follow-up).
+
+
 **Keep the shell and keep the ONE shared warm iframe — but change sharing from
 RELOCATE-A-FIXED-HOST to REFRAME-IN-PLACE.**
 

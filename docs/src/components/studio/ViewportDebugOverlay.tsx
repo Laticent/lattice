@@ -48,11 +48,10 @@ type Geom = {
 	lvh: number;
 	stageH: number | null;
 	frame: { top: number; bottom: number; height: number } | null;
-	// The hoisted preview HOST (position:fixed) vs the SLOT it should overlay. The host is
-	// positioned from the slot's getBoundingClientRect WITHOUT the visualViewport offset
-	// (use-shared-preview-slot.ts), so a keyboard/zoom/panel shift moves it off the slot —
-	// the iPad "slide bleeds over the editor / overflows behind the keyboard" bug. This delta
-	// is the smoking gun: 0 = tracking, non-0 = mispositioned by that many px.
+	// Regression guard (was the iPad drift smoking gun). `slot` is the preview box; `host` is
+	// the live iframe's own rect. The preview is now IN-FLOW inside the box, so the two COINCIDE
+	// (delta ~0). A large delta would mean the iframe escaped its box — i.e. a fixed-positioning
+	// host crept back in and the visual-vs-layout-viewport drift class returned.
 	slot: { x: number; y: number; w: number; h: number } | null;
 	host: { x: number; y: number; w: number; h: number } | null;
 };
@@ -172,22 +171,22 @@ const METRICS: Metric[] = [
 		key: 'slot',
 		label: 'slot',
 		value: (g) => (g.slot ? `${g.slot.x},${g.slot.y} ${g.slot.w}×${g.slot.h}` : '—'),
-		what: 'The preview ANCHOR box in the pane — where the slide SHOULD sit. The hoisted host tracks this rect. Shows “—” outside the Studio split/read preview.',
+		what: 'The preview box in the pane — where the slide should sit. The in-flow iframe fills it, so this and “iframe” below should coincide. Shows “—” outside the Studio split/read preview.',
 		rel: (g) => {
 			const d = hostSlotDelta(g);
-			return d ? (d.max <= 1 ? 'the host is on it (≤1px).' : `the host is OFF it by ${d.max}px.`) : null;
+			return d ? (d.max <= 1 ? 'the iframe fills it (≤1px).' : `the iframe is OFF it by ${d.max}px.`) : null;
 		},
 	},
 	{
-		key: 'host',
-		label: 'host',
+		key: 'iframe',
+		label: 'iframe',
 		value: (g) => (g.host ? `${g.host.x},${g.host.y} ${g.host.w}×${g.host.h}` : '—'),
-		what: 'The hoisted position:fixed preview host — where the slide ACTUALLY is. It is placed from the slot rect WITHOUT the visualViewport offset, so a keyboard / pinch-zoom / panel shift slides it off the slot.',
+		what: 'The live preview iframe’s own rect. It is now IN-FLOW inside the box (no hoisted position:fixed host), so it should sit ON the box. A large gap would mean a fixed-positioning host crept back in — the retired iOS drift class.',
 		rel: (g) => {
 			const d = hostSlotDelta(g);
 			if (!d) return null;
-			if (d.max <= 1) return 'aligned to the slot.';
-			return `⚠ ${d.max}px off (dx ${d.dx}, dy ${d.dy}, dw ${d.dw}, dh ${d.dh}); visualViewport offset is ${g.vv ? `${g.vv.ol},${g.vv.ot}` : 'n/a'}.`;
+			if (d.max <= 1) return 'on the box (in-flow, as expected).';
+			return `⚠ ${d.max}px off the box (dx ${d.dx}, dy ${d.dy}, dw ${d.dw}, dh ${d.dh}) — a fixed host may have returned.`;
 		},
 	},
 ];
@@ -227,17 +226,16 @@ function Overlay() {
 			const iframeEl = document.querySelector('iframe.live');
 			const f = iframeEl?.getBoundingClientRect();
 			const stage = document.querySelector('[data-cinema-stage]')?.getBoundingClientRect();
-			// The anchor SLOT (the deck-ratio box in the preview pane) and the hoisted HOST (the
-			// nearest position:fixed ancestor of the live iframe). Both read via
-			// getBoundingClientRect, so their delta is a like-for-like on-screen comparison.
+			// The SLOT (the deck-ratio box in the preview pane) vs the live iframe's own rect. The
+			// preview is now IN-FLOW inside the box, so the two should COINCIDE (delta ~0); a large
+			// delta would mean the iframe escaped its box (a fixed host crept back in). Both via rect.
 			const R4 = (el: Element | null | undefined) => {
 				if (!el) return null;
 				const r = el.getBoundingClientRect();
 				return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
 			};
 			const slotEl = document.querySelector('#studio-pane-preview [style*="aspect-ratio"]');
-			let hostEl: HTMLElement | null = iframeEl?.parentElement ?? null;
-			while (hostEl && getComputedStyle(hostEl).position !== 'fixed') hostEl = hostEl.parentElement;
+			const hostEl: Element | null = iframeEl ?? null;
 			setGeom({
 				innerW: window.innerWidth,
 				innerH: window.innerHeight,
@@ -287,7 +285,7 @@ function Overlay() {
 						{fit == null ? <Chip label="fit" value="no stage" tone="muted" /> : <Chip label="fit" value={fit.fits ? '✓' : `overflow ${fit.over}px`} tone={fit.fits ? 'pass' : 'fail'} />}
 						{(() => {
 							const d = hostSlotDelta(geom);
-							return d ? <Chip label="host↔slot" value={d.max <= 1 ? '✓' : `off ${d.max}px`} tone={d.max <= 1 ? 'pass' : 'fail'} /> : null;
+							return d ? <Chip label="box↔iframe" value={d.max <= 1 ? '✓' : `off ${d.max}px`} tone={d.max <= 1 ? 'pass' : 'fail'} /> : null;
 						})()}
 					</div>
 					<div className="flex flex-col">

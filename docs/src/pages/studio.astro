@@ -270,6 +270,13 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DEFAULT_RATIO, PREVIEW_CHROME }}>
 			(function () {
 				var r = document.documentElement;
+				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
+				// In a storage-blocked context (private mode, disabled cookies) `getItem` THROWS,
+				// and if that throw happened before this line the catch would skip it, leaving the
+				// shell hidden = a blank preview (the exact failure this shell exists to prevent).
+				// It's a palette-blind Nacre skeleton, so it is correct for every visitor with no
+				// per-visitor decision to make; palette/geometry seeds below only refine it.
+				r.setAttribute('data-ssr-shell', 'on');
 				try {
 					var p = localStorage.getItem('lattice-studio-palette');
 					var palette = 'indaco';
@@ -282,12 +289,9 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					var mode = 'light';
 					if (m === 'light' || m === 'dark') { r.setAttribute('data-mode', m); mode = m; }
 					else if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) { r.setAttribute('data-mode', 'dark'); mode = 'dark'; }
-					// (color-scheme is pinned earlier, by <ColorSchemeSeed> at the top of <head>.)
-					// Show the instant shell to EVERY visitor: it is now a palette-blind Nacre
-					// skeleton (no baked slide / no per-visitor content), so there is no
-					// returning-user vs newcomer distinction to make — everyone gets the same
-					// calm shimmer until the live preview is ready.
-					r.setAttribute('data-ssr-shell', 'on');
+					// (color-scheme is pinned earlier, by <ColorSchemeSeed> at the top of <head>.
+					//  data-ssr-shell is set ABOVE, before this try, so the shell shows even if a
+					//  storage read throws.)
 					// RATIO SEED — the fallback box (a visitor with no persisted rect: a newcomer, or
 					// the one transitional reload right after this ships) must match the AUTHOR-CHOSEN
 					// size of the deck they boot into, never an assumed 16:9. Resolve it from the deck

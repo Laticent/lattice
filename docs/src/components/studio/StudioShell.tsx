@@ -414,8 +414,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// PERSIST the live preview-box rect (viewport fractions) on unload, so the next reload's
 	// pre-hydration Nacre shell (studio.astro) can place its skeleton at the EXACT rect the
 	// app will re-measure — a same-device reload then shows zero geometry jump at hand-off.
-	// This replays the app's OWN measured rect (previewBoxRef, the editor/read anchor the
-	// hoisted host tracks), so the shell reimplements none of the split/stop/ratio layout math
+	// This replays the app's OWN measured rect (previewBoxRef, the in-flow preview's box),
+	// so the shell reimplements none of the split/stop/ratio layout math
 	// and can't drift from it. Geometry only — no slide content is stored (that stays the
 	// Nacre-only, state-blind skeleton). Skipped while Present is open (its box is the
 	// slide-row card, not the editor anchor) and for a parked/collapsed 0-size box.
@@ -1399,10 +1399,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// react-resizable-panels split state via the shared hook (2026-07-19 migration).
 	// Same surface the hand-rolled useSplit had ({ collapsed, dragging, expand,
 	// collapse, reset }) so the ~20 downstream call sites are unchanged. The single-
-	// slide preview scales via a cheap outer CSS transform (scaleFrame) and the shared
-	// host tracks its slot LIVE, so both follow the divider THROUGH the drag — matching
-	// the Playground's in-flow iframe. It deliberately does NOT suspend scaleFrame for
-	// the drag's duration: the old suspend froze the fixed host at its pre-drag geometry
+	// slide preview scales via a cheap outer CSS transform (scaleFrame); the preview is
+	// IN-FLOW in its pane, so it follows the divider THROUGH the drag natively — like the
+	// Playground's in-flow iframe. It deliberately does NOT suspend scaleFrame for
+	// the drag's duration: the old suspend (from the retired fixed-host era) froze it
 	// so the slide overhung the shrinking neighbor pane (the "bleed"). One transform
 	// write on one host per frame is negligible; onDragEnd runs one authoritative refit
 	// as a belt-and-suspenders snap.
@@ -1882,8 +1882,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// aspect ratio, letterboxing the pane's spare axis. This is now done with PURE CSS at the
 	// box itself — `width: min(100%, 100cqh × ratio)` against `container-type:size` on the pane
 	// — so there is NO measured fit state to race (the old `previewFitByHeight` measure could
-	// bail on a 0-dim read during the iOS load reflow and leave the box the wrong shape, which
-	// the hoisted host then faithfully mirrored → the misplaced/oversized preview). See the box
+	// bail on a 0-dim read during the iOS load reflow and leave the box the wrong shape → the
+	// misplaced/oversized preview). See the box
 	// style below and engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
 	const previewRatio = sizeRatio(deckSize);
 	const previewHolderRef = React.useRef<HTMLDivElement>(null);
@@ -2579,9 +2579,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			id="studio-pane-preview"
 			inert={!mobile && split.collapsed === 'b' && effectiveStop !== 'read' ? true : undefined}
 			// [container-type:inline-size]: make the pane a size container so its header
-			// controls collapse on PANE width (mirrors the editor pane) — the shared
-			// preview host is a hoisted position:fixed sibling, NOT a descendant, so this
-			// containment can't establish a containing block for it (Crux A holds).
+			// controls collapse on PANE width (mirrors the editor pane). The preview iframe
+			// now lives IN-FLOW inside this pane and is never position:fixed, so this
+			// containment is harmless — there is no fixed descendant to trap (the old hoisted
+			// host, which this containment would have trapped, is retired).
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-collapsed=b]/split:hidden group-data-[split-dragging]/split:select-none"
 		>
 			{/* At the Read stop the preview is the whole surface — strip its editorial
@@ -2630,11 +2631,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					// container-type:size on previewHolder). So it fits inside the pane on ANY
 					// shape: a portrait phone binds to width (letterboxed top/bottom), landscape
 					// binds to height — deterministically, with nothing to measure or go stale.
-					// THIS BOX IS THE ANCHOR the hoisted preview host tracks; a race-free anchor is
-					// a correctly-placed preview (the host tracking itself was never the drift — the
-					// old JS `previewFitByHeight` produced a wrong-shape anchor the host then
-					// faithfully mirrored). The 760px comfort cap applies except in the fill cases
-					// (Read full-bleed / cinema / editor collapsed).
+					// The live preview lives IN-FLOW inside this box (no hoisted host tracking it),
+					// so the box's own CSS geometry IS the preview geometry. The 760px comfort cap
+					// applies except in the fill cases (Read full-bleed / cinema / editor collapsed).
 					style={{
 						aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}`,
 						width:
@@ -3045,9 +3044,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 				</React.Suspense>
 			) : landscapePhone ? (
-				/* iPhone LANDSCAPE — the "cinema" morph. The slide render is one surface that
-				   already moves between the editor's preview slot and Present's slot (the shared
-				   hoisted iframe); this is its third position: the slide fills the frame, swipe
+				/* iPhone LANDSCAPE — the "cinema" morph. The editor's in-flow preview fills the
+				   frame full-bleed here: the slide is the whole surface, swipe
 				   moves between slides, and every other scrap of chrome is gone (no header, no
 				   toolbar, no navigator — all suppressed above / in previewPane via
 				   previewChromeless). The only visible overlay is the whisper: a slide-progress
