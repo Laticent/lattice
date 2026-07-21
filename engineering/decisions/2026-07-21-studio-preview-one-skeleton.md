@@ -122,21 +122,23 @@ collapse possible (a measured height of 0 → a 0 width).
 **The box rect is actually a closed-form function of known inputs** — viewport, breakpoint,
 stop (read/write), the editor|preview split share, the deck ratio, and a handful of CSS-fixed
 chrome constants (topbar 54, mobile bar 53, holder pad 20/16, read chrome 0/49, write chrome
-47/81.6, cap 760). `computePreviewRect()` (`preview-rect.ts`) implements it, and a probe of the
-live app across the breakpoint × stop matrix confirms it reproduces the measured box to
-**≤0.1px**.
+47/81.6, cap 760). The seed script in `studio.astro` implements it **inline** over the shared
+`PREVIEW_CHROME` constants (`preview-rect.ts`), and a probe of the live app across the
+breakpoint × stop matrix confirms it reproduces the measured box to **≤0.1px**. (An earlier
+prototype factored the formula into a standalone `computePreviewRect()` helper + a
+`preview-rect.test.ts`; both were removed as un-consumed — an inline `<script>` can't import
+the helper anyway — leaving only the shared constants and the inline seed compute.)
 
 **Honest limits of the "shared source of truth" (an adversarial pass corrected the original
 framing):** only the `PREVIEW_CHROME` constants are genuinely shared — via `define:vars` into
-the seed. The seed does NOT import `computePreviewRect` (an inline `<script>` can't import), so
-it **re-implements the same formula by hand**; and the app still sizes its box with CSS
-(`min(100%, 100cqh × ratio, 760px)`) rather than calling the function. So the *math* lives in
-three places (the TS function, the inline seed copy, the app CSS), kept in agreement by
-transcription, not by a single call site. `preview-rect.test.ts` locks the FUNCTION to frozen
-measured fixtures — it catches an edit to `PREVIEW_CHROME`, but it does **not** catch app-side
-drift (change `h-[54px]`→`h-[60px]` in StudioShell and the test stays green while the seed
-silently diverges). A genuine drift gate would measure the live app and compare — a tracked
-follow-up. Until then the compute tier is a *first-load-only* nicety (returning users replay an
+the seed. The seed can't import a helper (an inline `<script>` can't import), so it carries the
+formula **inline**; and the app still sizes its box with CSS (`min(100%, 100cqh × ratio, 760px)`)
+rather than calling any shared function. So the *math* lives in two places (the inline seed compute
+and the app CSS), kept in agreement by transcription, not by a single call site. Nothing locks the
+seed formula to frozen fixtures once the standalone function + its test were removed — so a change
+to `PREVIEW_CHROME` is shared, but app-side drift is NOT caught (change `h-[54px]`→`h-[60px]` in
+StudioShell and the seed silently diverges). A genuine drift gate would measure the live app and
+compare — a tracked follow-up. Until then the compute tier is a *first-load-only* nicety (returning users replay an
 exact captured rect regardless of any constant drift), which bounds the blast radius of a stale
 constant to one un-replayed first paint.
 
@@ -148,22 +150,26 @@ exact, covers the Build stop's panels) → computed rect (exact for read/write/m
 ratio-only CSS fallback**. Not yet modeled: the Build stop's side panels and the landscape-phone
 cinema (replay still covers a returning visitor there).
 
-The larger prize this unlocks (not yet taken): if the **app** and the **engine host** consumed
-`computePreviewRect()` too — setting the box explicitly instead of measuring `100cqh` — the
-measured-flex 0-collapse class of bug (red team #2) would be eliminated at the root, and all
-three surfaces would share one source of truth. That is a StudioShell rendering change, tracked
-as the next step.
+The larger prize this unlocks (not yet taken): if the **app** and the **engine host** derived
+their box from the same `PREVIEW_CHROME` formula too — setting the box explicitly instead of
+measuring `100cqh` — the measured-flex 0-collapse class of bug (red team #2) would be eliminated
+at the root, and all three surfaces would share one source of truth (which, done properly, is the
+argument for reviving a single shared `computePreviewRect()` all three call rather than the
+current transcribed copies). That is a StudioShell rendering change, tracked as the next step.
 
 ## Files
 
-`docs/src/pages/studio.astro` (Nacre-only shell + geometry + ratio seed + rect-replay/compute CSS),
+`docs/src/pages/studio.astro` (Nacre-only shell + geometry + ratio seed + rect-replay/inline
+compute CSS),
 `docs/src/components/studio/slide-size.ts` (shared SIZE_RATIO source of truth),
-`docs/src/components/studio/preview-rect.ts` + `preview-rect.test.ts` (computePreviewRect: the
-closed-form box rect, shared by the shell; validated ≤0.1px vs the live app),
+`docs/src/components/studio/preview-rect.ts` (the shared `PREVIEW_CHROME` chrome constants the
+seed's inline compute consumes; the earlier standalone `computePreviewRect()` helper + its
+`preview-rect.test.ts` were removed as un-consumed),
 `docs/src/components/studio/StudioShell.tsx`
 (decoupled dismissal, removed Studio snapshot capture, persist preview-box rect on unload,
 import shared `sizeRatio`),
 `docs/src/components/DeckPreview.tsx` (skeleton reveal-watcher + anti-stuck floor),
 `docs/src/lib/single-slide-render.ts` (content-driven reveal, no force-reveal of a broken
-frame), `docs/src/components/studio/use-shared-preview-slot.ts` (on-screen size/position
-clamp), `docs/scripts/check-studio-shell.mjs` (gate updated to the Nacre-only markers).
+frame; the deleted `docs/src/components/studio/use-shared-preview-slot.ts` hoisted-host clamp is
+gone — the preview is now in-flow), `docs/scripts/check-studio-shell.mjs` (gate updated to the
+Nacre-only markers).

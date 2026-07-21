@@ -53,9 +53,9 @@ paid to keep the fixed host out of the `container-type` box. **Change the box so
 
 - **Unanimous — retire the pixel-exact geometry-matching.** The placeholder is a *slide-shaped,
   rect-matched* card, which forces `persist-rect on unload → --sb-* seed → data-ssr-rect replay →
-  computePreviewRect → SIZE_RATIO threading`, with the box math now transcribed in **three
-  places** (TS function, inline seed, app CSS) and a parity test that **cannot catch app-side
-  drift** (`h-[54px]→h-[60px]` leaves the test green while the seed silently diverges). No user
+  inline seed compute → SIZE_RATIO threading`, with the box math transcribed in **two
+  places** (the inline seed compute and the app CSS) and **no gate that catches app-side
+  drift** (`h-[54px]→h-[60px]` leaves the seed silently diverged). No user
   can perceive 0.1px parity on a blurred rotating shimmer under a 200ms cross-fade. Replace the
   rect-match with a loader laid out by the *same* CSS box (coincide by construction) + a
   cross-fade to dissolve any residual delta.
@@ -98,9 +98,10 @@ RELOCATE-A-FIXED-HOST to REFRAME-IN-PLACE.**
 4. **Present = the SAME iframe node wrapped** `presentOpen ? 'fixed inset:0 z-[101]' : 'relative
    size-full'`. Ancestor CSS toggles; the node never reparents → the iframe never reloads → the
    existing same-signature sample swap keeps Present **instant**.
-5. **Shell cleanup:** delete the inline compute-seed tier (the third formula copy); keep the
-   static Nacre shell + decoupled dismissal; add a Nacre cross-fade at hand-off; keep
-   `computePreviewRect` as a shell-only fallback (or retire once the shell reuses the box CSS).
+5. **Shell cleanup:** delete the inline compute-seed tier (the remaining formula copy); keep the
+   static Nacre shell + decoupled dismissal; add a Nacre cross-fade at hand-off. (As shipped this
+   step was NOT taken — the inline seed compute over `PREVIEW_CHROME` was kept as the shell-only
+   first-load fallback; retire it once the shell reuses the box CSS.)
 
 **Why this satisfies every lens at once:** instant paint (shell kept); ONE warm, instant-open
 Present (same node, no reload — the designer's bar); deck-size-accurate box for any aspect (the

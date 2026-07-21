@@ -901,8 +901,9 @@ in patch versions.
   visit falls back to a centered full-bleed box at the **deck's author-chosen aspect** (resolved from the
   active deck's `size:` the same way the app derives it — square, 4:3, 9:16, … all fit correctly; the
   skeleton never assumes 16:9). And when there is no rect to replay at all (a brand-new or cross-device
-  first load), the shell now **computes** the exact box from known inputs — a shared `computePreviewRect()`
-  that a probe of the live app confirms matches to ≤0.1px across the breakpoint × stop matrix — so even a
+  first load), the shell now **computes** the exact box from known inputs — an inline compute in the
+  seed script over the shared `PREVIEW_CHROME` constants, which a probe of the live app confirms matches
+  to ≤0.1px across the breakpoint × stop matrix — so even a
   first load lands the skeleton on the real box (read 0px, split ≤1px) instead of an approximation.
   **Behavior change:** a returning visitor no longer sees their real last slide flash
   instantly on reload — everyone sees the calm Nacre skeleton, then the live slide. (Studio-prototype
