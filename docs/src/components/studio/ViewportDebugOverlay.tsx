@@ -48,7 +48,24 @@ type Geom = {
 	lvh: number;
 	stageH: number | null;
 	frame: { top: number; bottom: number; height: number } | null;
+	// The hoisted preview HOST (position:fixed) vs the SLOT it should overlay. The host is
+	// positioned from the slot's getBoundingClientRect WITHOUT the visualViewport offset
+	// (use-shared-preview-slot.ts), so a keyboard/zoom/panel shift moves it off the slot —
+	// the iPad "slide bleeds over the editor / overflows behind the keyboard" bug. This delta
+	// is the smoking gun: 0 = tracking, non-0 = mispositioned by that many px.
+	slot: { x: number; y: number; w: number; h: number } | null;
+	host: { x: number; y: number; w: number; h: number } | null;
 };
+
+// host − slot, per edge, and the worst single-edge miss. null when either is absent.
+function hostSlotDelta(g: Geom): { dx: number; dy: number; dw: number; dh: number; max: number } | null {
+	if (!g.host || !g.slot) return null;
+	const dx = g.host.x - g.slot.x;
+	const dy = g.host.y - g.slot.y;
+	const dw = g.host.w - g.slot.w;
+	const dh = g.host.h - g.slot.h;
+	return { dx, dy, dw, dh, max: Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dw), Math.abs(dh)) };
+}
 
 // ─── Derived relationships — the numbers a viewport debugger is actually FOR ──────────
 // Raw geometry is only half the story; the deltas between the properties are what expose a
@@ -151,6 +168,28 @@ const METRICS: Metric[] = [
 			return fit.fits ? `fits: top ≥ 0 and bottom ≤ stage (${g.stageH}). ${fit.slack}px slack.` : `⚠ OVERFLOWS by ${fit.over}px — the slide spills past the visible band (the #1121 bug).`;
 		},
 	},
+	{
+		key: 'slot',
+		label: 'slot',
+		value: (g) => (g.slot ? `${g.slot.x},${g.slot.y} ${g.slot.w}×${g.slot.h}` : '—'),
+		what: 'The preview ANCHOR box in the pane — where the slide SHOULD sit. The hoisted host tracks this rect. Shows “—” outside the Studio split/read preview.',
+		rel: (g) => {
+			const d = hostSlotDelta(g);
+			return d ? (d.max <= 1 ? 'the host is on it (≤1px).' : `the host is OFF it by ${d.max}px.`) : null;
+		},
+	},
+	{
+		key: 'host',
+		label: 'host',
+		value: (g) => (g.host ? `${g.host.x},${g.host.y} ${g.host.w}×${g.host.h}` : '—'),
+		what: 'The hoisted position:fixed preview host — where the slide ACTUALLY is. It is placed from the slot rect WITHOUT the visualViewport offset, so a keyboard / pinch-zoom / panel shift slides it off the slot.',
+		rel: (g) => {
+			const d = hostSlotDelta(g);
+			if (!d) return null;
+			if (d.max <= 1) return 'aligned to the slot.';
+			return `⚠ ${d.max}px off (dx ${d.dx}, dy ${d.dy}, dw ${d.dw}, dh ${d.dh}); visualViewport offset is ${g.vv ? `${g.vv.ol},${g.vv.ot}` : 'n/a'}.`;
+		},
+	},
 ];
 
 // The mounted overlay — measures the live geometry only while shown (mount = poll,
@@ -185,8 +224,20 @@ function Overlay() {
 			// (StudioShell reads it the same way). A bare `iframe` selector would grab the
 			// FIRST iframe in the document (e.g. a print-panel `pod-frame`), making the
 			// fit verdict judge the wrong box.
-			const f = document.querySelector('iframe.live')?.getBoundingClientRect();
+			const iframeEl = document.querySelector('iframe.live');
+			const f = iframeEl?.getBoundingClientRect();
 			const stage = document.querySelector('[data-cinema-stage]')?.getBoundingClientRect();
+			// The anchor SLOT (the deck-ratio box in the preview pane) and the hoisted HOST (the
+			// nearest position:fixed ancestor of the live iframe). Both read via
+			// getBoundingClientRect, so their delta is a like-for-like on-screen comparison.
+			const R4 = (el: Element | null | undefined) => {
+				if (!el) return null;
+				const r = el.getBoundingClientRect();
+				return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+			};
+			const slotEl = document.querySelector('#studio-pane-preview [style*="aspect-ratio"]');
+			let hostEl: HTMLElement | null = iframeEl?.parentElement ?? null;
+			while (hostEl && getComputedStyle(hostEl).position !== 'fixed') hostEl = hostEl.parentElement;
 			setGeom({
 				innerW: window.innerWidth,
 				innerH: window.innerHeight,
@@ -196,6 +247,8 @@ function Overlay() {
 				lvh: probe('100lvh'),
 				stageH: stage ? Math.round(stage.height) : null,
 				frame: f ? { top: Math.round(f.top), bottom: Math.round(f.bottom), height: Math.round(f.height) } : null,
+				slot: R4(slotEl),
+				host: R4(hostEl),
 			});
 		};
 		read();
@@ -232,6 +285,10 @@ function Overlay() {
 						<Chip label="keyboard / UI" value={`${insetPx(geom)}px`} tone={insetPx(geom) > 0 ? 'warn' : 'muted'} />
 						<Chip label="URL bar" value={`${urlBarPx(geom)}px`} tone="muted" />
 						{fit == null ? <Chip label="fit" value="no stage" tone="muted" /> : <Chip label="fit" value={fit.fits ? '✓' : `overflow ${fit.over}px`} tone={fit.fits ? 'pass' : 'fail'} />}
+						{(() => {
+							const d = hostSlotDelta(geom);
+							return d ? <Chip label="host↔slot" value={d.max <= 1 ? '✓' : `off ${d.max}px`} tone={d.max <= 1 ? 'pass' : 'fail'} /> : null;
+						})()}
 					</div>
 					<div className="flex flex-col">
 						{METRICS.map((m) => (
