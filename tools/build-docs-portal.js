@@ -57,6 +57,7 @@ const {
 const { BUCKET_BLURBS } = require('./build-bucket-galleries');
 const { renderDocs } = require('./build-component-docs');
 const { ORIENTATION_TO_FAMILIES, FAMILY_NAMES } = require('../lib/adaptive/families');
+const { ensureContrast } = require('../lib/theme/color.js');
 
 // A component's user-facing variant looks: its declared `variants` narrowed to the
 // ones carrying `variantDocs` — the identical derivation the playground and the
@@ -137,7 +138,13 @@ const PALETTE_PRIORITY = ['indaco', 'cuoio'];
  *  onyx's green/red — the exact red-green colours those palettes exist to avoid.
  *  Theme token blocks have no nested braces. */
 function parseThemeVars(css) {
-  const clean = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@import[^;]*;/g, '');
+  // The @import strip is url()- and quote-aware: a naive /@import[^;]*;/ would stop at a
+  // `;` *inside* `url("a;b.css")` or a quoted specifier and corrupt the following block. No
+  // Lattice theme uses that form today (all are `@import 'name';`), but match the whole
+  // statement — url(...) / "..." / '...' then any media query — up to its real `;`.
+  const clean = css
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/@import\s+(?:url\([^)]*\)|"[^"]*"|'[^']*')\s*[^;]*;/g, '');
   const whereMap = new Map();
   const rootMap = new Map();
   for (const m of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
@@ -281,6 +288,18 @@ function resolvePalettes() {
       light.spectrum = tidy(spec.light);
       dark.spectrum = tidy(invariant ? spec.light : spec.dark);
     }
+    // Status FILL tokens — a white-text-safe companion to the foreground trio. The
+    // foreground --pass/--warn/--fail are tuned to READ as text and go BRIGHT in dark mode,
+    // so a `bg-[var(--fail)] text-white` chip/button inverts to ~2:1. Derive a fill by
+    // darkening the LIGHT-side status hue (via OKLCH lightness) until white text clears AA
+    // (4.5:1), and emit the SAME value in both modes so a status button looks identical
+    // light/dark. Hue-preserving, so the a11y palettes keep their colorblind-safe fill
+    // (blue/amber, grayscale) instead of a hardcoded red/green.
+    for (const s of ['pass', 'warn', 'fail']) {
+      const base = /^#[0-9a-f]{6}$/i.test(light[s]) ? ensureContrast(light[s], '#ffffff', 4.5, 'darken') : light[s];
+      light[`${s}-fill`] = base;
+      dark[`${s}-fill`] = base;
+    }
     // A palette whose light and dark surfaces are identical is single-mode
     // (e.g. carbone — inherently dark, or the mode-invariant a11y palettes).
     const singleMode = light.bg === dark.bg && light['text-heading'] === dark['text-heading'];
@@ -331,7 +350,8 @@ function paletteCss() {
     const decls = (set) =>
       `color-scheme:${isDarkSurface(set.bg) ? 'dark' : 'light'};` +
       PORTAL_TOKENS.map((t) => `--${t}:${set[t]};`).join('') +
-      (set.spectrum ? `--spectrum:${set.spectrum};` : '');
+      (set.spectrum ? `--spectrum:${set.spectrum};` : '') +
+      ['pass-fill', 'warn-fill', 'fail-fill'].map((t) => (set[t] ? `--${t}:${set[t]};` : '')).join('');
     blocks.push(`html[data-palette="${p.name}"][data-mode="light"]{${decls(p.light)}}`);
     blocks.push(`html[data-palette="${p.name}"][data-mode="dark"]{${decls(p.dark)}}`);
   }

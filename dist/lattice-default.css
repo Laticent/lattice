@@ -21494,7 +21494,9 @@ section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay
    * amber introduced). */
   --pass: light-dark(#2D6A3F, #6FCC4D);
   --fail: light-dark(#9B1C1C, #F87171);
-  --warn: light-dark(#B47200, #F2A24A);
+  /* light warn darkened #B47200 → #8A5A00 to clear AA (5.5:1 on --bg / 5.1:1 on
+     --bg-alt / 5.9:1 as a white-text chip; the old value was 3.4–3.7:1). */
+  --warn: light-dark(#8A5A00, #F2A24A);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);

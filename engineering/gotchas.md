@@ -1636,12 +1636,16 @@ of how many rows are here.
   base palette is missing the token, so completing the trio also surfaced + fixed
   `carta`, which referenced `var(--fail)`/`var(--warn)` in its `-bg` vars without ever
   defining them.
-- **Foreground token, not a white-text fill.** The status trio is tuned for FOREGROUND use
-  (text / icon / underline) and goes BRIGHT in dark mode (e.g. indaco `--pass` #6fcc4d). So
-  a `bg-[var(--pass)] text-white` FILL that relied on the old hex fallback (a *dark* color
-  safe for white text) drops to ~2:1 the moment the token resolves. White-text status fills
-  (Stop / armed-delete buttons, the verdict chips) **pin a fixed dark hex**; foreground uses
-  (`text-[var(--fail)]`, severity underlines) correctly take the resolved token.
+- **Foreground token vs. white-text fill — two different tokens.** `--pass`/`--warn`/`--fail`
+  are tuned for FOREGROUND use (text / icon / underline) and go BRIGHT in dark mode (e.g.
+  indaco `--pass` #6fcc4d). So a `bg-[var(--pass)] text-white` FILL resolves to ~2:1 in dark.
+  The companion **`--pass-fill`/`--warn-fill`/`--fail-fill`** tokens exist for exactly this:
+  the generator (`build-docs-portal.js`) darkens each status hue via OKLCH lightness until
+  white text clears AA (4.5:1), same value in both modes — so a status FILL is theme-aware AND
+  colorblind-safe (an a11y palette gets blue/amber/gray, not red/green). **White-text status
+  fills use `var(--*-fill)`; foreground uses (`text-[var(--fail)]`, severity underlines) use
+  the plain token.** Same split applies to `bg-[var(--accent)]` fills — use `text-[var(--on-accent)]`,
+  never `text-white` (`--accent` resolves *light* in dark mode for some palettes).
 - **Thin palettes need the `@import` stripped before the block scan.** `parseThemeVars`
   keyed `:root` blocks by a regex whose selector captured everything up to `{` — so a
   `:root {…}` right after `@import 'a11y-base';` took the selector `@import '…'; :root`,
@@ -1649,10 +1653,13 @@ of how many rows are here.
   trio in that post-import block, so they silently emitted **onyx's green/red** instead of
   their authored colorblind-safe values — the exact colors those palettes exist to avoid.
   Fixed by stripping `@import` before the scan.
-- **Follow-up (logged per #18, not in this fix):** `cuoio`'s light `--warn` (#B47200, 3.67:1)
-  is sub-AA as small text and now shows on chrome; and other tokens referenced in `docs/src`
-  but absent from `PORTAL_TOKENS` (`--cat-N-mark`, `--text-secondary`, `--spectrum-*`) may
-  hit this same trap — audit them under this contract.
+- **Can't always add a token to `PORTAL_TOKENS` — the throw is a coverage gate.** `resolveToken`
+  throws if ANY base palette lacks the token, so a token only *some* palettes define (audited:
+  `--text-secondary`, `--spectrum-end`/`-vertical`/`-solid`, `--cat-N-mark`) can't join without
+  first completing it across all ~18 themes. When that's out of scope, give the chrome USE a
+  fallback to a token that IS on chrome instead — `var(--text-secondary, var(--text-muted))` —
+  rather than shipping a `""`. (`--cat-N-mark` in anima scenes and `--spectrum-*` swatches
+  already resolve in their themed context or fall back to `--accent`, so they were left as-is.)
 - **Triggered by:** Referencing any slide-theme token from chrome that lives outside a
   slide (a `<body>`-portaled overlay / popover / toast).
 - **Commits:** status trio → `PORTAL_TOKENS` + `@import`-scan fix (a11y) + `carta` completion
