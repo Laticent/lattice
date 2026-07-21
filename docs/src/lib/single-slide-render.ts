@@ -127,11 +127,19 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
 type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean };
-// The live iframe carries a one-way "its srcdoc has painted" latch (set in onload) so
-// scaleFrame reveals it only AFTER paint — never while it's the pre-load `about:blank`
-// white document. Never reset: subsequent full-writes keep the old doc visible until the
-// new one commits, so the frame must stay revealed across re-renders.
-type LiveFrame = HTMLIFrameElement & { __latticeLoaded?: boolean };
+// "Has the live iframe actually painted a slide yet?" — true once its document holds a
+// rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
+// unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
+// gate — WITHOUT depending on the `onload` event, which iOS Safari fires unreliably for
+// srcdoc (the on-device stuck-hidden blank). Best-effort: a cross-doc read can't actually
+// throw for a same-origin srcdoc, but guard anyway for teardown races.
+function frameHasPainted(fr: HTMLIFrameElement): boolean {
+	try {
+		return !!fr.contentDocument?.querySelector('.lattice');
+	} catch {
+		return false;
+	}
+}
 
 // Replace ONLY the live document's `.lattice` contents with a new (already
 // sanitized) slide — the resident theme <style> + runtime <script> stay parsed and
@@ -294,17 +302,16 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		fr.style.height = geom.height + 'px';
 		if (w > 0) {
 			fr.style.transform = 'scale(' + (w / geom.width).toFixed(5) + ')';
-			// Reveal ONLY once we have a real width to scale to (else the frame reveals
-			// UNSCALED at its intrinsic geom.width, e.g. 1280px, overflowing the box so the
-			// slide's centered content falls outside it and reads as BLANK — iOS load reflow,
-			// host briefly 0-wide) AND once the srcdoc has actually PAINTED (onload set
-			// __latticeLoaded). The loaded gate is load-bearing: scaleFrame also runs
-			// SYNCHRONOUSLY pre-load (right after `fr.srcdoc = …` below) when the frame is
-			// still `about:blank` — an OPAQUE WHITE document on iOS — so revealing there
-			// flashes white before the dark slide paints. Waiting for onload closes that
-			// white-about:blank window; the host ResizeObserver + the 4s backstop still
-			// reveal once width/paint arrive.
-			if (fr.style.visibility === 'hidden' && (fr as LiveFrame).__latticeLoaded) fr.style.visibility = 'visible';
+			// Reveal once we have (a) a real width to scale to — else the frame shows UNSCALED
+			// at its intrinsic 1280px and the centered content falls outside the box (blank) —
+			// AND (b) the srcdoc has actually PAINTED its slide, detected by a `.lattice` in the
+			// frame's document. Keying on CONTENT, not the `onload` event, is load-bearing:
+			// iOS Safari fires `onload` UNRELIABLY for srcdoc (re)assignment, which left the
+			// frame correctly scaled but stuck `visibility:hidden` forever (rev:NO on-device —
+			// the "blank"). Content-presence is onload-independent AND still closes the white
+			// about:blank window (about:blank has no `.lattice`, so the pre-load scaleFrame
+			// below can't reveal a blank white frame). Cross-origin can't occur for srcdoc.
+			if (fr.style.visibility === 'hidden' && frameHasPainted(fr)) fr.style.visibility = 'visible';
 		}
 	}
 
@@ -587,24 +594,32 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// the Playground filmstrip's `#preview` visibility gate.
 					fr.style.visibility = 'hidden';
 					host.appendChild(fr);
-					// Safety net for the visibility gate: the reveal above rides the srcdoc's
-					// `onload`, which is reliable but not guaranteed (a teardown race, a
-					// pathological document). Without a fallback a missed `onload` would hide
-					// the slide FOREVER — a worse failure than the white flash the gate fixes.
-					// Force-reveal after a generous ceiling so the gate can only ever DELAY the
-					// slide, never hide it; the normal onload reveal fires first (~sub-500ms)
-					// and makes this a no-op. Mirrors the Playground `#preview` gate's 4s fallback.
+					// Reveal is CONTENT-DRIVEN, not onload-driven. The reveal rides scaleFrame's
+					// `frameHasPainted` gate, but we must call scaleFrame once the srcdoc has
+					// actually painted — and iOS Safari fires `onload` UNRELIABLY for srcdoc, so
+					// we cannot wait on it (on-device: frame scaled but stuck hidden forever,
+					// rev:NO — the blank). Poll on a rAF-ish cadence: each tick re-fits + reveals
+					// the moment BOTH the host has width AND the slide has painted, with no
+					// dependence on the load event or a host-resize firing. Stops on reveal; a
+					// hard ceiling (~4s) force-reveals as the ultimate backstop (an unscaled frame
+					// beats a permanently hidden one) and also bounds the poll if the host unmounts.
 					const revealFr = fr;
-					const revealTimer = setTimeout(() => {
-						ownedTimers.delete(revealTimer);
-						// Last-ditch fit first: if width has arrived by now, scaleFrame reveals the
-						// slide correctly SCALED. Only if it's still 0-wide do we force-reveal (an
-						// unscaled frame is blank, but that's the ultimate backstop against a slide
-						// hidden forever — no worse than before this gate).
-						scaleFrame(host);
-						if (revealFr.style.visibility === 'hidden') revealFr.style.visibility = 'visible';
-					}, 4000);
-					ownedTimers.add(revealTimer);
+					let revealTicks = 0;
+					const revealPoll = setInterval(() => {
+						revealTicks++;
+						if (disposed || !host.isConnected) {
+							clearInterval(revealPoll);
+							ownedIntervals.delete(revealPoll);
+							return;
+						}
+						scaleFrame(host); // reveals iff host width>0 AND the srcdoc has painted .lattice
+						if (revealFr.style.visibility !== 'hidden' || revealTicks >= 40) {
+							clearInterval(revealPoll);
+							ownedIntervals.delete(revealPoll);
+							if (revealFr.style.visibility === 'hidden') revealFr.style.visibility = 'visible'; // last-ditch
+						}
+					}, 100);
+					ownedIntervals.add(revealPoll);
 					if (typeof ResizeObserver !== 'undefined') {
 						// The callback honors the module-level drag gate above; the host is
 						// registered so a resume can re-fit it once, authoritatively.
@@ -643,17 +658,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// This srcdoc has committed — future same-sig renders may now patch it.
 					(host as LiveHost).__latticePendingLoad = false;
 					const tFit = performance.now();
-					// The srcdoc has now PAINTED — latch it so scaleFrame is allowed to reveal
-					// (the pre-load scaleFrame is gated OUT by this flag, closing the white-
-					// about:blank window). Set BEFORE scaleFrame so this same call can reveal.
-					(fr as LiveFrame).__latticeLoaded = true;
-					// scaleFrame both fits AND reveals — but ONLY once the host has a real
-					// width. When the srcdoc paints while the host is still 0-wide (iOS load
-					// reflow), it stays hidden here rather than revealing an unscaled, blank
-					// frame; the host ResizeObserver re-runs scaleFrame the instant width
-					// arrives and reveals the correctly-scaled slide, and the 4s timer is the
-					// ultimate backstop. Idempotent: later full-writes re-fire onload but the
-					// frame is already visible; patches don't reload, so it stays put.
+					// onload, when it DOES fire, is just one more reveal trigger — scaleFrame
+					// fits and reveals via the content gate (frameHasPainted). The reveal poll
+					// above is the reliable path on iOS where this event may never come.
 					scaleFrame(host);
 					const fitMs = performance.now() - tFit;
 					applyDebug(fr, { force: null });

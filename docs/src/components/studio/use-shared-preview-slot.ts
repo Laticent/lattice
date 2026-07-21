@@ -93,20 +93,27 @@ export function useSharedPreviewSlot({
 			// slot stays click-through so a swipe reaches the pane behind it (the z-15 host is
 			// pointer-transparent by design).
 			host.style.pointerEvents = presentActive ? 'auto' : 'none';
-			host.style.top = `${r.top}px`;
-			host.style.left = `${r.left}px`;
-			// CLAMP the host SIZE to the viewport — a HARD invariant, independent of WHY the
-			// slot measured the way it did. A preview host can never legitimately exceed the
-			// screen; but on iOS the slot's getBoundingClientRect can come back oversized during
-			// the URL-bar/layout reflow (the "huge, cut-off card" reported on iPhone — a slot
-			// the fit-by-height preview box briefly derives far wider than the viewport). Capping
-			// to the visual viewport degrades the worst case to a correctly-sized, on-screen
-			// preview instead of a giant one — regardless of the measurement bug behind it, and a
-			// no-op whenever the slot already fits. Only SIZE is clamped (not position): the slot
-			// can legitimately scroll partially off-screen in Present, and pinning the origin
-			// would detach the host from its slot mid-scroll.
-			host.style.width = `${Math.min(r.width, window.visualViewport?.width ?? window.innerWidth)}px`;
-			host.style.height = `${Math.min(r.height, window.visualViewport?.height ?? window.innerHeight)}px`;
+			// CLAMP the host to the viewport — a HARD invariant, independent of WHY the slot
+			// measured the way it did. A preview host can never legitimately exceed OR sit off
+			// the screen; but on iOS the slot's getBoundingClientRect comes back wrong during
+			// the layout reflow — oversized (the "huge, cut-off card") and/or shoved sideways
+			// (on-device diag: `host fixed 229,124 393×461` on a 393-wide phone — the slide
+			// pushed half off the right edge, vs the good `17,254 359×204`). Capping SIZE to the
+			// visual viewport and, in the editor/mobile case, pulling the origin back on-screen
+			// degrades the worst case to a correctly-sized, fully-visible preview instead of a
+			// giant off-screen one — regardless of the measurement bug behind it, and a no-op
+			// whenever the slot already fits (the normal case). Position is clamped ONLY when
+			// NOT in Present: the studio editor is a fixed, non-scrolling viewport so the slot
+			// must stay on it, whereas Present's slide row CAN scroll partially off-screen and
+			// pinning the origin there would detach the host from its slot mid-scroll.
+			const vpW = window.visualViewport?.width ?? window.innerWidth;
+			const vpH = window.visualViewport?.height ?? window.innerHeight;
+			const w = Math.min(r.width, vpW);
+			const h = Math.min(r.height, vpH);
+			host.style.width = `${w}px`;
+			host.style.height = `${h}px`;
+			host.style.left = `${presentActive ? r.left : Math.max(0, Math.min(r.left, vpW - w))}px`;
+			host.style.top = `${presentActive ? r.top : Math.max(0, Math.min(r.top, vpH - h))}px`;
 			assertNoTransformedAncestor(host);
 		};
 		// Coalesce observer-driven re-measures to ONE rAF so the controller can't
