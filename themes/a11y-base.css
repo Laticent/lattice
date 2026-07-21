@@ -55,20 +55,6 @@
 :root:root { color-scheme: light; }
 
 :root {
-  /* Status TINT chips (--*-bg, redline / kpi) — paled to 8% (vs onyx's 12%).
-   * A status INK sitting on its own same-hue tint must clear WCAG AA (4.5:1),
-   * but here the ink is fixed by a HARDER constraint: it must stay CVD-distinct
-   * (OKLab ΔE ≥ 0.15) from the other two status hues under dichromacy. Darkening
-   * the ink to clear a 12% tint collapses that separation (deuteranopia warn↔pass
-   * drops to ΔE 0.142). So instead we keep the CVD-safe ink and pale the tint:
-   * at 8% the same-hue chip clears AA (~4.6:1) without touching the ink. This is
-   * the co-satisfy resolution of the AA-vs-CVD conflict, a11y-only. */
-  --pass-bg: color-mix(in srgb, var(--pass) 8%, transparent);
-  --warn-bg: color-mix(in srgb, var(--warn) 8%, transparent);
-  --fail-bg: color-mix(in srgb, var(--fail) 8%, transparent);
-}
-
-:root {
   /* Categorical cycle — fixed greyscale value ramp. The approved textures
    * overlay these to carry the distinction colour alone cannot beyond ~6 steps. */
   --cat-1-fill:  #e8e8e8;
