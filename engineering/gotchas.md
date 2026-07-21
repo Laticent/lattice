@@ -1661,11 +1661,17 @@ of how many rows are here.
   rather than shipping a `""`. (`--cat-N-mark` in anima scenes and `--spectrum-*` swatches
   already resolve in their themed context or fall back to `--accent`, so they were left as-is.)
 - **Follow-up (logged, off-path):** the FILL tokens fix white-text backgrounds, not
-  FOREGROUND status text. `a11y-achromatopsia`'s `--warn #7a7a7a` is 4.29:1 as small warn
-  text on its white bg — sub-AA — but darkening it compresses the grayscale luminance ramp
-  it needs for CVD distinctness, so it's a two-constraint palette call tracked in #1152, not
-  a nudge. (`carbone` was checked and is fine: dark-scheme both modes → `light-dark(--warn)`
-  renders the dark arg `#F97316` at 6.20:1.)
+  FOREGROUND status text — and two palettes still ship sub-AA foreground `--pass`/`--warn`/
+  `--fail` on chrome, tracked in #1152. (1) `a11y-achromatopsia`'s `--warn #7a7a7a` is 4.29:1
+  as small warn text on its white bg, but darkening it compresses the grayscale luminance
+  ramp it needs for CVD distinctness — a two-constraint palette call, not a nudge. (2)
+  `carbone` is WORSE and subtler: its `--bg` is a flat dark `#1A1A1C` (no `light-dark()`) but
+  its status tokens ARE `light-dark(...)`, and the portal FLATTENS `light-dark` per mode at
+  build time — so the `[data-mode="light"]` chrome block pairs the LIGHT-side status arg with
+  the dark bg (`--fail #A02323` = 2.28:1, `--pass` 3.26, `--warn` 3.86), reachable because the
+  mode toggle isn't palette-gated. The `singleMode` flag `resolvePalettes` already computes
+  (dark-in-both / light-in-both) is the fix lever but is currently unused. NOTE: the *dark*
+  block is fine (`#F97316` = 6.20:1) — don't be fooled by it, as this note originally was.
 - **Triggered by:** Referencing any slide-theme token from chrome that lives outside a
   slide (a `<body>`-portaled overlay / popover / toast).
 - **Commits:** status trio → `PORTAL_TOKENS` + `@import`-scan fix (a11y) + `carta` completion
