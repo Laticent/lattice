@@ -28,7 +28,7 @@ import puppeteer from 'puppeteer';
 import { buildReport, renderJUnit, renderMarkdown } from './report.mjs';
 
 function parseArgs(argv) {
-	const o = { scenario: 'studio', mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false, listeners: false, out: null, junit: false };
+	const o = { scenario: 'studio', mode: 'within', cycle: 'all', k: 40, cpu: 4, refreshes: 12, seed: 'none', json: false, snapshot: false, tts: false, retainers: false, listeners: false, confirmRealm: false, confirmIdle: 30000, out: null, junit: false };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--scenario') o.scenario = argv[++i];
@@ -44,6 +44,8 @@ function parseArgs(argv) {
 		else if (a === "--retainers") o.retainers = true;
 		else if (a === "--realm") o.realm = true;
 		else if (a === '--listeners') o.listeners = true;
+		else if (a === '--confirm-realm') o.confirmRealm = true;
+		else if (a === '--confirm-idle') { const v = Number(argv[++i]); o.confirmIdle = Number.isFinite(v) && v >= 0 ? v : o.confirmIdle; } // guard: a NaN idle would collapse the idle window → false PINNED
 		else if (a === '--out') o.out = argv[++i];
 		else if (a === '--junit') o.junit = true;
 		else throw new Error(`unknown arg: ${a}`);
@@ -61,7 +63,11 @@ function safePath(distDir, urlPath) {
 	return rel.startsWith('..') || isAbsolute(rel) ? null : file;
 }
 
-function serve(distDir) {
+// `isolate: true` stamps the COOP/COEP/CORP trio so the page runs crossOriginIsolated — the precondition
+// for performance.measureUserAgentSpecificMemory() (its own GC, NO heap client), which --confirm-realm uses
+// to tell a reclaimable HeapProfiler realm over-count from a genuinely pinned leak. credentialless COEP +
+// same-origin CORP keep the app's own (same-origin) assets embeddable; verified the Studio still renders.
+function serve(distDir, { isolate = false } = {}) {
 	return http.createServer(async (req, res) => {
 		const fail = (code) => { res.writeHead(code, { 'content-type': 'text/plain' }); res.end(code === 404 ? 'not found' : 'error'); };
 		try {
@@ -73,6 +79,11 @@ function serve(distDir) {
 			// Service worker must be served with a JS content-type and be allowed a root scope.
 			const headers = { 'content-type': TYPES[extname(target)] || 'application/octet-stream' };
 			if (target.endsWith('sw.js')) headers['service-worker-allowed'] = '/';
+			if (isolate) {
+				headers['cross-origin-opener-policy'] = 'same-origin';
+				headers['cross-origin-embedder-policy'] = 'credentialless';
+				headers['cross-origin-resource-policy'] = 'same-origin';
+			}
 			res.writeHead(200, headers);
 			res.end(body);
 		} catch { fail(500); }
@@ -532,6 +543,62 @@ function diffListeners(base, final, k, floor = 0.4) {
 	return { grown, persistentGrowth, totalPersistentDelta, persistentPerCyc, floor, leak: persistentPerCyc >= floor };
 }
 
+// Classify a --confirm-realm measurement: growth reclaimed on idle was a reclaimable HeapProfiler
+// over-count (a real GC frees it); growth that stays PINNED is a genuine retained-memory leak. `floor`
+// is the noise threshold below which the measureUserAgentSpecificMemory estimate (which is sampled +
+// coarse) carries no signal. Pure → unit-testable.
+function classifyConfirm(before, afterDrive, afterIdle, floor = 4e6) {
+	if (![before, afterDrive, afterIdle].every(Number.isFinite)) return { verdict: 'unavailable', retained: NaN, reclaimed: NaN, net: NaN };
+	const retained = afterDrive - before, reclaimed = afterDrive - afterIdle, net = afterIdle - before;
+	let verdict;
+	if (retained < floor) verdict = 'no-growth'; // nothing meaningful accrued from driving → nothing to confirm
+	else if (reclaimed >= 0.6 * retained) verdict = 'reclaimable'; // idle gave most of it back → over-count, not a leak
+	else verdict = 'pinned'; // it survived idle → a real retained-memory leak
+	return { verdict, retained, reclaimed, net };
+}
+
+// --confirm-realm: the NO-heap-client confirmation pass. The within-session verdict trends
+// JSHeapUsedSize after HeapProfiler.collectGarbage — a CDP GC that does NOT dispose Blink's detached
+// realms, so realm-class RISING is UNCONFIRMED (reclaimable over-count vs pinned leak, indistinguishable
+// from a heap dump). Re-measure the SAME cycle with NO heap client via
+// performance.measureUserAgentSpecificMemory() (its own GC) on a crossOriginIsolated serve: warm-up →
+// baseline → drive k× → measure → idle → measure. Recovers on idle ⇒ reclaimable; stays ⇒ real.
+// (2026-07-20-playground-theme-toggle-not-a-leak.md; README §Limits.)
+async function confirmRealm(browser, base, opts, scenario, cycleName) {
+	// Resolve the surface BEFORE opening a page, so an unknown-surface misconfig throws without leaking one.
+	const surfKey = scenario.cycleSurface?.[cycleName] || Object.keys(scenario.surfaces)[0];
+	const surf = scenario.surfaces[surfKey];
+	if (!surf) throw new Error(`cycle ${cycleName}: unknown surface ${surfKey}`);
+	const page = await browser.newPage();
+	await page.setViewport({ width: 1440, height: 900 });
+	try {
+		await page.goto(`${base}${surf.url}`, { waitUntil: 'networkidle0', timeout: 90000 });
+		await settle(page, surf.ready, 30000);
+		await wait(page, surf.settle ?? 1500);
+		if (surf.setup) { try { await surf.setup(page, opts); } catch (e) { console.error(`    confirm setup(${surfKey}) failed: ${e.message}`); } }
+		const cyc = scenario.cycles[cycleName]; if (!cyc) throw new Error(`unknown cycle ${cycleName}`);
+		if (scenario.prep?.[cycleName]) { try { await scenario.prep[cycleName](page, opts); } catch (e) { console.error(`    confirm prep(${cycleName}) failed: ${e.message}`); } }
+		// The whole method depends on crossOriginIsolated (COOP/COEP) exposing the API. If the serve or the
+		// app didn't isolate, say so LOUDLY rather than silently returning a bogus verdict.
+		const ok = await page.evaluate(() => globalThis.crossOriginIsolated === true && typeof performance.measureUserAgentSpecificMemory === 'function');
+		if (!ok) return { unavailable: 'not crossOriginIsolated or measureUserAgentSpecificMemory absent — cannot confirm without a heap client (needs the isolate:true serve + a Chromium)' };
+		const measure = async () => { try { return await page.evaluate(async () => (await performance.measureUserAgentSpecificMemory()).bytes); } catch { return NaN; } };
+		try { await cyc(page); } catch { /* warm-up best-effort */ }
+		const before = await measure();
+		for (let i = 0; i < opts.k; i++) {
+			try { await cyc(page); } catch (e) { console.error(`    confirm ${cycleName}: drive failed at ${i + 1} — ${String(e.message).slice(0, 80)} (partial)`); break; }
+		}
+		const afterDrive = await measure();
+		await wait(page, opts.confirmIdle); // let a real idle GC run — the reclamation the CDP GC can't do
+		const afterIdle = await measure();
+		// Raw readings only — the verdict is computed in runTorture with an idle-CALIBRATED floor (the
+		// measureUserAgentSpecificMemory estimate is coarse; the idle control's own swing sets the noise band).
+		return { before, afterDrive, afterIdle };
+	} finally {
+		await page.close().catch(() => {});
+	}
+}
+
 async function withinSession(browser, base, opts, scenario, cycleName) {
 	const page = await browser.newPage();
 	await page.setViewport({ width: 1440, height: 900 }); // deterministic DESKTOP regime
@@ -760,6 +827,22 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 				report[c] = analyze(series, controlSlopes, keys, absFloor); diffs[c] = snapDiff; rets[c] = retReport; seriesByCycle[c] = series; snapFiles[c] = heapSnapshotFile; lsts[c] = listenerReport;
 			} catch (e) { console.error(`  cycle ${c} FAILED: ${e.message}`); }
 		}
+			// --confirm-realm: a SECOND, no-heap-client pass on a crossOriginIsolated serve, per requested cycle.
+			// Runs after the CDP matrix (so its RISING/realm-unconfirmed verdicts are in hand) and re-measures via
+			// measureUserAgentSpecificMemory to tell a reclaimable over-count from a pinned leak. Own server
+			// (isolate headers) + fresh pages on the same browser.
+			const confirms = {};
+			if (opts.confirmRealm) {
+				const iso = serve(dist, { isolate: true });
+				await new Promise((resolve, reject) => { iso.once("error", reject); iso.listen(0, resolve); });
+				const isoBase = `http://localhost:${iso.address().port}`;
+				for (const c of cycles) {
+					process.stderr.write(`\n  confirm-realm cycle=${c} (k=${opts.k}, idle=${Math.round(opts.confirmIdle / 1000)}s, NO heap client)\n`);
+					try { confirms[c] = await confirmRealm(browser, isoBase, opts, scenario, c); }
+					catch (e) { console.error(`  confirm-realm ${c} FAILED: ${e.message}`); }
+				}
+				iso.close();
+			}
 		await browser.close(); server.close();
 		// The verdict's stated basis must match what actually ran: only claim the idle-control term
 		// when a control was measured (controlSlopes !== null), else say the floors are absolute-only.
@@ -804,6 +887,27 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 				const transient = lr.grown.filter((g) => !g.persistent).slice(0, 3);
 				if (transient.length) console.log(`    (transient churn \u2014 reclaimed by GC, not a leak: ${transient.map((t) => `+${t.delta} ${t.key}`).join('; ')})`);
 			}
+			if (opts.confirmRealm) {
+				// Idle-CALIBRATE the confirm floor: measureUserAgentSpecificMemory is coarse, so the idle control's
+				// own swing sets the noise band (mirrors the CDP verdict's idle calibration). Growth below
+				// max(4MB, 2\u00d7 idle swing) is noise \u2192 no-growth, not a false pinned.
+				const ic = confirms.idle;
+				const idleSwing = ic && !ic.unavailable && [ic.before, ic.afterDrive, ic.afterIdle].every(Number.isFinite)
+					? Math.max(Math.abs(ic.afterDrive - ic.before), Math.abs(ic.afterDrive - ic.afterIdle)) : 0;
+				const confirmFloor = Math.max(4e6, 2 * idleSwing);
+				for (const cc of Object.keys(confirms)) {
+					const r = confirms[cc];
+					if (r && !r.unavailable) confirms[cc] = { ...r, ...classifyConfirm(r.before, r.afterDrive, r.afterIdle, confirmFloor), floorBytes: confirmFloor };
+				}
+				console.log(`\n=== CONFIRM-REALM (no heap client \u00b7 measureUserAgentSpecificMemory \u00b7 idle ${Math.round(opts.confirmIdle / 1000)}s) \u2014 RECLAIMABLE on idle \u21d2 over-count, PINNED \u21d2 real leak ===`);
+				for (const [c, r] of Object.entries(confirms)) {
+					if (!r) continue;
+					if (r.unavailable) { console.log(`  [${c}] UNAVAILABLE \u2014 ${r.unavailable}`); continue; }
+					const mb = (n) => (Number.isFinite(n) ? (n / 1e6).toFixed(1) : String(n));
+					const tag = r.verdict === "reclaimable" ? "RECLAIMABLE (idle freed it \u2014 a HeapProfiler over-count, NOT a leak)" : r.verdict === "pinned" ? "\u26a0 PINNED (survived idle \u2014 a real retained-memory leak)" : r.verdict === "no-growth" ? "no meaningful growth to confirm" : "unavailable (measurement failed)";
+					console.log(`  [${c}] ${mb(r.before)}MB \u2192 drove k=${opts.k} \u2192 ${mb(r.afterDrive)}MB (\u0394+${mb(r.retained)}MB) \u2192 idle \u2192 ${mb(r.afterIdle)}MB \u00b7 reclaimed ${mb(r.reclaimed)}MB, net +${mb(r.net)}MB \u21d2 ${tag}`);
+				}
+			}
 		if (opts.json) console.log('\nJSON ' + JSON.stringify(report));
 		// Report artifacts (--out): versioned JSON = source of truth; Markdown+Mermaid = human view;
 		// JUnit = opt-in CI projection. .heapsnapshot files were already written by withinSession.
@@ -811,7 +915,7 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 			// realmUnconfirmed is gated ONLY on measured realm-CLASS growth in the snapshot diff — NOT on the
 			// static --realm target count (which always includes the live top-level realm, so it would be
 			// perpetually true and carry no signal). No snapshot diff → no realm verdict.
-			const cycleResults = Object.keys(report).map((c) => ({ name: c, isControl: c === 'idle', rows: report[c], series: seriesByCycle[c] || [], snapDiff: diffs[c], retReport: rets[c], heapSnapshotFile: snapFiles[c], realmUnconfirmed: !!realmClassGrowth(diffs[c]), listenerReport: lsts[c] }));
+			const cycleResults = Object.keys(report).map((c) => ({ name: c, isControl: c === 'idle', rows: report[c], series: seriesByCycle[c] || [], snapDiff: diffs[c], retReport: rets[c], heapSnapshotFile: snapFiles[c], realmUnconfirmed: !!realmClassGrowth(diffs[c]), listenerReport: lsts[c], confirm: confirms[c] }));
 			const obj = buildReport({ scenario, opts, cycles: cycleResults, calibrated, floorBasis, durationMs: Date.now() - startedAt, generatedAt: new Date().toISOString() });
 			await writeFile(join(outDir, 'report.json'), JSON.stringify(obj, null, 2));
 			await writeFile(join(outDir, 'report.md'), renderMarkdown(obj));
@@ -829,4 +933,4 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 // Measurement seam — exported so a SECOND driver (`explore`/`replay`) reuses the engine's measurement
 // rather than duplicating it (HARD RULE #1). These were private to runTorture/withinSession; the crawl
 // verdict (Slice 4) drives its own lap loop through the same sample/peak/analyze/serve primitives.
-export { analyze, buildGraph, clickIn, clickNth, clickSel, clickTabByText, controlSlopesFrom, countSel, diffListeners, diffSnapshots, enumerateInteractables, exists, INTERACTABLE_SEL, isInspectorChain, makeInstrument, mannKendall, median, peakDuring, realmClassGrowth, resolveAndClick, retainerPath, retainerReport, sample, sensSlope, serve, settle, takeSnapshot, UNIVERSAL_FLOOR, UNIVERSAL_KEYS, wait };
+export { analyze, buildGraph, classifyConfirm, clickIn, clickNth, clickSel, clickTabByText, controlSlopesFrom, countSel, diffListeners, diffSnapshots, enumerateInteractables, exists, INTERACTABLE_SEL, isInspectorChain, makeInstrument, mannKendall, median, peakDuring, realmClassGrowth, resolveAndClick, retainerPath, retainerReport, sample, sensSlope, serve, settle, takeSnapshot, UNIVERSAL_FLOOR, UNIVERSAL_KEYS, wait };

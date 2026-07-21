@@ -28,7 +28,7 @@ const pipeSafe = (v) => String(v ?? '').replace(/\|/g, '&#124;');
  * @param {{
  *   scenario: {name:string, distDir?:string},
  *   opts: object,                              // parsed CLI options
- *   cycles: Array<{name:string, isControl:boolean, rows:object[], series:object[], snapDiff:?object, retReport:?object, heapSnapshotFile:?string, listenerReport:?object}>,
+ *   cycles: Array<{name:string, isControl:boolean, rows:object[], series:object[], snapDiff:?object, retReport:?object, heapSnapshotFile:?string, listenerReport:?object, confirm:?object}>,
  *   calibrated: boolean,
  *   floorBasis: string,
  *   durationMs: number,
@@ -44,7 +44,7 @@ export function buildReport(run) {
 		scenario: scenario.name,
 		generatedAt,
 		durationMs,
-		options: { mode: opts.mode, k: opts.k, cpu: opts.cpu, cycles: cycles.map((c) => c.name), snapshot: !!opts.snapshot, retainers: !!opts.retainers, realm: !!opts.realm, listeners: !!opts.listeners },
+		options: { mode: opts.mode, k: opts.k, cpu: opts.cpu, cycles: cycles.map((c) => c.name), snapshot: !!opts.snapshot, retainers: !!opts.retainers, realm: !!opts.realm, listeners: !!opts.listeners, confirmRealm: !!opts.confirmRealm },
 		calibrated,
 		floorBasis,
 		verdict: { anyRising: risingCycles.length > 0, risingCycles, listenerLeakCycles: cycles.filter((c) => c.listenerReport?.leak).map((c) => c.name) },
@@ -80,6 +80,13 @@ export function buildReport(run) {
 					}
 				: null,
 			heapSnapshotFile: c.heapSnapshotFile || null,
+			// --confirm-realm: the no-heap-client re-measure (measureUserAgentSpecificMemory). verdict is
+			// reclaimable (over-count) / pinned (real leak) / no-growth / unavailable.
+			confirm: c.confirm
+				? (c.confirm.unavailable
+						? { unavailable: c.confirm.unavailable }
+						: { verdict: c.confirm.verdict, beforeBytes: c.confirm.before, afterDriveBytes: c.confirm.afterDrive, afterIdleBytes: c.confirm.afterIdle, retainedBytes: c.confirm.retained, reclaimedBytes: c.confirm.reclaimed, netBytes: c.confirm.net, floorBytes: c.confirm.floorBytes ?? null })
+				: null,
 		})),
 	};
 }
@@ -158,6 +165,17 @@ export function renderMarkdown(report) {
 			if (c.retainers.inspectorContaminated) L.push(`> ⚠ **${c.retainers.inspectorContaminated}/${c.retainers.sampleWalked} chain(s) root at the DevTools inspector** (\`DevTools console\` / \`ScriptStateProtectingContext\`) — an artifact of the attached heap client, **not** an app holder. Re-measure without a heap client to name the real retainer.`, '');
 			for (const ch of c.retainers.chains) L.push(`- ×${ch.count} — ${ch.sig}`);
 			L.push('');
+		}
+		if (c.confirm) {
+			L.push('### confirm-realm (no heap client · `measureUserAgentSpecificMemory`)', '');
+			if (c.confirm.unavailable) {
+				L.push(`> ⚠ UNAVAILABLE — ${c.confirm.unavailable}`, '');
+			} else {
+				const v = c.confirm;
+				const state = v.verdict === 'pinned' ? '🔴 **PINNED** — survived idle → a real retained-memory leak' : v.verdict === 'reclaimable' ? '🟢 **RECLAIMABLE** — idle freed it → a HeapProfiler over-count, not a leak' : v.verdict === 'no-growth' ? 'no meaningful growth to confirm' : 'unavailable';
+				L.push(`${mb(v.beforeBytes)} → drove → ${mb(v.afterDriveBytes)} (Δ+${mb(v.retainedBytes)}) → idle → ${mb(v.afterIdleBytes)} · reclaimed ${mb(v.reclaimedBytes)}, net +${mb(v.netBytes)} → ${state}`, '');
+				L.push('> A real idle GC reclaims detached realms that `HeapProfiler.collectGarbage` (the CDP GC) leaves counted — so growth that recovers here was an over-count, not a leak.', '');
+			}
 		}
 		if (c.heapSnapshotFile) L.push(`_Heap snapshot: \`${c.heapSnapshotFile}\` — open in Chrome DevTools ▸ Memory ▸ Load._`, '');
 	}

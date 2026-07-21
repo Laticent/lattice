@@ -22,8 +22,9 @@ npm run torture -- --scenario studio --cycle idle,compose,palette --k 40 --cpu 4
 Flags: `--scenario <name>` (default `studio`) · `--mode within` (across-refresh mode is stubbed) ·
 `--cycle a,b,c | all` · `--k <iterations>` · `--cpu <throttle×>` · `--snapshot` (per-constructor
 heap diff) · `--retainers [--realm]` (walk the retainer path to the GC root) · `--listeners`
-(net-live event-listener tally — see below) · `--tts` (voiced read-aloud, needs `TORTURE_TTS_KEY`) ·
-`--json` · `--out <dir>` / `--junit` (write report artifacts — see below).
+(net-live event-listener tally — see below) · `--confirm-realm [--confirm-idle <ms>]` (no-heap-client
+re-measure to confirm/deny a realm-class RISING — see §Limits) · `--tts` (voiced read-aloud, needs
+`TORTURE_TTS_KEY`) · `--json` · `--out <dir>` / `--junit` (write report artifacts — see below).
 
 ### `--listeners` — where listeners leak, and whether they *stay*
 
@@ -121,7 +122,16 @@ add-site directly and is immune to this.
   ambiguous `AccessorPair`/closure-`Context`/`PropertyCell` growers are deliberately **not** triggers, so a
   real closure/accessor leak is never mislabeled "realm"), the tool prints a **`⚠ REALM-CLASS GROWTH`**
   banner and sets `realmUnconfirmed` in `report.json`. Decide it — don't dismiss OR believe it — without a
-  heap client:
+  heap client. **`--confirm-realm` automates exactly this:** it re-serves the dist crossOriginIsolated
+  (COOP `same-origin` + COEP `credentialless` + CORP `same-origin`), drives the SAME cycle with NO heap
+  client, and measures via `performance.measureUserAgentSpecificMemory()` — baseline → drive k× → measure
+  → idle (`--confirm-idle`, default 30 s) → measure — printing `RECLAIMABLE` (idle freed it → over-count)
+  or `PINNED` (survived idle → real). `measureUserAgentSpecificMemory()` is a *coarse* (≈MB) sampled
+  estimate, so the confirm floor is **idle-calibrated** from the control cycle's own swing (`max(4 MB,
+  2× idle swing)`); growth under it reads `no meaningful growth` rather than a noise-level false `PINNED`.
+  It therefore targets **MB-scale realm growth** — for a marginal result, raise `--k` / `--confirm-idle`.
+  Typical use: a normal run flags `realmUnconfirmed`, then
+  `npm run torture -- --cycle <that-cycle> --confirm-realm` decides it. The equivalent by hand:
   ```js
   // COOP:same-origin + COEP:credentialless on the server so crossOriginIsolated → the API is exposed.
   const bytes = () => performance.measureUserAgentSpecificMemory().then(m => m.bytes); // own GC, no CDP; await it

@@ -120,3 +120,28 @@ test('perf-torture: isInspectorChain flags DevTools-rooted chains, not real app 
 	assert.ok(isInspectorChain({ root: '(GC roots)', path: [{ node: 'blink::ScriptStateProtectingContext', via: 'context' }] }), 'a ScriptStateProtectingContext link is flagged');
 	assert.equal(isInspectorChain({ root: '(Global handles)', path: [{ node: 'object:Window', via: 'native' }] }), false, 'a real global-handles hold is not inspector');
 });
+
+// --confirm-realm: classifyConfirm turns three no-heap-client memory readings (before → after-drive →
+// after-idle) into a verdict. RECLAIMED-on-idle ⇒ a HeapProfiler over-count (not a leak); PINNED ⇒ real.
+// The pure classifier is what the report verdict keys on, so its thresholds must hold
+// (2026-07-20-playground-theme-toggle-not-a-leak.md; #32 no-CDP confirmation).
+test('perf-torture: classifyConfirm distinguishes a reclaimable over-count from a pinned leak', async () => {
+	const { classifyConfirm } = await import('../../../tools/perf-torture/engine.mjs');
+	const MB = 1e6;
+	// Grew 20MB driving, idle gave ~18MB back → reclaimable (the Playground-toggle over-count shape).
+	assert.equal(classifyConfirm(30 * MB, 50 * MB, 32 * MB).verdict, 'reclaimable', '90% reclaimed on idle → over-count, not a leak');
+	// Grew 20MB, idle freed only ~2MB → the growth is pinned → a real leak.
+	assert.equal(classifyConfirm(30 * MB, 50 * MB, 48 * MB).verdict, 'pinned', '10% reclaimed → survived idle → real leak');
+	// Barely moved (below the 4MB noise floor) → nothing to confirm.
+	assert.equal(classifyConfirm(30 * MB, 30.5 * MB, 30.4 * MB).verdict, 'no-growth', 'sub-floor growth carries no signal');
+	// A failed measurement (NaN) → unavailable, never a false verdict.
+	assert.equal(classifyConfirm(30 * MB, NaN, 30 * MB).verdict, 'unavailable', 'a NaN reading is unavailable, not a leak');
+	// The 60% boundary is the reclaimable/pinned split: exactly 60% reclaimed reads reclaimable.
+	assert.equal(classifyConfirm(0, 10 * MB, 4 * MB).verdict, 'reclaimable', '6MB of 10MB reclaimed (60%) → reclaimable');
+	assert.equal(classifyConfirm(0, 10 * MB, 4.1 * MB).verdict, 'pinned', '5.9MB of 10MB reclaimed (59%) → pinned');
+	// The arithmetic is exposed for the report.
+	const r = classifyConfirm(30 * MB, 50 * MB, 33 * MB);
+	assert.equal(r.retained, 20 * MB, 'retained = afterDrive - before');
+	assert.equal(r.reclaimed, 17 * MB, 'reclaimed = afterDrive - afterIdle');
+	assert.equal(r.net, 3 * MB, 'net = afterIdle - before');
+});
