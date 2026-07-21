@@ -909,7 +909,14 @@ in patch versions.
 
 ### Changed
 
-- **Opening Present is now instant — it reuses the editor's already-warm preview instead of building a
+- **The four diagnostics overlays now share one draggable-panel chassis (internal; no behavior change).**
+  `PerfOverlay`, `VizDiagnosticsOverlay`, `ViewportDebugOverlay`, and `ReadAloudOverlay` had each grown
+  their own ~80-line copy of the same draggable, `<body>`-portaled panel (grip drag, on-screen clamp,
+  singleton claim) plus the enable/URL-param/subscription gate — four-way drift waiting to happen (a
+  HARD RULE #15 smell the #1129 trio flagged). They now share `DiagnosticPanel` + `useDiagnosticGate`
+  (`docs/src/components/diagnostics/diagnostic-overlay.tsx`); each overlay keeps only its pref module,
+  label, and readout body. Purely internal — the panels look and behave the same (the two `×`-glyph
+  closes now match the others' lucide `X`); verified render/drag/close on all four.
   second one.** Present mode used to render its own deck-preview iframe, so opening it paid a cold render
   (parse the full theme CSS + boot the runtime in a fresh iframe: ~600ms on desktop, ~2.3s on a slow
   phone) before the first slide appeared — the red "REBUILD" the live perf HUD showed on device.

@@ -15,17 +15,14 @@
 // features; a module-level singleton claim makes extra includes no-ops.
 
 import * as React from 'react';
-import { createPortal } from 'react-dom';
+import { DiagnosticPanel, type OverlayClaim, useDiagnosticGate } from '@/components/diagnostics/diagnostic-overlay';
 import { onPerfOverlayEnabledChange, PERF_OVERLAY_AVAILABLE, perfOverlayEnabled, setPerfOverlayEnabled } from '@/playground/perf-overlay-prefs';
 import { latestRenderSample, onRenderSample, type RenderSample } from '@/playground/render-metrics';
 import { type MetricDatum, MetricDetail } from './MetricDetail';
 import { type MetricMeta, RENDER, RUNTIME, rateMetric, VITALS } from './perf-metrics';
 
-const POS_KEY = 'lattice-perf-overlay-pos';
-
-// Singleton claim — shared across island instances in the one bundle, so a page
-// that includes the overlay twice (Header + features) still shows one.
-let claimed = false;
+// Per-overlay singleton token — a duplicate include (Header + features) still shows one.
+const claim: OverlayClaim = { held: false };
 
 // ── Web Vitals: registered ONCE per page at module scope ──────────────────────
 // web-vitals exposes no unsubscribe, and its one-shot metrics (LCP/FCP/TTFB) only
@@ -64,39 +61,18 @@ const hasLongTasks = () => {
 	}
 };
 
-type Pos = { left: number; top: number } | null;
-
 export default function PerfOverlay() {
-	const [enabled, setEnabled] = React.useState(false);
-	const [owner, setOwner] = React.useState(false);
-
-	// Enabled state + the ?perf param + live pref subscription.
-	React.useEffect(() => {
-		if (!PERF_OVERLAY_AVAILABLE) return;
-		try {
+	const active = useDiagnosticGate({
+		available: PERF_OVERLAY_AVAILABLE,
+		isEnabled: perfOverlayEnabled,
+		subscribe: onPerfOverlayEnabledChange,
+		// The `?perf` param honors `?perf` / `?perf=off` (writes the shared pref).
+		applyUrlParam: () => {
 			const params = new URLSearchParams(location.search);
 			if (params.has('perf')) setPerfOverlayEnabled(params.get('perf') !== 'off');
-		} catch {}
-		setEnabled(perfOverlayEnabled());
-		const off = onPerfOverlayEnabledChange(setEnabled);
-		return () => {
-			off();
-		};
-	}, []);
-
-	// Claim the singleton so duplicate includes don't stack overlays.
-	React.useEffect(() => {
-		if (!PERF_OVERLAY_AVAILABLE || claimed) return;
-		claimed = true;
-		setOwner(true);
-		return () => {
-			claimed = false;
-			setOwner(false);
-		};
-	}, []);
-
-	const active = PERF_OVERLAY_AVAILABLE && enabled && owner;
-
+		},
+		claim,
+	});
 	if (!active) return null;
 	return <Overlay />;
 }
@@ -223,13 +199,20 @@ function Overlay() {
 	const runtimeRows = RUNTIME.filter((m) => (m.key === 'MEM' ? memSupported : m.key === 'CPU' ? ltSupported : true));
 
 	return (
-		<PanelPortal>
+		<DiagnosticPanel
+			posKey="lattice-perf-overlay-pos"
+			label="performance · live"
+			onClose={() => setPerfOverlayEnabled(false)}
+			closeLabel="Hide performance overlay"
+			id="lattice-perf-overlay"
+			panelClassName="min-w-[168px] font-mono"
+		>
 			<Group rows={VITALS} datumFor={datumFor} />
 			<Sep label="runtime" />
 			<Group rows={runtimeRows} datumFor={datumFor} />
 			<Sep label="render" />
 			<Group rows={RENDER} datumFor={datumFor} />
-		</PanelPortal>
+		</DiagnosticPanel>
 	);
 }
 
@@ -250,103 +233,4 @@ function Sep({ label }: { label: string }) {
 			<span className="h-px flex-1 bg-border" />
 		</div>
 	);
-}
-
-// The draggable panel, portaled to <body> so `position:fixed` is relative to
-// the viewport regardless of any transformed ancestor at the include site. It
-// wears the SAME on-brand surface as the detail card (shadcn `popover` tokens,
-// theme-aware) so the compact readout and the tapped detail read as one system.
-function PanelPortal({ children }: { children: React.ReactNode }) {
-	const ref = React.useRef<HTMLDivElement>(null);
-	const [pos, setPos] = React.useState<Pos>(() => {
-		try {
-			const p = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
-			return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { left: p.x, top: p.y } : null;
-		} catch {
-			return null;
-		}
-	});
-
-	// Keep a restored / previously-dragged position on-screen: a panel saved near
-	// the edge of a wide window would otherwise render fully offscreen on a
-	// narrower viewport (or after a resize) with no way to grab it back. Clamp on
-	// mount and on every resize, using the panel's measured size.
-	React.useEffect(() => {
-		const clamp = () => {
-			const el = ref.current;
-			if (!el) return;
-			setPos((p) => {
-				if (!p) return p;
-				const left = Math.max(4, Math.min(p.left, window.innerWidth - el.offsetWidth - 4));
-				const top = Math.max(4, Math.min(p.top, window.innerHeight - el.offsetHeight - 4));
-				return left === p.left && top === p.top ? p : { left, top };
-			});
-		};
-		clamp();
-		window.addEventListener('resize', clamp);
-		return () => window.removeEventListener('resize', clamp);
-	}, []);
-
-	// Drag the header. Move/up listen on document for the drag's duration so it
-	// keeps tracking when the pointer leaves the small header.
-	const onHeaderPointerDown = (e: React.PointerEvent) => {
-		if ((e.target as HTMLElement).closest('.pf-close')) return;
-		const el = ref.current;
-		if (!el) return;
-		const r = el.getBoundingClientRect();
-		const ox = r.left;
-		const oy = r.top;
-		const sx = e.clientX;
-		const sy = e.clientY;
-		const onMove = (ev: PointerEvent) => {
-			const nx = Math.max(4, Math.min(ox + ev.clientX - sx, window.innerWidth - el.offsetWidth - 4));
-			const ny = Math.max(4, Math.min(oy + ev.clientY - sy, window.innerHeight - el.offsetHeight - 4));
-			setPos({ left: nx, top: ny });
-		};
-		const onUp = () => {
-			document.removeEventListener('pointermove', onMove);
-			const r2 = el.getBoundingClientRect();
-			try {
-				localStorage.setItem(POS_KEY, JSON.stringify({ x: r2.left, y: r2.top }));
-			} catch {}
-		};
-		document.addEventListener('pointermove', onMove);
-		document.addEventListener('pointerup', onUp, { once: true });
-		e.preventDefault();
-	};
-
-	const style: React.CSSProperties = pos
-		? { left: pos.left, top: pos.top, right: 'auto', bottom: 'auto' }
-		: { left: 'max(8px, env(safe-area-inset-left))', bottom: 'max(8px, env(safe-area-inset-bottom))' };
-
-	const panel = (
-		<div
-			ref={ref}
-			id="lattice-perf-overlay"
-			role="status"
-			className="lx-ui fixed z-[2147483646] min-w-[168px] select-none rounded-xl border border-border bg-popover/95 px-2.5 pt-2 pb-2.5 font-mono text-[12px] leading-[1.4] text-popover-foreground shadow-lg backdrop-blur-sm"
-			style={style}
-		>
-			<div className="mb-1.5 flex cursor-grab touch-none items-center gap-2 active:cursor-grabbing" onPointerDown={onHeaderPointerDown}>
-				<span aria-hidden className="grid grid-cols-2 gap-[2px] p-px opacity-60">
-					{['a', 'b', 'c', 'd', 'e', 'f'].map((k) => (
-						<i key={k} className="block size-[3px] rounded-full bg-muted-foreground" />
-					))}
-				</span>
-				<span className="flex-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">performance · live</span>
-				<button
-					type="button"
-					className="pf-close -my-1 -mr-1 cursor-pointer rounded border-0 bg-transparent px-1 py-0.5 text-[14px] leading-none text-muted-foreground transition-colors hover:text-foreground"
-					aria-label="Hide performance overlay"
-					onClick={() => setPerfOverlayEnabled(false)}
-				>
-					×
-				</button>
-			</div>
-			{children}
-		</div>
-	);
-
-	if (typeof document === 'undefined') return null;
-	return createPortal(panel, document.body);
 }
