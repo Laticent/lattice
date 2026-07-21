@@ -79,6 +79,53 @@ function parseSvg(markup: string): SVGSVGElement | null {
   return doc.querySelector('svg');
 }
 
+// Per-call namespace counter — a scene mounts a COPY of the chart svg alongside the still poster (in
+// the SAME document, poster hidden). Renderer-emitted `<defs>` ids (e.g. the pie/quadrant/radar
+// `pie-wedge-N` radial gradients) are IDENTICAL in both, so a wedge's `fill:url(#pie-wedge-N)` would
+// resolve to the FIRST match — the display:none poster's def — and paint NOTHING (the gradient-filled
+// charts rendered as bare outlines). Namespacing the copy's ids + their fragment references makes the
+// animated svg self-contained. Base-36 keeps the token short; a plain counter is deterministic
+// (no Date/Math.random) and unique per hydration, so two charts on one page don't collide either.
+let CHART_NS_SEQ = 0;
+
+function escapeReg(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Namespace every id already in the svg (the renderer's `<defs>` paint-servers) with a unique
+ *  per-call prefix, and rewrite every internal fragment reference to match — `url(#id)` (in `fill`/
+ *  `stroke`/`clip-path`/… attributes AND inline `style`), and `href` / `xlink:href="#id"`. The mark
+ *  ids Anima mints below are fresh + copy-only, so this only touches pre-existing defs; a chart with
+ *  no ids (the funnel — CSS fills, no gradients) is a no-op. */
+function namespaceInternalRefs(svg: SVGSVGElement): void {
+  const ided = Array.from(svg.querySelectorAll('[id]'));
+  if (ided.length === 0) return;
+  const ns = `ca${(++CHART_NS_SEQ).toString(36)}`;
+  const rename = new Map<string, string>();
+  for (const el of ided) {
+    const old = el.getAttribute('id');
+    if (!old) continue;
+    const nu = `${ns}-${old}`;
+    rename.set(old, nu);
+    el.setAttribute('id', nu);
+  }
+  // Longest ids first, so `#foo` can't rewrite inside `#foobar`; the `(?![\w-])` boundary also
+  // guards it (an id fragment ends at `)` or `"`, never an id-continuation char).
+  const olds = Array.from(rename.keys()).sort((a, b) => b.length - a.length);
+  for (const el of [svg, ...Array.from(svg.querySelectorAll('*'))]) {
+    for (const name of el.getAttributeNames()) {
+      const val = el.getAttribute(name);
+      if (!val || val.indexOf('#') === -1) continue;
+      let out = val;
+      for (const old of olds) {
+        if (out.indexOf(`#${old}`) === -1) continue;
+        out = out.replace(new RegExp(`#${escapeReg(old)}(?![\\w-])`, 'g'), `#${rename.get(old)}`);
+      }
+      if (out !== val) el.setAttribute(name, out);
+    }
+  }
+}
+
 /**
  * Turn a chart's rendered SVG into a default-choreographed Anima scene. Returns null if the markup
  * has no <svg> or no recognizable marks (the caller shows the static chart). Pure w.r.t. its
@@ -91,6 +138,10 @@ function parseSvg(markup: string): SVGSVGElement | null {
 export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): ChartAnimaResult | null {
   const svg = parseSvg(markup);
   if (!svg) return null;
+
+  // Self-contain the copy's paint-server references BEFORE minting mark ids, so a gradient-filled
+  // chart resolves its `url(#…)` fills against its OWN defs, not the identical (hidden) poster's.
+  namespaceInternalRefs(svg);
 
   // Coerce caller numerics to finite, in-range values so a bad option (e.g. buildSpan: NaN,
   // duration ≤ 0) can't propagate NaN into every window and make the whole scene unvalidatable

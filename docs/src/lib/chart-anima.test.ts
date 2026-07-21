@@ -76,17 +76,47 @@ describe('chartToScene', () => {
     expect(bar1?.motion?.some((m) => m.verb === 'highlight')).toBe(false);
   });
 
-  it('does not collide a minted id with a pre-existing SVG id (e.g. a gradient def)', () => {
-    // A chart like the pie carries <defs> gradient ids; if one happens to equal a minted base, the
-    // mark must get a DIFFERENT id so it resolves to the mark, not the (document-first) def.
+  it('namespaces renderer-emitted defs ids + their url() references (gradient-filled charts)', () => {
+    // A pie/quadrant/radar wedge fills via `url(#pie-wedge-N)` → a `<radialGradient>` def. The scene
+    // mounts a COPY beside the hidden poster (same document, same ids), so an un-namespaced copy would
+    // resolve `url(#pie-wedge-1)` to the display:none poster's def and paint NOTHING. The ingest must
+    // give the copy's defs + refs a unique prefix so the animated svg is self-contained.
+    const pie =
+      '<svg viewBox="0 0 100 100"><defs>' +
+      '<radialGradient id="pie-wedge-1"><stop offset="0" style="stop-color:red"/></radialGradient>' +
+      '<radialGradient id="pie-wedge-2"><stop offset="0" style="stop-color:blue"/></radialGradient>' +
+      '</defs>' +
+      '<path class="wedge" data-mark="0" data-anima-role="sector" style="fill:url(#pie-wedge-1)" d="M50 50 L90 50 A40 40 0 0 1 50 90 Z"/>' +
+      '<path class="wedge" data-mark="1" data-anima-role="sector" style="fill:url(#pie-wedge-2)" d="M50 50 L50 10 A40 40 0 0 1 90 50 Z"/></svg>';
+    const out = chartToScene(pie);
+    expect(out).not.toBeNull();
+    const asset = out?.asset ?? '';
+    // The bare renderer ids are gone; every def id carries the unique prefix, and no `url(#pie-wedge-N)`
+    // reference is left pointing at the un-prefixed (poster-colliding) id.
+    expect(asset).not.toMatch(/id="pie-wedge-1"/);
+    expect(asset).not.toMatch(/url\(#pie-wedge-1\)/);
+    expect(asset).toMatch(/<radialGradient id="ca[0-9a-z]+-pie-wedge-1"/);
+    // The fill still resolves — the wedge's url() points at the SAME namespaced def id that now exists.
+    const gradId = (asset.match(/<radialGradient id="(ca[0-9a-z]+-pie-wedge-1)"/) || [])[1];
+    expect(gradId).toBeTruthy();
+    expect(asset).toContain(`fill:url(#${gradId})`);
+    // `#pie-wedge-1` must not be a prefix-collision victim of `#pie-wedge-1` vs a longer id.
+    expect(asset).toContain('-pie-wedge-2"');
+  });
+
+  it('a pre-existing def id never collides with a minted mark id (both resolve distinctly)', () => {
+    // A chart's <defs> gradient could share a base with a minted mark id. Namespacing the def FIRST
+    // (`ca…-bar-0`) frees the base, so the mark cleanly mints `bar-0` — two DISTINCT ids in the asset,
+    // and the wedge/mark resolves to itself, never the def.
     const withDefs =
       '<svg viewBox="0 0 100 100"><defs><radialGradient id="bar-0"/></defs>' +
       '<polygon class="funnel-band" data-mark="0" points="0,0 10,0 5,10"/></svg>';
     const out = chartToScene(withDefs);
     const bar = out?.roles.find((r) => r.role === 'bar');
-    expect(bar?.id).not.toBe('bar-0'); // dodged the pre-existing def id
-    expect(out?.asset).toContain(`id="${bar?.id}"`); // the mark carries its unique id
-    expect(out?.asset).toContain('id="bar-0"'); // the def id is untouched
+    expect(bar?.id).toBe('bar-0'); // the base is free — the def was namespaced away
+    expect(out?.asset).toContain('id="bar-0"'); // the mark carries it
+    expect(out?.asset).toMatch(/<radialGradient id="ca[0-9a-z]+-bar-0"/); // the def is namespaced, distinct
+    expect(out?.asset).not.toMatch(/<radialGradient id="bar-0"/); // NOT the bare id (would collide)
   });
 
   it('falls back to a token when highlightColor is not palette-blind (#3)', () => {
