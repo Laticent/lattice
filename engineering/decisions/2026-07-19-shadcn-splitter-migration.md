@@ -147,6 +147,11 @@ in-flow iframe never had either). Fixed together, verified on the real docs surf
      label rather than overflowing.
    - **Coach/Chat/Lenses** — already fine (single-word headers; the scorecard reserves
      its badge space with `pr-16`), so unchanged.
+   - **Top toolbar** — this bar spans the VIEWPORT (not a pane), so it uses viewport
+     breakpoints, not container queries: the "Search or run… ⌘K" box collapses to an icon
+     button below `xl` (the ⌘K shortcut + a tooltip keep it discoverable), and the deck
+     switcher hides its slide-count meta + tightens its truncation cap below `xl`. Verified
+     0 header overflow at 1180 (icon search, no meta) and 1440 (full box + meta).
    Verified on the real surface at each panel's min: Preview header 0 overflow at 300 (no
    Crux-A warning, no bleed), Library header 0 overflow with the icon Import at 200–260,
    Settings one-line header + the Canvas segment fully visible at 260. Shared-component

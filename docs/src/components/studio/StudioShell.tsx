@@ -2873,10 +2873,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    it absorbs the bar's free width (siblings are shrink-0; this pill is
 				    the one shrinkable item, truncating only when the title outgrows the
 				    actual free space instead of a fixed 150px). */}
-				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[260px] sm:px-2.5">
+				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[180px] sm:px-2.5 xl:max-w-[260px]">
 					<span className="size-2 shrink-0 rounded-full bg-primary" />
 					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
-					<span className="hidden font-mono text-[11px] text-muted-foreground sm:inline">{metaFor(source)}</span>
+					{/* Slide-count meta shows only when the bar has room (≥xl); on a tight
+					    desktop/tablet the deck title takes priority. */}
+					<span className="hidden shrink-0 font-mono text-[11px] text-muted-foreground xl:inline">{metaFor(source)}</span>
 					<ChevronDown className="size-4 shrink-0 text-muted-foreground" />
 				</button>
 			</DropdownMenuTrigger>
@@ -2958,10 +2960,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					</>
 				) : deckSwitcher}
 				<div className="flex-1" />
-				<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex" aria-label="Search or run a command">
-					<Search className="size-4" />Search or run…
-					<Kbd className="ml-2">⌘K</Kbd>
-				</button>
+				<Tip label="Search or run a command (⌘K)">
+					<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:flex xl:px-3" aria-label="Search or run a command">
+						<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
+						<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
+					</button>
+				</Tip>
 				{/* Present + Share are deliverable verbs — they stay reachable at EVERY stop,
 				    never hidden behind a posture (2026-07-17-studio-persona-dial.md, T5 graft). */}
 				<Tip label="Present"><Button variant="outline" size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /><span className="hidden lg:inline">Present</span></Button></Tip>
@@ -3002,10 +3006,12 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{/* ⌘K pill — desktop only (≥1100). On compact the "Search / commands" row
 				    inside ⋯ is the search affordance; the ⌘K shortcut stays always-bound. */}
 				{!compact && (
-					<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex" aria-label="Search or run a command">
-						<Search className="size-4" />Search or run…
-						<Kbd className="ml-2">⌘K</Kbd>
-					</button>
+					<Tip label="Search or run a command (⌘K)">
+						<button type="button" onClick={() => setCmdOpen(true)} className="hidden items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] lg:flex xl:px-3" aria-label="Search or run a command">
+							<Search className="size-4 shrink-0" /><span className="hidden xl:inline">Search or run…</span>
+							<Kbd className="ml-2 hidden xl:inline-block">⌘K</Kbd>
+						</button>
+					</Tip>
 				)}
 
 				{/* Appearance — desktop groups theme + light/dark into one bordered segment,

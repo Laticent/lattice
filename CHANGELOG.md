@@ -801,7 +801,10 @@ in patch versions.
   button goes icon-only and its filter tabs (All / Themes / Components / Finishes / Docs) scroll instead
   of clipping; the **Slide/Deck settings** header truncates on one line (and drops the redundant word
   "only") and its fields wrap the control below the label when tight; the Library's minimum widened so
-  its header always fits. (`docs/src/components/studio/{StudioShell.tsx,Library.tsx,lens-picker.tsx,SlideContext.tsx,use-shared-preview-slot.ts}`;
+  its header always fits. The **top toolbar** is responsive too: on a tight desktop/tablet width the
+  search box collapses to an icon button (the ⌘K palette is one tap or the shortcut) and the deck
+  switcher drops its slide-count meta and truncates sooner, so the bar never crowds — both expand again
+  on a wide screen. (`docs/src/components/studio/{StudioShell.tsx,Library.tsx,lens-picker.tsx,SlideContext.tsx,use-shared-preview-slot.ts}`;
   `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
 - **Fabricate's component generator got a hardening pass (Undo, an effort-regression guard, and a few
   honesty fixes).** Four guards from the adversarial review of the generation increments. (1) **Undo before
