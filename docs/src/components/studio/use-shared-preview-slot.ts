@@ -37,13 +37,11 @@ export function useSharedPreviewSlot({
 	/** The editor pane's slot is on-screen (false in Fabricate and on the mobile edit
 	 *  pane, where the preview stays mounted+warm but parked hidden). */
 	editorVisible: boolean;
-	/** True during a split-divider drag — hold re-measures (the same window
-	 *  `suspendScaleObservers` freezes scaleFrame), then snap once on drag-end. */
+	/** Flips at a split-drag's start/end. No longer freezes tracking (the host
+	 *  follows its slot LIVE through the drag); kept only as the effect's drag-end
+	 *  re-run trigger, for one final authoritative snap. */
 	suspended: boolean;
 }): void {
-	const suspendedRef = React.useRef(suspended);
-	suspendedRef.current = suspended;
-
 	// Re-run on every switch of the active slot (Present open/close, editor-visibility
 	// flip) and at drag-end. useLayoutEffect + a synchronous first measure so a switch
 	// repositions the host BEFORE paint — never a frame where the preview sits over the
@@ -102,9 +100,17 @@ export function useSharedPreviewSlot({
 			assertNoTransformedAncestor(host);
 		};
 		// Coalesce observer-driven re-measures to ONE rAF so the controller can't
-		// double-fit against scaleFrame's own ResizeObserver on the same host.
+		// double-fit against scaleFrame's own ResizeObserver on the same host. The
+		// host tracks its slot LIVE — including mid-drag. Freezing it during a split
+		// drag (the old behavior) left this `position:fixed` host at its PRE-drag
+		// geometry while the slot shrank underneath it, so the preview slide overhung
+		// the neighboring editor pane for the whole gesture — the "bleed" (glaring on
+		// a slow touch drag, a brief flash under a fast mouse). Repositioning is one
+		// rect read + four style writes on ONE host per frame, so live tracking is
+		// cheap; the matching outer scale (scaleFrame) is likewise left live during a
+		// drag (StudioShell no longer suspends it). `suspended` remains only the
+		// effect's drag-end re-run trigger below (a final authoritative snap).
 		const schedule = () => {
-			if (suspendedRef.current) return; // held during a split drag; the effect re-runs at drag-end
 			if (!raf) raf = requestAnimationFrame(measure);
 		};
 

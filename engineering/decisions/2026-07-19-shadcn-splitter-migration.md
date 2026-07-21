@@ -87,6 +87,58 @@ Three v4-specific traps, each fixed and worth recording:
    `panelRef.collapse()`. Note `resize()` takes a bare number as **pixels**; sizes
    are percentages, so a `"n%"` string.
 
+## Post-ship fixes — drag bleed + header-clip minimums
+
+Two defects surfaced on a real iPad after ship (both Studio-only; the Playground's
+in-flow iframe never had either). Fixed together, verified on the real docs surface.
+
+1. **The preview "bled" over the editor during a drag.** The Studio preview is the
+   ONE shared `position:fixed` host (§Architecture) overlaying a slot in the preview
+   pane. During a divider drag the host repositioning was *frozen* (the
+   `useSharedPreviewSlot` `suspended` gate) AND the outer CSS-transform scale
+   (`scaleFrame`) was frozen (`suspendScaleObservers(true)` on `onDragStart`) — a
+   deliberate "hold, then snap once on release" borrowed from the Playground's
+   `__latticeFitSuspend`. But the Playground preview is an *in-flow* iframe that
+   resizes with its pane; the Studio's `position:fixed` host does not. So mid-drag the
+   frozen host stayed at its pre-drag geometry while the slot shrank underneath it, and
+   the slide overhung the neighbor pane for the whole gesture (measured: the host
+   left/width lagged the slot by 216px mid-drag). A brief flash under a fast mouse; a
+   glaring, sustained overlap under a slow iPad touch-drag. **Fix:** track live. The
+   single-slide preview has *no in-iframe FIT agent* to protect — `scaleFrame` is one
+   cheap transform write on one host — so freezing it during the drag bought nothing and
+   caused the bleed. Removed the freeze in `useSharedPreviewSlot` (the slot's
+   ResizeObserver now repositions the host every frame of the drag) and dropped
+   `onDragStart: suspendScaleObservers(true)` (scaleFrame's own ResizeObserver now
+   rescales live as the host resizes). `onDragEnd` keeps one authoritative refit as a
+   belt-and-suspenders snap. *Verified: mid-drag host rect === slot rect (0px gap).*
+
+2. **A pane dragged to its minimum clipped its header icons.** The editor/preview
+   `minSize` (240 / 280) were below the pane HEADER toolbar's intrinsic floor. Measured
+   on the real surface (a width sweep reading `header.scrollWidth` vs `clientWidth`):
+   editor floors at ~284px, preview ~260px. So "drag to the minimum" cut icons off
+   instead of collapsing cleanly to the rail. **Fix:** raise both to 300px (`EDITOR_MIN`
+   / `PREVIEW_MIN`), the measured floor with margin for the editor's conditional
+   Refine/issue controls. Chosen ≤ the both-panels budget: the 1100px desktop config
+   (bar + Settings 260 + Assistant 200 + editor 300 + preview 300, with the
+   narrow-desktop bar-fold) still shows 0 doc/group overflow — verified at 1100 AND
+   1180. *Verified: editor at its 300px min → header `overflow` 0.*
+
+This resolves the desktop "collapse to rail vs clip" edge; the %-vs-px persistence
+drift and the Library 298-vs-380 default remain open. **One new logged follow-up —
+the tablet header floor.** The tablet editor header is taller-content than desktop's:
+it carries a compact-only Slide-settings launcher (there's no activity bar below
+desktop), so its measured floor is **~324px**, not desktop's 284. So on tablet the
+editor header can still clip when narrow — in the 2-panel case only if dragged near
+the min, and more readily in Build with the docked Inspector ALSO open (editor 300 +
+preview 300 + inspector 260 = 860 > an iPad-portrait 768–834, so react-resizable-
+panels clamps the panes below their mins to avoid a document scroll — verified 0
+doc/group overflow at 768/834/1024). This is **milder than before**, not a regression:
+the old 240 min sat ~84px under the 324 floor and clipped there whenever narrow; 300
+is 24px under, so it clips less. Fully clearing tablet via `minSize` alone fights the
+3-panel width budget; the real fix is to trim the tablet header (fold the extra
+launcher into the ⋯ overflow) or make the tablet Inspector a sheet below some width —
+out of scope for this desktop-reported bug.
+
 **Accepted tradeoff — first-paint ratio jump.** The old hand-rolled split seeded a
 returning resizer's saved ratio into a CSS var *before* hydration (no first-paint
 jump). react-resizable-panels owns the panel's inline flex, so a CSS-var seed

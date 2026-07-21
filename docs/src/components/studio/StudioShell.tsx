@@ -209,6 +209,17 @@ const SET_DEFAULT = 296; // Settings default (matches the old inspector column)
 const PANEL_MAX = 420; // drag ceiling for a docked panel
 const LIB_MIN = 200; // Library min when it holds the assistant slot
 const LIB_DEFAULT = 380; // Library docked default — wider than the coach; asset cards need room
+// Editor/preview pane MINIMUMS — the width at which the pane's HEADER toolbar stops
+// clipping, so "drag to the minimum" never cuts an icon off (it collapses to the rail
+// instead). Measured on the real surface (a width sweep reading header.scrollWidth vs
+// clientWidth): the editor toolbar floors at ~284px (Insert · Fix all · History ·
+// Markdown/Compose · collapse, labels already container-query-hidden), the preview at
+// ~260px (the always-labeled LensPicker + Slide N/M pill). 300 clears both with margin
+// for the editor's conditional Refine/issue controls. Kept ≤ so the 1100px both-panels
+// desktop config still fits (bar-fold + side-panel mins; verified). Below this the panes
+// collapse to the 46px rail.
+const EDITOR_MIN = 300;
+const PREVIEW_MIN = 300;
 
 // Theme constants + the grouped picker live in ThemePicker.tsx (every shipped
 // theme, incl. the AA color-blind-safe set). BUILTIN_PALETTES = anything we can
@@ -1450,10 +1461,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const splitUsable = !mobile && view === 'compose';
 	// react-resizable-panels split state via the shared hook (2026-07-19 migration).
 	// Same surface the hand-rolled useSplit had ({ collapsed, dragging, expand,
-	// collapse, reset }) so the ~20 downstream call sites are unchanged. The FIT
-	// choreography differs from the Playground's: the Studio suspends its per-host
-	// scaleFrame ResizeObservers during a drag (onDragStart) and resumes — running
-	// one authoritative re-fit — at release (onDragEnd).
+	// collapse, reset }) so the ~20 downstream call sites are unchanged. The single-
+	// slide preview scales via a cheap outer CSS transform (scaleFrame) and the shared
+	// host tracks its slot LIVE, so both follow the divider THROUGH the drag — matching
+	// the Playground's in-flow iframe. It deliberately does NOT suspend scaleFrame for
+	// the drag's duration: the old suspend froze the fixed host at its pre-drag geometry
+	// so the slide overhung the shrinking neighbor pane (the "bleed"). One transform
+	// write on one host per frame is negligible; onDragEnd runs one authoritative refit
+	// as a belt-and-suspenders snap.
 	// The persistence bucket — which panels the group currently renders, so each
 	// configuration (Coach open, Library open wider, Settings docked, bare Write,
 	// tablet Inspector) keeps its own remembered widths. Library is 'L' vs the
@@ -1469,7 +1484,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		defaultRatio: 46,
 		configKey: splitConfigKey,
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
-		onDragStart: () => suspendScaleObservers(true),
+		// No onDragStart suspend — scaleFrame tracks the pane live (see above). One
+		// authoritative refit of every live host on release covers any host that was
+		// disconnected mid-drag.
 		onDragEnd: () => suspendScaleObservers(false),
 	});
 	// Stable handle for callbacks defined above/below without dep churn (the
@@ -3291,7 +3308,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* Editor pane — collapsible to its rail (46px). Hidden at the Read stop so
 						    the preview fills the surface (the pane stays MOUNTED → no remount on the
 						    Read→Write step). */}
-						<ResizablePanel id="studio-editor" data-pane-role="editor" minSize={240} defaultSize="46" collapsible={split.ready} collapsedSize={46} panelRef={split.editorRef} onResize={split.onEditorResize} className="overflow-hidden">
+						<ResizablePanel id="studio-editor" data-pane-role="editor" minSize={EDITOR_MIN} defaultSize="46" collapsible={split.ready} collapsedSize={46} panelRef={split.editorRef} onResize={split.onEditorResize} className="overflow-hidden">
 							{editorPane}
 							{splitRailA}
 						</ResizablePanel>
@@ -3299,7 +3316,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						{/* Preview pane — collapsible to its rail (46px); fills the surface at Read
 						    (the editor Panel's OUTER div is hidden by id in studio.astro's is:global
 						    block; a Tailwind class lands on the inner div and can't shrink the outer). */}
-						<ResizablePanel id="studio-preview" data-pane-role="preview" minSize={280} defaultSize="54" collapsible={split.ready} collapsedSize={46} panelRef={split.previewRef} onResize={split.onPreviewResize} className="overflow-hidden">
+						<ResizablePanel id="studio-preview" data-pane-role="preview" minSize={PREVIEW_MIN} defaultSize="54" collapsible={split.ready} collapsedSize={46} panelRef={split.previewRef} onResize={split.onPreviewResize} className="overflow-hidden">
 							{previewPane}
 							{splitRailB}
 						</ResizablePanel>

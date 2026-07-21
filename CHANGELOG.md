@@ -784,7 +784,18 @@ in patch versions.
   exact iOS Safari keyboard + URL-bar geometry is reasoned, not fully device-tested from the sandbox
   (no editable element can summon a keyboard; the visual-viewport fit resolves an overflow seen on a
   real iPhone and awaits on-device reconfirmation).
-
+- **The Studio's editor|preview split no longer bleeds the slide over the code while you drag it, and
+  a pane dragged to its minimum keeps its toolbar icons.** Two fixes to the shadcn splitter migration
+  (above). (1) **No more bleed.** The Studio preview is one shared `position:fixed` iframe overlaying
+  the pane; during a divider drag it was frozen at its pre-drag position while the pane shrank
+  underneath it, so the slide overhung the neighboring editor for the whole gesture (a brief flash
+  under a fast mouse, glaringly visible on a slow iPad touch-drag). It now tracks the pane **live**
+  through the drag — the same way the Playground's in-flow preview always has. (2) **No more clipped
+  icons.** The editor/preview pane minimums were below what their header toolbars actually need
+  (measured ~284 / ~260px), so dragging to the minimum cut icons off; the minimums are now 300px, the
+  measured floor with margin — the tight 1100px both-panels desktop layout still fits.
+  (`docs/src/components/studio/{StudioShell.tsx,use-shared-preview-slot.ts}`;
+  `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
 - **Fabricate's component generator got a hardening pass (Undo, an effort-regression guard, and a few
   honesty fixes).** Four guards from the adversarial review of the generation increments. (1) **Undo before
   overwrite** — generate/refine/effort replace the whole component, so one prompt could silently eat a
