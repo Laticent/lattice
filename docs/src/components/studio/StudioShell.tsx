@@ -434,6 +434,43 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// construction, not by a coalescing timing side-effect (a stale slide's differing
 	// `mermaid` flag could otherwise flip the signature and force a cold write).
 	React.useEffect(() => { if (!presentOpen) setPresentPreview(null); }, [presentOpen]);
+	// PERSIST the live preview-box rect (viewport fractions) on unload, so the next reload's
+	// pre-hydration Nacre shell (studio.astro) can place its skeleton at the EXACT rect the
+	// app will re-measure — a same-device reload then shows zero geometry jump at hand-off.
+	// This replays the app's OWN measured rect (previewBoxRef, the editor/read anchor the
+	// hoisted host tracks), so the shell reimplements none of the split/stop/ratio layout math
+	// and can't drift from it. Geometry only — no slide content is stored (that stays the
+	// Nacre-only, state-blind skeleton). Skipped while Present is open (its box is the
+	// slide-row card, not the editor anchor) and for a parked/collapsed 0-size box.
+	React.useEffect(() => {
+		const persistRect = () => {
+			if (presentOpen) return;
+			const el = previewBoxRef.current;
+			if (!el) return;
+			const r = el.getBoundingClientRect();
+			const vw = window.innerWidth;
+			const vh = window.innerHeight;
+			if (r.width < 40 || r.height < 40 || vw < 1 || vh < 1) return;
+			try {
+				localStorage.setItem(
+					'lattice-studio-preview-rect',
+					JSON.stringify({
+						l: +(r.left / vw).toFixed(4),
+						t: +(r.top / vh).toFixed(4),
+						w: +(r.width / vw).toFixed(4),
+						h: +(r.height / vh).toFixed(4),
+					}),
+				);
+			} catch {}
+		};
+		const onVisibility = () => { if (document.visibilityState === 'hidden') persistRect(); };
+		window.addEventListener('pagehide', persistRect);
+		document.addEventListener('visibilitychange', onVisibility);
+		return () => {
+			window.removeEventListener('pagehide', persistRect);
+			document.removeEventListener('visibilitychange', onVisibility);
+		};
+	}, [presentOpen]);
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);

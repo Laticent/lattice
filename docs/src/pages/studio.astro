@@ -177,16 +177,24 @@ const SHELL_H = 720;
 // it never touches the hydrated island.
 const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:#e7e7ea;color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
 :root[data-mode="dark"] #studio-ssr-shell{background:#0c0c0c;color:#e8e8e8;}
-#studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(0,0,0,.08);background:#fbfbfa;}
+#studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(0,0,0,.08);background:#fbfbfa;}
 :root[data-mode="dark"] #studio-ssr-shell .ssr-topbar{background:#161616;border-bottom-color:rgba(255,255,255,.08);}
 #studio-ssr-shell .ssr-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 45deg,#1a3a5c,#3f6d9c,#1a3a5c);flex:0 0 auto;}
 #studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,4vw,32px);}
-/* ONE contained 16:9 box (CONTAIN via aspect-ratio + max-height): width binds on a portrait
-   phone (16:9, letterboxed top/bottom by the centering stage), height binds on landscape.
-   The letterbox bands are the flat shell background — never Nacre — which is the invariant
+#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);}
+/* FALLBACK box (newcomer, no persisted rect): ONE full-bleed 16:9 box (CONTAIN via
+   aspect-ratio + max-height) centered in the stage — width binds on a portrait phone,
+   height binds on landscape. Mirrors the app's newcomer boot (the Read stop's full-bleed
+   preview). The letterbox bands are the flat shell background — never Nacre — the invariant
    that kills the bleed. */
-#studio-ssr-shell .ssr-slidebox{position:relative;width:100%;max-width:min(960px,100%);aspect-ratio:${SHELL_W}/${SHELL_H};max-height:100%;box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}`;
+#studio-ssr-shell .ssr-slidebox{position:relative;width:100%;max-width:100%;aspect-ratio:${SHELL_W}/${SHELL_H};max-height:100%;box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
+/* RECT-REPLAY mode: a returning visitor's seed script (below) resolved the app's OWN last
+   preview-box rect from localStorage and set --sb-* to px in the CURRENT viewport. Position
+   the box ABSOLUTELY at that rect (its containing block is the position:fixed shell = the
+   viewport), so the Nacre lands exactly where the hydrated app will re-measure its box — no
+   geometry reimplementation here, so it can't drift from the app's split/stop/ratio layout. */
+:root[data-ssr-rect] #studio-ssr-shell .ssr-stage{display:block;padding:0;}
+:root[data-ssr-rect] #studio-ssr-shell .ssr-slidebox{position:absolute;left:var(--sb-l);top:var(--sb-t);width:var(--sb-w);height:var(--sb-h);max-width:none;max-height:none;aspect-ratio:auto;}`;
 
 // The Nacre skeleton — a scoped inline COPY of docs/src/styles/nacre-loader.css (the
 // island's stylesheet doesn't exist pre-hydration). It fills the 16:9 .ssr-slidebox exactly
@@ -271,6 +279,31 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 					// returning-user vs newcomer distinction to make — everyone gets the same
 					// calm shimmer until the live preview is ready.
 					r.setAttribute('data-ssr-shell', 'on');
+					// GEOMETRY SEED — place the Nacre box at the EXACT rect the app last had its
+					// preview box (persisted by StudioShell on unload as viewport fractions). On a
+					// same-device reload the shell box then lands pixel-identical to where the
+					// hydrated app re-measures it → no jump at hand-off. Computed to px from the
+					// CURRENT viewport (not vw/vh units) so it matches whatever the app measures
+					// now, and clamped on-screen in case the viewport changed since (rotation).
+					// No saved rect (newcomer) → the CSS falls back to a centered full-bleed box.
+					try {
+						var rectRaw = localStorage.getItem('lattice-studio-preview-rect');
+						if (rectRaw) {
+							var q = JSON.parse(rectRaw);
+							if (q && q.w > 0.1 && q.h > 0.05 && q.l >= 0 && q.t >= 0 && q.l < 1 && q.t < 1) {
+								var vw = window.innerWidth, vh = window.innerHeight;
+								var bw = Math.min(q.w * vw, vw);
+								var bh = Math.min(q.h * vh, vh);
+								var bl = Math.max(0, Math.min(q.l * vw, vw - bw));
+								var bt = Math.max(0, Math.min(q.t * vh, vh - bh));
+								r.style.setProperty('--sb-l', bl + 'px');
+								r.style.setProperty('--sb-t', bt + 'px');
+								r.style.setProperty('--sb-w', bw + 'px');
+								r.style.setProperty('--sb-h', bh + 'px');
+								r.setAttribute('data-ssr-rect', '1');
+							}
+						}
+					} catch (e2) {}
 					// (The editor|preview split ratio's pre-paint CSS-var seed is retired
 					// with the react-resizable-panels migration: the hook restores the saved
 					// ratio post-mount via the panel imperative API. Studio is client:only,

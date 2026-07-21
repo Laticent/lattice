@@ -865,7 +865,11 @@ in patch versions.
   reliably-contained 16:9 (a portrait phone is width-bound, so the Nacre can't bleed into a letterbox);
   and the live slide reveals only when it is genuinely good (painted + width-scaled + clamped on-screen),
   with the skeleton holding until then. One surface, one coordinate system — the seam is structurally
-  impossible. **Breaking (behavior):** a returning visitor no longer sees their real last slide flash
+  impossible. The skeleton box also no longer **jumps** at hand-off (worst on tablet, where the app uses
+  a two-pane split the fixed shell didn't reproduce): the app persists its real preview-box rect on
+  unload, and the pre-hydration shell replays that exact rect — a same-device reload now lands the Nacre
+  pixel-identical to where the app re-measures it (`dx=dy=dw=dh=0` at desktop/tablet/mobile), with a
+  centered full-bleed fallback for a first visit. **Breaking (behavior):** a returning visitor no longer sees their real last slide flash
   instantly on reload — everyone sees the calm Nacre skeleton, then the live slide. (`docs/src/pages/studio.astro`,
   `docs/src/components/studio/StudioShell.tsx`, `docs/src/components/DeckPreview.tsx`,
   `docs/src/lib/single-slide-render.ts`, `docs/src/components/studio/use-shared-preview-slot.ts`,

@@ -63,10 +63,44 @@ WebKit (iPhone 13, dark): the instant shell shows **Nacre only** (no `.lattice`)
 shell dismissed → live slide revealed`, ending on a clean centered 16:9 card. Real iOS Safari
 confirmation is pending per HARD RULE #23 (headless WebKit can't reproduce the URL-bar reflow).
 
+## Follow-up — geometry seed (zero-jump hand-off)
+
+The Nacre-only shell fixed the *seam*, but the shell box was a fixed approximation of the app
+layout (hardcoded 16:9, `max-width:960`, screen-centered) while the hydrated app's preview box
+is deck-ratio, `760`-capped, and lives in the split's right pane — so the shimmer visibly
+**jumped** (position + size) at hand-off, worst on **tablet** (where the app uses the two-pane
+split the shell didn't reproduce at all). An adversarial trio flagged this as inherent to a
+*fixed*-geometry shell approximating a *variable* app.
+
+Rather than re-derive the app's split/stop/ratio layout in the pre-paint seed (fragile,
+guaranteed to drift), the shell now **replays the app's OWN measured box rect**:
+
+1. `StudioShell` persists the live preview box (`previewBoxRef`) on `pagehide` /
+   `visibilitychange→hidden` as **viewport fractions** (`{l,t,w,h}`) under
+   `lattice-studio-preview-rect`. Geometry only — no slide content (the skeleton stays
+   Nacre-only and state-blind). Skipped while Present is open or the box is parked/0-size.
+2. The `studio.astro` seed script resolves that rect to **px in the current viewport** (not
+   `vw/vh` units, so it matches whatever the app measures now), clamps it on-screen, and sets
+   `--sb-*` + `data-ssr-rect`. The shell CSS then positions the Nacre box **absolutely** at
+   that rect (its containing block is the `position:fixed` shell = the viewport).
+3. No saved rect (newcomer) → the CSS falls back to a **centered full-bleed 16:9** box that
+   mirrors the app's newcomer boot (the Read stop), with the topbar corrected `52→54px` and
+   the `960` cap removed.
+
+Because the shell reimplements none of the layout math and just replays the app's own number,
+it **cannot drift** from the app. A future layout change moves the persisted rect automatically.
+
+**Verified** (WebKit, real build, `astro preview`) at desktop/tablet/mobile: on a same-device
+reload the shell box lands **pixel-identical** to the hydrated app box (`dx=dy=dw=dh=0` at all
+three widths); the newcomer fallback is within a few px on mobile/tablet and ~50px on desktop
+(vs. the old ~380px cap-shrink). Real iOS Safari confirmation still pending per HARD RULE #23
+(headless WebKit can't reproduce the URL-bar reflow that shifts `innerHeight` between the seed
+and hydration; the on-screen clamp and same-viewport px resolution bound that error).
+
 ## Files
 
-`docs/src/pages/studio.astro` (Nacre-only shell), `docs/src/components/studio/StudioShell.tsx`
-(decoupled dismissal, removed Studio snapshot capture, `previewFitByHeight` default),
+`docs/src/pages/studio.astro` (Nacre-only shell + geometry seed + rect-replay CSS), `docs/src/components/studio/StudioShell.tsx`
+(decoupled dismissal, removed Studio snapshot capture, persist preview-box rect on unload),
 `docs/src/components/DeckPreview.tsx` (skeleton reveal-watcher + anti-stuck floor),
 `docs/src/lib/single-slide-render.ts` (content-driven reveal, no force-reveal of a broken
 frame), `docs/src/components/studio/use-shared-preview-slot.ts` (on-screen size/position
