@@ -53,7 +53,15 @@
  * from growing to fill the over-tall box, so a light slide stays compact and
  * centred. Visual/media blocks that are MEANT to fill — images and the diagram /
  * chart bodies that set their own flex:1 (mermaid, chart-body, function-plot) —
- * are exempted so they still fill the fluid box rather than collapsing. */
+ * are exempted so they still fill the fluid box rather than collapsing.
+ *
+ * NB (P1 landscape fill): the decision doc §7 flagged scoping this to portrait,
+ * on the worry it would fight multi-column fill on a wide box. Verified on real
+ * landscape renders (16:9/16:10/4:3) it does NOT: this constrains the section's
+ * COLUMN (vertical) axis only, while horizontal multi-column fill is driven by
+ * cqi/flex-basis independently — so a sparse landscape slide stays cleanly
+ * centered instead of spreading airily, exactly as intended. Kept unscoped;
+ * deviation from §7 recorded, not silent (HARD #18). */
 :root[data-lattice-view="fluid"] section[data-lattice-slide]
   > :not(:is(header, footer, figure, img, picture, svg, canvas, video,
              .mermaid, .mermaid-svg, .chart-body, .functionplot)) {
@@ -63,6 +71,48 @@
 /* The fixed-page background canvas is sized to the px box; hide it so each
  * section's own themed background fills the fluid box edge to edge. */
 :root[data-lattice-view="fluid"] .lattice-bg { display: none !important; }
+
+/* Honest overflow marker — the READER variant (Fit Ladder move 4: never a silent
+ * clip). The runtime overflow watcher flags a section whose content exceeds the
+ * box with `.overflow`; the authoring signal (base.modifiers.css) is a loud red
+ * danger ring + "OVERFLOWS" banner — right for the author, alarming for a
+ * boardroom reader. In the viewer we drop the red ring and restyle the same
+ * (text-labeled, WCAG 1.4.1) tab into a calm "More below" cue, bottom-center so
+ * it never collides with the top-right toggle.
+ *
+ * Gated on `data-lattice-fluid-capable` — the export-viewer marker — NOT
+ * `data-lattice-view="fluid"`: the watcher runs for the whole viewer export, and
+ * a slide can overflow in the FIXED state too (an ultrawide default, or a reader
+ * toggled to Fluid: off). Both are readers and must get the calm marker, never
+ * the red author ring. The author live-preview has no fluid-capable marker, so it
+ * keeps the red ring untouched. The real fix — reflow/split so nothing clips — is
+ * the later slice; this is the honest floor until then.
+ * engineering/decisions/2026-07-20-adaptive-viewport-fill.md P1. */
+:root[data-lattice-fluid-capable] section.overflow {
+  box-shadow: none !important;                 /* drop the author red inset ring */
+}
+:root[data-lattice-fluid-capable] section.overflow > .overflow-tab {
+  /* Self-contained (not inherited from base.modifiers.css): the settle guarantee
+   * relies on the tab being out of flow so it can't change the measured height —
+   * assert it here so a future edit to the author rule can't silently reintroduce
+   * a measure→mutate→measure loop. */
+  position: absolute !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: max(0.6rem, env(safe-area-inset-bottom)) !important;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text-body) !important;     /* palette-blind, mirrors the toggle */
+  color: var(--bg) !important;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  box-shadow: 0 0.125rem 0.5rem rgb(0 0 0 / 0.28); /* neutral drop shadow (HTML viewer only, never in PDF) */
+  opacity: 0.9;
+}
+:root[data-lattice-fluid-capable] section.overflow > .overflow-tab::after {
+  content: " \2193";                            /* down arrow — "more below" affordance */
+}
 
 /* The opt-in toggle the runtime injects on a fluid-capable page (lib/runtime/
  * index.js → initFluidView). Ungated: it shows in both fixed and fluid states so

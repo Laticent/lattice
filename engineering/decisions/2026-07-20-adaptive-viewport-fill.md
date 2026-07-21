@@ -268,11 +268,24 @@ P1–P2 are opt-in and leave the shipped bytes untouched.
 ## 9. Phasing (re-sequenced; each one branch → one PR, HARD #17; green + no broken window each step)
 
 - **P0 — this doc (hardened).** ☐ The design + the corrected, owner-aligned direction.
-- **P1 — opt-in landscape fill + the honest overflow ring** *(≈ Option C's mechanism, near-free)*.
-  Un-gate `base.fluid-view.css` from phone-only so the **fluid viewer works landscape** (stated as
-  such — §4.1); fill the band (`wide`/`square`), **no ultrawide fill yet**; land the runtime
-  overflow **ring/floor** so a dense slide never silently clips. Opt-in only; **every exported byte
-  untouched** (golden diff proves it). Visual review at 390/820/1440 + 4:3/21:9/portrait.
+- **P1 — opt-in landscape fill + the honest overflow ring** *(≈ Option C's mechanism, near-free)*. ◐
+  **Landed.** The fluid viewer's default now fills any non-ultrawide screen (`initFluidView`:
+  `aspect <= FILL_DEFAULT_MAX_ASPECT` = 1.9, was phone-only `innerHeight > innerWidth`); ultrawide keeps
+  the fixed deck (no dead band until the P2 cap). The existing overflow watcher now runs in the fluid
+  boot path with a reader variant (`startOverflowWatcher({authorTags:false})`): the author's loud red
+  ring/"OVERFLOWS" banner is replaced (viewer-gated CSS in `base.fluid-view.css`) by a calm, palette-blind
+  **"More below ↓"** cue that still names the clip in text (WCAG 1.4.1) — never a silent loss. The band
+  boundary + the reader/author label + the "tab tracks overflow independent of the class flip" fix are
+  extracted into a tested pure kernel (`lib/runtime/fluid-view-policy.js` + `fluid-view-policy.test.js`)
+  so they can't drift. Verified on real renders at 16:9/16:10/4:3 (fill), 21:9 (fixed, no dead band),
+  portrait/phone (fill + reflow), and a dense slide in both fluid and fixed viewer states (reader cue, no
+  red ring, no author tags). Opt-in + viewer-only; **PDF/PPTX/PNG byte-identical and every export renders
+  identically** (the new rules are marker-gated — a non-fluid export's inlined CSS only gains inert lines).
+  Hardened by the full HARD RULE #25 trio (red team + Munger inversion + checker); both prior maker-checker
+  fixes re-verified correct. *Recorded follow-ups (P2 supersedes each): the once-at-load decision isn't
+  re-evaluated on a live resize/rotation across 1.9 (drag a window wide → stays fluid); the ultrawide fixed
+  fallback left-aligns rather than centering; the "More below" pill can occlude the last content line on a
+  very short viewport (wants a translucent/nudged treatment).*
 - **P2 — the present-preserving fill box + the wide edge cap.** Build the resize-the-section,
   keep-one-slide-nav box for present mode + the player Present view; **converge** the player-CSP,
   docs-filmstrip, and fluid boxes onto one `data-lattice-view` selector (§2.2/§7); add the **new
