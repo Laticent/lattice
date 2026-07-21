@@ -27,12 +27,12 @@ body.db-page {
 	/* ── Validation severity tokens ───────────────────────────────────────────
 	 * The single source for the Architect's severity colour, shared by the panel
 	 * findings AND the editor's inline validation underlines so the two views of
-	 * the lint stream read as one system. Token-first: a palette that ships the
-	 * universal status tokens (--fail / --warn, from the engine theme contract)
-	 * wins; otherwise we fall back to the studio's established severity hues — the
-	 * docs page palette (lattice-tokens.generated.css) doesn't expose status
-	 * tokens, so the fallback is what renders today. --accent (info) is always on
-	 * the page, so it needs none. */
+	 * the lint stream read as one system. Token-first: --fail / --warn now DO
+	 * resolve on the docs page (they're in PORTAL_TOKENS → lattice-tokens.generated
+	 * .css, per palette + mode), so these severity colours track the palette; the
+	 * hex is the pre-resolution fallback. This is FOREGROUND use (underline / text),
+	 * which wants the themed token — unlike white-text status *fills*, which pin a
+	 * dark hex. --accent (info) is always on the page, so it needs none. */
 	--db-sev-error: var(--fail, #c0392b);
 	--db-sev-warning: var(--warn, #b8860b);
 	--db-sev-info: var(--accent);

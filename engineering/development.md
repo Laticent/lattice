@@ -426,6 +426,18 @@ Google-Fonts CDN the sandbox blocks) — those stay nightly/UNVERIFIED locally,
 per HARD RULE #23. `CHROME_PATH` is the *Puppeteer* cache and is irrelevant to
 Playwright.
 
+**`page.mouse.*` is a real pointer drag — but never a *touch* drag.** Playwright's
+`page.mouse.down/move/up` makes Chromium synthesize the full `pointerdown`/`pointermove`/
+`pointerup` sequence, so a mouse-driven spec **genuinely** exercises an `onPointerDown`
+handler + its `document` pointer listeners (a drag/reposition test is real, not theater —
+`docs/e2e/diagnostics-overlay.spec.ts`). BUT the `mobile` project in `playwright.config.ts`
+sets only `viewport` — **no `hasTouch`/`isMobile`** — so `page.mouse` there is *still* a
+pointer drag; re-tagging a drag spec `@mobile`/`@crosswidth` buys **zero** touch coverage,
+and near a clamp edge it just adds flake. If you actually need touch, opt in per-spec with
+`test.use({ hasTouch: true })` + `page.touchscreen` / `locator.tap()` — and even then, real
+iOS Safari touch (pointer-capture / `touch-action` / momentum) can't be reached headless, so
+it stays **UNVERIFIED** per HARD RULE #23.
+
 **Changing shared Studio chrome — the selector-drift checklist.** Many specs
 target controls by accessible name (`getByRole('button', { name: 'Deck scope' })`,
 `getByRole('status')`), an implicit contract centralized in

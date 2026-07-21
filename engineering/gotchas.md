@@ -1613,6 +1613,51 @@ of how many rows are here.
   scratch prototype showed discs missing in light *and* a frozen-white mark in
   dark before the knob split.
 
+### Chrome (`<body>`) tokens are the `PORTAL_TOKENS` subset — a slide-only token is `undefined` there (the `--pass`/`--warn`/`--fail` bug, fixed)
+
+- **Symptom:** An element **portaled to `<body>`** (a diagnostics overlay, a badge, a
+  status pill) that colors itself with `var(--<token>, #fallback)` looks **muddy /
+  un-themed**, and (the tell) does **not** adapt between light and dark — the same dull
+  hue in both. `getComputedStyle(document.documentElement).getPropertyValue('--<token>')`
+  returns `""`.
+- **Cause:** The docs-site **chrome** tokens on `html[data-palette][data-mode]` are a
+  GENERATED SUBSET, not the full theme — `tools/build-docs-portal.js` `PORTAL_TOKENS`,
+  emitted into `docs/src/styles/lattice-tokens.generated.css`. Only tokens on that list
+  resolve outside a slide. A token a theme defines but that **isn't in `PORTAL_TOKENS`**
+  lives only inside the slide iframe's theme, so a `<body>` element referencing it gets
+  the invalid-substitution fallback (same family as the `var(--fg)` / `--state-color`
+  traps above — but here the fallback *paints*, just wrong, so it's easy to miss). This
+  bit the status trio: `--pass`/`--warn`/`--fail` were slide-only, so the diagnostics
+  verdict chips fell to a static dark hex that went muddy on the dark popover.
+- **Fix / contract:** The trio is now in `PORTAL_TOKENS`, so it resolves on `<body>` per
+  palette + mode. **If you need a themed color on `<body>` chrome and it comes up `""`,
+  add the token to `PORTAL_TOKENS` and regen** — `npm run docs:landing-tokens && npm run
+  docs:portal` — rather than hardcoding a hex. Caveat: `resolveToken` **throws** if any
+  base palette is missing the token, so completing the trio also surfaced + fixed
+  `carta`, which referenced `var(--fail)`/`var(--warn)` in its `-bg` vars without ever
+  defining them.
+- **Foreground token, not a white-text fill.** The status trio is tuned for FOREGROUND use
+  (text / icon / underline) and goes BRIGHT in dark mode (e.g. indaco `--pass` #6fcc4d). So
+  a `bg-[var(--pass)] text-white` FILL that relied on the old hex fallback (a *dark* color
+  safe for white text) drops to ~2:1 the moment the token resolves. White-text status fills
+  (Stop / armed-delete buttons, the verdict chips) **pin a fixed dark hex**; foreground uses
+  (`text-[var(--fail)]`, severity underlines) correctly take the resolved token.
+- **Thin palettes need the `@import` stripped before the block scan.** `parseThemeVars`
+  keyed `:root` blocks by a regex whose selector captured everything up to `{` — so a
+  `:root {…}` right after `@import 'a11y-base';` took the selector `@import '…'; :root`,
+  failed the `:root` test, and was dropped. The a11y palettes override only their status
+  trio in that post-import block, so they silently emitted **onyx's green/red** instead of
+  their authored colorblind-safe values — the exact colors those palettes exist to avoid.
+  Fixed by stripping `@import` before the scan.
+- **Follow-up (logged per #18, not in this fix):** `cuoio`'s light `--warn` (#B47200, 3.67:1)
+  is sub-AA as small text and now shows on chrome; and other tokens referenced in `docs/src`
+  but absent from `PORTAL_TOKENS` (`--cat-N-mark`, `--text-secondary`, `--spectrum-*`) may
+  hit this same trap — audit them under this contract.
+- **Triggered by:** Referencing any slide-theme token from chrome that lives outside a
+  slide (a `<body>`-portaled overlay / popover / toast).
+- **Commits:** status trio → `PORTAL_TOKENS` + `@import`-scan fix (a11y) + `carta` completion
+  + white-text-fill pins (#1142); the overlay dark-mode workaround it superseded (#1129).
+
 ### Blurred `box-shadow` → opaque grey box around the element in some PDF viewers
 
 - **Symptom:** A small element with a soft drop-shadow (e.g. the state-token
@@ -2168,6 +2213,33 @@ of how many rows are here.
   `docs/src/components/ui/sheet.tsx`.
 - **Don't reintroduce:** any sheet/dialog that overlays a surface the user still
   needs to scroll (the live preview) must be non-modal, or it will scroll-lock iOS.
+
+### `svh` can resolve LARGER than `dvh` on a real mobile browser
+
+- **Symptom:** A full-bleed element sized with `100svh` **overflows the visible
+  viewport on a real phone** (the bottom clips / a swipe reveals slide spill), even
+  though `100dvh` fits exactly and it all looks right in headless Chromium and on
+  desktop. Reaching for `svh` "to be safe against the URL bar" makes it worse, not
+  better.
+- **Cause:** The spec ordering is `svh ≤ dvh ≤ lvh` (small ≤ dynamic ≤ large), and
+  headless Chromium honors it — so a spike looks clean and misleading. But a **real
+  mobile browser can report `svh > dvh`**: on the device that surfaced this, an
+  on-page probe read `svh 333 · dvh 313` (dvh = the actually-visible height). So `svh`
+  is **not** a reliable "always-visible floor"; `100dvh` is the current visible height
+  and `100svh` can exceed it. Another headless-Chromium blind spot, like the
+  `zoom`/`cqi` entry below.
+- **Mitigation:** For a "fill the currently-visible viewport" box, use **`100dvh`** (it
+  already tracks the URL bar as it shows/hides). Don't reach for `svh` as a
+  smaller-safer height — and don't trust any `svh`/`dvh`/`lvh` ordering without
+  measuring on a **real device**. The Viewport-debug overlay (`?vvdebug`, or Workspace
+  → Diagnostics) prints the live resolved values per device for exactly this.
+- **Triggered by:** Sizing a full-height mobile surface off `svh`/`lvh` on the
+  assumption `svh` is the visible floor. Cost four wrong rounds on the landscape
+  cinema-morph overflow — where the real fix was a fit-**axis** change (fit-by-height,
+  not fit-by-width), not the container height; `100dvh` was correct all along.
+- **Commits:** Landscape cinema-morph (#1121); see
+  [engineering/decisions/2026-07-20-landscape-phone-preview-lock.md](decisions/2026-07-20-landscape-phone-preview-lock.md)
+  §Real-device fix.
 
 ### Preview slides collapse (cqi shrinks to near-zero) on iOS if scaled with CSS `zoom`
 

@@ -794,6 +794,20 @@ in patch versions.
 
 ### Fixed
 
+- **Status colors (pass / warn / fail) now theme correctly on the docs-site chrome — including the
+  accessibility palettes.** The docs chrome tokens (`html[data-palette][data-mode]`) are a generated
+  subset (`PORTAL_TOKENS`), and the status trio wasn't in it — so `--pass`/`--warn`/`--fail` were
+  slide-only and resolved to nothing outside a slide, muddying any `<body>`-portaled overlay/badge/pill
+  that used them (the diagnostics verdict chips went near-invisible on the dark popover). Added the trio
+  to `PORTAL_TOKENS`; it now resolves per palette + mode. Fixing it surfaced two latent bugs: (1) a
+  parser bug in `build-docs-portal.js` dropped a thin palette's own post-`@import` `:root` block, so the
+  **a11y palettes silently emitted onyx's green/red** instead of their authored colorblind-safe trio
+  (deuteranopia blue/amber, achromatopsia grayscale) — now corrected; and (2) `themes/carta.css` defined
+  only `--pass` while its own `--fail-bg`/`--warn-bg` referenced undefined `var(--fail)`/`var(--warn)`,
+  so carta slides rendered **broken warn/fail state markers** — completed to carta's palette-tuned,
+  AA-safe values. White-text status *fill* controls (the Stop / armed-delete buttons, the verdict chips)
+  pin a fixed dark hex rather than the now-resolving foreground-tuned token, which would be too bright
+  for white text in dark mode.
 - **A phone held in landscape is no longer a dead editing surface — the slide fills the screen and you
   swipe through the deck (the "cinema" morph).** A landscape phone is wide enough (~844–932px) to fall
   into the Studio's two-pane *tablet* layout but only ~360–430px *tall*, so the editor|preview split was

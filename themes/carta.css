@@ -24,11 +24,12 @@
  *
  * Structurally this is a warm reskin of the default `indaco` palette:
  * surfaces, the ink ramp, the accent, and the dark-canvas ramp are
- * retuned to paper/ink; the categorical (--cN), chart, and semantic
- * token blocks are inherited verbatim from indaco (contrast-proven), so
- * diagrams stay legible. Warming the categorical fills to match the
- * paper is tracked as polish in
- * engineering/decisions/2026-06-11-sketch-finish.md.
+ * retuned to paper/ink; the categorical (--cN) and chart token blocks are
+ * inherited verbatim from indaco (contrast-proven), so diagrams stay
+ * legible. The SEMANTIC status trio (--pass/--warn/--fail) is carta's own,
+ * mirroring its palette-tuned --chart-state-* (AA-safe on cream/charcoal) —
+ * not indaco's. Warming the categorical fills to match the paper is tracked
+ * as polish in engineering/decisions/2026-06-11-sketch-finish.md.
  *
  * Every text-bearing token clears WCAG AA against the surface it appears
  * on, both canvas modes. See test/unit/palette/contrast.test.js and
@@ -67,7 +68,14 @@
   --on-accent:   light-dark(#FFFFFF, var(--surface-inverse));
 
   /* ── Semantic signals ──────────────────────────────────────────────── */
+  /* The trio mirrors carta's own palette-tuned --chart-state-* (below), all
+     AA-safe on carta's cream/charcoal surfaces — NOT a generic copy. --pass
+     already equals --chart-state-pass; --warn/--fail complete the set to match
+     (carta previously defined only --pass, leaving its own --fail-bg/--warn-bg
+     referencing undefined vars). */
   --pass: light-dark(#3C6B1E, #7FC85A);
+  --fail: light-dark(#C0283A, #FF6B72);
+  --warn: light-dark(#8F5E00, #E3A93C);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
