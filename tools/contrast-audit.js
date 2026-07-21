@@ -320,6 +320,7 @@ if (require.main === module) {
   const themes    = themeArgs.length ? themeArgs : listAllThemes();
 
   let totalFails = 0;
+  let totalMissing = 0;
   let totalChecks = 0;
 
   console.log('');
@@ -333,6 +334,7 @@ if (require.main === module) {
     if (!res) { console.log(`  [skip] ${theme} — file not found`); continue; }
 
     totalFails += res.fails.length;
+    totalMissing += res.missing.length;
     totalChecks += res.checks;
     const { fails, missing, weakPairs, chartHexes } = res;
     const hasIssues = fails.length || weakPairs.length || missing.length;
@@ -369,7 +371,9 @@ if (require.main === module) {
   }
 
   console.log('  ══════════════════════════════════════════════════════════════');
-  console.log(`  ${totalFails} contrast failures · 0 warnings · ${totalChecks} pairs checked across ${themes.length} themes`);
+  console.log(`  ${totalFails} contrast failures · ${totalMissing} unresolved · ${totalChecks} pairs checked across ${themes.length} themes`);
   console.log('');
-  process.exitCode = totalFails ? 1 : 0;
+  // Unresolved pairs are a coverage hole, not a pass — exit non-zero so automation
+  // can't read "0 failures" while pairs were silently skipped.
+  process.exitCode = (totalFails || totalMissing) ? 1 : 0;
 }
