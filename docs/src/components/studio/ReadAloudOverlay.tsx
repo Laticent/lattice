@@ -11,13 +11,12 @@
 // the viewport regardless of a transformed ancestor.
 
 import * as React from 'react';
-import { createPortal } from 'react-dom';
+import { DiagnosticPanel } from '@/components/diagnostics/diagnostic-overlay';
 import { cn } from '@/lib/utils';
 import { onCalibrationChange, resetCalibration } from '@/playground/readaloud-calibration';
 import { setReadAloudOverlayEnabled } from '@/playground/readaloud-overlay-prefs';
 import type { ReadAloudDebugEvent, ReadAloudDebugLive } from './read-aloud';
 
-const POS_KEY = 'lattice-readaloud-overlay-pos';
 // The SAME rating palette the perf overlay's MetricDetail uses, so green/amber/red
 // mean the same thing across both overlays. Inline style (not CSS) — a diagnostics
 // aid, not layout — mirroring PerfOverlay's own approach.
@@ -25,7 +24,6 @@ const TONE: Record<string, string> = { good: '#16a34a', warn: '#d97706', bad: '#
 const GREY = '#8b949e';
 
 type Tone = 'good' | 'warn' | 'bad' | 'none';
-type Pos = { left: number; top: number } | null;
 
 /** One `● LABEL … value` row, status dot colored by tone (mirrors the perf overlay rows). */
 function Row({ label, value, tone = 'none' }: { label: string; value: React.ReactNode; tone?: Tone }) {
@@ -56,66 +54,11 @@ function fmtEvent(e: ReadAloudDebugEvent): string {
 }
 
 export default function ReadAloudOverlay({ live, events, source }: { live: ReadAloudDebugLive | null; events: ReadAloudDebugEvent[]; source: string }) {
-	const ref = React.useRef<HTMLDivElement>(null);
 	const [copied, setCopied] = React.useState(false);
 	// Re-render when a voice's calibration is reset/updated elsewhere, so the readout + the
 	// reset affordance reflect the store live.
 	const [, bumpCal] = React.useReducer((n: number) => n + 1, 0);
 	React.useEffect(() => onCalibrationChange(() => bumpCal()), []);
-	const [pos, setPos] = React.useState<Pos>(() => {
-		try {
-			const p = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
-			return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { left: p.x, top: p.y } : null;
-		} catch {
-			return null;
-		}
-	});
-
-	// Keep a restored / dragged position on-screen (a panel saved near the edge of a
-	// wide window would render offscreen on a narrower one). Clamp on mount + resize.
-	React.useEffect(() => {
-		const clamp = () => {
-			const el = ref.current;
-			if (!el) return;
-			setPos((p) => {
-				if (!p) return p;
-				const left = Math.max(4, Math.min(p.left, window.innerWidth - el.offsetWidth - 4));
-				const top = Math.max(4, Math.min(p.top, window.innerHeight - el.offsetHeight - 4));
-				return left === p.left && top === p.top ? p : { left, top };
-			});
-		};
-		clamp();
-		window.addEventListener('resize', clamp);
-		return () => window.removeEventListener('resize', clamp);
-	}, []);
-
-	// Drag the header. Move/up listen on document so the drag keeps tracking when the
-	// pointer leaves the small header (mirrors PerfOverlay).
-	const onHeaderPointerDown = (e: React.PointerEvent) => {
-		if ((e.target as HTMLElement).closest('.ra-close')) return;
-		const el = ref.current;
-		if (!el) return;
-		const r = el.getBoundingClientRect();
-		const ox = r.left;
-		const oy = r.top;
-		const sx = e.clientX;
-		const sy = e.clientY;
-		const onMove = (ev: PointerEvent) => {
-			const nx = Math.max(4, Math.min(ox + ev.clientX - sx, window.innerWidth - el.offsetWidth - 4));
-			const ny = Math.max(4, Math.min(oy + ev.clientY - sy, window.innerHeight - el.offsetHeight - 4));
-			setPos({ left: nx, top: ny });
-		};
-		const onUp = () => {
-			document.removeEventListener('pointermove', onMove);
-			const r2 = el.getBoundingClientRect();
-			try {
-				localStorage.setItem(POS_KEY, JSON.stringify({ x: r2.left, y: r2.top }));
-			} catch {}
-		};
-		document.addEventListener('pointermove', onMove);
-		document.addEventListener('pointerup', onUp, { once: true });
-		e.preventDefault();
-	};
 
 	const traceText = React.useMemo(() => {
 		const head = live
@@ -136,38 +79,22 @@ export default function ReadAloudOverlay({ live, events, source }: { live: ReadA
 		} catch {}
 	};
 
-	const style: React.CSSProperties = pos
-		? { left: pos.left, top: pos.top, right: 'auto', bottom: 'auto' }
-		: { left: 'max(8px, env(safe-area-inset-left))', top: 'max(8px, env(safe-area-inset-top))' };
-
 	const mismatch = live && live.spokenCount > 0 && live.spokenCount !== live.cueCount;
 	const ctxTone: Tone = !live ? 'none' : live.ctxState === 'running' ? 'good' : live.ctxState === 'suspended' ? 'warn' : 'none';
 
-	const panel = (
-		<div
-			ref={ref}
+	// A flex-column panel: the readout scrolls (min-h-0 flex-1) under the fixed header,
+	// with the copy-trace button pinned below it. The shared chassis owns the drag /
+	// clamp / portal / header + ×.
+	return (
+		<DiagnosticPanel
+			posKey="lattice-readaloud-overlay-pos"
+			label="read-aloud · live"
+			onClose={() => setReadAloudOverlayEnabled(false)}
+			closeLabel="Hide read-aloud overlay"
 			id="lattice-readaloud-overlay"
-			role="status"
-			className="lx-ui fixed z-[2147483646] flex max-h-[82vh] w-[264px] max-w-[86vw] select-none flex-col rounded-xl border border-border bg-popover/95 px-2.5 pt-2 pb-2.5 text-[12px] leading-[1.4] text-popover-foreground shadow-lg backdrop-blur-sm"
-			style={style}
+			corner="top-left"
+			panelClassName="flex max-h-[82vh] w-[264px] max-w-[86vw] flex-col"
 		>
-			<div className="mb-1.5 flex cursor-grab touch-none items-center gap-2 active:cursor-grabbing" onPointerDown={onHeaderPointerDown}>
-				<span aria-hidden className="grid grid-cols-2 gap-[2px] p-px opacity-60">
-					{['a', 'b', 'c', 'd', 'e', 'f'].map((k) => (
-						<i key={k} className="block size-[3px] rounded-full bg-muted-foreground" />
-					))}
-				</span>
-				<span className="flex-1 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">read-aloud · live</span>
-				<button
-					type="button"
-					className="ra-close -my-1 -mr-1 cursor-pointer rounded border-0 bg-transparent px-1 py-0.5 text-[14px] leading-none text-muted-foreground transition-colors hover:text-foreground"
-					aria-label="Hide read-aloud overlay"
-					onClick={() => setReadAloudOverlayEnabled(false)}
-				>
-					×
-				</button>
-			</div>
-
 			<div className="min-h-0 flex-1 overflow-auto">
 				<Sep label="voice" />
 				<Row label="rung" value={live?.rung ?? '—'} tone={live && (live.rung === 'openrouter-tts' || live.rung === 'kokoro') ? 'good' : 'none'} />
@@ -223,9 +150,6 @@ export default function ReadAloudOverlay({ live, events, source }: { live: ReadA
 			>
 				{copied ? 'copied ✓' : 'copy trace'}
 			</button>
-		</div>
+		</DiagnosticPanel>
 	);
-
-	if (typeof document === 'undefined') return null;
-	return createPortal(panel, document.body);
 }

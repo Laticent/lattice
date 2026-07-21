@@ -291,17 +291,19 @@ Off the path of this change; recorded so they aren't lost:
   sighted, orientation-lock-**off** newcomer who opens a shared deck already in landscape
   sees no sign an editor exists. The `sr-only` intro covers AT users; the visible cue was
   removed by explicit request. Revisit if landscape shared-link entry proves common.
-- **`PanelPortal` is now cloned 4× (HARD RULE #15 debt — logged, not fixed here).** The
+- **~~`PanelPortal` is now cloned 4× (HARD RULE #15 debt)~~ — RESOLVED.** The
   draggable/on-brand diagnostics panel (grip drag, on-screen clamp, `<body>` portal,
-  singleton claim, ~80 lines) now lives copy-pasted in `PerfOverlay`, `ReadAloudOverlay`,
-  `VizDiagnosticsOverlay`, and `ViewportDebugOverlay`. Each was cloned deliberately (the
-  in-file comment argues a shared helper would couple independently-evolving overlays), but
-  a fourth copy crosses the rule-of-three line — four-way drift is now a real maintenance
-  risk. **Follow-up (its own PR, off the path of this feature per #17/#8):** extract a
-  shared `<DraggableDiagnosticPanel>` (drag + clamp + portal + singleton + grip header) and
-  refactor all four overlays onto it; each keeps only its own pref module, testid,
-  close-class, and body content. Surfaced by the PR #1129 adversarial-trio (Munger
-  inversion). Not pulled into #1129 to keep that diff one-feature-one-PR.
+  singleton claim, ~80 lines) had been copy-pasted in `PerfOverlay`, `ReadAloudOverlay`,
+  `VizDiagnosticsOverlay`, and `ViewportDebugOverlay` — a fourth copy that crossed the
+  rule-of-three line, surfaced by the PR #1129 adversarial-trio (Munger inversion). Fixed
+  in a follow-up PR: **`docs/src/components/diagnostics/diagnostic-overlay.tsx`** is now the
+  single source of truth — `DiagnosticPanel` (drag + clamp + portal + grip/label/× header)
+  and `useDiagnosticGate` (URL-param + pref subscription + per-overlay singleton claim). All
+  four overlays were refactored onto it; each keeps only its pref module, label, id/testid,
+  default corner, and body content. Per-overlay close-classes (`.pf-close`/`.vz-close`/…)
+  collapsed to one internal `.dp-close`; the two `×`-glyph closes standardized to the lucide
+  `X` the others already used. Verified render/drag/close on the real built Studio for all
+  four (Perf `?perf`, Viz `?viz`, Viewport `?vvdebug`, Read-aloud via Present + `?readaloud-debug=1`).
 
 ## Touchpoints
 
