@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "postinstall": "patch-package",
+    "postinstall": "patch-package --error-on-fail",
     "sync:portal": "node scripts/sync-portal.mjs",
     "sync:playground": "node scripts/sync-playground-assets.mjs",
     "showcase": "node scripts/rasterize-showcase.mjs",

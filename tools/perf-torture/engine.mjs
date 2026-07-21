@@ -550,10 +550,16 @@ function diffListeners(base, final, k, floor = 0.4) {
 function classifyConfirm(before, afterDrive, afterIdle, floor = 4e6) {
 	if (![before, afterDrive, afterIdle].every(Number.isFinite)) return { verdict: 'unavailable', retained: NaN, reclaimed: NaN, net: NaN };
 	const retained = afterDrive - before, reclaimed = afterDrive - afterIdle, net = afterIdle - before;
+	// The verdict keys on NET (afterIdle − before) — what actually SURVIVED the idle GC — NOT on the
+	// reclaimed/retained ratio. The ratio is a trap: a cycle with large TRANSIENT growth + a smaller
+	// PINNED leak (before 100 → drive 200 → idle 140) reclaims 60% yet leaves +40MB pinned; a ratio test
+	// calls that "reclaimable, not a leak" — the exact false-negative the pass exists to catch. What
+	// matters is whether memory returned to ~baseline (net below the noise floor ⇒ reclaimable over-count)
+	// or stayed elevated (net above it ⇒ a real retained leak).
 	let verdict;
-	if (retained < floor) verdict = 'no-growth'; // nothing meaningful accrued from driving → nothing to confirm
-	else if (reclaimed >= 0.6 * retained) verdict = 'reclaimable'; // idle gave most of it back → over-count, not a leak
-	else verdict = 'pinned'; // it survived idle → a real retained-memory leak
+	if (retained < floor) verdict = 'no-growth'; // driving didn't accrue anything above the noise floor
+	else if (net < floor) verdict = 'reclaimable'; // idle returned to ~baseline → reclaimable over-count, not a leak
+	else verdict = 'pinned'; // growth stayed above baseline after idle → real retained memory
 	return { verdict, retained, reclaimed, net };
 }
 
@@ -899,12 +905,12 @@ export async function runTorture({ scenario, argv = process.argv.slice(2) }) {
 					const r = confirms[cc];
 					if (r && !r.unavailable) confirms[cc] = { ...r, ...classifyConfirm(r.before, r.afterDrive, r.afterIdle, confirmFloor), floorBytes: confirmFloor };
 				}
-				console.log(`\n=== CONFIRM-REALM (no heap client \u00b7 measureUserAgentSpecificMemory \u00b7 idle ${Math.round(opts.confirmIdle / 1000)}s) \u2014 RECLAIMABLE on idle \u21d2 over-count, PINNED \u21d2 real leak ===`);
+				console.log(`\n=== CONFIRM-REALM (no heap client \u00b7 measureUserAgentSpecificMemory \u00b7 idle ${Math.round(opts.confirmIdle / 1000)}s) \u2014 verdict keys on NET (survived idle); the API is COARSE (\u2248MB, rate-limited), so this CORROBORATES, it does not settle ===`);
 				for (const [c, r] of Object.entries(confirms)) {
 					if (!r) continue;
 					if (r.unavailable) { console.log(`  [${c}] UNAVAILABLE \u2014 ${r.unavailable}`); continue; }
 					const mb = (n) => (Number.isFinite(n) ? (n / 1e6).toFixed(1) : String(n));
-					const tag = r.verdict === "reclaimable" ? "RECLAIMABLE (idle freed it \u2014 a HeapProfiler over-count, NOT a leak)" : r.verdict === "pinned" ? "\u26a0 PINNED (survived idle \u2014 a real retained-memory leak)" : r.verdict === "no-growth" ? "no meaningful growth to confirm" : "unavailable (measurement failed)";
+					const tag = r.verdict === "reclaimable" ? "RECLAIMABLE (net returned to ~baseline \u2014 likely a HeapProfiler over-count, not a leak)" : r.verdict === "pinned" ? "\u26a0 PINNED? (net stayed above baseline \u2014 likely real; coarse single-shot, corroborate at higher --k / --confirm-idle)" : r.verdict === "no-growth" ? "no meaningful growth to confirm" : "unavailable (measurement failed)";
 					console.log(`  [${c}] ${mb(r.before)}MB \u2192 drove k=${opts.k} \u2192 ${mb(r.afterDrive)}MB (\u0394+${mb(r.retained)}MB) \u2192 idle \u2192 ${mb(r.afterIdle)}MB \u00b7 reclaimed ${mb(r.reclaimed)}MB, net +${mb(r.net)}MB \u21d2 ${tag}`);
 				}
 			}

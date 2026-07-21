@@ -125,11 +125,14 @@ add-site directly and is immune to this.
   heap client. **`--confirm-realm` automates exactly this:** it re-serves the dist crossOriginIsolated
   (COOP `same-origin` + COEP `credentialless` + CORP `same-origin`), drives the SAME cycle with NO heap
   client, and measures via `performance.measureUserAgentSpecificMemory()` — baseline → drive k× → measure
-  → idle (`--confirm-idle`, default 30 s) → measure — printing `RECLAIMABLE` (idle freed it → over-count)
-  or `PINNED` (survived idle → real). `measureUserAgentSpecificMemory()` is a *coarse* (≈MB) sampled
-  estimate, so the confirm floor is **idle-calibrated** from the control cycle's own swing (`max(4 MB,
-  2× idle swing)`); growth under it reads `no meaningful growth` rather than a noise-level false `PINNED`.
-  It therefore targets **MB-scale realm growth** — for a marginal result, raise `--k` / `--confirm-idle`.
+  → idle (`--confirm-idle`, default 30 s) → measure. The verdict keys on **net** (`afterIdle − before`,
+  what SURVIVED idle), NOT the reclaimed/retained ratio — a ratio test lets a real pinned leak hide behind
+  transient churn (100 → 200 → 140 MB reclaims 60 % yet leaves +40 MB pinned). `RECLAIMABLE` = net returned
+  to ~baseline (over-count); `PINNED?` = net stayed elevated (likely real). `measureUserAgentSpecificMemory()`
+  is a *coarse* (≈MB), rate-limited, single-shot estimate, so the floor is **idle-calibrated** from the
+  control's own swing (`max(4 MB, 2× idle swing)`) — growth under it reads `no meaningful growth`, not a
+  noise-level false `PINNED`. It therefore **corroborates** MB-scale realm growth; it does not settle it —
+  a `PINNED?` is a prompt to re-run at higher `--k` / `--confirm-idle`, not a proven leak.
   Typical use: a normal run flags `realmUnconfirmed`, then
   `npm run torture -- --cycle <that-cycle> --confirm-realm` decides it. The equivalent by hand:
   ```js

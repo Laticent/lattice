@@ -172,9 +172,9 @@ export function renderMarkdown(report) {
 				L.push(`> ⚠ UNAVAILABLE — ${c.confirm.unavailable}`, '');
 			} else {
 				const v = c.confirm;
-				const state = v.verdict === 'pinned' ? '🔴 **PINNED** — survived idle → a real retained-memory leak' : v.verdict === 'reclaimable' ? '🟢 **RECLAIMABLE** — idle freed it → a HeapProfiler over-count, not a leak' : v.verdict === 'no-growth' ? 'no meaningful growth to confirm' : 'unavailable';
-				L.push(`${mb(v.beforeBytes)} → drove → ${mb(v.afterDriveBytes)} (Δ+${mb(v.retainedBytes)}) → idle → ${mb(v.afterIdleBytes)} · reclaimed ${mb(v.reclaimedBytes)}, net +${mb(v.netBytes)} → ${state}`, '');
-				L.push('> A real idle GC reclaims detached realms that `HeapProfiler.collectGarbage` (the CDP GC) leaves counted — so growth that recovers here was an over-count, not a leak.', '');
+				const state = v.verdict === 'pinned' ? '🔴 **PINNED?** — net stayed above baseline after idle → likely real (corroborate at higher `--k`/`--confirm-idle`)' : v.verdict === 'reclaimable' ? '🟢 **RECLAIMABLE** — net returned to ~baseline → likely a HeapProfiler over-count, not a leak' : v.verdict === 'no-growth' ? 'no meaningful growth to confirm' : 'unavailable';
+				L.push(`${mb(v.beforeBytes)} → drove → ${mb(v.afterDriveBytes)} (Δ+${mb(v.retainedBytes)}) → idle → ${mb(v.afterIdleBytes)} · reclaimed ${mb(v.reclaimedBytes)}, **net +${mb(v.netBytes)}** → ${state}`, '');
+				L.push('> The verdict keys on **net** (what survived idle), not the reclaimed ratio: a real idle GC reclaims detached realms that `HeapProfiler.collectGarbage` (the CDP GC) leaves counted, so growth that returns to baseline was an over-count. `measureUserAgentSpecificMemory` is a coarse (≈MB), rate-limited estimate — this **corroborates** a realm-class finding, it does not settle it; re-run at higher `--k`/`--confirm-idle` for a marginal result.', '');
 			}
 		}
 		if (c.heapSnapshotFile) L.push(`_Heap snapshot: \`${c.heapSnapshotFile}\` — open in Chrome DevTools ▸ Memory ▸ Load._`, '');
