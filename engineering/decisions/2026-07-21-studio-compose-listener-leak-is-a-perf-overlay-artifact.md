@@ -52,6 +52,16 @@ differs. `?perf` is the ONLY thing that changes: it gates nothing the scenario d
 The production surface adds **exactly one** `visibilitychange` listener over the whole run (the app's own,
 constant) and its total live-listener count does not move. There is no compose/insert listener leak.
 
+### The `/studio` result is a POSITIVE control, not a silent no-op
+A flat number is only trustworthy if the cycle actually *ran* — a cycle that silently no-oped (a selector
+timing out) would also read "flat." It didn't: the `/studio` run's net-live buckets are led by
+**`mousedown`/`click @ button.cs-pill-btn (detached)` — 14 each**. Those are the per-slide ProseMirror
+`SlideView` bar buttons; their presence proves the Compose editor **mounted** each cycle, and the
+`(detached)` tag proves it **unmounted/tore down** each cycle (the buttons are on nodes GC will reclaim).
+So the editor churned every cycle and `JSEventListeners` still held at 688 — the flat is a *measured*
+teardown-works result, not an un-exercised path. (The tally swallows per-cycle throws, so this positive
+bucket — not merely the absence of growth — is what rules out a false negative.)
+
 ### Attribution — where the `?perf` adds come from
 The net-live tally records the **distinct add-site stack** for every `visibilitychange @ document`
 registration (the upgrade #1139's tool lacked). Under `?perf`, over 20 compose cycles:
@@ -81,6 +91,18 @@ this shows up under `?perf` and vanishes without it.
    and the k-sweep on `JSEventListeners` it had already run on the heap. The listener slope DOES decay with k
    (2.05/cyc @k20 → 0.63/cyc @k40 under `?perf`) — the same warmup shape #1139 correctly flagged for the heap,
    here layered on top of the web-vitals accrual.
+
+### On the numbers (reconciling the slopes and baselines)
+The two studies disagree on absolutes, and that is expected — different instruments, not a contradiction:
+- **Baselines differ by instrument, not by leak.** #1139's `?perf` compose baseline was 722 (the torture
+  engine, idle-calibrated, its own warm-up); this study reads 877 on `?perf` and 688 on `/studio` (the
+  standalone tally, one warm-up cycle + forced GC). Only the **slope** is comparable across instruments; the
+  absolute count is an instrument fingerprint.
+- **The slope disagreement is the warmup + web-vitals story, not a hidden leak.** #1139's +4.7/cyc (compose,
+  `?perf`) sits above this study's +0.7…+2.0/cyc (compose, `?perf`) because the listener slope **decays with
+  k** (2.05/cyc @k20 → 0.63/cyc @k40 here) — a warmup shape #1139 never sweep-tested for listeners — layered
+  on the web-vitals ~1/interaction accrual. Both are `?perf`-contaminated; neither survives the move to
+  `/studio`, where the slope is **0**. The production number is the only one that isn't instrument-shaped.
 
 ## The named sites, exonerated (net-live, production build)
 
