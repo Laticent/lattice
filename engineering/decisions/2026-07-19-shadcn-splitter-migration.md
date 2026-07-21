@@ -150,8 +150,12 @@ in-flow iframe never had either). Fixed together, verified on the real docs surf
    - **Top toolbar** — this bar spans the VIEWPORT (not a pane), so it uses viewport
      breakpoints, not container queries: the "Search or run… ⌘K" box collapses to an icon
      button below `xl` (the ⌘K shortcut + a tooltip keep it discoverable), and the deck
-     switcher hides its slide-count meta + tightens its truncation cap below `xl`. Verified
-     0 header overflow at 1180 (icon search, no meta) and 1440 (full box + meta).
+     switcher **flexes** — no fixed width cap at any width; it sizes to its content (the
+     `flex-1` spacer to its right absorbs the surplus) and, as the one `min-w-0` shrinkable
+     item, shows the title in full when there's room and truncates only when the bar fills
+     (its slide-count meta hides below `xl`). Verified 0 header/doc overflow at 1180 (icon
+     search, full title, no meta), 1440 (full box + title + meta), and with a pathologically
+     long injected title (pill grows then truncates, no overflow).
    Verified on the real surface at each panel's min: Preview header 0 overflow at 300 (no
    Crux-A warning, no bleed), Library header 0 overflow with the icon Import at 200–260,
    Settings one-line header + the Canvas segment fully visible at 260. Shared-component

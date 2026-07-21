@@ -2869,11 +2869,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const deckSwitcher = (
 		<DropdownMenu open={deckMenuOpen} onOpenChange={setDeckMenuOpen}>
 			<DropdownMenuTrigger asChild>
-				{/* No width cap on phones — the deck title is the user's orientation, so
-				    it absorbs the bar's free width (siblings are shrink-0; this pill is
-				    the one shrinkable item, truncating only when the title outgrows the
-				    actual free space instead of a fixed 150px). */}
-				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:max-w-[180px] sm:px-2.5 xl:max-w-[260px]">
+				{/* No fixed width cap at ANY width — the deck title is the user's orientation,
+				    so the pill sizes to its content and lets the flex-1 spacer to its right
+				    absorb the bar's free space. It's the one shrinkable item (min-w-0 + a
+				    truncating title; every sibling is shrink-0), so it shows the title in FULL
+				    whenever there's room and truncates only when the bar genuinely fills —
+				    never clipped to an arbitrary 180/260px. */}
+				<button type="button" data-demo="deck-switcher" className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] sm:px-2.5">
 					<span className="size-2 shrink-0 rounded-full bg-primary" />
 					<span className="truncate text-sm font-semibold text-[var(--text-heading)]">{deck.title}</span>
 					{/* Slide-count meta shows only when the bar has room (≥xl); on a tight
