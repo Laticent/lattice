@@ -32,7 +32,10 @@ const STUDIO_HTML = path.join(HERE, '..', 'dist', 'studio', 'index.html');
 const REQUIRED = [
 	['instant-shell container', /id="studio-ssr-shell"/],
 	['slide box', /id="ssr-slidebox"/],
-	['nacre skeleton', /class="nacre-loader"/],
+	// Word-boundary class match (not exact `class="nacre-loader"`) so the gate still passes if the
+	// skeleton element ever gains a second class while keeping `nacre-loader`. `\b` won't match
+	// `nacre-loader__layer` (no boundary before `_`), so this stays distinct from the layer marker below.
+	['nacre skeleton', /class="[^"]*\bnacre-loader\b/],
 	['nacre animated layer', /nacre-loader__layer--0/],
 	// Match the SEED SCRIPT's setAttribute call, NOT a bare `data-ssr-shell` — the latter also
 	// appears in the always-present CSS selector `:root[data-ssr-shell="on"]`, so the gate would

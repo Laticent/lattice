@@ -234,7 +234,12 @@ function Overlay() {
 				const r = el.getBoundingClientRect();
 				return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
 			};
-			const slotEl = document.querySelector('#studio-pane-preview [style*="aspect-ratio"]');
+			// Anchor the slot to the editor preview's STABLE aria-label (its <figure>), then take
+			// the wrapping box (its parent) — the deck-ratio slot the in-flow iframe should coincide
+			// with. Robust to unrelated inline `aspect-ratio` styles the old `[style*="aspect-ratio"]`
+			// selector could accidentally match; falls back to it if the label ever changes.
+			const previewFig = document.querySelector('#studio-pane-preview [aria-label="Live deck preview"]');
+			const slotEl = previewFig?.parentElement ?? document.querySelector('#studio-pane-preview [style*="aspect-ratio"]');
 			const hostEl: Element | null = iframeEl ?? null;
 			setGeom({
 				innerW: window.innerWidth,

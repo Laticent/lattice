@@ -198,6 +198,13 @@ confirmation of zero drift is still required (#23).
   gate regardless of `onload` — a shared-kernel change worth its own PR + maker-checker, not folded into
   this reframe. UNVERIFIED here (needs on-device iOS, #23). This review's fix hardened only the
   first-write poll (stop on pendingLoad-cleared, ~30s budget), which is what changed in this PR.
+- **`SHELL_NACRE_CSS` in studio.astro is a hand-copied subset of `nacre-loader.css` (drift risk).**
+  The pre-hydration shell inlines a scoped (`#studio-ssr-shell …`), fallback-hex'd subset of the
+  canonical loader CSS, kept in sync by a comment. Reading + auto-scoping the canonical file at build
+  would DRY it, but the transform is non-trivial (prefix every selector, rewrite `@keyframes`/`@media`,
+  inject fallback hexes) — more build machinery + risk than the small, stable copy warrants today. The
+  `check:studio-shell` gate already guards the shell's *presence*; a build-time subset assertion is the
+  cheaper future guard if it ever actually drifts. Left as-is (a deliberate copy), not folded.
 - **Nacre loader CSS inlines into every docs page (~1.5KB).** `nacre-loader.css` is imported by
   `DeckPreview`, so Vite folds it into a shared chunk (`resolve-captions`, in `single-slide-render`'s
   graph) that every DeckPreview host — including landing's `HeroPreview` — pulls, and Astro's
