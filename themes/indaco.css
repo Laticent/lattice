@@ -136,7 +136,7 @@
   --pass: light-dark(#2F6B12, #6FCC4D);
   /* Self-curated semantic trio — cool green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
-  --warn: light-dark(#956500, #E6B255);
+  --warn: light-dark(#916200, #E6B255);
   --fail: light-dark(#A81E38, #F07F92);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);

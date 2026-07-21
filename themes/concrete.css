@@ -94,9 +94,9 @@
    * each palette can pick its own alpha. */
   /* Self-curated semantic trio — neutral green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
-  --pass: light-dark(#214F26, #73C77C);
-  --warn: light-dark(#683C00, #DCAA4C);
-  --fail: light-dark(#8E0B13, #EC8585);
+  --pass: light-dark(#15441C, #73C77C);
+  --warn: light-dark(#5A3300, #DCAA4C);
+  --fail: light-dark(#78000A, #EC8585);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

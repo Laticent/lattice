@@ -148,6 +148,32 @@ function resolveTranslucent(token, vars, bgHex) {
   return null;
 }
 
+// Resolve a BACKDROP value to the opaque hex it actually paints as, compositing
+// `color-mix(in srgb, C N%, REST)` down over the canvas. This lets the audit see
+// the translucent status TINTS (--pass-bg = color-mix(in srgb, var(--pass) 12%,
+// transparent)) as the same-hue chip backdrop a status ink sits on — a pairing
+// the plain hex check silently skipped (it resolved to `missing`, never a fail),
+// hiding the fact that a 12% same-hue tint erodes the ink's contrast. `transparent`
+// composites over --bg (the canvas the tint is laid on). Returns null if unresolvable.
+function resolveSurface(raw, vars, depth = 0) {
+  if (depth > 6 || raw == null) return null;
+  const v = String(raw).trim();
+  if (parseHex(v) && /^#[0-9a-f]{3,6}$/i.test(v)) return v;
+  const ref = v.match(/^var\(\s*--([a-z0-9-]+)\s*\)$/i);
+  if (ref) return resolveSurface(vars[ref[1]], vars, depth + 1);
+  const cm = v.match(/^color-mix\(\s*in\s+srgb\s*,\s*(.+?)\s+([\d.]+)%\s*,\s*(.+?)\s*\)$/i);
+  if (cm) {
+    const cHex = resolveSurface(cm[1], vars, depth + 1);
+    const p = parseFloat(cm[2]) / 100;
+    const rest = /^transparent$/i.test(cm[3].trim()) ? vars.bg : cm[3];
+    const bHex = resolveSurface(rest, vars, depth + 1);
+    const c = parseHex(cHex), b = parseHex(bHex);
+    if (!c || !b) return null;
+    return rgbToHex({ r: c.r * p + b.r * (1 - p), g: c.g * p + b.g * (1 - p), b: c.b * p + b.b * (1 - p) });
+  }
+  return null;
+}
+
 function _wcagGrade(ratio) {
   if (ratio === null)  return 'N/A  ';
   if (ratio >= 7.0)    return 'AAA  ';
@@ -244,6 +270,14 @@ const PAIRS = [
   ['text-body',      'bg-alt', 'slide: body on card'],
   ['text-secondary', 'bg-alt', 'slide: secondary text on card'],
   ['text-label',     'bg-alt', 'slide: label / eyebrow on card'],
+
+  // ── Status ink on its OWN translucent tint chip (redline, kpi) ─────────
+  // --*-bg is a same-hue 12% tint of the status color; a status INK sitting on
+  // it (redline marks, kpi pills) loses contrast because tint and ink share a
+  // hue. Composited over the canvas via resolveSurface, held to 4.5 (ink).
+  ['pass', 'pass-bg', 'slide: pass ink on its status tint'],
+  ['warn', 'warn-bg', 'slide: warn ink on its status tint'],
+  ['fail', 'fail-bg', 'slide: fail ink on its status tint'],
 ];
 
 const CHART_TOKENS = ['chart-1','chart-2','chart-3','chart-4','chart-5','chart-6'];
@@ -274,10 +308,11 @@ function auditTheme(theme) {
   let checks = 0;
 
   for (const [fg, bg, ctx] of PAIRS) {
-    const bgHex = vars[bg];
-    // bg must resolve to a plain hex (it's the composite backdrop too).
+    // Resolve the backdrop to an opaque hex — including color-mix() status tints
+    // composited over the canvas — so translucent surfaces are audited, not skipped.
+    const bgHex = resolveSurface(vars[bg], vars);
     if (!bgHex || !parseHex(bgHex)) {
-      if (vars[fg] && bgHex) missing.push({ ctx, fg: vars[fg], bg: bgHex });
+      if (vars[fg] && vars[bg]) missing.push({ ctx, fg: vars[fg], bg: vars[bg] });
       continue;
     }
     // fg: plain hex, or a translucent on-dark ink composited over bg.

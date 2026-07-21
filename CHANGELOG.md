@@ -881,10 +881,16 @@ in patch versions.
   — dominated by warn ambers tuned to clear `--bg` but landing 4.1–4.4:1 on `--bg-alt`. Every one is now
   fixed at the theme source by nudging the light-mode ink a touch darker (target ~4.6:1 for margin): `--warn`
   in ardesia, atelier, brina, burgundy, crepuscolo, indaco, laguna, magnolia, mustard and the four a11y
-  palettes; `--pass` in laguna; `--text-label` in atelier, mustard; `--text-secondary` in cuoio, concrete
-  (dark). The a11y darkening was verified CVD-neutral (0 change in `cvd-audit` collapses; the achromatopsia
-  grayscale ramp stays evenly separated). Dark-mode arms are untouched. (`tools/contrast-audit.js`,
-  `themes/*.css`.)
+  palettes; `--pass` in ardesia, brina, concrete, laguna; `--fail` in concrete; `--text-label` in atelier,
+  mustard; `--text-secondary` in cuoio, concrete (dark). A second, subtler surface was then found and closed:
+  **status ink on its own translucent `--*-bg` tint** (the redline diff chips, kpi pills), where a same-hue
+  12% tint erodes the ink's contrast — a pairing the hex-only audit silently skipped. The audit now
+  composites `color-mix()` tints (704→800 pairs) and the inks are deepened to clear them. For the a11y
+  palettes this hit a genuine AA-vs-CVD conflict — darkening the ink far enough collapsed its colorblind
+  separation (deuteranopia warn↔pass to ΔE 0.142) — so it is co-satisfied the other way: the CVD-safe ink is
+  kept and the a11y status tint is paled to 8%, clearing AA without touching the ink. All a11y darkening is
+  CVD-neutral (`cvd-audit` collapses unchanged; `cvd-palette` distinctness ≥0.15 holds). Dark-mode arms are
+  untouched. (`tools/contrast-audit.js`, `themes/*.css`, `themes/a11y-base.css`.)
 - **Status-fill and accent chrome controls are now contrast-safe and colorblind-aware in dark mode.**
   Follows the chrome status-token fix: (1) new generated `--pass-fill`/`--warn-fill`/`--fail-fill`
   tokens back the white-text status FILLS (the Stop / armed-delete buttons, the diagnostics verdict
