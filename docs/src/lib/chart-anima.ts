@@ -86,6 +86,15 @@ function parseSvg(markup: string): SVGSVGElement | null {
 // charts rendered as bare outlines). Namespacing the copy's ids + their fragment references makes the
 // animated svg self-contained. Base-36 keeps the token short; a plain counter is deterministic
 // (no Date/Math.random) and unique per hydration, so two charts on one page don't collide either.
+//
+// NOTE (host-property boundary — logged per HARD RULE #18): the "identical-id copy beside a
+// display:none original" hazard is really a property of the SHARED HOST's mount strategy
+// (anima/hydrate.ts hides the poster with display:none and mounts a copy of its markup), not of the
+// chart adapter. We namespace HERE because the chart path is the only one that ships `<defs>` paint
+// servers today — spec (`data-scene-spec`) svg scenes are currently Vivus line-art (stroked paths, no
+// gradient defs), so their identical-markup copy has nothing to collide. If a baked svg scene ever
+// carries gradient/clip/mask defs it inherits the same bug and the host mount would need the same
+// treatment (or, categorically, `poster.remove()` instead of display:none). See gotchas.md.
 let CHART_NS_SEQ = 0;
 
 function escapeReg(s: string): string {
@@ -122,7 +131,12 @@ function namespaceInternalRefs(svg: SVGSVGElement): void {
       let out = val;
       for (const old of olds) {
         if (out.indexOf(`#${old}`) === -1) continue;
-        out = out.replace(new RegExp(`#${escapeReg(old)}(?![\\w-])`, 'g'), `#${rename.get(old)}`);
+        const nu = rename.get(old);
+        // FUNCTION replacement, not a string: a namespaced id derived from an attacker-supplied
+        // id can contain `$&` / `$'` / `$$` etc., which `String.replace` would expand in a string
+        // replacement — corrupting the ref back into a dangling pointer (the original bug). A thunk
+        // is opaque to `$`-substitution. (`nu` is constant per `old`.)
+        out = out.replace(new RegExp(`#${escapeReg(old)}(?![\\w-])`, 'g'), () => `#${nu}`);
       }
       if (out !== val) el.setAttribute(name, out);
     }
@@ -139,13 +153,17 @@ function namespaceInternalRefs(svg: SVGSVGElement): void {
  * AssetMap boundary before it reaches a preview frame (HARD RULE #22), exactly as for any svg asset.
  */
 export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): ChartAnimaResult | null {
+  // Bound the RAW markup size BEFORE parse + the O(nodes × ids) namespacing rewrite. The per-attribute
+  // work is attacker-controllable UNDER the node cap below (many defs + ONE multi-MB `style` attr that
+  // references them all → ids × attr-length char-scans), so a giant svg must be rejected up front (#22 —
+  // untrusted shared / AI markup could otherwise hang the Studio tab). A real chart svg is a few KB.
+  if (typeof markup !== 'string' || markup.length > 256 * 1024) return null;
   const svg = parseSvg(markup);
   if (!svg) return null;
 
-  // Bound total work BEFORE the namespacing pass + the per-node loops. chartToScene can be handed
-  // sanitized shared / AI-generated markup in the Studio (#22 threat model), so a pathological svg
-  // with tens of thousands of nodes must be rejected before the O(nodes × ids) reference rewrite —
-  // the mark cap below fires too late to protect it. Any real chart is < ~200 nodes; 3000 is slack.
+  // Bound node count too, before the per-node loops. chartToScene can be handed sanitized shared /
+  // AI-generated markup in the Studio (#22), so a svg with tens of thousands of nodes must be rejected
+  // before the reference rewrite — the mark cap below fires too late. Any real chart is < ~200 nodes.
   if (svg.querySelectorAll('*').length > 3000) return null;
 
   // Self-contain the copy's paint-server references BEFORE minting mark ids, so a gradient-filled
@@ -198,10 +216,16 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
     return id;
   };
 
-  // ── geometry marks: staggered fade-in over [0, buildSpan] (opacity, not stroke — most marks
-  //    are filled shapes). A flagged mark also emphasizes.
+  // ── geometry marks: fade-in over [0, buildSpan] (opacity, not stroke — most marks are filled
+  //    shapes). A flagged mark also emphasizes.
   const n = Math.max(1, markNodes.length);
   const slot = buildSpan / n;
+  // Sectors (pie/donut wedges) are radial parts of a CLOSED figure: a STAGGERED reveal leaves a
+  // visible wedge-shaped gap mid-build, so the disc reads as "missing a slice", not "assembling"
+  // (adversarial trio — Munger). Reveal them SYNCHRONIZED so the whole disc fades in as one. Bars
+  // (a funnel's stages) keep the stagger — the top-to-bottom build IS the drop-off story. Keyed on
+  // the geometry marks' role (homogeneous within a chart), not the chart type.
+  const synchronized = markNodes.length > 0 && (roleForNode(markNodes[0]) ?? 'bar') === 'sector';
   markNodes.forEach((node, i) => {
     const role = roleForNode(node) ?? 'bar';
     const markAttr = node.getAttribute('data-mark');
@@ -213,7 +237,9 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
     node.setAttribute('id', id);
     processed.add(node);
 
-    const motion: Motion[] = [{ verb: 'reveal', at: i * slot, span: slot + 0.08 }];
+    const motion: Motion[] = synchronized
+      ? [{ verb: 'reveal', at: 0, span: buildSpan }]
+      : [{ verb: 'reveal', at: i * slot, span: slot + 0.08 }];
     const el: SvgElement = { id, pathRef: id, motion };
     if (mark != null && highlight.has(mark)) {
       // A fill-only chart mark often carries a CSS stroke (e.g. the funnel band's `--bg` separator)

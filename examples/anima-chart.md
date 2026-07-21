@@ -61,8 +61,8 @@ animates in place; in this PDF it renders as the finished still, unchanged.
 - Self-serve `10`
 
 <!--
-Not just funnels: any chart on the model-free on-ramp animates. A pie's wedges
-reveal in sequence; the gradient fills come through intact on the live copy.
+Not just funnels: any chart on the model-free on-ramp animates. A pie's disc
+fades in as a whole (never a slice short); the gradient fills come through intact.
 -->
 
 ---

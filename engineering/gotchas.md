@@ -58,6 +58,30 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
 
 ---
 
+### `chart-anima`: a gradient-filled chart animates as bare OUTLINES (duplicate `<defs>` ids)
+
+- **Symptom:** an opted-in pie/quadrant/radar (`chart-anima`) animates on the
+  live surfaces with its wedges/areas rendered as **unfilled outlines** — the
+  `fill:url(#pie-wedge-N)` gradient paints nothing — while the still poster and
+  the legend swatches look correct.
+- **Cause:** the host animates by mounting a **copy** of the chart's svg beside
+  the original, which it merely hides (`display:none`), so BOTH carry the
+  renderer's identical `<defs>` ids (`pie-wedge-N`). `url(#pie-wedge-N)` resolves
+  to the *first* match in the document — the `display:none` poster's def — which
+  a hidden subtree does not serve as a paint server. → empty fill. The funnel
+  never hit this (CSS fills, no gradient defs).
+- **Fix:** `chartToScene` (`docs/src/lib/chart-anima.ts` `namespaceInternalRefs`)
+  prefixes the copy's `<defs>` ids + their `url(#…)`/`href` refs with a unique
+  per-hydration token, so the animated svg is self-contained.
+- **Boundary (host property):** the hazard is really a property of the shared
+  host mount (`anima/hydrate.ts` hides + copies identical markup), NOT of charts.
+  A baked `data-scene-spec` **svg scene** carrying gradient/clip/mask defs would
+  inherit the same bug — today's spec scenes are Vivus line-art (no such defs),
+  so they're unaffected. If that changes, the host mount needs the same
+  namespacing (or `poster.remove()` instead of `display:none`).
+
+---
+
 ### Chart renders as a thumbnail after an ancestor gains `container-type` (cqh re-basing)
 
 - **Symptom:** A chart that used to fill its slide renders tiny — correct

@@ -18,8 +18,8 @@ in patch versions.
 > | `### Fixed
 
 - **The in-place chart animation now covers the piechart — and gradient-filled charts render
-  correctly.** `chart-anima` extends to the pie: add it to a slide or deck and the wedges reveal in
-  sequence on the live Studio / Playground (model-free; exported PDF/PPTX byte-identical). This also
+  correctly.** `chart-anima` extends to the pie: add it to a slide or deck and the disc fades in as a
+  whole on the live Studio / Playground (model-free; exported PDF/PPTX byte-identical). This also
   fixes a latent bug that would have hit every gradient-filled chart (pie / quadrant / radar): the
   animated copy mounts beside the hidden still, so the renderer's `<defs>` gradient ids
   (`pie-wedge-N`) appeared **twice** in the document and a wedge's `fill:url(#pie-wedge-N)` resolved
