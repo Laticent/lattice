@@ -101,10 +101,12 @@
 /* On-device preview diagnostic (opt-in via ?previewdiag) — a small green readout of the
    live host/frame/lattice state so a real phone can screenshot what's failing. Read-only. */
 .preview-diag {
-	position: absolute;
+	/* Fixed to the viewport (portaled to <body>) so the readout stays visible even when
+	   the shared preview host is hidden / stranded off-screen — the very cases we diagnose. */
+	position: fixed;
 	top: 6px;
 	left: 6px;
-	z-index: 9;
+	z-index: 2147483647;
 	margin: 0;
 	padding: 5px 7px;
 	font: 600 10px/1.35 ui-monospace, Menlo, Consolas, monospace;

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import * as ReactDOM from 'react-dom';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	createSingleSlideRenderer,
@@ -120,28 +121,83 @@ export function DeckPreview({
 	// headless check here can confirm (#23).
 	const diag = loader && typeof window !== 'undefined' && /[?&]previewdiag\b/.test(window.location.search);
 	const diagRef = React.useRef<HTMLPreElement>(null);
+	// Last resolved render status (set in `render`), surfaced by the diag readout.
+	const lastStatusRef = React.useRef<string>('pending');
 	React.useEffect(() => {
 		if (!diag) return;
+		// One-screenshot timeline: track the story, not just the instant — so a single
+		// on-device capture answers WHICH blank-mode fired (engine/render failure vs.
+		// host stranded 0-wide/oversized vs. rendered-but-not-revealed) without a
+		// back-and-forth. Refs persist across ticks.
+		const t0 = performance.now();
+		let wMin = Infinity;
+		let wMax = 0;
+		let everHidden = false;
+		let revealedAt = 0;
+		let hostWMin = Infinity;
+		let hostWMax = 0;
 		const tick = () => {
 			const host = stageRef.current;
 			const el = diagRef.current;
 			if (!host || !el) return;
 			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
-			let inner = 'frame: none';
+			// Walk up to the position:fixed shared host and read its geometry — the node
+			// the iOS "huge card" stranding actually mis-sizes.
+			let fixed: HTMLElement | null = null;
+			for (let p = host.parentElement; p && p !== document.body; p = p.parentElement) {
+				if (getComputedStyle(p).position === 'fixed') {
+					fixed = p;
+					break;
+				}
+			}
+			const fhr = fixed?.getBoundingClientRect();
+			const fcw = fixed ? Math.round(fixed.clientWidth) : 0;
+			if (fixed) {
+				hostWMin = Math.min(hostWMin, fcw);
+				hostWMax = Math.max(hostWMax, fcw);
+			}
+			// Crux-A: any transformed/filtered/contained ancestor breaking position:fixed?
+			let crux = 'none';
+			for (let p = fixed?.parentElement ?? null; p && p !== document.documentElement; p = p.parentElement) {
+				const s = getComputedStyle(p);
+				if (s.transform !== 'none' || s.filter !== 'none' || s.perspective !== 'none' || /transform|filter|perspective/.test(s.willChange) || (s.contain !== 'none' && /paint|layout|strict|content/.test(s.contain)) || s.backdropFilter !== 'none') {
+					crux = (typeof p.className === 'string' ? p.className : p.tagName).slice(0, 22);
+					break;
+				}
+			}
+			let inner = 'none';
 			try {
 				const d = fr?.contentDocument;
 				const lat = d?.querySelector('.lattice');
 				const sec = d?.querySelector('.lattice section');
-				if (fr) inner = `lattice:${lat ? 'y' : 'n'} vis:${lat ? getComputedStyle(lat).visibility : '-'} sec:${sec ? 'y' : 'n'}`;
+				if (fr) inner = `lat:${lat ? 'y' : 'n'} vis:${lat ? getComputedStyle(lat).visibility : '-'} sec:${sec ? 'y' : 'n'}`;
 			} catch {
-				inner = 'frame: cross-origin';
+				inner = 'x-origin';
 			}
+			if (fr) {
+				const cw = Math.round(fr.clientWidth || 0);
+				wMin = Math.min(wMin, cw);
+				wMax = Math.max(wMax, cw);
+				const vis = fr.style.visibility || 'default';
+				if (vis === 'hidden') everHidden = true;
+				else if (!revealedAt && vis !== 'hidden') revealedAt = Math.round(performance.now() - t0);
+			}
+			const vv = window.visualViewport;
+			const frr = fr?.getBoundingClientRect();
 			el.textContent = [
-				`host ${Math.round(host.clientWidth)}×${Math.round(host.clientHeight)}`,
-				fr ? `frame vis:${fr.style.visibility || 'default'} tf:${fr.style.transform || 'none'}` : 'frame: none',
+				`eng:${window.LatticePlayground ? 'y' : 'n'} stat:${lastStatusRef.current}`,
+				`figure ${Math.round(host.clientWidth)}×${Math.round(host.clientHeight)}`,
+				fixed ? `host ${fixed.style.position} ${Math.round(fhr?.left ?? 0)},${Math.round(fhr?.top ?? 0)} ${Math.round(fhr?.width ?? 0)}×${Math.round(fhr?.height ?? 0)} cw:${fcw}` : 'host: NO fixed ancestor',
+				fixed ? `host op:${getComputedStyle(fixed).opacity} vis:${getComputedStyle(fixed).visibility}` : '',
+				fr ? `fr vis:${fr.style.visibility || 'default'} tf:${fr.style.transform || 'none'}` : 'fr: none',
+				frr ? `fr@ ${Math.round(frr.left)},${Math.round(frr.top)} ${Math.round(frr.width)}×${Math.round(frr.height)}` : '',
 				inner,
-				`nacre:${painted ? 'done' : 'running'}`,
-			].join('\n');
+				`vv ${vv ? `${Math.round(vv.width)}×${Math.round(vv.height)}@${Math.round(vv.offsetTop)}` : '-'} win ${window.innerWidth}×${window.innerHeight}`,
+				`seen fr-w:${wMin === Infinity ? '-' : wMin}→${wMax} host-w:${hostWMin === Infinity ? '-' : hostWMin}→${hostWMax} hid:${everHidden ? 'Y' : 'n'} rev:${revealedAt ? `${revealedAt}ms` : 'NO'}`,
+				`cruxA:${crux} nacre:${painted ? 'done' : 'run'}`,
+			]
+				.filter(Boolean)
+				.join('\n');
 		};
 		tick();
 		const id = window.setInterval(tick, 250);
@@ -173,6 +229,15 @@ export function DeckPreview({
 		const host = stageRef.current;
 		if (!host || !activeRef.current) return;
 		const done = engineRef.current?.renderInto(host, sample, mermaid, paletteOverride, extraTheme, modeOverride, extraCss);
+		// On-device diagnostic: stash the resolved render status so ?previewdiag can show
+		// whether the render SUCCEEDED, ERRORED, or never ran — the discriminator between a
+		// blank that's "engine/render failed" vs "rendered but not painted" on real iOS (#23).
+		lastStatusRef.current = 'rendering…';
+		done?.then((st) => {
+			lastStatusRef.current = st ? (st.ok ? `ok ${st.writePath ?? ''} slides:${st.slides}` : `ERR:${st.error ?? '?'}`) : 'no-status';
+		}).catch((e) => {
+			lastStatusRef.current = `THROW:${String((e as Error)?.message || e).slice(0, 40)}`;
+		});
 		if (done && !firstRenderFiredRef.current) {
 			done
 				.then((st) => {
@@ -400,7 +465,11 @@ export function DeckPreview({
 					<span className="nacre-loader__vig" />
 				</span>
 			)}
-			{diag && <pre ref={diagRef} className="preview-diag" aria-hidden="true" />}
+			{/* The diag readout is PORTALED to <body> as position:fixed — so it stays
+			    visible even when the failure mode is a hidden/off-screen/stranded host
+			    (rendering it inside the figure would hide the diagnostic exactly when
+			    it's needed). Opt-in via ?previewdiag; only the loader host mounts it. */}
+			{diag && typeof document !== 'undefined' && ReactDOM.createPortal(<pre ref={diagRef} className="preview-diag" aria-hidden="true" />, document.body)}
 		</figure>
 	);
 }
