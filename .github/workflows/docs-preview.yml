@@ -58,8 +58,23 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: docs/package-lock.json
+          # BOTH lockfiles: this job runs `npm ci` at the repo root (engine deps for the SSG
+          # instant-shell) AND in docs/, so caching keyed on only one leaves the other's install
+          # uncached and slow. See the "Install root deps" step below.
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
 
+      # The SSG instant-shell (studio.astro) loads the owned engine (lib/**) at build
+      # time, which `require()`s ROOT deps (markdown-it, …) resolved from the repo-root
+      # node_modules — NOT docs/. Without this the shell renders null and the studio
+      # ships blank-on-reload (now caught by `check:studio-shell`). Mirrors ci.yml's
+      # docs-build job, which already installs root deps for the same reason.
+      - name: Install root deps (engine deps for the SSG instant-shell)
+        if: steps.guard.outputs.have == 'true'
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
       - name: Build docs site
         if: steps.guard.outputs.have == 'true'
         working-directory: docs

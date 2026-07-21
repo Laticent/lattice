@@ -157,3 +157,56 @@ describe('DeckPreview — teardown (leak fix)', () => {
 		expect(dispose).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe('DeckPreview — first-render handoff (opacity reveal)', () => {
+	it('fires onFirstRender exactly once and fades the loader when iframe.live opacity flips 0→1', async () => {
+		const onFirstRender = vi.fn();
+		const { container } = render(
+			<DeckPreview options={opts} sample="# A" mermaid={false} loader onFirstRender={onFirstRender} aria-label="Live deck preview" />,
+		);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		const figure = container.querySelector('figure') as HTMLElement;
+		expect(container.querySelector('.nacre-loader')).toBeTruthy();
+		expect(container.querySelector('.nacre-loader.is-done')).toBeNull();
+
+		// The real renderer appends `iframe.live` (opacity:0) and reveals it (opacity 0→1) ONLY once
+		// the slide has painted + scaled; the mocked renderer doesn't, so drive the handoff by hand.
+		// The reveal-watcher keys on the frame's inline opacity via a MutationObserver (the srcdoc
+		// `load` event is unreliable on iOS), so a hidden frame must NOT hand off and the reveal MUST.
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.style.opacity = '0';
+		figure.appendChild(fr);
+		await new Promise((r) => setTimeout(r, 20));
+		expect(onFirstRender).not.toHaveBeenCalled();
+		expect(container.querySelector('.nacre-loader.is-done')).toBeNull();
+
+		// Reveal → handoff: onFirstRender fires once AND the loader gets `is-done` (fade + freeze).
+		fr.style.opacity = '1';
+		await waitFor(() => expect(onFirstRender).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(container.querySelector('.nacre-loader.is-done')).toBeTruthy());
+
+		// A later opacity churn must NOT re-fire onFirstRender (once-guarded).
+		fr.style.opacity = '0';
+		fr.style.opacity = '1';
+		await new Promise((r) => setTimeout(r, 20));
+		expect(onFirstRender).toHaveBeenCalledTimes(1);
+	});
+
+	it('fires onFirstRender even without a loader (a non-loader host still gets the first-paint signal)', async () => {
+		const onFirstRender = vi.fn();
+		const { container } = render(
+			<DeckPreview options={opts} sample="# A" mermaid={false} onFirstRender={onFirstRender} aria-label="Live deck preview" />,
+		);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		// No loader → no skeleton rendered, but the reveal-watcher still runs for onFirstRender.
+		expect(container.querySelector('.nacre-loader')).toBeNull();
+		const figure = container.querySelector('figure') as HTMLElement;
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.style.opacity = '0';
+		figure.appendChild(fr);
+		fr.style.opacity = '1';
+		await waitFor(() => expect(onFirstRender).toHaveBeenCalledTimes(1));
+	});
+});

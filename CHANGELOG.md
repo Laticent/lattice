@@ -250,6 +250,32 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **The Studio's pre-hydration shell title bar is now on-brand and theme-aware, not a grey placeholder.**
+  The shell topbar showed a generic gradient-chip logo on a hardcoded grey bar. It now renders the real
+  Lattice **"Spectrum Cell"** mark (inline SVG, bonds keyed to light/dark) and tints the bar with the
+  visitor's own theme — `background: color-mix(var(--bg) 92%)`, `var(--border)`, `var(--text-heading)`
+  title — matching the hydrated app's topbar, so there's no grey flash or logo swap at hand-off. The shell
+  already seeds the visitor's persisted **palette + mode** before first paint, so the whole pre-paint
+  surface (topbar + nacre) reflects their chosen theme, not a default. (`docs/src/pages/studio.astro`.)
+- **The Studio live preview no longer uses a hoisted `position:fixed` host that drifted on iOS.** Real-device
+  testing showed the shared preview iframe mis-tracking its slot on iPhone/iPad during viewport changes
+  (software keyboard, pinch-zoom, URL-bar): the slide bled over the editor or overflowed behind the keyboard.
+  Root cause was structural — a `position:fixed` element positioned from a `getBoundingClientRect` (which
+  returns *visual*-viewport coords while `fixed` lays out against the *layout* viewport), so any visual/layout
+  viewport divergence moved it off its slot. The preview is now **decoupled and in-flow**: the editor preview
+  is a normal layout child of its box (the browser keeps it glued through keyboard/zoom/URL-bar/split-drag for
+  free — no fixed element, nothing to mis-measure), and Present renders its **own** in-flow preview. The
+  hoisted host, the measure-and-track controller (`use-shared-preview-slot.ts`), and the empty anchor slots are
+  deleted. Assessment + design: `engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md`.
+  (`docs/src/components/studio/StudioShell.tsx`, `docs/src/components/studio/PresentOverlay.tsx`.) *(iOS
+  freedom-from-drift is structural but UNVERIFIED on real hardware per the verification bar. Warmth
+  tradeoffs, all loader-covered and pending the keep-warm follow-up: opening Present shows a brief loader
+  (its iframe mounts on open), the editor preview cold-remounts when entering/leaving Fabricate and across a
+  breakpoint/orientation change (the old hoisted host stayed warm through those), and while Present is open
+  two engine iframes coexist briefly (editor parked + Present's own).)*
+
 ### Security
 
 - **Fabricate's component preview no longer renders CSS that carries a blocked remote reference.** The
@@ -341,7 +367,25 @@ in patch versions.
   so a phone can enable it without the drawer. Studio-only, opt-in, and inert until shown (it measures
   nothing while off). (`ViewportDebugOverlay.tsx`, `viewport-debug-prefs.ts`;
   `engineering/decisions/2026-07-20-landscape-phone-preview-lock.md`.)
-
+- **The Studio's live preview no longer flashes a blank card while a slide loads — it shows a living
+  "Nacre" cloud.** A screen-only animated finish fills the "no slide yet" moment (cold boot, reload,
+  the post-hydration gap while the engine bundle loads) with a soft, iridescent accent cloud, then
+  fades out the instant the real slide paints over it. It's palette-blind (auto-matches every theme +
+  dark/light off the live `--accent` / `--bg` tokens; the layer blend flips `screen → multiply` on a
+  light ground so it stays visible on white), and honors `prefers-reduced-motion` with a calm static
+  cloud. The iridescence is real — three accent layers at different hues counter-rotate so their
+  overlaps continuously remix — and it's built to be cheap during load: `blur` + `hue-rotate` are baked
+  once and only `transform: rotate` animates, so the GPU spins cached bitmaps with no per-frame re-blur.
+  Opt-in per preview host (Studio only); exported PDF/PPTX/HTML bytes are unchanged (preview-only).
+  The nacre now also seeds the **pre-hydration instant shell**: `studio.astro` paints it into
+  `#ssr-slidebox` on **every** reload — a single Nacre skeleton shown to every visitor (the later
+  one-skeleton pass retired the earlier per-visitor snapshot / newcomer-welcome-slide fallbacks, so
+  it's unconditional now) — before first paint. A reload that used to show a **blank card until the
+  island hydrated** now always paints *something* immediately, with zero dependence on the live
+  preview or iOS timing. Real-device (iOS) perf sign-off
+  remains a tracked follow-up. (`docs/src/styles/nacre-loader.css`, `docs/src/components/DeckPreview.tsx`,
+  `StudioShell.tsx`, `docs/src/pages/studio.astro`;
+  `engineering/decisions/2026-07-20-nacre-preview-loader.md`.)
 - **Fabricate can now refine a component by hand — quick chips or a freeform nudge — not just generate
   it.** The mirror of the Motion faculty's refine, ported to components. A "Refine" row sits under the
   "describe a component" bar (once a model is connected): four semantic chips — **Simpler · Bolder ·
@@ -833,6 +877,59 @@ in patch versions.
   AA-safe values. White-text status *fill* controls (the Stop / armed-delete buttons, the verdict chips)
   pin a fixed dark hex rather than the now-resolving foreground-tuned token, which would be too bright
   for white text in dark mode.
+- **The Studio preview no longer shows a broken split loading state on mobile — the loading placeholder
+  is now ONE Nacre skeleton, and nothing else.** On a real iPhone, a reload could paint the slide in the
+  top half of the preview and the Nacre shimmer bleeding into the bottom with a seam down the middle
+  (sometimes also huge, shoved off-screen, or blank). Root cause was architectural, not timing: three
+  surfaces drew into the preview area during load — the pre-hydration instant-shell (which painted a
+  **real** cached-last-slide or a build-time welcome slide, centered in the full viewport), the hoisted
+  live-preview host (the Nacre), and the live iframe — in two different coordinate systems, with the
+  shell's dismissal gated on the live-iframe reveal that iOS signals unreliably. The opaque host Nacre
+  covered its own rect while the real SSR slide showed through everywhere else — the seam. Reshaped to
+  **one skeleton**: the instant-shell is now **Nacre-only** (a single contained 16:9 box shown to every
+  visitor — the cached-last-slide replay and the server-rendered welcome slide are retired); the shell
+  dismisses when the app's own identical Nacre is up (not on the flaky reveal); the preview box is a
+  reliably-contained 16:9 (a portrait phone is width-bound, so the Nacre can't bleed into a letterbox);
+  and the live slide reveals only when it is genuinely good (painted + width-scaled + clamped on-screen),
+  with the skeleton holding until then. One surface, one coordinate system — the seam is structurally
+  impossible. The letterbox bands sit on the theme `var(--bg)` — the SAME ground the hydrated app's pane
+  and the Nacre card resolve to — so a reload no longer flashes a **black** letterbox before the app's
+  themed background paints (a hardcoded near-black `#0c0c0c` shell ground, reported on iPhone reload). The skeleton box also no longer **jumps** at hand-off (worst on tablet, where the app uses
+  a two-pane split the fixed shell didn't reproduce): the app persists its real preview-box rect on
+  unload, and the pre-hydration shell replays that exact rect — a same-device reload now lands the Nacre
+  pixel-identical to where the app re-measures it (`dx=dy=dw=dh=0` at desktop/tablet/mobile). A first
+  visit falls back to a centered full-bleed box at the **deck's author-chosen aspect** (resolved from the
+  active deck's `size:` the same way the app derives it — square, 4:3, 9:16, … all fit correctly; the
+  skeleton never assumes 16:9). And when there is no rect to replay at all (a brand-new or cross-device
+  first load), the shell now **computes** the exact box from known inputs — a shared `computePreviewRect()`
+  that a probe of the live app confirms matches to ≤0.1px across the breakpoint × stop matrix — so even a
+  first load lands the skeleton on the real box (read 0px, split ≤1px) instead of an approximation.
+  **Behavior change:** a returning visitor no longer sees their real last slide flash
+  instantly on reload — everyone sees the calm Nacre skeleton, then the live slide. (Studio-prototype
+  UX only — not an engine/consumer break, so it carries no `**Breaking:**` semver marker.) (`docs/src/pages/studio.astro`,
+  `docs/src/components/studio/StudioShell.tsx`, `docs/src/components/DeckPreview.tsx`,
+  `docs/src/lib/single-slide-render.ts`, `docs/scripts/check-studio-shell.mjs`;
+  `engineering/decisions/2026-07-21-studio-preview-one-skeleton.md`.)
+
+- **The live preview no longer reveals a blank/unscaled slide when the pane is measured mid-reflow.**
+  The single-slide renderer scaled the frame only when the host had a non-zero width (`if (w > 0)`), but
+  it revealed the frame on `onload` **regardless** — so if the shared preview host was briefly 0-wide
+  during a layout reflow (observed on iOS Safari's load, where the card ballooned off-screen), the frame
+  was revealed **unscaled** at its intrinsic 1280px, pushing the slide's centered content outside the
+  visible box → a blank card. Reveal is now owned by `scaleFrame` and gated on a real width: the frame
+  stays hidden until it can be correctly scaled, the host `ResizeObserver` reveals it the instant width
+  arrives, and a backstop re-fits before its last-ditch reveal. As a companion iOS fix, the shared
+  preview's `position:fixed` host now also re-measures on `visualViewport` resize/scroll — iOS Safari
+  collapses its URL bar during load and fires *only* those events (not `window` resize/scroll), so the
+  host was positioned against a stale rect and could strand off-screen/oversized (the reported "huge
+  card"). (**Superseded by the in-flow reframe above:** the shared `position:fixed` host and its
+  `visualViewport` re-measure are DELETED — the editor preview is a normal in-flow layout child, so
+  nothing tracks a rect and the drift is structurally unreachable. The width-gated reveal survives but
+  is now driven by an `opacity` 0→1 **content gate** — `scaleFrame` reveals once `.lattice` has painted
+  AND the host has real width — polled (iOS drops the srcdoc `onload`) until `__latticePendingLoad`
+  clears, not by `onload`/a fixed timer.)
+  (`docs/src/lib/single-slide-render.ts`,
+  `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
 - **A phone held in landscape is no longer a dead editing surface — the slide fills the screen and you
   swipe through the deck (the "cinema" morph).** A landscape phone is wide enough (~844–932px) to fall
   into the Studio's two-pane *tablet* layout but only ~360–430px *tall*, so the editor|preview split was
@@ -876,8 +973,22 @@ in patch versions.
   search box collapses to an icon button (the ⌘K palette is one tap or the shortcut) and the deck
   switcher flexes — it shows the deck title in FULL whenever the bar has room and truncates only when
   the bar genuinely fills (no arbitrary width cap), dropping its slide-count meta when tight — so the
-  bar never crowds and the title is never clipped needlessly; the search box expands again on a wide screen. (`docs/src/components/studio/{StudioShell.tsx,Library.tsx,lens-picker.tsx,SlideContext.tsx,use-shared-preview-slot.ts}`;
+  bar never crowds and the title is never clipped needlessly; the search box expands again on a wide screen. (`docs/src/components/studio/{StudioShell.tsx,Library.tsx,lens-picker.tsx,SlideContext.tsx}`;
   `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
+
+- **The Studio's pre-paint shell can't ship broken unnoticed — two build-integrity guards.** (1) A
+  `check:studio-shell` gate (chained into the docs `build`) **fails the build** if the shipped
+  `dist/studio/index.html` lost its pre-paint **Nacre skeleton** scaffold — the container, the 16:9
+  box, the `.nacre-loader`, and the seed script that flips `data-ssr-shell="on"` — turning a silent
+  **blank-preview-until-hydration** regression (the bug this whole area exists to prevent) into a
+  blocking CI failure. (2) The docs *deploy* and *PR-preview* workflows now install the engine's **root
+  deps** (`markdown-it`, …) before the docs build: `studio.astro` `require()`s the owned engine
+  (`lib/**`) at build time for the component catalog/vocab, so a `docs/`-only `npm ci` left those
+  uninstalled and the deployed studio could build wrong while looking fine locally (a full checkout has
+  root deps). Fixed by mirroring `ci.yml`'s `docs-build` install in `.github/workflows/docs.yml` +
+  `docs-preview.yml`. (`docs/scripts/check-studio-shell.mjs`, `docs/package.json`,
+  `.github/workflows/docs.yml`, `.github/workflows/docs-preview.yml`;
+  `engineering/decisions/2026-07-21-studio-preview-one-skeleton.md`.)
 - **Fabricate's component generator got a hardening pass (Undo, an effort-regression guard, and a few
   honesty fixes).** Four guards from the adversarial review of the generation increments. (1) **Undo before
   overwrite** — generate/refine/effort replace the whole component, so one prompt could silently eat a
@@ -1028,8 +1139,9 @@ in patch versions.
   and the live iframe re-asserts its own `visibility:visible` (which overrides an ancestor per CSS) — it
   now parks with `opacity:0`, which a child can't override, so the slide is fully hidden on every parked
   surface (mobile edit pane, Fabricate, collapsed preview).
-  (`use-shared-preview-slot.ts` new, `StudioShell.tsx`, `PresentOverlay.tsx`;
-  `engineering/decisions/2026-07-19-present-shared-preview.md`.)
+  (`use-shared-preview-slot.ts` new — **since deleted by the in-flow reframe in this same release**
+  (see the "no longer uses a hoisted `position:fixed` host" entry above); `StudioShell.tsx`,
+  `PresentOverlay.tsx`; `engineering/decisions/2026-07-19-present-shared-preview.md`.)
 - **The component-dedup embedder now runs in a Web Worker — never on the main thread — so semantic
   "similar components" suggestions can stay on without any risk of freezing or crashing the tab.**
   Follow-on to the #1110 hot-path fix. The bge-small model that ranks near-duplicate components (the

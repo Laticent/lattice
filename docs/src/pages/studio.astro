@@ -19,9 +19,10 @@ import EngineWarm from '../components/site/EngineWarm.astro';
 import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import { joinBase } from '../lib/base-url.mjs';
 import { assetBase } from '../playground/asset-version.mjs';
-import { DECKS } from '../components/studio/decks';
+import { DECKS, deckSource } from '../components/studio/decks';
+import { SIZE_RATIO, deckRatio } from '../components/studio/slide-size';
+import { PREVIEW_CHROME } from '../components/studio/preview-rect';
 import { BUILTIN_PALETTES } from '../components/studio/palettes';
-import { renderFirstSlideShell } from '../../scripts/ssg-first-slide.mjs';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -158,70 +159,85 @@ try {
 	lintVocab = null;
 }
 
-// SSG the first slide of the newcomer's default deck (DECKS[0] · indaco · light)
-// into a static, no-JS instant shell below. It paints the largest element at
-// HTML-parse time so mobile LCP no longer waits on the client:only island +
-// engine bundle. A returning user (saved deck / non-default palette or mode) is
-// gated OUT of the shell by the pre-paint seed script — for them the welcome
-// slide is the wrong content, so they keep the prior (island-gated) first paint.
-// engineering/decisions/2026-07-11-preview-performance-diagnosis.md (front A).
-const SSR_PALETTE = 'indaco';
+// firstDeck powers only the instant-shell topbar title (a chrome placeholder shown until
+// the hydrated app's own topbar takes over). The shell paints a static, no-JS Nacre
+// skeleton at HTML-parse time so a reload never stares at a blank preview while the
+// client:only island + engine bundle load.
 const firstDeck = DECKS[0];
-// Built-in deck {id,title} pairs, injected into the pre-paint replay so its bootId
-// resolution matches the app's loadBootDeck() EXACTLY. loadBootDeck resolves the active
-// id against loadDeckList() = loadIndex(), which is the persisted index WHEN ONE EXISTS,
-// else the full built-in DECKS seed (studio-store loadIndex). So the inline `isKnown`
-// accepts a built-in via this list ONLY when no index is persisted (idx empty) — gating
-// it on a non-empty index would wrongly accept a built-in the user has since DELETED from
-// their index (cross-tab), painting its snapshot while the app boots the fallback deck (a
-// wrong-deck flash the maker-checker caught). The list also resolves the topbar title for
-// a built-in in the no-index case.
-const builtinDecks = DECKS.map((d) => ({ id: d.id, title: d.title }));
-// process.cwd() is docs/ under `astro build` (the same basis the lintVocab read
-// below uses); repo root is one up. NOT an import.meta.url walk — the bundled
-// frontmatter chunk doesn't sit at src/pages/.
-// options.themeBase is the served themes/ URL the engine's relative `url(fonts/…)`
-// @font-face refs resolve against — pass it so they're rewritten absolute (no 404
-// at /studio/, and the SSG slide uses the real faces, matching the live render).
-const shell = firstDeck?.slides?.[0] ? await renderFirstSlideShell(firstDeck.slides[0], SSR_PALETTE, join(process.cwd(), '..'), options.themeBase) : null;
-// Chrome + responsive-scale CSS for the instant shell. Keyed under
-// #studio-ssr-shell so it never touches the hydrated island. The slide is kept at its
-// intrinsic @size box and transform-scaled to fit (like the live FIT agent): the engine
-// pins its container-query font basis to 1280, so a `width:100%` box would render the
-// fonts oversized + clipped. The replay measures the stage and sets --ssr-w/h/scale.
-const SHELL_CHROME_CSS = shell
-	? `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:#e7e7ea;color:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;}
-:root[data-mode="dark"] #studio-ssr-shell{background:#0c0c0c;color:#e8e8e8;}
-#studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid rgba(0,0,0,.08);background:#fbfbfa;}
-:root[data-mode="dark"] #studio-ssr-shell .ssr-topbar{background:#161616;border-bottom-color:rgba(255,255,255,.08);}
-#studio-ssr-shell .ssr-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 45deg,#1a3a5c,#3f6d9c,#1a3a5c);flex:0 0 auto;}
-#studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,4vw,32px);}
-#studio-ssr-shell .ssr-slidebox{width:calc(var(--ssr-w,${shell.width}px)*var(--ssr-scale,1));max-width:100%;box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
-#studio-ssr-shell .ssr-slidebox:empty{width:min(960px,100%);aspect-ratio:${shell.width}/${shell.height};}
-#studio-ssr-shell .ssr-slidebox .lattice{width:calc(var(--ssr-w,${shell.width}px)*var(--ssr-scale,1));height:calc(var(--ssr-h,${shell.height}px)*var(--ssr-scale,1));overflow:hidden;visibility:visible!important;}
-#studio-ssr-shell .ssr-slidebox .lattice>section{width:var(--ssr-w,${shell.width}px)!important;height:var(--ssr-h,${shell.height}px)!important;max-width:none!important;margin:0!important;transform:scale(var(--ssr-scale,1));transform-origin:top left;}`
-	: '';
+// Aspect ratio (w:h) each builtin deck renders at — its AUTHOR-CHOSEN size, never assumed
+// 16:9 — so the instant shell's fallback box matches the deck the visitor actually boots
+// into. Injected into the seed below (with the size map, for resolving a user-edited deck's
+// size pre-paint). DEFAULT_RATIO is the newcomer's deck (DECKS[0]).
+const DECK_RATIOS: Record<string, [number, number]> = Object.fromEntries(DECKS.map((d) => [d.id, deckRatio(deckSource(d))]));
+const DEFAULT_RATIO = DECK_RATIOS[firstDeck.id] ?? [16, 9];
+// Built-in deckId → title, so the seed can best-effort correct the shell topbar title to the
+// LAST-ACTIVE deck (not just DECKS[0]) for a returning visitor — a title, never slide content.
+const DECK_TITLES: Record<string, string> = Object.fromEntries(DECKS.map((d) => [d.id, d.title]));
+// The Studio's pre-hydration INSTANT SHELL is Nacre-ONLY: a single animated skeleton in one
+// contained box (at the deck's chosen aspect), shown to EVERY visitor at HTML-parse time
+// (before the client:only island + the ~505KB engine load) and dismissed by the app once its
+// own (identical) Nacre is up. There is deliberately NO cached-last-slide replay and NO
+// server-rendered welcome slide: a second, REAL-CONTENT surface racing the live preview at a
+// mismatched geometry was the root of the "slide in the top half, shimmer bleeding into the
+// bottom, seam down the middle" bug on mobile (two surfaces, two coordinate systems, one gated
+// on the flaky iOS reveal). One skeleton, one rect, one honest ground — the seam is now
+// structurally impossible. See engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
+// Chrome for the instant shell (topbar + centered stage). Keyed under #studio-ssr-shell so
+// it never touches the hydrated island. The shell ground is the theme `var(--bg)` (the SAME
+// token the hydrated app's root `bg-background` and the Nacre card resolve to) — NOT a hardcoded
+// near-black. A hardcoded `#0c0c0c` made the pre-hydration letterbox flash BLACK around the navy
+// Nacre card, then jump to the app's navy `--bg` on hydration (reported on iPhone reload). Using
+// `var(--bg)` makes the letterbox, the Nacre card, and the hydrated pane one continuous ground.
+const SHELL_CHROME_CSS = `#studio-ssr-shell{position:fixed;inset:0;z-index:1;pointer-events:none;flex-direction:column;background:var(--bg,#e9eef5);color:var(--text-body,#1a1a1a);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;--mark-bond:#003d66;--mark-halo:#faf7f2;}
+:root[data-mode="dark"] #studio-ssr-shell{background:var(--bg,#0c1626);color:var(--text-body,#e8e8e8);--mark-bond:#4fa8da;--mark-halo:#15110d;}
+#studio-ssr-shell .ssr-topbar{flex:0 0 auto;height:54px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--border,rgba(127,127,127,.16));background:color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
+#studio-ssr-shell .ssr-logo{width:26px;height:26px;flex:0 0 auto;}
+#studio-ssr-shell .ssr-deck-title{font-weight:600;font-size:15px;line-height:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-heading,inherit);}
+#studio-ssr-shell .ssr-stage{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;padding:clamp(12px,3vw,20px);container-type:size;}
+/* FALLBACK box (a visitor with no persisted rect): ONE full-bleed box at the deck's
+   AUTHOR-CHOSEN aspect (--sb-ratio / numeric --sb-ar, seeded below; the engine's own 16:9
+   only when a deck names no size), fit into the stage the SAME way the app fits its preview:
+   width = min(available width, available height × ratio) via container-query units, so it
+   letterboxes correctly for ANY aspect — a square/portrait deck binds on height on a wide
+   viewport, a landscape deck binds on width on a phone. Mirrors the app's newcomer boot (the
+   Read stop's full-bleed preview). The letterbox bands are flat shell background — never
+   Nacre — the invariant that kills the bleed. */
+#studio-ssr-shell .ssr-slidebox{position:relative;width:min(100cqw, calc(100cqh * var(--sb-ar, 1.7778)));aspect-ratio:var(--sb-ratio, 16 / 9);box-shadow:0 8px 30px rgba(0,0,0,.16);border-radius:8px;overflow:hidden;}
+/* RECT-REPLAY mode: a returning visitor's seed script (below) resolved the app's OWN last
+   preview-box rect from localStorage and set --sb-* to px in the CURRENT viewport. Position
+   the box ABSOLUTELY at that rect (its containing block is the position:fixed shell = the
+   viewport), so the Nacre lands exactly where the hydrated app will re-measure its box — no
+   geometry reimplementation here, so it can't drift from the app's split/stop/ratio layout. */
+:root[data-ssr-rect] #studio-ssr-shell .ssr-stage{display:block;padding:0;container-type:normal;}
+:root[data-ssr-rect] #studio-ssr-shell .ssr-slidebox{position:absolute;left:var(--sb-l);top:var(--sb-t);width:var(--sb-w);height:var(--sb-h);max-width:none;max-height:none;aspect-ratio:auto;}`;
 
-// Pre-paint replay: pick what the instant-shell shows. (1) A RETURNING visitor with
-// a cached last-slide snapshot (matching palette+mode AND whose deckId is the deck the
-// app will boot) → paint their real slide. The deckId gate is load-bearing: a snapshot
-// of a different deck would flash the wrong slide before the island hydrates (adversarial-
-// trio inversion finding). `bootId` mirrors the app's `loadBootDeck()` EXACTLY: the
-// LAST-ACTIVE deck id (the deck+slide the user left off on, `lattice-studio-active`) when
-// it's a known deck — a built-in OR present in the persisted index — else the persisted
-// deck-index[0].id, else the built-in first deck's id. Booting where the user left off is
-// what makes the snapshot's deckId match again: before this, the app always booted deck #1
-// while the snapshot was of whatever deck was actually in view, so leaving from any non-
-// first deck fell through to a blank cold boot (verified on real WebKit; see
-// engineering/decisions/2026-07-11-preview-performance-diagnosis.md § A). The index parse
-// is Array-guarded so a corrupt `"null"` value can't throw and abort the newcomer fallback.
-// (2) A NEWCOMER (seed flagged data-ssr-shell="on") → the build-time welcome slide +
-// banner. (3) Otherwise the shell stays hidden. Runs inline during body parse, so the
-// choice is committed before first paint.
-const REPLAY_JS = shell
-	? `(function(){var root=document.documentElement,box=document.getElementById('ssr-slidebox');if(!box)return;function setScale(sw,sh){try{var vw=window.innerWidth||390;var pad=Math.min(32,Math.max(12,0.04*vw));var target=Math.min(960,vw-2*pad);var sc=sw?target/sw:1;box.style.setProperty('--ssr-w',sw+'px');box.style.setProperty('--ssr-h',sh+'px');box.style.setProperty('--ssr-scale',String(sc));}catch(e){}}var palette=root.getAttribute('data-palette')||'indaco';var mode=root.getAttribute('data-mode')==='dark'?'dark':'light';var idx=[];try{var pi=JSON.parse(localStorage.getItem('lattice-studio-deck-index')||'[]');if(Array.isArray(pi))idx=pi;}catch(e){}var BD=${JSON.stringify(builtinDecks)};var activeId=null;try{var a=JSON.parse(localStorage.getItem('lattice-studio-active')||'null');if(a&&typeof a.deckId==='string'&&a.deckId)activeId=a.deckId;}catch(e){}var isKnown=function(id){if(!id)return false;for(var i=0;i<idx.length;i++)if(idx[i]&&idx[i].id===id)return true;if(idx.length)return false;for(var j=0;j<BD.length;j++)if(BD[j].id===id)return true;return false;};var bootId=(activeId&&isKnown(activeId)?activeId:(idx[0]&&idx[0].id))||${JSON.stringify(firstDeck.id)};var bootTitle=function(id){for(var i=0;i<idx.length;i++)if(idx[i]&&idx[i].id===id)return idx[i].title;for(var j=0;j<BD.length;j++)if(BD[j].id===id)return BD[j].title;return null;};var shown=false;try{var raw=localStorage.getItem('lattice-studio-last-slide');if(raw){var snap=JSON.parse(raw);if(snap&&snap.v===1&&snap.palette===palette&&snap.mode===mode&&snap.html&&snap.css&&snap.deckId===bootId){var st=document.createElement('style');st.id='ssr-snap-css';st.textContent=snap.css;document.head.appendChild(st);box.innerHTML=snap.html;setScale(snap.w||${shell.width},snap.h||${shell.height});shown=true;var title=bootTitle(bootId);if(title){var t=document.getElementById('ssr-deck-title');if(t)t.textContent=title;}}}}catch(e){}if(!shown&&root.getAttribute('data-ssr-shell')==='on'){var nc=document.getElementById('ssr-newcomer-css');if(nc)nc.media='all';var tpl=document.getElementById('ssr-newcomer');if(tpl)box.innerHTML=tpl.innerHTML;setScale(${shell.width},${shell.height});shown=true;}if(shown)root.setAttribute('data-ssr-shell','on');})();`
-	: '';
+// The Nacre skeleton — a scoped inline COPY of docs/src/styles/nacre-loader.css (the
+// island's stylesheet doesn't exist pre-hydration). It fills the 16:9 .ssr-slidebox exactly
+// (inset:0), so it can never bleed past the slide rect. Palette-blind via the render-blocking
+// --accent/--bg tokens. KEEP IN SYNC with nacre-loader.css (keyframes name + fallback hexes).
+const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset:0;overflow:hidden;isolation:isolate;background:var(--bg,#0c1626);}
+#studio-ssr-shell .nacre-loader__layer{position:absolute;inset:-35%;mix-blend-mode:screen;transform-origin:50% 50%;will-change:transform;}
+#studio-ssr-shell .nacre-loader__layer--0{filter:blur(26px);animation:nacre-rot 9s linear infinite;}
+#studio-ssr-shell .nacre-loader__layer--1{filter:blur(26px) hue-rotate(34deg);animation:nacre-rot 12s linear infinite reverse;}
+#studio-ssr-shell .nacre-loader__layer--2{filter:blur(26px) hue-rotate(-28deg);animation:nacre-rot 15s linear infinite;}
+#studio-ssr-shell .nacre-loader__blob{position:absolute;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--accent,#5b8fc7) 60%,transparent),transparent 64%);}
+#studio-ssr-shell .nacre-loader__blob:nth-child(1){width:54%;aspect-ratio:1;left:10%;top:16%;}
+#studio-ssr-shell .nacre-loader__blob:nth-child(2){width:46%;aspect-ratio:1;left:56%;top:20%;}
+#studio-ssr-shell .nacre-loader__blob:nth-child(3){width:50%;aspect-ratio:1;left:32%;top:56%;}
+#studio-ssr-shell .nacre-loader__core{position:absolute;inset:0;background:radial-gradient(58% 58% at 50% 46%,color-mix(in srgb,var(--accent,#5b8fc7) 15%,transparent),transparent 72%);}
+#studio-ssr-shell .nacre-loader__vig{position:absolute;inset:0;box-shadow:inset 0 0 70px 14px color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
+:root[data-mode="light"] #studio-ssr-shell .nacre-loader{background:var(--bg,#e9eef5);}
+:root[data-mode="light"] #studio-ssr-shell .nacre-loader__layer{mix-blend-mode:multiply;}
+@keyframes nacre-rot{to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion: reduce){#studio-ssr-shell .nacre-loader__layer{animation:none;}}`;
+
+// (The old pre-paint REPLAY_JS — a per-visitor snapshot-replay / newcomer welcome-slide
+// selection — is retired with the Nacre-only shell: there is no per-visitor content to
+// choose anymore, so the shell is a static skeleton shown unconditionally by the seed
+// script below. Why it went away: that real-slide replay was a SECOND preview surface that
+// raced the live one in a different coordinate system, producing the "slide top-half /
+// shimmer bottom-half, seam down the middle" bug on mobile. See
+// engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.)
 ---
 
 <!doctype html>
@@ -244,8 +260,8 @@ const REPLAY_JS = shell
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
 		<style is:global>
 			html, body { margin: 0; height: 100%; overflow: hidden; }
-			/* Instant-shell (below) is hidden until the seed script (newcomer) or the
-			   body replay script (returning-user snapshot) flips data-ssr-shell="on". */
+			/* Instant-shell (below) is hidden until the seed script flips data-ssr-shell="on"
+			   — which it now does UNCONDITIONALLY (every visitor gets the same Nacre skeleton). */
 			#studio-ssr-shell { display: none; }
 			:root[data-ssr-shell="on"] #studio-ssr-shell { display: flex; }
 			/* Read stop → full-bleed preview: hide the editor Panel's OUTER (sizing)
@@ -256,14 +272,17 @@ const REPLAY_JS = shell
 			   2026-07-19 splitter migration. */
 			[data-studio-split][data-studio-stop="read"] > #studio-editor { display: none !important; }
 		</style>
-		{shell && <style is:inline set:html={SHELL_CHROME_CSS}></style>}
-		{/* Newcomer critical CSS — inert (media="not all") until the replay script
-		    picks the newcomer path and flips it to media="all". A returning user uses
-		    the snapshot's own CSS instead, so this never applies for them. */}
-		{shell && <style id="ssr-newcomer-css" is:inline media="not all" set:html={shell.css}></style>}
-		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES }}>
+		<style is:inline set:html={SHELL_CHROME_CSS + '\n' + SHELL_NACRE_CSS}></style>
+		<script is:inline define:vars={{ KNOWN_PALETTES: BUILTIN_PALETTES, SIZE_RATIO, DECK_RATIOS, DECK_TITLES, DEFAULT_RATIO, PREVIEW_CHROME }}>
 			(function () {
 				var r = document.documentElement;
+				// Show the instant shell to EVERY visitor FIRST — before any localStorage read.
+				// In a storage-blocked context (private mode, disabled cookies) `getItem` THROWS,
+				// and if that throw happened before this line the catch would skip it, leaving the
+				// shell hidden = a blank preview (the exact failure this shell exists to prevent).
+				// It's a palette-blind Nacre skeleton, so it is correct for every visitor with no
+				// per-visitor decision to make; palette/geometry seeds below only refine it.
+				r.setAttribute('data-ssr-shell', 'on');
 				try {
 					var p = localStorage.getItem('lattice-studio-palette');
 					var palette = 'indaco';
@@ -276,21 +295,117 @@ const REPLAY_JS = shell
 					var mode = 'light';
 					if (m === 'light' || m === 'dark') { r.setAttribute('data-mode', m); mode = m; }
 					else if (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) { r.setAttribute('data-mode', 'dark'); mode = 'dark'; }
-					// (color-scheme is pinned earlier, by <ColorSchemeSeed> at the top of <head>.)
-					// Gate the SSG instant-shell (below): show it ONLY to a first-time visitor on
-					// the default look — the shell bakes DECKS[0]'s title slide in indaco·light,
-					// exactly what a newcomer lands on. A returning user (any saved deck → the
-					// deck-index key exists) or a non-default palette/mode would see wrong
-					// content/theme, so they keep the prior island-gated first paint.
-					// Returning-user test mirrors the app: a deck index, ANY edited-source key, or
-					// a persisted posture past the newcomer Read stop (write/build — or the legacy
-					// onboarded flag, for one migration cycle). A fresh visitor persists posture
-					// 'read' (R1), so keying on posture!=='read' correctly still treats them as a
-					// newcomer and paints the calm instant shell.
-					var returning = !!localStorage.getItem('lattice-studio-deck-index');
-					if (!returning) for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('lattice-studio-src-') === 0) { returning = true; break; } }
-					if (!returning) { try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || '{}'); if (st && (st.onboarded || (st.posture && st.posture !== 'read'))) returning = true; } catch (e2) {} }
-					if (!returning && palette === 'indaco' && mode === 'light') r.setAttribute('data-ssr-shell', 'on');
+					// (color-scheme is pinned earlier, by <ColorSchemeSeed> at the top of <head>.
+					//  data-ssr-shell is set ABOVE, before this try, so the shell shows even if a
+					//  storage read throws.)
+					// RATIO SEED — the fallback box (a visitor with no persisted rect: a newcomer, or
+					// the one transitional reload right after this ships) must match the AUTHOR-CHOSEN
+					// size of the deck they boot into, never an assumed 16:9. Resolve it from the deck
+					// they last viewed the same way the app does (its `size:` front-matter → SIZE_RATIO,
+					// falling back to the engine's own 16:9 only when a deck names no size).
+					try {
+						var rr = DEFAULT_RATIO;
+						var act = JSON.parse(localStorage.getItem('lattice-studio-active') || 'null');
+						var did = act && act.deckId;
+						if (did && typeof DECK_TITLES[did] === 'string') r.setAttribute('data-ssr-title', DECK_TITLES[did]); // returning user's actual deck, not the default
+						if (did) {
+							var edited = localStorage.getItem('lattice-studio-src-' + did);
+							var sz = '';
+							if (edited) {
+								// studio-store persists edited source via write() = JSON.stringify(source), so the raw value
+								// is a QUOTED json string (leading ", escaped \n) that /^---/ would never match. Parse it
+								// back to real markdown first; inner guard degrades a corrupt value to the deck default.
+								var src = '';
+								try { var parsed = JSON.parse(edited); if (typeof parsed === 'string') src = parsed; } catch (e4) { src = ''; }
+								var fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src);
+								var sm = fm && /^[ \t]*size[ \t]*:[ \t]*(.+?)[ \t]*$/m.exec(fm[1]); // /m: end-of-LINE, not just last line (mirrors sizeFromSource)
+								if (sm) sz = sm[1].replace(/^['"]|['"]$/g, '').trim();
+							}
+							if (sz && (SIZE_RATIO[sz] || SIZE_RATIO[sz.toLowerCase()])) rr = SIZE_RATIO[sz] || SIZE_RATIO[sz.toLowerCase()];
+							else if (DECK_RATIOS[did]) rr = DECK_RATIOS[did];
+						}
+						if (Array.isArray(rr)) { // a corrupt/prototype size key can make rr a non-array — never emit NaN/undefined
+							r.style.setProperty('--sb-ratio', rr[0] + ' / ' + rr[1]);
+							r.style.setProperty('--sb-ar', String(rr[0] / rr[1]));
+						}
+					} catch (e3) {}
+					// GEOMETRY SEED — place the Nacre box at the EXACT rect the app last had its
+					// preview box (persisted by StudioShell on unload as viewport fractions). On a
+					// same-device reload the shell box then lands pixel-identical to where the
+					// hydrated app re-measures it → no jump at hand-off. Computed to px from the
+					// CURRENT viewport (not vw/vh units) so it matches whatever the app measures
+					// now, and clamped on-screen in case the viewport changed since (rotation).
+					// No saved rect (newcomer) → the CSS falls back to a centered full-bleed box.
+					try {
+						var rectRaw = localStorage.getItem('lattice-studio-preview-rect');
+						if (rectRaw) {
+							var q = JSON.parse(rectRaw);
+							if (q && q.w > 0.1 && q.h > 0.05 && q.l >= 0 && q.t >= 0 && q.l < 1 && q.t < 1) {
+								var vw = window.innerWidth, vh = window.innerHeight;
+								var bw = Math.min(q.w * vw, vw);
+								var bh = Math.min(q.h * vh, vh);
+								var bl = Math.max(0, Math.min(q.l * vw, vw - bw));
+								var bt = Math.max(0, Math.min(q.t * vh, vh - bh));
+								r.style.setProperty('--sb-l', bl + 'px');
+								r.style.setProperty('--sb-t', bt + 'px');
+								r.style.setProperty('--sb-w', bw + 'px');
+								r.style.setProperty('--sb-h', bh + 'px');
+								r.setAttribute('data-ssr-rect', '1');
+							}
+						}
+					} catch (e2) {}
+					// COMPUTE SEED (prototype, option B) — when there is NO persisted rect (a
+					// brand-new visitor, a cross-device first load), don't fall back to an
+					// approximate centered box: COMPUTE the exact rect from known inputs, the same
+					// pure function the validation proved matches the app to 0.1px. Inputs: the
+					// posture (chromeless = the full-bleed Read stop), the breakpoint (from vw), the
+					// deck ratio (rr, above), and the editor|preview split share, using the shared
+					// PREVIEW_CHROME constants. Not modeled: the Build stop's side panels +
+					// landscape-phone cinema (rect-replay still covers a returning visitor there);
+					// this only runs on a FIRST load, where replay has nothing to give.
+					try {
+						if (!r.hasAttribute('data-ssr-rect')) {
+							var C = PREVIEW_CHROME;
+							var vw2 = window.innerWidth, vh2 = window.innerHeight;
+							var bpMobile = vw2 <= 699;
+							// Mirror the app's boot posture (studio-store derivePosture): an EXPLICITLY
+							// stored posture wins; otherwise a returning visitor (prior deck index or any
+							// edited-source key) derives to 'write' (the editor|preview split), a fresh one to
+							// 'read'. Defaulting to 'read' made every upgrading user's first load compute a
+							// full-bleed box while the app rendered the split — a hand-off jump.
+							var posture = null;
+							try { var st = JSON.parse(localStorage.getItem('lattice-studio-settings') || 'null'); if (st && (st.posture === 'read' || st.posture === 'write' || st.posture === 'build')) posture = st.posture; } catch (e5) {}
+							if (!posture) {
+								var prior = false;
+								try {
+									if (localStorage.getItem('lattice-studio-deck-index')) prior = true;
+									else { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf('lattice-studio-src-') === 0) { prior = true; break; } } }
+								} catch (e6) {}
+								posture = prior ? 'write' : 'read';
+							}
+							var chromeless = posture === 'read';
+							var pad = vw2 < 640 ? C.padMobile : C.padDesktop;
+							var paneTop = C.topbarH + (bpMobile ? C.mobileBarH : 0);
+							var headerH = chromeless ? C.headerRead : C.headerWrite;
+							var footerH = chromeless ? C.footerRead : C.footerWrite;
+							var cap = chromeless ? Infinity : C.cap;
+							var frac = C.defaultPreviewFrac; // exact persisted split is a follow-up; default is the common case
+							var paneX, paneW;
+							if (chromeless || bpMobile) { paneX = 0; paneW = vw2; } else { paneW = vw2 * frac; paneX = vw2 - paneW; }
+							var paneH = vh2 - paneTop;
+							var ar2 = rr[0] / rr[1];
+							var cw = paneW - 2 * pad, ch = paneH - headerH - footerH - 2 * pad;
+							var bw2 = Math.max(0, Math.min(cw, ch * ar2, cap));
+							var bh2 = bw2 / ar2;
+							if (bw2 > 1 && bh2 > 1) {
+								r.style.setProperty('--sb-l', (paneX + pad + (cw - bw2) / 2) + 'px');
+								r.style.setProperty('--sb-t', (paneTop + headerH + pad + (ch - bh2) / 2) + 'px');
+								r.style.setProperty('--sb-w', bw2 + 'px');
+								r.style.setProperty('--sb-h', bh2 + 'px');
+								r.setAttribute('data-ssr-rect', '1');
+							}
+						}
+					} catch (e4) {}
 					// (The editor|preview split ratio's pre-paint CSS-var seed is retired
 					// with the react-resizable-panels migration: the hook restores the saved
 					// ratio post-mount via the panel imperative API. Studio is client:only,
@@ -300,26 +415,27 @@ const REPLAY_JS = shell
 		</script>
 	</head>
 	<body>
-		{shell && (
-			<Fragment>
-				<div id="studio-ssr-shell" aria-hidden="true">
-					<div class="ssr-topbar">
-						<span class="ssr-logo"></span>
-						<span class="ssr-deck-title" id="ssr-deck-title">{firstDeck.title}</span>
-					</div>
-					{/* The first-run "banner jail" is gone (2026-07-17-studio-persona-dial.md):
-					    the newcomer lands on the Read stop — the beautiful sample deck itself —
-					    with an in-app "Edit this slide" affordance, no banner nagging them out. */}
-					<div class="ssr-stage">
-						<div class="ssr-slidebox" id="ssr-slidebox"></div>
-					</div>
+		{/* Pre-hydration INSTANT SHELL — Nacre-only skeleton, one contained 16:9 box, shown
+		    to every visitor and dismissed by the app once its own (identical) Nacre is up.
+		    No baked slide, no snapshot replay — one surface, no seam. */}
+		<div id="studio-ssr-shell" aria-hidden="true">
+			<div class="ssr-topbar">
+				<svg class="ssr-logo" viewBox="0 0 128 128" fill="none" aria-hidden="true"><g transform="rotate(45 64 64)" stroke="var(--mark-bond)" stroke-width="6.4" stroke-linecap="round"><line x1="31" y1="31" x2="97" y2="31"></line><line x1="97" y1="31" x2="97" y2="97"></line><line x1="97" y1="97" x2="31" y2="97"></line><line x1="31" y1="97" x2="31" y2="31"></line></g><circle cx="64" cy="17.3" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="17.3" r="11" fill="#5b86b8"></circle><circle cx="110.7" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="110.7" cy="64" r="11" fill="#a8628a"></circle><circle cx="64" cy="110.7" r="12.7" fill="var(--mark-halo)"></circle><circle cx="64" cy="110.7" r="11" fill="#d08c42"></circle><circle cx="17.3" cy="64" r="12.7" fill="var(--mark-halo)"></circle><circle cx="17.3" cy="64" r="11" fill="#7b72c0"></circle><circle cx="64" cy="64" r="16.2" fill="var(--mark-halo)"></circle><circle cx="64" cy="64" r="14" fill="#c8a040"></circle><circle cx="64" cy="64" r="10.4" fill="none" stroke="#7a5a10" stroke-width="1.5" opacity="0.55"></circle></svg>
+				<span class="ssr-deck-title" id="ssr-deck-title">{firstDeck.title}</span>
+				<script is:inline>(function(){var t=document.getElementById("ssr-deck-title"),v=document.documentElement.getAttribute("data-ssr-title");if(t&&v)t.textContent=v;})();</script>
+			</div>
+			<div class="ssr-stage">
+				<div class="ssr-slidebox" id="ssr-slidebox">
+					<span class="nacre-loader" aria-hidden="true">
+						<span class="nacre-loader__core"></span>
+						<span class="nacre-loader__layer nacre-loader__layer--0"><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i></span>
+						<span class="nacre-loader__layer nacre-loader__layer--1"><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i></span>
+						<span class="nacre-loader__layer nacre-loader__layer--2"><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i><i class="nacre-loader__blob"></i></span>
+						<span class="nacre-loader__vig"></span>
+					</span>
 				</div>
-				{/* Build-time newcomer slide, inert until the replay script moves it into
-				    the box for a first-time visitor (a returning user gets their snapshot). */}
-				<template id="ssr-newcomer" set:html={shell.html}></template>
-				<script is:inline set:html={REPLAY_JS}></script>
-			</Fragment>
-		)}
+			</div>
+		</div>
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
 		<StudioIsland client:only="react" options={options} components={components} lintVocab={lintVocab} slideHeadings={slideHeadings} />

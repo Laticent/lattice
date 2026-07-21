@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
+import DeckPreview from '@/components/DeckPreview';
 import { Tip } from '@/components/ui/tooltip';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
 import { acronymSpokenMap, frontMatterCaptions, frontMatterLang, lexiconMap } from '@/lib/resolve-captions';
@@ -60,7 +61,7 @@ type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
 type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: RehearsalSlide[] };
 
-export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify, slotRef, onSlide }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void; slotRef?: React.RefObject<HTMLDivElement | null>; onSlide?: (sample: string | null, mermaid: boolean) => void }) {
+export function PresentOverlay({ open, onClose, options, slides, frontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, notify }: { open: boolean; onClose: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; notify: (msg: string) => void }) {
 	const [lens, setLens] = React.useState<PresentLens>('full');
 	const [idx, setIdx] = React.useState(() => Math.max(0, Math.min(startIndex, slides.length - 1)));
 	// Start Present on the slide you were editing (full lens), set SYNCHRONOUSLY on the
@@ -68,8 +69,8 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// the cursor slide. `idx` state persists across open/close (this component stays
 	// mounted, just returns null when closed), so a plain lazy-init alone wouldn't fix a
 	// RE-open; adjusting state during render re-renders before paint, killing the
-	// persisted-idx / slide-0 flash. It also means the shared preview's first present
-	// sample equals the editor's → opening Present is a patch/no-op, never a write.
+	// persisted-idx / slide-0 flash — Present's own preview mounts already showing the
+	// cursor slide, not slide 0.
 	const prevOpenRef = React.useRef(open);
 	if (open !== prevOpenRef.current) {
 		prevOpenRef.current = open;
@@ -440,19 +441,12 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	const activeBeat = slidePlan?.beats?.filter((b) => frac >= b.at).slice(-1)[0] ?? null;
 	const coach = activeBeat?.text || slidePlan?.why || '';
 
-	// PUBLISH the current present slide UPWARD so the ONE hoisted preview (StudioShell)
-	// renders it — Present holds NO iframe of its own; it renders an empty slot the shared
-	// preview is positioned into. `null` while a lens is withheld (fail-closed): the shared
-	// preview hides and the slot shows the "unavailable" card instead. `hasMermaid(cur)`
-	// UNIFIES the mermaid flag across both surfaces (the editor already passes it) so the
-	// render signature matches on open and navigation stays a patch. useLayoutEffect so the
-	// publish lands before paint — no cross-surface flash of the previous slide.
+	// The current present slide, rendered by Present's OWN in-flow DeckPreview (below) — Present
+	// no longer borrows a hoisted shared host. `null` while a lens is withheld (fail-closed) →
+	// the slot shows the "unavailable" card instead of any slide. `hasMermaid(cur)` keeps the
+	// render signature aligned with the editor so same-slide navigation stays a patch.
 	const presentSample = unavailable ? null : frontMatter ? frontMatter + cur : cur;
 	const presentMermaid = unavailable ? false : hasMermaid(cur);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: publish the shown slide; onSlide is read fresh each change and stable by contract.
-	React.useLayoutEffect(() => {
-		if (open) onSlide?.(presentSample, presentMermaid);
-	}, [open, presentSample, presentMermaid]);
 
 	function pickLens(nextLens: PresentLens) {
 		setLens(nextLens);
@@ -601,12 +595,11 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// Faint-persistent flanking arrows: never fully gone (mouse-presenter "back" safety),
 	// dim when the slide edge is reached, full on reveal.
 	const arrowCls = (disabled: boolean) => cn('hidden shrink-0 rounded-full border border-border bg-card/85 p-2.5 text-foreground shadow-[0_4px_16px_rgba(10,22,40,.12)] backdrop-blur transition-opacity duration-300 hover:text-[var(--accent)] motion-reduce:transition-none sm:block', disabled ? 'pointer-events-none opacity-20' : cn('pointer-events-auto', revealed ? 'opacity-100' : 'opacity-40'));
-	// THREE stacked fixed layers under the studio root (2026-07-19 reshape): the opaque
-	// backdrop (z-100), the SHARED preview host (z-101, owned + positioned by StudioShell
-	// into `slotRef` below — Present holds no iframe), and this chrome (z-102). The chrome
-	// is `pointer-events-none` so the transparent slide region passes taps through to the
-	// z-101 preview; each control re-enables pointer events. Gesture/wake handlers sit on
-	// the backdrop, which receives events wherever no control and no slide sit above it.
+	// Two stacked fixed layers under the studio root: the opaque backdrop (z-100, which
+	// carries the gesture/wake handlers) and this chrome dialog (z-102, which holds Present's
+	// OWN in-flow slide card + the controls). The dialog is `pointer-events-none` and the
+	// slide card is `pointer-events-none`, so a tap on the slide falls straight through both
+	// to the z-100 backdrop's swipe/wake handlers; each control re-enables pointer events.
 	return (
 		<>
 			<div
@@ -654,11 +647,18 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 							<p className="max-w-[420px] text-[13px] leading-relaxed text-muted-foreground">{(UNAVAILABLE_COPY[unavailable] ?? UNAVAILABLE_COPY.hidden).body}</p>
 						</div>
 					) : (
-						// Empty SLOT — the shared preview host (StudioShell) is positioned to overlay
-						// this rect (z-101, beneath this chrome). `pointer-events-none` so a tap here
-						// falls through to that host (poster/video taps); the host provides the slide
-						// card's border/rounding/shadow. Keeps the 16:9 sizing the controller measures.
-						<div ref={slotRef} className="pointer-events-none relative aspect-video w-full" />
+						// Present's OWN live preview — IN-FLOW in this 16:9 card (no hoisted host, no
+						// positioning controller). INTENTIONALLY `pointer-events-none`: Present is a
+						// swipe/arrow DELIVERY surface, so the slide is a non-interactive poster and taps
+						// pass straight through to the gesture layer behind. This preserves the prior
+						// hoisted-host model, whose slot was ALSO pointer-events-none — not a regression.
+						// Tradeoff, by design: in-slide links and the video-bridge lightbox do NOT fire in
+						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
+						// so it inherits `none` from this card); that interactivity lives in the editor
+						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
+						<div className="pointer-events-none relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+							<DeckPreview options={options} sample={presentSample ?? ''} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader />
+						</div>
 					)}
 				</div>
 				<button type="button" onClick={goNext} disabled={clamped >= count - 1} className={arrowCls(clamped >= count - 1)} aria-label="Next slide"><ChevronRight className="size-5" /></button>

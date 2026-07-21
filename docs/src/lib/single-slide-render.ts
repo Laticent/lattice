@@ -127,6 +127,19 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
 type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean };
+// "Has the live iframe actually painted a slide yet?" — true once its document holds a
+// rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
+// unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
+// gate — WITHOUT depending on the `onload` event, which iOS Safari fires unreliably for
+// srcdoc (the on-device stuck-hidden blank). Best-effort: a cross-doc read can't actually
+// throw for a same-origin srcdoc, but guard anyway for teardown races.
+function frameHasPainted(fr: HTMLIFrameElement): boolean {
+	try {
+		return !!fr.contentDocument?.querySelector('.lattice');
+	} catch {
+		return false;
+	}
+}
 
 // Replace ONLY the live document's `.lattice` contents with a new (already
 // sanitized) slide — the resident theme <style> + runtime <script> stay parsed and
@@ -287,7 +300,26 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		const geom = (host as LiveHost).__latticeGeom || { width: DEFAULT_W, height: DEFAULT_H };
 		fr.style.width = geom.width + 'px';
 		fr.style.height = geom.height + 'px';
-		if (w > 0) fr.style.transform = 'scale(' + (w / geom.width).toFixed(5) + ')';
+		if (w > 0) {
+			fr.style.transform = 'scale(' + (w / geom.width).toFixed(5) + ')';
+			// Reveal once we have (a) a real width to scale to — else the frame shows UNSCALED
+			// at its intrinsic 1280px and the centered content falls outside the box (blank) —
+			// AND (b) the srcdoc has actually PAINTED its slide, detected by a `.lattice` in the
+			// frame's document. Keying on CONTENT, not the `onload` event, is load-bearing:
+			// iOS Safari fires `onload` UNRELIABLY for srcdoc (re)assignment, which left the
+			// frame stuck hidden forever (rev:NO on-device — the "blank"). Content-presence is
+			// onload-independent AND closes the white about:blank window (about:blank has no
+			// `.lattice`, so the pre-load scaleFrame below can't reveal a blank white frame).
+			// Reveal by fading OPACITY 0→1 (a quick ~180ms transition set on the element) rather
+			// than a hard visibility cut, so the slide eases in over the loader instead of
+			// popping — no flicker. opacity:0 hides the about:blank white just as well.
+			if (fr.style.opacity === '0' && frameHasPainted(fr)) {
+				fr.style.opacity = '1';
+				// Restore hit-testing on reveal — an opacity:0 iframe is still hit-testable, so it was
+				// held `pointer-events:none` (below) to not swallow scroll/clicks during the load window.
+				fr.style.pointerEvents = '';
+			}
+		}
 	}
 
 	/** True once the engine bundle has loaded. */
@@ -542,6 +574,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				}
 
 				let fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+				// The once-guarded onload-side work, shared by the reveal poll (below, iOS paint
+				// path) and the browser `onload` (assigned near the srcdoc write). Declared out here
+				// so both the `if (!fr)` create branch's poll and the write path can see it.
+				let onFrameLoad: (() => void) | null = null;
 				if (!fr) {
 					fr = document.createElement('iframe');
 					fr.className = 'live';
@@ -558,30 +594,64 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					fr.style.width = geom.width + 'px';
 					fr.style.height = geom.height + 'px';
 					fr.style.transformOrigin = 'top left';
-					// Hidden until the FIRST srcdoc actually paints (revealed in onload below).
-					// A freshly-appended iframe with no srcdoc is `about:blank`, which iOS
-					// Safari paints as an OPAQUE WHITE document ON TOP OF the element's CSS
-					// `background` — so `iframe.live{background:var(--bg)}` can't cover it and
-					// a cold load flashed a white slide card (device report). Keeping the
-					// element `visibility:hidden` until its document has painted means the
-					// dark pane behind it (the host's `bg-background` / the instant-shell)
-					// covers that window instead of white. This is the single-slide twin of
-					// the Playground filmstrip's `#preview` visibility gate.
-					fr.style.visibility = 'hidden';
+					// Invisible until the FIRST srcdoc actually paints (revealed by scaleFrame's
+					// content gate). A freshly-appended iframe with no srcdoc is `about:blank`,
+					// which iOS Safari paints as an OPAQUE WHITE document ON TOP OF the element's
+					// CSS `background` — so a cold load flashed a white slide card. `opacity:0`
+					// makes the whole element (white content included) transparent, so the dark
+					// pane behind covers that window — AND, unlike `visibility`, opacity animates,
+					// so the reveal is a quick fade-in (transition below) instead of a hard pop.
+					fr.style.opacity = '0';
+					fr.style.transition = 'opacity 180ms ease-out';
+					// An opacity:0 element is still HIT-TESTABLE (unlike visibility:hidden, which the
+					// reveal used to be) — so while hidden the frame would intercept scroll/clicks meant
+					// for what's behind it (e.g. the landing hero preview) during the load window. Hold
+					// pointer-events off until scaleFrame reveals it (which clears this alongside opacity).
+					fr.style.pointerEvents = 'none';
 					host.appendChild(fr);
-					// Safety net for the visibility gate: the reveal above rides the srcdoc's
-					// `onload`, which is reliable but not guaranteed (a teardown race, a
-					// pathological document). Without a fallback a missed `onload` would hide
-					// the slide FOREVER — a worse failure than the white flash the gate fixes.
-					// Force-reveal after a generous ceiling so the gate can only ever DELAY the
-					// slide, never hide it; the normal onload reveal fires first (~sub-500ms)
-					// and makes this a no-op. Mirrors the Playground `#preview` gate's 4s fallback.
+					// Reveal is CONTENT-DRIVEN, not onload-driven. The reveal rides scaleFrame's
+					// `frameHasPainted` gate, but we must call scaleFrame once the srcdoc has
+					// actually painted — and iOS Safari fires `onload` UNRELIABLY for srcdoc, so
+					// we cannot wait on it (on-device: frame scaled but stuck hidden forever,
+					// rev:NO — the blank). Poll on a rAF-ish cadence: each tick re-fits + reveals
+					// the moment BOTH the host has width AND the slide has painted, with no
+					// dependence on the load event or a host-resize firing. Stops once the load-work
+					// has cleared pendingLoad or the ~30s budget elapses. There is deliberately NO force-reveal of a
+					// still-not-good frame: the SKELETON model prefers the loader staying up over
+					// flashing an unscaled/broken slide (DeckPreview keys its loader-fade on this
+					// reveal), and the persistent host ResizeObserver keeps re-fitting after the
+					// poll ends, so a later width change still reveals the frame the instant it's
+					// good. A frame that never becomes good simply stays behind the skeleton.
 					const revealFr = fr;
-					const revealTimer = setTimeout(() => {
-						ownedTimers.delete(revealTimer);
-						if (revealFr.style.visibility === 'hidden') revealFr.style.visibility = 'visible';
-					}, 4000);
-					ownedTimers.add(revealTimer);
+					let revealTicks = 0;
+					// The onload-side work (clear __latticePendingLoad → re-enable the patch/restyle
+					// fast-paths; run the debug overlay / video bridge / render sample) must happen
+					// even when iOS Safari DROPS the srcdoc `onload` — else pendingLoad stays true
+					// forever and every subsequent edit falls back to a full realm-churning re-write.
+					// `onFrameLoad` (declared above the create branch, assigned after the synchronous
+					// setup below) is once-guarded, so the poll can safely fire it on first paint
+					// whether or not `onload` ever comes.
+					const revealPoll = setInterval(() => {
+						revealTicks++;
+						// Stop once the load-work has cleared `__latticePendingLoad` (its once-guarded run
+						// both reveals the frame AND re-enables the patch/restyle fast paths) — or the host
+						// is gone, or the ~30s budget is spent. Keying the stop on pendingLoad (NOT "looks
+						// revealed", `opacity !== '0'`) is load-bearing: the persistent ResizeObserver can
+						// reveal the frame via its OWN scaleFrame before this poll fires onFrameLoad, and
+						// stopping on opacity there would strand `pendingLoad = true` → the fast paths stay
+						// disabled and every edit falls to a full realm-churning re-write. The budget is
+						// generous (~30s): a first paint this slow is pathological, but until pendingLoad
+						// clears we KEEP polling so even a slow paint re-enables the fast paths. A frame that
+						// truly never paints simply stays on the safe write path (we never patch an unpainted doc).
+						if (disposed || !host.isConnected || (host as LiveHost).__latticePendingLoad === false || revealTicks > 300) {
+							clearInterval(revealPoll);
+							ownedIntervals.delete(revealPoll);
+							return;
+						}
+						scaleFrame(host); // reveals IFF host width>0 AND the srcdoc has painted .lattice — never a broken frame
+						if (frameHasPainted(revealFr)) onFrameLoad?.(); // iOS: onload may never fire — run its work on paint (once-guarded)
+					}, 100);
+					ownedIntervals.add(revealPoll);
 					if (typeof ResizeObserver !== 'undefined') {
 						// The callback honors the module-level drag gate above; the host is
 						// registered so a resume can re-fit it once, authoritatively.
@@ -612,7 +682,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				let tFrameStart = 0;
 				let sanitizeMs = 0;
 				const srcBytes = markdown.length;
-				fr.onload = () => {
+				// Run exactly once — via the browser's `onload` (normal) OR the reveal poll's paint
+				// detection (iOS, where onload is unreliable). The guard makes a double-trigger a no-op.
+				let loadRan = false;
+				onFrameLoad = () => {
+					if (loadRan) return;
+					loadRan = true;
 					// Fit first (timed around the existing clientWidth read — no extra
 					// reflow), then debug overlay + video bridge which are outside the
 					// measured fit. frameMs is the browser's own parse/layout of the
@@ -620,12 +695,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// This srcdoc has committed — future same-sig renders may now patch it.
 					(host as LiveHost).__latticePendingLoad = false;
 					const tFit = performance.now();
+					// onload, when it DOES fire, is just one more reveal trigger — scaleFrame
+					// fits and reveals via the content gate (frameHasPainted). The reveal poll
+					// above is the reliable path on iOS where this event may never come.
 					scaleFrame(host);
-					// Reveal now that the srcdoc has painted (and is scaled) — closes the
-					// white-`about:blank` window without ever showing an unscaled or blank
-					// frame. Idempotent: later full-writes re-fire onload but it's already
-					// visible; patches don't reload, so the frame stays put.
-					fr.style.visibility = 'visible';
 					const fitMs = performance.now() - tFit;
 					applyDebug(fr, { force: null });
 					// Parent-hosted video playback: tap a video poster in a Studio preview
@@ -669,6 +742,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					}
 					scheduleVizScan(() => fr?.contentDocument);
 				};
+				fr.onload = onFrameLoad;
 				// Mark the navigation in flight BEFORE assigning srcdoc: until onload
 				// clears it, the patch guard above must not touch the outgoing document.
 				(host as LiveHost).__latticePendingLoad = true;

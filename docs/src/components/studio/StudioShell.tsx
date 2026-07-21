@@ -27,7 +27,6 @@ import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-sli
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
 import { cn } from '@/lib/utils';
 import { sliceSlide } from '@/playground/architect-edits.js';
-import { captureFromFrame, saveSnapshot } from '@/playground/snapshot-cache.js';
 import { AcronymEditor } from './AcronymEditor';
 import { ArchitectChat } from './ArchitectChat';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -65,6 +64,7 @@ import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
+import { sizeRatio } from './slide-size';
 import { hasMermaid } from './slide-thumb';
 import { applyVariant } from './slide-variants';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
@@ -78,7 +78,6 @@ import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePick
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
 import { useBreakpoint, useLandscapePhone } from './use-breakpoint';
-import { useSharedPreviewSlot } from './use-shared-preview-slot';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
 import { isEvictionProneBrowser } from './workspace-backup';
@@ -169,20 +168,9 @@ const SIZES = [
 	{ value: 'story', label: 'Story 9 : 16' },
 ];
 const SIZE_LABELS: Record<string, string> = Object.fromEntries(SIZES.map((s) => [s.value, s.label.replace(/ \(.*\)/, '')]));
-// Aspect ratio (w:h) per engine `@size` token, so the preview CARD matches the
-// deck's real shape — not a hardcoded 16:9. Covers the @size table in lib/_theme.css
-// (incl. aliases); an unknown size falls back to 16:9.
-const SIZE_RATIO: Record<string, [number, number]> = {
-	'16:9': [16, 9], hd: [16, 9], '4k': [16, 9], '4K': [16, 9],
-	standard: [4, 3], '4:3': [4, 3],
-	square: [1, 1], '1:1': [1, 1],
-	portrait: [4, 5], '4:5': [4, 5],
-	story: [9, 16], '9:16': [9, 16], reel: [9, 16],
-	mobile: [1080, 2340],
-};
-function sizeRatio(size: string): [number, number] {
-	return SIZE_RATIO[size] ?? SIZE_RATIO[(size || '').toLowerCase()] ?? [16, 9];
-}
+// Aspect ratio (w:h) per engine `@size` token — the preview CARD matches the deck's real
+// shape, never a hardcoded 16:9. SIZE_RATIO/sizeRatio are the shared source of truth (also
+// used by the pre-hydration instant shell); see slide-size.ts.
 const ratioText = ([w, h]: [number, number]): string => (w === 1080 ? '9 : 19.5' : `${w} : ${h}`);
 // Relative time for the version-history list (just now / Nm / Nh / Nd).
 function timeAgo(ts: number): string {
@@ -248,13 +236,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const sourceRef = React.useRef(source);
 	sourceRef.current = source;
 	const [activeSlide, setActiveSlide] = React.useState(() => loadBootSlide()); // 0-based index into the VIEWED set; boot at the slide you left on (clamped below)
-	// Live mirrors of the active deck id + slide index, so the leave-capture (a stable
-	// callback that must NOT re-subscribe its pagehide listener per deck/slide change)
-	// can stamp WHICH deck/slide it snapshotted without taking them as deps.
-	const captureDeckRef = React.useRef('');
-	captureDeckRef.current = deck.id;
-	const activeSlideRef = React.useRef(0);
-	activeSlideRef.current = activeSlide;
 	const [composeLens, setComposeLens] = React.useState<PresentLens>('full'); // reader lens for the preview
 	// Persona posture — the always-visible, reversible density stop that replaced the
 	// one-way `onboarded` ratchet + welcome banner (2026-07-17-studio-persona-dial.md).
@@ -422,32 +403,51 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// NEXT open lands on the default filter, not Docs.
 	React.useEffect(() => { if (!libraryOpen) setLibInitialFilter(undefined); }, [libraryOpen]);
 	const [presentOpen, setPresentOpen] = React.useState(false);
-	// The slide Present wants shown, PUBLISHED up from PresentOverlay so the ONE shared
-	// preview (hoisted below) renders it — Present holds no iframe of its own. `null` while
-	// a lens is withheld (fail-closed) → the shared preview hides and Present shows its own
-	// "unavailable" card. Stable setter so the child can publish from a layout effect.
-	const [presentPreview, setPresentPreview] = React.useState<{ sample: string; mermaid: boolean } | null>(null);
-	const onPresentSlide = React.useCallback((sample: string | null, mermaid: boolean) => setPresentPreview(sample == null ? null : { sample, mermaid }), []);
 	// Present OVERLAYS the current view (its z-100 backdrop fully covers Fabricate), so it
 	// does NOT leave Fabricate — Escape returns you there with your in-progress theme/component
-	// work intact. The reshape's real invariant is ONE warm *deck* preview (the shared host,
-	// parked warm through Fabricate), which holds regardless of Fabricate's separate specimen
-	// iframes; an earlier version unmounted Fabricate to force a global iframe count of 1, which
-	// silently destroyed unsaved fabrication state (Fabricate keeps it in un-persisted useState) —
-	// the adversarial trio flagged that as data loss, so Present now leaves Fabricate mounted.
+	// work intact. Present renders its OWN preview (PresentOverlay), so opening it never
+	// disturbs the editor's in-flow preview; an earlier version unmounted Fabricate to force a
+	// global iframe count of 1, which silently destroyed unsaved fabrication state (Fabricate
+	// keeps it in un-persisted useState) — the adversarial trio flagged that as data loss, so
+	// Present now leaves Fabricate mounted.
 	const openPresent = React.useCallback(() => { setPresentOpen(true); }, []);
-	// Clear the published present slide on CLOSE so the NEXT open provably starts from
-	// `editorSample` (guaranteed same render signature as the warm frame) until Present
-	// republishes the equal present sample — the warm-patch-on-open invariant then holds by
-	// construction, not by a coalescing timing side-effect (a stale slide's differing
-	// `mermaid` flag could otherwise flip the signature and force a cold write).
-	React.useEffect(() => { if (!presentOpen) setPresentPreview(null); }, [presentOpen]);
-	// Read in captureLastSlide (a stable useCallback) without re-binding its listeners: while
-	// Present is open the shared iframe shows the PRESENT slide (a lens projection that maps to
-	// no editor slide), so capturing it would stamp present HTML under the editor's slideIndex
-	// and the next boot's instant-shell would replay that artifact. Skip capture while presenting.
-	const presentOpenRef = React.useRef(presentOpen);
-	presentOpenRef.current = presentOpen;
+	// PERSIST the live preview-box rect (viewport fractions) on unload, so the next reload's
+	// pre-hydration Nacre shell (studio.astro) can place its skeleton at the EXACT rect the
+	// app will re-measure — a same-device reload then shows zero geometry jump at hand-off.
+	// This replays the app's OWN measured rect (previewBoxRef, the in-flow preview's box),
+	// so the shell reimplements none of the split/stop/ratio layout math
+	// and can't drift from it. Geometry only — no slide content is stored (that stays the
+	// Nacre-only, state-blind skeleton). Skipped while Present is open (its box is the
+	// slide-row card, not the editor anchor) and for a parked/collapsed 0-size box.
+	React.useEffect(() => {
+		const persistRect = () => {
+			if (presentOpen) return;
+			const el = previewBoxRef.current;
+			if (!el) return;
+			const r = el.getBoundingClientRect();
+			const vw = window.innerWidth;
+			const vh = window.innerHeight;
+			if (r.width < 40 || r.height < 40 || vw < 1 || vh < 1) return;
+			try {
+				localStorage.setItem(
+					'lattice-studio-preview-rect',
+					JSON.stringify({
+						l: +(r.left / vw).toFixed(4),
+						t: +(r.top / vh).toFixed(4),
+						w: +(r.width / vw).toFixed(4),
+						h: +(r.height / vh).toFixed(4),
+					}),
+				);
+			} catch {}
+		};
+		const onVisibility = () => { if (document.visibilityState === 'hidden') persistRect(); };
+		window.addEventListener('pagehide', persistRect);
+		document.addEventListener('visibilitychange', onVisibility);
+		return () => {
+			window.removeEventListener('pagehide', persistRect);
+			document.removeEventListener('visibilitychange', onVisibility);
+		};
+	}, [presentOpen]);
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
@@ -515,16 +515,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		el.style.transition = 'opacity 220ms ease';
 		el.style.opacity = '0';
 		el.style.pointerEvents = 'none';
-		setTimeout(() => {
-			el.remove();
-			// Remove the shell's SLIDE CSS too, or its bare element selectors (the engine
-			// theme styles `section`/`li`/`h1` etc.) would bleed onto the hydrated app's
-			// own chrome once the shell is gone. The snapshot CSS is a tagged <style>;
-			// the newcomer critical CSS goes back inert (it was flipped to media="all").
-			document.getElementById('ssr-snap-css')?.remove();
-			const nc = document.getElementById('ssr-newcomer-css') as HTMLStyleElement | null;
-			if (nc) nc.media = 'not all';
-		}, 260);
+		// The Nacre-only shell carries no slide CSS to clean up (the retired snapshot/newcomer
+		// paths owned `#ssr-snap-css` / `#ssr-newcomer-css`); just remove the node after the fade.
+		setTimeout(() => el.remove(), 260);
 	}, []);
 	React.useEffect(() => {
 		// Backstop: never trap the user behind the static shell if the engine never
@@ -540,69 +533,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		const t = setTimeout(dismissSsrShell, 8000);
 		return () => clearTimeout(t);
 	}, [dismissSsrShell]);
-	// Snapshot the live preview's CURRENT slide (rendered HTML + just the CSS it
-	// uses, from the iframe's CSSOM) into localStorage, so a RETURNING visit paints
-	// the real last slide in the instant-shell instead of a blank screen (front A
-	// only bakes the newcomer slide at build time). Captured on leave (pagehide /
-	// tab-hide) and once shortly after the first render — never per-keystroke.
 	const previewBoxRef = React.useRef<HTMLDivElement>(null);
-	// The ONE shared preview: a `position:fixed` host (parked below the studio root,
-	// never moved in the DOM) holding the single DeckPreview, positioned by the controller
-	// to overlay whichever SLOT is active — the editor pane's `editorSlotRef` or Present's
-	// `presentSlotRef`. Moving the iframe would reload it, so we portal by positioning.
-	const sharedHostRef = React.useRef<HTMLDivElement>(null);
-	const editorSlotRef = React.useRef<HTMLDivElement>(null);
-	const presentSlotRef = React.useRef<HTMLDivElement>(null);
-	const lastCaptureRef = React.useRef(0);
-	const captureLastSlide = React.useCallback(() => {
-		try {
-			if (presentOpenRef.current) return; // never snapshot the present-lens slide as an editor slide
-			const fr = sharedHostRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-			if (!fr) return;
-			// Dedupe back-to-back captures: pagehide + visibilitychange both fire on a
-			// mobile nav, and the post-first-render timer can overlap — the CSSOM walk +
-			// ~140KB write isn't worth running twice within a beat.
-			const now = Date.now();
-			if (now - lastCaptureRef.current < 500) return;
-			lastCaptureRef.current = now;
-			const root = document.documentElement;
-			const geom = (fr.parentElement as { __latticeGeom?: { width: number; height: number } } | null)?.__latticeGeom;
-			// captureFromFrame sanitizes the slide HTML at the chokepoint (#22) before it
-			// can ever be stored + replayed into the top document — nothing to do here.
-			const snap = captureFromFrame(fr, {
-				w: geom?.width || 1280,
-				h: geom?.height || 720,
-				palette: root.getAttribute('data-palette') || 'indaco',
-				mode: root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light',
-				// Stamp WHICH deck/slide this is, so the pre-paint replay paints it only when
-				// the app is about to boot this same deck — never deck B's slide over deck A.
-				deckId: captureDeckRef.current,
-				slideIndex: activeSlideRef.current,
-				themeUrlBase: options.themeBase,
-				ts: now,
-			});
-			if (snap) saveSnapshot(snap);
-		} catch {
-			/* best-effort — a failed capture just means the next visit uses the newcomer/none path */
-		}
-	}, [options.themeBase]);
-	React.useEffect(() => {
-		const onHide = () => {
-			if (document.visibilityState === 'hidden') captureLastSlide();
-		};
-		window.addEventListener('pagehide', captureLastSlide);
-		document.addEventListener('visibilitychange', onHide);
-		return () => {
-			window.removeEventListener('pagehide', captureLastSlide);
-			document.removeEventListener('visibilitychange', onHide);
-		};
-	}, [captureLastSlide]);
-	// First-render handler for the preview: dismiss the instant-shell, then capture
-	// the freshly-rendered slide (delayed so async chart/mermaid draws are included).
+	// Dismiss the instant-shell when the editor preview first renders (its own Nacre loader
+	// now covers the preview area) OR at the 8s backstop above. The editor DeckPreview lives
+	// in-flow in `previewBoxRef` and fires `onFirstRender` on its first paint — idempotent.
 	const onPreviewFirstRender = React.useCallback(() => {
 		dismissSsrShell();
-		setTimeout(captureLastSlide, 1500);
-	}, [dismissSsrShell, captureLastSlide]);
+	}, [dismissSsrShell]);
 	// Saved LOCAL components from the same shared library (kind:'component') —
 	// authored + saved in the Fabricate Component Studio. They become insertable AND
 	// render styled (their CSS is injected where the deck uses them).
@@ -1462,10 +1399,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// react-resizable-panels split state via the shared hook (2026-07-19 migration).
 	// Same surface the hand-rolled useSplit had ({ collapsed, dragging, expand,
 	// collapse, reset }) so the ~20 downstream call sites are unchanged. The single-
-	// slide preview scales via a cheap outer CSS transform (scaleFrame) and the shared
-	// host tracks its slot LIVE, so both follow the divider THROUGH the drag — matching
-	// the Playground's in-flow iframe. It deliberately does NOT suspend scaleFrame for
-	// the drag's duration: the old suspend froze the fixed host at its pre-drag geometry
+	// slide preview scales via a cheap outer CSS transform (scaleFrame); the preview is
+	// IN-FLOW in its pane, so it follows the divider THROUGH the drag natively — like the
+	// Playground's in-flow iframe. It deliberately does NOT suspend scaleFrame for
+	// the drag's duration: the old suspend (from the retired fixed-host era) froze it
 	// so the slide overhung the shrinking neighbor pane (the "bleed"). One transform
 	// write on one host per frame is negligible; onDragEnd runs one authoritative refit
 	// as a belt-and-suspenders snap.
@@ -1941,35 +1878,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const activeFullIndex = composeLens === 'full' ? slideNo - 1 : Math.max(0, slides.indexOf(viewSlides[slideNo - 1]));
 
 	// The preview card's aspect follows the deck's selected Size (not a fixed 16:9);
-	// portrait shapes bind to height so they fit the pane, landscape to width.
+	// The preview box CONTAINS the slide (whole slide visible, never cropped) at the deck's
+	// aspect ratio, letterboxing the pane's spare axis. This is now done with PURE CSS at the
+	// box itself — `width: min(100%, 100cqh × ratio)` against `container-type:size` on the pane
+	// — so there is NO measured fit state to race (the old `previewFitByHeight` measure could
+	// bail on a 0-dim read during the iOS load reflow and leave the box the wrong shape → the
+	// misplaced/oversized preview). See the box
+	// style below and engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
 	const previewRatio = sizeRatio(deckSize);
-	const previewPortrait = previewRatio[1] > previewRatio[0];
-	// When the preview FILLS the pane (Read full-bleed, or editor collapsed) the card
-	// must CONTAIN the slide — the whole slide visible, never cropped — not cover the
-	// width and clip the slide's header / footer / page number off the top and bottom
-	// (the Read bug: a 16:9 slide in a pane wider than 16:9 derived a height taller
-	// than the pane). A slide is a fixed-aspect artifact; cropping it hides content.
-	// So bind the AXIS that fits: pane wider than the slide → bind height (letterbox
-	// the sides); pane taller → bind width (letterbox top/bottom). Measured, because
-	// no single static class contains both pane orientations without distorting.
 	const previewHolderRef = React.useRef<HTMLDivElement>(null);
-	const [previewFitByHeight, setPreviewFitByHeight] = React.useState(true);
-	const slideRatio = previewRatio[0] / previewRatio[1];
-	React.useEffect(() => {
-		const holder = previewHolderRef.current;
-		if (!holder) return;
-		const measure = () => {
-			const cs = getComputedStyle(holder);
-			const cw = holder.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-			const ch = holder.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-			if (cw <= 0 || ch <= 0) return;
-			setPreviewFitByHeight(cw / ch >= slideRatio);
-		};
-		measure();
-		const ro = new ResizeObserver(measure);
-		ro.observe(holder);
-		return () => ro.disconnect();
-	}, [slideRatio]);
 	// Touch swipe (mobile) + horizontal wheel (trackpad) change the viewed slide.
 	// goToSlide(slideNo) is next, goToSlide(slideNo - 2) is prev (both clamp).
 	const swipeRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -1993,33 +1910,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		goToSlide(e.deltaX > 0 ? slideNo : slideNo - 2);
 	};
 
-	// ── The ONE shared preview: inputs + positioning controller ───────────────────
-	// The single hoisted DeckPreview renders EITHER the editor's cursor slide OR (when
-	// Present is open and showable) Present's current slide — one warm iframe, never a
-	// second cold write on Present open. `mermaid` is unified to the SHOWN slide on both
-	// surfaces so the frame signature matches across the editor↔Present hand-off.
+	// ── The editor's live preview (in-flow; Present owns its own) ──────────────────
+	// The editor preview is a normal layout child of `previewBoxRef` (see below) — no
+	// hoisted fixed host, no measure-and-track. Present renders its OWN preview
+	// (PresentOverlay), so there is no shared iframe to re-aim and no iOS fixed-vs-visual
+	// drift. `mermaid` is unified to the shown slide so a same-signature edit stays a patch.
 	const editorSample = previewFm ? previewFm + slide : slide;
 	const editorMermaid = hasMermaid(slide);
-	const presentShowing = presentOpen && presentPreview !== null;
-	const sharedSample = presentShowing ? (presentPreview as { sample: string }).sample : editorSample;
-	const sharedMermaid = presentShowing ? (presentPreview as { mermaid: boolean }).mermaid : editorMermaid;
-	// Render (keep warm) whenever a surface may need it — Present, mobile (both panes stay
-	// mounted), Read full-bleed, or the desktop/tablet preview pane while it isn't
-	// collapsed. Parked warm (active=false, iframe kept) only in Fabricate when not
-	// presenting, so ⌘K→Present from Fabricate resumes as a PATCH, not a cold write.
-	const sharedActive = view === 'fabricate' && !presentOpen ? false : presentOpen || mobile || effectiveStop === 'read' || split.collapsed !== 'b';
-	// Whether the editor SLOT is on-screen (explicit-visibility model — not DOM occlusion):
-	// hidden in Fabricate and on the mobile edit pane (preview stays warm but parked).
+	// Whether the editor preview should render (else it parks — iframe kept warm, per-keystroke
+	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
+	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
 	const editorSlotVisible = view !== 'fabricate' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
-	useSharedPreviewSlot({
-		hostRef: sharedHostRef,
-		editorSlotRef,
-		presentSlotRef,
-		rootRef,
-		presentActive: presentShowing,
-		editorVisible: editorSlotVisible,
-		suspended: split.dragging,
-	});
 
 	// Structural slide ops (full lens only). Each rewrites the source, moves the
 	// active slide to follow the edit, and reveals it in the editor next frame
@@ -2678,9 +2579,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			id="studio-pane-preview"
 			inert={!mobile && split.collapsed === 'b' && effectiveStop !== 'read' ? true : undefined}
 			// [container-type:inline-size]: make the pane a size container so its header
-			// controls collapse on PANE width (mirrors the editor pane) — the shared
-			// preview host is a hoisted position:fixed sibling, NOT a descendant, so this
-			// containment can't establish a containing block for it (Crux A holds).
+			// controls collapse on PANE width (mirrors the editor pane). The preview iframe
+			// now lives IN-FLOW inside this pane and is never position:fixed, so this
+			// containment is harmless — there is no fixed descendant to trap (the old hoisted
+			// host, which this containment would have trapped, is retired).
 			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-collapsed=b]/split:hidden group-data-[split-dragging]/split:select-none"
 		>
 			{/* At the Read stop the preview is the whole surface — strip its editorial
@@ -2709,7 +2611,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
 			    aspect ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')} onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
+			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')} style={{ containerType: 'size' }} onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -2722,20 +2624,31 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					// + shadow, but KEEP `rounded-xl` so this backing box matches the live iframe's
 					// own `rounded-xl` corners (a square backing pokes its dark corners past the
 					// slide's rounded ones — the "notch" artifact). Elsewhere keep the full card.
-					landscapePhone ? 'rounded-xl' : 'rounded-xl border border-border shadow-[0_8px_24px_rgba(10,22,40,.10)]',
-					// Fill cases (Read full-bleed, cinema, or editor collapsed) CONTAIN via the
-					// measured axis so the whole slide shows, uncropped. Otherwise the pane is
-					// width-bound with the 760px comfort cap (portrait binds to height).
-					// A landscape PHONE viewport is always wider than a 16:9 slide, so height
-					// always binds — force fit-by-height there rather than trusting the measured
-					// axis (which raced stale and left the slide width-bound = too tall).
-					split.collapsed === 'a' || previewChromeless
-						? (previewFitByHeight || landscapePhone ? 'h-full w-auto' : 'h-auto w-full')
-						: previewPortrait ? 'h-full w-auto' : 'h-auto w-full max-w-[760px]')}
-					style={{ aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}` }}>
-					{/* Empty SLOT — the ONE shared preview (hoisted at the studio root) is positioned
-					    to overlay this box; the iframe never lives here (moving it would reload it). */}
-					<div ref={editorSlotRef} className="size-full" />
+					landscapePhone ? 'rounded-xl' : 'rounded-xl border border-border shadow-[0_8px_24px_rgba(10,22,40,.10)]')}
+					// CONTAIN to a clean deck-ratio (usually 16:9) box with PURE CSS — no JS, no
+					// race. Width = the SMALLER of the available width (`100%`, padding-aware) and
+					// the height-derived width (`100cqh × ratio`, `100cqh` = the pane height via
+					// container-type:size on previewHolder). So it fits inside the pane on ANY
+					// shape: a portrait phone binds to width (letterboxed top/bottom), landscape
+					// binds to height — deterministically, with nothing to measure or go stale.
+					// The live preview lives IN-FLOW inside this box (no hoisted host tracking it),
+					// so the box's own CSS geometry IS the preview geometry. The 760px comfort cap
+					// applies except in the fill cases (Read full-bleed / cinema / editor collapsed).
+					style={{
+						aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}`,
+						width:
+							split.collapsed === 'a' || previewChromeless
+								? `min(100%, calc(100cqh * ${(previewRatio[0] / previewRatio[1]).toFixed(4)}))`
+								: `min(100%, calc(100cqh * ${(previewRatio[0] / previewRatio[1]).toFixed(4)}), 760px)`,
+					}}>
+					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no
+					    measure-and-track controller). Being a normal layout child, the browser keeps
+					    it glued to this box through split-drag, keyboard, pinch-zoom, and the iOS
+					    URL-bar for free — the fixed-vs-visual-viewport drift is structurally
+					    unreachable because nothing is a position:fixed element chasing a slot.
+					    Present renders its OWN preview (PresentOverlay), so this one idles
+					    (active=false) while presenting but stays warm. */}
+					<DeckPreview options={options} sample={editorSample} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type. Dropped in the
@@ -2912,34 +2825,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    silent (M3/M4 a11y). `stopAnnounce` starts empty and is updated only on a
 			    real change (never on mount, never behind Fabricate) by the effect above. */}
 			<div role="status" aria-live="polite" className="sr-only">{stopAnnounce}</div>
-			{/* ── The ONE shared preview ────────────────────────────────
-			    A `position:fixed` host, ALWAYS mounted (outside the Fabricate/mobile/desktop
-			    branches below) so it stays warm in every Present-open path, and NEVER moved in
-			    the DOM (moving an <iframe> reloads it). `useSharedPreviewSlot` writes its
-			    top/left/width/height each frame to overlay the active slot — the editor pane's
-			    slot, or (when Present is open) Present's slide-row slot. z-101 sits BETWEEN
-			    Present's backdrop (z-100) and chrome (z-102); in the editor it drops to z-15 (above
-			    the mobile pane's z-10, under the READ overlay z-20 and sheets/dialogs z-50) and goes
-			    pointer-transparent so a swipe over the slide still reaches
-			    the pane. The card frame differs per surface: Present draws the full card here;
-			    the editor keeps its frame on `previewBoxRef` and this host only clips the corners. */}
-			<div
-				ref={sharedHostRef}
-				// z: Present → 101 (between backdrop 100 and chrome 102). Editor → 15, which sits
-				// ABOVE the mobile pane's own `z-10` (whose opaque bg would else cover the slide)
-				// yet BELOW the READ "Edit this slide" overlay (z-20) and sheets/dialogs (z-50).
-				// visibility/opacity/pointer-events are all CONSTANTS here (parked defaults) and
-				// owned imperatively by the controller (useSharedPreviewSlot) — a constant in the
-				// JSX means React's diff skips it on re-render, so the controller's imperative
-				// value survives (never clobbered back to the default). opacity is the real hide
-				// (the live iframe re-asserts its own visibility:visible, which overrides an
-				// ancestor's visibility:hidden per CSS); pointer-events:none is the parked default
-				// so an invisible host never eats a click. See use-shared-preview-slot.ts.
-				style={{ position: 'fixed', top: 0, left: 0, visibility: 'hidden', opacity: 0, zIndex: presentOpen ? 101 : 15, pointerEvents: 'none' }}
-				className={cn('overflow-hidden', presentOpen ? 'rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]' : 'rounded-xl')}
-			>
-				<DeckPreview options={options} sample={sharedSample} mermaid={sharedMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={sharedActive} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} />
-			</div>
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* Read + Write stops (DESKTOP only): a slim header — deck title · ⌘K · Present ·
 			    Share · the dial. Most of the control cluster is gone; ⌘K still reaches
@@ -3159,9 +3044,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 				</React.Suspense>
 			) : landscapePhone ? (
-				/* iPhone LANDSCAPE — the "cinema" morph. The slide render is one surface that
-				   already moves between the editor's preview slot and Present's slot (the shared
-				   hoisted iframe); this is its third position: the slide fills the frame, swipe
+				/* iPhone LANDSCAPE — the "cinema" morph. The editor's in-flow preview fills the
+				   frame full-bleed here: the slide is the whole surface, swipe
 				   moves between slides, and every other scrap of chrome is gone (no header, no
 				   toolbar, no navigator — all suppressed above / in previewPane via
 				   previewChromeless). The only visible overlay is the whisper: a slide-progress
@@ -3477,7 +3361,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					notify={notify}
 				/>
 			)}
-			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} slotRef={presentSlotRef} onSlide={onPresentSlide} />
+			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
 			<CommandPalette
 				open={cmdOpen}
 				onOpenChange={setCmdOpen}

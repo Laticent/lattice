@@ -48,7 +48,23 @@ type Geom = {
 	lvh: number;
 	stageH: number | null;
 	frame: { top: number; bottom: number; height: number } | null;
+	// Regression guard (was the iPad drift smoking gun). `slot` is the preview box; `host` is
+	// the live iframe's own rect. The preview is now IN-FLOW inside the box, so the two COINCIDE
+	// (delta ~0). A large delta would mean the iframe escaped its box — i.e. a fixed-positioning
+	// host crept back in and the visual-vs-layout-viewport drift class returned.
+	slot: { x: number; y: number; w: number; h: number } | null;
+	host: { x: number; y: number; w: number; h: number } | null;
 };
+
+// host − slot, per edge, and the worst single-edge miss. null when either is absent.
+function hostSlotDelta(g: Geom): { dx: number; dy: number; dw: number; dh: number; max: number } | null {
+	if (!g.host || !g.slot) return null;
+	const dx = g.host.x - g.slot.x;
+	const dy = g.host.y - g.slot.y;
+	const dw = g.host.w - g.slot.w;
+	const dh = g.host.h - g.slot.h;
+	return { dx, dy, dw, dh, max: Math.max(Math.abs(dx), Math.abs(dy), Math.abs(dw), Math.abs(dh)) };
+}
 
 // ─── Derived relationships — the numbers a viewport debugger is actually FOR ──────────
 // Raw geometry is only half the story; the deltas between the properties are what expose a
@@ -151,6 +167,28 @@ const METRICS: Metric[] = [
 			return fit.fits ? `fits: top ≥ 0 and bottom ≤ stage (${g.stageH}). ${fit.slack}px slack.` : `⚠ OVERFLOWS by ${fit.over}px — the slide spills past the visible band (the #1121 bug).`;
 		},
 	},
+	{
+		key: 'slot',
+		label: 'slot',
+		value: (g) => (g.slot ? `${g.slot.x},${g.slot.y} ${g.slot.w}×${g.slot.h}` : '—'),
+		what: 'The preview box in the pane — where the slide should sit. The in-flow iframe fills it, so this and “iframe” below should coincide. Shows “—” outside the Studio split/read preview.',
+		rel: (g) => {
+			const d = hostSlotDelta(g);
+			return d ? (d.max <= 1 ? 'the iframe fills it (≤1px).' : `the iframe is OFF it by ${d.max}px.`) : null;
+		},
+	},
+	{
+		key: 'iframe',
+		label: 'iframe',
+		value: (g) => (g.host ? `${g.host.x},${g.host.y} ${g.host.w}×${g.host.h}` : '—'),
+		what: 'The live preview iframe’s own rect. It is now IN-FLOW inside the box (no hoisted position:fixed host), so it should sit ON the box. A large gap would mean a fixed-positioning host crept back in — the retired iOS drift class.',
+		rel: (g) => {
+			const d = hostSlotDelta(g);
+			if (!d) return null;
+			if (d.max <= 1) return 'on the box (in-flow, as expected).';
+			return `⚠ ${d.max}px off the box (dx ${d.dx}, dy ${d.dy}, dw ${d.dw}, dh ${d.dh}) — a fixed host may have returned.`;
+		},
+	},
 ];
 
 // The mounted overlay — measures the live geometry only while shown (mount = poll,
@@ -185,8 +223,24 @@ function Overlay() {
 			// (StudioShell reads it the same way). A bare `iframe` selector would grab the
 			// FIRST iframe in the document (e.g. a print-panel `pod-frame`), making the
 			// fit verdict judge the wrong box.
-			const f = document.querySelector('iframe.live')?.getBoundingClientRect();
+			const iframeEl = document.querySelector('iframe.live');
+			const f = iframeEl?.getBoundingClientRect();
 			const stage = document.querySelector('[data-cinema-stage]')?.getBoundingClientRect();
+			// The SLOT (the deck-ratio box in the preview pane) vs the live iframe's own rect. The
+			// preview is now IN-FLOW inside the box, so the two should COINCIDE (delta ~0); a large
+			// delta would mean the iframe escaped its box (a fixed host crept back in). Both via rect.
+			const R4 = (el: Element | null | undefined) => {
+				if (!el) return null;
+				const r = el.getBoundingClientRect();
+				return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+			};
+			// Anchor the slot to the editor preview's STABLE aria-label (its <figure>), then take
+			// the wrapping box (its parent) — the deck-ratio slot the in-flow iframe should coincide
+			// with. Robust to unrelated inline `aspect-ratio` styles the old `[style*="aspect-ratio"]`
+			// selector could accidentally match; falls back to it if the label ever changes.
+			const previewFig = document.querySelector('#studio-pane-preview [aria-label="Live deck preview"]');
+			const slotEl = previewFig?.parentElement ?? document.querySelector('#studio-pane-preview [style*="aspect-ratio"]');
+			const hostEl: Element | null = iframeEl ?? null;
 			setGeom({
 				innerW: window.innerWidth,
 				innerH: window.innerHeight,
@@ -196,6 +250,8 @@ function Overlay() {
 				lvh: probe('100lvh'),
 				stageH: stage ? Math.round(stage.height) : null,
 				frame: f ? { top: Math.round(f.top), bottom: Math.round(f.bottom), height: Math.round(f.height) } : null,
+				slot: R4(slotEl),
+				host: R4(hostEl),
 			});
 		};
 		read();
@@ -232,6 +288,10 @@ function Overlay() {
 						<Chip label="keyboard / UI" value={`${insetPx(geom)}px`} tone={insetPx(geom) > 0 ? 'warn' : 'muted'} />
 						<Chip label="URL bar" value={`${urlBarPx(geom)}px`} tone="muted" />
 						{fit == null ? <Chip label="fit" value="no stage" tone="muted" /> : <Chip label="fit" value={fit.fits ? '✓' : `overflow ${fit.over}px`} tone={fit.fits ? 'pass' : 'fail'} />}
+						{(() => {
+							const d = hostSlotDelta(geom);
+							return d ? <Chip label="box↔iframe" value={d.max <= 1 ? '✓' : `off ${d.max}px`} tone={d.max <= 1 ? 'pass' : 'fail'} /> : null;
+						})()}
 					</div>
 					<div className="flex flex-col">
 						{METRICS.map((m) => (

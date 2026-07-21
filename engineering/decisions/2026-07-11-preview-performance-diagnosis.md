@@ -504,3 +504,36 @@ Every change reports before/after **against the production build**: engine via
 `npm run bench`; FRAME via the new browser-side bench at 1×/4× throttle; LCP/FCP via a
 real Lighthouse-mobile run on the built docs. No needle is called "good" without an
 artifact from the surface it names (HARD RULE #23).
+
+---
+
+## Follow-up (2026-07-20) — the shell's silent-null failure mode, fixed + gated
+
+Front A (the SSG instant-shell) shipped with a resilience contract: `renderFirstSlideShell`
+swallows any failure and returns null, so a broken engine load never breaks the docs build.
+That resilience hid a real bug. The shell generator loaded the owned engine via a dynamic
+`import()`, which Vite's dev SSR module runner re-transforms — and the engine's CommonJS core
+(`lib/core/*`) then threw `require is not defined`. So in local `astro dev` the shell + the
+returning-visitor snapshot-replay were **entirely absent** (reload → blank preview until the
+island hydrated), invisibly. `astro build` happened to load the engine via the native Node
+loader, so production was fine — which is exactly why it went unnoticed: the feature could
+never be exercised locally, and CI was green.
+
+Two fixes: (1) load the engine through a native `createRequire` so the **same path works in
+dev and build**, and log a genuine render failure LOUDLY instead of swallowing it; (2) a
+`check:studio-shell` gate (chained into the docs `build`) that **fails the build** if the
+shipped `dist/studio/index.html` lost its shell scaffold — so a silent null can never ship a
+blank-on-reload Studio again. Lesson: a "resilient, never a build-breaker" enhancement needs a
+build-time assertion that it actually shipped, or its degradation is invisible.
+
+**Update (2026-07-20, same day):** the new `check:studio-shell` gate immediately earned its
+keep — it went red on the PR's docs-preview build with `Cannot find module 'markdown-it'`
+(require stack: `lib/core/bake-splits.js`). Root cause: the docs *deploy* (`docs.yml`) and
+*PR-preview* (`docs-preview.yml`) workflows ran `npm ci` only inside `docs/`, so the engine's
+ROOT deps were never installed and `renderFirstSlideShell` returned null on **every deploy** —
+the deployed studio has been shipping shell-less (reload → blank) the whole time. It only
+looked fine locally (and in `ci.yml`'s `docs-build`, which installs root deps for the cadenza
+workspace link) because a full checkout has the root deps. Fixed by installing root deps before
+the docs build in both workflows. So the original "reload shows blank" report was NOT merely a
+stale deploy — it was a genuine, long-standing deploy breakage the silent `catch` had hidden,
+exactly the failure mode the loud-log + gate were added to surface.

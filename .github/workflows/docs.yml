@@ -27,6 +27,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The SSG instant-shell (studio.astro) loads the owned engine (lib/**) at build
+      # time, which `require()`s ROOT deps (markdown-it, …) resolved from the repo-root
+      # node_modules — NOT docs/. withastro/action only installs docs deps, so without
+      # this the shell renders null and the DEPLOYED studio reloads blank (now caught by
+      # `check:studio-shell`). Install root deps first; withastro/action then builds with
+      # them present. Mirrors ci.yml's docs-build job.
+      - name: Install root deps (engine deps for the SSG instant-shell)
+        run: npm ci
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
       - name: Build with Astro
         uses: withastro/action@v3
         with:
