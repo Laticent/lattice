@@ -1,5 +1,6 @@
 ---
-status: proposed
+status: superseded
+retracted-by: 2026-07-21-studio-compose-listener-leak-is-a-perf-overlay-artifact.md
 summary: >
   A perf-torture run on the studio scenario surfaced a REAL, reproducible event-LISTENER leak on the
   compose (and insert) cycles — CONFIRMED (not a HeapProfiler artifact) and NAMED to its registration
@@ -21,6 +22,14 @@ summary: >
 ---
 
 # Studio compose/insert leaks event listeners (dropdown-menu on `document` + ProseMirror view teardown)
+
+> **⚠ RETRACTED (2026-07-21).** The "confirmed + named" listener leak below is a MEASUREMENT ARTIFACT of
+> the profiler's own `?perf` overlay (web-vitals), not a Studio leak. The torture `studio` scenario drives
+> `/studio?perf`; `?perf` mounts PerfOverlay → `web-vitals`, which arms a `visibilitychange` listener per
+> metric report and never removes it — ~1/compose cycle. On the production surface `/studio` (overlay off)
+> the same cycle is flat: `JSEventListeners` 688→688 (Δ0). The named app sites do not leak. Full evidence +
+> why this doc's add-call tally misattributed it: **`2026-07-21-studio-compose-listener-leak-is-a-perf-overlay-artifact.md`**.
+> The text below is preserved as the (incorrect) original for the record.
 
 > **What it is.** Toggling the Studio's Compose ⇄ Markdown editor (and opening the add-slide gallery)
 > registers event listeners it never removes — ~4.7 live listeners per compose toggle, sustained. The
