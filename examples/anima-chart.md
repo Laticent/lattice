@@ -71,7 +71,7 @@ fades in as a whole (never a slice short); the gradient fills come through intac
 
 ## Set it once for the whole deck.
 
-Put `class: chart-anima` in the frontmatter and every funnel slide animates — no per-slide marker needed. A single funnel slide can still opt out by overriding its own `_class`.
+Put `class: chart-anima` in the frontmatter and every animatable chart slide (funnel, pie, …) animates — no per-slide marker needed. A single chart slide can still opt out by overriding its own `_class`.
 
 - **Preview-only.** Motion plays on the live surfaces; the PDF / PPTX / HTML export always shows the finished chart still. A deck without `chart-anima` is unchanged.
 - **Playback + accessibility, for free.** An animated chart gets the same corner control as an Anima scene — ⏸ pause · ▶ play · ↻ replay — honors the viewer's reduced-motion setting (it drops to the safe, legible build), and pauses off-screen.
