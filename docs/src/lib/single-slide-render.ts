@@ -287,7 +287,17 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		const geom = (host as LiveHost).__latticeGeom || { width: DEFAULT_W, height: DEFAULT_H };
 		fr.style.width = geom.width + 'px';
 		fr.style.height = geom.height + 'px';
-		if (w > 0) fr.style.transform = 'scale(' + (w / geom.width).toFixed(5) + ')';
+		if (w > 0) {
+			fr.style.transform = 'scale(' + (w / geom.width).toFixed(5) + ')';
+			// Reveal ONLY once we have a real width to scale to. Revealing while the host
+			// measures 0 leaves the frame UNSCALED at its intrinsic geom.width (e.g. 1280px),
+			// overflowing its container so the slide's centered content falls outside the
+			// visible box and reads as BLANK — observed on iOS Safari's load reflow, where the
+			// shared preview host is briefly 0-wide (the huge off-screen card in the device
+			// report). The host ResizeObserver re-runs this the instant width arrives, revealing
+			// the correctly-scaled slide then; the onload path no longer force-reveals at w===0.
+			if (fr.style.visibility === 'hidden') fr.style.visibility = 'visible';
+		}
 	}
 
 	/** True once the engine bundle has loaded. */
@@ -579,6 +589,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					const revealFr = fr;
 					const revealTimer = setTimeout(() => {
 						ownedTimers.delete(revealTimer);
+						// Last-ditch fit first: if width has arrived by now, scaleFrame reveals the
+						// slide correctly SCALED. Only if it's still 0-wide do we force-reveal (an
+						// unscaled frame is blank, but that's the ultimate backstop against a slide
+						// hidden forever — no worse than before this gate).
+						scaleFrame(host);
 						if (revealFr.style.visibility === 'hidden') revealFr.style.visibility = 'visible';
 					}, 4000);
 					ownedTimers.add(revealTimer);
@@ -620,12 +635,14 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// This srcdoc has committed — future same-sig renders may now patch it.
 					(host as LiveHost).__latticePendingLoad = false;
 					const tFit = performance.now();
+					// scaleFrame both fits AND reveals — but ONLY once the host has a real
+					// width. When the srcdoc paints while the host is still 0-wide (iOS load
+					// reflow), it stays hidden here rather than revealing an unscaled, blank
+					// frame; the host ResizeObserver re-runs scaleFrame the instant width
+					// arrives and reveals the correctly-scaled slide, and the 4s timer is the
+					// ultimate backstop. Idempotent: later full-writes re-fire onload but the
+					// frame is already visible; patches don't reload, so it stays put.
 					scaleFrame(host);
-					// Reveal now that the srcdoc has painted (and is scaled) — closes the
-					// white-`about:blank` window without ever showing an unscaled or blank
-					// frame. Idempotent: later full-writes re-fire onload but it's already
-					// visible; patches don't reload, so the frame stays put.
-					fr.style.visibility = 'visible';
 					const fitMs = performance.now() - tFit;
 					applyDebug(fr, { force: null });
 					// Parent-hosted video playback: tap a video poster in a Studio preview

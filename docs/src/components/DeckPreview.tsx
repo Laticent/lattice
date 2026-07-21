@@ -112,6 +112,41 @@ export function DeckPreview({
 		const t = setTimeout(() => setPainted(true), 10000);
 		return () => clearTimeout(t);
 	}, [loader, painted]);
+	// On-device diagnostic (Studio preview only, opt-in via `?previewdiag`): a live
+	// green readout of the exact state behind a "blank preview" — host size, the live
+	// frame's visibility/transform, whether the in-iframe `.lattice` is present + visible,
+	// and the loader state. Read-only. Lets a real phone screenshot pin whether the slide
+	// is 0-scaled, hidden inside the frame, or genuinely not rendered — something no
+	// headless check here can confirm (#23).
+	const diag = loader && typeof window !== 'undefined' && /[?&]previewdiag\b/.test(window.location.search);
+	const diagRef = React.useRef<HTMLPreElement>(null);
+	React.useEffect(() => {
+		if (!diag) return;
+		const tick = () => {
+			const host = stageRef.current;
+			const el = diagRef.current;
+			if (!host || !el) return;
+			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+			let inner = 'frame: none';
+			try {
+				const d = fr?.contentDocument;
+				const lat = d?.querySelector('.lattice');
+				const sec = d?.querySelector('.lattice section');
+				if (fr) inner = `lattice:${lat ? 'y' : 'n'} vis:${lat ? getComputedStyle(lat).visibility : '-'} sec:${sec ? 'y' : 'n'}`;
+			} catch {
+				inner = 'frame: cross-origin';
+			}
+			el.textContent = [
+				`host ${Math.round(host.clientWidth)}×${Math.round(host.clientHeight)}`,
+				fr ? `frame vis:${fr.style.visibility || 'default'} tf:${fr.style.transform || 'none'}` : 'frame: none',
+				inner,
+				`nacre:${painted ? 'done' : 'running'}`,
+			].join('\n');
+		};
+		tick();
+		const id = window.setInterval(tick, 250);
+		return () => window.clearInterval(id);
+	}, [diag, painted]);
 	// One renderer instance for this host (holds the theme + font caches).
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
@@ -365,6 +400,7 @@ export function DeckPreview({
 					<span className="nacre-loader__vig" />
 				</span>
 			)}
+			{diag && <pre ref={diagRef} className="preview-diag" aria-hidden="true" />}
 		</figure>
 	);
 }

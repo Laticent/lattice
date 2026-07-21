@@ -845,6 +845,19 @@ in patch versions.
   AA-safe values. White-text status *fill* controls (the Stop / armed-delete buttons, the verdict chips)
   pin a fixed dark hex rather than the now-resolving foreground-tuned token, which would be too bright
   for white text in dark mode.
+- **The live preview no longer reveals a blank/unscaled slide when the pane is measured mid-reflow.**
+  The single-slide renderer scaled the frame only when the host had a non-zero width (`if (w > 0)`), but
+  it revealed the frame on `onload` **regardless** — so if the shared preview host was briefly 0-wide
+  during a layout reflow (observed on iOS Safari's load, where the card ballooned off-screen), the frame
+  was revealed **unscaled** at its intrinsic 1280px, pushing the slide's centered content outside the
+  visible box → a blank card. Reveal is now owned by `scaleFrame` and gated on a real width: the frame
+  stays hidden until it can be correctly scaled, the host `ResizeObserver` reveals it the instant width
+  arrives, and the 4s backstop re-fits before its last-ditch reveal. Also adds an opt-in on-device
+  diagnostic (`?previewdiag`) — a live readout of host size · frame visibility/transform · in-iframe
+  `.lattice` presence+visibility · loader state — so a real phone can screenshot the exact failure mode
+  (something no headless check here can confirm, #23). Verified non-regressing on desktop; the iOS blank
+  itself is **UNVERIFIED pending an on-device `?previewdiag` capture**. (`docs/src/lib/single-slide-render.ts`,
+  `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
 - **A phone held in landscape is no longer a dead editing surface — the slide fills the screen and you
   swipe through the deck (the "cinema" morph).** A landscape phone is wide enough (~844–932px) to fall
   into the Studio's two-pane *tablet* layout but only ~360–430px *tall*, so the editor|preview split was
