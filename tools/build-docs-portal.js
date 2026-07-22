@@ -304,7 +304,9 @@ function resolvePalettes() {
     // Status FILL tokens — a white-text-safe companion to the foreground trio. The
     // foreground --pass/--warn/--fail are tuned to READ as text and go BRIGHT in dark mode,
     // so a `bg-[var(--fail)] text-white` chip/button inverts to ~2:1. Derive a fill by
-    // darkening the LIGHT-side status hue (via OKLCH lightness) until white text clears AA
+    // darkening the resolved status hue — `light[s]`, i.e. the arg matching the light
+    // block's canvas scheme (the light arg for normal palettes; the DARK arg for carbone,
+    // whose canvas is dark in both modes) — via OKLCH lightness until white text clears AA
     // (4.5:1), and emit the SAME value in both modes so a status button looks identical
     // light/dark. Hue-preserving, so the a11y palettes keep their colorblind-safe fill
     // (blue/amber, grayscale) instead of a hardcoded red/green.

@@ -1,6 +1,6 @@
 /**
  * Unit gate: every theme clears WCAG AA on every critical text/ink-on-surface
- * pair, in BOTH the slide-layout and Mermaid contexts.
+ * pair the theme-scoped audit can resolve.
  *
  * This locks the theme-wide AA sweep. The pair MATRIX lives in
  * `tools/contrast-audit.js` (`PAIRS`) — the same list the `contrast-audit` CLI
@@ -9,7 +9,10 @@
  * foreground status ink (`--pass`/`--warn`/`--fail`) on both, which is where a
  * warn amber tuned for `--bg` used to slip under AA on the slightly darker
  * `--bg-alt`. A theme value that regresses any pair below 4.5:1 fails here with
- * the exact fg/bg/ratio, before it can reach a slide.
+ * the exact fg/bg/ratio, before it can reach a slide. (The mermaid/chart node-fill
+ * pairs in the matrix reference engine-COMPOSED tokens the theme files don't
+ * declare — `EXTERNAL_BG` — so they're expected skips here; auditing them needs a
+ * tool that loads the engine, tracked in #1165.)
  */
 
 const { test, describe } = require('node:test');
@@ -31,13 +34,15 @@ describe('theme surface AA (contrast-audit PAIRS over every theme)', () => {
         (f) => `${f.fgHex} on ${f.bgHex} = ${f.ratio.toFixed(2)}:1 — ${f.ctx}`,
       );
       assert.equal(res.fails.length, 0, `${name} sub-AA pairs:\n  ${lines.join('\n  ')}`);
-      // Also fail on UNRESOLVED pairs: a fg/bg the audit couldn't reduce to hex
-      // (a future color-mix()/oklch()/var(--x,fallback) surface resolveSurface
-      // doesn't handle) is silently skipped otherwise — turning a real sub-AA
-      // regression into a phantom "0 fails". Force the resolver to be extended
-      // instead of letting coverage rot. (0 missing across all themes today.)
+      // Also fail on UNRESOLVED pairs: a theme-owned fg/bg the audit couldn't
+      // reduce to hex (a future color-mix()/oklch()/var(--x,fallback) value the
+      // resolvers in tools/contrast-audit.js — parsePaletteVars / resolveTranslucent
+      // / parseHex — don't handle) is otherwise silently skipped, turning a real
+      // sub-AA regression into a phantom "0 fails". Force the resolver to be
+      // extended instead of letting coverage rot. (Engine-composed backdrops are
+      // the EXTERNAL_BG allowlist, not counted here. 0 missing across all themes today.)
       const miss = res.missing.map((m) => `${m.fg} on ${m.bg} — ${m.ctx}`);
-      assert.equal(res.missing.length, 0, `${name} UNRESOLVED (extend resolveSurface):\n  ${miss.join('\n  ')}`);
+      assert.equal(res.missing.length, 0, `${name} UNRESOLVED (extend the resolvers in contrast-audit.js):\n  ${miss.join('\n  ')}`);
     });
   }
 });

@@ -1686,7 +1686,7 @@ of how many rows are here.
   already resolve in their themed context or fall back to `--accent`, so they were left as-is.)
 - **Foreground status text on chrome (RESOLVED in #1160).** The FILL tokens fix white-text
   backgrounds, not FOREGROUND status text; two palettes used to ship sub-AA foreground
-  `--pass`/`--warn`/`--fail` (was #1152, now closed). (1) `carbone`: its `--bg` is a flat dark
+  `--pass`/`--warn`/`--fail` (#1152, closed by #1160). (1) `carbone`: its `--bg` is a flat dark
   `#1A1A1C` (no `light-dark()`) but its status tokens ARE `light-dark(...)`, and the portal
   FLATTENS `light-dark` per mode — so the `[data-mode="light"]` chrome block used to pair the
   LIGHT-side `--fail #A02323` against the dark bg at 2.28:1. Fixed: `resolvePalettes` now

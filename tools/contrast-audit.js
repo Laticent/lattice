@@ -226,9 +226,12 @@ const PAIRS = [
   ['text-heading', 'bg', 'mermaid: edge label text on canvas bg'],
 
   // ── Foreground status INK on both slide surfaces ──────────────────────
-  // pass/warn/fail are consumed as TEXT / --state-color / --stamp-color / --stance
-  // ink (obligation-matrix state cells, policy-recommendation stance, status-cards,
-  // regulatory stamps) — on the canvas AND on card/table surfaces (bg-alt). They
+  // pass/warn/fail are consumed as foreground TEXT / --state-color / --stamp-color
+  // ink — regulatory-update diff-band headings (`color:var(--pass|warn|fail)` on a
+  // `background:var(--bg-alt)` cell), policy-recommendation `--stance`, redline
+  // del/ins — on the canvas AND on card/table surfaces (bg-alt). (obligation-matrix
+  // uses --state-color as a mark FILL over --bg, not as ink, so it's not this pair.)
+  // They
   // were historically tuned against --bg only; a card is bg-alt, which on a light
   // theme is a touch DARKER than --bg (e.g. indaco #F2F5FA vs #FFFFFF), so a warn
   // amber that clears --bg can slip under AA on --bg-alt. Held to 4.5 (ink).
@@ -387,6 +390,13 @@ if (require.main === module) {
 
   console.log('  ══════════════════════════════════════════════════════════════');
   console.log(`  ${totalFails} contrast failures · ${totalMissing} unresolved · ${totalChecks} pairs checked across ${themes.length} themes`);
+  // Be honest that this theme-scoped tool cannot see engine-composed mermaid/chart
+  // fills — those pairs are skipped, NOT verified. A green run is not evidence they
+  // pass. (Auditing them needs a tool that loads the engine — #1165.)
+  const externalPerTheme = PAIRS.filter(([, bg]) => EXTERNAL_BG.has(bg)).length;
+  if (externalPerTheme) {
+    console.log(`  (${externalPerTheme * themes.length} mermaid/chart pairs on engine-composed fills NOT checked — see #1165)`);
+  }
   console.log('');
   // Unresolved pairs are a coverage hole, not a pass — exit non-zero so automation
   // can't read "0 failures" while pairs were silently skipped.

@@ -881,10 +881,11 @@ in patch versions.
   — dominated by warn ambers tuned to clear `--bg` but landing 4.1–4.4:1 on `--bg-alt`. Every one is now
   fixed at the theme source by nudging the light-mode ink a touch darker (target ~4.6:1 for margin): `--warn`
   in ardesia, atelier, brina, burgundy, crepuscolo, indaco, laguna, magnolia, mustard and the four a11y
-  palettes; `--pass` in laguna; `--text-label` in atelier, mustard; `--text-secondary` in cuoio, concrete
-  (dark). The a11y darkening was verified CVD-neutral (0 change in `cvd-audit` collapses; the achromatopsia
-  grayscale ramp stays evenly separated). Dark-mode arms are untouched. (`tools/contrast-audit.js`,
-  `themes/*.css`.)
+  palettes; `--pass` in laguna (`#197848`, tuned to also hold ≥0.15 protanopia pass↔fail CVD separation,
+  not just AA); `--text-label` in atelier, mustard; `--text-secondary` in cuoio, concrete (dark). The a11y
+  darkening was verified CVD-neutral (0 change in `cvd-audit` collapses; the achromatopsia grayscale ramp
+  stays evenly separated). Dark-mode arms are untouched except concrete's `--scheme-dark-text-secondary`
+  (`#9A9A98`→`#A3A3A1`) — the one dark-side card fix. (`tools/contrast-audit.js`, `themes/*.css`.)
 - **Status-fill and accent chrome controls are now contrast-safe and colorblind-aware in dark mode.**
   Follows the chrome status-token fix: (1) new generated `--pass-fill`/`--warn-fill`/`--fail-fill`
   tokens back the white-text status FILLS (the Stop / armed-delete buttons, the diagnostics verdict
