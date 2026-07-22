@@ -316,7 +316,7 @@ function auditTheme(theme) {
     // fg: plain hex, or a translucent on-dark ink composited over bg.
     const fgHex = parseHex(vars[fg]) ? vars[fg] : resolveTranslucent(fg, vars, bgHex);
     if (!fgHex) {
-      missing.push({ ctx, fg: vars[fg] ?? `--${fg} (unresolved)`, bg: bgHex });
+      missing.push({ ctx, fg: vars[fg] ?? `--${fg} (absent)`, bg: bgHex });
       continue;
     }
     checks++;
