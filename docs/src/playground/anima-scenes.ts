@@ -18,7 +18,7 @@
 import { hydrateScene } from '@/lib/anima/hydrate';
 import { hydrateChart } from '@/lib/chart-anima-hydrate';
 import { sanitizeSlideHtml } from '@/lib/sanitize-slide-html.js';
-import { type DeckMotion, hasAnimatableChart, MOTION_OPT_IN_SEL, resolveMotion, SCENE_SEL, speedToDurationMs } from './anima-host-sel';
+import { type DeckMotion, hasAnimatableChart, MOTION_OPT_IN_SEL, PREHIDE_CLASS, prehideEligibleCharts, resolveMotion, SCENE_SEL, speedToDurationMs } from './anima-host-sel';
 
 // The eligibility selectors + the deck-default/slide-override cascade live in a zero-dependency leaf
 // (anima-host-sel.ts) so this host and the DeckPreview host-load gate share ONE definition and can't
@@ -107,6 +107,11 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     }
     const deck: DeckMotion = getDeckMotion?.() ?? { play: null, style: null, speed: null };
 
+    // Re-assert the preview pre-hide on every rebind (covers a fresh WRITE/patch whose new nodes lost the
+    // class, and a sync rebind that beat DeckPreview's pre-import stamp). The host reveals each figure on
+    // mount (hydrate) or on decline (below) — so a chart is hidden only across the flash window.
+    prehideEligibleCharts(doc, deck);
+
     // A section is an eligible live target if it is a baked scene OR a chart whose Play/Style/Speed
     // cascade RESOLVES (Play on). The diff is KIND-AGNOSTIC: a tracked section is disposed the moment
     // it stops being either — it left the DOM, a scene lost its spec, a chart flipped to `motion-off`,
@@ -131,6 +136,11 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
       if (ctrl) {
         live.set(section, { ctrl, sig });
         played.add(sig);
+      } else {
+        // The host DECLINED to mount (author `still` tier, or no backend negotiated) — hydrate.ts never
+        // runs its reveal, so clear any preview pre-hide (on the chart figure inside) synchronously here,
+        // or the figure stays hidden.
+        for (const el of Array.from(section.querySelectorAll(`.${PREHIDE_CLASS}`))) el.classList.remove(PREHIDE_CLASS);
       }
     };
     for (const section of Array.from(doc.querySelectorAll(SCENE_SEL))) {

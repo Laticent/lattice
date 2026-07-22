@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { type DeckMotion, hasAnimatableChart, parseDeckMotion, resolveMotion, speedToDurationMs } from './anima-host-sel';
+import { type DeckMotion, hasAnimatableChart, PREHIDE_CLASS, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts, speedToDurationMs } from './anima-host-sel';
 
 const section = (className: string, inner = ''): Element => {
   const s = document.createElement('section');
@@ -85,5 +85,53 @@ describe('hasAnimatableChart', () => {
   });
   it('false for a chart-less section', () => {
     expect(hasAnimatableChart(section('content', '<p>hi</p>'))).toBe(false);
+  });
+});
+
+describe('prehideEligibleCharts / revealPrehiddenCharts — the flash pre-hide', () => {
+  const root = (...sections: Element[]): Element => {
+    const d = document.createElement('div');
+    for (const s of sections) d.appendChild(s);
+    return d;
+  };
+  const figureOf = (s: Element) => s.querySelector('.funnel-figure') as HTMLElement;
+
+  it('hides an EXPLICIT motion-on chart figure (not the section)', () => {
+    const s = section('motion-on', CHART);
+    const r = root(s);
+    const hidden = prehideEligibleCharts(r, OFF);
+    expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(true);
+    expect(s.classList.contains(PREHIDE_CLASS)).toBe(false); // the FIGURE, never the section
+    expect(hidden).toContain(figureOf(s));
+  });
+
+  it('leaves a motion-OFF chart and a chart-less section visible', () => {
+    const off = section('motion-off', CHART);
+    const plain = section('content', '<p>hi</p>');
+    prehideEligibleCharts(root(off, plain), DECK_ON()); // even deck Play on: motion-off resolves null
+    expect(figureOf(off).classList.contains(PREHIDE_CLASS)).toBe(false);
+  });
+
+  it('deck-wide Play on hides a CLASS-LESS chart section', () => {
+    const s = section('', CHART); // no per-slide token
+    prehideEligibleCharts(root(s), DECK_ON());
+    expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(true);
+  });
+
+  it('NEVER re-hides an already-mounted (.anima-live) figure — the re-hide-after-reveal stranding guard', () => {
+    const s = section('motion-on', CHART);
+    figureOf(s).classList.add('anima-live'); // simulate: it already mounted + revealed
+    const hidden = prehideEligibleCharts(root(s), OFF);
+    expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(false); // a rebind must not re-hide it
+    expect(hidden).toHaveLength(0);
+  });
+
+  it('reveal clears every pre-hide (the host-never-ran fallback)', () => {
+    const s = section('motion-on', CHART);
+    const r = root(s);
+    prehideEligibleCharts(r, OFF);
+    expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(true);
+    revealPrehiddenCharts(r);
+    expect(figureOf(s).classList.contains(PREHIDE_CLASS)).toBe(false);
   });
 });

@@ -121,3 +121,49 @@ export function speedToDurationMs(speed: MotionSpeed, markCount: number): number
 export function hasAnimatableChart(section: Element): boolean {
   return section.querySelector('svg [data-mark]') != null;
 }
+
+/** Preview-only marker: the live host stamps this on a motion-eligible chart FIGURE so it starts HIDDEN
+ *  instead of flashing the static poster while the heavy Anima host imports. It is added ONLY by the live
+ *  parent host (never by engine output or any export/capture builder) → inert in every export even if the
+ *  CSS rule that hides it leaks into an export sheet. The matching rule lives in the PREVIEW-ONLY srcdoc
+ *  CSS (`single-slide-render.ts`). Cleared on the animated clone's first (zero-state) frame
+ *  (`hydrate.ts mount()`), or by the host's fallback if it declines / never runs. */
+export const PREHIDE_CLASS = 'anima-prehide';
+
+/** The chart FIGURE (`svg.parentElement`, e.g. `.funnel-figure`) for a section — the node that later
+ *  gets `.anima-live`, so the pre-hide target and the reveal target are the same element. Uses the SAME
+ *  `querySelector('svg')` handle `chart-anima-hydrate` resolves the figure from (the FIRST svg), so
+ *  pre-hide and reveal can never target different nodes (a preceding non-chart svg would otherwise
+ *  strand the wrong figure). `hasAnimatableChart` already gated that the section holds a roled chart. */
+function chartFigureOf(section: Element): Element | null {
+  return section.querySelector('svg')?.parentElement ?? null;
+}
+
+/** Synchronously hide every motion-eligible chart figure under `root` (a live iframe document), BEFORE
+ *  `import('@/playground/anima-scenes')` resolves — closing the static-poster flash window. The set
+ *  matches EXACTLY what `rebind` will mount (charts whose Play cascade resolves on); a Play-off / motion-off
+ *  chart is left visible, and a still-tier / no-backend chart is revealed by the host's decline-fallback.
+ *  Returns the figures it hid. Idempotent (adding a present class is a no-op). */
+export function prehideEligibleCharts(root: ParentNode, deck: DeckMotion): Element[] {
+  const sections = deck.play === 'on'
+    ? Array.from(root.querySelectorAll('section')).filter(hasAnimatableChart)
+    : Array.from(root.querySelectorAll(MOTION_OPT_IN_SEL));
+  const hidden: Element[] = [];
+  for (const section of sections) {
+    if (!hasAnimatableChart(section) || resolveMotion(section, deck) === null) continue;
+    const figure = chartFigureOf(section);
+    // NEVER re-hide a figure that has ALREADY mounted (it carries `.anima-live`, added by hydrate before
+    // it reveals). A rebind runs on EVERY render, and one that PRESERVED the section node (a restyle /
+    // palette swap) leaves that chart in the host's `live` map → Phase 2 skips it → its mount (which owns
+    // the reveal) never re-runs. Re-hiding it here would strand a settled chart hidden with nothing to
+    // reveal it. Only figures still awaiting their first mount are pre-hidden (the actual flash window).
+    if (figure && !figure.classList.contains('anima-live')) { figure.classList.add(PREHIDE_CLASS); hidden.push(figure); }
+  }
+  return hidden;
+}
+
+/** Clear the pre-hide from every figure under `root` — the fallback when the host never runs (import
+ *  failure / hung bundle). Idempotent. */
+export function revealPrehiddenCharts(root: ParentNode): void {
+  for (const el of Array.from(root.querySelectorAll(`.${PREHIDE_CLASS}`))) el.classList.remove(PREHIDE_CLASS);
+}

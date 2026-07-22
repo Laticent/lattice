@@ -255,6 +255,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			'}html,body{background:' +
 			bg +
 			'}' +
+			// PREVIEW-ONLY (this srcdoc builder is never an export path): a motion-eligible chart figure the
+			// live host has pre-hidden starts invisible, so the viewer never sees the static poster flash
+			// before the async Anima host mounts + reveals it (hidden → build → settle). `visibility:hidden`
+			// keeps the figure's box (no reflow / no Fit-math corruption on reveal, unlike display:none). The
+			// class is added ONLY by the live parent host — never by engine output — so it is inert in export.
+			'.anima-prehide{visibility:hidden}' +
 			css +
 			(extraCss ? '\n/* studio-extra-css */\n' + extraCss : '')
 		);

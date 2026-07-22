@@ -8,7 +8,7 @@ import {
 	type SingleSlideRenderer,
 } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
-import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, resolveMotion } from '@/playground/anima-host-sel';
+import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, prehideEligibleCharts, resolveMotion, revealPrehiddenCharts } from '@/playground/anima-host-sel';
 // The Nacre loader's CSS. Imported here beside the loader markup it styles (below). NOTE: this
 // does NOT gate payload by consumer — Vite co-locates it into a shared chunk (resolve-captions,
 // in single-slide-render's graph) that every DeckPreview host pulls, so Astro inlines the ~1.5KB
@@ -353,6 +353,11 @@ export function DeckPreview({
 		const deckWideChart = deck.play === 'on' && Array.from(doc?.querySelectorAll('section') ?? []).some((s) => hasAnimatableChart(s) && resolveMotion(s, deck) !== null);
 		const hasScene = !!doc?.querySelector(ANIMA_HOST_SEL) || deckWideChart;
 		if (!hasScene || animaLoadingRef.current) return;
+		// Pre-hide the eligible chart figures SYNCHRONOUSLY — the dynamic import below (the heavy Anima
+		// backends) is the long pole of the static-poster flash, so hide before it resolves; the host
+		// reveals each on mount. Safety net for the flash going the wrong way: if the import fails or hangs,
+		// reveal (a static chart is right; a permanently blank one is not).
+		if (doc) prehideEligibleCharts(doc, deck);
 		animaLoadingRef.current = true;
 		import('@/playground/anima-scenes')
 			.then(({ createAnimaScenes }) => {
@@ -363,10 +368,20 @@ export function DeckPreview({
 				});
 				animaRef.current.rebind();
 			})
-			.catch(() => {})
+			.catch(() => {
+				const d = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument;
+				if (d) revealPrehiddenCharts(d); // import failed → never leave a chart hidden
+			})
 			.finally(() => {
 				animaLoadingRef.current = false;
 			});
+		// Backstop for a HUNG import (never resolves/rejects): if the host never constructed after a
+		// generous beat, reveal so a pre-hidden chart can't stay blank forever.
+		setTimeout(() => {
+			if (animaRef.current) return; // host constructed → it owns reveal-on-mount
+			const d = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument;
+			if (d) revealPrehiddenCharts(d);
+		}, 1800);
 	}, []);
 	// Bind ONE persistent `load` listener to the live iframe: a srcdoc rewrite re-fires
 	// `load` after the new slide has parsed — the reliable "its DOM is ready" signal, since
