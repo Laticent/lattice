@@ -11398,7 +11398,7 @@ section.regulatory-update > .cell-stage {
   font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
-  color:var(--cat-on-mark);              /* white on the saturated light-canvas fill, near-black on the pale dark-canvas fill */
+  color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
   background:var(--phase-accent, var(--accent));
   padding:var(--pill-pad-y) var(--pill-pad-x);
   border:2px solid var(--bg);
@@ -11709,7 +11709,7 @@ section.regulatory-update > .cell-stage {
   font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
-  color:var(--cat-on-mark);              /* white on the saturated light-canvas fill, near-black on the pale dark-canvas fill */
+  color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
   background:var(--phase-accent, var(--accent));
   padding:var(--pill-pad-y) var(--pill-pad-x);
   border:2px solid var(--bg-alt);

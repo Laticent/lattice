@@ -1,6 +1,6 @@
 ---
 status: shipped
-summary: Fixed the categorical corner-tag contrast failure (decision/roadmap/compare-prose deep tags) in 11 of 14 hue themes, where --cat-on-mark was set to var(--text-heading) — inverted (near-black on the saturated light-mode mark, white on the pale dark-mode mark), rendering ~1.3–2.5:1 against a 4.5 AA bar. Chose the theme-source re-curation over a component-level tag-background deepen: --cat-on-mark is now light-dark(#FFFFFF, near-black) everywhere, and the 8 chromatic themes' too-light light-mode marks were darkened minimally (hue+chroma-locked OKLCH, max ΔL ~6.5%, ≤0.7° drift) so white clears AA; carbone keeps its vivid marks with a near-black tag ink; onyx/concrete/a11y fixed by the flip alone. Locked by a new --cat-on-mark arm of checkCatContrast. Trade-off: ~33 more categorical-mark CVD collapses on an already-texture-backed set (semantic signals untouched, cvd-audit non-gating).
+summary: Fixed the categorical corner-tag contrast failure (decision/roadmap/compare-prose deep tags) in 11 of 14 hue themes, where --cat-on-mark was set to var(--text-heading) — inverted (near-black on the saturated light-mode mark, white on the pale dark-mode mark), rendering ~1.3–2.5:1 against a 4.5 AA bar. Chose the theme-source re-curation over a component-level tag-background deepen: --cat-on-mark is now light-dark(#FFFFFF, near-black) everywhere, and the 8 chromatic themes' too-light light-mode marks were darkened minimally (hue+chroma-locked OKLCH, max ΔL ~6.5%, ≤0.7° drift) so white clears AA; carbone keeps its vivid marks with a near-black tag ink; onyx/concrete/a11y fixed by the flip alone. Locked by a new --cat-on-mark arm of checkCatContrast. Trade-off: ~33 more categorical-mark CVD collapses, landing entirely in the 8 darkened brand themes whose marks are hue-only and already CVD-collapse by design (the colorblind-safe path is the a11y-* palettes, not darkened); a ~2% densification of a non-gating diagnostic, semantic signals byte-identical.
 ---
 
 # `--cat-on-mark` inversion: fix categorical corner-tag contrast at the theme source
@@ -55,11 +55,22 @@ identity:
 ## Trade-off (accepted, documented)
 
 Darkening the 8 chromatic themes' marks adds **~33 categorical-mark CVD collapses** (`cvd-audit`
-1470→1503). The categorical mark set was *already* CVD-heavy (25–31 collapses/theme) because 12 hues
-exceed the ~6–8 distinguishable under dichromacy — which is exactly why categorical CVD distinction
-is carried by the **`--cat-N-texture`** channel, not mark hue. The **semantic** signals
-(pass/warn/fail) are untouched, and `cvd-audit` is non-gating (`--strict` opt-in). Net: an
-already-texture-backed set gets marginally denser under CVD; no new accessibility regression.
+1470→1503). Be precise about *where* they land and why it's tolerable — the trio (Munger) rightly caught
+an earlier draft that hand-waved "texture carries it":
+
+- The 8 darkened themes are **brand** themes and declare **zero** `--cat-N-texture` tokens. Their only
+  categorical channel is mark hue, and 12 hues already exceed the ~6–8 distinguishable under dichromacy —
+  so those marks were **CVD-collapsing by design before this change** (25–31 collapses/theme). The
+  `--cat-N-texture` mitigation lives in the dedicated `a11y-*` palettes (and onyx/concrete) — which are the
+  colorblind-safe path and were **not** darkened (flip-only).
+- So the +33 is a ~2% densification of an *already-failing*, **non-gating** (`--strict`-opt-in) diagnostic,
+  on themes that were never CVD-distinct by mark hue in the first place. It is not a new regression on a
+  colorblind-safe surface, and the **semantic** pass/warn/fail signals are byte-identical.
+
+The genuinely lower-CVD-cost path was Option 1 (deepen only the tag background, marks untouched → zero CVD
+delta). It was passed over for the theme-source re-curation (owner call, "themes are source of truth"); the
+mark identity is preserved either way (ΔL ≤6.5%, hue-locked), and the only incremental cost of this path is
+the CVD densification above.
 
 ## Gate
 
