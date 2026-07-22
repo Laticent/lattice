@@ -523,6 +523,16 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	if (chosen === 'light') renderMode = 'light';
 	else if (chosen === 'dark') renderMode = 'dark';
 	else if (chosen === 'print') { renderMode = 'light'; src = mergeClassTokens(source, 'print'); }
+	// Honor `dark` only when a `-dark` companion is actually reachable: ensureTheme() silently falls
+	// back to the base (light) palette otherwise — many palettes (a11y-*) ship no dark — while leaving
+	// the requested mode 'dark'. Coerce here so BOTH the render AND the recorded slideScheme match the
+	// pixels, not the request (the CLI does the same via its resolved paletteName). A saved library
+	// theme (`extra`) is single-scheme, so there's no companion to check.
+	if (renderMode === 'dark' && !extra) {
+		const base = palette.replace(/-dark$/, '');
+		const darkExists = await createThemeFetcher(options.themeBase).fetch(`${base}-dark`).then(() => true).catch(() => false);
+		if (!darkExists) renderMode = 'light';
+	}
 	const render = await buildDeckRender(options, src, palette, renderMode, extra, extraCss);
 
 	// The chart/diagram SVG "look" (transparent/light/dark/print) renders the extracted vectors

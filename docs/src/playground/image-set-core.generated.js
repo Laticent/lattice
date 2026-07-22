@@ -176,7 +176,7 @@ var require_image_set = __commonJS({
       const isJfif = bytes[6] === 74 && bytes[7] === 70 && bytes[8] === 73 && bytes[9] === 70 && bytes[10] === 0;
       if (!isJfif) return bytes;
       const d = Math.min(65535, Math.max(1, Math.round(dpi)));
-      const out = bytes.slice();
+      const out = Uint8Array.from(bytes);
       out[13] = 1;
       out[14] = d >>> 8 & 255;
       out[15] = d & 255;

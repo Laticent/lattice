@@ -164,6 +164,19 @@ describe('image-set: embedRasterDpi', () => {
     assert.equal((out[16] << 8) | out[17], 300, 'Ydensity');
   });
 
+  test('JPEG embedding never mutates the caller buffer (Node Buffer.slice aliases memory)', () => {
+    // Regression: `bytes.slice()` returns a VIEW for a Node Buffer, so patching the copy
+    // would corrupt the input in place. `embedJpegDpi` must always deep-copy.
+    const src = [
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
+      0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+    ];
+    const buf = Buffer.from(src);
+    const out = IS.embedRasterDpi(buf, 'jpeg', 300);
+    assert.notEqual(buf[14], out[14], 'the returned bytes carry the new density');
+    assert.deepEqual([...buf], src, 'the input Buffer is untouched');
+  });
+
   test('WebP / unknown / bad dpi is returned unchanged', () => {
     const webp = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]);
     assert.equal(IS.embedRasterDpi(webp, 'webp', 192), webp);
