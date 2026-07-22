@@ -45,6 +45,15 @@ This doc is the design model. The measurement half already shipped (`tools/perf-
 was **hardened by the adversarial trio** before any code — §12 is the ledger of what the trio changed and
 why; the sections below already reflect those changes.
 
+> **⛔ Slice 3 (the greedy `explore` crawler) is HELD — see
+> `2026-07-22-autonomous-crawler-automation-not-autonomy.md`.** The operative reason is NOT §11's "no
+> evidence yet" (that framing invites "so run the probe and build it"). It is a category distinction: the
+> friction a crawler would relieve — not wanting a fresh clue per run, not wanting recurring leak-hunting
+> churn — is an **automation** problem (deterministic scenarios in CI), not an **autonomy** problem, and
+> the crawler is a poor fit for it on both counts. Build the §11 scenario library when the friction bites;
+> revisit the crawler only as a narrow, later discovery aid. Slices 1–2 (design + exported seam + the two
+> safe primitives) stand.
+
 ---
 
 ## 1. Why grow it
@@ -260,6 +269,11 @@ was imprecise and is corrected here.
   the *opposite* of a refresh (non-navigating), so refresh-mode is a separate concern.
 
 ## 11. The honest ROI position (from the trio)
+
+> **Superseded as the operative hold-reason** by `2026-07-22-autonomous-crawler-automation-not-autonomy.md`:
+> the section below is still true, but the *reason not to build Slice 3* is the automation-vs-autonomy
+> category distinction, not pending evidence. The "write ~5 more scenarios" fallback here is elevated there
+> to the primary answer.
 
 There is **no evidence yet** that autonomy finds a leak a human wouldn't script — every known leak
 (restyle, compose, the gallery realms) was found by a *targeted* scenario. So the crawler's genuine edge
