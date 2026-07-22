@@ -248,7 +248,7 @@ export function DeckPreview({
 		// source so a class-less chart animates when the deck sets Play on.
 		const deck = deckMotionOf(sampleRef.current);
 		// Load the host for EITHER a baked scene (`data-scene-spec`) OR an opted-in chart. Two opt-in
-		// paths: an explicit per-slide class (`ANIMA_HOST_SEL` = scene ∪ `motion-*`/legacy `chart-anima`),
+		// paths: an explicit per-slide Play token (`ANIMA_HOST_SEL` = scene ∪ `motion-on`/legacy `chart-anima`),
 		// OR a deck-wide Play=on with a chart that RESOLVES (a front-matter default leaves no class to
 		// select). Running the same `resolveMotion` cascade rebind() uses makes this gate match the mount
 		// set EXACTLY — it never loads the host for a deck whose only chart is `motion-off` — and one

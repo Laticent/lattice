@@ -433,6 +433,9 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
       unmount();
       control.el.remove();
       figure.classList.remove('anima-live');
+      // Clear the play-state marker so a disposed figure doesn't leave a stale `settled`/`playing`
+      // attribute for a diff or CSS selector to read after teardown.
+      figure.removeAttribute('data-anima-state');
     },
   };
 }

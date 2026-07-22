@@ -89,9 +89,12 @@ describe('motion provenance — three axes (Play / Style / Speed)', () => {
 		expect(motionPlayProvenance('<!-- _class: funnel -->', '# deck')).toMatchObject({ state: 'off', inheritable: false });
 		expect(motionPlayProvenance('<!-- _class: funnel -->', deck('motion: on', 'x'))).toMatchObject({ state: 'inherited', value: 'on', inheritable: true });
 		expect(motionPlayProvenance('<!-- _class: funnel motion-off -->', deck('motion: on', 'x'))).toMatchObject({ state: 'off', deckValue: 'on' });
-		// a bare style token implies Play on
-		expect(motionPlayProvenance('<!-- _class: funnel motion-rise -->', '# deck')).toMatchObject({ state: 'on' });
+		// Play is the SOLE switch: an explicit motion-on is on; the legacy chart-anima is on…
+		expect(motionPlayProvenance('<!-- _class: funnel motion-on -->', '# deck')).toMatchObject({ state: 'on' });
 		expect(motionPlayProvenance('<!-- _class: funnel chart-anima -->', '# deck')).toMatchObject({ state: 'on' });
+		// …but a bare style/speed token does NOT imply Play on — it stays inherit/off (no magic).
+		expect(motionPlayProvenance('<!-- _class: funnel motion-rise -->', '# deck')).toMatchObject({ state: 'off', inheritable: false });
+		expect(motionPlayProvenance('<!-- _class: funnel motion-fast -->', deck('motion: on', 'x'))).toMatchObject({ state: 'inherited', value: 'on' });
 	});
 	it('STYLE: inherits `motion-style:`; slide motion-<style> overrides; legacy chart-anima → build', () => {
 		expect(motionStyleProvenance('<!-- _class: funnel -->', deck('motion-style: together', 'x'))).toMatchObject({ state: 'inherited', value: 'together' });

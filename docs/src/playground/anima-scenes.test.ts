@@ -56,8 +56,8 @@ describe('ANIMA_HOST_SEL — the shared host-load gate', () => {
     expect(s.matches(ANIMA_HOST_SEL)).toBe(true);
   });
 
-  it('matches an OPTED-IN chart (a `motion-*` token, or the legacy chart-anima) — the case the Studio regressed on', () => {
-    for (const cls of ['funnel motion-build', 'funnel motion-rise', 'funnel motion-fast', 'funnel motion-on', 'funnel chart-anima']) {
+  it('matches a chart opted in by a Play token (`motion-on`, or the legacy chart-anima) — the case the Studio regressed on', () => {
+    for (const cls of ['funnel motion-on', 'funnel chart-anima']) {
       const s = sectionWith((el) => {
         el.className = cls;
       });
@@ -66,7 +66,7 @@ describe('ANIMA_HOST_SEL — the shared host-load gate', () => {
     }
   });
 
-  it('does NOT match an inert section (a scene-less preview never loads the host)', () => {
+  it('does NOT match an inert section — nor a bare style/speed token (Play is the sole switch, no magic)', () => {
     const plain = sectionWith((el) => {
       el.className = 'content';
     });
@@ -76,9 +76,19 @@ describe('ANIMA_HOST_SEL — the shared host-load gate', () => {
     const bareChart = sectionWith((el) => {
       el.className = 'funnel'; // a chart NOT opted in stays static everywhere
     });
+    // A style/speed token is a PARAMETER, not an opt-in: with no Play token it never loads the host.
+    // (A deck-level `motion: on` reaches these via DeckPreview's separate deck-wide gate, not this union.)
+    const styleOnly = sectionWith((el) => {
+      el.className = 'funnel motion-rise';
+    });
+    const speedOnly = sectionWith((el) => {
+      el.className = 'funnel motion-fast';
+    });
     expect(plain.matches(ANIMA_HOST_SEL)).toBe(false);
     expect(bareScene.matches(ANIMA_HOST_SEL)).toBe(false);
     expect(bareChart.matches(ANIMA_HOST_SEL)).toBe(false);
+    expect(styleOnly.matches(ANIMA_HOST_SEL)).toBe(false);
+    expect(speedOnly.matches(ANIMA_HOST_SEL)).toBe(false);
   });
 });
 
@@ -163,6 +173,24 @@ describe('createAnimaScenes — no replay on an in-place re-render (the "always 
     scenes.destroy();
   });
 
+  it('honors prefers-reduced-motion: a chart mounts SETTLED (final frame, no intro motion)', () => {
+    // Charts carry no pause/stop control (chrome:false), so under `reduce` the host mounts them at the
+    // settled end-frame rather than animating — the a11y answer (WCAG 2.2.2). Stub matchMedia to reduce.
+    const orig = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: /reduce/.test(q) })) as unknown as typeof window.matchMedia;
+    try {
+      const doc = document.implementation.createHTMLDocument('t');
+      doc.body.appendChild(funnelSection(doc));
+      const scenes = createAnimaScenes({ getFrame: () => frameOf(doc) });
+      scenes.rebind();
+      expect(doc.querySelector('.scene-live')).not.toBeNull(); // it still mounts…
+      expect(state(doc)).toBe('settled'); // …but static at the final frame — no motion under reduce
+      scenes.destroy();
+    } finally {
+      window.matchMedia = orig;
+    }
+  });
+
   it('a re-render whose chart CHANGED replays (a different signature)', () => {
     const doc = document.implementation.createHTMLDocument('t');
     doc.body.appendChild(funnelSection(doc, 2));
@@ -179,14 +207,14 @@ describe('createAnimaScenes — no replay on an in-place re-render (the "always 
     const doc = document.implementation.createHTMLDocument('t');
     const a = funnelSection(doc);
     a.classList.remove('chart-anima');
-    a.classList.add('motion-build');
+    a.classList.add('motion-on', 'motion-build'); // Play on + explicit style
     doc.body.appendChild(a);
     const scenes = createAnimaScenes({ getFrame: () => frameOf(doc) });
     scenes.rebind();
     expect(state(doc)).toBe('playing');
     const b = funnelSection(doc); // same data…
     b.classList.remove('chart-anima');
-    b.classList.add('motion-together'); // …different style → different sig → replay
+    b.classList.add('motion-on', 'motion-together'); // …different style → different sig → replay
     doc.body.replaceChild(b, doc.body.firstChild as Node);
     scenes.rebind();
     expect(state(doc)).toBe('playing');

@@ -12,9 +12,11 @@
 //   Style  motion-style: <s>        motion-build/together/rise           build, together, rise
 //   Speed  motion-speed: <p>        motion-auto/slow/normal/fast         auto, slow, normal, fast
 //
-// A slide overrides any subset per-axis; the presence of ANY style/speed token (or the legacy
-// `chart-anima`) also turns Play ON for that slide, and `motion-off` forces it static. Motion plays
-// ONCE when the slide is entered — there is no replay control. Preview-only; the export is untouched.
+// The axes are INDEPENDENT (no magic): Play is the sole animate switch — `motion-on` turns a slide
+// on, `motion-off` forces it static, absence inherits the deck. A `motion-style`/`motion-speed`
+// token is an inert PARAMETER that shapes the motion only when Play resolves on; it never flips Play
+// on by itself. (The one exception is the legacy `chart-anima`, honored as `motion-on motion-build`.)
+// Motion plays ONCE when the slide is entered — there is no replay control. Preview-only; export untouched.
 
 import type { ChartAnimaStyle } from '@/lib/chart-anima'; // type-only: erased at build, no runtime dep
 
@@ -40,12 +42,12 @@ export interface DeckMotion {
 /** A BAKED scene: a `scene` slide carrying a compiled ```anima spec (data-scene-spec). */
 export const SCENE_SEL = 'section.scene[data-scene-spec]';
 
-/** Sections that EXPLICITLY opt a chart into motion via a class — `motion-on`, any style/speed
- *  token, or the legacy `chart-anima`. `motion-off` is the opt-OUT and is excluded. A deck-level
- *  `motion: on` reaches class-less sections separately (see `hasAnimatableChart` + `resolveMotion`),
- *  because a front-matter default leaves no class on the section to select. */
-export const MOTION_OPT_IN_SEL =
-  'section.motion-on, section.motion-build, section.motion-together, section.motion-rise, section.motion-auto, section.motion-slow, section.motion-normal, section.motion-fast, section.chart-anima';
+/** Sections that EXPLICITLY opt a chart into motion via a Play token — `motion-on` or the legacy
+ *  `chart-anima`. A style/speed token is a PARAMETER, not an opt-in (Play is the sole switch), so it
+ *  is NOT listed here; `motion-off` is the opt-OUT and is likewise excluded. A deck-level `motion: on`
+ *  reaches class-less sections separately (see `hasAnimatableChart` + `resolveMotion`), because a
+ *  front-matter default leaves no class on the section to select. */
+export const MOTION_OPT_IN_SEL = 'section.motion-on, section.chart-anima';
 
 /** The union a surface tests to LOAD the Anima host WITHOUT knowing the deck default — a baked scene
  *  or an explicit per-slide opt-in. When a deck sets `motion: on`, the gate also scans chart sections. */
@@ -60,11 +62,12 @@ const asSpeed = (v: string | null | undefined): MotionSpeed | null => {
   return (MOTION_SPEEDS as readonly string[]).includes(s) ? (s as MotionSpeed) : null;
 };
 
-/** Normalize the three deck front-matter values into a `DeckMotion`. `motion:` accepts on/off
- *  (with `true`/`yes`/`none`/`false` as friendly aliases); unknown → null (unset). */
+/** Normalize the three deck front-matter values into a `DeckMotion`. `motion:` is the literal
+ *  `on`/`off` (parity with the Studio Play control and the `motion-on`/`motion-off` slide tokens —
+ *  no magic aliases); anything else → null (unset, inherit the built-in off). */
 export function parseDeckMotion(motion: string | null | undefined, style?: string | null, speed?: string | null): DeckMotion {
   const m = (motion ?? '').trim().toLowerCase();
-  const play: 'on' | 'off' | null = m === 'on' || m === 'true' || m === 'yes' ? 'on' : m === 'off' || m === 'none' || m === 'false' ? 'off' : null;
+  const play: 'on' | 'off' | null = m === 'on' ? 'on' : m === 'off' ? 'off' : null;
   return { play, style: asStyle(style), speed: asSpeed(speed) };
 }
 
@@ -82,12 +85,13 @@ function slideSpeed(section: Element): MotionSpeed | null {
   for (const sp of MOTION_SPEEDS) if (c.contains(`motion-${sp}`)) return sp;
   return null;
 }
-/** The slide's own Play state: `off` (explicit suppressor), `on` (explicit, or IMPLIED by any
- *  style/speed token / legacy `chart-anima`), or null (inherit the deck default). */
+/** The slide's own Play state: `off` (explicit suppressor `motion-off`), `on` (explicit `motion-on`,
+ *  or the legacy `chart-anima` alias), or null (inherit the deck default). A style/speed token does
+ *  NOT imply on — Play is the sole switch. */
 function slidePlay(section: Element): 'on' | 'off' | null {
   const c = section.classList;
   if (c.contains('motion-off')) return 'off';
-  if (c.contains('motion-on') || c.contains('chart-anima') || slideStyle(section) != null || slideSpeed(section) != null) return 'on';
+  if (c.contains('motion-on') || c.contains('chart-anima')) return 'on';
   return null;
 }
 

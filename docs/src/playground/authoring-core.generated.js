@@ -119,7 +119,7 @@ var require_lint_core = __commonJS({
       }
       return null;
     }
-    var MODIFIER_PREFIXES = ["tint-", "mark-", "with-", "at-", "no-", "tone-", "treatment-", "checks-", "fill-", "finish", "backdrop", "motion-"];
+    var MODIFIER_PREFIXES = ["tint-", "mark-", "with-", "at-", "no-", "tone-", "treatment-", "checks-", "fill-", "finish", "backdrop"];
     var DEPRECATED_CLASSES = Object.freeze(/* @__PURE__ */ new Set(["full", "contain", "museum"]));
     var CARD_STYLE_LAYOUTS = Object.freeze([
       "cards-grid",

@@ -370,17 +370,29 @@ bar.**
    >   playback control, the reduced-motion accessibility floor + viewer opt-in, and lazy/off-screen
    >   mounting for free. The author opt-in is a `chart-anima` section class (`_class:` slide override
    >   or deck-level `class:` frontmatter) — the §0.75 "deck default / slide override" settings surface.
-   > - **The settings surface is now BUILT (not just the opt-in class).** A `motion:` front-matter
-   >   scalar sets the deck-wide default (`build` · `together` · `rise` · `off`) and a per-slide
-   >   `motion-*` class overrides it (`motion-off` suppresses one slide) — the §0.75 "closed set of
-   >   policies" made real, wired into **Deck Settings → Marks → Motion** and **Slide Settings →
-   >   Motion** in the Studio. The three styles are pure adapter choreography over the existing painted
-   >   channels (reveal / slide / highlight — no new backend verb): `build` reveals in reading order
-   >   (role-aware — a closed disc stays whole), `together` synchronizes, `rise` adds a slide-up. The
-   >   deck default is resolved LIVE (`anima-host-sel.ts`), so the export bytes are untouched; the
-   >   legacy `chart-anima` class is an alias for `motion-build`. (`docs/src/lib/chart-anima.ts`,
-   >   `docs/src/playground/anima-host-sel.ts`, `docs/src/components/studio/motion-catalog.ts` +
-   >   `slide-provenance.ts`.)
+   > - **The settings surface is now BUILT as THREE independent axes (not just the opt-in class).**
+   >   The single `motion:` scalar was split into three orthogonal axes at full parity between the
+   >   Studio controls, the deck front matter, and the per-slide classes — a dedicated **Motion** tab
+   >   in both the Deck AND Slide inspectors (no magic; each axis is its own literal key/token):
+   >   **Play** (`motion: on|off` / `motion-on` · `motion-off`) — the SOLE animate switch; **Style**
+   >   (`motion-style: build|together|rise` / `motion-build` · `motion-together` · `motion-rise`); and
+   >   **Speed** (`motion-speed: auto|slow|normal|fast` / `motion-auto` … `motion-fast`, speed → total
+   >   duration). The three styles are pure adapter choreography over the existing painted channels
+   >   (reveal / slide / highlight — no new backend verb): `build` reveals in reading order (role-aware
+   >   — a closed disc stays whole), `together` synchronizes, `rise` adds a slide-up. **Replay was
+   >   dropped** (it read as a gimmick): motion plays once on slide entry and settles. The axes are
+   >   genuinely independent — a bare `motion-style`/`motion-speed` token is an inert parameter that
+   >   does NOT imply Play on (Play is the only switch; this is what makes the Slide tab's "Inherit"
+   >   reachable after a style is set); `motion:` is the literal `on`/`off` with no aliases; a viewer
+   >   with `prefers-reduced-motion: reduce` gets the finished chart with no intro motion; and a
+   >   mistyped token is flagged by `lint:deck` (the closed motion vocabulary is enumerated, not
+   >   prefix-matched). The deck default is resolved LIVE (`anima-host-sel.ts`), so the export bytes are
+   >   untouched; the legacy `chart-anima` class is an alias for `motion-on` + `motion-build`.
+   >   (`docs/src/lib/chart-anima.ts`, `docs/src/playground/anima-host-sel.ts` + `anima-scenes.ts`,
+   >   `docs/src/components/studio/motion-catalog.ts` + `slide-provenance.ts`, `docs/src/lib/anima/hydrate.ts`.)
+   >   *Known limitation:* the played-set signature keys on content, not slide position, so two distinct
+   >   slides with byte-identical charts + identical style/speed collide (the second mounts settled) —
+   >   narrow and benign; threading the active slide number is the fix if it ever bites.
    > The model-*gated* (AI-generated) leg is still pending; the pivot's chart-moat claim is proven.
 3. **THEN excise zdog in one deletion pass** (only after the gate passes): remove `source:'built'`,
    `PRIMITIVES`, the built-only verbs, `backends/zdog.ts` + its adapter allowlist entry, the

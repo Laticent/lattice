@@ -367,10 +367,11 @@ export function setSpectrumTrim(chunk: string, value: string | null): string {
 
 // ── motion (chart animation) — THREE independent axes ────────────────────────────────────────────
 // Full parity with the deck front matter (Play=`motion:`, Style=`motion-style:`, Speed=`motion-speed:`)
-// and the slide classes (`motion-on/off`, `motion-<style>`, `motion-<speed>`). Each axis overrides the
-// deck default for one slide; a slide's style/speed token also implies Play on (resolveMotion does the
-// same). Preview-only. The legacy `chart-anima` is honored as `motion-on` + `motion-build` and rewritten
-// away whenever motion is set here. Each axis mirrors the tri-state provenance shape.
+// and the slide classes (`motion-on/off`, `motion-<style>`, `motion-<speed>`). The axes are INDEPENDENT:
+// Play (`motion-on`/`motion-off`) is the sole animate switch; a style/speed token is an inert parameter
+// that does NOT imply Play on (mirrors resolveMotion). Preview-only. The legacy `chart-anima` is honored
+// as `motion-on` + `motion-build` and rewritten away whenever motion is set here. Each axis mirrors the
+// tri-state provenance shape.
 const MOTION_STYLE_VALUES = ['build', 'together', 'rise'];
 const MOTION_SPEED_VALUES = ['auto', 'slow', 'normal', 'fast'];
 const isStyleToken = (t: string) => /^motion-(build|together|rise)$/.test(t);
@@ -378,15 +379,15 @@ const isSpeedToken = (t: string) => /^motion-(auto|slow|normal|fast)$/.test(t);
 const isPlayToken = (t: string) => t === 'motion-on' || t === 'motion-off';
 const isAnyMotionToken = (t: string) => isPlayToken(t) || isStyleToken(t) || isSpeedToken(t) || t === 'chart-anima';
 
-/** PLAY axis (on / off / inherit). A slide style/speed token — or the legacy `chart-anima` — implies on. */
+/** PLAY axis (on / off / inherit) — the sole animate switch. `motion-on` (or the legacy `chart-anima`)
+ *  is on; `motion-off` is off; a bare style/speed token does NOT imply on (it inherits the deck). */
 export function motionPlayProvenance(chunk: string, source: string): Provenance {
 	const tokens = getClassTokens(chunk);
 	const deck = (getFrontMatter(source, 'motion') || '').trim().toLowerCase();
 	const deckValue = deck === 'on' || deck === 'off' ? deck : undefined;
 	const inheritable = deckValue !== undefined;
 	if (tokens.includes('motion-off')) return { state: 'off', value: 'off', deckValue, inheritable };
-	if (tokens.includes('motion-on') || tokens.includes('chart-anima') || tokens.some(isStyleToken) || tokens.some(isSpeedToken))
-		return { state: 'on', value: 'on', deckValue, inheritable };
+	if (tokens.includes('motion-on') || tokens.includes('chart-anima')) return { state: 'on', value: 'on', deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }

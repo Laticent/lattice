@@ -302,16 +302,22 @@ in patch versions.
   - **Speed** — `motion-speed: auto|slow|normal|fast` / slide `motion-auto` · `motion-slow` ·
     `motion-normal` · `motion-fast`. `auto` paces to the chart's mark count.
 
-  A slide overrides any subset per-axis (`<!-- _class: funnel motion-rise motion-fast -->`), and
-  `motion-off` pins one slide static under a deck default. Motion **plays once when the slide is
-  entered — there is no replay control** (it read as a gimmick; a chart just builds and settles).
-  Preview-only: motion runs on the live surfaces (Studio / Playground / Present) and the exported
-  PDF/PPTX render the finished chart still. The pre-`motion` `chart-anima` class keeps working as
-  `motion-on` + `motion-build`. Funnel and pie get the full treatment; quadrant and map animate via the
-  role fallback; radar / state-chart geometry isn't reachable yet. (`docs/src/lib/chart-anima.ts`
-  style + speed; `docs/src/playground/anima-host-sel.ts` the Play/Style/Speed cascade;
-  `docs/src/components/studio/` the Motion tab; `docs/src/lib/anima/hydrate.ts` `chrome:false` +
-  play-once; `engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75.)
+  The axes are **independent — Play is the sole animate switch.** A `motion-style`/`motion-speed`
+  token is an inert *parameter* that shapes motion only once Play resolves on; it never turns Play on
+  by itself (`<!-- _class: funnel motion-on motion-rise motion-fast -->` — Play on, plus style/speed;
+  a bare `motion-rise` under a static deck stays static). A slide overrides any subset per-axis, and
+  `motion-off` pins one slide static under a deck default. `motion:` is the literal `on`/`off` — no
+  `yes`/`true`/`none` aliases (parity with the Play control). Motion **plays once when the slide is
+  entered — there is no replay control** (it read as a gimmick; a chart just builds and settles), and a
+  viewer with **`prefers-reduced-motion: reduce`** gets the finished chart with no intro motion. A
+  mistyped token (`motion-biuld`) is flagged by `lint:deck` rather than silently ignored. Preview-only:
+  motion runs on the live surfaces (Studio / Playground / Present) and the exported PDF/PPTX render the
+  finished chart still. The pre-`motion` `chart-anima` class keeps working as `motion-on` +
+  `motion-build`. Funnel and pie get the full treatment; quadrant and map animate via the role fallback;
+  radar / state-chart geometry isn't reachable yet. (`docs/src/lib/chart-anima.ts` style + speed;
+  `docs/src/playground/anima-host-sel.ts` the Play/Style/Speed cascade; `docs/src/components/studio/`
+  the Motion tab; `docs/src/lib/anima/hydrate.ts` `chrome:false` + play-once;
+  `engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75.)
 - **The in-place chart animation now covers the piechart — and gradient-filled charts render
   correctly.** `chart-anima` extends to the pie: add it to a slide or deck and the disc fades in as a
   whole on the live Studio / Playground (model-free; exported PDF/PPTX byte-identical). This also

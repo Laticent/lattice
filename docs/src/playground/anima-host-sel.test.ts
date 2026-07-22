@@ -13,11 +13,14 @@ const OFF: DeckMotion = { play: null, style: null, speed: null };
 const DECK_ON = (style: DeckMotion['style'] = null, speed: DeckMotion['speed'] = null): DeckMotion => ({ play: 'on', style, speed });
 
 describe('parseDeckMotion — the three front-matter keys', () => {
-  it('maps Play on/off (+ friendly aliases)', () => {
+  it('maps Play on/off literally — no magic aliases (parity with the Studio control)', () => {
     expect(parseDeckMotion('on').play).toBe('on');
-    expect(parseDeckMotion('yes').play).toBe('on');
     expect(parseDeckMotion('off').play).toBe('off');
-    expect(parseDeckMotion('none').play).toBe('off');
+    // `yes`/`true`/`none`/`false` are NOT accepted — only the literal on/off tokens.
+    expect(parseDeckMotion('yes').play).toBeNull();
+    expect(parseDeckMotion('true').play).toBeNull();
+    expect(parseDeckMotion('none').play).toBeNull();
+    expect(parseDeckMotion('false').play).toBeNull();
     expect(parseDeckMotion(undefined).play).toBeNull();
     expect(parseDeckMotion('wat').play).toBeNull();
   });
@@ -39,10 +42,18 @@ describe('resolveMotion — Play / Style / Speed cascade', () => {
   it('deck Play on with no style/speed → built-in defaults (build, auto)', () => {
     expect(resolveMotion(section('funnel'), DECK_ON())).toEqual({ style: 'build', speed: 'auto' });
   });
-  it('a slide style/speed token turns Play ON and overrides per-axis', () => {
-    expect(resolveMotion(section('funnel motion-rise motion-fast'), OFF)).toEqual({ style: 'rise', speed: 'fast' });
+  it('a bare style/speed token does NOT imply Play on (Play is the sole switch)', () => {
+    // No Play token, deck Play off/unset → the style/speed tokens are inert.
+    expect(resolveMotion(section('funnel motion-rise motion-fast'), OFF)).toBeNull();
+    expect(resolveMotion(section('funnel motion-fast'), OFF)).toBeNull();
+  });
+  it('style/speed tokens override per-axis when Play resolves on', () => {
+    // deck Play on → the slide overrides both axes
+    expect(resolveMotion(section('funnel motion-rise motion-fast'), DECK_ON())).toEqual({ style: 'rise', speed: 'fast' });
     // inherits the deck style, overrides only speed
     expect(resolveMotion(section('funnel motion-fast'), DECK_ON('together'))).toEqual({ style: 'together', speed: 'fast' });
+    // an explicit motion-on turns the slide on and carries its own style/speed even when deck Play is off
+    expect(resolveMotion(section('funnel motion-on motion-rise motion-fast'), OFF)).toEqual({ style: 'rise', speed: 'fast' });
   });
   it('motion-off suppresses even under deck Play on', () => {
     expect(resolveMotion(section('funnel motion-off'), DECK_ON('rise'))).toBeNull();

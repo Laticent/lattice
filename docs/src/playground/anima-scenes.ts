@@ -64,6 +64,18 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     }
   }
 
+  // Whether the viewer asked the OS to minimize motion. Charts mount with NO pause/stop control
+  // (chrome:false), so under `reduce` we honor the request by mounting them SETTLED — the final,
+  // static chart with no entrance motion (WCAG 2.2.2). Baked scenes are unaffected: they carry a
+  // playback control, so the viewer keeps the choice. jsdom-safe (matchMedia may be absent).
+  function prefersReducedMotion(): boolean {
+    try {
+      return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+    } catch {
+      return false;
+    }
+  }
+
   function disposeAll(): void {
     for (const { ctrl } of live.values()) ctrl.dispose();
     live.clear();
@@ -72,6 +84,12 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
   // A stable identity for a live target: unchanged across an in-place re-render of the SAME slide
   // (same content, same resolved style + speed), but different when the data or the chosen style/speed
   // changes — so an unrelated edit carries over settled, while a real change (or a config switch) plays.
+  // KNOWN LIMITATION: the signature keys on content, not slide POSITION. The single-slide preview holds
+  // one section per frame (no positional slide id to fold in), so two DISTINCT slides whose charts are
+  // byte-identical AND share a resolved style/speed collide — navigating to the second mounts it settled
+  // rather than replaying the intro. Narrow (identical charts on two slides) and benign (a static chart
+  // identical to the one just seen). Threading the active slide number through the render boundary is the
+  // fix if it ever bites; logged in engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md §0.75.
   function sigOf(s: Element, deck: DeckMotion): string {
     if (s.matches(SCENE_SEL)) return `scene|${s.getAttribute('data-scene-spec') ?? ''}`;
     const svg = s.querySelector('svg');
@@ -125,6 +143,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     // front-matter default leaves no class to select, so we scan chart sections and let `resolveMotion`
     // decide). The resolved Style + Speed (→ duration) are passed to the chart adapter.
     const candidates = deck.play === 'on' ? Array.from(doc.querySelectorAll('section')).filter(hasAnimatableChart) : Array.from(doc.querySelectorAll(MOTION_OPT_IN_SEL));
+    const reduce = prefersReducedMotion();
     for (const section of candidates) {
       if (live.has(section)) continue;
       const cfg = resolveMotion(section, deck);
@@ -132,7 +151,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
       const marks = section.querySelectorAll('svg [data-mark]').length;
       const durationMs = speedToDurationMs(cfg.speed, marks);
       const sig = sigOf(section, deck);
-      mount(section, sig, (settled) => hydrateChart(section, { eager: true, sanitize: sanitizeSlideHtml, style: cfg.style, durationMs, startSettled: settled }));
+      mount(section, sig, (settled) => hydrateChart(section, { eager: true, sanitize: sanitizeSlideHtml, style: cfg.style, durationMs, startSettled: settled || reduce }));
     }
   }
 
