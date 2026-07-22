@@ -119,6 +119,12 @@
 	gap: 0.75rem;
 	padding: 1rem;
 	text-align: center;
+	/* Dark defaults, with a light-mode override below — the SAME pattern .nacre-loader uses, so a
+	   moment where --bg/--text-body are unset/late never flashes a light card in dark mode. */
+	background: var(--bg, #0c1626);
+	color: var(--text-body, #e8e8e8);
+}
+:root[data-mode='light'] .nacre-failed {
 	background: var(--bg, #e9eef5);
 	color: var(--text-body, #1a1a1a);
 }

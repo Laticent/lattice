@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DeckPreview from './DeckPreview';
 
@@ -251,5 +251,37 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		await waitFor(() => expect(renderInto).toHaveBeenCalled());
 		await new Promise((r) => setTimeout(r, 30));
 		expect(container.querySelector('.nacre-failed')).toBeNull();
+	});
+
+	it('the never-paint CEILING trips when iframe.live stays unrevealed, but NOT once it reveals in time', async () => {
+		// The ceiling is the safeguard for "render resolved OK but `.lattice` never painted" — the
+		// deterministic ok:false path can't see that (the render succeeded). It's armed on mount and
+		// reads the frame's opacity at the deadline. The mock renderer never appends/reveals a frame,
+		// so it's driven by hand here. Fake timers so the 25s budget doesn't slow the suite.
+		vi.useFakeTimers();
+		try {
+			// (a) TRIPS — no frame ever reveals (opacity stays effectively 0 / no frame at all).
+			const trip = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+			expect(trip.container.querySelector('.nacre-failed')).toBeNull();
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(25000); // the timer's setFailed(true) needs act() to flush
+			});
+			expect(trip.container.querySelector('.nacre-failed')).toBeTruthy();
+			trip.unmount();
+
+			// (b) does NOT trip — a frame reveals (opacity flips to non-'0') before the deadline.
+			const ok = render(<DeckPreview options={opts} sample="# B" mermaid={false} aria-label="p" />);
+			const figure = ok.container.querySelector('figure') as HTMLElement;
+			const fr = document.createElement('iframe');
+			fr.className = 'live';
+			fr.style.opacity = '1'; // revealed
+			figure.appendChild(fr);
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(25000);
+			});
+			expect(ok.container.querySelector('.nacre-failed')).toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
