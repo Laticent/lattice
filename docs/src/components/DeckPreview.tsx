@@ -329,6 +329,9 @@ export function DeckPreview({
 	const animaRef = React.useRef<{ rebind(): void; destroy(): void } | null>(null);
 	const animaBoundRef = React.useRef(false);
 	const animaLoadingRef = React.useRef(false);
+	// The single pending reveal-backstop timer (a hung Anima import) — tracked so a re-attempt during
+	// rapid re-renders replaces rather than stacks it, and unmount clears it.
+	const animaBackstopRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	// The parent-hosted chart mark-detail reveal (opt-in via `chartDetail`). Driven by rebind() after
 	// each paint, like the Anima host — the shared ChartDetailLayer (rendered below) lazily binds once
 	// `iframe.live` exists.
@@ -376,8 +379,11 @@ export function DeckPreview({
 				animaLoadingRef.current = false;
 			});
 		// Backstop for a HUNG import (never resolves/rejects): if the host never constructed after a
-		// generous beat, reveal so a pre-hidden chart can't stay blank forever.
-		setTimeout(() => {
+		// generous beat, reveal so a pre-hidden chart can't stay blank forever. Tracked in a ref +
+		// replaced each attempt so rapid re-renders can't stack multiple pending backstops.
+		if (animaBackstopRef.current) clearTimeout(animaBackstopRef.current);
+		animaBackstopRef.current = setTimeout(() => {
+			animaBackstopRef.current = undefined;
 			if (animaRef.current) return; // host constructed → it owns reveal-on-mount
 			const d = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live')?.contentDocument;
 			if (d) revealPrehiddenCharts(d);
@@ -494,6 +500,7 @@ export function DeckPreview({
 	React.useEffect(
 		() => () => {
 			schedulerRef.current?.cancel();
+			if (animaBackstopRef.current) clearTimeout(animaBackstopRef.current);
 			animaRef.current?.destroy();
 			engineRef.current?.dispose();
 		},
