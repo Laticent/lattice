@@ -419,7 +419,17 @@ function galleryHref(m) {
  *  `.masthead-lede` (Form band) or on its `section.<name>` root (an anchor that centers the whole
  *  frame). Variant-qualified rules (e.g. `list-steps.timeline`, `divider.light`) are NOT the
  *  default, so they're skipped — the field reports the base component's alignment. Everything else
- *  is `left` (the base masthead-lede origin). See engineering/decisions/2026-07-20-mass-head-alignment.md. */
+ *  is `left` (the base masthead-lede origin). See engineering/decisions/2026-07-20-mass-head-alignment.md.
+ *
+ *  Coverage boundary (2026-07-22 trio) — this is a flat regex, not a CSS parser. The pattern it
+ *  detects is an `align-items: var(--headline-justify, center)` declaration (the center FALLBACK on
+ *  the axis); it assumes: (a) that rule is TOP-LEVEL — one inside a `@media`/`@container` body is
+ *  read as the base default; (b) no commented-out center rule; (c) the `section.<name>`
+ *  guard matches DESCENDANTS too, so a centered caption/footnote in the component's own styles.css
+ *  would misread as a centered masthead; (d) the variant-skip only fires for DOCUMENTED variants
+ *  (`documentedVariants`), so deleting a variant's docs can flip its base component to `center`.
+ *  No current component trips any of these — the exact-set assertion in
+ *  test/unit/tools/headline-default.test.js is the rot-guard that catches it if one ever does. */
 function headlineDefault(m) {
   const abs = path.join(COMPONENTS_DIR, manifestBucket(m), m.name, `${m.name}.styles.css`);
   if (!fs.existsSync(abs)) return 'left';

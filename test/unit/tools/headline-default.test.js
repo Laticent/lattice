@@ -26,10 +26,20 @@ describe('components.json headlineDefault (derived)', () => {
     }
   });
 
+  // Completeness rot-guard (2026-07-22 trio): pin the center set EXACTLY, not just its known members.
+  // The deriver is a flat regex (tools/build-docs-portal.js headlineDefault) whose `section.<name>`
+  // guard also matches descendants and whose variant-skip depends on the variant being documented —
+  // both can silently flip a NEW component to `center`. Asserting the whole set (not `stats/title/closing
+  // are center`) turns that latent drift into a caught regression while the correct answer is known.
+  test('the center set is EXACTLY {closing, stats, title} — nothing else derives center', () => {
+    const centered = components.filter((c) => c.headlineDefault === 'center').map((c) => c.name).sort();
+    assert.deepEqual(centered, ['closing', 'stats', 'title']);
+  });
+
   test('variant-only centering does NOT flip the base component (timeline / light)', () => {
     // list-steps centers only in its `timeline` variant; divider only in `light`. The base default is left.
     assert.equal(byName['list-steps']?.headlineDefault, 'left', 'list-steps base is left (timeline variant centers)');
-    assert.equal(byName['divider']?.headlineDefault, 'left', 'divider base is left (light variant centers)');
+    assert.equal(byName.divider?.headlineDefault, 'left', 'divider base is left (light variant centers)');
   });
 
   test('a centered CAPTION (chart/diagram) is not a centered masthead', () => {
