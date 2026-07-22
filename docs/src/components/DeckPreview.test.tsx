@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DeckPreview from './DeckPreview';
 
@@ -14,7 +14,7 @@ const { renderInto, dispose } = vi.hoisted(() => ({
 			_extra?: { name: string; css: string },
 			_modeOverride?: 'light' | 'dark',
 			_extraCss?: string,
-		) => Promise.resolve({ ok: true, slides: 1, error: null }),
+		) => Promise.resolve({ ok: true, slides: 1, error: null as string | null }),
 	),
 	dispose: vi.fn(),
 }));
@@ -208,5 +208,98 @@ describe('DeckPreview — first-render handoff (opacity reveal)', () => {
 		figure.appendChild(fr);
 		fr.style.opacity = '1';
 		await waitFor(() => expect(onFirstRender).toHaveBeenCalledTimes(1));
+	});
+});
+
+describe('DeckPreview — render failure affordance (#1164)', () => {
+	it('a NON-loader host whose render resolves ok:false shows a Retry affordance; the card tracks the retry OUTCOME', async () => {
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'boom' }));
+		const { container, getByText } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+		// The deterministic ok:false signal surfaces the failure card + a Retry — not a blank box.
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		expect(getByText('Retry')).toBeTruthy();
+
+		// Retry OPTIMISTICALLY clears the card then re-renders. If that render STILL fails, the card
+		// must come BACK — proving the card reflects the render outcome, not just the optimistic clear.
+		const callsBeforeRetry = renderInto.mock.calls.length;
+		fireEvent.click(getByText('Retry'));
+		await waitFor(() => expect(renderInto.mock.calls.length).toBeGreaterThan(callsBeforeRetry)); // the retry actually re-rendered
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy()); // still failing → card returns
+
+		// Now the render succeeds → the card clears for real (and stays cleared after it settles).
+		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null }));
+		const callsBeforeSuccess = renderInto.mock.calls.length;
+		fireEvent.click(getByText('Retry'));
+		await waitFor(() => expect(renderInto.mock.calls.length).toBeGreaterThan(callsBeforeSuccess));
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
+	});
+
+	it('a LOADER host does NOT show the failure affordance — it keeps its skeleton (unchanged contract)', async () => {
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'boom' }));
+		const { container } = render(<DeckPreview options={opts} sample="# A" mermaid={false} loader aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		await new Promise((r) => setTimeout(r, 30));
+		expect(container.querySelector('.nacre-failed')).toBeNull();
+		expect(container.querySelector('.nacre-loader')).toBeTruthy();
+	});
+
+	it('a transient "renderer disposed" (host detached mid-render) does NOT trip the failure affordance', async () => {
+		// A mobile pane swap / unmount returns this sentinel — the reconnected host re-renders, so
+		// it must NOT read as a failure (which would flash a spurious Retry during a normal swap).
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'renderer disposed' }));
+		const { container } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		await new Promise((r) => setTimeout(r, 30));
+		expect(container.querySelector('.nacre-failed')).toBeNull();
+	});
+
+	it('the never-paint CEILING trips when iframe.live stays unrevealed, but NOT once it reveals in time', async () => {
+		// The ceiling is the safeguard for "render resolved OK but `.lattice` never painted" — the
+		// deterministic ok:false path can't see that (the render succeeded). It's armed on mount and
+		// reads the frame's opacity at the deadline (~32s, past the kernel poll's ~30s give-up point).
+		// The mock renderer never appends/reveals a frame, so it's driven by hand. Fake timers so the
+		// budget doesn't slow the suite.
+		vi.useFakeTimers();
+		try {
+			// (a) TRIPS — no frame ever reveals (opacity stays effectively 0 / no frame at all).
+			const trip = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+			expect(trip.container.querySelector('.nacre-failed')).toBeNull();
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(32000); // the timer's setFailed(true) needs act() to flush
+			});
+			expect(trip.container.querySelector('.nacre-failed')).toBeTruthy();
+			trip.unmount();
+
+			// (b) does NOT trip — a frame reveals (opacity flips to non-'0') before the deadline.
+			const ok = render(<DeckPreview options={opts} sample="# B" mermaid={false} aria-label="p" />);
+			const figure = ok.container.querySelector('figure') as HTMLElement;
+			const fr = document.createElement('iframe');
+			fr.className = 'live';
+			fr.style.opacity = '1'; // revealed
+			figure.appendChild(fr);
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(32000);
+			});
+			expect(ok.container.querySelector('.nacre-failed')).toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('RECOVERS — the failure card clears when the frame reveals LATE (never occludes a good slide)', async () => {
+		// The confirmed trio regression: `failed` was a one-way latch. The kernel reveals the frame
+		// imperatively (opacity 0→1, no React state), so a reveal AFTER the ceiling/ok:false fired left
+		// the opaque card masking a correct slide. The recovery effect must drop `failed` on reveal.
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'boom' }));
+		const { container } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+
+		// A late reveal (the poll / ResizeObserver flips opacity 0→1) — the card must YIELD.
+		const figure = container.querySelector('figure') as HTMLElement;
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.style.opacity = '1';
+		figure.appendChild(fr);
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
 	});
 });

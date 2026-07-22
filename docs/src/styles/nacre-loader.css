@@ -103,3 +103,58 @@
 		animation: none;
 	}
 }
+
+/* #1164 — terminal failure affordance for a NON-loader preview host (a render that errors, or a
+   frame whose slide never paints). Minimal, palette-blind (the same --bg / --text-body /
+   --text-heading / --accent docs-root tokens the rest of the Studio reads), sits on the box's own
+   themed ground so it never flashes a foreign color. Overlays the parked opacity:0 iframe;
+   DeckPreview only mounts it on a non-loader host, so a loader host's skeleton is untouched. */
+.nacre-failed {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 0.75rem;
+	padding: 1rem;
+	text-align: center;
+	/* Mode-correct fallbacks even when --bg/--text-body are unset/late. Unlike .nacre-loader (Studio-
+	   only, always under a data-mode root), this card is broadened to EVERY non-loader host — incl.
+	   landing/showcase pages that may not drive `data-mode` at all. So the base is a LIGHT fallback
+	   (most such pages), a data-mode='dark' root overrides to dark, and a page with NO data-mode
+	   follows the OS scheme. On real pages --bg is set, so these fallbacks only cover the unset/late
+	   window; the overrides just keep that window from flashing the wrong mode. */
+	background: var(--bg, #e9eef5);
+	color: var(--text-body, #1a1a1a);
+}
+:root[data-mode='dark'] .nacre-failed {
+	background: var(--bg, #0c1626);
+	color: var(--text-body, #e8e8e8);
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-mode]) .nacre-failed {
+		background: var(--bg, #0c1626);
+		color: var(--text-body, #e8e8e8);
+	}
+}
+.nacre-failed__text {
+	font-size: 0.8125rem;
+	font-weight: 600;
+	color: var(--text-heading, inherit);
+}
+.nacre-failed__retry {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.4rem 0.85rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: var(--accent, #2f6fb0);
+	background: color-mix(in srgb, var(--accent, #2f6fb0) 10%, transparent);
+	border: 1px solid color-mix(in srgb, var(--accent, #2f6fb0) 40%, transparent);
+	border-radius: 999px;
+	cursor: pointer;
+}
+.nacre-failed__retry:hover {
+	background: color-mix(in srgb, var(--accent, #2f6fb0) 16%, transparent);
+}

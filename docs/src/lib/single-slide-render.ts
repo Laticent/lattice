@@ -126,7 +126,7 @@ export function currentPaletteMode(paletteOverride?: string): { palette: string;
 // unchanged sig means the next render can PATCH the section in place; plus a
 // pending-load flag so a same-sig render can't patch an outgoing (still-loading)
 // full-write document.
-type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean };
+type LiveHost = HTMLElement & { __latticeGeom?: Geom; __latticeCoalesce?: number; __latticeFrameSig?: string; __latticeRestyleSig?: string; __latticePendingLoad?: boolean; __latticeRevealPoll?: ReturnType<typeof setInterval> };
 // "Has the live iframe actually painted a slide yet?" — true once its document holds a
 // rendered `.lattice`. scaleFrame reveals the frame only when this is true, so it never
 // unhides the pre-load `about:blank` white document (no `.lattice`) — the white-flash
@@ -574,9 +574,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 				}
 
 				let fr = host.querySelector<HTMLIFrameElement>('iframe.live');
-				// The once-guarded onload-side work, shared by the reveal poll (below, iOS paint
-				// path) and the browser `onload` (assigned near the srcdoc write). Declared out here
-				// so both the `if (!fr)` create branch's poll and the write path can see it.
+				// The once-guarded onload-side work, shared by the reveal poll (armed at the srcdoc-write
+				// site below, the iOS paint path) and the browser `onload` (assigned near that write).
+				// Declared out here so both the (later) poll and the onload assignment can see it.
 				let onFrameLoad: (() => void) | null = null;
 				if (!fr) {
 					fr = document.createElement('iframe');
@@ -609,49 +609,9 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					// pointer-events off until scaleFrame reveals it (which clears this alongside opacity).
 					fr.style.pointerEvents = 'none';
 					host.appendChild(fr);
-					// Reveal is CONTENT-DRIVEN, not onload-driven. The reveal rides scaleFrame's
-					// `frameHasPainted` gate, but we must call scaleFrame once the srcdoc has
-					// actually painted — and iOS Safari fires `onload` UNRELIABLY for srcdoc, so
-					// we cannot wait on it (on-device: frame scaled but stuck hidden forever,
-					// rev:NO — the blank). Poll on a rAF-ish cadence: each tick re-fits + reveals
-					// the moment BOTH the host has width AND the slide has painted, with no
-					// dependence on the load event or a host-resize firing. Stops once the load-work
-					// has cleared pendingLoad or the ~30s budget elapses. There is deliberately NO force-reveal of a
-					// still-not-good frame: the SKELETON model prefers the loader staying up over
-					// flashing an unscaled/broken slide (DeckPreview keys its loader-fade on this
-					// reveal), and the persistent host ResizeObserver keeps re-fitting after the
-					// poll ends, so a later width change still reveals the frame the instant it's
-					// good. A frame that never becomes good simply stays behind the skeleton.
-					const revealFr = fr;
-					let revealTicks = 0;
-					// The onload-side work (clear __latticePendingLoad → re-enable the patch/restyle
-					// fast-paths; run the debug overlay / video bridge / render sample) must happen
-					// even when iOS Safari DROPS the srcdoc `onload` — else pendingLoad stays true
-					// forever and every subsequent edit falls back to a full realm-churning re-write.
-					// `onFrameLoad` (declared above the create branch, assigned after the synchronous
-					// setup below) is once-guarded, so the poll can safely fire it on first paint
-					// whether or not `onload` ever comes.
-					const revealPoll = setInterval(() => {
-						revealTicks++;
-						// Stop once the load-work has cleared `__latticePendingLoad` (its once-guarded run
-						// both reveals the frame AND re-enables the patch/restyle fast paths) — or the host
-						// is gone, or the ~30s budget is spent. Keying the stop on pendingLoad (NOT "looks
-						// revealed", `opacity !== '0'`) is load-bearing: the persistent ResizeObserver can
-						// reveal the frame via its OWN scaleFrame before this poll fires onFrameLoad, and
-						// stopping on opacity there would strand `pendingLoad = true` → the fast paths stay
-						// disabled and every edit falls to a full realm-churning re-write. The budget is
-						// generous (~30s): a first paint this slow is pathological, but until pendingLoad
-						// clears we KEEP polling so even a slow paint re-enables the fast paths. A frame that
-						// truly never paints simply stays on the safe write path (we never patch an unpainted doc).
-						if (disposed || !host.isConnected || (host as LiveHost).__latticePendingLoad === false || revealTicks > 300) {
-							clearInterval(revealPoll);
-							ownedIntervals.delete(revealPoll);
-							return;
-						}
-						scaleFrame(host); // reveals IFF host width>0 AND the srcdoc has painted .lattice — never a broken frame
-						if (frameHasPainted(revealFr)) onFrameLoad?.(); // iOS: onload may never fire — run its work on paint (once-guarded)
-					}, 100);
-					ownedIntervals.add(revealPoll);
+					// The CONTENT-DRIVEN reveal poll is armed below, at the srcdoc-write site, so it
+					// covers EVERY full write (this first mount AND every subsequent edit) — not just
+					// the create branch. See the block after `fr.srcdoc = …` (#1163).
 					if (typeof ResizeObserver !== 'undefined') {
 						// The callback honors the module-level drag gate above; the host is
 						// registered so a resume can re-fit it once, authoritatively.
@@ -743,14 +703,79 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 					scheduleVizScan(() => fr?.contentDocument);
 				};
 				fr.onload = onFrameLoad;
-				// Mark the navigation in flight BEFORE assigning srcdoc: until onload
-				// clears it, the patch guard above must not touch the outgoing document.
+				// The document the incoming srcdoc must REPLACE — the outgoing live document on a
+				// subsequent write, or the freshly-created `about:blank` on the first write. The
+				// reveal poll below fires the load-work only once the frame holds a NEW, PAINTED
+				// document (identity !== this one): on a subsequent write the OLD `.lattice` lingers
+				// until the new navigation commits, so a bare presence check would false-fire
+				// onFrameLoad against the outgoing doc.
+				const prevDoc = fr.contentDocument;
+				// Did the OUTGOING doc already hold a slide? On the FIRST write it's `about:blank` (none),
+				// so a painted `.lattice` is unambiguously the new one — presence alone fires, EXACTLY the
+				// original create-path behavior (zero regression, and no dependence on whether the browser
+				// mints a new document object for the first srcdoc navigation). On a SUBSEQUENT write it
+				// does hold the old slide, so we additionally require a NEW document object (identity guard
+				// below) — otherwise the lingering old `.lattice` would false-fire onFrameLoad before the
+				// new navigation commits. Best-effort read (a same-origin doc won't throw, but guard for
+				// teardown races).
+				let prevHadLattice = false;
+				try {
+					prevHadLattice = !!prevDoc?.querySelector('.lattice');
+				} catch {}
+				// Mark the navigation in flight BEFORE assigning srcdoc: until onload (or the poll's
+				// paint detection) clears it, the patch guard above must not touch the outgoing document.
 				(host as LiveHost).__latticePendingLoad = true;
 				fr.srcdoc = srcdoc(out.html, out.css, mode, mermaid, geom, extraCss);
 				// srcdoc() runs the sanitize pass; copy its duration out of the shared
 				// closure var before an interleaved render can overwrite it.
 				sanitizeMs = lastSanitizeMs;
 				scaleFrame(host);
+				// CONTENT-DRIVEN reveal poll — armed for EVERY full write (first mount AND every
+				// subsequent edit), NOT just the create branch (#1163). iOS Safari fires the srcdoc
+				// `onload` UNRELIABLY: on the FIRST load that left the frame scaled-but-stuck-hidden
+				// forever (rev:NO — "the blank"); on a SUBSEQUENT write it left `__latticePendingLoad`
+				// stuck true, disabling the patch/restyle fast paths so every later edit fell back to a
+				// full realm-churning rewrite — the very leak the restyle path exists to prevent. The
+				// poll re-fits + reveals the moment the host has width AND the NEW doc has painted, and
+				// fires the once-guarded onFrameLoad (which clears pendingLoad + re-enables the fast
+				// paths) with NO dependence on the load event. There is deliberately NO force-reveal of
+				// a still-not-good frame: the SKELETON model prefers the loader staying up over flashing
+				// an unscaled/broken slide (DeckPreview keys its loader-fade on this reveal), and the
+				// persistent host ResizeObserver keeps re-fitting after the poll ends. A fast re-edit can
+				// start a new write before the previous paint — supersede that stale poll so only the
+				// latest write's poll runs.
+				const revealFr = fr;
+				const stalePoll = (host as LiveHost).__latticeRevealPoll;
+				if (stalePoll) {
+					clearInterval(stalePoll);
+					ownedIntervals.delete(stalePoll);
+				}
+				let revealTicks = 0;
+				const revealPoll = setInterval(() => {
+					revealTicks++;
+					// Stop once the load-work cleared `__latticePendingLoad` (its once-guarded run both
+					// reveals the frame AND re-enables the fast paths), the host is gone, or the ~30s
+					// budget is spent. Keying the stop on pendingLoad (NOT "looks revealed",
+					// `opacity !== '0'`) is load-bearing: the persistent ResizeObserver can reveal the
+					// frame via its OWN scaleFrame before this poll fires onFrameLoad, and stopping on
+					// opacity there would strand `pendingLoad = true` → the fast paths stay disabled and
+					// every edit falls to a full realm-churning re-write. A frame that truly never paints
+					// simply stays on the safe write path (we never patch an unpainted doc).
+					if (disposed || !host.isConnected || (host as LiveHost).__latticePendingLoad === false || revealTicks > 300) {
+						clearInterval(revealPoll);
+						ownedIntervals.delete(revealPoll);
+						if ((host as LiveHost).__latticeRevealPoll === revealPoll) (host as LiveHost).__latticeRevealPoll = undefined;
+						return;
+					}
+					scaleFrame(host); // reveals IFF host width>0 AND the NEW srcdoc has painted .lattice — never a broken frame
+					// Fire the once-guarded load-work on the FIRST paint of the NEW doc. When the outgoing
+					// doc had no slide (first write) presence suffices; when it did (subsequent write) also
+					// require a NEW document object, so the lingering old `.lattice` can't false-fire before
+					// the new navigation commits.
+					if (frameHasPainted(revealFr) && (!prevHadLattice || revealFr.contentDocument !== prevDoc)) onFrameLoad?.();
+				}, 100);
+				ownedIntervals.add(revealPoll);
+				(host as LiveHost).__latticeRevealPoll = revealPoll;
 				host.classList.add('is-live');
 				// Record the sig this full document was built for, so the NEXT render can
 				// take the patch fast path above when nothing outside the section changed.
@@ -855,6 +880,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		themeObservers.clear();
 		for (const t of ownedTimers) clearTimeout(t);
 		ownedTimers.clear();
+		// This clears the reveal poll too (it's in ownedIntervals). We deliberately do NOT null the
+		// host's `__latticeRevealPoll` field here — the interval is already stopped, and the module's
+		// re-register path is safe: the next write's supersession clears that stale id (a harmless
+		// no-op on an already-cleared interval) before arming a fresh poll.
 		for (const iv of ownedIntervals) clearInterval(iv);
 		ownedIntervals.clear();
 	}
