@@ -9,11 +9,11 @@
  * foreground status ink (`--pass`/`--warn`/`--fail`) on both, which is where a
  * warn amber tuned for `--bg` used to slip under AA on the slightly darker
  * `--bg-alt`. A theme value that regresses any pair below 4.5:1 fails here with
- * the exact fg/bg/ratio, before it can reach a slide. The matrix also covers the
- * mermaid/chart categorical node fills (`--cat-on-fill` on `--cat-N-fill`), which
- * resolve straight from the theme's `@import` chain (#1165 replaced the old
- * unresolvable `chart-1..6` placeholder names). The native chart-family's DERIVED
- * fills (color-mix in oklab) + slot-distinctness are gated in `chart-contrast.test.js`.
+ * the exact fg/bg/ratio, before it can reach a slide. (The mermaid/chart categorical
+ * label-on-fill contrast is NOT here — it's gated at its own source: `checkCatContrast`
+ * in tools/check-ownership.js for the curated `--cat-*-fill`/`--cat-on-fill`, and
+ * `chart-contrast.test.js` for the DERIVED `--chart-cat-*` fills. #1165 removed the old
+ * unresolvable `chart-1..6` placeholder pairs from the matrix rather than mirror them.)
  */
 
 const { test, describe } = require('node:test');

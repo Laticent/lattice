@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
- * Contrast and colour-theory audit for all Lattice themes.
+ * Contrast audit for all Lattice themes.
  *
- * Checks WCAG AA contrast (4.5:1) for every critical text-on-fill pair in
- * slide layouts AND the mermaid/chart categorical node fills (--cat-N-fill /
- * --cat-on-fill). The native chart-family's DERIVED fills (color-mix in oklab)
- * and their OKLab slot-distinctness are gated in
- * test/unit/palette/chart-contrast.test.js.
+ * Checks WCAG AA contrast (4.5:1) for every critical text-on-surface pair in the
+ * slide layouts (headings, body, status ink, secondary text on the canvas and the
+ * card). The mermaid/chart categorical label-on-fill contrast is gated at its own
+ * source — `checkCatContrast` in tools/check-ownership.js (via build:check) for the
+ * curated --cat-*-fill/--cat-on-fill, and test/unit/palette/chart-contrast.test.js
+ * for the DERIVED --chart-cat-* fills (color-mix in oklab) + slot-distinctness — so
+ * this theme-scoped report deliberately does not mirror them.
  *
  * Usage:
  *   node tools/contrast-audit.js               # all themes
@@ -176,32 +178,20 @@ const PAIRS = [
   ['on-accent',    'accent',     'slide: on-accent on accent'],
   ['bg',           'fail',       'slide: bg on fail (error chip)'],
 
-  // ── Mermaid / chart categorical node fills ────────────────────────────
-  // The engine paints mermaid nodes, gantt tasks, pie sections, and kanban
-  // lanes with the theme's curated --cat-N-fill (12 slots), and the label ink
-  // with --cat-on-fill (= --text-heading). See lib/integrations/mermaid/mermaid.css:
-  //   `.node > rect / .task-type-N rect / .section-N { fill: var(--cat-N-fill) }`
-  //   with text `fill: var(--cat-on-fill)`.
-  // BOTH resolve straight from the theme file, so these are audited for real
-  // here. (Historically the matrix used PLACEHOLDER names — `chart-1..6`,
-  // `mermaid-primary-color` — that no theme declares; they never resolved and
-  // were silently skipped. #1165 replaced them with the real tokens below.)
-  // The native SVG chart-family's DERIVED fills (--chart-cat-N-fill /
-  // --state-*-fill, which need color-mix(in oklab) resolution) — plus their
-  // OKLab slot-distinctness — are gated separately in
-  // test/unit/palette/chart-contrast.test.js.
-  ['cat-on-fill', 'cat-1-fill',  'mermaid/chart: label ink on categorical fill 1'],
-  ['cat-on-fill', 'cat-2-fill',  'mermaid/chart: label ink on categorical fill 2'],
-  ['cat-on-fill', 'cat-3-fill',  'mermaid/chart: label ink on categorical fill 3'],
-  ['cat-on-fill', 'cat-4-fill',  'mermaid/chart: label ink on categorical fill 4'],
-  ['cat-on-fill', 'cat-5-fill',  'mermaid/chart: label ink on categorical fill 5'],
-  ['cat-on-fill', 'cat-6-fill',  'mermaid/chart: label ink on categorical fill 6'],
-  ['cat-on-fill', 'cat-7-fill',  'mermaid/chart: label ink on categorical fill 7'],
-  ['cat-on-fill', 'cat-8-fill',  'mermaid/chart: label ink on categorical fill 8'],
-  ['cat-on-fill', 'cat-9-fill',  'mermaid/chart: label ink on categorical fill 9'],
-  ['cat-on-fill', 'cat-10-fill', 'mermaid/chart: label ink on categorical fill 10'],
-  ['cat-on-fill', 'cat-11-fill', 'mermaid/chart: label ink on categorical fill 11'],
-  ['cat-on-fill', 'cat-12-fill', 'mermaid/chart: label ink on categorical fill 12'],
+  // ── Mermaid / chart categorical node fills — NOT re-audited here ──────
+  // The engine paints mermaid nodes / gantt tasks / pie sections / kanban lanes
+  // with the theme's curated --cat-N-fill (12 slots) and the label ink with
+  // --cat-on-fill (= --text-heading). That label-on-fill AA (--cat-on-fill vs
+  // --cat-1..12-fill, both modes, ≥4.5:1) is ALREADY the authoritative gate
+  // `checkCatContrast` in tools/check-ownership.js (run in `build:check`) — which
+  // also checks mark-vs-canvas (≥3:1) and fill≠mark collapse, fails CLOSED on an
+  // unresolvable token, and has a coverage backstop. The native SVG chart-family's
+  // DERIVED fills (--chart-cat-N-fill / --state-*-fill, color-mix in oklab) + their
+  // OKLab slot-distinctness are gated in test/unit/palette/chart-contrast.test.js.
+  // So this theme-scoped contrast report deliberately does NOT mirror those pairs —
+  // one gate per invariant, no drift (HARD RULE #15). Historically the matrix here
+  // carried PLACEHOLDER names (`chart-1..6`, `mermaid-primary-color`) that no theme
+  // declares, so they never resolved and were silently skipped; #1165 removed them.
 
   // ── Edge labels ───────────────────────────────────────────────────────
   ['text-heading', 'bg', 'mermaid: edge label text on canvas bg'],
@@ -242,15 +232,14 @@ const PAIRS = [
   ['text-label',     'bg-alt', 'slide: label / eyebrow on card'],
 ];
 
-// Every backdrop (bg) token in PAIRS now resolves from a theme file (or its
-// @import chain) — including the mermaid/chart categorical fills (--cat-N-fill /
-// --cat-on-fill), which #1165 wired in after the old chart-1..6 placeholder
-// names were retired. (The only NON-theme tokens left are the on-dark-* ink
-// FOREGROUNDS, resolved via the built-in ON_DARK_DEFAULTS ramp since this tool
-// skips the `lattice` import.) So there is no allowlist of "expected skips": any
-// pair the resolver can't reduce to hex is a real coverage hole and is recorded
-// in `missing`. The native chart-family's DERIVED fills (color-mix in oklab) and
-// their OKLab slot-distinctness live in test/unit/palette/chart-contrast.test.js.
+// Every backdrop (bg) token in PAIRS resolves from a theme file (or its @import
+// chain). (The only NON-theme tokens are the on-dark-* ink FOREGROUNDS, resolved
+// via the built-in ON_DARK_DEFAULTS ramp since this tool skips the `lattice`
+// import.) So there is no allowlist of "expected skips": any pair the resolver
+// can't reduce to hex is a real coverage hole and is recorded in `missing`. The
+// old placeholder mermaid/chart pairs (`chart-1..6`, `mermaid-*-color`) that no
+// theme declared were removed in #1165 — that contrast is gated at its own
+// source (checkCatContrast in check-ownership.js; chart-contrast.test.js), see above.
 
 // ── Per-theme audit (pure; shared by the CLI runner AND the unit gate) ──────
 
