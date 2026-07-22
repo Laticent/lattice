@@ -515,7 +515,6 @@ var require_contrast = __commonJS({
       for (let i = 1; i <= 12; i++) pairs.push([`cat-${i}-mark`, "bg", AA_LARGE2, "categorical-edge"]);
       pairs.push(["bg", "text-heading", AA2, "heading"]);
       pairs.push(["bg-alt", "text-heading", AA2, "heading"]);
-      pairs.push(["diagram-critical", "cat-on-mark", AA2, "alarm"]);
       return pairs;
     }
     function contentPairs2() {

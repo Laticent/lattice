@@ -732,9 +732,15 @@ const MERMAID_VAR_MAP = {
   noteTextColor:            { var: 'cat-on-fill' },
   noteBorderColor:          { var: 'diagram-today' },
 
-  // Error (alarm — saturated red)
-  errorBkgColor:            { var: 'diagram-critical' },
-  errorTextColor:           { var: 'cat-on-fill' },
+  // Error (mermaid parse-error box). Uses the theme's gated "error chip" pair
+  // — --bg text on the --fail alarm red (the ['bg','fail'] pair the slide-surface
+  // audit holds to AA in both modes across every theme) — NOT --cat-on-fill on
+  // --diagram-critical, which put near-black ink on the achromatic themes' mid-gray
+  // critical (ardesia/concrete/onyx) below AA. Kept in lockstep with the runtime
+  // path (lib/runtime/index.js) so both renderers share one mapping (HARD RULE #1).
+  // Decoupled in #1181.
+  errorBkgColor:            { var: 'fail' },
+  errorTextColor:           { var: 'bg' },
 
   // Pie chart (pale band cycle — unified contract)
   pie1:  { var: 'cat-1-fill' },

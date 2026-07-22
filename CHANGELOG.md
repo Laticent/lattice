@@ -156,6 +156,28 @@ in patch versions.
   `--accent-soft` was deliberately **not** added: no component renders secondary text on that panel, so
   gating it would police a surface that doesn't exist. Verified by rendering mustard's verdict / verdict-grid
   / pricing cards in light mode. (`tools/contrast-audit.js`, `themes/mustard.css`, `themes/magnolia.css`.)
+- **The mermaid parse-error box no longer depends on `--cat-on-mark` clearing `--diagram-critical`.**
+  The #1172 `--cat-on-mark` flip (near-black → white on the light-mode mark) was correct for categorical
+  marks but *inverted* the one non-categorical surface that borrowed the token: the mermaid parse-error
+  box, styled `errorText` on `errorBkg` = `--cat-on-mark` on `--diagram-critical`. In light mode the box
+  is a saturated alarm red with now-white text (fine), but the coupling had been *forced* to AA by a
+  contract pair (`['diagram-critical','cat-on-mark']`) that three themes with **achromatic** diagram ramps
+  (ardesia / concrete / onyx — where `--diagram-critical` is the darkest gray for severity ordering, and
+  cannot flip pale-in-dark) could only satisfy by distorting one token or the other (#1181, a regression
+  #1172 introduced). The error box is now **decoupled** from the categorical tier entirely: it uses the
+  theme's gated **error-chip pair** — `--bg` text on the `--fail` alarm red (`['bg','fail']`, which the
+  slide-surface audit already holds to AA in both canvas modes) — so its legibility rides an
+  independently-gated pair and `--cat-on-mark` is free to serve categorical marks alone. The
+  `['diagram-critical','cat-on-mark']` contract pair (and its mirror unit test) are **retired**; no
+  renderer reads that coupling anymore. The mapping is aligned on **both** render paths — the browser
+  runtime (`lib/runtime/index.js`) AND the default CLI/PDF-export path (`lattice-emulator.js`, which had
+  independently borrowed `--cat-on-fill` on `--diagram-critical`) — so both share one error-box mapping
+  (HARD RULE #1). *Surface note (HARD RULE #23):* on the **export path** a mermaid parse error degrades to
+  a legible source **code block** before mermaid's error SVG is ever drawn — verified by rendering a broken
+  block in ardesia (achromatic, worst case) in both light and dark. The **browser** error SVG (Studio
+  preview) can't be exercised headless here and stays **UNVERIFIED**, but now carries the correct gated
+  mapping. (`lib/runtime/index.js`, `lattice-emulator.js`, `lib/theme/contrast.js`, `lib/theme/derive.js`,
+  `design/theming.md`.)
 - **Categorical corner tags (decision / roadmap / compare-prose) are now legible in every theme.** The
   tag ink `--cat-on-mark` was set to `var(--text-heading)` in 11 themes — which puts near-black on the
   saturated light-mode mark and white on the pale dark-mode mark, i.e. **inverted** — so tags like the

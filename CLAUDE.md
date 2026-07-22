@@ -230,14 +230,35 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   found anywhere; the gate had never been re-verified since it was written. See
   `engineering/decisions/2026-07-10-hard-rule-12-retirement.md` for the test and
   reasoning. Number retired in place, not reused.
-- **#18 — No broken windows: leave the tree no worse than you found it.** A defect
-  you *create or touch* gets fixed before the work is done — never committed
-  knowingly broken, never "TODO later". For a pre-existing defect you find: if
-  it's **on the path** of the current change, fix it in place; if it's **off the
-  path**, log it (a tracked issue / decision-doc note) rather than either ignoring
-  it OR pulling it into the diff — that boundary keeps #8 (gallery isolation) and
-  #17 (one feature, one PR) intact. *(discipline — no automated gate; the test is
-  whether you can point at a known defect you walked past and left unrecorded.)*
+- **#18 — No broken windows: leave the tree no worse than you found it, and NEVER
+  ship one you created.** A defect you *create or touch* gets fixed before the work
+  ships — never committed knowingly broken, never "TODO later", **never punted to a
+  follow-up issue.** The critical distinction is **who caused it:**
+  - **A regression YOUR change introduces is a window YOU created — fix it before
+    merge, full stop.** This holds even when the break lands through a *different*
+    token / component / surface than the one you set out to change (a shared token
+    you re-tuned, an invariant your edit silently violated), even when it's
+    low-visibility (an error state, a rare path, dark mode only), and even when the
+    root cause is a *pre-existing* latent fragility your change merely *tipped into
+    failure*. "It only breaks on an authoring-error surface", "it was already
+    latently non-compliant", "it's off the main path of my feature" are **not**
+    exits — if the surface worked before your change and doesn't after, you broke it
+    and you fix it (or you revert the piece that broke it). Filing an issue and
+    shipping anyway is the prohibited move. If the correct fix is genuinely too
+    large for this PR, the window still doesn't ship: shrink your change so it stops
+    causing the break, or hold the PR — do not merge a self-inflicted regression.
+  - **A PRE-EXISTING defect you merely FIND** (you didn't cause it, your change
+    doesn't worsen it) follows the on-path / off-path rule: if it's **on the path**
+    of the current change, fix it in place; if it's **off the path**, log it (a
+    tracked issue / decision-doc note) rather than ignoring it OR pulling it into the
+    diff — that boundary keeps #8 (gallery isolation) and #17 (one feature, one PR)
+    intact. The follow-up-issue path is **exclusively** for these; it is never a
+    home for something you broke.
+  *(discipline — no automated gate; the test is whether a reviewer can point at a
+  surface that regressed across your change, or a known defect you walked past and
+  left unrecorded. Born from #1181: a `--cat-on-mark` re-tune silently broke the
+  mermaid error box via the `--diagram-critical` alarm invariant, and it was wrongly
+  filed-and-shipped instead of fixed.)*
 - **#19 — A performance change ships with evidence, not a claim.** Any change that
   sets out to make the engine faster/lighter carries: (a) **before/after numbers**
   in the PR's `## Performance` section, captured same-machine via `npm run bench`;

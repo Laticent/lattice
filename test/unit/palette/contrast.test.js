@@ -10,8 +10,11 @@
  *
  * Light-mode and dark-mode are tested separately by parsing each palette
  * twice (light-dark() resolution flips on the second pass). The test runs
- * against indaco + cuoio; sibling palettes (ardesia, atelier, …) inherit
- * indaco's band-text tokens by cascade and are covered by the indaco run.
+ * against indaco + cuoio as representative curated palettes. NOTE: many themes
+ * override --cat-on-mark / --cat-N-mark (per-theme tag inks), so they are NOT
+ * covered by the indaco run — their categorical contrast is gated across ALL
+ * shipped themes by checkCatContrast (tools/check-ownership.js, via build:check),
+ * and the all-theme slide-surface pairs by theme-surface-aa.test.js.
  *
  * If a test fails: a palette tweak put a text token below 4.5:1 on its
  * paired surface. Either lift the text (darker on light surface, lighter
@@ -191,17 +194,10 @@ describe('contrast', () => {
         assert.deepEqual(failures, [], `WCAG AA failures in ${name} (${mode}):\n  ${failures.join('\n  ')}`);
       });
 
-      test(`contrast: ${name} (${mode}) --cat-on-mark clears AA on --diagram-critical`, () => {
-        const vars = loadPaletteWithImports(name, mode);
-        const fill = vars['diagram-critical'];
-        const text = vars['cat-on-mark'];
-        assert.ok(fill && text, 'diagram-critical + cat-on-mark defined');
-        const ratio = contrastRatio(fill, text);
-        assert.ok(
-          ratio >= AA_THRESHOLD,
-          `--cat-on-mark (${text}) on --diagram-critical (${fill}) = ${ratio.toFixed(2)}:1 (< ${AA_THRESHOLD})`,
-        );
-      });
+      // (Retired in #1181: the "--cat-on-mark clears AA on --diagram-critical" test.
+      // The mermaid parse-error box — the pair's only renderer — was decoupled to the
+      // gated ['bg','fail'] error-chip pair, so --cat-on-mark no longer sits on
+      // --diagram-critical anywhere. See lib/runtime/index.js + lib/theme/contrast.js.)
     }
   }
 
