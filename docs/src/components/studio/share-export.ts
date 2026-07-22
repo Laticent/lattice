@@ -561,8 +561,12 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	}
 
 	const effectiveOpts = { ...imageOpts, mode: slideScheme, svgBackground: effectiveSvgBackground };
+	// Manifest provenance. Title from the deck's front-matter (else the filename); palette as
+	// rendered. The browser has no package version handy (unlike the CLI), so engineVersion is
+	// left null — the `generator: 'studio'` field already marks the source.
+	const meta = { title: getFrontMatter(source, 'title') || undefined, palette, engineVersion: null };
 	const ex = await exporters();
-	await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender);
+	await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta);
 }
 
 type ReadAlongCore = {

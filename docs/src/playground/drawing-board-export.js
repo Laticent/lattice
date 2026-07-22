@@ -1063,7 +1063,7 @@ async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pi
 // generated from lib/export/image-set.js), the same contract the CLI's `.zip`
 // output uses — so the Studio and CLI emit the same set. `render` is the engine
 // result (see exportPdf); `opts` is the raw tuning config from the options panel.
-export async function exportImageSet(render, name, opts, onStatus, svgRender) {
+export async function exportImageSet(render, name, opts, onStatus, svgRender, meta) {
 	const core = await import('./image-set-core.generated.js');
 	const options = core.normalizeImageSetOptions(opts);
 	const { frame, dispose } = await createCaptureFrame(render);
@@ -1123,15 +1123,17 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender) {
 					// renders client-side into a `.mermaid` div (lib/runtime/index.js). Match
 					// BOTH so the Studio extracts the same diagrams the CLI does. (The
 					// `.mermaid-error` sibling has no <svg>, so it's never matched.)
-					sec.querySelectorAll('.mermaid-svg svg, .mermaid svg').forEach((s) => { targets.push([s, 'diagram']); });
+					sec.querySelectorAll('.mermaid-svg svg, .mermaid svg').forEach((s) => { targets.push([s, 'diagram', null]); });
 					if (sec.classList.contains('chart-frame') && CLEAN_SVG_LAYOUTS.some((c) => sec.classList.contains(c))) {
-						sec.querySelectorAll('svg[viewBox]').forEach((s) => { targets.push([s, 'chart']); });
+						// The keyed chart's layout class (piechart/radar/…) is the manifest's chartType.
+						const ct = CLEAN_SVG_LAYOUTS.find((c) => sec.classList.contains(c)) || null;
+						sec.querySelectorAll('svg[viewBox]').forEach((s) => { targets.push([s, 'chart', ct]); });
 					}
-					for (const [svg, kind] of targets) {
+					for (const [svg, kind, chartType] of targets) {
 						try {
 							const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, svgWin));
 							const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
-							svgs.push({ slide: si + 1, kind, svg: finalizeStandaloneSvg(markup, { fontFaceCss, background: svgBg }) });
+							svgs.push({ slide: si + 1, kind, chartType: chartType || null, svg: finalizeStandaloneSvg(markup, { fontFaceCss, background: svgBg }) });
 						} catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
 					}
 				});
@@ -1143,8 +1145,24 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender) {
 		// (4) Pack via the shared kernel → a single .zip.
 		if (onStatus) onStatus('Building .zip…', { current: sections.length, total: sections.length });
 		const { default: JSZip } = await import('jszip');
+		// Per-slide titles (first heading) for the manifest — from the slide-render frame.
+		const slideTitles = Array.from(sections, (sec) => {
+			const hh = sec.querySelector('h1, h2, h3');
+			return (hh?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200) || null;
+		});
+		// Embed the effective print DPI into the full-slide PNG/JPEG bytes (the same pHYs / JFIF
+		// the CLI writes) so they drop into a print document at the right size. Blobs → Uint8Array.
+		const dpi = core.dpiFor(Math.round(w * scale), Math.round(h * scale));
+		const imageBytes = await Promise.all(images.map(async (b) =>
+			core.embedRasterDpi(new Uint8Array(await b.arrayBuffer()), options.format, dpi)));
 		const plan = core.assembleImageSetPlan({
-			name, options, geom: { w, h }, scale, images, thumbs, svgs, generator: 'studio',
+			name, options, geom: { w, h }, scale,
+			images: imageBytes, thumbs, svgs,
+			// Title fallback mirrors the CLI: front-matter title → first slide heading → filename.
+			title: meta?.title || slideTitles.find(Boolean) || name,
+			palette: meta?.palette, engineVersion: meta?.engineVersion,
+			createdAt: new Date().toISOString(), slideTitles,
+			generator: 'studio',
 		});
 		const zip = new JSZip();
 		core.addPlanToZip(zip, plan);

@@ -426,7 +426,7 @@ const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx'
 // Image-set tuning, normalized to a complete config (defaults = perfect-fidelity PNG,
 // thumbnails on, SVG extraction on). Resolved even for non-imageset outputs — it is
 // inert there. Undefined flags fall through to the kernel's DEFAULTS.
-const { normalizeImageSetOptions, resolveRasterScale, resolveThumbScale, svgBackgroundFill, svgLookMode } = require('./lib/export/image-set');
+const { normalizeImageSetOptions, resolveRasterScale, resolveThumbScale, svgBackgroundFill, svgLookMode, dpiFor, embedRasterDpi } = require('./lib/export/image-set');
 const IMAGE_SET_OPTS = normalizeImageSetOptions({
   format: flags['image-format'],
   size: flags['image-size'],
@@ -2329,17 +2329,19 @@ async function renderBody(browser, g, closeBrowser) {
         const ser = new XMLSerializer();
         const out = [];
         document.querySelectorAll('section[data-lattice-slide]').forEach((sec, si) => {
-          const push = (svg, kind) => {
+          const push = (svg, kind, chartType) => {
             try {
               const flat = window.__flattenSvgStyles(svg, window);
-              out.push({ slide: si + 1, kind, markup: ser.serializeToString(flat) });
+              out.push({ slide: si + 1, kind, chartType: chartType || null, markup: ser.serializeToString(flat) });
             } catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
           };
           // Mermaid/diagram blocks render to an inline <svg> inside `.mermaid-svg`.
-          sec.querySelectorAll('.mermaid-svg svg').forEach((svg) => { push(svg, 'diagram'); });
-          // The four keyed chart layouts emit the diagram+key as one self-contained svg.
+          sec.querySelectorAll('.mermaid-svg svg').forEach((svg) => { push(svg, 'diagram', null); });
+          // The four keyed chart layouts emit the diagram+key as one self-contained svg;
+          // the section class (piechart/radar/…) is the manifest's `chartType`.
           if (sec.classList.contains('chart-frame') && KEYED.some((c) => sec.classList.contains(c))) {
-            sec.querySelectorAll('svg[viewBox]').forEach((svg) => { push(svg, 'chart'); });
+            const ct = KEYED.find((c) => sec.classList.contains(c)) || null;
+            sec.querySelectorAll('svg[viewBox]').forEach((svg) => { push(svg, 'chart', ct); });
           }
         });
         return out;
@@ -2347,14 +2349,29 @@ async function renderBody(browser, g, closeBrowser) {
       const svgBg = svgBackgroundFill(effectiveSvgBackground);
       svgAssets = raw.map((t) => {
         const fontFaceCss = standaloneFontFaceCss(collectFontFamilies(t.markup));
-        return { slide: t.slide, kind: t.kind, svg: finalizeStandaloneSvg(t.markup, { fontFaceCss, background: svgBg }) };
+        return { slide: t.slide, kind: t.kind, chartType: t.chartType, svg: finalizeStandaloneSvg(t.markup, { fontFaceCss, background: svgBg }) };
       });
     }
+
+    // Per-slide titles for the manifest — the slide's first heading (unaffected by the look).
+    const slideTitles = await g(() => page.evaluate(() =>
+      Array.from(document.querySelectorAll('section[data-lattice-slide]')).map((sec) => {
+        const h = sec.querySelector('h1, h2, h3');
+        return (h?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200) || null;
+      })), 'extract slide titles');
     await closeBrowser();
 
     // (4) Pack via the shared kernel → a single .zip.
     const { assembleImageSetPlan, addPlanToZip } = require('./lib/export/image-set');
     const JSZip = require('jszip');
+    // Effective print resolution of the full rasters — recorded in the manifest AND baked into
+    // the PNG/JPEG bytes (pHYs / JFIF) so they drop into a print/office document at the right
+    // physical size instead of the tool's 96dpi guess.
+    const dpi = dpiFor(Math.round(slideW * rasterScale), Math.round(slideH * rasterScale));
+    const pkgVersion = (() => {
+      try { return JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')).version; }
+      catch (_e) { return null; }
+    })();
     const plan = assembleImageSetPlan({
       name: path.basename(outFile).replace(/\.zip$/i, ''),
       // Record the RESOLVED scheme + honored look so the manifest self-describes what the
@@ -2362,9 +2379,14 @@ async function renderBody(browser, g, closeBrowser) {
       options: { ...IMAGE_SET_OPTS, mode: resolvedScheme, svgBackground: effectiveSvgBackground },
       geom: { w: slideW, h: slideH },
       scale: rasterScale,
-      images: images.map((b) => Buffer.from(b)),
+      images: images.map((b) => embedRasterDpi(Buffer.from(b), fmt, dpi)),
       thumbs: thumbs.map((b) => Buffer.from(b)),
       svgs: svgAssets,
+      title: deckTitle,
+      palette: paletteName,
+      engineVersion: pkgVersion,
+      createdAt: new Date().toISOString(),
+      slideTitles,
       generator: 'cli',
     });
     const zip = new JSZip();

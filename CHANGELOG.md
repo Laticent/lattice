@@ -369,8 +369,12 @@ in patch versions.
   mode, the SVGs are re-rendered in it). The Studio's Share → Images panel exposes the same
   controls (Color mode + SVG look selectors). The zip
   layout, naming, size presets, color mode, and manifest are single-sourced in a shared kernel
-  (`lib/export/image-set.js`) that both surfaces use, so they emit the same set. New export path —
-  existing PDF/PPTX/PNG bytes are unchanged.
+  (`lib/export/image-set.js`) that both surfaces use, so they emit the same set. The
+  **`manifest.json`** (v2) self-describes the set — deck title/palette/engine/`createdAt`, the
+  resolved color mode, `orientation`, the `physical` size + effective `dpi`, and per-file entries
+  (each slide's title + byte size, each asset's `chartType`). The **DPI is baked into the PNG/JPEG
+  bytes** (`pHYs` / JFIF) so the images drop into a print/office document at the right physical size
+  instead of the default 96dpi guess. New export path — existing PDF/PPTX/PNG bytes are unchanged.
 - **The in-place chart animation now covers the piechart — and gradient-filled charts render
   correctly.** `chart-anima` extends to the pie: add it to a slide or deck and the disc fades in as a
   whole on the live Studio / Playground (model-free; exported PDF/PPTX byte-identical). This also

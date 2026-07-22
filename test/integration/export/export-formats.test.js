@@ -521,6 +521,46 @@ describe('export-formats', () => {
     }
   });
 
+  test('image set writes a v2 manifest (metadata, dpi, orientation) + embeds DPI in the PNG bytes', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const m = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+
+    assert.equal(m.version, 2);
+    assert.ok(m.title && typeof m.title === 'string', 'has a deck title');
+    assert.equal(m.palette, 'indaco');
+    assert.equal(m.engine.name, 'lattice');
+    assert.ok(m.engine.version, 'has an engine version');
+    assert.match(m.createdAt, /^\d{4}-\d\d-\d\dT/, 'ISO createdAt');
+    assert.equal(m.orientation, 'landscape');           // hd fixture
+    assert.deepEqual(m.physical, { width: 13.333, height: 7.5, unit: 'in' });
+    assert.equal(m.dpi, 192);                            // hd @2× → 192 dpi
+    assert.deepEqual(m.thumbnail, { width: 480, height: 270 });
+    // per-slide title + bytes; per-asset chartType + bytes
+    assert.ok(m.slides[0].title, 'slide has a title');
+    assert.ok(m.slides[0].bytes > 0 && m.slides[0].thumbnailBytes > 0, 'per-file bytes recorded');
+    const chart = m.assets.find((a) => a.kind === 'chart');
+    assert.equal(chart.chartType, 'piechart');
+    assert.ok(chart.bytes > 0);
+
+    // The full slide PNG carries a pHYs chunk at 192 dpi, and still decodes as a valid PNG.
+    // (manifest paths are relative to the deck root folder; the zip prefixes them with the slug.)
+    const png = await zip.file(`deck/${m.slides[0].image}`).async('nodebuffer');
+    assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'valid PNG signature');
+    assert.equal(png.subarray(12, 16).toString(), 'IHDR', 'IHDR intact');
+    const pHYs = png.indexOf(Buffer.from('pHYs'));
+    assert.ok(pHYs > 0, 'pHYs chunk present');
+    const ppm = png.readUInt32BE(pHYs + 4);
+    assert.equal(Math.round(ppm * 0.0254), 192, 'pHYs encodes 192 dpi');
+    assert.equal(png[pHYs + 12], 1, 'pHYs unit = metre');
+  });
+
   // Accessibility: the exported PDF shell must carry the deck's title + language, so a
   // screen reader announces both (was a tracked gap — untagged PDF, no /Lang, no title;
   // semantic-html-accessibility.md G1/G2). Chrome's print-to-PDF lifts them from the

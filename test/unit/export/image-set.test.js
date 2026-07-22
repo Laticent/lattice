@@ -104,6 +104,79 @@ describe('image-set: print is a valid svgBackground look', () => {
   });
 });
 
+describe('image-set: geometry + dpi', () => {
+  test('orientationOf reports landscape / portrait / square', () => {
+    assert.equal(IS.orientationOf(1280, 720), 'landscape');
+    assert.equal(IS.orientationOf(1080, 1920), 'portrait');
+    assert.equal(IS.orientationOf(1000, 1000), 'square');
+  });
+  test('physicalSize normalizes the long edge to 13.333in', () => {
+    assert.deepEqual(IS.physicalSize(1280, 720), { width: 13.333, height: 7.5, unit: 'in' });
+    // portrait swaps which edge is 13.333
+    const p = IS.physicalSize(720, 1280);
+    assert.equal(p.height, 13.333);
+    assert.equal(p.width, 7.5);
+  });
+  test('dpiFor = pixel long edge ÷ 13.333in', () => {
+    assert.equal(IS.dpiFor(2560, 1440), 192); // 2× HD
+    assert.equal(IS.dpiFor(3840, 2160), 288); // 4K
+    assert.equal(IS.dpiFor(1280, 720), 96);   // 1× (screen)
+  });
+});
+
+describe('image-set: dataByteLength', () => {
+  test('handles strings (utf-8), typed arrays, and blob-likes', () => {
+    assert.equal(IS.dataByteLength('abc'), 3);
+    assert.equal(IS.dataByteLength('★'), 3); // multi-byte
+    assert.equal(IS.dataByteLength(new Uint8Array([1, 2, 3, 4])), 4);
+    assert.equal(IS.dataByteLength({ size: 99 }), 99); // Blob-like
+    assert.equal(IS.dataByteLength(null), 0);
+  });
+});
+
+describe('image-set: embedRasterDpi', () => {
+  // A minimal valid 1×1 PNG.
+  const PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
+    'base64',
+  );
+
+  test('PNG gains a pHYs chunk with the right pixels-per-meter', () => {
+    const out = IS.embedRasterDpi(PNG, 'png', 192);
+    // pHYs is inserted right after the 8-byte signature + 25-byte IHDR chunk (offset 33).
+    const type = String.fromCharCode(out[37], out[38], out[39], out[40]);
+    assert.equal(type, 'pHYs', 'a pHYs chunk should follow IHDR');
+    const xppu = (out[41] << 24) | (out[42] << 16) | (out[43] << 8) | out[44];
+    assert.equal(xppu, Math.round(192 / 0.0254)); // 192 dpi → ~7559 ppm
+    assert.equal(out[49], 1, 'unit = meter');
+    assert.ok(out.length > PNG.length, 'output grew by the chunk');
+  });
+
+  test('JPEG JFIF density is set to dpi', () => {
+    // Minimal JPEG: SOI + JFIF APP0 (units/density placeholders) + EOI.
+    const jpeg = Uint8Array.from([
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
+      0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+    ]);
+    const out = IS.embedRasterDpi(jpeg, 'jpeg', 300);
+    assert.equal(out[13], 1, 'units = dpi');
+    assert.equal((out[14] << 8) | out[15], 300, 'Xdensity');
+    assert.equal((out[16] << 8) | out[17], 300, 'Ydensity');
+  });
+
+  test('WebP / unknown / bad dpi is returned unchanged', () => {
+    const webp = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]);
+    assert.equal(IS.embedRasterDpi(webp, 'webp', 192), webp);
+    assert.equal(IS.embedRasterDpi(PNG, 'png', 0), PNG);   // non-positive dpi
+    assert.equal(IS.embedRasterDpi(PNG, 'png', NaN), PNG);
+  });
+
+  test('non-PNG bytes handed to the PNG path are returned unchanged (never corrupt)', () => {
+    const notpng = Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    assert.equal(IS.embedRasterDpi(notpng, 'png', 192), notpng);
+  });
+});
+
 describe('image-set: resolveThumbScale', () => {
   test('shrinks to the target width, never upscales', () => {
     assert.equal(IS.resolveThumbScale(480, 1280), 480 / 1280);
@@ -203,6 +276,39 @@ describe('image-set: assembleImageSetPlan', () => {
     assert.equal(m.svgBackground, 'inherit');
     assert.equal(m.slides[0].thumbnail, 'thumbnails/d-01.jpeg');
     assert.equal(m.slides[1].image, 'slides/d-02.jpeg');
+  });
+
+  test('manifest v2 carries orientation, physical size, dpi, provenance, per-file bytes + titles', () => {
+    const plan = IS.assembleImageSetPlan({
+      name: 'Board Review', options: { format: 'png' }, geom: { w: 1280, h: 720 }, scale: 2,
+      images: [img(1), img(2)], thumbs: [img(3), img(4)],
+      svgs: [{ slide: 2, svg: '<svg/>', kind: 'chart', chartType: 'piechart' }],
+      title: 'Board Review Q3', palette: 'indaco', engineVersion: '1.0.0', createdAt: '2026-07-22T00:00:00Z',
+      slideTitles: ['Cover', 'The numbers'], generator: 'unit',
+    });
+    const m = plan.manifest;
+    assert.equal(m.version, 2);
+    assert.equal(m.title, 'Board Review Q3');
+    assert.equal(m.palette, 'indaco');
+    assert.deepEqual(m.engine, { name: 'lattice', version: '1.0.0' });
+    assert.equal(m.createdAt, '2026-07-22T00:00:00Z');
+    assert.equal(m.orientation, 'landscape');
+    assert.deepEqual(m.physical, { width: 13.333, height: 7.5, unit: 'in' });
+    assert.equal(m.dpi, 192);
+    assert.deepEqual(m.thumbnail, { width: 480, height: 270 });
+    // per-slide title + bytes + thumbnail bytes
+    assert.equal(m.slides[0].title, 'Cover');
+    assert.equal(m.slides[1].title, 'The numbers');
+    assert.equal(m.slides[0].bytes, 3);          // img(n) is a 3-byte Uint8Array
+    assert.equal(m.slides[0].thumbnailBytes, 3);
+    // per-asset chartType + bytes
+    assert.equal(m.assets[0].chartType, 'piechart');
+    assert.equal(m.assets[0].bytes, 6);          // '<svg/>' = 6 bytes
+  });
+
+  test('createdAt is omitted when not provided (byte-reproducible)', () => {
+    const plan = IS.assembleImageSetPlan({ name: 'd', images: [img(1)] });
+    assert.ok(!('createdAt' in plan.manifest));
   });
 
   test('png manifest carries no quality', () => {

@@ -102,6 +102,99 @@ var require_image_set = __commonJS({
       const w = Number(slideW) || 1280;
       return Math.min(1, (Number(thumbWidth) || DEFAULTS2.thumbWidth) / w);
     }
+    var PHYSICAL_LONG_EDGE_IN2 = 13.333;
+    function orientationOf2(w, h) {
+      const a = Number(w) || 0;
+      const b = Number(h) || 0;
+      if (a > b) return "landscape";
+      if (b > a) return "portrait";
+      return "square";
+    }
+    function physicalSize2(w, h) {
+      const a = Math.max(Number(w) || 1, 1);
+      const b = Math.max(Number(h) || 1, 1);
+      const longest = Math.max(a, b);
+      const round3 = (n) => Math.round(n / longest * PHYSICAL_LONG_EDGE_IN2 * 1e3) / 1e3;
+      return { width: round3(a), height: round3(b), unit: "in" };
+    }
+    function dpiFor2(pixelW, pixelH) {
+      const px = Math.max(Number(pixelW) || 0, Number(pixelH) || 0);
+      return Math.round(px / PHYSICAL_LONG_EDGE_IN2);
+    }
+    function dataByteLength2(data) {
+      if (data == null) return 0;
+      if (typeof data === "string") return new TextEncoder().encode(data).length;
+      if (typeof data.byteLength === "number") return data.byteLength;
+      if (typeof data.size === "number") return data.size;
+      return 0;
+    }
+    var _crcTable = null;
+    function crc32(bytes) {
+      if (!_crcTable) {
+        _crcTable = new Uint32Array(256);
+        for (let n = 0; n < 256; n++) {
+          let c = n;
+          for (let k = 0; k < 8; k++) c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1;
+          _crcTable[n] = c >>> 0;
+        }
+      }
+      let crc = 4294967295;
+      for (let i = 0; i < bytes.length; i++) crc = _crcTable[(crc ^ bytes[i]) & 255] ^ crc >>> 8;
+      return (crc ^ 4294967295) >>> 0;
+    }
+    var DPI_PER_METER = 1 / 0.0254;
+    function u8(...arrs) {
+      const len = arrs.reduce((n, a) => n + a.length, 0);
+      const out = new Uint8Array(len);
+      let o = 0;
+      for (const a of arrs) {
+        out.set(a, o);
+        o += a.length;
+      }
+      return out;
+    }
+    function be32(n) {
+      const v = n >>> 0;
+      return Uint8Array.of(v >>> 24 & 255, v >>> 16 & 255, v >>> 8 & 255, v & 255);
+    }
+    function embedPngDpi(bytes, dpi) {
+      const SIG = [137, 80, 78, 71, 13, 10, 26, 10];
+      if (bytes.length < 8 + 25) return bytes;
+      for (let i = 0; i < 8; i++) if (bytes[i] !== SIG[i]) return bytes;
+      const ihdrType = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
+      if (ihdrType !== "IHDR") return bytes;
+      const ihdrEnd = 8 + 25;
+      const ppm = Math.round(dpi * DPI_PER_METER);
+      const data = u8(be32(ppm), be32(ppm), Uint8Array.of(1));
+      const typeAndData = u8(Uint8Array.of(112, 72, 89, 115), data);
+      const chunk = u8(be32(9), typeAndData, be32(crc32(typeAndData)));
+      return u8(bytes.subarray(0, ihdrEnd), chunk, bytes.subarray(ihdrEnd));
+    }
+    function embedJpegDpi(bytes, dpi) {
+      if (bytes.length < 20 || bytes[0] !== 255 || bytes[1] !== 216) return bytes;
+      if (bytes[2] !== 255 || bytes[3] !== 224) return bytes;
+      const isJfif = bytes[6] === 74 && bytes[7] === 70 && bytes[8] === 73 && bytes[9] === 70 && bytes[10] === 0;
+      if (!isJfif) return bytes;
+      const d = Math.min(65535, Math.max(1, Math.round(dpi)));
+      const out = bytes.slice();
+      out[13] = 1;
+      out[14] = d >>> 8 & 255;
+      out[15] = d & 255;
+      out[16] = d >>> 8 & 255;
+      out[17] = d & 255;
+      return out;
+    }
+    function embedRasterDpi2(bytes, format, dpi) {
+      const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+      const d = Number(dpi);
+      if (!Number.isFinite(d) || d <= 0) return bytes;
+      try {
+        if (format === "png") return embedPngDpi(b, d);
+        if (format === "jpeg") return embedJpegDpi(b, d);
+      } catch (_e) {
+      }
+      return bytes;
+    }
     function padWidth2(count) {
       return Math.max(2, String(Math.max(1, count)).length);
     }
@@ -127,31 +220,61 @@ var require_image_set = __commonJS({
       const meta = FORMAT_META2[opts.format] || FORMAT_META2.png;
       const geom = p.geom || { w: 1280, h: 720 };
       const scale = Number(p.scale) || 1;
-      return {
+      const pixel = { width: Math.round(geom.w * scale), height: Math.round(geom.h * scale), scale };
+      const thumbs = p.thumbnails || [];
+      const thumbFor = (slide) => thumbs.find((t) => t.slide === slide);
+      const titles = p.slideTitles || [];
+      const out = {
         kind: "lattice-image-set",
-        version: 1,
+        version: 2,
         generator: p.generator || "lattice",
         deck: p.slug,
+        title: p.title || null,
+        palette: p.palette || null,
+        engine: { name: "lattice", version: p.engineVersion || null },
+        // Provenance — a stamp of WHEN the set was made. Omitted when the surface doesn't pass
+        // one (keeps the manifest byte-reproducible for callers that want that).
+        ...p.createdAt ? { createdAt: p.createdAt } : {},
         format: opts.format,
         mime: meta.mime,
         lossy: meta.lossy,
         quality: meta.lossy ? opts.quality : null,
         colorMode: opts.mode || DEFAULTS2.mode,
         svgBackground: opts.svgBackground || DEFAULTS2.svgBackground,
+        orientation: orientationOf2(geom.w, geom.h),
         slide: { width: geom.w, height: geom.h },
-        pixel: { width: Math.round(geom.w * scale), height: Math.round(geom.h * scale), scale },
+        pixel,
+        physical: physicalSize2(geom.w, geom.h),
+        dpi: dpiFor2(pixel.width, pixel.height),
         counts: {
           slides: (p.slides || []).length,
-          thumbnails: (p.thumbnails || []).length,
+          thumbnails: thumbs.length,
           assets: (p.assets || []).length
         },
-        slides: (p.slides || []).map((s) => ({
-          slide: s.slide,
-          image: s.name,
-          thumbnail: (p.thumbnails || []).find((t) => t.slide === s.slide)?.name || null
-        })),
-        assets: (p.assets || []).map((a) => ({ slide: a.slide, kind: a.kind || "svg", file: a.name }))
+        slides: (p.slides || []).map((s) => {
+          const t = thumbFor(s.slide);
+          return {
+            slide: s.slide,
+            title: titles[s.slide - 1] || null,
+            image: s.name,
+            bytes: s.bytes ?? null,
+            thumbnail: t?.name || null,
+            thumbnailBytes: t?.bytes ?? null
+          };
+        }),
+        assets: (p.assets || []).map((a) => ({
+          slide: a.slide,
+          kind: a.kind || "svg",
+          chartType: a.chartType || null,
+          file: a.name,
+          bytes: a.bytes ?? null
+        }))
       };
+      if (opts.thumbnails && thumbs.length) {
+        const ts = resolveThumbScale2(opts.thumbWidth, geom.w);
+        out.thumbnail = { width: Math.round(geom.w * ts), height: Math.round(geom.h * ts) };
+      }
+      return out;
     }
     function assembleImageSetPlan2(p) {
       const options = normalizeImageSetOptions2(p.options);
@@ -169,14 +292,14 @@ var require_image_set = __commonJS({
       images.forEach((data, i) => {
         const name = slideEntryName2(slug, i, count, meta.ext);
         files.push({ path: name, data });
-        slideEntries.push({ name, slide: i + 1 });
+        slideEntries.push({ name, slide: i + 1, bytes: dataByteLength2(data) });
       });
       if (options.thumbnails) {
         thumbs.forEach((data, i) => {
           if (!data) return;
           const name = thumbEntryName2(slug, i, count, meta.ext);
           files.push({ path: name, data });
-          thumbEntries.push({ name, slide: i + 1 });
+          thumbEntries.push({ name, slide: i + 1, bytes: dataByteLength2(data) });
         });
       }
       if (options.extractSvg) {
@@ -187,7 +310,7 @@ var require_image_set = __commonJS({
           perSlide.set(a.slide, n + 1);
           const name = assetEntryName2(slug, a.slide, n, count);
           files.push({ path: name, data: a.svg });
-          assetEntries.push({ name, slide: a.slide, kind: a.kind || "svg" });
+          assetEntries.push({ name, slide: a.slide, kind: a.kind || "svg", chartType: a.chartType || null, bytes: dataByteLength2(a.svg) });
         }
       }
       const manifest = buildImageSetManifest2({
@@ -198,6 +321,11 @@ var require_image_set = __commonJS({
         slides: slideEntries,
         thumbnails: thumbEntries,
         assets: assetEntries,
+        slideTitles: p.slideTitles,
+        title: p.title,
+        palette: p.palette,
+        engineVersion: p.engineVersion,
+        createdAt: p.createdAt,
         generator: p.generator
       });
       files.push({ path: "manifest.json", data: JSON.stringify(manifest, null, 2) });
@@ -223,6 +351,12 @@ var require_image_set = __commonJS({
       resolveThumbScale: resolveThumbScale2,
       svgBackgroundFill: svgBackgroundFill2,
       svgLookMode: svgLookMode2,
+      PHYSICAL_LONG_EDGE_IN: PHYSICAL_LONG_EDGE_IN2,
+      orientationOf: orientationOf2,
+      physicalSize: physicalSize2,
+      dpiFor: dpiFor2,
+      dataByteLength: dataByteLength2,
+      embedRasterDpi: embedRasterDpi2,
       padWidth: padWidth2,
       deckSlug: deckSlug2,
       slideEntryName: slideEntryName2,
@@ -252,6 +386,12 @@ var {
   resolveThumbScale,
   svgBackgroundFill,
   svgLookMode,
+  PHYSICAL_LONG_EDGE_IN,
+  orientationOf,
+  physicalSize,
+  dpiFor,
+  dataByteLength,
+  embedRasterDpi,
   padWidth,
   deckSlug,
   slideEntryName,
@@ -266,6 +406,7 @@ export {
   DEFAULTS,
   FORMAT_META,
   IMAGE_FORMATS,
+  PHYSICAL_LONG_EDGE_IN,
   RASTER_MAX_EDGE,
   SIZE_PRESETS,
   SVG_BACKGROUNDS,
@@ -275,9 +416,14 @@ export {
   assembleImageSetPlan,
   assetEntryName,
   buildImageSetManifest,
+  dataByteLength,
   deckSlug,
+  dpiFor,
+  embedRasterDpi,
   normalizeImageSetOptions,
+  orientationOf,
   padWidth,
+  physicalSize,
   resolveRasterScale,
   resolveThumbScale,
   slideEntryName,

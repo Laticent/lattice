@@ -113,7 +113,18 @@ diagram look (e.g. a **dark-source** deck → `print`/`light`) keeps the baked M
 in the slide scheme. For guaranteed diagram re-coloring from a dark-source deck, use the Studio,
 or export the whole set in that `--image-mode`.
 
-**One contract, two surfaces.** The zip layout, file naming, size presets, and
+**The `manifest.json` index** (`kind: "lattice-image-set"`, `version: 2`) lets a
+downstream tool wire up the set without probing files. It records: the deck `title`,
+`palette`, `engine` version, and `createdAt`; the `format`/`colorMode`/`svgBackground`
+(the RESOLVED scheme, not the raw `inherit`); `orientation` (landscape/portrait/square),
+the `slide` (CSS px) and `pixel` (raster px) boxes, the `physical` size (inches, long edge
+= 13.333in like the PPTX export) and the effective `dpi`; and per-file entries — each
+slide's `title`, `image`/`thumbnail` paths and `bytes`, and each chart/diagram asset's
+`kind`, `chartType`, and `bytes`. **The `dpi` is also baked into the PNG/JPEG bytes**
+(a `pHYs` chunk / JFIF density) so the images drop into a print/office document at the
+right physical size instead of the tool's 96dpi guess.
+
+**One contract, two surfaces.** The zip layout, file naming, size presets, DPI, and
 manifest live in one pure kernel (`lib/export/image-set.js`), so the CLI here and
 the Studio's Share → **Images (.zip)** export emit the same set (HARD RULE #1).
 The per-slide raster differs by surface (headless Chromium screenshots here;
