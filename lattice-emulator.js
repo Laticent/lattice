@@ -2385,8 +2385,13 @@ async function renderBody(browser, g, closeBrowser) {
               // A diagram that sets its OWN colors overrides Mermaid's theme variables, so the look
               // re-render can't fully recolor it: an author `%%{init}%%` theme (mmdc skips themeVars), or
               // explicit `fill:`/`stroke:`/`color:` hex/rgb in `style`/`classDef`/`linkStyle`.
-              const authorColored = /%%\{\s*init/i.test(def) ||
-                /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
+              // A pure `%%{init}%%` theme makes the re-render a total NO-OP (mmdc leaves the init block
+              // intact), so skip the wasted mmdc/Chromium cost and keep the diagram's live markup — its
+              // author colors are literal and context-independent. Flag it as author-kept. (An explicit
+              // `style`/`classDef` fill still benefits: the re-render recolors the theme-driven parts,
+              // leaving only the styled nodes in the author's colors — so it IS re-rendered below.)
+              if (/%%\{\s*init/i.test(def)) { authorKept.add(idx); continue; }
+              const explicitColor = /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
               // print → the print theme vars (MERMAID_THEME_VARS_PRINT, scheme-independent); light/dark
               // → the vars resolved from the LOOK palette above, so the diagram bakes the look's colors.
               const out = lookMode === 'print' ? renderMermaid(def, 'print') : renderMermaidOne(def, lookThemeVars, null);
@@ -2395,7 +2400,7 @@ async function renderBody(browser, g, closeBrowser) {
               // it's still in the slide scheme, unlike the benign author-color case.
               if (!/^\s*<div\b/.test(out)) { renderFailed.add(idx); continue; }
               parts.push(out.replace(/^<div class="mermaid-svg/, `<div data-look-idx="${idx}" class="mermaid-svg`));
-              if (authorColored) authorKept.add(idx);
+              if (explicitColor) authorKept.add(idx);
             }
             lookDiagramMarkup = new Map();
             if (parts.length) {
