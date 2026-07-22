@@ -9,10 +9,11 @@
  * foreground status ink (`--pass`/`--warn`/`--fail`) on both, which is where a
  * warn amber tuned for `--bg` used to slip under AA on the slightly darker
  * `--bg-alt`. A theme value that regresses any pair below 4.5:1 fails here with
- * the exact fg/bg/ratio, before it can reach a slide. (The mermaid/chart node-fill
- * pairs in the matrix reference engine-COMPOSED tokens the theme files don't
- * declare — `EXTERNAL_BG` — so they're expected skips here; auditing them needs a
- * tool that loads the engine, tracked in #1165.)
+ * the exact fg/bg/ratio, before it can reach a slide. The matrix also covers the
+ * mermaid/chart categorical node fills (`--cat-on-fill` on `--cat-N-fill`), which
+ * resolve straight from the theme's `@import` chain (#1165 replaced the old
+ * unresolvable `chart-1..6` placeholder names). The native chart-family's DERIVED
+ * fills (color-mix in oklab) + slot-distinctness are gated in `chart-contrast.test.js`.
  */
 
 const { test, describe } = require('node:test');
@@ -39,8 +40,8 @@ describe('theme surface AA (contrast-audit PAIRS over every theme)', () => {
       // resolvers in tools/contrast-audit.js — parsePaletteVars / resolveTranslucent
       // / parseHex — don't handle) is otherwise silently skipped, turning a real
       // sub-AA regression into a phantom "0 fails". Force the resolver to be
-      // extended instead of letting coverage rot. (Engine-composed backdrops are
-      // the EXTERNAL_BG allowlist, not counted here. 0 missing across all themes today.)
+      // extended instead of letting coverage rot. (Every PAIRS token is theme-owned
+      // or resolved via @import; 0 missing across all themes today.)
       const miss = res.missing.map((m) => `${m.fg} on ${m.bg} — ${m.ctx}`);
       assert.equal(res.missing.length, 0, `${name} UNRESOLVED (extend the resolvers in contrast-audit.js):\n  ${miss.join('\n  ')}`);
     });

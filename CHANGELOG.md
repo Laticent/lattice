@@ -274,6 +274,16 @@ in patch versions.
   a width change after the ceiling fired), the card **yields** rather than occluding the now-good slide.
   The Studio's own loader hosts are unchanged (they keep their Nacre skeleton). (#1164,
   `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
+- **The contrast audit now actually checks the mermaid/chart categorical node fills instead of silently skipping them.**
+  `tools/contrast-audit.js` carried placeholder pair names (`chart-1..6`, `mermaid-primary-color`) that no theme
+  declares, so those 14 pairs/theme never resolved and were skipped — the tool printed "✓ all checks pass" without
+  verifying mermaid text contrast (#1165). They're replaced with the real tokens the engine paints — `--cat-on-fill`
+  (label ink) on `--cat-N-fill` (nodes, gantt tasks, pie sections, kanban lanes), N=1..12 — which resolve straight
+  from each theme's `@import` chain and are now gated by `theme-surface-aa.test.js` (all clear AA, both canvases,
+  every theme). The now-redundant `EXTERNAL_BG` allowlist and the inert `chart-1..6` OKLab distinctness advisory are
+  removed; the native SVG chart-family's *derived* fills (`--chart-cat-N-fill`, color-mix in oklab) and their
+  slot-distinctness remain gated in `chart-contrast.test.js`. No theme values changed. (`tools/contrast-audit.js`,
+  `test/unit/palette/theme-surface-aa.test.js`.)
 - **The Studio's pre-hydration shell title bar is now on-brand and theme-aware, not a grey placeholder.**
   The shell topbar showed a generic gradient-chip logo on a hardcoded grey bar. It now renders the real
   Lattice **"Spectrum Cell"** mark (inline SVG, bonds keyed to light/dark) and tints the bar with the
