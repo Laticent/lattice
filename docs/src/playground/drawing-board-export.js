@@ -1069,7 +1069,14 @@ export async function exportImageSet(render, name, opts, onStatus) {
 			await ensureFontsLoaded(frame.contentDocument, fontCssAll);
 			sections.forEach((sec, si) => {
 				const targets = [];
-				sec.querySelectorAll('.mermaid-svg svg').forEach((s) => { targets.push([s, 'diagram']); });
+				// Mermaid renders differently per surface: the engine pre-renders to a
+				// `.mermaid-svg` wrapper (the CLI path), while in the browser the runtime
+				// renders client-side into a `.mermaid` div (lib/runtime/index.js). Match
+				// BOTH so the Studio extracts the same diagrams the CLI does — otherwise the
+				// two surfaces would emit different sets (the `.mermaid-error` sibling has no
+				// <svg>, so it's never matched). See waitForDiagrams above, which waits on
+				// exactly these wrappers.
+				sec.querySelectorAll('.mermaid-svg svg, .mermaid svg').forEach((s) => { targets.push([s, 'diagram']); });
 				if (sec.classList.contains('chart-frame') && CLEAN_SVG_LAYOUTS.some((c) => sec.classList.contains(c))) {
 					sec.querySelectorAll('svg[viewBox]').forEach((s) => { targets.push([s, 'chart']); });
 				}

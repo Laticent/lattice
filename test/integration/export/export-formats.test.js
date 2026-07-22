@@ -21,6 +21,9 @@ describe('export-formats', () => {
   const ROOT     = path.join(__dirname, '..', '..', '..');
   const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
   const FIXTURE  = path.join(ROOT, 'test', 'fixtures', 'preview-deck.md');
+  // A deck carrying one keyed chart + one Mermaid diagram — exercises the image
+  // set's standalone-SVG extraction (both kinds), which the no-Mermaid FIXTURE can't.
+  const CHART_DIAGRAM_FIXTURE = path.join(ROOT, 'test', 'fixtures', 'chart-diagram-deck.md');
   const TIMEOUT  = 60000;
 
   function tmpDir() {
@@ -386,6 +389,51 @@ describe('export-formats', () => {
     const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
     assert.equal(manifest.format, 'jpeg');
     assert.equal(manifest.pixel.scale, 1, '--image-size 1x rasters at 1×');
+  });
+
+  test('image set extracts standalone SVGs for BOTH keyed charts and Mermaid diagrams', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+    const assets = names.filter((n) => /^deck\/assets\/deck-s\d+-c\d+\.svg$/.test(n)).sort();
+    // One chart (slide 1) + one diagram (slide 2) → two standalone SVGs.
+    assert.equal(assets.length, 2, `expected 2 SVG assets, got ${assets.join(', ')}`);
+    assert.deepEqual(assets, ['deck/assets/deck-s01-c00.svg', 'deck/assets/deck-s02-c00.svg']);
+
+    // Each is a real, self-contained SVG document (xmlns + embedded @font-face so it
+    // opens with the right type outside the deck — the standalone contract).
+    for (const a of assets) {
+      const svg = await zip.file(a).async('string');
+      assert.match(svg, /<svg[\s>]/, `${a} is not an <svg>`);
+      assert.match(svg, /xmlns="http:\/\/www\.w3\.org\/2000\/svg"/, `${a} missing xmlns`);
+      assert.match(svg, /@font-face/, `${a} missing embedded fonts`);
+    }
+
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.counts.assets, 2);
+    assert.deepEqual(manifest.assets.map((x) => x.kind).sort(), ['chart', 'diagram']);
+  });
+
+  test('--no-svg omits the standalone SVG assets', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--no-svg'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+    assert.ok(!names.some((n) => n.includes('/assets/')), '--no-svg should omit assets/');
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.counts.assets, 0);
   });
 
   // Accessibility: the exported PDF shell must carry the deck's title + language, so a
