@@ -314,10 +314,15 @@ values differ.**
 | `--diagram-note` | Pale yellow — aside / footnote surface | `#FFFBE6` |
 
 Gantt task lifecycle uses warm + cool + alarm + mark. Sequence-diagram
-notes use note + mark. Mermaid's `errorBkgColor` resolves to `diagram-critical`.
-The deck-wide alarm signal is one colour; pre-consolidation it was
-spelled `--diagram-state-critical` AND `--diagram-error-bg` (both
-saturated red), now `--diagram-critical` covers both.
+notes use note + mark. Mermaid's parse-error box resolves to the gated
+**error-chip pair** — `--bg` text on the `--fail` alarm red — NOT
+`--diagram-critical` (decoupled in #1181; the old coupling made the error
+ink track the categorical-mark tier, which failed on the achromatic diagram
+ramps where `--diagram-critical` is a mid-gray). `--diagram-critical` now
+serves only the gantt critical bar + the diagram severity ramp. The deck-wide
+alarm signal is one colour; pre-consolidation it was spelled
+`--diagram-state-critical` AND `--diagram-error-bg` (both saturated red), now
+`--diagram-critical` covers both.
 
 cuoio is the one shipped theme that overrides the universal palette —
 its leather aesthetic wants a warm pale gold-wash + saddle leather
@@ -573,8 +578,8 @@ Two checks worth running:
 
 **Contrast**: `test/unit/palette/contrast.test.js` parses every shipped
 palette and asserts AA on every `--cat-N-fill` / `--cat-on-fill` pair, every
-`--cat-N-mark` / `--cat-on-mark` pair, `--text-heading`
-on `--bg`/`--bg-alt`, and `--cat-on-mark` on `--diagram-critical` — in both light
+`--cat-N-mark` / `--cat-on-mark` pair, and `--text-heading`
+on `--bg`/`--bg-alt` — in both light
 and dark. Add your new palette to the test's loop (the `['indaco',
 'cuoio']` literal). If a pair fails, lift the text (darker on light,
 lighter on dark) or lift the surface; don't lower the bar.

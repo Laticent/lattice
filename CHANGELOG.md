@@ -169,10 +169,15 @@ in patch versions.
   slide-surface audit already holds to AA in both canvas modes) — so its legibility rides an
   independently-gated pair and `--cat-on-mark` is free to serve categorical marks alone. The
   `['diagram-critical','cat-on-mark']` contract pair (and its mirror unit test) are **retired**; no
-  renderer reads that coupling anymore. *Surface note (HARD RULE #23):* the fix lands on a gated pair by
-  construction, but the live error-SVG fallback is rarely hit and was **not** exercised on a real render
-  here — marked UNVERIFIED on that surface. (`lib/runtime/index.js`, `lib/theme/contrast.js`,
-  `lib/theme/derive.js`.)
+  renderer reads that coupling anymore. The mapping is aligned on **both** render paths — the browser
+  runtime (`lib/runtime/index.js`) AND the default CLI/PDF-export path (`lattice-emulator.js`, which had
+  independently borrowed `--cat-on-fill` on `--diagram-critical`) — so both share one error-box mapping
+  (HARD RULE #1). *Surface note (HARD RULE #23):* on the **export path** a mermaid parse error degrades to
+  a legible source **code block** before mermaid's error SVG is ever drawn — verified by rendering a broken
+  block in ardesia (achromatic, worst case) in both light and dark. The **browser** error SVG (Studio
+  preview) can't be exercised headless here and stays **UNVERIFIED**, but now carries the correct gated
+  mapping. (`lib/runtime/index.js`, `lattice-emulator.js`, `lib/theme/contrast.js`, `lib/theme/derive.js`,
+  `design/theming.md`.)
 - **Categorical corner tags (decision / roadmap / compare-prose) are now legible in every theme.** The
   tag ink `--cat-on-mark` was set to `var(--text-heading)` in 11 themes — which puts near-black on the
   saturated light-mode mark and white on the pale dark-mode mark, i.e. **inverted** — so tags like the
