@@ -877,15 +877,22 @@ in patch versions.
   The contrast audit (`tools/contrast-audit.js`) only ever checked status colors as *fills* (`bg` on a
   `--fail` chip) and text roles on the main canvas — it never checked `--pass`/`--warn`/`--fail` used as
   *foreground ink* (state labels, stamps, stance markers) or `text-secondary`/`text-label` on the slightly
-  darker card surface. Extending the audit to those directions surfaced **19 sub-AA pairs across 15 themes**
-  — dominated by warn ambers tuned to clear `--bg` but landing 4.1–4.4:1 on `--bg-alt`. Every one is now
-  fixed at the theme source by nudging the light-mode ink a touch darker (target ~4.6:1 for margin): `--warn`
-  in ardesia, atelier, brina, burgundy, crepuscolo, indaco, laguna, magnolia, mustard and the four a11y
-  palettes; `--pass` in laguna (`#197848`, tuned to also hold ≥0.15 protanopia pass↔fail CVD separation,
-  not just AA); `--text-label` in atelier, mustard; `--text-secondary` in cuoio, concrete (dark). The a11y
-  darkening was verified CVD-neutral (0 change in `cvd-audit` collapses; the achromatopsia grayscale ramp
-  stays evenly separated). Dark-mode arms are untouched except concrete's `--scheme-dark-text-secondary`
-  (`#9A9A98`→`#A3A3A1`) — the one dark-side card fix. (`tools/contrast-audit.js`, `themes/*.css`.)
+  darker card surface. Extending the audit to those directions surfaced **19 pairs below the 4.5:1 small-text
+  bar across 15 themes**. Most are real small-text consumers (`--pass`/`--fail`/`--text-label`/`--text-secondary`
+  on the `--bg-alt` card, and all three status inks on the `--bg` canvas). The `--warn`-on-`--bg-alt` pairs are
+  a deliberate **proactive safety margin**: no component renders small warn text on a card today (its only card
+  use is the large KPI number at the large-text 3:1 bar, which the originals already cleared), but we hold warn
+  to 4.5:1 there anyway so a future small warn-on-card is safe ahead of need. Every pair is fixed at the theme
+  source by nudging the light-mode ink a touch darker (target ~4.6:1 for margin): `--warn` in ardesia, atelier,
+  brina, burgundy, crepuscolo, indaco, laguna, magnolia, mustard and the four a11y palettes; `--pass` in laguna
+  (`#197848`, chosen so it still holds the ≥0.15 protanopia pass↔fail CVD floor — 0.152 — after the AA
+  darkening); `--text-label` in atelier, mustard; `--text-secondary` in cuoio, concrete (dark). The a11y
+  darkening holds every CVD gate — `cvd-audit` collapse counts are unchanged and each dichromacy warn↔fail
+  stays above the 0.15 OKLab floor — though the darker warns do consume some margin (deuteranopia 0.181→0.161,
+  tritanopia 0.216→0.188); achromatopsia is luminance-gated (1.25 contrast-ratio floor), not ΔE-gated, and its
+  grayscale ramp stays evenly separated. Dark-mode arms are untouched except concrete's
+  `--scheme-dark-text-secondary` (`#9A9A98`→`#A3A3A1`) — the one dark-side card fix.
+  (`tools/contrast-audit.js`, `themes/*.css`.)
 - **Status-fill and accent chrome controls are now contrast-safe and colorblind-aware in dark mode.**
   Follows the chrome status-token fix: (1) new generated `--pass-fill`/`--warn-fill`/`--fail-fill`
   tokens back the white-text status FILLS (the Stop / armed-delete buttons, the diagnostics verdict

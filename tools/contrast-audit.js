@@ -226,19 +226,31 @@ const PAIRS = [
   ['text-heading', 'bg', 'mermaid: edge label text on canvas bg'],
 
   // ── Foreground status INK on both slide surfaces ──────────────────────
-  // pass/warn/fail are consumed as foreground TEXT / --state-color / --stamp-color
-  // ink — regulatory-update diff-band headings (`color:var(--pass|warn|fail)` on a
-  // `background:var(--bg-alt)` cell), policy-recommendation `--stance`, redline
-  // del/ins — on the canvas AND on card/table surfaces (bg-alt). (obligation-matrix
-  // uses --state-color as a mark FILL over --bg, not as ink, so it's not this pair.)
-  // These inks were historically tuned against --bg only; a card is bg-alt, which on a light
-  // theme is a touch DARKER than --bg (e.g. indaco #F2F5FA vs #FFFFFF), so a warn
-  // amber that clears --bg can slip under AA on --bg-alt. Held to 4.5 (ink).
+  // POLICY: hold all three status inks (pass/warn/fail) to AA small-text (4.5:1)
+  // on BOTH real backdrops a theme declares — the canvas (--bg) and the card
+  // (--bg-alt) — as a DELIBERATE proactive-safety margin. The point is that any
+  // future component rendering small status text on a card is already safe,
+  // without a per-color re-audit. This is a proactive bar, not a claim that every
+  // pairing has a small-text consumer today. What actually consumes these inks now:
+  //   • on --bg, small text — regulatory-update diff-band headings
+  //     (`color:var(--pass|warn|fail)` at --fs-meta, on the .cell-stage canvas).
+  //   • on --bg-alt, small text — redline's numbered-rationale rows put --pass/--fail
+  //     ink at --fs-meta on a near-bg-alt surface (a 4% own-hue tint over --bg-alt).
+  //   • --warn on --bg-alt has NO small-text consumer today — its only card use is
+  //     the large KPI number (kpi.ops, --fs-h1), whose bar is large-text 3:1, which
+  //     these ambers clear with margin. We still hold it to 4.5 here, on purpose,
+  //     so a future small warn-on-card is covered ahead of need.
+  // NOT audited (deliberately): status ink over its OWN-hue tint — policy-recommendation
+  // `--stance` on `--stance-bg`, redline ins/del on `--pass-bg`/`--fail-bg`,
+  // obligation-matrix `--state-color` as a mark FILL. A same-hue decorative wash isn't
+  // a distinct background; that bar was reviewed and reverted (it can't be met without
+  // damaging the curated hues). NB `--bg-alt` is a touch DARKER than `--bg` on light
+  // themes (indaco #F2F5FA vs #FFFFFF), so it is the stricter of the two backdrops.
   ['pass', 'bg',     'slide: pass status ink on canvas'],
   ['warn', 'bg',     'slide: warn status ink on canvas'],
   ['fail', 'bg',     'slide: fail status ink on canvas'],
   ['pass', 'bg-alt', 'slide: pass status ink on card'],
-  ['warn', 'bg-alt', 'slide: warn status ink on card'],
+  ['warn', 'bg-alt', 'slide: warn status ink on card (proactive; no small-text consumer today)'],
   ['fail', 'bg-alt', 'slide: fail status ink on card'],
 
   // ── Secondary text roles on the card surface (bg-alt) ─────────────────
@@ -289,12 +301,16 @@ function auditTheme(theme) {
   let checks = 0;
 
   for (const [fg, bg, ctx] of PAIRS) {
-    // An engine-composed backdrop the theme file doesn't declare is an EXPECTED
-    // skip (see EXTERNAL_BG); any OTHER unresolvable pair is recorded so a
-    // theme-owned pair can't be silently dropped into a phantom "0 fails".
+    // An engine-composed backdrop the theme file doesn't DECLARE is an EXPECTED
+    // skip (see EXTERNAL_BG) — but only when the token is genuinely ABSENT. A
+    // token the theme DOES declare yet we can't parse to hex (a future
+    // color-mix()/oklch() override on, say, --chart-1) is a real coverage gap and
+    // is recorded even for EXTERNAL_BG, so it can't silently reopen the
+    // dropped-pair hole. Any other unresolvable pair is always recorded.
     const bgHex = vars[bg];
     if (!bgHex || !parseHex(bgHex)) {
-      if (!EXTERNAL_BG.has(bg)) missing.push({ ctx, fg: vars[fg] ?? `--${fg}`, bg: bgHex ?? `--${bg} (absent)` });
+      const expectedSkip = EXTERNAL_BG.has(bg) && bgHex === undefined;
+      if (!expectedSkip) missing.push({ ctx, fg: vars[fg] ?? `--${fg}`, bg: bgHex ?? `--${bg} (absent)` });
       continue;
     }
     // fg: plain hex, or a translucent on-dark ink composited over bg.

@@ -1696,8 +1696,12 @@ of how many rows are here.
   but never consumed, was the intended lever; it's removed in favor of this one rule, which
   also subsumes the a11y mode-invariant case.) (2) `a11y-achromatopsia`'s grayscale `--warn`
   was `#7a7a7a` (4.29:1) — darkened to `#6E6E6E`, which clears AA on its surface AND stays
-  CVD-distinct (`cvd-palette` ≥0.15 holds, `cvd-audit` collapses unchanged). A theme-wide
-  contrast gate (`test/unit/palette/theme-surface-aa.test.js`) now catches any regression.
+  CVD-distinct. Achromatopsia is gated by a luminance contrast-ratio floor (1.25,
+  `ACHROMAT_FLOOR` in `cvd-palette.test.js`) — NOT the 0.15 OKLab ΔE floor the three dichromacy
+  palettes use, from which it's explicitly excluded (its trio is luminance-only greys whose
+  distinction rides the glyphs, not a color ΔE the simulation measures); the ramp holds ~1.6:1
+  pairwise and `cvd-audit` collapses are unchanged. A theme-wide contrast gate
+  (`test/unit/palette/theme-surface-aa.test.js`) now catches any regression.
 - **Triggered by:** Referencing any slide-theme token from chrome that lives outside a
   slide (a `<body>`-portaled overlay / popover / toast).
 - **Commits:** status trio → `PORTAL_TOKENS` + `@import`-scan fix (a11y) + `carta` completion
