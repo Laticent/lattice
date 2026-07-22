@@ -191,17 +191,10 @@ describe('contrast', () => {
         assert.deepEqual(failures, [], `WCAG AA failures in ${name} (${mode}):\n  ${failures.join('\n  ')}`);
       });
 
-      test(`contrast: ${name} (${mode}) --cat-on-mark clears AA on --diagram-critical`, () => {
-        const vars = loadPaletteWithImports(name, mode);
-        const fill = vars['diagram-critical'];
-        const text = vars['cat-on-mark'];
-        assert.ok(fill && text, 'diagram-critical + cat-on-mark defined');
-        const ratio = contrastRatio(fill, text);
-        assert.ok(
-          ratio >= AA_THRESHOLD,
-          `--cat-on-mark (${text}) on --diagram-critical (${fill}) = ${ratio.toFixed(2)}:1 (< ${AA_THRESHOLD})`,
-        );
-      });
+      // (Retired in #1181: the "--cat-on-mark clears AA on --diagram-critical" test.
+      // The mermaid parse-error box — the pair's only renderer — was decoupled to the
+      // gated ['bg','fail'] error-chip pair, so --cat-on-mark no longer sits on
+      // --diagram-critical anywhere. See lib/runtime/index.js + lib/theme/contrast.js.)
     }
   }
 

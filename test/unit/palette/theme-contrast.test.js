@@ -24,7 +24,7 @@ describe('theme-contrast', () => {
   test('auditVars flags a failing pair and passes a clean one', () => {
     const clean = {
       bg: '#ffffff', 'bg-alt': '#ffffff', 'text-heading': '#000000',
-      'cat-on-mark': '#ffffff', 'diagram-critical': '#a10000',
+      'cat-on-mark': '#ffffff',
     };
     // add 12 light + 12 deep pairs that all pass
     for (let i = 1; i <= 12; i++) { clean[`cat-${i}-fill`] = '#f4f4f4'; clean[`cat-${i}-mark`] = '#222222'; }
@@ -49,7 +49,7 @@ describe('theme-contrast', () => {
     const vars = {
       bg: 'light-dark(#ffffff, #000000)', 'bg-alt': 'light-dark(#ffffff, #000000)',
       'text-heading': 'light-dark(#000000, #050505)',
-      'cat-on-fill': '#000000', 'cat-on-mark': '#ffffff', 'diagram-critical': '#a10000',
+      'cat-on-fill': '#000000', 'cat-on-mark': '#ffffff',
     };
     for (let i = 1; i <= 12; i++) { vars[`cat-${i}-fill`] = '#f4f4f4'; vars[`cat-${i}-mark`] = '#222222'; }
     const both = auditBoth(vars, { level: 'gate' });
