@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { getFrontMatter } from '@/components/studio/front-matter';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
@@ -83,11 +84,25 @@ export type DeckPreviewProps = {
 	 */
 	onFirstRender?: () => void;
 	/**
+	 * Fired after each render that actually committed (unlike `onFirstRender`, once) — a deferred
+	 * inactive-host render that bails fires nothing. Lets a parent that hosts its own parent-side
+	 * layer over this preview re-sync it to the freshly rendered slide (Present re-pins the
+	 * chart-detail hit-surface here). It can fire per coalesced keystroke on a live-editing host, so
+	 * keep the handler cheap and idempotent.
+	 */
+	onRender?: () => void;
+	/**
 	 * Show the Nacre "no slide yet" loader behind the live iframe until the first slide
 	 * paints (then it fades + freezes). Opt-in — only the Studio's live preview wants it;
 	 * landing/showcase hosts render a known static sample with no meaningful load gap.
 	 */
 	loader?: boolean;
+	/**
+	 * Mount the parent-hosted chart mark-detail reveal over this preview (hover a chart mark to
+	 * reveal its authored detail). Opt-in — ONLY the Studio's primary editing preview wants it; a
+	 * thumbnail / specimen host must stay static (a grid of popovers would be noise). Off by default.
+	 */
+	chartDetail?: boolean;
 };
 
 /**
@@ -108,7 +123,9 @@ export function DeckPreview({
 	className,
 	role,
 	onFirstRender,
+	onRender,
 	loader = false,
+	chartDetail = false,
 	...aria
 }: DeckPreviewProps) {
 	// Nacre loader = the SKELETON. It owns the screen for the whole load and yields ONLY
@@ -143,6 +160,10 @@ export function DeckPreview({
 	const onFirstRenderRef = React.useRef(onFirstRender);
 	onFirstRenderRef.current = onFirstRender;
 	const firstRenderFiredRef = React.useRef(false);
+	// Every-paint signal (Present re-pins its chart-detail hit-surface here). Ref-held so it never
+	// enters the render closure's dependency list.
+	const onRenderRef = React.useRef(onRender);
+	onRenderRef.current = onRender;
 
 	// Reveal-watcher — the skeleton hand-off. Fade the Nacre loader AND fire onFirstRender
 	// (dismiss the SSG instant-shell) exactly when the live `iframe.live` starts fading in.
@@ -308,6 +329,10 @@ export function DeckPreview({
 	const animaRef = React.useRef<{ rebind(): void; destroy(): void } | null>(null);
 	const animaBoundRef = React.useRef(false);
 	const animaLoadingRef = React.useRef(false);
+	// The parent-hosted chart mark-detail reveal (opt-in via `chartDetail`). Driven by rebind() after
+	// each paint, like the Anima host — the shared ChartDetailLayer (rendered below) lazily binds once
+	// `iframe.live` exists.
+	const chartDetailRef = React.useRef<ChartDetailHandle | null>(null);
 	const syncAnima = React.useCallback(() => {
 		if (animaRef.current) {
 			animaRef.current.rebind();
@@ -400,6 +425,18 @@ export function DeckPreview({
 		// attach the load listener once; `syncAnima` covers the in-place patch path (no `load`).
 		bindAnima();
 		syncAnima();
+		// Re-pin the chart-detail layer over THIS render's chart. A no-op unless the `chartDetail` opt-in
+		// mounted it; it lazily binds on the first call once the frame exists. Pinned mode (not hoverAny):
+		// the Studio preview box is pointer-events:none (a swipe surface), so hover can't reach the iframe
+		// — the pinned hit-surface (pointer-events:auto) over the chart receives it. The frame holds one
+		// slide, so onSlide(0). A keystroke mints a new section node, so this re-pins each render. Gated on
+		// a real `status` (same as onRender below): a deferred inactive-host bail returns undefined and must
+		// NOT mount/re-pin the layer over a slide that didn't paint.
+		if (status) chartDetailRef.current?.onSlide(0);
+		// Committed-render signal for a parent hosting its own layer over this preview (Present re-pins
+		// here). Gated on a real `status` so a deferred inactive-host bail (status undefined) doesn't
+		// fire it — matches the prop contract and can't drive a phantom re-pin on a host that didn't paint.
+		if (status) onRenderRef.current?.();
 		return { heavy: status?.writePath === 'write' };
 	};
 
@@ -496,7 +533,8 @@ export function DeckPreview({
 	// overlay anchors to the figure. A non-loader host with no failure stays static (byte-for-byte
 	// unchanged anchoring).
 	return (
-		<figure ref={stageRef} className={cn((loader || failed) && 'relative', 'm-0', className)} role={role} {...aria}>
+		<>
+		<figure ref={stageRef} className={cn((loader || failed || chartDetail) && 'relative', 'm-0', className)} role={role} {...aria}>
 			{loader && (
 				<span className={cn('nacre-loader', painted && 'is-done')} aria-hidden="true">
 					<span className="nacre-loader__core" />
@@ -535,6 +573,19 @@ export function DeckPreview({
 				</div>
 			)}
 		</figure>
+		{/* The chart mark-detail reveal (opt-in), PINNED mode: the preview box is pointer-events:none (a
+		    swipe surface), so the reveal rides a parent hit-surface (pointer-events:auto) over the chart —
+		    getStage = the figure (its positioning context; kept `relative` above). The React node lives
+		    OUTSIDE the figure so it never disturbs the figure's single-React-child / imperatively-appended
+		    `iframe.live` invariant; the popover portals to <body>. Re-pinned each paint via onSlide(0). */}
+		{chartDetail && (
+			<ChartDetailLayer
+				ref={chartDetailRef}
+				getFrame={() => stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null}
+				getStage={() => stageRef.current}
+			/>
+		)}
+		</>
 	);
 }
 

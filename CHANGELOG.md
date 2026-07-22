@@ -40,7 +40,28 @@ in patch versions.
   explicit `style`/`classDef` fills) overrides the look — the CLI warns with a count (ungated by
   `--quiet`) and leaves those in their own colors rather than claiming a conversion it can't make.
   (`lattice-emulator.js`; `engineering/pipeline.md` §5.)
-
+- **Chart mark-detail popups now work in the Studio's live editing preview — and coexist with chart
+  motion.** The authored per-mark detail reveal (hover a chart mark → its `.chart-details` popover)
+  ran only on `/playground` and the frozen Drawing-Board present; the Studio's live preview never
+  mounted the layer, so an author couldn't see the detail they'd written as they edited. The
+  parent-hosted layer + its shadcn popover are now ONE shared widget (`docs/src/components/chart-detail-layer.tsx`)
+  — the Playground refactors onto it (HARD RULE #15) and the Studio editing preview opts in via a new
+  `DeckPreview` `chartDetail` prop (thumbnails / specimens stay static). It **composes with motion**: an
+  animated chart carries both a hidden poster and a live clone, so `chart-interact` now binds the
+  VISIBLE svg — static, mid-build, and settled charts all reveal correctly (popover cursor-anchored).
+  Present is wired too, in pinned mode over its pointer-events-none delivery card (number-key reveal),
+  via a new `DeckPreview` `onRender` hook. The popover is a **readable-first** tooltip — a legible,
+  collision-aware card at a fixed size, NOT shrunk to a heavily-scaled mobile preview (a card scaled
+  into a tiny slide is unreadable, defeating the tooltip); it reads as proportionate on full-screen
+  Present. **Present's tap-reveal is fixed at the root:** the hit-surface used to never bind on the
+  slide Present opens on, because the host re-pin (`onSlide`) runs a microtask after render while the
+  srcdoc parses on the next task — so it found no chart and never retried. Pinned mode now re-binds on
+  the iframe's `load` event (the same self-heal hover mode already uses), so the surface binds the
+  instant the slide parses. (Root cause + fix confirmed by static trace and a unit test reproducing the
+  race; **Present's live runtime needs a real-device / deploy-preview check** — its overlay preview never
+  leaves the loader skeleton in the headless sandbox.)
+  (`docs/src/components/chart-detail-layer.tsx`, `DeckPreview.tsx`,
+  `docs/src/components/studio/StudioShell.tsx` + `PresentOverlay.tsx`, `docs/src/playground/chart-interact.js`.)
 - **Anima can now animate a real Lattice chart — with zero model calls.** A new ingest bridge
   (`docs/src/lib/chart-anima.ts` `chartToScene`) reads a rendered chart's own marks (the
   `[data-mark]` bands + `<text>` the chart already emits), maps each class to a motion role

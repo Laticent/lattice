@@ -2674,7 +2674,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    unreachable because nothing is a position:fixed element chasing a slot.
 					    Present renders its OWN preview (PresentOverlay), so this one idles
 					    (active=false) while presenting but stays warm. */}
-					<DeckPreview options={options} sample={editorSample} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader />
+					<DeckPreview options={options} sample={editorSample} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type. Dropped in the
