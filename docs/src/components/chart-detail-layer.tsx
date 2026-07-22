@@ -154,15 +154,18 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
 
   // `enabled` is a real off-switch: when it flips false on a STILL-MOUNTED layer, tear the controller
   // down (its observers/listeners would otherwise keep running) and clear any open detail so it can't
-  // re-open with a stale card when re-enabled. A host that unmounts on disable (Present) hits the effect
-  // cleanup above instead; this covers the toggle-while-mounted case.
+  // re-open with a stale card; on flip BACK to true it re-mounts (the mount effect above runs only on the
+  // first mount, so a toggle-while-mounted needs its own re-mount here). A host that unmounts on disable
+  // (Present) hits the effect cleanup above instead; this covers the toggle-WITHOUT-unmount case both ways.
   React.useEffect(() => {
-    if (!enabled) {
+    if (enabled) {
+      ensureMounted();
+    } else {
       ci.current?.destroy();
       ci.current = null;
       setDetail(null);
     }
-  }, [enabled]);
+  }, [enabled, ensureMounted]);
 
   if (!enabled) return null;
   // READABLE-FIRST sizing. This is a detail TOOLTIP — an on-demand readout whose whole job is to be

@@ -105,9 +105,9 @@ The editing-preview path is verified on the real `/studio` in headless Chromium 
 `mouse.move` / `touchscreen.tap` (true hit-testing, not synthetic iframe-document events)**:
 - **Desktop** (S=0.592): the popover reveals on hover for a static piechart AND a settled animated one,
   clears on leave, zero page errors; the card scales to S (151×54px).
-- **Mobile** (390px pane, S=0.278): a tap reveals the popover and the card lands at ~40% of the slide
-  width — proportionate, readable, cleanly a tooltip (the "way too big" report is fixed). Emulated
-  touch, real hit-testing.
+- **Mobile** (390px pane, S=0.278): a tap reveals the popover and it renders as a **readable, fixed-size**
+  tooltip (the readable-first decision) — legible on the phone-sized authoring thumbnail, kept on-screen
+  by `collisionPadding`. Emulated touch, real hit-testing.
 
 The Playground is unaffected (measured `S = 1`, so the geometry changes are no-ops).
 
