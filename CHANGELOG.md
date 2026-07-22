@@ -145,9 +145,13 @@ in patch versions.
   (`base.tokens.css`, no override), so the audit now checks `--text-body` and `--accent` on `--accent-soft`
   across all 32 themes. That surfaced two genuine sub-AA gaps in the accent-on-accent-soft pair: **mustard**
   (3.40:1 — its `--accent-soft` was curated too saturated/dark for a "pale tint") and **magnolia** (4.50:1,
-  a hair under). Both are fixed at the theme source by a hue+chroma-locked lightening of the light-mode
+  a hair under). Both are fixed at the theme source by a **hue-preserving lightening** of the light-mode
   `--accent-soft` fill (mustard `#E8D580`→`#FFF5C5`, magnolia `#F5DDD8`→`#F7DFDA`) — background-only, so no
-  ink/brand token shifts — bringing every accent-soft foreground to AA in both canvas modes (#1167, the last
+  ink/brand token shifts. The hue holds (mustard h≈97°); magnolia's ΔL is a hair (chroma essentially
+  unchanged), while mustard's larger lighten (ΔL +0.10) also **compresses chroma ~0.108→0.063** — an
+  unavoidable desaturation, since yellow runs into the sRGB gamut edge as it approaches white, so the
+  saturated old tint becomes a pale cream. Net: every accent-soft foreground clears AA in both canvas modes
+  (#1167, the last
   foreground-surface gap alongside the mermaid/chart gap closed in #1165). `text-secondary` on
   `--accent-soft` was deliberately **not** added: no component renders secondary text on that panel, so
   gating it would police a surface that doesn't exist. Verified by rendering mustard's verdict / verdict-grid

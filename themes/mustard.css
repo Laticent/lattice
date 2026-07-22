@@ -84,7 +84,7 @@
   /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
    * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
   --code-inline-fg: light-dark(#6A5112, var(--accent)); /* light ink deepened for AA on card (L:5.63/5.06 · D:7.76/6.04) */
-  --accent-soft: light-dark(#FFF5C5, var(--bg-warm-mid)); /* accent ink reads L:4.56:1 / D:high (#1167: hue+chroma-locked +ΔL — the old #E8D580 tint was too saturated for --accent to clear AA on it) */
+  --accent-soft: light-dark(#FFF5C5, var(--bg-warm-mid)); /* accent ink reads L:4.56:1 / D:high (#1167: hue-preserving lighten — h 97°, ΔL +0.10; chroma compresses 0.108→0.063 because yellow hits the sRGB gamut edge as it lightens, so the old too-saturated #E8D580 becomes a pale cream --accent can clear AA on) */
   --on-accent:   light-dark(#FFFFFF, var(--surface-inverse));    /* L:5.61:1 / D:8.45:1 */
 
   /* ── Semantic signals — derived backgrounds only ───────────────────
