@@ -302,6 +302,21 @@ in patch versions.
   `data-anima-role="sector"` is emitted on wedges so Anima choreographs by the declared role.
   Verified on the real Playground (`docs/src/lib/chart-anima.ts`,
   `lib/components/chart/_chart-family/chart-family.js`; `2026-07-19-anima-svg-first-cut-zdog.md` §0.75).
+- **A live STORAGE diagnostic overlay — see why a normal-window reload slows down while private
+  browsing stays fast.** A new opt-in debug popup (alongside the Performance / Viz / Viewport-debug
+  overlays) reads the client-side state that accumulates in a REGULAR profile but never in private
+  browsing — the exact reason an incognito reload is instant while a normal one degrades over a
+  session. It shows the origin's storage-quota usage, the Studio's localStorage footprint broken
+  down by category (deck sources, checkpoints, AI chats, preview snapshots, comments), the
+  service-worker Cache Storage entry counts, and a **live localStorage read-scan timing** — the
+  O(n) enumeration the boot path pays (`hasPriorStudioUse` / `deckContentStats`); the per-deck parse
+  the boot adds on top (`splitSlides` / `JSON.parse` in `loadDeckList`) costs more and is called out
+  as uncounted, so the number reads as a floor. Each row taps open a plain-language explanation
+  (and the quota row is shown unrated — browsers report it too coarsely to be a health signal). Off
+  by default; the shared cross-surface
+  pref is flipped from **Workspace → General → Diagnostics** or the `?storage` URL param, and it
+  reuses the shared draggable diagnostic-overlay chassis. Docs-site only; nothing about exports or
+  the engine changes. `engineering/decisions/2026-07-21-storage-accumulation-diagnostic.md`.
 - **The fluid-box viewer now fills every screen, not just phones — with an ultrawide edge cap.** Opening
   a `--fluid` deck on a laptop, tablet, or 4:3 projector used to letterbox the fixed 16:9 deck; now the
   viewport is filled by default and the slide reflows to it — the same machinery that already served

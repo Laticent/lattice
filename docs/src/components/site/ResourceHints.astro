@@ -5,6 +5,7 @@
 // render-blocking Google-Fonts @import on the critical path. The `@font-face`
 // faces load non-blocking with `font-display: swap`.
 import PerfOverlay from './PerfOverlay.astro';
+import StorageOverlay from './StorageOverlay.astro';
 import PwaHead from './PwaHead.astro';
 ---
 
@@ -14,3 +15,6 @@ import PwaHead from './PwaHead.astro';
 
 {/* Live Core-Web-Vitals overlay, gated behind ?perf (no cost otherwise). */}
 <PerfOverlay />
+
+{/* Live client-storage accumulation overlay, gated behind ?storage. */}
+<StorageOverlay />

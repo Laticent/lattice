@@ -16,6 +16,7 @@
 import '../styles/landing.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
 import PerfOverlay from '../components/site/PerfOverlay.astro';
+import StorageOverlay from '../components/site/StorageOverlay.astro';
 import PwaHead from '../components/site/PwaHead.astro';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -307,5 +308,8 @@ const CATALOG = [
 
 		{/* Live Core-Web-Vitals overlay, gated behind ?perf. */}
 		<PerfOverlay />
+
+		{/* Live client-storage accumulation overlay, gated behind ?storage. */}
+		<StorageOverlay />
 	</body>
 </html>
