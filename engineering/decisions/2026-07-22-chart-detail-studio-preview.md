@@ -85,11 +85,17 @@ The preview iframe is transform-scaled to fit its pane (~0.59 desktop, ~0.28 on 
 a full-size popover card dwarfs the tiny chart (the reported "way too big, doesn't scale with the
 slide"). `reveal()` now hands the host the frame's render scale `S` in the `onDetail` payload, and
 `ChartDetailLayer` scales the VISIBLE card by `cardScale = min(1, max(S, 0.5))` — floored at 0.5 so the
-text stays readable on a heavily-scaled mobile preview, capped at 1 so it never grows. The OUTER
-`PopoverContent` stays a transparent, full-size positioning wrapper (Radix owns placement + open
-animation); the INNER card div carries the `scale()` transform from its top-left, so it shrinks while
-staying pinned to the anchor. On a real 390px `/studio` preview (S≈0.28 → cardScale 0.5) the card lands
-at ~40% of the slide width — a proper tooltip, not a slide-swallowing panel.
+text stays readable on a heavily-scaled mobile preview, capped at 1 so it never grows.
+
+The card scales via **CSS `zoom`, not a child `transform: scale()`**. `zoom` shrinks the element's
+LAYOUT box, so the OUTER `PopoverContent` that Radix / Floating-UI measures for collision / flip / shift
+is the SAME size the user sees. A child `transform` leaves the measured box full-size, so Radix reserves
+~320px, spuriously collision-shifts a near-edge card left, and the visible half-size card DETACHES from
+the mark — which the maker-checker caught and a mobile probe reproduced (the card's left edge sat left
+of the tapped band). With `zoom`, the card's top-left tracks the tapped mark exactly (measured anchor
+`dx = 0px`, `dy = 7px` on a 390px preview). On that preview (S≈0.28 → cardScale 0.5) the card lands at
+~40% of the slide width — a proper tooltip, not a slide-swallowing panel. (`zoom` is Baseline across
+current Chromium / WebKit / Firefox ≥126; the docs site targets modern browsers.)
 
 The hit-surface CSS (`chart-interact.css`, which sets `pointer-events:auto` on the surface) now ships
 WITH the shared component, so every mounting surface gets it — it was previously imported only by the

@@ -149,9 +149,13 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
   // Size the card WITH the slide: the preview iframe is transform-scaled to fit its pane (≈0.6 on
   // desktop, much smaller on mobile), so a full-size card dwarfs the chart. Scale the visible card by
   // the frame's render scale, floored so it stays readable on a heavily-scaled mobile preview. The
-  // OUTER PopoverContent stays a transparent, full-size positioning wrapper (Radix owns its placement +
-  // open animation); the INNER div is the visible card and scales from its top-left, so it stays pinned
-  // to the anchor while shrinking.
+  // OUTER PopoverContent stays a transparent positioning wrapper (Radix owns placement + open
+  // animation); the INNER div is the visible card.
+  // Scale via `zoom`, NOT a child `transform`: `zoom` shrinks the element's LAYOUT box, so the outer
+  // PopoverContent that Radix/Floating-UI measures for collision/flip/shift is the SAME size the user
+  // sees. A child `transform: scale()` leaves the measured box full-size, so Radix reserves ~320px,
+  // spuriously collision-shifts a near-edge card left, and the visible half-size card detaches from the
+  // mark (visible on a 390px mobile preview). `zoom` keeps layout == visual, so it stays pinned.
   const cardScale = Math.min(1, Math.max(detail?.scale ?? 1, 0.5));
   return (
     <Popover open={!!detail}>
@@ -169,7 +173,7 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
         {detail && (
           <div
             className="max-w-[20rem] rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
-            style={{ transform: `scale(${cardScale})`, transformOrigin: 'top left' }}
+            style={{ zoom: cardScale }}
           >
             <div className="flex items-center gap-2 font-medium text-foreground">
               {detail.dot ? <span className="size-2 shrink-0 rounded-full" style={{ background: detail.dot }} /> : null}
