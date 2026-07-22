@@ -1195,7 +1195,10 @@ const MERMAID_REBAKE_DEFS = [];
 // The scheme each diagram was BAKED in (index-aligned with MERMAID_REBAKE_DEFS), so a cross-scheme
 // image-set look re-renders a diagram only when its own bake scheme differs from the look — keyed on
 // the diagram's real bake (from the deck's `color-mode:`), NOT the palette-derived slide scheme,
-// which can disagree (a `color-mode: dark` deck rendered under a light `--image-mode`).
+// which can disagree (a `color-mode: dark` deck rendered under a light `--image-mode`). SINGLE-SHOT
+// like MERMAID_REBAKE_DEFS above — the two are index-aligned and MUST be reset together if this
+// run-once CLI is ever reused for multiple decks in one process, or a look re-render would read a
+// stale bake mode for the wrong deck's diagram.
 const MERMAID_REBAKE_MODES = [];
 
 function preprocessMermaid(source) {
