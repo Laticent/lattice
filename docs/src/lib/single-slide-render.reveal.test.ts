@@ -51,8 +51,10 @@ function mountHost() {
 describe('single-slide reveal poll (#1163)', () => {
 	it('arms a reveal poll on the FIRST write and supersedes it on a SUBSEQUENT write', async () => {
 		const clearSpy = vi.spyOn(globalThis, 'clearInterval');
+		// jsdom never paints the srcdoc, so the poll's pendingLoad never clears on its own — dispose()
+		// in finally stops the live interval (clears ownedIntervals) so it can't leak across the suite.
+		const r = createSingleSlideRenderer(opts);
 		try {
-			const r = createSingleSlideRenderer(opts);
 			const host = mountHost();
 
 			await r.renderInto(host, '# a', false);
@@ -69,14 +71,15 @@ describe('single-slide reveal poll (#1163)', () => {
 			expect(poll2).not.toBe(poll1);
 			expect(clearSpy).toHaveBeenCalledWith(poll1);
 		} finally {
+			r.dispose(); // stop the still-pending poll interval even if an assertion threw
 			clearSpy.mockRestore();
 		}
 	});
 
 	it('stops and clears its handle once __latticePendingLoad is cleared (the onload-work ran)', async () => {
 		vi.useFakeTimers();
+		const r = createSingleSlideRenderer(opts);
 		try {
-			const r = createSingleSlideRenderer(opts);
 			const host = mountHost();
 			await r.renderInto(host, '# a', false);
 			expect(host.__latticeRevealPoll).toBeDefined();
@@ -87,6 +90,7 @@ describe('single-slide reveal poll (#1163)', () => {
 			vi.advanceTimersByTime(100);
 			expect(host.__latticeRevealPoll).toBeUndefined();
 		} finally {
+			r.dispose(); // belt-and-suspenders — the poll self-clears above, but release the renderer too
 			vi.useRealTimers();
 		}
 	});
