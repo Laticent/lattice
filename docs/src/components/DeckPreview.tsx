@@ -324,8 +324,10 @@ export function DeckPreview({
 		// own spinning affordance, unchanged here). `ok:false` is the engine/theme error signal; the
 		// transient `'renderer disposed'` sentinel (a host detached mid-render — a mobile pane swap,
 		// an unmount) is NOT a failure, so it's excluded (the reconnected host re-renders). A
-		// successful render clears any prior failure.
-		if (!loader) setFailed(status?.ok === false && status.error !== 'renderer disposed');
+		// successful render clears any prior failure. Guard on a PRESENT status: `render` returns
+		// `undefined` when it bails on an inactive host, and an undefined status must NOT touch the
+		// failure flag (else a deferred host would drop a real failure card without ever re-rendering).
+		if (!loader && status) setFailed(status.ok === false && status.error !== 'renderer disposed');
 		// (Re)hydrate any live scene on the freshly rendered slide. `bindAnima` self-guards to
 		// attach the load listener once; `syncAnima` covers the in-place patch path (no `load`).
 		bindAnima();

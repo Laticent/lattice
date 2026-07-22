@@ -6,9 +6,10 @@
 //
 // jsdom cannot faithfully parse a srcdoc into the iframe's contentDocument, so the poll's actual
 // paint DETECTION (frameHasPainted + the new-document identity guard) is genuinely iOS-Safari
-// behavior and is UNVERIFIED here (HARD RULE #23) — verified by inspection + a real device. What IS
-// real module logic, and tested below: that a poll is armed on the write path, that a subsequent
-// write supersedes the stale one, and that the poll stops + clears its handle once pendingLoad flips.
+// behavior and is UNVERIFIED here (HARD RULE #23) — it still REQUIRES real-device confirmation on
+// an actual iPhone; it has NOT been run on one. What IS real module logic, and tested below: that a
+// poll is armed on the write path, that a subsequent write supersedes the stale one, and that the
+// poll stops + clears its handle once pendingLoad flips.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
