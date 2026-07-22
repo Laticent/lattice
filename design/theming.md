@@ -577,13 +577,17 @@ If you prefer not to run the scaffolder:
 
 Two checks worth running:
 
-**Contrast**: `test/unit/palette/contrast.test.js` parses every shipped
-palette and asserts AA on every `--cat-N-fill` / `--cat-on-fill` pair, every
+**Contrast**: `test/unit/palette/contrast.test.js` parses **indaco + cuoio**
+(the two palettes whose categorical band-text tokens differ; the other shipped
+palettes inherit indaco's by cascade, so the indaco run covers them) and asserts
+AA on every `--cat-N-fill` / `--cat-on-fill` pair, every
 `--cat-N-mark` / `--cat-on-mark` pair, and `--text-heading`
-on `--bg`/`--bg-alt` — in both light
-and dark. Add your new palette to the test's loop (the `['indaco',
-'cuoio']` literal). If a pair fails, lift the text (darker on light,
-lighter on dark) or lift the surface; don't lower the bar.
+on `--bg`/`--bg-alt` — in both light and dark. Add your new palette to the test's
+loop (the `['indaco', 'cuoio']` literal) only if it overrides those band-text
+tokens. The full **every-shipped-theme** surface sweep is a separate gate —
+`tools/contrast-audit.js`, asserted across all 32 themes by
+`test/unit/palette/theme-surface-aa.test.js`. If a pair fails, lift the text
+(darker on light, lighter on dark) or lift the surface; don't lower the bar.
 
 **Mermaid render**: re-render the diagram gallery and visually inspect
 each slide. The likely failure modes are:
