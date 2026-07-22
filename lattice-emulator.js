@@ -114,7 +114,7 @@ function showHelp() {
   console.log(`lattice-emulator — PDF / PPTX / PNG / HTML renderer for Lattice decks
 
 USAGE
-  node lattice-emulator.js <source.md> <output.pdf|.pptx|.png> [palette]
+  node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.zip> [palette]
   node lattice-emulator.js <source.md> <custom.css> <output> [palette]
 
 ARGUMENTS
@@ -124,6 +124,9 @@ ARGUMENTS
                               or one image per page with --raster)
                        .pptx  PowerPoint, one full-bleed slide image per slide
                        .png   one PNG per slide, written as <output>.NNN.png
+                       .zip   an IMAGE SET — a zip of one raster per slide
+                              (PNG/JPEG/WebP) plus opt-in thumbnails and
+                              standalone chart/diagram SVGs (see IMAGE SET below)
                      An HTML sidecar is always written alongside.
   custom.css         Optional layout CSS override; if omitted, the bundled
                      lattice.css from the install dir is used
@@ -207,6 +210,21 @@ OPTIONS
                           cropped SVG placements (#690). Inline SVG (Mermaid,
                           charts, logo marks) always stays vector.
 
+  IMAGE SET (.zip output only)
+      --image-format <f>  png (default, lossless, perfect fidelity) | jpeg | webp.
+                          jpeg/webp are lossy levers for a smaller set; webp is
+                          smaller than jpeg at equal quality.
+      --image-size <s>    max (default, fidelity-first: 2x for HD, 1x for 4K) |
+                          2x | 1x | half. Lower sizes shrink each image and the
+                          overall set — the "size selection" lever.
+      --image-quality N   Encoder quality 1–100 for jpeg/webp (default 92);
+                          ignored for png.
+      --thumb-width N     Thumbnail width in px (default 480); height follows the
+                          slide aspect.
+      --no-thumbnails     Omit the thumbnails/ folder (thumbnails ship by default).
+      --no-svg            Omit the assets/ folder (standalone chart & diagram SVGs
+                          ship by default; each opens on its own, fonts embedded).
+
   Value-taking options accept both --flag value and --flag=value syntax; the
   boolean switches above take no value. Positional args still work; named
   flags take precedence when both are supplied.
@@ -236,6 +254,8 @@ EXAMPLES
   node lattice-emulator.js deck.md out.pdf
   node lattice-emulator.js deck.md out.pptx          # PowerPoint (image slides)
   node lattice-emulator.js deck.md out.png           # → out.001.png, out.002.png, …
+  node lattice-emulator.js deck.md out.zip           # image set (PNG + thumbs + SVGs)
+  node lattice-emulator.js deck.md out.zip --image-format webp --image-size 1x
   node lattice-emulator.js deck.md out.pdf cuoio
   node lattice-emulator.js deck.md custom-layouts.css out.pdf cuoio
   LATTICE_PALETTE=cuoio node lattice-emulator.js deck.md out.pdf
@@ -269,6 +289,9 @@ function parseArgs(argv) {
     '-p': 'palette', '--palette': 'palette',
     '-c': 'css', '--css': 'css',
     '--paper': 'paper', '--orientation': 'orientation',
+    // Image-set (.zip) tuning — see normalizeImageSetOptions (lib/export/image-set.js).
+    '--image-format': 'image-format', '--image-size': 'image-size',
+    '--image-quality': 'image-quality', '--thumb-width': 'thumb-width',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -285,6 +308,8 @@ function parseArgs(argv) {
     if (a === '--raster') { flags.raster = true; continue; }
     if (a === '--embed-source') { flags['embed-source'] = true; continue; }
     if (a === '--keep-vector-images') { flags['keep-vector-images'] = true; continue; }
+    if (a === '--no-thumbnails') { flags['no-thumbnails'] = true; continue; }
+    if (a === '--no-svg') { flags['no-svg'] = true; continue; }
     // --flag=value form
     const eq = a.match(/^(--?[A-Za-z][\w-]*)=(.*)$/);
     if (eq && opts[eq[1]]) { flags[opts[eq[1]]] = eq[2]; continue; }
@@ -378,7 +403,25 @@ if (!mdFile || !outFile) {
 // are rasterized from the same headless-Chromium render the PDF uses, so all
 // three formats are byte-for-byte the same pixels.
 const OUT_EXT = path.extname(outFile).toLowerCase();
-const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx' : (OUT_EXT === '.png' ? 'png' : 'pdf');
+// `.zip` → an IMAGE SET: a zip of one raster per slide (PNG/JPEG/WebP) plus opt-in
+// thumbnails and standalone chart/diagram SVGs. `.pptx` → image-per-slide PowerPoint,
+// `.png` → loose per-slide PNGs, anything else → the vector PDF.
+const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx'
+  : OUT_EXT === '.png' ? 'png'
+  : OUT_EXT === '.zip' ? 'imageset'
+  : 'pdf';
+// Image-set tuning, normalized to a complete config (defaults = perfect-fidelity PNG,
+// thumbnails on, SVG extraction on). Resolved even for non-imageset outputs — it is
+// inert there. Undefined flags fall through to the kernel's DEFAULTS.
+const { normalizeImageSetOptions, resolveRasterScale, resolveThumbScale } = require('./lib/export/image-set');
+const IMAGE_SET_OPTS = normalizeImageSetOptions({
+  format: flags['image-format'],
+  size: flags['image-size'],
+  quality: flags['image-quality'] !== undefined ? Number(flags['image-quality']) : undefined,
+  thumbnails: flags['no-thumbnails'] ? false : undefined,
+  thumbWidth: flags['thumb-width'] !== undefined ? Number(flags['thumb-width']) : undefined,
+  extractSvg: flags['no-svg'] ? false : undefined,
+});
 // --raster swaps the PDF's vector page content for one full-bleed slide image
 // per page (the same 2× screenshots the PPTX path uses) — a maximum-compatibility
 // mode for viewers that mishandle vector constructs. Selectable text is lost, so
@@ -1507,6 +1550,30 @@ function embeddedFontsStyle() {
 }
 const embeddedFonts = embeddedFontsStyle();
 
+// Raw `@font-face{…}` rules (no <style> wrapper) for a standalone SVG asset, subset
+// to the families it actually uses (from collectFontFamilies) so a diagram/chart
+// lifted into the image set opens with the right type instead of a serif fallback,
+// without embedding all ~17 faces in every file. Reuses the SAME PKG_ROOT-resolved
+// woff2 as embeddedFontsStyle (bundling-safe, unlike a tools/ __dirname path).
+function standaloneFontFaceCss(families) {
+  const want = new Set((families || []).map((f) => String(f).toLowerCase()));
+  const dir = [path.join(PKG_ROOT, 'dist', 'fonts'), path.join(PKG_ROOT, 'assets', 'fonts')]
+    .find((d) => fs.existsSync(d));
+  if (!dir) return '';
+  const rules = [];
+  for (const { family, weight, style, file } of SELF_HOSTED_FACES) {
+    if (want.size && !want.has(family.toLowerCase())) continue;
+    const fp = path.join(dir, `${file}.woff2`);
+    if (!fs.existsSync(fp)) continue;
+    const b64 = fs.readFileSync(fp).toString('base64');
+    rules.push(
+      `@font-face{font-family:'${family}';font-style:${style};font-weight:${weight};` +
+      `font-display:swap;src:url(data:font/woff2;base64,${b64}) format('woff2');}`,
+    );
+  }
+  return rules.join('');
+}
+
 // ── Build-time syntax highlighter ─────────────────────────────────────────────
 // Tokenizes code at build time into <span class="token X"> elements.
 // Covers: javascript, typescript, python, bash, css, yaml, json.
@@ -1740,7 +1807,7 @@ ${stateChartScript}
 </script>
 </body></html>`;
 
-const outHtml = outFile.replace(/\.(pdf|pptx|png)$/i, '') + '.html';
+const outHtml = outFile.replace(/\.(pdf|pptx|png|zip)$/i, '') + '.html';
 // Strip the live-preview runtime (lattice-runtime.js) from the export HTML.
 // A deck may embed `<script src="…/lattice-runtime.js">` for the VS Code / web
 // preview; that runtime runs the overflow watcher, which CREATES the red
@@ -1888,10 +1955,13 @@ async function renderBody(browser, g, closeBrowser) {
   // an OOM (same trade-off the browser exporter makes). The largest integer
   // factor whose long edge stays ≤ 3840: HD (1280) → 2×, 4K (3840) → 1×, and any
   // custom @size is capped rather than left to blow up.
-  const RASTER = OUT_FORMAT === 'pptx' || OUT_FORMAT === 'png' || RASTER_PDF;
-  const rasterScale = RASTER
-    ? Math.max(1, Math.min(2, Math.floor(3840 / Math.max(slideW, slideH))))
-    : 1;
+  const RASTER = OUT_FORMAT === 'pptx' || OUT_FORMAT === 'png' || OUT_FORMAT === 'imageset' || RASTER_PDF;
+  // The image set honors its `--image-size` preset (shared with the Studio via the
+  // kernel's resolveRasterScale); every other raster path keeps the historical
+  // long-edge-capped 2× (HD → 2×, 4K → 1×).
+  const rasterScale = OUT_FORMAT === 'imageset'
+    ? resolveRasterScale(IMAGE_SET_OPTS.size, slideW, slideH)
+    : (RASTER ? Math.max(1, Math.min(2, Math.floor(3840 / Math.max(slideW, slideH)))) : 1);
   await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: rasterScale }), 'set viewport');
   await g(() => page.goto('file://' + path.resolve(outHtml), {
     waitUntil: 'networkidle0',
@@ -2126,6 +2196,93 @@ async function renderBody(browser, g, closeBrowser) {
       console.log(`PDF: ${outFile} (${tags.join(', ')})`);
     }
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, slideNotes);
+  } else if (OUT_FORMAT === 'imageset') {
+    // IMAGE SET (.zip): one raster per slide in the chosen format, opt-in thumbnails,
+    // and opt-in standalone chart/diagram SVGs — packed via the SHARED image-set kernel
+    // (lib/export/image-set.js), the same contract the Studio's "Images" export uses.
+    const fmt = IMAGE_SET_OPTS.format;
+    const shot = fmt === 'png' ? { type: 'png' } : { type: fmt, quality: IMAGE_SET_OPTS.quality };
+
+    // (1) Standalone vector assets — BEFORE the raster (screenshots don't mutate the
+    // DOM, but keep extraction on the pristine page). Reuses the chart-SVG kernel:
+    // flatten computed styles inline (so the detached file needs no theme CSS) + embed
+    // the used fonts. Covers Mermaid/diagram SVGs and the keyed chart SVGs.
+    let svgAssets = [];
+    if (IMAGE_SET_OPTS.extractSvg) {
+      const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } =
+        require('./lib/components/chart/_chart-family/standalone-svg.js');
+      await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenSvgStyles.toString()};`), 'inject svg flattener');
+      const raw = await g(() => page.evaluate(() => {
+        const KEYED = ['piechart', 'radar', 'map', 'quadrant', 'funnel'];
+        const ser = new XMLSerializer();
+        const out = [];
+        document.querySelectorAll('section[data-lattice-slide]').forEach((sec, si) => {
+          const push = (svg, kind) => {
+            try {
+              const flat = window.__flattenSvgStyles(svg, window);
+              out.push({ slide: si + 1, kind, markup: ser.serializeToString(flat) });
+            } catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
+          };
+          // Mermaid/diagram blocks render to an inline <svg> inside `.mermaid-svg`.
+          sec.querySelectorAll('.mermaid-svg svg').forEach((svg) => { push(svg, 'diagram'); });
+          // The four keyed chart layouts emit the diagram+key as one self-contained svg.
+          if (sec.classList.contains('chart-frame') && KEYED.some((c) => sec.classList.contains(c))) {
+            sec.querySelectorAll('svg[viewBox]').forEach((svg) => { push(svg, 'chart'); });
+          }
+        });
+        return out;
+      }), 'extract standalone svgs');
+      svgAssets = raw.map((t) => {
+        const fontFaceCss = standaloneFontFaceCss(collectFontFamilies(t.markup));
+        return { slide: t.slide, kind: t.kind, svg: finalizeStandaloneSvg(t.markup, { fontFaceCss }) };
+      });
+    }
+
+    // (2) Full-fidelity raster, one per slide, at the resolved `--image-size` scale.
+    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const images = [];
+    for (const h of handles) {
+      images.push(await g(() => h.screenshot(shot), 'screenshot slide'));
+    }
+
+    // (3) Thumbnails — re-raster the same sections at a small device scale (thumbWidth
+    // ÷ slideW). deviceScaleFactor changes only the pixel density, never the layout, so
+    // the thumbnail is a faithful shrink of the full image.
+    const thumbs = [];
+    if (IMAGE_SET_OPTS.thumbnails) {
+      const thumbScale = resolveThumbScale(IMAGE_SET_OPTS.thumbWidth, slideW);
+      await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: thumbScale }), 'set thumb viewport');
+      const thumbHandles = await g(() => page.$$('section[data-lattice-slide]'), 'collect thumb handles');
+      for (const h of thumbHandles) {
+        thumbs.push(await g(() => h.screenshot(shot), 'screenshot thumb'));
+      }
+    }
+    await closeBrowser();
+
+    // (4) Pack via the shared kernel → a single .zip.
+    const { assembleImageSetPlan, addPlanToZip } = require('./lib/export/image-set');
+    const JSZip = require('jszip');
+    const plan = assembleImageSetPlan({
+      name: path.basename(outFile).replace(/\.zip$/i, ''),
+      options: IMAGE_SET_OPTS,
+      geom: { w: slideW, h: slideH },
+      scale: rasterScale,
+      images: images.map((b) => Buffer.from(b)),
+      thumbs: thumbs.map((b) => Buffer.from(b)),
+      svgs: svgAssets,
+      generator: 'cli',
+    });
+    const zip = new JSZip();
+    addPlanToZip(zip, plan);
+    const zipBuf = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+    fs.writeFileSync(outFile, zipBuf);
+    if (!QUIET) {
+      const c = plan.manifest.counts;
+      const tags = [`${c.slides} ${fmt.toUpperCase()}`];
+      if (c.thumbnails) tags.push(`${c.thumbnails} thumbnails`);
+      if (c.assets) tags.push(`${c.assets} SVG`);
+      console.log(`Image set: ${outFile} (${tags.join(', ')}, ${(zipBuf.length / 1024).toFixed(0)} KB)`);
+    }
   } else {
     // PNG / PPTX: rasterize one image per slide from the SAME rendered page.
     // Each `section[data-lattice-slide]` is exactly slideW×slideH (fixed-page),
@@ -2807,7 +2964,7 @@ async function projectDeckSpeechFromHtml(docHtml) {
 async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   const { buildReadAlong, mergeNarration } = require('./lib/core/read-along-build.js');
   const { readAlongToVtt, readAlongToVttParts } = require('./lib/core/read-along-vtt.js');
-  const base = outPath.replace(/\.(pdf|html?|pptx|png)$/i, '');
+  const base = outPath.replace(/\.(pdf|html?|pptx|png|zip)$/i, '');
   // Deck acronym registry (author `acronyms:` front-matter, §15) → term→spoken map, and the
   // front-matter `captions:` map (Layer 1, §16) → slide-number→read-as text. Parsed once from
   // the shared resolver so both producers can't drift (#904).

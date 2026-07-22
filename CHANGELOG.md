@@ -353,6 +353,16 @@ in patch versions.
   `docs/src/playground/anima-host-sel.ts` the Play/Style/Speed cascade; `docs/src/components/studio/`
   the Motion tab; `docs/src/lib/anima/hydrate.ts` `chrome:false` + play-once;
   `engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75.)
+- **Export a deck as an image set — a `.zip` of one image per slide.** A new output format joins
+  PDF / PPTX / PNG: `node lattice-emulator.js deck.md out.zip` writes a zip holding one raster per
+  slide under `slides/`, small `thumbnails/`, the deck's chart & Mermaid diagrams as standalone
+  `.svg` files under `assets/` (each self-styled with fonts embedded, so it opens anywhere), and a
+  `manifest.json` index. The default is perfect-fidelity, lossless PNG at 2×; tuning flags trade
+  size for fidelity — `--image-format png|jpeg|webp`, `--image-size max|2x|1x|half`,
+  `--image-quality N` (jpeg/webp), `--thumb-width N`, `--no-thumbnails`, `--no-svg`. The zip layout,
+  naming, size presets, and manifest are single-sourced in a shared kernel
+  (`lib/export/image-set.js`) that the Studio's Share → Images export also uses, so both surfaces
+  emit the same set. New export path — existing PDF/PPTX/PNG bytes are unchanged.
 - **The in-place chart animation now covers the piechart — and gradient-filled charts render
   correctly.** `chart-anima` extends to the pie: add it to a slide or deck and the disc fades in as a
   whole on the live Studio / Playground (model-free; exported PDF/PPTX byte-identical). This also

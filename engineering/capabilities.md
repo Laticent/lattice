@@ -75,6 +75,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `exemplar-core:check` | Freshness gate for the exemplar-core bundle. |
 | `export:marp` | Export a deck as a portable, Marp-native bundle: splits baked to ---, themes, assets, marp-cli config, a README, and (by default) an AI-agent kit (AGENTS.md + component catalog). `<deck.md> <out-dir-or-zip> [palette] [--no-agent]`. |
 | `fonts:emoji` | Vendor Noto Color Emoji into dist/fonts/ for the opt-in full-offline tier (~25 MB, excluded from the npm tarball). Run once while online; needs network. |
+| `image-set-core:build` | Bundle the shared image-set contract (lib/export/image-set.js) for the browser — the Studio Share sheet's "Images" (image-set ZIP) export. |
+| `image-set-core:check` | Freshness gate for the image-set-core bundle. |
 | `katex-provider:build` | Build docs/public/playground/lattice-katex.js — the on-demand KaTeX bundle split out of the playground bundle. |
 | `katex-provider:check` | Freshness gate for the katex-provider bundle. |
 | `katex-provider:watch` | Rebuild the katex-provider bundle on change. |
@@ -321,6 +323,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-decisions-index.js` | build-decisions-index.js — regenerate the "Current notes" index in |
 | `tools/build-exemplar-pdfs.js` | Regenerate the committed PDF for every worked exemplar deck |
 | `tools/build-forms.js` | Generate dist/docs/forms.json — the machine-readable catalog of Lattice's |
+| `tools/build-image-set-core.js` | Bundle the shared image-set contract for the browser. |
 | `tools/build-katex-provider.js` | Build the on-demand KaTeX provider bundle. |
 | `tools/build-lente-lib.js` | Build the Lente library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/build-player-core.js` | Bundle the pure HTML-player assembly core for the browser. |

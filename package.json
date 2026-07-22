@@ -105,6 +105,8 @@
     "exemplar-core:check": "node tools/build-exemplar-core.js --check",
     "standalone-core:build": "node tools/build-standalone-core.js",
     "standalone-core:check": "node tools/build-standalone-core.js --check",
+    "image-set-core:build": "node tools/build-image-set-core.js",
+    "image-set-core:check": "node tools/build-image-set-core.js --check",
     "a11y-textures:build": "node tools/build-a11y-textures.js",
     "a11y-textures:check": "node tools/build-a11y-textures.js --check",
     "axis-dom-catalog:build": "node tools/build-axis-dom-catalog.js",

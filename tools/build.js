@@ -91,6 +91,7 @@ const STEPS = [
   { label: 'authoring-core bundle (docs site)', script: 'build-authoring-core.js' },
   { label: 'exemplar-core bundle (docs site)', script: 'build-exemplar-core.js' },
   { label: 'standalone-core bundle (docs site)', script: 'build-standalone-core.js' },
+  { label: 'image-set-core bundle (docs site)', script: 'build-image-set-core.js' },
   { label: 'a11y-textures bundle (docs site)', script: 'build-a11y-textures.js' },
   // anima-player IIFE must exist before player-core bundles it in (playerJs injects it).
   { label: 'anima-player bundle (engine export)', script: 'build-anima-player.js' },

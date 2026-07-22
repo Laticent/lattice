@@ -336,6 +336,58 @@ describe('export-formats', () => {
     }
   });
 
+  test('renders a .zip image set — slides + thumbnails + manifest, defaults to lossless PNG', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = run(out);
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.ok(fs.existsSync(out), 'zip should exist');
+    assert.equal(fs.readFileSync(out).subarray(0, 4).toString('hex'), '504b0304', 'not a zip');
+
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+    const slides = names.filter((n) => /^deck\/slides\/deck-\d+\.png$/.test(n));
+    const thumbs = names.filter((n) => /^deck\/thumbnails\/deck-\d+\.png$/.test(n));
+    assert.equal(slides.length, 3, `expected 3 slide images, got ${slides.length}`);
+    assert.equal(thumbs.length, 3, `expected 3 thumbnails, got ${thumbs.length}`);
+    assert.ok(names.includes('deck/manifest.json'), 'manifest.json present');
+
+    // The full raster is the 2× HD box; the thumbnail is a faithful shrink.
+    const fullBuf = await zip.file(slides.sort()[0]).async('nodebuffer');
+    assert.equal(fullBuf.readUInt32BE(16), 2560, 'full slide at 2× width');
+    const thumbBuf = await zip.file(thumbs.sort()[0]).async('nodebuffer');
+    assert.equal(thumbBuf.readUInt32BE(16), 480, 'thumbnail at the default 480px width');
+
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.kind, 'lattice-image-set');
+    assert.equal(manifest.format, 'png');
+    assert.equal(manifest.counts.slides, 3);
+    assert.equal(manifest.counts.thumbnails, 3);
+  });
+
+  test('image set honors --image-format jpeg, --image-size 1x, and --no-thumbnails', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--image-format', 'jpeg', '--image-size', '1x', '--no-thumbnails'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+    assert.ok(names.some((n) => /slides\/deck-\d+\.jpeg$/.test(n)), 'jpeg slides');
+    assert.ok(!names.some((n) => n.includes('thumbnails/')), '--no-thumbnails omits the folder');
+
+    const jpeg = await zip.file(names.filter((n) => n.endsWith('.jpeg')).sort()[0]).async('nodebuffer');
+    assert.equal(jpeg[0], 0xff, 'JPEG SOI byte 0');
+    assert.equal(jpeg[1], 0xd8, 'JPEG SOI byte 1');
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.format, 'jpeg');
+    assert.equal(manifest.pixel.scale, 1, '--image-size 1x rasters at 1×');
+  });
+
   // Accessibility: the exported PDF shell must carry the deck's title + language, so a
   // screen reader announces both (was a tracked gap — untagged PDF, no /Lang, no title;
   // semantic-html-accessibility.md G1/G2). Chrome's print-to-PDF lifts them from the
