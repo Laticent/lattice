@@ -1,12 +1,15 @@
 // Fixed chrome constants for the Studio preview box — the CSS-fixed dimensions of the topbar,
 // pane padding, per-stop header/footer, the comfort-width cap, and the split's default preview
 // share. Measured from the live app (docs at 2026-07-21); identical across breakpoints, so they
-// live here as the shared contract. The pre-hydration shell's rect-REPLAY geometry (studio.astro)
-// uses these to place the Nacre box at the app's last measured preview rect.
+// live here as the shared contract. The pre-hydration shell's first-load COMPUTE fallback
+// (studio.astro) uses these to derive the Nacre box's rect when there is NO persisted preview rect
+// to replay; the shell's preferred rect-REPLAY path uses the persisted viewport fractions instead
+// and does not touch these constants.
 //
 // (History: a `computePreviewRect(inputs) → rect` closed-form prototype ["option B"] lived here to
-// derive the box without measuring; the shipped reframe uses rect-REPLAY of the app's own measured
-// rect instead, so that function was removed as unused. See
+// derive the box without measuring; that helper function was removed, and its compute logic now
+// lives inline in studio.astro's seed as the first-load fallback (the shipped path prefers
+// rect-REPLAY of the app's own measured rect whenever a persisted rect exists). See
 // `engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md`.)
 
 export const PREVIEW_CHROME = {
