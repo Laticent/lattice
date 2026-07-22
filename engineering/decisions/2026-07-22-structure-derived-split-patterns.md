@@ -99,7 +99,7 @@ axis reads straight off the DOM:
 |---|---|
 | `<ul>` / `<ol>` | by list item |
 | `<table>` | by row (pivoted to a key→value card) |
-| `<svg>` / single figure | **none — scale to fit** |
+| `<svg>` / single figure | **none — container-responsive (the parent box sizes it)** |
 | `<pre>` | code-cards by line / block |
 
 This **corrects the trio's "axis is not derivable" finding** (§8 rule 1, §3a): that
@@ -110,8 +110,12 @@ derivable at render time; `capacity.axis` survives only as the *pre-render count
 estimate*, not the split authority. **Graphics need no special-case**: their
 transform already replaced the list with one `<svg>` ("the diagram `<svg>`… instead
 of an HTML `<ol>`" — quadrant/radar), so the list rule finds nothing to split and the
-figure scales. Content type therefore falls out of structure: **graphics scale (no
-type floor); text splits (type floor).**
+figure fills its box. Content type therefore falls out of structure: **graphics are
+container-responsive — a `viewBox` + `width:100%` means the parent box sizes them, and
+their internal text scales as a ratio of the viewBox (no type floor); text splits
+(type floor).** Graphics are *not* "scaled" by an engine step — they respond to their
+container by construction; the only failure mode is a component that breaks that
+contract (fixed px), which is an auditable bug, not a design gap (§0c).
 
 **Move 2 — the treatment comes from ONE per-component bit** (the only irreducible
 input). Two identical rendered structures can demand opposite handling:
@@ -132,7 +136,7 @@ aims at how many *belong* per slide, not how many *fit*:
 | independent-heavy (cards, record rows, tiers, options) | **1** — its own slide |
 | connected-sequential (steps, cycle) | **1** + a "→ next" chevron pill; last slide drops it (a cycle loops back) |
 | connected-comparison (compare) | keep together; per-option + verdict only as the many-item fallback |
-| whole figure (charts, diagrams, matrices) | **whole slide, scaled** — never atomized |
+| whole figure (charts, diagrams, matrices) | **whole slide, container-responsive** — never atomized |
 
 All of it rides the **§0a envelope**: Cover → Body (these units) → optional Closing.
 
@@ -152,7 +156,7 @@ Run of the whole catalog against the model. No component is unplaced.
 | Treatment | Components |
 |---|---|
 | **Anchor — never splits** | title, closing, divider |
-| **Whole figure — scale, no split** (graphics + atomic units) | piechart, quadrant, radar, word-cloud, diagram, funnel, map, gantt, roadmap, state-chart, matrix-2x2, obligation-matrix, image, scene, video, math, big-number, quote, citation-card, contact, wifi |
+| **Whole figure — container-responsive, no split** (graphics + atomic units) | piechart, quadrant, radar, word-cloud, diagram, funnel, map, gantt, roadmap, state-chart, matrix-2x2, obligation-matrix, image, scene, video, math, big-number, quote, citation-card, contact, wifi |
 | **List → item · light** (pack) | list, checklist, content, agenda, list-criteria, inventory, logo-wall (by image) |
 | **List → item · heavy** (1/slide) | cards-grid, cards-stack, actors, kpi, stats, q-and-a, policy-recommendation, verdict-grid, pricing |
 | **List → item · connected-sequential** (1 + chevron pill) | list-steps, timeline-list, journey, authority-chain, cycle (loops) |
@@ -174,6 +178,21 @@ comparison for the per-card spotlight; `code` splits into multiple code-cards.
   axis today).
 - **stale `capacity.axis`** — remove it from `matrix-2x2` (whole figure, not
   splittable) and verify `cycle`'s is right for card-splitting.
+
+**SVG container-responsiveness audit (2026-07-22) — the "graphics fill their box"
+contract holds, with one logged defect.** All SVG components (funnel, map, quadrant,
+radar-base, word-cloud, piechart, diagram/mermaid, scene) are genuinely
+container-responsive: `viewBox` + `width:100%`, internal text sized as a ratio of the
+viewBox. Mermaid's fixed-px output is correctly overridden to `100% !important`.
+Off-path defects found and logged (a **separate** code fix, not this doc — HARD #18):
+- **`radar` small-multiples** — `.radar-svg--mini { width:188px; height:188px }`
+  (`radar.styles.css:236-238`) hard-pins physical px, so mini tiles don't track the
+  container/resolution. Fix: cqi (or a shared token).
+- **lint blind spot** — `tools/check-chart-responsiveness.js` blanket-exempts any
+  `-svg` selector, which is why the fixed px above escaped the gate. The exemption
+  should cover viewBox-internal units, not `width`/`height` on the SVG element box.
+- **`state-chart`** — container-responsive via a *runtime JS* scaler, not pure
+  CSS/viewBox; its no-JS static fallback is **UNVERIFIED**.
 
 ---
 
