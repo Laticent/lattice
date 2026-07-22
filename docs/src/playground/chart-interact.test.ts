@@ -46,7 +46,10 @@ function buildFrame(svgBox: { width: number; height: number }) {
   return { iframe, frameGBCR };
 }
 
-const tick = () => new Promise((r) => setTimeout(r, 0)); // flush the MutationObserver microtask, BEFORE onSlide's 80ms timer
+// Flush the MutationObserver microtask AND the rAF that reflow is now coalesced through (observers
+// schedule reflow via requestAnimationFrame). The nested rAF resolves only AFTER the reflow rAF (which
+// the MO queues during the microtask drain) has run. Stays under onSlide's 80ms timer.
+const tick = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -131,6 +134,27 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     expect(Number.isFinite(opened?.y)).toBe(true);
     expect(opened?.x).toBe(70);
     expect(opened?.y).toBe(75);
+    ci.destroy();
+  });
+
+  it('VANILLA popover (no onDetail): keyboard reveal positions the card, does not bail unplaced', async () => {
+    // Regression guard: markAnchor made anchorPt a zero-SIZE rect, which (pre-fix) tripped placePop's
+    // `!ptr && !r.width` bail so the vanilla popover rendered unplaced instead of falling to the chart.
+    // With the guard now `!ptr && !anchorPt && …`, a keyboard anchor IS usable → the card gets positioned.
+    const { iframe } = buildFrame({ width: 200, height: 150 });
+    const stage = document.createElement('div');
+    document.body.appendChild(stage);
+    const ci = createChartInteract({ stage, getFrame: () => iframe, hoverAny: false }); // no onDetail = vanilla path
+    ci.onSlide(0);
+    const pop = stage.querySelector('.db-pp-chartpop') as HTMLElement;
+    expect(pop).toBeTruthy();
+
+    ci.handleKey(new KeyboardEvent('keydown', { key: '2' })); // number-key reveal, no pointer
+    expect(pop.classList.contains('show')).toBe(true);
+    // placePop → computePosition resolves on a microtask; give it a beat, then assert it WAS placed.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(pop.style.left).not.toBe('');
+    expect(pop.style.top).not.toBe('');
     ci.destroy();
   });
 });

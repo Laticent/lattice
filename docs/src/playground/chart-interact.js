@@ -74,6 +74,10 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // kernels emit the payload as a sibling). See
   // engineering/decisions/2026-06-20-chart-detail-reveal-family.md.
   const CHART_SVG_SEL = '.piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .state-chart-figure, .gantt-chart';
+  // The same list scoped to the Anima live stage — each selector must be prefixed individually (a bare
+  // `.scene-live ${CHART_SVG_SEL}` would only scope the FIRST of the comma list). Prefers the clone
+  // EXPLICITLY over inferring visibility from box size (see chartSvgIn).
+  const LIVE_CHART_SVG_SEL = CHART_SVG_SEL.split(',').map((s) => `.scene-live ${s.trim()}`).join(', ');
   const DETAILS_SEL = '.chart-details';
   const TPL_SEL = 'template.chart-detail';
   const MARK_SEL = '[data-mark]';
@@ -104,6 +108,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   let chartRO = null;    // re-pins the hit-surface when the CURRENT chart's own box settles (see setChart)
   let frameMO = null;    // re-pins on the frame's LATE transform/opacity reveal (loader host — see watchFrame)
   let watchedFrame = null; // the iframe element frameMO is currently attached to
+  let reflowRaf = 0;     // pending coalesced reflow (rAF handle) — collapses an observer BURST into one
   let sliceN = 0;        // slice count on the current chart
   let openSlice = -1;    // which slice's detail is showing (-1 = none)
   let chartBox = null;   // current chart rect in stage coords (Present hit-surface)
@@ -134,12 +139,15 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // .chart-details div) and legend swatches (no data-mark).
   const markEls = () => (chartEl ? [...chartEl.querySelectorAll(MARK_SEL)] : []);
   // The chart svg to bind to — the visible one when a chart has both a hidden poster and a live
-  // animated clone (see setChart). Falls back to first-match if none reports a box yet (pre-layout).
-  // COUPLING: this "has a box" test distinguishes the two ONLY because the Anima host hides the poster
-  // with `display:none` (docs/src/lib/anima/hydrate.ts mount()) — the sole hiding that yields a zero
-  // box. If that ever becomes `visibility:hidden` / `opacity:0` (both keep a box), this would pick the
-  // poster (first in DOM); keep the two in step (see docs/src/lib/chart-anima.ts, which flags the same).
+  // animated clone (see setChart). PREFER the Anima clone EXPLICITLY: it's mounted inside `.scene-live`
+  // (the host's live stage), so a direct `.scene-live` query is robust to HOW the poster is hidden. Only
+  // if there's no live stage (a static chart) do we fall back to the "has a box" heuristic — which works
+  // ONLY because the Anima host hides the poster with `display:none` (docs/src/lib/anima/hydrate.ts) →
+  // zero box; a future `visibility:hidden`/`opacity:0` would keep a box and fool the heuristic, but NOT
+  // the explicit `.scene-live` query above (see docs/src/lib/chart-anima.ts, which flags the coupling).
   const chartSvgIn = (sec) => {
+    const live = sec.querySelector(LIVE_CHART_SVG_SEL);
+    if (live) return live;
     const all = [...sec.querySelectorAll(CHART_SVG_SEL)];
     return all.find((s) => s.getBoundingClientRect().width > 0) || all[0] || null;
   };
@@ -241,6 +249,16 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
 
   function hide() { if (!hoverAny) hit.style.display = 'none'; }
 
+  // Coalesce reflow to ONE run per animation frame. During a pane-divider DRAG (or a resize) the stage
+  // ResizeObserver, the frame `style` MutationObserver, and the frame ResizeObserver can each fire in the
+  // SAME frame — three cross-iframe `getBoundingClientRect` layout flushes where one would do. The
+  // observers/resize schedule through here; direct callers that need a synchronous pin (reveal, onSlide's
+  // spaced timers) still call reflow() outright.
+  function scheduleReflow() {
+    if (reflowRaf) return;
+    reflowRaf = requestAnimationFrame(() => { reflowRaf = 0; reflow(); });
+  }
+
   // Anchor point for mark i in PARENT-viewport coords, computed from the mark's OWN box. The fallback
   // when there is NO live pointer — a number-key or presenter-window reveal in Present — so the popover
   // still opens AT the mark instead of the host's off-screen (-9999) no-anchor default. A pointer reveal
@@ -255,6 +273,19 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     return { x: g.fr.left + (r.left + r.width / 2) * g.S, y: g.fr.top + (r.top + r.height / 2) * g.S };
   }
 
+  // The whole chart's center in PARENT-viewport coords — the SECOND fallback when there's no pointer AND
+  // the mark itself has no box yet (a not-yet-laid-out mark during the build, or a box-less milestone
+  // container). Keeps the host (shadcn) popover anchored to the chart instead of the host's off-screen
+  // (-9999) default, mirroring the vanilla path's `discRect` behavior.
+  function chartCenter() {
+    const g = frameGeom();
+    if (!g || !chartEl) return null;
+    let r;
+    try { r = chartEl.getBoundingClientRect(); } catch { return null; }
+    if (!r.width || !r.height) return null;
+    return { x: g.fr.left + (r.left + r.width / 2) * g.S, y: g.fr.top + (r.top + r.height / 2) * g.S };
+  }
+
   // (Re)attach the per-chart ResizeObserver to the CURRENT chartEl — watches its box for the async
   // layout settle and re-pins without polling. Called from setChart (initial bind) AND from reflow when
   // it swaps chartEl to a freshly-mounted Anima clone (a different node than the poster), so the observer
@@ -264,7 +295,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
       chartRO?.disconnect();
       chartRO = null;
       const ROc = chartEl?.ownerDocument?.defaultView?.ResizeObserver;
-      if (chartEl && ROc) { chartRO = new ROc(reflow); chartRO.observe(chartEl); }
+      if (chartEl && ROc) { chartRO = new ROc(scheduleReflow); chartRO.observe(chartEl); }
     } catch { /* cross-doc / older browser */ }
   }
 
@@ -316,7 +347,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     frameMO = null;
     watchedFrame = fe;
     if (fe && window.MutationObserver) {
-      try { frameMO = new MutationObserver(reflow); frameMO.observe(fe, { attributes: true, attributeFilter: ['style'] }); }
+      try { frameMO = new MutationObserver(scheduleReflow); frameMO.observe(fe, { attributes: true, attributeFilter: ['style'] }); }
       catch { /* older browser */ }
     }
   }
@@ -324,6 +355,11 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // ── lifecycle: called after every slide change (Present/Practice) ───────────
   function onSlide(idx) {
     curIdx = idx | 0;
+    // Clear pending re-pin timers up front so a SAME-index re-emit doesn't STACK them. A host re-pins
+    // every render (the editing preview calls onSlide(0) on every keystroke; Present on every onRender),
+    // and setChart early-returns on an unchanged section BEFORE it clears timers — so without this the
+    // [80,360,1240]ms timers would pile up under fast typing.
+    while (timers.length) clearTimeout(timers.pop());
     watchFrame();
     const d = doc();
     setChart(d ? d.querySelectorAll('.lattice > section')[curIdx] : null);
@@ -369,9 +405,10 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     const lean = !body && !meta;
     // Freeze the anchor at the cursor point that opened THIS mark, so the card holds
     // its spot instead of sliding as the cursor drifts within the mark. With NO pointer
-    // (number-key / presenter-window reveal in Present), fall back to the mark's own center
-    // so the popover opens at the mark rather than off-screen at the host's (-9999) default.
-    anchorPt = ptr ? { x: ptr.x, y: ptr.y } : markAnchor(i);
+    // (number-key / presenter-window reveal), fall back to the mark's own center, then the
+    // whole chart's center — so the popover opens on the chart rather than off-screen at the
+    // host's (-9999) default (or, on the vanilla path, unplaced — see placePop's guard).
+    anchorPt = ptr ? { x: ptr.x, y: ptr.y } : (markAnchor(i) || chartCenter());
     liftAndTilt(i);
     if (onDetail) {
       // The host owns the popover UI (Playground → shadcn Popover). Hand it the content, the cursor
@@ -440,10 +477,12 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   const virtualRef = { getBoundingClientRect: anchorRect };
 
   function placePop() {
-    // Hold the frame if there's no usable anchor (mid-patch/detached with no live
-    // pointer): the autoUpdate loop would otherwise flash the popover to (0,0).
+    // Hold the frame ONLY when there's no usable anchor at all — no live pointer AND no frozen
+    // reveal point (`anchorPt`) AND an empty disc box (mid-patch/detached): the autoUpdate loop
+    // would otherwise flash the popover to (0,0). A keyboard reveal sets `anchorPt` to a zero-SIZE
+    // rect at the mark/chart center, which IS a usable anchor — position against it, don't bail.
     const r = anchorRect();
-    if (!ptr && (!r.width || !r.height)) return;
+    if (!ptr && !anchorPt && (!r.width || !r.height)) return;
     computePosition(virtualRef, pop, {
       // Off the cursor's lower-right so it never sits under the pointer; flip/shift
       // keep it on-screen. Disc fallback keeps the calm centred-below placement.
@@ -636,6 +675,13 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   function rebind() {
     unbindDoc();
     curSection = null; chartEl = detailsEl = null; openSlice = -1;
+    // A full srcdoc write tears down the iframe's realm, so the per-chart chartRO (built from THAT
+    // realm's ResizeObserver, watching a now-detached node) is dead — drop it rather than let it linger
+    // until the next setChart. Re-arm the frame `style` observer too: the element usually persists across
+    // rewrites (→ watchFrame no-ops), but if a host swaps it, this re-targets instead of watching a corpse.
+    try { chartRO?.disconnect(); } catch { /* noop */ }
+    chartRO = null;
+    watchFrame();
     if (hoverAny) bindDoc();
   }
   // Self-sufficient re-bind: the iframe ELEMENT persists across srcdoc rewrites,
@@ -659,13 +705,17 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // onSlide's fixed re-pin timers have fired — the pinned-surface staleness the timers alone miss).
   let ro = null;
   try {
-    ro = new ResizeObserver(reflow);
-    ro.observe(stage);
+    ro = new ResizeObserver(scheduleReflow);
+    ro.observe(stage); // the preview PANE resizing
+    // NOTE: observing the frame here is a cheap BELT — the frame's untransformed border-box is pinned to
+    // the fixed `@size` box, so a transform-only rescale never fires this RO; the LATE reveal is caught by
+    // watchFrame's style MutationObserver below. Kept for the rare case single-slide-render rewrites the
+    // frame's width/height. Both route through scheduleReflow, so a drag can't double up the reflow.
     const fe = getFrame();
     if (fe) ro.observe(fe);
   } catch { /* older browser */ }
   watchFrame(); // MutationObserver on the frame's style — catches the LATE transform/opacity reveal (loader host)
-  window.addEventListener('resize', reflow);
+  window.addEventListener('resize', scheduleReflow);
 
   function destroy() {
     clear();
@@ -676,7 +726,8 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     try { ro?.disconnect(); } catch { /* noop */ }
     try { chartRO?.disconnect(); } catch { /* noop */ }
     try { frameMO?.disconnect(); } catch { /* noop */ }
-    window.removeEventListener('resize', reflow);
+    if (reflowRaf) { try { cancelAnimationFrame(reflowRaf); } catch { /* noop */ } reflowRaf = 0; }
+    window.removeEventListener('resize', scheduleReflow);
     root.remove();
   }
 

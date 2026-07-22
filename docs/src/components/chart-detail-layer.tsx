@@ -103,8 +103,11 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
   // would find no frame and never bind. Constructing on the first rebind() (which the host calls after
   // every paint) covers both.
   const ci = React.useRef<{ rebind(): void; onSlide(i: number): void; handleKey(e: KeyboardEvent): boolean; destroy(): void } | null>(null);
+  // Set once the component unmounts, so a late imperative call (a host firing rebind/onSlide/handleKey
+  // after React tore us down) can't lazily re-create a controller with no effect left to free it.
+  const disposed = React.useRef(false);
   const ensureMounted = React.useCallback(() => {
-    if (ci.current || !cfg.current.enabled) return;
+    if (ci.current || disposed.current || !cfg.current.enabled) return;
     const stage = cfg.current.getStage();
     const frame = cfg.current.getFrame();
     if (!stage || !frame) return;
@@ -131,19 +134,38 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
         ensureMounted();
         ci.current?.onSlide(i);
       },
-      handleKey: (e: KeyboardEvent) => ci.current?.handleKey(e) ?? false,
+      handleKey: (e: KeyboardEvent) => {
+        // Mirror rebind/onSlide: a number key (or Esc-to-dismiss) can arrive before the frame exists in
+        // a loader-backed host (Present), so mount first or the keypress falls through unhandled.
+        ensureMounted();
+        return ci.current?.handleKey(e) ?? false;
+      },
     }),
     [ensureMounted],
   );
 
   // Try an eager mount (the Playground case: frame present at mount) and tear down on unmount.
   React.useEffect(() => {
+    disposed.current = false; // (re)mount — clear the tombstone (also covers a StrictMode remount)
     ensureMounted();
     return () => {
+      disposed.current = true;
       ci.current?.destroy();
       ci.current = null;
     };
   }, [ensureMounted]);
+
+  // `enabled` is a real off-switch: when it flips false on a STILL-MOUNTED layer, tear the controller
+  // down (its observers/listeners would otherwise keep running) and clear any open detail so it can't
+  // re-open with a stale card when re-enabled. A host that unmounts on disable (Present) hits the effect
+  // cleanup above instead; this covers the toggle-while-mounted case.
+  React.useEffect(() => {
+    if (!enabled) {
+      ci.current?.destroy();
+      ci.current = null;
+      setDetail(null);
+    }
+  }, [enabled]);
 
   if (!enabled) return null;
   // Size the card WITH the slide: the preview iframe is transform-scaled to fit its pane (≈0.6 on
@@ -156,7 +178,7 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
   // sees. A child `transform: scale()` leaves the measured box full-size, so Radix reserves ~320px,
   // spuriously collision-shifts a near-edge card left, and the visible half-size card detaches from the
   // mark (visible on a 390px mobile preview). `zoom` keeps layout == visual, so it stays pinned.
-  const cardScale = Math.min(1, Math.max(detail?.scale ?? 1, 0.5));
+  const cardScale = Math.min(1, Math.max(Number.isFinite(detail?.scale) ? (detail?.scale as number) : 1, 0.5));
   return (
     <Popover open={!!detail}>
       <PopoverAnchor virtualRef={anchorRef} />

@@ -139,4 +139,25 @@ fixed, but it still needs a **real-device check on the deploy preview** before i
   chart's async layout-settle re-pin watches a hidden node; the observer setup is now an `observeChart()`
   helper called from both sites. (A third low-confidence review note — `enabled={false}` not tearing down
   the controller — is moot: `PresentOverlay` is `if (!open) return null`, so closing Present unmounts the
-  layer and the effect cleanup runs `destroy()`.)
+  layer and the effect cleanup runs `destroy()`.) *(Update: `enabled` is now a real off-switch anyway —
+  a toggle-to-false on a still-mounted layer destroys the controller + clears the open card.)*
+- **Adversarial-trio fold** (red team + Munger inversion + independent checker, on the shipping diff;
+  verdict: **no jank added** — teardown airtight, no per-frame re-measurement, the reveal-poll storm is
+  defused by CSSOM same-value short-circuiting). Real items folded: (a) **rAF-coalesce `reflow`** — a
+  pane-divider drag could fire the stage RO + `frameMO` in one frame → two cross-iframe layout flushes;
+  observers now schedule through one `scheduleReflow` (rAF), so a burst collapses to one. (b) **Vanilla
+  (Drawing-Board) keyboard-reveal regression** — `markAnchor` made `anchorPt` a zero-*size* rect, which
+  tripped `placePop`'s `!ptr && !r.width` bail so the card rendered unplaced; the guard is now
+  `!ptr && !anchorPt && …` and a `chartCenter()` second fallback covers a box-less mark. (c) **`onSlide`
+  idempotency** — clear pending re-pin timers up front so same-index re-emits (every keystroke) don't
+  stack them. (d) **`chartSvgIn` prefers `.scene-live` explicitly** — removes the `display:none`-poster
+  coupling landmine (the box-size heuristic is now only the static-chart fallback). (e) hygiene: `rebind`
+  drops the dead-realm `chartRO` + re-arms `watchFrame`; `cardScale` guards non-finite; a `disposed`
+  tombstone stops a late imperative call re-creating the controller.
+- **Deferred (logged, not blocking):** (1) an integration assertion pinning the three cross-file
+  invariants (`.scene-live` bind, frame-element style writes, poster hiding) so an upstream change fails
+  a test, not silently janks — `chartSvgIn`'s explicit `.scene-live` query already removes the sharpest
+  edge. (2) Optional hover close-hysteresis for edge-oscillation flicker in `hoverAny` (pre-existing;
+  rAF-coalesce already trims its cost). (3) A real-surface eyeball of `zoom` + `updatePositionStrategy`
+  for any sub-pixel shimmer, and the graceful Firefox&lt;126 degrade (card renders unscaled but correctly
+  placed) — both need a browser the sandbox can't drive.
