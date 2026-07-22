@@ -231,8 +231,7 @@ const PAIRS = [
   // `background:var(--bg-alt)` cell), policy-recommendation `--stance`, redline
   // del/ins — on the canvas AND on card/table surfaces (bg-alt). (obligation-matrix
   // uses --state-color as a mark FILL over --bg, not as ink, so it's not this pair.)
-  // They
-  // were historically tuned against --bg only; a card is bg-alt, which on a light
+  // These inks were historically tuned against --bg only; a card is bg-alt, which on a light
   // theme is a touch DARKER than --bg (e.g. indaco #F2F5FA vs #FFFFFF), so a warn
   // amber that clears --bg can slip under AA on --bg-alt. Held to 4.5 (ink).
   ['pass', 'bg',     'slide: pass status ink on canvas'],
