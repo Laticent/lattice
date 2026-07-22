@@ -245,6 +245,17 @@ export function DeckPreview({
 		return () => mo.disconnect();
 	}, [loader, failed]);
 
+	// #1164 a11y — while the failure card owns the surface, hide the PARKED opacity:0 `iframe.live`
+	// from the accessibility tree. Opacity doesn't remove an element from that tree, so without this a
+	// screen reader could still reach the hidden "Live-rendered Lattice slide" frame behind the card;
+	// aria-hidden makes the message + Retry the only accessible surface. Cleared when the failure does.
+	React.useEffect(() => {
+		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+		if (!fr) return;
+		if (!loader && failed) fr.setAttribute('aria-hidden', 'true');
+		else fr.removeAttribute('aria-hidden');
+	}, [loader, failed]);
+
 	// Re-render when the theme's NAME or its CSS CONTENT changes. The live-derived
 	// specimen has a content-hash name (so name alone would suffice), but a SAVED
 	// library theme keeps a stable slug name while its CSS can change (re-save after
