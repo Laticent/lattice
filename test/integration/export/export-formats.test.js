@@ -629,8 +629,10 @@ describe('export-formats', () => {
     const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
     const diagram = manifest.assets.find((a) => a.kind === 'diagram');
     const svg = await zip.file(`deck/${diagram.file}`).async('string');
-    // Dark ink present (recolored to light) AND the dark bake's dominant white node text is NOT the
-    // dominant text — proving the diagram was actually re-rendered, not left in the slide scheme.
+    // Dark ink present is itself the discriminator: the dark bake carries NO dark ink (its node text
+    // is white on dark fills), so a dark-ink fill can only come from a genuine re-render to light —
+    // proving the diagram was re-rendered, not left in the slide scheme. (A light diagram legitimately
+    // keeps some white node/label BACKGROUND fills, so "no white" is not a valid signal.)
     const darkInkRe = /fill\s*[:=]\s*["']?\s*(?:rgb\(\s*26\s*,\s*26\s*,\s*26\s*\)|rgb\(\s*10\s*,\s*22\s*,\s*40\s*\)|#1a1a1a|#0a1628)\b/i;
     assert.match(svg, darkInkRe, 'the diagram was re-rendered to light despite the palette-derived scheme matching the look');
   });
