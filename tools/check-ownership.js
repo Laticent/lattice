@@ -2268,9 +2268,10 @@ function checkCatContrast(errors) {
       const ink = catResolve(map, '--cat-on-fill', mode);
       // --cat-on-mark is the ink for text ON the saturated mark itself (the
       // categorical corner tag: decision / roadmap / compare-prose deep tags,
-      // which set their background to var(--cat-N-mark)). It flips per canvas
-      // (white on the saturated light-mode mark, near-black on the pale dark-mode
-      // mark), so it must be verified against the mark in BOTH modes.
+      // which set their background to var(--cat-N-mark)). Usually it flips per
+      // canvas (white on the saturated light-mode mark, near-black on the pale
+      // dark-mode mark); the vivid-mark themes (carbone) instead pin a flat
+      // near-black. Either way it must clear the mark in BOTH modes — verify both.
       const markInk = catResolve(map, '--cat-on-mark', mode);
       const bg = catResolve(map, '--bg', mode);
       // Fail CLOSED: a required token that doesn't reduce to a color means the gate
