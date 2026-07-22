@@ -100,8 +100,11 @@ size for fidelity:
 | `--image-quality` | `92` (1–100) | JPEG/WebP encoder quality; ignored for PNG. |
 | `--image-mode` | `inherit` · `light` · `dark` · `print` | Color mode for the whole set. light/dark render the palette's light / dark variant; print is the B&W-safe handout. `inherit` (the default) = the deck's own / palette-resolved. |
 | `--svg-background` | `inherit` · `light` · `dark` · `print` | The **look** of each standalone chart/diagram SVG — controls both its render and its canvas, *independent* of `--image-mode`. `light`/`dark` render the chart in that scheme; `print` renders it B&W-safe (grayscale + textures) on white — so you can export color slides but print-ready chart/diagram vectors. `inherit` (the default) follows the slides' color mode with no canvas. |
+| `--thumb-width` | `480` (px) | Thumbnail width; height follows the slide aspect. |
+| `--no-thumbnails` | — | Omit the `thumbnails/` folder. |
+| `--no-svg` | — | Omit the `assets/` folder (the standalone chart/diagram SVGs). |
 
-**How the look is applied (a cross-surface nuance):** charts are token-driven, so both
+**How the SVG look is applied (a cross-surface nuance):** charts are token-driven, so both
 surfaces recolor them fully for any look. Mermaid **diagrams** bake their colors at render
 time. The **Studio** re-renders the deck in the look (a second render pass), so diagrams are
 fully re-colored. The **CLI** re-styles in place — correct for the common case (a light/color
@@ -109,9 +112,6 @@ deck → any look reads on white, since light-baked diagram text is dark) — bu
 diagram look (e.g. a **dark-source** deck → `print`/`light`) keeps the baked Mermaid text/edges
 in the slide scheme. For guaranteed diagram re-coloring from a dark-source deck, use the Studio,
 or export the whole set in that `--image-mode`.
-| `--thumb-width` | `480` (px) | Thumbnail width; height follows the slide aspect. |
-| `--no-thumbnails` | — | Omit the `thumbnails/` folder. |
-| `--no-svg` | — | Omit the `assets/` folder (the standalone chart/diagram SVGs). |
 
 **One contract, two surfaces.** The zip layout, file naming, size presets, and
 manifest live in one pure kernel (`lib/export/image-set.js`), so the CLI here and
