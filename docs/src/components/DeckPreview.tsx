@@ -454,12 +454,17 @@ export function DeckPreview({
 			    which keeps its skeleton). Overlays the parked opacity:0 iframe with a minimal message +
 			    Retry, so a never-rendering preview reads as a recoverable failure, not a dead blank. */}
 			{!loader && failed && (
-				<span className="nacre-failed" role="status">
-					<span className="nacre-failed__text">This preview couldn’t render.</span>
+				// The live-region role sits on the TEXT only — not the container — so a screen reader
+				// announces "couldn't render" without sweeping the focusable Retry button into the
+				// live-region update (which reads confusingly). Container is a block-level div.
+				<div className="nacre-failed">
+					<span className="nacre-failed__text" role="status">
+						This preview couldn’t render.
+					</span>
 					<button type="button" className="nacre-failed__retry" onClick={retry}>
 						Retry
 					</button>
-				</span>
+				</div>
 			)}
 		</figure>
 	);
