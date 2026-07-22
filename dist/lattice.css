@@ -3055,8 +3055,9 @@ section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > str
 section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
   background: var(--decision-accent-deep, var(--accent));
   /* --decision-accent-deep resolves to var(--cat-N-mark) (decision.styles.css);
-   * text on the mark uses --cat-on-mark = light-dark(white, near-black), tuned so
-   * it clears AA on the mark in both modes (#1172 fixed the inverted themes). */
+   * text on the mark uses --cat-on-mark — usually light-dark(white, near-black),
+   * or a flat near-black in the vivid-mark themes (carbone) — tuned to clear AA on
+   * the mark in both modes (#1172 fixed the inverted themes). */
   color: var(--cat-on-mark);
 }
 
