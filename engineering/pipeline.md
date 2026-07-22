@@ -98,7 +98,7 @@ size for fidelity:
 | `--image-format` | `png` · `jpeg` · `webp` | Lossless PNG, or a lossy format for a smaller set (WebP smallest at equal quality). |
 | `--image-size` | `max` · `2x` · `1x` · `half` | Raster scale — the "size selection" lever; lower shrinks each image and the whole zip. |
 | `--image-quality` | `92` (1–100) | JPEG/WebP encoder quality; ignored for PNG. |
-| `--image-mode` | `auto` · `light` · `dark` · `print` | Color mode for the whole set. light/dark render the palette's light / dark variant; print is the B&W-safe handout. `auto` = the deck's own / palette-resolved. |
+| `--image-mode` | `inherit` · `light` · `dark` · `print` | Color mode for the whole set. light/dark render the palette's light / dark variant; print is the B&W-safe handout. `inherit` (the default) = the deck's own / palette-resolved. |
 | `--svg-background` | `inherit` · `light` · `dark` · `print` | The **look** of each standalone chart/diagram SVG — controls both its render and its canvas, *independent* of `--image-mode`. `light`/`dark` render the chart in that scheme; `print` renders it B&W-safe (grayscale + textures) on white — so you can export color slides but print-ready chart/diagram vectors. `inherit` (the default) follows the slides' color mode with no canvas. |
 
 **How the look is applied (a cross-surface nuance):** charts are token-driven, so both

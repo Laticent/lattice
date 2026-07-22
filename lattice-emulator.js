@@ -219,7 +219,7 @@ OPTIONS
                           overall set — the "size selection" lever.
       --image-quality N   Encoder quality 1–100 for jpeg/webp (default 92);
                           ignored for png.
-      --image-mode <m>    Color mode for the whole set — auto (default, the deck's
+      --image-mode <m>    Color mode for the whole set — inherit (default, the deck's
                           own / palette-resolved) | light | dark | print. light/dark
                           render the palette's light / dark variant; print is the
                           B&W-safe ink-on-white handout mode.
@@ -2268,7 +2268,7 @@ async function renderBody(browser, g, closeBrowser) {
     let svgAssets = [];
     if (IMAGE_SET_OPTS.extractSvg) {
       // The slides' own effective scheme (so a matching look needs no re-style).
-      const slideScheme = IMAGE_SET_OPTS.mode !== 'auto'
+      const slideScheme = IMAGE_SET_OPTS.mode !== 'inherit'
         ? IMAGE_SET_OPTS.mode
         : (/-dark$/.test(paletteName) ? 'dark' : 'light');
       const lookMode = svgLookMode(IMAGE_SET_OPTS.svgBackground); // null | light | dark | print
@@ -2359,7 +2359,7 @@ async function renderBody(browser, g, closeBrowser) {
     if (!QUIET) {
       const c = plan.manifest.counts;
       const tags = [`${c.slides} ${fmt.toUpperCase()}`];
-      if (IMAGE_SET_OPTS.mode !== 'auto') tags.push(IMAGE_SET_OPTS.mode);
+      if (IMAGE_SET_OPTS.mode !== 'inherit') tags.push(IMAGE_SET_OPTS.mode);
       if (c.thumbnails) tags.push(`${c.thumbnails} thumbnails`);
       if (c.assets) tags.push(`${c.assets} SVG${IMAGE_SET_OPTS.svgBackground !== 'inherit' ? ` (${IMAGE_SET_OPTS.svgBackground})` : ''}`);
       console.log(`Image set: ${outFile} (${tags.join(', ')}, ${(zipBuf.length / 1024).toFixed(0)} KB)`);

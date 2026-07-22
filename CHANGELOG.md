@@ -360,7 +360,7 @@ in patch versions.
   `manifest.json` index. The default is perfect-fidelity, lossless PNG at 2×; tuning flags trade
   size for fidelity — `--image-format png|jpeg|webp`, `--image-size max|2x|1x|half`,
   `--image-quality N` (jpeg/webp), `--thumb-width N`, `--no-thumbnails`, `--no-svg`. **Color mode**
-  is selectable per export — `--image-mode auto|light|dark|print` renders the whole set in the
+  is selectable per export — `--image-mode inherit|light|dark|print` renders the whole set in the
   light or dark palette or the B&W-safe print handout — and each standalone chart/diagram SVG has
   its own **look**, `--svg-background inherit|light|dark|print`, that renders the vector
   *independently of the slides*: `light`/`dark` render it in that scheme on a matching canvas, and

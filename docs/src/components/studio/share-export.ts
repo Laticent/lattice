@@ -503,7 +503,7 @@ export type ImageSetOptions = {
 	thumbnails?: boolean;
 	thumbWidth?: number;
 	extractSvg?: boolean;
-	mode?: 'auto' | 'light' | 'dark' | 'print';
+	mode?: 'inherit' | 'light' | 'dark' | 'print';
 	svgBackground?: 'inherit' | 'light' | 'dark' | 'print';
 };
 
@@ -514,10 +514,10 @@ export type ImageSetOptions = {
  *
  *  `previewMode` is the current light/dark preview; `imageOpts.mode` overrides it:
  *  light/dark render the matching palette variant, print stamps the B&W `class: print`
- *  canvas (rendered light), and auto keeps the preview mode — mirroring the CLI's
+ *  canvas (rendered light), and inherit keeps the preview mode — mirroring the CLI's
  *  `--image-mode`. The chosen mode also rides in `imageOpts` so the manifest records it. */
 export async function shareImageSet(options: SingleSlideOptions, source: string, name: string, palette: string, previewMode: 'light' | 'dark', imageOpts: ImageSetOptions, extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
-	const chosen = imageOpts.mode ?? 'auto';
+	const chosen = imageOpts.mode ?? 'inherit';
 	let renderMode: 'light' | 'dark' = previewMode;
 	let src = source;
 	if (chosen === 'light') renderMode = 'light';

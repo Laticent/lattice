@@ -20,7 +20,7 @@ describe('image-set: normalizeImageSetOptions', () => {
     assert.equal(o.thumbnails, true);
     assert.equal(o.extractSvg, true);
     assert.equal(o.thumbWidth, 480);
-    assert.equal(o.mode, 'auto');
+    assert.equal(o.mode, 'inherit');
     assert.equal(o.svgBackground, 'inherit');
   });
 
@@ -28,7 +28,7 @@ describe('image-set: normalizeImageSetOptions', () => {
     const o = IS.normalizeImageSetOptions({ format: 'gif', size: 'huge', mode: 'sepia', svgBackground: 'plaid' });
     assert.equal(o.format, 'png');
     assert.equal(o.size, 'max');
-    assert.equal(o.mode, 'auto');
+    assert.equal(o.mode, 'inherit');
     assert.equal(o.svgBackground, 'inherit');
   });
 
@@ -184,7 +184,7 @@ describe('image-set: assembleImageSetPlan', () => {
     assert.equal(m.quality, 70);
     assert.deepEqual(m.counts, { slides: 2, thumbnails: 2, assets: 1 });
     assert.deepEqual(m.pixel, { width: 2560, height: 1440, scale: 2 });
-    assert.equal(m.colorMode, 'auto');
+    assert.equal(m.colorMode, 'inherit');
     assert.equal(m.svgBackground, 'inherit');
     assert.equal(m.slides[0].thumbnail, 'thumbnails/d-01.jpeg');
     assert.equal(m.slides[1].image, 'slides/d-02.jpeg');

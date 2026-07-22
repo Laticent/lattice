@@ -16,11 +16,11 @@ import type { ImageSetOptions } from './share-export';
 
 type Format = 'png' | 'jpeg' | 'webp';
 type Size = 'max' | '2x' | '1x' | 'half';
-type Mode = 'auto' | 'light' | 'dark' | 'print';
+type Mode = 'inherit' | 'light' | 'dark' | 'print';
 type SvgBg = 'inherit' | 'light' | 'dark' | 'print';
 
 const MODES: { value: Mode; label: string; hint: string }[] = [
-	{ value: 'auto', label: 'Auto', hint: 'The deck’s current light/dark mode.' },
+	{ value: 'inherit', label: 'Inherit', hint: 'The deck’s current light/dark mode.' },
 	{ value: 'light', label: 'Light', hint: 'Force the light palette.' },
 	{ value: 'dark', label: 'Dark', hint: 'Force the dark palette.' },
 	{ value: 'print', label: 'Print', hint: 'B&W-safe ink-on-white handout mode.' },
@@ -84,7 +84,7 @@ export function ImageSetOptionsPanel({
 	const [quality, setQuality] = React.useState(92);
 	const [thumbnails, setThumbnails] = React.useState(true);
 	const [extractSvg, setExtractSvg] = React.useState(true);
-	const [mode, setMode] = React.useState<Mode>('auto');
+	const [mode, setMode] = React.useState<Mode>('inherit');
 	const [svgBackground, setSvgBackground] = React.useState<SvgBg>('inherit');
 
 	const lossy = format !== 'png';
