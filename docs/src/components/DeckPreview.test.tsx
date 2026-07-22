@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DeckPreview from './DeckPreview';
 
@@ -14,7 +14,7 @@ const { renderInto, dispose } = vi.hoisted(() => ({
 			_extra?: { name: string; css: string },
 			_modeOverride?: 'light' | 'dark',
 			_extraCss?: string,
-		) => Promise.resolve({ ok: true, slides: 1, error: null }),
+		) => Promise.resolve({ ok: true, slides: 1, error: null as string | null }),
 	),
 	dispose: vi.fn(),
 }));
@@ -208,5 +208,39 @@ describe('DeckPreview — first-render handoff (opacity reveal)', () => {
 		figure.appendChild(fr);
 		fr.style.opacity = '1';
 		await waitFor(() => expect(onFirstRender).toHaveBeenCalledTimes(1));
+	});
+});
+
+describe('DeckPreview — render failure affordance (#1164)', () => {
+	it('a NON-loader host whose render resolves ok:false shows a Retry affordance; a later success clears it', async () => {
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'boom' }));
+		const { container, getByText } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+		// The deterministic ok:false signal surfaces the failure card + a Retry — not a blank box.
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		expect(getByText('Retry')).toBeTruthy();
+
+		// Retry re-renders (still backpressured); make the next render succeed → the card clears.
+		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null }));
+		fireEvent.click(getByText('Retry'));
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
+	});
+
+	it('a LOADER host does NOT show the failure affordance — it keeps its skeleton (unchanged contract)', async () => {
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'boom' }));
+		const { container } = render(<DeckPreview options={opts} sample="# A" mermaid={false} loader aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		await new Promise((r) => setTimeout(r, 30));
+		expect(container.querySelector('.nacre-failed')).toBeNull();
+		expect(container.querySelector('.nacre-loader')).toBeTruthy();
+	});
+
+	it('a transient "renderer disposed" (host detached mid-render) does NOT trip the failure affordance', async () => {
+		// A mobile pane swap / unmount returns this sentinel — the reconnected host re-renders, so
+		// it must NOT read as a failure (which would flash a spurious Retry during a normal swap).
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'renderer disposed' }));
+		const { container } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+		await waitFor(() => expect(renderInto).toHaveBeenCalled());
+		await new Promise((r) => setTimeout(r, 30));
+		expect(container.querySelector('.nacre-failed')).toBeNull();
 	});
 });

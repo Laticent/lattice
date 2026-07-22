@@ -113,6 +113,15 @@ export function DeckPreview({
 	// (below, once stageRef exists) flips this on the reveal signal — NOT on a "a render
 	// happened" timer, which would drop the skeleton onto a not-yet-good slide.
 	const [painted, setPainted] = React.useState(false);
+	// #1164 — terminal FAILURE state for a NON-LOADER host. A loader host that never paints keeps
+	// its skeleton spinning (honest, by the skeleton contract); a non-loader host (landing /
+	// showcase / specimen — a KNOWN static sample with no meaningful load gap) had NO failure
+	// surface: a render that errors, or a pathological srcdoc whose `.lattice` never paints, left
+	// the iframe parked at opacity:0 forever — an indefinitely blank box with no signal. Two honest
+	// triggers set this (below): (1) the render resolves `ok:false` (an engine/theme error) —
+	// deterministic; and (2) a generous ceiling elapses with the frame still unrevealed — the
+	// "renders ok but never paints" case. A later successful render clears it; Retry re-renders.
+	const [failed, setFailed] = React.useState(false);
 	// One renderer instance for this host (holds the theme + font caches).
 	// Lazy-init: `options` is rebuilt each render from page data, so construct the
 	// renderer exactly once on first render and keep that instance thereafter
@@ -184,6 +193,24 @@ export function DeckPreview({
 		}, 14000);
 		return () => clearTimeout(t);
 	}, [loader, painted]);
+
+	// #1164 — never-paint CEILING (non-loader hosts only). Deterministic `ok:false` (below) catches
+	// a render that errors; this catches the "render resolved ok but the frame's runtime silently
+	// never painted `.lattice`" case. Carefully gated to avoid a false "couldn't render" on a merely
+	// slow or deferred host: it runs ONLY for an ACTIVE non-loader host, uses a generous budget (a
+	// KNOWN static sample this slow to paint is genuinely pathological), and is reveal-verifying —
+	// if `iframe.live` DID reveal (opacity !== '0') we never fail. `sample` is an intentional
+	// re-arm trigger: a content change starts a fresh render, so the ceiling clock restarts with it.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `sample` re-arms the ceiling per render; the body reads only refs + props.
+	React.useEffect(() => {
+		if (loader || failed || !active) return;
+		const t = setTimeout(() => {
+			const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
+			if (fr?.style.opacity && fr.style.opacity !== '0') return; // revealed — genuinely fine
+			setFailed(true);
+		}, 25000);
+		return () => clearTimeout(t);
+	}, [loader, failed, active, sample]);
 
 	// Re-render when the theme's NAME or its CSS CONTENT changes. The live-derived
 	// specimen has a content-hash name (so name alone would suffice), but a SAVED
@@ -293,6 +320,12 @@ export function DeckPreview({
 		// the 50ms line.
 		await engineRef.current?.whenReady();
 		const status = await renderRef.current();
+		// #1164 — surface a definitive render FAILURE on a non-loader host (a loader host owns its
+		// own spinning affordance, unchanged here). `ok:false` is the engine/theme error signal; the
+		// transient `'renderer disposed'` sentinel (a host detached mid-render — a mobile pane swap,
+		// an unmount) is NOT a failure, so it's excluded (the reconnected host re-renders). A
+		// successful render clears any prior failure.
+		if (!loader) setFailed(status?.ok === false && status.error !== 'renderer disposed');
 		// (Re)hydrate any live scene on the freshly rendered slide. `bindAnima` self-guards to
 		// attach the load listener once; `syncAnima` covers the in-place patch path (no `load`).
 		bindAnima();
@@ -373,6 +406,14 @@ export function DeckPreview({
 		else if (falling) animaRef.current?.destroy();
 	}, [active]);
 
+	// #1164 — Retry after a failure: clear the failed flag and schedule a fresh render of the
+	// current sample (still backpressured through the scheduler). A persistent engine error will
+	// simply fail again; the point is to give the user agency instead of a dead blank box.
+	const retry = React.useCallback(() => {
+		setFailed(false);
+		schedulerRef.current?.schedule();
+	}, []);
+
 	// `m-0` neutralizes the `<figure>` UA default margin (`0 40px`) — Tailwind
 	// preflight doesn't reach inside the studio island, and that 40px inline margin
 	// shoves a `w-full` preview off its track and overflows narrow viewports.
@@ -381,10 +422,11 @@ export function DeckPreview({
 	// engine appends the iframe AFTER it, so the iframe paints on top and — once opaque —
 	// covers the loader, which `is-done` then fades + freezes. A stable single child means
 	// React never adds/removes around the foreign iframe node.
-	// `relative` ONLY when the loader is on — so the iframe anchors to the figure that
-	// holds the loader. Non-loader hosts stay static (byte-for-byte unchanged anchoring).
+	// `relative` when the loader is on OR a failure card is showing (#1164) — so the absolute
+	// overlay anchors to the figure. A non-loader host with no failure stays static (byte-for-byte
+	// unchanged anchoring).
 	return (
-		<figure ref={stageRef} className={cn(loader && 'relative', 'm-0', className)} role={role} {...aria}>
+		<figure ref={stageRef} className={cn((loader || failed) && 'relative', 'm-0', className)} role={role} {...aria}>
 			{loader && (
 				<span className={cn('nacre-loader', painted && 'is-done')} aria-hidden="true">
 					<span className="nacre-loader__core" />
@@ -404,6 +446,17 @@ export function DeckPreview({
 						<i className="nacre-loader__blob" />
 					</span>
 					<span className="nacre-loader__vig" />
+				</span>
+			)}
+			{/* #1164 — terminal failure affordance for a non-loader host (never shown on a loader host,
+			    which keeps its skeleton). Overlays the parked opacity:0 iframe with a minimal message +
+			    Retry, so a never-rendering preview reads as a recoverable failure, not a dead blank. */}
+			{!loader && failed && (
+				<span className="nacre-failed" role="status">
+					<span className="nacre-failed__text">This preview couldn’t render.</span>
+					<button type="button" className="nacre-failed__retry" onClick={retry}>
+						Retry
+					</button>
 				</span>
 			)}
 		</figure>

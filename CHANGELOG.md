@@ -17,6 +17,25 @@ in patch versions.
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
 > | `### Fixed
 
+- **iOS: editing a slide no longer silently forces every later edit onto the slow render path.** The
+  live preview's content-driven reveal poll — which clears the "load in flight" flag and re-enables
+  the cheap patch/restyle render fast paths once a slide paints — was armed only on the FIRST render
+  of a preview. iOS Safari fires the srcdoc `load` event unreliably, so on a SUBSEQUENT edit the flag
+  stayed stuck "in flight" forever, disabling the fast paths and forcing every keystroke thereafter to
+  rewrite the whole iframe document (a fresh JS realm each time — the realm-churn leak the restyle path
+  exists to prevent). The poll now arms on EVERY full write, keyed on the frame holding a NEW painted
+  document (an identity guard, so a still-loading write can't false-clear against the outgoing slide),
+  and supersedes a prior still-pending poll on a fast re-edit. Preview-only; export bytes unchanged.
+  Real iOS-Safari behavior is UNVERIFIED from the sandbox (the poll's paint detection is device
+  behavior jsdom can't exercise); the arming + supersession + stop logic is unit-tested. (#1163,
+  `docs/src/lib/single-slide-render.ts`.)
+- **A preview that fails to render now shows a Retry instead of a permanently blank box.** A
+  non-loader preview host (landing / showcase / specimen) had no failure surface: a render that errored,
+  or a frame whose slide never painted, left the iframe hidden forever with no signal. It now surfaces a
+  minimal "This preview couldn't render." message + a **Retry** — driven by a deterministic render-error
+  signal, plus a generous, reveal-verifying never-paint ceiling for the "renders OK but never paints"
+  case. The Studio's own loader hosts are unchanged (they keep their Nacre skeleton). (#1164,
+  `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
 - **Live previews no longer leak memory on every palette / mode change.** A theme, palette, or
   dark/light-mode change used to re-render each live preview by rewriting the iframe's whole `srcdoc`,
   which keeps the same `<iframe>` but mints a fresh document + JS realm each time; the detached realms
