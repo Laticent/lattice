@@ -116,6 +116,13 @@ correctly). A **light/dark cross-scheme** diagram look on the CLI (e.g. a **dark
 diagrams keep the slide-scheme bake; the CLI **warns** and points you at the Studio (which re-renders)
 or `--svg-background print`. Charts recolor fully on both surfaces regardless.
 
+Two caveats on the CLI print re-bake: (1) it re-runs `mmdc` once per diagram (a second headless
+render), so a cross-scheme `--svg-background print` on a diagram-heavy deck is noticeably slower than a
+CSS-only look — expected, not a hang. (2) A diagram that sets its **own** colors — an author
+`%%{init}%%` theme, or explicit `fill:`/`stroke:` in `style`/`classDef`/`linkStyle` — overrides the
+print theme variables, so it can't be forced B&W; the CLI **warns with a count** (ungated by `--quiet`)
+and leaves those diagrams in their own colors rather than silently claiming a conversion it didn't make.
+
 **The `manifest.json` index** (`kind: "lattice-image-set"`, `version: 2`) lets a
 downstream tool wire up the set without probing files. It records: the deck `title`,
 `palette`, `engine` version, and `createdAt`; the `format`/`colorMode`/`svgBackground`

@@ -1188,7 +1188,9 @@ const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reori
 // rendered `.mermaid-svg`. The image-set export's cross-scheme SVG look uses this to RE-BAKE a
 // diagram in a different scheme (mmdc bakes colors at render time, so a CSS restyle can't recolor
 // baked node text/edges — re-running renderMermaid in the look mode can). Empty for decks with no
-// diagrams; only read on a cross-scheme image-set export.
+// diagrams; only read on a cross-scheme image-set export. SINGLE-SHOT: this is a run-once CLI
+// (`preprocessMermaid` fires once per process, one deck), so the array never accumulates across
+// decks. If this module is ever reused for multiple decks in one process, reset it per deck.
 const MERMAID_REBAKE_DEFS = [];
 
 function preprocessMermaid(source) {
@@ -2349,22 +2351,39 @@ async function renderBody(browser, g, closeBrowser) {
         if (lookMode === 'print') {
           if (diagramIdxs.length && !QUIET) process.stdout.write(`  re-baking ${diagramIdxs.length} Mermaid diagram(s) print-safe...`);
           let rebaked = 0;
+          const notPrintSafe = []; // diagrams whose own colors the print re-bake can't force B&W
           for (const idx of diagramIdxs) {
             const def = MERMAID_REBAKE_DEFS[idx];
             if (def == null) continue;
+            // A diagram that sets its OWN colors overrides Mermaid's print theme variables, so the
+            // re-bake can't force it B&W: an author `%%{init}%%` theme (mmdc skips themeVars entirely),
+            // or explicit `fill:`/`stroke:`/`color:` hex/rgb in `style`/`classDef`/`linkStyle`.
+            const authorColored = /%%\{\s*init/i.test(def) ||
+              /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
+            // A pure `%%{init}%%` theme makes the re-bake a total no-op — skip the wasted mmdc call and
+            // keep the original. (An explicit-fill diagram still benefits: the re-bake flattens its
+            // theme-driven parts, leaving only the styled nodes colored — so it IS still swapped below.)
+            if (/%%\{\s*init/i.test(def)) { notPrintSafe.push(idx); continue; }
             const out = renderMermaid(def, 'print');
             // mmdc can degrade to a `<pre class="mermaid-fallback">` (no <div> wrapper) after exhausting
             // its retries. Only swap a REAL re-bake — otherwise keep the original node (which still has
             // an <svg> to export) rather than replacing it with a <pre> and dropping the asset entirely.
-            if (!/^\s*<div\b/.test(out)) continue;
+            if (!/^\s*<div\b/.test(out)) { notPrintSafe.push(idx); continue; }
             const inner = out.replace(/^<div\b[^>]*>/, '').replace(/<\/div>\s*$/, '');
             await g(() => page.evaluate(({ i, html }) => {
               // Swap EVERY node carrying this index (a cloned diagram appears more than once), not just the first.
               for (const el of document.querySelectorAll(`.mermaid-svg[data-mmd-idx="${i}"]`)) el.innerHTML = html;
             }, { i: idx, html: inner }), 'swap re-baked diagram');
             rebaked++;
+            if (authorColored) notPrintSafe.push(idx); // swapped, but its own fills survive → still flag it
           }
-          if (diagramIdxs.length && !QUIET) console.log(rebaked ? ' done' : ' (fell back — kept original)');
+          if (diagramIdxs.length && !QUIET) console.log(` ${rebaked}/${diagramIdxs.length} converted`);
+          // A "print" set that still carries color is a real surprise the caller must SEE — so this
+          // warning is NOT gated on --quiet (unlike the progress line above). Names the count so an
+          // automated pipeline can catch it too.
+          if (notPrintSafe.length) {
+            console.warn(`  ⚠ ${notPrintSafe.length} of ${diagramIdxs.length} Mermaid diagram(s) could not be made fully B&W-safe — an author \`%%{init}%%\` theme or explicit \`style\`/\`classDef\` fills override print styling (or a diagram fell back). Those keep their own colors and may read low-contrast on the print canvas; remove the fixed theme/style, or re-color in the Studio.`);
+          }
           // Settle the swapped nodes before flattening reads their computed styles.
           if (rebaked) await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 60))), 'settle rebake');
         } else if (diagramIdxs.length && effectiveSvgBackground !== 'inherit') {
