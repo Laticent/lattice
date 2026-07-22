@@ -35,6 +35,11 @@ function buildFrame(svgBox: { width: number; height: number }) {
   const svg = doc.querySelector('svg.funnel-svg') as SVGElement & { getBoundingClientRect(): DOMRect };
   // The chart's own box (drives the hit-surface size). Mutable so a later re-pin reads a NEW value.
   svg.getBoundingClientRect = () => rect({ left: 10, top: 10, width: svgBox.width, height: svgBox.height });
+  // Give each mark a box so markAnchor (the no-pointer fallback) can read a center. Stack them vertically.
+  for (const m of doc.querySelectorAll<SVGElement & { getBoundingClientRect(): DOMRect }>('[data-mark]')) {
+    const idx = Number(m.getAttribute('data-mark'));
+    m.getBoundingClientRect = () => rect({ left: 20, top: 20 + idx * 40, width: 100, height: 30 });
+  }
   // The frame's on-screen box. offsetWidth stays 0 in jsdom → scale S = 1 (a no-op bridge).
   const frameGBCR = vi.fn(() => rect({ left: 0, top: 0, width: 400, height: 300 }));
   iframe.getBoundingClientRect = frameGBCR;
@@ -100,6 +105,32 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     next.iframe.style.opacity = '1';
     await tick();
     expect(hit.style.width).toBe('80px');
+    ci.destroy();
+  });
+
+  it('number-key reveal with NO pointer anchors at the mark, not off-screen (-9999)', () => {
+    const { iframe } = buildFrame({ width: 200, height: 150 });
+    const stage = document.createElement('div');
+    document.body.appendChild(stage);
+    const payloads: Array<{ x?: number; y?: number } | null> = [];
+
+    const ci = createChartInteract({
+      stage,
+      getFrame: () => iframe,
+      hoverAny: false,
+      onDetail: (d) => payloads.push(d as { x?: number; y?: number } | null),
+    });
+    ci.onSlide(0); // bind, no pointer has moved
+
+    // Number key '2' → mark index 1, with NO live pointer (the Present presenter-window / keyboard path).
+    expect(ci.handleKey(new KeyboardEvent('keydown', { key: '2' }))).toBe(true);
+    const opened = payloads.filter(Boolean).at(-1);
+    expect(opened).toBeTruthy();
+    // Fallback anchor = mark 1's center in parent coords (S=1): left 20 + 100/2 = 70, top (20+40) + 30/2 = 75.
+    expect(Number.isFinite(opened?.x)).toBe(true);
+    expect(Number.isFinite(opened?.y)).toBe(true);
+    expect(opened?.x).toBe(70);
+    expect(opened?.y).toBe(75);
     ci.destroy();
   });
 });

@@ -130,3 +130,13 @@ fixed, but it still needs a **real-device check on the deploy preview** before i
 - The hidden poster's marks stay in the DOM (`display:none`) beside the clone; a real cursor only ever
   hits the visible clone, so binding the visible svg is both the correctness fix and the geometry fix
   (a zero-box poster would break Present's hit-surface pinning).
+- **Two Present-path fixes folded from PR review** (both on the number-key / motion paths the sandbox
+  can't drive, so review caught them, not runtime): (1) a **number-key / presenter-window reveal has no
+  live pointer**, so `anchorPt` was null and the host popover anchored at its off-screen `(-9999)`
+  default → invisible; `markAnchor(i)` now supplies the mark's own center in parent coords as the
+  no-pointer fallback. (2) When `reflow` swaps `chartEl` to the freshly-mounted **Anima clone**, the
+  per-chart `chartRO` (bound to the poster in `setChart`) must **re-attach to the clone** or the animated
+  chart's async layout-settle re-pin watches a hidden node; the observer setup is now an `observeChart()`
+  helper called from both sites. (A third low-confidence review note — `enabled={false}` not tearing down
+  the controller — is moot: `PresentOverlay` is `if (!open) return null`, so closing Present unmounts the
+  layer and the effect cleanup runs `destroy()`.)

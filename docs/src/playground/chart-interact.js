@@ -212,7 +212,10 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     // several chances; harmless in hoverAny, where each pointer move already re-resolves via setChart.
     if (curSection) {
       const live = chartSvgIn(curSection);
-      if (live && live !== chartEl) chartEl = live;
+      // Re-target the per-chart ResizeObserver too — the clone is a DIFFERENT node than the poster
+      // chartRO was bound to in setChart, so without this the animated chart's async layout-settle
+      // re-pin (pinned mode) would keep watching the now-hidden poster and never fire.
+      if (live && live !== chartEl) { chartEl = live; observeChart(); }
     }
     if (!chartEl) { hide(); return; }
     let g, sr, cr;
@@ -238,6 +241,33 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
 
   function hide() { if (!hoverAny) hit.style.display = 'none'; }
 
+  // Anchor point for mark i in PARENT-viewport coords, computed from the mark's OWN box. The fallback
+  // when there is NO live pointer — a number-key or presenter-window reveal in Present — so the popover
+  // still opens AT the mark instead of the host's off-screen (-9999) no-anchor default. A pointer reveal
+  // keeps the cursor anchor; this only fires for the keyboard path.
+  function markAnchor(i) {
+    const g = frameGeom();
+    const m = marksFor(i)[0];
+    if (!g || !m) return null;
+    let r;
+    try { r = m.getBoundingClientRect(); } catch { return null; }
+    if (!r.width || !r.height) return null;
+    return { x: g.fr.left + (r.left + r.width / 2) * g.S, y: g.fr.top + (r.top + r.height / 2) * g.S };
+  }
+
+  // (Re)attach the per-chart ResizeObserver to the CURRENT chartEl — watches its box for the async
+  // layout settle and re-pins without polling. Called from setChart (initial bind) AND from reflow when
+  // it swaps chartEl to a freshly-mounted Anima clone (a different node than the poster), so the observer
+  // follows the chart it's meant to watch. Uses the iframe's OWN ResizeObserver (chartEl lives there).
+  function observeChart() {
+    try {
+      chartRO?.disconnect();
+      chartRO = null;
+      const ROc = chartEl?.ownerDocument?.defaultView?.ResizeObserver;
+      if (chartEl && ROc) { chartRO = new ROc(reflow); chartRO.observe(chartEl); }
+    } catch { /* cross-doc / older browser */ }
+  }
+
   // Point the interaction at a specific <section>'s chart (the active Present
   // slide, or the hovered preview chart). Idempotent — re-selecting the same
   // section is a no-op so a hover stream doesn't thrash the open popover.
@@ -256,12 +286,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     // Watch the CURRENT chart's box for its async layout settle (it lives in the iframe, so use the
     // iframe's own ResizeObserver). Re-pins the hit-surface without polling — the fix for a chart that
     // reflows after onSlide's fixed timers have run.
-    try {
-      chartRO?.disconnect();
-      chartRO = null;
-      const ROc = chartEl?.ownerDocument?.defaultView?.ResizeObserver;
-      if (chartEl && ROc) { chartRO = new ROc(reflow); chartRO.observe(chartEl); }
-    } catch { /* cross-doc / older browser */ }
+    observeChart();
     // Only "interactive" when the authored detail is actually present.
     if (chartEl && detailsEl) {
       // Gate on the MARK count, not the template count — detail is optional per
@@ -343,8 +368,10 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     // engineering/decisions/2026-06-21-chart-reveal-lean-tooltip.md.
     const lean = !body && !meta;
     // Freeze the anchor at the cursor point that opened THIS mark, so the card holds
-    // its spot instead of sliding as the cursor drifts within the mark.
-    anchorPt = ptr ? { x: ptr.x, y: ptr.y } : null;
+    // its spot instead of sliding as the cursor drifts within the mark. With NO pointer
+    // (number-key / presenter-window reveal in Present), fall back to the mark's own center
+    // so the popover opens at the mark rather than off-screen at the host's (-9999) default.
+    anchorPt = ptr ? { x: ptr.x, y: ptr.y } : markAnchor(i);
     liftAndTilt(i);
     if (onDetail) {
       // The host owns the popover UI (Playground → shadcn Popover). Hand it the content, the cursor
