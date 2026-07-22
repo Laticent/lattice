@@ -249,3 +249,67 @@ describe('chartToScene', () => {
     expect(out?.scene.asset).toBe('myChart');
   });
 });
+
+// The three motion STYLES the `motion:` deck setting / `motion-*` slide class select must produce
+// visibly DIFFERENT choreographies — else the picker is a lie. A pie fixture (sector role) proves
+// the style OVERRIDES the role-aware default (sectors sync on `build`, but `build` here is a funnel).
+const PIE =
+  '<svg viewBox="0 0 200 200">' +
+  '<path class="wedge" data-mark="0" data-anima-role="sector" d="M100,100 L100,0 A100,100 0 0,1 195,69 Z"/>' +
+  '<path class="wedge" data-mark="1" data-anima-role="sector" d="M100,100 L195,69 A100,100 0 0,1 100,200 Z"/>' +
+  '<path class="wedge" data-mark="2" data-anima-role="sector" d="M100,100 L100,200 A100,100 0 0,1 100,0 Z"/>' +
+  '</svg>';
+
+const revealOf = (out: ReturnType<typeof chartToScene>, id: string) =>
+  out?.scene.elements.find((e) => e.id === id)?.motion?.find((m) => m.verb === 'reveal') as { at?: number; span?: number } | undefined;
+
+describe('chartToScene — motion styles', () => {
+  it('build (default): bars stagger — reveal windows advance in document order', () => {
+    const out = chartToScene(FUNNEL, { style: 'build', buildSpan: 0.6 });
+    expect(revealOf(out, 'bar-1')?.at).toBeGreaterThan(revealOf(out, 'bar-0')?.at ?? 0);
+    // no slide verb on a plain build
+    expect(out?.scene.elements.every((e) => !e.motion?.some((m) => m.verb === 'slide'))).toBe(true);
+  });
+
+  it('together: every mark reveals SYNCHRONIZED — same window, no stagger — even for staggering bars', () => {
+    const out = chartToScene(FUNNEL, { style: 'together', buildSpan: 0.6 });
+    const a = revealOf(out, 'bar-0');
+    const b = revealOf(out, 'bar-1');
+    expect(a?.at).toBe(0);
+    expect(b?.at).toBe(0); // NOT staggered — the whole chart fades in at once
+    expect(a?.span).toBe(b?.span);
+  });
+
+  it('rise: each mark ALSO slides up (a slide verb, from a positive-dy offset) over the reveal window', () => {
+    const out = chartToScene(FUNNEL, { style: 'rise' });
+    const bar0 = out?.scene.elements.find((e) => e.id === 'bar-0');
+    const slide = bar0?.motion?.find((m) => m.verb === 'slide') as { from?: [number, number]; at?: number } | undefined;
+    expect(slide).toBeDefined();
+    expect(slide?.from?.[1]).toBeGreaterThan(0); // starts displaced DOWNWARD → rises into place
+    // the slide shares the reveal's start, so fade + move read as one gesture
+    expect(slide?.at).toBe(revealOf(out, 'bar-0')?.at);
+    // still passes the validator
+    expect(parseScene(out?.scene).ok).toBe(true);
+  });
+
+  it('`together` OVERRIDES the bar stagger (a funnel) → synchronized; `build` keeps a pie whole', () => {
+    // The real override is on BARS: `build` staggers them, `together` forces them synchronized.
+    const funnelBuild = chartToScene(FUNNEL, { style: 'build' });
+    expect(revealOf(funnelBuild, 'bar-1')?.at).toBeGreaterThan(revealOf(funnelBuild, 'bar-0')?.at ?? 0);
+    const funnelTogether = chartToScene(FUNNEL, { style: 'together' });
+    expect(revealOf(funnelTogether, 'bar-0')?.at).toBe(revealOf(funnelTogether, 'bar-1')?.at);
+    // SECTORS stay whole under both build and the default — a staggered disc would read as a missing
+    // slice (Munger), so `build` is role-aware for a closed figure and never staggers a pie.
+    const pieDefault = chartToScene(PIE);
+    const pieBuild = chartToScene(PIE, { style: 'build' });
+    expect(revealOf(pieDefault, 'sector-0')?.at).toBe(revealOf(pieDefault, 'sector-1')?.at);
+    expect(revealOf(pieBuild, 'sector-0')?.at).toBe(revealOf(pieBuild, 'sector-1')?.at);
+  });
+
+  it('an unknown style falls back to build (staggered), never throws', () => {
+    // @ts-expect-error — exercising a bad runtime value the front-matter could carry
+    const out = chartToScene(FUNNEL, { style: 'wobble' });
+    expect(out).not.toBeNull();
+    expect(revealOf(out, 'bar-1')?.at).toBeGreaterThan(revealOf(out, 'bar-0')?.at ?? 0);
+  });
+});

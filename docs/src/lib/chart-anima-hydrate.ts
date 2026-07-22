@@ -15,10 +15,18 @@
 
 import { type HydrateOptions, hydrateResolved, readDeclaredTier } from './anima/hydrate';
 import { parseScene } from './anima/schema';
-import { chartToScene } from './chart-anima';
+import { type ChartAnimaStyle, chartToScene } from './chart-anima';
 
 export interface ChartSceneController {
   dispose(): void;
+}
+
+export interface ChartHydrateOptions extends HydrateOptions {
+  /** The resolved motion STYLE for this section (the caller runs the Play/Style/Speed cascade —
+   *  `resolveMotion` in anima-host-sel — and only calls when Play is on). Omitted → no motion. */
+  style?: ChartAnimaStyle;
+  /** The resolved total duration in ms (from the Speed axis via `speedToDurationMs`). */
+  durationMs?: number;
 }
 
 /** The funnel's worst outgoing conversion → its band's `data-mark`, so the leak emphasizes. Reads
@@ -44,12 +52,17 @@ export function worstMarks(svg: Element): number[] {
  * and delegates the whole lifecycle to the shared host. Returns a controller (dispose restores the
  * static chart), or null if the section has no animatable chart. Preview-only; export is untouched.
  */
-export function hydrateChart(section: Element, opts: HydrateOptions = {}): ChartSceneController | null {
+export function hydrateChart(section: Element, opts: ChartHydrateOptions = {}): ChartSceneController | null {
+  // The caller (anima-scenes.ts) runs the Play/Style/Speed cascade and passes the resolved style +
+  // duration; no style means Play resolved off → stay static.
+  const style = opts.style;
+  if (!style) return null;
+
   const svg = section.querySelector('svg');
   if (!svg) return null;
 
   const sanitize = opts.sanitize ?? ((m: string) => m);
-  const built = chartToScene(sanitize(svg.outerHTML), { highlightMarks: worstMarks(svg) });
+  const built = chartToScene(sanitize(svg.outerHTML), { style, duration: opts.durationMs, highlightMarks: worstMarks(svg) });
   if (!built) return null;
   const parsed = parseScene(built.scene);
   if (!parsed.ok) return null; // a malformed scene simply leaves the static chart standing
@@ -67,6 +80,7 @@ export function hydrateChart(section: Element, opts: HydrateOptions = {}): Chart
       poster: svg,
       assetMarkup: sanitize(built.asset),
     },
-    opts,
+    // Charts get NO playback control — motion is a one-shot "play on enter" build, not a media player.
+    { ...opts, chrome: false },
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getClassTokens } from './slide-directives';
-import { canvasProvenance, finishProvenance, modeProvenance, setCanvas, setFinish, setMode, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { canvasProvenance, finishProvenance, modeProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, setCanvas, setFinish, setMode, setMotionPlay, setMotionSpeed, setMotionStyle, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 
 const TONE_STYLES = ['tone-rail', 'tone-edge', 'tone-glow'];
 
@@ -81,6 +81,34 @@ describe('mode provenance + opt-out', () => {
 		expect(getClassTokens(setMode('<!-- _class: kpi -->', 'sketch-clean'))).toEqual(['kpi', 'sketch', 'sketch-clean-body']);
 		expect(getClassTokens(setMode('<!-- _class: kpi sketch -->', 'boardroom'))).toEqual(['kpi', 'boardroom']);
 		expect(getClassTokens(setMode('<!-- _class: kpi sketch sketch-clean-body -->', null))).toEqual(['kpi']);
+	});
+});
+
+describe('motion provenance — three axes (Play / Style / Speed)', () => {
+	it('PLAY: off by default; inherits deck `motion: on`; slide motion-on/off overrides', () => {
+		expect(motionPlayProvenance('<!-- _class: funnel -->', '# deck')).toMatchObject({ state: 'off', inheritable: false });
+		expect(motionPlayProvenance('<!-- _class: funnel -->', deck('motion: on', 'x'))).toMatchObject({ state: 'inherited', value: 'on', inheritable: true });
+		expect(motionPlayProvenance('<!-- _class: funnel motion-off -->', deck('motion: on', 'x'))).toMatchObject({ state: 'off', deckValue: 'on' });
+		// a bare style token implies Play on
+		expect(motionPlayProvenance('<!-- _class: funnel motion-rise -->', '# deck')).toMatchObject({ state: 'on' });
+		expect(motionPlayProvenance('<!-- _class: funnel chart-anima -->', '# deck')).toMatchObject({ state: 'on' });
+	});
+	it('STYLE: inherits `motion-style:`; slide motion-<style> overrides; legacy chart-anima → build', () => {
+		expect(motionStyleProvenance('<!-- _class: funnel -->', deck('motion-style: together', 'x'))).toMatchObject({ state: 'inherited', value: 'together' });
+		expect(motionStyleProvenance('<!-- _class: funnel motion-rise -->', '# deck')).toMatchObject({ state: 'on', value: 'rise' });
+		expect(motionStyleProvenance('<!-- _class: funnel chart-anima -->', '# deck')).toMatchObject({ state: 'on', value: 'build' });
+	});
+	it('SPEED: inherits `motion-speed:`; slide motion-<speed> overrides', () => {
+		expect(motionSpeedProvenance('<!-- _class: funnel -->', deck('motion-speed: fast', 'x'))).toMatchObject({ state: 'inherited', value: 'fast' });
+		expect(motionSpeedProvenance('<!-- _class: funnel motion-slow -->', '# deck')).toMatchObject({ state: 'on', value: 'slow' });
+	});
+	it('setters write the right token, null clears, and setting Play/Style strips legacy chart-anima', () => {
+		expect(getClassTokens(setMotionPlay('<!-- _class: funnel -->', 'off'))).toEqual(['funnel', 'motion-off']);
+		expect(getClassTokens(setMotionStyle('<!-- _class: funnel chart-anima -->', 'rise'))).toEqual(['funnel', 'motion-rise']);
+		expect(getClassTokens(setMotionSpeed('<!-- _class: funnel motion-slow -->', 'fast'))).toEqual(['funnel', 'motion-fast']);
+		expect(getClassTokens(setMotionSpeed('<!-- _class: funnel motion-fast -->', null))).toEqual(['funnel']);
+		// axes are independent: setting style leaves a speed token intact
+		expect(getClassTokens(setMotionStyle('<!-- _class: funnel motion-fast -->', 'together')).sort()).toEqual(['funnel', 'motion-fast', 'motion-together']);
 	});
 });
 

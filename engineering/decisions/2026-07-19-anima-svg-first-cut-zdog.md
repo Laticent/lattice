@@ -370,6 +370,17 @@ bar.**
    >   playback control, the reduced-motion accessibility floor + viewer opt-in, and lazy/off-screen
    >   mounting for free. The author opt-in is a `chart-anima` section class (`_class:` slide override
    >   or deck-level `class:` frontmatter) — the §0.75 "deck default / slide override" settings surface.
+   > - **The settings surface is now BUILT (not just the opt-in class).** A `motion:` front-matter
+   >   scalar sets the deck-wide default (`build` · `together` · `rise` · `off`) and a per-slide
+   >   `motion-*` class overrides it (`motion-off` suppresses one slide) — the §0.75 "closed set of
+   >   policies" made real, wired into **Deck Settings → Marks → Motion** and **Slide Settings →
+   >   Motion** in the Studio. The three styles are pure adapter choreography over the existing painted
+   >   channels (reveal / slide / highlight — no new backend verb): `build` reveals in reading order
+   >   (role-aware — a closed disc stays whole), `together` synchronizes, `rise` adds a slide-up. The
+   >   deck default is resolved LIVE (`anima-host-sel.ts`), so the export bytes are untouched; the
+   >   legacy `chart-anima` class is an alias for `motion-build`. (`docs/src/lib/chart-anima.ts`,
+   >   `docs/src/playground/anima-host-sel.ts`, `docs/src/components/studio/motion-catalog.ts` +
+   >   `slide-provenance.ts`.)
    > The model-*gated* (AI-generated) leg is still pending; the pivot's chart-moat claim is proven.
 3. **THEN excise zdog in one deletion pass** (only after the gate passes): remove `source:'built'`,
    `PRIMITIVES`, the built-only verbs, `backends/zdog.ts` + its adapter allowlist entry, the

@@ -290,6 +290,28 @@ in patch versions.
 
 ### Added
 
+- **Chart motion is a first-class SETTING — a Motion tab with Play, Style, and Speed.** The in-place
+  chart animation gets a dedicated **Motion** tab in the Studio's Deck AND Slide inspectors, with three
+  independent axes at full parity between the controls, the front matter, and the slide classes (no
+  magic — each axis is its own literal key/token):
+  - **Play** — `motion: on|off` / slide `motion-on` · `motion-off`. Off is the static baseline.
+  - **Style** — `motion-style: build|together|rise` / slide `motion-build` · `motion-together` ·
+    `motion-rise`. **Build** reveals marks in reading order (a funnel top-to-bottom, a pie as one whole
+    disc, worst drop-off emphasized); **Together** fades the whole chart in at once; **Rise** lifts marks
+    up into place as they build.
+  - **Speed** — `motion-speed: auto|slow|normal|fast` / slide `motion-auto` · `motion-slow` ·
+    `motion-normal` · `motion-fast`. `auto` paces to the chart's mark count.
+
+  A slide overrides any subset per-axis (`<!-- _class: funnel motion-rise motion-fast -->`), and
+  `motion-off` pins one slide static under a deck default. Motion **plays once when the slide is
+  entered — there is no replay control** (it read as a gimmick; a chart just builds and settles).
+  Preview-only: motion runs on the live surfaces (Studio / Playground / Present) and the exported
+  PDF/PPTX render the finished chart still. The pre-`motion` `chart-anima` class keeps working as
+  `motion-on` + `motion-build`. Funnel and pie get the full treatment; quadrant and map animate via the
+  role fallback; radar / state-chart geometry isn't reachable yet. (`docs/src/lib/chart-anima.ts`
+  style + speed; `docs/src/playground/anima-host-sel.ts` the Play/Style/Speed cascade;
+  `docs/src/components/studio/` the Motion tab; `docs/src/lib/anima/hydrate.ts` `chrome:false` +
+  play-once; `engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75.)
 - **The in-place chart animation now covers the piechart — and gradient-filled charts render
   correctly.** `chart-anima` extends to the pie: add it to a slide or deck and the disc fades in as a
   whole on the live Studio / Playground (model-free; exported PDF/PPTX byte-identical). This also
@@ -893,6 +915,17 @@ in patch versions.
   grayscale ramp stays evenly separated. Dark-mode arms are untouched except concrete's
   `--scheme-dark-text-secondary` (`#9A9A98`→`#A3A3A1`) — the one dark-side card fix.
   (`tools/contrast-audit.js`, `themes/*.css`.)
+- **`chart-anima` now animates in the Studio, Present, and thumbnails — not just the Playground.** The
+  in-place chart on-ramp (`<!-- _class: chart-anima -->` or a deck-level `class: chart-anima`) played
+  on the Playground, whose live frame wires the Anima host directly, but stayed a static still on every
+  surface that renders through the shared `DeckPreview` component (the Studio's live preview, Present,
+  and preview thumbnails). `DeckPreview` lazily loads the host only when the rendered slide carries a
+  live scene, but that gate matched a **baked** scene (`section.scene[data-scene-spec]`) *only* — an
+  opted-in chart (`section.chart-anima`) never tripped it, so the host was never imported and the chart
+  never came to life. The gate now tests the same union the host actually mounts, pulled from one shared
+  `ANIMA_HOST_SEL` (`docs/src/playground/anima-host-sel.ts`) so the two can't drift again. Preview-only,
+  as before — the exported PDF/PPTX/HTML stays byte-identical. (`docs/src/components/DeckPreview.tsx`;
+  verified on the real Studio.)
 - **Status-fill and accent chrome controls are now contrast-safe and colorblind-aware in dark mode.**
   Follows the chrome status-token fix: (1) new generated `--pass-fill`/`--warn-fill`/`--fail-fill`
   tokens back the white-text status FILLS (the Stop / armed-delete buttons, the diagnostics verdict

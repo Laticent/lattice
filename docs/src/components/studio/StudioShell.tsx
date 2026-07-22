@@ -56,6 +56,7 @@ import { Library } from './Library';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
+import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { PresentOverlay } from './PresentOverlay';
 import { ReshapePicker } from './ReshapePicker';
 import { activeRule, RULES } from './rule-catalog';
@@ -135,11 +136,12 @@ function EditorSkeleton() {
 // (renamed from "Brand" — a broader, clearer name for everything the accent touches,
 // incl. the heading marks). Preview-only dev aids are NOT a tab — they live in a
 // Developer footer disclosure (A.1) so the strip is four narrow, one-row pills.
-type DeckTab = 'look' | 'brand' | 'marks' | 'speech';
+type DeckTab = 'look' | 'brand' | 'marks' | 'motion' | 'speech';
 const DECK_TABS: { value: DeckTab; label: string }[] = [
 	{ value: 'look', label: 'Look' },
 	{ value: 'brand', label: 'Accent' },
 	{ value: 'marks', label: 'Marks' },
+	{ value: 'motion', label: 'Motion' },
 	{ value: 'speech', label: 'Speech' },
 ];
 
@@ -974,6 +976,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Named `renderMode` locally to avoid clashing with the light/dark `mode` below.
 	const renderMode = getFrontMatter(source, 'mode') || 'boardroom';
 	const setRenderMode = (value: string) => settingsWrite(`Mode → ${value}`, (s) => setFrontMatter(s, 'mode', value === 'boardroom' ? null : value));
+	// Chart motion — the deck-wide `motion:` default (off is the baseline; clears the key). A slide
+	// overrides it with a `motion-*` class in the slide drawer. Preview-only; export is untouched.
+	// Chart motion — three deck-wide axes (Play / Style / Speed), full parity with the front matter.
+	// Play off is the baseline (clears the key); Style default build + Speed default auto are omitted.
+	const motionPlay = (getFrontMatter(source, 'motion') || '').trim().toLowerCase() === 'on';
+	const toggleMotionPlay = () => settingsWrite(motionPlay ? 'Motion off' : 'Motion on', (s) => setFrontMatter(s, 'motion', motionPlay ? null : 'on'));
+	const motionStyle = getFrontMatter(source, 'motion-style') || 'build';
+	const setMotionStyleFM = (value: string) => settingsWrite(`Motion style → ${value}`, (s) => setFrontMatter(s, 'motion-style', value === 'build' ? null : value));
+	const motionSpeed = getFrontMatter(source, 'motion-speed') || 'auto';
+	const setMotionSpeedFM = (value: string) => settingsWrite(`Motion speed → ${value}`, (s) => setFrontMatter(s, 'motion-speed', value === 'auto' ? null : value));
 	// The white-label brand bar (`spectrum:` register). `on` is the rainbow default, so it
 	// writes no key; off / solid write the register.
 	const spectrum = getFrontMatter(source, 'spectrum') || 'on';
@@ -2392,6 +2404,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<TextRow label="Footer" desc="The line along the bottom — a confidentiality or source line. Blank hides it." value={footerText} placeholder="e.g. Confidential" onCommit={setFooterText} />
 					<Field label="Page numbers"><Toggle label="Page numbers" on={pageNumbers} onClick={togglePageNumbers} /></Field>
 					<Field label="Section rail" desc="Show the progress dots that track position through the deck."><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
+			</div>
+			)}
+			{deckTab === 'motion' && (
+			<div>
+				<p className="mb-2.5 text-[11px] leading-snug text-muted-foreground">Animate charts in place on the live surfaces (Studio, Present) — they play once when the slide is shown. Preview-only: the exported PDF/PPTX is unchanged. Any slide can override these in its own settings.</p>
+					<Field label="Play" desc="Turn chart motion on for the deck. Off keeps every chart static.">
+						<Toggle label="Chart motion" on={motionPlay} onClick={toggleMotionPlay} />
+					</Field>
+					<Field label="Style" desc="How a chart moves — Build reveals in reading order, Together fades in at once, Rise lifts marks into place.">
+						<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(motionStyle).name} onValueChange={setMotionStyleFM} className="min-w-[116px]" groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
+					</Field>
+					<Field label="Speed" desc="How fast the build runs. Auto paces to the chart's size.">
+						<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="min-w-[116px]" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
+					</Field>
 			</div>
 			)}
 			{deckTab === 'speech' && (
