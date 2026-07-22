@@ -2367,9 +2367,11 @@ async function renderBody(browser, g, closeBrowser) {
           if (diagramIdxs.length && !QUIET) console.log(rebaked ? ' done' : ' (fell back — kept original)');
           // Settle the swapped nodes before flattening reads their computed styles.
           if (rebaked) await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 60))), 'settle rebake');
-        } else if (diagramIdxs.length) {
-          // light / dark cross-scheme: charts recolor, but Mermaid diagrams keep their slide-scheme
-          // bake (mmdc literals the CSS restyle can't flip). Point at the surfaces that DO re-bake.
+        } else if (diagramIdxs.length && effectiveSvgBackground !== 'inherit') {
+          // light / dark cross-scheme that WAS applied: charts recolor, but Mermaid diagrams keep
+          // their slide-scheme bake (mmdc literals the CSS restyle can't flip). Point at the surfaces
+          // that DO re-bake. (Skipped when the look coerced to `inherit` above — a missing companion
+          // theme, already warned — since then no look was applied to charts OR diagrams.)
           console.warn(`  ⚠ --svg-background ${lookMode}: Mermaid diagrams keep the slide-scheme colors (charts recolor). For fully re-baked light/dark diagrams use the Studio export; --svg-background print IS re-baked B&W-safe here.`);
         }
       }
