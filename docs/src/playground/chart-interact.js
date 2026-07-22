@@ -102,6 +102,8 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   let chartEl = null;    // the <svg class="piechart-svg"> in the current section (same-origin)
   let detailsEl = null;  // its sibling .chart-details (the <template> payload)
   let chartRO = null;    // re-pins the hit-surface when the CURRENT chart's own box settles (see setChart)
+  let frameMO = null;    // re-pins on the frame's LATE transform/opacity reveal (loader host — see watchFrame)
+  let watchedFrame = null; // the iframe element frameMO is currently attached to
   let sliceN = 0;        // slice count on the current chart
   let openSlice = -1;    // which slice's detail is showing (-1 = none)
   let chartBox = null;   // current chart rect in stage coords (Present hit-surface)
@@ -273,9 +275,31 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     }
   }
 
+  // Watch the frame ELEMENT's inline style for the LATE reveal that ResizeObserver can't see. A loader
+  // host (Present) keeps its iframe at `opacity:0` / a placeholder scale until single-slide-render's
+  // scaleFrame reveals it — by mutating the iframe's inline `transform` + `opacity` (docs/src/lib/
+  // single-slide-render.ts) once a real width is known and the slide has painted. Those are transform/
+  // opacity changes, so they DON'T resize the border-box and the frame ResizeObserver never fires; and
+  // they land AFTER onSlide's fixed re-pin timers, so the pinned hit-surface is left at a stale/zero
+  // geometry and taps miss (the Present-on-mobile "popup never shows" bug). A MutationObserver on the
+  // frame's `style` catches exactly that reveal and re-pins. The iframe element persists across srcdoc
+  // rewrites, so one observer stays valid; we still re-target if getFrame() ever returns a new element.
+  function watchFrame() {
+    const fe = getFrame();
+    if (fe === watchedFrame) return;
+    try { frameMO?.disconnect(); } catch { /* noop */ }
+    frameMO = null;
+    watchedFrame = fe;
+    if (fe && window.MutationObserver) {
+      try { frameMO = new MutationObserver(reflow); frameMO.observe(fe, { attributes: true, attributeFilter: ['style'] }); }
+      catch { /* older browser */ }
+    }
+  }
+
   // ── lifecycle: called after every slide change (Present/Practice) ───────────
   function onSlide(idx) {
     curIdx = idx | 0;
+    watchFrame();
     const d = doc();
     setChart(d ? d.querySelectorAll('.lattice > section')[curIdx] : null);
     if (interactive()) {
@@ -323,9 +347,10 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     anchorPt = ptr ? { x: ptr.x, y: ptr.y } : null;
     liftAndTilt(i);
     if (onDetail) {
-      // The host owns the popover UI (Playground → shadcn Popover). Hand it the
-      // content + the cursor anchor; the vanilla popover stays dormant.
-      try { onDetail({ label, value, dot, body, meta, lean, x: anchorPt?.x, y: anchorPt?.y }); } catch { /* host hook */ }
+      // The host owns the popover UI (Playground → shadcn Popover). Hand it the content, the cursor
+      // anchor, AND the frame's render scale so the card can size WITH the slide — a heavily-scaled
+      // preview (mobile) would otherwise get a full-size card that dwarfs the tiny chart.
+      try { onDetail({ label, value, dot, body, meta, lean, x: anchorPt?.x, y: anchorPt?.y, scale: frameGeom()?.S ?? 1 }); } catch { /* host hook */ }
       return;
     }
     pop.classList.toggle('db-pp-chartpop--lean', lean);
@@ -612,6 +637,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     const fe = getFrame();
     if (fe) ro.observe(fe);
   } catch { /* older browser */ }
+  watchFrame(); // MutationObserver on the frame's style — catches the LATE transform/opacity reveal (loader host)
   window.addEventListener('resize', reflow);
 
   function destroy() {
@@ -622,6 +648,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     curSection = chartEl = detailsEl = null;
     try { ro?.disconnect(); } catch { /* noop */ }
     try { chartRO?.disconnect(); } catch { /* noop */ }
+    try { frameMO?.disconnect(); } catch { /* noop */ }
     window.removeEventListener('resize', reflow);
     root.remove();
   }

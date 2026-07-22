@@ -50,9 +50,14 @@ in patch versions.
   animated chart carries both a hidden poster and a live clone, so `chart-interact` now binds the
   VISIBLE svg — static, mid-build, and settled charts all reveal correctly (popover cursor-anchored).
   Present is wired too, in pinned mode over its pointer-events-none delivery card (number-key reveal),
-  via a new `DeckPreview` `onRender` hook — **Present's reveal is not yet verified on a real browser**
-  (its overlay preview couldn't be driven in the headless sandbox). Verified on the real `/studio`
-  editing preview. (`docs/src/components/chart-detail-layer.tsx`, `DeckPreview.tsx`,
+  via a new `DeckPreview` `onRender` hook. On a heavily-scaled mobile preview the popover now **sizes
+  WITH the slide** (the card scales by the frame's render scale, floored for readability) instead of a
+  full-size card dwarfing the tiny chart — verified on a real mobile-width `/studio` editing preview.
+  A **loader host (Present)** reveals its frame LATE via an inline `transform`/`opacity` change, which
+  a `ResizeObserver` can't see — so the pinned hit-surface used to stay stale and taps missed; a
+  `MutationObserver` on the frame's `style` now re-pins on that reveal (**Present's real-browser
+  runtime is still checked on the deploy preview, not the headless sandbox** — its overlay stays on the
+  loader skeleton there). (`docs/src/components/chart-detail-layer.tsx`, `DeckPreview.tsx`,
   `docs/src/components/studio/StudioShell.tsx` + `PresentOverlay.tsx`, `docs/src/playground/chart-interact.js`.)
 - **Anima can now animate a real Lattice chart — with zero model calls.** A new ingest bridge
   (`docs/src/lib/chart-anima.ts` `chartToScene`) reads a rendered chart's own marks (the

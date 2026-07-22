@@ -34,6 +34,9 @@ export type ChartDetail = {
   lean?: boolean;
   x?: number;
   y?: number;
+  /** The preview frame's render scale, so the card sizes WITH the slide (a heavily-scaled mobile
+   *  preview otherwise gets a full-size card that dwarfs the tiny chart). */
+  scale?: number;
 };
 
 /** The imperative surface a host drives after each preview paint / slide change. */
@@ -143,21 +146,31 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
   }, [ensureMounted]);
 
   if (!enabled) return null;
+  // Size the card WITH the slide: the preview iframe is transform-scaled to fit its pane (≈0.6 on
+  // desktop, much smaller on mobile), so a full-size card dwarfs the chart. Scale the visible card by
+  // the frame's render scale, floored so it stays readable on a heavily-scaled mobile preview. The
+  // OUTER PopoverContent stays a transparent, full-size positioning wrapper (Radix owns its placement +
+  // open animation); the INNER div is the visible card and scales from its top-left, so it stays pinned
+  // to the anchor while shrinking.
+  const cardScale = Math.min(1, Math.max(detail?.scale ?? 1, 0.5));
   return (
     <Popover open={!!detail}>
       <PopoverAnchor virtualRef={anchorRef} />
       <PopoverContent
         side="bottom"
         align="start"
-        sideOffset={14}
+        sideOffset={14 * cardScale}
         collisionPadding={8}
         updatePositionStrategy="always"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
-        className="pointer-events-none w-auto max-w-[20rem] p-3"
+        className="pointer-events-none w-auto border-0 bg-transparent p-0 shadow-none"
       >
         {detail && (
-          <>
+          <div
+            className="max-w-[20rem] rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
+            style={{ transform: `scale(${cardScale})`, transformOrigin: 'top left' }}
+          >
             <div className="flex items-center gap-2 font-medium text-foreground">
               {detail.dot ? <span className="size-2 shrink-0 rounded-full" style={{ background: detail.dot }} /> : null}
               <span>{detail.label}</span>
@@ -171,7 +184,7 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
               // biome-ignore lint/security/noDangerouslySetInnerHtml: deck-authored detail, sanitized upstream by the render path (#22).
               <div className="mt-1.5 text-xs uppercase tracking-wide text-muted-foreground" dangerouslySetInnerHTML={{ __html: detail.meta }} />
             ) : null}
-          </>
+          </div>
         )}
       </PopoverContent>
     </Popover>

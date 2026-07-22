@@ -67,6 +67,29 @@ pinned hit-surface two ways, both now fixed in `chart-interact.js`:
   ResizeObservers: on the frame element (re-scale) and, re-targeted per chart, on the chart's own svg
   inside the iframe (its layout settle). No polling; the surface re-pins when the geometry it depends on
   actually changes.
+- **The LATE reveal a `ResizeObserver` can't see (the Present-on-mobile bug).** A `loader` host
+  (Present) holds its iframe at `opacity:0` / a placeholder scale until `single-slide-render`'s
+  `scaleFrame` reveals it — by mutating the iframe's inline `transform` + `opacity` once a real width is
+  known and the slide has painted. A CSS `transform` does NOT change the border-box, so the frame
+  `ResizeObserver` never fires; and the reveal lands AFTER `onSlide`'s fixed re-pin timers, so the pinned
+  hit-surface is stuck at a stale/zero geometry and every tap misses (the reported "Present popup never
+  shows on mobile"). Fixed with a `MutationObserver` on the frame element's `style` attribute
+  (`watchFrame`) → `reflow`; it re-targets if `getFrame()` returns a new element and disconnects in
+  `destroy`. The editing preview never hit this because it has no loader — its scale is stable before the
+  timers fire. `reflow` writes only the parent hit-surface's style (never the frame's), so observing the
+  frame can't self-trigger.
+
+## The mobile card size — scale WITH the slide
+
+The preview iframe is transform-scaled to fit its pane (~0.59 desktop, ~0.28 on a 390px mobile pane), so
+a full-size popover card dwarfs the tiny chart (the reported "way too big, doesn't scale with the
+slide"). `reveal()` now hands the host the frame's render scale `S` in the `onDetail` payload, and
+`ChartDetailLayer` scales the VISIBLE card by `cardScale = min(1, max(S, 0.5))` — floored at 0.5 so the
+text stays readable on a heavily-scaled mobile preview, capped at 1 so it never grows. The OUTER
+`PopoverContent` stays a transparent, full-size positioning wrapper (Radix owns placement + open
+animation); the INNER card div carries the `scale()` transform from its top-left, so it shrinks while
+staying pinned to the anchor. On a real 390px `/studio` preview (S≈0.28 → cardScale 0.5) the card lands
+at ~40% of the slide width — a proper tooltip, not a slide-swallowing panel.
 
 The hit-surface CSS (`chart-interact.css`, which sets `pointer-events:auto` on the surface) now ships
 WITH the shared component, so every mounting surface gets it — it was previously imported only by the
@@ -75,20 +98,26 @@ Playground / Drawing-Board pages, so the Studio's surface had no pointer-events 
 ## Verification
 
 The editing-preview path is verified on the real `/studio` in headless Chromium **with real
-`mouse.move` (true hit-testing, not synthetic iframe-document events)**: the popover reveals on hover
-for a static piechart AND a settled animated one, and clears when the cursor leaves; zero page errors.
-The Playground is unaffected (measured `S = 1`, so the geometry changes are no-ops; the checker
-confirmed its reveal still works).
+`mouse.move` / `touchscreen.tap` (true hit-testing, not synthetic iframe-document events)**:
+- **Desktop** (S=0.592): the popover reveals on hover for a static piechart AND a settled animated one,
+  clears on leave, zero page errors; the card scales to S (151×54px).
+- **Mobile** (390px pane, S=0.278): a tap reveals the popover and the card lands at ~40% of the slide
+  width — proportionate, readable, cleanly a tooltip (the "way too big" report is fixed). Emulated
+  touch, real hit-testing.
 
-**Present's runtime is UNVERIFIED on a real browser.** Its overlay `DeckPreview` never leaves the
-`nacre-loader` skeleton in this headless sandbox — the reveal-gate's scale-to-real-width never
-completes there (the editing preview, outside the overlay, paints fine) — so the pinned layer never
-receives a frame and the reveal can't be driven here. This is the same class of sandbox limitation as
-iOS Safari (HARD RULE #23). Present runs the SAME pinned path that is now verified working on the
-editing preview (same scale-corrected geometry, same re-pin observers, same shipped hit-surface CSS),
-so confidence is high — but it still needs a real-browser check on the deploy preview before it's
-considered done. The earlier scale-geometry concern the checker raised for Present is the same bug
-fixed above; it is no longer outstanding.
+The Playground is unaffected (measured `S = 1`, so the geometry changes are no-ops).
+
+**The Present late-reveal re-pin (`watchFrame`) is proved by a wiring unit test, NOT by Present's real
+runtime.** `docs/src/playground/chart-interact.test.ts` mounts the REAL `createChartInteract` in jsdom
+(where `ResizeObserver` is a no-op stub) and asserts that a `style` mutation on the frame element
+re-pins the hit-surface — which can ONLY be the new `MutationObserver`. It is a genuine guard: with
+`watchFrame` disabled the test fails (the surface stays at the stale size). **Present's real-browser
+runtime remains UNVERIFIED in this sandbox** — its overlay `DeckPreview` never leaves the
+`nacre-loader` skeleton here (the reveal-gate's scale-to-real-width needs real layout the headless
+overlay doesn't complete; a probe confirmed the delivery card stays a blurred skeleton with zero chart
+marks), the same class of limitation as iOS Safari (HARD RULE #23). The root cause of the reported
+"Present popup never shows on mobile" is now identified (the `ResizeObserver`-blind late reveal) and
+fixed, but it still needs a **real-device check on the deploy preview** before it's considered done.
 
 ## Notes / follow-ups
 
