@@ -111,17 +111,26 @@ The editing-preview path is verified on the real `/studio` in headless Chromium 
 
 The Playground is unaffected (measured `S = 1`, so the geometry changes are no-ops).
 
-**The Present late-reveal re-pin (`watchFrame`) is proved by a wiring unit test, NOT by Present's real
-runtime.** `docs/src/playground/chart-interact.test.ts` mounts the REAL `createChartInteract` in jsdom
-(where `ResizeObserver` is a no-op stub) and asserts that a `style` mutation on the frame element
-re-pins the hit-surface — which can ONLY be the new `MutationObserver`. It is a genuine guard: with
-`watchFrame` disabled the test fails (the surface stays at the stale size). **Present's real-browser
-runtime remains UNVERIFIED in this sandbox** — its overlay `DeckPreview` never leaves the
-`nacre-loader` skeleton here (the reveal-gate's scale-to-real-width needs real layout the headless
-overlay doesn't complete; a probe confirmed the delivery card stays a blurred skeleton with zero chart
-marks), the same class of limitation as iOS Safari (HARD RULE #23). The root cause of the reported
-"Present popup never shows on mobile" is now identified (the `ResizeObserver`-blind late reveal) and
-fixed, but it still needs a **real-device check on the deploy preview** before it's considered done.
+**Present had TWO real blockers — both now fixed.** (An earlier `watchFrame` late-reveal re-pin was a
+misdiagnosis: it's a valid geometry hardening but was NOT why Present failed.)
+1. **The parse race (binding).** Present's first render is a full srcdoc WRITE; the host re-pin
+   (`onRender → onSlide`) runs a microtask later, but the srcdoc parses on the next TASK — so `onSlide`
+   saw an empty doc, bound nothing, and never retried (the re-pin timers only arm once a chart is found).
+   Fixed by re-binding on the iframe's `load` event in pinned mode (the self-heal hover mode already
+   had). Reproduced + guarded by a unit test (`chart-interact.test.ts`) that fails without the fix.
+2. **The z-index (visibility).** The popover portals to `<body>` at the shadcn default `z-50`, but
+   Present is a fullscreen overlay at `z-[100]`/`z-[102]` — so a revealed card rendered BEHIND it
+   (invisible). Fixed by `z-[140]` on the ChartDetailLayer `PopoverContent` (above Present's stack incl.
+   its `z-[130]` lens menu). Empirically verified: with Present open in headless, a body-portaled
+   `z-[140]` element is `elementFromPoint`-topmost over the `z-[102]` overlay — and the live LensPicker
+   menu (`z-[130]`) already proves body-portaled z beats the overlay.
+
+The user's real-device screenshot confirmed blocker 1 was resolved (the chart binds + renders in Present)
+and surfaced blocker 2 (chart there, popup not). **Present's full reveal still can't be driven in this
+headless sandbox** — its overlay `DeckPreview` never leaves the `nacre-loader` skeleton here (it doesn't
+create its live iframe headless; verified via probe), so the end-to-end tap→popover needs a **real-device
+confirmation on the deploy preview**. Both fixes are individually verified (unit test for binding;
+`elementFromPoint` for stacking); the sandbox gap is only the final composition.
 
 ## Notes / follow-ups
 

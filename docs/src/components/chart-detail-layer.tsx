@@ -183,7 +183,12 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
         updatePositionStrategy="always"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
-        className="pointer-events-none max-w-[18rem] p-3"
+        // z-[140]: the popover portals to <body>, but PRESENT is a fullscreen overlay at z-[100]/z-[102]
+        // (PresentOverlay) — at the default popover z-50 the card renders BEHIND it (the chart binds and
+        // the tap fires, but nothing is visible). Sit above Present's whole stack, including its lens menu
+        // (z-[130]). Harmless on the editing preview / Playground, which have no such overlay. tailwind-merge
+        // (via cn in PopoverContent) makes this win over the base z-50.
+        className="pointer-events-none z-[140] max-w-[18rem] p-3"
       >
         {detail && (
           <>
