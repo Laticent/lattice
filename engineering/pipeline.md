@@ -20,7 +20,8 @@ node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.html> [palette]
 
 The output extension picks the format — `.pdf` (vector, selectable text,
 default), `.pptx` (one full-bleed slide image per slide), `.png` (one file
-per slide, `<output>.NNN.png`). An HTML sidecar is always written alongside.
+per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5). An HTML
+sidecar is always written alongside.
 `node lattice-emulator.js --help` is the full reference (flags for speaker
 notes, WebVTT captions, the fluid-box mobile viewer, the offline player, and
 more — it's grown considerably past a bare PDF exporter).
@@ -76,6 +77,39 @@ always been image slides; `--raster` opts a PDF into the same trade for
 maximum viewer compatibility). If a recipient needs an *editable* PPTX
 (real text boxes, not an image), that's out of scope for this exporter —
 Lattice's PPTX output is a presentation artifact, not an authoring one.
+
+## 5. Image set (`.zip`)
+
+A `.zip` output writes an **image set**: one raster per slide plus, by default,
+small thumbnails and the deck's charts + Mermaid diagrams as standalone SVGs.
+
+```bash
+node lattice-emulator.js deck.md out.zip                              # perfect-fidelity PNG
+node lattice-emulator.js deck.md out.zip --image-format webp --image-size 1x
+```
+
+The zip is one folder (`<deck>/`) holding `slides/`, `thumbnails/`, `assets/`
+(the SVGs), and a `manifest.json` index. The default is lossless PNG at the
+`max` size (2× HD, 1× for 4K — the same cap the PNG/PPTX paths use); flags trade
+size for fidelity:
+
+| Flag | Values (default first) | Effect |
+|---|---|---|
+| `--image-format` | `png` · `jpeg` · `webp` | Lossless PNG, or a lossy format for a smaller set (WebP smallest at equal quality). |
+| `--image-size` | `max` · `2x` · `1x` · `half` | Raster scale — the "size selection" lever; lower shrinks each image and the whole zip. |
+| `--image-quality` | `92` (1–100) | JPEG/WebP encoder quality; ignored for PNG. |
+| `--thumb-width` | `480` (px) | Thumbnail width; height follows the slide aspect. |
+| `--no-thumbnails` | — | Omit the `thumbnails/` folder. |
+| `--no-svg` | — | Omit the `assets/` folder (the standalone chart/diagram SVGs). |
+
+**One contract, two surfaces.** The zip layout, file naming, size presets, and
+manifest live in one pure kernel (`lib/export/image-set.js`), so the CLI here and
+the Studio's Share → **Images (.zip)** export emit the same set (HARD RULE #1).
+The per-slide raster differs by surface (headless Chromium screenshots here;
+`html-to-image` → `canvas` in the browser); the standalone SVGs reuse the
+chart-SVG flatten kernel (`lib/components/chart/_chart-family/standalone-svg.js`,
+the same one behind "download chart as SVG"), extended to Mermaid diagrams, with
+fonts embedded so each `.svg` opens anywhere.
 
 ## Troubleshooting
 
