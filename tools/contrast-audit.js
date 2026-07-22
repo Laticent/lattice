@@ -251,6 +251,18 @@ const CHART_TOKENS = ['chart-1','chart-2','chart-3','chart-4','chart-5','chart-6
 // Well-designed palettes target ≥ 0.20 for adjacent slots.
 const OKLAB_THRESHOLD = 0.15;
 
+// Backdrops the engine composes (mermaid node fills, chart-family slot colors) —
+// NOT declared in the theme files this tool loads (it skips the `lattice` import).
+// A theme-scoped audit legitimately can't resolve them, so the pairs that use them
+// are EXPECTED skips, not a coverage hole. Everything OUTSIDE this set that fails to
+// resolve is recorded in `missing`, so the gate catches a theme-owned pair that was
+// silently dropped. Auditing mermaid/chart contrast needs a tool that loads the
+// composed engine tokens — tracked separately.
+const EXTERNAL_BG = new Set([
+  'mermaid-primary-color', 'mermaid-secondary-color',
+  'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', 'chart-6',
+]);
+
 // ── Per-theme audit (pure; shared by the CLI runner AND the unit gate) ──────
 
 function listAllThemes() {
@@ -274,16 +286,18 @@ function auditTheme(theme) {
   let checks = 0;
 
   for (const [fg, bg, ctx] of PAIRS) {
+    // An engine-composed backdrop the theme file doesn't declare is an EXPECTED
+    // skip (see EXTERNAL_BG); any OTHER unresolvable pair is recorded so a
+    // theme-owned pair can't be silently dropped into a phantom "0 fails".
     const bgHex = vars[bg];
-    // bg must resolve to a plain hex (it's the composite backdrop too).
     if (!bgHex || !parseHex(bgHex)) {
-      if (vars[fg] && bgHex) missing.push({ ctx, fg: vars[fg], bg: bgHex });
+      if (!EXTERNAL_BG.has(bg)) missing.push({ ctx, fg: vars[fg] ?? `--${fg}`, bg: bgHex ?? `--${bg} (absent)` });
       continue;
     }
     // fg: plain hex, or a translucent on-dark ink composited over bg.
     const fgHex = parseHex(vars[fg]) ? vars[fg] : resolveTranslucent(fg, vars, bgHex);
     if (!fgHex) {
-      if (vars[fg]) missing.push({ ctx, fg: vars[fg], bg: bgHex });
+      missing.push({ ctx, fg: vars[fg] ?? `--${fg} (unresolved)`, bg: bgHex });
       continue;
     }
     checks++;

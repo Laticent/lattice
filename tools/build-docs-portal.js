@@ -279,6 +279,7 @@ function resolvePalettes() {
     // at 2.28:1. Derived from --bg, never the toggle — same source of truth as the
     // color-scheme emission below (isDarkSurface).
     const bgR = resolveToken(map, 'bg');
+    if (!bgR) throw new Error(`theme "${name}" is missing token --bg`);
     const lightSchemeDark = isDarkSurface(bgR.light);
     const darkSchemeDark = isDarkSurface(invariant ? bgR.light : bgR.dark);
     const pick = (r, schemeDark) => (schemeDark ? r.dark : r.light);
