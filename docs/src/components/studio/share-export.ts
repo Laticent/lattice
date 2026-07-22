@@ -531,24 +531,36 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	// are all correct (an in-page toggle can't reliably do that). The exporter extracts the SVGs
 	// from this render instead of the slide render. print → the B&W `class: print`; light/dark →
 	// the matching palette (skipped for a saved library theme, which has no companion scheme).
+	// The scheme the slides are ACTUALLY in — recorded in the manifest so it self-describes
+	// (not the raw `inherit`). For `inherit` that's the preview mode; the two surfaces can pick
+	// different schemes for `inherit`, which is exactly why the manifest must record the resolved one.
 	const slideScheme = chosen === 'print' ? 'print' : renderMode;
 	const svgLook = imageOpts.svgBackground && imageOpts.svgBackground !== 'inherit' ? imageOpts.svgBackground : null;
 	let svgRender: DeckRender | undefined;
-	let effectiveOpts = imageOpts;
+	let effectiveSvgBackground = imageOpts.svgBackground;
 	// Only re-render for the look when SVGs are actually extracted (else the second render is wasted).
 	if (svgLook && svgLook !== slideScheme && imageOpts.extractSvg !== false) {
 		if (svgLook === 'print') {
 			svgRender = await buildDeckRender(options, mergeClassTokens(source, 'print'), palette, 'light', extra, extraCss);
-		} else if (!extra) {
-			svgRender = await buildDeckRender(options, source, palette, svgLook, extra, extraCss);
+		} else if (svgLook === 'light' && !extra) {
+			svgRender = await buildDeckRender(options, source, palette, 'light', extra, extraCss);
+		} else if (svgLook === 'dark' && !extra) {
+			// `dark` needs a `-dark` companion; many palettes (a11y-*) ship none. Confirm it exists
+			// before rendering — else the render silently falls back to light, so coerce the look to
+			// `inherit` so the baked canvas + manifest match what actually renders, not a lie.
+			const base = palette.replace(/-dark$/, '');
+			const darkExists = await createThemeFetcher(options.themeBase).fetch(`${base}-dark`).then(() => true).catch(() => false);
+			if (darkExists) svgRender = await buildDeckRender(options, source, palette, 'dark', extra, extraCss);
+			else effectiveSvgBackground = 'inherit';
 		} else {
-			// A saved library theme has no light/dark companion to render — the look can't be
-			// honored, so coerce back to `inherit` (no re-render) rather than baking a canvas +
-			// manifest that claim a look the SVGs don't actually have.
-			effectiveOpts = { ...imageOpts, svgBackground: 'inherit' };
+			// A saved library theme has no light/dark companion — the look can't be honored, so
+			// coerce back to `inherit` rather than baking a canvas + manifest that claim a look the
+			// SVGs don't actually have.
+			effectiveSvgBackground = 'inherit';
 		}
 	}
 
+	const effectiveOpts = { ...imageOpts, mode: slideScheme, svgBackground: effectiveSvgBackground };
 	const ex = await exporters();
 	await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender);
 }

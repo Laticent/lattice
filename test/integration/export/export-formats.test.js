@@ -367,6 +367,22 @@ describe('export-formats', () => {
     assert.equal(manifest.format, 'png');
     assert.equal(manifest.counts.slides, 3);
     assert.equal(manifest.counts.thumbnails, 3);
+    // The manifest self-describes the RESOLVED scheme, not the raw `inherit` default — a
+    // downstream tool can tell these are light images without opening the pixels.
+    assert.equal(manifest.colorMode, 'light');
+  });
+
+  test('--image-mode dark with no dark companion renders light and the manifest says so (no lie)', { timeout: TIMEOUT }, async () => {
+    // a11y-* palettes ship no `-dark` companion; the export falls back to the base (light) palette.
+    const out = path.join(tmpDir(), 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--image-mode', 'dark', '-p', 'a11y-deuteranopia'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.colorMode, 'light', 'manifest must record the scheme actually rendered, not the requested dark');
   });
 
   test('image set honors --image-format jpeg, --image-size 1x, and --no-thumbnails', { timeout: TIMEOUT }, async () => {

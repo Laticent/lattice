@@ -2241,6 +2241,19 @@ async function renderBody(browser, g, closeBrowser) {
     // (1) Full-fidelity raster, one per slide, at the resolved `--image-size` scale. Taken
     // FIRST, before any SVG-look re-styling below, so the slides keep the export color mode.
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    if (handles.length === 0) {
+      await closeBrowser();
+      console.error(`error: the deck rendered no slides — nothing to write to ${outFile}.`);
+      process.exit(1);
+    }
+    // The scheme the slides are ACTUALLY in (so the manifest self-describes, and a matching SVG
+    // look needs no re-style). Derived from the resolved palette, not the raw flag: `--image-mode
+    // dark` with no `-dark` companion falls back to the base palette, so this correctly reads
+    // 'light'. print is palette-independent (the class:print stamp).
+    const resolvedScheme = IMAGE_SET_OPTS.mode === 'print'
+      ? 'print'
+      : (/-dark$/.test(paletteName) ? 'dark' : 'light');
+    let effectiveSvgBackground = IMAGE_SET_OPTS.svgBackground;
     const images = [];
     for (const h of handles) {
       images.push(await g(() => h.screenshot(shot), 'screenshot slide'));
@@ -2267,10 +2280,6 @@ async function renderBody(browser, g, closeBrowser) {
     // and the keyed chart SVGs.
     let svgAssets = [];
     if (IMAGE_SET_OPTS.extractSvg) {
-      // The slides' own effective scheme (so a matching look needs no re-style).
-      const slideScheme = IMAGE_SET_OPTS.mode !== 'inherit'
-        ? IMAGE_SET_OPTS.mode
-        : (/-dark$/.test(paletteName) ? 'dark' : 'light');
       const lookMode = svgLookMode(IMAGE_SET_OPTS.svgBackground); // null | light | dark | print
       // NUANCE: this re-styles the LIVE page in place. Charts are token-driven, so they recolor
       // fully for any look. Mermaid diagrams, though, are baked to literal colors by mmdc at render
@@ -2279,7 +2288,7 @@ async function renderBody(browser, g, closeBrowser) {
       // on white, since light-baked diagram text is dark), but a cross-scheme diagram look from a
       // DARK-source deck keeps its baked text in the slide scheme. The Studio path re-renders the
       // deck in the look (a full re-bake) and has no such gap; see pipeline.md §5 for the nuance.
-      if (lookMode && lookMode !== slideScheme) {
+      if (lookMode && lookMode !== resolvedScheme) {
         if (lookMode === 'print') {
           // `print` is a canvas class — stamping it on every section applies the B&W-safe
           // ink-on-white treatment (section.print) to the charts + diagrams via the cascade.
@@ -2300,8 +2309,12 @@ async function renderBody(browser, g, closeBrowser) {
               document.head.appendChild(s);
               document.documentElement.style.colorScheme = scheme;
             }, { css: lookCss, scheme: lookMode }), 'apply svg-look palette');
-          } else if (!QUIET) {
-            console.warn(`  ⚠ --svg-background ${lookMode}: no 'themes/${targetName}.css' — exporting SVGs in the slide look.`);
+          } else {
+            // Can't honor the look (no companion theme) — coerce to `inherit` so the baked canvas
+            // + manifest describe what actually renders (the slide look), not a lie. Warn even
+            // under --quiet: the artifact differs from what was asked for. (Mirrors the Studio.)
+            console.warn(`  ⚠ --svg-background ${lookMode}: no 'themes/${targetName}.css' — exporting SVGs in the slide look ('inherit').`);
+            effectiveSvgBackground = 'inherit';
           }
         }
         // Let the restyle settle (var()/scheme recompute) before reading computed styles.
@@ -2331,7 +2344,7 @@ async function renderBody(browser, g, closeBrowser) {
         });
         return out;
       }), 'extract standalone svgs');
-      const svgBg = svgBackgroundFill(IMAGE_SET_OPTS.svgBackground);
+      const svgBg = svgBackgroundFill(effectiveSvgBackground);
       svgAssets = raw.map((t) => {
         const fontFaceCss = standaloneFontFaceCss(collectFontFamilies(t.markup));
         return { slide: t.slide, kind: t.kind, svg: finalizeStandaloneSvg(t.markup, { fontFaceCss, background: svgBg }) };
@@ -2344,7 +2357,9 @@ async function renderBody(browser, g, closeBrowser) {
     const JSZip = require('jszip');
     const plan = assembleImageSetPlan({
       name: path.basename(outFile).replace(/\.zip$/i, ''),
-      options: IMAGE_SET_OPTS,
+      // Record the RESOLVED scheme + honored look so the manifest self-describes what the
+      // pixels actually are (not the raw `inherit` / an unhonored look).
+      options: { ...IMAGE_SET_OPTS, mode: resolvedScheme, svgBackground: effectiveSvgBackground },
       geom: { w: slideW, h: slideH },
       scale: rasterScale,
       images: images.map((b) => Buffer.from(b)),
@@ -2358,10 +2373,9 @@ async function renderBody(browser, g, closeBrowser) {
     fs.writeFileSync(outFile, zipBuf);
     if (!QUIET) {
       const c = plan.manifest.counts;
-      const tags = [`${c.slides} ${fmt.toUpperCase()}`];
-      if (IMAGE_SET_OPTS.mode !== 'inherit') tags.push(IMAGE_SET_OPTS.mode);
+      const tags = [`${c.slides} ${fmt.toUpperCase()}`, resolvedScheme];
       if (c.thumbnails) tags.push(`${c.thumbnails} thumbnails`);
-      if (c.assets) tags.push(`${c.assets} SVG${IMAGE_SET_OPTS.svgBackground !== 'inherit' ? ` (${IMAGE_SET_OPTS.svgBackground})` : ''}`);
+      if (c.assets) tags.push(`${c.assets} SVG${effectiveSvgBackground !== 'inherit' ? ` (${effectiveSvgBackground})` : ''}`);
       console.log(`Image set: ${outFile} (${tags.join(', ')}, ${(zipBuf.length / 1024).toFixed(0)} KB)`);
     }
   } else {

@@ -63,10 +63,15 @@ describe('image-set: resolveRasterScale', () => {
     assert.equal(IS.resolveRasterScale('max', 1280, 720), 2);   // HD → 2×
     assert.equal(IS.resolveRasterScale('max', 3840, 2160), 1);  // 4K → 1× (no OOM)
   });
-  test('fixed presets are literal multipliers', () => {
+  test('fixed presets are literal multipliers at HD', () => {
     assert.equal(IS.resolveRasterScale('2x', 1280, 720), 2);
     assert.equal(IS.resolveRasterScale('1x', 1280, 720), 1);
     assert.equal(IS.resolveRasterScale('half', 1280, 720), 0.5);
+  });
+  test('fixed presets are OOM-capped on a big deck (4K @ 2x → 1×, not 2×)', () => {
+    assert.equal(IS.resolveRasterScale('2x', 3840, 2160), 1); // 2× would be 7680px → capped
+    assert.equal(IS.resolveRasterScale('1x', 3840, 2160), 1);
+    assert.equal(IS.resolveRasterScale('half', 3840, 2160), 0.5);
   });
   test('unknown preset behaves like max', () => {
     assert.equal(IS.resolveRasterScale('bogus', 1280, 720), 2);
@@ -115,6 +120,16 @@ describe('image-set: naming', () => {
     assert.equal(IS.deckSlug('My Deck: Q3/Q4!'), 'My-Deck-Q3-Q4');
     assert.equal(IS.deckSlug(''), 'deck');
     assert.equal(IS.deckSlug('  '), 'deck');
+  });
+  test('deckSlug rejects dot-only names and dodges Windows reserved names', () => {
+    assert.equal(IS.deckSlug('.'), 'deck');
+    assert.equal(IS.deckSlug('..'), 'deck');
+    assert.equal(IS.deckSlug('...'), 'deck');
+    assert.equal(IS.deckSlug('../../etc'), 'etc');      // no traversal survives
+    assert.equal(IS.deckSlug('..lead-dots'), 'lead-dots');
+    assert.equal(IS.deckSlug('CON'), 'deck-CON');
+    assert.equal(IS.deckSlug('nul'), 'deck-nul');
+    assert.equal(IS.deckSlug('v1.2'), 'v1.2');           // internal dots kept
   });
   test('entry names land in their folders with padded indices', () => {
     assert.equal(IS.slideEntryName('acme', 2, 12, 'png'), 'slides/acme-03.png');

@@ -85,16 +85,17 @@ var require_image_set = __commonJS({
     }
     function resolveRasterScale2(size, slideW, slideH) {
       const longEdge = Math.max(Number(slideW) || 1280, Number(slideH) || 720);
+      const cap = RASTER_MAX_EDGE2 / longEdge;
       switch (size) {
         case "2x":
-          return 2;
+          return Math.min(2, cap);
         case "1x":
-          return 1;
+          return Math.min(1, cap);
         case "half":
-          return 0.5;
+          return Math.min(0.5, cap);
         // 'max' (and any unknown value) → fidelity-first, capped at the long-edge budget.
         default:
-          return Math.max(1, Math.min(2, Math.floor(RASTER_MAX_EDGE2 / longEdge)));
+          return Math.max(1, Math.min(2, Math.floor(cap)));
       }
     }
     function resolveThumbScale2(thumbWidth, slideW) {
@@ -105,8 +106,10 @@ var require_image_set = __commonJS({
       return Math.max(2, String(Math.max(1, count)).length);
     }
     function deckSlug2(name) {
-      const s = String(name || "deck").trim().replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
-      return s || "deck";
+      const s = String(name || "deck").trim().replace(/[^\w.-]+/g, "-").replace(/^[-.]+|[-.]+$/g, "").slice(0, 60);
+      if (!s || /^\.+$/.test(s)) return "deck";
+      if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(s)) return `deck-${s}`;
+      return s;
     }
     function slideEntryName2(slug, index, count, ext) {
       return `slides/${slug}-${String(index + 1).padStart(padWidth2(count), "0")}.${ext}`;

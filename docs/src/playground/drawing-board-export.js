@@ -1028,11 +1028,32 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pixelRatio, FORMAT_META) {
 	const { toCanvas } = await import('html-to-image');
 	return withCaptureFixups(section, async (w, h, pr) => {
-		const canvas = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS));
+		const src = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS));
 		const meta = FORMAT_META[format] || FORMAT_META.png;
+		let canvas = src;
+		if (meta.lossy) {
+			// JPEG/WebP have no alpha — a bare encode composites any stray transparency onto BLACK
+			// (the PDF lane's rasterizeSectionToDataUrl does this for the same reason). Paint an
+			// opaque white underlay first so a transparent slide region reads white, not black.
+			const flat = document.createElement('canvas');
+			flat.width = src.width;
+			flat.height = src.height;
+			const ctx = flat.getContext('2d');
+			ctx.fillStyle = '#ffffff';
+			ctx.fillRect(0, 0, flat.width, flat.height);
+			ctx.drawImage(src, 0, 0);
+			canvas = flat;
+		}
 		const q = meta.lossy ? Math.min(1, Math.max(0.01, quality / 100)) : undefined;
-		return await new Promise((resolve, reject) =>
+		const blob = await new Promise((resolve, reject) =>
 			canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), meta.mime, q));
+		// canvas.toBlob MUST fall back to image/png when the UA can't encode the requested type
+		// (e.g. WebP on older Safari / some WebViews). Reject rather than let the zip ship a `.webp`
+		// full of PNG bytes with a manifest that claims WebP — a clear error beats a silent mislabel.
+		if (blob.type !== meta.mime) {
+			throw new Error(`This browser can't encode ${meta.mime}. Try PNG.`);
+		}
+		return blob;
 	}, pixelRatio);
 }
 
