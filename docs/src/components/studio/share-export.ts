@@ -494,6 +494,91 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 	await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' });
 }
 
+/** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
+ *  vocabulary. All fields optional; the kernel fills perfect-fidelity defaults. */
+export type ImageSetOptions = {
+	format?: 'png' | 'jpeg' | 'webp';
+	size?: 'max' | '2x' | '1x' | 'half';
+	quality?: number;
+	thumbnails?: boolean;
+	thumbWidth?: number;
+	extractSvg?: boolean;
+	mode?: 'inherit' | 'light' | 'dark' | 'print';
+	svgBackground?: 'inherit' | 'light' | 'dark' | 'print';
+};
+
+/** Image set (.zip): one raster per slide (PNG/JPEG/WebP) + opt-in thumbnails + the
+ *  deck's chart/diagram SVGs as standalone files + a manifest. The zip layout, naming,
+ *  size presets, and manifest are single-sourced with the CLI `.zip` output via the
+ *  shared kernel (HARD RULE #1), so both surfaces emit the same set.
+ *
+ *  `previewMode` is the current light/dark preview; `imageOpts.mode` overrides it:
+ *  light/dark render the matching palette variant, print stamps the B&W `class: print`
+ *  canvas (rendered light), and inherit keeps the preview mode — mirroring the CLI's
+ *  `--image-mode`. The chosen mode also rides in `imageOpts` so the manifest records it. */
+export async function shareImageSet(options: SingleSlideOptions, source: string, name: string, palette: string, previewMode: 'light' | 'dark', imageOpts: ImageSetOptions, extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
+	const chosen = imageOpts.mode ?? 'inherit';
+	let renderMode: 'light' | 'dark' = previewMode;
+	let src = source;
+	if (chosen === 'light') renderMode = 'light';
+	else if (chosen === 'dark') renderMode = 'dark';
+	else if (chosen === 'print') { renderMode = 'light'; src = mergeClassTokens(source, 'print'); }
+	// Honor `dark` only when a `-dark` companion is actually reachable: ensureTheme() silently falls
+	// back to the base (light) palette otherwise — many palettes (a11y-*) ship no dark — while leaving
+	// the requested mode 'dark'. Coerce here so BOTH the render AND the recorded slideScheme match the
+	// pixels, not the request (the CLI does the same via its resolved paletteName). A saved library
+	// theme (`extra`) is single-scheme, so there's no companion to check.
+	if (renderMode === 'dark' && !extra) {
+		const base = palette.replace(/-dark$/, '');
+		const darkExists = await createThemeFetcher(options.themeBase).fetch(`${base}-dark`).then(() => true).catch(() => false);
+		if (!darkExists) renderMode = 'light';
+	}
+	const render = await buildDeckRender(options, src, palette, renderMode, extra, extraCss);
+
+	// The chart/diagram SVG "look" (transparent/light/dark/print) renders the extracted vectors
+	// independent of the slides. When it differs from the slides' own scheme, do a SECOND full
+	// engine render in that look — so the print texture defs, dark palette, and Mermaid re-bake
+	// are all correct (an in-page toggle can't reliably do that). The exporter extracts the SVGs
+	// from this render instead of the slide render. print → the B&W `class: print`; light/dark →
+	// the matching palette (skipped for a saved library theme, which has no companion scheme).
+	// The scheme the slides are ACTUALLY in — recorded in the manifest so it self-describes
+	// (not the raw `inherit`). For `inherit` that's the preview mode; the two surfaces can pick
+	// different schemes for `inherit`, which is exactly why the manifest must record the resolved one.
+	const slideScheme = chosen === 'print' ? 'print' : renderMode;
+	const svgLook = imageOpts.svgBackground && imageOpts.svgBackground !== 'inherit' ? imageOpts.svgBackground : null;
+	let svgRender: DeckRender | undefined;
+	let effectiveSvgBackground = imageOpts.svgBackground;
+	// Only re-render for the look when SVGs are actually extracted (else the second render is wasted).
+	if (svgLook && svgLook !== slideScheme && imageOpts.extractSvg !== false) {
+		if (svgLook === 'print') {
+			svgRender = await buildDeckRender(options, mergeClassTokens(source, 'print'), palette, 'light', extra, extraCss);
+		} else if (svgLook === 'light' && !extra) {
+			svgRender = await buildDeckRender(options, source, palette, 'light', extra, extraCss);
+		} else if (svgLook === 'dark' && !extra) {
+			// `dark` needs a `-dark` companion; many palettes (a11y-*) ship none. Confirm it exists
+			// before rendering — else the render silently falls back to light, so coerce the look to
+			// `inherit` so the baked canvas + manifest match what actually renders, not a lie.
+			const base = palette.replace(/-dark$/, '');
+			const darkExists = await createThemeFetcher(options.themeBase).fetch(`${base}-dark`).then(() => true).catch(() => false);
+			if (darkExists) svgRender = await buildDeckRender(options, source, palette, 'dark', extra, extraCss);
+			else effectiveSvgBackground = 'inherit';
+		} else {
+			// A saved library theme has no light/dark companion — the look can't be honored, so
+			// coerce back to `inherit` rather than baking a canvas + manifest that claim a look the
+			// SVGs don't actually have.
+			effectiveSvgBackground = 'inherit';
+		}
+	}
+
+	const effectiveOpts = { ...imageOpts, mode: slideScheme, svgBackground: effectiveSvgBackground };
+	// Manifest provenance. Title from the deck's front-matter (else the filename); palette as
+	// rendered. The browser has no package version handy (unlike the CLI), so engineVersion is
+	// left null — the `generator: 'studio'` field already marks the source.
+	const meta = { title: getFrontMatter(source, 'title') || undefined, palette, engineVersion: null };
+	const ex = await exporters();
+	await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta);
+}
+
 type ReadAlongCore = {
 	buildReadAlong: (
 		texts: readonly string[],

@@ -353,6 +353,28 @@ in patch versions.
   `docs/src/playground/anima-host-sel.ts` the Play/Style/Speed cascade; `docs/src/components/studio/`
   the Motion tab; `docs/src/lib/anima/hydrate.ts` `chrome:false` + play-once;
   `engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75.)
+- **Export a deck as an image set — a `.zip` of one image per slide.** A new output format joins
+  PDF / PPTX / PNG: `node lattice-emulator.js deck.md out.zip` writes a zip holding one raster per
+  slide under `slides/`, small `thumbnails/`, the deck's chart & Mermaid diagrams as standalone
+  `.svg` files under `assets/` (each self-styled with fonts embedded, so it opens anywhere), and a
+  `manifest.json` index. The default is perfect-fidelity, lossless PNG at 2×; tuning flags trade
+  size for fidelity — `--image-format png|jpeg|webp`, `--image-size max|2x|1x|half`,
+  `--image-quality N` (jpeg/webp), `--thumb-width N`, `--no-thumbnails`, `--no-svg`. **Color mode**
+  is selectable per export — `--image-mode inherit|light|dark|print` renders the whole set in the
+  light or dark palette or the B&W-safe print handout — and each standalone chart/diagram SVG has
+  its own **look**, `--svg-background inherit|light|dark|print`, that renders the vector
+  *independently of the slides*: `light`/`dark` render it in that scheme on a matching canvas, and
+  `print` renders it B&W-safe (grayscale + textures) on white — so you can export **color slides
+  but print-ready B&W chart/diagram vectors** in one set (when the look differs from the slides'
+  mode, the SVGs are re-rendered in it). The Studio's Share → Images panel exposes the same
+  controls (Color mode + SVG look selectors). The zip
+  layout, naming, size presets, color mode, and manifest are single-sourced in a shared kernel
+  (`lib/export/image-set.js`) that both surfaces use, so they emit the same set. The
+  **`manifest.json`** (v2) self-describes the set — deck title/palette/engine/`createdAt`, the
+  resolved color mode, `orientation`, the `physical` size + effective `dpi`, and per-file entries
+  (each slide's title + byte size, each asset's `chartType`). The **DPI is baked into the PNG/JPEG
+  bytes** (`pHYs` / JFIF) so the images drop into a print/office document at the right physical size
+  instead of the default 96dpi guess. New export path — existing PDF/PPTX/PNG bytes are unchanged.
 - **The in-place chart animation now covers the piechart — and gradient-filled charts render
   correctly.** `chart-anima` extends to the pie: add it to a slide or deck and the disc fades in as a
   whole on the live Studio / Playground (model-free; exported PDF/PPTX byte-identical). This also

@@ -224,8 +224,11 @@ var require_standalone_svg = __commonJS({
       const styleBlock = fontCss ? `<defs><style type="text/css"><![CDATA[
 ${fontCss}
 ]]></style></defs>` : "";
+      const bg = String(o.background || "").trim();
+      const bgSafe = /^#[0-9a-fA-F]{3,8}$/.test(bg) || /^[a-zA-Z]+$/.test(bg) || /^(rgb|hsl)a?\(\s*[\d.,%\s/]+\)$/.test(bg);
+      const bgRect = bg && bgSafe ? `<rect x="0" y="0" width="100%" height="100%" fill="${bg}"/>` : "";
       const prolog = o.xmlProlog === false ? "" : '<?xml version="1.0" encoding="UTF-8"?>\n';
-      return `${prolog}<svg${attrs}>${styleBlock}${body}`;
+      return `${prolog}<svg${attrs}>${styleBlock}${bgRect}${body}`;
     }
     module.exports = {
       STYLE_PROPS: STYLE_PROPS2,

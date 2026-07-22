@@ -87,6 +87,8 @@ const SCRIPT_META = {
   'exemplar-core:check':      ['Build & bundle', 'Freshness gate for the exemplar-core bundle.'],
   'standalone-core:build':    ['Build & bundle', 'Bundle the standalone chart-SVG export core for the browser (docs site).'],
   'standalone-core:check':    ['Build & bundle', 'Freshness gate for the standalone-core bundle.'],
+  'image-set-core:build':     ['Build & bundle', 'Bundle the shared image-set contract (lib/export/image-set.js) for the browser — the Studio Share sheet\'s "Images" (image-set ZIP) export.'],
+  'image-set-core:check':     ['Build & bundle', 'Freshness gate for the image-set-core bundle.'],
   'snippets:build':           ['Build & bundle', 'Generate .vscode/lattice.code-snippets from component manifests.'],
   'snippets:check':           ['Build & bundle', 'Freshness gate for the VS Code snippets.'],
   'dist-readme:build':        ['Build & bundle', 'Generate dist/README.md — the distribution-folder index.'],

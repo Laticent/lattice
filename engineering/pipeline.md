@@ -20,7 +20,8 @@ node lattice-emulator.js <source.md> <output.pdf|.pptx|.png|.html> [palette]
 
 The output extension picks the format — `.pdf` (vector, selectable text,
 default), `.pptx` (one full-bleed slide image per slide), `.png` (one file
-per slide, `<output>.NNN.png`). An HTML sidecar is always written alongside.
+per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5). An HTML
+sidecar is always written alongside.
 `node lattice-emulator.js --help` is the full reference (flags for speaker
 notes, WebVTT captions, the fluid-box mobile viewer, the offline player, and
 more — it's grown considerably past a bare PDF exporter).
@@ -76,6 +77,65 @@ always been image slides; `--raster` opts a PDF into the same trade for
 maximum viewer compatibility). If a recipient needs an *editable* PPTX
 (real text boxes, not an image), that's out of scope for this exporter —
 Lattice's PPTX output is a presentation artifact, not an authoring one.
+
+## 5. Image set (`.zip`)
+
+A `.zip` output writes an **image set**: one raster per slide plus, by default,
+small thumbnails and the deck's charts + Mermaid diagrams as standalone SVGs.
+
+```bash
+node lattice-emulator.js deck.md out.zip                              # perfect-fidelity PNG
+node lattice-emulator.js deck.md out.zip --image-format webp --image-size 1x
+```
+
+The zip is one folder (`<deck>/`) holding `slides/`, `thumbnails/`, `assets/`
+(the SVGs), and a `manifest.json` index. The default is lossless PNG at the
+`max` size (2× HD, 1× for 4K — the same cap the PNG/PPTX paths use); flags trade
+size for fidelity:
+
+| Flag | Values (default first) | Effect |
+|---|---|---|
+| `--image-format` | `png` · `jpeg` · `webp` | Lossless PNG, or a lossy format for a smaller set (WebP smallest at equal quality). |
+| `--image-size` | `max` · `2x` · `1x` · `half` | Raster scale — the "size selection" lever; lower shrinks each image and the whole zip. |
+| `--image-quality` | `92` (1–100) | JPEG/WebP encoder quality; ignored for PNG. |
+| `--image-mode` | `inherit` · `light` · `dark` · `print` | Color mode for the whole set. light/dark render the palette's light / dark variant; print is the B&W-safe handout. `inherit` (the default) = the deck's own / palette-resolved. |
+| `--svg-background` | `inherit` · `light` · `dark` · `print` | The **look** of each standalone chart/diagram SVG — controls both its render and its canvas, *independent* of `--image-mode`. `light`/`dark` render the chart in that scheme; `print` renders it B&W-safe (grayscale + textures) on white — so you can export color slides but print-ready chart/diagram vectors. `inherit` (the default) follows the slides' color mode with no canvas. |
+| `--thumb-width` | `480` (px) | Thumbnail width; height follows the slide aspect. |
+| `--no-thumbnails` | — | Omit the `thumbnails/` folder. |
+| `--no-svg` | — | Omit the `assets/` folder (the standalone chart/diagram SVGs). |
+
+**How the SVG look is applied (a cross-surface nuance):** charts are token-driven, so both
+surfaces recolor them fully for any look. Mermaid **diagrams** bake their colors at render
+time. The **Studio** re-renders the deck in the look (a second render pass), so diagrams are
+fully re-colored. The **CLI** re-styles in place — correct for the common case (a light/color
+deck → any look reads on white, since light-baked diagram text is dark) — but a *cross-scheme*
+diagram look (e.g. a **dark-source** deck → `print`/`light`) keeps the baked Mermaid text/edges
+in the slide scheme. The CLI **warns** when this would read low-contrast (baked ink vs. the look's
+canvas) so you're never surprised by a subtly-wrong vector. For guaranteed diagram re-coloring from
+a dark-source deck, use the Studio, or export the whole set in that `--image-mode`.
+
+**The `manifest.json` index** (`kind: "lattice-image-set"`, `version: 2`) lets a
+downstream tool wire up the set without probing files. It records: the deck `title`,
+`palette`, `engine` version, and `createdAt`; the `format`/`colorMode`/`svgBackground`
+(the RESOLVED scheme, not the raw `inherit`); `orientation` (landscape/portrait/square),
+the `slide` (CSS px) and `pixel` (raster px) boxes, the `physical` size (inches, long edge
+= 13.333in like the PPTX export) and the effective `dpi`; and per-file entries — each
+slide's `title`, `image`/`thumbnail` paths and `bytes`, and each chart/diagram asset's
+`kind`, `chartType`, and `bytes`. **The `dpi` is also baked into the PNG/JPEG bytes**
+(a `pHYs` chunk / JFIF density) so the images drop into a print/office document at the
+right physical size instead of the tool's 96dpi guess.
+
+**One contract, two surfaces.** The zip layout, file naming, size presets, DPI, and
+manifest live in one pure kernel (`lib/export/image-set.js`), so the CLI here and
+the Studio's Share → **Images (.zip)** export emit the same set (HARD RULE #1).
+For a **very large or 4K deck, prefer this CLI**: the Studio rasterizes in-tab and holds
+every slide + thumbnail blob in browser memory at once, so a big deck can exhaust a
+mobile/Safari tab — the CLI (Node, no per-tab ceiling) has no such limit.
+The per-slide raster differs by surface (headless Chromium screenshots here;
+`html-to-image` → `canvas` in the browser); the standalone SVGs reuse the
+chart-SVG flatten kernel (`lib/components/chart/_chart-family/standalone-svg.js`,
+the same one behind "download chart as SVG"), extended to Mermaid diagrams, with
+fonts embedded so each `.svg` opens anywhere.
 
 ## Troubleshooting
 

@@ -21,6 +21,9 @@ describe('export-formats', () => {
   const ROOT     = path.join(__dirname, '..', '..', '..');
   const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
   const FIXTURE  = path.join(ROOT, 'test', 'fixtures', 'preview-deck.md');
+  // A deck carrying one keyed chart + one Mermaid diagram — exercises the image
+  // set's standalone-SVG extraction (both kinds), which the no-Mermaid FIXTURE can't.
+  const CHART_DIAGRAM_FIXTURE = path.join(ROOT, 'test', 'fixtures', 'chart-diagram-deck.md');
   const TIMEOUT  = 60000;
 
   function tmpDir() {
@@ -334,6 +337,270 @@ describe('export-formats', () => {
       assert.equal(height, 1440, 'HD slide should rasterize at 2× height');
       assert.ok(fs.statSync(f).size > 5000, 'PNG should be non-trivial (catches blank screenshots)');
     }
+  });
+
+  test('renders a .zip image set — slides + thumbnails + manifest, defaults to lossless PNG', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = run(out);
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    assert.ok(fs.existsSync(out), 'zip should exist');
+    assert.equal(fs.readFileSync(out).subarray(0, 4).toString('hex'), '504b0304', 'not a zip');
+
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+    const slides = names.filter((n) => /^deck\/slides\/deck-\d+\.png$/.test(n));
+    const thumbs = names.filter((n) => /^deck\/thumbnails\/deck-\d+\.png$/.test(n));
+    assert.equal(slides.length, 3, `expected 3 slide images, got ${slides.length}`);
+    assert.equal(thumbs.length, 3, `expected 3 thumbnails, got ${thumbs.length}`);
+    assert.ok(names.includes('deck/manifest.json'), 'manifest.json present');
+
+    // The full raster is the 2× HD box; the thumbnail is a faithful shrink.
+    const fullBuf = await zip.file(slides.sort()[0]).async('nodebuffer');
+    assert.equal(fullBuf.readUInt32BE(16), 2560, 'full slide at 2× width');
+    const thumbBuf = await zip.file(thumbs.sort()[0]).async('nodebuffer');
+    assert.equal(thumbBuf.readUInt32BE(16), 480, 'thumbnail at the default 480px width');
+
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.kind, 'lattice-image-set');
+    assert.equal(manifest.format, 'png');
+    assert.equal(manifest.counts.slides, 3);
+    assert.equal(manifest.counts.thumbnails, 3);
+    // The manifest self-describes the RESOLVED scheme, not the raw `inherit` default — a
+    // downstream tool can tell these are light images without opening the pixels.
+    assert.equal(manifest.colorMode, 'light');
+  });
+
+  test('--image-mode dark with no dark companion renders light and the manifest says so (no lie)', { timeout: TIMEOUT }, async () => {
+    // a11y-* palettes ship no `-dark` companion; the export falls back to the base (light) palette.
+    const out = path.join(tmpDir(), 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--image-mode', 'dark', '-p', 'a11y-deuteranopia'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.colorMode, 'light', 'manifest must record the scheme actually rendered, not the requested dark');
+  });
+
+  test('image set honors --image-format jpeg, --image-size 1x, and --no-thumbnails', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, FIXTURE, out, '--quiet', '--image-format', 'jpeg', '--image-size', '1x', '--no-thumbnails'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+    assert.ok(names.some((n) => /slides\/deck-\d+\.jpeg$/.test(n)), 'jpeg slides');
+    assert.ok(!names.some((n) => n.includes('thumbnails/')), '--no-thumbnails omits the folder');
+
+    const jpeg = await zip.file(names.filter((n) => n.endsWith('.jpeg')).sort()[0]).async('nodebuffer');
+    assert.equal(jpeg[0], 0xff, 'JPEG SOI byte 0');
+    assert.equal(jpeg[1], 0xd8, 'JPEG SOI byte 1');
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.format, 'jpeg');
+    assert.equal(manifest.pixel.scale, 1, '--image-size 1x rasters at 1×');
+  });
+
+  test('image set extracts standalone SVGs for BOTH keyed charts and Mermaid diagrams', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+    const assets = names.filter((n) => /^deck\/assets\/deck-s\d+-c\d+\.svg$/.test(n)).sort();
+    // One chart (slide 1) + one diagram (slide 2) → two standalone SVGs.
+    assert.equal(assets.length, 2, `expected 2 SVG assets, got ${assets.join(', ')}`);
+    assert.deepEqual(assets, ['deck/assets/deck-s01-c00.svg', 'deck/assets/deck-s02-c00.svg']);
+
+    // Each is a real, self-contained SVG document (xmlns + embedded @font-face so it
+    // opens with the right type outside the deck — the standalone contract).
+    for (const a of assets) {
+      const svg = await zip.file(a).async('string');
+      assert.match(svg, /<svg[\s>]/, `${a} is not an <svg>`);
+      assert.match(svg, /xmlns="http:\/\/www\.w3\.org\/2000\/svg"/, `${a} missing xmlns`);
+      assert.match(svg, /@font-face/, `${a} missing embedded fonts`);
+    }
+
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.counts.assets, 2);
+    assert.deepEqual(manifest.assets.map((x) => x.kind).sort(), ['chart', 'diagram']);
+  });
+
+  test('--no-svg omits the standalone SVG assets', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--no-svg'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir);
+    assert.ok(!names.some((n) => n.includes('/assets/')), '--no-svg should omit assets/');
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.counts.assets, 0);
+  });
+
+  test('--image-mode dark renders the dark palette; --svg-background bakes a canvas', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'dark'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.colorMode, 'dark');
+    assert.equal(manifest.svgBackground, 'dark');
+    // Every extracted SVG carries the full-bleed dark backdrop rect.
+    const svgNames = Object.keys(zip.files).filter((n) => /assets\/.+\.svg$/.test(n));
+    assert.ok(svgNames.length >= 1, 'expected at least one SVG asset');
+    for (const n of svgNames) {
+      const svg = await zip.file(n).async('string');
+      assert.match(svg, /<rect x="0" y="0" width="100%" height="100%" fill="#111317"\/>/, `${n} missing dark backdrop`);
+    }
+  });
+
+  test('SVG look renders the chart/diagram independent of the slides (color slides + print SVGs)', { timeout: TIMEOUT }, async () => {
+    const JSZip = require('jszip');
+    const chartSvg = async (svgBackground) => {
+      const out = path.join(tmpDir(), 'deck.zip');
+      const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'light', '--svg-background', svgBackground], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+      });
+      assert.equal(r.status, 0, `emulator failed (${svgBackground}): ${r.stderr}`);
+      const zip = await JSZip.loadAsync(fs.readFileSync(out));
+      const name = Object.keys(zip.files).find((n) => /assets\/deck-s01-c00\.svg$/.test(n)); // the piechart
+      const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+      return { svg: await zip.file(name).async('string'), manifest };
+    };
+    const printLook = await chartSvg('print');
+    const inheritLook = await chartSvg('inherit');
+
+    // Same deck, same slide mode (light) — but the print-look chart is RE-RENDERED B&W, so it
+    // differs from the as-slides (inherit) chart. This is the whole point of the look.
+    assert.notEqual(printLook.svg, inheritLook.svg, 'print look should re-render the chart, not just re-backdrop it');
+    // Print charts reference the B&W texture patterns (accessibility-textures `latt-*` ids);
+    // the color as-slides chart does not.
+    assert.match(printLook.svg, /latt-/, 'print-look chart should carry the B&W texture refs');
+    assert.doesNotMatch(inheritLook.svg, /latt-/, 'the as-slides (color) chart has no print textures');
+    // Print bakes the white paper canvas; inherit bakes none.
+    assert.match(printLook.svg, /<rect [^>]*fill="#ffffff"\/>/);
+    assert.doesNotMatch(inheritLook.svg, /<rect [^>]*width="100%"[^>]*fill=/);
+    assert.equal(printLook.manifest.colorMode, 'light');
+    assert.equal(printLook.manifest.svgBackground, 'print');
+  });
+
+  test('--image-mode print stamps the B&W handout canvas', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.colorMode, 'print');
+    // transparent background by default → no backdrop rect baked
+    const svgNames = Object.keys(zip.files).filter((n) => /assets\/.+\.svg$/.test(n));
+    for (const n of svgNames) {
+      assert.doesNotMatch(await zip.file(n).async('string'), /<rect [^>]*width="100%"[^>]*fill=/);
+    }
+  });
+
+  test('the standalone --print flag (not --image-mode) is authoritative for the manifest scheme', { timeout: TIMEOUT }, async () => {
+    // `deck.md out.zip --print` stamps the print canvas (WANT_PRINT) but leaves --image-mode at
+    // its 'inherit' default — the manifest must still record 'print' to match the ink-on-white
+    // pixels, not the palette-derived light/dark.
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.colorMode, 'print', 'manifest must record print when --print rendered the print canvas');
+  });
+
+  test('image set writes a v2 manifest (metadata, dpi, orientation) + embeds DPI in the PNG bytes', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const m = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+
+    assert.equal(m.version, 2);
+    assert.ok(m.title && typeof m.title === 'string', 'has a deck title');
+    assert.equal(m.palette, 'indaco');
+    assert.equal(m.engine.name, 'lattice');
+    assert.ok(m.engine.version, 'has an engine version');
+    assert.match(m.createdAt, /^\d{4}-\d\d-\d\dT/, 'ISO createdAt');
+    assert.equal(m.orientation, 'landscape');           // hd fixture
+    assert.deepEqual(m.physical, { width: 13.333, height: 7.5, unit: 'in' });
+    assert.equal(m.dpi, 192);                            // hd @2× → 192 dpi
+    assert.deepEqual(m.thumbnail, { width: 480, height: 270 });
+    // per-slide title + bytes; per-asset chartType + bytes
+    assert.ok(m.slides[0].title, 'slide has a title');
+    assert.ok(m.slides[0].bytes > 0 && m.slides[0].thumbnailBytes > 0, 'per-file bytes recorded');
+    const chart = m.assets.find((a) => a.kind === 'chart');
+    assert.equal(chart.chartType, 'piechart');
+    assert.ok(chart.bytes > 0);
+
+    // The full slide PNG carries a pHYs chunk at 192 dpi, and still decodes as a valid PNG.
+    // (manifest paths are relative to the deck root folder; the zip prefixes them with the slug.)
+    const png = await zip.file(`deck/${m.slides[0].image}`).async('nodebuffer');
+    assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a', 'valid PNG signature');
+    assert.equal(png.subarray(12, 16).toString(), 'IHDR', 'IHDR intact');
+    const pHYs = png.indexOf(Buffer.from('pHYs'));
+    assert.ok(pHYs > 0, 'pHYs chunk present');
+    const ppm = png.readUInt32BE(pHYs + 4);
+    assert.equal(Math.round(ppm * 0.0254), 192, 'pHYs encodes 192 dpi');
+    assert.equal(png[pHYs + 12], 1, 'pHYs unit = meter');
+  });
+
+  test('--image-format webp + --image-quality + --thumb-width produce the requested set', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet',
+      '--image-format', 'webp', '--image-quality', '70', '--thumb-width', '640'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const m = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    // Format + quality land in the manifest and the file extensions.
+    assert.equal(m.format, 'webp');
+    assert.equal(m.mime, 'image/webp');
+    assert.equal(m.quality, 70);
+    assert.ok(m.slides[0].image.endsWith('.webp'), 'slides are .webp');
+    // The bytes are a real WebP (RIFF....WEBP container).
+    const img = await zip.file(`deck/${m.slides[0].image}`).async('nodebuffer');
+    assert.equal(img.subarray(0, 4).toString('latin1'), 'RIFF', 'RIFF container');
+    assert.equal(img.subarray(8, 12).toString('latin1'), 'WEBP', 'WEBP form');
+    // --thumb-width 640 on a 1280px HD slide → a 0.5× thumb: 640×360, reflected in the manifest.
+    assert.deepEqual(m.thumbnail, { width: 640, height: 360 });
+    // …and the thumbnail is never bigger than the full raster.
+    assert.ok(m.thumbnail.width <= m.pixel.width, 'thumb no wider than the full image');
   });
 
   // Accessibility: the exported PDF shell must carry the deck's title + language, so a
