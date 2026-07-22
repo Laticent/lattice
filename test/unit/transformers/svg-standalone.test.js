@@ -67,6 +67,15 @@ describe('finalizeStandaloneSvg', () => {
     assert.throws(() => finalizeStandaloneSvg('<div></div>'), /not an <svg>/);
     assert.throws(() => finalizeStandaloneSvg(''), /not an <svg>/);
   });
+
+  test('bakes a full-bleed background rect when given, omits it otherwise', () => {
+    const out = finalizeStandaloneSvg(PIE, { background: '#111317' });
+    assert.match(out, /<rect x="0" y="0" width="100%" height="100%" fill="#111317"\/>/);
+    // the rect is the first painted child (behind the chart content)
+    assert.match(out, /<svg[^>]*>(?:<defs>[\s\S]*?<\/defs>)?<rect /);
+    assert.doesNotMatch(finalizeStandaloneSvg(PIE), /<rect [^>]*width="100%"/);
+    assert.doesNotMatch(finalizeStandaloneSvg(PIE, { background: '  ' }), /<rect [^>]*width="100%"/);
+  });
 });
 
 describe('collectFontFamilies', () => {

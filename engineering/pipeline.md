@@ -98,6 +98,8 @@ size for fidelity:
 | `--image-format` | `png` · `jpeg` · `webp` | Lossless PNG, or a lossy format for a smaller set (WebP smallest at equal quality). |
 | `--image-size` | `max` · `2x` · `1x` · `half` | Raster scale — the "size selection" lever; lower shrinks each image and the whole zip. |
 | `--image-quality` | `92` (1–100) | JPEG/WebP encoder quality; ignored for PNG. |
+| `--image-mode` | `auto` · `light` · `dark` · `print` | Color mode for the whole set. light/dark render the palette's light / dark variant; print is the B&W-safe handout. `auto` = the deck's own / palette-resolved. |
+| `--svg-background` | `transparent` · `light` · `dark` | Canvas baked behind each standalone chart/diagram SVG. A solid canvas reads best paired with the matching `--image-mode` (the marks' ink is fixed by the render mode). |
 | `--thumb-width` | `480` (px) | Thumbnail width; height follows the slide aspect. |
 | `--no-thumbnails` | — | Omit the `thumbnails/` folder. |
 | `--no-svg` | — | Omit the `assets/` folder (the standalone chart/diagram SVGs). |

@@ -219,6 +219,14 @@ OPTIONS
                           overall set — the "size selection" lever.
       --image-quality N   Encoder quality 1–100 for jpeg/webp (default 92);
                           ignored for png.
+      --image-mode <m>    Color mode for the whole set — auto (default, the deck's
+                          own / palette-resolved) | light | dark | print. light/dark
+                          render the palette's light / dark variant; print is the
+                          B&W-safe ink-on-white handout mode.
+      --svg-background <b>
+                          Canvas baked behind each standalone chart/diagram SVG —
+                          transparent (default) | light | dark. A solid canvas reads
+                          best paired with the matching --image-mode.
       --thumb-width N     Thumbnail width in px (default 480); height follows the
                           slide aspect.
       --no-thumbnails     Omit the thumbnails/ folder (thumbnails ship by default).
@@ -292,6 +300,7 @@ function parseArgs(argv) {
     // Image-set (.zip) tuning — see normalizeImageSetOptions (lib/export/image-set.js).
     '--image-format': 'image-format', '--image-size': 'image-size',
     '--image-quality': 'image-quality', '--thumb-width': 'thumb-width',
+    '--image-mode': 'image-mode', '--svg-background': 'svg-background',
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -413,7 +422,7 @@ const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx'
 // Image-set tuning, normalized to a complete config (defaults = perfect-fidelity PNG,
 // thumbnails on, SVG extraction on). Resolved even for non-imageset outputs — it is
 // inert there. Undefined flags fall through to the kernel's DEFAULTS.
-const { normalizeImageSetOptions, resolveRasterScale, resolveThumbScale } = require('./lib/export/image-set');
+const { normalizeImageSetOptions, resolveRasterScale, resolveThumbScale, svgBackgroundFill } = require('./lib/export/image-set');
 const IMAGE_SET_OPTS = normalizeImageSetOptions({
   format: flags['image-format'],
   size: flags['image-size'],
@@ -421,6 +430,8 @@ const IMAGE_SET_OPTS = normalizeImageSetOptions({
   thumbnails: flags['no-thumbnails'] ? false : undefined,
   thumbWidth: flags['thumb-width'] !== undefined ? Number(flags['thumb-width']) : undefined,
   extractSvg: flags['no-svg'] ? false : undefined,
+  mode: flags['image-mode'],
+  svgBackground: flags['svg-background'],
 });
 // --raster swaps the PDF's vector page content for one full-bleed slide image
 // per page (the same 2× screenshots the PPTX path uses) — a maximum-compatibility
@@ -487,7 +498,10 @@ function withPrintClass(src) {
   return src.replace(full, open + merged + close);
 }
 const mdRaw = readFileOrDie(mdFile, 'source markdown');
-const md = flags.print ? withPrintClass(mdRaw) : mdRaw;
+// PRINT canvas is stamped by `--print` OR by an image set's `--image-mode print`
+// (same deck-wide class:print path, so the whole set renders the B&W-safe handout).
+const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.mode === 'print');
+const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 
 // Resolve palette name from the precedence chain (CLI > env > front
 // matter > default). Logic lives in lib/resolve-palette.js so it can
@@ -495,7 +509,24 @@ const md = flags.print ? withPrintClass(mdRaw) : mdRaw;
 const { resolvePalette } = require('./lib/core/resolve-palette');
 const { CLIP_CELL_SELECTOR, PROBE_SRC } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
-const paletteName = resolvePalette({ md, cliArg: paletteArg }).name;
+// An image set's `--image-mode light|dark` forces the palette's light / dark variant
+// (the same `<name>-dark` companion the Studio's dark export picks — HARD RULE #1),
+// on top of the normal precedence chain. `auto`/`print` leave the resolved name alone
+// (print rides the class:print stamp above, palette-independent). A missing dark
+// companion falls back to the base name with a warning rather than a hard error.
+function applyImageModePalette(name) {
+  if (OUT_FORMAT !== 'imageset') return name;
+  const base = name.replace(/-dark$/, '');
+  if (IMAGE_SET_OPTS.mode === 'light') return base;
+  if (IMAGE_SET_OPTS.mode === 'dark') {
+    const dark = `${base}-dark`;
+    if (fs.existsSync(path.join(PKG_ROOT, 'themes', `${dark}.css`))) return dark;
+    console.warn(`  ⚠ --image-mode dark: no dark companion 'themes/${dark}.css' — rendering '${base}' as-is.`);
+    return base;
+  }
+  return name;
+}
+const paletteName = applyImageModePalette(resolvePalette({ md, cliArg: paletteArg }).name);
 // The a11y-* palettes are first-class themes (pick `theme: a11y-deuteranopia`
 // like any theme). Their categorical fills reference texture <pattern> <defs>
 // — SVG markup CSS can't hold — so emit them on every render. They're inert
@@ -2232,9 +2263,10 @@ async function renderBody(browser, g, closeBrowser) {
         });
         return out;
       }), 'extract standalone svgs');
+      const svgBg = svgBackgroundFill(IMAGE_SET_OPTS.svgBackground);
       svgAssets = raw.map((t) => {
         const fontFaceCss = standaloneFontFaceCss(collectFontFamilies(t.markup));
-        return { slide: t.slide, kind: t.kind, svg: finalizeStandaloneSvg(t.markup, { fontFaceCss }) };
+        return { slide: t.slide, kind: t.kind, svg: finalizeStandaloneSvg(t.markup, { fontFaceCss, background: svgBg }) };
       });
     }
 
@@ -2279,8 +2311,9 @@ async function renderBody(browser, g, closeBrowser) {
     if (!QUIET) {
       const c = plan.manifest.counts;
       const tags = [`${c.slides} ${fmt.toUpperCase()}`];
+      if (IMAGE_SET_OPTS.mode !== 'auto') tags.push(IMAGE_SET_OPTS.mode);
       if (c.thumbnails) tags.push(`${c.thumbnails} thumbnails`);
-      if (c.assets) tags.push(`${c.assets} SVG`);
+      if (c.assets) tags.push(`${c.assets} SVG${IMAGE_SET_OPTS.svgBackground !== 'transparent' ? ` on ${IMAGE_SET_OPTS.svgBackground}` : ''}`);
       console.log(`Image set: ${outFile} (${tags.join(', ')}, ${(zipBuf.length / 1024).toFixed(0)} KB)`);
     }
   } else {

@@ -503,14 +503,27 @@ export type ImageSetOptions = {
 	thumbnails?: boolean;
 	thumbWidth?: number;
 	extractSvg?: boolean;
+	mode?: 'auto' | 'light' | 'dark' | 'print';
+	svgBackground?: 'transparent' | 'light' | 'dark';
 };
 
 /** Image set (.zip): one raster per slide (PNG/JPEG/WebP) + opt-in thumbnails + the
  *  deck's chart/diagram SVGs as standalone files + a manifest. The zip layout, naming,
  *  size presets, and manifest are single-sourced with the CLI `.zip` output via the
- *  shared kernel (HARD RULE #1), so both surfaces emit the same set. */
-export async function shareImageSet(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', imageOpts: ImageSetOptions, extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
-	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+ *  shared kernel (HARD RULE #1), so both surfaces emit the same set.
+ *
+ *  `previewMode` is the current light/dark preview; `imageOpts.mode` overrides it:
+ *  light/dark render the matching palette variant, print stamps the B&W `class: print`
+ *  canvas (rendered light), and auto keeps the preview mode — mirroring the CLI's
+ *  `--image-mode`. The chosen mode also rides in `imageOpts` so the manifest records it. */
+export async function shareImageSet(options: SingleSlideOptions, source: string, name: string, palette: string, previewMode: 'light' | 'dark', imageOpts: ImageSetOptions, extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
+	const chosen = imageOpts.mode ?? 'auto';
+	let renderMode: 'light' | 'dark' = previewMode;
+	let src = source;
+	if (chosen === 'light') renderMode = 'light';
+	else if (chosen === 'dark') renderMode = 'dark';
+	else if (chosen === 'print') { renderMode = 'light'; src = mergeClassTokens(source, 'print'); }
+	const render = await buildDeckRender(options, src, palette, renderMode, extra, extraCss);
 	const ex = await exporters();
 	await ex.exportImageSet(render, name, imageOpts, onStatus);
 }

@@ -436,6 +436,45 @@ describe('export-formats', () => {
     assert.equal(manifest.counts.assets, 0);
   });
 
+  test('--image-mode dark renders the dark palette; --svg-background bakes a canvas', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'dark'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.colorMode, 'dark');
+    assert.equal(manifest.svgBackground, 'dark');
+    // Every extracted SVG carries the full-bleed dark backdrop rect.
+    const svgNames = Object.keys(zip.files).filter((n) => /assets\/.+\.svg$/.test(n));
+    assert.ok(svgNames.length >= 1, 'expected at least one SVG asset');
+    for (const n of svgNames) {
+      const svg = await zip.file(n).async('string');
+      assert.match(svg, /<rect x="0" y="0" width="100%" height="100%" fill="#111317"\/>/, `${n} missing dark backdrop`);
+    }
+  });
+
+  test('--image-mode print stamps the B&W handout canvas', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.colorMode, 'print');
+    // transparent background by default → no backdrop rect baked
+    const svgNames = Object.keys(zip.files).filter((n) => /assets\/.+\.svg$/.test(n));
+    for (const n of svgNames) {
+      assert.doesNotMatch(await zip.file(n).async('string'), /<rect [^>]*width="100%"[^>]*fill=/);
+    }
+  });
+
   // Accessibility: the exported PDF shell must carry the deck's title + language, so a
   // screen reader announces both (was a tracked gap — untagged PDF, no /Lang, no title;
   // semantic-html-accessibility.md G1/G2). Chrome's print-to-PDF lifts them from the

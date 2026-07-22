@@ -16,6 +16,21 @@ import type { ImageSetOptions } from './share-export';
 
 type Format = 'png' | 'jpeg' | 'webp';
 type Size = 'max' | '2x' | '1x' | 'half';
+type Mode = 'auto' | 'light' | 'dark' | 'print';
+type SvgBg = 'transparent' | 'light' | 'dark';
+
+const MODES: { value: Mode; label: string; hint: string }[] = [
+	{ value: 'auto', label: 'Auto', hint: 'The deck’s current light/dark mode.' },
+	{ value: 'light', label: 'Light', hint: 'Force the light palette.' },
+	{ value: 'dark', label: 'Dark', hint: 'Force the dark palette.' },
+	{ value: 'print', label: 'Print', hint: 'B&W-safe ink-on-white handout mode.' },
+];
+
+const SVG_BGS: { value: SvgBg; label: string; hint: string }[] = [
+	{ value: 'transparent', label: 'Transparent', hint: 'No background — drops onto anything.' },
+	{ value: 'light', label: 'Light', hint: 'A white canvas.' },
+	{ value: 'dark', label: 'Dark', hint: 'A dark canvas.' },
+];
 
 const FORMATS: { value: Format; label: string; hint: string }[] = [
 	{ value: 'png', label: 'PNG', hint: 'Lossless — perfect fidelity, largest files.' },
@@ -68,10 +83,14 @@ export function ImageSetOptionsPanel({
 	const [quality, setQuality] = React.useState(92);
 	const [thumbnails, setThumbnails] = React.useState(true);
 	const [extractSvg, setExtractSvg] = React.useState(true);
+	const [mode, setMode] = React.useState<Mode>('auto');
+	const [svgBackground, setSvgBackground] = React.useState<SvgBg>('transparent');
 
 	const lossy = format !== 'png';
 	const fmtHint = FORMATS.find((f) => f.value === format)?.hint;
 	const sizeHint = SIZES.find((s) => s.value === size)?.hint;
+	const modeHint = MODES.find((m) => m.value === mode)?.hint;
+	const bgHint = SVG_BGS.find((b) => b.value === svgBackground)?.hint;
 
 	return (
 		<div className="space-y-5">
@@ -83,6 +102,13 @@ export function ImageSetOptionsPanel({
 				<div>
 					<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Export images</h3>
 					<p className="mt-0.5 text-[12px] text-muted-foreground">A <code>.zip</code> with one image per slide, plus optional thumbnails and the deck’s charts &amp; diagrams as standalone SVGs.</p>
+				</div>
+
+				{/* Color mode — how the whole set (slides, thumbnails, chart/diagram marks) renders. */}
+				<div className="rounded-xl border border-border bg-background p-3.5">
+					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Color mode</span>
+					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{modeHint}</span>
+					<Segmented options={MODES} value={mode} onChange={setMode} busy={busy} cols="grid-cols-4" />
 				</div>
 
 				{/* Format — lossless PNG by default; JPEG/WebP trade fidelity for size. */}
@@ -133,13 +159,20 @@ export function ImageSetOptionsPanel({
 						</span>
 						<Switch className="mt-0.5" aria-label="Extract chart and diagram SVGs" checked={extractSvg} disabled={busy} onCheckedChange={setExtractSvg} />
 					</div>
+					{extractSvg && (
+						<div className="mt-3 border-t border-border pt-3">
+							<span className="block text-[12px] font-semibold text-[var(--text-heading)]">SVG background</span>
+							<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{bgHint} A solid canvas reads best paired with the matching color mode.</span>
+							<Segmented options={SVG_BGS} value={svgBackground} onChange={setSvgBackground} busy={busy} cols="grid-cols-3" />
+						</div>
+					)}
 				</div>
 			</section>
 
 			<button
 				type="button"
 				disabled={busy}
-				onClick={() => onExport({ format, size, quality, thumbnails, extractSvg })}
+				onClick={() => onExport({ format, size, quality, thumbnails, extractSvg, mode, svgBackground })}
 				className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
 			>
 				{busy ? <Loader2 className="size-4 animate-spin" /> : <FileImage className="size-4" />}

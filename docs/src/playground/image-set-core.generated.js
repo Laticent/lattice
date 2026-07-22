@@ -37,6 +37,9 @@ var require_image_set = __commonJS({
     };
     var SIZE_PRESETS2 = ["max", "2x", "1x", "half"];
     var RASTER_MAX_EDGE2 = 3840;
+    var COLOR_MODES2 = ["auto", "light", "dark", "print"];
+    var SVG_BACKGROUNDS2 = ["transparent", "light", "dark"];
+    var SVG_BACKGROUND_FILL2 = { transparent: null, light: "#ffffff", dark: "#111317" };
     var DEFAULTS2 = Object.freeze({
       format: "png",
       size: "max",
@@ -45,8 +48,12 @@ var require_image_set = __commonJS({
       thumbnails: true,
       thumbWidth: 480,
       // px wide; thumbnail height follows the slide aspect
-      extractSvg: true
+      extractSvg: true,
       // charts + Mermaid/diagram SVGs as standalone files
+      mode: "auto",
+      // export color mode; 'auto' = the deck's own / palette-resolved
+      svgBackground: "transparent"
+      // canvas baked behind each extracted standalone SVG
     });
     function normalizeImageSetOptions2(raw) {
       const o = raw || {};
@@ -64,8 +71,13 @@ var require_image_set = __commonJS({
         quality,
         thumbnails: o.thumbnails === void 0 ? DEFAULTS2.thumbnails : !!o.thumbnails,
         thumbWidth,
-        extractSvg: o.extractSvg === void 0 ? DEFAULTS2.extractSvg : !!o.extractSvg
+        extractSvg: o.extractSvg === void 0 ? DEFAULTS2.extractSvg : !!o.extractSvg,
+        mode: COLOR_MODES2.includes(o.mode) ? o.mode : DEFAULTS2.mode,
+        svgBackground: SVG_BACKGROUNDS2.includes(o.svgBackground) ? o.svgBackground : DEFAULTS2.svgBackground
       };
+    }
+    function svgBackgroundFill2(svgBackground) {
+      return Object.hasOwn(SVG_BACKGROUND_FILL2, svgBackground) ? SVG_BACKGROUND_FILL2[svgBackground] : SVG_BACKGROUND_FILL2[DEFAULTS2.svgBackground];
     }
     function resolveRasterScale2(size, slideW, slideH) {
       const longEdge = Math.max(Number(slideW) || 1280, Number(slideH) || 720);
@@ -117,6 +129,8 @@ var require_image_set = __commonJS({
         mime: meta.mime,
         lossy: meta.lossy,
         quality: meta.lossy ? opts.quality : null,
+        colorMode: opts.mode || DEFAULTS2.mode,
+        svgBackground: opts.svgBackground || DEFAULTS2.svgBackground,
         slide: { width: geom.w, height: geom.h },
         pixel: { width: Math.round(geom.w * scale), height: Math.round(geom.h * scale), scale },
         counts: {
@@ -192,10 +206,14 @@ var require_image_set = __commonJS({
       FORMAT_META: FORMAT_META2,
       SIZE_PRESETS: SIZE_PRESETS2,
       RASTER_MAX_EDGE: RASTER_MAX_EDGE2,
+      COLOR_MODES: COLOR_MODES2,
+      SVG_BACKGROUNDS: SVG_BACKGROUNDS2,
+      SVG_BACKGROUND_FILL: SVG_BACKGROUND_FILL2,
       DEFAULTS: DEFAULTS2,
       normalizeImageSetOptions: normalizeImageSetOptions2,
       resolveRasterScale: resolveRasterScale2,
       resolveThumbScale: resolveThumbScale2,
+      svgBackgroundFill: svgBackgroundFill2,
       padWidth: padWidth2,
       deckSlug: deckSlug2,
       slideEntryName: slideEntryName2,
@@ -215,10 +233,14 @@ var {
   FORMAT_META,
   SIZE_PRESETS,
   RASTER_MAX_EDGE,
+  COLOR_MODES,
+  SVG_BACKGROUNDS,
+  SVG_BACKGROUND_FILL,
   DEFAULTS,
   normalizeImageSetOptions,
   resolveRasterScale,
   resolveThumbScale,
+  svgBackgroundFill,
   padWidth,
   deckSlug,
   slideEntryName,
@@ -229,11 +251,14 @@ var {
   addPlanToZip
 } = import_image_set.default;
 export {
+  COLOR_MODES,
   DEFAULTS,
   FORMAT_META,
   IMAGE_FORMATS,
   RASTER_MAX_EDGE,
   SIZE_PRESETS,
+  SVG_BACKGROUNDS,
+  SVG_BACKGROUND_FILL,
   addPlanToZip,
   assembleImageSetPlan,
   assetEntryName,
@@ -244,5 +269,6 @@ export {
   resolveRasterScale,
   resolveThumbScale,
   slideEntryName,
+  svgBackgroundFill,
   thumbEntryName
 };

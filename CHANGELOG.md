@@ -359,10 +359,15 @@ in patch versions.
   `.svg` files under `assets/` (each self-styled with fonts embedded, so it opens anywhere), and a
   `manifest.json` index. The default is perfect-fidelity, lossless PNG at 2×; tuning flags trade
   size for fidelity — `--image-format png|jpeg|webp`, `--image-size max|2x|1x|half`,
-  `--image-quality N` (jpeg/webp), `--thumb-width N`, `--no-thumbnails`, `--no-svg`. The zip layout,
-  naming, size presets, and manifest are single-sourced in a shared kernel
-  (`lib/export/image-set.js`) that the Studio's Share → Images export also uses, so both surfaces
-  emit the same set. New export path — existing PDF/PPTX/PNG bytes are unchanged.
+  `--image-quality N` (jpeg/webp), `--thumb-width N`, `--no-thumbnails`, `--no-svg`. **Color mode**
+  is selectable per export — `--image-mode auto|light|dark|print` renders the whole set in the
+  light or dark palette or the B&W-safe print handout — and each standalone chart/diagram SVG can
+  bake a **backdrop** with `--svg-background transparent|light|dark` (a solid canvas reads best
+  paired with the matching mode, since the marks' ink is fixed by the render). The Studio's
+  Share → Images panel exposes the same controls (Color mode + SVG background selectors). The zip
+  layout, naming, size presets, color mode, and manifest are single-sourced in a shared kernel
+  (`lib/export/image-set.js`) that both surfaces use, so they emit the same set. New export path —
+  existing PDF/PPTX/PNG bytes are unchanged.
 - **The in-place chart animation now covers the piechart — and gradient-filled charts render
   correctly.** `chart-anima` extends to the pie: add it to a slide or deck and the disc fades in as a
   whole on the live Studio / Playground (model-free; exported PDF/PPTX byte-identical). This also

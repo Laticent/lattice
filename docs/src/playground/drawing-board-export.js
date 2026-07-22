@@ -1067,6 +1067,9 @@ export async function exportImageSet(render, name, opts, onStatus) {
 			const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
 			const fontCssAll = await buildFontEmbedCss();
 			await ensureFontsLoaded(frame.contentDocument, fontCssAll);
+			// The canvas baked behind each standalone SVG (null = transparent) — the SAME
+			// neutral literals the CLI uses, via the shared kernel.
+			const svgBg = core.svgBackgroundFill(options.svgBackground);
 			sections.forEach((sec, si) => {
 				const targets = [];
 				// Mermaid renders differently per surface: the engine pre-renders to a
@@ -1084,7 +1087,7 @@ export async function exportImageSet(render, name, opts, onStatus) {
 					try {
 						const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, win));
 						const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
-						svgs.push({ slide: si + 1, kind, svg: finalizeStandaloneSvg(markup, { fontFaceCss }) });
+						svgs.push({ slide: si + 1, kind, svg: finalizeStandaloneSvg(markup, { fontFaceCss, background: svgBg }) });
 					} catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
 				}
 			});
