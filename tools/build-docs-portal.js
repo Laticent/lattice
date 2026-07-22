@@ -413,6 +413,41 @@ function galleryHref(m) {
   return path.relative(DOCS_DIR, abs).split(path.sep).join('/');
 }
 
+/** The component's effective DEFAULT framing alignment (what `headline: auto` resolves to) —
+ *  DERIVED from its own CSS, not hand-authored. A layout centers its masthead by default when it
+ *  sets the shared `--headline-justify` axis to `center` as the FALLBACK, either on the
+ *  `.masthead-lede` (Form band) or on its `section.<name>` root (an anchor that centers the whole
+ *  frame). Variant-qualified rules (e.g. `list-steps.timeline`, `divider.light`) are NOT the
+ *  default, so they're skipped — the field reports the base component's alignment. Everything else
+ *  is `left` (the base masthead-lede origin). See engineering/decisions/2026-07-20-mass-head-alignment.md.
+ *
+ *  Coverage boundary (2026-07-22 trio) — this is a flat regex, not a CSS parser. The pattern it
+ *  detects is an `align-items: var(--headline-justify, center)` declaration (the center FALLBACK on
+ *  the axis); it assumes: (a) that rule is TOP-LEVEL — one inside a `@media`/`@container` body is
+ *  read as the base default; (b) no commented-out center rule; (c) the `section.<name>`
+ *  guard matches DESCENDANTS too, so a centered caption/footnote in the component's own styles.css
+ *  would misread as a centered masthead; (d) the variant-skip only fires for DOCUMENTED variants
+ *  (`documentedVariants`), so deleting a variant's docs can flip its base component to `center`.
+ *  No current component trips any of these — the exact-set assertion in
+ *  test/unit/tools/headline-default.test.js is the rot-guard that catches it if one ever does. */
+function headlineDefault(m) {
+  const abs = path.join(COMPONENTS_DIR, manifestBucket(m), m.name, `${m.name}.styles.css`);
+  if (!fs.existsSync(abs)) return 'left';
+  const css = fs.readFileSync(abs, 'utf8');
+  const variants = documentedVariants(m);
+  const centerAxis = /align-items:\s*var\(--headline-justify,\s*center\)/;
+  const rules = css.match(/[^{}]+\{[^{}]*\}/g) || [];
+  for (const rule of rules) {
+    const brace = rule.indexOf('{');
+    const selector = rule.slice(0, brace);
+    if (!centerAxis.test(rule.slice(brace))) continue;
+    // A variant-specific rule (its selector names one of the component's variants) is not the default.
+    if (variants.some((v) => new RegExp(`\\.${v}\\b`).test(selector))) continue;
+    if (/\.masthead-lede/.test(selector) || new RegExp(`section\\.${m.name}\\b`).test(selector)) return 'center';
+  }
+  return 'left';
+}
+
 // ── Markdown reference ──────────────────────────────────────────────────────
 
 /** Add `by` levels to every ATX heading, skipping fenced code blocks. */
@@ -532,6 +567,8 @@ function renderPortalJson(manifests) {
     whenToUse: Array.isArray(m.whenToUse) ? m.whenToUse : [],
     antiPatterns: Array.isArray(m.antiPatterns) ? m.antiPatterns : [],
     related: Array.isArray(m.related) ? m.related : [],
+    // Derived: the default framing alignment (`headline: auto` result) — `left` or `center`.
+    headlineDefault: headlineDefault(m),
     galleryHref: galleryHref(m),
   }));
   const doc = {

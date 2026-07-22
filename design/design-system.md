@@ -125,7 +125,7 @@ backdrops), each its own front-matter key, palette-blind, defaulting to today's 
 | **Spectrum trim** | `spectrum-trim:` | how much the structural accents carry the spectrum (`off`/`restrained`/`on`) — off = quiet accent-tint hairline by default |
 | **Heading rule** | `rule:` | the heading underline (`auto`/`full`/`short`/`accent`/`none`) |
 | **Eyebrow** | `eyebrow:` | the mono-caps kicker decoration (`plain`/`dot`/`bar`/`arrow`/`underline`) |
-| **Headline alignment** | `headline:` | the framing-text cluster's horizontal alignment (`auto`/`left`/`center`) — `auto` keeps each component's own default; `left`/`center` pin the whole cluster, even on a layout whose default is the other way (`right` is a deferred follow-up) |
+| **Headline alignment** | `headline:` | the framing-text cluster's horizontal alignment (`auto`/`left`/`center`/`right`) — `auto` keeps each component's own default; `left`/`center`/`right` pin the whole cluster, even on a layout whose default is the other way |
 
 The accent registers are documented for authors in `lib/base/base.docs.md`; design in
 `engineering/decisions/2026-07-15-accent-finish-consolidation.md`.

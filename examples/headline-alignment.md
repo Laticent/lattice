@@ -11,7 +11,7 @@ header: "Lattice · Headline alignment"
 
 # Headline alignment
 
-The alignment of a slide's **framing text** — eyebrow, heading, rule, subtitle, below-note, key insight, caption — is no longer baked into each layout. One register, `headline:`, sets it. `auto` keeps each component's own default; `left` pins the whole cluster to the margin; `center` centers it — even on a layout that lefts by default.
+The alignment of a slide's **framing text** — eyebrow, heading, rule, subtitle, below-note, key insight, caption — is no longer baked into each layout. One register, `headline:`, sets it. `auto` keeps each component's own default; `left`, `center`, and `right` pin the whole cluster — even on a layout whose default is the other way.
 
 ---
 
@@ -81,13 +81,13 @@ Add `headline: left` to the front matter and every slide left-aligns its framing
 
 ---
 
-<!-- _class: content -->
+<!-- _class: content head-right -->
 
-`Roadmap · what's next`
+`Register · head-right`
 
-## Auto, left, center — right is next
+## Right-align, the rare escape hatch
 
-Three values ship: `auto`, `left`, and `center`. `center` aligns the framing *boxes* (not just their text) and, with a masthead bay, centers the cluster *beside* the meta — never under it. Right-aligning the cluster is the one remaining follow-up, so it lands designed, not patched.
+The full set now ships — `auto`, `left`, `center`, `right`. `right` pins the whole cluster to the far edge with the exact machinery as `center`: the eyebrow, this heading, and the rule ride one `align-items` on the flexed masthead-lede. Rarely what you want, but there when you need it.
 
 > Alignment is a token the author owns now — `var(--headline-align)` — the way color already is.
 
@@ -99,4 +99,4 @@ Three values ship: `auto`, `left`, and `center`. `center` aligns the framing *bo
 
 ## One axis, every framing piece
 
-Set `headline:` deck-wide or per slide, and the framing text stops disagreeing with itself. `auto` respects each component; `left` and `center` make them all agree, whichever way you choose.
+Set `headline:` deck-wide or per slide, and the framing text stops disagreeing with itself. `auto` respects each component; `left` / `center` / `right` make them all agree, whichever way you choose.
