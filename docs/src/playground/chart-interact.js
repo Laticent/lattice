@@ -340,15 +340,22 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // geometry and taps miss (the Present-on-mobile "popup never shows" bug). A MutationObserver on the
   // frame's `style` catches exactly that reveal and re-pins. The iframe element persists across srcdoc
   // rewrites, so one observer stays valid; we still re-target if getFrame() ever returns a new element.
+  // This ALSO owns the srcdoc-`load` self-heal listener (the parse-race fix, see onFrameLoad): both the
+  // MutationObserver and the `load` listener follow the SAME frame element, so a host that swaps the
+  // iframe can't strand either on a dead node.
   function watchFrame() {
     const fe = getFrame();
     if (fe === watchedFrame) return;
     try { frameMO?.disconnect(); } catch { /* noop */ }
     frameMO = null;
+    try { watchedFrame?.removeEventListener('load', onFrameLoad); } catch { /* gone */ }
     watchedFrame = fe;
-    if (fe && window.MutationObserver) {
-      try { frameMO = new MutationObserver(scheduleReflow); frameMO.observe(fe, { attributes: true, attributeFilter: ['style'] }); }
-      catch { /* older browser */ }
+    if (fe) {
+      try { fe.addEventListener('load', onFrameLoad); } catch { /* gone */ }
+      if (window.MutationObserver) {
+        try { frameMO = new MutationObserver(scheduleReflow); frameMO.observe(fe, { attributes: true, attributeFilter: ['style'] }); }
+        catch { /* older browser */ }
+      }
     }
   }
 
@@ -701,8 +708,8 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     if (hoverAny) rebind();
     else onSlide(curIdx < 0 ? 0 : curIdx);
   }
-  const frameEl = getFrame();
-  if (frameEl) frameEl.addEventListener('load', onFrameLoad);
+  // The `load` listener is attached by watchFrame() (below) so it follows the frame element on a swap —
+  // NOT pinned here to the at-construction frame.
   if (hoverAny) bindDoc();
 
   // Re-pin the hit-surface whenever the geometry it depends on settles. The stage RO catches the
@@ -727,7 +734,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   function destroy() {
     clear();
     while (timers.length) clearTimeout(timers.pop());
-    if (frameEl) { try { frameEl.removeEventListener('load', onFrameLoad); } catch { /* gone */ } }
+    try { watchedFrame?.removeEventListener('load', onFrameLoad); } catch { /* gone */ }
     unbindDoc();
     curSection = chartEl = detailsEl = null;
     try { ro?.disconnect(); } catch { /* noop */ }

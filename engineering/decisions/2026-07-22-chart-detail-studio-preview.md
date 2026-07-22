@@ -13,7 +13,7 @@ summary: >
 
 # Chart mark-detail popups in the Studio preview + Present, reconciled with motion
 
-**Date:** 2026-07-22 · **Status:** Accepted
+**Date:** 2026-07-22 · **Status:** Shipped
 
 ## Problem
 
@@ -79,23 +79,21 @@ pinned hit-surface two ways, both now fixed in `chart-interact.js`:
   timers fire. `reflow` writes only the parent hit-surface's style (never the frame's), so observing the
   frame can't self-trigger.
 
-## The mobile card size — scale WITH the slide
+## The mobile card size — readable-first (a scale-with-slide attempt was reversed)
 
-The preview iframe is transform-scaled to fit its pane (~0.59 desktop, ~0.28 on a 390px mobile pane), so
-a full-size popover card dwarfs the tiny chart (the reported "way too big, doesn't scale with the
-slide"). `reveal()` now hands the host the frame's render scale `S` in the `onDetail` payload, and
-`ChartDetailLayer` scales the VISIBLE card by `cardScale = min(1, max(S, 0.5))` — floored at 0.5 so the
-text stays readable on a heavily-scaled mobile preview, capped at 1 so it never grows.
+The preview iframe is transform-scaled to fit its pane (~0.59 desktop, ~0.28 on a 390px mobile pane).
+The FINAL decision is **readable-first**: the popover is a legible, fixed-size, collision-aware tooltip
+that is NOT shrunk to the slide. A detail tooltip is an on-demand *readout* whose job is legibility —
+scaling it down to a ~0.28× mobile editing-preview slide makes it unreadable, defeating the tooltip. It
+may overflow the small authoring thumbnail (fine for a transient, dismissible card, kept on-screen by
+`collisionPadding`), and reads as proportionate on full-screen Present, the real viewing context.
 
-The card scales via **CSS `zoom`, not a child `transform: scale()`**. `zoom` shrinks the element's
-LAYOUT box, so the OUTER `PopoverContent` that Radix / Floating-UI measures for collision / flip / shift
-is the SAME size the user sees. A child `transform` leaves the measured box full-size, so Radix reserves
-~320px, spuriously collision-shifts a near-edge card left, and the visible half-size card DETACHES from
-the mark — which the maker-checker caught and a mobile probe reproduced (the card's left edge sat left
-of the tapped band). With `zoom`, the card's top-left tracks the tapped mark exactly (measured anchor
-`dx = 0px`, `dy = 7px` on a 390px preview). On that preview (S≈0.28 → cardScale 0.5) the card lands at
-~40% of the slide width — a proper tooltip, not a slide-swallowing panel. (`zoom` is Baseline across
-current Chromium / WebKit / Firefox ≥126; the docs site targets modern browsers.)
+An earlier iteration instead **scaled the card WITH the slide** (an `S` value in the `onDetail` payload;
+`cardScale = min(1, max(S, 0.5))` applied via CSS `zoom` — `zoom` shrinks the layout box so Radix
+measures the visible size, unlike a child `transform` which left the box full-size and collision-shifted
+the card off the mark). That produced a ~40% slide-width card on mobile — proportional but small — and
+the human, seeing both, chose readable-first. The `scale` payload field + the `zoom` treatment were
+removed; this section is the record of why (it's a UX judgment, not a technical constraint).
 
 The hit-surface CSS (`chart-interact.css`, which sets `pointer-events:auto` on the surface) now ships
 WITH the shared component, so every mounting surface gets it — it was previously imported only by the
