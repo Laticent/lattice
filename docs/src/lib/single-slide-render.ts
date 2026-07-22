@@ -880,6 +880,10 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		themeObservers.clear();
 		for (const t of ownedTimers) clearTimeout(t);
 		ownedTimers.clear();
+		// This clears the reveal poll too (it's in ownedIntervals). We deliberately do NOT null the
+		// host's `__latticeRevealPoll` field here — the interval is already stopped, and the module's
+		// re-register path is safe: the next write's supersession clears that stale id (a harmless
+		// no-op on an already-cleared interval) before arming a fresh poll.
 		for (const iv of ownedIntervals) clearInterval(iv);
 		ownedIntervals.clear();
 	}

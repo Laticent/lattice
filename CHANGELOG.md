@@ -268,8 +268,10 @@ in patch versions.
   non-loader preview host (landing / showcase / specimen) had no failure surface: a render that errored,
   or a frame whose slide never painted, left the iframe hidden forever with no signal. It now surfaces a
   minimal "This preview couldn't render." message + a **Retry** — driven by a deterministic render-error
-  signal, plus a generous, reveal-verifying never-paint ceiling for the "renders OK but never paints"
-  case. The Studio's own loader hosts are unchanged (they keep their Nacre skeleton). (#1164,
+  signal, plus a generous, reveal-verifying never-paint ceiling (set past the renderer's own ~30s reveal
+  budget) for the "renders OK but never paints" case. If the slide reveals **late** (a slow cold load,
+  a width change after the ceiling fired), the card **yields** rather than occluding the now-good slide.
+  The Studio's own loader hosts are unchanged (they keep their Nacre skeleton). (#1164,
   `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
 - **The Studio's pre-hydration shell title bar is now on-brand and theme-aware, not a grey placeholder.**
   The shell topbar showed a generic gradient-chip logo on a hardcoded grey bar. It now renders the real

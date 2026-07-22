@@ -119,14 +119,24 @@
 	gap: 0.75rem;
 	padding: 1rem;
 	text-align: center;
-	/* Dark defaults, with a light-mode override below — the SAME pattern .nacre-loader uses, so a
-	   moment where --bg/--text-body are unset/late never flashes a light card in dark mode. */
+	/* Mode-correct fallbacks even when --bg/--text-body are unset/late. Unlike .nacre-loader (Studio-
+	   only, always under a data-mode root), this card is broadened to EVERY non-loader host — incl.
+	   landing/showcase pages that may not drive `data-mode` at all. So the base is a LIGHT fallback
+	   (most such pages), a data-mode='dark' root overrides to dark, and a page with NO data-mode
+	   follows the OS scheme. On real pages --bg is set, so these fallbacks only cover the unset/late
+	   window; the overrides just keep that window from flashing the wrong mode. */
+	background: var(--bg, #e9eef5);
+	color: var(--text-body, #1a1a1a);
+}
+:root[data-mode='dark'] .nacre-failed {
 	background: var(--bg, #0c1626);
 	color: var(--text-body, #e8e8e8);
 }
-:root[data-mode='light'] .nacre-failed {
-	background: var(--bg, #e9eef5);
-	color: var(--text-body, #1a1a1a);
+@media (prefers-color-scheme: dark) {
+	:root:not([data-mode]) .nacre-failed {
+		background: var(--bg, #0c1626);
+		color: var(--text-body, #e8e8e8);
+	}
 }
 .nacre-failed__text {
 	font-size: 0.8125rem;

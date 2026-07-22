@@ -197,10 +197,14 @@ export function DeckPreview({
 	// #1164 — never-paint CEILING (non-loader hosts only). Deterministic `ok:false` (below) catches
 	// a render that errors; this catches the "render resolved ok but the frame's runtime silently
 	// never painted `.lattice`" case. Carefully gated to avoid a false "couldn't render" on a merely
-	// slow or deferred host: it runs ONLY for an ACTIVE non-loader host, uses a generous budget (a
-	// KNOWN static sample this slow to paint is genuinely pathological), and is reveal-verifying —
-	// if `iframe.live` DID reveal (opacity !== '0') we never fail. `sample` is an intentional
-	// re-arm trigger: a content change starts a fresh render, so the ceiling clock restarts with it.
+	// slow or deferred host: it runs ONLY for an ACTIVE non-loader host, uses a generous budget, and
+	// is reveal-verifying — if `iframe.live` DID reveal (opacity !== '0') we never fail. `sample` is
+	// an intentional re-arm trigger: a content change starts a fresh render, so the clock restarts.
+	// The budget MUST sit past the kernel reveal poll's own give-up point (single-slide-render.ts:
+	// `revealTicks > 300` × 100ms = ~30s) so a slow-but-fine paint the poll still reveals in the
+	// 25–30s window can't trip the ceiling first — otherwise we'd flash a failure over a good slide.
+	// The RECOVERY effect just below is the belt to this suspenders: even if the ceiling fires, a
+	// later reveal clears it.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `sample` re-arms the ceiling per render; the body reads only refs + props.
 	React.useEffect(() => {
 		if (loader || failed || !active) return;
@@ -208,9 +212,38 @@ export function DeckPreview({
 			const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
 			if (fr?.style.opacity && fr.style.opacity !== '0') return; // revealed — genuinely fine
 			setFailed(true);
-		}, 25000);
+		}, 32000);
 		return () => clearTimeout(t);
 	}, [loader, failed, active, sample]);
+
+	// #1164 RECOVERY — clear `failed` the moment the frame reveals. The ceiling fires fire-once, but
+	// the frame's reveal is IMPERATIVE (single-slide-render's `scaleFrame` flips `iframe.live` opacity
+	// 0→1 and touches NO React state), driven by the kernel poll AND the persistent host ResizeObserver
+	// — either can reveal a good slide AFTER the ceiling already fired (slow cold load, a late width
+	// change, a 0-width host that gains width). Without this, `failed` is a one-way latch and the opaque
+	// failure card permanently OCCLUDES a correctly-painted slide — strictly worse than the blank box
+	// this feature replaced. So while `failed`, watch the frame's opacity (the SAME signal the loader
+	// hand-off uses) and drop the failure as soon as it reveals. Runs only while failed (rare), so it
+	// adds no observer on the healthy path.
+	React.useEffect(() => {
+		if (loader || !failed) return;
+		const host = stageRef.current;
+		if (!host) return;
+		const clearOnReveal = () => {
+			const fr = host.querySelector<HTMLIFrameElement>('iframe.live');
+			if (fr?.style.opacity && fr.style.opacity !== '0') {
+				setFailed(false);
+				return true;
+			}
+			return false;
+		};
+		if (clearOnReveal()) return;
+		const mo = new MutationObserver(() => {
+			if (clearOnReveal()) mo.disconnect();
+		});
+		mo.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
+		return () => mo.disconnect();
+	}, [loader, failed]);
 
 	// Re-render when the theme's NAME or its CSS CONTENT changes. The live-derived
 	// specimen has a content-hash name (so name alone would suffice), but a SAVED

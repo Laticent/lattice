@@ -256,15 +256,16 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 	it('the never-paint CEILING trips when iframe.live stays unrevealed, but NOT once it reveals in time', async () => {
 		// The ceiling is the safeguard for "render resolved OK but `.lattice` never painted" — the
 		// deterministic ok:false path can't see that (the render succeeded). It's armed on mount and
-		// reads the frame's opacity at the deadline. The mock renderer never appends/reveals a frame,
-		// so it's driven by hand here. Fake timers so the 25s budget doesn't slow the suite.
+		// reads the frame's opacity at the deadline (~32s, past the kernel poll's ~30s give-up point).
+		// The mock renderer never appends/reveals a frame, so it's driven by hand. Fake timers so the
+		// budget doesn't slow the suite.
 		vi.useFakeTimers();
 		try {
 			// (a) TRIPS — no frame ever reveals (opacity stays effectively 0 / no frame at all).
 			const trip = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
 			expect(trip.container.querySelector('.nacre-failed')).toBeNull();
 			await act(async () => {
-				await vi.advanceTimersByTimeAsync(25000); // the timer's setFailed(true) needs act() to flush
+				await vi.advanceTimersByTimeAsync(32000); // the timer's setFailed(true) needs act() to flush
 			});
 			expect(trip.container.querySelector('.nacre-failed')).toBeTruthy();
 			trip.unmount();
@@ -277,11 +278,28 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 			fr.style.opacity = '1'; // revealed
 			figure.appendChild(fr);
 			await act(async () => {
-				await vi.advanceTimersByTimeAsync(25000);
+				await vi.advanceTimersByTimeAsync(32000);
 			});
 			expect(ok.container.querySelector('.nacre-failed')).toBeNull();
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it('RECOVERS — the failure card clears when the frame reveals LATE (never occludes a good slide)', async () => {
+		// The confirmed trio regression: `failed` was a one-way latch. The kernel reveals the frame
+		// imperatively (opacity 0→1, no React state), so a reveal AFTER the ceiling/ok:false fired left
+		// the opaque card masking a correct slide. The recovery effect must drop `failed` on reveal.
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'boom' }));
+		const { container } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+
+		// A late reveal (the poll / ResizeObserver flips opacity 0→1) — the card must YIELD.
+		const figure = container.querySelector('figure') as HTMLElement;
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.style.opacity = '1';
+		figure.appendChild(fr);
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
 	});
 });
