@@ -132,3 +132,39 @@ describe('status fill tokens (white-text-safe)', () => {
     }
   });
 });
+
+/**
+ * Unit: foreground status ink (--pass/--warn/--fail) clears AA on its OWN chrome
+ * --bg, in every palette/mode block.
+ *
+ * Guards the carbone class of bug: carbone's --bg is a FLAT dark #1A1A1C but its
+ * status tokens are light-dark(), and the portal flattens light-dark per mode —
+ * so before the scheme-based fix the [data-mode="light"] block paired the
+ * light-side --fail (#A02323) against the dark canvas at 2.28:1. resolvePalettes
+ * now resolves each block's tokens to the arg matching THAT block's canvas scheme,
+ * so a dark-in-both palette takes the dark args in both. This locks it: a
+ * regression that reverts to per-toggle (not per-canvas) resolution fails here.
+ */
+describe('foreground status ink clears AA on its own chrome bg', () => {
+  test('every block: --pass/--warn/--fail >= 4.5:1 on --bg', () => {
+    const css = paletteCss();
+    const re = /html\[data-palette="([^"]+)"\]\[data-mode="([^"]+)"\]\{([^}]*)\}/g;
+    let checks = 0;
+    for (let m; (m = re.exec(css)); ) {
+      const [, palette, mode, body] = m;
+      const bg = /--bg:([^;]+);/.exec(body)?.[1]?.trim();
+      assert.ok(bg, `${palette}/${mode}: block is missing --bg`);
+      assert.match(bg, /^#[0-9a-f]{6}$/i, `${palette}/${mode}: --bg ${bg} is not a 6-digit hex`);
+      for (const t of ['pass', 'warn', 'fail']) {
+        const match = new RegExp(`--${t}:([^;]+);`).exec(body);
+        assert.ok(match, `${palette}/${mode}: missing --${t}`);
+        const v = match[1].trim();
+        assert.match(v, /^#[0-9a-f]{6}$/i, `${palette}/${mode}: --${t} ${v} is not a 6-digit hex`);
+        const ratio = contrastRatio(v, bg);
+        assert.ok(ratio >= 4.5, `${palette}/${mode}: --${t} ${v} on --bg ${bg} = ${ratio.toFixed(2)}:1 (< 4.5)`);
+        checks++;
+      }
+    }
+    assert.ok(checks >= 3 * 2 * resolvePalettes().length, `expected 3 status tokens × 2 modes per palette, saw ${checks}`);
+  });
+});

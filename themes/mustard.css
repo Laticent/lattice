@@ -75,7 +75,7 @@
   --text-display: #F0E5C8;
   --text-heading: light-dark(#2A1A06, var(--scheme-dark-text-heading));     /* L:14.39:1 / D:14.62:1 */
   --text-body:    light-dark(#4F3D1C, var(--scheme-dark-text-body));        /* L:7.97:1 / D:8.36:1   */
-  --text-label:   light-dark(#876617, var(--scheme-dark-text-label)); /* L:4.60:1 / D:6.20:1 AA */
+  --text-label:   light-dark(#7E5D07, var(--scheme-dark-text-label)); /* L:5.27 bg / 4.72 bg-alt / D:6.20 AA */
   --text-secondary: light-dark(#665636, var(--scheme-dark-text-secondary)); /* secondary prose / subtitle / caption — AA both sides */
   --text-muted:   light-dark(#80704A, var(--scheme-dark-text-muted));      /* decorative / de-emphasized — chrome, empty/skipped marks, glyphs; WCAG-exempt */
 
@@ -95,7 +95,7 @@
   /* Self-curated semantic trio — warm green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
   --pass: light-dark(#2D6A3F, #6FCC4D);
-  --warn: light-dark(#995B00, #F0A848);
+  --warn: light-dark(#915600, #F0A848);
   --fail: light-dark(#9E1F1F, #F58282);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);

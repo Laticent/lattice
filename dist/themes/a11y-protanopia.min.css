@@ -24,5 +24,5 @@
  * Protanopia and deuteranopia both collapse the red-green axis, so they share
  * the same off-axis status trio — blue / amber / deep-red, luminance-separated
  * to survive the collapse. Verified CVD-distinct + AA by tools/cvd-audit.js. */
-@import"a11y-base";:root{--pass: #004982;--warn: #9c6900;--fail: #800613;--chart-state-pass: #004982;--chart-state-warn: #9c6900;--chart-state-fail: #800613;--diagram-critical: #800613}
+@import"a11y-base";:root{--pass: #004982;--warn: #946400;--fail: #800613;--chart-state-pass: #004982;--chart-state-warn: #946400;--chart-state-fail: #800613;--diagram-critical: #800613}
 

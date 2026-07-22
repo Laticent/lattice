@@ -1684,24 +1684,31 @@ of how many rows are here.
   fallback to a token that IS on chrome instead — `var(--text-secondary, var(--text-muted))` —
   rather than shipping a `""`. (`--cat-N-mark` in anima scenes and `--spectrum-*` swatches
   already resolve in their themed context or fall back to `--accent`, so they were left as-is.)
-- **Follow-up (logged, off-path):** the FILL tokens fix white-text backgrounds, not
-  FOREGROUND status text — and two palettes still ship sub-AA foreground `--pass`/`--warn`/
-  `--fail` on chrome, tracked in #1152. (1) `a11y-achromatopsia`'s `--warn #7a7a7a` is 4.29:1
-  as small warn text on its white bg, but darkening it compresses the grayscale luminance
-  ramp it needs for CVD distinctness — a two-constraint palette call, not a nudge. (2)
-  `carbone` is WORSE and subtler: its `--bg` is a flat dark `#1A1A1C` (no `light-dark()`) but
-  its status tokens ARE `light-dark(...)`, and the portal FLATTENS `light-dark` per mode at
-  build time — so the `[data-mode="light"]` chrome block pairs the LIGHT-side status arg with
-  the dark bg (`--fail #A02323` = 2.28:1, `--pass` 3.26, `--warn` 3.86), reachable because the
-  mode toggle isn't palette-gated. The `singleMode` flag `resolvePalettes` already computes
-  (dark-in-both / light-in-both) is the fix lever but is currently unused. NOTE: the *dark*
-  block is fine (`#F97316` = 6.20:1) — don't be fooled by it, as this note originally was.
+- **Foreground status text on chrome (RESOLVED in #1160).** The FILL tokens fix white-text
+  backgrounds, not FOREGROUND status text; two palettes used to ship sub-AA foreground
+  `--pass`/`--warn`/`--fail` (#1152, closed by #1160). (1) `carbone`: its `--bg` is a flat dark
+  `#1A1A1C` (no `light-dark()`) but its status tokens ARE `light-dark(...)`, and the portal
+  FLATTENS `light-dark` per mode — so the `[data-mode="light"]` chrome block used to pair the
+  LIGHT-side `--fail #A02323` against the dark bg at 2.28:1. Fixed: `resolvePalettes` now
+  resolves each block's tokens to the arg matching THAT block's canvas scheme (`isDarkSurface`
+  of its `--bg`), not the mode toggle — so carbone (dark in both toggles) takes the dark args
+  in both, and its light-mode chrome status is 6.2–8.2:1. (The old `singleMode` flag, computed
+  but never consumed, was the intended lever; it's removed in favor of this one rule, which
+  also subsumes the a11y mode-invariant case.) (2) `a11y-achromatopsia`'s grayscale `--warn`
+  was `#7a7a7a` (4.29:1) — darkened to `#6E6E6E`, which clears AA on its surface AND stays
+  CVD-distinct. Achromatopsia is gated by a luminance contrast-ratio floor (1.25,
+  `ACHROMAT_FLOOR` in `cvd-palette.test.js`) — NOT the 0.15 OKLab ΔE floor the three dichromacy
+  palettes use, from which it's explicitly excluded (its trio is luminance-only greys whose
+  distinction rides the glyphs, not a color ΔE the simulation measures); the ramp holds ~1.6:1
+  pairwise and `cvd-audit` collapses are unchanged. A theme-wide contrast gate
+  (`test/unit/palette/theme-surface-aa.test.js`) now catches any regression.
 - **Triggered by:** Referencing any slide-theme token from chrome that lives outside a
   slide (a `<body>`-portaled overlay / popover / toast).
 - **Commits:** status trio → `PORTAL_TOKENS` + `@import`-scan fix (a11y) + `carta` completion
   + white-text-fill pins (#1142); the derived `--*-fill` trio + `--on-accent` fills +
   `headline-catalog` fallback + `url()`-aware `@import` strip + cuoio `--warn` AA (#1149);
-  the overlay dark-mode workaround it superseded (#1129).
+  the theme-wide foreground AA sweep + carbone scheme-derived resolution (#1160); the overlay
+  dark-mode workaround it superseded (#1129).
 
 ### Blurred `box-shadow` → opaque grey box around the element in some PDF viewers
 

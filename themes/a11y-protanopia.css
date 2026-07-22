@@ -28,10 +28,10 @@
 
 :root {
   --pass: #004982;
-  --warn: #9c6900;
+  --warn: #946400;
   --fail: #800613;
   --chart-state-pass: #004982;
-  --chart-state-warn: #9c6900;
+  --chart-state-warn: #946400;
   --chart-state-fail: #800613;
   --diagram-critical: #800613;
 }

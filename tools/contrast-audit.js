@@ -224,6 +224,41 @@ const PAIRS = [
 
   // ── Edge labels ───────────────────────────────────────────────────────
   ['text-heading', 'bg', 'mermaid: edge label text on canvas bg'],
+
+  // ── Foreground status INK on both slide surfaces ──────────────────────
+  // POLICY: hold all three status inks (pass/warn/fail) to AA small-text (4.5:1)
+  // on BOTH real backdrops a theme declares — the canvas (--bg) and the card
+  // (--bg-alt) — as a DELIBERATE proactive-safety margin. The point is that any
+  // future component rendering small status text on a card is already safe,
+  // without a per-color re-audit. This is a proactive bar, not a claim that every
+  // pairing has a small-text consumer today. What actually consumes these inks now:
+  //   • on --bg, small text — regulatory-update diff-band headings
+  //     (`color:var(--pass|warn|fail)` at --fs-meta, on the .cell-stage canvas).
+  //   • on --bg-alt, small text — redline's numbered-rationale rows put --pass/--fail
+  //     ink at --fs-meta on a near-bg-alt surface (a 4% own-hue tint over --bg-alt).
+  //   • --warn on --bg-alt has NO small-text consumer today — its only card use is
+  //     the large KPI number (kpi.ops, --fs-h1), whose bar is large-text 3:1, which
+  //     these ambers clear with margin. We still hold it to 4.5 here, on purpose,
+  //     so a future small warn-on-card is covered ahead of need.
+  // NOT audited (deliberately): status ink over its OWN-hue tint — policy-recommendation
+  // `--stance` on `--stance-bg`, redline ins/del on `--pass-bg`/`--fail-bg`,
+  // obligation-matrix `--state-color` as a mark FILL. A same-hue decorative wash isn't
+  // a distinct background; that bar was reviewed and reverted (it can't be met without
+  // damaging the curated hues). NB `--bg-alt` is a touch DARKER than `--bg` on light
+  // themes (indaco #F2F5FA vs #FFFFFF), so it is the stricter of the two backdrops.
+  ['pass', 'bg',     'slide: pass status ink on canvas'],
+  ['warn', 'bg',     'slide: warn status ink on canvas'],
+  ['fail', 'bg',     'slide: fail status ink on canvas'],
+  ['pass', 'bg-alt', 'slide: pass status ink on card'],
+  ['warn', 'bg-alt', 'slide: warn status ink on card (proactive; no small-text consumer today)'],
+  ['fail', 'bg-alt', 'slide: fail status ink on card'],
+
+  // ── Secondary text roles on the card surface (bg-alt) ─────────────────
+  // Only heading-on-bg-alt was checked before; body/secondary/label render on
+  // cards too (captions, eyebrows, list bodies inside bg-alt containers).
+  ['text-body',      'bg-alt', 'slide: body on card'],
+  ['text-secondary', 'bg-alt', 'slide: secondary text on card'],
+  ['text-label',     'bg-alt', 'slide: label / eyebrow on card'],
 ];
 
 const CHART_TOKENS = ['chart-1','chart-2','chart-3','chart-4','chart-5','chart-6'];
@@ -231,63 +266,62 @@ const CHART_TOKENS = ['chart-1','chart-2','chart-3','chart-4','chart-5','chart-6
 // Well-designed palettes target ≥ 0.20 for adjacent slots.
 const OKLAB_THRESHOLD = 0.15;
 
-// ── Runner ────────────────────────────────────────────────────────────────
+// Backdrops the engine composes (mermaid node fills, chart-family slot colors) —
+// NOT declared in the theme files this tool loads (it skips the `lattice` import).
+// A theme-scoped audit legitimately can't resolve them, so the pairs that use them
+// are EXPECTED skips, not a coverage hole. Everything OUTSIDE this set that fails to
+// resolve is recorded in `missing`, so the gate catches a theme-owned pair that was
+// silently dropped. Auditing mermaid/chart contrast needs a tool that loads the
+// composed engine tokens — tracked separately.
+const EXTERNAL_BG = new Set([
+  'mermaid-primary-color', 'mermaid-secondary-color',
+  'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', 'chart-6',
+]);
 
-const args       = process.argv.slice(2);
-const failsOnly  = args.includes('--fails-only');
-const themeArgs  = args.filter(a => !a.startsWith('-'));
+// ── Per-theme audit (pure; shared by the CLI runner AND the unit gate) ──────
 
-const allThemes = fs.readdirSync(THEMES_DIR)
-  .filter(f => f.endsWith('.css'))
-  .map(f => f.replace('.css', ''))
-  .sort();
+function listAllThemes() {
+  return fs.readdirSync(THEMES_DIR)
+    .filter(f => f.endsWith('.css'))
+    .map(f => f.replace('.css', ''))
+    .sort();
+}
 
-const themes = themeArgs.length ? themeArgs : allThemes;
-
-let totalFails = 0;
-const totalWarns = 0;
-let totalChecks = 0;
-
-console.log('');
-console.log('  Lattice · Contrast & Colour-Theory Audit');
-console.log('  ══════════════════════════════════════════════════════════════');
-console.log('  WCAG AA = 4.5:1 · AAA = 7:1 · OKLab ΔE threshold = 0.15');
-console.log('');
-
-for (const theme of themes) {
+/** Audit one theme against PAIRS. Returns { fails, missing, weakPairs, checks,
+ *  chartHexes, isDark } — or null if the theme file is absent. Pure: no console,
+ *  no process state, so a test can assert on it and the CLI can print it. */
+function auditTheme(theme) {
   const cssFile = path.join(THEMES_DIR, `${theme}.css`);
-  if (!fs.existsSync(cssFile)) {
-    console.log(`  [skip] ${theme} — file not found`);
-    continue;
-  }
+  if (!fs.existsSync(cssFile)) return null;
 
   const css  = loadPaletteWithImports(cssFile);
   const vars = parsePaletteVars(css);
-
   const fails = [];
   const missing = [];
+  let checks = 0;
 
   for (const [fg, bg, ctx] of PAIRS) {
+    // An engine-composed backdrop the theme file doesn't DECLARE is an EXPECTED
+    // skip (see EXTERNAL_BG) — but only when the token is genuinely ABSENT. A
+    // token the theme DOES declare yet we can't parse to hex (a future
+    // color-mix()/oklch() override on, say, --chart-1) is a real coverage gap and
+    // is recorded even for EXTERNAL_BG, so it can't silently reopen the
+    // dropped-pair hole. Any other unresolvable pair is always recorded.
     const bgHex = vars[bg];
-    // bg must resolve to a plain hex (it's the composite backdrop too).
     if (!bgHex || !parseHex(bgHex)) {
-      if (vars[fg] && bgHex) missing.push({ ctx, fg: vars[fg], bg: bgHex });
+      const expectedSkip = EXTERNAL_BG.has(bg) && bgHex === undefined;
+      if (!expectedSkip) missing.push({ ctx, fg: vars[fg] ?? `--${fg}`, bg: bgHex ?? `--${bg} (absent)` });
       continue;
     }
     // fg: plain hex, or a translucent on-dark ink composited over bg.
     const fgHex = parseHex(vars[fg]) ? vars[fg] : resolveTranslucent(fg, vars, bgHex);
-
     if (!fgHex) {
-      if (vars[fg]) missing.push({ ctx, fg: vars[fg], bg: bgHex });
+      missing.push({ ctx, fg: vars[fg] ?? `--${fg} (absent)`, bg: bgHex });
       continue;
     }
-
-    totalChecks++;
+    checks++;
     const ratio = contrastRatio(fgHex, bgHex);
-    if (ratio < 4.5) {
-      totalFails++;
-      fails.push({ ctx, fgHex, bgHex, ratio });
-    }
+    if (ratio < 4.5) fails.push({ ctx, fgHex, bgHex, ratio });
   }
 
   // Chart palette: OKLab pairwise distinctness.
@@ -297,51 +331,89 @@ for (const theme of themes) {
     for (let j = i + 1; j < chartHexes.length; j++) {
       const d = oklabDist(chartHexes[i], chartHexes[j]);
       if (d !== null && d < OKLAB_THRESHOLD) {
-        weakPairs.push({
-          a: `chart-${i+1}(${chartHexes[i]})`,
-          b: `chart-${j+1}(${chartHexes[j]})`,
-          d,
-        });
+        weakPairs.push({ a: `chart-${i+1}(${chartHexes[i]})`, b: `chart-${j+1}(${chartHexes[j]})`, d });
       }
     }
   }
 
-  const hasIssues = fails.length || weakPairs.length || missing.length;
+  const isDark = /:root\b[^{}]*\{[^}]*color-scheme\s*:\s*dark\b/
+    .test(css.replace(/\/\*[\s\S]*?\*\//g, ''));
 
-  if (!hasIssues && failsOnly) continue;
-
-  const isDark = css.replace(/\/\*[\s\S]*?\*\//g, '')
-    .match(/:root\b[^{}]*\{[^}]*color-scheme\s*:\s*dark\b/) ? ' [dark]' : '';
-  console.log(`  ── ${theme}${isDark} ${'─'.repeat(Math.max(1, 52 - theme.length - isDark.length))}`);
-
-  if (!hasIssues) {
-    const minDist = chartHexes.length >= 2
-      ? Math.min(...CHART_TOKENS.slice(0, chartHexes.length).flatMap((_, i) =>
-          CHART_TOKENS.slice(i+1, chartHexes.length).map((__, j) => {
-            const d = oklabDist(chartHexes[i], chartHexes[i+1+j]);
-            return d ?? Infinity;
-          })
-        ))
-      : Infinity;
-    const distStr = Number.isFinite(minDist) ? `  chart min ΔE ${minDist.toFixed(3)}` : '';
-    console.log(`     ✓ all checks pass${distStr}`);
-  } else {
-    for (const f of fails) {
-      const r = f.ratio.toFixed(2).padStart(5);
-      console.log(`     ✗ ${r}:1  ${f.fgHex} on ${f.bgHex}`);
-      console.log(`          ${f.ctx}`);
-    }
-    for (const w of weakPairs) {
-      console.log(`     ⚠ chart ΔE ${w.d.toFixed(3)}  ${w.a} ↔ ${w.b}`);
-    }
-    for (const u of missing) {
-      console.log(`     ?  unresolved pair [${u.ctx}]`);
-      console.log(`          fg=${u.fg}  bg=${u.bg}`);
-    }
-  }
-  console.log('');
+  return { theme, fails, missing, weakPairs, checks, chartHexes, isDark };
 }
 
-console.log('  ══════════════════════════════════════════════════════════════');
-console.log(`  ${totalFails} contrast failures · ${totalWarns} warnings · ${totalChecks} pairs checked across ${themes.length} themes`);
-console.log('');
+module.exports = { auditTheme, listAllThemes, PAIRS };
+
+// ── CLI runner ──────────────────────────────────────────────────────────────
+
+if (require.main === module) {
+  const args      = process.argv.slice(2);
+  const failsOnly = args.includes('--fails-only');
+  const themeArgs = args.filter(a => !a.startsWith('-'));
+  const themes    = themeArgs.length ? themeArgs : listAllThemes();
+
+  let totalFails = 0;
+  let totalMissing = 0;
+  let totalChecks = 0;
+
+  console.log('');
+  console.log('  Lattice · Contrast & Colour-Theory Audit');
+  console.log('  ══════════════════════════════════════════════════════════════');
+  console.log('  WCAG AA = 4.5:1 · AAA = 7:1 · OKLab ΔE threshold = 0.15');
+  console.log('');
+
+  for (const theme of themes) {
+    const res = auditTheme(theme);
+    if (!res) { console.log(`  [skip] ${theme} — file not found`); continue; }
+
+    totalFails += res.fails.length;
+    totalMissing += res.missing.length;
+    totalChecks += res.checks;
+    const { fails, missing, weakPairs, chartHexes } = res;
+    const hasIssues = fails.length || weakPairs.length || missing.length;
+    if (!hasIssues && failsOnly) continue;
+
+    const dark = res.isDark ? ' [dark]' : '';
+    console.log(`  ── ${theme}${dark} ${'─'.repeat(Math.max(1, 52 - theme.length - dark.length))}`);
+
+    if (!hasIssues) {
+      const minDist = chartHexes.length >= 2
+        ? Math.min(...CHART_TOKENS.slice(0, chartHexes.length).flatMap((_, i) =>
+            CHART_TOKENS.slice(i+1, chartHexes.length).map((__, j) => {
+              const d = oklabDist(chartHexes[i], chartHexes[i+1+j]);
+              return d ?? Infinity;
+            })
+          ))
+        : Infinity;
+      const distStr = Number.isFinite(minDist) ? `  chart min ΔE ${minDist.toFixed(3)}` : '';
+      console.log(`     ✓ all checks pass${distStr}`);
+    } else {
+      for (const f of fails) {
+        console.log(`     ✗ ${f.ratio.toFixed(2).padStart(5)}:1  ${f.fgHex} on ${f.bgHex}`);
+        console.log(`          ${f.ctx}`);
+      }
+      for (const w of weakPairs) {
+        console.log(`     ⚠ chart ΔE ${w.d.toFixed(3)}  ${w.a} ↔ ${w.b}`);
+      }
+      for (const u of missing) {
+        console.log(`     ?  unresolved pair [${u.ctx}]`);
+        console.log(`          fg=${u.fg}  bg=${u.bg}`);
+      }
+    }
+    console.log('');
+  }
+
+  console.log('  ══════════════════════════════════════════════════════════════');
+  console.log(`  ${totalFails} contrast failures · ${totalMissing} unresolved · ${totalChecks} pairs checked across ${themes.length} themes`);
+  // Be honest that this theme-scoped tool cannot see engine-composed mermaid/chart
+  // fills — those pairs are skipped, NOT verified. A green run is not evidence they
+  // pass. (Auditing them needs a tool that loads the engine — #1165.)
+  const externalPerTheme = PAIRS.filter(([, bg]) => EXTERNAL_BG.has(bg)).length;
+  if (externalPerTheme) {
+    console.log(`  (${externalPerTheme * themes.length} mermaid/chart pairs on engine-composed fills NOT checked — see #1165)`);
+  }
+  console.log('');
+  // Unresolved pairs are a coverage hole, not a pass — exit non-zero so automation
+  // can't read "0 failures" while pairs were silently skipped.
+  process.exitCode = (totalFails || totalMissing) ? 1 : 0;
+}

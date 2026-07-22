@@ -28,5 +28,5 @@
  * deep-red), also luminance-separated so they survive a full red-green
  * collapse. Verified CVD-distinct (OKLab ΔE ≥ 0.15 under deuteranopia AND
  * protanopia) + AA by tools/cvd-audit.js. */
-@import"a11y-base";:root{--pass: #004982;--warn: #9c6900;--fail: #800613;--chart-state-pass: #004982;--chart-state-warn: #9c6900;--chart-state-fail: #800613;--diagram-critical: #800613}
+@import"a11y-base";:root{--pass: #004982;--warn: #946400;--fail: #800613;--chart-state-pass: #004982;--chart-state-warn: #946400;--chart-state-fail: #800613;--diagram-critical: #800613}
 
