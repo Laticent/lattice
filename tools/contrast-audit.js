@@ -242,12 +242,14 @@ const PAIRS = [
   ['text-label',     'bg-alt', 'slide: label / eyebrow on card'],
 ];
 
-// Every token in PAIRS now resolves straight from a theme file (or its @import
-// chain) — including the mermaid/chart categorical fills (--cat-N-fill /
+// Every backdrop (bg) token in PAIRS now resolves from a theme file (or its
+// @import chain) — including the mermaid/chart categorical fills (--cat-N-fill /
 // --cat-on-fill), which #1165 wired in after the old chart-1..6 placeholder
-// names were retired. So there is no allowlist of "expected skips": any pair the
-// resolver can't reduce to hex is a real coverage hole and is recorded in
-// `missing`. The native chart-family's DERIVED fills (color-mix in oklab) and
+// names were retired. (The only NON-theme tokens left are the on-dark-* ink
+// FOREGROUNDS, resolved via the built-in ON_DARK_DEFAULTS ramp since this tool
+// skips the `lattice` import.) So there is no allowlist of "expected skips": any
+// pair the resolver can't reduce to hex is a real coverage hole and is recorded
+// in `missing`. The native chart-family's DERIVED fills (color-mix in oklab) and
 // their OKLab slot-distinctness live in test/unit/palette/chart-contrast.test.js.
 
 // ── Per-theme audit (pure; shared by the CLI runner AND the unit gate) ──────

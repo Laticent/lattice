@@ -40,8 +40,9 @@ describe('theme surface AA (contrast-audit PAIRS over every theme)', () => {
       // resolvers in tools/contrast-audit.js — parsePaletteVars / resolveTranslucent
       // / parseHex — don't handle) is otherwise silently skipped, turning a real
       // sub-AA regression into a phantom "0 fails". Force the resolver to be
-      // extended instead of letting coverage rot. (Every PAIRS token is theme-owned
-      // or resolved via @import; 0 missing across all themes today.)
+      // extended instead of letting coverage rot. (Every PAIRS backdrop is
+      // theme-owned or @import-resolved — the on-dark-* ink foregrounds resolve via
+      // the tool's ON_DARK_DEFAULTS ramp; 0 missing across all themes today.)
       const miss = res.missing.map((m) => `${m.fg} on ${m.bg} — ${m.ctx}`);
       assert.equal(res.missing.length, 0, `${name} UNRESOLVED (extend the resolvers in contrast-audit.js):\n  ${miss.join('\n  ')}`);
     });
