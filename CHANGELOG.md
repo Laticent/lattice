@@ -274,6 +274,19 @@ in patch versions.
   a width change after the ceiling fired), the card **yields** rather than occluding the now-good slide.
   The Studio's own loader hosts are unchanged (they keep their Nacre skeleton). (#1164,
   `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
+- **Removed the misleading placeholder mermaid/chart pairs from the contrast-audit tool.**
+  `tools/contrast-audit.js`'s `PAIRS` matrix carried placeholder token names — `chart-1..6`,
+  `mermaid-primary-color`, `mermaid-secondary-color` — that no theme declares, so those pairs never resolved and
+  were silently skipped, making the tool *look* like it audited mermaid/chart contrast when it didn't (#1165). The
+  contrast they stood for was **never actually unguarded**, though: the mermaid label-on-fill AA (`--cat-on-fill`
+  on `--cat-1..12-fill`, both modes) is already enforced by `checkCatContrast` in `tools/check-ownership.js` (run in
+  `build:check`, fails-closed, with mark-vs-canvas + fill≠mark checks and a coverage backstop), and the native SVG
+  chart-family's *derived* fills (`--chart-cat-N-fill`, color-mix in oklab) + slot-distinctness by
+  `test/unit/palette/chart-contrast.test.js`. So this change deletes the dead placeholders (and the now-unused
+  `EXTERNAL_BG` allowlist + the inert `chart-1..6` OKLab distinctness advisory + its dead helpers) rather than adding
+  a second, drifting gate for an already-gated invariant (HARD RULE #15); the tool's docstring now points at the real
+  gates. No theme values changed; no coverage lost. (`tools/contrast-audit.js`,
+  `test/unit/palette/theme-surface-aa.test.js`.)
 - **The Studio's pre-hydration shell title bar is now on-brand and theme-aware, not a grey placeholder.**
   The shell topbar showed a generic gradient-chip logo on a hardcoded grey bar. It now renders the real
   Lattice **"Spectrum Cell"** mark (inline SVG, bonds keyed to light/dark) and tints the bar with the

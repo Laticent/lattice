@@ -269,7 +269,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/change-coupling.js` | Change coupling — files that keep changing together in git history, even when nothing in the code formally links them. |
 | `tools/check-shadcn-bridge-contrast.js` | Contrast gate for the shadcn ↔ Lattice token bridge. |
 | `tools/complexity-report.js` | Complexity report — cyclomatic complexity + lines-of-code per function, aggregated per file, across lib/ and tools/. |
-| `tools/contrast-audit.js` | Contrast and colour-theory audit for all Lattice themes. |
+| `tools/contrast-audit.js` | Contrast audit for all Lattice themes. |
 | `tools/lint-deck.js` | Deck linter CLI — run the authoring footgun checks on a draft deck and |
 | `tools/pixel-check.js` | pixel-check — snapshot/diff harness for the _legacy.css elimination work. |
 | `tools/quality-assessment.js` | Quality assessment — the single entry point for the seven codebase-health dimensions from CLAUDE.md's "complexity is the mother of all killers of productivity" list. |

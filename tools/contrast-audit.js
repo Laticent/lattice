@@ -1,10 +1,14 @@
 #!/usr/bin/env node
 /**
- * Contrast and colour-theory audit for all Lattice themes.
+ * Contrast audit for all Lattice themes.
  *
- * Checks WCAG AA contrast (4.5:1) for every critical text-on-fill pair
- * that appears in Mermaid diagrams and slide layouts. Also reports OKLab
- * pairwise distances between chart-1..6 to flag perceptual similarity.
+ * Checks WCAG AA contrast (4.5:1) for every critical text-on-surface pair in the
+ * slide layouts (headings, body, status ink, secondary text on the canvas and the
+ * card). The mermaid/chart categorical label-on-fill contrast is gated at its own
+ * source — `checkCatContrast` in tools/check-ownership.js (via build:check) for the
+ * curated --cat-*-fill/--cat-on-fill, and test/unit/palette/chart-contrast.test.js
+ * for the DERIVED --chart-cat-* fills (color-mix in oklab) + slot-distinctness — so
+ * this theme-scoped report deliberately does not mirror them.
  *
  * Usage:
  *   node tools/contrast-audit.js               # all themes
@@ -32,7 +36,7 @@ function loadPaletteWithImports(filePath, seen = new Set()) {
   let m;
   while ((m = importRe.exec(content)) !== null) {
     const name = m[1];
-    if (name === 'lattice') continue; // layout CSS; colour tokens live in themes
+    if (name === 'lattice') continue; // layout CSS; color tokens live in themes
     const imp = path.join(dir, `${name}.css`);
     if (fs.existsSync(imp)) imported += loadPaletteWithImports(imp, seen) + '\n';
   }
@@ -74,7 +78,7 @@ function parsePaletteVars(content) {
   return vars;
 }
 
-// ── Colour math ───────────────────────────────────────────────────────────
+// ── Color math ───────────────────────────────────────────────────────────
 
 function parseHex(hex) {
   if (!hex) return null;
@@ -155,28 +159,6 @@ function _wcagGrade(ratio) {
   return                      'FAIL ';
 }
 
-// OKLab conversion for perceptual distance checks.
-function toOKLab(hex) {
-  const rgb = parseHex(hex);
-  if (!rgb) return null;
-  const r = toLinear(rgb.r), g = toLinear(rgb.g), b = toLinear(rgb.b);
-  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
-  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
-  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
-  const l_ = Math.cbrt(l), m_ = Math.cbrt(m), s_ = Math.cbrt(s);
-  return {
-    L:  0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-    a:  1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-    b:  0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
-  };
-}
-
-function oklabDist(hex1, hex2) {
-  const a = toOKLab(hex1), b = toOKLab(hex2);
-  if (!a || !b) return null;
-  return Math.sqrt((a.L-b.L)**2 + (a.a-b.a)**2 + (a.b-b.b)**2);
-}
-
 // ── Audit definition ──────────────────────────────────────────────────────
 
 // Each entry: [fgToken, bgToken, context, minRatio]
@@ -196,31 +178,20 @@ const PAIRS = [
   ['on-accent',    'accent',     'slide: on-accent on accent'],
   ['bg',           'fail',       'slide: bg on fail (error chip)'],
 
-  // ── Mermaid node fills ────────────────────────────────────────────────
-  // Current state: mermaid-primary-color (may be inherited pale blue)
-  ['text-heading', 'mermaid-primary-color',   'mermaid: heading on primary node fill'],
-  ['text-heading', 'mermaid-secondary-color', 'mermaid: heading on secondary node fill'],
-
-  // Proposed state after refactor: accent-soft / bg-alt as node fills
-  ['text-heading', 'accent-soft', 'mermaid (post): heading on primary node fill'],
-  ['text-heading', 'bg-alt',      'mermaid (post): heading on cluster fill'],
-
-  // ── Mermaid chart fills (pie, active gantt, quadrant) ─────────────────
-  // text-heading on mid-tone chart colours — high risk
-  ['text-heading', 'chart-1', 'mermaid: heading on chart-1 (pie/gantt)'],
-  ['text-heading', 'chart-2', 'mermaid: heading on chart-2'],
-  ['text-heading', 'chart-3', 'mermaid: heading on chart-3'],
-  ['text-heading', 'chart-4', 'mermaid: heading on chart-4'],
-  ['text-heading', 'chart-5', 'mermaid: heading on chart-5'],
-  ['text-heading', 'chart-6', 'mermaid: heading on chart-6'],
-
-  // on-accent on mid-tone chart colours — alternative for pie text
-  ['on-accent', 'chart-1', 'mermaid: on-accent on chart-1'],
-  ['on-accent', 'chart-2', 'mermaid: on-accent on chart-2'],
-  ['on-accent', 'chart-3', 'mermaid: on-accent on chart-3'],
-  ['on-accent', 'chart-4', 'mermaid: on-accent on chart-4'],
-  ['on-accent', 'chart-5', 'mermaid: on-accent on chart-5'],
-  ['on-accent', 'chart-6', 'mermaid: on-accent on chart-6'],
+  // ── Mermaid / chart categorical node fills — NOT re-audited here ──────
+  // The engine paints mermaid nodes / gantt tasks / pie sections / kanban lanes
+  // with the theme's curated --cat-N-fill (12 slots) and the label ink with
+  // --cat-on-fill (= --text-heading). That label-on-fill AA (--cat-on-fill vs
+  // --cat-1..12-fill, both modes, ≥4.5:1) is ALREADY the authoritative gate
+  // `checkCatContrast` in tools/check-ownership.js (run in `build:check`) — which
+  // also checks mark-vs-canvas (≥3:1) and fill≠mark collapse, fails CLOSED on an
+  // unresolvable token, and has a coverage backstop. The native SVG chart-family's
+  // DERIVED fills (--chart-cat-N-fill / --state-*-fill, color-mix in oklab) + their
+  // OKLab slot-distinctness are gated in test/unit/palette/chart-contrast.test.js.
+  // So this theme-scoped contrast report deliberately does NOT mirror those pairs —
+  // one gate per invariant, no drift (HARD RULE #15). Historically the matrix here
+  // carried PLACEHOLDER names (`chart-1..6`, `mermaid-primary-color`) that no theme
+  // declares, so they never resolved and were silently skipped; #1165 removed them.
 
   // ── Edge labels ───────────────────────────────────────────────────────
   ['text-heading', 'bg', 'mermaid: edge label text on canvas bg'],
@@ -261,22 +232,14 @@ const PAIRS = [
   ['text-label',     'bg-alt', 'slide: label / eyebrow on card'],
 ];
 
-const CHART_TOKENS = ['chart-1','chart-2','chart-3','chart-4','chart-5','chart-6'];
-// OKLab distance threshold: 0.15 ≈ "just about distinct" for categorical use.
-// Well-designed palettes target ≥ 0.20 for adjacent slots.
-const OKLAB_THRESHOLD = 0.15;
-
-// Backdrops the engine composes (mermaid node fills, chart-family slot colors) —
-// NOT declared in the theme files this tool loads (it skips the `lattice` import).
-// A theme-scoped audit legitimately can't resolve them, so the pairs that use them
-// are EXPECTED skips, not a coverage hole. Everything OUTSIDE this set that fails to
-// resolve is recorded in `missing`, so the gate catches a theme-owned pair that was
-// silently dropped. Auditing mermaid/chart contrast needs a tool that loads the
-// composed engine tokens — tracked separately.
-const EXTERNAL_BG = new Set([
-  'mermaid-primary-color', 'mermaid-secondary-color',
-  'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', 'chart-6',
-]);
+// Every backdrop (bg) token in PAIRS resolves from a theme file (or its @import
+// chain). (The only NON-theme tokens are the on-dark-* ink FOREGROUNDS, resolved
+// via the built-in ON_DARK_DEFAULTS ramp since this tool skips the `lattice`
+// import.) So there is no allowlist of "expected skips": any pair the resolver
+// can't reduce to hex is a real coverage hole and is recorded in `missing`. The
+// old placeholder mermaid/chart pairs (`chart-1..6`, `mermaid-*-color`) that no
+// theme declared were removed in #1165 — that contrast is gated at its own
+// source (checkCatContrast in check-ownership.js; chart-contrast.test.js), see above.
 
 // ── Per-theme audit (pure; shared by the CLI runner AND the unit gate) ──────
 
@@ -287,9 +250,9 @@ function listAllThemes() {
     .sort();
 }
 
-/** Audit one theme against PAIRS. Returns { fails, missing, weakPairs, checks,
- *  chartHexes, isDark } — or null if the theme file is absent. Pure: no console,
- *  no process state, so a test can assert on it and the CLI can print it. */
+/** Audit one theme against PAIRS. Returns { fails, missing, checks, isDark } —
+ *  or null if the theme file is absent. Pure: no console, no process state, so a
+ *  test can assert on it and the CLI can print it. */
 function auditTheme(theme) {
   const cssFile = path.join(THEMES_DIR, `${theme}.css`);
   if (!fs.existsSync(cssFile)) return null;
@@ -301,16 +264,13 @@ function auditTheme(theme) {
   let checks = 0;
 
   for (const [fg, bg, ctx] of PAIRS) {
-    // An engine-composed backdrop the theme file doesn't DECLARE is an EXPECTED
-    // skip (see EXTERNAL_BG) — but only when the token is genuinely ABSENT. A
-    // token the theme DOES declare yet we can't parse to hex (a future
-    // color-mix()/oklch() override on, say, --chart-1) is a real coverage gap and
-    // is recorded even for EXTERNAL_BG, so it can't silently reopen the
-    // dropped-pair hole. Any other unresolvable pair is always recorded.
+    // Every PAIRS backdrop (bg) is theme-owned (or resolved via its @import chain
+    // — the on-dark-* ink foregrounds resolve via ON_DARK_DEFAULTS), so a bg we
+    // can't reduce to hex is a real coverage hole — record it in `missing` (the
+    // gate asserts missing===0) rather than silently dropping the pair.
     const bgHex = vars[bg];
     if (!bgHex || !parseHex(bgHex)) {
-      const expectedSkip = EXTERNAL_BG.has(bg) && bgHex === undefined;
-      if (!expectedSkip) missing.push({ ctx, fg: vars[fg] ?? `--${fg}`, bg: bgHex ?? `--${bg} (absent)` });
+      missing.push({ ctx, fg: vars[fg] ?? `--${fg}`, bg: bgHex ?? `--${bg} (absent)` });
       continue;
     }
     // fg: plain hex, or a translucent on-dark ink composited over bg.
@@ -324,22 +284,10 @@ function auditTheme(theme) {
     if (ratio < 4.5) fails.push({ ctx, fgHex, bgHex, ratio });
   }
 
-  // Chart palette: OKLab pairwise distinctness.
-  const chartHexes = CHART_TOKENS.map(t => vars[t]).filter(h => parseHex(h));
-  const weakPairs = [];
-  for (let i = 0; i < chartHexes.length; i++) {
-    for (let j = i + 1; j < chartHexes.length; j++) {
-      const d = oklabDist(chartHexes[i], chartHexes[j]);
-      if (d !== null && d < OKLAB_THRESHOLD) {
-        weakPairs.push({ a: `chart-${i+1}(${chartHexes[i]})`, b: `chart-${j+1}(${chartHexes[j]})`, d });
-      }
-    }
-  }
-
   const isDark = /:root\b[^{}]*\{[^}]*color-scheme\s*:\s*dark\b/
     .test(css.replace(/\/\*[\s\S]*?\*\//g, ''));
 
-  return { theme, fails, missing, weakPairs, checks, chartHexes, isDark };
+  return { theme, fails, missing, checks, isDark };
 }
 
 module.exports = { auditTheme, listAllThemes, PAIRS };
@@ -357,9 +305,9 @@ if (require.main === module) {
   let totalChecks = 0;
 
   console.log('');
-  console.log('  Lattice · Contrast & Colour-Theory Audit');
+  console.log('  Lattice · Contrast Audit');
   console.log('  ══════════════════════════════════════════════════════════════');
-  console.log('  WCAG AA = 4.5:1 · AAA = 7:1 · OKLab ΔE threshold = 0.15');
+  console.log('  WCAG AA = 4.5:1 · AAA = 7:1');
   console.log('');
 
   for (const theme of themes) {
@@ -369,31 +317,19 @@ if (require.main === module) {
     totalFails += res.fails.length;
     totalMissing += res.missing.length;
     totalChecks += res.checks;
-    const { fails, missing, weakPairs, chartHexes } = res;
-    const hasIssues = fails.length || weakPairs.length || missing.length;
+    const { fails, missing } = res;
+    const hasIssues = fails.length || missing.length;
     if (!hasIssues && failsOnly) continue;
 
     const dark = res.isDark ? ' [dark]' : '';
     console.log(`  ── ${theme}${dark} ${'─'.repeat(Math.max(1, 52 - theme.length - dark.length))}`);
 
     if (!hasIssues) {
-      const minDist = chartHexes.length >= 2
-        ? Math.min(...CHART_TOKENS.slice(0, chartHexes.length).flatMap((_, i) =>
-            CHART_TOKENS.slice(i+1, chartHexes.length).map((__, j) => {
-              const d = oklabDist(chartHexes[i], chartHexes[i+1+j]);
-              return d ?? Infinity;
-            })
-          ))
-        : Infinity;
-      const distStr = Number.isFinite(minDist) ? `  chart min ΔE ${minDist.toFixed(3)}` : '';
-      console.log(`     ✓ all checks pass${distStr}`);
+      console.log('     ✓ all checks pass');
     } else {
       for (const f of fails) {
         console.log(`     ✗ ${f.ratio.toFixed(2).padStart(5)}:1  ${f.fgHex} on ${f.bgHex}`);
         console.log(`          ${f.ctx}`);
-      }
-      for (const w of weakPairs) {
-        console.log(`     ⚠ chart ΔE ${w.d.toFixed(3)}  ${w.a} ↔ ${w.b}`);
       }
       for (const u of missing) {
         console.log(`     ?  unresolved pair [${u.ctx}]`);
@@ -405,13 +341,6 @@ if (require.main === module) {
 
   console.log('  ══════════════════════════════════════════════════════════════');
   console.log(`  ${totalFails} contrast failures · ${totalMissing} unresolved · ${totalChecks} pairs checked across ${themes.length} themes`);
-  // Be honest that this theme-scoped tool cannot see engine-composed mermaid/chart
-  // fills — those pairs are skipped, NOT verified. A green run is not evidence they
-  // pass. (Auditing them needs a tool that loads the engine — #1165.)
-  const externalPerTheme = PAIRS.filter(([, bg]) => EXTERNAL_BG.has(bg)).length;
-  if (externalPerTheme) {
-    console.log(`  (${externalPerTheme * themes.length} mermaid/chart pairs on engine-composed fills NOT checked — see #1165)`);
-  }
   console.log('');
   // Unresolved pairs are a coverage hole, not a pass — exit non-zero so automation
   // can't read "0 failures" while pairs were silently skipped.

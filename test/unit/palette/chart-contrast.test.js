@@ -159,7 +159,7 @@ function resolve(expr, vars, mode, depth = 0) {
 // Hard floors the three curated exemplars all meet on both canvases — a
 // regression guard, not the aspirational bar. style.md's ≥0.15 OKLab adjacent
 // target is the AUTHORING goal (assessed during curation via
-// tools/contrast-audit.js); the exemplars themselves sit ~0.07–0.15 (the
+// tools/theme-scorecard.js); the exemplars themselves sit ~0.07–0.15 (the
 // achromatic onyx ramp separates by value, tight brand triads by a small hue
 // step), so gating at 0.15 would fail the gold standard. These floors catch the
 // real regressions: a label that fails AA on its fill, a mark invisible on the
