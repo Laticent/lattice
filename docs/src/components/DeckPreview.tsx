@@ -84,6 +84,12 @@ export type DeckPreviewProps = {
 	 */
 	onFirstRender?: () => void;
 	/**
+	 * Fired after EVERY successful paint (unlike `onFirstRender`, once). Lets a parent that hosts its
+	 * own parent-side layer over this preview re-sync it to the freshly rendered slide — Present uses
+	 * it to re-pin the chart-detail hit-surface after each slide change.
+	 */
+	onRender?: () => void;
+	/**
 	 * Show the Nacre "no slide yet" loader behind the live iframe until the first slide
 	 * paints (then it fades + freezes). Opt-in — only the Studio's live preview wants it;
 	 * landing/showcase hosts render a known static sample with no meaningful load gap.
@@ -115,6 +121,7 @@ export function DeckPreview({
 	className,
 	role,
 	onFirstRender,
+	onRender,
 	loader = false,
 	chartDetail = false,
 	...aria
@@ -151,6 +158,10 @@ export function DeckPreview({
 	const onFirstRenderRef = React.useRef(onFirstRender);
 	onFirstRenderRef.current = onFirstRender;
 	const firstRenderFiredRef = React.useRef(false);
+	// Every-paint signal (Present re-pins its chart-detail hit-surface here). Ref-held so it never
+	// enters the render closure's dependency list.
+	const onRenderRef = React.useRef(onRender);
+	onRenderRef.current = onRender;
 
 	// Reveal-watcher — the skeleton hand-off. Fade the Nacre loader AND fire onFirstRender
 	// (dismiss the SSG instant-shell) exactly when the live `iframe.live` starts fading in.
@@ -415,6 +426,8 @@ export function DeckPreview({
 		// Re-bind the chart-detail hover layer to the (possibly new) iframe document. A no-op unless
 		// the `chartDetail` opt-in mounted the layer; it lazily binds on the first call once the frame exists.
 		chartDetailRef.current?.rebind();
+		// Every-paint signal for a parent hosting its own layer over this preview (Present re-pins here).
+		onRenderRef.current?.();
 		return { heavy: status?.writePath === 'write' };
 	};
 

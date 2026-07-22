@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, EyeOff, Grid2x2, Monitor, Pause, Play, Sparkles, Timer, Volume2, VolumeX, X } from 'lucide-react';
 import * as React from 'react';
+import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import DeckPreview from '@/components/DeckPreview';
 import { Tip } from '@/components/ui/tooltip';
 import { type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
@@ -106,6 +107,12 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 	// dock always keeps its space and the slide never creeps into the chrome or clips.
 	const slideRowRef = React.useRef<HTMLDivElement>(null);
 	const [slideMaxW, setSlideMaxW] = React.useState(960);
+	// Chart mark-detail reveal on the delivery slide. Present's card is pointer-events-none (a swipe
+	// surface), so the reveal runs in PINNED mode — a parent hit-surface (pointer-events:auto) over the
+	// current chart, re-pinned after each slide render (onRender → onSlide), plus number-key reveal
+	// routed through the presenter key handler. The card is the positioning stage; the frame lives in it.
+	const cardRef = React.useRef<HTMLDivElement>(null);
+	const chartDetailRef = React.useRef<ChartDetailHandle>(null);
 
 	// Reader projection — FAIL CLOSED (design §6.3). A registry (tag-driven) lens routes through the
 	// library's `lensEligibility`, which refuses to project a lens that is unapproved / drifted / hidden
@@ -567,6 +574,13 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				}
 				return;
 			}
+			// Chart-detail reveal FIRST: number keys (1–9 → mark, 0 clears) and an Escape that only
+			// dismisses an OPEN popover get consumed here (handleKey returns true); an Escape with no
+			// open popover returns false and falls through to close Present.
+			if (chartDetailRef.current?.handleKey(e)) {
+				e.preventDefault();
+				return;
+			}
 			if (e.key === 'Escape') onClose();
 			else if (e.key === 'g' || e.key === 'G') {
 				e.preventDefault();
@@ -656,8 +670,11 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 						// Present (single-slide-render clears the iframe's inline pointer-events on reveal,
 						// so it inherits `none` from this card); that interactivity lives in the editor
 						// preview, not the delivery view. The card frame (border/rounding/shadow) lives here.
-						<div className="pointer-events-none relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
-							<DeckPreview options={options} sample={presentSample ?? ''} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader />
+						<div ref={cardRef} className="pointer-events-none relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-card shadow-[0_24px_60px_rgba(10,22,40,.18)]">
+							<DeckPreview options={options} sample={presentSample ?? ''} mermaid={presentMermaid} paletteOverride={paletteOverride} extraTheme={extraTheme} modeOverride={modeOverride} extraCss={extraCss} active={open} coalesce className="size-full" aria-label="Presented slide" loader onRender={() => chartDetailRef.current?.onSlide(0)} />
+							{/* Pinned chart-detail reveal for the delivery slide (the frame here is one section, so
+							    onSlide(0)). Enabled only while presenting; the popover portals to <body>. */}
+							<ChartDetailLayer ref={chartDetailRef} getFrame={() => cardRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null} getStage={() => cardRef.current} enabled={open} />
 						</div>
 					)}
 				</div>
