@@ -36,7 +36,7 @@ function loadPaletteWithImports(filePath, seen = new Set()) {
   let m;
   while ((m = importRe.exec(content)) !== null) {
     const name = m[1];
-    if (name === 'lattice') continue; // layout CSS; colour tokens live in themes
+    if (name === 'lattice') continue; // layout CSS; color tokens live in themes
     const imp = path.join(dir, `${name}.css`);
     if (fs.existsSync(imp)) imported += loadPaletteWithImports(imp, seen) + '\n';
   }
@@ -78,7 +78,7 @@ function parsePaletteVars(content) {
   return vars;
 }
 
-// ── Colour math ───────────────────────────────────────────────────────────
+// ── Color math ───────────────────────────────────────────────────────────
 
 function parseHex(hex) {
   if (!hex) return null;
@@ -264,9 +264,10 @@ function auditTheme(theme) {
   let checks = 0;
 
   for (const [fg, bg, ctx] of PAIRS) {
-    // Every PAIRS token is theme-owned (or resolved via its @import chain), so a
-    // bg we can't reduce to hex is a real coverage hole — record it in `missing`
-    // (the gate asserts missing===0) rather than silently dropping the pair.
+    // Every PAIRS backdrop (bg) is theme-owned (or resolved via its @import chain
+    // — the on-dark-* ink foregrounds resolve via ON_DARK_DEFAULTS), so a bg we
+    // can't reduce to hex is a real coverage hole — record it in `missing` (the
+    // gate asserts missing===0) rather than silently dropping the pair.
     const bgHex = vars[bg];
     if (!bgHex || !parseHex(bgHex)) {
       missing.push({ ctx, fg: vars[fg] ?? `--${fg}`, bg: bgHex ?? `--${bg} (absent)` });
@@ -304,7 +305,7 @@ if (require.main === module) {
   let totalChecks = 0;
 
   console.log('');
-  console.log('  Lattice · Contrast & Colour-Theory Audit');
+  console.log('  Lattice · Contrast Audit');
   console.log('  ══════════════════════════════════════════════════════════════');
   console.log('  WCAG AA = 4.5:1 · AAA = 7:1');
   console.log('');
