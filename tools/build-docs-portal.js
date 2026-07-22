@@ -413,6 +413,31 @@ function galleryHref(m) {
   return path.relative(DOCS_DIR, abs).split(path.sep).join('/');
 }
 
+/** The component's effective DEFAULT framing alignment (what `headline: auto` resolves to) —
+ *  DERIVED from its own CSS, not hand-authored. A layout centers its masthead by default when it
+ *  sets the shared `--headline-justify` axis to `center` as the FALLBACK, either on the
+ *  `.masthead-lede` (Form band) or on its `section.<name>` root (an anchor that centers the whole
+ *  frame). Variant-qualified rules (e.g. `list-steps.timeline`, `divider.light`) are NOT the
+ *  default, so they're skipped — the field reports the base component's alignment. Everything else
+ *  is `left` (the base masthead-lede origin). See engineering/decisions/2026-07-20-mass-head-alignment.md. */
+function headlineDefault(m) {
+  const abs = path.join(COMPONENTS_DIR, manifestBucket(m), m.name, `${m.name}.styles.css`);
+  if (!fs.existsSync(abs)) return 'left';
+  const css = fs.readFileSync(abs, 'utf8');
+  const variants = documentedVariants(m);
+  const centerAxis = /align-items:\s*var\(--headline-justify,\s*center\)/;
+  const rules = css.match(/[^{}]+\{[^{}]*\}/g) || [];
+  for (const rule of rules) {
+    const brace = rule.indexOf('{');
+    const selector = rule.slice(0, brace);
+    if (!centerAxis.test(rule.slice(brace))) continue;
+    // A variant-specific rule (its selector names one of the component's variants) is not the default.
+    if (variants.some((v) => new RegExp(`\\.${v}\\b`).test(selector))) continue;
+    if (/\.masthead-lede/.test(selector) || new RegExp(`section\\.${m.name}\\b`).test(selector)) return 'center';
+  }
+  return 'left';
+}
+
 // ── Markdown reference ──────────────────────────────────────────────────────
 
 /** Add `by` levels to every ATX heading, skipping fenced code blocks. */
@@ -532,6 +557,8 @@ function renderPortalJson(manifests) {
     whenToUse: Array.isArray(m.whenToUse) ? m.whenToUse : [],
     antiPatterns: Array.isArray(m.antiPatterns) ? m.antiPatterns : [],
     related: Array.isArray(m.related) ? m.related : [],
+    // Derived: the default framing alignment (`headline: auto` result) — `left` or `center`.
+    headlineDefault: headlineDefault(m),
     galleryHref: galleryHref(m),
   }));
   const doc = {

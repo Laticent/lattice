@@ -21,16 +21,13 @@ const {
 } = require('../../../lib/core/resolve-headline');
 
 describe('resolve-headline', () => {
-  test('left / center map to their class tokens; auto maps to no token (default)', () => {
+  test('left / center / right map to their class tokens; auto maps to no token (default)', () => {
     assert.equal(headlineClass('left'), 'head-left');
     assert.equal(headlineClass('center'), 'head-center');
+    assert.equal(headlineClass('right'), 'head-right');
     assert.equal(headlineClass('auto'), '', 'auto is the default — no class, component keeps its alignment');
     assert.ok(isKnownHeadline('center'));
-  });
-
-  test('right is not (yet) recognized — deferred follow-up', () => {
-    assert.equal(headlineClass('right'), '', 'right is deferred → no class (deck-lint flags it)');
-    assert.ok(!isKnownHeadline('right'));
+    assert.ok(isKnownHeadline('right'));
   });
 
   test('omitted / unrecognized resolve to no class; case/whitespace-insensitive', () => {
@@ -42,17 +39,17 @@ describe('resolve-headline', () => {
     assert.equal(headlineClass('  LEFT '), 'head-left');
   });
 
-  test('isKnownHeadline recognizes the three names only', () => {
-    for (const n of ['auto', 'left', 'center']) assert.ok(isKnownHeadline(n), n);
+  test('isKnownHeadline recognizes the four names only', () => {
+    for (const n of ['auto', 'left', 'center', 'right']) assert.ok(isKnownHeadline(n), n);
     assert.ok(!isKnownHeadline('centre'));
-    assert.ok(!isKnownHeadline('right'));
+    assert.ok(!isKnownHeadline('middle'));
     assert.ok(!isKnownHeadline(''));
     assert.ok(!isKnownHeadline(undefined));
   });
 
   test('HEADLINE_NAMES / HEADLINE_TOKENS list the recognized set', () => {
-    assert.deepEqual([...HEADLINE_NAMES], ['auto', 'left', 'center']);
-    assert.deepEqual([...HEADLINE_TOKENS], ['head-left', 'head-center']);
+    assert.deepEqual([...HEADLINE_NAMES], ['auto', 'left', 'center', 'right']);
+    assert.deepEqual([...HEADLINE_TOKENS], ['head-left', 'head-center', 'head-right']);
   });
 
   test('readFrontMatterHeadline extracts from the front-matter block only; quotes + absence', () => {
@@ -71,9 +68,9 @@ describe('resolve-headline', () => {
     }
     // The register drives one inherited property, not a scattered set of text-aligns.
     assert.ok(css.includes('--headline-align'), 'the register must set the shared --headline-align seam');
-    // center ships (box machinery via flexed containers); right is still deferred.
-    assert.ok(css.includes('head-center'), 'head-center must have a rule (center ships)');
-    assert.ok(!css.includes('head-right'), 'right is deferred — no head-right in shipped CSS');
+    // center + right ship (box machinery via the flex lede + flexed framing containers).
+    assert.ok(css.includes('head-center'), 'head-center must have a rule');
+    assert.ok(css.includes('head-right'), 'head-right must have a rule (right ships)');
     // center anchors to the lede (spans-frame with no bay, beside-the-bay with one), so no
     // fragile `:has(:empty)` bay-collapse is needed — it must NOT ship.
     assert.ok(!css.includes(':empty'), 'center uses the lede anchor, not an empty-bay collapse');

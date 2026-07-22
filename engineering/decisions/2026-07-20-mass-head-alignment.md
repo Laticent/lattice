@@ -799,3 +799,22 @@ Full adversarial trio (transform + base CSS, high blast radius). Both real findi
   no-ops on them (unchanged from the pseudo era); a latent engine↔DOM chart-subtitle class-match
   fragility (not triggered — chart-family emits exactly `<p class="chart-subtitle">`); a stale
   chart-header comment in the kernel (masthead.transform.js §289). None introduced by this change.
+
+## `right` ships + a derived `headlineDefault` catalog field (2026-07-21)
+
+The two deferred items, landed together (both finish the register).
+
+- **`headline: right`** — the register's full set is now `auto`/`left`/`center`/`right`. Right fell
+  straight out of the `<hr>` refactor: the masthead-lede is a flex column reading `--headline-justify`,
+  so `right` is just `--headline-justify: flex-end` + extending the center flex-container block to
+  `:is(.head-center, .head-right)`. No new machinery — the "same box machinery as center" the earlier
+  docs predicted. Verified: the whole cluster (eyebrow, heading, rule <hr>, key-insight) pins right;
+  body keeps its own axis.
+- **`headlineDefault` in components.json** — a read-only, DERIVED field (tools/build-docs-portal.js
+  `headlineDefault`) reporting what `headline: auto` resolves to per component: `left` | `center`.
+  Computed from each component's own CSS (a `--headline-justify: center` fallback on the masthead-lede
+  or the section root), NOT a hand-authored scalar — exactly the "derive, don't author" resolution the
+  design trio reached (rejecting the manifest-scalar re-architecture). Variant-only centering
+  (`list-steps.timeline`, `divider.light`) is skipped, so the field reports the BASE component's
+  default; the center set derives to exactly `{stats, title, closing}`. Rot-guarded by
+  test/unit/tools/headline-default.test.js.

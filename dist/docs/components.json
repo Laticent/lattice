@@ -458,6 +458,7 @@
           "when": "the left column is a term, not an actor"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/actors/actors.gallery.light.pdf"
     },
     {
@@ -651,6 +652,7 @@
           "when": "the slide immediately preceding the agenda"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/agenda/agenda.gallery.light.pdf"
     },
     {
@@ -827,6 +829,7 @@
           "when": "the rows are procedural steps rather than authority tiers"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/legal/authority-chain/authority-chain.gallery.light.pdf"
     },
     {
@@ -980,6 +983,7 @@
           "when": "the argument is mostly prose with a number embedded"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/statement/big-number/big-number.gallery.light.pdf"
     },
     {
@@ -1197,6 +1201,7 @@
           "when": "comparing options against shared criteria"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/cards-grid/cards-grid.gallery.light.pdf"
     },
     {
@@ -1372,6 +1377,7 @@
           "when": "items carry an explicit, ordered sequence"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/cards-stack/cards-stack.gallery.light.pdf"
     },
     {
@@ -1543,6 +1549,7 @@
           "when": "each item needs two sentences of body"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/checklist/checklist.gallery.light.pdf"
     },
     {
@@ -1721,6 +1728,7 @@
           "when": "the citation is one input among several in a prose argument"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/legal/citation-card/citation-card.gallery.light.pdf"
     },
     {
@@ -1872,6 +1880,7 @@
           "when": "single emphatic statement mid-deck without the bookend signal"
         }
       ],
+      "headlineDefault": "center",
       "galleryHref": "../../lib/components/anchor/closing/closing.gallery.light.pdf"
     },
     {
@@ -2019,6 +2028,7 @@
           "when": "code is one piece of a longer prose explanation"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/code/code/code.gallery.light.pdf"
     },
     {
@@ -2175,6 +2185,7 @@
           "when": "three or more variants on shared dimensions"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/code/compare-code/compare-code.gallery.light.pdf"
     },
     {
@@ -2351,6 +2362,7 @@
           "when": "the verdict slide that lands after a comparison"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/comparison/compare-prose/compare-prose.gallery.light.pdf"
     },
     {
@@ -2519,6 +2531,7 @@
           "when": "each row needs full-prose breathing room rather than a tabular cell"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/comparison/compare-table/compare-table.gallery.light.pdf"
     },
     {
@@ -2647,6 +2660,7 @@
           "when": "the card is a network to join rather than a person"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/connect/contact/contact.gallery.light.pdf"
     },
     {
@@ -2801,6 +2815,7 @@
           "when": "the prose IS an ordered sequence"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/statement/content/content.gallery.light.pdf"
     },
     {
@@ -2974,6 +2989,7 @@
           "when": "the loop has branches or feedback into non-adjacent stages"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/progression/cycle/cycle.gallery.light.pdf"
     },
     {
@@ -3133,6 +3149,7 @@
           "when": "the decision is a quantitative commitment"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/comparison/decision/decision.gallery.light.pdf"
     },
     {
@@ -3288,6 +3305,7 @@
           "when": "the diagram is one element in a prose slide"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/diagram/diagram/diagram.gallery.light.pdf"
     },
     {
@@ -3433,6 +3451,7 @@
           "when": "closes the deck — completes the bookend trio"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/anchor/divider/divider.gallery.light.pdf"
     },
     {
@@ -3589,6 +3608,7 @@
           "when": "a single conversion rate is the whole story"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/funnel/funnel.gallery.light.pdf"
     },
     {
@@ -3738,6 +3758,7 @@
           "when": "sequential process with descriptive steps, no parallel lanes"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/gantt/gantt.gallery.light.pdf"
     },
     {
@@ -3900,6 +3921,7 @@
           "when": "declared statements — the `principles` variant"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/glossary/glossary.gallery.light.pdf"
     },
     {
@@ -4063,6 +4085,7 @@
           "when": "the slide is a quotation, not an image"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/imagery/image/image.gallery.light.pdf"
     },
     {
@@ -4285,6 +4308,7 @@
           "when": "a vertical dated timeline rather than a parallel register"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/inventory/inventory.gallery.light.pdf"
     },
     {
@@ -4436,6 +4460,7 @@
           "when": "current status by stage rather than sequence over time"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/journey/journey.gallery.light.pdf"
     },
     {
@@ -4616,6 +4641,7 @@
           "when": "options scored against shared criteria, not stage-tracked"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/kanban/kanban.gallery.light.pdf"
     },
     {
@@ -4826,6 +4852,7 @@
           "when": "milestones in time, not metrics at a moment"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/evidence/kpi/kpi.gallery.light.pdf"
     },
     {
@@ -5026,6 +5053,7 @@
           "when": "items carry state markers (done / partial / todo)"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/list/list.gallery.light.pdf"
     },
     {
@@ -5186,6 +5214,7 @@
           "when": "rows carry structured metadata alongside the name and description"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/progression/list-criteria/list-criteria.gallery.light.pdf"
     },
     {
@@ -5387,6 +5416,7 @@
           "when": "a value-driven funnel with conversion percentages, rather than the qualitative `converge` variant"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/progression/list-steps/list-steps.gallery.light.pdf"
     },
     {
@@ -5565,6 +5595,7 @@
           "when": "rows are bullets without a label-plus-description shape"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/list-tabular/list-tabular.gallery.light.pdf"
     },
     {
@@ -5733,6 +5764,7 @@
           "when": "a single visual, not a grid of marks, is the evidence"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/logo-wall/logo-wall.gallery.light.pdf"
     },
     {
@@ -5916,6 +5948,7 @@
           "when": "the geography needs detail (counties, cities, routes) the basemap can't draw"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/map/map.gallery.light.pdf"
     },
     {
@@ -6097,6 +6130,7 @@
           "when": "one inline equation inside a paragraph of prose"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/math/math/math.gallery.light.pdf"
     },
     {
@@ -6280,6 +6314,7 @@
           "when": "the items don't divide along two axes"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/comparison/matrix-2x2/matrix-2x2.gallery.light.pdf"
     },
     {
@@ -6453,6 +6488,7 @@
           "when": "one set of obligations against one regime, not many"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/legal/obligation-matrix/obligation-matrix.gallery.light.pdf"
     },
     {
@@ -6608,6 +6644,7 @@
           "when": "the slices need status framing and targets"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/piechart/piechart.gallery.light.pdf"
     },
     {
@@ -6802,6 +6839,7 @@
           "when": "a period digest of what changed, not a recommendation on one measure"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/legal/policy-recommendation/policy-recommendation.gallery.light.pdf"
     },
     {
@@ -6976,6 +7014,7 @@
           "when": "a single headline price, not a tiered comparison"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/comparison/pricing/pricing.gallery.light.pdf"
     },
     {
@@ -7138,6 +7177,7 @@
           "when": "the workstreams complete in sequence, not in parallel"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/progress/progress.gallery.light.pdf"
     },
     {
@@ -7335,6 +7375,7 @@
           "when": "a single verdict to state rather than a set of questions to defend"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/inventory/q-and-a/q-and-a.gallery.light.pdf"
     },
     {
@@ -7511,6 +7552,7 @@
           "when": "comparing options against shared categorical criteria"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/quadrant/quadrant.gallery.light.pdf"
     },
     {
@@ -7654,6 +7696,7 @@
           "when": "the most memorable thing is a metric, not a phrase"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/statement/quote/quote.gallery.light.pdf"
     },
     {
@@ -7829,6 +7872,7 @@
           "when": "the question is part-to-whole, not multi-criterion"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/radar/radar.gallery.light.pdf"
     },
     {
@@ -7995,6 +8039,7 @@
           "when": "comparing many regimes against shared obligations"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/comparison/redline/redline.gallery.light.pdf"
     },
     {
@@ -8180,6 +8225,7 @@
           "when": "structured metadata per row but no regulatory framing"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/legal/regulatory-update/regulatory-update.gallery.light.pdf"
     },
     {
@@ -8346,6 +8392,7 @@
           "when": "single list with state markers, no workstream dimension"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/roadmap/roadmap.gallery.light.pdf"
     },
     {
@@ -8505,6 +8552,7 @@
           "when": "the motion is recorded footage with a provider, not a fabricated vector scene"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/imagery/scene/scene.gallery.light.pdf"
     },
     {
@@ -8704,6 +8752,7 @@
           "when": "three or more options scored against shared criteria"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/comparison/split-compare/split-compare.gallery.light.pdf"
     },
     {
@@ -8881,6 +8930,7 @@
           "when": "an ordered process without a left anchor panel"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/statement/split-panel/split-panel.gallery.light.pdf"
     },
     {
@@ -9056,6 +9106,7 @@
           "when": "parallel workstreams across phases, not a single machine's transitions"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/state-chart/state-chart.gallery.light.pdf"
     },
     {
@@ -9240,6 +9291,7 @@
           "when": "the metrics are completion percentages across workstreams"
         }
       ],
+      "headlineDefault": "center",
       "galleryHref": "../../lib/components/evidence/stats/stats.gallery.light.pdf"
     },
     {
@@ -9419,6 +9471,7 @@
           "when": "the comparison is across criteria, not jurisdictions"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/legal/statute-stack/statute-stack.gallery.light.pdf"
     },
     {
@@ -9577,6 +9630,7 @@
           "when": "the events are parallel workstreams with completion percentages"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/timeline-list/timeline-list.gallery.light.pdf"
     },
     {
@@ -9718,6 +9772,7 @@
           "when": "the final slide — closes the bookend pair"
         }
       ],
+      "headlineDefault": "center",
       "galleryHref": "../../lib/components/anchor/title/title.gallery.light.pdf"
     },
     {
@@ -9914,6 +9969,7 @@
           "when": "one set of criteria, not many options against them"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/comparison/verdict-grid/verdict-grid.gallery.light.pdf"
     },
     {
@@ -10067,6 +10123,7 @@
           "when": "the motion you want is an animated process — a Mermaid diagram may say it statically"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/imagery/video/video.gallery.light.pdf"
     },
     {
@@ -10200,6 +10257,7 @@
           "when": "the card is a person's identity rather than a network"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/connect/wifi/wifi.gallery.light.pdf"
     },
     {
@@ -10359,6 +10417,7 @@
           "when": "single-line takeaways — the `takeaway` variant"
         }
       ],
+      "headlineDefault": "left",
       "galleryHref": "../../lib/components/chart/word-cloud/word-cloud.gallery.light.pdf"
     }
   ]

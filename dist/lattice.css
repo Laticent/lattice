@@ -20279,11 +20279,16 @@ section.head-left { --headline-align: left; --headline-justify: flex-start; }
  * No margin (HARD RULE #20); no hex (#3). The slide body keeps its own align-* axis (issue-527) —
  * the register moves framing only. */
 section.head-center { --headline-align: center; --headline-justify: center; }
-section.head-center:not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
-section.head-center:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote,
-section.head-center .below-note,
-section.head-center.diagram .diagram-caption,
-section.head-center .chart-caption {
+/* head-right — the rare escape hatch; the same box machinery as head-center, just the far edge. */
+section.head-right { --headline-align: right; --headline-justify: flex-end; }
+/* Flex the OTHER capped framing containers (the masthead-lede is already a flex column) so their
+ * boxes ride --headline-justify too — for BOTH center and right. The key-insight blockquote carries
+ * the same body-exclusion guard as its base rule (base.modifiers.css). */
+section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.policy-recommendation):not([class*="layout-"]) > blockquote,
+section:is(.head-center, .head-right):not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory):not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote,
+section:is(.head-center, .head-right) .below-note,
+section:is(.head-center, .head-right).diagram .diagram-caption,
+section:is(.head-center, .head-right) .chart-caption {
   display: flex; flex-direction: column; align-items: var(--headline-justify, flex-start);
 }
 

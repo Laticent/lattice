@@ -44,8 +44,11 @@ export const HEADLINES: HeadlineEntry[] = [
 		blurb: 'Center the framing cluster — even on a layout that lefts by default.',
 		swatch: { background: bars('center') },
 	},
-	// `right` is a deferred follow-up (same box machinery as center, rarely wanted); the engine
-	// ships `auto` / `left` / `center` today.
+	{
+		name: 'right', label: 'Right',
+		blurb: 'Right-align the framing cluster — the rare escape hatch.',
+		swatch: { background: bars('right') },
+	},
 ];
 
 export const HEADLINE_BY_NAME: Record<string, HeadlineEntry> = Object.fromEntries(

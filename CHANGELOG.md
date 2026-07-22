@@ -367,6 +367,17 @@ in patch versions.
   pref is flipped from **Workspace → General → Diagnostics** or the `?storage` URL param, and it
   reuses the shared draggable diagnostic-overlay chassis. Docs-site only; nothing about exports or
   the engine changes. `engineering/decisions/2026-07-21-storage-accumulation-diagnostic.md`.
+- **`headline: right` completes the register.** The framing-alignment register now offers the full
+  set — `auto` / `left` / `center` / `right`. `right` pins the whole framing cluster (eyebrow,
+  heading, heading-rule `<hr>`, subtitle, key-insight, caption) to the far edge, using the exact box
+  machinery as `center` (one `--headline-justify` axis on the flex masthead-lede; the other capped
+  framing containers flex to match). The slide body keeps its own `align-*` axis. Deck-wide
+  `headline: right` or per-slide `<!-- _class: head-right -->`; Studio picker + provenance updated.
+- **Component catalog now carries each layout's effective default framing alignment.**
+  `dist/docs/components.json` gains a read-only `headlineDefault` field (`left` | `center`), *derived*
+  from each component's own CSS — so docs, the Studio, and agents can see which layouts center their
+  masthead by default (what `headline: auto` resolves to) without guessing. Not a hand-authored
+  scalar; recomputed on every build.
 - **The fluid-box viewer now fills every screen, not just phones — with an ultrawide edge cap.** Opening
   a `--fluid` deck on a laptop, tablet, or 4:3 projector used to letterbox the fixed 16:9 deck; now the
   viewport is filled by default and the slide reflows to it — the same machinery that already served
@@ -382,7 +393,7 @@ in patch versions.
   (1) `headline: center` completes the common register set (`auto`/`left`/`center`), closing a gap
   where a left-defaulting layout (the content masthead, `kpi`, most Form layouts) could not be
   centered at all — it aligns the framing *boxes* (capped heading, eyebrow, rule, key-insight
-  panel), not just their text. (2) **`**Breaking:**` the masthead heading rule (`rule: short`/
+  panel), not just their text. (2) **Breaking:** the masthead heading rule (`rule: short`/
   `accent`) is now a real `<hr class="masthead-rule">` — the last child of the masthead-lede, which
   is a flex column — instead of an absolutely-positioned `::after` pseudo. The whole framing cluster
   (eyebrow, heading, rule) is now a set of flex siblings that align together via ONE `align-items`,
@@ -390,7 +401,7 @@ in patch versions.
   hand-placed pseudo, no per-component rule rules, no bay-drift (all deleted). This changes the
   rendered bytes of any `stats`/`list-steps.timeline` slide and any `rule: short`/`accent` slide,
   and the masthead DOM now carries an `<hr>`. The slide **body** keeps its own `align-*` axis — the
-  register moves framing only. `right` remains a deferred follow-up. Deck-wide `headline: center` or
+  register moves framing only. Deck-wide `headline: center` or
   per-slide `<!-- _class: head-center -->`; typo-caught as `unknown-headline`; Studio picker +
   provenance updated. See `engineering/decisions/2026-07-20-mass-head-alignment.md`.
 - **Headline alignment is now an author register (`headline:`), not a per-layout default.** The

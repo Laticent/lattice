@@ -870,9 +870,7 @@ a typo is caught as `unknown-headline`.
 | `auto` | *(none)* | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
 | `left` | `head-left` | Pin the whole framing cluster to the left margin — even on a layout that centers by default (title, closing, stats, charts). |
 | `center` | `head-center` | Center the whole framing cluster — **even on a layout that lefts by default** (the content masthead, kpi, most Form layouts). Aligns the framing *boxes*, not just their text, so a capped heading and its eyebrow/rule land on one axis; with a masthead bay (`meta:`/`logo:`) the cluster centers *beside* the bay, never under it. |
-
-*(`right` is a deliberate follow-up — same box machinery as `center`, rarely wanted; reserved,
-not yet live.)*
+| `right` | `head-right` | Right-align the whole framing cluster — the rare escape hatch. Same box machinery as `center` (one `--headline-justify` axis on the flex lede), just the far edge. |
 
 Only the **framing** text follows — the slide **body** keeps its own alignment. Two distinct
 controls, on two surfaces: **`headline:`** moves the framing cluster (this register);
