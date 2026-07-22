@@ -105,10 +105,10 @@
 }
 
 /* #1164 — terminal failure affordance for a NON-loader preview host (a render that errors, or a
-   frame whose slide never paints). Minimal, palette-blind (the same --bg / --text / --accent /
-   --border docs-root tokens the rest of the Studio reads), sits on the box's own themed ground so
-   it never flashes a foreign color. Overlays the parked opacity:0 iframe; DeckPreview only mounts
-   it on a non-loader host, so a loader host's skeleton is untouched. */
+   frame whose slide never paints). Minimal, palette-blind (the same --bg / --text-body /
+   --text-heading / --accent docs-root tokens the rest of the Studio reads), sits on the box's own
+   themed ground so it never flashes a foreign color. Overlays the parked opacity:0 iframe;
+   DeckPreview only mounts it on a non-loader host, so a loader host's skeleton is untouched. */
 .nacre-failed {
 	position: absolute;
 	inset: 0;

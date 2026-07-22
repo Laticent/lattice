@@ -212,16 +212,25 @@ describe('DeckPreview — first-render handoff (opacity reveal)', () => {
 });
 
 describe('DeckPreview — render failure affordance (#1164)', () => {
-	it('a NON-loader host whose render resolves ok:false shows a Retry affordance; a later success clears it', async () => {
+	it('a NON-loader host whose render resolves ok:false shows a Retry affordance; the card tracks the retry OUTCOME', async () => {
 		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'boom' }));
 		const { container, getByText } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
 		// The deterministic ok:false signal surfaces the failure card + a Retry — not a blank box.
 		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
 		expect(getByText('Retry')).toBeTruthy();
 
-		// Retry re-renders (still backpressured); make the next render succeed → the card clears.
-		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null }));
+		// Retry OPTIMISTICALLY clears the card then re-renders. If that render STILL fails, the card
+		// must come BACK — proving the card reflects the render outcome, not just the optimistic clear.
+		const callsBeforeRetry = renderInto.mock.calls.length;
 		fireEvent.click(getByText('Retry'));
+		await waitFor(() => expect(renderInto.mock.calls.length).toBeGreaterThan(callsBeforeRetry)); // the retry actually re-rendered
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy()); // still failing → card returns
+
+		// Now the render succeeds → the card clears for real (and stays cleared after it settles).
+		renderInto.mockImplementation(() => Promise.resolve({ ok: true, slides: 1, error: null }));
+		const callsBeforeSuccess = renderInto.mock.calls.length;
+		fireEvent.click(getByText('Retry'));
+		await waitFor(() => expect(renderInto.mock.calls.length).toBeGreaterThan(callsBeforeSuccess));
 		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
 	});
 
