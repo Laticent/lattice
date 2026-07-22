@@ -84,9 +84,11 @@ export type DeckPreviewProps = {
 	 */
 	onFirstRender?: () => void;
 	/**
-	 * Fired after EVERY successful paint (unlike `onFirstRender`, once). Lets a parent that hosts its
-	 * own parent-side layer over this preview re-sync it to the freshly rendered slide — Present uses
-	 * it to re-pin the chart-detail hit-surface after each slide change.
+	 * Fired after each render that actually committed (unlike `onFirstRender`, once) — a deferred
+	 * inactive-host render that bails fires nothing. Lets a parent that hosts its own parent-side
+	 * layer over this preview re-sync it to the freshly rendered slide (Present re-pins the
+	 * chart-detail hit-surface here). It can fire per coalesced keystroke on a live-editing host, so
+	 * keep the handler cheap and idempotent.
 	 */
 	onRender?: () => void;
 	/**
@@ -426,8 +428,10 @@ export function DeckPreview({
 		// Re-bind the chart-detail hover layer to the (possibly new) iframe document. A no-op unless
 		// the `chartDetail` opt-in mounted the layer; it lazily binds on the first call once the frame exists.
 		chartDetailRef.current?.rebind();
-		// Every-paint signal for a parent hosting its own layer over this preview (Present re-pins here).
-		onRenderRef.current?.();
+		// Committed-render signal for a parent hosting its own layer over this preview (Present re-pins
+		// here). Gated on a real `status` so a deferred inactive-host bail (status undefined) doesn't
+		// fire it — matches the prop contract and can't drive a phantom re-pin on a host that didn't paint.
+		if (status) onRenderRef.current?.();
 		return { heavy: status?.writePath === 'write' };
 	};
 

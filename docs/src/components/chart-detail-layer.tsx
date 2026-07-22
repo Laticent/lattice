@@ -51,8 +51,9 @@ export interface ChartDetailLayerProps {
    *  (Present). */
   hoverAny?: boolean;
   /** Interaction-coupled tilt (lifts/tips toward the open mark, settles flat). Default true, matching
-   *  `chart-interact`. On an animated chart the reveal is gated to the settled state, so tilt and
-   *  motion never run at once. */
+   *  `chart-interact` (so the Playground keeps its reveal tilt). `chart-interact` itself skips the
+   *  lift/tilt on an ANIMATED chart — that chart's marks carry the renderer's baked frame — so tilt
+   *  never fights motion regardless of this flag. */
   tilt?: boolean;
   /** Fired when a mark opens (Present/Practice uses it to pause autoplay). */
   onReveal?: () => void;
@@ -66,7 +67,7 @@ export interface ChartDetailLayerProps {
  * ref: `rebind()` after each paint; `onSlide()` / `handleKey()` in pinned (Present) mode.
  */
 export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailLayerProps>(function ChartDetailLayer(
-  { getFrame, getStage, hoverAny = false, tilt = false, onReveal, enabled = true },
+  { getFrame, getStage, hoverAny = false, tilt = true, onReveal, enabled = true },
   ref,
 ) {
   const [detail, setDetail] = React.useState<ChartDetail | null>(null);

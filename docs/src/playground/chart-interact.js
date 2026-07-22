@@ -118,6 +118,10 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   const markEls = () => (chartEl ? [...chartEl.querySelectorAll(MARK_SEL)] : []);
   // The chart svg to bind to — the visible one when a chart has both a hidden poster and a live
   // animated clone (see setChart). Falls back to first-match if none reports a box yet (pre-layout).
+  // COUPLING: this "has a box" test distinguishes the two ONLY because the Anima host hides the poster
+  // with `display:none` (docs/src/lib/anima/hydrate.ts mount()) — the sole hiding that yields a zero
+  // box. If that ever becomes `visibility:hidden` / `opacity:0` (both keep a box), this would pick the
+  // poster (first in DOM); keep the two in step (see docs/src/lib/chart-anima.ts, which flags the same).
   const chartSvgIn = (sec) => {
     const all = [...sec.querySelectorAll(CHART_SVG_SEL)];
     return all.find((s) => s.getBoundingClientRect().width > 0) || all[0] || null;
@@ -184,6 +188,15 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // Map the chart's box (measured inside the iframe) into stage coordinates and
   // pin the hit-surface over it. Same for any open popover.
   function reflow() {
+    // The live svg can change UNDER a binding: the Anima host mounts its clone ASYNCHRONOUSLY (after a
+    // pinned onSlide already bound the poster), then hides the poster. Re-resolve to the visible svg so
+    // a first-view pinned chart (Present, entered directly on a motion-on slide) recovers the clone once
+    // it mounts — setChart is otherwise sticky (same-section no-op). The scheduled reflow timers give it
+    // several chances; harmless in hoverAny, where each pointer move already re-resolves via setChart.
+    if (curSection) {
+      const live = chartSvgIn(curSection);
+      if (live && live !== chartEl) chartEl = live;
+    }
     if (!chartEl) { hide(); return; }
     let fr, sr, cr;
     try { fr = getFrame().getBoundingClientRect(); sr = stage.getBoundingClientRect(); cr = chartEl.getBoundingClientRect(); }
@@ -375,9 +388,16 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     if (stopAutoUpdate) { stopAutoUpdate(); stopAutoUpdate = null; }
   }
 
+  // An ANIMATED chart's live svg is the Anima clone (mounted inside `.scene-live`), whose marks carry
+  // the renderer's baked final-frame transform/opacity. The reveal's lift/dim/tilt (and its reset on
+  // clear) would OVERWRITE those inline styles and shift the settled chart — so for an anima chart the
+  // reveal is popover-ONLY: it never touches the marks. A static chart's poster is not in `.scene-live`,
+  // so it keeps the full lift + tilt flourish (no regression).
+  const isAnimaChart = () => !!chartEl?.closest?.('.scene-live');
+
   // ── interaction-coupled tilt (settles flat; resting chart stays proportion-true) ──
   function liftAndTilt(i) {
-    if (!chartEl || !curSection) return;
+    if (!chartEl || !curSection || isAnimaChart()) return;
     const wedges = markEls();
     // Compare by MARK index, not DOM order — a map group shares one index across
     // several region paths, and quadrant/radar DOM order ≠ data index.
@@ -443,8 +463,10 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     stopPop();
     if (onDetail) { try { onDetail(null); } catch { /* host hook */ } }
     pop.classList.remove('show');
-    markEls().forEach((w) => { w.style.opacity = ''; w.style.transform = ''; w.classList?.remove('chart-mark-active'); });
-    if (chartEl) chartEl.style.transform = '';
+    // Reset the lift/dim we applied — but NOT on an anima chart, where those inline styles are the
+    // renderer's baked frame (liftAndTilt never touched them), so clearing would shift the settled chart.
+    if (!isAnimaChart()) markEls().forEach((w) => { w.style.opacity = ''; w.style.transform = ''; w.classList?.remove('chart-mark-active'); });
+    if (chartEl && !isAnimaChart()) chartEl.style.transform = '';
   }
 
   // ── keyboard: number keys reveal; 0/Esc clear ───────────────────────────────
