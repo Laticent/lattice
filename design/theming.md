@@ -319,10 +319,11 @@ notes use note + mark. Mermaid's parse-error box resolves to the gated
 `--diagram-critical` (decoupled in #1181; the old coupling made the error
 ink track the categorical-mark tier, which failed on the achromatic diagram
 ramps where `--diagram-critical` is a mid-gray). `--diagram-critical` now
-serves only the gantt critical bar + the diagram severity ramp. The deck-wide
-alarm signal is one colour; pre-consolidation it was spelled
-`--diagram-state-critical` AND `--diagram-error-bg` (both saturated red), now
-`--diagram-critical` covers both.
+serves only the gantt critical bar + the diagram severity ramp — one colour
+that consolidates the legacy diagram *severity* tokens (pre-consolidation those
+were spelled `--diagram-state-critical` AND `--diagram-error-bg`, both saturated
+red; `--diagram-critical` replaces both **names**). The mermaid parse-error box
+is no longer part of that consolidation — it draws from `--fail`, per above.
 
 cuoio is the one shipped theme that overrides the universal palette —
 its leather aesthetic wants a warm pale gold-wash + saddle leather
