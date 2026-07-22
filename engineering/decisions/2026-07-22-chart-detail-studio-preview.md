@@ -67,17 +67,19 @@ pinned hit-surface two ways, both now fixed in `chart-interact.js`:
   ResizeObservers: on the frame element (re-scale) and, re-targeted per chart, on the chart's own svg
   inside the iframe (its layout settle). No polling; the surface re-pins when the geometry it depends on
   actually changes.
-- **The LATE reveal a `ResizeObserver` can't see (the Present-on-mobile bug).** A `loader` host
-  (Present) holds its iframe at `opacity:0` / a placeholder scale until `single-slide-render`'s
-  `scaleFrame` reveals it — by mutating the iframe's inline `transform` + `opacity` once a real width is
-  known and the slide has painted. A CSS `transform` does NOT change the border-box, so the frame
-  `ResizeObserver` never fires; and the reveal lands AFTER `onSlide`'s fixed re-pin timers, so the pinned
-  hit-surface is stuck at a stale/zero geometry and every tap misses (the reported "Present popup never
-  shows on mobile"). Fixed with a `MutationObserver` on the frame element's `style` attribute
-  (`watchFrame`) → `reflow`; it re-targets if `getFrame()` returns a new element and disconnects in
-  `destroy`. The editing preview never hit this because it has no loader — its scale is stable before the
-  timers fire. `reflow` writes only the parent hit-surface's style (never the frame's), so observing the
-  frame can't self-trigger.
+- **The LATE frame reveal a `ResizeObserver` can't see (a geometry hardening — NOT the Present root
+  cause).** A `loader` host (Present) holds its iframe at `opacity:0` / a placeholder scale until
+  `single-slide-render`'s `scaleFrame` reveals it — by mutating the iframe's inline `transform` +
+  `opacity` once a real width is known and the slide has painted. A CSS `transform` does NOT change the
+  border-box, so the frame `ResizeObserver` never fires; and the reveal lands AFTER `onSlide`'s fixed
+  re-pin timers, so a hit-surface pinned by those timers would sit at a stale geometry. A
+  `MutationObserver` on the frame element's `style` (`watchFrame`) → `reflow` catches that reveal and
+  re-pins (it re-targets if `getFrame()` returns a new element and detaches in `destroy`; `reflow` writes
+  only the parent hit-surface's style, never the frame's, so observing the frame can't self-trigger).
+  **This keeps geometry correct once a chart IS bound; it is not what fixed the reported "Present popup
+  never shows" — that was the parse race (see Verification § "Present had TWO real blockers"), which
+  `watchFrame` cannot help with because there's no bound chart yet to re-pin.** Kept as durable hardening
+  for the settled-then-rescaled case (e.g. a pane resize after a loader reveal).
 
 ## The mobile card size — readable-first (a scale-with-slide attempt was reversed)
 
@@ -104,7 +106,7 @@ Playground / Drawing-Board pages, so the Studio's surface had no pointer-events 
 The editing-preview path is verified on the real `/studio` in headless Chromium **with real
 `mouse.move` / `touchscreen.tap` (true hit-testing, not synthetic iframe-document events)**:
 - **Desktop** (S=0.592): the popover reveals on hover for a static piechart AND a settled animated one,
-  clears on leave, zero page errors; the card scales to S (151×54px).
+  clears on leave, zero page errors; the card is a readable, fixed-size tooltip.
 - **Mobile** (390px pane, S=0.278): a tap reveals the popover and it renders as a **readable, fixed-size**
   tooltip (the readable-first decision) — legible on the phone-sized authoring thumbnail, kept on-screen
   by `collisionPadding`. Emulated touch, real hit-testing.

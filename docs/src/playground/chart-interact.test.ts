@@ -2,16 +2,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createChartInteract } from './chart-interact.js';
 
-// These exercise the REAL parent-hosted hit layer (not the mocked one in chart-detail-layer.test.tsx),
-// focused on the PINNED re-pin path: the hit-surface must track the chart's geometry even when the
-// only thing that changed is the FRAME's inline transform/opacity — the late "reveal" a loader host
-// (Present) performs (single-slide-render's scaleFrame), which ResizeObserver cannot see. jsdom stubs
-// ResizeObserver to a no-op, so if the surface still re-pins here it can ONLY be the MutationObserver
-// on the frame's `style` (watchFrame) doing it — which is exactly the Present-on-mobile fix.
+// These exercise the REAL parent-hosted hit layer (not the mocked one in chart-detail-layer.test.tsx).
+// Two independent guards, for two DIFFERENT fixes (see the decision note's "Present had TWO real
+// blockers"):
+//   1. FRAME-STYLE re-pin — the hit-surface must track the chart's geometry when the only change is the
+//      FRAME's inline transform/opacity (the late "reveal" a loader host performs via scaleFrame, which
+//      ResizeObserver can't see). jsdom stubs ResizeObserver to a no-op, so a re-pin here can ONLY be the
+//      `watchFrame` MutationObserver. This is a geometry HARDENING, not the Present-tap root-cause fix.
+//   2. FRAME-`load` self-heal — the actual Present-tap fix: `onSlide` re-runs on the iframe's `load`
+//      event, so the hit-surface binds even when the host's first pin ran before the srcdoc parsed (the
+//      parse race). The test reproduces the race and fails without the `load` re-bind.
 //
-// SCOPE: this proves the WIRING (a frame style mutation triggers a re-pin). It is NOT a claim that
-// Present's real runtime works — that needs a real browser (jsdom rects are all 0×0), and is checked
-// on the deploy preview (HARD RULE #23).
+// SCOPE: these prove the WIRING. Neither is a claim that Present's full runtime works — that needs a real
+// browser (jsdom rects are all 0×0) and is checked on the deploy preview (HARD RULE #23).
 
 const rect = (o: Partial<DOMRect>): DOMRect =>
   ({ left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}), ...o }) as DOMRect;
