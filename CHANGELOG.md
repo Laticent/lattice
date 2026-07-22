@@ -27,6 +27,19 @@ in patch versions.
 
 ### Added
 
+- **Image-set export: the CLI now re-bakes Mermaid diagrams print-safe for a cross-scheme `print` look.**
+  `--svg-background print` on a color or dark-source deck used to leave each Mermaid diagram in its
+  slide-scheme colors (mmdc bakes diagram colors at render time, so the in-place CSS restyle that
+  recolors token-driven charts can't touch them) — a dark deck's diagram exported as a dark box on
+  the print canvas. The CLI now re-renders each diagram with the print theme vars and swaps it in
+  before extraction, so you get print-ready **black-on-white** diagram vectors alongside your color
+  slides. Charts already recolored for any look. A diagram that sets its **own** colors (an author
+  `%%{init}%%` theme or explicit `style`/`classDef` fills) can't be forced B&W — the CLI warns with a
+  count (ungated by `--quiet`) and leaves those in their own colors rather than claiming a conversion
+  it can't make. Light/dark *cross-scheme* diagram looks on the CLI are still not re-baked (that needs
+  the Studio's full second render); the CLI warns and points there. (`lattice-emulator.js`;
+  `engineering/pipeline.md` §5.)
+
 - **Anima can now animate a real Lattice chart — with zero model calls.** A new ingest bridge
   (`docs/src/lib/chart-anima.ts` `chartToScene`) reads a rendered chart's own marks (the
   `[data-mark]` bands + `<text>` the chart already emits), maps each class to a motion role

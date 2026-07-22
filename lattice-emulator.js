@@ -1184,6 +1184,15 @@ function renderMermaid(definition, mode) {
 // required up here because preprocessMermaid runs before that block.)
 const { resolveSize, orientationFor, orientationCss } = require('./lib/engine/css');
 const { reorientMermaidForPortrait } = require('./lib/integrations/mermaid/reorient');
+// Reoriented raw Mermaid definitions, index-aligned with the `data-mmd-idx` stamp on each
+// rendered `.mermaid-svg`. The image-set export's cross-scheme SVG look uses this to RE-BAKE a
+// diagram in a different scheme (mmdc bakes colors at render time, so a CSS restyle can't recolor
+// baked node text/edges — re-running renderMermaid in the look mode can). Empty for decks with no
+// diagrams; only read on a cross-scheme image-set export. SINGLE-SHOT: this is a run-once CLI
+// (`preprocessMermaid` fires once per process, one deck), so the array never accumulates across
+// decks. If this module is ever reused for multiple decks in one process, reset it per deck.
+const MERMAID_REBAKE_DEFS = [];
+
 function preprocessMermaid(source) {
   const fmMatch = source.match(/^---\r?\n[\s\S]*?\r?\n---/);
   const fm = fmMatch ? fmMatch[0] : '';
@@ -1222,9 +1231,12 @@ function preprocessMermaid(source) {
     const slideDark = classDirectives.length ? /\bdark\b/.test(lastClass) : globalDark;
     const slideMode = slidePrint ? 'print' : (slideDark ? 'dark' : 'light');
     if (!QUIET) process.stdout.write(`  Rendering mermaid diagram (${slideMode})...`);
-    const svg = renderMermaid(reorientMermaidForPortrait(def.trim(), orientation), slideMode);
+    const reoriented = reorientMermaidForPortrait(def.trim(), orientation);
+    const idx = MERMAID_REBAKE_DEFS.push(reoriented) - 1; // keep the source def for a later re-bake
+    const svg = renderMermaid(reoriented, slideMode);
     if (!QUIET) console.log(' done');
-    return svg;
+    // Stamp the def index so a cross-scheme image-set export can find + re-bake this exact diagram.
+    return svg.replace(/(<div class="mermaid-svg[^"]*")/, `$1 data-mmd-idx="${idx}"`);
   });
 }
 
@@ -2283,13 +2295,12 @@ async function renderBody(browser, g, closeBrowser) {
     let svgAssets = [];
     if (IMAGE_SET_OPTS.extractSvg) {
       const lookMode = svgLookMode(IMAGE_SET_OPTS.svgBackground); // null | light | dark | print
-      // NUANCE: this re-styles the LIVE page in place. Charts are token-driven, so they recolor
-      // fully for any look. Mermaid diagrams, though, are baked to literal colors by mmdc at render
-      // time — the `.print` cascade re-textures their var-based FILLS but can't recolor baked node
-      // TEXT / edge lines. That's correct for the common case (a light/color deck → any look reads
-      // on white, since light-baked diagram text is dark), but a cross-scheme diagram look from a
-      // DARK-source deck keeps its baked text in the slide scheme. The Studio path re-renders the
-      // deck in the look (a full re-bake) and has no such gap; see pipeline.md §5 for the nuance.
+      // A cross-scheme SVG look re-treats the extracted vectors. Token-driven CHARTS reflow from an
+      // in-place palette/print restyle (below). Mermaid DIAGRAMS bake their colors at render time
+      // (mmdc), so the restyle can't recolor them — for the PRINT look we re-bake each diagram B&W
+      // and swap it in (the print class fixes the section context so it flattens correctly); a
+      // light/dark cross-scheme diagram look isn't re-baked here (the Studio's full second render
+      // is the path for that). See pipeline.md §5 and the re-bake block below.
       if (lookMode && lookMode !== resolvedScheme) {
         if (lookMode === 'print') {
           // `print` is a canvas class — stamping it on every section applies the B&W-safe
@@ -2321,6 +2332,67 @@ async function renderBody(browser, g, closeBrowser) {
         }
         // Let the restyle settle (var()/scheme recompute) before reading computed styles.
         await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 120))), 'settle svg look');
+
+        // Cross-scheme diagram RE-BAKE — PRINT look. The restyle above recolors token-driven CHARTS
+        // fully, but mmdc bakes Mermaid diagram node text / edges to literal colors at render time,
+        // so a CSS restyle can't flip them. For the PRINT look we CAN close this: the `.print` class
+        // stamped on every section (above) puts the whole slide in the B&W ink-on-white context, so
+        // re-rendering each diagram with the print theme vars (renderMermaid('print')) and swapping
+        // it in flattens to correct black-on-white — a dark-source deck now exports print-ready B&W
+        // diagram vectors. (light/dark cross-scheme is NOT re-baked here: the palette injection
+        // doesn't reroute the section's own scheme, so a light/dark diagram would flatten against the
+        // slide context and read wrong — the Studio's full second render is the path there; warned
+        // below.)
+        // De-duped: the same stamped diagram can appear on >1 section if autosplit copies a shared
+        // block onto each piece, so re-bake each index once and swap it into EVERY node that carries it.
+        const diagramIdxs = await g(() => page.evaluate(() =>
+          [...new Set([...document.querySelectorAll('.mermaid-svg[data-mmd-idx]')].map((d) => Number(d.getAttribute('data-mmd-idx'))))],
+        ), 'collect diagram indices');
+        if (lookMode === 'print') {
+          if (diagramIdxs.length && !QUIET) process.stdout.write(`  re-baking ${diagramIdxs.length} Mermaid diagram(s) print-safe...`);
+          let rebaked = 0;
+          const notPrintSafe = []; // diagrams whose own colors the print re-bake can't force B&W
+          for (const idx of diagramIdxs) {
+            const def = MERMAID_REBAKE_DEFS[idx];
+            if (def == null) continue;
+            // A diagram that sets its OWN colors overrides Mermaid's print theme variables, so the
+            // re-bake can't force it B&W: an author `%%{init}%%` theme (mmdc skips themeVars entirely),
+            // or explicit `fill:`/`stroke:`/`color:` hex/rgb in `style`/`classDef`/`linkStyle`.
+            const authorColored = /%%\{\s*init/i.test(def) ||
+              /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
+            // A pure `%%{init}%%` theme makes the re-bake a total no-op — skip the wasted mmdc call and
+            // keep the original. (An explicit-fill diagram still benefits: the re-bake flattens its
+            // theme-driven parts, leaving only the styled nodes colored — so it IS still swapped below.)
+            if (/%%\{\s*init/i.test(def)) { notPrintSafe.push(idx); continue; }
+            const out = renderMermaid(def, 'print');
+            // mmdc can degrade to a `<pre class="mermaid-fallback">` (no <div> wrapper) after exhausting
+            // its retries. Only swap a REAL re-bake — otherwise keep the original node (which still has
+            // an <svg> to export) rather than replacing it with a <pre> and dropping the asset entirely.
+            if (!/^\s*<div\b/.test(out)) { notPrintSafe.push(idx); continue; }
+            const inner = out.replace(/^<div\b[^>]*>/, '').replace(/<\/div>\s*$/, '');
+            await g(() => page.evaluate(({ i, html }) => {
+              // Swap EVERY node carrying this index (a cloned diagram appears more than once), not just the first.
+              for (const el of document.querySelectorAll(`.mermaid-svg[data-mmd-idx="${i}"]`)) el.innerHTML = html;
+            }, { i: idx, html: inner }), 'swap re-baked diagram');
+            rebaked++;
+            if (authorColored) notPrintSafe.push(idx); // swapped, but its own fills survive → still flag it
+          }
+          if (diagramIdxs.length && !QUIET) console.log(` ${rebaked}/${diagramIdxs.length} converted`);
+          // A "print" set that still carries color is a real surprise the caller must SEE — so this
+          // warning is NOT gated on --quiet (unlike the progress line above). Names the count so an
+          // automated pipeline can catch it too.
+          if (notPrintSafe.length) {
+            console.warn(`  ⚠ ${notPrintSafe.length} of ${diagramIdxs.length} Mermaid diagram(s) could not be made fully B&W-safe — an author \`%%{init}%%\` theme or explicit \`style\`/\`classDef\` fills override print styling (or a diagram fell back). Those keep their own colors and may read low-contrast on the print canvas; remove the fixed theme/style, or re-color in the Studio.`);
+          }
+          // Settle the swapped nodes before flattening reads their computed styles.
+          if (rebaked) await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 60))), 'settle rebake');
+        } else if (diagramIdxs.length && effectiveSvgBackground !== 'inherit') {
+          // light / dark cross-scheme that WAS applied: charts recolor, but Mermaid diagrams keep
+          // their slide-scheme bake (mmdc literals the CSS restyle can't flip). Point at the surfaces
+          // that DO re-bake. (Skipped when the look coerced to `inherit` above — a missing companion
+          // theme, already warned — since then no look was applied to charts OR diagrams.)
+          console.warn(`  ⚠ --svg-background ${lookMode}: Mermaid diagrams keep the slide-scheme colors (charts recolor). For fully re-baked light/dark diagrams use the Studio export; --svg-background print IS re-baked B&W-safe here.`);
+        }
       }
 
       const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } =
@@ -2352,18 +2424,6 @@ async function renderBody(browser, g, closeBrowser) {
         const fontFaceCss = standaloneFontFaceCss(collectFontFamilies(t.markup));
         return { slide: t.slide, kind: t.kind, chartType: t.chartType, svg: finalizeStandaloneSvg(t.markup, { fontFaceCss, background: svgBg }) };
       });
-      // HONESTY: the in-place restyle recolors token-driven charts fully, but Mermaid DIAGRAMS
-      // bake their node text / edge colors at render time (mmdc), so those stay in the SLIDE
-      // scheme. That only READS WRONG when the baked text and the look's canvas collide in
-      // brightness: dark-baked text (a light/print slide) on a DARK canvas, or light-baked text
-      // (a dark slide) on a WHITE canvas. The common light-deck → print/light look is fine (dark
-      // text on white), so it stays quiet. Warn only on the genuine contrast clash, and point at
-      // the surfaces that DO re-bake. (The Studio re-renders the deck in the look — no such gap.)
-      const bakedTextDark = resolvedScheme !== 'dark';       // light/print slide → dark diagram ink
-      const canvasDark = lookMode === 'dark';                // the look's baked canvas
-      if (lookMode && svgAssets.some((a) => a.kind === 'diagram') && bakedTextDark === canvasDark) {
-        console.warn(`  ⚠ --svg-background ${effectiveSvgBackground}: Mermaid diagram text/edges keep the slide scheme's baked colors and will read low-contrast against this look's canvas (charts recolor fully). For fully re-baked diagrams, use the Studio export or render the whole set with --image-mode ${lookMode}.`);
-      }
     }
 
     // Per-slide titles for the manifest — the slide's first heading (unaffected by the look).

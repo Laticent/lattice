@@ -521,6 +521,71 @@ describe('export-formats', () => {
     }
   });
 
+  test('a dark-source deck exports a print-safe (B&W) Mermaid diagram under --svg-background print', { timeout: TIMEOUT }, async () => {
+    // The gap this closes: mmdc bakes diagram colors at render time, so a dark deck's diagram used to
+    // export in its dark scheme (light text) even when the SVG look is print. The CLI now RE-BAKES the
+    // diagram print-safe. Assert the standalone diagram carries dark ink, not the dark-scheme light text.
+    const dir = tmpDir();
+    const src = path.join(dir, 'darkdeck.md');
+    fs.writeFileSync(src, '---\ntheme: indaco\ncolor-mode: dark\n---\n\n# Dark deck\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Go}\n  B -->|yes| C[Ship]\n```\n');
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    // Select the DIAGRAM asset by manifest kind (not the first svg), so a future chart asset
+    // can't be picked by accident.
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    const diagram = manifest.assets.find((a) => a.kind === 'diagram');
+    assert.ok(diagram, 'a standalone Mermaid diagram asset was exported');
+    const svg = await zip.file(`deck/${diagram.file}`).async('string');
+    // Print re-bake proof. `saturatedRe` is the real discriminator: the deck's saturated category
+    // color (indaco's node blue) is prominent in the dark bake and GONE after a print re-bake, so its
+    // absence proves grayscale conversion (not just "some dark ink"). `inkRe` is a non-vacuous sanity
+    // check that print ink is present. Both regexes match the `fill="…"` attribute and `fill:…` style
+    // forms (hex or rgb) so serialization tweaks don't make the test brittle. (A print diagram
+    // legitimately keeps white NODE fills, so "no white" is not a valid signal.)
+    const inkRe = /fill\s*[:=]\s*["']?\s*(?:rgb\(\s*26\s*,\s*26\s*,\s*26\s*\)|#1a1a1a|#000000|black)\b/i;
+    const saturatedRe = /fill\s*[:=]\s*["']?\s*(?:rgb\(\s*0\s*,\s*99\s*,\s*152\s*\)|#006398)\b/i;
+    assert.match(svg, inkRe, 'diagram carries print B&W ink (attribute or style form)');
+    assert.doesNotMatch(svg, saturatedRe, 'the dark/color node color was converted to grayscale by the print re-bake');
+  });
+
+  test('multi-diagram dark deck → print: each plain diagram converts; an author-themed one is flagged not converted', { timeout: TIMEOUT }, async () => {
+    // Exercises per-index alignment across MULTIPLE diagrams AND the honesty guard: a plain diagram
+    // re-bakes to grayscale, while an author `%%{init}%%`-themed diagram keeps its colors and the CLI
+    // warns rather than claiming a conversion it can't make.
+    const dir = tmpDir();
+    const src = path.join(dir, 'multi.md');
+    fs.writeFileSync(src,
+      '---\ntheme: indaco\ncolor-mode: dark\n---\n\n' +
+      '# One\n\n```mermaid\nflowchart LR\n  A[Alpha] --> B[Beta]\n```\n\n' +
+      '---\n\n# Two\n\n```mermaid\nflowchart LR\n  C[Gamma] --> D[Delta]\n```\n\n' +
+      "---\n\n# Three\n\n```mermaid\n%%{init: {'theme':'forest'}}%%\nflowchart LR\n  E[Epsilon] --> F[Zeta]\n```\n");
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--image-mode', 'dark', '--svg-background', 'print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    // The author-themed diagram is flagged, ungated by --quiet (it was NOT passed here anyway).
+    assert.match(r.stderr + r.stdout, /could not be made fully B&W-safe/, 'CLI warns the themed diagram is not print-safe');
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    const diagrams = manifest.assets.filter((a) => a.kind === 'diagram').sort((a, b) => a.slide - b.slide);
+    assert.equal(diagrams.length, 3, 'all three diagrams exported (per-index alignment held)');
+    const saturatedRe = /fill\s*[:=]\s*["']?\s*(?:rgb\(\s*0\s*,\s*99\s*,\s*152\s*\)|#006398)\b/i;
+    const forestRe = /#13540c|#6eaa49|#cde498|#cdffb2/i; // mermaid 'forest' greens
+    // Slides 1 & 2: plain diagrams → grayscale (no indaco blue).
+    for (const d of diagrams.slice(0, 2)) {
+      assert.doesNotMatch(await zip.file(`deck/${d.file}`).async('string'), saturatedRe, `slide ${d.slide} diagram converted to grayscale`);
+    }
+    // Slide 3: author 'forest' theme survives (proves it was NOT falsely converted).
+    assert.match(await zip.file(`deck/${diagrams[2].file}`).async('string'), forestRe, 'the author-themed diagram kept its own colors');
+  });
+
   test('the standalone --print flag (not --image-mode) is authoritative for the manifest scheme', { timeout: TIMEOUT }, async () => {
     // `deck.md out.zip --print` stamps the print canvas (WANT_PRINT) but leaves --image-mode at
     // its 'inherit' default — the manifest must still record 'print' to match the ink-on-white
