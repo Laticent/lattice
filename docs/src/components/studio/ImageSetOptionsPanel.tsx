@@ -83,6 +83,7 @@ export function ImageSetOptionsPanel({
 	const [size, setSize] = React.useState<Size>('max');
 	const [quality, setQuality] = React.useState(92);
 	const [thumbnails, setThumbnails] = React.useState(true);
+	const [thumbWidth, setThumbWidth] = React.useState(480);
 	const [extractSvg, setExtractSvg] = React.useState(true);
 	const [mode, setMode] = React.useState<Mode>('inherit');
 	const [svgBackground, setSvgBackground] = React.useState<SvgBg>('inherit');
@@ -141,11 +142,19 @@ export function ImageSetOptionsPanel({
 							<ImageDown className="mt-0.5 size-4 text-[var(--accent)]" />
 							<span>
 								<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Thumbnails</span>
-								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">A small 480px-wide image per slide, under <code>thumbnails/</code> — handy for contact sheets and previews.</span>
+								<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">A small companion image per slide, under <code>thumbnails/</code> — handy for contact sheets and previews.</span>
 							</span>
 						</span>
 						<Switch className="mt-0.5" aria-label="Include thumbnails" checked={thumbnails} disabled={busy} onCheckedChange={setThumbnails} />
 					</div>
+					{thumbnails && (
+						<div className="mt-3 border-t border-border pt-3">
+							<div className="flex items-center justify-between text-[11.5px] font-semibold text-muted-foreground">
+								<span>Width</span><span className="tabular-nums text-[var(--text-heading)]">{thumbWidth}px</span>
+							</div>
+							<Slider className="mt-1.5" value={thumbWidth} min={160} max={960} step={40} disabled={busy} onValueChange={setThumbWidth} aria-label="Thumbnail width" />
+						</div>
+					)}
 				</div>
 
 				{/* SVG extraction — the deck's vector charts & diagrams as standalone files. */}
@@ -173,7 +182,7 @@ export function ImageSetOptionsPanel({
 			<button
 				type="button"
 				disabled={busy}
-				onClick={() => onExport({ format, size, quality, thumbnails, extractSvg, mode, svgBackground })}
+				onClick={() => onExport({ format, size, quality, thumbnails, thumbWidth, extractSvg, mode, svgBackground })}
 				className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 py-3 text-[13.5px] font-semibold text-[var(--on-accent,#fff)] hover:opacity-90 disabled:opacity-60"
 			>
 				{busy ? <Loader2 className="size-4 animate-spin" /> : <FileImage className="size-4" />}

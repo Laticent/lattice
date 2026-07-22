@@ -22,7 +22,7 @@ Export any deck as an image set — a single `.zip` holding one image per slide,
 
 The image set is the format for anywhere a PDF or PPTX won't go — a webpage hero, a Figma frame, a Notion embed, a social card, a design handoff.
 
-- **Slides** — one full raster per slide, lossless PNG at 2× by default. Drop each straight into a doc or a deck-review thread.
+- **Slides** — one full raster per slide, lossless PNG at the highest sensible resolution: the scale is capped so the long edge never exceeds 3840px (HD exports at 2×; a 4K deck like this one at 1×, already near-native). Drop each straight into a doc or a deck-review thread.
 - **Thumbnails** — a small companion image per slide, for contact sheets and pickers.
 - **Assets** — every chart and Mermaid diagram lifted out as its own `.svg`, theme-free with fonts embedded, so it scales cleanly anywhere.
 
@@ -33,7 +33,7 @@ The image set is the format for anywhere a PDF or PPTX won't go — a webpage he
 ## Tune size against fidelity — the default is already perfect.
 
 - **Format.** PNG is lossless and the default. JPEG and WebP are lossy levers for a lighter set; WebP is the smallest at equal quality.
-- **Resolution.** `Full` is fidelity-first (2× HD). Step down to `1×` or `half` to shrink each image — and the whole zip — when bytes matter more than pixels.
+- **Resolution.** `Full` is fidelity-first — the largest scale within a 3840px long-edge budget (2× for HD, 1× for a 4K deck). Step down to `1×` or `half` to shrink each image — and the whole zip — when bytes matter more than pixels.
 - **Thumbnails and SVGs** ride along by default; turn either off for a leaner archive.
 
 ---

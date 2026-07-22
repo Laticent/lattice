@@ -1072,7 +1072,9 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 		if (!sections.length) throw new Error('Nothing to export — the deck rendered no slides.');
 		const { w, h } = slideGeom(sections[0]);
 		const scale = core.resolveRasterScale(options.size, w, h);
-		const thumbScale = core.resolveThumbScale(options.thumbWidth, w);
+		// Pass the resolved raster scale so a thumbnail can never come out bigger than the full
+		// image it thumbnails (matches the CLI + the manifest's recorded thumb dims).
+		const thumbScale = core.resolveThumbScale(options.thumbWidth, w, scale);
 
 		// (1) Full raster per slide, at the size preset — from the slide-mode render.
 		const images = [];
@@ -1124,9 +1126,11 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 					// BOTH so the Studio extracts the same diagrams the CLI does. (The
 					// `.mermaid-error` sibling has no <svg>, so it's never matched.)
 					sec.querySelectorAll('.mermaid-svg svg, .mermaid svg').forEach((s) => { targets.push([s, 'diagram', null]); });
-					if (sec.classList.contains('chart-frame') && CLEAN_SVG_LAYOUTS.some((c) => sec.classList.contains(c))) {
+					// Single-sourced with the CLI via the kernel (core.KEYED_CHART_LAYOUTS) so the two
+					// surfaces can't drift on which sections yield a standalone chart / its chartType.
+					if (sec.classList.contains('chart-frame') && core.KEYED_CHART_LAYOUTS.some((c) => sec.classList.contains(c))) {
 						// The keyed chart's layout class (piechart/radar/…) is the manifest's chartType.
-						const ct = CLEAN_SVG_LAYOUTS.find((c) => sec.classList.contains(c)) || null;
+						const ct = core.KEYED_CHART_LAYOUTS.find((c) => sec.classList.contains(c)) || null;
 						sec.querySelectorAll('svg[viewBox]').forEach((s) => { targets.push([s, 'chart', ct]); });
 					}
 					for (const [svg, kind, chartType] of targets) {

@@ -41,6 +41,7 @@ var require_image_set = __commonJS({
     var SVG_BACKGROUNDS2 = ["inherit", "light", "dark", "print"];
     var SVG_BACKGROUND_FILL2 = { inherit: null, light: "#ffffff", dark: "#111317", print: "#ffffff" };
     var SVG_LOOK_MODE2 = { inherit: null, light: "light", dark: "dark", print: "print" };
+    var KEYED_CHART_LAYOUTS2 = ["piechart", "radar", "map", "quadrant", "funnel"];
     var DEFAULTS2 = Object.freeze({
       format: "png",
       size: "max",
@@ -93,14 +94,17 @@ var require_image_set = __commonJS({
           return Math.min(1, cap);
         case "half":
           return Math.min(0.5, cap);
-        // 'max' (and any unknown value) → fidelity-first, capped at the long-edge budget.
+        // 'max' (and any unknown value) → fidelity-first: the largest whole factor within budget,
+        // but if a single 1× already exceeds the budget (an oversized custom `@size` wider than
+        // RASTER_MAX_EDGE) fall to the sub-1 cap so the long edge STILL can't blow past it.
         default:
-          return Math.max(1, Math.min(2, Math.floor(cap)));
+          return cap < 1 ? cap : Math.min(2, Math.max(1, Math.floor(cap)));
       }
     }
-    function resolveThumbScale2(thumbWidth, slideW) {
+    function resolveThumbScale2(thumbWidth, slideW, rasterScale = 1) {
       const w = Number(slideW) || 1280;
-      return Math.min(1, (Number(thumbWidth) || DEFAULTS2.thumbWidth) / w);
+      const cap = Number(rasterScale) > 0 ? Number(rasterScale) : 1;
+      return Math.min(cap, (Number(thumbWidth) || DEFAULTS2.thumbWidth) / w);
     }
     var PHYSICAL_LONG_EDGE_IN2 = 13.333;
     function orientationOf2(w, h) {
@@ -160,7 +164,7 @@ var require_image_set = __commonJS({
     function embedPngDpi(bytes, dpi) {
       const SIG = [137, 80, 78, 71, 13, 10, 26, 10];
       if (bytes.length < 8 + 25) return bytes;
-      for (let i = 0; i < 8; i++) if (bytes[i] !== SIG[i]) return bytes;
+      for (let i2 = 0; i2 < 8; i2++) if (bytes[i2] !== SIG[i2]) return bytes;
       const ihdrType = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
       if (ihdrType !== "IHDR") return bytes;
       const ihdrEnd = 8 + 25;
@@ -168,11 +172,45 @@ var require_image_set = __commonJS({
       const data = u8(be32(ppm), be32(ppm), Uint8Array.of(1));
       const typeAndData = u8(Uint8Array.of(112, 72, 89, 115), data);
       const chunk = u8(be32(9), typeAndData, be32(crc32(typeAndData)));
+      let i = ihdrEnd;
+      let dropped = false;
+      while (i + 8 <= bytes.length) {
+        const len = (bytes[i] << 24 >>> 0) + (bytes[i + 1] << 16) + (bytes[i + 2] << 8) + bytes[i + 3];
+        const type = String.fromCharCode(bytes[i + 4], bytes[i + 5], bytes[i + 6], bytes[i + 7]);
+        const end = i + 12 + len;
+        if (len < 0 || end > bytes.length) break;
+        if (type === "IDAT") break;
+        if (type === "pHYs") {
+          dropped = true;
+          i = end;
+          continue;
+        }
+        i = end;
+      }
+      if (dropped) {
+        const kept = [];
+        let j = ihdrEnd;
+        while (j + 8 <= bytes.length) {
+          const len = (bytes[j] << 24 >>> 0) + (bytes[j + 1] << 16) + (bytes[j + 2] << 8) + bytes[j + 3];
+          const type = String.fromCharCode(bytes[j + 4], bytes[j + 5], bytes[j + 6], bytes[j + 7]);
+          const end = j + 12 + len;
+          if (len < 0 || end > bytes.length) {
+            kept.push(bytes.subarray(j));
+            j = bytes.length;
+            break;
+          }
+          if (type !== "pHYs") kept.push(bytes.subarray(j, end));
+          j = end;
+        }
+        return u8(bytes.subarray(0, ihdrEnd), chunk, ...kept);
+      }
       return u8(bytes.subarray(0, ihdrEnd), chunk, bytes.subarray(ihdrEnd));
     }
     function embedJpegDpi(bytes, dpi) {
       if (bytes.length < 20 || bytes[0] !== 255 || bytes[1] !== 216) return bytes;
       if (bytes[2] !== 255 || bytes[3] !== 224) return bytes;
+      const app0Len = bytes[4] << 8 | bytes[5];
+      if (app0Len < 16) return bytes;
       const isJfif = bytes[6] === 74 && bytes[7] === 70 && bytes[8] === 73 && bytes[9] === 70 && bytes[10] === 0;
       if (!isJfif) return bytes;
       const d = Math.min(65535, Math.max(1, Math.round(dpi)));
@@ -201,7 +239,8 @@ var require_image_set = __commonJS({
     function deckSlug2(name) {
       const s = String(name || "deck").trim().replace(/[^\w.-]+/g, "-").replace(/^[-.]+|[-.]+$/g, "").slice(0, 60);
       if (!s || /^\.+$/.test(s)) return "deck";
-      if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(s)) return `deck-${s}`;
+      const stem = s.split(".")[0];
+      if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(stem)) return `deck-${s}`;
       return s;
     }
     function slideEntryName2(slug, index, count, ext) {
@@ -232,8 +271,10 @@ var require_image_set = __commonJS({
         title: p.title || null,
         palette: p.palette || null,
         engine: { name: "lattice", version: p.engineVersion || null },
-        // Provenance — a stamp of WHEN the set was made. Omitted when the surface doesn't pass
-        // one (keeps the manifest byte-reproducible for callers that want that).
+        // Provenance — a stamp of WHEN the set was made. Omitted when the surface doesn't pass one
+        // (a caller wanting a stable manifest can leave it out). NOTE: both shipping surfaces do pass
+        // `new Date()`, and JSZip stamps each entry's mtime with the wall clock regardless, so the
+        // .zip itself is not byte-reproducible today — this only keeps the manifest JSON stable.
         ...p.createdAt ? { createdAt: p.createdAt } : {},
         format: opts.format,
         mime: meta.mime,
@@ -271,7 +312,7 @@ var require_image_set = __commonJS({
         }))
       };
       if (opts.thumbnails && thumbs.length) {
-        const ts = resolveThumbScale2(opts.thumbWidth, geom.w);
+        const ts = resolveThumbScale2(opts.thumbWidth, geom.w, scale);
         out.thumbnail = { width: Math.round(geom.w * ts), height: Math.round(geom.h * ts) };
       }
       return out;
@@ -345,6 +386,7 @@ var require_image_set = __commonJS({
       SVG_BACKGROUNDS: SVG_BACKGROUNDS2,
       SVG_BACKGROUND_FILL: SVG_BACKGROUND_FILL2,
       SVG_LOOK_MODE: SVG_LOOK_MODE2,
+      KEYED_CHART_LAYOUTS: KEYED_CHART_LAYOUTS2,
       DEFAULTS: DEFAULTS2,
       normalizeImageSetOptions: normalizeImageSetOptions2,
       resolveRasterScale: resolveRasterScale2,
@@ -380,6 +422,7 @@ var {
   SVG_BACKGROUNDS,
   SVG_BACKGROUND_FILL,
   SVG_LOOK_MODE,
+  KEYED_CHART_LAYOUTS,
   DEFAULTS,
   normalizeImageSetOptions,
   resolveRasterScale,
@@ -406,6 +449,7 @@ export {
   DEFAULTS,
   FORMAT_META,
   IMAGE_FORMATS,
+  KEYED_CHART_LAYOUTS,
   PHYSICAL_LONG_EDGE_IN,
   RASTER_MAX_EDGE,
   SIZE_PRESETS,

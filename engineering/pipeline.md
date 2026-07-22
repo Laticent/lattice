@@ -128,6 +128,9 @@ right physical size instead of the tool's 96dpi guess.
 **One contract, two surfaces.** The zip layout, file naming, size presets, DPI, and
 manifest live in one pure kernel (`lib/export/image-set.js`), so the CLI here and
 the Studio's Share → **Images (.zip)** export emit the same set (HARD RULE #1).
+For a **very large or 4K deck, prefer this CLI**: the Studio rasterizes in-tab and holds
+every slide + thumbnail blob in browser memory at once, so a big deck can exhaust a
+mobile/Safari tab — the CLI (Node, no per-tab ceiling) has no such limit.
 The per-slide raster differs by surface (headless Chromium screenshots here;
 `html-to-image` → `canvas` in the browser); the standalone SVGs reuse the
 chart-SVG flatten kernel (`lib/components/chart/_chart-family/standalone-svg.js`,

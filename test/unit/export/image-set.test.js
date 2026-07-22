@@ -76,6 +76,14 @@ describe('image-set: resolveRasterScale', () => {
   test('unknown preset behaves like max', () => {
     assert.equal(IS.resolveRasterScale('bogus', 1280, 720), 2);
   });
+  test('max never lets the long edge exceed RASTER_MAX_EDGE (oversized custom @size)', () => {
+    // A custom @size wider than the 3840 budget must fall to a sub-1 scale, not silently 1×.
+    for (const [w, h] of [[5000, 2812], [7680, 4320], [10000, 5000]]) {
+      const s = IS.resolveRasterScale('max', w, h);
+      assert.ok(Math.max(w, h) * s <= IS.RASTER_MAX_EDGE + 0.5, `${w}x${h} @max stays within budget`);
+    }
+    assert.equal(IS.resolveRasterScale('max', 3840, 2160), 1); // exactly at budget → 1×
+  });
 });
 
 describe('image-set: svgBackgroundFill', () => {
@@ -177,6 +185,35 @@ describe('image-set: embedRasterDpi', () => {
     assert.deepEqual([...buf], src, 'the input Buffer is untouched');
   });
 
+  test('PNG that already carries a pHYs ends with exactly ONE (no spec-violating duplicate)', () => {
+    const be32 = (n) => Uint8Array.of((n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255);
+    const cat = (...a) => { const t = []; for (const x of a) t.push(...x); return Uint8Array.from(t); };
+    const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    const ihdr = cat(be32(13), Uint8Array.of(0x49, 0x48, 0x44, 0x52), new Uint8Array(13), be32(0));
+    const stalePhys = cat(be32(9), Uint8Array.of(0x70, 0x48, 0x59, 0x73), new Uint8Array(9), be32(0));
+    const idat = cat(be32(0), Uint8Array.of(0x49, 0x44, 0x41, 0x54), be32(0));
+    const src = cat(Uint8Array.from(sig), ihdr, stalePhys, idat);
+    const out = IS.embedRasterDpi(Buffer.from(src), 'png', 192);
+    let count = 0, i = 8;
+    while (i + 8 <= out.length) {
+      const len = (out[i] << 24 >>> 0) + (out[i + 1] << 16) + (out[i + 2] << 8) + out[i + 3];
+      const type = String.fromCharCode(out[i + 4], out[i + 5], out[i + 6], out[i + 7]);
+      if (type === 'pHYs') count++;
+      if (type === 'IDAT') break;
+      i += 12 + len;
+    }
+    assert.equal(count, 1, 'the stale pHYs is replaced, not duplicated');
+  });
+
+  test('malformed JPEG APP0 (declared length < 16) is left unchanged, not mis-patched', () => {
+    // APP0 says length 8 but carries "JFIF\0"; bytes 13-17 belong to the NEXT marker (SOF0).
+    const badApp0 = Uint8Array.from([
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x08, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
+      0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x10,
+    ]);
+    assert.equal(IS.embedRasterDpi(badApp0, 'jpeg', 192), badApp0, 'a short APP0 is not patched');
+  });
+
   test('WebP / unknown / bad dpi is returned unchanged', () => {
     const webp = Uint8Array.from([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4]);
     assert.equal(IS.embedRasterDpi(webp, 'webp', 192), webp);
@@ -194,6 +231,13 @@ describe('image-set: resolveThumbScale', () => {
   test('shrinks to the target width, never upscales', () => {
     assert.equal(IS.resolveThumbScale(480, 1280), 480 / 1280);
     assert.equal(IS.resolveThumbScale(480, 320), 1); // slide already smaller than the thumb → 1×
+  });
+  test('never exceeds the full raster scale (a sub-1× --image-size caps the thumb)', () => {
+    // half-size raster of a 1280px slide is 640px wide; a 700px thumb must clamp to that, not
+    // come out BIGGER than the image it thumbnails.
+    assert.equal(IS.resolveThumbScale(700, 1280, 0.5), 0.5);
+    assert.equal(IS.resolveThumbScale(480, 1280, 0.5), Math.min(0.5, 480 / 1280)); // 0.375 < 0.5 → 0.375
+    assert.equal(IS.resolveThumbScale(480, 1280, 2), 480 / 1280); // full 2× headroom → unclamped
   });
 });
 
@@ -216,6 +260,11 @@ describe('image-set: naming', () => {
     assert.equal(IS.deckSlug('CON'), 'deck-CON');
     assert.equal(IS.deckSlug('nul'), 'deck-nul');
     assert.equal(IS.deckSlug('v1.2'), 'v1.2');           // internal dots kept
+    // Windows reserves the device name regardless of extension — the STEM is what matters.
+    assert.equal(IS.deckSlug('nul.txt'), 'deck-nul.txt');
+    assert.equal(IS.deckSlug('con.md'), 'deck-con.md');
+    assert.equal(IS.deckSlug('lpt1.zip'), 'deck-lpt1.zip');
+    assert.equal(IS.deckSlug('nuls.md'), 'nuls.md');     // not a reserved stem → untouched
   });
   test('entry names land in their folders with padded indices', () => {
     assert.equal(IS.slideEntryName('acme', 2, 12, 'png'), 'slides/acme-03.png');

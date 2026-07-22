@@ -33,7 +33,7 @@ const ENTRY_CONTENTS = `
 import core from './image-set.js';
 export const {
   IMAGE_FORMATS, FORMAT_META, SIZE_PRESETS, RASTER_MAX_EDGE,
-  COLOR_MODES, SVG_BACKGROUNDS, SVG_BACKGROUND_FILL, SVG_LOOK_MODE, DEFAULTS,
+  COLOR_MODES, SVG_BACKGROUNDS, SVG_BACKGROUND_FILL, SVG_LOOK_MODE, KEYED_CHART_LAYOUTS, DEFAULTS,
   normalizeImageSetOptions, resolveRasterScale, resolveThumbScale, svgBackgroundFill, svgLookMode,
   PHYSICAL_LONG_EDGE_IN, orientationOf, physicalSize, dpiFor, dataByteLength, embedRasterDpi,
   padWidth, deckSlug, slideEntryName, thumbEntryName, assetEntryName,

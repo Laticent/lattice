@@ -574,7 +574,33 @@ describe('export-formats', () => {
     assert.ok(pHYs > 0, 'pHYs chunk present');
     const ppm = png.readUInt32BE(pHYs + 4);
     assert.equal(Math.round(ppm * 0.0254), 192, 'pHYs encodes 192 dpi');
-    assert.equal(png[pHYs + 12], 1, 'pHYs unit = metre');
+    assert.equal(png[pHYs + 12], 1, 'pHYs unit = meter');
+  });
+
+  test('--image-format webp + --image-quality + --thumb-width produce the requested set', { timeout: TIMEOUT }, async () => {
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet',
+      '--image-format', 'webp', '--image-quality', '70', '--thumb-width', '640'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const m = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    // Format + quality land in the manifest and the file extensions.
+    assert.equal(m.format, 'webp');
+    assert.equal(m.mime, 'image/webp');
+    assert.equal(m.quality, 70);
+    assert.ok(m.slides[0].image.endsWith('.webp'), 'slides are .webp');
+    // The bytes are a real WebP (RIFF....WEBP container).
+    const img = await zip.file(`deck/${m.slides[0].image}`).async('nodebuffer');
+    assert.equal(img.subarray(0, 4).toString('latin1'), 'RIFF', 'RIFF container');
+    assert.equal(img.subarray(8, 12).toString('latin1'), 'WEBP', 'WEBP form');
+    // --thumb-width 640 on a 1280px HD slide → a 0.5× thumb: 640×360, reflected in the manifest.
+    assert.deepEqual(m.thumbnail, { width: 640, height: 360 });
+    // …and the thumbnail is never bigger than the full raster.
+    assert.ok(m.thumbnail.width <= m.pixel.width, 'thumb no wider than the full image');
   });
 
   // Accessibility: the exported PDF shell must carry the deck's title + language, so a

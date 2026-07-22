@@ -426,7 +426,7 @@ const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx'
 // Image-set tuning, normalized to a complete config (defaults = perfect-fidelity PNG,
 // thumbnails on, SVG extraction on). Resolved even for non-imageset outputs — it is
 // inert there. Undefined flags fall through to the kernel's DEFAULTS.
-const { normalizeImageSetOptions, resolveRasterScale, resolveThumbScale, svgBackgroundFill, svgLookMode, dpiFor, embedRasterDpi } = require('./lib/export/image-set');
+const { normalizeImageSetOptions, resolveRasterScale, resolveThumbScale, svgBackgroundFill, svgLookMode, dpiFor, embedRasterDpi, KEYED_CHART_LAYOUTS } = require('./lib/export/image-set');
 const IMAGE_SET_OPTS = normalizeImageSetOptions({
   format: flags['image-format'],
   size: flags['image-size'],
@@ -2266,7 +2266,7 @@ async function renderBody(browser, g, closeBrowser) {
     // the thumbnail is a faithful shrink of the full image.
     const thumbs = [];
     if (IMAGE_SET_OPTS.thumbnails) {
-      const thumbScale = resolveThumbScale(IMAGE_SET_OPTS.thumbWidth, slideW);
+      const thumbScale = resolveThumbScale(IMAGE_SET_OPTS.thumbWidth, slideW, rasterScale);
       await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: thumbScale }), 'set thumb viewport');
       const thumbHandles = await g(() => page.$$('section[data-lattice-slide]'), 'collect thumb handles');
       for (const h of thumbHandles) {
@@ -2326,8 +2326,7 @@ async function renderBody(browser, g, closeBrowser) {
       const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } =
         require('./lib/components/chart/_chart-family/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenSvgStyles.toString()};`), 'inject svg flattener');
-      const raw = await g(() => page.evaluate(() => {
-        const KEYED = ['piechart', 'radar', 'map', 'quadrant', 'funnel'];
+      const raw = await g(() => page.evaluate((KEYED) => {
         const ser = new XMLSerializer();
         const out = [];
         document.querySelectorAll('section[data-lattice-slide]').forEach((sec, si) => {
@@ -2347,7 +2346,7 @@ async function renderBody(browser, g, closeBrowser) {
           }
         });
         return out;
-      }), 'extract standalone svgs');
+      }, KEYED_CHART_LAYOUTS), 'extract standalone svgs');
       const svgBg = svgBackgroundFill(effectiveSvgBackground);
       svgAssets = raw.map((t) => {
         const fontFaceCss = standaloneFontFaceCss(collectFontFamilies(t.markup));
