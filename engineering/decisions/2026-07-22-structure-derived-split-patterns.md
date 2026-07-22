@@ -1,13 +1,13 @@
 ---
 status: proposed
-summary: Make auto-split less component-centric — hardened by TWO HARD RULE #25 trio passes (§12) + owner design review. The split kernel is generic. The rendered structure supplies a CANDIDATE axis (list→item, table→row, svg→container-responsive), realized only for opted-in seams; one per-component discriminator (connected/read-across) plus a small retained vector (opt-in gate, heavy/light, reshape, pacing) decides treatment. Graphics are container-responsive (not "scaled"); a viewBox graphic still needs a legibility floor→ring; atomic text grids (matrix/table) can't scale or split (ring on overflow). Every split rides a universal envelope (COVER → BODY → optional CLOSING, §0a); heavy members atomize deterministically (1 per slide) and connected/related members carry a relationship signal (→next / ↻loop / compare N-of-M). All 59 components placed (§0c). The mechanism win is collapsing the 9 carousel DOM-parsers into content-conservation-gated slot re-authors.
+summary: Make auto-split less component-centric — hardened by TWO HARD RULE #25 trio passes (§12) + owner design review. The split kernel is generic. The rendered structure supplies a CANDIDATE axis (list→item, table→row, svg→container-responsive), realized only for opted-in seams; one per-component discriminator (connected/read-across) plus a small retained vector (opt-in gate, heavy/light, reshape, pacing) decides treatment. Graphics are container-responsive (not "scaled"); a viewBox graphic still needs a legibility floor→ring; atomic text-grid tables (roadmap/obligation-matrix, no viewBox) can't scale or split — ring on overflow — unlike glossary, which pivots its table. Every split rides a universal envelope (COVER → BODY → optional CLOSING, §0a); heavy members atomize deterministically (1 per slide) and connected/related members carry a relationship signal (→next / ↻loop / compare N-of-M). All 59 components placed (§0c). The mechanism win is collapsing the 9 carousel DOM-parsers into content-conservation-gated slot re-authors.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-06-21-reflow-as-form-capability.md, 2026-06-23-read-across-carousel.md, 2026-06-25-retire-landscape-locks-portrait-everything.md
 ---
 
 # Structure-derived split patterns — structure supplies the mechanism, not the policy
 
 **Date:** 2026-07-22 · **Status:** Proposed (design model; no code) — **hardened
-by the HARD RULE #25 adversarial trio, §12** · **Decision owner:** Sharmarke
+by two HARD RULE #25 adversarial trio passes, §12** · **Decision owner:** Sharmarke
 
 The prompt behind this doc: *the auto-splitter and the fluid work are excellent,
 but they still feel component-centric — we hand-craft split behavior per
