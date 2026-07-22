@@ -99,16 +99,32 @@ jobs:
         # errors (card-style inline-title, ordered-list bold) and warnings
         # (unknown _class tokens) fail.
         run: npm run lint:deck:all
+      # ── Artifact freshness — ALWAYS runs, on EVERY PR ──────────────────────
+      # build:check regenerates EVERY committed generated artifact (dist bundles,
+      # spec docs, the capability + DECISION indexes, dist README) and byte-diffs.
+      # It lives in this ALWAYS-ON job, deliberately NOT behind the code/docs paths
+      # filter, because some of its inputs match NEITHER filter — e.g. a new
+      # engineering/decisions/*.md stales engineering/decisions/README.md, and
+      # engineering/** is in no filter. Gating it let a stale generated file pass a
+      # docs/prose-only PR's green checks and then FAIL in the merge queue (which
+      # forces the full suite on merge_group), ejecting the PR *silently* — the exact
+      # trap this closes. Render-free + deterministic (a pure byte-diff), so it's
+      # cheap to always run and never false-positives. Root deps suffice (it built
+      # fine in the old `unit` home with root-only `npm ci`).
+      # See engineering/decisions/2026-07-22-freshness-gate-always-on.md.
+      - name: Artifact freshness gate (build --check, no render)
+        run: npm run build:check
 
-  # ── Unit + artifact-freshness — code changes only ──────────────────────
+  # ── Unit — code changes only ────────────────────────────────────────────
   # The engines claim is `>=22`. The FULL unit suite runs on 22; on 24 a
   # representative engine smoke subset (core/engine/parsing/
   # transformers) confirms cross-version compat without paying 2× the whole
   # suite — pure-JS Node-version risk is low and concentrated in the engine
   # paths. See engineering/decisions/2026-06-17-workflow-efficiency-review.md §D.
-  # build:check (regen + byte-diff of every generated artifact: css, default
-  # bundle, runtime/emulator bundles, component docs, portal, dist README —
-  # render-free) runs once, on 22.
+  # NOTE: the artifact-freshness gate (build:check) used to live here, gated on
+  # `code`; it moved to the ALWAYS-ON `lint` job so a stale generated file can't
+  # slip past a docs/prose-only PR and then eject it from the merge queue (see the
+  # lint job + engineering/decisions/2026-07-22-freshness-gate-always-on.md).
   unit:
     needs: changes
     if: needs.changes.outputs.code == 'true'
@@ -127,9 +143,6 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
-      - name: Artifact freshness gate (build --check, no render)
-        if: matrix.node-version == 22
-        run: npm run build:check
       - name: Playground bundle freshness gate (byte-diff, no render)
         # The docs-site playground bundle (docs/public/playground/
         # lattice-playground.js) is generated from lib/playground + its imports
