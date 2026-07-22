@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Make auto-split less component-centric — hardened by the HARD RULE #25 trio (§12) and resolved into a settled model (§0b) through owner design review. The split kernel is generic. Key correction: the split runs on RENDERED HTML, where the axis IS derivable from structure (list→item, table→row/pivot, svg→scale, pre→code-cards) — graphics scale, text splits; only ONE per-component bit (connected/read-across) is irreducible, and it decides treatment. Every split rides a universal envelope (COVER → BODY → optional CLOSING, §0a) and targets the sweet count (heavy members like cards and record rows get their own slide). All 59 components have a treatment (§0c). The mechanism win is collapsing the 9 carousel DOM-parsers into content-conservation-gated slot re-authors.
+summary: Make auto-split less component-centric — hardened by TWO HARD RULE #25 trio passes (§12) + owner design review. The split kernel is generic. The rendered structure supplies a CANDIDATE axis (list→item, table→row, svg→container-responsive), realized only for opted-in seams; one per-component discriminator (connected/read-across) plus a small retained vector (opt-in gate, heavy/light, reshape, pacing) decides treatment. Graphics are container-responsive (not "scaled"); a viewBox graphic still needs a legibility floor→ring; atomic text grids (matrix/table) can't scale or split (ring on overflow). Every split rides a universal envelope (COVER → BODY → optional CLOSING, §0a); heavy members atomize deterministically (1 per slide) and connected/related members carry a relationship signal (→next / ↻loop / compare N-of-M). All 59 components placed (§0c). The mechanism win is collapsing the 9 carousel DOM-parsers into content-conservation-gated slot re-authors.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-06-21-reflow-as-form-capability.md, 2026-06-23-read-across-carousel.md, 2026-06-25-retire-landscape-locks-portrait-everything.md
 ---
 
@@ -89,54 +89,91 @@ slide is worth splitting it carries material worth a cover.
 exploratory §3–§4, **this synthesis governs**; those sections are kept as the
 derivation that led here.*
 
-**Every split is two moves, and only one needs a per-component signal.**
+**Every split is two moves. Structure supplies a *candidate*; one per-component
+discriminator (plus a small retained vector) decides the treatment.**
 
-**Move 1 — the axis comes from the RENDERED structure (free, no declaration).**
-Auto-split runs on the *rendered* deck, not the authored markdown, so the split
-axis reads straight off the DOM:
+**Move 1 — the rendered structure supplies a CANDIDATE axis (realized only for
+opted-in seams).** Auto-split runs on the *rendered* deck, so the DOM offers a
+candidate axis:
 
-| Rendered structure | Split |
+| Rendered structure | Candidate split |
 |---|---|
 | `<ul>` / `<ol>` | by list item |
-| `<table>` | by row (pivoted to a key→value card) |
+| `<table>` | by row (glossary pivots to a key→value card via its table transform) |
 | `<svg>` / single figure | **none — container-responsive (the parent box sizes it)** |
-| `<pre>` | code-cards by line / block |
+| `<pre>` | **code-cards by line / block — PROPOSED, not shipped** (`partitionAxis` refuses the `line` axis today) |
 
-This **corrects the trio's "axis is not derivable" finding** (§8 rule 1, §3a): that
-held for *authored* markdown — `glossary` authors as a list but renders as a table
-— but not for *rendered* HTML, which is what the split move sees. At split time a
-`glossary` **is** a `<table>` and a `piechart` **is** an `<svg>`. So the axis is
-derivable at render time; `capacity.axis` survives only as the *pre-render count
-estimate*, not the split authority. **Graphics need no special-case**: their
-transform already replaced the list with one `<svg>` ("the diagram `<svg>`… instead
-of an HTML `<ol>`" — quadrant/radar), so the list rule finds nothing to split and the
-figure fills its box. Content type therefore falls out of structure: **graphics are
-container-responsive — a `viewBox` + `width:100%` means the parent box sizes them, and
-their internal text scales as a ratio of the viewBox (no type floor); text splits
-(type floor).** Graphics are *not* "scaled" by an engine step — they respond to their
-container by construction; the only failure mode is a component that breaks that
-contract (fixed px), which is an auditable bug, not a design gap (§0c).
+This **refines the trio's "axis is not derivable" finding** (§8 rule 1, §3a): that
+held for *authored* markdown — `glossary` authors as a list but renders as a table —
+but the split runs on *rendered* HTML. **The candidate is not "free," though**: the
+retained opt-in gate (§3b) still decides whether a rendered list/table is a *real*
+seam. `matrix-2x2` renders a live `<ul>` of quadrant `<li>`s, and `roadmap` /
+`obligation-matrix` render live `<table>`s — the candidate rule would split and
+*destroy* all three; they are saved **only** because they never opt in
+(`capacity=null, split=null`). So structure yields a candidate; the per-component
+gate ratifies it. `capacity.axis` survives as the pre-render count estimate; the
+render-time DOM is the axis authority for opted-in seams.
 
-**Move 2 — the treatment comes from ONE per-component bit** (the only irreducible
-input). Two identical rendered structures can demand opposite handling:
+**Content type — graphics vs text — decides scale-vs-split, but "figure" is two
+buckets, not one:**
+- **viewBox graphics** (pie/radar/funnel/map/word-cloud/diagram) are
+  *container-responsive*: `viewBox` + `width:100%`, the parent box sizes them, and
+  internal text scales as a ratio of the viewBox. They are **not** "scaled" by an
+  engine step — they respond to their container by construction. **But
+  container-responsive is not floor-free:** a dense figure can scale its text below
+  legibility while the *box* never overflows, so the overflow probe (which measures
+  box spill) sees nothing. A viewBox graphic therefore needs a **rendered-text
+  legibility floor** — when its effective text would render below the floor, the
+  export emits the honest ring, it does **not** silently ship 6px type (§8 rule 8,
+  the FM-1 fix).
+- **atomic text figures** (`matrix-2x2`, `roadmap`, `obligation-matrix`) have **no
+  viewBox** — they cannot scale (their cell text hits the type floor) and must not
+  split (the grid/axis meaning is the point). Overflow → the honest ring is the
+  accepted terminal, not "container-responsive."
+
+**Move 2 — one per-component DISCRIMINATOR decides treatment** (it is not the whole
+per-component signal — §3 retains the opt-in gate (b), a heavy/light target, reshape
+(e), and pacing (f); this bit is the one that disambiguates *identically-structured*
+pairs). Two identical rendered structures can demand opposite handling:
 
 - two `<table>`s — a **comparison** (keep whole / per-dimension) vs **records**
   (pivot per row);
-- two `<ol>`s — **connected steps** (atomize + forward chevron pill) vs
+- two `<ol>`s — **connected steps** (atomize + relationship signal) vs
   **independent items** (plain split).
 
-That is the `read-across / connected` bit — the single declaration that stays (§3c).
+That is the `read-across / connected` discriminator (§3c). Note structure *also*
+can't tell heavy from light — `cards-grid` and `list` are **both** `ul>li` with
+opposite targets — so a heavy/light signal is a second retained input.
 
-**Granularity — target the *sweet* count, never the geometric ceiling.** The split
-aims at how many *belong* per slide, not how many *fit*:
+**Granularity — deterministic, uniform (owner decision).** Content-aware packing
+(fit as many as measured) is rejected: it either overflows a content-heavy member or
+produces jarring uneven slides (1 card here, 3 there). Split is **deterministic**:
 
 | Member kind | Per-slide target |
 |---|---|
-| independent-light (bullets) | pack to the sweet count |
-| independent-heavy (cards, record rows, tiers, options) | **1** — its own slide |
-| connected-sequential (steps, cycle) | **1** + a "→ next" chevron pill; last slide drops it (a cycle loops back) |
-| connected-comparison (compare) | keep together; per-option + verdict only as the many-item fallback |
-| whole figure (charts, diagrams, matrices) | **whole slide, container-responsive** — never atomized |
+| independent-light (bullets) | pack a **fixed uniform** count |
+| independent-heavy (cards, record rows, tiers, options) | **1 per slide** — overflow-proof + uniform (not content-aware) |
+| connected / related (steps, cycle, comparisons) | **1 per slide + a relationship signal** (see below) |
+| whole figure — viewBox graphic | whole slide, container-responsive (+ legibility floor → ring) |
+| whole figure — atomic text (matrix/table-grid) | whole slide; overflow → ring (no scale, no split) |
+
+*Watch item:* a `stats`/`kpi` **tile** (a lone number) at 1-per-slide reads sparse —
+tiles are small enough to hold a uniform fixed group; flag for the build.
+
+**Relationship signal — atomize, but carry the cross-slide relationship (owner
+decision, resolves the trio's "atomizing destroys the comparison/sequence").** When
+a connected/related member is atomized, each non-terminal slide carries a wayfinding
+adornment so the set still reads as one thing:
+- **sequence** (steps) → "→ next: {next step}";
+- **comparison** (verdict-grid, pricing) → "Option *N* of *M* · comparing
+  {shared criteria}" — the tiers stay one-per-slide (spotlight) but read as a
+  compared set;
+- **cycle** → "↻ back to {stage 1}" on the last card (not dropped);
+- **hierarchy** (authority-chain) → "governs ↓ / under ↑", not a temporal "→ next".
+
+The progress rail already shows *N of M*; the adornment adds *what the relationship
+is*. The adornment is **derived from the neighbor member at build time, never
+authored** (§8 rule 9), so it can't go stale.
 
 All of it rides the **§0a envelope**: Cover → Body (these units) → optional Closing.
 
@@ -147,37 +184,49 @@ budget = slide height − chrome − (masthead, cover only). Every portrait pres
 1080 wide, so body type is one size across them; a taller preset simply holds more
 units. **"Budget" is the internal fill line that decides *where to break to the next
 slide* — never shown to a reader, never a truncation** (overflow is always more
-slides or, for an un-splittable dense figure, the honest ring — never "…").
+slides, or the honest ring for an un-splittable figure that hits the legibility
+floor — never "…").
 
 ## 0c. Completeness — every one of the 59 components has a treatment (2026-07-22)
 
-Run of the whole catalog against the model. No component is unplaced.
+Run of the whole catalog against the model. Every component has a treatment; the
+three marked † are *proposed* placements that need a new authored opt-in (they carry
+`capacity=null, split=null` today, so under the retained gate they currently ring).
 
 | Treatment | Components |
 |---|---|
 | **Anchor — never splits** | title, closing, divider |
-| **Whole figure — container-responsive, no split** (graphics + atomic units) | piechart, quadrant, radar, word-cloud, diagram, funnel, map, gantt, roadmap, state-chart, matrix-2x2, obligation-matrix, image, scene, video, math, big-number, quote, citation-card, contact, wifi |
-| **List → item · light** (pack) | list, checklist, content, agenda, list-criteria, inventory, logo-wall (by image) |
-| **List → item · heavy** (1/slide) | cards-grid, cards-stack, actors, kpi, stats, q-and-a, policy-recommendation, verdict-grid, pricing |
-| **List → item · connected-sequential** (1 + chevron pill) | list-steps, timeline-list, journey, authority-chain, cycle (loops) |
-| **Table → row · records** (pivot to key→value card) | glossary, list-tabular, regulatory-update, statute-stack |
-| **Read-across → keep whole / carousel** | compare-prose, compare-table, decision, redline, split-compare, split-panel, compare-code, kanban (per-lane) |
-| **Code → code-cards** (by line / block) | code |
-| **Hybrid — scale by default, split by row when many** | progress |
+| **viewBox graphic — container-responsive + legibility-floor→ring** | piechart, quadrant, radar, word-cloud, funnel, map, diagram, scene, state-chart (JS-scaled; no-JS UNVERIFIED) |
+| **Bitmap asset — responsive, no split** | image, video |
+| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | big-number, quote, math, citation-card, contact, wifi, matrix-2x2, obligation-matrix, roadmap, gantt |
+| **List → item · light** (pack a fixed uniform count) | list, checklist, content, agenda, list-criteria, inventory, logo-wall (by image) |
+| **List → item · heavy** (1/slide, deterministic) | cards-grid, cards-stack, actors, kpi, stats *(tile — watch)*, q-and-a, policy-recommendation |
+| **Record-shaped → 1 per slide** (glossary pivots via its table transform; the rest are `ol/ul>li` → list-item split) | glossary, list-tabular, regulatory-update, statute-stack |
+| **Connected / related → 1/slide + relationship signal** | list-steps (→next), cycle (↻loop), authority-chain (governs↓), journey† (→next), timeline-list† (→next), verdict-grid (compare N/M), pricing (compare N/M) |
+| **Read-across → keep whole / carousel** | compare-prose, compare-table, decision, redline, split-compare, split-panel, compare-code, kanban (per-lane — note: loses the cross-lane read; a keep-whole is arguably better) |
+| **Code → code-cards** (by line / block — PROPOSED) | code |
+| **Needs an opt-in call** | progress† (CSS bars, not a viewBox graphic — so *not* "scale like a graphic"; it's list-heavy if enrolled, else whole-slide) |
 
-**Owner resolutions (2026-07-22):** quadrant stays whole; `matrix-2x2` is **kept**
-(a prioritization matrix — SWOT/Eisenhower/BCG — not a cards-grid duplicate; its
-`related` already distinguishes them) and treated as a whole figure; `cycle`
-atomizes to a card per stage with the chevron drawn forward and the last card
-looping; `verdict-grid`/`pricing` are cards (one per slide), trading the grid
-comparison for the per-card spotlight; `code` splits into multiple code-cards.
+**Owner resolutions (2026-07-22):** `quadrant` stays whole (viewBox graphic);
+`matrix-2x2` is **kept** (a prioritization matrix — SWOT/Eisenhower/BCG — not a
+cards-grid duplicate; its `related` distinguishes them) and treated as an **atomic
+text grid** (no viewBox → ring on overflow, not "container-responsive"); `cycle`
+atomizes to a card per stage with a **↻ loop-back** signal on the last card;
+`verdict-grid`/`pricing` are **spotlight cards (1/slide) + a comparison relationship
+signal** ("Option N of M · comparing {criteria}") so the atomized tiers still read as
+a compared set; heavy members are **1/slide deterministic** (not content-aware
+packing — rejected as jarring); `code` splits into multiple code-cards.
 
 **Follow-on build items (not gaps — named work):**
-- **`progress`** — scale the bar-set by default; split by row only past a high count.
-- **`code`** — a line/block code-card splitter (`partitionAxis` refuses the `line`
-  axis today).
-- **stale `capacity.axis`** — remove it from `matrix-2x2` (whole figure, not
-  splittable) and verify `cycle`'s is right for card-splitting.
+- **opt-in backfill** — `journey`, `timeline-list`, `progress` need an authored
+  `capacity`/`split` to receive their proposed treatment (they ring today).
+- **`progress`** — decide: enroll as list-heavy (split by row) or keep whole. It is
+  **not** a scalable graphic (CSS bars, no viewBox).
+- **`code`** — a line/block code-card splitter (`partitionAxis` refuses `line` today).
+- **`kanban`** — reconcile "keep-whole" vs its `kanban-lanes` per-lane split (the
+  per-lane split loses the To-Do/Doing/Done read).
+- **stale `capacity.axis`** — remove it from `matrix-2x2` (atomic, not splittable);
+  verify `cycle`'s is right for card-splitting.
 
 **SVG container-responsiveness audit (2026-07-22) — the "graphics fill their box"
 contract holds, with one logged defect.** All SVG components (funnel, map, quadrant,
@@ -260,7 +309,7 @@ not carry. The trio enumerated them from shipping code. Each is a dimension
 | f | **Per-page pacing** | `split.perPage` | Authored intent: `decision.perPage:1` (one justification per slide — editorial), `glossary:8` (dense), `statute-stack:2`. The measured pass only *densifies* toward a cap (`per = min(manifestPer, ratioBased)`, `carousel.js:353`); it cannot recover the seed. |
 
 **Consequence for "why declare?":** the declarations are not hand-crafted *layout*
-(the owner's fear) — they are a compact **intent vector** of at most ~6 fields, and
+(the owner's fear) — they are a compact **intent vector** of at most ~5 fields, and
 the engine already applies it generically. The fear is right about the *mechanism*
 (§2b) and wrong about the *vector* (§3): the vector is irreducible to structure.
 
@@ -273,7 +322,7 @@ Sorting the vector honestly (this replaces the first draft's "derive and delete"
     irreducible because it can't be read from *authored* markdown (`glossary`
     authors as a list, splits as a table). The synthesis corrects the altitude:
     the split runs on **rendered** HTML, where the axis **is** derivable from the
-    DOM (list → item, table → row, svg → scale). `capacity.axis`/`split.axis` is
+    DOM (list → item, table → row, svg → container-responsive). `capacity.axis`/`split.axis` is
     **retained only as the pre-render count estimate**, not as the split authority
     — not "VETOED as irreplaceable." The forbidden guess is inferring intent from
     *authored content*; reading the *rendered* structure is deterministic.
@@ -346,9 +395,11 @@ portrait carousel, not orientation-locked); the catalog is ~59 components.
 
 ## 7. Red team — the surviving refutations (folded from §12)
 
-- **"One boolean" is refuted** — stackable alone splits two ways (bare vs
-  `cover-paginate`), and the driver needs the orthogonal width-reducing axis
-  (#499/#500). ≥3 dimensions, not 1. (§3 d/e.)
+- **"One boolean" is refuted** — the driver needs the orthogonal
+  width-reducing/reshape axis (#499/#500) *and* a heavy/light signal (`cards-grid`
+  and `list` are both `ul>li`, opposite targets), so treatment spans ≥2 orthogonal
+  inputs beyond structure, not 1. *(The pre-§0a "bare vs `cover-paginate`" two-way
+  split is retired — cover is now universal, §0a.)* (§3 c/e.)
 - **"Derive the axis, retire the field" is not byte-faithful** — `glossary`
   (list-authored, row-split) and the chart bucket (`state-chart`/`gantt`/
   `timeline-list` carry `ol>li` but must not paginate) break it. (§3 a/b, §4.)
@@ -369,8 +420,9 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    (This supersedes the first draft's "never read from a slide's DOM" — that
    confused authored markdown with rendered HTML; see §0b.)
 2. **`readAcross` alone cannot reconstruct the policy.** Any retirement of
-   `split.strategy` must preserve the width-reducing/reshape class (#499/#500) and
-   the accent-cover class; the migration is to a small enum, not a boolean.
+   `split.strategy` must preserve the width-reducing/reshape class (#499/#500); the
+   migration is to a small enum, not a boolean. (Accent-cover is NOT a preserved
+   class — §0a made the cover universal.)
 3. **A rendered collection does not imply a split seam.** The opt-in gate is
    retained; an undeclared collection defaults to the ring, not structural-split.
 4. **The transpose is `cover-cards`, generalized — one transposer.** No second,
@@ -387,6 +439,42 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    `capacity.escalateTo` (a component-substitution graph, `verdict-grid` →
    `compare-table`) is authored routing and must be explicitly kept or migrated,
    not silently dropped with `capacity`.
+
+*(Rules 8–12 added by the second trio pass — §12.)*
+
+8. **A viewBox graphic has a rendered-text legibility floor.** Container-responsive
+   is **not** floor-free: a dense figure scales its internal text below legibility
+   while the box never overflows, so the overflow probe (box-spill only) sees
+   nothing and the slide ships silently at 6px type. Measure the figure's effective
+   on-page text px; below the floor → the honest ring, never a silent shrink. This
+   is the FM-1 fix and it removes the §0b contradiction between "no type floor" and
+   "the honest ring."
+9. **"Cover always" (§0a) is a MECHANISM phase, not a free consequence.** No split
+   path may emit a bare `(cont.)` partition once §0a lands: `autoSplitDeck` and
+   `resplitDoc`'s plain branch must route through the same cover→body→closing
+   builder as `cover-paginate`, and `partitionAxis`'s repeated `post` must hoist any
+   `.below-note`/key-insight into ONE closing slide — never stamped per body page (it
+   duplicates today). A gate asserts every split run begins with exactly one cover
+   and carries ≤1 closing. (FM-2.)
+10. **The pre-render count pass may only DEFER, never CUT.** With axis derivation at
+    render time, the startup pass's sole job is "might this overflow? → hand it to
+    the measured loop." It must not emit a final partition on the *authoring*-shape
+    axis (which would land coverless and the measured pass can't retro-wrap it). Any
+    real cut + its cover is produced by the render-time builder that reads the real
+    DOM, so the estimate axis and the split axis can't disagree in shipped bytes.
+    (FM-4.)
+11. **The oracle records a VERIFIED default, it never mints one.** Adding a component
+    to the standing golden (rule 5) requires a committed demo deck exercising its
+    overflow path (HARD #9) + reviewer sign-off that the derived (axis, read-across,
+    reshape) matches intent — the entry is the *record* of a verified default, not
+    the *source*. Drift-detection ≠ initial-correctness. (FM-5.)
+12. **Relationship signal is derived + the kernel operates on the content cell.**
+    (a) The adornment (→next / ↻loop / compare N-of-M / governs↓) is synthesized from
+    the neighbor member at build time, **never authored**, so it can't stale (a test
+    asserts editing member N+1 changes member N's emitted signal). (b) The generic
+    split resolves its collection **inside the content cell** (`.cell-stage` / the
+    declared content slot), never "first `<ul>` in the section" — chrome, masthead,
+    footer, and nested-component lists are out of scope by construction. (FM-6, FM-3.)
 
 ## 9. Phasing (corrected; each one branch → one PR, HARD #17; green + demo each step)
 
@@ -408,6 +496,17 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   per §0a), migrating each component; `capacity.axis`,
   `perPage`, `escalateTo` stay. Gated by the oracle.
 
+*Phases added by the second trio pass (§12):*
+- **P0-backfill — opt-in for `journey`, `timeline-list`, `progress`** (they ring
+  today; their §0c placement needs an authored `capacity`/`split`).
+- **P-envelope — the universal cover→body→closing mechanism** (rule 9): route the
+  plain `partitionAxis` path through the cover-emitting builder and hoist the
+  below-note to one closing slide. Must land **before** any defaulting (P2), since
+  §0a is unbuilt on that path today. Maker-checker.
+- **P-floor — the viewBox legibility floor + honest ring** (rule 8): measure
+  rendered figure text; ring below the floor. Gates the "graphics never ship
+  illegible" claim before default-on.
+
 ## 10. What this doc decides
 
 1. The split **kernel is generic**; the residue is the hand-declared **intent
@@ -415,8 +514,10 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    outside the kernel (§1 caveat).
 2. Split policy is **only partly derivable from structure** (refined by §0b): the
    **axis (a) IS derivable from the RENDERED DOM** (list/table/svg/pre) — `capacity.axis`
-   is kept only as the pre-render count estimate; **split-seam opt-in (b)** is retained;
-   **read-across / connected (c)** is the **one irreducible bit** that decides treatment;
+   is kept only as the pre-render count estimate, and only ratifies an **opted-in**
+   candidate; **split-seam opt-in (b)** is retained;
+   **read-across / connected (c)** is the **one irreducible discriminator** for treatment
+   (alongside a retained heavy/light signal);
    **accent-cover (d)** is **universal (§0a — cover always)**; **reshape-move (e)** is
    **defaultable from the required classification**,
    and pacing (f) stays **authored** (§0a, §3–§4).
@@ -430,11 +531,11 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
 ## 11. The one fork left for the owner — now evidenced
 
 The first draft asked whether `split.strategy` is "one bit in nine costumes." The
-trio answered it from shipping code: **it is not.** Split intent spans **≥3
-orthogonal dimensions** — read-across? · accent-cover? · width-reducing/reshape? —
-plus authored `perPage`. So the P4 migration, *if taken*, is **9 → a small real
-enum**, never **9 → one boolean**. The genuine remaining fork is narrower and
-yours to weigh:
+trio answered it from shipping code: **it is not.** Split intent spans **≥2
+orthogonal dimensions beyond structure** — read-across? · width-reducing/reshape? —
+plus a heavy/light target and authored `perPage`; **cover is universal (§0a), not a
+dimension.** So the P4 migration, *if taken*, is **9 → a small real enum**, never
+**9 → one boolean**. The genuine remaining fork is narrower and yours to weigh:
 
 > **Is P4 worth doing at all?** P1 (the mechanism collapse) and P2 (defaults)
 > deliver most of the "stop hand-crafting / low-effort for new components" goal
@@ -472,3 +573,52 @@ boolean" to "structure supplies the mechanism, not the policy; default the
 irreducible-to-structure intent vector from classification and collapse the
 hand-parsers, retaining the axis, the opt-in gate, and pacing." Recording that
 inversion is the HARD RULE #25 obligation for work of this blast radius.
+
+### Second trio pass (2026-07-22) — on the settled model (§0a/§0b/§0c) before merge
+
+After the envelope + settled-model + coverage rewrite, a second full trio ran on the
+current doc. All three converged; the descriptive spine held again, but several
+*settled-model claims as worded* were false or self-contradictory and are corrected
+above.
+
+- **Independent checker** — found 7 internal contradictions (stale amendment
+  cross-refs: §11/§7/§8 still treated accent-cover as a live dimension after §0a made
+  it universal; the summary still said "graphics scale") and **one factual error**:
+  §0c's "Table → row · records" bucket misclassified 3 of 4 members —
+  `list-tabular`/`regulatory-update`/`statute-stack` render as `ol/ul>li` (list-item
+  split), only `glossary` pivots a real `<table>`. → §0c relabeled; §7/§8/§11 accent-cover
+  refs fixed; summary reworded.
+- **Red team** — killed the wording of three settled claims: **"axis free from
+  structure"** (`matrix-2x2` renders a live `<ul>`, `roadmap`/`obligation-matrix` live
+  `<table>`s that must NOT split — saved only by the opt-in gate → §0b Move 1 now says
+  "candidate, ratified by the gate"); **"container-responsive, never split"** conflated
+  viewBox graphics with atomic text grids → §0b/§0c split into two buckets;
+  **"heavy = 1/slide" vs authored `sweet`** → resolved by the owner to deterministic
+  1/slide (below).
+- **Munger inversion** — six build-time failure modes → §8 rules 8–12 + §9 phases:
+  **FM-1** a container-responsive figure with no legibility floor ships silently at
+  6px type (the "honest ring" is mechanically impossible for a scaled viewBox) — the
+  worst, "ships quietly wrong"; **FM-2** cover-always is unbuilt on the plain
+  `partitionAxis` path and duplicates the below-note per page; **FM-3** "first `<ul>`"
+  splits chrome/masthead; **FM-4** pre-cut vs render axis; **FM-5** the oracle blesses
+  a wrong default for a new component; **FM-6** the relationship signal must be derived,
+  not authored.
+
+**Owner decisions folded in (2026-07-22):**
+1. **Heavy members atomize deterministically — 1 per slide, not content-aware
+   `sweet`-packing.** Rationale (owner): packing either overflows a content-heavy
+   member or produces jarring uneven slides (1 here, 3 there); uniform 1/slide is
+   overflow-proof and consistent. (Watch: a `stats`/`kpi` *tile* — a lone number — at
+   1/slide reads sparse; tiles take a uniform fixed group.)
+2. **`verdict-grid`/`pricing` are spotlight cards (1/slide) PLUS a comparison
+   relationship signal** ("Option N of M · comparing {criteria}") so the atomized
+   tiers still read as a compared set — generalizing the forward-pill into a family
+   of relationship signals (→next / ↻loop / compare-N-of-M / governs↓), all derived
+   from the neighbor at build time.
+
+**Net effect of the second pass:** no change to the *direction*; the settled model's
+*claims* were tightened — candidate-axis-not-free, two figure buckets with a
+legibility floor, one *discriminator* (not "one bit") atop a retained vector,
+deterministic atomization with relationship signals, and the coverage table
+corrected — plus five new binding rules and three new phases for the failure modes a
+build would otherwise hit.
