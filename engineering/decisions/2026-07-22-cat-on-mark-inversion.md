@@ -43,8 +43,9 @@ identity:
 
 - `--cat-on-mark` → `light-dark(#FFFFFF, <theme text-heading near-black>)` in all 11 broken themes
   (white clears the saturated/dark light-mode mark; the near-black clears the pale dark-mode mark
-  at 8–14:1). This alone fixes onyx/concrete (grayscale/low-chroma marks) — and, via `@import onyx`,
-  the a11y palettes too.
+  at 8–14:1). This alone fixes onyx/concrete (grayscale/low-chroma marks) — and, since the a11y
+  palettes `@import 'a11y-base'` which `@import 'onyx'` and forces `color-scheme: light`, they inherit
+  onyx's corrected `--cat-on-mark` → white on their dark-gray marks (≥5.49:1) too.
 - 8 chromatic themes: **darken only the too-light light-mode marks**, minimally, hue+chroma-locked
   in OKLCH (**max ΔL ~6.5%, ≤0.7° hue drift**) until white clears 4.55. This also *raises*
   mark-vs-canvas edge and fill≠mark collapse — both improve. ~5 of 12 marks per theme change.
@@ -72,3 +73,7 @@ but were verified to clear via the onyx inheritance.
 Numerically (all 14 hue themes clear AA both modes), on the rendered surface (decision tags sampled
 4.55–12.63:1 across every fix category incl. a11y), and visually (decision / roadmap / gantt / kanban
 in ardesia + carbone — tags legible, marks stay rich, carbone's vivid identity intact).
+
+The re-curation targets 4.55 (a hair over the 4.5 bar) for the darkened set; the true *global* tag-on-mark
+floor across all 14 hue themes is **4.53** (indaco and carta, light mode) — both pre-existing, already-correct
+themes this change does not touch.
