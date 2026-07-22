@@ -17,7 +17,7 @@ import type { ImageSetOptions } from './share-export';
 type Format = 'png' | 'jpeg' | 'webp';
 type Size = 'max' | '2x' | '1x' | 'half';
 type Mode = 'auto' | 'light' | 'dark' | 'print';
-type SvgBg = 'transparent' | 'light' | 'dark';
+type SvgBg = 'transparent' | 'light' | 'dark' | 'print';
 
 const MODES: { value: Mode; label: string; hint: string }[] = [
 	{ value: 'auto', label: 'Auto', hint: 'The deck’s current light/dark mode.' },
@@ -27,9 +27,10 @@ const MODES: { value: Mode; label: string; hint: string }[] = [
 ];
 
 const SVG_BGS: { value: SvgBg; label: string; hint: string }[] = [
-	{ value: 'transparent', label: 'Transparent', hint: 'No background — drops onto anything.' },
-	{ value: 'light', label: 'Light', hint: 'A white canvas.' },
-	{ value: 'dark', label: 'Dark', hint: 'A dark canvas.' },
+	{ value: 'transparent', label: 'Transparent', hint: 'Keep the slide look; no canvas — drops onto anything.' },
+	{ value: 'light', label: 'Light', hint: 'Render the chart/diagram in color on a white canvas.' },
+	{ value: 'dark', label: 'Dark', hint: 'Render the chart/diagram in color on a dark canvas.' },
+	{ value: 'print', label: 'Print', hint: 'Render B&W (grayscale + textures) on white — print-ready vectors.' },
 ];
 
 const FORMATS: { value: Format; label: string; hint: string }[] = [
@@ -161,9 +162,9 @@ export function ImageSetOptionsPanel({
 					</div>
 					{extractSvg && (
 						<div className="mt-3 border-t border-border pt-3">
-							<span className="block text-[12px] font-semibold text-[var(--text-heading)]">SVG background</span>
-							<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{bgHint} A solid canvas reads best paired with the matching color mode.</span>
-							<Segmented options={SVG_BGS} value={svgBackground} onChange={setSvgBackground} busy={busy} cols="grid-cols-3" />
+							<span className="block text-[12px] font-semibold text-[var(--text-heading)]">SVG look</span>
+							<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{bgHint} Rendered independently of the slides — e.g. color slides with print-ready B&W charts.</span>
+							<Segmented options={SVG_BGS} value={svgBackground} onChange={setSvgBackground} busy={busy} cols="grid-cols-4" />
 						</div>
 					)}
 				</div>

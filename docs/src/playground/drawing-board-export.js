@@ -1042,58 +1042,18 @@ async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pi
 // generated from lib/export/image-set.js), the same contract the CLI's `.zip`
 // output uses — so the Studio and CLI emit the same set. `render` is the engine
 // result (see exportPdf); `opts` is the raw tuning config from the options panel.
-export async function exportImageSet(render, name, opts, onStatus) {
+export async function exportImageSet(render, name, opts, onStatus, svgRender) {
 	const core = await import('./image-set-core.generated.js');
 	const options = core.normalizeImageSetOptions(opts);
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
 		const { sections, fontEmbedCSS } = await sectionsOf(frame);
 		if (!sections.length) throw new Error('Nothing to export — the deck rendered no slides.');
-		const win = frame.contentWindow;
 		const { w, h } = slideGeom(sections[0]);
 		const scale = core.resolveRasterScale(options.size, w, h);
 		const thumbScale = core.resolveThumbScale(options.thumbWidth, w);
 
-		// (1) Standalone vector assets — charts (keyed single-svg layouts) + Mermaid
-		// diagrams — flattened to theme-free, font-embedded standalone .svg. Reuses the
-		// chart-SVG core (the same "download chart as SVG" path), extended to diagrams.
-		const svgs = [];
-		if (options.extractSvg) {
-			const [svgCore, fontMod] = await Promise.all([
-				import('./standalone-svg.generated.js'),
-				import('./font-embed.js'),
-			]);
-			const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = svgCore;
-			const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
-			const fontCssAll = await buildFontEmbedCss();
-			await ensureFontsLoaded(frame.contentDocument, fontCssAll);
-			// The canvas baked behind each standalone SVG (null = transparent) — the SAME
-			// neutral literals the CLI uses, via the shared kernel.
-			const svgBg = core.svgBackgroundFill(options.svgBackground);
-			sections.forEach((sec, si) => {
-				const targets = [];
-				// Mermaid renders differently per surface: the engine pre-renders to a
-				// `.mermaid-svg` wrapper (the CLI path), while in the browser the runtime
-				// renders client-side into a `.mermaid` div (lib/runtime/index.js). Match
-				// BOTH so the Studio extracts the same diagrams the CLI does — otherwise the
-				// two surfaces would emit different sets (the `.mermaid-error` sibling has no
-				// <svg>, so it's never matched). See waitForDiagrams above, which waits on
-				// exactly these wrappers.
-				sec.querySelectorAll('.mermaid-svg svg, .mermaid svg').forEach((s) => { targets.push([s, 'diagram']); });
-				if (sec.classList.contains('chart-frame') && CLEAN_SVG_LAYOUTS.some((c) => sec.classList.contains(c))) {
-					sec.querySelectorAll('svg[viewBox]').forEach((s) => { targets.push([s, 'chart']); });
-				}
-				for (const [svg, kind] of targets) {
-					try {
-						const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, win));
-						const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
-						svgs.push({ slide: si + 1, kind, svg: finalizeStandaloneSvg(markup, { fontFaceCss, background: svgBg }) });
-					} catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
-				}
-			});
-		}
-
-		// (2) Full raster per slide, at the size preset.
+		// (1) Full raster per slide, at the size preset — from the slide-mode render.
 		const images = [];
 		for (let i = 0; i < sections.length; i++) {
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
@@ -1101,13 +1061,61 @@ export async function exportImageSet(render, name, opts, onStatus) {
 			await new Promise((r) => setTimeout(r)); // yield so the progress line paints
 		}
 
-		// (3) Thumbnails — the same slides at the small thumbnail scale.
+		// (2) Thumbnails — the same slides at the small thumbnail scale.
 		const thumbs = [];
 		if (options.thumbnails) {
 			for (let i = 0; i < sections.length; i++) {
 				if (onStatus) onStatus('Rendering thumbnail ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
 				thumbs.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, thumbScale, core.FORMAT_META));
 				await new Promise((r) => setTimeout(r));
+			}
+		}
+
+		// (3) Standalone vector assets. The SVG "look" (transparent/light/dark/print) renders
+		// the chart/diagram independent of the slides. When it differs, `svgRender` is a SECOND
+		// full engine render (buildDeckRender, in shareImageSet) in that look — so the print
+		// texture defs, dark palette, and Mermaid re-bake are all correct, exactly as if the
+		// deck were exported in that mode. A post-hoc in-page class/palette toggle can't do that
+		// reliably (the light render's frame lacks the print pattern defs). Extract from the look
+		// render's own capture frame; else from the slide frame.
+		const svgs = [];
+		if (options.extractSvg) {
+			const { frame: svgFrame, dispose: disposeSvg } = svgRender ? await createCaptureFrame(svgRender) : { frame, dispose: null };
+			try {
+				const svgSections = svgRender ? (await sectionsOf(svgFrame)).sections : sections;
+				const svgWin = svgFrame.contentWindow;
+				const [svgCore, fontMod] = await Promise.all([
+					import('./standalone-svg.generated.js'),
+					import('./font-embed.js'),
+				]);
+				const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = svgCore;
+				const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
+				const fontCssAll = await buildFontEmbedCss();
+				await ensureFontsLoaded(svgFrame.contentDocument, fontCssAll);
+				// The canvas baked behind each standalone SVG (null = transparent) — the SAME
+				// neutral literals the CLI uses, via the shared kernel.
+				const svgBg = core.svgBackgroundFill(options.svgBackground);
+				svgSections.forEach((sec, si) => {
+					const targets = [];
+					// Mermaid renders differently per surface: the engine pre-renders to a
+					// `.mermaid-svg` wrapper (the CLI path), while in the browser the runtime
+					// renders client-side into a `.mermaid` div (lib/runtime/index.js). Match
+					// BOTH so the Studio extracts the same diagrams the CLI does. (The
+					// `.mermaid-error` sibling has no <svg>, so it's never matched.)
+					sec.querySelectorAll('.mermaid-svg svg, .mermaid svg').forEach((s) => { targets.push([s, 'diagram']); });
+					if (sec.classList.contains('chart-frame') && CLEAN_SVG_LAYOUTS.some((c) => sec.classList.contains(c))) {
+						sec.querySelectorAll('svg[viewBox]').forEach((s) => { targets.push([s, 'chart']); });
+					}
+					for (const [svg, kind] of targets) {
+						try {
+							const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, svgWin));
+							const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
+							svgs.push({ slide: si + 1, kind, svg: finalizeStandaloneSvg(markup, { fontFaceCss, background: svgBg }) });
+						} catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
+					}
+				});
+			} finally {
+				if (disposeSvg) disposeSvg();
 			}
 		}
 

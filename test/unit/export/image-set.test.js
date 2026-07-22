@@ -74,11 +74,28 @@ describe('image-set: resolveRasterScale', () => {
 });
 
 describe('image-set: svgBackgroundFill', () => {
-  test('transparent → null; light/dark → neutral literals', () => {
+  test('transparent → null; light/print → white; dark → dark literal', () => {
     assert.equal(IS.svgBackgroundFill('transparent'), null);
     assert.equal(IS.svgBackgroundFill('light'), '#ffffff');
     assert.equal(IS.svgBackgroundFill('dark'), '#111317');
+    assert.equal(IS.svgBackgroundFill('print'), '#ffffff');
     assert.equal(IS.svgBackgroundFill('bogus'), null); // falls back to the default (transparent)
+  });
+});
+
+describe('image-set: svgLookMode', () => {
+  test('transparent → null (as slides); the rest → their render mode', () => {
+    assert.equal(IS.svgLookMode('transparent'), null);
+    assert.equal(IS.svgLookMode('light'), 'light');
+    assert.equal(IS.svgLookMode('dark'), 'dark');
+    assert.equal(IS.svgLookMode('print'), 'print');
+    assert.equal(IS.svgLookMode('bogus'), null);
+  });
+});
+
+describe('image-set: print is a valid svgBackground look', () => {
+  test('normalize accepts print', () => {
+    assert.equal(IS.normalizeImageSetOptions({ svgBackground: 'print' }).svgBackground, 'print');
   });
 });
 

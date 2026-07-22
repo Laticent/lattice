@@ -99,7 +99,7 @@ size for fidelity:
 | `--image-size` | `max` · `2x` · `1x` · `half` | Raster scale — the "size selection" lever; lower shrinks each image and the whole zip. |
 | `--image-quality` | `92` (1–100) | JPEG/WebP encoder quality; ignored for PNG. |
 | `--image-mode` | `auto` · `light` · `dark` · `print` | Color mode for the whole set. light/dark render the palette's light / dark variant; print is the B&W-safe handout. `auto` = the deck's own / palette-resolved. |
-| `--svg-background` | `transparent` · `light` · `dark` | Canvas baked behind each standalone chart/diagram SVG. A solid canvas reads best paired with the matching `--image-mode` (the marks' ink is fixed by the render mode). |
+| `--svg-background` | `transparent` · `light` · `dark` · `print` | The **look** of each standalone chart/diagram SVG — controls both its render and its canvas, *independent* of `--image-mode`. `light`/`dark` render the chart in that scheme; `print` renders it B&W-safe (grayscale + textures) on white — so you can export color slides but print-ready chart/diagram vectors. `transparent` keeps the slide look with no canvas. When the look differs from the slides' mode, the SVGs are re-rendered in it (a second render pass). |
 | `--thumb-width` | `480` (px) | Thumbnail width; height follows the slide aspect. |
 | `--no-thumbnails` | — | Omit the `thumbnails/` folder. |
 | `--no-svg` | — | Omit the `assets/` folder (the standalone chart/diagram SVGs). |

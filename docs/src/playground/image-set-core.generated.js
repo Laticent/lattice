@@ -38,8 +38,9 @@ var require_image_set = __commonJS({
     var SIZE_PRESETS2 = ["max", "2x", "1x", "half"];
     var RASTER_MAX_EDGE2 = 3840;
     var COLOR_MODES2 = ["auto", "light", "dark", "print"];
-    var SVG_BACKGROUNDS2 = ["transparent", "light", "dark"];
-    var SVG_BACKGROUND_FILL2 = { transparent: null, light: "#ffffff", dark: "#111317" };
+    var SVG_BACKGROUNDS2 = ["transparent", "light", "dark", "print"];
+    var SVG_BACKGROUND_FILL2 = { transparent: null, light: "#ffffff", dark: "#111317", print: "#ffffff" };
+    var SVG_LOOK_MODE2 = { transparent: null, light: "light", dark: "dark", print: "print" };
     var DEFAULTS2 = Object.freeze({
       format: "png",
       size: "max",
@@ -78,6 +79,9 @@ var require_image_set = __commonJS({
     }
     function svgBackgroundFill2(svgBackground) {
       return Object.hasOwn(SVG_BACKGROUND_FILL2, svgBackground) ? SVG_BACKGROUND_FILL2[svgBackground] : SVG_BACKGROUND_FILL2[DEFAULTS2.svgBackground];
+    }
+    function svgLookMode2(svgBackground) {
+      return Object.hasOwn(SVG_LOOK_MODE2, svgBackground) ? SVG_LOOK_MODE2[svgBackground] : SVG_LOOK_MODE2[DEFAULTS2.svgBackground];
     }
     function resolveRasterScale2(size, slideW, slideH) {
       const longEdge = Math.max(Number(slideW) || 1280, Number(slideH) || 720);
@@ -209,11 +213,13 @@ var require_image_set = __commonJS({
       COLOR_MODES: COLOR_MODES2,
       SVG_BACKGROUNDS: SVG_BACKGROUNDS2,
       SVG_BACKGROUND_FILL: SVG_BACKGROUND_FILL2,
+      SVG_LOOK_MODE: SVG_LOOK_MODE2,
       DEFAULTS: DEFAULTS2,
       normalizeImageSetOptions: normalizeImageSetOptions2,
       resolveRasterScale: resolveRasterScale2,
       resolveThumbScale: resolveThumbScale2,
       svgBackgroundFill: svgBackgroundFill2,
+      svgLookMode: svgLookMode2,
       padWidth: padWidth2,
       deckSlug: deckSlug2,
       slideEntryName: slideEntryName2,
@@ -236,11 +242,13 @@ var {
   COLOR_MODES,
   SVG_BACKGROUNDS,
   SVG_BACKGROUND_FILL,
+  SVG_LOOK_MODE,
   DEFAULTS,
   normalizeImageSetOptions,
   resolveRasterScale,
   resolveThumbScale,
   svgBackgroundFill,
+  svgLookMode,
   padWidth,
   deckSlug,
   slideEntryName,
@@ -259,6 +267,7 @@ export {
   SIZE_PRESETS,
   SVG_BACKGROUNDS,
   SVG_BACKGROUND_FILL,
+  SVG_LOOK_MODE,
   addPlanToZip,
   assembleImageSetPlan,
   assetEntryName,
@@ -270,5 +279,6 @@ export {
   resolveThumbScale,
   slideEntryName,
   svgBackgroundFill,
+  svgLookMode,
   thumbEntryName
 };

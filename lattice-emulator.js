@@ -224,9 +224,13 @@ OPTIONS
                           render the palette's light / dark variant; print is the
                           B&W-safe ink-on-white handout mode.
       --svg-background <b>
-                          Canvas baked behind each standalone chart/diagram SVG —
-                          transparent (default) | light | dark. A solid canvas reads
-                          best paired with the matching --image-mode.
+                          Look for each standalone chart/diagram SVG —
+                          transparent (default) | light | dark | print. Controls BOTH
+                          the render and the canvas, independent of --image-mode:
+                          light/dark render the chart in that scheme; print renders it
+                          B&W-safe (grayscale + textures) on white — so you can export
+                          color slides but print-ready chart/diagram vectors.
+                          transparent keeps the slide look with no canvas.
       --thumb-width N     Thumbnail width in px (default 480); height follows the
                           slide aspect.
       --no-thumbnails     Omit the thumbnails/ folder (thumbnails ship by default).
@@ -422,7 +426,7 @@ const OUT_FORMAT = OUT_EXT === '.pptx' ? 'pptx'
 // Image-set tuning, normalized to a complete config (defaults = perfect-fidelity PNG,
 // thumbnails on, SVG extraction on). Resolved even for non-imageset outputs — it is
 // inert there. Undefined flags fall through to the kernel's DEFAULTS.
-const { normalizeImageSetOptions, resolveRasterScale, resolveThumbScale, svgBackgroundFill } = require('./lib/export/image-set');
+const { normalizeImageSetOptions, resolveRasterScale, resolveThumbScale, svgBackgroundFill, svgLookMode } = require('./lib/export/image-set');
 const IMAGE_SET_OPTS = normalizeImageSetOptions({
   format: flags['image-format'],
   size: flags['image-size'],
@@ -2234,12 +2238,69 @@ async function renderBody(browser, g, closeBrowser) {
     const fmt = IMAGE_SET_OPTS.format;
     const shot = fmt === 'png' ? { type: 'png' } : { type: fmt, quality: IMAGE_SET_OPTS.quality };
 
-    // (1) Standalone vector assets — BEFORE the raster (screenshots don't mutate the
-    // DOM, but keep extraction on the pristine page). Reuses the chart-SVG kernel:
-    // flatten computed styles inline (so the detached file needs no theme CSS) + embed
-    // the used fonts. Covers Mermaid/diagram SVGs and the keyed chart SVGs.
+    // (1) Full-fidelity raster, one per slide, at the resolved `--image-size` scale. Taken
+    // FIRST, before any SVG-look re-styling below, so the slides keep the export color mode.
+    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
+    const images = [];
+    for (const h of handles) {
+      images.push(await g(() => h.screenshot(shot), 'screenshot slide'));
+    }
+
+    // (2) Thumbnails — re-raster the same sections at a small device scale (thumbWidth
+    // ÷ slideW). deviceScaleFactor changes only the pixel density, never the layout, so
+    // the thumbnail is a faithful shrink of the full image.
+    const thumbs = [];
+    if (IMAGE_SET_OPTS.thumbnails) {
+      const thumbScale = resolveThumbScale(IMAGE_SET_OPTS.thumbWidth, slideW);
+      await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: thumbScale }), 'set thumb viewport');
+      const thumbHandles = await g(() => page.$$('section[data-lattice-slide]'), 'collect thumb handles');
+      for (const h of thumbHandles) {
+        thumbs.push(await g(() => h.screenshot(shot), 'screenshot thumb'));
+      }
+    }
+
+    // (3) Standalone vector assets — LAST, because the SVG "look" may re-style the page (a
+    // print class, or a light/dark palette) so a chart/diagram exports in its own look even
+    // when the slides are a different color mode. The slide + thumbnail rasters above are
+    // already captured, so mutating the page now is safe. Reuses the chart-SVG kernel:
+    // flatten computed styles inline (theme-free file) + embed fonts; covers Mermaid diagrams
+    // and the keyed chart SVGs.
     let svgAssets = [];
     if (IMAGE_SET_OPTS.extractSvg) {
+      // The slides' own effective scheme (so a matching look needs no re-style).
+      const slideScheme = IMAGE_SET_OPTS.mode !== 'auto'
+        ? IMAGE_SET_OPTS.mode
+        : (/-dark$/.test(paletteName) ? 'dark' : 'light');
+      const lookMode = svgLookMode(IMAGE_SET_OPTS.svgBackground); // null | light | dark | print
+      if (lookMode && lookMode !== slideScheme) {
+        if (lookMode === 'print') {
+          // `print` is a canvas class — stamping it on every section applies the B&W-safe
+          // ink-on-white treatment (section.print) to the charts + diagrams via the cascade.
+          await g(() => page.evaluate(() => {
+            for (const s of document.querySelectorAll('section[data-lattice-slide]')) s.classList.add('print');
+          }), 'apply print look');
+        } else {
+          // light / dark — inject the matching palette so the chart tokens (var-based) reflow.
+          const base = paletteName.replace(/-dark$/, '');
+          const targetName = lookMode === 'dark' ? `${base}-dark` : base;
+          const targetPath = path.join(PKG_ROOT, 'themes', `${targetName}.css`);
+          if (fs.existsSync(targetPath)) {
+            const lookCss = loadPaletteWithImports(targetPath, new Set(), 'svg-look palette');
+            await g(() => page.evaluate(({ css, scheme }) => {
+              const s = document.createElement('style');
+              s.id = 'lattice-svg-look';
+              s.textContent = css;
+              document.head.appendChild(s);
+              document.documentElement.style.colorScheme = scheme;
+            }, { css: lookCss, scheme: lookMode }), 'apply svg-look palette');
+          } else if (!QUIET) {
+            console.warn(`  ⚠ --svg-background ${lookMode}: no 'themes/${targetName}.css' — exporting SVGs in the slide look.`);
+          }
+        }
+        // Let the restyle settle (var()/scheme recompute) before reading computed styles.
+        await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 120))), 'settle svg look');
+      }
+
       const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } =
         require('./lib/components/chart/_chart-family/standalone-svg.js');
       await g(() => page.evaluate(`window.__flattenSvgStyles = ${flattenSvgStyles.toString()};`), 'inject svg flattener');
@@ -2268,26 +2329,6 @@ async function renderBody(browser, g, closeBrowser) {
         const fontFaceCss = standaloneFontFaceCss(collectFontFamilies(t.markup));
         return { slide: t.slide, kind: t.kind, svg: finalizeStandaloneSvg(t.markup, { fontFaceCss, background: svgBg }) };
       });
-    }
-
-    // (2) Full-fidelity raster, one per slide, at the resolved `--image-size` scale.
-    const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
-    const images = [];
-    for (const h of handles) {
-      images.push(await g(() => h.screenshot(shot), 'screenshot slide'));
-    }
-
-    // (3) Thumbnails — re-raster the same sections at a small device scale (thumbWidth
-    // ÷ slideW). deviceScaleFactor changes only the pixel density, never the layout, so
-    // the thumbnail is a faithful shrink of the full image.
-    const thumbs = [];
-    if (IMAGE_SET_OPTS.thumbnails) {
-      const thumbScale = resolveThumbScale(IMAGE_SET_OPTS.thumbWidth, slideW);
-      await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: thumbScale }), 'set thumb viewport');
-      const thumbHandles = await g(() => page.$$('section[data-lattice-slide]'), 'collect thumb handles');
-      for (const h of thumbHandles) {
-        thumbs.push(await g(() => h.screenshot(shot), 'screenshot thumb'));
-      }
     }
     await closeBrowser();
 

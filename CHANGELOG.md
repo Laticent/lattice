@@ -361,10 +361,13 @@ in patch versions.
   size for fidelity — `--image-format png|jpeg|webp`, `--image-size max|2x|1x|half`,
   `--image-quality N` (jpeg/webp), `--thumb-width N`, `--no-thumbnails`, `--no-svg`. **Color mode**
   is selectable per export — `--image-mode auto|light|dark|print` renders the whole set in the
-  light or dark palette or the B&W-safe print handout — and each standalone chart/diagram SVG can
-  bake a **backdrop** with `--svg-background transparent|light|dark` (a solid canvas reads best
-  paired with the matching mode, since the marks' ink is fixed by the render). The Studio's
-  Share → Images panel exposes the same controls (Color mode + SVG background selectors). The zip
+  light or dark palette or the B&W-safe print handout — and each standalone chart/diagram SVG has
+  its own **look**, `--svg-background transparent|light|dark|print`, that renders the vector
+  *independently of the slides*: `light`/`dark` render it in that scheme on a matching canvas, and
+  `print` renders it B&W-safe (grayscale + textures) on white — so you can export **color slides
+  but print-ready B&W chart/diagram vectors** in one set (when the look differs from the slides'
+  mode, the SVGs are re-rendered in it). The Studio's Share → Images panel exposes the same
+  controls (Color mode + SVG look selectors). The zip
   layout, naming, size presets, color mode, and manifest are single-sourced in a shared kernel
   (`lib/export/image-set.js`) that both surfaces use, so they emit the same set. New export path —
   existing PDF/PPTX/PNG bytes are unchanged.

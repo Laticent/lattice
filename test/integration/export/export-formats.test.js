@@ -457,6 +457,36 @@ describe('export-formats', () => {
     }
   });
 
+  test('SVG look renders the chart/diagram independent of the slides (color slides + print SVGs)', { timeout: TIMEOUT }, async () => {
+    const JSZip = require('jszip');
+    const chartSvg = async (svgBackground) => {
+      const out = path.join(tmpDir(), 'deck.zip');
+      const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--image-mode', 'light', '--svg-background', svgBackground], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+      });
+      assert.equal(r.status, 0, `emulator failed (${svgBackground}): ${r.stderr}`);
+      const zip = await JSZip.loadAsync(fs.readFileSync(out));
+      const name = Object.keys(zip.files).find((n) => /assets\/deck-s01-c00\.svg$/.test(n)); // the piechart
+      const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+      return { svg: await zip.file(name).async('string'), manifest };
+    };
+    const printLook = await chartSvg('print');
+    const transparentLook = await chartSvg('transparent');
+
+    // Same deck, same slide mode (light) — but the print-look chart is RE-RENDERED B&W, so it
+    // differs from the as-slides (transparent) chart. This is the whole point of the look.
+    assert.notEqual(printLook.svg, transparentLook.svg, 'print look should re-render the chart, not just re-backdrop it');
+    // Print charts reference the B&W texture patterns (accessibility-textures `latt-*` ids);
+    // the color as-slides chart does not.
+    assert.match(printLook.svg, /latt-/, 'print-look chart should carry the B&W texture refs');
+    assert.doesNotMatch(transparentLook.svg, /latt-/, 'the as-slides (color) chart has no print textures');
+    // Print bakes the white paper canvas; transparent bakes none.
+    assert.match(printLook.svg, /<rect [^>]*fill="#ffffff"\/>/);
+    assert.doesNotMatch(transparentLook.svg, /<rect [^>]*width="100%"[^>]*fill=/);
+    assert.equal(printLook.manifest.colorMode, 'light');
+    assert.equal(printLook.manifest.svgBackground, 'print');
+  });
+
   test('--image-mode print stamps the B&W handout canvas', { timeout: TIMEOUT }, async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');
