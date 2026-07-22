@@ -570,7 +570,7 @@ describe('export-formats', () => {
     });
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     // The author-themed diagram is flagged, ungated by --quiet (it was NOT passed here anyway).
-    assert.match(r.stderr + r.stdout, /could not be made fully B&W-safe/, 'CLI warns the themed diagram is not print-safe');
+    assert.match(r.stderr + r.stdout, /could not be recolored to the print look/, 'CLI warns the themed diagram is not print-safe');
     const JSZip = require('jszip');
     const zip = await JSZip.loadAsync(fs.readFileSync(out));
     const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
@@ -584,6 +584,31 @@ describe('export-formats', () => {
     }
     // Slide 3: author 'forest' theme survives (proves it was NOT falsely converted).
     assert.match(await zip.file(`deck/${diagrams[2].file}`).async('string'), forestRe, 'the author-themed diagram kept its own colors');
+  });
+
+  test('a dark-source deck re-renders its Mermaid diagram to the LIGHT look (dark ink on light)', { timeout: TIMEOUT }, async () => {
+    // Light/dark cross-scheme parity: mmdc bakes diagram colors from the deck's palette, so a dark
+    // deck's diagram is baked with WHITE text. Under `--svg-background light` the CLI re-renders the
+    // diagram with the LIGHT palette's theme vars in an isolated light-scheme page, so it exports as
+    // dark ink on light — matching a natively light-rendered diagram, not the dark bake.
+    const dir = tmpDir();
+    const src = path.join(dir, 'darkdeck.md');
+    fs.writeFileSync(src, '---\ntheme: indaco\ncolor-mode: dark\n---\n\n# Dark deck\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Go}\n  B -->|yes| C[Ship]\n```\n');
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'light'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    const diagram = manifest.assets.find((a) => a.kind === 'diagram');
+    assert.ok(diagram, 'a standalone diagram was exported');
+    const svg = await zip.file(`deck/${diagram.file}`).async('string');
+    // The light re-render carries DARK ink text (the dark bake has none — it is white text on a dark
+    // fill), proving the diagram was recolored to the light look rather than left in the slide scheme.
+    const darkInkRe = /fill\s*[:=]\s*["']?\s*(?:rgb\(\s*26\s*,\s*26\s*,\s*26\s*\)|rgb\(\s*10\s*,\s*22\s*,\s*40\s*\)|#1a1a1a|#0a1628)\b/i;
+    assert.match(svg, darkInkRe, 'the light-look diagram carries dark ink (recolored to light, not the dark bake)');
   });
 
   test('the standalone --print flag (not --image-mode) is authoritative for the manifest scheme', { timeout: TIMEOUT }, async () => {

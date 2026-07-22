@@ -2295,103 +2295,123 @@ async function renderBody(browser, g, closeBrowser) {
     let svgAssets = [];
     if (IMAGE_SET_OPTS.extractSvg) {
       const lookMode = svgLookMode(IMAGE_SET_OPTS.svgBackground); // null | light | dark | print
-      // A cross-scheme SVG look re-treats the extracted vectors. Token-driven CHARTS reflow from an
-      // in-place palette/print restyle (below). Mermaid DIAGRAMS bake their colors at render time
-      // (mmdc), so the restyle can't recolor them — for the PRINT look we re-bake each diagram B&W
-      // and swap it in (the print class fixes the section context so it flattens correctly); a
-      // light/dark cross-scheme diagram look isn't re-baked here (the Studio's full second render
-      // is the path for that). See pipeline.md §5 and the re-bake block below.
+      // A cross-scheme SVG look re-treats the extracted vectors two ways. Token-driven CHARTS reflow
+      // from an in-place palette/print restyle of the LIVE page (below) — they read the look's tokens
+      // directly. Mermaid DIAGRAMS bake their colors at render time (mmdc), so a CSS restyle can't
+      // recolor them; instead each diagram is RE-RENDERED in the look mode and flattened in an
+      // ISOLATED scratch page that is natively in the look scheme (a clean document holding only the
+      // look palette + the diagrams). A document already rendered dark/color can't be faithfully
+      // retrofit to another scheme in place — its rendered-scheme CSS leaks into the flatten — so the
+      // diagrams get their own clean context. This is the CLI's equivalent of the Studio's full
+      // second render, scoped to the diagrams, and makes ANY look (light/dark/print) export
+      // correctly. `lookDiagramMarkup` maps each diagram's stamp index → its look-flattened markup,
+      // applied to the extraction below. See pipeline.md §5.
+      let lookDiagramMarkup = null;
       if (lookMode && lookMode !== resolvedScheme) {
+        let lookApplied = true;
+        let lookPaletteCss = paletteCSS; // the palette the scratch page renders the diagrams under
+        let sectionLookClass = 'form';   // the section's scheme class in the scratch page
+        let lookThemeVars = null;        // Mermaid theme vars resolved from the LOOK palette (light/dark)
         if (lookMode === 'print') {
-          // `print` is a canvas class — stamping it on every section applies the B&W-safe
-          // ink-on-white treatment (section.print) to the charts + diagrams via the cascade.
+          // `print` is a canvas class — stamping it on every LIVE section applies the B&W-safe
+          // ink-on-white treatment (section.print) so the CHARTS recolor via the cascade.
           await g(() => page.evaluate(() => {
             for (const s of document.querySelectorAll('section[data-lattice-slide]')) s.classList.add('print');
-          }), 'apply print look');
+          }), 'apply print look (charts)');
+          sectionLookClass = 'form print';
         } else {
-          // light / dark — inject the matching palette so the chart tokens (var-based) reflow.
+          // light / dark — inject the matching palette so the LIVE chart tokens (var-based) reflow.
           const base = paletteName.replace(/-dark$/, '');
           const targetName = lookMode === 'dark' ? `${base}-dark` : base;
           const targetPath = path.join(PKG_ROOT, 'themes', `${targetName}.css`);
           if (fs.existsSync(targetPath)) {
-            const lookCss = loadPaletteWithImports(targetPath, new Set(), 'svg-look palette');
+            lookPaletteCss = loadPaletteWithImports(targetPath, new Set(), 'svg-look palette');
+            sectionLookClass = lookMode === 'dark' ? 'dark form' : 'form';
+            // Resolve Mermaid theme vars from the LOOK palette (not the deck's) — the module-level
+            // MERMAID_THEME_VARS is baked from the deck's resolved palette, which for `--image-mode
+            // dark` is the DARK theme, so re-rendering `light` with it would still read dark. Parse
+            // the look palette fresh so a light look bakes light diagram colors and a dark look dark.
+            lookThemeVars = resolveMermaidThemeVars(parsePaletteVars(layoutCSS + '\n' + lookPaletteCss, lookMode === 'dark'));
             await g(() => page.evaluate(({ css, scheme }) => {
               const s = document.createElement('style');
               s.id = 'lattice-svg-look';
               s.textContent = css;
               document.head.appendChild(s);
               document.documentElement.style.colorScheme = scheme;
-            }, { css: lookCss, scheme: lookMode }), 'apply svg-look palette');
+            }, { css: lookPaletteCss, scheme: lookMode }), 'apply svg-look palette (charts)');
           } else {
             // Can't honor the look (no companion theme) — coerce to `inherit` so the baked canvas
             // + manifest describe what actually renders (the slide look), not a lie. Warn even
             // under --quiet: the artifact differs from what was asked for. (Mirrors the Studio.)
             console.warn(`  ⚠ --svg-background ${lookMode}: no 'themes/${targetName}.css' — exporting SVGs in the slide look ('inherit').`);
             effectiveSvgBackground = 'inherit';
+            lookApplied = false;
           }
         }
-        // Let the restyle settle (var()/scheme recompute) before reading computed styles.
+        // Let the live restyle settle (var()/scheme recompute) before reading chart computed styles.
         await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 120))), 'settle svg look');
 
-        // Cross-scheme diagram RE-BAKE — PRINT look. The restyle above recolors token-driven CHARTS
-        // fully, but mmdc bakes Mermaid diagram node text / edges to literal colors at render time,
-        // so a CSS restyle can't flip them. For the PRINT look we CAN close this: the `.print` class
-        // stamped on every section (above) puts the whole slide in the B&W ink-on-white context, so
-        // re-rendering each diagram with the print theme vars (renderMermaid('print')) and swapping
-        // it in flattens to correct black-on-white — a dark-source deck now exports print-ready B&W
-        // diagram vectors. (light/dark cross-scheme is NOT re-baked here: the palette injection
-        // doesn't reroute the section's own scheme, so a light/dark diagram would flatten against the
-        // slide context and read wrong — the Studio's full second render is the path there; warned
-        // below.)
-        // De-duped: the same stamped diagram can appear on >1 section if autosplit copies a shared
-        // block onto each piece, so re-bake each index once and swap it into EVERY node that carries it.
-        const diagramIdxs = await g(() => page.evaluate(() =>
-          [...new Set([...document.querySelectorAll('.mermaid-svg[data-mmd-idx]')].map((d) => Number(d.getAttribute('data-mmd-idx'))))],
-        ), 'collect diagram indices');
-        if (lookMode === 'print') {
-          if (diagramIdxs.length && !QUIET) process.stdout.write(`  re-baking ${diagramIdxs.length} Mermaid diagram(s) print-safe...`);
-          let rebaked = 0;
-          const notPrintSafe = []; // diagrams whose own colors the print re-bake can't force B&W
-          for (const idx of diagramIdxs) {
-            const def = MERMAID_REBAKE_DEFS[idx];
-            if (def == null) continue;
-            // A diagram that sets its OWN colors overrides Mermaid's print theme variables, so the
-            // re-bake can't force it B&W: an author `%%{init}%%` theme (mmdc skips themeVars entirely),
-            // or explicit `fill:`/`stroke:`/`color:` hex/rgb in `style`/`classDef`/`linkStyle`.
-            const authorColored = /%%\{\s*init/i.test(def) ||
-              /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
-            // A pure `%%{init}%%` theme makes the re-bake a total no-op — skip the wasted mmdc call and
-            // keep the original. (An explicit-fill diagram still benefits: the re-bake flattens its
-            // theme-driven parts, leaving only the styled nodes colored — so it IS still swapped below.)
-            if (/%%\{\s*init/i.test(def)) { notPrintSafe.push(idx); continue; }
-            const out = renderMermaid(def, 'print');
-            // mmdc can degrade to a `<pre class="mermaid-fallback">` (no <div> wrapper) after exhausting
-            // its retries. Only swap a REAL re-bake — otherwise keep the original node (which still has
-            // an <svg> to export) rather than replacing it with a <pre> and dropping the asset entirely.
-            if (!/^\s*<div\b/.test(out)) { notPrintSafe.push(idx); continue; }
-            const inner = out.replace(/^<div\b[^>]*>/, '').replace(/<\/div>\s*$/, '');
-            await g(() => page.evaluate(({ i, html }) => {
-              // Swap EVERY node carrying this index (a cloned diagram appears more than once), not just the first.
-              for (const el of document.querySelectorAll(`.mermaid-svg[data-mmd-idx="${i}"]`)) el.innerHTML = html;
-            }, { i: idx, html: inner }), 'swap re-baked diagram');
-            rebaked++;
-            if (authorColored) notPrintSafe.push(idx); // swapped, but its own fills survive → still flag it
+        // Re-render the diagrams in the look and flatten them in an isolated scratch page.
+        if (lookApplied) {
+          // De-duped: a diagram can be stamped on >1 section (autosplit clones a shared block); re-render
+          // each index once, then apply its markup to every occurrence during extraction below.
+          const idxs = await g(() => page.evaluate(() =>
+            [...new Set([...document.querySelectorAll('.mermaid-svg[data-mmd-idx]')].map((d) => Number(d.getAttribute('data-mmd-idx'))))],
+          ), 'collect diagram indices');
+          if (idxs.length) {
+            if (!QUIET) process.stdout.write(`  re-rendering ${idxs.length} Mermaid diagram(s) → ${lookMode}...`);
+            const { flattenSvgStyles: flatten } = require('./lib/components/chart/_chart-family/standalone-svg.js');
+            const parts = [];
+            const notConverted = new Set();
+            for (const idx of idxs) {
+              const def = MERMAID_REBAKE_DEFS[idx];
+              if (def == null) continue;
+              // A diagram that sets its OWN colors overrides Mermaid's theme variables, so the look
+              // re-render can't recolor it: an author `%%{init}%%` theme (mmdc skips themeVars), or
+              // explicit `fill:`/`stroke:`/`color:` hex/rgb in `style`/`classDef`/`linkStyle`.
+              const authorColored = /%%\{\s*init/i.test(def) ||
+                /\b(?:fill|stroke|color)\s*:\s*(?:#[0-9a-fA-F]{3,8}|rgb)/i.test(def);
+              // print → the print theme vars (MERMAID_THEME_VARS_PRINT, scheme-independent); light/dark
+              // → the vars resolved from the LOOK palette above, so the diagram bakes the look's colors.
+              const out = lookMode === 'print' ? renderMermaid(def, 'print') : renderMermaidOne(def, lookThemeVars, null);
+              // mmdc can degrade to a `<pre class="mermaid-fallback">` (no <div> wrapper) after
+              // exhausting its retries — skip it so the ORIGINAL live diagram is kept below, not dropped.
+              if (!/^\s*<div\b/.test(out)) { notConverted.add(idx); continue; }
+              parts.push(out.replace(/^<div class="mermaid-svg/, `<div data-look-idx="${idx}" class="mermaid-svg`));
+              if (authorColored) notConverted.add(idx);
+            }
+            lookDiagramMarkup = new Map();
+            if (parts.length) {
+              // Clean look-scheme doc: the engine layout CSS + the look palette + a section in the look
+              // scheme, holding just the re-rendered diagrams. No slide content, no rendered-scheme CSS.
+              const scratchDoc = `<!DOCTYPE html><html style="color-scheme:${lookMode === 'dark' ? 'dark' : 'light'}"><head><meta charset="utf-8"><style>${layoutCSS}\n${lookPaletteCss}</style></head><body><section class="${sectionLookClass}" data-lattice-slide="1">${parts.join('')}</section></body></html>`;
+              const scratch = await g(() => page.browser().newPage(), 'look-diagram scratch page');
+              try {
+                await g(() => scratch.setContent(scratchDoc, { waitUntil: 'networkidle0', timeout: 60000 }), 'load look scratch');
+                await g(() => scratch.evaluate(`window.__flattenSvgStyles = ${flatten.toString()};`), 'inject flattener (scratch)');
+                await g(() => scratch.evaluate(() => new Promise((r) => setTimeout(r, 120))), 'settle scratch');
+                const flat = await g(() => scratch.evaluate(() => {
+                  const ser = new XMLSerializer();
+                  const acc = {};
+                  for (const wrap of document.querySelectorAll('.mermaid-svg[data-look-idx]')) {
+                    const svg = wrap.querySelector('svg');
+                    if (!svg) continue;
+                    try { acc[wrap.getAttribute('data-look-idx')] = ser.serializeToString(window.__flattenSvgStyles(svg, window)); } catch (_e) { /* skip one un-flattenable svg */ }
+                  }
+                  return acc;
+                }), 'flatten look diagrams');
+                for (const [k, v] of Object.entries(flat)) lookDiagramMarkup.set(Number(k), v);
+              } finally {
+                await scratch.close().catch(() => {});
+              }
+            }
+            if (!QUIET) console.log(` ${lookDiagramMarkup.size}/${idxs.length} converted`);
+            // A set whose diagrams still carry their own colors is a real surprise — NOT gated on
+            // --quiet, and names the count so an automated pipeline catches it too.
+            if (notConverted.size) {
+              console.warn(`  ⚠ ${notConverted.size} of ${idxs.length} Mermaid diagram(s) could not be recolored to the ${lookMode} look — an author \`%%{init}%%\` theme or explicit \`style\`/\`classDef\` fills override it (or a diagram fell back). Those keep their own colors and may read low-contrast against this look's canvas; remove the fixed theme/style, or re-color in the Studio.`);
+            }
           }
-          if (diagramIdxs.length && !QUIET) console.log(` ${rebaked}/${diagramIdxs.length} converted`);
-          // A "print" set that still carries color is a real surprise the caller must SEE — so this
-          // warning is NOT gated on --quiet (unlike the progress line above). Names the count so an
-          // automated pipeline can catch it too.
-          if (notPrintSafe.length) {
-            console.warn(`  ⚠ ${notPrintSafe.length} of ${diagramIdxs.length} Mermaid diagram(s) could not be made fully B&W-safe — an author \`%%{init}%%\` theme or explicit \`style\`/\`classDef\` fills override print styling (or a diagram fell back). Those keep their own colors and may read low-contrast on the print canvas; remove the fixed theme/style, or re-color in the Studio.`);
-          }
-          // Settle the swapped nodes before flattening reads their computed styles.
-          if (rebaked) await g(() => page.evaluate(() => new Promise((r) => setTimeout(r, 60))), 'settle rebake');
-        } else if (diagramIdxs.length && effectiveSvgBackground !== 'inherit') {
-          // light / dark cross-scheme that WAS applied: charts recolor, but Mermaid diagrams keep
-          // their slide-scheme bake (mmdc literals the CSS restyle can't flip). Point at the surfaces
-          // that DO re-bake. (Skipped when the look coerced to `inherit` above — a missing companion
-          // theme, already warned — since then no look was applied to charts OR diagrams.)
-          console.warn(`  ⚠ --svg-background ${lookMode}: Mermaid diagrams keep the slide-scheme colors (charts recolor). For fully re-baked light/dark diagrams use the Studio export; --svg-background print IS re-baked B&W-safe here.`);
         }
       }
 
@@ -2402,23 +2422,35 @@ async function renderBody(browser, g, closeBrowser) {
         const ser = new XMLSerializer();
         const out = [];
         document.querySelectorAll('section[data-lattice-slide]').forEach((sec, si) => {
-          const push = (svg, kind, chartType) => {
+          const push = (svg, kind, chartType, mmdIdx) => {
             try {
               const flat = window.__flattenSvgStyles(svg, window);
-              out.push({ slide: si + 1, kind, chartType: chartType || null, markup: ser.serializeToString(flat) });
+              out.push({ slide: si + 1, kind, chartType: chartType || null, mmdIdx: mmdIdx == null ? null : Number(mmdIdx), markup: ser.serializeToString(flat) });
             } catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
           };
-          // Mermaid/diagram blocks render to an inline <svg> inside `.mermaid-svg`.
-          sec.querySelectorAll('.mermaid-svg svg').forEach((svg) => { push(svg, 'diagram', null); });
+          // Mermaid/diagram blocks render to an inline <svg> inside `.mermaid-svg`; carry the stamp
+          // index so a cross-scheme look can swap in the isolated look-rendered markup below.
+          sec.querySelectorAll('.mermaid-svg').forEach((wrap) => {
+            const svg = wrap.querySelector('svg');
+            if (svg) push(svg, 'diagram', null, wrap.getAttribute('data-mmd-idx'));
+          });
           // The four keyed chart layouts emit the diagram+key as one self-contained svg;
           // the section class (piechart/radar/…) is the manifest's `chartType`.
           if (sec.classList.contains('chart-frame') && KEYED.some((c) => sec.classList.contains(c))) {
             const ct = KEYED.find((c) => sec.classList.contains(c)) || null;
-            sec.querySelectorAll('svg[viewBox]').forEach((svg) => { push(svg, 'chart', ct); });
+            sec.querySelectorAll('svg[viewBox]').forEach((svg) => { push(svg, 'chart', ct, null); });
           }
         });
         return out;
       }, KEYED_CHART_LAYOUTS), 'extract standalone svgs');
+      // For a cross-scheme look, replace each diagram's LIVE markup (flattened against the slide doc)
+      // with the look-rendered one from the isolated scratch page. Diagrams that couldn't be recolored
+      // (author-themed / mmdc fallback) aren't in the map and keep their live markup.
+      if (lookDiagramMarkup) {
+        for (const t of raw) {
+          if (t.kind === 'diagram' && t.mmdIdx != null && lookDiagramMarkup.has(t.mmdIdx)) t.markup = lookDiagramMarkup.get(t.mmdIdx);
+        }
+      }
       const svgBg = svgBackgroundFill(effectiveSvgBackground);
       svgAssets = raw.map((t) => {
         const fontFaceCss = standaloneFontFaceCss(collectFontFamilies(t.markup));

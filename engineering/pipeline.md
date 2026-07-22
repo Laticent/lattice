@@ -105,22 +105,22 @@ size for fidelity:
 | `--no-svg` | — | Omit the `assets/` folder (the standalone chart/diagram SVGs). |
 
 **How the SVG look is applied (a cross-surface nuance):** charts are token-driven, so both
-surfaces recolor them fully for any look. Mermaid **diagrams** bake their colors at render time
-(mmdc), so a CSS restyle can't recolor them — they need a re-render. The **Studio** re-renders the
-whole deck in the look (a second render pass), so *any* diagram look — light, dark, or print — is
-fully re-colored. The **CLI** re-bakes diagrams for the **`print`** look: a `--svg-background print`
-on a color/dark deck re-renders each Mermaid diagram B&W-safe and swaps it in, so you get
-print-ready black-on-white diagram vectors (the `.print` slide context makes the swap flatten
-correctly). A **light/dark cross-scheme** diagram look on the CLI (e.g. a **dark-source** deck →
-`light`) is *not* re-baked — the in-place restyle can't reroute the slide's own scheme, so those
-diagrams keep the slide-scheme bake; the CLI **warns** and points you at the Studio (which re-renders)
-or `--svg-background print`. Charts recolor fully on both surfaces regardless.
+surfaces recolor them fully for any look via an in-place restyle. Mermaid **diagrams** bake their
+colors at render time (mmdc), so a CSS restyle can't recolor them — they need a re-render. Both
+surfaces re-render for **any** cross-scheme look (light, dark, or print): the **Studio** re-renders
+the whole deck in the look (a second render pass), and the **CLI** re-renders each diagram with the
+**look palette's** theme vars and flattens it in an *isolated* page held in the look scheme (a clean
+document — a page already rendered dark/color can't be faithfully retrofit to another scheme in
+place, its rendered-scheme CSS leaks into the flatten). So a **dark-source deck → `light`** exports
+dark-ink-on-light diagram vectors matching a native light render, **→ `dark`** exports a dark
+diagram, and **→ `print`** exports print-ready black-on-white — the diagram look is now correct on
+the CLI for every scheme, not just print. Charts recolor fully on both surfaces regardless.
 
-Two caveats on the CLI print re-bake: (1) it re-runs `mmdc` once per diagram (a second headless
-render), so a cross-scheme `--svg-background print` on a diagram-heavy deck is noticeably slower than a
+Two caveats on the CLI diagram re-render: (1) it re-runs `mmdc` once per diagram (a second headless
+render), so a cross-scheme `--svg-background` on a diagram-heavy deck is noticeably slower than a
 CSS-only look — expected, not a hang. (2) A diagram that sets its **own** colors — an author
 `%%{init}%%` theme, or explicit `fill:`/`stroke:` in `style`/`classDef`/`linkStyle` — overrides the
-print theme variables, so it can't be forced B&W; the CLI **warns with a count** (ungated by `--quiet`)
+look's theme variables, so it can't be recolored; the CLI **warns with a count** (ungated by `--quiet`)
 and leaves those diagrams in their own colors rather than silently claiming a conversion it didn't make.
 
 **The `manifest.json` index** (`kind: "lattice-image-set"`, `version: 2`) lets a
