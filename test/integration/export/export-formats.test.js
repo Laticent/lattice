@@ -521,6 +521,28 @@ describe('export-formats', () => {
     }
   });
 
+  test('a dark-source deck exports a print-safe (B&W) Mermaid diagram under --svg-background print', { timeout: TIMEOUT }, async () => {
+    // The gap this closes: mmdc bakes diagram colors at render time, so a dark deck's diagram used to
+    // export in its dark scheme (light text) even when the SVG look is print. The CLI now RE-BAKES the
+    // diagram print-safe. Assert the standalone diagram carries dark ink, not the dark-scheme light text.
+    const dir = tmpDir();
+    const src = path.join(dir, 'darkdeck.md');
+    fs.writeFileSync(src, '---\ntheme: indaco\ncolor-mode: dark\n---\n\n# Dark deck\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Go}\n  B -->|yes| C[Ship]\n```\n');
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, src, out, '--quiet', '--image-mode', 'dark', '--svg-background', 'print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const diagName = Object.keys(zip.files).find((n) => /assets\/.+\.svg$/.test(n));
+    assert.ok(diagName, 'a standalone diagram SVG was exported');
+    const svg = await zip.file(diagName).async('string');
+    // Print re-bake → near-black ink present, and the dark-scheme white node text is gone.
+    assert.match(svg, /fill:\s*rgb\(26,\s*26,\s*26\)|#1A1A1A/i, 'diagram carries print B&W ink');
+    assert.doesNotMatch(svg, /fill:\s*rgb\(255,\s*255,\s*255\)/, 'no dark-scheme white text survived the re-bake');
+  });
+
   test('the standalone --print flag (not --image-mode) is authoritative for the manifest scheme', { timeout: TIMEOUT }, async () => {
     // `deck.md out.zip --print` stamps the print canvas (WANT_PRINT) but leaves --image-mode at
     // its 'inherit' default — the manifest must still record 'print' to match the ink-on-white
