@@ -116,6 +116,12 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // chartEl excludes the inert <template> payloads (they live in a sibling
   // .chart-details div) and legend swatches (no data-mark).
   const markEls = () => (chartEl ? [...chartEl.querySelectorAll(MARK_SEL)] : []);
+  // The chart svg to bind to — the visible one when a chart has both a hidden poster and a live
+  // animated clone (see setChart). Falls back to first-match if none reports a box yet (pre-layout).
+  const chartSvgIn = (sec) => {
+    const all = [...sec.querySelectorAll(CHART_SVG_SEL)];
+    return all.find((s) => s.getBoundingClientRect().width > 0) || all[0] || null;
+  };
   const marksFor = (i) => markEls().filter((m) => markIndex(m) === i);
   // Distinct mark indices present (a map group shares one index across regions),
   // so number keys / range checks count data points, not DOM nodes.
@@ -207,7 +213,12 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     clear();
     while (timers.length) clearTimeout(timers.pop());
     curSection = sec || null;
-    chartEl = sec ? sec.querySelector(CHART_SVG_SEL) : null;
+    // Prefer the VISIBLE chart svg. An ANIMATED chart carries TWO matching svgs — the original poster
+    // (hidden `display:none` by the Anima host) plus the live clone it animates — and the poster is
+    // first in DOM order. Binding to the poster would give a zero-box geometry (breaking the Present
+    // hit-surface) and read a hidden node; pick the one that actually has a box. Static charts have a
+    // single svg, so this is a plain first-match there.
+    chartEl = sec ? chartSvgIn(sec) : null;
     detailsEl = sec ? sec.querySelector(DETAILS_SEL) : null;
     // Only "interactive" when the authored detail is actually present.
     if (chartEl && detailsEl) {

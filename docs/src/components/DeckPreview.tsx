@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { getFrontMatter } from '@/components/studio/front-matter';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
@@ -88,6 +89,12 @@ export type DeckPreviewProps = {
 	 * landing/showcase hosts render a known static sample with no meaningful load gap.
 	 */
 	loader?: boolean;
+	/**
+	 * Mount the parent-hosted chart mark-detail reveal over this preview (hover a chart mark to
+	 * reveal its authored detail). Opt-in — ONLY the Studio's primary editing preview wants it; a
+	 * thumbnail / specimen host must stay static (a grid of popovers would be noise). Off by default.
+	 */
+	chartDetail?: boolean;
 };
 
 /**
@@ -109,6 +116,7 @@ export function DeckPreview({
 	role,
 	onFirstRender,
 	loader = false,
+	chartDetail = false,
 	...aria
 }: DeckPreviewProps) {
 	// Nacre loader = the SKELETON. It owns the screen for the whole load and yields ONLY
@@ -308,6 +316,10 @@ export function DeckPreview({
 	const animaRef = React.useRef<{ rebind(): void; destroy(): void } | null>(null);
 	const animaBoundRef = React.useRef(false);
 	const animaLoadingRef = React.useRef(false);
+	// The parent-hosted chart mark-detail reveal (opt-in via `chartDetail`). Driven by rebind() after
+	// each paint, like the Anima host — the shared ChartDetailLayer (rendered below) lazily binds once
+	// `iframe.live` exists.
+	const chartDetailRef = React.useRef<ChartDetailHandle | null>(null);
 	const syncAnima = React.useCallback(() => {
 		if (animaRef.current) {
 			animaRef.current.rebind();
@@ -400,6 +412,9 @@ export function DeckPreview({
 		// attach the load listener once; `syncAnima` covers the in-place patch path (no `load`).
 		bindAnima();
 		syncAnima();
+		// Re-bind the chart-detail hover layer to the (possibly new) iframe document. A no-op unless
+		// the `chartDetail` opt-in mounted the layer; it lazily binds on the first call once the frame exists.
+		chartDetailRef.current?.rebind();
 		return { heavy: status?.writePath === 'write' };
 	};
 
@@ -496,6 +511,7 @@ export function DeckPreview({
 	// overlay anchors to the figure. A non-loader host with no failure stays static (byte-for-byte
 	// unchanged anchoring).
 	return (
+		<>
 		<figure ref={stageRef} className={cn((loader || failed) && 'relative', 'm-0', className)} role={role} {...aria}>
 			{loader && (
 				<span className={cn('nacre-loader', painted && 'is-done')} aria-hidden="true">
@@ -535,6 +551,18 @@ export function DeckPreview({
 				</div>
 			)}
 		</figure>
+		{/* The chart mark-detail reveal (opt-in). Its popover portals to <body>; getStage returns the
+		    figure so the hit layer positions in stage coordinates. Kept OUTSIDE the figure so it never
+		    disturbs the figure's single-React-child / imperatively-appended `iframe.live` invariant. */}
+		{chartDetail && (
+			<ChartDetailLayer
+				ref={chartDetailRef}
+				getFrame={() => stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null}
+				getStage={() => stageRef.current}
+				hoverAny
+			/>
+		)}
+		</>
 	);
 }
 

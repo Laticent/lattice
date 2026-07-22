@@ -1,9 +1,9 @@
 import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
+import { type ChartDetailHandle, ChartDetailLayer } from '@/components/chart-detail-layer';
 import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import {
 	Select,
@@ -47,7 +47,6 @@ import {
 import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
-import { createChartInteract } from '@/playground/chart-interact.js';
 import { applyDebug } from '@/playground/debug-overlay.js';
 import { getDebugOverride, onDebugOverrideChange } from '@/playground/debug-prefs.js';
 import { readFrontMatter } from '@/playground/deck-config.js';
@@ -190,32 +189,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const currentName = view === 'read' ? readerComponent : draftComponent || readerComponent;
 
 	const frameRef = React.useRef<HTMLIFrameElement>(null);
-	// Live in-preview chart interaction: hover/tap a pie wedge in the rendered
-	// preview to reveal its authored detail, as you edit — same parent-hosted
-	// module + behaviour as the Drawing Board. Created on mount, re-bound after
-	// each render (a srcdoc rewrite replaces the iframe doc). Export untouched.
-	const chartInteractRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
+	// Live in-preview chart detail: hover/tap a chart mark in the rendered preview to reveal its
+	// authored detail as you edit. The parent-hosted layer + its popover live in the shared
+	// `ChartDetailLayer` (below in the tree); this ref drives its rebind() after each paint.
+	const chartDetailRef = React.useRef<ChartDetailHandle | null>(null);
 	const videoOverlayRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
 	// Parent-hosted Anima scene hydration — brings a `scene` slide's poster to life on the
 	// live preview (Stage 6). Created on mount, re-bound after each render (a srcdoc rewrite
 	// replaces the iframe doc). Export untouched (poster still).
 	const animaScenesRef = React.useRef<{ rebind: () => void; destroy: () => void } | null>(null);
-	// Chart detail reveal — the parent-hosted chart-interact layer hands us the hovered
-	// mark's detail + the cursor point; we render it as the real shadcn Popover, anchored
-	// to a virtual element at that point (so it sits right by the pointer). `body`/`meta`
-	// are HTML fragments from the deck's own (already-sanitized, #22) detail templates.
-	type ChartDetail = { label: string; value?: string; dot?: string; body?: string; meta?: string; lean?: boolean; x?: number; y?: number };
-	const [chartDetail, setChartDetail] = React.useState<ChartDetail | null>(null);
-	const chartDetailRef = React.useRef<ChartDetail | null>(null);
-	chartDetailRef.current = chartDetail;
-	const chartAnchorRef = React.useRef({
-		getBoundingClientRect: () => {
-			const d = chartDetailRef.current;
-			const x = d?.x ?? -9999;
-			const y = d?.y ?? -9999;
-			return { x, y, left: x, top: y, right: x, bottom: y, width: 0, height: 0, toJSON: () => ({}) } as DOMRect;
-		},
-	});
 	const editorRef = React.useRef<EditorAdapter | null>(null);
 	const engineRef = React.useRef(createEngineBridge(themeBase, runtimeUrl, engineUrl, palettes, { mermaidUrl, katexUrl }));
 	const previewStateRef = React.useRef<PreviewState>({ frameSig: '', lastSections: null });
@@ -432,7 +414,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					setTimeout(() => captureFirstSlideRef.current(), 1500);
 				}
 				// Re-bind the hover layer to the (possibly new) iframe document.
-				chartInteractRef.current?.rebind();
+				chartDetailRef.current?.rebind();
 				// Re-install the parent-hosted video playback bridge on the (possibly new) frame.
 				videoOverlayRef.current?.rebind();
 				// Re-hydrate Anima scenes on the (possibly new) frame document.
@@ -625,15 +607,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const frame = frameRef.current;
 		const stage = frame?.parentElement;
 		if (!frame || !stage) return;
-		const ci = createChartInteract({
-			stage,
-			getFrame: () => frameRef.current ?? frame,
-			hoverAny: true,
-			// chart-interact types the hook as `(detail: object|null) => void`; the
-			// payload it emits IS the ChartDetail shape, so coerce at the boundary.
-			onDetail: (detail) => setChartDetail(detail as ChartDetail | null),
-		});
-		chartInteractRef.current = ci;
+		// The chart-detail layer self-mounts as a component (ChartDetailLayer, in the tree below) —
+		// no manual createChartInteract here anymore. The video + Anima bridges stay parent-mounted.
 		// Parent-hosted video playback: plays an embedded clip OVER the preview poster
 		// (never an iframe inside the slide — #22 + the iOS scaled-iframe traps).
 		const vo = createVideoOverlay({ getFrame: () => frameRef.current ?? frame });
@@ -650,8 +625,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		});
 		animaScenesRef.current = as;
 		return () => {
-			ci.destroy();
-			chartInteractRef.current = null;
 			vo.destroy();
 			videoOverlayRef.current = null;
 			as.destroy();
@@ -1305,44 +1278,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	return (
 		<div className="lx-ui contents">
-			{/* Chart detail reveal — the real shadcn Popover, anchored to a virtual element
-			    at the cursor point the chart-interact layer reports. Non-modal + focus-inert
-			    + pointer-transparent so it reads as a hover tooltip, not a click dialog. */}
-			<Popover open={!!chartDetail}>
-				<PopoverAnchor virtualRef={chartAnchorRef} />
-				<PopoverContent
-					side="bottom"
-					align="start"
-					sideOffset={14}
-					collisionPadding={8}
-					updatePositionStrategy="always"
-					onOpenAutoFocus={(e) => e.preventDefault()}
-					onCloseAutoFocus={(e) => e.preventDefault()}
-					className="pointer-events-none w-auto max-w-[20rem] p-3"
-				>
-					{chartDetail && (
-						<>
-							<div className="flex items-center gap-2 font-medium text-foreground">
-								{chartDetail.dot ? (
-									<span className="size-2 shrink-0 rounded-full" style={{ background: chartDetail.dot }} />
-								) : null}
-								<span>{chartDetail.label}</span>
-								{chartDetail.value ? (
-									<span className="ml-auto tabular-nums text-muted-foreground">{chartDetail.value}</span>
-								) : null}
-							</div>
-							{chartDetail.body ? (
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: deck-authored detail, sanitized upstream (#22)
-								<p className="mt-1.5 text-sm text-foreground/90" dangerouslySetInnerHTML={{ __html: chartDetail.body }} />
-							) : null}
-							{chartDetail.meta ? (
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: deck-authored detail, sanitized upstream (#22)
-								<div className="mt-1.5 text-xs uppercase tracking-wide text-muted-foreground" dangerouslySetInnerHTML={{ __html: chartDetail.meta }} />
-							) : null}
-						</>
-					)}
-				</PopoverContent>
-			</Popover>
+			{/* Chart detail reveal — the shared parent-hosted layer + its popover (PREVIEW mode:
+			    reveal whichever chart is under the pointer as the author edits). */}
+			<ChartDetailLayer ref={chartDetailRef} getFrame={() => frameRef.current} getStage={() => frameRef.current?.parentElement ?? null} hoverAny />
 			{/* Toolbar — one row: mode toggle · component · step · setup · galleries. */}
 			<div className="pg-bar">
 				{/* Explore / Edit — a compact two-icon toggle (◱ view the deck · ✎ edit
