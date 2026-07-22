@@ -229,8 +229,9 @@ const PAIRS = [
   // pass/warn/fail are consumed as TEXT / --state-color / --stamp-color / --stance
   // ink (obligation-matrix state cells, policy-recommendation stance, status-cards,
   // regulatory stamps) — on the canvas AND on card/table surfaces (bg-alt). They
-  // were historically tuned against --bg only; a card is bg-alt, a touch lighter,
-  // so a warn amber that clears bg can slip under AA on bg-alt. Held to 4.5 (ink).
+  // were historically tuned against --bg only; a card is bg-alt, which on a light
+  // theme is a touch DARKER than --bg (e.g. indaco #F2F5FA vs #FFFFFF), so a warn
+  // amber that clears --bg can slip under AA on --bg-alt. Held to 4.5 (ink).
   ['pass', 'bg',     'slide: pass status ink on canvas'],
   ['warn', 'bg',     'slide: warn status ink on canvas'],
   ['fail', 'bg',     'slide: fail status ink on canvas'],
