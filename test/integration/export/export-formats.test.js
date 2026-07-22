@@ -471,18 +471,18 @@ describe('export-formats', () => {
       return { svg: await zip.file(name).async('string'), manifest };
     };
     const printLook = await chartSvg('print');
-    const transparentLook = await chartSvg('transparent');
+    const inheritLook = await chartSvg('inherit');
 
     // Same deck, same slide mode (light) — but the print-look chart is RE-RENDERED B&W, so it
-    // differs from the as-slides (transparent) chart. This is the whole point of the look.
-    assert.notEqual(printLook.svg, transparentLook.svg, 'print look should re-render the chart, not just re-backdrop it');
+    // differs from the as-slides (inherit) chart. This is the whole point of the look.
+    assert.notEqual(printLook.svg, inheritLook.svg, 'print look should re-render the chart, not just re-backdrop it');
     // Print charts reference the B&W texture patterns (accessibility-textures `latt-*` ids);
     // the color as-slides chart does not.
     assert.match(printLook.svg, /latt-/, 'print-look chart should carry the B&W texture refs');
-    assert.doesNotMatch(transparentLook.svg, /latt-/, 'the as-slides (color) chart has no print textures');
-    // Print bakes the white paper canvas; transparent bakes none.
+    assert.doesNotMatch(inheritLook.svg, /latt-/, 'the as-slides (color) chart has no print textures');
+    // Print bakes the white paper canvas; inherit bakes none.
     assert.match(printLook.svg, /<rect [^>]*fill="#ffffff"\/>/);
-    assert.doesNotMatch(transparentLook.svg, /<rect [^>]*width="100%"[^>]*fill=/);
+    assert.doesNotMatch(inheritLook.svg, /<rect [^>]*width="100%"[^>]*fill=/);
     assert.equal(printLook.manifest.colorMode, 'light');
     assert.equal(printLook.manifest.svgBackground, 'print');
   });

@@ -504,7 +504,7 @@ export type ImageSetOptions = {
 	thumbWidth?: number;
 	extractSvg?: boolean;
 	mode?: 'auto' | 'light' | 'dark' | 'print';
-	svgBackground?: 'transparent' | 'light' | 'dark' | 'print';
+	svgBackground?: 'inherit' | 'light' | 'dark' | 'print';
 };
 
 /** Image set (.zip): one raster per slide (PNG/JPEG/WebP) + opt-in thumbnails + the
@@ -532,18 +532,25 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	// from this render instead of the slide render. print → the B&W `class: print`; light/dark →
 	// the matching palette (skipped for a saved library theme, which has no companion scheme).
 	const slideScheme = chosen === 'print' ? 'print' : renderMode;
-	const svgLook = imageOpts.svgBackground && imageOpts.svgBackground !== 'transparent' ? imageOpts.svgBackground : null;
+	const svgLook = imageOpts.svgBackground && imageOpts.svgBackground !== 'inherit' ? imageOpts.svgBackground : null;
 	let svgRender: DeckRender | undefined;
-	if (svgLook && svgLook !== slideScheme) {
+	let effectiveOpts = imageOpts;
+	// Only re-render for the look when SVGs are actually extracted (else the second render is wasted).
+	if (svgLook && svgLook !== slideScheme && imageOpts.extractSvg !== false) {
 		if (svgLook === 'print') {
 			svgRender = await buildDeckRender(options, mergeClassTokens(source, 'print'), palette, 'light', extra, extraCss);
 		} else if (!extra) {
 			svgRender = await buildDeckRender(options, source, palette, svgLook, extra, extraCss);
+		} else {
+			// A saved library theme has no light/dark companion to render — the look can't be
+			// honored, so coerce back to `inherit` (no re-render) rather than baking a canvas +
+			// manifest that claim a look the SVGs don't actually have.
+			effectiveOpts = { ...imageOpts, svgBackground: 'inherit' };
 		}
 	}
 
 	const ex = await exporters();
-	await ex.exportImageSet(render, name, imageOpts, onStatus, svgRender);
+	await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender);
 }
 
 type ReadAlongCore = {

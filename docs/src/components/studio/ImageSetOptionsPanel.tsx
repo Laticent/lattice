@@ -17,7 +17,7 @@ import type { ImageSetOptions } from './share-export';
 type Format = 'png' | 'jpeg' | 'webp';
 type Size = 'max' | '2x' | '1x' | 'half';
 type Mode = 'auto' | 'light' | 'dark' | 'print';
-type SvgBg = 'transparent' | 'light' | 'dark' | 'print';
+type SvgBg = 'inherit' | 'light' | 'dark' | 'print';
 
 const MODES: { value: Mode; label: string; hint: string }[] = [
 	{ value: 'auto', label: 'Auto', hint: 'The deck’s current light/dark mode.' },
@@ -27,7 +27,7 @@ const MODES: { value: Mode; label: string; hint: string }[] = [
 ];
 
 const SVG_BGS: { value: SvgBg; label: string; hint: string }[] = [
-	{ value: 'transparent', label: 'Transparent', hint: 'Keep the slide look; no canvas — drops onto anything.' },
+	{ value: 'inherit', label: 'Inherit', hint: 'Follow the slides’ color mode; no canvas — drops onto anything.' },
 	{ value: 'light', label: 'Light', hint: 'Render the chart/diagram in color on a white canvas.' },
 	{ value: 'dark', label: 'Dark', hint: 'Render the chart/diagram in color on a dark canvas.' },
 	{ value: 'print', label: 'Print', hint: 'Render B&W (grayscale + textures) on white — print-ready vectors.' },
@@ -85,7 +85,7 @@ export function ImageSetOptionsPanel({
 	const [thumbnails, setThumbnails] = React.useState(true);
 	const [extractSvg, setExtractSvg] = React.useState(true);
 	const [mode, setMode] = React.useState<Mode>('auto');
-	const [svgBackground, setSvgBackground] = React.useState<SvgBg>('transparent');
+	const [svgBackground, setSvgBackground] = React.useState<SvgBg>('inherit');
 
 	const lossy = format !== 'png';
 	const fmtHint = FORMATS.find((f) => f.value === format)?.hint;

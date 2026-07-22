@@ -21,7 +21,7 @@ describe('image-set: normalizeImageSetOptions', () => {
     assert.equal(o.extractSvg, true);
     assert.equal(o.thumbWidth, 480);
     assert.equal(o.mode, 'auto');
-    assert.equal(o.svgBackground, 'transparent');
+    assert.equal(o.svgBackground, 'inherit');
   });
 
   test('unknown format / size / mode / background fall back to defaults, never throw', () => {
@@ -29,7 +29,7 @@ describe('image-set: normalizeImageSetOptions', () => {
     assert.equal(o.format, 'png');
     assert.equal(o.size, 'max');
     assert.equal(o.mode, 'auto');
-    assert.equal(o.svgBackground, 'transparent');
+    assert.equal(o.svgBackground, 'inherit');
   });
 
   test('valid mode + svgBackground are preserved', () => {
@@ -74,18 +74,18 @@ describe('image-set: resolveRasterScale', () => {
 });
 
 describe('image-set: svgBackgroundFill', () => {
-  test('transparent → null; light/print → white; dark → dark literal', () => {
-    assert.equal(IS.svgBackgroundFill('transparent'), null);
+  test('inherit → null; light/print → white; dark → dark literal', () => {
+    assert.equal(IS.svgBackgroundFill('inherit'), null);
     assert.equal(IS.svgBackgroundFill('light'), '#ffffff');
     assert.equal(IS.svgBackgroundFill('dark'), '#111317');
     assert.equal(IS.svgBackgroundFill('print'), '#ffffff');
-    assert.equal(IS.svgBackgroundFill('bogus'), null); // falls back to the default (transparent)
+    assert.equal(IS.svgBackgroundFill('bogus'), null); // falls back to the default (inherit)
   });
 });
 
 describe('image-set: svgLookMode', () => {
-  test('transparent → null (as slides); the rest → their render mode', () => {
-    assert.equal(IS.svgLookMode('transparent'), null);
+  test('inherit → null (as slides); the rest → their render mode', () => {
+    assert.equal(IS.svgLookMode('inherit'), null);
     assert.equal(IS.svgLookMode('light'), 'light');
     assert.equal(IS.svgLookMode('dark'), 'dark');
     assert.equal(IS.svgLookMode('print'), 'print');
@@ -185,7 +185,7 @@ describe('image-set: assembleImageSetPlan', () => {
     assert.deepEqual(m.counts, { slides: 2, thumbnails: 2, assets: 1 });
     assert.deepEqual(m.pixel, { width: 2560, height: 1440, scale: 2 });
     assert.equal(m.colorMode, 'auto');
-    assert.equal(m.svgBackground, 'transparent');
+    assert.equal(m.svgBackground, 'inherit');
     assert.equal(m.slides[0].thumbnail, 'thumbnails/d-01.jpeg');
     assert.equal(m.slides[1].image, 'slides/d-02.jpeg');
   });

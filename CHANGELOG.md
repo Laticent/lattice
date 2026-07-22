@@ -362,7 +362,7 @@ in patch versions.
   `--image-quality N` (jpeg/webp), `--thumb-width N`, `--no-thumbnails`, `--no-svg`. **Color mode**
   is selectable per export — `--image-mode auto|light|dark|print` renders the whole set in the
   light or dark palette or the B&W-safe print handout — and each standalone chart/diagram SVG has
-  its own **look**, `--svg-background transparent|light|dark|print`, that renders the vector
+  its own **look**, `--svg-background inherit|light|dark|print`, that renders the vector
   *independently of the slides*: `light`/`dark` render it in that scheme on a matching canvas, and
   `print` renders it B&W-safe (grayscale + textures) on white — so you can export **color slides
   but print-ready B&W chart/diagram vectors** in one set (when the look differs from the slides'

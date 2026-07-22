@@ -225,12 +225,12 @@ OPTIONS
                           B&W-safe ink-on-white handout mode.
       --svg-background <b>
                           Look for each standalone chart/diagram SVG —
-                          transparent (default) | light | dark | print. Controls BOTH
+                          inherit (default) | light | dark | print. Controls BOTH
                           the render and the canvas, independent of --image-mode:
                           light/dark render the chart in that scheme; print renders it
                           B&W-safe (grayscale + textures) on white — so you can export
                           color slides but print-ready chart/diagram vectors.
-                          transparent keeps the slide look with no canvas.
+                          inherit follows the slides' color mode, with no canvas.
       --thumb-width N     Thumbnail width in px (default 480); height follows the
                           slide aspect.
       --no-thumbnails     Omit the thumbnails/ folder (thumbnails ship by default).
@@ -2272,6 +2272,13 @@ async function renderBody(browser, g, closeBrowser) {
         ? IMAGE_SET_OPTS.mode
         : (/-dark$/.test(paletteName) ? 'dark' : 'light');
       const lookMode = svgLookMode(IMAGE_SET_OPTS.svgBackground); // null | light | dark | print
+      // NUANCE: this re-styles the LIVE page in place. Charts are token-driven, so they recolor
+      // fully for any look. Mermaid diagrams, though, are baked to literal colors by mmdc at render
+      // time — the `.print` cascade re-textures their var-based FILLS but can't recolor baked node
+      // TEXT / edge lines. That's correct for the common case (a light/color deck → any look reads
+      // on white, since light-baked diagram text is dark), but a cross-scheme diagram look from a
+      // DARK-source deck keeps its baked text in the slide scheme. The Studio path re-renders the
+      // deck in the look (a full re-bake) and has no such gap; see pipeline.md §5 for the nuance.
       if (lookMode && lookMode !== slideScheme) {
         if (lookMode === 'print') {
           // `print` is a canvas class — stamping it on every section applies the B&W-safe
@@ -2354,7 +2361,7 @@ async function renderBody(browser, g, closeBrowser) {
       const tags = [`${c.slides} ${fmt.toUpperCase()}`];
       if (IMAGE_SET_OPTS.mode !== 'auto') tags.push(IMAGE_SET_OPTS.mode);
       if (c.thumbnails) tags.push(`${c.thumbnails} thumbnails`);
-      if (c.assets) tags.push(`${c.assets} SVG${IMAGE_SET_OPTS.svgBackground !== 'transparent' ? ` on ${IMAGE_SET_OPTS.svgBackground}` : ''}`);
+      if (c.assets) tags.push(`${c.assets} SVG${IMAGE_SET_OPTS.svgBackground !== 'inherit' ? ` (${IMAGE_SET_OPTS.svgBackground})` : ''}`);
       console.log(`Image set: ${outFile} (${tags.join(', ')}, ${(zipBuf.length / 1024).toFixed(0)} KB)`);
     }
   } else {

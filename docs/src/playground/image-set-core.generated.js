@@ -38,9 +38,9 @@ var require_image_set = __commonJS({
     var SIZE_PRESETS2 = ["max", "2x", "1x", "half"];
     var RASTER_MAX_EDGE2 = 3840;
     var COLOR_MODES2 = ["auto", "light", "dark", "print"];
-    var SVG_BACKGROUNDS2 = ["transparent", "light", "dark", "print"];
-    var SVG_BACKGROUND_FILL2 = { transparent: null, light: "#ffffff", dark: "#111317", print: "#ffffff" };
-    var SVG_LOOK_MODE2 = { transparent: null, light: "light", dark: "dark", print: "print" };
+    var SVG_BACKGROUNDS2 = ["inherit", "light", "dark", "print"];
+    var SVG_BACKGROUND_FILL2 = { inherit: null, light: "#ffffff", dark: "#111317", print: "#ffffff" };
+    var SVG_LOOK_MODE2 = { inherit: null, light: "light", dark: "dark", print: "print" };
     var DEFAULTS2 = Object.freeze({
       format: "png",
       size: "max",
@@ -53,8 +53,8 @@ var require_image_set = __commonJS({
       // charts + Mermaid/diagram SVGs as standalone files
       mode: "auto",
       // export color mode; 'auto' = the deck's own / palette-resolved
-      svgBackground: "transparent"
-      // canvas baked behind each extracted standalone SVG
+      svgBackground: "inherit"
+      // the extracted SVG's look; 'inherit' = follow the slides, no canvas
     });
     function normalizeImageSetOptions2(raw) {
       const o = raw || {};
