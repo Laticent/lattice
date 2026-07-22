@@ -494,6 +494,27 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 	await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' });
 }
 
+/** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
+ *  vocabulary. All fields optional; the kernel fills perfect-fidelity defaults. */
+export type ImageSetOptions = {
+	format?: 'png' | 'jpeg' | 'webp';
+	size?: 'max' | '2x' | '1x' | 'half';
+	quality?: number;
+	thumbnails?: boolean;
+	thumbWidth?: number;
+	extractSvg?: boolean;
+};
+
+/** Image set (.zip): one raster per slide (PNG/JPEG/WebP) + opt-in thumbnails + the
+ *  deck's chart/diagram SVGs as standalone files + a manifest. The zip layout, naming,
+ *  size presets, and manifest are single-sourced with the CLI `.zip` output via the
+ *  shared kernel (HARD RULE #1), so both surfaces emit the same set. */
+export async function shareImageSet(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', imageOpts: ImageSetOptions, extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string): Promise<void> {
+	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+	const ex = await exporters();
+	await ex.exportImageSet(render, name, imageOpts, onStatus);
+}
+
 type ReadAlongCore = {
 	buildReadAlong: (
 		texts: readonly string[],

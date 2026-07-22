@@ -423,7 +423,7 @@ export function forceSectionVisibleForCapture(section) {
 // finish face, lazy-render gates forced open), run `capture(width, height,
 // pixelRatio)`, and restore — shared by the PNG (PPTX) and canvas (PDF worker)
 // rasterizers so the fixups can never drift apart.
-async function withCaptureFixups(section, capture) {
+async function withCaptureFixups(section, capture, pixelRatioOverride) {
 	// The spectrum ribbon is a `border-top` whose `border-image-source` is a
 	// linear-gradient. html-to-image inlines that computed border-image and
 	// MIS-RENDERS it — filling the gradient across the whole element instead of
@@ -479,8 +479,10 @@ async function withCaptureFixups(section, capture) {
 	const { w, h } = slideGeom(section);
 	// Cap the device-pixel multiplier so a 4K box (3840) rasterizes near its
 	// native 3840 rather than a 7680 canvas that risks an OOM in the browser;
-	// HD keeps the 2× retina capture it always had.
-	const pixelRatio = w > 2048 ? 1 : 2;
+	// HD keeps the 2× retina capture it always had. The image-set export passes an
+	// explicit ratio (its size preset / thumbnail scale, already OOM-capped by the
+	// shared kernel), which wins over this default.
+	const pixelRatio = pixelRatioOverride != null ? pixelRatioOverride : (w > 2048 ? 1 : 2);
 	try {
 		return await capture(w, h, pixelRatio);
 	} finally {
@@ -1014,5 +1016,101 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 		const dataUrl = await rasterizeSection(sec, fontEmbedCSS);
 		download(dataUrlToBlob(dataUrl), `${safeName(name)}-chart.png`);
 		if (onStatus) onStatus('Chart downloaded as PNG.');
+	} finally { dispose(); }
+}
+
+// ── Image set (a .zip of one image per slide) ─────────────────────────────────
+// Rasterize one slide to a Blob in the chosen format at a chosen device-pixel
+// ratio. Uses toCanvas (not toPng/toJpeg) so PNG / JPEG / WebP all go through the
+// one canvas.toBlob encode — html-to-image has no toWebp, and canvas covers all
+// three with a quality arg. The pixelRatio is the image-set size preset (or the
+// thumbnail scale), already OOM-capped by the shared kernel.
+async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pixelRatio, FORMAT_META) {
+	const { toCanvas } = await import('html-to-image');
+	return withCaptureFixups(section, async (w, h, pr) => {
+		const canvas = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS));
+		const meta = FORMAT_META[format] || FORMAT_META.png;
+		const q = meta.lossy ? Math.min(1, Math.max(0.01, quality / 100)) : undefined;
+		return await new Promise((resolve, reject) =>
+			canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), meta.mime, q));
+	}, pixelRatio);
+}
+
+// Export the whole deck as an image set — a .zip of one raster per slide plus
+// opt-in thumbnails and standalone chart/diagram SVGs. The zip layout, naming,
+// size-preset math, and manifest come from the SHARED kernel (image-set-core,
+// generated from lib/export/image-set.js), the same contract the CLI's `.zip`
+// output uses — so the Studio and CLI emit the same set. `render` is the engine
+// result (see exportPdf); `opts` is the raw tuning config from the options panel.
+export async function exportImageSet(render, name, opts, onStatus) {
+	const core = await import('./image-set-core.generated.js');
+	const options = core.normalizeImageSetOptions(opts);
+	const { frame, dispose } = await createCaptureFrame(render);
+	try {
+		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		if (!sections.length) throw new Error('Nothing to export — the deck rendered no slides.');
+		const win = frame.contentWindow;
+		const { w, h } = slideGeom(sections[0]);
+		const scale = core.resolveRasterScale(options.size, w, h);
+		const thumbScale = core.resolveThumbScale(options.thumbWidth, w);
+
+		// (1) Standalone vector assets — charts (keyed single-svg layouts) + Mermaid
+		// diagrams — flattened to theme-free, font-embedded standalone .svg. Reuses the
+		// chart-SVG core (the same "download chart as SVG" path), extended to diagrams.
+		const svgs = [];
+		if (options.extractSvg) {
+			const [svgCore, fontMod] = await Promise.all([
+				import('./standalone-svg.generated.js'),
+				import('./font-embed.js'),
+			]);
+			const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = svgCore;
+			const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
+			const fontCssAll = await buildFontEmbedCss();
+			await ensureFontsLoaded(frame.contentDocument, fontCssAll);
+			sections.forEach((sec, si) => {
+				const targets = [];
+				sec.querySelectorAll('.mermaid-svg svg').forEach((s) => { targets.push([s, 'diagram']); });
+				if (sec.classList.contains('chart-frame') && CLEAN_SVG_LAYOUTS.some((c) => sec.classList.contains(c))) {
+					sec.querySelectorAll('svg[viewBox]').forEach((s) => { targets.push([s, 'chart']); });
+				}
+				for (const [svg, kind] of targets) {
+					try {
+						const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, win));
+						const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
+						svgs.push({ slide: si + 1, kind, svg: finalizeStandaloneSvg(markup, { fontFaceCss }) });
+					} catch (_e) { /* skip one un-flattenable svg rather than fail the export */ }
+				}
+			});
+		}
+
+		// (2) Full raster per slide, at the size preset.
+		const images = [];
+		for (let i = 0; i < sections.length; i++) {
+			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
+			images.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, scale, core.FORMAT_META));
+			await new Promise((r) => setTimeout(r)); // yield so the progress line paints
+		}
+
+		// (3) Thumbnails — the same slides at the small thumbnail scale.
+		const thumbs = [];
+		if (options.thumbnails) {
+			for (let i = 0; i < sections.length; i++) {
+				if (onStatus) onStatus('Rendering thumbnail ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
+				thumbs.push(await rasterizeSectionToBlob(sections[i], fontEmbedCSS, options.format, options.quality, thumbScale, core.FORMAT_META));
+				await new Promise((r) => setTimeout(r));
+			}
+		}
+
+		// (4) Pack via the shared kernel → a single .zip.
+		if (onStatus) onStatus('Building .zip…', { current: sections.length, total: sections.length });
+		const { default: JSZip } = await import('jszip');
+		const plan = core.assembleImageSetPlan({
+			name, options, geom: { w, h }, scale, images, thumbs, svgs, generator: 'studio',
+		});
+		const zip = new JSZip();
+		core.addPlanToZip(zip, plan);
+		const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+		download(blob, plan.slug + '.zip');
+		if (onStatus) onStatus('Image set downloaded.');
 	} finally { dispose(); }
 }

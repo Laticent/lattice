@@ -1,4 +1,4 @@
-import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
+import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Images, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
 import * as React from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { deckColorMode } from '@/lib/deck-theme';
@@ -7,9 +7,10 @@ import { deckFilename } from './decks';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
+import { ImageSetOptionsPanel } from './ImageSetOptionsPanel';
 import { splitSlides } from './lint';
 import { PrintOptionsPanel } from './PrintOptionsPanel';
-import { shareCaptions, shareHtmlPlayer, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
+import { type ImageSetOptions, shareCaptions, shareHtmlPlayer, shareImageSet, shareLattice, shareMarkdown, shareMarp, sharePdf, sharePptx, sharePrintSource } from './share-export';
 import { WebpageOptionsPanel } from './WebpageOptionsPanel';
 
 // Share belongs to the deck (plan §5): two clearly separated intents — hand off
@@ -32,7 +33,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	// PDF (comments as sticky notes), the Webpage player (strip speaker notes), and
 	// PRINT (paper / colour + live preview, prepares the PDF, then prints or saves).
 	// Reset to the menu whenever the sheet re-opens so it never lands mid-flow.
-	const [view, setView] = React.useState<'menu' | 'pdf' | 'html' | 'print'>('menu');
+	const [view, setView] = React.useState<'menu' | 'pdf' | 'html' | 'print' | 'imageset'>('menu');
 	React.useEffect(() => { if (open) setView('menu'); }, [open]);
 	// A saved finish renders via a `finish finish-<slug>` class the engine doesn't know
 	// + its generated CSS. The two handoffs treat it differently:
@@ -90,6 +91,11 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const exportHtml = (stripNotes: boolean, scheme: 'light' | 'dark' | 'system' | 'inherited') => {
 		run('html', 'Webpage', (onStatus) => shareHtmlPlayer(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss, deckTitle, stripNotes, scheme));
 	};
+	// Image set (.zip) export from its options step: format / resolution / thumbnails /
+	// SVG extraction — the shared kernel fills perfect-fidelity defaults.
+	const exportImages = (imageOpts: ImageSetOptions) => {
+		run('images', 'Image set', (onStatus) => shareImageSet(options, artifactSource, name, palette, mode, imageOpts, extraTheme, onStatus, extraCss));
+	};
 	// The export defaults to the deck's authored `color-mode:` when it has one (so a
 	// system/inherited deck's panel reflects that), else the current preview mode.
 	// `print` is a paper medium, not a screen scheme — the .html player has no print
@@ -111,6 +117,8 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 						<WebpageOptionsPanel busy={busy === 'html'} status={progress} defaultScheme={deckDefaultScheme} onBack={() => setView('menu')} onExport={exportHtml} />
 					) : view === 'print' ? (
 						<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} onBack={() => setView('menu')} notify={notify} />
+					) : view === 'imageset' ? (
+						<ImageSetOptionsPanel busy={busy === 'images'} status={progress} onBack={() => setView('menu')} onExport={exportImages} />
 					) : (
 						<>
 							<section className="space-y-2">
@@ -119,6 +127,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<Row icon={<Link2 className="size-4" />} title="Present link" desc="A live, themed link that opens in Present" onClick={() => { close(); onPresent(); }} />
 								<Row busy={busy === 'pdf'} status={progress} icon={<Download className="size-4" />} title="PDF" desc="One slide per page — choose what rides along" onClick={() => setView('pdf')} />
 								<Row busy={busy === 'pptx'} status={progress} icon={<Monitor className="size-4" />} title="PowerPoint" desc="PPTX, one slide per page" onClick={() => run('pptx', 'PowerPoint', (onStatus) => sharePptx(options, artifactSource, name, palette, mode, extraTheme, onStatus, extraCss))} />
+									<Row busy={busy === 'images'} status={progress} icon={<Images className="size-4" />} title="Images (.zip)" desc="One image per slide — PNG/JPEG/WebP, thumbnails, chart SVGs" onClick={() => setView('imageset')} />
 								<Row icon={<Printer className="size-4" />} title="Print deck" desc="Pick paper &amp; colour, preview, then print or save" onClick={() => setView('print')} />
 									<Row busy={busy === 'html'} status={progress} icon={<Globe className="size-4" />} title="Webpage (.html)" desc="One self-contained file — opens in any browser, offline" onClick={() => setView('html')} />
 									<Row busy={busy === 'captions'} status={progress} icon={<Captions className="size-4" />} title="Captions (.vtt)" desc="Read-along WebVTT from your speaker notes — no audio, no key" onClick={() => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus))} />
