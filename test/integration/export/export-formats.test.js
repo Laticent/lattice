@@ -521,6 +521,22 @@ describe('export-formats', () => {
     }
   });
 
+  test('the standalone --print flag (not --image-mode) is authoritative for the manifest scheme', { timeout: TIMEOUT }, async () => {
+    // `deck.md out.zip --print` stamps the print canvas (WANT_PRINT) but leaves --image-mode at
+    // its 'inherit' default — the manifest must still record 'print' to match the ink-on-white
+    // pixels, not the palette-derived light/dark.
+    const dir = tmpDir();
+    const out = path.join(dir, 'deck.zip');
+    const r = spawnSync(process.execPath, [EMULATOR, CHART_DIAGRAM_FIXTURE, out, '--quiet', '--print'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT,
+    });
+    assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    assert.equal(manifest.colorMode, 'print', 'manifest must record print when --print rendered the print canvas');
+  });
+
   test('image set writes a v2 manifest (metadata, dpi, orientation) + embeds DPI in the PNG bytes', { timeout: TIMEOUT }, async () => {
     const dir = tmpDir();
     const out = path.join(dir, 'deck.zip');

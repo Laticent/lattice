@@ -2249,8 +2249,10 @@ async function renderBody(browser, g, closeBrowser) {
     // The scheme the slides are ACTUALLY in (so the manifest self-describes, and a matching SVG
     // look needs no re-style). Derived from the resolved palette, not the raw flag: `--image-mode
     // dark` with no `-dark` companion falls back to the base palette, so this correctly reads
-    // 'light'. print is palette-independent (the class:print stamp).
-    const resolvedScheme = IMAGE_SET_OPTS.mode === 'print'
+    // 'light'. print is palette-independent (the class:print stamp) — and is authoritative via
+    // WANT_PRINT, which is ALSO set by the standalone `--print` flag (not just `--image-mode
+    // print`), so a `deck.md out.zip --print` records 'print' to match its ink-on-white pixels.
+    const resolvedScheme = WANT_PRINT
       ? 'print'
       : (/-dark$/.test(paletteName) ? 'dark' : 'light');
     let effectiveSvgBackground = IMAGE_SET_OPTS.svgBackground;
