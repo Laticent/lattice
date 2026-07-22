@@ -196,7 +196,6 @@ var require_image_set = __commonJS({
           const end = j + 12 + len;
           if (len < 0 || end > bytes.length) {
             kept.push(bytes.subarray(j));
-            j = bytes.length;
             break;
           }
           if (type !== "pHYs") kept.push(bytes.subarray(j, end));
