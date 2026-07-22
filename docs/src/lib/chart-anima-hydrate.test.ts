@@ -22,13 +22,15 @@ describe('hydrateChart — chart on-ramp through the SHARED host', () => {
     const section = FUNNEL_SECTION();
     document.body.appendChild(section);
     const figure = section.querySelector('.funnel-figure') as HTMLElement;
-    const ctrl = hydrateChart(section, { eager: true });
+    const ctrl = hydrateChart(section, { style: 'build', eager: true });
     expect(ctrl).not.toBeNull();
     // The chart goes through the SAME host as a scene: a live stage, the poster hidden, the figure
-    // marked `.anima-live` (so the control CSS applies), a playback control, and the liveness flag.
+    // marked `.anima-live` + `data-anima-state`, and the liveness flag — but NO playback control:
+    // chart motion is a one-shot "play on enter" build (the replay control read as a gimmick).
     expect(figure.querySelector('.scene-live')).not.toBeNull();
     expect(figure.classList.contains('anima-live')).toBe(true);
-    expect(figure.querySelector('.scene-control')).not.toBeNull(); // charts now get pause/replay (unification payoff)
+    expect(figure.querySelector('.scene-control')).toBeNull(); // charts get NO control (chrome:false)
+    expect(figure.getAttribute('data-anima-state')).toBe('playing'); // plays on mount
     expect((section.querySelector('.funnel-svg') as SVGElement).style.display).toBe('none'); // poster hidden
     expect(section.getAttribute('data-scene-live')).toBe('1');
     ctrl?.dispose();
@@ -45,7 +47,7 @@ describe('hydrateChart — chart on-ramp through the SHARED host', () => {
     // model as a scene, not a second forked one. It mounts (no throw) and disposes cleanly.
     const section = FUNNEL_SECTION();
     document.body.appendChild(section);
-    const ctrl = hydrateChart(section, { reducedMotion: true, eager: true });
+    const ctrl = hydrateChart(section, { style: 'build', reducedMotion: true, eager: true });
     expect(ctrl).not.toBeNull();
     expect(section.querySelector('.scene-live')).not.toBeNull();
     ctrl?.dispose();
@@ -55,8 +57,8 @@ describe('hydrateChart — chart on-ramp through the SHARED host', () => {
   it('is idempotent — a second hydrate on an already-live section returns null (no double mount)', () => {
     const section = FUNNEL_SECTION();
     document.body.appendChild(section);
-    const a = hydrateChart(section, { eager: true });
-    const b = hydrateChart(section, { eager: true }); // already live → the shared marker guards it
+    const a = hydrateChart(section, { style: 'build', eager: true });
+    const b = hydrateChart(section, { style: 'build', eager: true }); // already live → the shared marker guards it
     expect(a).not.toBeNull();
     expect(b).toBeNull();
     expect(section.querySelectorAll('.scene-live')).toHaveLength(1);
@@ -69,7 +71,7 @@ describe('hydrateChart — chart on-ramp through the SHARED host', () => {
     const section = document.createElement('section');
     section.className = 'funnel chart-anima';
     section.textContent = 'no chart';
-    expect(hydrateChart(section)).toBeNull();
+    expect(hydrateChart(section, { style: 'build' })).toBeNull();
   });
 });
 

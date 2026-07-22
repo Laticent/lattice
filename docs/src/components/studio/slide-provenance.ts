@@ -364,3 +364,77 @@ export function setSpectrumTrim(chunk: string, value: string | null): string {
 	if (token) kept.push(token);
 	return setClassTokens(chunk, kept);
 }
+
+// ── motion (chart animation) — THREE independent axes ────────────────────────────────────────────
+// Full parity with the deck front matter (Play=`motion:`, Style=`motion-style:`, Speed=`motion-speed:`)
+// and the slide classes (`motion-on/off`, `motion-<style>`, `motion-<speed>`). The axes are INDEPENDENT:
+// Play (`motion-on`/`motion-off`) is the sole animate switch; a style/speed token is an inert parameter
+// that does NOT imply Play on (mirrors resolveMotion). Preview-only. The legacy `chart-anima` is honored
+// as `motion-on` + `motion-build` and rewritten away whenever motion is set here. Each axis mirrors the
+// tri-state provenance shape.
+const MOTION_STYLE_VALUES = ['build', 'together', 'rise'];
+const MOTION_SPEED_VALUES = ['auto', 'slow', 'normal', 'fast'];
+const isStyleToken = (t: string) => /^motion-(build|together|rise)$/.test(t);
+const isSpeedToken = (t: string) => /^motion-(auto|slow|normal|fast)$/.test(t);
+const isPlayToken = (t: string) => t === 'motion-on' || t === 'motion-off';
+const isAnyMotionToken = (t: string) => isPlayToken(t) || isStyleToken(t) || isSpeedToken(t) || t === 'chart-anima';
+
+/** PLAY axis (on / off / inherit) — the sole animate switch. `motion-on` (or the legacy `chart-anima`)
+ *  is on; `motion-off` is off; a bare style/speed token does NOT imply on (it inherits the deck). */
+export function motionPlayProvenance(chunk: string, source: string): Provenance {
+	const tokens = getClassTokens(chunk);
+	const deck = (getFrontMatter(source, 'motion') || '').trim().toLowerCase();
+	const deckValue = deck === 'on' || deck === 'off' ? deck : undefined;
+	const inheritable = deckValue !== undefined;
+	if (tokens.includes('motion-off')) return { state: 'off', value: 'off', deckValue, inheritable };
+	if (tokens.includes('motion-on') || tokens.includes('chart-anima')) return { state: 'on', value: 'on', deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', inheritable: false };
+}
+
+/** STYLE axis (build / together / rise / inherit). */
+export function motionStyleProvenance(chunk: string, source: string): Provenance {
+	const tokens = getClassTokens(chunk);
+	const own = tokens.find(isStyleToken)?.slice('motion-'.length) ?? (tokens.includes('chart-anima') ? 'build' : undefined);
+	const deck = (getFrontMatter(source, 'motion-style') || '').trim().toLowerCase();
+	const deckValue = MOTION_STYLE_VALUES.includes(deck) ? deck : undefined;
+	const inheritable = deckValue !== undefined;
+	if (own) return { state: 'on', value: own, deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', value: 'build', inheritable: false }; // build is the built-in default
+}
+
+/** SPEED axis (auto / slow / normal / fast / inherit). */
+export function motionSpeedProvenance(chunk: string, source: string): Provenance {
+	const own = getClassTokens(chunk).find(isSpeedToken)?.slice('motion-'.length);
+	const deck = (getFrontMatter(source, 'motion-speed') || '').trim().toLowerCase();
+	const deckValue = MOTION_SPEED_VALUES.includes(deck) ? deck : undefined;
+	const inheritable = deckValue !== undefined;
+	if (own) return { state: 'on', value: own, deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', value: 'auto', inheritable: false }; // auto is the built-in default
+}
+
+/** Set the slide's PLAY. `'on'`/`'off'` → the token; `null` → inherit (clear it). Clears legacy chart-anima. */
+export function setMotionPlay(chunk: string, value: 'on' | 'off' | null): string {
+	const kept = getClassTokens(chunk).filter((t) => !isPlayToken(t) && t !== 'chart-anima');
+	if (value) kept.push(`motion-${value}`);
+	return setClassTokens(chunk, kept);
+}
+/** Set the slide's STYLE. A style → `motion-<style>`; `null` → inherit. Clears legacy chart-anima. */
+export function setMotionStyle(chunk: string, value: string | null): string {
+	const kept = getClassTokens(chunk).filter((t) => !isStyleToken(t) && t !== 'chart-anima');
+	if (value && MOTION_STYLE_VALUES.includes(value)) kept.push(`motion-${value}`);
+	return setClassTokens(chunk, kept);
+}
+/** Set the slide's SPEED. A speed → `motion-<speed>`; `null` → inherit. */
+export function setMotionSpeed(chunk: string, value: string | null): string {
+	const kept = getClassTokens(chunk).filter((t) => !isSpeedToken(t));
+	if (value && MOTION_SPEED_VALUES.includes(value)) kept.push(`motion-${value}`);
+	return setClassTokens(chunk, kept);
+}
+
+/** True if the chunk carries any per-slide motion token — for the drawer's "reset" / dirty checks. */
+export function hasMotionToken(chunk: string): boolean {
+	return getClassTokens(chunk).some(isAnyMotionToken);
+}

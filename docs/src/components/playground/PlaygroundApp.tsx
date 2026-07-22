@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight, Eye, Maximize2, Minimize2, PanelLeftClose, PanelRightClose, SquarePen } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
+import { getFrontMatter } from '@/components/studio/front-matter';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
@@ -44,6 +45,7 @@ import {
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type PreviewState } from '@/lib/playground-engine';
+import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
 import { createChartInteract } from '@/playground/chart-interact.js';
 import { applyDebug } from '@/playground/debug-overlay.js';
@@ -618,6 +620,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 
 	// Mount the parent-hosted chart-interact layer over the preview iframe once,
 	// for the component's lifetime (render() calls rebind() after each paint).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally mount-once; getSource is a stable ref-reader called live inside getDeckMotion (adding it as a dep would not change behavior and re-running would tear down the parent-hosted layers).
 	React.useEffect(() => {
 		const frame = frameRef.current;
 		const stage = frame?.parentElement;
@@ -637,7 +640,14 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		videoOverlayRef.current = vo;
 		// Parent-hosted Anima scene hydration (Stage 6): mount the backend + run the loop
 		// over the scene poster in the live preview.
-		const as = createAnimaScenes({ getFrame: () => frameRef.current ?? frame });
+		// Pass the deck-level `motion:` default (read live from the editor) so a class-less chart
+		// animates under a deck-wide setting on THIS surface too — without it the Playground's own
+		// Deck Settings → Motion control would write front-matter this host never reads (every
+		// deck-level value, Off included, would be a silent no-op). Mirrors DeckPreview.
+		const as = createAnimaScenes({
+			getFrame: () => frameRef.current ?? frame,
+			getDeckMotion: () => parseDeckMotion(getFrontMatter(getSource(), 'motion'), getFrontMatter(getSource(), 'motion-style'), getFrontMatter(getSource(), 'motion-speed')),
+		});
 		animaScenesRef.current = as;
 		return () => {
 			ci.destroy();

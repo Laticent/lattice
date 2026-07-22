@@ -117,6 +117,15 @@ export interface HydrateOptions {
    *  AssetMap contract). The docs-site passes `sanitizeSlideHtml`; omitted → identity (the
    *  poster is already frame-sanitized and Vivus inert-parses as a backstop). */
   sanitize?: (markup: string) => string;
+  /** Mount at the FINAL frame, held, WITHOUT playing the intro — for a re-render that replaces an
+   *  already-played section's node with an identical twin (a live-edit surface reassigns innerHTML,
+   *  so the node identity the host diffs on can't survive). The carried-over scene shows its settled
+   *  result immediately instead of replaying from t=0 on every keystroke. Default false → play-on-mount. */
+  startSettled?: boolean;
+  /** Show the corner playback control (⏸ / ▶ / ↻). Default true. Charts pass `false`: chart motion is
+   *  a one-shot "play on enter" build with no replay affordance (the control read as a gimmick), so it
+   *  just plays once and settles into the static chart. */
+  chrome?: boolean;
 }
 
 interface SceneController {
@@ -258,6 +267,9 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
     else if (playing) control.set('pause');
     else if (ended) control.set('replay');
     else control.set('play');
+    // Reflect the play state on the figure (present with or without the corner control) so CSS and
+    // tests can observe playing vs settled even when `chrome` is off (charts).
+    figure.setAttribute('data-anima-state', optInPending ? 'optin' : playing ? 'playing' : ended ? 'settled' : 'idle');
   }
 
   function tick(t: number): void {
@@ -330,6 +342,18 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
     play();
   }
 
+  /** Mount and jump straight to the settled FINAL frame — no intro, no rAF loop. Used when a
+   *  re-render replaced an already-played section's node with an identical twin, so the motion
+   *  doesn't restart on every live edit. `ended` → the control shows ↻, so the viewer can replay. */
+  function mountSettled(): void {
+    mount();
+    baseElapsed = timeline.durationMs;
+    lastElapsed = timeline.durationMs;
+    ended = true;
+    renderer.draw(timeline.at(timeline.durationMs));
+    sync();
+  }
+
   function onControlClick(): void {
     if (optInPending) { optInPending = false; mountAndPlay(); return; }
     if (ended) { replay(); return; }
@@ -355,7 +379,8 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
   // the control + stage CSS keys off (scene.styles.css) — applied to WHATEVER figure we mount into
   // (a `.scene-figure` or a chart's `.funnel-figure`), so both surfaces share one control style.
   figure.classList.add('anima-live');
-  figure.appendChild(control.el);
+  const chrome = opts.chrome !== false; // charts pass false: one-shot play-on-enter, no control
+  if (chrome) figure.appendChild(control.el);
   sync();
 
   // Auto-hide: CSS reveals the control on hover/focus (desktop + keyboard); on a device with no
@@ -363,12 +388,12 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
   // once so it stays discoverable. `.scene-controls-shown` is the JS reveal hook (scene.styles.css).
   let hideTimer: ReturnType<typeof setTimeout> | undefined;
   function flashControls(): void {
-    if (optInPending) return; // the opt-in is always shown; nothing to flash
+    if (!chrome || optInPending) return; // no control to flash (charts), or the opt-in is always shown
     figure.classList.add('scene-controls-shown');
     if (hideTimer) clearTimeout(hideTimer);
     hideTimer = setTimeout(() => figure.classList.remove('scene-controls-shown'), 2500);
   }
-  figure.addEventListener('pointerdown', flashControls);
+  if (chrome) figure.addEventListener('pointerdown', flashControls);
 
   // Lazy by default: mount on first view, auto-pause off-screen (the perf NFR); resume on
   // re-entry unless the viewer paused. A floor-suppressed scene never AUTO-mounts (the opt-in
@@ -395,7 +420,8 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
     );
     io.observe(section);
   } else if (!optInPending) {
-    mountAndPlay();
+    if (opts.startSettled) mountSettled();
+    else mountAndPlay();
   }
 
   return {
@@ -407,6 +433,9 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
       unmount();
       control.el.remove();
       figure.classList.remove('anima-live');
+      // Clear the play-state marker so a disposed figure doesn't leave a stale `settled`/`playing`
+      // attribute for a diff or CSS selector to read after teardown.
+      figure.removeAttribute('data-anima-state');
     },
   };
 }

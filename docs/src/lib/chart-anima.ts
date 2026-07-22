@@ -28,7 +28,17 @@ const ROLE_BY_CLASS: Record<string, ChartRole> = {
 
 export type ChartRole = 'bar' | 'sector' | 'point' | 'region' | 'label';
 
+/** The choreography a chart animates with — the closed style vocabulary the `motion` deck
+ *  setting / `motion-*` slide class select (§0.75 "closed set of policies"):
+ *  - `build`    — role-aware staggered reveal: bars build top-to-bottom, a closed disc's sectors
+ *                 fade in together (a staggered wedge leaves a holey gap). The sensible default.
+ *  - `together` — the WHOLE chart fades in at once (every mark synchronized), regardless of role.
+ *  - `rise`     — the build, plus each mark slides UP into place as it reveals. */
+export type ChartAnimaStyle = 'build' | 'together' | 'rise';
+
 export interface ChartAnimaOptions {
+  /** Which choreography to animate with (default 'build'). */
+  style?: ChartAnimaStyle;
   /** Total timeline length, ms (default 3600). */
   duration?: number;
   /** Poster time as a fraction of duration (default 1 — the finished chart). */
@@ -181,6 +191,7 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   const duration = Number.isFinite(opts.duration) && (opts.duration as number) > 0 ? (opts.duration as number) : 3600;
   const hero = Number.isFinite(opts.hero) && (opts.hero as number) >= 0 && (opts.hero as number) <= 1 ? (opts.hero as number) : 1;
   const buildSpan = Math.min(0.9, Math.max(0.1, Number.isFinite(opts.buildSpan) ? (opts.buildSpan as number) : 0.6));
+  const style: ChartAnimaStyle = opts.style === 'together' || opts.style === 'rise' ? opts.style : 'build';
   const assetKey = opts.assetKey ?? 'chart';
   const highlight = new Set(opts.highlightMarks ?? []);
   // The emphasis stroke must be a palette-blind token (HARD RULE #3) — an invalid/hard-coded value
@@ -227,10 +238,19 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   const slot = buildSpan / n;
   // Sectors (pie/donut wedges) are radial parts of a CLOSED figure: a STAGGERED reveal leaves a
   // visible wedge-shaped gap mid-build, so the disc reads as "missing a slice", not "assembling"
-  // (adversarial trio — Munger). Reveal them SYNCHRONIZED so the whole disc fades in as one. Bars
-  // (a funnel's stages) keep the stagger — the top-to-bottom build IS the drop-off story. Keyed on
-  // the geometry marks' role (homogeneous within a chart), not the chart type.
-  const synchronized = markNodes.length > 0 && (roleForNode(markNodes[0]) ?? 'bar') === 'sector';
+  // (adversarial trio — Munger). So the role-aware default reveals a sector chart SYNCHRONIZED (the
+  // whole disc fades in as one) while bars (a funnel's stages) keep the stagger — the top-to-bottom
+  // build IS the drop-off story. The `together` STYLE forces every chart synchronized regardless of
+  // role (an explicit "all at once"); `build`/`rise` stay role-aware.
+  const isSector = markNodes.length > 0 && (roleForNode(markNodes[0]) ?? 'bar') === 'sector';
+  const synchronized = style === 'together' || isSector;
+  // `rise`: each mark STARTS displaced downward by a fraction of the chart's own height and slides up
+  // into place as it reveals (viewBox units — the `slide` verb paints a translate in the svg's space).
+  // The displacement is deliberately LARGE (a fifth of the chart height) so `rise` reads as an obvious
+  // upward travel, not a near-static fade indistinguishable from `build` (adversarial trio finding).
+  const vb = (svg.getAttribute('viewBox') ?? '').trim().split(/[\s,]+/).map(Number);
+  const vbH = vb.length === 4 && Number.isFinite(vb[3]) && vb[3] > 0 ? vb[3] : 180;
+  const riseFrom: [number, number] | null = style === 'rise' ? [0, vbH * 0.2] : null;
   markNodes.forEach((node, i) => {
     const role = roleForNode(node) ?? 'bar';
     const markAttr = node.getAttribute('data-mark');
@@ -242,9 +262,13 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
     node.setAttribute('id', id);
     processed.add(node);
 
-    const motion: Motion[] = synchronized
-      ? [{ verb: 'reveal', at: 0, span: buildSpan }]
-      : [{ verb: 'reveal', at: i * slot, span: slot + 0.08 }];
+    const at = synchronized ? 0 : i * slot;
+    const span = synchronized ? buildSpan : slot + 0.08;
+    const motion: Motion[] = [{ verb: 'reveal', at, span }];
+    // `rise`: slide up into place over the SAME window as the reveal, so the fade and the move read
+    // as one gesture. `from` is the start displacement (below); it arrives at 0 by the window's end.
+    // `ease-out` decelerates into place, so the mark settles rather than stopping abruptly.
+    if (riseFrom) motion.push({ verb: 'slide', at, span, from: riseFrom, easing: 'ease-out' });
     const el: SvgElement = { id, pathRef: id, motion };
     if (mark != null && highlight.has(mark)) {
       // A fill-only chart mark often carries a CSS stroke (e.g. the funnel band's `--bg` separator)

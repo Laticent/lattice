@@ -25,13 +25,14 @@ import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogS
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
+import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
 import { getCaption, setCaption } from './slide-caption';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setHeadline, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { type Canvas, canvasProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setCanvas, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
 import { activeSpectrum } from './spectrum-catalog';
@@ -372,6 +373,30 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	];
 	const onTrim = (v: string) => onMutate((c) => setSpectrumTrim(c, v === '__inherit__' ? null : v));
 
+	// Motion — three axes for a chart on THIS slide, each overriding the matching deck default.
+	// PLAY (Inherit / On / Off), STYLE (Inherit / Build / Together / Rise), SPEED (Inherit / Auto / …).
+	const motionPlayProv = React.useMemo(() => motionPlayProvenance(chunk, source), [chunk, source]);
+	const motionStyleProv = React.useMemo(() => motionStyleProvenance(chunk, source), [chunk, source]);
+	const motionSpeedProv = React.useMemo(() => motionSpeedProvenance(chunk, source), [chunk, source]);
+	const motionPlayValue = motionPlayProv.state === 'on' ? 'on' : motionPlayProv.state === 'off' ? 'off' : null;
+	const onMotionPlay = (v: string | null) => onMutate((c) => setMotionPlay(c, v as 'on' | 'off' | null));
+	const motionStyleValue = motionStyleProv.state === 'on' ? (motionStyleProv.value ?? '__inherit__') : '__inherit__';
+	const motionStyleOptions: CatalogOption[] = [
+		motionStyleProv.inheritable
+			? { label: `Inherit — ${activeMotionStyle(motionStyleProv.deckValue).label}`, value: '__inherit__', swatch: activeMotionStyle(motionStyleProv.deckValue).swatch }
+			: { label: 'Inherit — Build', value: '__inherit__', swatch: activeMotionStyle('build').swatch },
+		...MOTION_STYLE_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
+	];
+	const onMotionStyle = (v: string) => onMutate((c) => setMotionStyle(c, v === '__inherit__' ? null : v));
+	const motionSpeedValue = motionSpeedProv.state === 'on' ? (motionSpeedProv.value ?? '__inherit__') : '__inherit__';
+	const motionSpeedOptions: CatalogOption[] = [
+		motionSpeedProv.inheritable
+			? { label: `Inherit — ${activeMotionSpeed(motionSpeedProv.deckValue).label}`, value: '__inherit__', swatch: activeMotionSpeed(motionSpeedProv.deckValue).swatch }
+			: { label: 'Inherit — Auto', value: '__inherit__', swatch: activeMotionSpeed('auto').swatch },
+		...MOTION_SPEED_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
+	];
+	const onMotionSpeed = (v: string) => onMutate((c) => setMotionSpeed(c, v === '__inherit__' ? null : v));
+
 	// Decoration — the featured tint / mark phrases from the generated group. Each is a
 	// single-select; applying one clears the other members of its kind (tints also clear
 	// any `at-*` placement + `treatment-none`).
@@ -441,6 +466,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const tabDefs = [
 		...(editable ? [{ value: 'look', label: 'Look' }] : []),
 		...(editable ? [{ value: 'brand', label: 'Accent' }] : []),
+		...(editable ? [{ value: 'motion', label: 'Motion' }] : []),
 		...(editable && hasStatus ? [{ value: 'status', label: 'Status' }] : []),
 		...(editable && hasDecoration ? [{ value: 'decoration', label: 'Decoration' }] : []),
 		...(editable ? [{ value: 'chrome', label: 'Chrome' }] : []),
@@ -601,6 +627,28 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								</Row>
 							)}
 							{accepts('accent') && <Row label="Accent" desc="Emphasizes this layout's key element in the theme's accent color."><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
+						</div>
+					)}
+
+					{/* MOTION — chart animation for this one slide, overriding the deck defaults
+					    per-axis (Play / Style / Speed). Preview-only; the export is unchanged. */}
+					{activeTab === 'motion' && (
+						<div className="py-1">
+							<TabIntro>How a chart on this slide animates in place. Each axis inherits the deck's Motion unless you override it here. Preview-only — the exported PDF/PPTX is unchanged.</TabIntro>
+							<Row label="Play" hint={motionPlayProv.state === 'inherited' ? 'from deck' : undefined} desc="Animate this slide's chart. Inherit follows the deck; On forces it; Off pins this one slide static.">
+								<Seg
+									ariaLabel="Chart motion"
+									value={motionPlayValue}
+									onChange={onMotionPlay}
+									options={[{ label: 'Inherit', value: null }, { label: 'On', value: 'on' }, { label: 'Off', value: 'off' }]}
+								/>
+							</Row>
+							<Row label="Style" hint={motionStyleProv.state === 'inherited' ? 'from deck' : undefined} desc="How it moves — Build reveals in reading order, Together fades in at once, Rise lifts marks into place.">
+								<Picker ariaLabel="Motion style" value={motionStyleValue} onChange={onMotionStyle} options={motionStyleOptions} />
+							</Row>
+							<Row label="Speed" hint={motionSpeedProv.state === 'inherited' ? 'from deck' : undefined} desc="How fast the build runs. Auto paces to the chart's size.">
+								<Picker ariaLabel="Motion speed" value={motionSpeedValue} onChange={onMotionSpeed} options={motionSpeedOptions} />
+							</Row>
 						</div>
 					)}
 

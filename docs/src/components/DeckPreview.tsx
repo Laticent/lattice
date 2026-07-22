@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { getFrontMatter } from '@/components/studio/front-matter';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
 import {
 	createSingleSlideRenderer,
@@ -6,6 +7,7 @@ import {
 	type SingleSlideRenderer,
 } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
+import { ANIMA_HOST_SEL, type DeckMotion, hasAnimatableChart, parseDeckMotion, resolveMotion } from '@/playground/anima-host-sel';
 // The Nacre loader's CSS. Imported here beside the loader markup it styles (below). NOTE: this
 // does NOT gate payload by consumer — Vite co-locates it into a shared chunk (resolve-captions,
 // in single-slide-render's graph) that every DeckPreview host pulls, so Astro inlines the ~1.5KB
@@ -13,6 +15,11 @@ import { cn } from '@/lib/utils';
 // scoped to `.nacre-loader*` (no global leak); detaching it from the shared chunk is a separate
 // bundling task (tracked in 2026-07-21-studio-preview-reframe-in-place.md), not an import-site move.
 import '@/styles/nacre-loader.css';
+
+/** Read the three deck-level motion front-matter keys into a resolved `DeckMotion`. */
+function deckMotionOf(src: string): DeckMotion {
+	return parseDeckMotion(getFrontMatter(src, 'motion'), getFrontMatter(src, 'motion-style'), getFrontMatter(src, 'motion-speed'));
+}
 
 // The React single-slide wrapper over single-slide-render.ts — the plain
 // single-stage bridge HeroPreview renders through for its Preview face: a figure
@@ -273,6 +280,10 @@ export function DeckPreview({
 	// eagerly, silently defeating the frame-aligned coalescing below.
 	const renderRef = React.useRef(render);
 	renderRef.current = render;
+	// Latest deck source, held in a ref so the Anima host reads the CURRENT `motion:` front-matter
+	// default on every rebind (a live edit re-resolves it) without listing `sample` as a dep.
+	const sampleRef = React.useRef(sample);
+	sampleRef.current = sample;
 
 	// ── Live Anima scenes (Stage 6b) ────────────────────────────────────────────
 	// Bring a `scene` slide's poster to life on THIS preview surface (Studio Present, and
@@ -292,7 +303,19 @@ export function DeckPreview({
 			return;
 		}
 		const fr = stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-		const hasScene = !!fr?.contentDocument?.querySelector('section.scene[data-scene-spec]');
+		const doc = fr?.contentDocument ?? null;
+		// The deck-level motion defaults (the three `motion*` front-matter keys), resolved from the live
+		// source so a class-less chart animates when the deck sets Play on.
+		const deck = deckMotionOf(sampleRef.current);
+		// Load the host for EITHER a baked scene (`data-scene-spec`) OR an opted-in chart. Two opt-in
+		// paths: an explicit per-slide Play token (`ANIMA_HOST_SEL` = scene ∪ `motion-on`/legacy `chart-anima`),
+		// OR a deck-wide Play=on with a chart that RESOLVES (a front-matter default leaves no class to
+		// select). Running the same `resolveMotion` cascade rebind() uses makes this gate match the mount
+		// set EXACTLY — it never loads the host for a deck whose only chart is `motion-off` — and one
+		// shared source keeps it from drifting (a chart-only gate is why animation ran in the Playground
+		// but not the Studio).
+		const deckWideChart = deck.play === 'on' && Array.from(doc?.querySelectorAll('section') ?? []).some((s) => hasAnimatableChart(s) && resolveMotion(s, deck) !== null);
+		const hasScene = !!doc?.querySelector(ANIMA_HOST_SEL) || deckWideChart;
 		if (!hasScene || animaLoadingRef.current) return;
 		animaLoadingRef.current = true;
 		import('@/playground/anima-scenes')
@@ -300,6 +323,7 @@ export function DeckPreview({
 				if (!stageRef.current) return; // unmounted during the async load
 				animaRef.current = createAnimaScenes({
 					getFrame: () => stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null,
+					getDeckMotion: () => deckMotionOf(sampleRef.current),
 				});
 				animaRef.current.rebind();
 			})
