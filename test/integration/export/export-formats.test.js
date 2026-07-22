@@ -535,12 +535,22 @@ describe('export-formats', () => {
     assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);
     const JSZip = require('jszip');
     const zip = await JSZip.loadAsync(fs.readFileSync(out));
-    const diagName = Object.keys(zip.files).find((n) => /assets\/.+\.svg$/.test(n));
-    assert.ok(diagName, 'a standalone diagram SVG was exported');
-    const svg = await zip.file(diagName).async('string');
-    // Print re-bake → near-black ink present, and the dark-scheme white node text is gone.
-    assert.match(svg, /fill:\s*rgb\(26,\s*26,\s*26\)|#1A1A1A/i, 'diagram carries print B&W ink');
-    assert.doesNotMatch(svg, /fill:\s*rgb\(255,\s*255,\s*255\)/, 'no dark-scheme white text survived the re-bake');
+    // Select the DIAGRAM asset by manifest kind (not the first svg), so a future chart asset
+    // can't be picked by accident.
+    const manifest = JSON.parse(await zip.file('deck/manifest.json').async('string'));
+    const diagram = manifest.assets.find((a) => a.kind === 'diagram');
+    assert.ok(diagram, 'a standalone Mermaid diagram asset was exported');
+    const svg = await zip.file(`deck/${diagram.file}`).async('string');
+    // Print re-bake proof: near-black ink IS present (the dark bake has none), and the deck's
+    // saturated category color (indaco's node blue, prominent in the dark/color bake) is GONE —
+    // i.e. the diagram was converted to grayscale, not left in the slide scheme. Both regexes match
+    // the `fill="…"` attribute and `fill:…` style forms (hex or rgb) so serialization tweaks don't
+    // make the test brittle. (A print diagram legitimately keeps white NODE fills, so "no white" is
+    // not a valid signal — the grayscale-conversion check is.)
+    const inkRe = /fill\s*[:=]\s*["']?\s*(?:rgb\(\s*26\s*,\s*26\s*,\s*26\s*\)|#1a1a1a|#000000|black)\b/i;
+    const saturatedRe = /fill\s*[:=]\s*["']?\s*(?:rgb\(\s*0\s*,\s*99\s*,\s*152\s*\)|#006398)\b/i;
+    assert.match(svg, inkRe, 'diagram carries print B&W ink (attribute or style form)');
+    assert.doesNotMatch(svg, saturatedRe, 'the dark/color node color was converted to grayscale by the print re-bake');
   });
 
   test('the standalone --print flag (not --image-mode) is authoritative for the manifest scheme', { timeout: TIMEOUT }, async () => {
