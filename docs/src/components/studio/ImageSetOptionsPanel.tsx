@@ -40,7 +40,7 @@ const FORMATS: { value: Format; label: string; hint: string }[] = [
 ];
 
 const SIZES: { value: Size; label: string; hint: string }[] = [
-	{ value: 'max', label: 'Full', hint: 'Highest resolution (2× HD).' },
+	{ value: 'max', label: 'Full', hint: 'Highest resolution (2× HD, 1× for 4K).' },
 	{ value: '2x', label: 'Large', hint: 'Fixed 2×.' },
 	{ value: '1x', label: 'Medium', hint: 'Fixed 1× — the slide’s own size.' },
 	{ value: 'half', label: 'Small', hint: 'Half size — the lightest set.' },

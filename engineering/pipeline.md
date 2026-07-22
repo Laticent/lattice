@@ -110,8 +110,9 @@ time. The **Studio** re-renders the deck in the look (a second render pass), so 
 fully re-colored. The **CLI** re-styles in place — correct for the common case (a light/color
 deck → any look reads on white, since light-baked diagram text is dark) — but a *cross-scheme*
 diagram look (e.g. a **dark-source** deck → `print`/`light`) keeps the baked Mermaid text/edges
-in the slide scheme. For guaranteed diagram re-coloring from a dark-source deck, use the Studio,
-or export the whole set in that `--image-mode`.
+in the slide scheme. The CLI **warns** when this would read low-contrast (baked ink vs. the look's
+canvas) so you're never surprised by a subtly-wrong vector. For guaranteed diagram re-coloring from
+a dark-source deck, use the Studio, or export the whole set in that `--image-mode`.
 
 **The `manifest.json` index** (`kind: "lattice-image-set"`, `version: 2`) lets a
 downstream tool wire up the set without probing files. It records: the deck `title`,

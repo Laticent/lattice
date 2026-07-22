@@ -225,7 +225,8 @@ var require_standalone_svg = __commonJS({
 ${fontCss}
 ]]></style></defs>` : "";
       const bg = String(o.background || "").trim();
-      const bgRect = bg ? `<rect x="0" y="0" width="100%" height="100%" fill="${bg}"/>` : "";
+      const bgSafe = /^#[0-9a-fA-F]{3,8}$/.test(bg) || /^[a-zA-Z]+$/.test(bg) || /^(rgb|hsl)a?\(\s*[\d.,%\s/]+\)$/.test(bg);
+      const bgRect = bg && bgSafe ? `<rect x="0" y="0" width="100%" height="100%" fill="${bg}"/>` : "";
       const prolog = o.xmlProlog === false ? "" : '<?xml version="1.0" encoding="UTF-8"?>\n';
       return `${prolog}<svg${attrs}>${styleBlock}${bgRect}${body}`;
     }

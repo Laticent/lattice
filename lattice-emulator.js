@@ -515,7 +515,7 @@ const { CLIP_CELL_SELECTOR, PROBE_SRC } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 // An image set's `--image-mode light|dark` forces the palette's light / dark variant
 // (the same `<name>-dark` companion the Studio's dark export picks — HARD RULE #1),
-// on top of the normal precedence chain. `auto`/`print` leave the resolved name alone
+// on top of the normal precedence chain. `inherit`/`print` leave the resolved name alone
 // (print rides the class:print stamp above, palette-independent). A missing dark
 // companion falls back to the base name with a warning rather than a hard error.
 function applyImageModePalette(name) {
@@ -2351,6 +2351,18 @@ async function renderBody(browser, g, closeBrowser) {
         const fontFaceCss = standaloneFontFaceCss(collectFontFamilies(t.markup));
         return { slide: t.slide, kind: t.kind, chartType: t.chartType, svg: finalizeStandaloneSvg(t.markup, { fontFaceCss, background: svgBg }) };
       });
+      // HONESTY: the in-place restyle recolors token-driven charts fully, but Mermaid DIAGRAMS
+      // bake their node text / edge colors at render time (mmdc), so those stay in the SLIDE
+      // scheme. That only READS WRONG when the baked text and the look's canvas collide in
+      // brightness: dark-baked text (a light/print slide) on a DARK canvas, or light-baked text
+      // (a dark slide) on a WHITE canvas. The common light-deck → print/light look is fine (dark
+      // text on white), so it stays quiet. Warn only on the genuine contrast clash, and point at
+      // the surfaces that DO re-bake. (The Studio re-renders the deck in the look — no such gap.)
+      const bakedTextDark = resolvedScheme !== 'dark';       // light/print slide → dark diagram ink
+      const canvasDark = lookMode === 'dark';                // the look's baked canvas
+      if (lookMode && svgAssets.some((a) => a.kind === 'diagram') && bakedTextDark === canvasDark) {
+        console.warn(`  ⚠ --svg-background ${effectiveSvgBackground}: Mermaid diagram text/edges keep the slide scheme's baked colors and will read low-contrast against this look's canvas (charts recolor fully). For fully re-baked diagrams, use the Studio export or render the whole set with --image-mode ${lookMode}.`);
+      }
     }
 
     // Per-slide titles for the manifest — the slide's first heading (unaffected by the look).
