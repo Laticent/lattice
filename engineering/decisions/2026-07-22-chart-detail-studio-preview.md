@@ -154,6 +154,35 @@ fixed, but it still needs a **real-device check on the deploy preview** before i
   coupling landmine (the box-size heuristic is now only the static-chart fallback). (e) hygiene: `rebind`
   drops the dead-realm `chartRO` + re-arms `watchFrame`; `cardScale` guards non-finite; a `disposed`
   tombstone stops a late imperative call re-creating the controller.
+- **Present's REAL root cause (corrects the earlier MutationObserver diagnosis).** The `watchFrame`
+  MutationObserver (above) catches a late frame reveal, but it was NOT why Present failed. The actual
+  bug is a **parse race**: Present's first render is a full srcdoc WRITE; the host re-pin
+  (`onRender → onSlide(0)`) runs a microtask later, but the srcdoc doesn't PARSE until the next task —
+  so `onSlide` finds an empty document, binds nothing, and (the killer) the `[80,360,1240]ms` re-pin
+  timers are armed only `if (interactive())`, so nothing ever retries. When the slide finally paints,
+  `watchFrame` DOES fire, but `reflow` bails (`chartEl` is null). Pinned mode had no self-heal: the
+  iframe-`load` re-bind was `hoverAny`-only. **Fix:** attach the `load` listener in BOTH modes — hover
+  re-binds its doc listeners, pinned re-runs `onSlide(curIdx)` — so the hit-surface binds the instant
+  the srcdoc parses. This is the exact mechanism that makes the editing preview reliable, now shared.
+  Deterministic on all platforms (microtask-vs-task ordering); felt worst on mobile where tap is the
+  only reveal. Guarded by a unit test that reproduces the race (empty doc → `onSlide` → inject chart →
+  fire `load` → assert bound); it fails without the pinned-mode `load` bind.
+- **Present's live runtime stays UNVERIFIED in the sandbox** — its overlay `DeckPreview` never creates
+  its iframe here (card holds the `nacre-loader` skeleton), a pre-existing limitation independent of
+  this fix (Present renders slides fine on a real device). Confirmed the root cause + fix by static
+  trace + the race unit test; the live tap needs a real-device / deploy-preview check.
+- **Popover sizing — readable-first (reversed the scale-with-slide approach).** A detail tooltip is an
+  on-demand READOUT whose job is legibility; scaling it down to a ~0.28× mobile editing-preview slide
+  makes it unreadable. So the card is a fixed, legible, collision-aware size (may overflow the small
+  authoring thumbnail; reads as proportionate on full-screen Present, the real viewing context). The
+  `scale`-in-`onDetail` payload + the `zoom: cardScale` treatment were removed. This is a UX judgment
+  the human made after seeing both.
+- **Why NOT "attach the popover inside the iframe" (the intuitive fix).** Investigated and rejected:
+  the preview iframe is deliberately `pointer-events:none` so a swipe reaches the slide-nav container
+  instead of the iframe swallowing it. The iframe ELEMENT gates all inner pointer events — make it
+  interactive and it captures every swipe (breaking nav); leave it inert and NOTHING inside (marks
+  included) can receive a tap. So a parent-side hit-surface over the chart is the CORRECT layer for the
+  swipe-vs-tap tension; the defect was never the layer's location, only its (now-fixed) binding.
 - **Deferred (logged, not blocking):** (1) an integration assertion pinning the three cross-file
   invariants (`.scene-live` bind, frame-element style writes, poster hiding) so an upstream change fails
   a test, not silently janks — `chartSvgIn`'s explicit `.scene-live` query already removes the sharpest

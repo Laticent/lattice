@@ -411,10 +411,9 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     anchorPt = ptr ? { x: ptr.x, y: ptr.y } : (markAnchor(i) || chartCenter());
     liftAndTilt(i);
     if (onDetail) {
-      // The host owns the popover UI (Playground → shadcn Popover). Hand it the content, the cursor
-      // anchor, AND the frame's render scale so the card can size WITH the slide — a heavily-scaled
-      // preview (mobile) would otherwise get a full-size card that dwarfs the tiny chart.
-      try { onDetail({ label, value, dot, body, meta, lean, x: anchorPt?.x, y: anchorPt?.y, scale: frameGeom()?.S ?? 1 }); } catch { /* host hook */ }
+      // The host owns the popover UI (Playground → shadcn Popover). Hand it the content + the cursor
+      // anchor (parent-viewport coords); the host renders a readable, collision-aware tooltip there.
+      try { onDetail({ label, value, dot, body, meta, lean, x: anchorPt?.x, y: anchorPt?.y }); } catch { /* host hook */ }
       return;
     }
     pop.classList.toggle('db-pp-chartpop--lean', lean);
@@ -691,12 +690,20 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // doc is ready, so a host-timed rebind() would no-op (doc() still null) and the
   // listeners would never attach. A document patch (no srcdoc rewrite) keeps the
   // same doc, so `load` doesn't fire and the surviving listeners are reused.
-  let frameEl = null;
-  if (hoverAny) {
-    frameEl = getFrame();
-    if (frameEl) frameEl.addEventListener('load', rebind);
-    bindDoc();
+  // The iframe fires `load` when a srcdoc REWRITE finishes parsing. This is the ONLY reliable "the new
+  // doc is ready" signal: a host re-pin (onSlide) / rebind runs a microtask after render(), but srcdoc
+  // parses on the next TASK — so a host-timed call races AHEAD of the parse and finds no chart. hoverAny
+  // re-attaches its document listeners; PINNED re-runs onSlide (re-resolve the section + arm the re-pin
+  // timers) — WITHOUT this, the slide Present opens on never binds its hit-surface (the parse race), so a
+  // tap has no target and no popover ever shows. A PATCH (no srcdoc rewrite) keeps the doc, fires no
+  // `load`, and reuses the surviving binding — so this only re-fires on a genuine write.
+  function onFrameLoad() {
+    if (hoverAny) rebind();
+    else onSlide(curIdx < 0 ? 0 : curIdx);
   }
+  const frameEl = getFrame();
+  if (frameEl) frameEl.addEventListener('load', onFrameLoad);
+  if (hoverAny) bindDoc();
 
   // Re-pin the hit-surface whenever the geometry it depends on settles. The stage RO catches the
   // preview PANE resizing; the frame RO catches the iframe being RE-SCALED to fit (its box changes
@@ -720,7 +727,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   function destroy() {
     clear();
     while (timers.length) clearTimeout(timers.pop());
-    if (frameEl) { try { frameEl.removeEventListener('load', rebind); } catch { /* gone */ } }
+    if (frameEl) { try { frameEl.removeEventListener('load', onFrameLoad); } catch { /* gone */ } }
     unbindDoc();
     curSection = chartEl = detailsEl = null;
     try { ro?.disconnect(); } catch { /* noop */ }

@@ -137,6 +137,39 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     ci.destroy();
   });
 
+  it('self-heals on frame `load`: binds the chart when onSlide ran BEFORE the srcdoc parsed (the Present race)', async () => {
+    // Reproduce the Present entry-slide race: the host calls onSlide a microtask after render, but the
+    // srcdoc parses on the next TASK — so onSlide sees an EMPTY document, finds no chart, and (pre-fix)
+    // never retries. The fix: the frame's `load` event (fired when the srcdoc finishes parsing) re-runs
+    // onSlide in pinned mode. Here we build an empty frame, onSlide (finds nothing), THEN populate + fire
+    // `load`, and assert the hit-surface is now bound + pinned.
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const stage = document.createElement('div');
+    document.body.appendChild(stage);
+    iframe.getBoundingClientRect = () => rect({ left: 0, top: 0, width: 400, height: 300 });
+
+    const ci = createChartInteract({ stage, getFrame: () => iframe, hoverAny: false });
+    ci.onSlide(0); // document is EMPTY → no chart bound
+    const hit = stage.querySelector('.db-pp-charthit') as HTMLElement;
+    expect(hit.style.display === 'none' || hit.style.display === '').toBe(true); // not pinned
+
+    // The srcdoc "finishes parsing": inject the chart, then fire the frame's load event.
+    const doc = iframe.contentDocument as Document;
+    doc.body.innerHTML = `
+      <div class="lattice"><section>
+        <figure><svg class="funnel-svg"><rect data-mark="0" data-label="A" data-value="1"></rect></svg></figure>
+        <div class="chart-details"><template class="chart-detail" data-mark="0"><li>x</li></template></div>
+      </section></div>`;
+    (doc.querySelector('svg.funnel-svg') as SVGElement).getBoundingClientRect = () => rect({ left: 10, top: 10, width: 200, height: 150 });
+    iframe.dispatchEvent(new Event('load'));
+    await tick();
+
+    expect(hit.style.display).toBe('block'); // NOW bound + pinned
+    expect(hit.style.width).toBe('200px');
+    ci.destroy();
+  });
+
   it('VANILLA popover (no onDetail): keyboard reveal positions the card, does not bail unplaced', async () => {
     // Regression guard: markAnchor made anchorPt a zero-SIZE rect, which (pre-fix) tripped placePop's
     // `!ptr && !r.width` bail so the vanilla popover rendered unplaced instead of falling to the chart.

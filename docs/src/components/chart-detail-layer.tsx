@@ -34,9 +34,6 @@ export type ChartDetail = {
   lean?: boolean;
   x?: number;
   y?: number;
-  /** The preview frame's render scale, so the card sizes WITH the slide (a heavily-scaled mobile
-   *  preview otherwise gets a full-size card that dwarfs the tiny chart). */
-  scale?: number;
 };
 
 /** The imperative surface a host drives after each preview paint / slide change. */
@@ -168,35 +165,28 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
   }, [enabled]);
 
   if (!enabled) return null;
-  // Size the card WITH the slide: the preview iframe is transform-scaled to fit its pane (≈0.6 on
-  // desktop, much smaller on mobile), so a full-size card dwarfs the chart. Scale the visible card by
-  // the frame's render scale, floored so it stays readable on a heavily-scaled mobile preview. The
-  // OUTER PopoverContent stays a transparent positioning wrapper (Radix owns placement + open
-  // animation); the INNER div is the visible card.
-  // Scale via `zoom`, NOT a child `transform`: `zoom` shrinks the element's LAYOUT box, so the outer
-  // PopoverContent that Radix/Floating-UI measures for collision/flip/shift is the SAME size the user
-  // sees. A child `transform: scale()` leaves the measured box full-size, so Radix reserves ~320px,
-  // spuriously collision-shifts a near-edge card left, and the visible half-size card detaches from the
-  // mark (visible on a 390px mobile preview). `zoom` keeps layout == visual, so it stays pinned.
-  const cardScale = Math.min(1, Math.max(Number.isFinite(detail?.scale) ? (detail?.scale as number) : 1, 0.5));
+  // READABLE-FIRST sizing. This is a detail TOOLTIP — an on-demand readout whose whole job is to be
+  // legible. The preview iframe is transform-scaled to fit its pane (≈0.6 desktop, ≈0.28 on a 390px
+  // mobile pane), but we deliberately do NOT shrink the card to match: a card scaled into a tiny mobile
+  // slide is unreadable, defeating the tooltip. Instead it stays a normal, legible size and may overflow
+  // the (small) slide bounds — fine for a transient, dismissible popover — with `collisionPadding` keeping
+  // it on-screen. On full-screen Present the slide is large, so it already reads as proportionate. It uses
+  // the app popover tokens (bg-popover/border/shadow) so it's clean and consistent, not alien.
   return (
     <Popover open={!!detail}>
       <PopoverAnchor virtualRef={anchorRef} />
       <PopoverContent
         side="bottom"
         align="start"
-        sideOffset={14 * cardScale}
+        sideOffset={12}
         collisionPadding={8}
         updatePositionStrategy="always"
         onOpenAutoFocus={(e) => e.preventDefault()}
         onCloseAutoFocus={(e) => e.preventDefault()}
-        className="pointer-events-none w-auto border-0 bg-transparent p-0 shadow-none"
+        className="pointer-events-none max-w-[18rem] p-3"
       >
         {detail && (
-          <div
-            className="max-w-[20rem] rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
-            style={{ zoom: cardScale }}
-          >
+          <>
             <div className="flex items-center gap-2 font-medium text-foreground">
               {detail.dot ? <span className="size-2 shrink-0 rounded-full" style={{ background: detail.dot }} /> : null}
               <span>{detail.label}</span>
@@ -210,7 +200,7 @@ export const ChartDetailLayer = React.forwardRef<ChartDetailHandle, ChartDetailL
               // biome-ignore lint/security/noDangerouslySetInnerHtml: deck-authored detail, sanitized upstream by the render path (#22).
               <div className="mt-1.5 text-xs uppercase tracking-wide text-muted-foreground" dangerouslySetInnerHTML={{ __html: detail.meta }} />
             ) : null}
-          </div>
+          </>
         )}
       </PopoverContent>
     </Popover>
