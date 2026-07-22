@@ -114,6 +114,25 @@ in patch versions.
   `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
 ### Fixed
 
+- **Categorical corner tags (decision / roadmap / compare-prose) are now legible in every theme.** The
+  tag ink `--cat-on-mark` was set to `var(--text-heading)` in 11 themes — which puts near-black on the
+  saturated light-mode mark and white on the pale dark-mode mark, i.e. **inverted** — so tags like the
+  `decision` "THE PICK" pill or the `roadmap` quarter pills rendered at ~1.3–2.5:1, far under AA (#1172,
+  found while closing #1165). `--cat-on-mark` is now `light-dark(#FFFFFF, <near-black>)` everywhere (white
+  on the saturated light mark, near-black on the pale dark mark), matching the three themes that were
+  already correct. Because 8 chromatic themes' light-mode marks were too light for white to clear 4.5:1
+  even corrected, their too-light marks were **darkened minimally at the theme source** (hue+chroma-locked
+  OKLCH, max ΔL ~6.5%, ≤0.7° hue drift) so white clears AA — which also *raises* their mark-vs-canvas edge
+  contrast. carbone (flat-dark, vivid marks) instead takes a near-black tag ink, preserving its vivid
+  marks. All 14 hue themes now clear AA 4.5:1 for tag-on-mark on both canvases, locked by a new arm of
+  `checkCatContrast` (`build:check`). Trade-off: the mark darkening adds ~33 categorical-mark CVD collapses
+  (`cvd-audit` 1470→1503). Those land in the 8 darkened *brand* themes, whose categorical marks are
+  **hue-only and already CVD-collapse by design** — brand palettes encode category in hue and are known to
+  collapse under dichromacy; the colorblind-safe path is the dedicated `a11y-*` palettes (which use the
+  `--cat-N-texture` channel and were **not** darkened). So +33 is a ~2% densification of an already-failing,
+  **non-gating** (`--strict`-opt-in) diagnostic on themes that were never CVD-distinct by mark hue — not a new
+  regression on a colorblind-safe surface. The semantic pass/warn/fail signals are byte-identical.
+  (`themes/*.css`, `tools/check-ownership.js`, `lib/components/comparison/compare-prose/compare-prose.styles.css`.)
 - **Live previews no longer leak memory on every palette / mode change.** A theme, palette, or
   dark/light-mode change used to re-render each live preview by rewriting the iframe's whole `srcdoc`,
   which keeps the same `<iframe>` but mints a fresh document + JS realm each time; the detached realms

@@ -3069,8 +3069,10 @@ section.compare-prose .compare-prose-inner .card:has(> strong:first-child) > str
  * saturation hue still anchors the card via the bottom border. */
 section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
   background: var(--decision-accent-deep, var(--accent));
-  /* --decision-accent-deep resolves to --cN-dark (categorical fill); text on
-   * a --cN-dark fill uses --cat-on-mark (white on light, near-black on dark). */
+  /* --decision-accent-deep resolves to var(--cat-N-mark) (decision.styles.css);
+   * text on the mark uses --cat-on-mark — usually light-dark(white, near-black),
+   * or a flat near-black in the vivid-mark themes (carbone) — tuned to clear AA on
+   * the mark in both modes (#1172 fixed the inverted themes). */
   color: var(--cat-on-mark);
 }
 
@@ -3153,7 +3155,7 @@ section.banner-tag.compare-prose .compare-prose-inner .card:has(> strong:first-c
 }
 section.banner-tag.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
   background: var(--decision-accent-deep, var(--accent));
-  /* --decision-accent-deep resolves to --cN-dark; see flush-corner rule above. */
+  /* --decision-accent-deep resolves to var(--cat-N-mark); see flush-corner rule above. */
   color: var(--cat-on-mark);
 }
 
@@ -11411,7 +11413,7 @@ section.regulatory-update > .cell-stage {
   font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
-  color:var(--cat-on-mark);              /* white on the saturated light-canvas fill, near-black on the pale dark-canvas fill */
+  color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
   background:var(--phase-accent, var(--accent));
   padding:var(--pill-pad-y) var(--pill-pad-x);
   border:2px solid var(--bg);
@@ -11722,7 +11724,7 @@ section.regulatory-update > .cell-stage {
   font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
-  color:var(--cat-on-mark);              /* white on the saturated light-canvas fill, near-black on the pale dark-canvas fill */
+  color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
   background:var(--phase-accent, var(--accent));
   padding:var(--pill-pad-y) var(--pill-pad-x);
   border:2px solid var(--bg-alt);

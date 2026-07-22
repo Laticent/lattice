@@ -170,15 +170,15 @@ section pre.hljs {
 
 :root {
   --cat-1-fill:  light-dark(#eaeab8, #5b5b06);
-  --cat-1-mark:  light-dark(#8d8d1b, #e4e4c3);
+  --cat-1-mark:  light-dark(#7a7900, #e4e4c3);
   --cat-2-fill:  light-dark(#b8b8ea, #0d0dc9);
   --cat-2-mark:  light-dark(#1c1c92, #c3c3e4);
   --cat-3-fill:  light-dark(#eab8d1, #ac0b5c);
   --cat-3-mark:  light-dark(#921c57, #e4c3d4);
   --cat-4-fill:  light-dark(#b8ead1, #076536);
-  --cat-4-mark:  light-dark(#1c9257, #c3e4d4);
+  --cat-4-mark:  light-dark(#01874d, #c3e4d4);
   --cat-5-fill:  light-dark(#b8eab8, #076507);
-  --cat-5-mark:  light-dark(#1c921c, #c3e4c3);
+  --cat-5-mark:  light-dark(#07890c, #c3e4c3);
   --cat-6-fill:  light-dark(#b8d1ea, #0b57a3);
   --cat-6-mark:  light-dark(#1c5792, #c3d4e4);
   --cat-7-fill:  light-dark(#eab8b8, #b10b0b);
@@ -190,12 +190,12 @@ section pre.hljs {
   --cat-10-fill:  light-dark(#ead1b8, #864709);
   --cat-10-mark:  light-dark(#92571c, #e4d4c3);
   --cat-11-fill:  light-dark(#d1eab8, #336006);
-  --cat-11-mark:  light-dark(#57921c, #d4e4c3);
+  --cat-11-mark:  light-dark(#4a8400, #d4e4c3);
   --cat-12-fill:  light-dark(#b8eaea, #066060);
-  --cat-12-mark:  light-dark(#1c9292, #c3e4e4);
+  --cat-12-mark:  light-dark(#008282, #c3e4e4);
 
   --cat-on-fill: var(--text-heading);
-  --cat-on-mark:  var(--text-heading);
+  --cat-on-mark:  light-dark(#FFFFFF, #150F22);
 
   /* Semantic palette — 5 roles, each a flipping fill. Curated per
    * theme: hue nudged toward the brand within its meaning band,
