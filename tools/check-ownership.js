@@ -2266,12 +2266,19 @@ function checkCatContrast(errors) {
     // with no base default — so that IS the ink, and its absence is a real defect.
     for (const mode of ['light', 'dark']) {
       const ink = catResolve(map, '--cat-on-fill', mode);
+      // --cat-on-mark is the ink for text ON the saturated mark itself (the
+      // categorical corner tag: decision / roadmap / compare-prose deep tags,
+      // which set their background to var(--cat-N-mark)). It flips per canvas
+      // (white on the saturated light-mode mark, near-black on the pale dark-mode
+      // mark), so it must be verified against the mark in BOTH modes.
+      const markInk = catResolve(map, '--cat-on-mark', mode);
       const bg = catResolve(map, '--bg', mode);
       // Fail CLOSED: a required token that doesn't reduce to a color means the gate
       // cannot verify this theme — that is an error, never a silent skip. (A future
       // theme using color-mix() for these will trip this and must extend the gate or
       // declare an exemption, rather than quietly losing contrast coverage.)
       if (!ink) { errors.push(`theme "${name}" ${mode}: --cat-on-fill did not resolve to a color — the contrast gate cannot verify label legibility.`); continue; }
+      if (!markInk) { errors.push(`theme "${name}" ${mode}: --cat-on-mark did not resolve to a color — the contrast gate cannot verify tag-on-mark legibility.`); continue; }
       if (!bg) { errors.push(`theme "${name}" ${mode}: --bg did not resolve to a color — the contrast gate cannot verify edge/canvas contrast.`); continue; }
       for (let n = 1; n <= 12; n += 1) {
         const fill = catResolve(map, `--cat-${n}-fill`, mode);
@@ -2283,6 +2290,7 @@ function checkCatContrast(errors) {
         evaluated += 1;
         const edge = catContrast(mark, bg);
         const text = catContrast(ink, fill);
+        const markText = catContrast(markInk, mark);
         const collapse = catContrast(fill, mark);
         if (edge < CAT_EDGE_FLOOR) {
           errors.push(
@@ -2294,6 +2302,12 @@ function checkCatContrast(errors) {
           errors.push(
             `theme "${name}" ${mode}: label ink (--cat-on-fill) vs --cat-${n}-fill is ${text.toFixed(2)}:1, ` +
             `below the ${CAT_TEXT_FLOOR}:1 AA floor. The node label must be legible on its fill.`,
+          );
+        }
+        if (markText < CAT_TEXT_FLOOR) {
+          errors.push(
+            `theme "${name}" ${mode}: tag ink (--cat-on-mark) vs --cat-${n}-mark is ${markText.toFixed(2)}:1, ` +
+            `below the ${CAT_TEXT_FLOOR}:1 AA floor. The categorical corner tag (decision/roadmap/compare-prose) must be legible on its mark.`,
           );
         }
         if (collapse < CAT_COLLAPSE_FLOOR) {

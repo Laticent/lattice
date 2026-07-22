@@ -176,7 +176,7 @@ section pre.hljs {
 
 :root {
   --cat-on-fill: var(--text-heading);
-  --cat-on-mark:  var(--text-heading);
+  --cat-on-mark:  #0A0A0A;
 
   /* Semantic palette — 5 roles, each a flipping fill. Curated per
    * theme: hue nudged toward the brand within its meaning band,
