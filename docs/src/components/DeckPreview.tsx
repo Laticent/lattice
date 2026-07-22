@@ -425,9 +425,12 @@ export function DeckPreview({
 		// attach the load listener once; `syncAnima` covers the in-place patch path (no `load`).
 		bindAnima();
 		syncAnima();
-		// Re-bind the chart-detail hover layer to the (possibly new) iframe document. A no-op unless
-		// the `chartDetail` opt-in mounted the layer; it lazily binds on the first call once the frame exists.
-		chartDetailRef.current?.rebind();
+		// Re-pin the chart-detail layer over THIS render's chart. A no-op unless the `chartDetail` opt-in
+		// mounted it; it lazily binds on the first call once the frame exists. Pinned mode (not hoverAny):
+		// the Studio preview box is pointer-events:none (a swipe surface), so hover can't reach the iframe
+		// — the pinned hit-surface (pointer-events:auto) over the chart receives it. The frame holds one
+		// slide, so onSlide(0). A keystroke mints a new section node, so this re-pins each render.
+		chartDetailRef.current?.onSlide(0);
 		// Committed-render signal for a parent hosting its own layer over this preview (Present re-pins
 		// here). Gated on a real `status` so a deferred inactive-host bail (status undefined) doesn't
 		// fire it — matches the prop contract and can't drive a phantom re-pin on a host that didn't paint.
@@ -529,7 +532,7 @@ export function DeckPreview({
 	// unchanged anchoring).
 	return (
 		<>
-		<figure ref={stageRef} className={cn((loader || failed) && 'relative', 'm-0', className)} role={role} {...aria}>
+		<figure ref={stageRef} className={cn((loader || failed || chartDetail) && 'relative', 'm-0', className)} role={role} {...aria}>
 			{loader && (
 				<span className={cn('nacre-loader', painted && 'is-done')} aria-hidden="true">
 					<span className="nacre-loader__core" />
@@ -568,15 +571,16 @@ export function DeckPreview({
 				</div>
 			)}
 		</figure>
-		{/* The chart mark-detail reveal (opt-in). Its popover portals to <body>; getStage returns the
-		    figure so the hit layer positions in stage coordinates. Kept OUTSIDE the figure so it never
-		    disturbs the figure's single-React-child / imperatively-appended `iframe.live` invariant. */}
+		{/* The chart mark-detail reveal (opt-in), PINNED mode: the preview box is pointer-events:none (a
+		    swipe surface), so the reveal rides a parent hit-surface (pointer-events:auto) over the chart —
+		    getStage = the figure (its positioning context; kept `relative` above). The React node lives
+		    OUTSIDE the figure so it never disturbs the figure's single-React-child / imperatively-appended
+		    `iframe.live` invariant; the popover portals to <body>. Re-pinned each paint via onSlide(0). */}
 		{chartDetail && (
 			<ChartDetailLayer
 				ref={chartDetailRef}
 				getFrame={() => stageRef.current?.querySelector<HTMLIFrameElement>('iframe.live') ?? null}
 				getStage={() => stageRef.current}
-				hoverAny
 			/>
 		)}
 		</>

@@ -101,6 +101,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   let curSection = null; // the <section> whose chart is active (scopes all wedge/legend queries)
   let chartEl = null;    // the <svg class="piechart-svg"> in the current section (same-origin)
   let detailsEl = null;  // its sibling .chart-details (the <template> payload)
+  let chartRO = null;    // re-pins the hit-surface when the CURRENT chart's own box settles (see setChart)
   let sliceN = 0;        // slice count on the current chart
   let openSlice = -1;    // which slice's detail is showing (-1 = none)
   let chartBox = null;   // current chart rect in stage coords (Present hit-surface)
@@ -109,6 +110,20 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   const timers = [];     // pending reflow re-pins (cleared on slide change / destroy)
 
   const doc = () => { try { return getFrame().contentDocument; } catch { return null; } };
+
+  // The frame's on-screen rect PLUS its CSS-transform scale. A preview host can `transform: scale()`
+  // the iframe (the Studio scales it to fit its pane), so the iframe's OUTER rect is scaled while its
+  // INNER layout coords (what `elementFromPoint` / a mark's `getBoundingClientRect` speak) are not.
+  // Every parent↔frame coordinate hop must bridge that scale: parent→inner divides by S, inner→parent
+  // multiplies. `offsetWidth` is the untransformed layout width, so `rect.width / offsetWidth` = S
+  // (1 on an unscaled host — the Playground / Drawing-Board — so this is a no-op there).
+  function frameGeom() {
+    const f = getFrame();
+    if (!f) return null;
+    const fr = f.getBoundingClientRect();
+    const S = f.offsetWidth ? fr.width / f.offsetWidth : 1;
+    return { fr, S };
+  }
 
   // ── generic mark access (one code path for every chart kind) ────────────────
   // Marks are the addressable data elements INSIDE the chart <svg> (pie wedges,
@@ -198,16 +213,19 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
       if (live && live !== chartEl) chartEl = live;
     }
     if (!chartEl) { hide(); return; }
-    let fr, sr, cr;
-    try { fr = getFrame().getBoundingClientRect(); sr = stage.getBoundingClientRect(); cr = chartEl.getBoundingClientRect(); }
+    let g, sr, cr;
+    try { g = frameGeom(); sr = stage.getBoundingClientRect(); cr = chartEl.getBoundingClientRect(); }
     catch { hide(); return; }
+    if (!g) { hide(); return; }
     // A zero box means the chart node is detached (a section PATCH replaced it
     // without a db-frame-ready, so curSection is now orphaned) or scrolled
     // off-screen (content-visibility). Either way an open preview popover is stale
     // — dismiss it (it re-resolves on the next hover). hide() only clears the
     // Present hit-surface, so in hoverAny we clear() explicitly.
     if (!cr.width || !cr.height) { if (hoverAny && openSlice >= 0) clear(); hide(); return; }
-    chartBox = { left: fr.left + cr.left - sr.left, top: fr.top + cr.top - sr.top, width: cr.width, height: cr.height };
+    // `cr` is in the iframe's INNER coords; scale it into parent space (× S) before subtracting the
+    // stage origin — otherwise the hit-surface mis-sizes/mis-places on a scaled preview frame.
+    chartBox = { left: g.fr.left + cr.left * g.S - sr.left, top: g.fr.top + cr.top * g.S - sr.top, width: cr.width * g.S, height: cr.height * g.S };
     if (!hoverAny) {
       hit.style.cssText =
         `display:block;left:${chartBox.left}px;top:${chartBox.top}px;width:${chartBox.width}px;height:${chartBox.height}px`;
@@ -233,6 +251,15 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     // single svg, so this is a plain first-match there.
     chartEl = sec ? chartSvgIn(sec) : null;
     detailsEl = sec ? sec.querySelector(DETAILS_SEL) : null;
+    // Watch the CURRENT chart's box for its async layout settle (it lives in the iframe, so use the
+    // iframe's own ResizeObserver). Re-pins the hit-surface without polling — the fix for a chart that
+    // reflows after onSlide's fixed timers have run.
+    try {
+      chartRO?.disconnect();
+      chartRO = null;
+      const ROc = chartEl?.ownerDocument?.defaultView?.ResizeObserver;
+      if (chartEl && ROc) { chartRO = new ROc(reflow); chartRO.observe(chartEl); }
+    } catch { /* cross-doc / older browser */ }
     // Only "interactive" when the authored detail is actually present.
     if (chartEl && detailsEl) {
       // Gate on the MARK count, not the template count — detail is optional per
@@ -261,9 +288,9 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
 
   // ── hit-testing: parent pointer → iframe slice via elementFromPoint ─────────
   function sliceAt(clientX, clientY) {
-    const d = doc(); if (!d) return -1;
-    const fr = getFrame().getBoundingClientRect();
-    const t = d.elementFromPoint(clientX - fr.left, clientY - fr.top);
+    const d = doc(); const g = frameGeom(); if (!d || !g) return -1;
+    // parent viewport → iframe INNER coords: subtract the frame origin, then un-scale.
+    const t = d.elementFromPoint((clientX - g.fr.left) / g.S, (clientY - g.fr.top) / g.S);
     return markIndex(t?.closest(MARK_SEL));
   }
 
@@ -508,11 +535,11 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     setChart(w.closest('.lattice > section') || w.closest('section'));
     return interactive() ? markIndex(w) : -1;
   }
-  // Preview events fire on the IFRAME document, so map their iframe-local coords
-  // into parent-viewport coords (through the frame's offset) for the cursor anchor.
+  // Preview events fire on the IFRAME document, so map their iframe-INNER coords into parent-viewport
+  // coords (× the frame scale, then + the frame offset) for the cursor anchor.
   function ptrFromFrame(e) {
-    try { const fr = getFrame().getBoundingClientRect(); ptr = { x: fr.left + e.clientX, y: fr.top + e.clientY }; }
-    catch { /* frame gone */ }
+    const g = frameGeom();
+    if (g) ptr = { x: g.fr.left + e.clientX * g.S, y: g.fr.top + e.clientY * g.S };
   }
   function onDocMove(e) {
     // resolveAt → setChart may clear() (which nulls ptr) when the hovered chart
@@ -573,8 +600,18 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     bindDoc();
   }
 
+  // Re-pin the hit-surface whenever the geometry it depends on settles. The stage RO catches the
+  // preview PANE resizing; the frame RO catches the iframe being RE-SCALED to fit (its box changes
+  // without the pane changing); and a per-chart RO (re-targeted in setChart) catches the chart's OWN
+  // async layout inside the iframe (a chart renders/reflows a beat after the slide paints, AFTER
+  // onSlide's fixed re-pin timers have fired — the pinned-surface staleness the timers alone miss).
   let ro = null;
-  try { ro = new ResizeObserver(reflow); ro.observe(stage); } catch { /* older browser */ }
+  try {
+    ro = new ResizeObserver(reflow);
+    ro.observe(stage);
+    const fe = getFrame();
+    if (fe) ro.observe(fe);
+  } catch { /* older browser */ }
   window.addEventListener('resize', reflow);
 
   function destroy() {
@@ -584,6 +621,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     unbindDoc();
     curSection = chartEl = detailsEl = null;
     try { ro?.disconnect(); } catch { /* noop */ }
+    try { chartRO?.disconnect(); } catch { /* noop */ }
     window.removeEventListener('resize', reflow);
     root.remove();
   }

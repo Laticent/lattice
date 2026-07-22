@@ -1,6 +1,11 @@
 import * as React from 'react';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { createChartInteract } from '@/playground/chart-interact.js';
+// The hit-surface + popover chrome CSS ships WITH this component, so every surface that mounts it (the
+// Studio editing preview + Present, not just the Playground/Drawing-Board that import it per-page) gets
+// the pinned hit-surface's `pointer-events:auto` — without it the surface's own pointer-events:none swipe
+// box swallows the hover and the reveal never fires.
+import '@/styles/chart-interact.css';
 
 // The SHARED chart mark-detail reveal — one widget across every live surface (the Playground, the
 // Studio's live preview, and Present), so the popover chrome + the parent-hosted `chart-interact`
