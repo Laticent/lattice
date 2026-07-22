@@ -116,12 +116,19 @@ dark-ink-on-light diagram vectors matching a native light render, **→ `dark`**
 diagram, and **→ `print`** exports print-ready black-on-white — the diagram look is now correct on
 the CLI for every scheme, not just print. Charts recolor fully on both surfaces regardless.
 
-Two caveats on the CLI diagram re-render: (1) it re-runs `mmdc` once per diagram (a second headless
-render), so a cross-scheme `--svg-background` on a diagram-heavy deck is noticeably slower than a
-CSS-only look — expected, not a hang. (2) A diagram that sets its **own** colors — an author
-`%%{init}%%` theme, or explicit `fill:`/`stroke:` in `style`/`classDef`/`linkStyle` — overrides the
-look's theme variables, so it can't be recolored; the CLI **warns with a count** (ungated by `--quiet`)
-and leaves those diagrams in their own colors rather than silently claiming a conversion it didn't make.
+The re-render is keyed on each diagram's **own bake scheme** (the deck's `color-mode:`), not the
+palette-derived slide scheme — so a `color-mode: dark` deck exported to a `light` look re-renders
+even when no `--image-mode` is set (the two can disagree). A diagram already in the look scheme keeps
+its live markup (its context already matches).
+
+Two caveats on the CLI diagram re-render: (1) it re-runs `mmdc` once per re-rendered diagram (a second
+headless render), so a cross-scheme `--svg-background` on a diagram-heavy deck is noticeably slower
+than a CSS-only look — expected, not a hang. (2) Two things a re-render can't fix, each **warned with a
+count** (ungated by `--quiet`): a diagram that sets its **own** colors — an author `%%{init}%%` theme or
+explicit `fill:`/`stroke:` in `style`/`classDef`/`linkStyle` — keeps them (the look can't override); and
+a diagram whose `mmdc` re-render **fails** stays in the slide scheme and may read wrong on the look
+canvas. The two are reported distinctly so an accidental render failure isn't mistaken for an intended
+author color.
 
 **The `manifest.json` index** (`kind: "lattice-image-set"`, `version: 2`) lets a
 downstream tool wire up the set without probing files. It records: the deck `title`,
