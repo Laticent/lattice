@@ -175,6 +175,17 @@ const PAIRS = [
   ['on-dark-secondary', 'surface-inverse', 'bookend: subtitle on dark panel'],
   ['text-heading', 'bg-alt',     'slide: heading on card'],
   ['text-heading', 'accent-soft','slide: heading on accent-soft'],
+  // Foreground inks that actually render ON the accent-soft panel (key-insight
+  // callout, split-compare .verdict, verdict-grid / compare-prose winner card,
+  // pricing / glossary pill). --on-accent-soft resolves to --accent and
+  // --accent-soft-body to --text-body universally (base.tokens.css, no theme
+  // override), and this tool skips the `lattice` import — so we audit the
+  // theme-owned resolved tokens the ink equals: --accent and --text-body. #1167.
+  // (Deliberately NOT text-secondary on accent-soft: no component renders secondary
+  // text on an accent-soft fill, so gating it would police a surface that doesn't
+  // exist — unlike the proactive warn-on-bg-alt bar, which HAS a large-text consumer.)
+  ['text-body',      'accent-soft', 'slide: body prose on accent-soft (key-insight / split-compare verdict / converge)'],
+  ['accent',         'accent-soft', 'slide: accent ink on accent-soft (verdict-grid / pricing / glossary / compare-prose winner)'],
   ['on-accent',    'accent',     'slide: on-accent on accent'],
   ['bg',           'fail',       'slide: bg on fail (error chip)'],
 

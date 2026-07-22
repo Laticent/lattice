@@ -81,7 +81,7 @@
 
   /* ── Brand accent ──────────────────────────────────────────────────── */
   --accent:      light-dark(var(--brand-accent), #E8A8B5); /* L:5.52:1 / D:10.09:1 on bg AA+ */
-  --accent-soft: light-dark(#F5DDD8, var(--bg-warm-mid)); /* accent reads L:4.50:1 / D:10.09:1 */
+  --accent-soft: light-dark(#F7DFDA, var(--bg-warm-mid)); /* accent ink reads L:4.58:1 / D:10.09:1 (#1167: +ΔL to clear AA) */
   /* Inline-code chip ink — curated + AA-audited on the chip wash; bg/border
    * derive from it (base.tokens.css). See 2026-06-08-inline-code-contrast.md. */
   --code-inline-fg: light-dark(#8B404A, var(--accent)); /* light ink deepened for AA on card (L:5.86/5.06 · D:8.74/6.33) */

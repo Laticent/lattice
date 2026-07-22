@@ -136,6 +136,22 @@ in patch versions.
   `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
 ### Fixed
 
+- **The contrast audit now covers text on the `--accent-soft` panel — and two themes that failed it are
+  fixed.** The theme-wide gate (`tools/contrast-audit.js`, gated by `theme-surface-aa.test.js`) checked
+  only `--text-heading` on `--accent-soft`, but real components render two more inks on that panel: body
+  prose (`--accent-soft-body` = `--text-body` — split-compare `.verdict`, list-steps `converge`) and the
+  accent ink (`--on-accent-soft` = `--accent` — the verdict-grid / compare-prose winner card, the pricing
+  "most popular" column, the glossary pill). Both roles equal a theme-owned token universally
+  (`base.tokens.css`, no override), so the audit now checks `--text-body` and `--accent` on `--accent-soft`
+  across all 32 themes. That surfaced two genuine sub-AA gaps in the accent-on-accent-soft pair: **mustard**
+  (3.40:1 — its `--accent-soft` was curated too saturated/dark for a "pale tint") and **magnolia** (4.50:1,
+  a hair under). Both are fixed at the theme source by a hue+chroma-locked lightening of the light-mode
+  `--accent-soft` fill (mustard `#E8D580`→`#FFF5C5`, magnolia `#F5DDD8`→`#F7DFDA`) — background-only, so no
+  ink/brand token shifts — bringing every accent-soft foreground to AA in both canvas modes (#1167, the last
+  foreground-surface gap alongside the mermaid/chart gap closed in #1165). `text-secondary` on
+  `--accent-soft` was deliberately **not** added: no component renders secondary text on that panel, so
+  gating it would police a surface that doesn't exist. Verified by rendering mustard's verdict / verdict-grid
+  / pricing cards in light mode. (`tools/contrast-audit.js`, `themes/mustard.css`, `themes/magnolia.css`.)
 - **Categorical corner tags (decision / roadmap / compare-prose) are now legible in every theme.** The
   tag ink `--cat-on-mark` was set to `var(--text-heading)` in 11 themes — which puts near-black on the
   saturated light-mode mark and white on the pale dark-mode mark, i.e. **inverted** — so tags like the
