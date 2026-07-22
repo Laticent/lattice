@@ -334,6 +334,12 @@ function hydrateOne(section: Element, resolved: ResolvedScene, opts: HydrateOpti
     figure.appendChild(stage);
     if (poster) poster.style.display = 'none';
     renderer.mount(stage, playScene, assets);
+    // Reveal the figure NOW the animated clone's first (zero-state) frame is drawn — clears the preview
+    // pre-hide the live host set to avoid the static-poster flash (anima-host-sel PREHIDE_CLASS). Because
+    // the clone starts at t=0 (marks at opacity/scale 0), revealing shows the empty first frame that the
+    // build grows FROM — so hidden → build is seamless, no blank jolt. A no-op for a non-pre-hidden figure
+    // (scenes / already-visible charts). Kept a literal to avoid a lib→playground import.
+    (figure as HTMLElement).classList?.remove('anima-prehide');
     flashControls(); // a brief on-mount hint so the auto-hidden control is discoverable
   }
 

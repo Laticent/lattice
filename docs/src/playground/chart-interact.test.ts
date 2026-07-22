@@ -173,6 +173,47 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     ci.destroy();
   });
 
+  it('anima coupling: binds the .scene-live clone (not the poster) and never writes lift/tilt onto its marks', () => {
+    // Guards the two cross-file invariants the design leans on (a silent-break risk otherwise): (1)
+    // chart-interact must bind the Anima CLONE inside `.scene-live`, NOT the original poster — and it must
+    // do so even if the poster still has a box (the pre-`.scene-live`-preference landmine, where a poster
+    // hidden by anything other than display:none would be picked); (2) on an anima chart the reveal is
+    // popover-only — it must NOT stamp inline transform/opacity onto the clone's marks (those carry the
+    // renderer's baked frame; overwriting them shifts the settled chart).
+    const iframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument as Document;
+    doc.body.innerHTML = `
+      <div class="lattice"><section>
+        <figure class="anima-live">
+          <svg class="funnel-svg"><rect data-mark="0" data-label="Poster" data-value="1"></rect></svg>
+          <div class="scene-live"><svg class="funnel-svg"><rect data-mark="0" data-label="Clone" data-value="1"></rect></svg></div>
+        </figure>
+        <div class="chart-details"><template class="chart-detail" data-mark="0"><li>clone detail</li></template></div>
+      </section></div>`;
+    const posterSvg = doc.querySelector('figure > svg.funnel-svg') as SVGElement & { getBoundingClientRect(): DOMRect };
+    const cloneSvg = doc.querySelector('.scene-live svg.funnel-svg') as SVGElement & { getBoundingClientRect(): DOMRect };
+    posterSvg.getBoundingClientRect = () => rect({ left: 10, top: 10, width: 200, height: 150 }); // poster HAS a box
+    cloneSvg.getBoundingClientRect = () => rect({ left: 10, top: 10, width: 100, height: 90 });
+    iframe.getBoundingClientRect = vi.fn(() => rect({ left: 0, top: 0, width: 400, height: 300 }));
+    const stage = document.createElement('div');
+    document.body.appendChild(stage);
+    const details: Array<{ label?: string } | null> = [];
+
+    const ci = createChartInteract({ stage, getFrame: () => iframe, hoverAny: false, onDetail: (d) => details.push(d as { label?: string } | null) });
+    ci.onSlide(0);
+    // Pinned to the CLONE's 100px box, not the poster's 200px → `.scene-live` preference defused the landmine.
+    const hit = stage.querySelector('.db-pp-charthit') as HTMLElement;
+    expect(hit.style.width).toBe('100px');
+
+    ci.reveal(0);
+    expect(details.at(-1)?.label).toBe('Clone'); // read the clone's detail, not the poster's
+    const cloneMark = cloneSvg.querySelector('[data-mark="0"]') as HTMLElement;
+    expect(cloneMark.style.transform).toBe(''); // reveal never touched the clone mark's baked frame
+    expect(cloneMark.style.opacity).toBe('');
+    ci.destroy();
+  });
+
   it('VANILLA popover (no onDetail): keyboard reveal positions the card, does not bail unplaced', async () => {
     // Regression guard: markAnchor made anchorPt a zero-SIZE rect, which (pre-fix) tripped placePop's
     // `!ptr && !r.width` bail so the vanilla popover rendered unplaced instead of falling to the chart.

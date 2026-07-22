@@ -581,6 +581,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   }
 
   function clear() {
+    cancelHoverClear(); // a direct clear (e.g. setChart on a chart change) cancels any pending debounce
     openSlice = -1;
     ptr = null;       // next reveal (e.g. keyboard) falls back to the disc until a pointer moves
     anchorPt = null;
@@ -638,19 +639,30 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     const g = frameGeom();
     if (g) ptr = { x: g.fr.left + e.clientX * g.S, y: g.fr.top + e.clientY * g.S };
   }
+  // Close-hysteresis: sweeping the pointer across a mark BOUNDARY (or the gap between two marks) makes
+  // onDocMove fire off-mark for a frame or two. Clearing immediately there toggles the popover
+  // open→close→open faster than its ~150ms zoom animation → visible flicker. Debounce the off-mark clear
+  // by a hair; a reveal within the window cancels it, so a genuine leave still clears (~70ms later) but a
+  // momentary edge-crossing doesn't. Only the hoverAny path needs this (it clears on every off-mark move);
+  // the pinned hit-surface clears only on pointerleave, so it never edge-flickers.
+  let hoverClearTimer = 0;
+  function cancelHoverClear() { if (hoverClearTimer) { clearTimeout(hoverClearTimer); hoverClearTimer = 0; } }
   function onDocMove(e) {
     // resolveAt → setChart may clear() (which nulls ptr) when the hovered chart
     // changes, so capture the cursor AFTER it, right before reveal snapshots it.
     const s = resolveAt(e.target);
     ptrFromFrame(e);
-    if (s >= 0) reveal(s); else if (openSlice >= 0) clear();
+    if (s >= 0) { cancelHoverClear(); reveal(s); }
+    else if (openSlice >= 0 && !hoverClearTimer) {
+      hoverClearTimer = setTimeout(() => { hoverClearTimer = 0; clear(); }, 70);
+    }
   }
   function onDocTap(e) {
     const s = resolveAt(e.target);
     ptrFromFrame(e);
     if (s < 0 || s === openSlice) clear(); else reveal(s);
   }
-  const onDocLeave = () => clear();
+  const onDocLeave = () => { cancelHoverClear(); clear(); }; // leaving the doc entirely = a deliberate dismiss
   const onDocScroll = () => { if (openSlice >= 0) reflow(); };
   function bindDoc() {
     const d = doc();
@@ -665,6 +677,7 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     d.addEventListener('scroll', onDocScroll, { passive: true, capture: true });
   }
   function unbindDoc() {
+    cancelHoverClear();
     if (!boundDoc) return;
     try {
       boundDoc.removeEventListener('pointermove', onDocMove);

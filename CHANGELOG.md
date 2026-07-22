@@ -178,6 +178,20 @@ in patch versions.
   preview) can't be exercised headless here and stays **UNVERIFIED**, but now carries the correct gated
   mapping. (`lib/runtime/index.js`, `lattice-emulator.js`, `lib/theme/contrast.js`, `lib/theme/derive.js`,
   `design/theming.md`.)
+- **Animated charts no longer flash the static chart before building in.** A `motion-on` chart used to
+  paint the static poster, then — once the async animation host loaded — hide the poster and draw the
+  animated clone at time-zero (everything at opacity 0), so the viewer saw *static chart → blank →
+  build*. The live preview now HIDES a motion-eligible chart figure the instant its slide parses (a
+  preview-only `.anima-prehide` class the parent host stamps — never engine output, so exports are
+  byte-identical) and reveals it only when the animated clone's first frame draws: **hidden → build →
+  settle**, no flash. Fallbacks reveal the chart if the host declines (author `still` / no backend) or
+  never loads (import failure/hang), so a chart can never strand hidden. (Preview-only; PDF/HTML export
+  untouched — verified.) (`docs/src/playground/anima-host-sel.ts`, `docs/src/lib/anima/hydrate.ts`,
+  `docs/src/lib/single-slide-render.ts`, `anima-scenes.ts`, `DeckPreview.tsx`.)
+- **The chart-detail popover no longer flickers when the pointer sweeps across a mark edge.** A 70ms
+  close-hysteresis on the hover path holds the popover through a momentary off-mark frame (a mark
+  boundary or the gap between two marks); a re-reveal cancels it, leaving the chart dismisses at once.
+  (`docs/src/playground/chart-interact.js`.)
 - **Categorical corner tags (decision / roadmap / compare-prose) are now legible in every theme.** The
   tag ink `--cat-on-mark` was set to `var(--text-heading)` in 11 themes — which puts near-black on the
   saturated light-mode mark and white on the pale dark-mode mark, i.e. **inverted** — so tags like the
