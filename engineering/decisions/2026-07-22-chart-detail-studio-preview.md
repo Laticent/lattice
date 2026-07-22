@@ -1,14 +1,6 @@
 ---
 status: shipped
-summary: >
-  Wire the chart mark-detail reveal (the `.chart-details` hover popover) into the Studio's live
-  editing preview and Present, as ONE shared widget instead of a fork per surface. It ran only on
-  /playground + the frozen Drawing-Board present; the newer Studio surfaces (DeckPreview editing
-  preview, PresentOverlay) never mounted it. Extract `ChartDetailLayer` (the parent-hosted
-  chart-interact layer + its shadcn popover), refactor the Playground onto it, opt the Studio editing
-  preview in via a DeckPreview `chartDetail` prop, and wire Present in pinned mode over its
-  pointer-events-none delivery card. Motion + detail compose with NO special handshake once
-  chart-interact binds the VISIBLE svg (an animated chart carries a hidden poster + a live clone).
+summary: Bring the chart mark-detail popover to the Studio editing preview + Present as one shared ChartDetailLayer (not a fork per surface); fix Present's tap (srcdoc parse-race → iframe `load` re-bind) and the popover hidden behind the overlay (z-[140]); readable-first sizing; composes with chart motion.
 ---
 
 # Chart mark-detail popups in the Studio preview + Present, reconciled with motion
