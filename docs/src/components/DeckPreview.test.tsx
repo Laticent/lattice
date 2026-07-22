@@ -286,6 +286,20 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		}
 	});
 
+	it('hides the parked opacity:0 iframe from the a11y tree while the failure card owns the surface', async () => {
+		renderInto.mockImplementation(() => Promise.resolve({ ok: false, slides: 0, error: 'boom' }));
+		const { container } = render(<DeckPreview options={opts} sample="# A" mermaid={false} aria-label="p" />);
+		// A parked (opacity:0) iframe.live exists during the failure — it must be aria-hidden so the
+		// message + Retry are the only accessible surface (opacity alone keeps it in the a11y tree).
+		const figure = container.querySelector('figure') as HTMLElement;
+		const fr = document.createElement('iframe');
+		fr.className = 'live';
+		fr.style.opacity = '0';
+		figure.appendChild(fr);
+		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeTruthy());
+		await waitFor(() => expect(fr.getAttribute('aria-hidden')).toBe('true'));
+	});
+
 	it('RECOVERS — the failure card clears when the frame reveals LATE (never occludes a good slide)', async () => {
 		// The confirmed trio regression: `failed` was a one-way latch. The kernel reveals the frame
 		// imperatively (opacity 0→1, no React state), so a reveal AFTER the ceiling/ok:false fired left

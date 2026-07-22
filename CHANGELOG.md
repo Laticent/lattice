@@ -15,18 +15,18 @@ in patch versions.
 > | Category in `## Unreleased` | Bump |
 > |---|---|
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
-> | `### Fixed
+> | `### Added`, `### Changed`, `### Deprecated` | **minor** |
+> | `### Fixed`, `### Security` | **patch** |
+>
+> Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty
+> `## Unreleased` means there is nothing to release. Flag a breaking change
+> by leading the bullet with `**Breaking:**` so it counts as major even
+> under `### Changed`.
 
-- **Live previews no longer leak memory on every palette / mode change.** A theme, palette, or
-  dark/light-mode change used to re-render each live preview by rewriting the iframe's whole `srcdoc`,
-  which keeps the same `<iframe>` but mints a fresh document + JS realm each time; the detached realms
-  accumulated (~1.3 MB per toggle across the previews — the peak-memory driver of iOS PWA tab-discard).
-  A new **restyle** render regime (`docs/src/lib/single-slide-render.ts`) swaps the resident
-  `<style id="lattice-theme">` in place and patches the body instead — same iframe, same realm,
-  restyled — when only the theme/mode/palette changed. Measured on landing: per-toggle heap growth
-  dropped from +1.32 MB/cyc to +0.17 MB/cyc (~88%), with the palette and dark mode both still re-coloring
-  correctly. Preview-only; exported PDF/PPTX/HTML bytes are unchanged.
-  (`engineering/decisions/2026-07-20-preview-theme-restyle-in-place.md`.)
+## Unreleased
+
+### Added
+
 - **Anima can now animate a real Lattice chart — with zero model calls.** A new ingest bridge
   (`docs/src/lib/chart-anima.ts` `chartToScene`) reads a rendered chart's own marks (the
   `[data-mark]` bands + `<text>` the chart already emits), maps each class to a motion role
@@ -55,6 +55,19 @@ in patch versions.
   follow as each gets its choreography defaults. Verified on the real Playground
   (`engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75, §5.2; funnel renderer,
   `docs/src/lib/chart-anima-hydrate.ts`, `docs/src/playground/anima-scenes.ts`).
+- **Anima's SVG engine now animates each part on its own — move, fade, and emphasize, not just
+  draw.** The `source:'svg'` motion set gains three per-element channels: **`slide`** (a 2-D
+  move-in — a part arrives from a `from: [dx, dy]` offset, so "value flows left→right" is real),
+  **`highlight`** (an emphasis pulse that bumps a part's stroke-weight and holds into the poster —
+  landing the eye on the one thing that matters), and **`reveal`** now fades a non-drawn part
+  (e.g. a label) in via opacity instead of pinning the stroke-draw. A new optional
+  `SvgElement.transform` (2-D — translate/scale/rotate-z) gives a part a base pose. This is the
+  per-element paint substrate for the SVG-first direction
+  (`engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §4.4a); the stroke-draw for
+  `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
+  `backends/vivus.ts`.)
+### Changed
+
 - **The Playground and Studio splitters are now the shadcn resizable panel (`react-resizable-panels`),
   and the Studio's Coach / Chat / Library / Settings side panels are resizable too.** The
   divider now carries an always-visible grip handle (drag, or arrow keys on the separator) and its
@@ -67,17 +80,6 @@ in patch versions.
   (#721) — react-resizable-panels v4's native pixel minimums express the same constraint directly.
   (`ui/resizable.tsx`, `ui/use-resizable-split.ts`, `PlaygroundApp.tsx`, `StudioShell.tsx`;
   `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
-- **Anima's SVG engine now animates each part on its own — move, fade, and emphasize, not just
-  draw.** The `source:'svg'` motion set gains three per-element channels: **`slide`** (a 2-D
-  move-in — a part arrives from a `from: [dx, dy]` offset, so "value flows left→right" is real),
-  **`highlight`** (an emphasis pulse that bumps a part's stroke-weight and holds into the poster —
-  landing the eye on the one thing that matters), and **`reveal`** now fades a non-drawn part
-  (e.g. a label) in via opacity instead of pinning the stroke-draw. A new optional
-  `SvgElement.transform` (2-D — translate/scale/rotate-z) gives a part a base pose. This is the
-  per-element paint substrate for the SVG-first direction
-  (`engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §4.4a); the stroke-draw for
-  `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
-  `backends/vivus.ts`.)
 - **The chart detail reveal is now the real shadcn Popover, and it appears at the cursor.** Hovering
   or tapping a chart mark (pie wedge, funnel band, state node, …) previously popped a hand-rolled card
   anchored under the chart's centre. It now (a) renders as the actual shadcn `Popover` in the Playground
@@ -97,6 +99,18 @@ in patch versions.
   author's stress test; the house rule is a simple boardroom chart, not an architect's diagram — so it
   no longer trips the overflow probe. (`state-chart.transform.js` + `.styles.css`,
   `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
+### Fixed
+
+- **Live previews no longer leak memory on every palette / mode change.** A theme, palette, or
+  dark/light-mode change used to re-render each live preview by rewriting the iframe's whole `srcdoc`,
+  which keeps the same `<iframe>` but mints a fresh document + JS realm each time; the detached realms
+  accumulated (~1.3 MB per toggle across the previews — the peak-memory driver of iOS PWA tab-discard).
+  A new **restyle** render regime (`docs/src/lib/single-slide-render.ts`) swaps the resident
+  `<style id="lattice-theme">` in place and patches the body instead — same iframe, same realm,
+  restyled — when only the theme/mode/palette changed. Measured on landing: per-toggle heap growth
+  dropped from +1.32 MB/cyc to +0.17 MB/cyc (~88%), with the palette and dark mode both still re-coloring
+  correctly. Preview-only; exported PDF/PPTX/HTML bytes are unchanged.
+  (`engineering/decisions/2026-07-20-preview-theme-restyle-in-place.md`.)
 - **State-charts with more than 9 states no longer silently lose the tail.** A machine authored
   with ascending numbers (`1. 2. … 10. 11.`) and the house 3-space nested-transition indent was
   split by Markdown at item 10 — `10. ` is one character wider than `1. `, so the transition no
@@ -239,19 +253,6 @@ in patch versions.
   `npx lattice` users — decks rendered with overflowing slides instead of
   splitting. The CLI now resolves manifests from the package root, and
   warns if the registry ever comes up empty under `autosplit: on`.
-
-### Added`, `### Changed`, `### Deprecated` | **minor** |
-> | `### Fixed`, `### Security` | **patch** |
->
-> Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty
-> `## Unreleased` means there is nothing to release. Flag a breaking change
-> by leading the bullet with `**Breaking:**` so it counts as major even
-> under `### Changed`.
-
-## Unreleased
-
-### Fixed
-
 - **iOS: editing a slide no longer silently forces every later edit onto the slow render path.** The
   live preview's content-driven reveal poll — which clears the "load in flight" flag and re-enables
   the cheap patch/restyle render fast paths once a slide paints — was armed only on the FIRST render
