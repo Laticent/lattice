@@ -2487,9 +2487,9 @@ in patch versions.
   / iOS media session), and re-armed on the next play. It lives entirely outside the clip graph and the
   play-clock, so caption sync (which rides `clockMs()` + the measured `onStart` onset) is unaffected;
   it's harmless on wired/speaker output. On by default (`keepAlive`; `keepAliveGain` / `keepAliveHz` /
-  `keepAliveIdleMs` `StageOptions`, device-tunable). The audible fix is device-only — the graph wiring
-  and clock-independence are unit-covered; the "pop is gone / no hiss over real CarPlay" claim is
-  **UNVERIFIED** from CI and needs a device sign-off (HARD RULE #23).
+  `keepAliveIdleMs` `StageOptions`, device-tunable). The graph wiring and clock-independence are
+  unit-covered; the audible result — **no hiss and no choppiness over real Apple CarPlay** — is
+  **device-confirmed** (CI can't exercise a real Bluetooth route, so this was a device sign-off; HARD RULE #23).
 - **The Key Insight panel no longer out-shouts the content it summarizes.** The
   universal Key Insight blockquote (`> …` trailing a content-bearing layout) sized
   its paragraph and bullets at `--fs-message` — the **21pt slide-statement tier**,

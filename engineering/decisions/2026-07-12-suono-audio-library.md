@@ -217,7 +217,9 @@ Each of these is a real bug voice-model.js paid for once. In Suono they are the 
   is active, then re-armed on the next play. Note this is web-only leverage: the app cannot see or set the
   Bluetooth codec/bitrate (the OS owns that), and cannot reliably detect the route from JS on iOS
   Safari, so route-detection + source-bitrate reduction were rejected as unbuildable on this platform;
-  an always-on, detection-free keep-alive is the tractable fix. Audible sign-off is device-only (#23).
+  an always-on, detection-free keep-alive is the tractable fix. **Device sign-off DONE (#23):** confirmed
+  on real Apple CarPlay — no hiss (the 70 Hz tone is inaudible) and no choppiness (the link stays warm),
+  after the noise→tone fix; the first white-noise cut was audible hiss on the same device.
 
 ## 6. Security posture — the boundary IS the safety
 
