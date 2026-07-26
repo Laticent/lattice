@@ -33,6 +33,8 @@ const ROLE_BY_CLASS: Record<string, ChartRole> = {
   'map-region': 'region',
   'gantt-bar': 'bar',
   'gantt-milestone': 'point',   // a zero-duration marker, not a span
+  'state-node-shape': 'region',
+  'state-edge': 'bar',          // a connector builds in after the states it joins
   'funnel-label': 'label',
   'funnel-value': 'label',
   'funnel-conv': 'label',

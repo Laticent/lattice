@@ -504,3 +504,91 @@ section.state-chart.horizontal .state-chip-arrow {
  * section.dark sets color-scheme:dark, flipping every light-dark() token
  * this component consumes (--bg-alt, --text-heading, --diagram-line, --bg,
  * --text-muted, and chart-family's --pass/--warn/--fail) automatically. */
+
+/* ── SVG-native nodes (2026-07-26) ───────────────────────────────────────────
+ * The state-chart lays its nodes out as HTML on purpose: a string transform
+ * cannot measure text, so the browser sizes each node to its real content. That
+ * is the whole reason installStateChartLayout exists — and it is also why the
+ * chart used to be un-animatable: chart motion addresses marks inside the first
+ * <svg>, and the states were <li>s outside it.
+ *
+ * The measuring pass now PAINTS those measured boxes into the same overlay it
+ * already drew the edges into. So the geometry is still real metrics (never the
+ * guessed glyph widths this architecture replaced), but the whole chart is one
+ * SVG and every state, connector and label is an addressable node.
+ *
+ * The HTML column stays in the layout as the measuring harness and is hidden
+ * once the SVG exists — `visibility:hidden`, NOT `display:none`, because the
+ * boxes must keep occupying space for the next re-measure (resize, font load).
+ * Until the pass runs (or if it never does) the HTML nodes are what you see, so
+ * this degrades to the previous rendering rather than to nothing. */
+section.state-chart .state-chart-figure[data-sc-svg="1"] .state-nodes {
+  visibility: hidden;
+}
+
+/* The node tile — the SVG twin of the .state-node card. Same canonical chart
+ * fill, expressed as flat paint because an SVG rect cannot take a CSS gradient
+ * and a node's fill is a single neutral tone anyway (status colour lives in the
+ * index badge, never the node fill, so a green "on-track" node can't blend into
+ * a green wash). */
+section.state-chart .state-node-shape {
+  --fill-hue: var(--text-muted);
+  fill: light-dark(
+    color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-l), var(--bg)),
+    color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-d), black));
+  stroke: color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
+  stroke-width: 1;
+}
+
+section.state-chart .state-label-t {
+  fill: var(--state-node-ink);
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+/* The index numeral doubles as the status badge — a status-LESS node keeps a
+ * quiet numeral; a status node gets the coloured disc behind it. Same tone
+ * vocabulary and the same --pill-* recipe as the HTML badge and the legend
+ * swatch, so a node's badge still reads identically to its legend key. */
+section.state-chart .state-index-t {
+  fill: var(--state-index-ink);
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+}
+section.state-chart .state-index-t[data-s] {
+  fill: var(--text-heading);
+}
+section.state-chart .state-index-disc {
+  --pill-hue: var(--state-info-hue);
+  --pill-ink: var(--state-info-ink);
+  fill: light-dark(
+    color-mix(in oklab, var(--pill-hue) 54%, var(--bg)),
+    color-mix(in oklab, var(--pill-hue) 64%, black));
+  stroke: var(--pill-ink);
+  stroke-width: 0.75;
+}
+section.state-chart .state-index-disc[data-s="on-track"],
+section.state-chart .state-index-disc[data-s="done"],
+section.state-chart .state-index-disc[data-s="live"]     { --pill-hue: var(--state-pass-hue); --pill-ink: var(--state-pass-ink); }
+section.state-chart .state-index-disc[data-s="at-risk"],
+section.state-chart .state-index-disc[data-s="warn"]     { --pill-hue: var(--state-warn-hue); --pill-ink: var(--state-warn-ink); }
+section.state-chart .state-index-disc[data-s="blocked"],
+section.state-chart .state-index-disc[data-s="fail"]     { --pill-hue: var(--state-fail-hue); --pill-ink: var(--state-fail-ink); }
+section.state-chart .state-index-disc[data-s="pilot"],
+section.state-chart .state-index-disc[data-s="decision"] { --pill-hue: var(--state-info-hue); --pill-ink: var(--state-info-ink); }
+section.state-chart .state-index-disc[data-s="deferred"] { --pill-hue: var(--state-mute-hue); --pill-ink: var(--state-mute-ink); }
+
+/* Start / terminal nodes keep their distinguishing edge, as the HTML card did. */
+section.state-chart .state-node-shape[data-kind="start"],
+section.state-chart .state-node-shape[data-kind="terminal"] {
+  stroke: var(--state-node-stroke);
+  stroke-width: 1.5;
+}
+
+/* Reveal focus cue — the shared reveal layer toggles .chart-mark-active on the
+ * focused mark and dims the rest. A hue edge, not a filter: a filter would
+ * rasterize the node in the PDF path. */
+section.state-chart .state-node-shape.chart-mark-active {
+  stroke: var(--accent);
+  stroke-width: 2;
+}

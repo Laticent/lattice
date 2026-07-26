@@ -77,7 +77,11 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // the live clone — so the same selector finds the static poster AND the animated
   // copy. `.gantt-chart` used to appear here because the gantt was HTML; it is
   // SVG-native now, so it is matched by `.gantt-svg` like every other chart.
-  const CHART_SVG_SEL = '.piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .state-chart-figure, .gantt-svg';
+  // The state-chart lists BOTH its figure and its `.state-chart-edges` svg: the
+  // figure is the static root (and still holds the measuring column's marks),
+  // while the svg is what gets cloned onto the live stage, so listing only the
+  // figure would leave the popover unbound during motion.
+  const CHART_SVG_SEL = '.piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .state-chart-figure, .state-chart-edges, .gantt-svg';
   // The same list scoped to the Anima live stage — each selector must be prefixed individually (a bare
   // `.scene-live ${CHART_SVG_SEL}` would only scope the FIRST of the comma list). Prefers the clone
   // EXPLICITLY over inferring visibility from box size (see chartSvgIn).

@@ -326,6 +326,7 @@ describe('ROLE_BY_CLASS honesty', () => {
     'lib/components/chart/radar/radar.transform.js',
     'lib/components/chart/quadrant/quadrant.transform.js',
     'lib/components/chart/map/map.transform.js',
+    'lib/components/chart/state-chart/state-chart.transform.js',
     'lib/components/chart/_chart-family/chart-family.js',
   ];
 
