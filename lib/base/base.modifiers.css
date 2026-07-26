@@ -1310,12 +1310,16 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
 }
 .lat-split-rail .seg.on { opacity: 0.8; }
 
-/* ── Shared cover-paginate cover (lib/core/carousel.js `cover-paginate`) ──────────
-   The dense list / register layouts (statute-stack, regulatory-update, authority-chain,
-   q-and-a, glossary) split as an accent COVER → their OWN native cards paginated. The
-   read-across family duplicates this accent field per layout; this batch
-   shares ONE cover (HARD RULE #15) since the body stays native — only the cover is new.
-   Matches the read-across covers' finish so a split reads as the same deck. Palette-blind. */
+/* ── Shared split COVER (lib/core/split-envelope.js) ──────────────────────────────
+   EVERY split opens with this one accent field — the universal envelope's cover
+   (COVER → BODY → CLOSING; engineering/decisions/2026-07-22-structure-derived-split-
+   patterns.md §0a). Both the dense-register carousels (statute-stack, regulatory-update,
+   authority-chain, q-and-a, glossary via `cover-paginate`) and the PLAIN pagination
+   layouts (list, checklist, cards-grid, kpi, inventory…) build it from one reader, so a
+   split reads identically whatever it came from — no more bare "(cont.)" partition.
+   The read-across family duplicates this accent field per layout; everything else shares
+   THIS one (HARD RULE #15) since the body stays native — only the cover is new.
+   Palette-blind. */
 section.lat-split-cover {
   background: var(--accent); color: var(--on-accent);
   display: flex; flex-direction: column; justify-content: center; position: relative;
@@ -1328,6 +1332,19 @@ section.lat-split-cover .split-feat-h {
   /* <div> (not a heading), no bg, in a no-gap flex column — padding stands in for the
    * old eyebrow→title / title→lead gaps and measures cleanly (HARD RULE #20). */
   color: var(--on-accent); padding: var(--sp-xs) 0 var(--sp-md); max-width: 14em;
+}
+/* SUBTITLE + LEDE — the rest of the masthead the envelope hoists onto the cover (§0a).
+   The subtitle HUGS its title (the label-under-the-headline pattern base.modifiers'
+   SUBTITLE block sets for a live slide), so the title's own bottom padding tightens when
+   one follows; the lede then gets its own air below. Both in `padding` only (HARD #20)
+   and colour-free apart from --on-accent (HARD #3). */
+section.lat-split-cover .split-feat-h:has(+ .split-feat-sub) { padding-bottom: var(--sp-xs); }
+section.lat-split-cover .split-feat-sub {
+  font-size: var(--fs-emphasis); font-style: italic; line-height: var(--lh-snug);
+  opacity: 0.85; max-width: 22em; padding-bottom: var(--sp-sm);
+}
+section.lat-split-cover .split-feat-lede {
+  font-size: var(--fs-body); line-height: var(--lh-relaxed); opacity: 0.92; max-width: 26em;
 }
 /* compare-table's split cover carries ONE signature from the live layout — the --spectrum
    strip that underlines its <thead> (compare-table.styles.css) — so a split reads as the
@@ -1343,4 +1360,28 @@ section.lat-split-cover.split-cover-compare-table .split-feat-h {
 section.lat-split-cover.split-cover-compare-table .split-feat-h::after {
   content: ""; display: block; height: 2px; width: 42%; min-width: 7em;
   background: var(--spectrum-structure);
+}
+
+/* ── Shared split CLOSING page (lib/core/split-envelope.js) ───────────────────────
+   The envelope's optional final beat: the run's trailing material — a `.below-note`, a
+   key-insight blockquote — landing ONCE instead of being stamped on every body page
+   (§0a; rule 9). Deliberately NOT a second accent field: the closing keeps the run's own
+   layout class, masthead and content cell, so the note wears the treatment it already
+   has (`section.<layout> .below-note`) and the page reads as the same deck, just the last
+   of it. The only thing to add is placement — with the collection cut out, the cell holds
+   one short block. Anchor it UNDER the masthead rather than centring it in the tall empty
+   stage — centred, it reads as an orphan between two voids; anchored, the title and the note
+   are one cluster with the air below them. Palette-blind; no new colour, no margin (#3, #20). */
+section.lat-split-closing > .cell-stage { justify-content: flex-start; }
+/* The masthead rule already separates the note from the title here, so the note's OWN
+   full-width hairline (`.below-note::before`, compare-prose.styles.css) would read as a
+   doubled rule a few pixels beneath it. Drop the hairline and give the note the air the
+   rule was standing in for. */
+section.lat-split-closing > .cell-stage > .below-note { padding-top: var(--sp-lg); }
+section.lat-split-closing > .cell-stage > .below-note::before { content: none; }
+/* One block on a whole page carries the closing beat, so it reads a tier up from the
+   annotation it is beside live content — emphasis, not the slide-statement tier. */
+section.lat-split-closing > .cell-stage > .below-note > p,
+section.lat-split-closing > .cell-stage > blockquote > p {
+  font-size: var(--fs-emphasis); line-height: var(--lh-snug);
 }

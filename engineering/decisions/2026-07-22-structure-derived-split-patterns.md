@@ -503,6 +503,39 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   plain `partitionAxis` path through the cover-emitting builder and hoist the
   below-note to one closing slide. Must land **before** any defaulting (P2), since
   §0a is unbuilt on that path today. Maker-checker.
+  ☑ **SHIPPED** — `lib/core/split-envelope.js` is the one builder both paths go
+  through: `autoSplitDeck` + `resplitDoc`'s plain branch and `carousel.js`'s
+  `cover-paginate` (and `cover-cards`, for the cover) all call it, so bare partition
+  is retired as a split *look*. As built, with four notes the design didn't state:
+  1. **A TITLE-LESS slide keeps the bare partition.** There is no masthead to build a
+     cover from, and an empty accent field is worse than a repeated heading — so the
+     gate is "every split run with a masthead begins with exactly one cover", not
+     "every run". `emitParts` survives only for that case.
+  2. **The CLOSING page is native-shaped, not a second accent field.** It keeps the
+     run's own layout class, masthead band and `.cell-stage`, with the collection cut
+     out — because the trailing material's CSS is scoped `section.<layout> .below-note`
+     / `> .cell-stage > blockquote`. Re-authoring it into a bespoke closing field would
+     have stripped its treatment; this way it reads as the same deck by construction.
+  3. **The lede hoists too.** `partitionAxis` repeats the collection's `pre` as well as
+     its `post`, so a framing paragraph was duplicated per page by the same mechanism as
+     the below-note. It moves to the cover (§0a names it as cover material anyway).
+  4. **Conservation is structural, not audited.** Every page is the source `inner` with
+     SPANS REMOVED (bodies drop lede + trailing; the closing drops lede + collection),
+     so §5's conservation requirement holds by construction rather than by a gate.
+  **Scope note.** The envelope applies to whatever the opt-in gate already enrolls — the
+  15 plain-axis components (`actors`, `agenda`, `cards-grid`, `cards-stack`, `checklist`,
+  `cycle`, `inventory`, `kpi`, `list`, `list-steps`, `matrix-2x2`, `policy-recommendation`,
+  `split-compare`, `stats`, `verdict-grid`) plus the `cover-paginate` / `cover-cards`
+  carousels. It changes the SHAPE of a split, never *what* splits: `matrix-2x2` and
+  `split-compare` are enrolled today despite §0c placing them as atomic / read-across, so
+  they now split *with a cover* rather than *with a bare heading* — the fix is §0c's named
+  follow-on (drop the stale `capacity.axis`), not this slice.
+  Two defects fixed on the way, both on-path (HARD #18): the shared cover read the
+  first `<code>` anywhere in the head, so a SUBTITLE (a code-only `<p>` after the title)
+  rendered as the mono-caps eyebrow — and `cover-cards` dropped the lede outright; and a
+  split slide's page number was never re-stamped on the real `<span class="lat-pagination">`
+  (nor at all by the static pass), so every body page of a run showed the first page's
+  number.
 - **P-floor — the viewBox legibility floor + honest ring** (rule 8): measure
   rendered figure text; ring below the floor. Gates the "graphics never ship
   illegible" claim before default-on.

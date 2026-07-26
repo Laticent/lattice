@@ -267,7 +267,12 @@ describe('core: carousel — cover-paginate (dense lists / legal batch)', () => 
   // A statute-stack-shaped section: heading + a leading <code> eyebrow + a native item list.
   const openTag = '<section data-lattice-slide="1" id="s1" class="statute-stack form">';
   const item = (label) => `<li><strong>${label}</strong><ul><li><code>cite</code></li><li>obligation prose</li></ul></li>`;
-  const inner = `<header>H</header><h2>Heading</h2><p><code>Scope eyebrow</code></p><ul>${item('A')}${item('B')}${item('C')}${item('D')}</ul><footer>F</footer>`;
+  // The eyebrow renders BEFORE the title and the subtitle immediately AFTER it — the
+  // shape masthead-lift builds (lib/forms/cell/masthead/masthead.transform.js), which is
+  // what the shared cover reader keys on. (The old fixture put the eyebrow after the
+  // heading, where a real render puts the SUBTITLE; the cover grabbed the first <code>
+  // anywhere and so mislabelled a subtitle as the mono-caps kicker.)
+  const inner = `<header>H</header><p><code>Scope eyebrow</code></p><h2>Heading</h2><p><code>Seven jurisdictions</code></p><ul>${item('A')}${item('B')}${item('C')}${item('D')}</ul><footer>F</footer>`;
   const recipe = { strategy: 'cover-paginate', axis: 'item', perPage: 2, intro: 'Item by item' };
 
   test('emits an accent cover then the layout\'s OWN native pages (never flattened)', () => {
@@ -281,10 +286,11 @@ describe('core: carousel — cover-paginate (dense lists / legal batch)', () => 
     assert.match(parts[2], /<strong>C<\/strong>/);
   });
 
-  test('the cover carries the heading hero, the eyebrow, and the intro lead-in', () => {
+  test('the cover carries the whole masthead — eyebrow · title · subtitle — and the lead-in', () => {
     const [cover] = carouselize(openTag, inner, recipe);
     assert.match(cover, /split-feat-h">Heading/);
     assert.match(cover, /split-feat-eye">Scope eyebrow/);
+    assert.match(cover, /split-feat-sub">Seven jurisdictions/); // §0a: subtitle rides the cover
     assert.match(cover, /split-cover-lead">Item by item/);
   });
 

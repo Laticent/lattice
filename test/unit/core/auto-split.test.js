@@ -18,14 +18,24 @@ const cap = { cards: { axis: 'item', hard: 4 }, redline: { axis: 'col', hard: 2 
 const nums = (html) => [...html.matchAll(/data-lattice-slide="(\d+)"/g)].map((m) => Number(m[1]));
 
 describe('core: autoSplitDeck', () => {
-  test('splits an over-capacity slide, heading on each, (cont.) on continuations', () => {
-    const html = sec('cards', `<h2>T</h2>${list(9)}`); // hard 4, no sweet → chunk 4 → 3 slides
+  test('splits an over-capacity slide into the envelope: cover → body pages', () => {
+    const html = sec('cards', `<h2>T</h2>${list(9)}`); // hard 4, no sweet → chunk 4 → 3 body pages
     const { html: out, splits } = autoSplitDeck(html, cap);
     assert.equal(splits, 1);
-    assert.equal((out.match(/<section/g) || []).length, 3);
-    assert.equal((out.match(/<h2>/g) || []).length, 3); // heading on every slide
-    assert.equal((out.match(/lat-cont/g) || []).length, 2); // (cont.) on slides 2 & 3 only
-    assert.match(out, /<h2>T<\/h2>/); // first slide keeps the plain title
+    assert.equal((out.match(/<section/g) || []).length, 4); // cover + 3 bodies (§0a)
+    assert.equal((out.match(/lat-split-cover/g) || []).length, 1); // exactly ONE cover
+    assert.match(out, /split-feat-h">T</); // the title hoists onto the cover
+    assert.equal((out.match(/<h2>/g) || []).length, 3); // heading still on every BODY page
+    assert.equal((out.match(/lat-cont/g) || []).length, 2); // (cont.) on bodies 2 & 3 only
+    assert.match(out, /<h2>T<\/h2>/); // first body keeps the plain title
+  });
+
+  test('a TITLE-LESS slide has no masthead to cover with → bare partition, as before', () => {
+    const html = sec('cards', list(9));
+    const { html: out, splits } = autoSplitDeck(html, cap);
+    assert.equal(splits, 1);
+    assert.equal((out.match(/<section/g) || []).length, 3); // no cover slide
+    assert.equal((out.match(/lat-split-cover/g) || []).length, 0);
   });
 
   test('splits into SWEET-sized chunks, not the hard max', () => {
@@ -91,7 +101,8 @@ describe('core: resplitDoc (measured pass)', () => {
     const doc = docSec(1, 'cards', `<h2>T</h2>${list(8)}`) + docSec(2, 'quote', '<p>x</p>');
     const { html, changed } = resplitDoc(doc, [{ slide: 1, ratio: 1.9 }], cap);
     assert.equal(changed, 1);
-    assert.deepEqual(nums(html), [1, 2, 3]); // cards → 1,2 ; quote → 3
+    assert.deepEqual(nums(html), [1, 2, 3, 4]); // cards → cover + 1,2 ; quote → 4
+    assert.equal((html.match(/lat-split-cover/g) || []).length, 1);
     assert.equal((html.match(/lat-cont/g) || []).length, 1); // continuation marked
   });
 
