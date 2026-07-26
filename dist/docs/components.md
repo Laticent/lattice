@@ -4431,7 +4431,7 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 |---|---|---|---|
 | `heading` | `h2` | no | Optional heading — the so-what of the clip, not 'Video'. |
 | `video` | `.video-embed` | yes | The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR. |
-| `caption` | `.video-embed figcaption` | no | Optional caption bullet — `- Scan to watch `caption``. |
+| `caption` | `.video-embed figcaption` | no | Optional caption bullet — `` - Scan to watch `caption` ``. |
 
 #### When to use
 
@@ -7384,7 +7384,7 @@ See [obligation-matrix.gallery.light.pdf](../../lib/components/legal/obligation-
 
 **Tags** `recommendation` · `regulation` · `risk` · `takeaway`
 
-Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colours the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.
+Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colors the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.
 
 #### Agent contract
 

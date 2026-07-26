@@ -4767,7 +4767,7 @@
         "caption": {
           "selector": ".video-embed figcaption",
           "required": false,
-          "description": "Optional caption bullet — `- Scan to watch `caption``."
+          "description": "Optional caption bullet — `` - Scan to watch `caption` ``."
         }
       },
       "requiredSlots": [
