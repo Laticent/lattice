@@ -77,7 +77,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
   }
 
   function disposeAll(): void {
-    // #1187: dispose() runs from a React effect cleanup (DeckPreview's unmount / active-falling-
+    // #1186: dispose() runs from a React effect cleanup (DeckPreview's unmount / active-falling-
     // edge teardown) with NO error boundary above it there — a throwing backend dispose (Zdog/
     // Vivus teardown) would escape the effect and unmount the WHOLE island, not just this preview.
     // One bad controller must not stop the rest from disposing either.
@@ -134,7 +134,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
         try {
           entry.ctrl.dispose();
         } catch {
-          /* #1187: one bad controller's teardown must not stop the rest of the diff */
+          /* #1186: one bad controller's teardown must not stop the rest of the diff */
         }
         live.delete(section);
       }
@@ -146,7 +146,7 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     // mounts immediately rather than via a parent-context IntersectionObserver (unreliable across the
     // transform-scaled child iframe). SCENES scan FIRST so a baked spec wins over the chart on-ramp.
     //
-    // The `hydrate(...)` call is TRY/CAUGHT (#1187) — a scene/chart whose spec validates but throws
+    // The `hydrate(...)` call is TRY/CAUGHT (#1186) — a scene/chart whose spec validates but throws
     // in compile or `renderer.mount` must not stop rebind() for the rest of the deck, and must not
     // escape into the caller. `hydrateScenes` (hydrate.ts) already guards its own per-section loop
     // for exactly this reason ("a spec that validates but throws in compile/mount must not stop the

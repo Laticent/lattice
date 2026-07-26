@@ -71,7 +71,7 @@ const SLIDES = {
 	piechart: '<!-- _class: piechart -->\n\n## Revenue by segment.\n\n- Enterprise `45`\n- Mid-market `30`\n- SMB `25`\n',
 	mermaid: '## A flow\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Choice}\n  B -->|yes| C[Do]\n  B -->|no| D[Skip]\n  C --> E[End]\n  D --> E\n```\n',
 	wideCode: '## Wide code\n\n```js\nconst aVeryLongLine = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";\n```\n',
-	// #1187 regression guard: `denseOverflow`/`borderline` above are a BARE list with no
+	// #1186 regression guard: `denseOverflow`/`borderline` above are a BARE list with no
 	// `_class`, so they overflow with NO identifiable clip-cell/density-outlier culprit —
 	// `drawFixMeTags([])` short-circuits at its `!targets.length` branch and never
 	// exercises the redraw path at all. A REAL component with a bounded `.cell-stage`
@@ -92,7 +92,7 @@ async function measure(browser, base, deck, windowMs) {
 	// 0 scrollHeight/clientHeight, so the overflow watcher can never fire regardless of
 	// slide content — the harness was unable to prove ANY of the overflow-adjacent slides
 	// below actually exercised the overflow path at all (found while adding
-	// `overflowWithCulprit`, #1187: it read `overflowClass:false` at the default viewport,
+	// `overflowWithCulprit`, #1186: it read `overflowClass:false` at the default viewport,
 	// `true` at this one, with IDENTICAL content).
 	await page.setViewport({ width: 1280, height: 900 });
 	await page.evaluateOnNewDocument((src) => {

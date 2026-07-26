@@ -501,7 +501,7 @@ export function DeckPreview({
 		() => () => {
 			schedulerRef.current?.cancel();
 			if (animaBackstopRef.current) clearTimeout(animaBackstopRef.current);
-			// #1187: an uncaught throw here (a React effect CLEANUP, part of the commit phase) is
+			// #1186: an uncaught throw here (a React effect CLEANUP, part of the commit phase) is
 			// what let a bad anima teardown reach all the way to React's root and blank the whole
 			// island — the docs-site had no error boundary anywhere to catch it. An ancestor
 			// ErrorBoundary now contains that, but this host doesn't own whether its caller wraps

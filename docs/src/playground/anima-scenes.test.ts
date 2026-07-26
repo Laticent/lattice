@@ -149,7 +149,7 @@ describe('createAnimaScenes — chart-anima wiring', () => {
     scenes.destroy();
   });
 
-  // #1187: a chart whose spec validates but throws during compile/mount previously escaped
+  // #1186: a chart whose spec validates but throws during compile/mount previously escaped
   // rebind() uncaught — with no error boundary anywhere in the docs-site (a separate fix), that
   // throw unmounted the WHOLE Studio island (React effect cleanups run through the same commit
   // phase). `hydrateScenes` (hydrate.ts) already guards its own per-section loop for exactly this

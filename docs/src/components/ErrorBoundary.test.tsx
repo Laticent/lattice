@@ -4,7 +4,7 @@ import type * as React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ErrorBoundary } from './ErrorBoundary';
 
-// #1187: the docs-site had NO error boundary anywhere, so a throw in a preview's render or an
+// #1186: the docs-site had NO error boundary anywhere, so a throw in a preview's render or an
 // effect cleanup (a chart-slide anima teardown, concretely) unmounted the WHOLE client:only
 // island — the "preview of a specific slide crashes the app" bug. This is the boundary's own
 // contract, verified as real React runtime behavior (this IS the mechanism, not a stand-in for

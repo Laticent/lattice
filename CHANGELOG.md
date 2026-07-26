@@ -158,7 +158,7 @@ in patch versions.
 ### Fixed
 
 - **Three docs-site preview bugs, all traced to the same underlying gap — no React error boundary
-  existed anywhere in the docs-site — plus two independent CSS sizing regressions (#1187).**
+  existed anywhere in the docs-site — plus two independent CSS sizing regressions (#1186).**
   - **A crash on a specific slide could blank the ENTIRE Studio/Playground app.** `client:only`
     islands were wrapped only in `StrictMode` (a no-op in production, not an error boundary), so any
     render/effect throw in the live preview unwound the whole island to a white screen. Added a real

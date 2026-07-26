@@ -1894,7 +1894,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// The preview box CONTAINS the slide (whole slide visible, never cropped) at the deck's
 	// aspect ratio, letterboxing the pane's spare axis.
 	//
-	// PRIOR ART (retired, #1187): a pure-CSS `width: min(100%, 100cqh × ratio)` against
+	// PRIOR ART (retired, #1186): a pure-CSS `width: min(100%, 100cqh × ratio)` against
 	// `container-type:size` on the pane — no measured state, no race. It broke on a real
 	// iPad/iOS Safari: `100cqh` intermittently resolves to 0 against a flex-derived container
 	// height, collapsing the box to 0-width. The shared render kernel gates its reveal on a
