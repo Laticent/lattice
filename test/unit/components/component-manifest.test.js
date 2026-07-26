@@ -328,6 +328,10 @@ describe('component-manifest', () => {
       assert.match(validate({ ...GOOD, commonMistakes: 'nope' })[0], /commonMistakes must be an array/);
       assert.match(validate({ ...GOOD, commonMistakes: [null] })[0], /commonMistakes\[0\] must be an object/);
       assert.match(
+        validate({ ...GOOD, commonMistakes: [['m', 'f']] })[0],
+        /commonMistakes\[0\] must be an object/
+      );
+      assert.match(
         validate({ ...GOOD, commonMistakes: [{ fix: 'f' }] })[0],
         /commonMistakes\[0\]\.mistake must be a non-empty string/
       );
@@ -353,6 +357,10 @@ describe('component-manifest', () => {
       );
       const errors = validate({ ...GOOD, variantDecisionRule: [{ variant: 'mirror', useWhen: 'w' }] });
       assert.match(errors[0], /variantDecisionRule\[0\]\.variant "mirror" is not "default" or in variants\[\]/);
+      assert.match(
+        validate({ ...GOOD, variantDecisionRule: [['default', 'w']] })[0],
+        /variantDecisionRule\[0\] must be an object/
+      );
       assert.match(
         validate({ ...GOOD, variantDecisionRule: [{ useWhen: 'w' }] })[0],
         /variantDecisionRule\[0\]\.variant must be a non-empty string/
