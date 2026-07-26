@@ -99,7 +99,7 @@ describe('map kernel', () => {
     test('emits a --mix percentage per named region, monotonic with value', () => {
       const m = parseMap(ul([['California', '100'], ['Texas', '50'], ['Florida', '0']]));
       const html = buildMap(m, 'choropleth');
-      const mixes = [...html.matchAll(/map-region--on" style="--mix:(\d+)%"/g)].map((x) => +x[1]);
+      const mixes = [...html.matchAll(/map-region--on"[^>]*style="--mix:(\d+)%"/g)].map((x) => +x[1]);
       // Three named regions, drawn in basemap order; values span the full ramp.
       assert.equal(mixes.length, 3);
       assert.ok(Math.max(...mixes) <= MIX_CEIL && Math.min(...mixes) >= MIX_FLOOR);

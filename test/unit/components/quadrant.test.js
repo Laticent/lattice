@@ -15,6 +15,9 @@
  */
 
 const { test, describe } = require('node:test');
+// The emitter's own baseline→glyph-extent table, so this test measures the box
+// that is actually painted rather than re-deriving one that might disagree.
+const { BASELINE_EXTENT } = require('../../../lib/components/chart/_chart-family/svg-label');
 const assert = require('node:assert/strict');
 const {
   QUADRANT_MODIFIERS,
@@ -503,4 +506,66 @@ describe('quadrant — per-item detail (interactive reveal substrate)', () => {
     const html = build('default');
     assert.doesNotMatch(html, /<text[^>]*>Owner: Platform</);
   });
+});
+
+// ── label placement never lands on a data mark ──────────────────────────────
+// Found by adversarial review: the de-collision pass was seeded only with the
+// CORNER labels as obstacles, so nudging a label clear of its neighbor could
+// push it straight onto a dot — the outcome the direction rule exists to
+// prevent, arrived at from the other side. A label over a data point is worse
+// than a label over a label: it hides the value it names.
+test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
+  // Four items clustered tightly in one corner — the case that forces the pass
+  // to move labels a long way.
+  const ul = innerOf(`<ul>
+    <li>Quick Wins<ul>
+      <li>Multi-region failover <code>8, 88</code></li>
+      <li>Legacy connector rewrite <code>8, 86</code></li>
+      <li>Self-serve onboarding <code>7, 87</code></li>
+      <li>Partner API keys <code>8, 84</code></li>
+    </ul></li>
+    <li>Strategic Bets<ul><li>Decision-log API <code>2, 20</code></li></ul></li>
+  </ul>`);
+  const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
+
+  const dots = [...out.matchAll(/<circle class="quadrant-dot"[^>]*cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
+    .map((m) => ({ cx: +m[1], cy: +m[2], r: +m[3] }));
+  assert.ok(dots.length >= 5, 'expected every item to plot a dot');
+
+  // Reconstruct each label's painted box from its tspans (x is the anchor, so
+  // widen symmetrically for the centered anchor these labels use).
+  // Reconstruct each label's PAINTED box the same way the emitter does — which
+  // means honoring its dominant-baseline. Measuring every label as if it sat on
+  // an alphabetic baseline is exactly the bug this whole area had: the box you
+  // check is then not the box that gets painted.
+  const labels = [...out.matchAll(/<text class="quadrant-dot-label"[^>]*>([\s\S]*?)<\/text>/g)].map((m, i) => {
+    const head = out.split('<text class="quadrant-dot-label"')[i + 1] ?? '';
+    const baseline = (head.match(/dominant-baseline="(\w+)"/) || [])[1] || 'auto';
+    const anchor = (head.match(/text-anchor="(\w+)"/) || [])[1] || 'start';
+    const [above, below] = BASELINE_EXTENT[baseline] || BASELINE_EXTENT.auto;
+    const lines = [...m[1].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g)]
+      .map((t) => ({ x: +t[1], y: +t[2], text: t[3] }));
+    const widest = lines.reduce((w, l) => Math.max(w, l.text.length), 0) * 8.5 * 0.6;
+    // Horizontal extent follows the ANCHOR, exactly as the emitter computes it —
+    // a side-placed label is start/end anchored, not centered.
+    const x0 = lines[0].x;
+    const left = anchor === 'middle' ? x0 - widest / 2 : anchor === 'end' ? x0 - widest : x0;
+    return {
+      left,
+      right: left + widest,
+      top: Math.min(...lines.map((l) => l.y)) - 8.5 * above,
+      bottom: Math.max(...lines.map((l) => l.y)) + 8.5 * below,
+    };
+  });
+  assert.ok(labels.length >= 5);
+
+  for (const L of labels) {
+    for (const d of dots) {
+      const hits = L.left < d.cx + d.r && L.right > d.cx - d.r
+        && L.top < d.cy + d.r && L.bottom > d.cy - d.r;
+      assert.ok(!hits,
+        `a label box (${L.left.toFixed(1)}…${L.right.toFixed(1)}) overlaps the dot at ` +
+        `(${d.cx}, ${d.cy}) — labels must be placed clear of every plotted mark`);
+    }
+  }
 });

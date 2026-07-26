@@ -3975,7 +3975,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
  * The canonical chart fill still applies, but as an inline <linearGradient>
  * the kernel emits per semantic slot, because SVG `fill` cannot take a CSS
  * gradient; the recipe and stops are identical to the kanban card / progress
- * bar, so a gantt bar has not changed colour.
+ * bar, so a gantt bar has not changed color.
  *
  * The portrait reflow that used to live in a container query is now a portrait
  * GEOMETRY in the kernel (GANTT_GEOM_TALL) — a baked viewBox cannot reflow, so
@@ -4086,7 +4086,7 @@ section.divider.light p  { font-size:var(--fs-message); max-width:46.875cqi; lin
 }
 
 /* ── Status key ───────────────────────────────────────────────────────────────
- * gantt encodes status by MARK COLOUR with no text on the mark, so an emailed
+ * gantt encodes status by MARK COLOR with no text on the mark, so an emailed
  * reader needs a key. The swatch is filled by the same gradient as its bars, so
  * a chip and a bar of the same status read identically. */
 :is(section.gantt, figure.gantt) .gantt-legend-swatch {
@@ -12839,16 +12839,29 @@ section.state-chart .state-chart-figure[data-sc-svg="1"] .state-nodes {
 
 /* The node tile — the SVG twin of the .state-node card. Same canonical chart
  * fill, expressed as flat paint because an SVG rect cannot take a CSS gradient
- * and a node's fill is a single neutral tone anyway (status colour lives in the
+ * and a node's fill is a single neutral tone anyway (status color lives in the
  * index badge, never the node fill, so a green "on-track" node can't blend into
  * a green wash). */
+/* The painted node is the HIT TARGET for the mark-detail popover. The overlay
+ * is `pointer-events: none` (it must not swallow clicks meant for the slide),
+ * and the measuring column is `visibility: hidden`, which also makes it
+ * un-hit-testable — so without re-enabling pointer events HERE,
+ * `elementFromPoint` finds nothing carrying `data-mark` and the popover never
+ * opens on a state. It is the rect that carries the mark, so it is the rect
+ * that must be hittable. */
 section.state-chart .state-node-shape {
+  pointer-events: auto;
+  /* The FILL is the canonical chart gradient, emitted inline by the layout pass
+   * (SVG fill cannot take a CSS gradient). What stays here is the edge. */
   --fill-hue: var(--text-muted);
-  fill: light-dark(
-    color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-l), var(--bg)),
-    color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-d), black));
   stroke: color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
   stroke-width: 1;
+}
+
+/* The node's leading accent edge — the HTML card's
+ * `border-left: var(--chart-fill-accent) solid var(--fill-ink)`. */
+section.state-chart .state-node-accent {
+  fill: var(--diagram-stroke);
 }
 
 section.state-chart .state-label-t {
@@ -12858,7 +12871,7 @@ section.state-chart .state-label-t {
 }
 
 /* The index numeral doubles as the status badge — a status-LESS node keeps a
- * quiet numeral; a status node gets the coloured disc behind it. Same tone
+ * quiet numeral; a status node gets the colored disc behind it. Same tone
  * vocabulary and the same --pill-* recipe as the HTML badge and the legend
  * swatch, so a node's badge still reads identically to its legend key. */
 section.state-chart .state-index-t {
@@ -12889,11 +12902,29 @@ section.state-chart .state-index-disc[data-s="pilot"],
 section.state-chart .state-index-disc[data-s="decision"] { --pill-hue: var(--state-info-hue); --pill-ink: var(--state-info-ink); }
 section.state-chart .state-index-disc[data-s="deferred"] { --pill-hue: var(--state-mute-hue); --pill-ink: var(--state-mute-ink); }
 
-/* Start / terminal nodes keep their distinguishing edge, as the HTML card did. */
-section.state-chart .state-node-shape[data-kind="start"],
+/* Start and terminal keep DISTINCT redundancy cues, as the HTML card did — the
+ * start node reads heavier at its leading edge, the terminal wears an outline
+ * ring. Collapsing both into one identical rule (an earlier cut) made the two
+ * ends of a machine visually indistinguishable, which is the one distinction a
+ * state diagram must never lose. */
+section.state-chart .state-node-shape[data-kind="start"] {
+  stroke: var(--state-node-stroke);
+  stroke-width: 1.5;
+}
+/* The start node's heavier leading stripe — the HTML card's wider border-left. */
+section.state-chart .state-node-accent[data-kind="start"] {
+  fill: var(--state-node-stroke);
+}
+/* The terminal ring: SVG has no `outline`, so the layout pass emits a second,
+ * offset rect behind the node — the same doubled edge the HTML outline drew. */
 section.state-chart .state-node-shape[data-kind="terminal"] {
   stroke: var(--state-node-stroke);
   stroke-width: 1.5;
+}
+section.state-chart .state-node-ring {
+  fill: none;
+  stroke: var(--state-node-stroke);
+  stroke-width: 1;
 }
 
 /* Reveal focus cue — the shared reveal layer toggles .chart-mark-active on the
@@ -16242,8 +16273,8 @@ section.chart-frame .chart-body {
 /* .viz-frame §5 — the self-scaling test, per chart family. Two groups keep `flex:1 1
  * auto` (above) because their body's height is BOUNDED — a squeezed box scales it, the
  * clip never loses content:
- *   · SVG-bodied charts (piechart/radar/quadrant/funnel/map/word-cloud) — the `<svg>` is
- *     sized to the box and letterboxes.
+ *   · SVG-bodied charts (piechart/radar/quadrant/funnel/map/word-cloud/gantt) — the `<svg>`
+ *     is sized to the box and letterboxes.
  *   · JOURNEY — horizontally-oriented: adding stages/tasks adds `1fr` COLUMNS (thinner),
  *     never vertical rows, so its height is bounded and it never vertically overflows
  *     (an overstuffed journey scrolls horizontally via its own timeline indicator — a
@@ -16256,12 +16287,17 @@ section.chart-frame .chart-body {
  * kanban/timeline-list/roadmap. Pin those bodies to natural height so an overstuffed chart
  * SPILLS the stage clip and the probe catches it (proven by chart-overflow-preserved.test.js).
  *
+ * GANTT LEFT THIS SET (2026-07-26). It is no longer content-height HTML rows — it is a
+ * baked `<svg>` whose viewBox HEIGHT grows with the lane count, so it letterboxes inside
+ * its box exactly like the other SVG-bodied charts above and never silently clips rows.
+ * Pinning it to natural height would strand it at the stage top instead of filling it.
+ *
  * state-chart is NOT in this set: pinning it clipped a NORMAL chart's caption off the slide
  * (its node column carries a tall bow-gutter, so even 4 nodes exceed a caption-compressed
  * stage). It self-scales instead — a flex viewport that fills the stage (caption keeps its
  * space) with a JS-fitted `.state-chart-scale` box, FLOORED so an overstuffed machine still
  * spills + the probe catches it. See 2026-07-16-state-chart-self-scale.md + state-chart.styles.css. */
-section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap) > .cell-stage > .chart-body {
+section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) > .cell-stage > .chart-body {
   flex: 0 0 auto;
 }
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural

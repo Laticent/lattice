@@ -72,8 +72,9 @@ other way puts us back to clipping, which is the defect being removed.
 
 **Who owns the font size.** Whoever declares it. Where CSS already sets a fixed
 size (funnel, radar, quadrant) the kernel mirrors that number to break lines and
-does not emit a competing attribute; a unit test reads the stylesheet so the
-mirror cannot silently drift. Where the chart is new (gantt) the kernel owns and
+does not emit a competing attribute; `test/unit/components/svg-label-css-mirror.test.js`
+reads the real stylesheets and fails if a kernel constant and its CSS
+declaration disagree, so the mirror cannot silently drift. Where the chart is new (gantt) the kernel owns and
 emits the size, exactly as the legend does — `chart-family.css` deliberately
 sets no `font-size` on `.chart-key-label` for the same reason.
 
@@ -133,7 +134,7 @@ things had to be carried across rather than dropped — the container-query
 portrait reflow became a portrait GEOMETRY (`GANTT_GEOM_TALL`), since a baked
 viewBox cannot reflow; and the canonical chart fill became an inline
 `<linearGradient>` per semantic slot, because SVG `fill` cannot take a CSS
-gradient. Identical stops, so a bar did not change colour.
+gradient. Identical stops, so a bar did not change color.
 
 **state-chart** could not be baked, and this is the interesting one. It lays its
 nodes out as HTML **on purpose**: a string transform cannot measure text, so the
@@ -185,8 +186,80 @@ Real surfaces, per HARD RULE #23:
   make overlap impossible. Past `maxShift` a label stays put and accepts the
   overlap, deliberately, because a label dragged far from its own dot reads as
   labelling something else.
-- The kernel's mirrored font sizes track the CSS **defaults**. A theme that
-  raises `--radar-axis-label-size` or `--quadrant-axis-size` wraps slightly
-  early — the safe direction, and the conservative advance leaves room for it.
+- The kernel's mirrored font sizes track the CSS **defaults**, and the mirror is
+  gated (`test/unit/components/svg-label-css-mirror.test.js` reads the real
+  stylesheets). What the gate cannot see is a THEME that re-points
+  `--radar-axis-label-size` or `--quadrant-axis-size` at runtime. Raising the
+  painted size does not change the character budget — it makes each character
+  wider, so the label OVERRUNS; only the headroom between the estimated advance
+  and the real one absorbs it, which runs out around a 20% increase. (Lowering
+  the size wraps early, which is harmless.) A theme that wants materially larger
+  chart labels should take ownership of the size in the kernel instead.
+- Wrapping is ESTIMATED, not measured, for the baked charts. The advances are
+  calibrated against the shipped faces (0.46 mixed-case body, 0.62–0.65
+  uppercase + tracked, 0.72 tracked mono) with margin on top, but a script whose
+  glyphs are much wider per character — CJK in particular, where the advance is
+  ~1.0 and `wrapLabelToLines` has no word boundaries to break on — will still
+  overrun. The state-chart, which measures in the browser, is immune to this by
+  construction; the baked charts are not.
 - `state-chart inline` and the HTML "charts" (kanban, progress, timeline-list,
   roadmap, journey) are not diagrams and are out of scope.
+- **Accessibility changed shape for the two charts that were SVG-ified**, and
+  this is worth stating plainly. The gantt's lanes and the state-chart's states
+  used to be real HTML text a screen reader walked; they are now inside an
+  `<svg role="img">`, whose subtree is presentational. Both therefore emit an
+  enumerated `<desc>` — the gantt lists every lane with its tasks, spans and
+  statuses; the state-chart lists every state (with start/end and status) AND
+  every transition, which the old `<ol>` never exposed. That is the same
+  technique the keyed charts already use for their legend. It is a genuine
+  change of representation, not a strict improvement: the content is available
+  and richer, but it is one flat description rather than a navigable list, and
+  the text is no longer selectable or findable in the page.
+
+  The rest of the SVG chart family was already `aria-hidden` with no description
+  at all, so the family is now MORE accessible than it was — but the two charts
+  that moved gave up structure to get there.
+
+## 10. What adversarial review changed
+
+Three lenses (red team, Munger inversion, independent checker) ran against the
+finished branch. They found defects the gates could not, and the design is
+different because of them. The ones worth remembering:
+
+- **The collision boxes were measured for the wrong baseline.** `wrapSvgLabel`
+  computed a label's box from the *alphabetic* baseline while the label was
+  painted with `dominant-baseline="hanging"` or `"middle"` — so the pass routed
+  labels around a phantom box and item names printed straight through
+  "STRATEGIC BETS" in this branch's own demo deck. The emitter now OWNS
+  `dominant-baseline` (callers declare it as an option instead of hand-writing
+  the attribute) and derives the box from it, so the box it guards and the
+  glyphs it paints cannot disagree.
+- **The state-chart's popover was dead.** `visibility:hidden` also removes a
+  subtree from HIT-TESTING, and the overlay is `pointer-events:none`, so
+  `elementFromPoint` found nothing carrying a mark. The painted rects now take
+  `pointer-events: auto`. Verified on the real Playground: 4/4 on-screen states
+  hit-testable.
+- **A wrapped label broke the popover's TITLE resolution.** The consumer
+  identified "this element is itself the label" as *"has no child elements"* —
+  true for a flat `<text>`, false for a wrapped one — so every radar popover
+  silently fell through to reading the legend and titled itself with a SERIES
+  name. Emitter and consumer were each individually correct; the seam was not.
+- **Fixing a dead role-map entry the obvious way produced seven more.** Adding
+  `radar-poly`, `gantt-bar`, `state-node-shape` and friends looked like the fix,
+  but every one of those classes co-emits an authoritative `data-anima-role`,
+  which `roleForNode` reads first — so none could ever be consulted.
+  *Unreachable is indistinguishable from absent.* The class map is retired
+  entirely and replaced by a stronger gate on the emitters: every geometry mark
+  a kernel makes addressable must declare what it is.
+- **The advance constants were guessed.** They are now MEASURED against the
+  shipped faces in a real browser (0.46 mixed-case body, 0.62–0.65 uppercase +
+  tracked, 0.72 tracked mono), which is what stopped the corner labels wrapping
+  text that comfortably fit.
+- **An attempted fix was worse than the defect.** Stripping `data-mark` from the
+  measuring column to de-duplicate the mark set broke on the SECOND `draw()` —
+  which re-runs on font load and resize — because it then read a null mark and
+  painted rects with none at all. The duplicate is tolerated at the consumer
+  instead (`liftVec` filters to SVG siblings), which also keeps the marks
+  present if the layout pass never runs.
+
+The gates were green for every one of these.

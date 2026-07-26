@@ -329,8 +329,8 @@ section.chart-frame .chart-body {
 /* .viz-frame §5 — the self-scaling test, per chart family. Two groups keep `flex:1 1
  * auto` (above) because their body's height is BOUNDED — a squeezed box scales it, the
  * clip never loses content:
- *   · SVG-bodied charts (piechart/radar/quadrant/funnel/map/word-cloud) — the `<svg>` is
- *     sized to the box and letterboxes.
+ *   · SVG-bodied charts (piechart/radar/quadrant/funnel/map/word-cloud/gantt) — the `<svg>`
+ *     is sized to the box and letterboxes.
  *   · JOURNEY — horizontally-oriented: adding stages/tasks adds `1fr` COLUMNS (thinner),
  *     never vertical rows, so its height is bounded and it never vertically overflows
  *     (an overstuffed journey scrolls horizontally via its own timeline indicator — a
@@ -343,12 +343,17 @@ section.chart-frame .chart-body {
  * kanban/timeline-list/roadmap. Pin those bodies to natural height so an overstuffed chart
  * SPILLS the stage clip and the probe catches it (proven by chart-overflow-preserved.test.js).
  *
+ * GANTT LEFT THIS SET (2026-07-26). It is no longer content-height HTML rows — it is a
+ * baked `<svg>` whose viewBox HEIGHT grows with the lane count, so it letterboxes inside
+ * its box exactly like the other SVG-bodied charts above and never silently clips rows.
+ * Pinning it to natural height would strand it at the stage top instead of filling it.
+ *
  * state-chart is NOT in this set: pinning it clipped a NORMAL chart's caption off the slide
  * (its node column carries a tall bow-gutter, so even 4 nodes exceed a caption-compressed
  * stage). It self-scales instead — a flex viewport that fills the stage (caption keeps its
  * space) with a JS-fitted `.state-chart-scale` box, FLOORED so an overstuffed machine still
  * spills + the probe catches it. See 2026-07-16-state-chart-self-scale.md + state-chart.styles.css. */
-section.chart-frame:is(.progress, .gantt, .kanban, .timeline-list, .roadmap) > .cell-stage > .chart-body {
+section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) > .cell-stage > .chart-body {
   flex: 0 0 auto;
 }
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural

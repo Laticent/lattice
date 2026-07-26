@@ -439,11 +439,20 @@ describe('buildStateChart (default)', () => {
     assert.match(html, /data-kind="terminal"/);
   });
 
-  test('emits an empty SVG overlay for the browser pass to fill', () => {
-    assert.match(html, /<svg class="state-chart-edges"[^>]*><\/svg>/);
-    // No build-time geometry — the kernel must not bake paths/arrows.
+  test('emits a geometry-free SVG overlay for the browser pass to fill', () => {
+    // The overlay carries only its accessible content at build time — a title
+    // and an enumerated <desc>. It is NOT empty any more: once the layout pass
+    // paints the states into it and hides the measuring column, this <desc> is
+    // the only place a screen reader can meet the machine (visibility:hidden
+    // removes the <ol> from the accessibility tree).
+    assert.match(html, /<svg class="state-chart-edges"[^>]*>/);
+    assert.match(html, /<title>State chart<\/title>/);
+    assert.match(html, /<desc>States — 1\. Draft \(start\)/);
+    assert.match(html, /Transitions — on submit, Draft to Submitted/);
+    // Still no build-time GEOMETRY — the kernel must not bake paths/arrows.
     assert.doesNotMatch(html, /class="state-edge"/);
     assert.doesNotMatch(html, /class="state-edge-arrow"/);
+    assert.doesNotMatch(html, /class="state-node-shape"/);
   });
 
   test('status folds into the top-right index badge (no pill, no inline dot)', () => {

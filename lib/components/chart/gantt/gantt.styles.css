@@ -20,7 +20,7 @@
  * The canonical chart fill still applies, but as an inline <linearGradient>
  * the kernel emits per semantic slot, because SVG `fill` cannot take a CSS
  * gradient; the recipe and stops are identical to the kanban card / progress
- * bar, so a gantt bar has not changed colour.
+ * bar, so a gantt bar has not changed color.
  *
  * The portrait reflow that used to live in a container query is now a portrait
  * GEOMETRY in the kernel (GANTT_GEOM_TALL) — a baked viewBox cannot reflow, so
@@ -131,7 +131,7 @@
 }
 
 /* ── Status key ───────────────────────────────────────────────────────────────
- * gantt encodes status by MARK COLOUR with no text on the mark, so an emailed
+ * gantt encodes status by MARK COLOR with no text on the mark, so an emailed
  * reader needs a key. The swatch is filled by the same gradient as its bars, so
  * a chip and a bar of the same status read identically. */
 :is(section.gantt, figure.gantt) .gantt-legend-swatch {

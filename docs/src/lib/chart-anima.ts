@@ -13,32 +13,27 @@
 import { validateColor } from './anima/schema';
 import type { Motion, SvgElement, SvgScene } from './anima/types';
 
-/** A chart mark's class → its Anima motion role. Unknown `[data-mark]` geometry defaults to
- *  `bar` (build in); `<text>` defaults to `label` (fade in after). Extend as chart types land.
+/* ROLE_BY_CLASS — RETIRED 2026-07-26.
  *
- *  EVERY KEY HERE MUST BE A CLASS A RENDERER ACTUALLY EMITS. This map is a FALLBACK for charts
- *  that predate `data-anima-role`; an entry for a class nothing emits is not a harmless
- *  placeholder, it is dead code that reads as working support. `'radar-area': 'bar'` was exactly
- *  that — the radar emits `.radar-poly`, never `.radar-area`, so the entry never once matched and
- *  the radar's shape silently never animated. It is removed rather than renamed: the radar now
- *  declares `data-anima-role` natively, which outranks this map anyway.
- *  `chart-anima.test.ts` gates the map against the emitters so it cannot rot again. */
-const ROLE_BY_CLASS: Record<string, ChartRole> = {
-  'funnel-band': 'bar',
-  wedge: 'sector', // pie
-  'quadrant-dot': 'point',
-  'quadrant-bubble': 'point',       // sized scatter — a point with a magnitude
-  'quadrant-trail-after': 'point',  // the "after" end of a movement trail
-  'radar-poly': 'region',           // a series' filled area
-  'map-region': 'region',
-  'gantt-bar': 'bar',
-  'gantt-milestone': 'point',   // a zero-duration marker, not a span
-  'state-node-shape': 'region',
-  'state-edge': 'bar',          // a connector builds in after the states it joins
-  'funnel-label': 'label',
-  'funnel-value': 'label',
-  'funnel-conv': 'label',
-};
+ * This map guessed a mark's motion role from its CSS class, for charts that
+ * predated the `data-anima-role` attribute. Every chart kernel now DECLARES its
+ * roles natively, so the map became unreachable in full: `roleForNode` reads the
+ * attribute first and only falls through to the class when it is absent, and
+ * there is no longer a mark that omits it.
+ *
+ * It is deleted rather than kept "just in case", because an unreachable branch
+ * is the same defect this change set out to remove. `'radar-area': 'bar'` was
+ * the original instance — a class no renderer has ever emitted, which read as
+ * "radar shapes animate" while the radar's shape silently never did. A first
+ * attempt at the fix added seven MORE entries, each for a class that always
+ * ships with its own declared role: absent and unreachable look identical from
+ * the outside, and both lie about what is supported.
+ *
+ * The invariant that replaces it is stronger and forward-looking, and is gated
+ * in `chart-anima.test.ts`: every geometry mark a kernel emits declares a
+ * `data-anima-role`. Unknown geometry still falls back to `bar` and a `<text>`
+ * node to `label`, which is what the roleForNode tail does. */
+
 
 export type ChartRole = 'bar' | 'sector' | 'point' | 'region' | 'label';
 
@@ -77,16 +72,13 @@ export interface ChartAnimaResult {
   roles: Array<{ id: string; role: ChartRole; mark: number | null }>;
 }
 
-/** The first class on a node that we know a role for (else null). */
+/** A node's motion role, or null. */
 function roleForNode(el: Element): ChartRole | null {
   // A per-node `data-anima-role` is AUTHORITATIVE — the renderer declares the role (the funnel emits
   // it natively; §0.75), so we honor it over the class map rather than guessing from the class name.
   // The class map is the fallback for charts that don't yet emit roles.
   const explicit = el.getAttribute('data-anima-role');
   if (explicit && isRole(explicit)) return explicit;
-  for (const cls of Array.from(el.classList)) {
-    if (cls in ROLE_BY_CLASS) return ROLE_BY_CLASS[cls];
-  }
   if (el.tagName.toLowerCase() === 'text') return 'label';
   return null;
 }

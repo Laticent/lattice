@@ -51,8 +51,8 @@ const barW = (html) => {
   const w = attrNum(html, /class="gantt-bar"[^>]*\swidth="([-\d.]+)"/);
   return w == null ? null : round3(((w + BAR_INSET * 2) / PLOT_W) * 100);
 };
-// A milestone diamond's centre, as a percentage of the axis. The polygon's
-// points are "cx,top cx+r,mid cx,bottom cx-r,mid" — the first x IS the centre.
+// A milestone diamond's center, as a percentage of the axis. The polygon's
+// points are "cx,top cx+r,mid cx,bottom cx-r,mid" — the first x IS the center.
 const milestoneX = (html) => {
   const m = html.match(/class="gantt-milestone"[^>]*points="([-\d.]+),/);
   return m ? round3(pctOfPlot(Number(m[1]))) : null;
@@ -281,5 +281,57 @@ describe('gantt detail reveal — per-task HTML-mark path (#475)', () => {
     const d = deck('## P\n\n- Engineering\n  - API design `Q1..Q2` `done`\n    - Tracked in `PR #481`.');
     const f = lintGantt(d);
     assert.ok(!f.some((x) => x.rule === 'gantt-unknown-token'), `unexpected: ${JSON.stringify(f)}`);
+  });
+});
+
+// ── portrait geometry ────────────────────────────────────────────────────────
+// A baked viewBox cannot reflow, so the container query that used to rearrange
+// the gantt for a tall box is now a portrait GEOMETRY the kernel emits
+// (GANTT_GEOM_TALL). It shipped without coverage; these lock the properties the
+// reflow existed to provide, so it cannot silently regress to the landscape
+// arrangement in a portrait deck.
+describe('gantt — portrait geometry', () => {
+  const ul = `<ul><li>Platform<ul>
+    <li>Migration <code>Q1..Q2</code> <code>done</code></li>
+  </ul></li><li>Security<ul>
+    <li>Review <code>Q3..Q4</code> <code>at-risk</code></li>
+  </ul></li></ul>`;
+  const eyebrow = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+  const land = buildGanttChart(inner(ul), eyebrow);
+  const port = buildGanttChart(inner(ul), eyebrow, 'portrait');
+  const viewBox = (html) => (html.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
+
+  test('portrait emits a NARROWER viewBox than landscape', () => {
+    const [lw] = viewBox(land);
+    const [pw] = viewBox(port);
+    assert.ok(pw < lw, `portrait width ${pw} should be under landscape ${lw}`);
+  });
+
+  test('portrait is proportionally taller — it fills a tall box instead of letterboxing', () => {
+    const [lw, lh] = viewBox(land);
+    const [pw, ph] = viewBox(port);
+    assert.ok(ph / pw > lh / lw,
+      `portrait aspect ${(ph / pw).toFixed(3)} must exceed landscape ${(lh / lw).toFixed(3)}`);
+  });
+
+  test('portrait puts the lane name ABOVE its bars, on the full width', () => {
+    // The reflow's whole point: no left label column stealing room from the bars.
+    assert.match(port, /class="gantt-lane-label"[^>]*data-pos="above"/);
+    assert.doesNotMatch(land, /data-pos="above"/);
+  });
+
+  test('portrait bars span more of the width than landscape (no label column)', () => {
+    const barX = (html) => Number((html.match(/class="gantt-bar"[^>]*\sx="([-\d.]+)"/) || [])[1]);
+    const [lw] = viewBox(land);
+    const [pw] = viewBox(port);
+    // As a FRACTION of the chart width, the plot starts further left in portrait.
+    assert.ok(barX(port) / pw < barX(land) / lw);
+  });
+
+  test('both orientations still carry the same marks and roles', () => {
+    for (const html of [land, port]) {
+      assert.equal((html.match(/data-anima-role="bar"/g) || []).length, 2);
+      assert.equal((html.match(/data-mark="\d+"/g) || []).length, 2);
+    }
   });
 });

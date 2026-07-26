@@ -58,9 +58,7 @@ That one fact caused two different failures. A long label ran straight off its v
 
 `Effort 0–10 → Reach 0–100`
 
-## Crowded item names are placed apart, not printed on top of each other.
-
-Corner names are fixed obstacles — a corner labels the quadrant, not a data point — so the item labels move around them.
+## Crowded item names are placed apart, not on top of each other.
 
 - Quick Wins
   - Enterprise data platform modernization `2, 82`

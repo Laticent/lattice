@@ -94,6 +94,21 @@ in patch versions.
   they do not — bounded by the next mark in the lane, so a long name can never print through its
   neighbor.
 
+
+### Changed
+
+- **Inline markup inside a `gantt` task name or a `state-chart` state label is now rendered as plain
+  text.** Both used to be real HTML, so `**bold**`, `` `code` `` or a link inside a label rendered as
+  markup; the label is SVG `<text>` now, which has no inline formatting model, so the text is used
+  and the markup dropped. Labels were always meant to be plain names — the emphasis belongs in the
+  slide's prose — but this is an author-visible change, not an internal one.
+- **`gantt` and `state-chart` expose their content to assistive technology through an enumerated
+  `<desc>` rather than as HTML text.** Their marks are inside `<svg role="img">` now, whose subtree is
+  presentational, so each chart describes itself instead: the gantt lists every lane with its tasks,
+  spans and statuses, and the state-chart lists every state (with start/end and status) plus every
+  transition — which its old `<li>` list never exposed. Richer content, but one flat description
+  rather than a navigable list, and the label text is no longer selectable or findable in the page.
+
 - **Model routing: every subagent now declares which model it runs on, so lookup work stops
   billing at Opus rates (HARD RULE #27).** Only two agents (`docs-auditor`, `prose-checker`) pinned
   a model before; every other `Agent()` call inherited the session model — Opus 5 — which meant

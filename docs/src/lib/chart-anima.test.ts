@@ -320,7 +320,21 @@ describe('chartToScene — motion styles', () => {
 // "radar shapes animate" while the radar's shape silently never built. A map
 // key that matches nothing is dead code wearing the costume of a feature, so
 // the map is gated against the kernels' own source.
-describe('ROLE_BY_CLASS honesty', () => {
+describe('every emitted geometry mark declares its motion role', () => {
+  // The invariant that REPLACED the ROLE_BY_CLASS map (retired 2026-07-26).
+  //
+  // The map guessed a role from a mark's CSS class. It died twice over: an
+  // entry for a class nothing emits never matched (`radar-area` — the radar
+  // emits `radar-poly`, so its shape silently never animated), and an entry for
+  // a class that ALWAYS ships with its own `data-anima-role` can never be
+  // consulted, because roleForNode reads the attribute first. Absent and
+  // unreachable look identical from the outside: both read as support that
+  // isn't there.
+  //
+  // So the gate is now on the emitters, not the map: any mark a kernel makes
+  // addressable with `data-mark` must also say what it IS. That is checkable,
+  // forward-looking, and fails for a NEW chart that forgets — which is the case
+  // the old map was pretending to cover.
   const KERNELS = [
     'lib/components/chart/funnel/funnel.transform.js',
     'lib/components/chart/radar/radar.transform.js',
@@ -330,27 +344,59 @@ describe('ROLE_BY_CLASS honesty', () => {
     'lib/components/chart/_chart-family/chart-family.js',
   ];
 
-  it('every class in the map is emitted by a chart kernel', async () => {
+  it('no kernel emits a geometry mark without a data-anima-role', async () => {
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');
-    // Repo root from docs/src/lib → ../../..
     const root = resolve(__dirname, '../../..');
-    const source = KERNELS.map((f) => readFileSync(resolve(root, f), 'utf8')).join('\n');
 
-    // Re-read the map from its own source so the test sees the real keys.
-    const mapSrc = readFileSync(resolve(root, 'docs/src/lib/chart-anima.ts'), 'utf8');
-    const block = mapSrc.match(/const ROLE_BY_CLASS[^{]*\{([\s\S]*?)\n\};/);
-    expect(block, 'ROLE_BY_CLASS block not found').toBeTruthy();
-    const keys = [...(block as RegExpMatchArray)[1].matchAll(/^\s*'?([\w-]+)'?\s*:/gm)].map((m) => m[1]);
-    expect(keys.length).toBeGreaterThan(0);
+    const offenders: string[] = [];
+    for (const file of KERNELS) {
+      const src = readFileSync(resolve(root, file), 'utf8');
+      // Walk BACKWARD from each `data-mark=` to the opening tag it belongs to,
+      // so the window is exactly one element. (Scanning forward from a tag
+      // instead lets the window run past the element's end and pick up the NEXT
+      // element's data-mark — which reported a hull line, a decoration that has
+      // no mark at all, as an offender.)
+      for (const m of src.matchAll(/data-mark=/g)) {
+        const before = src.slice(0, m.index!);
+        const tagAt = before.lastIndexOf('<');
+        if (tagAt < 0) continue;
+        // The whole element, not just up to the mark: `data-anima-role` is often
+        // written AFTER `data-mark` on the same tag, and a window that stopped
+        // at the mark reported those as offenders.
+        const after = src.slice(m.index!, m.index! + 400);
+        const closeAt = after.search(/\/>/);
+        const decl = src.slice(tagAt, m.index!) + after.slice(0, closeAt < 0 ? 400 : closeAt);
+        const tag = (decl.match(/^<(\w+)/) || [])[1];
+        // Geometry only — a <text> mark takes the label role from its tag, and
+        // an inert <template data-mark> is the popover payload, not a mark.
+        if (!tag || !['rect', 'circle', 'polygon', 'path', 'polyline', 'line', 'ellipse'].includes(tag)) continue;
+        if (!decl.includes('data-anima-role')) {
+          offenders.push(`${file}: <${tag}> carries data-mark but declares no data-anima-role\n    ${decl.trim().slice(0, 120)}`);
+        }
+      }
+    }
+    expect(offenders, offenders.join('\n')).toEqual([]);
+  });
 
-    // Match the class as a whole token, so `wedge` is not credited to the
-    // `pie-wedge-N` gradient ids and a genuinely dead key still fails. The
-    // kernels name a class either inline (`class="funnel-band"`) or as an
-    // emitter argument (`className: 'funnel-label'`), so both quote styles and
-    // bare word boundaries count.
-    const missing = keys.filter((k) => !new RegExp(`(^|[^\\w-])${k}([^\\w-]|$)`).test(source));
-    expect(missing, `role-map classes no kernel emits: ${missing.join(', ')}`).toEqual([]);
+  it('the map it replaced is gone, not merely emptied', async () => {
+    // A map left in place as an empty object would invite the next person to
+    // re-add a dead entry to it.
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const src = readFileSync(resolve(__dirname, '../../..', 'docs/src/lib/chart-anima.ts'), 'utf8');
+    expect(src).not.toMatch(/const ROLE_BY_CLASS/);
+  });
+
+  it('an undeclared geometry mark still falls back to bar, and text to label', () => {
+    // Retiring the map must not change what an UNTAGGED node does — that tail
+    // is what keeps a chart animating at all if a kernel forgets.
+    const svg =
+      '<svg viewBox="0 0 100 100">' +
+      '<polygon data-mark="0" points="0,0 10,0 5,10"/>' +
+      '<text x="1" y="2">Label</text></svg>';
+    const out = chartToScene(svg);
+    expect(out?.roles.map((r) => r.role)).toEqual(['bar', 'label']);
   });
 });
 
