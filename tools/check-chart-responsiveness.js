@@ -97,8 +97,11 @@ function splitTopLevel(selector, seps) {
   const parts = [];
   let depth = 0, cur = '';
   for (const ch of selector) {
-    if (ch === '(') depth++;
-    else if (ch === ')') depth--;
+    // Brackets count too: `svg[data-x="a b"]` has a SPACE inside an attribute
+    // value, and splitting there makes the last "compound" `b"]`, which matches
+    // nothing and quietly exempts the rule from the box scan.
+    if (ch === '(' || ch === '[') depth++;
+    else if (ch === ')' || ch === ']') depth--;
     if (depth === 0 && seps.includes(ch)) { parts.push(cur); cur = ''; continue; }
     cur += ch;
   }
@@ -130,6 +133,12 @@ function targetsSvgBox(selector) {
 // an svg-box rule; a px font-size or padding in the same rule is a viewBox unit.
 const SVG_BOX_PROPS = new Set([
   'width', 'height', 'min-width', 'max-width', 'min-height', 'max-height',
+  // A flex basis pins the main-axis size exactly as `width` does — and
+  // `flex: 0 1 auto` is already a live idiom on `.quadrant-svg`, so a px basis
+  // there is a plausible next edit, not a hypothetical one.
+  'flex-basis',
+  // An absolutely-positioned svg box is pinned by its insets.
+  'inset', 'top', 'right', 'bottom', 'left',
 ]);
 
 const PX_RE = /-?\d*\.?\d+px/;

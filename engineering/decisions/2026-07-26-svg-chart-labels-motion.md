@@ -289,17 +289,18 @@ cause, per the issue:
 - The mini sizes from a `--radar-mini-size` token in `cqi`. The token is
   calibrated by MEASUREMENT: `cqi` resolves against the nearest size container's
   CONTENT box, and it must be measured on the surface whose BYTES ship — the
-  emulator document Chrome prints the PDF from. There `.chart-body` is 960px on
-  the 1280px HD slide (not the slide, and not the body's 1080px border box), so
-  the old 188px is **19.583cqi**. The issue's own estimate of ~14.7cqi assumed a
-  slide-relative basis and would have shrunk every mini by a quarter.
+  emulator document Chrome prints the PDF from, **at the viewport it prints at**
+  (1280×720; `lattice-emulator.js` sets it immediately before `page.pdf`). There
+  `.chart-body` is 921.8px, so the old 188px is **20.399cqi**. The issue's own
+  estimate of ~14.7cqi assumed a slide-relative basis and would have shrunk every
+  mini by a quarter.
 
-  This number is easy to get wrong three different ways, and I did: a differently
-  padded HOST resolves the same token against ITS chart body and lands somewhere
-  else (the scoped docs-site path reads 921.6px, so it renders the mini a few
-  percent smaller). That is the point of a relative unit, not a defect — but it
-  means "measure it" is only an answer once you name WHICH surface. The PDF is
-  the one with bytes to preserve, so it is the one calibrated.
+  This number is easy to get wrong, and I got it wrong twice before the checker
+  caught it. Loading that same document at puppeteer's DEFAULT 800×600 answers
+  960px and 19.583cqi — which renders 180.5px, a 4% shrink dressed up as a units
+  cleanup. Both measurements were real; only one was of the surface at the size
+  it actually runs. "Measure it" is not the lesson. **Name the surface AND its
+  size, or you have not measured anything.**
 - The lint's blanket `-svg` exemption is why a fixed-px SVG box slipped past the
   gate. Inside a viewBox `px` IS a user unit, so the exemption is right for
   anything drawn in the chart's coordinate space — but it must stop at the
@@ -309,10 +310,10 @@ cause, per the issue:
 Verified in a real browser at two container sizes, because the obvious check
 does not actually test this: rasterizing one PDF at two DPIs scales every pixel
 uniformly and would "pass" for a hard-coded px box. Resizing the CONTAINER is
-the test. With the fix the mini is exactly **188px at HD** and holds **17.41% of
-its chart body at 1280px, 2560px and 5120px** — drift 0.00pp. Pinned back to
-188px as a control, that fraction collapses by construction: the box does not
-move while the container quadruples.
+the test. With the fix the mini measures **187.98px at HD** on the print surface
+and holds the same fraction of its chart body at 1280px, 2560px and 5120px.
+Pinned back to a px literal as a control, that fraction collapses by
+construction: the box does not move while the container quadruples.
 
 ## 12. A second gate the wrapping had blunted
 
@@ -437,3 +438,75 @@ cluster inside ~4 units of data, one ring leaves the six labels overlapping by
 ~279 square units; three rings leave them overlapping by **zero**, and the price
 is the farthest label sitting 22.8 units from its dot instead of 13.6. Both
 numbers are in a test, and the test fails if the extra rings are removed.
+
+## 15. What the adversarial trio found
+
+Red team, Munger inversion and an independent checker were run against the
+finished branch (HARD RULE #25). Between them they found twelve real defects and
+refuted four claims this document made about itself. The ones that changed the
+shipped behavior:
+
+**The state-chart's accessible content was destroyed at runtime.** §9 above
+claims the enumerated `<desc>` is what makes hiding the `<ol>` acceptable. The
+layout pass then did `svg.innerHTML = parts.join('')`, and `parts` is geometry —
+so on every surface where the mitigation was needed, it was gone: an
+`<svg role="img">` with no accessible name and the state names nowhere in the
+tree. Strictly worse than before the SVG-ification. The pass re-prepends the
+`<title>`/`<desc>` now, verified in a real browser after the pass runs.
+
+The test that was supposed to guard it asserted the `<desc>` in the **build-time
+string** — the one surface where it always survived. Its DOM stub started with
+`innerHTML: ''`, so it structurally could not model children being replaced. The
+stub now starts with the children the real element has.
+
+**Labels could still overprint, and the answer was not more positions.** Five
+three-line names in one quadrant is ~76% of that quadrant's area in label. No
+arrangement fixes an area problem, and the fallback painted them on top of each
+other — which loses BOTH names and tells the reader nothing. `placeLabels` now
+DROPS a label it cannot place clear (`hideOverlap`, what ECharts calls it). The
+name is not lost from the artifact: it rides `data-label`, the popover and the
+speaker note. Measured: zero labels are hidden on any shipped deck, and the
+red team's 5-item repro goes from two overprinting pairs to none.
+
+**The quadrant names were illegible in five themes.** `--chart-cat-N-ink` is a
+GRAPHICAL ink, designed and gated at the 3:1 WCAG 1.4.11 floor for dots and
+strokes. Making it carry text put 12 of 216 theme × mode × cell combinations
+below AA — `concrete` light measured **3.04:1**, down from 10.56:1 when the name
+was maximum-contrast black inside the tint. Two independent measurements agreed
+to the hundredth. The ink is mixed 65% toward `--text-heading` now (the largest
+hue share that clears AA everywhere), and `check-viz-render.js` gained a
+canvas-text contrast floor plus `concrete` in its theme matrix, so it cannot
+regress silently.
+
+**The cqi calibration was measured at the wrong viewport.** §11 above said 960px
+and 19.583cqi. That is what you get loading the emulator document at puppeteer's
+DEFAULT 800×600. At the viewport the emulator actually prints from (1280×720)
+the chart body is 921.8px and the answer is **20.399cqi**; 19.583 renders 180.5px,
+a 4% shrink. The lesson is not "measure it" — I did that twice and got two
+different numbers. It is that a measurement without its surface AND that
+surface's size is not a measurement.
+
+**The role gate was blind to the two charts this branch converted.** It scanned
+kernel SOURCE for a literal `data-mark=`, and the gantt bar, the gantt milestone
+and every state-chart node emit theirs through `${markAttrs(...)}` — so deleting
+their roles produced zero offenders. It also read a hand-maintained file list, so
+a new kernel was invisible. It renders the galleries and inspects the OUTPUT now,
+with the deck list derived from disk.
+
+Four smaller ones, each fixed: the funnel never routed through the shared
+`plainText` (so `Leads <30 days` painted as `Leads &lt;30 days`); the responsiveness
+gate's box-prop set omitted `flex-basis` and the inset family, and its selector
+splitter tracked parens but not brackets; a gantt caption inside a long bar was
+bounded by the bar rather than by the next mark, so it printed through a
+milestone; and the name band was reserved whenever ANY name existed, though the
+band it gates is the bottom row's.
+
+Three tests were found to pass under the bug they guard, and three fixed
+behaviors had no test at all. All six are now covered, and each was re-verified
+to fail under its own defect.
+
+**On the claims.** Four statements in this document were wrong: the `<desc>`
+mitigation, the cqi basis, the ring-overlap numbers (measured on an earlier
+commit — 626/12.3, not 279/13.6), and "every new test was verified to fail under
+the bug it guards" (one did not). They are corrected in place above. A decision
+record that overstates its own rigor is worse than one that says less.

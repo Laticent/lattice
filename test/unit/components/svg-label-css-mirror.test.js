@@ -53,8 +53,14 @@ function declaredFontSize(css, selector) {
 describe('funnel: kernel font sizes mirror funnel.styles.css', () => {
   const css = read('lib/components/chart/funnel/funnel.styles.css');
   const js = read('lib/components/chart/funnel/funnel.transform.js');
+  // Read the constant from inside the `FS = { … }` block, not from anywhere in
+  // the file. `quadrant.transform.js` declares BOTH `LW.axis: 392` and
+  // `FS.axis: 12`; a whole-file match happens to find FS only because FS is
+  // declared first, so reordering the two objects would silently mirror the
+  // wrong number against the stylesheet.
+  const fsBlock = (js.match(/const FS = \{[\s\S]*?\n\};/) || [''])[0] || js;
   const kernel = (key) => {
-    const m = js.match(new RegExp(`\\b${key}:\\s*([\\d.]+)`));
+    const m = fsBlock.match(new RegExp(`\\b${key}:\\s*([\\d.]+)`));
     return m ? Number(m[1]) : null;
   };
 
@@ -75,8 +81,14 @@ describe('funnel: kernel font sizes mirror funnel.styles.css', () => {
 describe('quadrant: kernel font sizes mirror quadrant.styles.css', () => {
   const css = read('lib/components/chart/quadrant/quadrant.styles.css');
   const js = read('lib/components/chart/quadrant/quadrant.transform.js');
+  // Read the constant from inside the `FS = { … }` block, not from anywhere in
+  // the file. `quadrant.transform.js` declares BOTH `LW.axis: 392` and
+  // `FS.axis: 12`; a whole-file match happens to find FS only because FS is
+  // declared first, so reordering the two objects would silently mirror the
+  // wrong number against the stylesheet.
+  const fsBlock = (js.match(/const FS = \{[\s\S]*?\n\};/) || [''])[0] || js;
   const kernel = (key) => {
-    const m = js.match(new RegExp(`\\b${key}:\\s*([\\d.]+)`));
+    const m = fsBlock.match(new RegExp(`\\b${key}:\\s*([\\d.]+)`));
     return m ? Number(m[1]) : null;
   };
 

@@ -214,13 +214,23 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * so text never uses cell-ink; and softened --text-heading reads a touch
  * light on the vivid zones, so the labels take true black/white instead. */
 :is(section.quadrant, figure.chart-frame) .quadrant-label {
-  /* The name takes ITS QUADRANT'S ink. It sits outside the plot now, on the
-   * page canvas rather than on the region's tint, so the vivid cell ink both
-   * clears contrast and binds the name to the block it describes — which is
-   * the whole job of a region label. (While it lived INSIDE the tint it had to
-   * be maximum-contrast black/white, because cell ink on its own tint cannot
-   * clear AA.) `--cell-ink` is routed from the `data-cell` the label carries. */
-  fill: var(--cell-ink, var(--quadrant-label-ink));
+  /* The name takes ITS QUADRANT'S ink, which binds it to the block it describes
+   * — the whole job of a region label. `--cell-ink` is routed from the
+   * `data-cell` the label carries.
+   *
+   * But it is DARKENED toward the page's own heading ink first, because
+   * `--chart-cat-N-ink` is a GRAPHICAL ink: it was designed and gated at the
+   * 3:1 WCAG 1.4.11 floor for dots, strokes and borders. This is the first
+   * place it carries text, which needs 4.5:1 — and taking it raw put 12 of 216
+   * theme × mode × cell combinations below AA (`concrete` light bottom-right
+   * measured 3.04:1, down from 10.56:1 when the name was maximum-contrast
+   * black/white inside the tint).
+   *
+   * 65% is measured, not guessed: it is the largest hue share that clears AA in
+   * EVERY theme (worst case `concrete` light at 4.99:1). More hue is prettier
+   * and illegible somewhere. `check-viz-render.js` now gates this, so the floor
+   * cannot silently move again. */
+  fill: color-mix(in oklab, var(--cell-ink, var(--quadrant-label-ink)) 65%, var(--text-heading));
   font-family: var(--font-body);
   font-size: 11px;
   font-weight: 700;

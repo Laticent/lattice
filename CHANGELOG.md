@@ -65,10 +65,11 @@ in patch versions.
   breaks are baked once at build time, so the exported bytes are deterministic. Staying inside a
   single `<text>` is what keeps a wrapped label one addressable motion target and one popover
   target — a `<foreignObject>` label would be an HTML `<div>`, invisible to chart motion.
-- **A build-time de-collision pass for scatter labels.** Wrapping fixes a label that is too *wide*;
-  it does nothing for two labels that land on the same spot. Quadrant item names are now measured,
-  placed toward the plot's interior, and nudged clear of each other — with the quadrant's corner
-  names held as fixed obstacles, since a corner name labels the quadrant, not a data point.
+- **A build-time placement pass for scatter labels.** Wrapping fixes a label that is too *wide*; it
+  does nothing for two labels that land on the same spot. Quadrant item names are measured and
+  placed beside the mark they name — with the quadrant's names held as fixed obstacles, since a
+  quadrant name labels the region, not a data point. (The mechanism is described under *Changed*:
+  eight anchors around the mark, cheapest clear one wins.)
 - **`gantt` and `state-chart` are SVG-native, so chart motion can build them.** Both were skipped
   entirely: `chartToScene` reads the first `<svg>` in a section and returns no scene when there is
   none, so `motion-on` silently left the poster up. The gantt is now one baked `<svg>` (bars declare
@@ -239,6 +240,13 @@ in patch versions.
 
 ### Changed
 
+- **A scatter label that cannot be placed clear is now DROPPED rather than printed through its
+  neighbor.** Some sets cannot be laid out at all: five three-line names in one quadrant is ~76% of
+  that quadrant's area in label, and no arrangement fixes an area problem. Overprinting loses BOTH
+  names and tells the reader nothing, so the placement pass hides what it cannot place — the same
+  call every serious charting library makes. Nothing leaves the artifact: the name still rides
+  `data-label`, the mark-detail popover and the slide's speaker note. Measured: zero labels are
+  hidden on any shipped deck; it fires only where the layout genuinely cannot work.
 - **Scatter labels are PLACED, not slid — a quadrant label now sits beside the point it names.**
   Placement used to be one guess plus a slide along one axis: a zone heuristic picked above / below /
   beside per dot, then the de-collision pass pushed the box until it cleared. Two things followed. A
@@ -253,9 +261,10 @@ in patch versions.
   nearest spot beside it: over or under, a name reads as that point's caption; off to the side it
   reads as a row in a list that happens to sit near a dot. A label is now always adjacent to
   its own mark: the distance is bounded by the mark's radius, never by a travel budget, and two close
-  points get different SIDES rather than a stack. Measured on a six-point cluster: the labels
-  overlapped by ~279 square units under the old single-ring model and by zero under this one, at the
-  cost of the farthest label sitting 22.8 units from its dot instead of 13.6.
+  points get different SIDES rather than a stack. Measured on the six-point cluster the test uses:
+  one ring leaves the labels overlapping by ~626 square units across 4 pairs, two rings by ~62 across
+  1, and three rings by ZERO — at the cost of the farthest label sitting 22.8 units from its dot
+  instead of 12.3. The test asserts no overlapping pair and fails at one ring AND at two.
 - **Quadrant names now sit OUTSIDE the plot, centered on their column, in their own quadrant's color.**
   They used to be inset inside their corner, where they cost twice over: they competed with the data
   for the corner they occupied (item labels had to be routed around them, and still collided when a
@@ -325,15 +334,38 @@ in patch versions.
   fails the test suite instead of quietly implying a feature.
 - **Quadrant bubbles and movement trails took the generic `bar` fallback.** Both are scatter points
   and now declare the `point` role, as do plain quadrant dots.
+- **A rendered `state-chart` had no accessible name and no readable state names at all.** The
+  browser layout pass paints the states into the SVG overlay and hides the `<ol>` they used to be
+  read from — but it painted with a bare `innerHTML =`, which destroyed the `<title>` and the
+  enumerated `<desc>` the build step had put there. So on every surface where the description was
+  the whole of the accessible content, it was gone: an `<svg role="img">` naming nothing. Strictly
+  worse than before the SVG-ification. The pass preserves them now, and the test that guards it
+  drives a DOM rather than asserting the build-time string — which is the surface where the `<desc>`
+  always survived, and why this passed 68 green tests.
+- **Quadrant names were below AA in five themes.** `--chart-cat-N-ink` is a GRAPHICAL ink, designed
+  and gated at the 3:1 WCAG 1.4.11 floor for dots and strokes; making it carry text put 12 of 216
+  theme × mode × cell combinations under 4.5:1, worst `concrete` light at **3.04:1** (it had been
+  10.56:1 as maximum-contrast black inside the tint). The name keeps its quadrant's hue but is mixed
+  65% toward `--text-heading` — measured as the largest hue share that clears AA in every theme.
+  `check-viz-render.js` gained a canvas-text contrast floor and `concrete` in its matrix, so it
+  cannot regress quietly.
+- **A funnel stage name containing `<`, `>` or a quote painted the entity.** The funnel kept a
+  private `stripTags` that decoded only `&amp;`, so `Leads <30 days` reached the wrapping emitter as
+  `Leads &lt;30 days` and was escaped a second time. It routes through the shared `plainText` now,
+  like the other four kernels.
+- **A gantt caption printed through a milestone drawn inside its own bar.** The caption's room was
+  bounded by the bar rather than by the next mark in the lane — `limitX`, which the caller already
+  computes and the beside-branch already used. Now both branches respect it.
 - **Radar small-multiples were pinned to a physical 188px (#1184).** Each mini rendered the same
   absolute size whatever the container, so it held ~18.7% of the chart body at HD but collapsed to
   ~4.2% at 4K while the cqi-sized type around it grew — the minis shrank away from their own captions.
   They size from a `--radar-mini-size` token in `cqi` now, calibrated by measurement so the HD
-  rendering is unchanged (cqi resolves against the chart body's 960px content box on the surface
-  whose bytes ship — the emulator document Chrome prints from — so the old 188px is 19.583cqi; a
-  slide-relative reading would have said 14.7 and shrunk every mini by a quarter). Verified in a real
-  browser on that surface: the mini is exactly 188px at HD and holds 17.41% of its chart body at
-  1280px, 2560px AND 5120px (drift 0.00pp).
+  rendering is unchanged. The token is calibrated by measurement on the surface whose bytes ship —
+  the emulator document Chrome prints from, **at the viewport it prints at** — where `cqi` resolves
+  against the chart body's 921.8px content box, so the old 188px is 20.399cqi. The viewport is not a
+  detail: loading the same document at a default 800×600 answers 19.583cqi, which renders 180.5px, a
+  4% shrink dressed up as a units cleanup. Verified on that surface: 187.98px at HD, and the same
+  fraction of its container at 1280px, 2560px and 5120px.
 - **The chart-responsiveness lint blanket-exempted every `-svg` selector, which is how that slipped
   through.** Inside a viewBox `px` IS a user unit, so the exemption is right for anything drawn in the
   chart's coordinate space — but it must stop at the SVG's own box: `width`/`height` on the `<svg>`

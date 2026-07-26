@@ -85,8 +85,9 @@ of one radar small-multiple.
 Calibrating such a token is a **measurement**, not an estimate: `cqi` resolves
 against the nearest size container's **content box**, which for a chart is
 `.chart-body` — and it has to be measured on the surface whose bytes ship, the
-emulator document Chrome prints the PDF from, where that box is 960px on the
-1280px HD slide. Reading it off the slide width instead is a ~25% error, which
+emulator document Chrome prints the PDF from AT THE VIEWPORT IT PRINTS AT
+(1280x720), where that box is 921.8px. Loading the same document at a default
+800x600 answers 960px and a 4% smaller chart. Reading it off the slide width instead is a ~25% error, which
 silently redesigns the chart while looking like a units cleanup. A differently
 padded HOST resolves the same token against ITS chart body and gets a
 proportionally different pixel size — that is what a relative unit is for.
@@ -253,11 +254,18 @@ viewBox user units.
 
 A **scatter** label has a second problem: wrapping cannot help two points
 plotted on top of each other. `placeLabels` in the same module handles that by
-trying eight anchors around the mark — above, below, left, right, then the four
-diagonals — at three distances, and taking the first that clears every mark,
-every already-placed label, and the plot box. So a label is always ADJACENT to
-its own point, and two close points get different sides rather than a stack. A
-kernel hands over the mark, never a position.
+trying eight anchors around the mark at three distances and taking the CHEAPEST
+that clears every mark, every already-placed label, and the plot box. Above and
+below are cheapest, the diagonals next, pure left/right last — by enough that a
+caption one line further above its point beats the nearest spot beside it. So a
+label is always ADJACENT to its own point, and two close points get different
+sides rather than a stack. A kernel hands over the mark, never a position.
+
+Where a label genuinely cannot be placed clear — five three-line names in one
+quadrant is ~76% of that quadrant in label, which no arrangement fixes — it is
+**dropped** rather than painted through its neighbor. Overprinting loses both
+names and says nothing; the dropped one still rides `data-label`, the popover
+and the speaker note.
 
 See `engineering/decisions/2026-07-26-svg-chart-labels-motion.md` for why
 `<tspan>` and not `<foreignObject>`, who owns the font size, and (§14) why

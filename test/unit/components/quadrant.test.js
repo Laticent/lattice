@@ -703,6 +703,47 @@ test('buildQuadrant: labels go above or below their point, not beside it', () =>
     `${above}/${dots.length} labels are centered above their dot — a sparse scatter should place nearly all of them there`);
 });
 
+// Three behaviours the trio found had NO test at all — each was a real defect
+// once (decision note §13), each was fixed, and each could silently come back.
+test('buildQuadrant: the quadrant names are obstacles for the item-label pass', () => {
+  // `cornerObstacles()` briefly returned [] on the reasoning that a name outside
+  // the plot cannot collide with anything inside it. Six units is not "outside".
+  const { cornerObstacles } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  const boxes = cornerObstacles(['Quick Wins', 'Strategic Bets', 'Defer', 'Time Sinks'], '', GEOM.plot.x0 + 168);
+  assert.equal(boxes.length, 4, 'every named quadrant contributes an obstacle');
+  for (const b of boxes) {
+    assert.equal(b.fixed, true, 'a quadrant name holds its place; the data labels move');
+    assert.ok(b.right > b.left && b.bottom > b.top, 'the obstacle has a real box');
+  }
+  assert.deepEqual(cornerObstacles([], '', 200), [], 'no names, no obstacles');
+});
+
+test('buildQuadrant: a chart with no bottom names reserves no band for them', () => {
+  // The band is the BOTTOM row's, so the bottom pair decides. Reserving it
+  // unconditionally shrank the whole unit ~8% around an empty gap — the defect
+  // the cohort variant had, and then the top-names-only deck had after it.
+  const { vbHeight } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  assert.equal(vbHeight(true), GEOM.vbH);
+  assert.equal(vbHeight(false), GEOM.vbH - 28);
+
+  const topOnly = innerOf(`<ul>
+    <li>Quick Wins<ul><li>Alpha <code>2, 90</code></li></ul></li>
+    <li>Strategic Bets<ul><li>Bravo <code>8, 90</code></li></ul></li>
+  </ul>`);
+  const out = buildQuadrant(parseQuadrant(topOnly), 'default', SCALE);
+  assert.match(out, /data-band="none"/, 'a chart with no bottom names says so');
+  assert.match(out, new RegExp(`viewBox="0 0 ${GEOM.vbW} ${GEOM.vbH - 28}"`), 'and emits the shorter box');
+});
+
+test('buildQuadrant: a name wraps to the width its COLUMN has, not the full budget', () => {
+  // Without this, a `threshold` target near an axis extreme gave a 15-unit
+  // column a 120-unit name.
+  const { cornerBudget } = require('../../../lib/components/chart/quadrant/quadrant.transform');
+  assert.equal(cornerBudget(400), 120, 'a wide column is capped at the wrap budget');
+  assert.equal(cornerBudget(90), 90, 'a narrow column gets its own width');
+  assert.equal(cornerBudget(4), 72, 'and never drops below a readable floor');
+});
+
 // ── quadrant names sit OUTSIDE the plot ─────────────────────────────────────
 // They used to be inset INSIDE their corner, where they competed with the data
 // for that corner (item labels had to be routed around them, and still

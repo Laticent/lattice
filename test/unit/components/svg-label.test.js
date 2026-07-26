@@ -27,6 +27,7 @@ const {
   charBudget,
   deCollideLabels,
   placeLabels,
+  LINE_HEIGHT,
 } = require('../../../lib/components/chart/_chart-family/svg-label');
 
 const tspans = (svg) => [...svg.matchAll(/<tspan\b[^>]*>([\s\S]*?)<\/tspan>/g)].map((m) => m[1]);
@@ -368,18 +369,56 @@ describe('placeLabels', () => {
 
   // The fallback re-emits the least-bad candidate, which can come from ANY ring.
   // Rebuilding it at ring 0 would move the label to a position the pass never
-  // scored — the emitted box has to be the box that was chosen.
+  // scored. The FIXTURE has to make that discriminating: an earlier version of
+  // this test used one whose least-bad candidate was on ring 0 anyway, so the
+  // bug was a no-op inside it, and asserted a one-sided `<=` bound that a
+  // SMALLER reach also satisfied. Both holes are closed here — ring 0 and ring 1
+  // are fully walled off, and the assertion pins the reach to ring 2's exactly.
   test('the no-clear-position fallback emits the position it actually scored', () => {
-    // Every position overlaps something, so the fallback runs. The emitted label
-    // must still sit on one of the rings, not at an unscored distance.
-    const wall = (top, bottom) => ({ left: 0, right: 200, top, bottom });
-    const [p] = placeLabels([at(100, 100)], { obstacles: [wall(0, 99), wall(101, 200)] });
-    const step = 8.5 * 1.18;
-    const dyToMark = Math.max(p.box.top - 100, 0, 100 - p.box.bottom);
-    const dxToMark = Math.max(p.box.left - 100, 0, 100 - p.box.right);
-    const reach = Math.max(dyToMark, dxToMark);
-    assert.ok(reach <= 4 + 4 + 2 * step + 12 + 0.01,
-      `emitted at reach ${reach.toFixed(1)}, past the furthest ring plus the nudge`);
+    const step = 8.5 * LINE_HEIGHT;
+    const r = 4, gap = 4;
+    const ring = (k) => r + gap + k * step;
+    const box = (l, rt, t, b) => ({ left: l, right: rt, top: t, bottom: b });
+    // Rings 0 and 1 fully enclosed, ring 2 clipped: NOTHING clears, so the
+    // fallback runs, and its least-bad candidate is NOT on ring 0 — which is
+    // what makes this discriminating. (An earlier fixture's least-bad was ring
+    // 0, so rebuilding at ring 0 was a no-op inside it and it proved nothing.)
+    const inner = ring(1) + 2;
+    const obstacles = [
+      box(100 - inner, 100 + inner, 100 - inner, 100 - 1),
+      box(100 - inner, 100 + inner, 100 + 1, 100 + inner),
+      box(100 - inner, 100 - 1, 100 - inner, 100 + inner),
+      box(100 + 1, 100 + inner, 100 - inner, 100 + inner),
+      box(0, 400, 100 - ring(2) - 40, 100 - ring(2) + 3),
+      box(0, 400, 100 + ring(2) - 3, 100 + ring(2) + 40),
+      box(-300, 100 - ring(2) + 3, 0, 400),
+      box(100 + ring(2) - 3, 500, 0, 400),
+    ];
+    const [p] = placeLabels([at(100, 100)], { obstacles });
+    assert.equal(p.fallback, true, 'the fixture must actually reach the fallback');
+    assert.ok(p.ring >= 1, `the fixture must force a non-zero ring, got ring ${p.ring}`);
+    // The pass reports the ring it scored; the emitted label must be built at
+    // THAT ring's reach, not rebuilt at ring 0's.
+    assert.ok(Math.abs(p.reach - ring(p.ring)) < 0.01,
+      `emitted at reach ${p.reach.toFixed(2)} but scored ring ${p.ring} is ${ring(p.ring).toFixed(2)}`);
+  });
+
+  // Some sets cannot be laid out at all — five three-line names in one quadrant
+  // is ~76% of that quadrant in label. No choice of position fixes an AREA
+  // problem, and painting them through each other loses BOTH names without
+  // telling the reader. A label that still collides after every position and the
+  // nudge is dropped instead; the name still rides `data-label`, the popover and
+  // the speaker note.
+  test('a label that cannot be placed clear is dropped, not overprinted', () => {
+    const wall = (top, bottom) => ({ left: 0, right: 300, top, bottom });
+    const [p] = placeLabels([at(100, 100)], { obstacles: [wall(0, 99), wall(101, 300)] });
+    assert.equal(p.hidden, true);
+    assert.equal(p.svg, '');
+  });
+
+  test('a label that CAN be placed is never dropped', () => {
+    const res = placeLabels([at(100, 100), at(160, 100), at(100, 160)]);
+    assert.ok(res.every((p) => !p.hidden && p.svg), 'a sparse scatter keeps every label');
   });
 
   test('placement is deterministic', () => {

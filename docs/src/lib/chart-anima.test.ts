@@ -335,46 +335,45 @@ describe('every emitted geometry mark declares its motion role', () => {
   // addressable with `data-mark` must also say what it IS. That is checkable,
   // forward-looking, and fails for a NEW chart that forgets — which is the case
   // the old map was pretending to cover.
-  const KERNELS = [
-    'lib/components/chart/funnel/funnel.transform.js',
-    'lib/components/chart/radar/radar.transform.js',
-    'lib/components/chart/quadrant/quadrant.transform.js',
-    'lib/components/chart/map/map.transform.js',
-    'lib/components/chart/state-chart/state-chart.transform.js',
-    'lib/components/chart/_chart-family/chart-family.js',
-  ];
+  // Gated on the RENDERED OUTPUT, not on kernel source text.
+  //
+  // A source scan cannot see a mark that reaches the tag through a helper — the
+  // gantt bar, the gantt milestone and every state-chart node interpolate
+  // `${markAttrs(...)}`, so there is no literal `data-mark=` inside their
+  // opening tag and a text scan reported ZERO offenders even with their roles
+  // deleted. It was blind to precisely the two charts this branch SVG-ified.
+  // It also read a hand-maintained file list, so a new kernel was invisible.
+  //
+  // Rendering the galleries fixes both: it sees the attribute however it got
+  // there, and the deck list is derived from disk, so a new chart component is
+  // covered the day it ships one.
+  const GEOMETRY = ['rect', 'circle', 'polygon', 'path', 'polyline', 'line', 'ellipse'];
 
-  it('no kernel emits a geometry mark without a data-anima-role', async () => {
-    const { readFileSync } = await import('node:fs');
-    const { resolve } = await import('node:path');
+  it('no rendered chart carries a geometry mark without a data-anima-role', async () => {
+    const { readFileSync, readdirSync, existsSync } = await import('node:fs');
+    const { resolve, join } = await import('node:path');
     const root = resolve(__dirname, '../../..');
+    const chartDir = join(root, 'lib/components/chart');
+    const { createRequire } = await import('node:module');
+    const req = createRequire(join(root, 'package.json'));
+    const engine = req('./lib/engine');
+
+    const decks = readdirSync(chartDir)
+      .filter((d) => !d.startsWith('_') && !d.startsWith('.'))
+      .map((d) => join(chartDir, d, `${d}.gallery.md`))
+      .filter((f) => existsSync(f));
+    decks.push(join(chartDir, 'chart.gallery.md'));
+    expect(decks.length, 'the gallery sweep must actually find decks').toBeGreaterThan(8);
 
     const offenders: string[] = [];
-    for (const file of KERNELS) {
-      const src = readFileSync(resolve(root, file), 'utf8');
-      // Walk BACKWARD from each `data-mark=` to the opening tag it belongs to,
-      // so the window is exactly one element. (Scanning forward from a tag
-      // instead lets the window run past the element's end and pick up the NEXT
-      // element's data-mark — which reported a hull line, a decoration that has
-      // no mark at all, as an offender.)
-      for (const m of src.matchAll(/data-mark=/g)) {
-        const before = src.slice(0, m.index!);
-        const tagAt = before.lastIndexOf('<');
-        if (tagAt < 0) continue;
-        // The whole OPENING TAG, not just up to the mark: `data-anima-role` is
-        // often written AFTER `data-mark` on the same tag, and a window that
-        // stopped at the mark reported those as offenders. Bound it at the next
-        // `>`, not at `/>` — a non-self-closing `<path …>…</path>` has no `/>`,
-        // so that bound ran on into the following element and could pick up ITS
-        // role as if it were this one's.
-        const tagEnd = src.indexOf('>', m.index!);
-        const decl = src.slice(tagAt, tagEnd < 0 ? m.index! + 400 : tagEnd + 1);
-        const tag = (decl.match(/^<(\w+)/) || [])[1];
-        // Geometry only — a <text> mark takes the label role from its tag, and
-        // an inert <template data-mark> is the popover payload, not a mark.
-        if (!tag || !['rect', 'circle', 'polygon', 'path', 'polyline', 'line', 'ellipse'].includes(tag)) continue;
-        if (!decl.includes('data-anima-role')) {
-          offenders.push(`${file}: <${tag}> carries data-mark but declares no data-anima-role\n    ${decl.trim().slice(0, 120)}`);
+    for (const deck of decks) {
+      const html = engine.render(readFileSync(deck, 'utf8'), 'indaco', { preview: true }).html;
+      for (const m of html.matchAll(/<([a-zA-Z][\w-]*)\b([^>]*)>/g)) {
+        const [, tag, attrs] = m;
+        if (!GEOMETRY.includes(tag)) continue;      // <text> takes label from its tag
+        if (!/\bdata-mark=/.test(attrs)) continue;
+        if (!/\bdata-anima-role=/.test(attrs)) {
+          offenders.push(`${deck.replace(root + '/', '')}: <${tag}> carries data-mark but declares no data-anima-role\n    <${tag}${attrs.slice(0, 110)}>`);
         }
       }
     }
