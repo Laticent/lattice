@@ -636,7 +636,7 @@ bootstrap a repo).
 - `priority:*` — `critical | high | medium | low` (words, **not** `pN` — bare
   `P0`–`P4` already mean marp-program *phase*/severity here).
 - `status:*` — the board state machine, below.
-- `model:*` — `haiku | fable | sonnet | opus`: the **recommended Claude model**
+- `model:*` — `haiku | sonnet | opus`: the **recommended Claude model**
   for the card. *Advisory, not gated* — the intake gate never flags a card for
   lacking it. Rubric below (§ Model recommendation).
 - `needs:triage` — a **process flag**, not a dimension: the intake gate
@@ -662,14 +662,14 @@ tags name a role/tier, never a pinned version (they don't rot when models bump):
 - **`model:haiku`** — trivial / mechanical. No design judgment; local and
   obvious. A typo, a mechanical rename, a count/number reconciliation, a
   stale-golden refresh with a mechanical fix, deleting a phantom row.
-- **`model:fable`** — prose-heavy / editorial / voice. The deliverable is *words
-  a human reads* and the craft is the writing: doc-prose rewrites, editorial/
-  voice sweeps, gallery/deck copy. NOT a structural doc fix (that's Haiku/Sonnet).
 - **`model:sonnet`** — standard, well-scoped engineering. A known-shape
   implementation with bounded blast radius: most `feat`/`fix` cards, a
   self-contained component or website change, a localized refactor. The default.
-- **`model:opus`** — complex / novel / high-blast-radius. Engine transforms
-  (`lib/core`, `lib/engine`, shared kernel), architecture, `type:spike`,
+- **`model:opus`** — complex / novel / high-blast-radius, **or prose craft**.
+  Engine transforms (`lib/core`, `lib/engine`, shared kernel), architecture,
+  `type:spike`, plus work where the deliverable is *words a human reads* and the
+  craft is the writing — doc-prose rewrites, editorial/voice sweeps, gallery and
+  deck copy (a *structural* doc fix is Haiku/Sonnet),
   multi-file refactors, security hardening — HARD RULE #25's "critical / novel"
   tier, or where a subtly-wrong output is costly and hard to catch.
 
@@ -678,6 +678,15 @@ Opus); **novelty beats familiarity**; `type:spike` → Opus by default; a prose
 card with an engineering half → tag by the harder half. When torn between two
 tiers, pick the higher **only** if a plausible-but-wrong output would be costly
 to catch — otherwise take the cheaper tier (DEFAULT OP MODE #3).
+
+**Same decision, one scale down: `engineering/model-routing.md`** (HARD RULE #27)
+routes an individual **subagent** to a model, where this section tags a whole
+**card**. The two are one system — the rubric above governs the tier a card is
+worked at, and the routing doc pins the agents that do slices of it, so a
+`model:opus` card should still spawn its *lookup* agents on Sonnet and reserve
+Opus for the judgment. Both use the same three tiers — the latest Haiku, Sonnet,
+and Opus, and deliberately nothing above them. Keep them consistent: a change to
+either rubric that contradicts the other is the drift both are meant to prevent.
 
 ### Intake floor — enforced on every path
 

@@ -27,6 +27,27 @@ in patch versions.
 
 ### Added
 
+- **Model routing: every subagent now declares which model it runs on, so lookup work stops
+  billing at Opus rates (HARD RULE #27).** Only two agents (`docs-auditor`, `prose-checker`) pinned
+  a model before; every other `Agent()` call inherited the session model — Opus 5 — which meant
+  locating code, verifying a cited path, triaging a red CI job, and enumerating files all cost
+  2.5× Sonnet 5's rate and 5× Haiku 4.5's, with nothing gained. Routing
+  is now decided by two questions (**judgment or lookup**, and **does a gate catch a mistake**) and
+  enforced where it cannot be forgotten: a roster of model-pinned agents in `.claude/agents/`
+  (`scout`, `fact-checker`, `ci-triage` on Sonnet 5; `inventory` on Haiku 4.5; `red-team`,
+  `inversion`, `checker` on Opus 5), so choosing the agent *is* choosing the model. **Routing uses
+  three tiers only — the latest Haiku, Sonnet, and Opus.** Tiers above Opus are not used here, so
+  `fable` is rejected by the gate and retired as a `model:*` card label (no issue carried it); prose
+  craft — editorial/voice sweeps, doc-prose rewrites, deck copy — routes to Opus. The
+  `design-competition` workflow now pins a model per stage — designers, critics, and judges on
+  Opus; the mechanical fold and the claims fact-check on Sonnet — and the `visual-review` sweep
+  splits maker passes (Sonnet) from the authoritative checker sign-off (Opus). Two things are
+  deliberately **not** downshifted: the adversarial trio, and the session's own model (switching it
+  mid-task voids the prompt cache). New gate `checkAgentModelPinning` in `tools/check-ownership.js`
+  fails `build:check` on an agent definition with no valid `model:` or a workflow `agent()` call
+  that omits one; it covers committed files only, so ad-hoc spawns ride on the dispatch table now
+  carried in `CLAUDE.md`. Full routing table, current prices, and the model-vs-`effort` guidance:
+  `engineering/model-routing.md`.
 - **Image-set export: the CLI now re-renders Mermaid diagrams to ANY cross-scheme `--svg-background`
   look (light / dark / print), matching the Studio.** mmdc bakes diagram colors at render time from the
   deck's palette, so the in-place CSS restyle that recolors token-driven charts can't touch diagrams —

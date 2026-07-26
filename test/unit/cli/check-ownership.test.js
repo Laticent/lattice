@@ -82,10 +82,16 @@ const {
   CAT_EDGE_FLOOR,
   VETRINA_DIR,
   VETRINA_IMPORT,
+  checkAgentModelPinning,
+  declaredModel,
+  agentCallPins,
+  listWorkflowFiles,
+  AGENT_MODELS,
   run,
 } = require('../../../tools/check-ownership');
 const { loadAll } = require('../../../lib/components');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 describe('check-ownership', () => {
@@ -533,6 +539,226 @@ describe('check-ownership', () => {
     });
   });
 
+  describe('agent model-pinning gate (HARD RULE #27)', () => {
+    const ROOT = path.join(__dirname, '..', '..', '..');
+    const AGENTS_DIR = path.join(ROOT, '.claude', 'agents');
+    const WORKFLOWS_DIR = path.join(ROOT, '.claude', 'workflows');
+
+    // Fixture trees, so every assertion drives the REAL checkAgentModelPinning and
+    // reads its ACTUAL errors. The previous version of these tests asserted against a
+    // re-implementation of the gate's logic, which meant deleting the gate's call site
+    // in run() left the whole suite green — found by the maker-checker pass on #1187.
+    // Anything below that stops failing when a branch of the gate is removed is a bug
+    // in the test, not a passing gate.
+    const withFixture = (files, assertions) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-hr27-'));
+      try {
+        for (const [rel, body] of Object.entries(files)) {
+          const abs = path.join(dir, rel);
+          fs.mkdirSync(path.dirname(abs), { recursive: true });
+          fs.writeFileSync(abs, body);
+        }
+        const errors = [];
+        checkAgentModelPinning(errors, {
+          agents: path.join(dir, 'agents'),
+          workflows: path.join(dir, 'workflows'),
+        });
+        assertions(errors);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    const AGENT = (model) => `---\nname: a\ndescription: d\nmodel: ${model}\n---\nbody\n`;
+    const only = (errors, needle) => errors.filter((e) => e.includes(needle));
+
+    test('the live tree raises no #27 violations', () => {
+      const errors = [];
+      checkAgentModelPinning(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('run() actually invokes the gate — it is wired into build:check', () => {
+      // Deleting `checkAgentModelPinning(errors)` from run() is invisible to any test
+      // that only calls the gate directly. Drive run() with the roster hidden and
+      // assert its #27 error surfaces.
+      const realExists = fs.existsSync;
+      let errors;
+      try {
+        fs.existsSync = (p) => (String(p).endsWith(path.join('.claude', 'agents')) ? false : realExists(p));
+        ({ errors } = run());
+      } finally {
+        fs.existsSync = realExists;
+      }
+      assert.ok(
+        errors.some((e) => e.includes('.claude/agents/ does not exist')),
+        'run() must surface the HARD RULE #27 gate; if this fails, the gate is not wired in',
+      );
+    });
+
+    test('a clean fixture roster + workflow raises nothing', () => {
+      withFixture(
+        {
+          'agents/scout.md': AGENT('sonnet'),
+          'workflows/w.js': "agent(p, { label: 'a', model: 'opus' })\n",
+        },
+        (errors) => assert.deepEqual(errors, [], errors.join('\n')),
+      );
+    });
+
+    test('roster: missing, empty, no-frontmatter, no model, and bogus model all error', () => {
+      withFixture({ 'workflows/.keep': '' }, (e) =>
+        assert.equal(only(e, 'does not exist').length, 1, 'missing roster'));
+      withFixture({ 'agents/.keep': '', 'workflows/.keep': '' }, (e) =>
+        assert.equal(only(e, 'no agent definitions').length, 1, 'empty roster'));
+      withFixture({ 'agents/a.md': 'no frontmatter here\n' }, (e) =>
+        assert.equal(only(e, 'has no YAML frontmatter').length, 1, 'missing frontmatter'));
+      withFixture({ 'agents/a.md': '---\nname: a\n---\nbody\n' }, (e) =>
+        assert.equal(only(e, 'declares no `model:`').length, 1, 'no model field'));
+      withFixture({ 'agents/a.md': AGENT('sonnet-5') }, (e) =>
+        assert.equal(only(e, 'which the harness does not accept').length, 1, 'bogus model name'));
+    });
+
+    test('roster: valid YAML shapes are accepted, and a README is not an agent', () => {
+      for (const form of ["'sonnet'", '"sonnet"', 'sonnet   ', 'sonnet # cheapest tier']) {
+        withFixture({ 'agents/a.md': AGENT(form) }, (e) =>
+          assert.deepEqual(e, [], `model: ${form} must be accepted, got: ${e.join('; ')}`));
+      }
+      withFixture({ 'agents/a.md': AGENT('opus').replace(/\n/g, '\r\n') }, (e) =>
+        assert.deepEqual(e, [], 'CRLF frontmatter is still frontmatter'));
+      withFixture({ 'agents/README.md': '# The roster\n', 'agents/a.md': AGENT('opus') }, (e) =>
+        assert.deepEqual(e, [], 'README documents the roster; it is not an agent definition'));
+    });
+
+    test('workflows: an unpinned stage is flagged, and named by its label', () => {
+      withFixture(
+        { 'agents/a.md': AGENT('opus'), 'workflows/w.js': "agent(p, { label: 'fact-check' })\n" },
+        (e) => {
+          assert.equal(e.length, 1, e.join('; '));
+          assert.match(e[0], /`fact-check` passes no `model:`/);
+        },
+      );
+    });
+
+    test('workflows: .mjs, .cjs and subdirectories are all scanned', () => {
+      for (const rel of ['workflows/w.mjs', 'workflows/w.cjs', 'workflows/sub/w.js']) {
+        withFixture({ 'agents/a.md': AGENT('opus'), [rel]: "agent(p, { label: 'x' })\n" }, (e) =>
+          assert.equal(only(e, 'passes no `model:`').length, 1, `${rel} must be scanned`));
+      }
+    });
+
+    test('workflows: an unparseable file is reported, never treated as compliant', () => {
+      withFixture({ 'agents/a.md': AGENT('opus'), 'workflows/w.js': 'const = (((\n' }, (e) =>
+        assert.equal(only(e, 'does not parse').length, 1, 'a broken workflow must fail loudly'));
+    });
+
+    test('workflows: each way of failing to pin gets its OWN diagnosis', () => {
+      // Collapsing these into one "passes no model:" message sends someone hunting for a
+      // missing field when the value is the real problem — found in review on #1187.
+      const cases = [
+        ["agent(p, { label: 'a' })", 'passes no `model:`'],
+        ["agent(p, { label: 'a', model: 'sonnet-5' })", "pins `model: 'sonnet-5'`, which the harness does not accept"],
+        ["agent(p, { label: 'a', model: MODEL })", 'computes its `model:` rather than naming one'],
+        ['agent(p, buildOpts())', 'cannot resolve statically'],
+      ];
+      for (const [body, expected] of cases) {
+        withFixture({ 'agents/a.md': AGENT('opus'), 'workflows/w.js': `${body}\n` }, (e) => {
+          assert.equal(e.length, 1, `${body} → ${e.join('; ')}`);
+          assert.ok(e[0].includes(expected), `${body}\n  expected: ${expected}\n  got: ${e[0]}`);
+        });
+      }
+    });
+
+    // The AST is what makes these sound. Three successive TEXT-based versions of this
+    // check accepted every "must be flagged" case below and rejected every "must be
+    // accepted" one — see the maker-checker findings on #1187.
+    test('a model: that only LOOKS like a pin cannot satisfy the gate', () => {
+      const bypasses = {
+        'pin quoted inside the prompt text': "agent(`Return { label: 'x', model: 'opus' }`, { label: 'a' })",
+        'pin in a nested object': "agent(p, { label: 'a', defaults: { label: 'b', model: 'opus' } })",
+        'pin belonging to an inner call': "agent(await agent(q, { label: 'in', model: 'sonnet' }), { label: 'out' })",
+        'call through an alias': "const spawn = agent; spawn(p, { label: 'a' })",
+        'optional call': "agent?.(p, { label: 'a' })",
+        'meta.phases entry, not an options object': "const meta = { phases: [{ title: 'T', model: 'opus' }] }\nagent(p, { label: 'a' })",
+      };
+      for (const [name, body] of Object.entries(bypasses)) {
+        const { error, calls } = agentCallPins(body);
+        assert.equal(error, null, `${name}: fixture should parse`);
+        assert.ok(calls.some((c) => !c.pinned), `${name}: must NOT count as pinned`);
+      }
+    });
+
+    test('valid pinned calls are accepted, whatever the surrounding syntax', () => {
+      const valid = {
+        'inline nested object in options': "agent(p, { label: 'a', schema: { type: 'object' }, model: 'opus' })",
+        'callback in options': "agent(p, { label: 'a', model: 'opus', onDone: () => { log() } })",
+        'hoisted module-level options': "const o = { label: 'a', model: 'opus' }\nagent(p, o)",
+        'pinned but unlabeled': "agent(p, { model: 'opus' })",
+        'regex containing a paren': "agent(p.replace(/\\)/g, ''), { label: 'a', model: 'opus' })",
+        'a URL in the prompt': "agent('see https://platform.claude.com/docs', { label: 'a', model: 'opus' })",
+        'agent( written inside a string': "agent(`call agent(x) please`, { label: 'a', model: 'opus' })",
+        'a comment mentioning agent(': "// call agent(x) here\nagent(p, { label: 'a', model: 'opus' })",
+      };
+      for (const [name, body] of Object.entries(valid)) {
+        const { error, calls } = agentCallPins(body);
+        assert.equal(error, null, `${name}: fixture should parse`);
+        assert.ok(calls.length > 0 && calls.every((c) => c.pinned), `${name}: must be accepted, got ${JSON.stringify(calls)}`);
+      }
+    });
+
+    test('only three tiers exist — fable and anything above Opus are rejected', () => {
+      assert.deepEqual([...AGENT_MODELS].sort(), ['haiku', 'opus', 'sonnet'], 'the tier list is closed');
+      withFixture({ 'agents/a.md': AGENT('fable') }, (e) =>
+        assert.equal(only(e, 'which the harness does not accept').length, 1, 'roster must reject fable'));
+      withFixture({ 'agents/a.md': AGENT('opus'), 'workflows/w.js': "agent(p, { label: 'a', model: 'fable' })\n" }, (e) =>
+        assert.equal(only(e, "pins `model: 'fable'`").length, 1, 'workflow must reject fable'));
+    });
+
+    test('option resolution accepts ONLY a module-level const, but aliases from any scope', () => {
+      // Opposite failure directions, so opposite breadth. A block-scoped or reassigned
+      // binding must NOT satisfy a call (that would certify an unpinned stage); a
+      // function-scoped alias must still be SEEN (narrowing it just hides the call).
+      // Both found in review on #1187.
+      const unresolvable = [
+        "function h() { const opts = { label: 'x', model: 'opus' } }\nagent(p, opts)",
+        "let opts = { label: 'a', model: 'opus' }\nopts = build()\nagent(p, opts)",
+        "if (x) { const opts = { label: 'a', model: 'opus' } }\nagent(p, opts)",
+      ];
+      for (const body of unresolvable) {
+        const { calls } = agentCallPins(body);
+        assert.equal(calls.length, 1, body);
+        assert.equal(calls[0].pinned, false, `must not resolve: ${body}`);
+        assert.equal(calls[0].reason, 'options-unresolved', body);
+      }
+      const aliasedInFunction = agentCallPins("function h() { const spawn = agent\n spawn(p, { label: 'a' }) }");
+      assert.equal(aliasedInFunction.calls.length, 1, 'a function-scoped alias must still be seen');
+      assert.equal(aliasedInFunction.calls[0].reason, 'missing', 'and reported as unpinned, not skipped');
+      for (const body of ["const opts = { label: 'a', model: 'opus' }\nagent(p, opts)", "const spawn = agent\nspawn(p, { label: 'a', model: 'opus' })"]) {
+        assert.ok(agentCallPins(body).calls.every((c) => c.pinned), `module-level form must resolve: ${body}`);
+      }
+    });
+
+    test('every shipped agent and workflow stage is pinned, and matches the routing doc', () => {
+      const roster = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
+      assert.ok(roster.length > 0, '.claude/agents/ must not be empty — it IS the routing enforcement');
+      const doc = fs.readFileSync(path.join(ROOT, 'engineering', 'model-routing.md'), 'utf8');
+      for (const file of roster) {
+        const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8'));
+        const model = declaredModel(fm[1]);
+        assert.ok(AGENT_MODELS.includes(model), `${file} pins unrecognized model "${model}"`);
+        const name = file.replace(/\.md$/, '');
+        const row = new RegExp(`\\\\\`${name}\\\\\`[^|]*\\\\|\\\\s*${model}\\\\s*\\\\|`).test(doc);
+        assert.ok(row, `${name} (${model}) has no matching row in engineering/model-routing.md's roster table`);
+      }
+      for (const file of listWorkflowFiles(WORKFLOWS_DIR)) {
+        const { error, calls } = agentCallPins(fs.readFileSync(file, 'utf8'));
+        assert.equal(error, null, `${file} should parse`);
+        assert.ok(calls.length > 0, `${file} has no agent() calls — is it still a workflow?`);
+        calls.forEach((c, i) => {
+          assert.ok(c.pinned, `${path.basename(file)} stage #${i + 1} is unpinned`);
+        });
+      }
+    });
+  });
   describe('audio-playback boundary gate (Suono is the only WebAudio player)', () => {
     const ROOT = path.join(__dirname, '..', '..', '..');
 

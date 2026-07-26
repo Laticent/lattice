@@ -145,10 +145,20 @@ not the intent.
    rounds, or loop-until-dry (stop when a round produces no material
    change) — never a fixed high count for its own sake. The retro's rounds
    4–5 corrected nothing.
-5. **Tier effort and models.** Mechanical stages (formatting, extraction,
-   dedup, folding a critique in) run at low effort; reserve high effort for
-   the adversarial verify/judge stages where reasoning depth changes the
-   verdict.
+5. **Tier effort and models — two levers, not one.** Mechanical stages
+   (formatting, extraction, dedup, folding a critique in) run at low effort;
+   reserve high effort for the adversarial verify/judge stages where reasoning
+   depth changes the verdict. **Then route the model separately**: `effort`
+   trims output tokens, the model trims both rates, so a read-heavy stage (a
+   scout pulling in 200 files to return 20 lines) is dominated by model choice
+   while a write-heavy one is dominated by effort. An agent that names no model
+   inherits Opus 5 — the single most common way a fan-out costs 2.5× what it
+   needed to. Routing table, prices, and the roster of model-pinned agents:
+   **`engineering/model-routing.md`** (HARD RULE #27). The two docs answer the
+   same question from opposite ends — this one decides *how much machinery*, that
+   one decides *what each piece costs per token* — and neither overrides the
+   other: **the tier this ladder mandates is never skipped to save money, and the
+   trio is never downshifted off Opus.**
 6. **Prefer `pipeline()` to `parallel()` barriers.** A barrier makes fast
    tracks idle behind the slowest one. Use it only where a stage truly
    needs ALL prior results at once — dedup across findings, a shared
