@@ -59,7 +59,11 @@ const BASELINE_FILE = path.join(ROOT, 'test', 'viz-render', 'black-baseline.json
 // The theme × scheme matrix. Two themes with different brand hues so a
 // theme-specific token gap can't hide behind indaco; both canvases because a
 // token can resolve on one scheme and drop on the other (light-dark()).
-const THEMES = ['indaco', 'cuoio'];
+// `concrete` earns its place: its hues are the darkest-on-light in the set, and
+// it is where a graphical ink first fell below the text floor (3.04:1) while
+// indaco sailed through at 6.72:1. A two-theme matrix that excludes the
+// hard case is a matrix that agrees with you.
+const THEMES = ['indaco', 'cuoio', 'concrete'];
 const SCHEMES = ['light', 'dark'];
 
 // The deck whose slides carry SVG kernels that paint themed colour through the
@@ -71,6 +75,23 @@ const SCHEMES = ['light', 'dark'];
 // #956 mechanism and is covered separately by test/integration/mermaid/). This
 // guard therefore targets exactly the surface where the #956 bug can occur.
 const DECKS = [{ file: path.join(ROOT, 'lib', 'components', 'chart', 'chart.gallery.md'), family: 'chart' }];
+
+// TEXT that sits on the PAGE CANVAS rather than on a chart's own fill, and must
+// therefore clear WCAG AA (4.5:1) against it.
+//
+// The chart categorical inks (`--chart-cat-N-ink`) were designed and gated as
+// GRAPHICAL inks at the 3:1 floor (WCAG 1.4.11) — dots, strokes, borders. The
+// moment one of them carries type on the canvas it is a text ink and needs 4.5,
+// and nothing else in the tree checks that: `checkCatContrast` reads the
+// engine-wide `--cat-*` tokens from themes/, never the chart palette derived in
+// chart-family.css. That gap shipped a quadrant name at 3.04:1 on `concrete`
+// light, down from 10.56:1.
+//
+// Add a selector here when a chart starts painting text on the canvas. It is an
+// allowlist, so a NEW canvas-text class is a deliberate act, not a silent one.
+const CANVAS_TEXT = [
+  { selector: '.quadrant-label', floor: 4.5, what: 'quadrant name' },
+];
 
 // SVG paint that is legitimately absent — never a "dropped colour" signal.
 const TRANSPARENT = new Set(['none', 'transparent', 'rgba(0, 0, 0, 0)']);
@@ -119,6 +140,7 @@ async function collectBlacks() {
 
   const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
   const blacks = [];
+  const dimText = [];
   try {
     for (const deck of DECKS) {
       const src = fs.readFileSync(deck.file, 'utf8');
@@ -150,8 +172,29 @@ async function collectBlacks() {
               // The element's own most-specific class (or tag), PREFIXED with the
               // tag — so two different elements sharing a first class can't alias
               // onto one sanction key (checker M3).
+              //
+              // A CLASSLESS element gets its nearest classed ancestor as a
+              // prefix. Wrapped SVG labels are `<text class="…"><tspan>` — the
+              // tspan carries no class of its own and inherits the text's fill,
+              // so a bare `tspan.` key would alias EVERY unclassed tspan in
+              // every chart onto one sanction. One legitimately-black ink would
+              // then mask a genuinely dropped color anywhere else.
+              // When neither exists the key is the BARE TAG, with no trailing
+              // dot: `tspan.` reads like a class that happens to be empty and
+              // still aliases every classless tspan, which is the masking this
+              // guards against. `tspan` says plainly that the sanction is for
+              // an unattributable element — and that is a reason to look.
               const own = el.getAttribute('class');
-              const selector = `${tag}.${own ? own.split(/\s+/)[0] : ''}`;
+              let selector = tag;
+              if (own) {
+                selector = `${tag}.${own.split(/\s+/)[0]}`;
+              } else {
+                const host = el.parentElement?.closest('svg [class]');
+                const hostClass = host?.getAttribute('class');
+                if (hostClass) {
+                  selector = `${host.tagName.toLowerCase()}.${hostClass.split(/\s+/)[0]}>${tag}`;
+                }
+              }
 
               // A gradient <stop> paints no shape but feeds a shape's fill; a
               // themed stop-color that dropped to black is a real #956-family
@@ -190,6 +233,43 @@ async function collectBlacks() {
             return out;
           }, [...TRANSPARENT], [...PAINTABLE_TAGS], scheme);
           for (const f of found) blacks.push({ family: deck.family, ...f });
+
+          // Canvas TEXT must clear its contrast floor against the slide it sits
+          // on. Measured by painting each colour onto a 1x1 canvas and reading
+          // the pixel back — `getComputedStyle` hands back `oklab()`/`color()`
+          // for a `color-mix`, and parsing digits out of that as if they were
+          // RGB is how you get confident nonsense.
+          const dim = await page.evaluate((SPECS) => {
+            const cv = document.createElement('canvas'); cv.width = cv.height = 1;
+            const ctx = cv.getContext('2d', { willReadFrequently: true });
+            const px = (c) => {
+              ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1, 1);
+              ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1);
+              const d = ctx.getImageData(0, 0, 1, 1).data;
+              return [d[0], d[1], d[2]];
+            };
+            const lum = ([r, g, b]) => {
+              const f = (c) => { const u = c / 255; return u <= 0.03928 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4; };
+              return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+            };
+            const ratio = (a, b) => { const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+            const out = [];
+            for (const spec of SPECS) {
+              for (const el of document.querySelectorAll(spec.selector)) {
+                const sec = el.closest('section');
+                if (!sec) continue;
+                let bg = getComputedStyle(sec).backgroundColor;
+                if (/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) bg = getComputedStyle(sec).getPropertyValue('--bg').trim() || '#ffffff';
+                const r = ratio(px(getComputedStyle(el).fill), px(bg));
+                if (r < spec.floor) out.push({ selector: spec.selector, what: spec.what, floor: spec.floor, ratio: Math.round(r * 100) / 100 });
+              }
+            }
+            return out;
+          }, CANVAS_TEXT);
+          for (const d of dim) {
+            const key = `${theme}/${scheme}/${d.selector}/${d.ratio}`;
+            if (!dimText.some((x) => x.key === key)) dimText.push({ key, theme, scheme, ...d });
+          }
           await page.close();
         }
       }
@@ -197,7 +277,7 @@ async function collectBlacks() {
   } finally {
     await browser.close();
   }
-  return { skipped: false, blacks };
+  return { skipped: false, blacks, dimText };
 }
 
 /** Dedupe findings to unique keys, keeping a representative for reporting. */
@@ -212,15 +292,15 @@ function uniqueByKey(findings) {
  * diff against the baseline, return { skipped, regressions, stale, found }.
  */
 async function evaluate() {
-  const { skipped, blacks } = await collectBlacks();
-  if (skipped) return { skipped: true, regressions: [], stale: [], found: [] };
+  const { skipped, blacks, dimText } = await collectBlacks();
+  if (skipped) return { skipped: true, regressions: [], stale: [], found: [], dimText: [] };
   const found = uniqueByKey(blacks).sort((a, b) => findingKey(a).localeCompare(findingKey(b)));
   const foundKeys = new Set(found.map(findingKey));
   const baseline = fs.existsSync(BASELINE_FILE) ? JSON.parse(fs.readFileSync(BASELINE_FILE, 'utf8')) : { sanctioned: [] };
   const sanctionedKeys = new Set(baseline.sanctioned.map(findingKey));
   const regressions = found.filter((f) => !sanctionedKeys.has(findingKey(f)));
   const stale = [...sanctionedKeys].filter((k) => !foundKeys.has(k));
-  return { skipped: false, regressions, stale, found, findingKey };
+  return { skipped: false, regressions, stale, found, dimText, findingKey };
 }
 
 module.exports = { collectBlacks, evaluate, findingKey, uniqueByKey, BASELINE_FILE, THEMES, SCHEMES };
@@ -230,10 +310,20 @@ async function main() {
   const bless = args.includes('--bless');
   const asJson = args.includes('--json');
 
-  const { skipped, blacks } = await collectBlacks();
+  const { skipped, blacks, dimText } = await collectBlacks();
   if (skipped) {
     console.error('check-viz-render: SKIPPED — no Chromium (set CHROME_PATH). Not a pass; the scoped-render guard did not run.');
     process.exit(0);
+  }
+  // Contrast is a hard floor, not a ratchet: there is no such thing as a
+  // sanctioned illegible label, so this has no baseline to bless.
+  if (dimText.length && !bless) {
+    console.error(`\ncheck-viz-render FAILED — ${dimText.length} canvas TEXT paint(s) below their contrast floor:`);
+    for (const d of dimText.sort((a, b) => a.ratio - b.ratio)) {
+      console.error(`  ✗ ${d.theme} ${d.scheme} · ${d.what} (${d.selector}) is ${d.ratio.toFixed(2)}:1 against the canvas, below ${d.floor}:1`);
+    }
+    console.error('\n  A chart ink that carries TEXT on the page canvas needs WCAG AA. The categorical inks are graphical (3:1) by design — darken toward --text-heading rather than taking the raw hue.');
+    process.exit(1);
   }
 
   const found = uniqueByKey(blacks).sort((a, b) => findingKey(a).localeCompare(findingKey(b)));

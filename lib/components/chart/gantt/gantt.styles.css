@@ -5,11 +5,26 @@
 /* ── GANTT ──────────────────────────────────────────────────────────────────
  * Categorical Gantt chart rendered from a two-level list.
  * Swimlane = top-level bullet; bar = sub-bullet with a range pill and optional
- * status pill. The axis tick labels (.gantt-ticks) and the bar container
- * (.gantt-bars) are both flex:1 children inside their respective flex rows,
- * so they resolve to the same width. Bars are absolutely positioned inside
- * .gantt-bars using percentage math anchored on --gantt-cols, --gantt-col-start,
- * and --gantt-col-span — no subgrid needed. */
+ * status pill.
+ *
+ * SVG-NATIVE (2026-07-26). The gantt used to be percentage-positioned HTML:
+ * absolutely-placed <div> bars driven by --gantt-x / --gantt-w inside flex
+ * rows. That made it the one chart-family member chart motion could not touch —
+ * chartToScene reads the first <svg> in the section, and a gantt had none, so
+ * `motion-on` skipped the entire chart. The kernel now emits one <svg> whose
+ * bars, milestones, ticks and key are all addressable nodes in a single
+ * viewBox (chart-family.js buildGanttChart / GANTT_GEOM).
+ *
+ * What that moves here: geometry is gone (the kernel owns x/y/width/height in
+ * user units), and this file is purely PAINT — fills, strokes, ink, weight.
+ * The canonical chart fill still applies, but as an inline <linearGradient>
+ * the kernel emits per semantic slot, because SVG `fill` cannot take a CSS
+ * gradient; the recipe and stops are identical to the kanban card / progress
+ * bar, so a gantt bar has not changed color.
+ *
+ * The portrait reflow that used to live in a container query is now a portrait
+ * GEOMETRY in the kernel (GANTT_GEOM_TALL) — a baked viewBox cannot reflow, so
+ * the tall arrangement is emitted rather than restyled. */
 
 :is(section.gantt, figure.gantt).chart-frame .chart-body {
   /* Inherit the shared .chart-body width AND padding (sp-lg / sp-2xl) so the
@@ -25,397 +40,149 @@
   width: 100%;
 }
 
-/* Status key — gantt encodes status by BAR COLOUR with no text on the bar, so
- * an emailed reader needs a key. A centred row of swatch + label chips (the
- * piechart-legend idiom) sits just below the chart; each swatch reuses the
- * bar's exact fill, so a chip and a bar of the same status read identically.
- * The builder emits only the statuses actually present. */
-.gantt-chart .gantt-legend {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: var(--sp-sm) var(--sp-lg);
-  padding-top: var(--sp-xl); /* was margin-top — padding stays inside the flex content box */
-  align-self: center;
-}
-.gantt-chart .gantt-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-sm);
-  font-size: var(--fs-body-compact);
-  color: var(--text-body);
-}
-.gantt-chart .gantt-legend-swatch {
-  width: 1.35cqi;
-  height: 1.35cqi;
-  min-width: 12px;  /* sanctioned: legend-swatch floor below the 1.35cqi size — keeps the swatch legible at sub-HD renders, never the computed size */
-  min-height: 12px; /* sanctioned: legend-swatch floor (see min-width) */
-  border-radius: 0.34cqi;
-  flex: 0 0 auto;
-  /* The bar's canonical fill recipe, in miniature — same --fill-hue/--fill-ink
-   * (set per status below), so the chip matches its bar exactly. */
-  --fill-hue: var(--state-info-hue);
-  --fill-ink: var(--state-info-ink);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-d), black)) 100%);
-  border: var(--chart-hairline) solid var(--fill-ink);
-}
-/* Per-status fill — the SAME pairs the bars use, shared so a chip can never
- * drift from its bar. */
-.gantt-legend-item[data-s="on-track"] .gantt-legend-swatch,
-.gantt-legend-item[data-s="done"] .gantt-legend-swatch,
-.gantt-legend-item[data-s="live"] .gantt-legend-swatch     { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
-.gantt-legend-item[data-s="at-risk"] .gantt-legend-swatch,
-.gantt-legend-item[data-s="warn"] .gantt-legend-swatch     { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
-.gantt-legend-item[data-s="blocked"] .gantt-legend-swatch,
-.gantt-legend-item[data-s="fail"] .gantt-legend-swatch     { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
-.gantt-legend-item[data-s="pilot"] .gantt-legend-swatch,
-.gantt-legend-item[data-s="decision"] .gantt-legend-swatch { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
-.gantt-legend-item[data-s="deferred"] .gantt-legend-swatch { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
-
-/* ── Axis row, lane rows, and bar chrome — appended Phase 4 ──
- * Originally lived in lib/_legacy.css under the CHART FAMILY section.
- * The CHART FAMILY shared infrastructure (.chart-frame, .chart-header,
- * .chart-status etc.) stays in _legacy.css until a shared file
- * (lib/_chart-family.css or chart-family.js's emitted styles) is established.
- */
-
-/* ── Axis row: spacer + tick labels ── */
-.gantt-axis-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  padding-bottom: var(--sp-xs);
-  /* The 0.3125cqi gap below the axis rule (was margin-bottom) is now padding-top
-   * on .gantt-lanes — keeps the rule where it is and stays inside the box. */
-  border-bottom: var(--chart-hairline) solid var(--chart-rule);
+/* The diagram fills its box and keeps its aspect (the kernel grows the viewBox
+ * HEIGHT with the lane count, so more lanes make a taller unit rather than
+ * thinner rows). Mirrors the sizing the other SVG charts use. */
+.gantt-chart .gantt-svg {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  display: block;
 }
 
-.gantt-axis-spacer {
-  flex: 0 0 14.0625cqi;
-  width: 14.0625cqi;
-}
-
-/* Ticks are positioned by PERCENT now (continuous scale), not an equal CSS
- * grid — a date axis has unequal calendar steps and an ordinal axis is just the
- * even case of the same math. Each tick is absolutely placed at its period
- * MIDPOINT (--gantt-x, a 0–100 number) and centred on it. */
-.gantt-ticks {
-  flex: 1;
-  position: relative;
-  height: 1.4em;
-}
-
-.gantt-tick {
-  position: absolute;
-  left: calc(var(--gantt-x) * 1%);
-  transform: translateX(-50%);
-  white-space: nowrap;
+/* ── Axis ─────────────────────────────────────────────────────────────────── */
+:is(section.gantt, figure.gantt) .gantt-tick {
+  fill: var(--text-label);
   font-family: var(--font-mono);
-  font-size: var(--fs-meta);
   font-weight: 600;
   letter-spacing: 0.12em;
-  color: var(--text-label);
 }
 
-/* ── Lanes wrapper — the positioning context for the optional "today" line,
- * which must span every lane row but align to the BARS region (right of the
- * fixed label column). ── */
-.gantt-lanes {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  /* The axis-rule→lanes gap lives here now (was .gantt-axis-row margin-bottom:
-   * 0.3125cqi). The today line's top is offset by the same amount so it still
-   * starts at the first lane row. */
-  padding-top: 0.3125cqi;
+:is(section.gantt, figure.gantt) .gantt-axis-rule {
+  stroke: var(--chart-rule);
+  stroke-width: 0.6;
 }
 
-/* The "today" / now line — opt-in (eyebrow `today <point>` only). A thin
- * info-toned rule from the top of the first lane to the bottom of the last,
- * offset by the label column so it lands in the bars region; --gantt-x is its
- * 0–100 position across that region. A small downward cap marks "now". */
-.gantt-today {
-  position: absolute;
-  top: 0.3125cqi; /* align to the first lane row past .gantt-lanes' padding-top */
-  bottom: 0;
-  left: calc(14.0625cqi + (100% - 14.0625cqi) * var(--gantt-x) / 100);
-  width: 0;
-  border-left: 0.18cqi solid var(--state-info-ink);
-  pointer-events: none;
-  z-index: 2;
-}
-.gantt-today::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translate(-50%, -100%);
-  border-left: 0.7cqi solid transparent;
-  border-right: 0.7cqi solid transparent;
-  border-top: 0.8cqi solid var(--state-info-ink);
-}
-
-/* ── Lane rows: label + bar container ── */
-.gantt-lane {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  min-height: 3.90625cqi;
-  border-bottom: var(--chart-hairline) solid color-mix(in oklab, var(--border) 50%, transparent);
-}
-.gantt-lane:last-child { border-bottom: none; }
-
-.gantt-lane-label {
-  flex: 0 0 14.0625cqi;
-  width: 14.0625cqi;
-  padding-right: var(--sp-sm);
-  font-size: var(--fs-meta);
-  font-weight: 600;
-  color: var(--text-heading);
-  text-align: right;
-  line-height: var(--lh-tight);
-  box-sizing: border-box;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.gantt-bars {
-  flex: 1;
-  position: relative;
-  height: 3.4375cqi;
-}
-
-/* Bar — absolutely positioned within its lane's bars container.
- * left  = (col−1) / N × 100% + inset
- * width =  span   / N × 100% − inset×2
- * A 3px inset gives visible air between adjacent bars that share a column
- * boundary (e.g. "Q1→Q2" and "Q2→Q3").
- *
- * Fill approach mirrors the progress chart default:
- *   color-mix(in oklab, var(--semantic) 70%, var(--bg-alt))
- * — a tinted fill, not the raw semantic colour. This keeps bars visually
- * proportional to the progress fill (which is 14px, no text) even though
- * gantt bars are 34px tall and carry a label. Dark ink (--text-heading)
- * sits on every tinted fill at ≥ 5.3:1. */
-.gantt-bar {
-  position: absolute;
-  /* The bar geometry is %-based (calc over --gantt-cols); the px below are small
-   * fixed insets kept px on purpose — a constant vertical inset within the row
-   * track and a thin inter-bar gutter that stays hairline-scale, not a widening
-   * band at 4K. */
-  top: 5px; bottom: 5px;  /* sanctioned: constant vertical inset within the %-based row track */
-  left:  calc(var(--gantt-x) * 1% + 3px); /* sanctioned: thin inter-bar gutter (hairline-scale) */
-  width: calc(var(--gantt-w) * 1% - 6px); /* sanctioned: thin inter-bar gutter (hairline-scale) */
-  border-radius: 0.46875cqi;
-  /* Match the pie / quadrant / radar depth-gradient language. Those three read
-   * rich because they fill with a hue-into-bg gradient (~42–82%), NOT the flat
-   * 24% --state-*-fill tint the bars used to use (which is why the bars looked
-   * muted / "not gradient"). A vertical hue-into-bg gradient gives the bar the
-   * same richness and dimension; it mixes into --bg so it's canvas-aware just
-   * like the SVG charts. Capped at ~54% so the shared --text-heading label
-   * still reads — dark on light, white on dark, coherent with every chart. The
-   * vivid ink border reinforces the hue at the bar edge. */
-  /* THE CANONICAL CHART FILL (defined in chart-family.css) — identical recipe
-   * and stops as the kanban card / progress bar / state node. A bar supplies
-   * only its semantic --fill-hue / --fill-ink (per status, below). */
-  --fill-hue: var(--state-info-hue);
-  --fill-ink: var(--state-info-ink);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-d), black)) 100%);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
-  border-left: var(--chart-fill-accent) solid var(--fill-ink);
-  color: var(--text-heading);
+/* ── Lanes ────────────────────────────────────────────────────────────────── */
+:is(section.gantt, figure.gantt) .gantt-lane-label {
+  fill: var(--text-heading);
   font-family: var(--font-body);
-  font-size: var(--fs-meta);
   font-weight: 600;
-  display: flex;
-  align-items: center;
-  padding: 0 0.78125cqi;
-  overflow: hidden;
-  white-space: nowrap;
-  box-sizing: border-box;
-  min-width: 0;
 }
 
-/* Status — each re-points --fill-hue (gradient) + --fill-ink (edge) at a
- * semantic --state-* pair; the canonical fill recipe picks them up.
- * Canvas-aware via light-dark(), so one rule per status, both modes. */
-.gantt-bar[data-s="on-track"],
-.gantt-bar[data-s="done"],
-.gantt-bar[data-s="live"]     { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
-.gantt-bar[data-s="at-risk"],
-.gantt-bar[data-s="warn"]     { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
-.gantt-bar[data-s="blocked"],
-.gantt-bar[data-s="fail"]     { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
-.gantt-bar[data-s="pilot"],
-.gantt-bar[data-s="decision"] { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
-.gantt-bar[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
+:is(section.gantt, figure.gantt) .gantt-lane-rule {
+  stroke: color-mix(in oklab, var(--border) 50%, transparent);
+  stroke-width: 0.5;
+}
+
+/* ── Bars + milestones ────────────────────────────────────────────────────────
+ * The FILL is an inline gradient from the kernel (the canonical chart-fill
+ * recipe). What stays here is the edge: a hairline in the mark's own semantic
+ * ink, which is what gives a bar its hue at the boundary. --fill-ink is
+ * re-pointed per status below, exactly as it was for the <div> bars. */
+:is(section.gantt, figure.gantt) .gantt-bar,
+:is(section.gantt, figure.gantt) .gantt-milestone {
+  --fill-ink: var(--state-info-ink);
+  stroke: var(--fill-ink);
+  stroke-width: 0.6;
+}
+
+/* Status — each re-points --fill-ink at a semantic --state-* ink. The FILL
+ * gradient is selected by the kernel from the same status, so the two can never
+ * disagree. Canvas-aware via the token, so one rule per status, both modes. */
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="on-track"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="done"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="live"]     { --fill-ink: var(--state-pass-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="at-risk"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="blocked"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="pilot"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="decision"] { --fill-ink: var(--state-info-ink); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone)[data-s="deferred"] { --fill-ink: var(--state-mute-ink); }
 
 /* Unparseable / missing span — a muted full-width placeholder so the task stays
  * visible (lint-core flags the cause); never a silent drop. */
-.gantt-bar--unscaled {
-  --fill-hue: var(--state-mute-hue);
+:is(section.gantt, figure.gantt) .gantt-bar--unscaled {
   --fill-ink: var(--state-mute-ink);
   opacity: 0.5;
 }
 
-/* ── Milestone — a zero-duration marker (single time point or `milestone`).
- * A diamond sits ON its point (--gantt-x); the label rides to its right. The
- * diamond reuses the canonical chart fill so a milestone reads as the same
- * family as the bars, and it picks up status via [data-s] exactly like a bar. */
-.gantt-milestone {
-  position: absolute;
-  top: 5px;   /* sanctioned: match the bar's vertical inset within the row track */
-  bottom: 5px; /* sanctioned: see top */
-  left: calc(var(--gantt-x) * 1%);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-xs);
-  white-space: nowrap;
+/* Bar caption. The kernel places it inside the bar when it fits and beside it
+ * when it does not, tagging which via data-pos — so the ink has to work on the
+ * bar's tinted fill AND on the canvas. --text-heading clears both (the fill is
+ * capped at ~54% hue precisely so this stays legible). */
+:is(section.gantt, figure.gantt) .gantt-bar-label,
+:is(section.gantt, figure.gantt) .gantt-mlabel {
+  fill: var(--text-heading);
   font-family: var(--font-body);
-  font-size: var(--fs-meta);
   font-weight: 600;
-  color: var(--text-heading);
-  --fill-hue: var(--state-info-hue);
+}
+
+/* ── The "today" / now line — opt-in (eyebrow `today <point>` only) ──────────
+ * A thin info-toned rule spanning the lanes, with a small downward cap marking
+ * "now". */
+:is(section.gantt, figure.gantt) .gantt-today line {
+  stroke: var(--state-info-ink);
+  stroke-width: 0.9;
+}
+:is(section.gantt, figure.gantt) .gantt-today polygon {
+  fill: var(--state-info-ink);
+}
+
+/* ── Status key ───────────────────────────────────────────────────────────────
+ * gantt encodes status by MARK COLOR with no text on the mark, so an emailed
+ * reader needs a key. The swatch is filled by the same gradient as its bars, so
+ * a chip and a bar of the same status read identically. */
+:is(section.gantt, figure.gantt) .gantt-legend-swatch {
   --fill-ink: var(--state-info-ink);
+  stroke: var(--fill-ink);
+  stroke-width: 0.6;
 }
-.gantt-milestone[data-s="on-track"],
-.gantt-milestone[data-s="done"],
-.gantt-milestone[data-s="live"]     { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
-.gantt-milestone[data-s="at-risk"],
-.gantt-milestone[data-s="warn"]     { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
-.gantt-milestone[data-s="blocked"],
-.gantt-milestone[data-s="fail"]     { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
-.gantt-milestone[data-s="pilot"],
-.gantt-milestone[data-s="decision"] { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
-.gantt-milestone[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
-.gantt-diamond {
-  flex: 0 0 auto;
-  width: 1.9cqi;
-  height: 1.9cqi;
-  transform: translateX(-50%) rotate(45deg);
-  border-radius: 0.18cqi;
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--chart-fill-bottom-d), black)) 100%);
-  border: var(--chart-hairline) solid var(--fill-ink);
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="on-track"],
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="done"],
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="live"]     { --fill-ink: var(--state-pass-ink); }
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="at-risk"],
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="blocked"],
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="pilot"],
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="decision"] { --fill-ink: var(--state-info-ink); }
+:is(section.gantt, figure.gantt) .gantt-legend-swatch[data-s="deferred"] { --fill-ink: var(--state-mute-ink); }
+
+:is(section.gantt, figure.gantt) .gantt-legend-label {
+  fill: var(--text-body);
+  font-family: var(--font-body);
 }
-.gantt-mlabel { line-height: var(--lh-tight); }
-/* End-anchored milestone — diamond stays centred on its point, but the label
- * rides to its LEFT so it can't run off the right frame edge. The container's
- * right edge sits on the point; the diamond (now the right-most child) nudges
- * back half its width to re-centre. */
-.gantt-milestone--end {
-  flex-direction: row-reverse;
-  transform: translateX(-100%);
-}
-.gantt-milestone--end .gantt-diamond { transform: translateX(50%) rotate(45deg); }
 
 /* ── Active mark (reveal hover/tap) ──────────────────────────────────────────
- * The shared HTML-mark reveal layer toggles .chart-mark-active on the focused
- * bar / milestone (it dims the rest via inline opacity). gantt is reveal-only —
- * NO 3D tilt (that would skew the time axis) — so the focus cue is a subtle lift
- * + a hue glow drawn from the mark's OWN --fill-ink, so the cue reads as the same
- * family as the mark it lifts. Bars position via left/width so transform is free;
- * the milestone glow rides the DIAMOND so the container's positioning transform
- * (incl. --end's translateX) is never disturbed. */
-.gantt-bar.chart-mark-active {
-  transform: translateY(-1.5px) scale(1.012);  /* sanctioned: small fixed focus lift, hairline-scale */
-  box-shadow: 0 0.4cqi 1.4cqi color-mix(in oklab, var(--fill-ink) 36%, transparent);
-  z-index: 3;
-}
-.gantt-milestone.chart-mark-active .gantt-diamond {
-  transform: translateX(-50%) rotate(45deg) scale(1.22);
-  box-shadow: 0 0 0 0.4cqi color-mix(in oklab, var(--fill-ink) 26%, transparent);
-}
-.gantt-milestone--end.chart-mark-active .gantt-diamond {
-  transform: translateX(50%) rotate(45deg) scale(1.22);
+ * The shared reveal layer toggles .chart-mark-active on the focused bar /
+ * milestone (it dims the rest via inline opacity). gantt is reveal-only — NO 3D
+ * tilt, which would skew the time axis — so the focus cue is a hue edge drawn
+ * from the mark's OWN --fill-ink, so the cue reads as the same family as the
+ * mark it lifts. On an SVG mark the cue is a thicker ink edge rather than a box
+ * shadow: a filter would rasterize the mark in the PDF path. */
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone).chart-mark-active {
+  stroke-width: 1.8;
+  stroke: var(--fill-ink);
 }
 
-/* ── Box-local portrait reflow (tall/narrow box) ─────────────────────────────
- * A gantt is a horizontal time axis, so it can't "switch direction" — but it IS
- * HTML/CSS (not a baked SVG), so it reflows box-locally. On a tall box the
- * landscape row layout (a fixed left label column + bars sharing the rest)
- * letterboxes into a thin band AND starves both the lane label and the bar
- * labels of width (they ellipsis-truncate). The reflow:
- *   1. Lane becomes a vertical block — the label sits ABOVE its bars, which now
- *      span the FULL width (no 14cqi label column stealing room).
- *   2. The axis spacer collapses so the Q-ticks span the same full width as the
- *      bars and stay aligned above them.
- *   3. Lanes distribute down the canvas (space-between) to fill the height
- *      instead of stranding the chart in a band — the kanban/progress idiom.
- *   4. Bars grow taller and their labels WRAP (a narrow time-span bar trades the
- *      width it can't have for the height it now can), so "Signal taxonomy" reads
- *      in full instead of clipping to "Signal taxonom".
- * Keyed on the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
- * 2026-06-19-chart-adaptive-sizing.md §10. */
-@container lattice (aspect-ratio <= 0.9) {
-  :is(section.gantt, figure.gantt).chart-frame .gantt-chart { height: 100%; }
-
-  /* Ticks span the full width — no left label column in portrait. */
-  :is(section.gantt, figure.gantt) .gantt-axis-row { flex: 0 0 auto; }
-  :is(section.gantt, figure.gantt) .gantt-axis-spacer { flex-basis: 0; width: 0; padding: 0; }
-
-  /* Lanes distribute down the canvas; each is a label-over-bars block. */
-  :is(section.gantt, figure.gantt) .gantt-lane {
-    flex: 1 1 0;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: center;
-    gap: var(--sp-sm);
-    min-height: 0;
-    /* a quiet separator between stacked lanes, since they no longer sit in a row */
-    border-bottom: var(--chart-hairline) solid color-mix(in oklab, var(--border) 50%, transparent);
-    padding: var(--sp-sm) 0;
-  }
-  /* The portrait lane border (above) out-specifies the base last-child reset, so
-   * re-drop it here or the bottom stacked lane keeps a trailing hairline. */
-  :is(section.gantt, figure.gantt) .gantt-lane:last-child { border-bottom: none; }
-
-  /* Label rides above its bars — full width, left-aligned, no ellipsis. */
-  :is(section.gantt, figure.gantt) .gantt-lane-label {
-    flex: 0 0 auto;
-    width: auto;
-    text-align: left;
-    padding-right: 0;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-  }
-
-  /* Bars are a substantial fixed height (presence in the tall box) but NOT the
-   * full lane height — the lane's slack becomes breathing room, not a giant block.
-   * The bar label stays LEFT-aligned (the base): a task's bar starts at its
-   * window's left edge, and adjacent tasks that share a boundary quarter overlap
-   * by a column (span is inclusive) with the later bar drawn on top — so a
-   * left-aligned label sits in the visible left portion, while a centred one
-   * would slide under the neighbouring bar and clip. */
-  :is(section.gantt, figure.gantt) .gantt-bars {
-    flex: 0 0 auto;
-    height: 9.5cqi;
-  }
-
-  /* No label column in portrait — the today line spans the full bars width, so
-   * drop the 14cqi offset and place it directly at its percent. */
-  :is(section.gantt, figure.gantt) .gantt-today {
-    left: calc(var(--gantt-x) * 1%);
-  }
-  /* A milestone label can wrap in the tall box rather than clip. */
-  :is(section.gantt, figure.gantt) .gantt-milestone { white-space: normal; }
+/* The bar's leading accent edge. The HTML bar carried
+ * `border-left: var(--chart-fill-accent) solid var(--fill-ink)`; SVG has no
+ * per-side stroke, so the kernel emits a narrow rect at the bar's start and it
+ * takes the same semantic ink. Keeps the chart-family fill language intact —
+ * the kanban card and progress bar wear the same edge. */
+:is(section.gantt, figure.gantt) .gantt-bar-accent {
+  --fill-ink: var(--state-info-ink);
+  fill: var(--fill-ink);
 }
-
-
-
-
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="on-track"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="done"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="live"]     { --fill-ink: var(--state-pass-ink); }
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="at-risk"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="blocked"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="pilot"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="decision"] { --fill-ink: var(--state-info-ink); }
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="deferred"] { --fill-ink: var(--state-mute-ink); }

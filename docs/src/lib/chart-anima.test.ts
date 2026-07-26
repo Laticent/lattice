@@ -313,3 +313,139 @@ describe('chartToScene — motion styles', () => {
     expect(revealOf(out, 'bar-1')?.at).toBeGreaterThan(revealOf(out, 'bar-0')?.at ?? 0);
   });
 });
+
+// ── the role map must describe what the renderers ACTUALLY emit ──────────────
+// Born from a real defect: ROLE_BY_CLASS carried 'radar-area', a class no
+// renderer has ever emitted (the radar emits `.radar-poly`). The entry read as
+// "radar shapes animate" while the radar's shape silently never built. A map
+// key that matches nothing is dead code wearing the costume of a feature, so
+// the map is gated against the kernels' own source.
+describe('every emitted geometry mark declares its motion role', () => {
+  // The invariant that REPLACED the ROLE_BY_CLASS map (retired 2026-07-26).
+  //
+  // The map guessed a role from a mark's CSS class. It died twice over: an
+  // entry for a class nothing emits never matched (`radar-area` — the radar
+  // emits `radar-poly`, so its shape silently never animated), and an entry for
+  // a class that ALWAYS ships with its own `data-anima-role` can never be
+  // consulted, because roleForNode reads the attribute first. Absent and
+  // unreachable look identical from the outside: both read as support that
+  // isn't there.
+  //
+  // So the gate is now on the emitters, not the map: any mark a kernel makes
+  // addressable with `data-mark` must also say what it IS. That is checkable,
+  // forward-looking, and fails for a NEW chart that forgets — which is the case
+  // the old map was pretending to cover.
+  // Gated on the RENDERED OUTPUT, not on kernel source text.
+  //
+  // A source scan cannot see a mark that reaches the tag through a helper — the
+  // gantt bar, the gantt milestone and every state-chart node interpolate
+  // `${markAttrs(...)}`, so there is no literal `data-mark=` inside their
+  // opening tag and a text scan reported ZERO offenders even with their roles
+  // deleted. It was blind to precisely the two charts this branch SVG-ified.
+  // It also read a hand-maintained file list, so a new kernel was invisible.
+  //
+  // Rendering the galleries fixes both: it sees the attribute however it got
+  // there, and the deck list is derived from disk, so a new chart component is
+  // covered the day it ships one.
+  const GEOMETRY = ['rect', 'circle', 'polygon', 'path', 'polyline', 'line', 'ellipse'];
+
+  it('no rendered chart carries a geometry mark without a data-anima-role', async () => {
+    const { readFileSync, readdirSync, existsSync } = await import('node:fs');
+    const { resolve, join } = await import('node:path');
+    const root = resolve(__dirname, '../../..');
+    const chartDir = join(root, 'lib/components/chart');
+    const { createRequire } = await import('node:module');
+    const req = createRequire(join(root, 'package.json'));
+    const engine = req('./lib/engine');
+
+    const decks = readdirSync(chartDir)
+      .filter((d) => !d.startsWith('_') && !d.startsWith('.'))
+      .map((d) => join(chartDir, d, `${d}.gallery.md`))
+      .filter((f) => existsSync(f));
+    decks.push(join(chartDir, 'chart.gallery.md'));
+    expect(decks.length, 'the gallery sweep must actually find decks').toBeGreaterThan(8);
+
+    const offenders: string[] = [];
+    for (const deck of decks) {
+      const html = engine.render(readFileSync(deck, 'utf8'), 'indaco', { preview: true }).html;
+      for (const m of html.matchAll(/<([a-zA-Z][\w-]*)\b([^>]*)>/g)) {
+        const [, tag, attrs] = m;
+        if (!GEOMETRY.includes(tag)) continue;      // <text> takes label from its tag
+        if (!/\bdata-mark=/.test(attrs)) continue;
+        if (!/\bdata-anima-role=/.test(attrs)) {
+          offenders.push(`${deck.replace(root + '/', '')}: <${tag}> carries data-mark but declares no data-anima-role\n    <${tag}${attrs.slice(0, 110)}>`);
+        }
+      }
+    }
+    expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
+  it('the map it replaced is gone, not merely emptied', async () => {
+    // A map left in place as an empty object would invite the next person to
+    // re-add a dead entry to it.
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const src = readFileSync(resolve(__dirname, '../../..', 'docs/src/lib/chart-anima.ts'), 'utf8');
+    expect(src).not.toMatch(/const ROLE_BY_CLASS/);
+  });
+
+  it('an undeclared geometry mark still falls back to bar, and text to label', () => {
+    // Retiring the map must not change what an UNTAGGED node does — that tail
+    // is what keeps a chart animating at all if a kernel forgets.
+    const svg =
+      '<svg viewBox="0 0 100 100">' +
+      '<polygon data-mark="0" points="0,0 10,0 5,10"/>' +
+      '<text x="1" y="2">Label</text></svg>';
+    const out = chartToScene(svg);
+    expect(out?.roles.map((r) => r.role)).toEqual(['bar', 'label']);
+  });
+});
+
+// ── radar: the shape must build, and the popover's index map must survive ────
+// The radar was the mission's headline motion gap: its series polygons carried
+// no addressable attribute, so chartToScene saw ONLY the axis labels and the
+// chart animated its text while its shape sat still. The polygons now declare
+// `data-anima-role` WITHOUT a `data-mark` — deliberately, because the radar's
+// data-mark namespace belongs to the axis labels (chart-interact.js keys each
+// axis's detail template by that index), so a mark on a polygon would open the
+// wrong popover.
+const RADAR =
+  '<svg class="radar-svg" viewBox="0 0 300 300" role="img">' +
+  '<g class="radar-grid"><polygon class="radar-ring" data-ring="1" points="0,0 1,1"/></g>' +
+  '<g class="radar-axes">' +
+  '<text class="radar-axis-label" data-mark="0" x="10" y="10">Coverage</text>' +
+  '<text class="radar-axis-label" data-mark="1" x="20" y="20">Support</text>' +
+  '</g>' +
+  '<g class="radar-plot">' +
+  '<polygon class="radar-poly" data-anima-role="region" data-series="0" points="1,1 2,2 3,3"/>' +
+  '<polygon class="radar-poly" data-anima-role="region" data-series="1" points="4,4 5,5 6,6"/>' +
+  '</g></svg>';
+
+describe('radar motion', () => {
+  it('animates the series polygons as regions — the shape BUILDS, not just the labels', () => {
+    const out = chartToScene(RADAR);
+    expect(out).not.toBeNull();
+    const regions = out?.roles.filter((r) => r.role === 'region') ?? [];
+    expect(regions).toHaveLength(2);
+  });
+
+  it('still animates the axis labels, as labels', () => {
+    const out = chartToScene(RADAR);
+    const labels = out?.roles.filter((r) => r.role === 'label') ?? [];
+    expect(labels).toHaveLength(2);
+  });
+
+  it('leaves the polygons free of data-mark, so the popover index map is untouched', () => {
+    const out = chartToScene(RADAR);
+    // Every mark INDEX the scene knows about comes from an axis label (0, 1) —
+    // the polygons contribute geometry but claim no index.
+    const indices = (out?.roles ?? []).map((r) => r.mark).filter((m) => m != null).sort();
+    expect(indices).toEqual([0, 1]);
+    expect(out?.asset).not.toMatch(/radar-poly[^>]*data-mark/);
+  });
+
+  it('produces a scene that PASSES the anima validator', () => {
+    const out = chartToScene(RADAR);
+    expect(() => parseScene(out!.scene)).not.toThrow();
+  });
+});

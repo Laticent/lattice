@@ -97,8 +97,8 @@ describe('funnel kernel', () => {
       // funnel-band-N would collide across two funnels). 2026-07-19 §0.75.
       const html = buildFunnel(parseFunnel(ul([['A', '100'], ['B', '50'], ['C', '25']])));
       assert.equal((html.match(/class="funnel-band" data-mark="\d+" data-anima-role="bar"/g) || []).length, 3, 'each band roled "bar"');
-      assert.match(html, /class="funnel-label" data-anima-role="label"/, 'labels roled "label"');
-      assert.match(html, /class="funnel-conv" data-anima-role="label"/, 'conversion text roled "label"');
+      assert.match(html, /class="funnel-label"[^>]*data-anima-role="label"/, 'labels roled "label"');
+      assert.match(html, /class="funnel-conv"[^>]*data-anima-role="label"/, 'conversion text roled "label"');
       assert.doesNotMatch(html, /\bid="funnel-/, 'no non-unique funnel-* ids baked into the export');
     });
   });
@@ -131,9 +131,9 @@ describe('funnel kernel', () => {
 
     test('the nested detail sublist does not leak into a visible text node', () => {
       const html = buildFunnel(parseFunnel(withDetail));
-      assert.match(html, /<text class="funnel-label" [^>]*>Visitors</);
+      assert.match(html, /<text class="funnel-label"[^>]*>(?:<tspan[^>]*>)?Visitors</);
       // The detail rides the inert <template> only — never a painted SVG <text>.
-      assert.doesNotMatch(html, /<text[^>]*>Top of funnel</);
+      assert.doesNotMatch(html, /<t(?:ext|span)[^>]*>Top of funnel</);
     });
 
     test('emits a label and a value text node per stage', () => {
@@ -187,13 +187,13 @@ describe('funnel kernel', () => {
   describe('buildFunnel — conversion read', () => {
     test('prints a rounded stage-to-stage % in each gap (n − 1 of them)', () => {
       const html = buildFunnel(parseFunnel(ul([['A', '100'], ['B', '50'], ['C', '20']])));
-      const convs = [...html.matchAll(/funnel-conv[^>]*>(\d+)%/g)].map((x) => +x[1]);
+      const convs = [...html.matchAll(/funnel-conv[^>]*>(?:<tspan[^>]*>)?(\d+)%/g)].map((x) => +x[1]);
       assert.deepEqual(convs, [50, 40], 'B/A = 50%, C/B = 40%; no conv after the last stage');
     });
 
     test('rounds to the nearest integer percent', () => {
       const html = buildFunnel(parseFunnel(ul([['A', '12000'], ['B', '4800']])));
-      const convs = [...html.matchAll(/funnel-conv[^>]*>(\d+)%/g)].map((x) => +x[1]);
+      const convs = [...html.matchAll(/funnel-conv[^>]*>(?:<tspan[^>]*>)?(\d+)%/g)].map((x) => +x[1]);
       assert.deepEqual(convs, [40]);
     });
   });

@@ -439,11 +439,20 @@ describe('buildStateChart (default)', () => {
     assert.match(html, /data-kind="terminal"/);
   });
 
-  test('emits an empty SVG overlay for the browser pass to fill', () => {
-    assert.match(html, /<svg class="state-chart-edges"[^>]*><\/svg>/);
-    // No build-time geometry — the kernel must not bake paths/arrows.
+  test('emits a geometry-free SVG overlay for the browser pass to fill', () => {
+    // The overlay carries only its accessible content at build time — a title
+    // and an enumerated <desc>. It is NOT empty any more: once the layout pass
+    // paints the states into it and hides the measuring column, this <desc> is
+    // the only place a screen reader can meet the machine (visibility:hidden
+    // removes the <ol> from the accessibility tree).
+    assert.match(html, /<svg class="state-chart-edges"[^>]*>/);
+    assert.match(html, /<title>State chart<\/title>/);
+    assert.match(html, /<desc>States — 1\. Draft \(start\)/);
+    assert.match(html, /Transitions — on submit, Draft to Submitted/);
+    // Still no build-time GEOMETRY — the kernel must not bake paths/arrows.
     assert.doesNotMatch(html, /class="state-edge"/);
     assert.doesNotMatch(html, /class="state-edge-arrow"/);
+    assert.doesNotMatch(html, /class="state-node-shape"/);
   });
 
   test('status folds into the top-right index badge (no pill, no inline dot)', () => {
@@ -597,7 +606,11 @@ describe('browser layout (fake DOM)', () => {
     const nodeEls = spec.nodes.map((nd) => fakeNodeEl(nd, rects[nd.index]));
     const svg = {
       _attrs: {},
-      innerHTML: '',
+      // The REAL <svg> is not empty when the layout pass runs — the build step
+      // emits <title> and <desc> into it, and the pass replaces innerHTML. A
+      // stub that starts empty cannot model children being destroyed, which is
+      // exactly how a wiped accessible name shipped with all 68 tests green.
+      innerHTML: '<title>State chart</title><desc>States — 1. Draft (start).</desc>',
       setAttribute(k, v) { this._attrs[k] = v; },
     };
     const ol = { style: {} };
@@ -859,6 +872,36 @@ describe('browser layout (fake DOM)', () => {
       const skips = extractPaths(svg).filter((p) => !p.isSelf && /C/.test(p.d));
       assert.ok(skips.length > 0, 'has a skip edge');
       assert.ok(skips.every((p) => !/L/.test(p.d)), 'curved skips are pure cubics, no L run');
+    });
+  });
+
+  // The pass that paints the states also HIDES the <ol> they used to be readable
+  // from, so the <svg role="img">'s own <title>/<desc> is the whole of the
+  // accessible content from that moment on. A bare `innerHTML =` destroyed both,
+  // and the build-time test asserting they exist in the emitted STRING passed
+  // anyway — the string is not what the reader gets.
+  describe('accessible name + description survive the paint', () => {
+    const SPEC = {
+      dir: 'tb',
+      nodes: [node(1, 'A', 'start'), node(2, 'B'), node(3, 'C')],
+      transitions: [tr(1, 2, 'go'), tr(2, 3, 'go')],
+    };
+
+    // `runLayout` hands back the svg's innerHTML AFTER the pass — the string a
+    // reader's AT would walk.
+    test('<title> and <desc> are still there after draw()', () => {
+      const { svg } = runLayout(SPEC);
+      assert.match(svg, /<title>State chart<\/title>/,
+        'the accessible NAME was wiped by the paint');
+      assert.match(svg, /<desc>[\s\S]*Draft[\s\S]*<\/desc>/,
+        'the accessible DESCRIPTION was wiped by the paint');
+    });
+
+    test('they come FIRST, and the geometry still painted', () => {
+      const { svg } = runLayout(SPEC);
+      assert.ok(svg.indexOf('<title>') < svg.indexOf('<path'),
+        'title/desc must precede the geometry, as they do at build time');
+      assert.ok(/state-node-shape/.test(svg), 'the states are painted');
     });
   });
 });

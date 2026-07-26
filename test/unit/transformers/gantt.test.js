@@ -22,14 +22,47 @@ const assert = require('node:assert/strict');
 const engine = require('../../../lib/components/chart/_chart-family/chart-family');
 const core = require('../../../lib/authoring/lint-core');
 
-const { buildGanttChart, extractFirstList } = engine;
+const { buildGanttChart, extractFirstList, GANTT_GEOM } = engine;
 const inner = (ul) => extractFirstList(ul).inner;
 
-// Pull the numeric --gantt-x / --gantt-w off a matched element's style attr.
-const xOf = (html, re) => {
+// The gantt is SVG-native (2026-07-26): marks are <rect>/<polygon> in viewBox
+// USER UNITS, not <div>s positioned by --gantt-x / --gantt-w percentages. The
+// axis math these tests lock down is unchanged, so the assertions are expressed
+// in the same percentages as before by mapping the emitted geometry back onto
+// the plot band. Reading the band from GANTT_GEOM (rather than hard-coding it)
+// keeps the tests honest if the geometry is ever retuned.
+const PLOT_X0 = GANTT_GEOM.laneW + GANTT_GEOM.gutter;
+const PLOT_W = GANTT_GEOM.vbW - GANTT_GEOM.padRight - PLOT_X0;
+// Bars carry a thin inter-bar gutter (±1.5u) so adjacent spans don't touch.
+const BAR_INSET = 1.5;
+const pctOfPlot = (x) => ((x - PLOT_X0) / PLOT_W) * 100;
+
+const attrNum = (html, re) => {
   const m = html.match(re);
   return m ? Number(m[1]) : null;
 };
+// A bar's start, as a percentage of the axis.
+const barX = (html) => {
+  const x = attrNum(html, /class="gantt-bar"[^>]*\sx="([-\d.]+)"/);
+  return x == null ? null : round3(pctOfPlot(x - BAR_INSET));
+};
+// A bar's span, as a percentage of the axis.
+const barW = (html) => {
+  const w = attrNum(html, /class="gantt-bar"[^>]*\swidth="([-\d.]+)"/);
+  return w == null ? null : round3(((w + BAR_INSET * 2) / PLOT_W) * 100);
+};
+// A milestone diamond's center, as a percentage of the axis. The polygon's
+// points are "cx,top cx+r,mid cx,bottom cx-r,mid" — the first x IS the center.
+const milestoneX = (html) => {
+  const m = html.match(/class="gantt-milestone"[^>]*points="([-\d.]+),/);
+  return m ? round3(pctOfPlot(Number(m[1]))) : null;
+};
+// The today rule's x, as a percentage of the axis.
+const todayX = (html) => {
+  const m = html.match(/class="gantt-today"[^>]*>\s*<line x1="([-\d.]+)"/);
+  return m ? round3(pctOfPlot(Number(m[1]))) : null;
+};
+const round3 = (n) => Math.round(n * 1000) / 1000;
 
 const GANTT_VOCAB = { names: new Set(['gantt', 'list']), modifiers: new Set() };
 const lintGantt = (deck) =>
@@ -43,8 +76,8 @@ describe('gantt renderer — continuous time scale', () => {
     </ul></li></ul>`;
     const out = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code></p>');
     // 4-quarter window → Q1..Q2 starts at 0 and spans 50%.
-    assert.equal(xOf(out, /gantt-bar"[^>]*--gantt-x:([\d.]+)/), 0);
-    assert.equal(xOf(out, /gantt-bar"[^>]*--gantt-w:([\d.]+)/), 50);
+    assert.equal(barX(out), 0);
+    assert.equal(barW(out), 50);
   });
 
   test('a single time point renders a milestone diamond, not a bar', () => {
@@ -55,7 +88,7 @@ describe('gantt renderer — continuous time scale', () => {
     assert.match(out, /gantt-milestone/);
     assert.doesNotMatch(out, /class="gantt-bar"/);
     // Q4 starts at 75% of a four-quarter axis.
-    assert.equal(xOf(out, /gantt-milestone[^>]*--gantt-x:([\d.]+)/), 75);
+    assert.equal(milestoneX(out), 75);
   });
 
   test('date mode places bars on a day-accurate scale + derives the axis', () => {
@@ -64,15 +97,15 @@ describe('gantt renderer — continuous time scale', () => {
     </ul></li></ul>`;
     const out = buildGanttChart(inner(ul), '');
     // Axis auto-derives to [Jan 1, Apr 1] → the only bar fills the whole width.
-    assert.equal(xOf(out, /gantt-bar"[^>]*--gantt-x:([\d.]+)/), 0);
-    assert.equal(xOf(out, /gantt-bar"[^>]*--gantt-w:([\d.]+)/), 100);
+    assert.equal(barX(out), 0);
+    assert.equal(barW(out), 100);
   });
 
   test('opt-in today line is emitted only when the eyebrow asks for it', () => {
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q4</code></li></ul></li></ul>`;
     const withToday = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code> <code>today Q3</code></p>');
     assert.match(withToday, /gantt-today/);
-    assert.equal(xOf(withToday, /gantt-today"[^>]*--gantt-x:([\d.]+)/), 50); // Q3 start of 4
+    assert.equal(todayX(withToday), 50); // Q3 start of 4
     const without = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code></p>');
     assert.doesNotMatch(without, /gantt-today/);
   });
@@ -80,8 +113,9 @@ describe('gantt renderer — continuous time scale', () => {
   test('status tints the bar + emits a legend chip', () => {
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q2</code> <code>at-risk</code></li></ul></li></ul>`;
     const out = buildGanttChart(inner(ul), '<p><code>2026 Q1 .. 2026 Q4</code></p>');
-    assert.match(out, /gantt-bar"[^>]*data-s="at-risk"/);
-    assert.match(out, /gantt-legend-item[^>]*data-s="at-risk"/);
+    assert.match(out, /class="gantt-bar"[^>]*data-s="at-risk"/);
+    // The key chip is an SVG swatch now, keyed by the same status.
+    assert.match(out, /gantt-legend-swatch"[^>]*data-s="at-risk"/);
   });
 
   // S1 regression — a solitary date milestone used to land at left:513175% (axis
@@ -89,7 +123,7 @@ describe('gantt renderer — continuous time scale', () => {
   test('regression(S1): a lone date milestone stays on-screen', () => {
     const ul = `<ul><li>L<ul><li>Launch <code>2026-07-15</code></li></ul></li></ul>`;
     const out = buildGanttChart(inner(ul), '');
-    const x = xOf(out, /gantt-milestone[^>]*--gantt-x:([\d.]+)/);
+    const x = milestoneX(out);
     assert.ok(x >= 0 && x <= 100, `milestone x=${x} should be within [0,100]`);
     assert.equal(x, 50); // padded window centres a solitary point
   });
@@ -100,9 +134,9 @@ describe('gantt renderer — continuous time scale', () => {
     const ul = `<ul><li>L<ul><li>A <code>Q1..Q4</code></li></ul></li></ul>`;
     // Window is only Q2..Q3, but the task spans Q1..Q4.
     const out = buildGanttChart(inner(ul), '<p><code>2026 Q2 .. 2026 Q3</code></p>');
-    const x = xOf(out, /gantt-bar"[^>]*--gantt-x:([\d.]+)/);
-    const w = xOf(out, /gantt-bar"[^>]*--gantt-w:([\d.]+)/);
-    assert.ok(x >= 0 && x + w <= 100.001, `x=${x} w=${w} should stay within frame`);
+    const x = barX(out);
+    const w = barW(out);
+    assert.ok(x >= -0.001 && x + w <= 100.001, `x=${x} w=${w} should stay within frame`);
   });
 
   // C1 regression — a label word with a valid 3-letter month prefix must NOT be
@@ -247,5 +281,57 @@ describe('gantt detail reveal — per-task HTML-mark path (#475)', () => {
     const d = deck('## P\n\n- Engineering\n  - API design `Q1..Q2` `done`\n    - Tracked in `PR #481`.');
     const f = lintGantt(d);
     assert.ok(!f.some((x) => x.rule === 'gantt-unknown-token'), `unexpected: ${JSON.stringify(f)}`);
+  });
+});
+
+// ── portrait geometry ────────────────────────────────────────────────────────
+// A baked viewBox cannot reflow, so the container query that used to rearrange
+// the gantt for a tall box is now a portrait GEOMETRY the kernel emits
+// (GANTT_GEOM_TALL). It shipped without coverage; these lock the properties the
+// reflow existed to provide, so it cannot silently regress to the landscape
+// arrangement in a portrait deck.
+describe('gantt — portrait geometry', () => {
+  const ul = `<ul><li>Platform<ul>
+    <li>Migration <code>Q1..Q2</code> <code>done</code></li>
+  </ul></li><li>Security<ul>
+    <li>Review <code>Q3..Q4</code> <code>at-risk</code></li>
+  </ul></li></ul>`;
+  const eyebrow = '<p><code>2026 Q1 .. 2026 Q4</code></p>';
+  const land = buildGanttChart(inner(ul), eyebrow);
+  const port = buildGanttChart(inner(ul), eyebrow, 'portrait');
+  const viewBox = (html) => (html.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
+
+  test('portrait emits a NARROWER viewBox than landscape', () => {
+    const [lw] = viewBox(land);
+    const [pw] = viewBox(port);
+    assert.ok(pw < lw, `portrait width ${pw} should be under landscape ${lw}`);
+  });
+
+  test('portrait is proportionally taller — it fills a tall box instead of letterboxing', () => {
+    const [lw, lh] = viewBox(land);
+    const [pw, ph] = viewBox(port);
+    assert.ok(ph / pw > lh / lw,
+      `portrait aspect ${(ph / pw).toFixed(3)} must exceed landscape ${(lh / lw).toFixed(3)}`);
+  });
+
+  test('portrait puts the lane name ABOVE its bars, on the full width', () => {
+    // The reflow's whole point: no left label column stealing room from the bars.
+    assert.match(port, /class="gantt-lane-label"[^>]*data-pos="above"/);
+    assert.doesNotMatch(land, /data-pos="above"/);
+  });
+
+  test('portrait bars span more of the width than landscape (no label column)', () => {
+    const barX = (html) => Number((html.match(/class="gantt-bar"[^>]*\sx="([-\d.]+)"/) || [])[1]);
+    const [lw] = viewBox(land);
+    const [pw] = viewBox(port);
+    // As a FRACTION of the chart width, the plot starts further left in portrait.
+    assert.ok(barX(port) / pw < barX(land) / lw);
+  });
+
+  test('both orientations still carry the same marks and roles', () => {
+    for (const html of [land, port]) {
+      assert.equal((html.match(/data-anima-role="bar"/g) || []).length, 2);
+      assert.equal((html.match(/data-mark="\d+"/g) || []).length, 2);
+    }
   });
 });

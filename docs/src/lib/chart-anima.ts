@@ -13,18 +13,27 @@
 import { validateColor } from './anima/schema';
 import type { Motion, SvgElement, SvgScene } from './anima/types';
 
-/** A chart mark's class → its Anima motion role. Unknown `[data-mark]` geometry defaults to
- *  `bar` (build in); `<text>` defaults to `label` (fade in after). Extend as chart types land. */
-const ROLE_BY_CLASS: Record<string, ChartRole> = {
-  'funnel-band': 'bar',
-  wedge: 'sector', // pie
-  'quadrant-dot': 'point',
-  'radar-area': 'bar',
-  'map-region': 'region',
-  'funnel-label': 'label',
-  'funnel-value': 'label',
-  'funnel-conv': 'label',
-};
+/* ROLE_BY_CLASS — RETIRED 2026-07-26.
+ *
+ * This map guessed a mark's motion role from its CSS class, for charts that
+ * predated the `data-anima-role` attribute. Every chart kernel now DECLARES its
+ * roles natively, so the map became unreachable in full: `roleForNode` reads the
+ * attribute first and only falls through to the class when it is absent, and
+ * there is no longer a mark that omits it.
+ *
+ * It is deleted rather than kept "just in case", because an unreachable branch
+ * is the same defect this change set out to remove. `'radar-area': 'bar'` was
+ * the original instance — a class no renderer has ever emitted, which read as
+ * "radar shapes animate" while the radar's shape silently never did. A first
+ * attempt at the fix added seven MORE entries, each for a class that always
+ * ships with its own declared role: absent and unreachable look identical from
+ * the outside, and both lie about what is supported.
+ *
+ * The invariant that replaces it is stronger and forward-looking, and is gated
+ * in `chart-anima.test.ts`: every geometry mark a kernel emits declares a
+ * `data-anima-role`. Unknown geometry still falls back to `bar` and a `<text>`
+ * node to `label`, which is what the roleForNode tail does. */
+
 
 export type ChartRole = 'bar' | 'sector' | 'point' | 'region' | 'label';
 
@@ -63,22 +72,30 @@ export interface ChartAnimaResult {
   roles: Array<{ id: string; role: ChartRole; mark: number | null }>;
 }
 
-/** The first class on a node that we know a role for (else null). */
+/** A node's motion role, or null. */
 function roleForNode(el: Element): ChartRole | null {
   // A per-node `data-anima-role` is AUTHORITATIVE — the renderer declares the role (the funnel emits
   // it natively; §0.75), so we honor it over the class map rather than guessing from the class name.
   // The class map is the fallback for charts that don't yet emit roles.
   const explicit = el.getAttribute('data-anima-role');
   if (explicit && isRole(explicit)) return explicit;
-  for (const cls of Array.from(el.classList)) {
-    if (cls in ROLE_BY_CLASS) return ROLE_BY_CLASS[cls];
-  }
   if (el.tagName.toLowerCase() === 'text') return 'label';
   return null;
 }
 
 function isRole(s: string): s is ChartRole {
   return s === 'bar' || s === 'sector' || s === 'point' || s === 'region' || s === 'label';
+}
+
+/** A node's `data-mark` as a usable index, or null. Only a clean integer counts: '' / non-numeric
+ *  → null (unindexed, never matched by `highlightMarks`), so `data-mark=""` isn't silently treated
+ *  as mark 0. Shared by the geometry and label passes so a LABEL that carries an index (the radar
+ *  tags its axis labels, which are its popover marks) keeps it — reporting `mark: null` there would
+ *  drop it from `roles` and make `highlightMarks` unable to emphasize an axis. */
+function markIndexOf(el: Element): number | null {
+  const raw = el.getAttribute('data-mark');
+  const parsed = raw != null && raw !== '' ? Number(raw) : Number.NaN;
+  return Number.isInteger(parsed) ? parsed : null;
 }
 
 /** Parse chart markup inertly (no script/subresource execution) and return its root <svg>, or
@@ -200,8 +217,25 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
 
   // Geometry marks (bars/sectors/…) build; text marks (labels/values) follow. Document order is
   // the build order, which for a top-to-bottom funnel reads correctly.
-  const markNodes = Array.from(svg.querySelectorAll('[data-mark]'));
-  const textNodes = Array.from(svg.querySelectorAll('text'));
+  //
+  // A node is an animation CANDIDATE if it carries a per-mark index (`data-mark` — the popover's
+  // handle, which most charts already emit) OR if the renderer DECLARED its motion role
+  // (`data-anima-role`). The second arm is what lets a mark animate WITHOUT owning a mark index:
+  // the radar's series polygons are the shape the chart builds, but the radar's `data-mark`
+  // namespace belongs to its AXIS LABELS — chart-interact.js keys each axis's detail template by
+  // that index — so tagging a polygon with `data-mark` would shift the popover's map and open the
+  // wrong detail. Declaring only the role animates the shape and leaves the popover untouched.
+  // (Before this, `[data-mark]` was the ONLY selector, so a radar animated its labels and never
+  // its shape, and `ROLE_BY_CLASS['radar-area']` was unreachable dead code.)
+  const candidates = Array.from(svg.querySelectorAll('[data-mark], [data-anima-role]'));
+  // Labels are choreographed AFTER the build whatever they're tagged with, so split them out here
+  // rather than letting a role-declaring <text> (the funnel labels carry data-anima-role="label")
+  // fall into the geometry stagger.
+  const markNodes = candidates.filter((el) => (roleForNode(el) ?? 'bar') !== 'label');
+  // Every label: a plain <text> (role by tag) plus any non-text node the renderer declared a label.
+  // One document-order query keeps them unique and ordered; the `processed` set below skips any
+  // already handled in the mark loop.
+  const textNodes = Array.from(svg.querySelectorAll('text, [data-anima-role="label"]'));
   // Bound the work at the schema's element cap BEFORE the per-node loops — parseScene's
   // MAX_ELEMENTS fires too late to protect the adapter from a pathological chart (red-team F1).
   if (markNodes.length + textNodes.length > 2000) return null;
@@ -253,11 +287,7 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
   const riseFrom: [number, number] | null = style === 'rise' ? [0, vbH * 0.2] : null;
   markNodes.forEach((node, i) => {
     const role = roleForNode(node) ?? 'bar';
-    const markAttr = node.getAttribute('data-mark');
-    // Only a clean integer is a usable mark index; '' / non-numeric → null (unindexed, never
-    // matched by highlightMarks), so `data-mark=""` isn't silently treated as mark 0.
-    const parsed = markAttr != null && markAttr !== '' ? Number(markAttr) : Number.NaN;
-    const mark = Number.isInteger(parsed) ? parsed : null;
+    const mark = markIndexOf(node);
     const id = uniqueId(role === 'label' ? `label-m${i}` : `${role}-${mark ?? i}`);
     node.setAttribute('id', id);
     processed.add(node);
@@ -288,8 +318,17 @@ export function chartToScene(markup: string, opts: ChartAnimaOptions = {}): Char
     if (processed.has(node)) return; // already handled in the mark loop (a <text> with data-mark)
     const id = uniqueId('label');
     node.setAttribute('id', id);
-    elements.push({ id, pathRef: id, motion: [{ verb: 'reveal', at: labelAt, span: 1 - labelAt }] });
-    roles.push({ id, role: 'label', mark: null });
+    // A label can carry a mark index of its own — the radar's axis labels ARE its popover marks —
+    // so report it rather than hard-coding null, which would hide those marks from `roles` and from
+    // `highlightMarks`. A label with no index reports null exactly as before.
+    const mark = markIndexOf(node);
+    const motion: Motion[] = [{ verb: 'reveal', at: labelAt, span: 1 - labelAt }];
+    if (mark != null && highlight.has(mark)) {
+      (node as unknown as SVGElement).style.stroke = highlightColor;
+      motion.push({ verb: 'highlight', at: buildSpan, span: 1 - buildSpan });
+    }
+    elements.push({ id, pathRef: id, motion });
+    roles.push({ id, role: 'label', mark });
   });
 
   if (elements.length === 0) return null;

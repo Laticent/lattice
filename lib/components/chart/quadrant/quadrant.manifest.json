@@ -133,8 +133,8 @@
     },
     "magic": {
       "label": "magic",
-      "summary": "Four named corners.",
-      "sample": "<!-- _class: quadrant magic -->\n\n`Completeness of vision 0–100 → Ability to execute 0–100`\n\n## magic draws the four named corners.\n\n- Challengers\n  - Productboard `30, 82`\n- Leaders\n  - Sprig + Log `85, 88`\n  - Chorus `72, 76`\n- Niche Players\n  - Notion build-out `25, 28`\n- Visionaries\n  - Spreadsheet `82, 34`\n"
+      "summary": "All four quadrants named.",
+      "sample": "<!-- _class: quadrant magic -->\n\n`Completeness of vision 0–100 → Ability to execute 0–100`\n\n## magic names all four quadrants.\n\n- Challengers\n  - Productboard `30, 82`\n- Leaders\n  - Sprig + Log `85, 88`\n  - Chorus `72, 76`\n- Niche Players\n  - Notion build-out `25, 28`\n- Visionaries\n  - Spreadsheet `82, 34`\n"
     },
     "minimal": {
       "label": "minimal",

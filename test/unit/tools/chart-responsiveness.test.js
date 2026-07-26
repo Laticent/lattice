@@ -63,6 +63,45 @@ describe('check-chart-responsiveness — findViolations', () => {
     assert.deepEqual(props('.radar-area { stroke-width: 2px; }'), []);
   });
 
+  // The SVG exemption has to stop at the <svg>'s OWN box: inside a viewBox px is
+  // a user unit, but `width`/`height` ON the element are page pixels that pin the
+  // diagram to a physical size. That was #1184 — a blanket `-svg` exemption let
+  // `.radar-svg--mini { width: 188px }` through, and the mini stopped tracking
+  // its container.
+  describe('the svg-BOX carve-out', () => {
+    const boxes = [
+      '.radar-svg--mini { width: 188px; height: 188px; }',
+      ':is(section.radar, figure.chart-frame) .radar-svg--mini { width: 188px; }',
+      '.quadrant-svg:not(.quadrant-svg--cohort) { width: 300px; }',
+      '.quadrant-svg[data-band="none"] { height: 200px; }',
+      // A comma or a space inside :is() belongs to the pseudo-class, not to the
+      // selector list / descendant chain — the last COMPOUND is what is styled.
+      ':is(.radar-svg, .piechart-svg) { width: 188px; }',
+      ':is(section.radar, figure.chart-frame) :is(.radar-svg, .x-svg) { height: 188px; }',
+      // Roots that predate the `-svg` naming convention. A root the pattern
+      // misses is exempted wholesale — the same hole, one name over.
+      '.state-chart-edges { width: 400px; }',
+      '.journey-curve { height: 120px; }',
+      '.journey-face { width: 40px; }',
+    ];
+    for (const css of boxes) {
+      test(`flags a fixed-px box on ${css.split('{')[0].trim()}`, () => {
+        assert.ok(findViolations(css).length > 0, 'a px SVG box must not be exempted');
+      });
+    }
+
+    test('still exempts everything INSIDE the viewBox', () => {
+      // A <text> inside the mini — px here is a user unit, not a page pixel.
+      assert.deepEqual(props('.radar-svg--mini .radar-axis-label { font-size: 11px; height: 12px; }'), []);
+      // And a non-box property on the svg element itself.
+      assert.deepEqual(props('.radar-svg { padding: 4px; }'), []);
+    });
+
+    test('does not flag a container-relative box', () => {
+      assert.deepEqual(props('.radar-svg--mini { width: 19.583cqi; height: 19.583cqi; }'), []);
+    });
+  });
+
   test('still flags an HTML rule whose body comment contains a brace', () => {
     // Regression: the body-comment `{` must not make the parser treat the rule
     // as a wrapper and skip it (the .gantt-bar bug).

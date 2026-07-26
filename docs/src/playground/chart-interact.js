@@ -73,7 +73,15 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // payload, or its <template data-mark> would be miscounted as a mark — the
   // kernels emit the payload as a sibling). See
   // engineering/decisions/2026-06-20-chart-detail-reveal-family.md.
-  const CHART_SVG_SEL = '.piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .state-chart-figure, .gantt-chart';
+  // Every entry is the chart's own <svg>, which is what the Anima host mounts as
+  // the live clone — so the same selector finds the static poster AND the animated
+  // copy. `.gantt-chart` used to appear here because the gantt was HTML; it is
+  // SVG-native now, so it is matched by `.gantt-svg` like every other chart.
+  // The state-chart lists BOTH its figure and its `.state-chart-edges` svg: the
+  // figure is the static root (and still holds the measuring column's marks),
+  // while the svg is what gets cloned onto the live stage, so listing only the
+  // figure would leave the popover unbound during motion.
+  const CHART_SVG_SEL = '.piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .state-chart-figure, .state-chart-edges, .gantt-svg';
   // The same list scoped to the Anima live stage — each selector must be prefixed individually (a bare
   // `.scene-live ${CHART_SVG_SEL}` would only scope the FIRST of the comma list). Prefers the clone
   // EXPLICITLY over inferring visibility from box size (see chartSvgIn).
@@ -173,9 +181,13 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
       // substrate marks self-describe (funnel/map/quadrant)
       label = el.dataset.label;
       value = el.dataset.value || '';
-    } else if (el && !el.querySelector?.('*') && el.textContent.trim()) {
-      // radar axis label IS the text node
-      label = el.textContent.trim();
+    } else if (el && isTextMark(el)) {
+      // radar axis label IS the text node — but its text may be split across
+      // <tspan> lines now that in-diagram labels wrap, so read it the same way
+      // `textOf` reads a wrapped legend row rather than testing for "no child
+      // elements" (which a wrapped label always fails, silently falling through
+      // to the pie branch and titling the popover with a SERIES name).
+      label = tspanText(el);
     } else {
       // pie — the wedge has no text, so read the SVG legend row by index
       label = textOf('.chart-key-label', i);
@@ -435,6 +447,25 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
     startPop(); // Floating UI owns the popover position from here
   }
 
+  // A mark whose own text IS its label (the radar's axis labels). True for a
+  // <text> node with no element children AND for one whose only children are
+  // the <tspan> lines a wrapped label emits.
+  function isTextMark(el) {
+    if (!el.textContent?.trim()) return false;
+    const kids = el.children ? [...el.children] : [];
+
+    return kids.every((k) => k.tagName?.toLowerCase() === 'tspan');
+  }
+
+  // The visible text of a node whose lines may be split across <tspan>s —
+  // joined with a space so a wrapped label doesn't read "Costpredictability".
+  function tspanText(el) {
+    const spans = el.querySelectorAll?.('tspan') || [];
+    return (spans.length
+      ? [...spans].map((s2) => s2.textContent.trim()).join(' ')
+      : el.textContent).trim();
+  }
+
   function textOf(sel, i) {
     if (!curSection) return '';
     const n = curSection.querySelectorAll(sel)[i];
@@ -535,12 +566,21 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
       w.classList?.toggle('chart-mark-active', active);
     });
     // 3D tilt: SVG sheets (pie/funnel/…) + the state-chart node+edge graph only.
-    // HTML grids (gantt/kanban) must NOT tilt — a rotateX would skew the time axis —
+    // The gantt must NOT tilt — a rotateX would skew the time axis. (It used to
+    // be excluded for being HTML; now that it is an <svg> it is excluded by name.) —
     // and the flat state-chart inline strip skips it (a rotateX on a flat row reads
     // as skew). The state-chart edge-router skips re-measuring while the transform
     // is live (state-chart.transform.js draw()), so its edges tilt rigidly + aligned.
-    const tiltable = typeof chartEl.getBBox === 'function'
-      || (chartEl.classList?.contains('state-chart-figure') && chartEl.getAttribute('data-variant') !== 'inline');
+    // The gantt is EXCLUDED by name, not by shape. This test used to read
+    // "is it an SVG?" via getBBox — which worked only because the gantt was
+    // HTML. It is a baked <svg> now, so that test silently started tilting it,
+    // against the invariant stated both here and in gantt.styles.css: a
+    // rotateX skews the TIME AXIS, which is the one thing a schedule cannot
+    // afford to distort. A chart opts out by class, so going SVG-native can
+    // never flip it back on.
+    const isGantt = chartEl.classList?.contains('gantt-svg');
+    const tiltable = !isGantt && (typeof chartEl.getBBox === 'function'
+      || (chartEl.classList?.contains('state-chart-figure') && chartEl.getAttribute('data-variant') !== 'inline'));
     if (useTilt && tiltable) {
       chartEl.style.transition = 'transform .3s cubic-bezier(.2,.7,.3,1)';
       chartEl.style.transformOrigin = '50% 55%';
@@ -571,9 +611,16 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
       const box = w.getBBox();
       const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
       // hub ≈ mean of all wedge centroids
+      // Only SVG siblings contribute to the hub. A chart's mark set can legitimately
+      // MIX HTML and SVG nodes — the state-chart addresses each state by both its
+      // measuring <li> and the <rect> painted over it — and calling getBBox() on the
+      // HTML one threw. The throw was swallowed by the catch below, so the lift
+      // silently did nothing at all rather than misbehaving visibly.
+      const boxed = wedges.filter((o) => typeof o.getBBox === 'function');
+      if (!boxed.length) return '';
       let mx = 0, my = 0;
-      wedges.forEach((o) => { const b = o.getBBox(); mx += b.x + b.width / 2; my += b.y + b.height / 2; });
-      mx /= wedges.length; my /= wedges.length;
+      boxed.forEach((o) => { const b = o.getBBox(); mx += b.x + b.width / 2; my += b.y + b.height / 2; });
+      mx /= boxed.length; my /= boxed.length;
       let dx = cx - mx, dy = cy - my; const len = Math.hypot(dx, dy) || 1;
       dx = (dx / len) * 7; dy = (dy / len) * 7;
       return `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`;
