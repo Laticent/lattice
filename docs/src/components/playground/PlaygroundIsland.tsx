@@ -1,4 +1,5 @@
 import { type ComponentProps, StrictMode } from 'react';
+import { ErrorBoundary } from '../ErrorBoundary.tsx';
 import PlaygroundApp from './PlaygroundApp.tsx';
 
 // Astro mounts this wrapper — not PlaygroundApp directly — so StrictMode is an
@@ -10,9 +11,13 @@ import PlaygroundApp from './PlaygroundApp.tsx';
 // lint rule catches. StrictMode renders nothing and is a no-op in production
 // builds, so shipping it on the island costs nothing at runtime.
 export default function PlaygroundIsland(props: ComponentProps<typeof PlaygroundApp>) {
+	// Island-level backstop: a throw anywhere in the app degrades to a recoverable card
+	// instead of unmounting the whole client:only island to a white screen.
 	return (
 		<StrictMode>
-			<PlaygroundApp {...props} />
+			<ErrorBoundary label="The Playground">
+				<PlaygroundApp {...props} />
+			</ErrorBoundary>
 		</StrictMode>
 	);
 }

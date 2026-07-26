@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
-import { ANIMA_HOST_SEL, SCENE_SEL } from './anima-host-sel';
+import { describe, expect, it, vi } from 'vitest';
+import { ANIMA_HOST_SEL, PREHIDE_CLASS, SCENE_SEL } from './anima-host-sel';
 import { createAnimaScenes } from './anima-scenes';
 
 /** A fake frame whose contentDocument is a supplied jsdom document. */
@@ -147,6 +147,41 @@ describe('createAnimaScenes — chart-anima wiring', () => {
     scenes.rebind();
     expect(doc.querySelector('.scene-live')).toBeNull(); // not animated
     scenes.destroy();
+  });
+
+  // #1187: a chart whose spec validates but throws during compile/mount previously escaped
+  // rebind() uncaught — with no error boundary anywhere in the docs-site (a separate fix), that
+  // throw unmounted the WHOLE Studio island (React effect cleanups run through the same commit
+  // phase). `hydrateScenes` (hydrate.ts) already guards its own per-section loop for exactly this
+  // reason; this on-ramp calls the same per-section hydrate functions directly and needed the
+  // identical guard. Mirrors the sibling "opted out" test above: a throw degrades to the SAME
+  // outcome as a decline (pre-hide cleared, static poster shown), not a dead/hidden figure.
+  it('a THROWING hydrate degrades to the static poster — rebind never propagates', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // `./anima-scenes` is already imported (and its dependency graph resolved) statically at the
+    // top of this file, so mocking @/lib/chart-anima-hydrate now only takes effect on a FRESH
+    // module graph — reset first, mock, THEN dynamically re-import both.
+    vi.resetModules();
+    vi.doMock('@/lib/chart-anima-hydrate', () => ({
+      hydrateChart: () => {
+        throw new Error('backend mount failed');
+      },
+    }));
+    try {
+      const { createAnimaScenes: createAnimaScenesFresh } = await import('./anima-scenes');
+      const doc = chartAnimaDoc();
+      const scenes = createAnimaScenesFresh({ getFrame: () => frameOf(doc) });
+      expect(() => scenes.rebind()).not.toThrow();
+      expect(doc.querySelector('.scene-live')).toBeNull(); // never mounted
+      expect(doc.querySelector(`.${PREHIDE_CLASS}`)).toBeNull(); // pre-hide cleared — poster visible
+      expect(doc.querySelector('section.chart-anima')?.getAttribute('data-scene-live')).toBeNull();
+      expect(() => scenes.destroy()).not.toThrow();
+      expect(spy).toHaveBeenCalled(); // the failure is logged, not swallowed silently
+    } finally {
+      vi.doUnmock('@/lib/chart-anima-hydrate');
+      vi.resetModules();
+      spy.mockRestore();
+    }
   });
 });
 

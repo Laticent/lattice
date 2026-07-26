@@ -157,6 +157,46 @@ in patch versions.
   `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
 ### Fixed
 
+- **Three docs-site preview bugs, all traced to the same underlying gap — no React error boundary
+  existed anywhere in the docs-site — plus two independent CSS sizing regressions (#1187).**
+  - **A crash on a specific slide could blank the ENTIRE Studio/Playground app.** `client:only`
+    islands were wrapped only in `StrictMode` (a no-op in production, not an error boundary), so any
+    render/effect throw in the live preview — concretely, an anima chart hydrate/teardown call that
+    could throw uncaught — unwound the whole island to a white screen. Added a real `ErrorBoundary`
+    (`docs/src/components/ErrorBoundary.tsx`) at the island root (`StudioIsland.tsx`,
+    `PlaygroundIsland.tsx`) AND a tighter one scoped to just the live preview
+    (`StudioShell.tsx`, keyed on deck/slide so a per-slide fault self-clears on navigation) — a
+    preview fault now shows a recoverable card with the editor/toolbar still usable, instead of
+    blanking the app. Hardened the throw's actual source too: `anima-scenes.ts`'s `mount()` now
+    guards its `hydrate()` call and `disposeAll()`/dispose-in-diff now catch per-controller (mirroring
+    the sibling `hydrateScenes` guard), and `DeckPreview.tsx`'s unmount effect wraps its anima/engine
+    teardown so one fault can't skip the other's cleanup.
+  - **The Studio's live editor preview could go permanently blank on an iPad/iOS Safari (the "tablet
+    preview is broken" report).** The preview box sized its width from `100cqh` against a
+    `container-type:size` holder — a construct a prior decision doc
+    (`engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md`) had already diagnosed as
+    the keystone root cause: `100cqh` can resolve to 0 against a flex-derived container height,
+    collapsing the box to 0-width — and the shared render kernel gates its reveal on a real pixel
+    width, so a 0-width box left the preview stuck on its loader forever. Replaced it with the same
+    JS-measured technique `PresentOverlay` already ships (a `ResizeObserver` reading the holder's real
+    `clientWidth`/`clientHeight`, computing `min(paneW, paneH × ratio, cap)` in JS) — empirically
+    re-verified here that a pure-CSS `aspect-ratio` + `max-width/max-height:100%` letterbox (the doc's
+    original sketch) ALSO collapses in Chromium, so the JS measurement is load-bearing, not
+    incidental. A transient 0-dimension read is ignored, so the box can't collapse mid-layout.
+    (`StudioShell.tsx`.)
+  - **The Playground's mobile preview rendered a short 16:9 card at the top of the screen with a large
+    empty gap below it, instead of filling the available height.** Two compounding CSS bugs in
+    `docs/src/styles/playground.css`: (1) the Explore-view `aspect-ratio: 16/9` lock on `#preview` (meant
+    only for the desktop/tablet letterbox) was never scoped to a media query, so it also constrained the
+    iframe's height on phones; (2) the mobile single-pane rule intended to stretch each pane to full
+    height (`.pg-split > .pg-pane { height: 100% }`) targeted the wrong element — react-resizable-panels
+    wraps each `Panel` in an OUTER sizing div (carrying the `id`) around the INNER div that actually
+    holds `.pg-pane`, so the child-combinator selector silently matched nothing (the same shape a
+    sibling Explore rule already worked around by targeting the outer div by id). Fixed both: scoped the
+    aspect-lock to `@media not (max-width: 820px)`, and re-targeted the mobile height rule at the outer
+    `#pg-split-editor`/`#pg-split-preview` divs by id (with the INACTIVE pane's outer div now also
+    hidden via `display:none`, not just its inner content — both outer divs being simultaneously
+    height:100% previously buried the active pane under the empty other).
 - **The contrast audit now covers text on the `--accent-soft` panel — and two themes that failed it are
   fixed.** The theme-wide gate (`tools/contrast-audit.js`, gated by `theme-surface-aa.test.js`) checked
   only `--text-heading` on `--accent-soft`, but real components render two more inks on that panel: body

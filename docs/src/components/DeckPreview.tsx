@@ -501,8 +501,23 @@ export function DeckPreview({
 		() => () => {
 			schedulerRef.current?.cancel();
 			if (animaBackstopRef.current) clearTimeout(animaBackstopRef.current);
-			animaRef.current?.destroy();
-			engineRef.current?.dispose();
+			// #1187: an uncaught throw here (a React effect CLEANUP, part of the commit phase) is
+			// what let a bad anima teardown reach all the way to React's root and blank the whole
+			// island — the docs-site had no error boundary anywhere to catch it. An ancestor
+			// ErrorBoundary now contains that, but this host doesn't own whether its caller wraps
+			// it in one, and an uncaught throw here would also skip the REST of this cleanup
+			// (engineRef's dispose below never runs). Guard both independently so one fault can't
+			// take out the other's teardown or rely on an ancestor that may not be present.
+			try {
+				animaRef.current?.destroy();
+			} catch (err) {
+				console.error('[DeckPreview] anima teardown failed', err);
+			}
+			try {
+				engineRef.current?.dispose();
+			} catch (err) {
+				console.error('[DeckPreview] renderer teardown failed', err);
+			}
 		},
 		[],
 	);

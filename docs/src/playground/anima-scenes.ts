@@ -77,7 +77,17 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
   }
 
   function disposeAll(): void {
-    for (const { ctrl } of live.values()) ctrl.dispose();
+    // #1187: dispose() runs from a React effect cleanup (DeckPreview's unmount / active-falling-
+    // edge teardown) with NO error boundary above it there — a throwing backend dispose (Zdog/
+    // Vivus teardown) would escape the effect and unmount the WHOLE island, not just this preview.
+    // One bad controller must not stop the rest from disposing either.
+    for (const { ctrl } of live.values()) {
+      try {
+        ctrl.dispose();
+      } catch {
+        /* one bad controller's teardown must not block the rest, or escape into the caller */
+      }
+    }
     live.clear();
   }
 
@@ -121,7 +131,11 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     // Phase 1 — dispose live entries whose node left the DOM or is no longer eligible.
     for (const [section, entry] of Array.from(live)) {
       if (!doc.contains(section) || !isEligible(section)) {
-        entry.ctrl.dispose();
+        try {
+          entry.ctrl.dispose();
+        } catch {
+          /* #1187: one bad controller's teardown must not stop the rest of the diff */
+        }
         live.delete(section);
       }
     }
@@ -131,15 +145,30 @@ export function createAnimaScenes({ getFrame, getDeckMotion }: AnimaScenesOption
     // SETTLED (no replay on a keystroke); a first-seen signature plays once and is recorded. `eager`
     // mounts immediately rather than via a parent-context IntersectionObserver (unreliable across the
     // transform-scaled child iframe). SCENES scan FIRST so a baked spec wins over the chart on-ramp.
+    //
+    // The `hydrate(...)` call is TRY/CAUGHT (#1187) — a scene/chart whose spec validates but throws
+    // in compile or `renderer.mount` must not stop rebind() for the rest of the deck, and must not
+    // escape into the caller. `hydrateScenes` (hydrate.ts) already guards its own per-section loop
+    // for exactly this reason ("a spec that validates but throws in compile/mount must not stop the
+    // rest of the deck's scenes from hydrating"); this on-ramp calls the SAME per-section hydrate
+    // functions directly and needs the identical guard. On a throw the figure is treated exactly
+    // like a decline — its pre-hide is cleared so the static poster shows instead of staying hidden
+    // forever, and one bad chart never blanks the whole preview (previously: an escaping throw here
+    // could unmount the whole Studio island — the app had no error boundary).
     const mount = (section: Element, sig: string, hydrate: (settled: boolean) => { dispose(): void } | null): void => {
-      const ctrl = hydrate(played.has(sig));
+      let ctrl: { dispose(): void } | null = null;
+      try {
+        ctrl = hydrate(played.has(sig));
+      } catch (err) {
+        console.error('[anima] hydrate failed — falling back to the static poster', err);
+      }
       if (ctrl) {
         live.set(section, { ctrl, sig });
         played.add(sig);
       } else {
-        // The host DECLINED to mount (author `still` tier, or no backend negotiated) — hydrate.ts never
-        // runs its reveal, so clear any preview pre-hide (on the chart figure inside) synchronously here,
-        // or the figure stays hidden.
+        // The host DECLINED to mount (author `still` tier, no backend negotiated, or a throw above) —
+        // hydrate.ts never runs its reveal, so clear any preview pre-hide (on the chart figure inside)
+        // synchronously here, or the figure stays hidden.
         for (const el of Array.from(section.querySelectorAll(`.${PREHIDE_CLASS}`))) el.classList.remove(PREHIDE_CLASS);
       }
     };
