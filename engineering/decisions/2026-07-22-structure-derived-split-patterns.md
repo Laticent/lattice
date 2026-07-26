@@ -658,6 +658,18 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   and asserts the actual computed `font-size`/`text-align` — not the generated HTML string
   (`split-envelope.test.js` already covers that) and not a claim from reading the CSS.
 
+  **PR review (#1191) caught one more, in the AUTHORING copy rather than the render.**
+  `capacity-autosplit`'s advisory `fix:` text asserted "the split leads with a cover" for
+  every enrolled slide — but the cover needs an `<h2>` masthead to carry, and a title-less
+  slide makes `splitEnvelope` return null and fall back to the bare partition (its own unit
+  test pins that behavior). So the guidance promised a page the run would not get. The text
+  is now conditional on the same `/^##\s/m` headline probe Rule 5 already uses, and the
+  title-less branch says what actually happens AND what to do about it ("no `## ` headline,
+  so the run gets no cover page to open on — add one"), turning the inaccuracy into the more
+  useful signal. A lint message describing a kernel behavior is a claim like any other; it
+  needs the same fidelity as the render (verified both branches by test, and by confirming
+  the reverted text fails the new title-less assertion).
+
   **Scope note.** The envelope applies to whatever the opt-in gate already enrolls — the
   15 plain-axis components (`actors`, `agenda`, `cards-grid`, `cards-stack`, `checklist`,
   `cycle`, `inventory`, `kpi`, `list`, `list-steps`, `matrix-2x2`, `policy-recommendation`,

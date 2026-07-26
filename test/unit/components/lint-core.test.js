@@ -100,6 +100,28 @@ describe('lint-core: capacity-overflow ↔ autosplit', () => {
     assert.ok(out.find((x) => x.rule === 'capacity-overflow'), 'overflow is real in landscape');
     assert.ok(out.find((x) => x.rule === 'autosplit-landscape-noop'), 'and the no-op flag is warned');
   });
+
+  // The advisory `capacity-autosplit` fix text describes what the split will DO, so it
+  // must not promise a cover the run won't get: `splitEnvelope` needs an `<h2>` masthead
+  // to build one, and returns null without it (→ the bare partition). Caught in review
+  // on #1191 — the text asserted a cover unconditionally.
+  test('capacity-autosplit promises a cover only when the slide HAS a `## ` headline', () => {
+    const f = core
+      .lintTextWith(overflowDeck('autosplit: on\nsize: portrait\n'), capVocab)
+      .find((x) => x.rule === 'capacity-autosplit');
+    assert.ok(f, 'expected a capacity-autosplit finding');
+    assert.match(f.fix, /leads with a cover/);
+  });
+
+  test('capacity-autosplit says NO cover on a title-less slide, and to add a headline', () => {
+    const titleless =
+      '---\nmarp: true\ntheme: indaco\nautosplit: on\nsize: portrait\n---\n\n<!-- _class: checklist -->\n\n' +
+      `${Array.from({ length: 14 }, (_, i) => `- [ ] item ${i + 1}`).join('\n')}\n`;
+    const f = core.lintTextWith(titleless, capVocab).find((x) => x.rule === 'capacity-autosplit');
+    assert.ok(f, 'expected a capacity-autosplit finding on the title-less slide too');
+    assert.doesNotMatch(f.fix, /leads with a cover/, 'must not promise a cover it will not get');
+    assert.match(f.fix, /no `## ` headline/);
+  });
 });
 
 describe('lint-core: lintTextWith rules', () => {
