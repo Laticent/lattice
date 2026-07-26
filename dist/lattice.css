@@ -3276,7 +3276,11 @@ section.compare-table.lat-split-cards .ct-card { border:1px solid var(--border);
 section.compare-table.lat-split-cards .ct-card-title { font-size:var(--fs-emphasis); font-weight:600; color:var(--text-heading); padding-bottom:var(--sp-xs); background:var(--spectrum-structure) bottom / 100% 2px no-repeat; }
 section.compare-table.lat-split-cards .ct-card-fields { display:grid; grid-template-columns:max-content 1fr; gap:0.4em var(--sp-md); margin:0; }
 section.compare-table.lat-split-cards .ct-field { display:contents; }
-section.compare-table.lat-split-cards .ct-field dt { font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); }
+/* The transposed COLUMN HEADER becomes this row's label (first column). It stays a label —
+   label font, uppercase, tracked, mirroring the native thead — but one rung up from the
+   table's --fs-meta, so it is legible beside a --fs-body value instead of 1.6x smaller.
+   Still clearly subordinate to the value it labels (37px vs 43.5px at portrait). */
+section.compare-table.lat-split-cards .ct-field dt { font-family:var(--font-label); font-size:var(--fs-body-compact); font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); }
 /* The value reads at CARD body size, not the native table's dense-cell size. `--fs-body-compact`
    is documented for "dense reference cells — packs many cells in a fixed box" (engineering/
    typography.md), which is exactly right for `section.compare-table td` and exactly WRONG here:
