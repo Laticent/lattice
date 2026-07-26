@@ -6,6 +6,8 @@
 
 **Tags** `two-by-two` · `prioritize` · `strategy` · `risk`
 
+Use for categorical 2×2 reasoning when the items are fixed and you control which cell each lands in. For data-plotted scatter on continuous axes, use quadrant instead.
+
 ## Agent contract
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short label per quadrant cell.
@@ -21,15 +23,10 @@
 
 - **Quadrant title names only one axis, e.g. `- **Priorities.**` instead of both poles.** Lead each quadrant with both axis poles: `- **High impact · Low effort.**`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes.
 - **The four outer list items authored in an arbitrary order.** Declaration order IS grid position: 1st item → top-left, 2nd → top-right, 3rd → bottom-left, 4th → bottom-right (a flex-wrap layout, not a labeled grid). Reordering the source list visibly reorders the quadrants.
-- **Whichever item was drafted last ends up 4th, unintentionally taking the accent styling.** The 4th (bottom-right) list item automatically receives the accent ring as the conventional "outcome"/high-priority cell (matrix-2x2.styles.css `:nth-child(4)`). Place the quadrant you want emphasized there, not whatever came last.
 
 ### Data shape
 
-- Exactly four outer list items, one per quadrant — matrix-2x2 always renders a fixed 2×2, never 3 or 5 cells.
-- Each cell holds 1-4 inner items; past that the cell crowds (see `antiPatterns`).
-- An empty quadrant still needs a title and at least a placeholder item — a missing card breaks the 2×2 symmetry.
-
-Use for categorical 2×2 reasoning when the items are fixed and you control which cell each lands in. For data-plotted scatter on continuous axes, use quadrant instead.
+- Author exactly four outer list items, one per quadrant. The layout assumes a fixed 2×2 and does not clamp, reflow, or warn on a different count — a 3rd or 5th item is an authoring bug the engine won't catch; it just wraps into a broken grid.
 
 ## When to use
 

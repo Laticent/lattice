@@ -320,6 +320,62 @@ describe('component-manifest', () => {
       assert.match(errors[0], /editorial\.md §Specimen voice/);
     });
 
+    test('commonMistakes: accepts a well-formed array, rejects malformed entries', () => {
+      assert.deepEqual(
+        validate({ ...GOOD, commonMistakes: [{ mistake: 'm', fix: 'f' }] }),
+        []
+      );
+      assert.match(validate({ ...GOOD, commonMistakes: 'nope' })[0], /commonMistakes must be an array/);
+      assert.match(validate({ ...GOOD, commonMistakes: [null] })[0], /commonMistakes\[0\] must be an object/);
+      assert.match(
+        validate({ ...GOOD, commonMistakes: [{ fix: 'f' }] })[0],
+        /commonMistakes\[0\]\.mistake must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, commonMistakes: [{ mistake: 'm', fix: '' }] })[0],
+        /commonMistakes\[0\]\.fix must be a non-empty string/
+      );
+    });
+
+    test('variantDecisionRule: accepts "default" and declared variants, rejects an undeclared one', () => {
+      assert.deepEqual(
+        validate({ ...GOOD, variantDecisionRule: [{ variant: 'default', useWhen: 'w' }] }),
+        []
+      );
+      assert.deepEqual(
+        validate({
+          ...GOOD,
+          variants: ['mirror'],
+          variantDocs: docsFor('mirror'),
+          variantDecisionRule: [{ variant: 'mirror', useWhen: 'w' }],
+        }),
+        []
+      );
+      const errors = validate({ ...GOOD, variantDecisionRule: [{ variant: 'mirror', useWhen: 'w' }] });
+      assert.match(errors[0], /variantDecisionRule\[0\]\.variant "mirror" is not "default" or in variants\[\]/);
+      assert.match(
+        validate({ ...GOOD, variantDecisionRule: [{ useWhen: 'w' }] })[0],
+        /variantDecisionRule\[0\]\.variant must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, variantDecisionRule: [{ variant: 'default' }] })[0],
+        /variantDecisionRule\[0\]\.useWhen must be a non-empty string/
+      );
+    });
+
+    test('dataShapeGuidance: accepts an array of non-empty strings, rejects other shapes', () => {
+      assert.deepEqual(validate({ ...GOOD, dataShapeGuidance: ['rule one'] }), []);
+      assert.match(validate({ ...GOOD, dataShapeGuidance: 'nope' })[0], /dataShapeGuidance must be an array/);
+      assert.match(
+        validate({ ...GOOD, dataShapeGuidance: [''] })[0],
+        /dataShapeGuidance\[0\] must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, dataShapeGuidance: [{ not: 'a string' }] })[0],
+        /dataShapeGuidance\[0\] must be a non-empty string/
+      );
+    });
+
     test('accepts well-formed excludes array', () => {
       assert.deepEqual(validate({ ...GOOD, excludes: ['compact', 'accent'] }), []);
     });

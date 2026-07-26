@@ -6,6 +6,8 @@
 
 **Tags** `scorecard` · `ranking` · `prioritize` · `assessment`
 
+Use to evaluate 2–4 options against the same set of criteria, with pass/partial/fail badges. Each card represents one option; badges per criterion.
+
 ## Agent contract
 
 **Capacity** ~3 items (crowds past 4, overflows past 5) — past that, compare-table / split across slides.
@@ -19,8 +21,6 @@
 | `title` | `h2` | yes | Slide heading naming the choice. |
 | `options` | `ul > li` | yes | One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[ ]/[/]) followed by a badge label of AT MOST TWO WORDS. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
 | `rationale` | `ul > li > ul > li:last-child` | yes | REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the badges. |
-
-Use to evaluate 2–4 options against the same set of criteria, with pass/partial/fail badges. Each card represents one option; badges per criterion.
 
 ## When to use
 

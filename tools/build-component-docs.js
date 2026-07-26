@@ -97,14 +97,16 @@ function tableCell(s) {
  * Sections, in order:
  *   1. Heading + one-line description
  *   2. Function/Form/Substance triplet table
- *   3. Agent contract: capacity/density budgets, slots (from slots{}),
+ *   3. Purpose paragraph (from purpose) — kept as plain top-matter, same as
+ *      before this contract split, so it never dangles unheaded under the
+ *      LAST subsection of the block that follows.
+ *   4. Agent contract: capacity/density budgets, slots (from slots{}),
  *      variant decision rule (from variantDecisionRule[]), common mistakes
  *      (from commonMistakes[]), data shape guidance (from
  *      dataShapeGuidance[]) — the machine-actionable block, front-loaded so
  *      an agent authoring a slide of this component doesn't have to wade
  *      through narrative prose to find it. Whole section omitted when the
  *      manifest carries none of its inputs.
- *   4. Purpose paragraph (from purpose)
  *   5. When to use (from whenToUse[])
  *   6. When NOT to use (from antiPatterns[])
  *   7. Authoring skeleton (from skeleton)
@@ -294,8 +296,8 @@ function emitDocsPointers(m, lines) {
 function renderDocs(m) {
   const lines = [];
   emitDocsHeader(m, lines);
-  emitAgentContract(m, lines);
   emitDocsPurpose(m, lines);
+  emitAgentContract(m, lines);
   emitDocsGuidance(m, lines);
   emitDocsAuthoring(m, lines);
   emitDocsVariants(m, lines);

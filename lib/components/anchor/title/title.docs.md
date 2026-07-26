@@ -6,6 +6,8 @@
 
 **Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
 
+First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token).
+
 ## Agent contract
 
 ### Slots
@@ -18,11 +20,9 @@
 
 ### Common mistakes
 
-- **Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.** Wrap the eyebrow paragraph in backticks. The slot selector is `p > code`; plain or bold text doesn't map to the eyebrow slot at all — it just renders as an unstyled stray paragraph.
-- **Eyebrow or subtitle authored before the `# heading` line.** Keep the source order heading → eyebrow → subtitle. Flex `order` repositions the eyebrow visually above the h1, but slot resolution reads structural position, not visual position.
+- **Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.** Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the uppercase mono eyebrow lifted above the h1.
+- **Something other than the eyebrow paragraph sits directly after the `# heading` — e.g. the subtitle comes first, or a blank comment intervenes.** The eyebrow match is an immediate-next-sibling selector (`h1 + p:has(> code:only-child)`). Keep the source order heading → eyebrow → subtitle; anything between the h1 and the inline-code paragraph disqualifies it from the eyebrow style.
 - **Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.** Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis.
-
-First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token).
 
 ## When to use
 

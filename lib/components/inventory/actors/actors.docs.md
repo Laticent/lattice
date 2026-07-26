@@ -6,6 +6,8 @@
 
 **Tags** `ownership` · `onboarding` · `reference`
 
+Use to show 'who owns what' across a process, scoring policy, or org chart. Two-column layout: actor on left, responsibilities on right.
+
 ## Agent contract
 
 **Capacity** ~4 items (crowds past 6, overflows past 7) — past that, list-tabular / split across slides.
@@ -18,8 +20,6 @@
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading. |
 | `rows` | `ul > li` | yes | One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing inline-code actor name (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body. |
-
-Use to show 'who owns what' across a process, scoring policy, or org chart. Two-column layout: actor on left, responsibilities on right.
 
 ## When to use
 

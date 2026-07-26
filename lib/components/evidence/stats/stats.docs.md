@@ -6,6 +6,8 @@
 
 **Tags** `dashboard` · `metric` · `percentage`
 
+Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile reads as Big Number + caption.
+
 ## Agent contract
 
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, kpi / split across slides.
@@ -19,8 +21,6 @@
 | `title` | `h2` | yes | Slide heading framing the metrics. |
 | `subtitle` | `p > code` | no | Optional inline-code paragraph (eyebrow before the h2, or caption after it). Styled by the generic `> p`/`> em` rule, not a dedicated `p > code` rule. |
 | `tiles` | `ol > li` | yes | One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:     1. 73%        - faster close A bare number with no nested caption won't render as the big number. |
-
-Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile reads as Big Number + caption.
 
 ## When to use
 

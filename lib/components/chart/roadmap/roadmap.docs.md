@@ -6,6 +6,8 @@
 
 **Tags** `planning` · `swimlane` · `milestones` · `agile`
 
+Use to show what ships in each phase across multiple parallel workstreams. Cells render as state-token discs (pass/warn/fail/skip).
+
 ## Agent contract
 
 ### Slots
@@ -14,8 +16,6 @@
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading naming the plan. |
 | `rows` | `table` | yes | A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[ ]/[/] then the deliverable. |
-
-Use to show what ships in each phase across multiple parallel workstreams. Cells render as state-token discs (pass/warn/fail/skip).
 
 ## When to use
 

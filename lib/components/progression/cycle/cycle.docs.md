@@ -6,6 +6,8 @@
 
 **Tags** `process` · `workflow` · `retrospective`
 
+Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring phase. A linear process with a real start and finish is list-steps; a cycle's whole point is the return.
+
 ## Agent contract
 
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-steps / split across slides.
@@ -19,8 +21,6 @@
 | `title` | `h2` | yes | Slide heading naming the cycle. |
 | `eyebrow` | `p > code` | no | Optional label above the heading. |
 | `stages` | `ul > li` | yes | Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first. |
-
-Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring phase. A linear process with a real start and finish is list-steps; a cycle's whole point is the return.
 
 ## When to use
 

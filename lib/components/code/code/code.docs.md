@@ -6,6 +6,8 @@
 
 **Tags** `snippet` · `walkthrough` · `reference`
 
+Use when the code IS the slide — an API snippet, a config example, a migration. For comparing two versions, use compare-code.
+
 ## Agent contract
 
 ### Slots
@@ -18,10 +20,7 @@
 ### Common mistakes
 
 - **Fence tagged with the wrong language, e.g. ```js on a Python snippet.** Match the fence tag to the actual language exactly. The highlighter keys off the tag alone, not the code's content — a wrong tag mis-highlights every token.
-- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point. The 12-line comfort budget is for signal — cut scaffolding with `// ...` rather than spending lines on it.
-- **A second heading (e.g. a `###` subhead) authored above or inside the fence.** `code` has exactly one heading slot (`h2`). A second heading has no slot to map to and renders as stray body text floating above the fenced block.
-
-Use when the code IS the slide — an API snippet, a config example, a migration. For comparing two versions, use compare-code.
+- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — the sample's own convention puts the comfort line at twelve, the hard wall at twenty (`whenToUse`/`stressDoc`). Cut scaffolding with `// ...` rather than spending that budget on it.
 
 ## When to use
 

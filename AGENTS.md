@@ -74,16 +74,18 @@ See `engineering/decisions/2026-06-30-prose-density-budget.md`.
 `lib/components/<bucket>/<name>/<name>.docs.md` is for *authoring inside* the
 one you picked (HARD RULE #6 in `CLAUDE.md`: open it before writing or editing
 that slide). Its `## Agent contract` section, right after the header, is the
-dense, scannable part — read it before the narrative below:
+dense, scannable part — read it before the narrative below. In order, it
+carries: the same `capacity`/`density` budgets already summarized above,
+the **Slots** table you already see in `components.json`, then three
+subsections that only appear where the manifest declares them:
 
-- **Slots** — the table you already see in `components.json`, plus (where
-  declared) **Common mistakes**: authoring-time errors specific to this
-  component (wrong nesting, a slot's exact structural requirement, a variant
-  mixed with the wrong data), distinct from `antiPatterns`, which is about
-  whether to reach for the component at all.
 - **Variant decision rule** — for components with more than one variant, the
   concrete signal that should drive the pick (e.g. audience, data shape),
   not just what each variant looks like.
+- **Common mistakes** — authoring-time errors specific to this component
+  (wrong nesting, a slot's exact structural requirement, a variant paired
+  with the wrong data), distinct from `antiPatterns`, which is about whether
+  to reach for the component at all.
 - **Data shape** — for data-driven components, terse constraints on the data
   itself (cardinality, sort order, label length, unit consistency) beyond the
   generic `capacity`/`density` item-count budgets.

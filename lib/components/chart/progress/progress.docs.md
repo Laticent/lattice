@@ -6,6 +6,8 @@
 
 **Tags** `percentage` · `stoplight` · `status`
 
+Use for status-tracking across multiple parallel items (project readiness, OKR progress, capacity utilization). Status colors via the chart-status vocabulary (on-track / done / live, at-risk / warn, blocked / fail, deferred).
+
 ## Agent contract
 
 ### Slots
@@ -16,8 +18,6 @@
 | `eyebrow` | `p > code` | no | Optional eyebrow caption above the heading. |
 | `subtitle` | `p` | no | Optional plain subtitle after the heading. |
 | `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary: on-track / live / at-risk / warn / blocked / fail / deferred / done. An optional nested bullet renders as a per-row note. |
-
-Use for status-tracking across multiple parallel items (project readiness, OKR progress, capacity utilization). Status colors via the chart-status vocabulary (on-track / done / live, at-risk / warn, blocked / fail, deferred).
 
 ## When to use
 

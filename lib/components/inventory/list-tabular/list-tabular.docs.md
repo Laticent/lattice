@@ -6,6 +6,8 @@
 
 **Tags** `reference` · `overview` · `status`
 
+Use for compact reference tables: glossary-style entries, key/value pairs, specs. Four primary variants (def, metric, spec, register) tune the visual treatment; secondary modifiers (rule, solid, stacked, outline) refine each.
+
 ## Agent contract
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a short row label plus a clause.
@@ -16,8 +18,6 @@
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading. |
 | `rows` | `ol > li` | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
-
-Use for compact reference tables: glossary-style entries, key/value pairs, specs. Four primary variants (def, metric, spec, register) tune the visual treatment; secondary modifiers (rule, solid, stacked, outline) refine each.
 
 ## When to use
 

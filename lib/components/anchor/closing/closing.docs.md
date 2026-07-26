@@ -6,6 +6,8 @@
 
 **Tags** `summary` · `takeaway` · `board-deck`
 
+Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals "we're done."
+
 ## Agent contract
 
 ### Slots
@@ -15,8 +17,6 @@
 | `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. |
 | `eyebrow` | `p > code` | no | Optional category label. |
 | `subtitle` | `p` | no | Optional supporting line. |
-
-Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals "we're done."
 
 ## When to use
 

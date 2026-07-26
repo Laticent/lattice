@@ -6,6 +6,8 @@
 
 **Tags** `snippet` · `contrast` · `tradeoff`
 
+Use to contrast a before/after refactor, two API styles, or two configurations. Each side gets an h3 label and one fenced block.
+
 ## Agent contract
 
 ### Slots
@@ -15,8 +17,6 @@
 | `title` | `h2` | yes | Slide heading framing the comparison. |
 | `left` | `section > h3:first-of-type + pre` | yes | Left label (h3) and code block. |
 | `right` | `section > h3:nth-of-type(2) + pre` | yes | Right label (h3) and code block. |
-
-Use to contrast a before/after refactor, two API styles, or two configurations. Each side gets an h3 label and one fenced block.
 
 ## When to use
 

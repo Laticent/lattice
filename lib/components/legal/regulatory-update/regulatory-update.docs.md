@@ -6,6 +6,8 @@
 
 **Tags** `changelog` · `compliance` · `regulation`
 
+Use when a quarter's regulatory motion needs a single-slide digest. Each row carries the change name, the citation (inline code), the summary, and the effective-date marker (inline code).
+
 ## Agent contract
 
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on) / list-tabular.
@@ -19,8 +21,6 @@
 | `heading` | `h2` | yes | Slide heading framing the period or theme of the changes. |
 | `scope` | `p:first-of-type > code` | no | Optional inline-code scope label (e.g. 'Federal · State · International'). |
 | `items` | `ol > li` | yes | Ordered list of changes. Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code). |
-
-Use when a quarter's regulatory motion needs a single-slide digest. Each row carries the change name, the citation (inline code), the summary, and the effective-date marker (inline code).
 
 ## When to use
 

@@ -6,6 +6,8 @@
 
 **Tags** `pull-quote` · `quotation` · `showcase`
 
+Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit.
+
 ## Agent contract
 
 ### Slots
@@ -14,8 +16,6 @@
 |---|---|---|---|
 | `quotation` | `blockquote > p` | yes | The quoted text. |
 | `attribution` | `section > p:last-child` | no | Attribution line below the quote. |
-
-Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit.
 
 ## When to use
 

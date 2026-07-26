@@ -39,12 +39,15 @@ in patch versions.
   ([{variant, useWhen}], the concrete signal that should drive picking one variant over another),
   and `dataShapeGuidance` ([string], terse constraints on data cardinality/format/sort order for
   data-driven components) — schema in `lib/components/manifest.schema.json`, validated in
-  `lib/components/index.js`'s `checkAgentContract`. Purely additive and reorder-only: the
+  `lib/components/index.js`'s `checkAgentContract`. Purely additive to the manifest contract: the
   aggregated `dist/docs/components.json` picker catalog is unaffected (these fields live only in
-  the per-component docs, the authoring-time surface), and no `.gallery.md`/PDF changed. Piloted on
-  five components across five buckets (`title`, `big-number`, `piechart`, `matrix-2x2`, `code`);
-  the remaining 54 keep their current docs.md shape until backfilled. `AGENTS.md` points agents at
-  the new section.
+  the per-component docs, the authoring-time surface), and no `.gallery.md`/PDF changed. The
+  section reorder applies to all 59 enriched components' docs.md (mechanical, from the shared
+  generator template); the three new content fields are piloted on five components across five
+  buckets (`title`, `big-number`, `piechart`, `matrix-2x2`, `code`) — the remaining 54 render an
+  Agent contract with just capacity/density/slots until their `commonMistakes` /
+  `variantDecisionRule` / `dataShapeGuidance` are backfilled. `AGENTS.md` points agents at the new
+  section.
 - **Model routing: every subagent now declares which model it runs on, so lookup work stops
   billing at Opus rates (HARD RULE #27).** Only two agents (`docs-auditor`, `prose-checker`) pinned
   a model before; every other `Agent()` call inherited the session model — Opus 5 — which meant

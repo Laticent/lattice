@@ -6,6 +6,8 @@
 
 **Tags** `tradeoff` · `contrast` · `recommendation` · `transformation` · `retrospective`
 
+Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side.
+
 ## Agent contract
 
 **Density** aim ~20 words per item; past ~32 it reads as a wall of text — each side's case in a sentence or two.
@@ -16,8 +18,6 @@
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the comparison. |
 | `options` | `ul > li` | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. |
-
-Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side.
 
 ## When to use
 

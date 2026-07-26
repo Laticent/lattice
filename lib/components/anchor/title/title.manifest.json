@@ -81,11 +81,11 @@
   "commonMistakes": [
     {
       "mistake": "Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.",
-      "fix": "Wrap the eyebrow paragraph in backticks. The slot selector is `p > code`; plain or bold text doesn't map to the eyebrow slot at all — it just renders as an unstyled stray paragraph."
+      "fix": "Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the uppercase mono eyebrow lifted above the h1."
     },
     {
-      "mistake": "Eyebrow or subtitle authored before the `# heading` line.",
-      "fix": "Keep the source order heading → eyebrow → subtitle. Flex `order` repositions the eyebrow visually above the h1, but slot resolution reads structural position, not visual position."
+      "mistake": "Something other than the eyebrow paragraph sits directly after the `# heading` — e.g. the subtitle comes first, or a blank comment intervenes.",
+      "fix": "The eyebrow match is an immediate-next-sibling selector (`h1 + p:has(> code:only-child)`). Keep the source order heading → eyebrow → subtitle; anything between the h1 and the inline-code paragraph disqualifies it from the eyebrow style."
     },
     {
       "mistake": "Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.",

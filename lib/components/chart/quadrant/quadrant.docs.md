@@ -6,6 +6,8 @@
 
 **Tags** `two-by-two` · `positioning` · `prioritize` · `risk`
 
+Use to position items by two numeric attributes (cost × value, effort × impact). Data-driven; for static categorical 2×2 grids, use matrix-2x2.
+
 ## Agent contract
 
 ### Slots
@@ -16,8 +18,6 @@
 | `axes` | `p > code` | no | Optional axis-label eyebrow (inline-code paragraph). |
 | `items` | `ul > li` | yes | One li per item. Format: `Label — x, y[, size]`. |
 | `detail` | `li > ul > li > ul` | no | Optional 3rd-level nested sublist under an item (the x,y are inline pills, so this level is free). Drives two surfaces from one source (shared with pie/funnel/map via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the item's `<circle>`/bubble with `data-mark` (a stable global index across all variants) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A quadrant with no sublists emits no note and is unchanged. |
-
-Use to position items by two numeric attributes (cost × value, effort × impact). Data-driven; for static categorical 2×2 grids, use matrix-2x2.
 
 ## When to use
 

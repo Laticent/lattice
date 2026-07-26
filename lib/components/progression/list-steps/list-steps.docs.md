@@ -6,6 +6,8 @@
 
 **Tags** `process` · `walkthrough` · `planning`
 
+Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.
+
 ## Agent contract
 
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, timeline-list / split across slides.
@@ -18,8 +20,6 @@
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading naming the process. |
 | `steps` | `ol > li` | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
-
-Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.
 
 ## When to use
 

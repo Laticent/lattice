@@ -6,6 +6,8 @@
 
 **Tags** `tradeoff` · `recommendation` · `contrast`
 
+Use when a decision frames a binary choice and the recommendation must be unambiguous. Second top-level list item is always the preferred option (gets the accent badge). The verdict blockquote becomes a recommendation card with a corner tag, pinned across the bottom.
+
 ## Agent contract
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — a terse point per line.
@@ -19,8 +21,6 @@
 | `context` | `p` | yes | One-sentence context paragraph under the heading. |
 | `options` | `ul > li` | yes | Exactly two top-level items. First is the alternative; second is the preferred option. |
 | `verdict` | `blockquote` | yes | The recommendation — one short sentence in a blockquote. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
-
-Use when a decision frames a binary choice and the recommendation must be unambiguous. Second top-level list item is always the preferred option (gets the accent badge). The verdict blockquote becomes a recommendation card with a corner tag, pinned across the bottom.
 
 ## When to use
 

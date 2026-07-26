@@ -6,6 +6,8 @@
 
 **Tags** `tag-cloud` · `themes` · `proportion`
 
+Use for qualitative summaries — retrospective themes, survey verbatims. Word size encodes frequency or weight; not a precise data viz.
+
 ## Agent contract
 
 ### Slots
@@ -14,8 +16,6 @@
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the cloud. |
 | `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent. |
-
-Use for qualitative summaries — retrospective themes, survey verbatims. Word size encodes frequency or weight; not a precise data viz.
 
 ## When to use
 

@@ -6,6 +6,8 @@
 
 **Tags** `overview` · `showcase` · `summary`
 
+Use when the audience needs to compare or scan a small set of options at a glance. Avoid for more than 4 items — split into multiple slides. For ordered/numbered steps, use list-steps instead.
+
 ## Agent contract
 
 **Capacity** ~3 items (crowds past 4, overflows past 4) — past that, list-tabular / split across slides.
@@ -19,8 +21,6 @@
 | `title` | `h2` | yes | Slide heading. |
 | `cards` | `ul > li` | yes | Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule). |
 | `insight` | `blockquote` | no | Optional key-insight panel above the cards. |
-
-Use when the audience needs to compare or scan a small set of options at a glance. Avoid for more than 4 items — split into multiple slides. For ordered/numbered steps, use list-steps instead.
 
 ## When to use
 

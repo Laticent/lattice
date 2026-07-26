@@ -6,6 +6,8 @@
 
 **Tags** `citation` · `quotation` · `contract`
 
+Use when one citation IS the slide. The blockquote carries the verbatim language; the trailing list explains what it means and what we must do about it.
+
 ## Agent contract
 
 ### Slots
@@ -16,8 +18,6 @@
 | `citation` | `p:first-of-type > code` | yes | Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA'). |
 | `quotation` | `blockquote` | yes | Verbatim quote of the cited language. |
 | `gloss` | `ul > li` | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
-
-Use when one citation IS the slide. The blockquote carries the verbatim language; the trailing list explains what it means and what we must do about it.
 
 ## When to use
 

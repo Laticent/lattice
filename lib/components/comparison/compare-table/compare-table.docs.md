@@ -6,6 +6,8 @@
 
 **Tags** `tradeoff` · `ranking` · `assessment`
 
+Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-prose can hold legibly.
+
 ## Agent contract
 
 **Capacity** ~4 rows (crowds past 6, overflows past 8) — past that, split across slides.
@@ -18,8 +20,6 @@
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the comparison. |
 | `table` | `table` | yes | Markdown table with header row and 2+ data rows. |
-
-Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-prose can hold legibly.
 
 ## When to use
 

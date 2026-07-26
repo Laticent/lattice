@@ -6,6 +6,8 @@
 
 **Tags** `citation` · `reference` · `compliance`
 
+Use when three or four parallel jurisdictions need to read at a glance: each row carries the jurisdiction label, the citation, the obligation summary, and an effective-date marker.
+
 ## Agent contract
 
 **Capacity** ~3 items (crowds past 4, overflows past 5) — past that, split across slides (auto with autosplit: on) / list-tabular.
@@ -18,8 +20,6 @@
 |---|---|---|---|
 | `heading` | `h2` | yes | Slide heading framing what the three rows compare. |
 | `rows` | `ul > li` | yes | One li per jurisdiction. Lead with the jurisdiction label as a plain text first line; nested ul items carry the citation (inline code), obligation summary, and status (inline code). |
-
-Use when three or four parallel jurisdictions need to read at a glance: each row carries the jurisdiction label, the citation, the obligation summary, and an effective-date marker.
 
 ## When to use
 

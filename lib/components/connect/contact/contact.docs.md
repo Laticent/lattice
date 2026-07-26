@@ -6,6 +6,8 @@
 
 **Tags** `reference` · `onboarding` · `kickoff`
 
+Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCard the audience saves in one tap; the card shows the name as hero with title/org and a contact ledger. Author the fields as a postfix-key list.
+
 ## Agent contract
 
 ### Slots
@@ -15,8 +17,6 @@
 | `title` | `h2` | no | Optional framing heading; the person's name is the visual hero, drawn from the `name` field. |
 | `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Sharmarke Aden `name``. Keys: name (required), title\|role, org\|company, email, phone\|tel, url\|web. Optional key: `caption` (CTA under the QR). |
 | `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to add me `caption` ``. |
-
-Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCard the audience saves in one tap; the card shows the name as hero with title/org and a contact ledger. Author the fields as a postfix-key list.
 
 ## When to use
 

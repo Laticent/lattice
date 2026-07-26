@@ -6,6 +6,8 @@
 
 **Tags** `overview` · `summary` · `reference`
 
+Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best (a fourth fits with the `compact` modifier).
+
 ## Agent contract
 
 **Capacity** ~3 items (crowds past 4, overflows past 4) — past that, list-tabular / split across slides.
@@ -18,8 +20,6 @@
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading. |
 | `cards` | `ul > li` | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional trailing inline `code` on the title line renders as a right-anchored pill. |
-
-Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best (a fourth fits with the `compact` modifier).
 
 ## When to use
 

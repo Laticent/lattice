@@ -6,6 +6,8 @@
 
 **Tags** `status` · `stoplight` · `process` · `requirements`
 
+Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).
+
 ## Agent contract
 
 **Capacity** ~6 items (crowds past 8, overflows past 9) — past that, split across slides.
@@ -18,8 +20,6 @@
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading. |
 | `items` | `ul > li` | yes | Each item prefixed with a state marker — [x] done, [-] partial, [ ] todo, or [/] out-of-scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag. |
-
-Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).
 
 ## When to use
 
