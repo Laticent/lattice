@@ -46,10 +46,10 @@ section.compare-table.lat-split-cards .split-runhead { font-family:var(--font-la
    reach this shape, whose body is `<div class="ct-cards"> > <article class="ct-card">` with no
    `.cell-stage` and no list. It lives HERE rather than in base.modifiers.css because `.ct-card`
    is a compare-table-owned class; the base layer must not reach into it.
-   `.ct-cards` already fills the stage and centres its children, so without this the lone card
+   `.ct-cards` already fills the stage and centers its children, so without this the lone card
    renders as a small box stranded in two-thirds of white — the same defect the owner caught on
    the plain path (IMG_3222 / §0b's "one card per slide means the card IS the page"). `.ct-card`
-   is a COLUMN flex, so its content centres with `justify-content` (the plain path's cards are
+   is a COLUMN flex, so its content centers with `justify-content` (the plain path's cards are
    wrap-flex rows, hence `align-content` there — same intent, different axis).
    `:only-child`-guarded, so a future cover-cards component pacing >1 per page is untouched. */
 section.compare-table.lat-split-cards .ct-card:only-child {

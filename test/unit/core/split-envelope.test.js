@@ -20,6 +20,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const { splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements, chromeOf } = require('../../../lib/core/split-envelope');
+const { evenGroups } = require('../../../lib/core/collections');
 const { autoSplitDeck, resplitDoc, applyRails } = require('../../../lib/core/auto-split');
 const { splitSections } = require('../../../lib/core/split-sections');
 
@@ -62,6 +63,32 @@ describe('core: balancedPerPage — the BODY pacing (§0b granularity)', () => {
     assert.equal(balancedPerPage(6, 3), 3);   // exact fit is unchanged
   });
 
+  // …but the SCALAR above is only the ceiling. The actual page sizes come from
+  // `evenGroups`, and asserting the scalar is what let a runt ship: a ceiling of 4 over 13
+  // members chunked to 4/4/4/1. Assert the DISTRIBUTION, and do it exhaustively rather than
+  // on sampled pairs — every pair the old test picked was one where ceiling and balance
+  // coincide, which is exactly how the defect hid. Found by the HARD RULE #25 trio.
+  test('evenGroups: the cases a greedy chunk got wrong', () => {
+    const g = (n, t) => evenGroups(n, t).join('/');
+    assert.equal(g(13, 4), '4/3/3/3');        // was 4/4/4/1
+    assert.equal(g(7, 3), '3/2/2');           // was 3/3/1
+    assert.equal(g(21, 5), '5/4/4/4/4');      // was 5/5/5/5/1
+    assert.equal(g(10, 4), '4/3/3');          // was 4/4/2
+    assert.equal(g(14, 6), '5/5/4');          // unchanged — already balanced
+    assert.equal(g(6, 1), '1/1/1/1/1/1');     // a HEAVY member atomizes
+  });
+
+  test('evenGroups holds three invariants for every (count, ceiling) up to 60×8', () => {
+    for (let n = 1; n <= 60; n += 1) {
+      for (let t = 1; t <= 8; t += 1) {
+        const sizes = evenGroups(n, t);
+        assert.equal(sizes.reduce((a, b) => a + b, 0), n, `conserves members: n=${n} t=${t}`);
+        assert.ok(Math.max(...sizes) <= t, `never exceeds the ceiling: n=${n} t=${t} -> ${sizes}`);
+        assert.ok(Math.max(...sizes) - Math.min(...sizes) <= 1, `no runt: n=${n} t=${t} -> ${sizes}`);
+      }
+    }
+  });
+
   test('never exceeds the target, and a target of 1 atomizes', () => {
     assert.equal(balancedPerPage(6, 1), 1);   // a HEAVY member: one per page
     assert.equal(balancedPerPage(100, 1), 1);
@@ -77,14 +104,27 @@ describe('core: balancedPerPage — the BODY pacing (§0b granularity)', () => {
     }
   });
 
-  test('the authoring lint predicts the SAME page count the kernel will produce', () => {
-    // lint-core cannot require the kernel (it is fs-free and rides the browser bundle),
-    // so it recomputes `ceil(n / target)`. Pin the two together or the author is told a
-    // page count the export then contradicts.
-    const lintPages = (n, target) => Math.max(1, Math.ceil(n / target));
-    for (const [n, t] of [[14, 6], [6, 1], [9, 4], [7, 4], [13, 5], [20, 3]]) {
-      const per = balancedPerPage(n, t);
-      assert.equal(Math.ceil(n / per), lintPages(n, t), `n=${n} target=${t}`);
+  test('the authoring lint predicts the SAME page count AND sizes the kernel will produce', () => {
+    // lint-core cannot require the kernel (it is fs-free and rides the browser bundle), so it
+    // recomputes the arithmetic. Pin BOTH numbers: pinning only the page count is what let the
+    // advisory promise "4 pages of 4" for a render that came out 4/3/3/3 (and claim "every page
+    // is paced the same" while it wasn't). Mirrors lint-core's `pages`/`base`/`extra`/`paced`.
+    const lintPrediction = (n, target) => {
+      const pages = Math.max(1, Math.ceil(n / target));
+      const base = Math.floor(n / pages);
+      const extra = n % pages;
+      return { pages, paced: extra ? `${base + 1}–${base}` : `${base}`, even: extra === 0 };
+    };
+    for (let n = 1; n <= 40; n += 1) {
+      for (const t of [1, 2, 3, 4, 5, 6, 8]) {
+        const sizes = evenGroups(n, t);
+        const lint = lintPrediction(n, t);
+        assert.equal(lint.pages, sizes.length, `page count: n=${n} target=${t}`);
+        const hi = Math.max(...sizes);
+        const lo = Math.min(...sizes);
+        assert.equal(lint.paced, hi === lo ? `${hi}` : `${hi}–${lo}`, `sizes: n=${n} target=${t}`);
+        assert.equal(lint.even, hi === lo, `same-pacing claim: n=${n} target=${t}`);
+      }
     }
   });
 });
@@ -99,6 +139,38 @@ describe('core: splitEnvelope — the envelope shape (§0a)', () => {
       assert.match(classOf(body), /\bchecklist\b/);          // the layout's OWN finish
       assert.match(classOf(body), /\blat-split-native\b/);   // the re-split guard
     }
+  });
+
+  // The role class REPLACES the layout class, but the CANVAS axis (lib/core/color-mode.js
+  // COLOR_MODE_TOKENS) is orthogonal to layout and must survive. Replacing the whole class
+  // attribute dropped it, so a `dark` deck opened every split run with a LIGHT accent page and
+  // a `print` deck got a full-bleed near-black flood between two ink-on-white slides. Found by
+  // the adversarial trio on real renders (two lenses independently); body pages were never
+  // affected because they use the additive `addClass`.
+  for (const canvas of ['dark', 'light', 'print']) {
+    test(`the cover keeps the canvas class \`${canvas}\` across the layout-class swap`, () => {
+      const tag = openTag.replace('class="checklist form"', `class="checklist ${canvas} form"`);
+      const parts = splitEnvelope(tag, formInner({ n: 9 }), chromeOf(formInner({ n: 9 })), {
+        axis: 'item', per: 4, layoutName: 'checklist',
+      });
+      // Compare CLASS TOKENS, not substrings: the cover legitimately carries the
+      // `split-cover-checklist` tell, and /\bchecklist\b/ matches inside it (`-` is a word
+      // boundary), so a substring assertion here would be meaningless.
+      const tokens = classOf(parts[0]).trim().split(/\s+/);
+      assert.ok(tokens.includes('lat-split-cover'), 'still the cover role');
+      assert.ok(!tokens.includes('checklist'), 'the layout class is still swapped out');
+      assert.ok(tokens.includes(canvas), `the cover must keep \`${canvas}\` (got: ${tokens.join(' ')})`);
+      for (const body of parts.slice(1)) {
+        assert.ok(classOf(body).trim().split(/\s+/).includes(canvas), 'body pages keep it too');
+      }
+    });
+  }
+
+  test('a layout-scoped modifier does NOT ride onto the content-classed cover', () => {
+    const tag = openTag.replace('class="checklist form"', 'class="checklist compact form"');
+    const inner = formInner({ n: 9 });
+    const parts = splitEnvelope(tag, inner, chromeOf(inner), { axis: 'item', per: 4, layoutName: 'checklist' });
+    assert.doesNotMatch(classOf(parts[0]), /\bcompact\b/);
   });
 
   test('the cover carries the masthead: eyebrow · title · subtitle · lede', () => {
@@ -167,7 +239,7 @@ describe('core: splitEnvelope — the NOTE rides the last body page (owner revie
     assert.equal(withP.length, 1);
     assert.equal(withP[0], parts.at(-1));
     // Marked directly on the <p> itself — not wrapped — so a component's OWN
-    // `> .cell-stage > p` styling (e.g. stats' centred caption treatment) still matches.
+    // `> .cell-stage > p` styling (e.g. stats' centered caption treatment) still matches.
     assert.match(parts.at(-1), /<p class="lat-split-note">Raw trailing note\.<\/p>/);
   });
 

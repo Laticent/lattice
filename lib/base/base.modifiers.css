@@ -1337,7 +1337,7 @@ section.lat-split-cover .split-feat-h {
    The subtitle HUGS its title (the label-under-the-headline pattern base.modifiers'
    SUBTITLE block sets for a live slide), so the title's own bottom padding tightens when
    one follows; the lede then gets its own air below. Both in `padding` only (HARD #20)
-   and colour-free apart from --on-accent (HARD #3). */
+   and color-free apart from --on-accent (HARD #3). */
 section.lat-split-cover .split-feat-h:has(+ .split-feat-sub) { padding-bottom: var(--sp-xs); }
 section.lat-split-cover .split-feat-sub {
   font-size: var(--fs-emphasis); font-style: italic; line-height: var(--lh-snug);
@@ -1346,6 +1346,23 @@ section.lat-split-cover .split-feat-sub {
 section.lat-split-cover .split-feat-lede {
   font-size: var(--fs-body); line-height: var(--lh-relaxed); opacity: 0.92; max-width: 26em;
 }
+/* PRINT — the accent flood becomes the bookends' light framed panel. In the print band
+   `--accent` remaps to ink (#1A1A1A, "accent is text-bearing → ink, not hue") and
+   `--on-accent` to #FFFFFF, so the rule above would paint a full page of near-black toner
+   carrying white text — exactly what `--print-surface-inverse`'s own comment rules out
+   ("bookend panels → light framed, not a toner-heavy flood"). `title`, `divider` and
+   `closing` all flood `var(--surface-inverse)` and let print's remap of the ink tiers do the
+   rest; the split cover is the same kind of full-bleed field, so in print it follows them
+   rather than inventing a third answer. Caught by the trio on a real print render — the blue
+   field became a black page between two ink-on-white slides. Palette-blind (#3): every value
+   is a token, and the color modes are untouched (this rule is print-scoped). */
+section.print.lat-split-cover { background: var(--surface-inverse); }
+section.print.lat-split-cover,
+section.print.lat-split-cover .split-feat-h { color: var(--text-heading); }
+section.print.lat-split-cover .split-feat-eye,
+section.print.lat-split-cover .split-feat-sub,
+section.print.lat-split-cover .split-feat-lede,
+section.print.lat-split-cover .split-cover-lead { color: var(--text-body); }
 /* compare-table's split cover carries ONE signature from the live layout — the --spectrum
    strip that underlines its <thead> (compare-table.styles.css) — so a split reads as the
    same deck. Scoped via the `split-cover-compare-table` marker the carousel stamps, NOT
@@ -1419,13 +1436,13 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:
    The envelope's optional final beat: a trailing key-insight `<blockquote>` gets its OWN
    page — never shared with the note or the body (owner review, 2026-07-26; §0a, rule 9).
    It is the run's TAKEAWAY, not a caption, so unlike the note (below) it earns a page to
-   itself: vertically centred, and sized up a rung, so it reads as a small climax rather
+   itself: vertically centered, and sized up a rung, so it reads as a small climax rather
    than a paragraph stranded in a tall empty stage — matching the read-across family's own
    precedent for a dedicated verdict page (`compare-split-verdict`,
    compare-prose.styles.css). Deliberately NOT a second accent field: it keeps the run's
    own layout class, masthead and content cell, so the blockquote wears the SAME "KEY
    INSIGHT" panel it always has (the base rule above, scoped `section.<layout> >
-   blockquote`) — only its placement and size change. Palette-blind; no new colour, no
+   blockquote`) — only its placement and size change. Palette-blind; no new color, no
    margin (#3, #20).
 
    SIZE: `--fs-emphasis` is not a new value picked for this — it is ALREADY documented
@@ -1457,7 +1474,7 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:
    #26 — the bundle is never half-layered), so the weight is explicit here. */
 section.form.lat-split-insight.lat-split-insight > .cell-stage {
   justify-content: center;
-  align-items: stretch;   /* a component's centred stage would otherwise shrink-wrap the blockquote */
+  align-items: stretch;   /* a component's centered stage would otherwise shrink-wrap the blockquote */
 }
 section.form.form.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight > .cell-stage.cell-stage > blockquote p,
 section.form.form.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight > .cell-stage.cell-stage > blockquote li {
