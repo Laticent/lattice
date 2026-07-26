@@ -94,13 +94,21 @@ function tc(s) {
 const LINE_ENDINGS = /(?:\r\n|\r|\n)+/g;
 
 function tableCell(s) {
-  // Escape backslashes FIRST, then pipes. Otherwise a pre-existing backslash
-  // immediately before a pipe in the source (e.g. a slot description quoting
-  // a regex alternation like `a\|b`) shifts the escaping parity: `\|`
-  // becomes `\\|`, which a markdown renderer reads as an escaped backslash
-  // followed by an UNescaped pipe — the exact table-breaking pipe this
-  // function exists to prevent (CodeQL: incomplete string escaping).
-  return String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(LINE_ENDINGS, ' ');
+  // Escape only the backslash run immediately before each pipe — and only
+  // enough to make that run ODD-length, so its last backslash pairs with
+  // the pipe as a `\|` escape. A blanket "escape every backslash" pass
+  // (the first fix here) closes the same gap but also doubles backslashes
+  // nowhere near a pipe — e.g. a slot description's own `` \` `` markdown-
+  // escape illustration — changing content this function has no business
+  // touching. Scoping to backslash-runs-before-a-pipe fixes the actual
+  // vulnerability (a pre-existing EVEN-length run, including zero, leaves
+  // the pipe unescaped and able to split the generated table row — CodeQL:
+  // incomplete string escaping) with the minimal edit: nothing when the
+  // run is already odd (the pipe is already safely escaped), one appended
+  // backslash when it's even.
+  return String(s)
+    .replace(/(\\*)\|/g, (_match, backslashes) => (backslashes.length % 2 === 0 ? `${backslashes}\\|` : `${backslashes}|`))
+    .replace(LINE_ENDINGS, ' ');
 }
 
 /**
