@@ -8,6 +8,17 @@
 
 Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p:first-child > code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
+| `heading` | `h2` | yes | One-sentence framing of what the math establishes. |
+| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centered. |
+| `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
+
 ## When to use
 
 - **The equation IS the argument.** When a single closed-form expression, identity, or estimator carries the slide. KaTeX renders it; Lattice gives it the room. For surrounding prose with one inline `$x$`, use content.
@@ -35,15 +46,6 @@ $$ y = f(x) $$
 - $x$ — input variable
 - $f$ — the relation under study
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p:first-child > code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
-| `heading` | `h2` | yes | One-sentence framing of what the math establishes. |
-| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centered. |
-| `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
 
 ## Anatomy
 

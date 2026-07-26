@@ -27,6 +27,33 @@ in patch versions.
 
 ### Added
 
+- **Per-component agent contract: `<name>.docs.md` now front-loads a dense, machine-actionable
+  block instead of burying it in narrative prose.** Generated docs previously interleaved the
+  ~30% of content an authoring agent actually needs (slots, capacity/density) with human-narrative
+  framing (Function/Form/Substance philosophy, When-to-use/NOT-to-use reasoning, Related-component
+  rationale) — every read cost the full ~80 lines to extract the actionable part. `renderDocs()` in
+  `tools/build-component-docs.js` now emits a `## Agent contract` section immediately after the
+  header: capacity/density budgets, the slots table (moved up from `## Authoring`), and three new
+  optional manifest fields — `commonMistakes` ([{mistake, fix}], authoring-time errors once the
+  component is already chosen, distinct from the selection-time `antiPatterns`), `variantDecisionRule`
+  ([{variant, useWhen}], the concrete signal that should drive picking one variant over another),
+  and `dataShapeGuidance` ([string], terse constraints on data cardinality/format/sort order for
+  data-driven components) — schema in `lib/components/manifest.schema.json`, validated in
+  `lib/components/index.js`'s `checkAgentContract`. Purely additive to the manifest contract: the
+  three new agent-contract fields don't surface in the aggregated `dist/docs/components.json`
+  picker catalog at all (they live only in the per-component docs, the authoring-time surface —
+  `components.json` did pick up two unrelated pre-existing copy fixes this branch made along the
+  way, an editorial spelling correction and a slot-description markdown fix), and no
+  `.gallery.md`/PDF changed. The
+  section reorder applies to all 59 enriched components' docs.md (mechanical, from the shared
+  generator template); the three new content fields are piloted on five components across five
+  buckets (`title`, `big-number`, `piechart`, `matrix-2x2`, `code`) — the remaining 54 render an
+  Agent contract with just capacity/density/slots until their `commonMistakes` /
+  `variantDecisionRule` / `dataShapeGuidance` are backfilled. `AGENTS.md` points agents at the new
+  section. The docs-site component pages (`docs/src/components/components-ref/ComponentDocsView.tsx`)
+  now render the same three fields as their own sections — "Common mistakes" after When-not-to-use,
+  "Data shape" after Slots, "Variant decision rule" before Variants — since that page already reads
+  the full manifest at build time, not the trimmed picker catalog.
 - **Model routing: every subagent now declares which model it runs on, so lookup work stops
   billing at Opus rates (HARD RULE #27).** Only two agents (`docs-auditor`, `prose-checker`) pinned
   a model before; every other `Agent()` call inherited the session model — Opus 5 — which meant

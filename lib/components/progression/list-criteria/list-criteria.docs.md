@@ -6,9 +6,18 @@
 
 **Tags** `requirements` · `assessment` · `okr`
 
+Use to enumerate the criteria a decision must meet, in priority order. Numbering signals weight; each row reads as a complete requirement.
+
+## Agent contract
+
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one criterion with a short proof, not a spec.
 
-Use to enumerate the criteria a decision must meet, in priority order. Numbering signals weight; each row reads as a complete requirement.
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the framework. |
+| `criteria` | `ol > li` | yes | One li per criterion. The lead text is the criterion title — it renders bold automatically (no `**…**` needed); follow it with a nested `- rationale` bullet. |
 
 ## When to use
 
@@ -38,13 +47,6 @@ Use to enumerate the criteria a decision must meet, in priority order. Numbering
 4. Fourth criterion
    - Short rationale.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the framework. |
-| `criteria` | `ol > li` | yes | One li per criterion. The lead text is the criterion title — it renders bold automatically (no `**…**` needed); follow it with a nested `- rationale` bullet. |
 
 ## Anatomy
 

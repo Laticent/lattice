@@ -8,6 +8,17 @@
 
 Use when an amendment's diff is the slide. The blockquote carries the redlined text with ins/del markers; the trailing list explains why the diff matters operationally.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading naming the amendment or change. |
+| `citation` | `p:first-of-type > code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
+| `redline` | `blockquote` | yes | The amended language. Use <del>old text</del> and <ins>new text</ins> inline. |
+| `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
+
 ## When to use
 
 - **Verbatim text matters.** When the amendment is the language — legal clauses, regulatory paragraphs, contract terms. Paraphrasing would lose the exact words the parties are bound by.
@@ -33,15 +44,6 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 - **Why this matters.** What the amendment changes in operational terms, in one sentence.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading naming the amendment or change. |
-| `citation` | `p:first-of-type > code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
-| `redline` | `blockquote` | yes | The amended language. Use <del>old text</del> and <ins>new text</ins> inline. |
-| `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
 
 ## Anatomy
 

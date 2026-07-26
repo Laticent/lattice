@@ -320,6 +320,112 @@ describe('component-manifest', () => {
       assert.match(errors[0], /editorial\.md §Specimen voice/);
     });
 
+    test('commonMistakes: accepts a well-formed array, rejects malformed entries', () => {
+      assert.deepEqual(
+        validate({ ...GOOD, commonMistakes: [{ mistake: 'm', fix: 'f' }] }),
+        []
+      );
+      assert.match(validate({ ...GOOD, commonMistakes: 'nope' })[0], /commonMistakes must be an array/);
+      assert.match(validate({ ...GOOD, commonMistakes: [null] })[0], /commonMistakes\[0\] must be an object/);
+      assert.match(
+        validate({ ...GOOD, commonMistakes: [['m', 'f']] })[0],
+        /commonMistakes\[0\] must be an object/
+      );
+      assert.match(
+        validate({ ...GOOD, commonMistakes: [{ fix: 'f' }] })[0],
+        /commonMistakes\[0\]\.mistake must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, commonMistakes: [{ mistake: 'm', fix: '' }] })[0],
+        /commonMistakes\[0\]\.fix must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, commonMistakes: [{ mistake: '   ', fix: 'f' }] })[0],
+        /commonMistakes\[0\]\.mistake must be a non-empty string/,
+        'whitespace-only counts as empty (the generator trims it to nothing)'
+      );
+      assert.match(
+        validate({
+          ...GOOD,
+          commonMistakes: [
+            { mistake: 'Same mistake.', fix: 'a' },
+            { mistake: '  same mistake.  ', fix: 'b' },
+          ],
+        })[0],
+        /commonMistakes\[1\]\.mistake is a duplicate/,
+        'a repeated mistake (case/whitespace-insensitive) is rejected — the docs-site view keys its <li> on this string'
+      );
+    });
+
+    test('variantDecisionRule: accepts "default" and declared variants, rejects an undeclared one', () => {
+      assert.deepEqual(
+        validate({ ...GOOD, variantDecisionRule: [{ variant: 'default', useWhen: 'w' }] }),
+        []
+      );
+      assert.deepEqual(
+        validate({
+          ...GOOD,
+          variants: ['mirror'],
+          variantDocs: docsFor('mirror'),
+          variantDecisionRule: [{ variant: 'mirror', useWhen: 'w' }],
+        }),
+        []
+      );
+      const errors = validate({ ...GOOD, variantDecisionRule: [{ variant: 'mirror', useWhen: 'w' }] });
+      assert.match(errors[0], /variantDecisionRule\[0\]\.variant "mirror" is not "default" or in variants\[\]/);
+      assert.match(
+        validate({ ...GOOD, variantDecisionRule: [['default', 'w']] })[0],
+        /variantDecisionRule\[0\] must be an object/
+      );
+      assert.match(
+        validate({ ...GOOD, variantDecisionRule: [{ useWhen: 'w' }] })[0],
+        /variantDecisionRule\[0\]\.variant must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, variantDecisionRule: [{ variant: 'default' }] })[0],
+        /variantDecisionRule\[0\]\.useWhen must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, variantDecisionRule: [{ variant: 'default', useWhen: '   ' }] })[0],
+        /variantDecisionRule\[0\]\.useWhen must be a non-empty string/,
+        'whitespace-only counts as empty'
+      );
+      assert.match(
+        validate({
+          ...GOOD,
+          variantDecisionRule: [
+            { variant: 'default', useWhen: 'a' },
+            { variant: 'default', useWhen: 'b' },
+          ],
+        })[0],
+        /variantDecisionRule\[1\]\.variant "default" is a duplicate/,
+        'a repeated variant token — even the default sentinel — is rejected, not silently doubled'
+      );
+    });
+
+    test('dataShapeGuidance: accepts an array of non-empty strings, rejects other shapes', () => {
+      assert.deepEqual(validate({ ...GOOD, dataShapeGuidance: ['rule one'] }), []);
+      assert.match(validate({ ...GOOD, dataShapeGuidance: 'nope' })[0], /dataShapeGuidance must be an array/);
+      assert.match(
+        validate({ ...GOOD, dataShapeGuidance: [''] })[0],
+        /dataShapeGuidance\[0\] must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, dataShapeGuidance: [{ not: 'a string' }] })[0],
+        /dataShapeGuidance\[0\] must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, dataShapeGuidance: ['   '] })[0],
+        /dataShapeGuidance\[0\] must be a non-empty string/,
+        'whitespace-only counts as empty (the generator trims it to nothing)'
+      );
+      assert.match(
+        validate({ ...GOOD, dataShapeGuidance: ['Same rule.', '  same rule.  '] })[0],
+        /dataShapeGuidance\[1\] is a duplicate/,
+        'a repeated rule (case/whitespace-insensitive) is rejected — the docs-site view keys its <li> on this string'
+      );
+    });
+
     test('accepts well-formed excludes array', () => {
       assert.deepEqual(validate({ ...GOOD, excludes: ['compact', 'accent'] }), []);
     });

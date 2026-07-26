@@ -8,6 +8,16 @@
 
 Use for relational or topological visuals — flowcharts, sequence diagrams, state machines, ER diagrams. The diagram should occupy at least half the slide.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing what the diagram shows. |
+| `subtitle` | `p > code` | no | Optional eyebrow caption. |
+| `mermaid` | `div.mermaid, svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
+
 ## When to use
 
 - **Relational structure is the message.** Flowcharts, sequence diagrams, state machines, ER diagrams, journey maps. The relationships between nodes carry meaning the audience needs to see at a glance.
@@ -35,14 +45,6 @@ flowchart LR
   C -->|no| E[Path B]
 ```
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the diagram shows. |
-| `subtitle` | `p > code` | no | Optional eyebrow caption. |
-| `mermaid` | `div.mermaid, svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
 
 ## Anatomy
 

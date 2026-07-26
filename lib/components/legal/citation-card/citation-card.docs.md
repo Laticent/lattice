@@ -8,6 +8,17 @@
 
 Use when one citation IS the slide. The blockquote carries the verbatim language; the trailing list explains what it means and what we must do about it.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading framing what the citation establishes. |
+| `citation` | `p:first-of-type > code` | yes | Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA'). |
+| `quotation` | `blockquote` | yes | Verbatim quote of the cited language. |
+| `gloss` | `ul > li` | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
+
 ## When to use
 
 - **One citation carries the slide.** When a single statute, contract clause, regulation, or standard is doing the argumentative work. The citation IS the evidence; the slide gives it the room to be read.
@@ -36,15 +47,6 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 - **What we must do.**
   - The concrete action this citation argues for.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing what the citation establishes. |
-| `citation` | `p:first-of-type > code` | yes | Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA'). |
-| `quotation` | `blockquote` | yes | Verbatim quote of the cited language. |
-| `gloss` | `ul > li` | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
 
 ## Anatomy
 

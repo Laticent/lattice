@@ -8,6 +8,17 @@
 
 Use to get a room onto the Wi-Fi without reading a password aloud. The QR encodes the standard WIFI: payload; the same details render legibly for anyone typing them by hand. Author the fields as a postfix-key list.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | The card heading (e.g. "Join the room."). |
+| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Offsite-Guest `ssid``. Keys: ssid\|network (required), password\|pass, security\|auth. Omit the password for an open network. Optional keys: `caption` (CTA under the QR); the security row shows exactly what you write. |
+| `eyebrow` | `p:first-child > code` | no | Optional kicker above the heading, authored as an inline-code first line: `` `Room Wi-Fi` ``. |
+| `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``. |
+
 ## When to use
 
 - **Get the room connected.** Guests scan to join instead of squinting at a password on the slide — the credentials are still shown for anyone who prefers to type.
@@ -32,15 +43,6 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 - WPA2 `security`
 - Scan to connect `caption`
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | The card heading (e.g. "Join the room."). |
-| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Offsite-Guest `ssid``. Keys: ssid\|network (required), password\|pass, security\|auth. Omit the password for an open network. Optional keys: `caption` (CTA under the QR); the security row shows exactly what you write. |
-| `eyebrow` | `p:first-child > code` | no | Optional kicker above the heading, authored as an inline-code first line: `` `Room Wi-Fi` ``. |
-| `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``. |
 
 ## Universal modifiers
 

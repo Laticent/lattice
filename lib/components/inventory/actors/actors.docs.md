@@ -6,11 +6,20 @@
 
 **Tags** `ownership` · `onboarding` · `reference`
 
+Use to show 'who owns what' across a process, scoring policy, or org chart. Two-column layout: actor on left, responsibilities on right.
+
+## Agent contract
+
 **Capacity** ~4 items (crowds past 6, overflows past 7) — past that, list-tabular / split across slides.
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — one short responsibility per row, not a job description.
 
-Use to show 'who owns what' across a process, scoring policy, or org chart. Two-column layout: actor on left, responsibilities on right.
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `rows` | `ul > li` | yes | One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing inline-code actor name (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body. |
 
 ## When to use
 
@@ -38,13 +47,6 @@ Use to show 'who owns what' across a process, scoring policy, or org chart. Two-
 - Owns the third part `Third actor`
   - One-line note.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `rows` | `ul > li` | yes | One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing inline-code actor name (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body. |
 
 ## Anatomy
 

@@ -8,6 +8,15 @@
 
 The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading. |
+| `body` | `section > p, section > ul` | yes | Paragraphs or a short bullet list under the heading. Keep under ~40 words. |
+
 ## When to use
 
 - **Explanatory prose that doesn't shape.** A paragraph that develops one idea. No comparisons to spell out, no inventory to grid, no metric to highlight — just prose with a heading. The catch-all when shape would be forced.
@@ -32,13 +41,6 @@ The explanatory paragraph that develops the heading goes here. Keep the slide un
 - Optional supporting point one.
 - Optional supporting point two.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading. |
-| `body` | `section > p, section > ul` | yes | Paragraphs or a short bullet list under the heading. Keep under ~40 words. |
 
 ## Anatomy
 

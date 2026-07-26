@@ -87,8 +87,39 @@ function tc(s) {
  * Markdown-escape a string for use inside a table cell. Newlines and
  * pipe characters break table rendering.
  */
+// Matches any line-ending sequence — CRLF, bare CR, or bare LF. CommonMark
+// treats a bare \r as a line ending same as \n (spec §2.3), so a collapse
+// that only matches `\n+` leaves `\r\r## Heading` able to inject a real
+// heading; both tableCell() and bulletLine() must fold all three forms.
+const LINE_ENDINGS = /(?:\r\n|\r|\n)+/g;
+
 function tableCell(s) {
-  return String(s).replace(/\|/g, '\\|').replace(/\n+/g, ' ');
+  // Escape only the backslash run immediately before each pipe — and only
+  // enough to make that run ODD-length, so its last backslash pairs with
+  // the pipe as a `\|` escape. A blanket "escape every backslash" pass
+  // (the first fix here) closes the same gap but also doubles backslashes
+  // nowhere near a pipe — e.g. a slot description's own `` \` `` markdown-
+  // escape illustration — changing content this function has no business
+  // touching. Scoping to backslash-runs-before-a-pipe fixes the actual
+  // vulnerability (a pre-existing EVEN-length run, including zero, leaves
+  // the pipe unescaped and able to split the generated table row — CodeQL:
+  // incomplete string escaping) with the minimal edit: nothing when the
+  // run is already odd (the pipe is already safely escaped), one appended
+  // backslash when it's even.
+  return String(s)
+    .replace(/(\\*)\|/g, (_match, backslashes) => (backslashes.length % 2 === 0 ? `${backslashes}\\|` : `${backslashes}|`))
+    .replace(LINE_ENDINGS, ' ');
+}
+
+/**
+ * Collapse newlines in a string destined for a single markdown bullet line
+ * (Agent contract prose: commonMistakes/variantDecisionRule/dataShapeGuidance).
+ * Without this, a manifest string containing `\n\n## Heading` would inject a
+ * real heading into the middle of the generated doc — flattening to a single
+ * line keeps every entry exactly one bullet, regardless of manifest content.
+ */
+function bulletLine(s) {
+  return String(s).replace(new RegExp(`\\s*${LINE_ENDINGS.source}\\s*`, 'g'), ' ').trim();
 }
 
 /**
@@ -96,16 +127,26 @@ function tableCell(s) {
  *
  * Sections, in order:
  *   1. Heading + one-line description
- *   2. Function/Form/Substance triplet table
- *   3. When to use (from whenToUse[])
- *   4. When NOT to use (from antiPatterns[])
- *   5. Authoring skeleton (from skeleton)
- *   6. Slots (from slots{})
- *   7. Anatomy (from anatomy, if present)
- *   8. Variants (from variantDocs{}, layout-specific only)
- *   9. Universal modifiers pointer (always)
- *   10. Related components (from related[])
- *   11. Demo pointer (always)
+ *   2. Function/Form/Substance line + tags (a single inline line each,
+ *      not a table)
+ *   3. Purpose paragraph (from purpose) — kept as plain top-matter, same as
+ *      before this contract split, so it never dangles unheaded under the
+ *      LAST subsection of the block that follows.
+ *   4. Agent contract: capacity/density budgets, slots (from slots{}),
+ *      variant decision rule (from variantDecisionRule[]), common mistakes
+ *      (from commonMistakes[]), data shape guidance (from
+ *      dataShapeGuidance[]) — the machine-actionable block, front-loaded so
+ *      an agent authoring a slide of this component doesn't have to wade
+ *      through narrative prose to find it. Whole section omitted when the
+ *      manifest carries none of its inputs.
+ *   5. When to use (from whenToUse[])
+ *   6. When NOT to use (from antiPatterns[])
+ *   7. Authoring skeleton (from skeleton)
+ *   8. Anatomy (from anatomy, if present)
+ *   9. Variants (from variantDocs{}, layout-specific only)
+ *   10. Universal modifiers pointer (always)
+ *   11. Related components (from related[])
+ *   12. Demo pointer (always)
  */
 // ── renderDocs sections ──────────────────────────────────────────────────
 // One emitter per numbered section of the doc (see the contract above);
@@ -125,21 +166,90 @@ function emitDocsHeader(m, lines) {
   }
 }
 
-function emitDocsBudgets(m, lines) {
-  if (m.capacity) {
+/**
+ * The machine-actionable contract: budgets, slots, and (where declared)
+ * the three agent-contract fields (variantDecisionRule, commonMistakes,
+ * dataShapeGuidance — manifest.schema.json). Almost every component
+ * declares `slots`, so this section appears for nearly all of them —
+ * it only emits nothing on the rare manifest with none of capacity,
+ * density, slots, or the three new fields. For the 54 components not
+ * yet backfilled with the new fields, the section still appears (with
+ * just budgets/slots); their docs.md changes only in WHERE that content
+ * sits, not what it says — the three-subsection difference is limited
+ * to the pilot components that declare the new fields.
+ */
+function emitAgentContract(m, lines) {
+  const hasCapacity = Boolean(m.capacity);
+  const hasDensity = Boolean(m.density);
+  const hasSlots = Boolean(m.slots && Object.keys(m.slots).length);
+  const hasVariantRule = Array.isArray(m.variantDecisionRule) && m.variantDecisionRule.length > 0;
+  const hasMistakes = Array.isArray(m.commonMistakes) && m.commonMistakes.length > 0;
+  const hasDataShape = Array.isArray(m.dataShapeGuidance) && m.dataShapeGuidance.length > 0;
+  if (!hasCapacity && !hasDensity && !hasSlots && !hasVariantRule && !hasMistakes && !hasDataShape) return;
+
+  lines.push('## Agent contract');
+  lines.push('');
+
+  if (hasCapacity) {
     const c = m.capacity;
     const sweet = c.sweet != null ? c.sweet : c.soft;
     const esc = Array.isArray(c.escalateTo) && c.escalateTo.length ? ` — past that, ${c.escalateTo.join(' / ')}` : '';
     lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)} (crowds past ${c.soft}, overflows past ${c.hard})${esc}.`);
     lines.push('');
   }
-  if (m.density) {
+  if (hasDensity) {
     const d = m.density;
     const axis = d.axis || m.capacity?.axis || 'item';
     const note = d.note ? ` — ${d.note}` : '';
     lines.push(`**Density** aim ~${d.soft} words per ${axisNoun(axis, 1)}; past ~${d.hard} it reads as a wall of text${note}.`);
     lines.push('');
   }
+
+  if (hasSlots) {
+    lines.push('### Slots');
+    lines.push('');
+    lines.push('| Slot | Selector | Required | Description |');
+    lines.push('|---|---|---|---|');
+    for (const [slotName, slot] of Object.entries(m.slots)) {
+      const req = slot.required ? 'yes' : 'no';
+      lines.push(`| \`${slotName}\` | \`${slot.selector}\` | ${req} | ${tableCell(slot.description)} |`);
+    }
+    lines.push('');
+  }
+
+  if (hasVariantRule) {
+    lines.push('### Variant decision rule');
+    lines.push('');
+    for (const entry of m.variantDecisionRule) {
+      // "default" is the no-modifier sentinel, not a class token — render it
+      // distinctly from a real variant (backtick-wrapped) so an agent can't
+      // mistake it for a literal `_class:` modifier to copy.
+      const label = entry.variant === 'default' ? 'default (no modifier)' : `\`${entry.variant}\``;
+      lines.push(`- **${label}.** ${bulletLine(entry.useWhen)}`);
+    }
+    lines.push('');
+  }
+
+  if (hasMistakes) {
+    lines.push('### Common mistakes');
+    lines.push('');
+    for (const entry of m.commonMistakes) {
+      lines.push(`- **${bulletLine(entry.mistake)}** ${bulletLine(entry.fix)}`);
+    }
+    lines.push('');
+  }
+
+  if (hasDataShape) {
+    lines.push('### Data shape');
+    lines.push('');
+    for (const rule of m.dataShapeGuidance) {
+      lines.push(`- ${bulletLine(rule)}`);
+    }
+    lines.push('');
+  }
+}
+
+function emitDocsPurpose(m, lines) {
   if (m.purpose) {
     lines.push(m.purpose);
     lines.push('');
@@ -172,17 +282,6 @@ function emitDocsAuthoring(m, lines) {
   lines.push(m.skeleton.replace(/\n$/, ''));
   lines.push('```');
   lines.push('');
-  if (m.slots && Object.keys(m.slots).length) {
-    lines.push('## Slots');
-    lines.push('');
-    lines.push('| Slot | Selector | Required | Description |');
-    lines.push('|---|---|---|---|');
-    for (const [slotName, slot] of Object.entries(m.slots)) {
-      const req = slot.required ? 'yes' : 'no';
-      lines.push(`| \`${slotName}\` | \`${slot.selector}\` | ${req} | ${tableCell(slot.description)} |`);
-    }
-    lines.push('');
-  }
   if (m.anatomyBlock) {
     lines.push('## Anatomy');
     lines.push('');
@@ -238,7 +337,8 @@ function emitDocsPointers(m, lines) {
 function renderDocs(m) {
   const lines = [];
   emitDocsHeader(m, lines);
-  emitDocsBudgets(m, lines);
+  emitDocsPurpose(m, lines);
+  emitAgentContract(m, lines);
   emitDocsGuidance(m, lines);
   emitDocsAuthoring(m, lines);
   emitDocsVariants(m, lines);

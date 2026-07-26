@@ -6,9 +6,18 @@
 
 **Tags** `definition` · `reference` · `onboarding`
 
+Use for jargon-heavy decks where the audience needs a reference page. The runtime auto-adds a range pill (e.g. 'A – G') to the heading.
+
+## Agent contract
+
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — a term and a one-sentence definition.
 
-Use for jargon-heavy decks where the audience needs a reference page. The runtime auto-adds a range pill (e.g. 'A – G') to the heading.
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading — typically 'Glossary'. |
+| `entries` | `ul > li` | yes | Nested bullets: outer li is the term, inner li is its one-line definition. A runtime transform converts the list into a two-column table and derives the alphabetic range pill from the first and last terms, so terms should be authored in alphabetical order; without the Lattice runtime the raw nested list renders unstyled. |
 
 ## When to use
 
@@ -36,13 +45,6 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 - Cadence
   - The deck's pacing — how much new information per slide.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading — typically 'Glossary'. |
-| `entries` | `ul > li` | yes | Nested bullets: outer li is the term, inner li is its one-line definition. A runtime transform converts the list into a two-column table and derives the alphabetic range pill from the first and last terms, so terms should be authored in alphabetical order; without the Lattice runtime the raw nested list renders unstyled. |
 
 ## Anatomy
 

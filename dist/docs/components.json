@@ -6680,7 +6680,7 @@
         "takeaway"
       ],
       "description": "A legislative recommendation — a stance verdict beside the recommendation, its evidence, and the specific ask to lawmakers.",
-      "purpose": "Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colours the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.",
+      "purpose": "Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colors the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.",
       "variants": [
         "adopt",
         "amend",
@@ -10077,7 +10077,7 @@
         "caption": {
           "selector": ".video-embed figcaption",
           "required": false,
-          "description": "Optional caption bullet — `- Scan to watch `caption``."
+          "description": "Optional caption bullet — a plain bullet line ending with the `caption` marker (see Authoring below for the full syntax)."
         }
       },
       "skeleton": "<!-- _class: video companion -->\n\n## Watch the 90-second product tour.\n\nOne screen, one story — the fastest way to see the product work.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- A guided walkthrough `caption`\n",

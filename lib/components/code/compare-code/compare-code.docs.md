@@ -8,6 +8,16 @@
 
 Use to contrast a before/after refactor, two API styles, or two configurations. Each side gets an h3 label and one fenced block.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the comparison. |
+| `left` | `section > h3:first-of-type + pre` | yes | Left label (h3) and code block. |
+| `right` | `section > h3:nth-of-type(2) + pre` | yes | Right label (h3) and code block. |
+
 ## When to use
 
 - **Concrete code on both sides.** Both sides hold short, readable snippets — refactor before/after, two API styles, two configurations. The diff is the point of the slide.
@@ -43,14 +53,6 @@ function after() {
 }
 ```
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the comparison. |
-| `left` | `section > h3:first-of-type + pre` | yes | Left label (h3) and code block. |
-| `right` | `section > h3:nth-of-type(2) + pre` | yes | Right label (h3) and code block. |
 
 ## Anatomy
 

@@ -6,11 +6,20 @@
 
 **Tags** `agenda-setting` · `overview` · `onboarding` · `kickoff`
 
+Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Five interchangeable styles — the default `ledger` (a contents page with optional page references), plus `circles`, `rail`, `cards`, and `checks` — all compose with the `progress-N` 'you are here' modifier.
+
+## Agent contract
+
 **Capacity** ~4 items (crowds past 6, overflows past 7) — past that, split across slides.
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short agenda line, not a description.
 
-Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Five interchangeable styles — the default `ledger` (a contents page with optional page references), plus `circles`, `rail`, `cards`, and `checks` — all compose with the `progress-N` 'you are here' modifier.
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
+| `items` | `ol > li` | yes | Ordered list of section titles. |
 
 ## When to use
 
@@ -38,13 +47,6 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 3. Third section title
 4. Fourth section title
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
-| `items` | `ol > li` | yes | Ordered list of section titles. |
 
 ## Anatomy
 

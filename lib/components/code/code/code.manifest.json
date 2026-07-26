@@ -88,6 +88,16 @@
       "when": "code is one piece of a longer prose explanation"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Fence tagged with the wrong language, e.g. ```js on a Python snippet.",
+      "fix": "Match the fence tag to the actual language exactly. The highlighter keys off the tag alone, not the code's content — a wrong tag mis-highlights every token."
+    },
+    {
+      "mistake": "Shebang, import block, or file-header boilerplate left in as padding before the interesting line.",
+      "fix": "Trim to the lines that carry the point — the sample's own convention puts the comfort line at twelve, the hard wall at twenty (`whenToUse`/`stressDoc`). Cut scaffolding with `// ...` rather than spending that budget on it."
+    }
+  ],
   "showcase": {
     "featured": true
   },

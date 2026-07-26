@@ -6,9 +6,18 @@
 
 **Tags** `changelog` · `milestones` · `status` · `retrospective`
 
+Use for milestone history or annotated timelines. Each event sits on a left-to-right spine: a dot with its date pill above it, then the title, an optional status pill, and a short body stacked beneath.
+
+## Agent contract
+
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one stage in a sentence.
 
-Use for milestone history or annotated timelines. Each event sits on a left-to-right spine: a dot with its date pill above it, then the title, an optional status pill, and a short body stacked beneath.
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the timeline. |
+| `events` | `ol > li` | yes | Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary: decision / live / at-risk / blocked / done / on-track / deferred. |
 
 ## When to use
 
@@ -38,13 +47,6 @@ Use for milestone history or annotated timelines. Each event sits on a left-to-r
 3. `2025 Q3` Third milestone `live`
    - One-sentence description.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the timeline. |
-| `events` | `ol > li` | yes | Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary: decision / live / at-risk / blocked / done / on-track / deferred. |
 
 ## Anatomy
 

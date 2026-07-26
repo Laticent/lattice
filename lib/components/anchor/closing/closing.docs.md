@@ -8,6 +8,16 @@
 
 Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals "we're done."
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. |
+| `eyebrow` | `p > code` | no | Optional category label. |
+| `subtitle` | `p` | no | Optional supporting line. |
+
 ## When to use
 
 - **Last slide of every deck.** Closes the bookend pair with title. Restates the takeaway, the call to action, or the next-steps line. The dark canvas tells the audience visually that the presentation is over.
@@ -32,14 +42,6 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 
 `Optional eyebrow`
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. |
-| `eyebrow` | `p > code` | no | Optional category label. |
-| `subtitle` | `p` | no | Optional supporting line. |
 
 ## Anatomy
 

@@ -8,6 +8,20 @@
 
 Use when the code IS the slide — an API snippet, a config example, a migration. For comparing two versions, use compare-code.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing what the code shows. |
+| `code` | `pre > code` | yes | Fenced code block — language tag drives syntax highlighting. |
+
+### Common mistakes
+
+- **Fence tagged with the wrong language, e.g. ```js on a Python snippet.** Match the fence tag to the actual language exactly. The highlighter keys off the tag alone, not the code's content — a wrong tag mis-highlights every token.
+- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — the sample's own convention puts the comfort line at twelve, the hard wall at twenty (`whenToUse`/`stressDoc`). Cut scaffolding with `// ...` rather than spending that budget on it.
+
 ## When to use
 
 - **The code is the argument.** When a single snippet answers the question on the slide — the shape of an API call, the surface of a config, the body of a migration. Authoring follows the snippet, not the other way around.
@@ -34,13 +48,6 @@ app.post('/api/v2/auth', async (req, res) => {
 });
 ```
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the code shows. |
-| `code` | `pre > code` | yes | Fenced code block — language tag drives syntax highlighting. |
 
 ## Anatomy
 

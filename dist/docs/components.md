@@ -93,6 +93,16 @@
 
 Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals "we're done."
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. |
+| `eyebrow` | `p > code` | no | Optional category label. |
+| `subtitle` | `p` | no | Optional supporting line. |
+
 #### When to use
 
 - **Last slide of every deck.** Closes the bookend pair with title. Restates the takeaway, the call to action, or the next-steps line. The dark canvas tells the audience visually that the presentation is over.
@@ -117,14 +127,6 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 
 `Optional eyebrow`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. |
-| `eyebrow` | `p > code` | no | Optional category label. |
-| `subtitle` | `p` | no | Optional supporting line. |
 
 #### Anatomy
 
@@ -212,6 +214,15 @@ See [closing.gallery.light.pdf](../../lib/components/anchor/closing/closing.gall
 
 Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Section name. |
+| `eyebrow` | `p > code` | no | Optional section number or category label above the heading. |
+
 #### When to use
 
 - **Major section starts.** Marks the boundary between two themed sections of the deck. The dark canvas is a strong context-switch signal — use it when the audience needs to re-orient.
@@ -237,13 +248,6 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ## Section name
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Section name. |
-| `eyebrow` | `p > code` | no | Optional section number or category label above the heading. |
 
 #### Anatomy
 
@@ -324,6 +328,22 @@ See [divider.gallery.light.pdf](../../lib/components/anchor/divider/divider.gall
 
 First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token).
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h1` | yes | Deck title. |
+| `eyebrow` | `p > code` | no | Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above). |
+| `subtitle` | `p` | no | Optional plain-paragraph subtitle below the h1. |
+
+##### Common mistakes
+
+- **Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.** Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the uppercase mono eyebrow lifted above the h1.
+- **The subtitle paragraph is authored before the eyebrow paragraph instead of after it.** The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h1 + p:has(> code:only-child)`) — it only counts element siblings, so an HTML comment between the h1 and the eyebrow is harmless, but another paragraph is not. Keep the source order heading → eyebrow → subtitle.
+- **Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.** Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis.
+
 #### When to use
 
 - **First slide of every deck.** Sets topic, audience, and visual tone in one glance. The dark canvas anchors the deck visually so subsequent slides feel like a continuous document.
@@ -350,14 +370,6 @@ First slide of every deck. Sets the topic and the visual tone. Suppresses header
 
 One-line subtitle that frames the deck.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h1` | yes | Deck title. |
-| `eyebrow` | `p > code` | no | Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above). |
-| `subtitle` | `p` | no | Optional plain-paragraph subtitle below the h1. |
 
 #### Anatomy
 
@@ -400,6 +412,22 @@ See [title.gallery.light.pdf](../../lib/components/anchor/title/title.gallery.li
 
 Use to make one metric land. The number should be the headline — supporting text is one short caption. The whole slide is the chart.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p > code` | no | Optional label above the number. |
+| `number` | `ul > li:first-child` | yes | First list item: the giant number. |
+| `caption` | `ul > li:first-child > ul > li` | no | One-line caption below the number (nested bullet). |
+
+##### Common mistakes
+
+- **Caption authored as a second top-level bullet instead of nested under the number's list item.** The caption slot selector is `ul > li:first-child > ul > li` — indent the caption as a sub-bullet of the number, not a sibling `- caption` line.
+- **The unit or label baked into the number line itself, e.g. `- 1,248,500,000 users`.** Keep the number list item to the numeral plus its own unit symbol (`%`, `$`, `×`). Put the semantic label — what's being counted — in the eyebrow, not appended prose after the number.
+- **Eyebrow restates the number's value instead of naming its category, e.g. eyebrow `92%` above a number `92%`.** The eyebrow names the metric class ("Audience recall", "Q3 revenue"); the number carries the value. Restating the value in both places wastes the eyebrow's one job.
+
 #### When to use
 
 - **One metric carries the slide.** When the audience needs to remember exactly one number from this part of the deck. The whole slide is the chart — no surrounding context, no comparisons, no axes.
@@ -422,14 +450,6 @@ Use to make one metric land. The number should be the headline — supporting te
 - 92%
   - of the audience remembers a single number from a deck.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p > code` | no | Optional label above the number. |
-| `number` | `ul > li:first-child` | yes | First list item: the giant number. |
-| `caption` | `ul > li:first-child > ul > li` | no | One-line caption below the number (nested bullet). |
 
 #### Anatomy
 
@@ -472,6 +492,15 @@ See [big-number.gallery.light.pdf](../../lib/components/statement/big-number/big
 
 The catch-all for explanatory content that doesn't fit a more structured layout. Resist using it when a more specific component (cards-grid, stats, compare-prose) would shape the content better.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading. |
+| `body` | `section > p, section > ul` | yes | Paragraphs or a short bullet list under the heading. Keep under ~40 words. |
+
 #### When to use
 
 - **Explanatory prose that doesn't shape.** A paragraph that develops one idea. No comparisons to spell out, no inventory to grid, no metric to highlight — just prose with a heading. The catch-all when shape would be forced.
@@ -496,13 +525,6 @@ The explanatory paragraph that develops the heading goes here. Keep the slide un
 - Optional supporting point one.
 - Optional supporting point two.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading. |
-| `body` | `section > p, section > ul` | yes | Paragraphs or a short bullet list under the heading. Keep under ~40 words. |
 
 #### Anatomy
 
@@ -546,6 +568,15 @@ See [content.gallery.light.pdf](../../lib/components/statement/content/content.g
 
 Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `quotation` | `blockquote > p` | yes | The quoted text. |
+| `attribution` | `section > p:last-child` | no | Attribution line below the quote. |
+
 #### When to use
 
 - **Verbatim language matters.** When the audience needs to hear the words exactly as they were said — customer feedback, expert claim, regulatory text, mission statement. Paraphrasing would lose the impact.
@@ -567,13 +598,6 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 
 — Person, Role
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `quotation` | `blockquote > p` | yes | The quoted text. |
-| `attribution` | `section > p:last-child` | no | Attribution line below the quote. |
 
 #### Anatomy
 
@@ -612,9 +636,20 @@ See [quote.gallery.light.pdf](../../lib/components/statement/quote/quote.gallery
 
 **Tags** `summary` · `board-deck` · `hero-number` · `pull-quote` · `takeaway`
 
+Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer). For a binary decision with a verdict, reach for `split-compare`.
+
+#### Agent contract
+
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one finding per row, a sentence.
 
-Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer). For a binary decision with a verdict, reach for `split-compare`.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p:first-of-type > code` | no | Optional inline-code label above the feature (the phase number under `steps`, the unit under `metric`). |
+| `heading` | `h2` | yes | The featured element in the left panel — a heading by default; a hero number under `metric`; the phase name under `steps`. (Under `pullquote`, use a blockquote instead — see the variant.) |
+| `lede` | `p` | no | One-sentence framing paragraph under the feature. |
+| `points` | `ul > li` | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. |
 
 #### When to use
 
@@ -646,15 +681,6 @@ One-sentence framing paragraph explaining what the points cover.
 - Third point
   - Supporting detail explaining the third point.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p:first-of-type > code` | no | Optional inline-code label above the feature (the phase number under `steps`, the unit under `metric`). |
-| `heading` | `h2` | yes | The featured element in the left panel — a heading by default; a hero number under `metric`; the phase name under `steps`. (Under `pullquote`, use a blockquote instead — see the variant.) |
-| `lede` | `p` | no | One-sentence framing paragraph under the feature. |
-| `points` | `ul > li` | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. |
 
 #### Anatomy
 
@@ -812,11 +838,20 @@ See [split-panel.gallery.light.pdf](../../lib/components/statement/split-panel/s
 
 **Tags** `ownership` · `onboarding` · `reference`
 
+Use to show 'who owns what' across a process, scoring policy, or org chart. Two-column layout: actor on left, responsibilities on right.
+
+#### Agent contract
+
 **Capacity** ~4 items (crowds past 6, overflows past 7) — past that, list-tabular / split across slides.
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — one short responsibility per row, not a job description.
 
-Use to show 'who owns what' across a process, scoring policy, or org chart. Two-column layout: actor on left, responsibilities on right.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `rows` | `ul > li` | yes | One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing inline-code actor name (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body. |
 
 #### When to use
 
@@ -844,13 +879,6 @@ Use to show 'who owns what' across a process, scoring policy, or org chart. Two-
 - Owns the third part `Third actor`
   - One-line note.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `rows` | `ul > li` | yes | One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing inline-code actor name (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body. |
 
 #### Anatomy
 
@@ -891,11 +919,20 @@ See [actors.gallery.light.pdf](../../lib/components/inventory/actors/actors.gall
 
 **Tags** `agenda-setting` · `overview` · `onboarding` · `kickoff`
 
+Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Five interchangeable styles — the default `ledger` (a contents page with optional page references), plus `circles`, `rail`, `cards`, and `checks` — all compose with the `progress-N` 'you are here' modifier.
+
+#### Agent contract
+
 **Capacity** ~4 items (crowds past 6, overflows past 7) — past that, split across slides.
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short agenda line, not a description.
 
-Use as the second slide of any multi-section deck. Numbers are generated; authors just write the section titles. Five interchangeable styles — the default `ledger` (a contents page with optional page references), plus `circles`, `rail`, `cards`, and `checks` — all compose with the `progress-N` 'you are here' modifier.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
+| `items` | `ol > li` | yes | Ordered list of section titles. |
 
 #### When to use
 
@@ -923,13 +960,6 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 3. Third section title
 4. Fourth section title
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
-| `items` | `ol > li` | yes | Ordered list of section titles. |
 
 #### Anatomy
 
@@ -1137,11 +1167,21 @@ See [agenda.gallery.light.pdf](../../lib/components/inventory/agenda/agenda.gall
 
 **Tags** `overview` · `showcase` · `summary`
 
+Use when the audience needs to compare or scan a small set of options at a glance. Avoid for more than 4 items — split into multiple slides. For ordered/numbered steps, use list-steps instead.
+
+#### Agent contract
+
 **Capacity** ~3 items (crowds past 4, overflows past 4) — past that, list-tabular / split across slides.
 
 **Density** aim ~15 words per item; past ~24 it reads as a wall of text — a card body is one short clause, not a paragraph.
 
-Use when the audience needs to compare or scan a small set of options at a glance. Avoid for more than 4 items — split into multiple slides. For ordered/numbered steps, use list-steps instead.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `cards` | `ul > li` | yes | Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule). |
+| `insight` | `blockquote` | no | Optional key-insight panel above the cards. |
 
 #### When to use
 
@@ -1173,14 +1213,6 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 - Fourth card title
   - Body text for the fourth card, one sentence.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `cards` | `ul > li` | yes | Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule). |
-| `insight` | `blockquote` | no | Optional key-insight panel above the cards. |
 
 #### Anatomy
 
@@ -1280,11 +1312,20 @@ See [cards-grid.gallery.light.pdf](../../lib/components/inventory/cards-grid/car
 
 **Tags** `overview` · `summary` · `reference`
 
+Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best (a fourth fits with the `compact` modifier).
+
+#### Agent contract
+
 **Capacity** ~3 items (crowds past 4, overflows past 4) — past that, list-tabular / split across slides.
 
 **Density** aim ~16 words per item; past ~26 it reads as a wall of text — a stacked card is a short paragraph at most.
 
-Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best (a fourth fits with the `compact` modifier).
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `cards` | `ul > li` | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional trailing inline `code` on the title line renders as a right-anchored pill. |
 
 #### When to use
 
@@ -1312,13 +1353,6 @@ Use when the items want vertical reading order — sequential exploration rather
 - Third card title
   - Body text for the third stacked card.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `cards` | `ul > li` | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional trailing inline `code` on the title line renders as a right-anchored pill. |
 
 #### Anatomy
 
@@ -1396,11 +1430,20 @@ See [cards-stack.gallery.light.pdf](../../lib/components/inventory/cards-stack/c
 
 **Tags** `status` · `stoplight` · `process` · `requirements`
 
+Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).
+
+#### Agent contract
+
 **Capacity** ~6 items (crowds past 8, overflows past 9) — past that, split across slides.
 
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short readiness line.
 
-Use for completion reports, readiness audits, or pre-flight checks. State markers [x]/[-]/[ ]/[/] produce status-colored circles carrying a distinct mark — check / dash / ring / slash — so the shape reads independently of color (color-blind-safe).
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `items` | `ul > li` | yes | Each item prefixed with a state marker — [x] done, [-] partial, [ ] todo, or [/] out-of-scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag. |
 
 #### When to use
 
@@ -1426,13 +1469,6 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 - [-] Third item that is partially complete with a caveat.
 - [ ] Fourth item that is not yet started.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li` | yes | Each item prefixed with a state marker — [x] done, [-] partial, [ ] todo, or [/] out-of-scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag. |
 
 #### Anatomy
 
@@ -1472,9 +1508,18 @@ See [checklist.gallery.light.pdf](../../lib/components/inventory/checklist/check
 
 **Tags** `definition` · `reference` · `onboarding`
 
+Use for jargon-heavy decks where the audience needs a reference page. The runtime auto-adds a range pill (e.g. 'A – G') to the heading.
+
+#### Agent contract
+
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — a term and a one-sentence definition.
 
-Use for jargon-heavy decks where the audience needs a reference page. The runtime auto-adds a range pill (e.g. 'A – G') to the heading.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading — typically 'Glossary'. |
+| `entries` | `ul > li` | yes | Nested bullets: outer li is the term, inner li is its one-line definition. A runtime transform converts the list into a two-column table and derives the alphabetic range pill from the first and last terms, so terms should be authored in alphabetical order; without the Lattice runtime the raw nested list renders unstyled. |
 
 #### When to use
 
@@ -1502,13 +1547,6 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 - Cadence
   - The deck's pacing — how much new information per slide.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading — typically 'Glossary'. |
-| `entries` | `ul > li` | yes | Nested bullets: outer li is the term, inner li is its one-line definition. A runtime transform converts the list into a two-column table and derives the alphabetic range pill from the first and last terms, so terms should be authored in alphabetical order; without the Lattice runtime the raw nested list renders unstyled. |
 
 #### Anatomy
 
@@ -1550,11 +1588,22 @@ See [glossary.gallery.light.pdf](../../lib/components/inventory/glossary/glossar
 
 **Tags** `overview` · `summary` · `showcase`
 
+Use for a small register of related items where each carries similar weight. Author the content once (a bold lead + detail per item, optional trailing insight) and pick the look with a variant: the default numbered ledger, a cards grid, a horizontal timeline, or a magazine-style editorial split — no re-authoring. For more than six items, escalate to list-tabular or split across slides.
+
+#### Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-tabular / split across slides.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause of body per part.
 
-Use for a small register of related items where each carries similar weight. Author the content once (a bold lead + detail per item, optional trailing insight) and pick the look with a variant: the default numbered ledger, a cards grid, a horizontal timeline, or a magazine-style editorial split — no re-authoring. For more than six items, escalate to list-tabular or split across slides.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p:first-child > code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
+| `title` | `h2` | yes | Slide heading. |
+| `items` | `ul > li` | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
+| `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
 #### When to use
 
@@ -1586,15 +1635,6 @@ Use for a small register of related items where each carries similar weight. Aut
 
 > Optional trailing insight.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p:first-child > code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
-| `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li` | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
-| `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
 #### Anatomy
 
@@ -1694,9 +1734,18 @@ See [inventory.gallery.light.pdf](../../lib/components/inventory/inventory/inven
 
 **Tags** `overview` · `summary` · `takeaway` · `walkthrough`
 
+Use when the items are genuinely a flat list of one-line points. The default renders accent-bordered pills; the `takeaway` variant renders hairline-ruled single-line takeaways (former tldr); the `principles` variant renders display-weight numbered statements with a large counter (former principles). For richer per-item structure, prefer cards-grid, cards-stack, or list-tabular.
+
+#### Agent contract
+
 **Density** aim ~14 words per item; past ~20 it reads as a wall of text — one statement per line, not a paragraph.
 
-Use when the items are genuinely a flat list of one-line points. The default renders accent-bordered pills; the `takeaway` variant renders hairline-ruled single-line takeaways (former tldr); the `principles` variant renders display-weight numbered statements with a large counter (former principles). For richer per-item structure, prefer cards-grid, cards-stack, or list-tabular.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `items` | `ul > li, ol > li` | yes | List items. Keep each under ~12 words. |
 
 #### When to use
 
@@ -1725,13 +1774,6 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 - Fourth short bullet point.
 - Fifth short bullet point.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li, ol > li` | yes | List items. Keep each under ~12 words. |
 
 #### Anatomy
 
@@ -1859,9 +1901,18 @@ See [list.gallery.light.pdf](../../lib/components/inventory/list/list.gallery.li
 
 **Tags** `reference` · `overview` · `status`
 
+Use for compact reference tables: glossary-style entries, key/value pairs, specs. Four primary variants (def, metric, spec, register) tune the visual treatment; secondary modifiers (rule, solid, stacked, outline) refine each.
+
+#### Agent contract
+
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a short row label plus a clause.
 
-Use for compact reference tables: glossary-style entries, key/value pairs, specs. Four primary variants (def, metric, spec, register) tune the visual treatment; secondary modifiers (rule, solid, stacked, outline) refine each.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `rows` | `ol > li` | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
 
 #### When to use
 
@@ -1891,13 +1942,6 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 4. Fourth entry
    - Description or value for the fourth entry.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `rows` | `ol > li` | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
 
 #### Anatomy
 
@@ -2061,6 +2105,17 @@ See [list-tabular.gallery.light.pdf](../../lib/components/inventory/list-tabular
 
 Use for the credibility slide — the 'trusted by' / 'our funders' / 'participating agencies' wall. Marks render as token-colored silhouettes (a CSS mask filled with `var(--logo-ink)`), so the wall is one cohesive texture that re-tones per theme and color-mode and stays AA on any ground; the `color` variant gives each mark its own categorical palette hue.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Trusted by`. |
+| `title` | `h2` | no | Optional headline above the wall. A claim earns its place (‘400+ teams run board prep on Lattice’); a bare label (‘Customers’) does not. |
+| `logos` | `ul > li` | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. |
+| `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark. |
+
 #### When to use
 
 - **The proof is the logos.** Customers, partners, funders, accreditations, participating agencies — anywhere a set of recognisable marks carries more weight than a sentence. The audience scans the wall and concludes 'serious company keeps this company.'
@@ -2092,15 +2147,6 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 - ![Fifth brand](logo-5.svg)
 - ![Sixth brand](logo-6.svg)
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Trusted by`. |
-| `title` | `h2` | no | Optional headline above the wall. A claim earns its place (‘400+ teams run board prep on Lattice’); a bare label (‘Customers’) does not. |
-| `logos` | `ul > li` | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. |
-| `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark. |
 
 #### Anatomy
 
@@ -2190,11 +2236,22 @@ See [logo-wall.gallery.light.pdf](../../lib/components/inventory/logo-wall/logo-
 
 **Tags** `pitch` · `board-deck` · `recommendation`
 
+Use to pre-empt the room: line up the three or four hardest questions the audience will raise and answer each one before it is asked. The question reads as a prompt; the prepared answer carries the substance. Distinct from a reference FAQ (many terse look-up pairs) — this is a few weighty defenses of a recommendation.
+
+#### Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on).
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a one-line question and a short answer.
 
-Use to pre-empt the room: line up the three or four hardest questions the audience will raise and answer each one before it is asked. The question reads as a prompt; the prepared answer carries the substance. Distinct from a reference FAQ (many terse look-up pairs) — this is a few weighty defenses of a recommendation.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Anticipated questions`. |
+| `title` | `h2` | no | Optional headline framing the set — name the pressure ('What the board will press on'), not a bare label ('Q&A'). |
+| `question` | `ul > li, ol > li` | yes | One top-level list item per question, in the order you want to take them (lead with the toughest). Author it as plain interrogative text — no bold. Questions are indexed automatically (01, 02, …), so a `ul` and an `ol` render the same. |
+| `answer` | `ul > li > ul > li, ol > li > ol > li` | yes | The prepared answer, nested one level under its question. Two or three sentences that actually close the question down — a reasoned response, not a restatement. Every question needs one. |
 
 #### When to use
 
@@ -2222,15 +2279,6 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 - Third question?
   - The prepared answer.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p > code:only-child` | no | Optional kicker above the headline — wrap a short label in backticks, e.g. `Anticipated questions`. |
-| `title` | `h2` | no | Optional headline framing the set — name the pressure ('What the board will press on'), not a bare label ('Q&A'). |
-| `question` | `ul > li, ol > li` | yes | One top-level list item per question, in the order you want to take them (lead with the toughest). Author it as plain interrogative text — no bold. Questions are indexed automatically (01, 02, …), so a `ul` and an `ol` render the same. |
-| `answer` | `ul > li > ul > li, ol > li > ol > li` | yes | The prepared answer, nested one level under its question. Two or three sentences that actually close the question down — a reasoned response, not a restatement. Every question needs one. |
 
 #### Anatomy
 
@@ -2362,9 +2410,18 @@ See [q-and-a.gallery.light.pdf](../../lib/components/inventory/q-and-a/q-and-a.g
 
 **Tags** `tradeoff` · `contrast` · `recommendation` · `transformation` · `retrospective`
 
+Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side.
+
+#### Agent contract
+
 **Density** aim ~20 words per item; past ~32 it reads as a wall of text — each side's case in a sentence or two.
 
-Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the comparison. |
+| `options` | `ul > li` | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. |
 
 #### When to use
 
@@ -2390,13 +2447,6 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 - Second option
   - Two-sentence description of the second option, including the strongest argument for it.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the comparison. |
-| `options` | `ul > li` | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. |
 
 #### Anatomy
 
@@ -2546,11 +2596,20 @@ See [compare-prose.gallery.light.pdf](../../lib/components/comparison/compare-pr
 
 **Tags** `tradeoff` · `ranking` · `assessment`
 
+Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-prose can hold legibly.
+
+#### Agent contract
+
 **Capacity** ~4 rows (crowds past 6, overflows past 8) — past that, split across slides.
 
 **Density** aim ~12 words per row; past ~18 it reads as a wall of text — a few words per cell.
 
-Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-prose can hold legibly.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the comparison. |
+| `table` | `table` | yes | Markdown table with header row and 2+ data rows. |
 
 #### When to use
 
@@ -2577,13 +2636,6 @@ Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-pro
 | Second criterion | Value | Value | Value |
 | Third criterion | Value | Value | Value |
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the comparison. |
-| `table` | `table` | yes | Markdown table with header row and 2+ data rows. |
 
 #### Anatomy
 
@@ -2629,9 +2681,18 @@ See [compare-table.gallery.light.pdf](../../lib/components/comparison/compare-ta
 
 **Tags** `recommendation` · `tradeoff` · `strategy`
 
+Use after a comparison slide to land the decision. The justifications render as one unified categorical strip — co-equal cards that together signal a single resolved verdict; the heading carries the decision, not a focal/subordinated split.
+
+#### Agent contract
+
 **Density** aim ~20 words per item; past ~32 it reads as a wall of text — each option's tradeoff in a sentence or two.
 
-Use after a comparison slide to land the decision. The justifications render as one unified categorical strip — co-equal cards that together signal a single resolved verdict; the heading carries the decision, not a focal/subordinated split.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the decision. |
+| `options` | `ul > li` | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
 
 #### When to use
 
@@ -2657,13 +2718,6 @@ Use after a comparison slide to land the decision. The justifications render as 
 - Rejected option
   - One-line rationale for why this didn't fit.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the decision. |
-| `options` | `ul > li` | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
 
 #### Anatomy
 
@@ -2721,9 +2775,27 @@ See [decision.gallery.light.pdf](../../lib/components/comparison/decision/decisi
 
 **Tags** `two-by-two` · `prioritize` · `strategy` · `risk`
 
+Use for categorical 2×2 reasoning when the items are fixed and you control which cell each lands in. For data-plotted scatter on continuous axes, use quadrant instead.
+
+#### Agent contract
+
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short label per quadrant cell.
 
-Use for categorical 2×2 reasoning when the items are fixed and you control which cell each lands in. For data-plotted scatter on continuous axes, use quadrant instead.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the framework. |
+| `axes` | `ul > li` | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
+
+##### Common mistakes
+
+- **Quadrant title names only one axis, e.g. `- **Priorities.**` instead of both poles.** Lead each quadrant with both axis poles: `- **High impact · Low effort.**`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes.
+- **The four outer list items authored in an arbitrary order.** Declaration order IS grid position: 1st item → top-left, 2nd → top-right, 3rd → bottom-left, 4th → bottom-right (a flex-wrap layout, not a labeled grid). Reordering the source list visibly reorders the quadrants.
+
+##### Data shape
+
+- Author exactly four outer list items, one per quadrant. The layout assumes a fixed 2×2 and does not clamp, reflow, or warn on a different count — a 3rd or 5th item is an authoring bug the engine won't catch; it just wraps into a broken grid.
 
 #### When to use
 
@@ -2754,13 +2826,6 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 - **Low value · High cost.**
   - First item in this quadrant
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the framework. |
-| `axes` | `ul > li` | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
 
 #### Anatomy
 
@@ -2805,6 +2870,16 @@ See [matrix-2x2.gallery.light.pdf](../../lib/components/comparison/matrix-2x2/ma
 
 Use for the plans / packages slide — two to four tiers compared on price and features, with one tier elevated as the recommendation. The recommended tier is marked explicitly (it is usually the middle one, not the last), so the eye lands where you want it.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading — the choice the tiers resolve (‘Pick the plan that fits the team.’). |
+| `tiers` | `ul > li` | yes | One top-level li per tier. Lead with the plain tier name (auto-bold), then a trailing inline-code price (`$49 / mo`, `Custom`). Add a single-asterisk marker (`*Most popular*`) to elevate one tier — it renders as a ribbon. Then a nested list: one feature per line led by a state marker, and a final marker-less ‘who it's for’ line. |
+| `features` | `ul > li > ul > li` | yes | Feature rows, each led by a state marker: `[x]` included (green check), `[/]` not included (muted, struck through), `[-]` limited (half). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan. |
+
 #### When to use
 
 - **Two to four tiers.** Each tier is one column; the grid holds three across by default (`two` / `four` adjust the count). Past four the columns crowd and the prices stop scanning — move secondary options to a follow-up slide.
@@ -2839,14 +2914,6 @@ Use for the plans / packages slide — two to four tiers compared on price and f
   - [x] Second feature
   - For procurement and compliance.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading — the choice the tiers resolve (‘Pick the plan that fits the team.’). |
-| `tiers` | `ul > li` | yes | One top-level li per tier. Lead with the plain tier name (auto-bold), then a trailing inline-code price (`$49 / mo`, `Custom`). Add a single-asterisk marker (`*Most popular*`) to elevate one tier — it renders as a ribbon. Then a nested list: one feature per line led by a state marker, and a final marker-less ‘who it's for’ line. |
-| `features` | `ul > li > ul > li` | yes | Feature rows, each led by a state marker: `[x]` included (green check), `[/]` not included (muted, struck through), `[-]` limited (half). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan. |
 
 #### Anatomy
 
@@ -2938,6 +3005,17 @@ See [pricing.gallery.light.pdf](../../lib/components/comparison/pricing/pricing.
 
 Use when an amendment's diff is the slide. The blockquote carries the redlined text with ins/del markers; the trailing list explains why the diff matters operationally.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading naming the amendment or change. |
+| `citation` | `p:first-of-type > code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
+| `redline` | `blockquote` | yes | The amended language. Use <del>old text</del> and <ins>new text</ins> inline. |
+| `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
+
 #### When to use
 
 - **Verbatim text matters.** When the amendment is the language — legal clauses, regulatory paragraphs, contract terms. Paraphrasing would lose the exact words the parties are bound by.
@@ -2963,15 +3041,6 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 - **Why this matters.** What the amendment changes in operational terms, in one sentence.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading naming the amendment or change. |
-| `citation` | `p:first-of-type > code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
-| `redline` | `blockquote` | yes | The amended language. Use <del>old text</del> and <ins>new text</ins> inline. |
-| `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
 
 #### Anatomy
 
@@ -3088,9 +3157,21 @@ See [redline.gallery.light.pdf](../../lib/components/comparison/redline/redline.
 
 **Tags** `tradeoff` · `recommendation` · `contrast`
 
+Use when a decision frames a binary choice and the recommendation must be unambiguous. Second top-level list item is always the preferred option (gets the accent badge). The verdict blockquote becomes a recommendation card with a corner tag, pinned across the bottom.
+
+#### Agent contract
+
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — a terse point per line.
 
-Use when a decision frames a binary choice and the recommendation must be unambiguous. Second top-level list item is always the preferred option (gets the accent badge). The verdict blockquote becomes a recommendation card with a corner tag, pinned across the bottom.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `frame` | `p:first-of-type > code` | no | Optional inline-code frame label above the heading (e.g. 'Decision Required'). |
+| `heading` | `h2` | yes | Decision framing in the dark left panel. |
+| `context` | `p` | yes | One-sentence context paragraph under the heading. |
+| `options` | `ul > li` | yes | Exactly two top-level items. First is the alternative; second is the preferred option. |
+| `verdict` | `blockquote` | yes | The recommendation — one short sentence in a blockquote. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
 
 #### When to use
 
@@ -3124,16 +3205,6 @@ One-sentence context paragraph explaining the stakes.
 
 > The recommendation in one decisive sentence.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `frame` | `p:first-of-type > code` | no | Optional inline-code frame label above the heading (e.g. 'Decision Required'). |
-| `heading` | `h2` | yes | Decision framing in the dark left panel. |
-| `context` | `p` | yes | One-sentence context paragraph under the heading. |
-| `options` | `ul > li` | yes | Exactly two top-level items. First is the alternative; second is the preferred option. |
-| `verdict` | `blockquote` | yes | The recommendation — one short sentence in a blockquote. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
 
 #### Anatomy
 
@@ -3173,11 +3244,21 @@ See [split-compare.gallery.light.pdf](../../lib/components/comparison/split-comp
 
 **Tags** `scorecard` · `ranking` · `prioritize` · `assessment`
 
+Use to evaluate 2–4 options against the same set of criteria, with pass/partial/fail badges. Each card represents one option; badges per criterion.
+
+#### Agent contract
+
 **Capacity** ~3 items (crowds past 4, overflows past 5) — past that, compare-table / split across slides.
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — a verdict card is a label plus its criteria, not prose.
 
-Use to evaluate 2–4 options against the same set of criteria, with pass/partial/fail badges. Each card represents one option; badges per criterion.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the choice. |
+| `options` | `ul > li` | yes | One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[ ]/[/]) followed by a badge label of AT MOST TWO WORDS. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
+| `rationale` | `ul > li > ul > li:last-child` | yes | REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the badges. |
 
 #### When to use
 
@@ -3216,14 +3297,6 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
   - [x] Third badge
   - One-line rationale; the last option is the focal verdict. Recommended.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the choice. |
-| `options` | `ul > li` | yes | One outer li per option, lead with **Option name.**. Then one inner li per criterion, each led by a state marker ([x]/[-]/[ ]/[/]) followed by a badge label of AT MOST TWO WORDS. Criteria are shared across every option, in the same order. The last option renders as the focal verdict. |
-| `rationale` | `ul > li > ul > li:last-child` | yes | REQUIRED. The final inner li of every option carries NO state marker — one short prose line giving the verdict for that option. This content line is what fills the card; omit it and the card renders empty below the badges. |
 
 #### Anatomy
 
@@ -3271,11 +3344,21 @@ See [verdict-grid.gallery.light.pdf](../../lib/components/comparison/verdict-gri
 
 **Tags** `process` · `workflow` · `retrospective`
 
+Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring phase. A linear process with a real start and finish is list-steps; a cycle's whole point is the return.
+
+#### Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-steps / split across slides.
 
 **Density** aim ~12 words per item; past ~18 it reads as a wall of text — a stage is a name plus one clause, not a paragraph.
 
-Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring phase. A linear process with a real start and finish is list-steps; a cycle's whole point is the return.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the cycle. |
+| `eyebrow` | `p > code` | no | Optional label above the heading. |
+| `stages` | `ul > li` | yes | Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first. |
 
 #### When to use
 
@@ -3306,14 +3389,6 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
   - One clause saying what happens here.
 ```
 
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the cycle. |
-| `eyebrow` | `p > code` | no | Optional label above the heading. |
-| `stages` | `ul > li` | yes | Each list item is one stage in the loop. Top bullet = stage name (auto-bold); one nested bullet = a single clause of body. Read clockwise; the last stage returns to the first. |
-
 #### Universal modifiers
 
 This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
@@ -3336,9 +3411,18 @@ See [cycle.gallery.light.pdf](../../lib/components/progression/cycle/cycle.galle
 
 **Tags** `requirements` · `assessment` · `okr`
 
+Use to enumerate the criteria a decision must meet, in priority order. Numbering signals weight; each row reads as a complete requirement.
+
+#### Agent contract
+
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one criterion with a short proof, not a spec.
 
-Use to enumerate the criteria a decision must meet, in priority order. Numbering signals weight; each row reads as a complete requirement.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the framework. |
+| `criteria` | `ol > li` | yes | One li per criterion. The lead text is the criterion title — it renders bold automatically (no `**…**` needed); follow it with a nested `- rationale` bullet. |
 
 #### When to use
 
@@ -3368,13 +3452,6 @@ Use to enumerate the criteria a decision must meet, in priority order. Numbering
 4. Fourth criterion
    - Short rationale.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the framework. |
-| `criteria` | `ol > li` | yes | One li per criterion. The lead text is the criterion title — it renders bold automatically (no `**…**` needed); follow it with a nested `- rationale` bullet. |
 
 #### Anatomy
 
@@ -3416,11 +3493,20 @@ See [list-criteria.gallery.light.pdf](../../lib/components/progression/list-crit
 
 **Tags** `process` · `walkthrough` · `planning`
 
+Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.
+
+#### Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, timeline-list / split across slides.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one sentence per step, not a paragraph.
 
-Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the process. |
+| `steps` | `ol > li` | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
 
 #### When to use
 
@@ -3446,13 +3532,6 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 3. Third step — a sentence describing what you do here.
 4. Fourth step — a sentence describing what you do here.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the process. |
-| `steps` | `ol > li` | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
 
 #### Anatomy
 
@@ -3710,9 +3789,19 @@ See [list-steps.gallery.light.pdf](../../lib/components/progression/list-steps/l
 
 **Tags** `dashboard` · `scorecard` · `metric` · `okr`
 
+Use for KPI dashboards with status framing — current value, target, trend, attention-needed. Bare `kpi` resolves to the briefing layout; the five modifiers tune the visual emphasis for different audiences (ops, compliance, investor, headline).
+
+#### Agent contract
+
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a metric label, not a sentence.
 
-Use for KPI dashboards with status framing — current value, target, trend, attention-needed. Bare `kpi` resolves to the briefing layout; the five modifiers tune the visual emphasis for different audiences (ops, compliance, investor, headline).
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the KPI group. |
+| `eyebrow` | `p > code` | no | Optional inline-code eyebrow above the heading — mono, tracked uppercase (e.g. `Financial · Q4 2026`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
+| `kpis` | `ol > li` | yes | One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. A bare value with no nested bullets won't render as the number. |
 
 #### When to use
 
@@ -3745,14 +3834,6 @@ Use for KPI dashboards with status framing — current value, target, trend, att
    - Cash & equivalents
    - +$180M QoQ `On plan` `Investor`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the KPI group. |
-| `eyebrow` | `p > code` | no | Optional inline-code eyebrow above the heading — mono, tracked uppercase (e.g. `Financial · Q4 2026`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
-| `kpis` | `ol > li` | yes | One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. A bare value with no nested bullets won't render as the number. |
 
 #### Anatomy
 
@@ -3910,11 +3991,21 @@ See [kpi.gallery.light.pdf](../../lib/components/evidence/kpi/kpi.gallery.light.
 
 **Tags** `dashboard` · `metric` · `percentage`
 
+Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile reads as Big Number + caption.
+
+#### Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, kpi / split across slides.
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a metric label, not a sentence.
 
-Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile reads as Big Number + caption.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the metrics. |
+| `subtitle` | `p > code` | no | Optional inline-code paragraph (eyebrow before the h2, or caption after it). Styled by the generic `> p`/`> em` rule, not a dedicated `p > code` rule. |
+| `tiles` | `ol > li` | yes | One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:     1. 73%        - faster close A bare number with no nested caption won't render as the big number. |
 
 #### When to use
 
@@ -3948,14 +4039,6 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 4. −18d
    - avg cycle time
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the metrics. |
-| `subtitle` | `p > code` | no | Optional inline-code paragraph (eyebrow before the h2, or caption after it). Styled by the generic `> p`/`> em` rule, not a dedicated `p > code` rule. |
-| `tiles` | `ol > li` | yes | One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:     1. 73%        - faster close A bare number with no nested caption won't render as the big number. |
 
 #### Anatomy
 
@@ -4002,6 +4085,16 @@ See [stats.gallery.light.pdf](../../lib/components/evidence/stats/stats.gallery.
 
 Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `image` | `.lattice-bg` | yes | Marp background image syntax: `![bg](path)` or `![bg right](path)` — rendered as a CSS background-image on the `.lattice-bg` panel (no `<img>`). |
+| `heading` | `h2` | no | Optional heading in the text slot. |
+| `body` | `p` | no | Optional caption or body text. |
+
 #### When to use
 
 - **The visual carries meaning.** Product screenshots, architectural photographs, plots, satellite imagery — anywhere the image makes the argument and the prose is annotation. If the visual is decorative, drop it and use `content` instead.
@@ -4025,14 +4118,6 @@ Swap the bg image below for your own asset — any aspect. The layout reads its 
 
 ![bg](sample-photo-wide.svg)
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `image` | `.lattice-bg` | yes | Marp background image syntax: `![bg](path)` or `![bg right](path)` — rendered as a CSS background-image on the `.lattice-bg` panel (no `<img>`). |
-| `heading` | `h2` | no | Optional heading in the text slot. |
-| `body` | `p` | no | Optional caption or body text. |
 
 #### Anatomy
 
@@ -4161,6 +4246,16 @@ See [image.gallery.light.pdf](../../lib/components/imagery/image/image.gallery.l
 
 Use to put an Anima scene (a 3D mechanism, a self-drawing process flow) on a slide as its hero still. Because the deck renders to a static PDF, a `scene` slide shows the POSTER — an INLINE `<svg>` (never a background-image), so its `var(--token)` fills recolor with the deck theme in light and dark. Author it by pasting the scene's poster SVG under the heading; the Studio's Motion faculty inlines it for you. Scene is a faithful mirror of `image`: the composition auto-RESOLVES from the poster's own aspect × the deck orientation (`clean` is the safe floor), and you name a variant only to override. The compositions: `clean` (a card shaped to the still), `split` (a tall scene gets its own full-height column), `spotlight` (a wide scene owns the frame on a matte stage), `gallery` (opt-in — the whole still matted in a passe-partout frame with a placard below, the exhibit look for a diagram-like scene), `statement` (opt-in — the still on a matte stage with the title on an editorial band), and `mirror` (flips the side). For LIVE motion (Stage 6), add an ```anima fenced block — the scene's motion SPEC as JSON — beside the poster: the PDF still freezes the poster, and on the Studio Playground the poster comes alive (the Motion faculty emits this block for you). Under `prefers-reduced-motion` the motion reduces to the poster.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | no | Optional heading — the so-what of the scene, not 'Animation'. |
+| `scene` | `.scene-figure svg, svg` | yes | The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image). The Motion faculty inlines a saved scene's stored poster here. |
+| `body` | `p` | no | Optional caption — one line on what the motion reveals that a still can't. |
+
 #### When to use
 
 - **Motion carries the meaning.** A mechanism you must rotate to read, a process that assembles in order, a quantity bound to live data — anywhere a still can only imply the relationship. The poster captures the hero frame; the live surfaces animate it.
@@ -4201,14 +4296,6 @@ The rotor spins inside its housing — a relationship a single still can only im
 }
 ```
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | no | Optional heading — the so-what of the scene, not 'Animation'. |
-| `scene` | `.scene-figure svg, svg` | yes | The scene's poster still, authored as an INLINE `<svg>` under the heading. Its `var(--token)` fills recolor with the theme (it must be inline, not a background-image). The Motion faculty inlines a saved scene's stored poster here. |
-| `body` | `p` | no | Optional caption — one line on what the motion reveals that a still can't. |
 
 #### Anatomy
 
@@ -4336,6 +4423,16 @@ See [scene.gallery.light.pdf](../../lib/components/imagery/scene/scene.gallery.l
 
 Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the deck renders to a static PDF (and the engine bars iframes), a `video` slide shows a POSTER with a play badge + provider label — the poster is a clickable link in the HTML/PDF — and, when you add the `qr` modifier, a scannable code the room can scan to watch. Two compositions: `companion` (a claim leads on the left, the clip proves it on the right) and `gallery` (a contained, matted exhibit). Author the URL as a bare bullet; add an optional `caption` and an optional `poster` override. Provider is auto-detected.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | no | Optional heading — the so-what of the clip, not 'Video'. |
+| `video` | `.video-embed` | yes | The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR. |
+| `caption` | `.video-embed figcaption` | no | Optional caption bullet — a plain bullet line ending with the `caption` marker (see Authoring below for the full syntax). |
+
 #### When to use
 
 - **A clip makes the point better than a screenshot.** A product walkthrough, a customer testimonial, a demo reel — anywhere motion carries the argument. The slide shows a clean poster; the room scans the QR (or clicks it in the HTML/PDF) to watch.
@@ -4360,14 +4457,6 @@ One screen, one story — the fastest way to see the product work.
 - https://www.youtube.com/watch?v=aqz-KE-bpKQ
 - A guided walkthrough `caption`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | no | Optional heading — the so-what of the clip, not 'Video'. |
-| `video` | `.video-embed` | yes | The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR. |
-| `caption` | `.video-embed figcaption` | no | Optional caption bullet — `- Scan to watch `caption``. |
 
 #### Variants (component-specific)
 
@@ -4445,6 +4534,16 @@ See [video.gallery.light.pdf](../../lib/components/imagery/video/video.gallery.l
 
 Use for a pipeline that narrows — a sales / conversion funnel, a hiring or grant pipeline, an onboarding flow. Each stage's band width is proportional to its value; the stage-to-stage conversion % is printed in the gaps so the leak is the read.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading — name the flow and, ideally, the takeaway (‘Where the pipeline leaks’). |
+| `stages` | `ul > li` | yes | One li per stage, in flow order (widest first). Lead with the stage label, then a trailing inline-code value — `Signups \`4,800\``. Commas and units are tolerated; the largest value sets full width. Three to seven stages read best. |
+| `detail` | `li > ul` | no | Optional nested sublist under a stage. Drives two surfaces from one source (shared with pie/map/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the stage `<polygon>` with `data-mark` and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A funnel with no sublists emits no note and is unchanged. |
+
 #### When to use
 
 - **The story is the drop-off.** A funnel earns its shape when each stage is a strict subset of the one above and the audience needs to see WHERE the flow narrows — the leaky step, not just the totals. If the stages aren't a shrinking pipeline, use `progress` or `stats`.
@@ -4469,14 +4568,6 @@ Use for a pipeline that narrows — a sales / conversion funnel, a hiring or gra
 - Third stage `320`
 - Fourth stage `140`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name the flow and, ideally, the takeaway (‘Where the pipeline leaks’). |
-| `stages` | `ul > li` | yes | One li per stage, in flow order (widest first). Lead with the stage label, then a trailing inline-code value — `Signups \`4,800\``. Commas and units are tolerated; the largest value sets full width. Three to seven stages read best. |
-| `detail` | `li > ul` | no | Optional nested sublist under a stage. Drives two surfaces from one source (shared with pie/map/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the stage `<polygon>` with `data-mark` and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A funnel with no sublists emits no note and is unchanged. |
 
 #### Anatomy
 
@@ -4521,6 +4612,16 @@ See [funnel.gallery.light.pdf](../../lib/components/chart/funnel/funnel.gallery.
 
 Use for project plans with overlapping or staggered tasks. Each task is a bar on the time axis; bars can span multiple periods and carry status tints.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the plan. |
+| `tasks` | `ul > li` | yes | Outer li per workstream lane; nested bullets per task. Each task carries trailing inline-code tokens, in any order: a span `START..END` (a bar) or a single time point (a milestone diamond); an optional status; an optional `after: Task name` dependency; an optional `milestone` keyword. `..` is the only span delimiter. Time points are ISO dates (2026-03-15), quarters (Q1 or 2026 Q1), or months (Jan); a chart uses dates OR ordinals, not both. Status vocabulary: on-track / done / live / at-risk / warn / blocked / fail / deferred / pilot / decision. The axis derives from the data; the eyebrow may override it with a `START..END` window and add a `today <point>` marker. Tokens are validated by the linter (retired delimiter, bad span/status, dangling or inverted `after:`). |
+| `detail` | `ul > li > ul > li > ul > li` | no | Optional per-task reveal detail. A nested bullet under a TASK (one level deeper than the task) — plain prose: the owner, the blocker, the why — is captured as that task's detail rather than rendered on the bar. It drives two surfaces from one source: (1) on screen (Drawing Board present/practice/preview) the bar/milestone is tagged data-mark and the prose rides an inert `<template class="chart-detail">` the reveal layer shows in a popover on hover/tap, with the active bar lifted + glowing and the rest dimmed (gantt is reveal-only — no 3D tilt, which would skew the time axis); (2) the static PDF — the same detail folds into the slide's speaker note (`Task (span): item · item`) as a Marp-faithful comment. Renders nothing on the chart face, so a chart with no detail bullets is byte-identical. Must be a bullet, not a trailing inline-code token. |
+
 #### When to use
 
 - **Overlapping work across lanes.** When tasks run in parallel across multiple workstreams and the audience needs to see who is busy when. The lane-stacked bars make concurrency visible at a glance.
@@ -4550,14 +4651,6 @@ Use for project plans with overlapping or staggered tasks. Each task is a bar on
   - First task `Q1..Q2` `done`
   - Second task `Q2..Q3`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the plan. |
-| `tasks` | `ul > li` | yes | Outer li per workstream lane; nested bullets per task. Each task carries trailing inline-code tokens, in any order: a span `START..END` (a bar) or a single time point (a milestone diamond); an optional status; an optional `after: Task name` dependency; an optional `milestone` keyword. `..` is the only span delimiter. Time points are ISO dates (2026-03-15), quarters (Q1 or 2026 Q1), or months (Jan); a chart uses dates OR ordinals, not both. Status vocabulary: on-track / done / live / at-risk / warn / blocked / fail / deferred / pilot / decision. The axis derives from the data; the eyebrow may override it with a `START..END` window and add a `today <point>` marker. Tokens are validated by the linter (retired delimiter, bad span/status, dangling or inverted `after:`). |
-| `detail` | `ul > li > ul > li > ul > li` | no | Optional per-task reveal detail. A nested bullet under a TASK (one level deeper than the task) — plain prose: the owner, the blocker, the why — is captured as that task's detail rather than rendered on the bar. It drives two surfaces from one source: (1) on screen (Drawing Board present/practice/preview) the bar/milestone is tagged data-mark and the prose rides an inert `<template class="chart-detail">` the reveal layer shows in a popover on hover/tap, with the active bar lifted + glowing and the rest dimmed (gantt is reveal-only — no 3D tilt, which would skew the time axis); (2) the static PDF — the same detail folds into the slide's speaker note (`Task (span): item · item`) as a Marp-faithful comment. Renders nothing on the chart face, so a chart with no detail bullets is byte-identical. Must be a bullet, not a trailing inline-code token. |
 
 #### Anatomy
 
@@ -4599,6 +4692,15 @@ See [gantt.gallery.light.pdf](../../lib/components/chart/gantt/gantt.gallery.lig
 
 Use when a process or experience needs charting as a horizontal sequence of moments, each scored for affect. Five variants reshape the same source list: default (Mermaid-style classic), heatmap (mood-tinted chips), curve (mood polyline with axis), swimlane (per-actor rows), weighted (chip widths proportional to `+volume`).
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h1, h2` | yes | Slide heading naming the journey or process. |
+| `sections` | `ul > li` | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries inline-code tokens: `@actor` (one or more), `:N` mood 1-5, optional `+N` volume (used by .weighted). |
+
 #### When to use
 
 - **Affect is part of the story.** When a process matters not just for its steps but for how each step feels. The 1-5 mood score makes the emotional contour part of the chart instead of buried in narration.
@@ -4628,13 +4730,6 @@ Use when a process or experience needs charting as a horizontal sequence of mome
   - Standup `@team` `:3`
   - Deep work `@me` `:5`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h1, h2` | yes | Slide heading naming the journey or process. |
-| `sections` | `ul > li` | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries inline-code tokens: `@actor` (one or more), `:N` mood 1-5, optional `+N` volume (used by .weighted). |
 
 #### Anatomy
 
@@ -4755,11 +4850,20 @@ See [journey.gallery.light.pdf](../../lib/components/chart/journey/journey.galle
 
 **Tags** `swimlane` · `workflow` · `status` · `agile` · `ownership`
 
+Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends color only on STATUS, so a flagged card is the focal point; opt into `keyline` (color-code cards by category) or `tinted` (color-code columns by stage) when color coding earns its keep.
+
+#### Agent contract
+
 **Capacity** ~3 items (crowds past 5, overflows past 6) — past that, split across slides.
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a terse card title.
 
-Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends color only on STATUS, so a flagged card is the focal point; opt into `keyline` (color-code cards by category) or `tinted` (color-code columns by stage) when color coding earns its keep.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `lanes` | `ul > li` | yes | Three levels. Outer li = column header as plain text (e.g. Backlog). Each inner li = a card: title then a trailing inline-code size badge (S/M/L/XL; other codes are left in the title). Each card may carry its own nested bullet = a categorical lane label, optionally with a trailing status pill, e.g. - platform `at-risk`. A column titled Done / Completed / Shipped / Closed dims its cards. Status vocabulary matches the shared chart set (on-track / done / live / at-risk / warn / blocked / fail / deferred / pilot / decision). |
 
 #### When to use
 
@@ -4794,13 +4898,6 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
   - Fourth card `S`
     - team-b
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `lanes` | `ul > li` | yes | Three levels. Outer li = column header as plain text (e.g. Backlog). Each inner li = a card: title then a trailing inline-code size badge (S/M/L/XL; other codes are left in the title). Each card may carry its own nested bullet = a categorical lane label, optionally with a trailing status pill, e.g. - platform `at-risk`. A column titled Done / Completed / Shipped / Closed dims its cards. Status vocabulary matches the shared chart set (on-track / done / live / at-risk / warn / blocked / fail / deferred / pilot / decision). |
 
 #### Anatomy
 
@@ -4883,6 +4980,16 @@ See [kanban.gallery.light.pdf](../../lib/components/chart/kanban/kanban.gallery.
 
 Use when the story is geographic — program reach, service territories, where the grants landed, the regions you operate in. Author a value per named region (full name, postal/ISO code, or a common alias); choropleth shades each region on a single-hue ramp (low→high), while `highlight` gives each named region its own categorical color. The default basemap is the **world** (Equal Earth projection); add `us` (or `usa`) for the US-states map. On the world map you can also name a continent, a bloc (`European Union`, `ASEAN`), or a stated category (`Global South`, `Global North`, `Global South — Africa`) and the kernel fills every member. Because the term is contested, two sourced views of the Global South ship: `Global South` (G77 + China) and `Global South — Brandt Line` (the 1980 North–South divide) — pick the framing your deck argues. Regions the basemap can't match are reported in the legend, never silently dropped.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading — name the geography and the takeaway (‘Where the program runs’). |
+| `regions` | `ul > li` | yes | One li per region (or group). Lead with the name — world (default): full (`Brazil`), ISO (`BR`), alias (`Burma`), or a group (`European Union`, `Sub-Saharan Africa`, `Global South`) that expands to its members; US (`map us`): full (`California`), postal (`CA`), or abbreviation (`Calif.`) — then a trailing inline-code value: `Brazil \`4.2\``. In choropleth the value drives the ramp; in highlight it's an optional legend label. Names the basemap can't resolve surface as muted ‘?’ legend rows. |
+| `detail` | `li > ul` | no | Optional nested sublist under a region. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the region `<path>`(s) with `data-mark` (a group shares one index across all its regions) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Region (value): item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A map with no sublists emits no note and is unchanged. |
+
 #### When to use
 
 - **The story is geographic.** Reach for a map only when WHERE is the point — coverage areas, jurisdictions, service territories, where the grants or pilots landed. If the geography is incidental and the comparison is really between named things, a `progress` or `stats` row reads faster than a basemap.
@@ -4907,14 +5014,6 @@ Use when the story is geographic — program reach, service territories, where t
 - India `2.8`
 - Brazil `2.2`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading — name the geography and the takeaway (‘Where the program runs’). |
-| `regions` | `ul > li` | yes | One li per region (or group). Lead with the name — world (default): full (`Brazil`), ISO (`BR`), alias (`Burma`), or a group (`European Union`, `Sub-Saharan Africa`, `Global South`) that expands to its members; US (`map us`): full (`California`), postal (`CA`), or abbreviation (`Calif.`) — then a trailing inline-code value: `Brazil \`4.2\``. In choropleth the value drives the ramp; in highlight it's an optional legend label. Names the basemap can't resolve surface as muted ‘?’ legend rows. |
-| `detail` | `li > ul` | no | Optional nested sublist under a region. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the region `<path>`(s) with `data-mark` (a group shares one index across all its regions) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Region (value): item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A map with no sublists emits no note and is unchanged. |
 
 #### Variants (component-specific)
 
@@ -5030,6 +5129,32 @@ See [map.gallery.light.pdf](../../lib/components/chart/map/map.gallery.light.pdf
 
 Use for part-to-whole breakdowns with three to six slices. Add the `donut` modifier for a hole in the middle — visually cleaner for executive decks.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the breakdown. |
+| `slices` | `ul > li` | yes | One li per slice: label text then a trailing inline-code value pill, e.g. - Marketing `40%` (slices are drawn proportionally to the values). |
+| `detail` | `li > ul` | no | Optional nested sublist under a slice. Drives two surfaces from one source via the shared chart-family detail substrate (identical to funnel/map/quadrant/radar): (1) Present/Practice — the kernel keeps the label/value as-is, tags each wedge `<path>` with `data-mark`, and emits the sublist as an inert `<template class="chart-detail">` (inside a `.chart-details` wrapper) the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment, which notes-core lifts into the per-slide note channel (a PDF text annotation + the hidden `aside`). The note rides the existing channel, so the chart pixels stay byte-identical. A pie with no sublists emits no note and is unchanged. Detail sublists must be bullet (`-`/`*`) lists, not numbered. |
+
+##### Variant decision rule
+
+- **default (no modifier).** Analyst or working-session decks, or a low slice count (3-4) where the full disc reads cleanly without competing for the center.
+- **`donut`.** Board/investor decks by default — the hollow center reads as composed rather than as a missing slice. The hole itself stays visually empty; a per-slice `detail` sublist surfaces via the interactive popover and the PDF speaker note either way, not inside the hole.
+
+##### Common mistakes
+
+- **Slice values mix formats, e.g. some as `40%` and others as `120 hrs` in the same chart.** Every slice pill in one chart shares the same unit/format. Mixing formats breaks the part-to-whole read the wedges are supposed to communicate.
+- **A `detail` sublist under a slice authored as a numbered list.** Detail sublists must be bullet (`-`/`*`) lists, not numbered — the shared chart-family detail substrate (funnel/map/quadrant/radar too) only picks up bullet lists.
+
+##### Data shape
+
+- Author slices in descending value order; the engine draws wedges in source order and never auto-sorts — a shuffled list scatters the visual hierarchy the wedges are supposed to carry.
+- Keep every slice label to 1-3 words — long labels wrap and crowd the legend, which sits in a right rail beside the wedges in a landscape box or stacks below them in a portrait box (the portrait layout budgets a wider label column, but short labels still read cleanest in both).
+- Stay at 3-6 slices for the sweet spot; the palette has six hues (Wong / Cleveland-McGill / IBM Carbon calibrated for perceptual distinction), so a 7th slice repeats a color already on the chart — consolidate the long tail into a single `Other` slice before then rather than adding a 7th.
+
 #### When to use
 
 - **Three to six parts of a whole.** Time allocation, budget breakdown, mix-of-business. Past six slices the wedges become unreadable and the legend overwhelms — split or pick the top five plus an `Other` slice.
@@ -5056,14 +5181,6 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 - Third slice `20%`
 - Fourth slice `10%`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the breakdown. |
-| `slices` | `ul > li` | yes | One li per slice: label text then a trailing inline-code value pill, e.g. - Marketing `40%` (slices are drawn proportionally to the values). |
-| `detail` | `li > ul` | no | Optional nested sublist under a slice. Drives two surfaces from one source via the shared chart-family detail substrate (identical to funnel/map/quadrant/radar): (1) Present/Practice — the kernel keeps the label/value as-is, tags each wedge `<path>` with `data-mark`, and emits the sublist as an inert `<template class="chart-detail">` (inside a `.chart-details` wrapper) the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment, which notes-core lifts into the per-slide note channel (a PDF text annotation + the hidden `aside`). The note rides the existing channel, so the chart pixels stay byte-identical. A pie with no sublists emits no note and is unchanged. Detail sublists must be bullet (`-`/`*`) lists, not numbered. |
 
 #### Anatomy
 
@@ -5130,6 +5247,17 @@ See [piechart.gallery.light.pdf](../../lib/components/chart/piechart/piechart.ga
 
 Use for status-tracking across multiple parallel items (project readiness, OKR progress, capacity utilization). Status colors via the chart-status vocabulary (on-track / done / live, at-risk / warn, blocked / fail, deferred).
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the progress view. |
+| `eyebrow` | `p > code` | no | Optional eyebrow caption above the heading. |
+| `subtitle` | `p` | no | Optional plain subtitle after the heading. |
+| `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary: on-track / live / at-risk / warn / blocked / fail / deferred / done. An optional nested bullet renders as a per-row note. |
+
 #### When to use
 
 - **Parallel workstreams at a glance.** When the audience needs to scan five to eight workstreams and immediately spot the ones in trouble. The bar length carries the magnitude; the status pill carries the verdict.
@@ -5155,15 +5283,6 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 - Second item `55%` `at-risk`
 - Third item `30%` `blocked`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the progress view. |
-| `eyebrow` | `p > code` | no | Optional eyebrow caption above the heading. |
-| `subtitle` | `p` | no | Optional plain subtitle after the heading. |
-| `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary: on-track / live / at-risk / warn / blocked / fail / deferred / done. An optional nested bullet renders as a per-row note. |
 
 #### Anatomy
 
@@ -5206,6 +5325,17 @@ See [progress.gallery.light.pdf](../../lib/components/chart/progress/progress.ga
 
 Use to position items by two numeric attributes (cost × value, effort × impact). Data-driven; for static categorical 2×2 grids, use matrix-2x2.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the analysis. |
+| `axes` | `p > code` | no | Optional axis-label eyebrow (inline-code paragraph). |
+| `items` | `ul > li` | yes | One li per item. Format: `Label — x, y[, size]`. |
+| `detail` | `li > ul > li > ul` | no | Optional 3rd-level nested sublist under an item (the x,y are inline pills, so this level is free). Drives two surfaces from one source (shared with pie/funnel/map via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the item's `<circle>`/bubble with `data-mark` (a stable global index across all variants) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A quadrant with no sublists emits no note and is unchanged. |
+
 #### When to use
 
 - **Two numeric axes carry the analysis.** Effort × impact, cost × value, probability × severity, reach × confidence. Both axes are continuous and the position on each genuinely matters — that's the argument quadrant is built to make.
@@ -5242,15 +5372,6 @@ Effort estimated in story-points; reach as percent of addressable teams.
   - Custom audit log UI `7, 18`
   - Bespoke board export `9, 28`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the analysis. |
-| `axes` | `p > code` | no | Optional axis-label eyebrow (inline-code paragraph). |
-| `items` | `ul > li` | yes | One li per item. Format: `Label — x, y[, size]`. |
-| `detail` | `li > ul > li > ul` | no | Optional 3rd-level nested sublist under an item (the x,y are inline pills, so this level is free). Drives two surfaces from one source (shared with pie/funnel/map via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the item's `<circle>`/bubble with `data-mark` (a stable global index across all variants) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A quadrant with no sublists emits no note and is unchanged. |
 
 #### Anatomy
 
@@ -5432,6 +5553,17 @@ See [quadrant.gallery.light.pdf](../../lib/components/chart/quadrant/quadrant.ga
 
 Use to compare 2–4 options across the same 4–8 criteria. Each option becomes a polygon; overlap shows where strengths align.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the comparison. |
+| `axes` | `p > code` | no | Optional eyebrow listing the axes. |
+| `series` | `ul > li` | yes | One li per series (option). Format: `Label — v1, v2, v3, v4, …` one number per axis. |
+| `detail` | `li > ul > li > ul` | no | Optional nested sublist under an AXIS in the first series (radar reveals per-axis — the mark is the axis). For the `quadrant` variant, one level deeper (under each axis within a group). Drives two surfaces from one source (shared with pie/funnel/map/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the axis label `<text>` with `data-mark` and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail folds into the slide's speaker note (`Axis: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. Detail sublists must use `-`/`*` bullets, not a numbered (`1.`) list. A radar with no sublists emits no note and is unchanged. |
+
 #### When to use
 
 - **Same criteria, multiple options.** Competitive comparison, vendor evaluation, candidate scoring — anywhere two to four options need to be rated on the same four-to-eight criteria. The polygon shapes show the trade-off pattern at a glance.
@@ -5472,15 +5604,6 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
   - Ecosystem `8`
   - Security `8`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the comparison. |
-| `axes` | `p > code` | no | Optional eyebrow listing the axes. |
-| `series` | `ul > li` | yes | One li per series (option). Format: `Label — v1, v2, v3, v4, …` one number per axis. |
-| `detail` | `li > ul > li > ul` | no | Optional nested sublist under an AXIS in the first series (radar reveals per-axis — the mark is the axis). For the `quadrant` variant, one level deeper (under each axis within a group). Drives two surfaces from one source (shared with pie/funnel/map/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the axis label `<text>` with `data-mark` and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail folds into the slide's speaker note (`Axis: item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. Detail sublists must use `-`/`*` bullets, not a numbered (`1.`) list. A radar with no sublists emits no note and is unchanged. |
 
 #### Anatomy
 
@@ -5709,6 +5832,15 @@ See [radar.gallery.light.pdf](../../lib/components/chart/radar/radar.gallery.lig
 
 Use to show what ships in each phase across multiple parallel workstreams. Cells render as state-token discs (pass/warn/fail/skip).
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the plan. |
+| `rows` | `table` | yes | A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[ ]/[/] then the deliverable. |
+
 #### When to use
 
 - **Phased delivery across workstreams.** When the question is what each team ships in each phase. Workstreams down the side, phases across the top, deliverables in the cells — the whole plan reads in one glance.
@@ -5737,13 +5869,6 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ planned, ╱ out of scope.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the plan. |
-| `rows` | `table` | yes | A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[ ]/[/] then the deliverable. |
 
 #### Anatomy
 
@@ -5867,6 +5992,18 @@ See [roadmap.gallery.light.pdf](../../lib/components/chart/roadmap/roadmap.galle
 
 Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the layout: state i renders at row i, so there is no auto-layout problem to solve.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the state machine. |
+| `eyebrow` | `p > code` | no | Optional eyebrow naming the machine or domain. |
+| `states` | `ol > li` | yes | One li per state. Index is the stable ref. Trailing inline code is a closed metadata vocabulary: `start`, `end`, or one of the chart-status keywords (on-track, at-risk, blocked, done, live, decision, deferred, warn, pilot, fail). Multiple metadata tokens allowed; order is irrelevant. Unknown trailing codes are left in the rendered label. |
+| `transitions` | `ol > li > ul > li` | no | Outgoing transitions from a state — one per nested bullet. Each carries a single inline-code arrow `event=>N` or `=>N` (event optional). Target is a state index or the literal `self` for self-loops. Whitespace inside the inline code is insignificant. |
+| `detail` | `ol > li > ul > li (prose, no arrow)` | no | Optional per-state reveal detail (the shared chart-family detail substrate). A nested bullet under a state that is NOT an inline-code transition (plain prose — the entry/exit action, the rule, the why) is captured as that state's detail rather than a transition. It drives two surfaces from one source: (1) Present/Practice/Preview — the state node is tagged `data-mark` and the prose rides an inert `<template class="chart-detail">` the reveal layer shows in a popover on hover/tap, with the active node lifted, the rest dimmed, and the whole figure tilting (the edge-router skips re-measuring while the tilt is live, so the routed edges stay aligned); (2) the static PDF — the same detail folds into the slide's speaker note (`Label (status): item · item`) as a Marp-faithful comment. Renders nothing on the slide face, so a machine with no prose bullets is byte-identical. Must be a bullet (`-`/`*`), not numbered. |
+
 #### When to use
 
 - **Finite, named states with discrete events.** When the slide is about a system with a small set of named places it can be in (Draft / Submitted / Approved / Archived) and the events that move between them (submit, approve, reject). The numbered authoring forces you to enumerate every state up front; the inline refs force you to be explicit about every transition.
@@ -5907,16 +6044,6 @@ How a draft moves from author to archive.
 
 *Rejected drafts return to the author; revisions stay in review.*
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the state machine. |
-| `eyebrow` | `p > code` | no | Optional eyebrow naming the machine or domain. |
-| `states` | `ol > li` | yes | One li per state. Index is the stable ref. Trailing inline code is a closed metadata vocabulary: `start`, `end`, or one of the chart-status keywords (on-track, at-risk, blocked, done, live, decision, deferred, warn, pilot, fail). Multiple metadata tokens allowed; order is irrelevant. Unknown trailing codes are left in the rendered label. |
-| `transitions` | `ol > li > ul > li` | no | Outgoing transitions from a state — one per nested bullet. Each carries a single inline-code arrow `event=>N` or `=>N` (event optional). Target is a state index or the literal `self` for self-loops. Whitespace inside the inline code is insignificant. |
-| `detail` | `ol > li > ul > li (prose, no arrow)` | no | Optional per-state reveal detail (the shared chart-family detail substrate). A nested bullet under a state that is NOT an inline-code transition (plain prose — the entry/exit action, the rule, the why) is captured as that state's detail rather than a transition. It drives two surfaces from one source: (1) Present/Practice/Preview — the state node is tagged `data-mark` and the prose rides an inert `<template class="chart-detail">` the reveal layer shows in a popover on hover/tap, with the active node lifted, the rest dimmed, and the whole figure tilting (the edge-router skips re-measuring while the tilt is live, so the routed edges stay aligned); (2) the static PDF — the same detail folds into the slide's speaker note (`Label (status): item · item`) as a Marp-faithful comment. Renders nothing on the slide face, so a machine with no prose bullets is byte-identical. Must be a bullet (`-`/`*`), not numbered. |
 
 #### Anatomy
 
@@ -6019,9 +6146,18 @@ See [state-chart.gallery.light.pdf](../../lib/components/chart/state-chart/state
 
 **Tags** `changelog` · `milestones` · `status` · `retrospective`
 
+Use for milestone history or annotated timelines. Each event sits on a left-to-right spine: a dot with its date pill above it, then the title, an optional status pill, and a short body stacked beneath.
+
+#### Agent contract
+
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one stage in a sentence.
 
-Use for milestone history or annotated timelines. Each event sits on a left-to-right spine: a dot with its date pill above it, then the title, an optional status pill, and a short body stacked beneath.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the timeline. |
+| `events` | `ol > li` | yes | Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary: decision / live / at-risk / blocked / done / on-track / deferred. |
 
 #### When to use
 
@@ -6051,13 +6187,6 @@ Use for milestone history or annotated timelines. Each event sits on a left-to-r
 3. `2025 Q3` Third milestone `live`
    - One-sentence description.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the timeline. |
-| `events` | `ol > li` | yes | Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary: decision / live / at-risk / blocked / done / on-track / deferred. |
 
 #### Anatomy
 
@@ -6100,6 +6229,15 @@ See [timeline-list.gallery.light.pdf](../../lib/components/chart/timeline-list/t
 
 Use for qualitative summaries — retrospective themes, survey verbatims. Word size encodes frequency or weight; not a precise data viz.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the cloud. |
+| `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent. |
+
 #### When to use
 
 - **Qualitative themes at a glance.** Retrospective summaries, survey verbatims, theme extraction, sentiment scans. The cloud lands what the corpus is about; the silhouette and the biggest words are the read.
@@ -6124,13 +6262,6 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 - handoffs `7`
 - review `5`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the cloud. |
-| `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent. |
 
 #### Anatomy
 
@@ -6257,6 +6388,16 @@ See [word-cloud.gallery.light.pdf](../../lib/components/chart/word-cloud/word-cl
 
 Use for relational or topological visuals — flowcharts, sequence diagrams, state machines, ER diagrams. The diagram should occupy at least half the slide.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing what the diagram shows. |
+| `subtitle` | `p > code` | no | Optional eyebrow caption. |
+| `mermaid` | `div.mermaid, svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
+
 #### When to use
 
 - **Relational structure is the message.** Flowcharts, sequence diagrams, state machines, ER diagrams, journey maps. The relationships between nodes carry meaning the audience needs to see at a glance.
@@ -6284,14 +6425,6 @@ flowchart LR
   C -->|no| E[Path B]
 ```
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the diagram shows. |
-| `subtitle` | `p > code` | no | Optional eyebrow caption. |
-| `mermaid` | `div.mermaid, svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
 
 #### Anatomy
 
@@ -6339,6 +6472,17 @@ See [diagram.gallery.light.pdf](../../lib/components/diagram/diagram/diagram.gal
 
 Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display blocks and `$…$` inline. Variants surround the math with the structure each persona expects: hero + legend (feature), step + justification (derivation), Definition/Theorem/Proof cards (theorem), side-by-side comparison (compare), equation + plot (canvas), matrix + properties (matrix), estimate ± uncertainty + interpretation (stats).
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p:first-child > code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
+| `heading` | `h2` | yes | One-sentence framing of what the math establishes. |
+| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centered. |
+| `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
+
 #### When to use
 
 - **The equation IS the argument.** When a single closed-form expression, identity, or estimator carries the slide. KaTeX renders it; Lattice gives it the room. For surrounding prose with one inline `$x$`, use content.
@@ -6366,15 +6510,6 @@ $$ y = f(x) $$
 - $x$ — input variable
 - $f$ — the relation under study
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p:first-child > code` | no | Optional inline-code rubric above the heading (e.g. `Linear regression · OLS`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
-| `heading` | `h2` | yes | One-sentence framing of what the math establishes. |
-| `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centered. |
-| `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
 
 #### Anatomy
 
@@ -6586,6 +6721,20 @@ See [math.gallery.light.pdf](../../lib/components/math/math/math.gallery.light.p
 
 Use when the code IS the slide — an API snippet, a config example, a migration. For comparing two versions, use compare-code.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing what the code shows. |
+| `code` | `pre > code` | yes | Fenced code block — language tag drives syntax highlighting. |
+
+##### Common mistakes
+
+- **Fence tagged with the wrong language, e.g. ```js on a Python snippet.** Match the fence tag to the actual language exactly. The highlighter keys off the tag alone, not the code's content — a wrong tag mis-highlights every token.
+- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — the sample's own convention puts the comfort line at twelve, the hard wall at twenty (`whenToUse`/`stressDoc`). Cut scaffolding with `// ...` rather than spending that budget on it.
+
 #### When to use
 
 - **The code is the argument.** When a single snippet answers the question on the slide — the shape of an API call, the surface of a config, the body of a migration. Authoring follows the snippet, not the other way around.
@@ -6612,13 +6761,6 @@ app.post('/api/v2/auth', async (req, res) => {
 });
 ```
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the code shows. |
-| `code` | `pre > code` | yes | Fenced code block — language tag drives syntax highlighting. |
 
 #### Anatomy
 
@@ -6662,6 +6804,16 @@ See [code.gallery.light.pdf](../../lib/components/code/code/code.gallery.light.p
 
 Use to contrast a before/after refactor, two API styles, or two configurations. Each side gets an h3 label and one fenced block.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the comparison. |
+| `left` | `section > h3:first-of-type + pre` | yes | Left label (h3) and code block. |
+| `right` | `section > h3:nth-of-type(2) + pre` | yes | Right label (h3) and code block. |
+
 #### When to use
 
 - **Concrete code on both sides.** Both sides hold short, readable snippets — refactor before/after, two API styles, two configurations. The diff is the point of the slide.
@@ -6697,14 +6849,6 @@ function after() {
 }
 ```
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the comparison. |
-| `left` | `section > h3:first-of-type + pre` | yes | Left label (h3) and code block. |
-| `right` | `section > h3:nth-of-type(2) + pre` | yes | Right label (h3) and code block. |
 
 #### Anatomy
 
@@ -6749,11 +6893,20 @@ See [compare-code.gallery.light.pdf](../../lib/components/code/compare-code/comp
 
 **Tags** `regulation` · `citation` · `sequence`
 
+Use when the audience needs to see how a rule descends: what the statute says, how the agency implemented it, what guidance interpreted it, and what cases have applied it. Ordered list because the order is the argument.
+
+#### Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on) / statute-stack.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per tier.
 
-Use when the audience needs to see how a rule descends: what the statute says, how the agency implemented it, what guidance interpreted it, and what cases have applied it. Ordered list because the order is the argument.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading naming the rule whose chain is being walked. |
+| `tiers` | `ol > li` | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
 
 #### When to use
 
@@ -6787,13 +6940,6 @@ Use when the audience needs to see how a rule descends: what the statute says, h
    - `Citation reference`
    - One-line gloss naming the precedent.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading naming the rule whose chain is being walked. |
-| `tiers` | `ol > li` | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
 
 #### Anatomy
 
@@ -6923,6 +7069,17 @@ See [authority-chain.gallery.light.pdf](../../lib/components/legal/authority-cha
 
 Use when one citation IS the slide. The blockquote carries the verbatim language; the trailing list explains what it means and what we must do about it.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading framing what the citation establishes. |
+| `citation` | `p:first-of-type > code` | yes | Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA'). |
+| `quotation` | `blockquote` | yes | Verbatim quote of the cited language. |
+| `gloss` | `ul > li` | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
+
 #### When to use
 
 - **One citation carries the slide.** When a single statute, contract clause, regulation, or standard is doing the argumentative work. The citation IS the evidence; the slide gives it the room to be read.
@@ -6951,15 +7108,6 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 - **What we must do.**
   - The concrete action this citation argues for.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing what the citation establishes. |
-| `citation` | `p:first-of-type > code` | yes | Inline-code paragraph with the citation reference (e.g. 'Cal. Civ. Code §1798.140(o) · CCPA/CPRA'). |
-| `quotation` | `blockquote` | yes | Verbatim quote of the cited language. |
-| `gloss` | `ul > li` | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
 
 #### Anatomy
 
@@ -7074,6 +7222,16 @@ See [citation-card.gallery.light.pdf](../../lib/components/legal/citation-card/c
 
 Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [ ] exempt, [/] out of scope) shared with checklist / verdict-grid / roadmap.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading framing what the matrix compares. |
+| `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells. |
+| `legend` | `p` | no | Optional trailing paragraph explaining the state-marker meanings or what to take from the matrix. |
+
 #### When to use
 
 - **Many regimes, shared obligations.** Three or more regulations or jurisdictions compared across the same set of duties. The grid lets the reader scan a row to know a regime and a column to know an obligation.
@@ -7101,14 +7259,6 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 
 Filled = applies, half = partial, empty = exempt.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing what the matrix compares. |
-| `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells. |
-| `legend` | `p` | no | Optional trailing paragraph explaining the state-marker meanings or what to take from the matrix. |
 
 #### Anatomy
 
@@ -7234,11 +7384,23 @@ See [obligation-matrix.gallery.light.pdf](../../lib/components/legal/obligation-
 
 **Tags** `recommendation` · `regulation` · `risk` · `takeaway`
 
+Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colors the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.
+
+#### Agent contract
+
 **Capacity** ~3 items (crowds past 3, overflows past 4) — past that, list-criteria / split across slides.
 
 **Density** aim ~20 words per item; past ~28 it reads as a wall of text — one reason + its cited evidence per row, ~18-20 words; the citation rides a nested inline-code chip.
 
-Use to put ONE policy recommendation before lawmakers. The stance variant (`adopt` / `amend` / `oppose` / `defer`) colours the verdict badge and the rail; the `## ` heading states the recommendation as a claim; a framing line names the stakes; two-to-four evidence-grounded reasons substantiate it; and a closing blockquote carries the specific legislative ask (sponsor / vote / amend, with the bill reference). For weighing options before landing a pick, use `split-compare`; for a flat requirements list, `list-criteria`.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p:first-of-type > code` | no | Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`). |
+| `recommendation` | `h2` | yes | The recommendation as a complete declarative sentence — the action you want taken, not a topic label. |
+| `impact` | `p` | no | One-sentence framing of the problem or stakes the recommendation addresses. |
+| `rationale` | `ul > li` | yes | Two-to-four evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip. |
+| `ask` | `blockquote` | no | The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar. |
 
 #### When to use
 
@@ -7273,16 +7435,6 @@ One line naming the problem or the stakes.
 
 > The specific legislative ask — sponsor, vote, or amend, with the section.
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p:first-of-type > code` | no | Inline-code bill or docket reference above the recommendation (e.g. `HB 214 · Consumer Data Protection`). |
-| `recommendation` | `h2` | yes | The recommendation as a complete declarative sentence — the action you want taken, not a topic label. |
-| `impact` | `p` | no | One-sentence framing of the problem or stakes the recommendation addresses. |
-| `rationale` | `ul > li` | yes | Two-to-four evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip. |
-| `ask` | `blockquote` | no | The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar. |
 
 #### Variants (component-specific)
 
@@ -7393,11 +7545,21 @@ See [policy-recommendation.gallery.light.pdf](../../lib/components/legal/policy-
 
 **Tags** `changelog` · `compliance` · `regulation`
 
+Use when a quarter's regulatory motion needs a single-slide digest. Each row carries the change name, the citation (inline code), the summary, and the effective-date marker (inline code).
+
+#### Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on) / list-tabular.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per item.
 
-Use when a quarter's regulatory motion needs a single-slide digest. Each row carries the change name, the citation (inline code), the summary, and the effective-date marker (inline code).
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading framing the period or theme of the changes. |
+| `scope` | `p:first-of-type > code` | no | Optional inline-code scope label (e.g. 'Federal · State · International'). |
+| `items` | `ol > li` | yes | Ordered list of changes. Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code). |
 
 #### When to use
 
@@ -7433,14 +7595,6 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
    - Summary in one sentence.
    - `Effective Mon YYYY`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing the period or theme of the changes. |
-| `scope` | `p:first-of-type > code` | no | Optional inline-code scope label (e.g. 'Federal · State · International'). |
-| `items` | `ol > li` | yes | Ordered list of changes. Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code). |
 
 #### Anatomy
 
@@ -7599,11 +7753,20 @@ See [regulatory-update.gallery.light.pdf](../../lib/components/legal/regulatory-
 
 **Tags** `citation` · `reference` · `compliance`
 
+Use when three or four parallel jurisdictions need to read at a glance: each row carries the jurisdiction label, the citation, the obligation summary, and an effective-date marker.
+
+#### Agent contract
+
 **Capacity** ~3 items (crowds past 4, overflows past 5) — past that, split across slides (auto with autosplit: on) / list-tabular.
 
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one obligation line per statute.
 
-Use when three or four parallel jurisdictions need to read at a glance: each row carries the jurisdiction label, the citation, the obligation summary, and an effective-date marker.
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading framing what the three rows compare. |
+| `rows` | `ul > li` | yes | One li per jurisdiction. Lead with the jurisdiction label as a plain text first line; nested ul items carry the citation (inline code), obligation summary, and status (inline code). |
 
 #### When to use
 
@@ -7634,13 +7797,6 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
   - Headline obligation in one sentence.
   - `Status or effective date`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing what the three rows compare. |
-| `rows` | `ul > li` | yes | One li per jurisdiction. Lead with the jurisdiction label as a plain text first line; nested ul items carry the citation (inline code), obligation summary, and status (inline code). |
 
 #### Anatomy
 
@@ -7758,6 +7914,16 @@ See [statute-stack.gallery.light.pdf](../../lib/components/legal/statute-stack/s
 
 Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCard the audience saves in one tap; the card shows the name as hero with title/org and a contact ledger. Author the fields as a postfix-key list.
 
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | no | Optional framing heading; the person's name is the visual hero, drawn from the `name` field. |
+| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Sharmarke Aden `name``. Keys: name (required), title\|role, org\|company, email, phone\|tel, url\|web. Optional key: `caption` (CTA under the QR). |
+| `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to add me `caption` ``. |
+
 #### When to use
 
 - **The scan-to-add-me close.** End a pitch or intro with a code the audience scans to save your contact, instead of trading business cards.
@@ -7782,14 +7948,6 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 - Scan to add me `caption`
 ```
 
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | no | Optional framing heading; the person's name is the visual hero, drawn from the `name` field. |
-| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Sharmarke Aden `name``. Keys: name (required), title\|role, org\|company, email, phone\|tel, url\|web. Optional key: `caption` (CTA under the QR). |
-| `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to add me `caption` ``. |
-
 #### Universal modifiers
 
 This component accepts all universal variants (`dark`, `compact`, `accent`, state markers, treatments). See [design/design-system.md §6.5](../../design/design-system.md#65-universal-variants--three-tiers) for the catalog.
@@ -7811,6 +7969,17 @@ See [contact.gallery.light.pdf](../../lib/components/connect/contact/contact.gal
 **Tags** `reference` · `onboarding` · `kickoff`
 
 Use to get a room onto the Wi-Fi without reading a password aloud. The QR encodes the standard WIFI: payload; the same details render legibly for anyone typing them by hand. Author the fields as a postfix-key list.
+
+#### Agent contract
+
+##### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | The card heading (e.g. "Join the room."). |
+| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Offsite-Guest `ssid``. Keys: ssid\|network (required), password\|pass, security\|auth. Omit the password for an open network. Optional keys: `caption` (CTA under the QR); the security row shows exactly what you write. |
+| `eyebrow` | `p:first-child > code` | no | Optional kicker above the heading, authored as an inline-code first line: `` `Room Wi-Fi` ``. |
+| `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``. |
 
 #### When to use
 
@@ -7836,15 +8005,6 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 - WPA2 `security`
 - Scan to connect `caption`
 ```
-
-#### Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | The card heading (e.g. "Join the room."). |
-| `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Offsite-Guest `ssid``. Keys: ssid\|network (required), password\|pass, security\|auth. Omit the password for an open network. Optional keys: `caption` (CTA under the QR); the security row shows exactly what you write. |
-| `eyebrow` | `p:first-child > code` | no | Optional kicker above the heading, authored as an inline-code first line: `` `Room Wi-Fi` ``. |
-| `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``. |
 
 #### Universal modifiers
 

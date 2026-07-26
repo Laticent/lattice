@@ -8,6 +8,15 @@
 
 Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Section name. |
+| `eyebrow` | `p > code` | no | Optional section number or category label above the heading. |
+
 ## When to use
 
 - **Major section starts.** Marks the boundary between two themed sections of the deck. The dark canvas is a strong context-switch signal — use it when the audience needs to re-orient.
@@ -33,13 +42,6 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ## Section name
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Section name. |
-| `eyebrow` | `p > code` | no | Optional section number or category label above the heading. |
 
 ## Anatomy
 

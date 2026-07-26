@@ -6,9 +6,27 @@
 
 **Tags** `two-by-two` · `prioritize` · `strategy` · `risk`
 
+Use for categorical 2×2 reasoning when the items are fixed and you control which cell each lands in. For data-plotted scatter on continuous axes, use quadrant instead.
+
+## Agent contract
+
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short label per quadrant cell.
 
-Use for categorical 2×2 reasoning when the items are fixed and you control which cell each lands in. For data-plotted scatter on continuous axes, use quadrant instead.
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the framework. |
+| `axes` | `ul > li` | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
+
+### Common mistakes
+
+- **Quadrant title names only one axis, e.g. `- **Priorities.**` instead of both poles.** Lead each quadrant with both axis poles: `- **High impact · Low effort.**`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes.
+- **The four outer list items authored in an arbitrary order.** Declaration order IS grid position: 1st item → top-left, 2nd → top-right, 3rd → bottom-left, 4th → bottom-right (a flex-wrap layout, not a labeled grid). Reordering the source list visibly reorders the quadrants.
+
+### Data shape
+
+- Author exactly four outer list items, one per quadrant. The layout assumes a fixed 2×2 and does not clamp, reflow, or warn on a different count — a 3rd or 5th item is an authoring bug the engine won't catch; it just wraps into a broken grid.
 
 ## When to use
 
@@ -39,13 +57,6 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 - **Low value · High cost.**
   - First item in this quadrant
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the framework. |
-| `axes` | `ul > li` | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
 
 ## Anatomy
 

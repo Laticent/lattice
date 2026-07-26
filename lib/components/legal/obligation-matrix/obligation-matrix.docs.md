@@ -8,6 +8,16 @@
 
 Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [ ] exempt, [/] out of scope) shared with checklist / verdict-grid / roadmap.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading framing what the matrix compares. |
+| `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells. |
+| `legend` | `p` | no | Optional trailing paragraph explaining the state-marker meanings or what to take from the matrix. |
+
 ## When to use
 
 - **Many regimes, shared obligations.** Three or more regulations or jurisdictions compared across the same set of duties. The grid lets the reader scan a row to know a regime and a column to know an obligation.
@@ -35,14 +45,6 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 
 Filled = applies, half = partial, empty = exempt.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing what the matrix compares. |
-| `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells. |
-| `legend` | `p` | no | Optional trailing paragraph explaining the state-marker meanings or what to take from the matrix. |
 
 ## Anatomy
 

@@ -8,6 +8,15 @@
 
 Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `quotation` | `blockquote > p` | yes | The quoted text. |
+| `attribution` | `section > p:last-child` | no | Attribution line below the quote. |
+
 ## When to use
 
 - **Verbatim language matters.** When the audience needs to hear the words exactly as they were said — customer feedback, expert claim, regulatory text, mission statement. Paraphrasing would lose the impact.
@@ -29,13 +38,6 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 
 — Person, Role
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `quotation` | `blockquote > p` | yes | The quoted text. |
-| `attribution` | `section > p:last-child` | no | Attribution line below the quote. |
 
 ## Anatomy
 

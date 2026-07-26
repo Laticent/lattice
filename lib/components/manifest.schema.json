@@ -382,6 +382,62 @@
         }
       }
     },
+    "commonMistakes": {
+      "type": "array",
+      "description": "Authoring-time errors — mistakes made once this component has already been chosen, as opposed to `antiPatterns` (selection-time: don't reach for this component at all). Each entry names one concrete wrong thing an agent/author does and the correct alternative. Renders in the generated docs.md's agent-contract block, above the narrative When-to-use / When-NOT-to-use sections.",
+      "items": {
+        "type": "object",
+        "required": [
+          "mistake",
+          "fix"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "mistake": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The concrete wrong thing an agent/author does while authoring this component."
+          },
+          "fix": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The correct alternative, stated as an instruction."
+          }
+        }
+      }
+    },
+    "variantDecisionRule": {
+      "type": "array",
+      "description": "Disambiguates which variant to reach for when the component has more than one — the concrete signal that should drive the pick, not just what each variant looks like (variantDocs.summary covers that). Only meaningful when `variants` has more than one entry (including the implicit no-modifier default); omit for single-shape components. Renders at the top of the generated docs, in the agent-contract block, before the narrative Variants section.",
+      "items": {
+        "type": "object",
+        "required": [
+          "variant",
+          "useWhen"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "variant": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A variant token from `variants[]`, or the literal \"default\" for the no-modifier case."
+          },
+          "useWhen": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The concrete signal — content shape, audience, context — that should drive picking this variant."
+          }
+        }
+      }
+    },
+    "dataShapeGuidance": {
+      "type": "array",
+      "description": "Concrete constraints on the SHAPE of author-supplied data, beyond the generic item-count capacity/density budgets — cardinality, formatting/unit consistency, sort order, label length. For data-driven components (chart bucket, series/graph substance, structured comparison layouts). Each entry is one terse, actionable rule, not a paragraph. Omit for prose/single-value components with no external data shape to constrain.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "sample": {
       "type": "string",
       "minLength": 1,

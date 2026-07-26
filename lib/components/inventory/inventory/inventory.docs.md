@@ -6,11 +6,22 @@
 
 **Tags** `overview` · `summary` · `showcase`
 
+Use for a small register of related items where each carries similar weight. Author the content once (a bold lead + detail per item, optional trailing insight) and pick the look with a variant: the default numbered ledger, a cards grid, a horizontal timeline, or a magazine-style editorial split — no re-authoring. For more than six items, escalate to list-tabular or split across slides.
+
+## Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, list-tabular / split across slides.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause of body per part.
 
-Use for a small register of related items where each carries similar weight. Author the content once (a bold lead + detail per item, optional trailing insight) and pick the look with a variant: the default numbered ledger, a cards grid, a horizontal timeline, or a magazine-style editorial split — no re-authoring. For more than six items, escalate to list-tabular or split across slides.
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p:first-child > code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
+| `title` | `h2` | yes | Slide heading. |
+| `items` | `ul > li` | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
+| `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
 ## When to use
 
@@ -42,15 +53,6 @@ Use for a small register of related items where each carries similar weight. Aut
 
 > Optional trailing insight.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p:first-child > code` | no | Optional kicker above the title (lifts into the masthead band under Form). |
-| `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li` | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
-| `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
 ## Anatomy
 

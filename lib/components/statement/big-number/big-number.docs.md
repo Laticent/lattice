@@ -8,6 +8,22 @@
 
 Use to make one metric land. The number should be the headline — supporting text is one short caption. The whole slide is the chart.
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `eyebrow` | `p > code` | no | Optional label above the number. |
+| `number` | `ul > li:first-child` | yes | First list item: the giant number. |
+| `caption` | `ul > li:first-child > ul > li` | no | One-line caption below the number (nested bullet). |
+
+### Common mistakes
+
+- **Caption authored as a second top-level bullet instead of nested under the number's list item.** The caption slot selector is `ul > li:first-child > ul > li` — indent the caption as a sub-bullet of the number, not a sibling `- caption` line.
+- **The unit or label baked into the number line itself, e.g. `- 1,248,500,000 users`.** Keep the number list item to the numeral plus its own unit symbol (`%`, `$`, `×`). Put the semantic label — what's being counted — in the eyebrow, not appended prose after the number.
+- **Eyebrow restates the number's value instead of naming its category, e.g. eyebrow `92%` above a number `92%`.** The eyebrow names the metric class ("Audience recall", "Q3 revenue"); the number carries the value. Restating the value in both places wastes the eyebrow's one job.
+
 ## When to use
 
 - **One metric carries the slide.** When the audience needs to remember exactly one number from this part of the deck. The whole slide is the chart — no surrounding context, no comparisons, no axes.
@@ -30,14 +46,6 @@ Use to make one metric land. The number should be the headline — supporting te
 - 92%
   - of the audience remembers a single number from a deck.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `eyebrow` | `p > code` | no | Optional label above the number. |
-| `number` | `ul > li:first-child` | yes | First list item: the giant number. |
-| `caption` | `ul > li:first-child > ul > li` | no | One-line caption below the number (nested bullet). |
 
 ## Anatomy
 
