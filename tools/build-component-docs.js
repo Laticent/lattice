@@ -137,9 +137,14 @@ function emitDocsHeader(m, lines) {
 /**
  * The machine-actionable contract: budgets, slots, and (where declared)
  * the three agent-contract fields (variantDecisionRule, commonMistakes,
- * dataShapeGuidance — manifest.schema.json). Emits nothing when the
- * manifest carries none of these inputs, so an unmigrated component's
- * docs.md is unchanged apart from section order.
+ * dataShapeGuidance — manifest.schema.json). Almost every component
+ * declares `slots`, so this section appears for nearly all of them —
+ * it only emits nothing on the rare manifest with none of capacity,
+ * density, slots, or the three new fields. For the 54 components not
+ * yet backfilled with the new fields, the section still appears (with
+ * just budgets/slots); their docs.md changes only in WHERE that content
+ * sits, not what it says — the three-subsection difference is limited
+ * to the pilot components that declare the new fields.
  */
 function emitAgentContract(m, lines) {
   const hasCapacity = Boolean(m.capacity);
