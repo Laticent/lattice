@@ -166,3 +166,23 @@
   stroke-width: 1.8;
   stroke: var(--fill-ink);
 }
+
+/* The bar's leading accent edge. The HTML bar carried
+ * `border-left: var(--chart-fill-accent) solid var(--fill-ink)`; SVG has no
+ * per-side stroke, so the kernel emits a narrow rect at the bar's start and it
+ * takes the same semantic ink. Keeps the chart-family fill language intact —
+ * the kanban card and progress bar wear the same edge. */
+:is(section.gantt, figure.gantt) .gantt-bar-accent {
+  --fill-ink: var(--state-info-ink);
+  fill: var(--fill-ink);
+}
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="on-track"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="done"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="live"]     { --fill-ink: var(--state-pass-ink); }
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="at-risk"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="warn"]     { --fill-ink: var(--state-warn-ink); }
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="blocked"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="fail"]     { --fill-ink: var(--state-fail-ink); }
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="pilot"],
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="decision"] { --fill-ink: var(--state-info-ink); }
+:is(section.gantt, figure.gantt) .gantt-bar-accent[data-s="deferred"] { --fill-ink: var(--state-mute-ink); }

@@ -168,6 +168,56 @@ emits (`.journey-board`, `.word-cloud-canvas`, …) must be listed in the
 
 ---
 
+## Motion + mark-detail support, by member
+
+Two independent features ride on the same handles:
+
+- **Mark-detail popover** (`docs/src/playground/chart-interact.js`) binds a chart
+  root and its `[data-mark]` marks, and shows the `<template class="chart-detail">`
+  payload the kernel emitted for that mark.
+- **Chart motion** (`docs/src/lib/chart-anima.ts` `chartToScene`) reads the FIRST
+  `<svg>` in the section and animates every mark in it — `[data-mark]` geometry,
+  `[data-anima-role]` geometry, and every `<text>`.
+
+The second sentence is the load-bearing one: **a chart with no `<svg>` gets no
+scene, and no scene means the poster simply stays up.** That failure is silent —
+the chart looks right and never moves — so a member that is not SVG-native is not
+"mostly supported", it is skipped.
+
+| Member | Chart root | Popover | Motion | Notes |
+|---|---|---|---|---|
+| `piechart` | `.piechart-svg` | yes | yes | sectors reveal together — a staggered wedge leaves a hole |
+| `funnel` | `.funnel-svg` | yes | yes | bars stagger top-to-bottom; the drop-off IS the story |
+| `map` | `.map-svg` | yes | yes | regions; labels live in the key, which already wrapped |
+| `quadrant` | `.quadrant-svg` | yes | yes | dots / bubbles / trail-ends all declare the `point` role |
+| `radar` | `.radar-svg` | yes | yes | polygons declare a role but NO `data-mark` — see below |
+| `gantt` | `.gantt-svg` | yes | yes | bars `bar`, milestones `point` |
+| `state-chart` | `.state-chart-edges` | yes | yes | states painted into the overlay by the measuring pass |
+| `state-chart inline` | — | yes | **no** | a compact row list, not a diagram: no overlay to paint into |
+| `word-cloud` | `.wc-svg` | no | yes | words fade in; not wired for the popover |
+| `journey` | — | no | no | its inline SVG is decorative |
+| `kanban`, `progress`, `timeline-list`, `roadmap` | — | no | no | HTML layouts, not diagrams |
+
+### The radar's asymmetry is deliberate
+
+The radar's series polygons declare `data-anima-role` and deliberately carry **no**
+`data-mark`. The radar's mark namespace belongs to its **axis labels** — the
+popover keys each axis's detail template by that index — so a mark on a polygon
+would shift the map and open the wrong detail. `chartToScene` therefore collects
+`[data-mark], [data-anima-role]` and partitions by role, which lets a mark animate
+without claiming a popover index.
+
+### In-diagram labels wrap
+
+Every label a kernel draws inside its diagram goes through
+`_chart-family/svg-label.js`, which breaks it into `<tspan>` lines sized in
+viewBox user units. See
+`engineering/decisions/2026-07-26-svg-chart-labels-motion.md` for why `<tspan>`
+and not `<foreignObject>`, who owns the font size, and how the scatter
+de-collision pass places labels.
+
+---
+
 ## Kernel contract
 
 Per-component chart kernels (`radar.transform.js`, `quadrant.transform.js`)

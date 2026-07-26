@@ -54,6 +54,46 @@ in patch versions.
   now render the same three fields as their own sections — "Common mistakes" after When-not-to-use,
   "Data shape" after Slots, "Variant decision rule" before Variants — since that page already reads
   the full manifest at build time, not the trimmed picker catalog.
+- **Chart labels wrap inside the SVG, and every diagram chart now animates.** Native SVG `<text>`
+  does not wrap, so an in-diagram label used to run straight off its viewBox — a long funnel stage
+  name was silently clipped at the frame edge, and the radar's left rim label painted to x = −96
+  outside a 0…595 box. Labels are now broken into `<tspan>` lines by a shared emitter
+  (`lib/components/chart/_chart-family/svg-label.js`) that reuses the SVG-native legend's own
+  line-breaker rather than adding a second one, across funnel, radar, quadrant, gantt and
+  state-chart. Everything is measured in **viewBox user units**, so a chart stays proportionate and
+  crisp at any output size (verified on one PDF rasterized at 480×270 and at 8000×4500) and the line
+  breaks are baked once at build time, so the exported bytes are deterministic. Staying inside a
+  single `<text>` is what keeps a wrapped label one addressable motion target and one popover
+  target — a `<foreignObject>` label would be an HTML `<div>`, invisible to chart motion.
+- **A build-time de-collision pass for scatter labels.** Wrapping fixes a label that is too *wide*;
+  it does nothing for two labels that land on the same spot. Quadrant item names are now measured,
+  placed toward the plot's interior, and nudged clear of each other — with the quadrant's corner
+  names held as fixed obstacles, since a corner name labels the quadrant, not a data point.
+- **`gantt` and `state-chart` are SVG-native, so chart motion can build them.** Both were skipped
+  entirely: `chartToScene` reads the first `<svg>` in a section and returns no scene when there is
+  none, so `motion-on` silently left the poster up. The gantt is now one baked `<svg>` (bars declare
+  the `bar` role, milestones `point`), and the state-chart paints its states into the overlay it
+  already drew its edges into. Its `inline` variant stays HTML by design — it is a compact row list,
+  not a node-and-edge diagram.
+
+### Fixed
+
+- **The radar's shape never animated.** Its series polygons carried no addressable attribute, so
+  chart motion saw only the axis labels and animated the text of an otherwise static chart. The
+  polygons now declare `data-anima-role` — deliberately *without* a `data-mark`, because the radar's
+  mark namespace belongs to its axis labels, which the mark-detail popover keys per-axis templates
+  by; a mark on a polygon would have opened the wrong popover. Verified on the real Playground.
+- **A dead entry in the chart motion role map read as working support.** `ROLE_BY_CLASS` carried
+  `radar-area`, a class no renderer has ever emitted (the radar emits `radar-poly`), so it never
+  matched once. The map is now gated against the kernels' own source, so a key that matches nothing
+  fails the test suite instead of quietly implying a feature.
+- **Quadrant bubbles and movement trails took the generic `bar` fallback.** Both are scatter points
+  and now declare the `point` role, as do plain quadrant dots.
+- **A gantt task on a short bar used to lose its name.** The old HTML bar clipped its caption with
+  `overflow:hidden`. Captions now sit inside the bar when they fit and borrow the gap beside it when
+  they do not — bounded by the next mark in the lane, so a long name can never print through its
+  neighbor.
+
 - **Model routing: every subagent now declares which model it runs on, so lookup work stops
   billing at Opus rates (HARD RULE #27).** Only two agents (`docs-auditor`, `prose-checker`) pinned
   a model before; every other `Agent()` call inherited the session model — Opus 5 — which meant
