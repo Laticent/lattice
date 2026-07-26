@@ -313,3 +313,91 @@ describe('chartToScene — motion styles', () => {
     expect(revealOf(out, 'bar-1')?.at).toBeGreaterThan(revealOf(out, 'bar-0')?.at ?? 0);
   });
 });
+
+// ── the role map must describe what the renderers ACTUALLY emit ──────────────
+// Born from a real defect: ROLE_BY_CLASS carried 'radar-area', a class no
+// renderer has ever emitted (the radar emits `.radar-poly`). The entry read as
+// "radar shapes animate" while the radar's shape silently never built. A map
+// key that matches nothing is dead code wearing the costume of a feature, so
+// the map is gated against the kernels' own source.
+describe('ROLE_BY_CLASS honesty', () => {
+  const KERNELS = [
+    'lib/components/chart/funnel/funnel.transform.js',
+    'lib/components/chart/radar/radar.transform.js',
+    'lib/components/chart/quadrant/quadrant.transform.js',
+    'lib/components/chart/map/map.transform.js',
+    'lib/components/chart/_chart-family/chart-family.js',
+  ];
+
+  it('every class in the map is emitted by a chart kernel', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    // Repo root from docs/src/lib → ../../..
+    const root = resolve(__dirname, '../../..');
+    const source = KERNELS.map((f) => readFileSync(resolve(root, f), 'utf8')).join('\n');
+
+    // Re-read the map from its own source so the test sees the real keys.
+    const mapSrc = readFileSync(resolve(root, 'docs/src/lib/chart-anima.ts'), 'utf8');
+    const block = mapSrc.match(/const ROLE_BY_CLASS[^{]*\{([\s\S]*?)\n\};/);
+    expect(block, 'ROLE_BY_CLASS block not found').toBeTruthy();
+    const keys = [...(block as RegExpMatchArray)[1].matchAll(/^\s*'?([\w-]+)'?\s*:/gm)].map((m) => m[1]);
+    expect(keys.length).toBeGreaterThan(0);
+
+    // Match the class as a whole token, so `wedge` is not credited to the
+    // `pie-wedge-N` gradient ids and a genuinely dead key still fails. The
+    // kernels name a class either inline (`class="funnel-band"`) or as an
+    // emitter argument (`className: 'funnel-label'`), so both quote styles and
+    // bare word boundaries count.
+    const missing = keys.filter((k) => !new RegExp(`(^|[^\\w-])${k}([^\\w-]|$)`).test(source));
+    expect(missing, `role-map classes no kernel emits: ${missing.join(', ')}`).toEqual([]);
+  });
+});
+
+// ── radar: the shape must build, and the popover's index map must survive ────
+// The radar was the mission's headline motion gap: its series polygons carried
+// no addressable attribute, so chartToScene saw ONLY the axis labels and the
+// chart animated its text while its shape sat still. The polygons now declare
+// `data-anima-role` WITHOUT a `data-mark` — deliberately, because the radar's
+// data-mark namespace belongs to the axis labels (chart-interact.js keys each
+// axis's detail template by that index), so a mark on a polygon would open the
+// wrong popover.
+const RADAR =
+  '<svg class="radar-svg" viewBox="0 0 300 300" role="img">' +
+  '<g class="radar-grid"><polygon class="radar-ring" data-ring="1" points="0,0 1,1"/></g>' +
+  '<g class="radar-axes">' +
+  '<text class="radar-axis-label" data-mark="0" x="10" y="10">Coverage</text>' +
+  '<text class="radar-axis-label" data-mark="1" x="20" y="20">Support</text>' +
+  '</g>' +
+  '<g class="radar-plot">' +
+  '<polygon class="radar-poly" data-anima-role="region" data-series="0" points="1,1 2,2 3,3"/>' +
+  '<polygon class="radar-poly" data-anima-role="region" data-series="1" points="4,4 5,5 6,6"/>' +
+  '</g></svg>';
+
+describe('radar motion', () => {
+  it('animates the series polygons as regions — the shape BUILDS, not just the labels', () => {
+    const out = chartToScene(RADAR);
+    expect(out).not.toBeNull();
+    const regions = out?.roles.filter((r) => r.role === 'region') ?? [];
+    expect(regions).toHaveLength(2);
+  });
+
+  it('still animates the axis labels, as labels', () => {
+    const out = chartToScene(RADAR);
+    const labels = out?.roles.filter((r) => r.role === 'label') ?? [];
+    expect(labels).toHaveLength(2);
+  });
+
+  it('leaves the polygons free of data-mark, so the popover index map is untouched', () => {
+    const out = chartToScene(RADAR);
+    // Every mark INDEX the scene knows about comes from an axis label (0, 1) —
+    // the polygons contribute geometry but claim no index.
+    const indices = (out?.roles ?? []).map((r) => r.mark).filter((m) => m != null).sort();
+    expect(indices).toEqual([0, 1]);
+    expect(out?.asset).not.toMatch(/radar-poly[^>]*data-mark/);
+  });
+
+  it('produces a scene that PASSES the anima validator', () => {
+    const out = chartToScene(RADAR);
+    expect(() => parseScene(out!.scene)).not.toThrow();
+  });
+});
