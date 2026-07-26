@@ -2409,18 +2409,27 @@ function agentCallPins(src) {
     else if (last?.type === 'Identifier' && objectConsts.has(last.name)) options = objectConsts.get(last.name);
 
     if (!options) {
-      calls.push({ label: null, pinned: false, unresolved: true });
+      calls.push({ label: null, pinned: false, reason: 'options-unresolved', value: null });
       return;
     }
     const model = propNamed(options, 'model');
     const label = propNamed(options, 'label');
+    // Distinguish WHY a call isn't pinned. Collapsing these into one message sends
+    // someone hunting for a missing field when the value is the actual problem
+    // (found in review on #1187) — the roster half already separates them.
+    const [reason, value] =
+      !model ? ['missing', null]
+      : model.value.type !== 'Literal' ? ['dynamic', null]
+      : AGENT_MODELS.includes(model.value.value) ? ['pinned', model.value.value]
+      : ['invalid', String(model.value.value)];
     calls.push({
       label:
         label?.value.type === 'Literal' ? String(label.value.value)
         : label?.value.type === 'TemplateLiteral' ? label.value.quasis.map((q) => q.value.cooked).join('…')
         : null,
-      pinned: model?.value.type === 'Literal' && AGENT_MODELS.includes(model.value.value),
-      unresolved: false,
+      pinned: reason === 'pinned',
+      reason,
+      value,
     });
   });
   return { error: null, calls };
@@ -2520,14 +2529,25 @@ function checkAgentModelPinning(errors, dirs = {}) {
     calls.forEach((call, i) => {
       if (call.pinned) return;
       const which = call.label ? `\`${call.label}\`` : `#${i + 1}`;
+      const head = `${rel}: agent() call ${which}`;
+      const tiers = AGENT_MODELS.join(' / ');
       errors.push(
-        call.unresolved
-          ? `${rel}: agent() call ${which} passes options the gate cannot resolve statically ` +
-            `(HARD RULE #27) — pass an inline object literal, or a module-level \`const\`, so the ` +
-            `\`model:\` pin is checkable.`
-          : `${rel}: agent() call ${which} passes no \`model:\` in its options (HARD RULE #27), so ` +
-            `that stage inherits Opus 5 for work the routing table may put on Sonnet 5 or Haiku 4.5. ` +
-            `Add \`model: '<tier>'\` to its options per engineering/model-routing.md.`,
+        {
+          'options-unresolved':
+            `${head} passes options the gate cannot resolve statically (HARD RULE #27) — pass an ` +
+            `inline object literal, or a module-level \`const\`, so the \`model:\` pin is checkable.`,
+          dynamic:
+            `${head} computes its \`model:\` rather than naming one (HARD RULE #27), so the gate ` +
+            `cannot confirm the tier. Use a string literal — one of ${tiers}.`,
+          invalid:
+            `${head} pins \`model: '${call.value}'\`, which the harness does not accept ` +
+            `(HARD RULE #27) — an unrecognized name falls back to the session model instead of ` +
+            `erroring. Use one of ${tiers}.`,
+          missing:
+            `${head} passes no \`model:\` in its options (HARD RULE #27), so that stage inherits ` +
+            `Opus 5 for work the routing table may put on Sonnet 5 or Haiku 4.5. Add ` +
+            `\`model: '<tier>'\` to its options per engineering/model-routing.md.`,
+        }[call.reason],
       );
     });
   }

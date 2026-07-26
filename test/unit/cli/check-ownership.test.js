@@ -651,9 +651,21 @@ describe('check-ownership', () => {
         assert.equal(only(e, 'does not parse').length, 1, 'a broken workflow must fail loudly'));
     });
 
-    test('workflows: options the gate cannot resolve statically are reported, not assumed pinned', () => {
-      withFixture({ 'agents/a.md': AGENT('opus'), 'workflows/w.js': 'agent(p, buildOpts())\n' }, (e) =>
-        assert.equal(only(e, 'cannot resolve statically').length, 1, 'dynamic options must not pass silently'));
+    test('workflows: each way of failing to pin gets its OWN diagnosis', () => {
+      // Collapsing these into one "passes no model:" message sends someone hunting for a
+      // missing field when the value is the real problem — found in review on #1187.
+      const cases = [
+        ["agent(p, { label: 'a' })", 'passes no `model:`'],
+        ["agent(p, { label: 'a', model: 'sonnet-5' })", "pins `model: 'sonnet-5'`, which the harness does not accept"],
+        ["agent(p, { label: 'a', model: MODEL })", 'computes its `model:` rather than naming one'],
+        ['agent(p, buildOpts())', 'cannot resolve statically'],
+      ];
+      for (const [body, expected] of cases) {
+        withFixture({ 'agents/a.md': AGENT('opus'), 'workflows/w.js': `${body}\n` }, (e) => {
+          assert.equal(e.length, 1, `${body} → ${e.join('; ')}`);
+          assert.ok(e[0].includes(expected), `${body}\n  expected: ${expected}\n  got: ${e[0]}`);
+        });
+      }
     });
 
     // The AST is what makes these sound. Three successive TEXT-based versions of this
