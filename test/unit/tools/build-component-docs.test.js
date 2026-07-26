@@ -90,6 +90,34 @@ describe('renderDocs — Agent contract', () => {
     assert.match(docs, /- \*\*`four`\.\*\* the four-up case/);
   });
 
+  test('tableCell escapes a pre-existing backslash before escaping pipes (CodeQL: incomplete string escaping)', () => {
+    // A slot description quoting a regex alternation like `a\|b` — one
+    // literal backslash immediately before a pipe.
+    const input = `A regex like a${'\\'}|b means alternation.`;
+    const docs = renderDocs({
+      ...BASE,
+      slots: { title: { selector: 'h2', required: true, description: input } },
+    });
+    const row = docs.split('\n').find((l) => l.startsWith('| `title`'));
+    assert.ok(row, 'expected the title slot row');
+    // Escaping backslash first turns the single `\` into `\\`, so the pipe
+    // that follows is escaped from a position with NO dangling backslash —
+    // it can't be misread as an escaped backslash followed by a bare,
+    // column-splitting pipe (the actual CodeQL-flagged failure mode: escaping
+    // the pipe WITHOUT first escaping the backslash turns `a\|b` into
+    // `a\\|b`, which a table parser reads as an escaped backslash followed
+    // by a real, unescaped delimiter pipe — corrupting the row).
+    const expected = `a${'\\'.repeat(3)}|b`;
+    assert.ok(row.includes(expected), `expected ${JSON.stringify(expected)} in row: ${JSON.stringify(row)}`);
+    // Splitting on an UN-escaped pipe (not immediately preceded by a
+    // backslash) must find exactly the 5 real structural delimiters — the
+    // description's own pipe, protected by its now-correctly-parity'd
+    // backslash run, must not count as a 6th and corrupt the column count.
+    const structuralParts = row.split(/(?<!\\)\|/);
+    assert.equal(structuralParts.length, 6, `row split into the wrong number of columns: ${JSON.stringify(row)}`);
+    assert.ok(structuralParts[4].includes(expected), 'the description stayed one intact column');
+  });
+
   test('Agent contract section is omitted entirely when the manifest carries none of its inputs', () => {
     const docs = renderDocs({
       name: 'bare',

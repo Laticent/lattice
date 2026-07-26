@@ -94,7 +94,13 @@ function tc(s) {
 const LINE_ENDINGS = /(?:\r\n|\r|\n)+/g;
 
 function tableCell(s) {
-  return String(s).replace(/\|/g, '\\|').replace(LINE_ENDINGS, ' ');
+  // Escape backslashes FIRST, then pipes. Otherwise a pre-existing backslash
+  // immediately before a pipe in the source (e.g. a slot description quoting
+  // a regex alternation like `a\|b`) shifts the escaping parity: `\|`
+  // becomes `\\|`, which a markdown renderer reads as an escaped backslash
+  // followed by an UNescaped pipe — the exact table-breaking pipe this
+  // function exists to prevent (CodeQL: incomplete string escaping).
+  return String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(LINE_ENDINGS, ' ');
 }
 
 /**

@@ -10077,7 +10077,7 @@
         "caption": {
           "selector": ".video-embed figcaption",
           "required": false,
-          "description": "Optional caption bullet — `` - Scan to watch `caption` ``."
+          "description": "Optional caption bullet — a plain bullet line ending with the `caption` marker (see Authoring below for the full syntax)."
         }
       },
       "skeleton": "<!-- _class: video companion -->\n\n## Watch the 90-second product tour.\n\nOne screen, one story — the fastest way to see the product work.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- A guided walkthrough `caption`\n",

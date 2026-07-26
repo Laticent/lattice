@@ -16,7 +16,7 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 |---|---|---|---|
 | `heading` | `h2` | no | Optional heading — the so-what of the clip, not 'Video'. |
 | `video` | `.video-embed` | yes | The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR. |
-| `caption` | `.video-embed figcaption` | no | Optional caption bullet — `` - Scan to watch `caption` ``. |
+| `caption` | `.video-embed figcaption` | no | Optional caption bullet — a plain bullet line ending with the `caption` marker (see Authoring below for the full syntax). |
 
 ## When to use
 

@@ -4431,7 +4431,7 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 |---|---|---|---|
 | `heading` | `h2` | no | Optional heading — the so-what of the clip, not 'Video'. |
 | `video` | `.video-embed` | yes | The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR. |
-| `caption` | `.video-embed figcaption` | no | Optional caption bullet — `` - Scan to watch `caption` ``. |
+| `caption` | `.video-embed figcaption` | no | Optional caption bullet — a plain bullet line ending with the `caption` marker (see Authoring below for the full syntax). |
 
 #### When to use
 
@@ -4541,7 +4541,7 @@ Use for a pipeline that narrows — a sales / conversion funnel, a hiring or gra
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading — name the flow and, ideally, the takeaway (‘Where the pipeline leaks’). |
-| `stages` | `ul > li` | yes | One li per stage, in flow order (widest first). Lead with the stage label, then a trailing inline-code value — `Signups \`4,800\``. Commas and units are tolerated; the largest value sets full width. Three to seven stages read best. |
+| `stages` | `ul > li` | yes | One li per stage, in flow order (widest first). Lead with the stage label, then a trailing inline-code value — `Signups \\`4,800\\``. Commas and units are tolerated; the largest value sets full width. Three to seven stages read best. |
 | `detail` | `li > ul` | no | Optional nested sublist under a stage. Drives two surfaces from one source (shared with pie/map/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the stage `<polygon>` with `data-mark` and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A funnel with no sublists emits no note and is unchanged. |
 
 #### When to use
@@ -4987,7 +4987,7 @@ Use when the story is geographic — program reach, service territories, where t
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading — name the geography and the takeaway (‘Where the program runs’). |
-| `regions` | `ul > li` | yes | One li per region (or group). Lead with the name — world (default): full (`Brazil`), ISO (`BR`), alias (`Burma`), or a group (`European Union`, `Sub-Saharan Africa`, `Global South`) that expands to its members; US (`map us`): full (`California`), postal (`CA`), or abbreviation (`Calif.`) — then a trailing inline-code value: `Brazil \`4.2\``. In choropleth the value drives the ramp; in highlight it's an optional legend label. Names the basemap can't resolve surface as muted ‘?’ legend rows. |
+| `regions` | `ul > li` | yes | One li per region (or group). Lead with the name — world (default): full (`Brazil`), ISO (`BR`), alias (`Burma`), or a group (`European Union`, `Sub-Saharan Africa`, `Global South`) that expands to its members; US (`map us`): full (`California`), postal (`CA`), or abbreviation (`Calif.`) — then a trailing inline-code value: `Brazil \\`4.2\\``. In choropleth the value drives the ramp; in highlight it's an optional legend label. Names the basemap can't resolve surface as muted ‘?’ legend rows. |
 | `detail` | `li > ul` | no | Optional nested sublist under a region. Drives two surfaces from one source (shared with pie/funnel/quadrant via the chart-family mark-detail substrate): (1) Present/Practice — the kernel tags the region `<path>`(s) with `data-mark` (a group shares one index across all its regions) and emits the sublist as an inert `<template class="chart-detail">` the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Region (value): item · item`) as a Marp-faithful comment that notes-core lifts into the per-slide note channel. The note rides the existing channel, so the chart pixels stay byte-identical. A map with no sublists emits no note and is unchanged. |
 
 #### When to use
