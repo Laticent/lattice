@@ -679,6 +679,14 @@ card with an engineering half → tag by the harder half. When torn between two
 tiers, pick the higher **only** if a plausible-but-wrong output would be costly
 to catch — otherwise take the cheaper tier (DEFAULT OP MODE #3).
 
+**Same decision, one scale down: `engineering/model-routing.md`** (HARD RULE #27)
+routes an individual **subagent** to a model, where this section tags a whole
+**card**. The two are one system — the rubric above governs the tier a card is
+worked at, and the routing doc pins the agents that do slices of it, so a
+`model:fable` card should still spawn its *lookup* agents on Sonnet and only its
+*writing* agent on Fable. Keep them consistent: a change to either rubric that
+contradicts the other is the drift both are meant to prevent.
+
 ### Intake floor — enforced on every path
 
 The form is the easy path, not the only one. A card can also arrive as a blank
