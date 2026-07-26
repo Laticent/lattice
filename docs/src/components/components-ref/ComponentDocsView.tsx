@@ -29,10 +29,13 @@ type Manifest = {
 	tags?: string[];
 	whenToUse?: { title: string; body: string }[];
 	antiPatterns?: { title: string; body: string }[];
+	commonMistakes?: { mistake: string; fix: string }[];
 	slots?: Record<string, { selector: string; required?: boolean; description: string }>;
 	skeleton?: string;
+	dataShapeGuidance?: string[];
 	variants?: string[];
 	variantDocs?: Record<string, { label?: string; summary?: string; sample?: string }>;
+	variantDecisionRule?: { variant: string; useWhen: string }[];
 	related?: { name: string; when: string }[];
 };
 
@@ -59,9 +62,12 @@ export function ComponentDocsView({
 	const tags = Array.isArray(m.tags) ? m.tags : [];
 	const whenToUse = Array.isArray(m.whenToUse) ? m.whenToUse : [];
 	const antiPatterns = Array.isArray(m.antiPatterns) ? m.antiPatterns : [];
+	const commonMistakes = Array.isArray(m.commonMistakes) ? m.commonMistakes : [];
 	const slots = m.slots && Object.keys(m.slots).length ? Object.entries(m.slots) : [];
+	const dataShapeGuidance = Array.isArray(m.dataShapeGuidance) ? m.dataShapeGuidance : [];
 	const variantDocs = m.variantDocs || {};
 	const variantKeys = Array.isArray(m.variants) ? m.variants.filter((v) => variantDocs[v]) : [];
+	const variantDecisionRule = Array.isArray(m.variantDecisionRule) ? m.variantDecisionRule : [];
 	const related = Array.isArray(m.related) ? m.related : [];
 	const skeleton = (m.skeleton || '').replace(/\n$/, '');
 
@@ -99,6 +105,19 @@ export function ComponentDocsView({
 						{antiPatterns.map((it) => (
 							<li key={it.title} className="my-1.5">
 								<strong className="text-destructive">{inlineMd(it.title)}.</strong> {inlineMd(it.body)}
+							</li>
+						))}
+					</ul>
+				</section>
+			)}
+
+			{commonMistakes.length > 0 && (
+				<section>
+					<SectionH2>Common mistakes</SectionH2>
+					<ul className="m-0 list-disc pl-5">
+						{commonMistakes.map((it) => (
+							<li key={it.mistake} className="my-1.5">
+								<strong className="text-[var(--text-heading)]">{inlineMd(it.mistake)}</strong> {inlineMd(it.fix)}
 							</li>
 						))}
 					</ul>
@@ -153,12 +172,46 @@ export function ComponentDocsView({
 				</section>
 			)}
 
+			{dataShapeGuidance.length > 0 && (
+				<section>
+					<SectionH2>Data shape</SectionH2>
+					<ul className="m-0 list-disc pl-5">
+						{dataShapeGuidance.map((rule) => (
+							<li key={rule} className="my-1.5">
+								{inlineMd(rule)}
+							</li>
+						))}
+					</ul>
+				</section>
+			)}
+
 			{anatomy && (
 				<section>
 					<SectionH2>Anatomy</SectionH2>
 					<pre className="m-0 overflow-x-auto rounded-md border border-border bg-card p-4">
 						<code className="whitespace-pre font-mono text-xs leading-tight text-muted-foreground">{anatomy}</code>
 					</pre>
+				</section>
+			)}
+
+			{variantDecisionRule.length > 0 && (
+				<section>
+					<SectionH2>Variant decision rule</SectionH2>
+					<ul className="m-0 list-disc pl-5">
+						{variantDecisionRule.map((entry) => (
+							<li key={entry.variant} className="my-1.5">
+								<strong className="text-[var(--text-heading)]">
+									{entry.variant === 'default' ? (
+										'default (no modifier)'
+									) : (
+										<code className="font-mono text-primary">{entry.variant}</code>
+									)}
+								</strong>
+								{' — '}
+								{inlineMd(entry.useWhen)}
+							</li>
+						))}
+					</ul>
 				</section>
 			)}
 
