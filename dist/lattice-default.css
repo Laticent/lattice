@@ -3294,6 +3294,23 @@ section.compare-table.lat-split-cards .ct-field { display:contents; }
 section.compare-table.lat-split-cards .ct-field dt { font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); }
 section.compare-table.lat-split-cards .ct-field dd { margin:0; font-size:var(--fs-body-compact); color:var(--text-body); }
 section.compare-table.lat-split-cards .split-runhead { font-family:var(--font-label); font-size:var(--fs-meta); letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); padding-bottom:var(--sp-sm); opacity:0.85; }
+/* A card ALONE on its page FILLS the page — the reshape paces one transposed row per page
+   (`split.perPage: 1`), so this is every cover-cards page. The universal split rule for this
+   (base.modifiers.css § "a member ALONE on its page FILLS the page") is scoped to the
+   plain-axis DOM — `.lat-split-native > .cell-stage > :is(ul,ol) > li:only-child` — and cannot
+   reach this shape, whose body is `<div class="ct-cards"> > <article class="ct-card">` with no
+   `.cell-stage` and no list. It lives HERE rather than in base.modifiers.css because `.ct-card`
+   is a compare-table-owned class; the base layer must not reach into it.
+   `.ct-cards` already fills the stage and centres its children, so without this the lone card
+   renders as a small box stranded in two-thirds of white — the same defect the owner caught on
+   the plain path (IMG_3222 / §0b's "one card per slide means the card IS the page"). `.ct-card`
+   is a COLUMN flex, so its content centres with `justify-content` (the plain path's cards are
+   wrap-flex rows, hence `align-content` there — same intent, different axis).
+   `:only-child`-guarded, so a future cover-cards component pacing >1 per page is untouched. */
+section.compare-table.lat-split-cards .ct-card:only-child {
+  flex: 1 1 auto;
+  justify-content: center;
+}
 
 /* === lib/components/connect/contact/contact.styles.css === */
 /* contact — an identity card that encodes a vCard: name hero + lockup + ledger

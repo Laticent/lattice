@@ -687,6 +687,40 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   page 1-at-a-time) is **logged, not fixed** — this slice never touches it and ships no deck
   that shows it, so pulling four more strategies in would break #17 (see #1194).
 
+  **OWNER CORRECTION — the one-card-per-slide agreement was implemented on only ONE of the
+  two pacing fields.** The balanced 2+2 above was still wrong: a transposed `compare-table`
+  row emits `<article class="ct-card"><h3>…</h3><dl>…labelled fields…</dl></article>` — a
+  header plus its content, i.e. a CARD by the owner's own definition — and §0b's heavy-member
+  rule is one card per page. The 3+1→2+2 fix optimized the pacing *inside a ceiling that
+  should have been challenged*; the agreed answer is 1 per page. Root cause worth naming
+  because it generalizes: the heavy-member rule was authored as **`capacity.perPage: 1`**,
+  which only the PLAIN-AXIS path reads. The carousel path reads a *separate* field,
+  **`split.perPage`**, and none of the six components §0c marks "1 per slide" carried 1 there
+  (`compare-table` 3, `list-tabular` 3, `glossary` 8, `regulatory-update` 4, `statute-stack`
+  2, `q-and-a` 3). `compare-table` is now `split.perPage: 1`; the other five are a scope call
+  for the owner (they are NOT all the same construct — `list-tabular` re-authors rows into
+  cards, while `glossary` paginates a native TABLE whose rows stay rows, and one term per
+  slide for a 40-term glossary is a different product decision).
+
+  **The lone-card FILL rule needed its own implementation for this DOM too.** With 1 card per
+  page the card must claim the stage (the owner's IMG_3222 ruling), but the universal rule for
+  that is scoped `.lat-split-native > .cell-stage > :is(ul,ol) > li:only-child` and cannot see
+  `<div class="ct-cards"> > <article class="ct-card">` — no `.cell-stage`, no list, `article`
+  not `li`. Added as `section.compare-table.lat-split-cards .ct-card:only-child { flex:1 1 auto;
+  justify-content:center }` in **compare-table.styles.css**, not base.modifiers.css, because
+  `.ct-card` is a component-owned class the base layer must not reach into (`justify-content`
+  rather than the plain path's `align-content` — same intent, but this card is a column flex
+  and those are wrap-flex rows).
+
+  **This is the third time in ONE slice that a universal rule needed a parallel hand-written
+  implementation for the `cover-cards` DOM** — the trailing-note CSS, the balanced pacing, and
+  now the lone-card fill. That is direct evidence for the standing "make autosplit generic, not
+  a one-off per component" objection: the shell is genuinely shared, but every *decoration* the
+  shell implies has to be re-expressed per component-owned DOM, with nothing detecting a missed
+  one. Captured as #1193 (the manifest↔§0c enforcement gap) and #1194 (the same greedy-chunk
+  defect still live in `coverWindow`); the decorator-vocabulary redesign those imply is the
+  named follow-on, not this slice.
+
   **Scope note.** The envelope applies to whatever the opt-in gate already enrolls — the
   15 plain-axis components (`actors`, `agenda`, `cards-grid`, `cards-stack`, `checklist`,
   `cycle`, `inventory`, `kpi`, `list`, `list-steps`, `matrix-2x2`, `policy-recommendation`,
