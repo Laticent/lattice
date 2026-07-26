@@ -157,8 +157,11 @@ in patch versions.
   `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
 ### Fixed
 
-- **Three docs-site preview bugs, all traced to the same underlying gap — no React error boundary
-  existed anywhere in the docs-site — plus two independent CSS sizing regressions (#1186).**
+- **Three docs-site preview bugs (#1186): a tablet preview sizing regression, a mobile preview
+  sizing regression, and an app-blanking crash — the crash investigation also surfaced (a) that the
+  docs-site had no React error boundary anywhere, hardened as defense-in-depth, and (b) a genuine,
+  separately confirmed infinite-loop bug in the shared engine runtime, found while chasing the
+  crash's actual cause.**
   - **A crash on a specific slide could blank the ENTIRE Studio/Playground app.** `client:only`
     islands were wrapped only in `StrictMode` (a no-op in production, not an error boundary), so any
     render/effect throw in the live preview unwound the whole island to a white screen. Added a real
@@ -170,9 +173,12 @@ in patch versions.
     `anima-scenes.ts`'s `mount()` now guards its `hydrate()` call and `disposeAll()`/dispose-in-diff
     now catch per-controller (mirroring the sibling `hydrateScenes` guard), and `DeckPreview.tsx`'s
     unmount effect wraps its anima/engine teardown so one fault can't skip the other's cleanup.
-  - **The actually-confirmed trigger for that crash (and a real, independent perf bug in its own
-    right): the overflow watcher's author-only "Fix Me" highlight redrew itself in an INFINITE LOOP
-    on any overflowing slide with an identifiable culprit** — `lib/runtime/index.js`'s
+  - **A separately confirmed, real bug found investigating the same report — not verified as the
+    crash's actual cause, but a genuine perf/correctness defect in its own right: the overflow
+    watcher's author-only "Fix Me" highlight redrew itself in an INFINITE LOOP on any overflowing
+    slide with an identifiable culprit.** (The blank-screen crash itself was never reproduced against
+    this fix, on real Chromium or real WebKit, with the reported deck — HARD RULE #23. What's
+    confirmed is the loop; the crash's precise cause stays open.) — `lib/runtime/index.js`'s
     `drawFixMeTags()`, the shared engine runtime that drives the Studio, the Playground, AND the
     VS Code Marp preview. `check()` (the overflow watcher) is scheduled to re-run on every DOM
     mutation; `drawFixMeTags()` unconditionally cleared and rebuilt its highlight box + label on
@@ -186,9 +192,14 @@ in patch versions.
     general failure mode but reported it "disproven" — its test harness's default viewport
     (below the Playground's 820px split breakpoint) silently measured a zero-size, not-actually-
     laid-out preview pane, so an overflowing slide could never trigger it there) — this one function
-    was the omission. Now gated on a painted-signature comparison (same target elements, same
-    rounded rect, same label) before touching the DOM; a no-op redraw request is now a true no-op.
-    Sustained unthrottled 60fps DOM churn is a very plausible way to eventually crash or freeze a
+    was the omission. Now gated on a painted-signature comparison (same target elements — a real
+    per-element id, not `String(el)`, which an independent checker caught stringifying every
+    element of a given tag to the identical value — same rounded rect, same label, AND the
+    viewport dimensions the tab's own position is computed from, which the checker also caught
+    missing: a resize that left a target's OWN rect unchanged but the viewport different used to
+    incorrectly short-circuit, stranding the tab up to hundreds of px from the box it labels)
+    before touching the DOM; a no-op redraw request is now a true no-op. Sustained unthrottled
+    60fps DOM churn is a very plausible way to eventually crash or freeze a
     real, thermally/memory-constrained mobile browser tab — invisibly to any JS error handler, since
     nothing ever threw. `docs/scripts/runtime-settle-check.mjs` gains a new representative slide
     (`overflowWithCulprit`) and its harness's viewport fix — confirmed via a before/after A/B that
@@ -202,12 +213,20 @@ in patch versions.
     the keystone root cause: `100cqh` can resolve to 0 against a flex-derived container height,
     collapsing the box to 0-width — and the shared render kernel gates its reveal on a real pixel
     width, so a 0-width box left the preview stuck on its loader forever. Replaced it with the same
-    JS-measured technique `PresentOverlay` already ships (a `ResizeObserver` reading the holder's real
-    `clientWidth`/`clientHeight`, computing `min(paneW, paneH × ratio, cap)` in JS) — empirically
+    JS-measured technique `PresentOverlay` already ships (a `ResizeObserver` computing
+    `min(paneW, paneH × ratio, cap)` in JS from the holder's CONTENT-box size) — empirically
     re-verified here that a pure-CSS `aspect-ratio` + `max-width/max-height:100%` letterbox (the doc's
     original sketch) ALSO collapses in Chromium, so the JS measurement is load-bearing, not
     incidental. A transient 0-dimension read is ignored, so the box can't collapse mid-layout.
-    (`StudioShell.tsx`.)
+    An independent checker caught two regressions in the first version of this fix, both fixed in
+    the same change: (1) the `ResizeObserver` was attached via a mount-once `useRef`/`useEffect`
+    pair, but the preview holder unmounts/remounts across the shell's responsive branches (mobile /
+    landscape-phone / desktop-tablet) — crossing one (e.g. rotating a phone) orphaned the observer on
+    the detached node and froze the measured size at the pre-rotation value; now a ref CALLBACK,
+    which re-attaches on every mount. (2) The initial measurement read `clientWidth`/`clientHeight`
+    (the PADDING box), not the CONTENT box `100cqh` actually measured — over-sizing the letterbox by
+    2× the holder's padding and eating into the intended gutter; now reads `ResizeObserverEntry.
+    contentRect` (the content box), matching pre-fix behavior exactly. (`StudioShell.tsx`.)
   - **The Playground's mobile preview rendered a short 16:9 card at the top of the screen with a large
     empty gap below it, instead of filling the available height.** Two compounding CSS bugs in
     `docs/src/styles/playground.css`: (1) the Explore-view `aspect-ratio: 16/9` lock on `#preview` (meant

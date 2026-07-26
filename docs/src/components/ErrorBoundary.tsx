@@ -4,10 +4,13 @@ import * as React from 'react';
 // The docs-site's ONE React error boundary. Astro mounts the Studio + Playground as
 // `client:only` islands wrapped only in `<StrictMode>` (which is NOT a boundary), so
 // before this a single throw in render / a lifecycle / an effect (setup OR cleanup)
-// unwound the whole island → white screen. The concrete #1186 failure: a chart slide's
-// anima reveal/teardown threw out of a DeckPreview effect and blanked the entire Studio
-// (see engineering/decisions/2026-07-23-preview-crash-error-boundary.md). This converts
-// any such fault into a recoverable card instead of a dead surface.
+// unwound the whole island → white screen. Added alongside #1186's investigation into a
+// blank-screen report; the CONFIRMED trigger for that report turned out to be an
+// infinite DOM-churn loop in the shared engine runtime (lib/runtime/index.js's
+// `drawFixMeTags`, fixed separately — no throw involved, so this boundary alone would
+// not have caught it). This boundary is independent hardening: a throw anywhere in the
+// preview/anima path, from any future cause, degrades to a recoverable card instead of
+// a dead surface, rather than the docs-site continuing to have zero backstop for one.
 //
 // It is DELIBERATELY dependency-light — no shadcn Card/Button, no engine imports — so the
 // fallback itself can't be the thing that fails to render. Reused by BOTH islands (HARD

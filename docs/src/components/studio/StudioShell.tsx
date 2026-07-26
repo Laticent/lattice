@@ -1908,26 +1908,42 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	//
 	// So this measures instead — the same technique PresentOverlay already ships (its
 	// `slideMaxW` state, ResizeObserver on `slideRowRef`): a ResizeObserver reads the holder's
-	// real `clientWidth`/`clientHeight` and the box's width is computed in JS as
-	// `min(paneW, paneH × ratio, cap)`. A transient 0-dim read (the iOS load reflow the retired
-	// comment warned about) is ignored — `measure()` only commits a size when BOTH dims are
-	// positive, so the box holds its last good size instead of collapsing.
+	// real CONTENT-box size and the box's width is computed in JS as `min(paneW, paneH × ratio,
+	// cap)`. A transient 0-dim read (the iOS load reflow the retired comment warned about) is
+	// ignored — `measure()` only commits a size when BOTH dims are positive, so the box holds
+	// its last good size instead of collapsing.
+	//
+	// A CALLBACK ref, not `useRef` + a mount-once `useEffect` (checker-caught regression): the
+	// holder isn't a stable node for the shell's lifetime — `previewPane` (below) is one of
+	// several MUTUALLY EXCLUSIVE JSX branches (mobile / landscape-phone / desktop-tablet), so
+	// crossing one (e.g. rotating a phone) unmounts the old holder and mounts a fresh one. A
+	// `[]`-dep effect captures the FIRST holder only; the observer is left watching a detached
+	// node (which reports 0×0 and is correctly ignored by the `w>0 && h>0` guard above) while
+	// the NEW holder goes unobserved forever — `previewPaneSize` freezes at the pre-rotation
+	// value. A ref CALLBACK fires on every attach/detach, so each new holder gets its own
+	// observer and the stale one is torn down with it.
 	const previewRatio = sizeRatio(deckSize);
 	const previewRatioValue = previewRatio[0] / previewRatio[1];
-	const previewHolderRef = React.useRef<HTMLDivElement>(null);
 	const [previewPaneSize, setPreviewPaneSize] = React.useState<{ w: number; h: number } | null>(null);
-	React.useEffect(() => {
-		const holder = previewHolderRef.current;
+	const previewHolderRoRef = React.useRef<ResizeObserver | null>(null);
+	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
+		previewHolderRoRef.current?.disconnect();
+		previewHolderRoRef.current = null;
 		if (!holder || typeof ResizeObserver === 'undefined') return;
-		const measure = () => {
-			const w = holder.clientWidth;
-			const h = holder.clientHeight;
+		const measure = (contentRect?: { width: number; height: number }) => {
+			// `entry.contentRect` is the CONTENT box (excludes padding/border) — the same box
+			// `100cqh` measured pre-fix. `clientWidth`/`clientHeight` are the PADDING box
+			// (checker-caught: reading them here over-sized the letterbox by 2× the holder's
+			// padding, eating into the intended gutter). Fall back to them only for the
+			// synchronous first call below, where no ResizeObserverEntry exists yet.
+			const w = contentRect ? contentRect.width : holder.clientWidth;
+			const h = contentRect ? contentRect.height : holder.clientHeight;
 			if (w > 0 && h > 0) setPreviewPaneSize({ w, h });
 		};
 		measure();
-		const ro = new ResizeObserver(measure);
+		const ro = new ResizeObserver(([entry]) => measure(entry?.contentRect));
 		ro.observe(holder);
-		return () => ro.disconnect();
+		previewHolderRoRef.current = ro;
 	}, []);
 	// Touch swipe (mobile) + horizontal wheel (trackpad) change the viewed slide.
 	// goToSlide(slideNo) is next, goToSlide(slideNo - 2) is prev (both clamp).

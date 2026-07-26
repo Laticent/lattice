@@ -406,7 +406,7 @@ body[data-view='read'] .pg-pane-label {
 	   `id` — around the INNER div that actually holds `.pg-pane` (the same shape the
 	   Explore full-bleed rule above already documents and targets by id). `.pg-split >
 	   .pg-pane` therefore never matches anything: it's a grandchild, not a direct
-	   child, so this block's intended height:100% silently never applied (#1187) —
+	   child, so this block's intended height:100% silently never applied (#1186) —
 	   `display:block` flattened the split to a column, but with no explicit height
 	   each pane sized to its own CONTENT (a 16:9 preview card, ~220px) instead of the
 	   full phone height below it, leaving a large empty gap under a short slide. Give
@@ -429,7 +429,7 @@ body[data-view='read'] .pg-pane-label {
 	}
 	/* One pane at a time on phones; the mode toggle sets body[data-pane]
 	   (Explore → preview, Edit → the editor). Hide the INACTIVE pane's OUTER id'd
-	   div too, not just its inner `.pg-pane` (#1187): both outer divs now carry
+	   div too, not just its inner `.pg-pane` (#1186): both outer divs now carry
 	   `height:100% !important` (above) so the split fills the phone's height, but
 	   an inner `display:none` alone leaves the inactive outer div still taking its
 	   full 100% height as an empty block — pushing the ACTIVE pane below the fold
@@ -570,7 +570,7 @@ body[data-view='read'] .pg-pane-label {
    with letterbox margins at the sides. `--pg-deck-aspect` defaults to the
    engine's 1280×720 box; every Explore deck (galleries + component walks) uses
    it.
-   Split regime only (#1187 — the same 820px media string the split's own rules
+   Split regime only (#1186 — the same 820px media string the split's own rules
    above use): on a PORTRAIT PHONE the aspect-derived width already exceeds the
    pane, so `max-width:100%` clamped it back to full width — but the resulting
    short 16:9 slide left the REST of the pane's height empty (the "preview isn't
