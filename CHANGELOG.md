@@ -40,8 +40,11 @@ in patch versions.
   and `dataShapeGuidance` ([string], terse constraints on data cardinality/format/sort order for
   data-driven components) — schema in `lib/components/manifest.schema.json`, validated in
   `lib/components/index.js`'s `checkAgentContract`. Purely additive to the manifest contract: the
-  aggregated `dist/docs/components.json` picker catalog is unaffected (these fields live only in
-  the per-component docs, the authoring-time surface), and no `.gallery.md`/PDF changed. The
+  three new agent-contract fields don't surface in the aggregated `dist/docs/components.json`
+  picker catalog at all (they live only in the per-component docs, the authoring-time surface —
+  `components.json` did pick up two unrelated pre-existing copy fixes this branch made along the
+  way, an editorial spelling correction and a slot-description markdown fix), and no
+  `.gallery.md`/PDF changed. The
   section reorder applies to all 59 enriched components' docs.md (mechanical, from the shared
   generator template); the three new content fields are piloted on five components across five
   buckets (`title`, `big-number`, `piechart`, `matrix-2x2`, `code`) — the remaining 54 render an
