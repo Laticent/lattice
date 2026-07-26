@@ -55,11 +55,18 @@ const ADV = 0.6;
  * Measuring every label as if it sat on an alphabetic baseline at a start
  * anchor is precisely the bug this area had twice.
  */
+const TEXT_EL_RE = /<text\b([^>]*)>([\s\S]*?)<\/text>/g;
+
 function textBoxes(html, className, fontSize) {
-  const re = new RegExp(`<text class="[^"]*\\b${className}\\b[^"]*"([^>]*)>([\\s\\S]*?)</text>`, 'g');
   const upper = /quadrant-label/.test(className);
   const adv = upper ? ADV_UPPER : ADV;
-  return [...html.matchAll(re)].map((m) => {
+  // Match every <text>, then filter on its class LIST. Testing the class inside
+  // the element pattern would need two unbounded runs around a literal
+  // (`[^"]*\bfoo\b[^"]*`), which backtracks polynomially — CodeQL flags it, and
+  // rightly: splitting the attribute out is both linear and easier to read.
+  const wanted = (attrs) => ((attrs.match(/class="([^"]*)"/) || [])[1] || '')
+    .split(/\s+/).includes(className);
+  return [...html.matchAll(TEXT_EL_RE)].filter((m) => wanted(m[1])).map((m) => {
     const attrs = m[1];
     const baseline = (attrs.match(/dominant-baseline="([\w-]+)"/) || [])[1] || 'auto';
     const anchor = (attrs.match(/text-anchor="(\w+)"/) || [])[1] || 'start';

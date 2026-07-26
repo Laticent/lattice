@@ -236,7 +236,32 @@ in patch versions.
   (`engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §4.4a); the stroke-draw for
   `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
   `backends/vivus.ts`.)
+
 ### Changed
+
+- **Quadrant names now sit OUTSIDE the plot, centered on their column, in their own quadrant's color.**
+  They used to be inset inside their corner, where they cost twice over: they competed with the data
+  for the corner they occupied (item labels had to be routed around them, and still collided when a
+  cluster sat there), and an inset label reads as an annotation on a data point rather than as the
+  name of a whole region. The top pair now sit above their column and the bottom pair below, each
+  taking its cell's ink — which both binds the name to its block and frees the plot interior entirely
+  for marks. The viewBox grew from 420×320 to 420×348 to hold the lower band, and the x-axis tick row
+  and axis title moved below it. Names center on the REAL split, so the author-movable
+  threshold/target variants stay correct — and a name wraps to the width its COLUMN actually has,
+  clamped to stay inside the viewBox, so a target near an axis extreme can't hang one off the edge.
+  The `cohort` variant, which names its clusters at their centroids and draws no quadrant names,
+  reserves no band; nor does a chart whose author supplied no group names.
+- **Inline markup inside a `gantt` task name or a `state-chart` state label is now rendered as plain
+  text.** Both used to be real HTML, so `**bold**`, `` `code` `` or a link inside a label rendered as
+  markup; the label is SVG `<text>` now, which has no inline formatting model, so the text is used
+  and the markup dropped. Labels were always meant to be plain names — the emphasis belongs in the
+  slide's prose — but this is an author-visible change, not an internal one.
+- **`gantt` and `state-chart` expose their content to assistive technology through an enumerated
+  `<desc>` rather than as HTML text.** Their marks are inside `<svg role="img">` now, whose subtree is
+  presentational, so each chart describes itself instead: the gantt lists every lane with its tasks,
+  spans and statuses, and the state-chart lists every state (with start/end and status) plus every
+  transition — which its old `<li>` list never exposed. Richer content, but one flat description
+  rather than a navigable list, and the label text is no longer selectable or findable in the page.
 
 - **The Playground and Studio splitters are now the shadcn resizable panel (`react-resizable-panels`),
   and the Studio's Coach / Chat / Library / Settings side panels are resizable too.** The
@@ -269,7 +294,44 @@ in patch versions.
   author's stress test; the house rule is a simple boardroom chart, not an architect's diagram — so it
   no longer trips the overflow probe. (`state-chart.transform.js` + `.styles.css`,
   `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
+
 ### Fixed
+
+- **The radar's shape never animated.** Its series polygons carried no addressable attribute, so
+  chart motion saw only the axis labels and animated the text of an otherwise static chart. The
+  polygons now declare `data-anima-role` — deliberately *without* a `data-mark`, because the radar's
+  mark namespace belongs to its axis labels, which the mark-detail popover keys per-axis templates
+  by; a mark on a polygon would have opened the wrong popover. Verified on the real Playground.
+- **A dead entry in the chart motion role map read as working support.** `ROLE_BY_CLASS` carried
+  `radar-area`, a class no renderer has ever emitted (the radar emits `radar-poly`), so it never
+  matched once. The map is now gated against the kernels' own source, so a key that matches nothing
+  fails the test suite instead of quietly implying a feature.
+- **Quadrant bubbles and movement trails took the generic `bar` fallback.** Both are scatter points
+  and now declare the `point` role, as do plain quadrant dots.
+- **Radar small-multiples were pinned to a physical 188px (#1184).** Each mini rendered the same
+  absolute size whatever the container, so it held ~18.7% of the chart body at HD but collapsed to
+  ~4.2% at 4K while the cqi-sized type around it grew — the minis shrank away from their own captions.
+  They size from a `--radar-mini-size` token in `cqi` now, calibrated by measurement so the HD
+  rendering is unchanged (cqi resolves against the chart body's 960px content box on the surface
+  whose bytes ship — the emulator document Chrome prints from — so the old 188px is 19.583cqi; a
+  slide-relative reading would have said 14.7 and shrunk every mini by a quarter). Verified in a real
+  browser on that surface: the mini is exactly 188px at HD and holds 17.41% of its chart body at
+  1280px, 2560px AND 5120px (drift 0.00pp).
+- **The chart-responsiveness lint blanket-exempted every `-svg` selector, which is how that slipped
+  through.** Inside a viewBox `px` IS a user unit, so the exemption is right for anything drawn in the
+  chart's coordinate space — but it must stop at the SVG's own box: `width`/`height` on the `<svg>`
+  element are page pixels and pin the diagram to a physical size. The gate now scans svg-box rules for
+  their box size while still exempting everything internal to them.
+- **A radar small-multiple broke a rim label mid-word.** A mini has neither a key rail nor a portrait
+  pad, so its side axes sat 37 units from the viewBox edge — under one line for a six-letter word, and
+  `Margin` came out as `Margi` / `n`. A mid-word break reads as a different word, which is worse than
+  the overrun it prevents. The mini's viewBox is 20 units wider each side now (the diagram keeps its
+  rendered size; the extra width is label bleed), which is also the most that still fits four minis on
+  one row.
+- **A gantt task on a short bar used to lose its name.** The old HTML bar clipped its caption with
+  `overflow:hidden`. Captions now sit inside the bar when they fit and borrow the gap beside it when
+  they do not — bounded by the next mark in the lane, so a long name can never print through its
+  neighbor.
 
 - **Three docs-site preview bugs (#1186): a tablet preview sizing regression, a mobile preview
   sizing regression, and an app-blanking crash — the crash investigation also surfaced (a) that the

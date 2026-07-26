@@ -69,20 +69,27 @@ const SVG_SEL_RE =
 // Three `<svg>` roots predate the `-svg` convention and are named here, because
 // a root the pattern misses is exempted wholesale — the #1184 hole, one name
 // over.
-const SVG_BOX_EXTRA = ['journey-curve', 'journey-face', 'state-chart-edges'];
-const SVG_BOX_SEL_RE = new RegExp(
-  `^(?:svg|[.#][\\w-]*-svg(?:--[\\w-]+)?|[.#](?:${SVG_BOX_EXTRA.join('|')}))`
-  + '(?:[:.[][^\\s]*)?$',
-);
+const SVG_BOX_EXTRA = new Set(['journey-curve', 'journey-face', 'state-chart-edges']);
 
-/**
- * Does this selector target an `<svg>` element's own box?
- *
- * Tested against the LAST COMPOUND of each comma-separated selector — the
- * element the rule actually styles. Matching anywhere in the string called
- * `.radar-svg--mini .radar-axis-label` an svg box (it is a `<text>` INSIDE one),
- * which would then wrongly scan a legitimate viewBox-unit `height` on it.
- */
+// The leading `svg` / `.class` / `#id` token of a compound, and nothing else —
+// one greedy run over one character class, so it is linear. (A pattern like
+// `[\w-]*-svg` would read the same but backtracks polynomially on a long run of
+// hyphens, which is a CodeQL high.) Everything after the token — `:not(…)`,
+// `[data-…]`, a second class — is decoration on the SAME element and is ignored.
+const LEAD_TOKEN_RE = /^[.#]?[A-Za-z_-][\w-]*/;
+
+function isSvgBoxCompound(compound) {
+  const m = LEAD_TOKEN_RE.exec(compound);
+  if (!m) return false;
+  const tok = m[0];
+  const sigiled = tok[0] === '.' || tok[0] === '#';
+  const name = sigiled ? tok.slice(1) : tok;
+  if (!sigiled) return name === 'svg';           // the bare element selector
+  const dd = name.indexOf('--');                 // BEM modifier: .radar-svg--mini
+  const base = dd === -1 ? name : name.slice(0, dd);
+  return base.endsWith('-svg') || SVG_BOX_EXTRA.has(base);
+}
+
 // Split on the given separators, but only at paren depth 0 — a comma or a space
 // inside `:is(…)` / `:not(…)` belongs to that functional pseudo-class, not to
 // the selector list or the descendant chain.
@@ -99,6 +106,14 @@ function splitTopLevel(selector, seps) {
   return parts.map((p) => p.trim()).filter(Boolean);
 }
 
+/**
+ * Does this selector target an `<svg>` element's own box?
+ *
+ * Tested against the LAST COMPOUND of each comma-separated selector — the
+ * element the rule actually styles. Matching anywhere in the string would call
+ * `.radar-svg--mini .radar-axis-label` an svg box (it is a `<text>` INSIDE one),
+ * and then wrongly scan a legitimate viewBox-unit `height` on it.
+ */
 function targetsSvgBox(selector) {
   return splitTopLevel(selector, ',').some((part) => {
     const compounds = splitTopLevel(part, ' \t\n>+~');
@@ -107,7 +122,7 @@ function targetsSvgBox(selector) {
     // read as the alternatives it stands for.
     const inner = last.match(/^:(?:is|where)\((.*)\)$/);
     if (inner) return targetsSvgBox(inner[1]);
-    return SVG_BOX_SEL_RE.test(last);
+    return isSvgBoxCompound(last);
   });
 }
 

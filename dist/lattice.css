@@ -12874,10 +12874,13 @@ section.state-chart .state-chart-figure[data-sc-svg="1"] .state-nodes {
 }
 
 /* The node tile — the SVG twin of the .state-node card. Same canonical chart
- * fill, expressed as flat paint because an SVG rect cannot take a CSS gradient
- * and a node's fill is a single neutral tone anyway (status color lives in the
- * index badge, never the node fill, so a green "on-track" node can't blend into
- * a green wash). */
+ * fill, and because SVG `fill` cannot take a CSS gradient, the layout pass
+ * emits it as an inline `<linearGradient>` per node and points the rect at
+ * `fill="url(#…)"`. So the gradient DEFS are generated in JS
+ * (state-chart.transform.js `nodeFillDefs`) and only the edge is styled here.
+ * The fill stays a single neutral tone whatever the state's status — status
+ * color lives in the index badge, never the node fill, so a green "on-track"
+ * node can't blend into a green wash. */
 /* The painted node is the HIT TARGET for the mark-detail popover. The overlay
  * is `pointer-events: none` (it must not swallow clicks meant for the slide),
  * and the measuring column is `visibility: hidden`, which also makes it

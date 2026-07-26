@@ -361,12 +361,14 @@ describe('every emitted geometry mark declares its motion role', () => {
         const before = src.slice(0, m.index!);
         const tagAt = before.lastIndexOf('<');
         if (tagAt < 0) continue;
-        // The whole element, not just up to the mark: `data-anima-role` is often
-        // written AFTER `data-mark` on the same tag, and a window that stopped
-        // at the mark reported those as offenders.
-        const after = src.slice(m.index!, m.index! + 400);
-        const closeAt = after.search(/\/>/);
-        const decl = src.slice(tagAt, m.index!) + after.slice(0, closeAt < 0 ? 400 : closeAt);
+        // The whole OPENING TAG, not just up to the mark: `data-anima-role` is
+        // often written AFTER `data-mark` on the same tag, and a window that
+        // stopped at the mark reported those as offenders. Bound it at the next
+        // `>`, not at `/>` — a non-self-closing `<path …>…</path>` has no `/>`,
+        // so that bound ran on into the following element and could pick up ITS
+        // role as if it were this one's.
+        const tagEnd = src.indexOf('>', m.index!);
+        const decl = src.slice(tagAt, tagEnd < 0 ? m.index! + 400 : tagEnd + 1);
         const tag = (decl.match(/^<(\w+)/) || [])[1];
         // Geometry only — a <text> mark takes the label role from its tag, and
         // an inert <template data-mark> is the popover payload, not a mark.

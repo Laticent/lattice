@@ -1,11 +1,11 @@
 ---
 status: shipped
-summary: SVG chart labels wrap into <tspan> lines sized in viewBox units (a shared emitter reusing the legend's line-breaker, plus a build-time de-collision pass for scatter labels), and every diagram chart now animates — the radar's shape was never addressable, and gantt and state-chart had no <svg> at all so chart motion skipped them silently.
+summary: SVG chart labels wrap into `<tspan>` lines sized in viewBox units (a shared emitter reusing the legend's line-breaker, plus a build-time de-collision pass for scatter labels), and every diagram chart now animates — the radar's shape was never addressable, and gantt and state-chart had no `<svg>` at all so chart motion skipped them silently.
 ---
 
 # SVG charts: labels that wrap, and every chart that builds
 
-**Status:** ACCEPTED · landed 2026-07-26
+**Status:** SHIPPED · landed 2026-07-26
 
 Two defects with one shape. Chart labels ran off their viewBox because SVG
 `<text>` does not wrap, and two of the chart-family members never animated at
