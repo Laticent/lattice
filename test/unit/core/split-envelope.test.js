@@ -4,10 +4,14 @@
  *
  * The invariants a split run must satisfy, whatever layout it came from:
  *   · exactly ONE cover page, first;
- *   · at most ONE closing page, last, and only when there is trailing material;
- *   · the trailing note appears exactly once across the whole run (the FM-2
- *     duplication bug: partitionAxis repeats the collection's `post` verbatim, so a
- *     `.below-note` used to be stamped on EVERY body page);
+ *   · at most ONE key-insight page, last, and only when a key-insight blockquote exists —
+ *     it is never shared with the note or the body (owner review, 2026-07-26);
+ *   · a trailing below-note (or an unwrapped trailing `<p>`) rides the LAST body page —
+ *     never its own page, never repeated per body page (the FM-2 duplication bug:
+ *     partitionAxis repeats the collection's `post` verbatim, so it used to be stamped on
+ *     EVERY body page; the first fix hoisted it to a shared closing page, which a second
+ *     owner review corrected — it is a footnote of the content above it, not a takeaway,
+ *     so it stays attached to that content rather than earning a page of its own);
  *   · nothing is lost — every collection member and every leaf of the source survives.
  * Driven both directly and through auto-split's two passes, since the point of the
  * envelope is that BOTH paths produce the same shape (HARD RULE #1).
@@ -127,31 +131,50 @@ describe('core: splitEnvelope — the envelope shape (§0a)', () => {
   });
 });
 
-describe('core: splitEnvelope — the CLOSING page (§0a, rule 9)', () => {
-  test('a trailing below-note lands ONCE, on a closing page — never per body page', () => {
+describe('core: splitEnvelope — the NOTE rides the last body page (owner review)', () => {
+  test('a trailing below-note lands ONCE, on the LAST body page — never its own page', () => {
     const parts = build(formInner({ n: 9, note: 'Source: the launch board.' }), 4);
-    assert.equal(parts.length, 5); // cover + 3 bodies + closing
-    const withNote = parts.filter((p) => /class="below-note"/.test(p));
+    assert.equal(parts.length, 4); // cover + 3 bodies — NO extra page for the note
+    const withNote = parts.filter((p) => /\bbelow-note\b/.test(p));
     assert.equal(withNote.length, 1, 'the below-note must appear on exactly one page');
-    assert.equal(withNote[0], parts.at(-1));
-    assert.match(classOf(parts.at(-1)), /\blat-split-closing\b/);
-    // The closing keeps the layout class + the content cell, so `section.<layout>
-    // .below-note` styling still applies, and carries NO collection member.
+    assert.equal(withNote[0], parts.at(-1), 'it must be the LAST body page');
+    // It still rides a native body page — the run's own layout class, still a
+    // continuation (it holds real collection members, not just the note).
     assert.match(classOf(parts.at(-1)), /\bchecklist\b/);
-    assert.match(parts.at(-1), /<div class="cell-stage">/);
-    assert.doesNotMatch(parts.at(-1), /<li>/);
+    assert.match(classOf(parts.at(-1)), /\blat-split-native\b/);
+    assert.match(parts.at(-1), /<li>item 9<\/li>/); // the last real member, not just the note
+    // Marked directly on the below-note's OWN element (not wrapped) so the CSS sizes it
+    // down without breaking a component's direct-child selectors (base.modifiers.css
+    // § Shared split NOTE).
+    assert.match(parts.at(-1), /<div class="below-note lat-split-note">/);
   });
 
-  test('a trailing key-insight blockquote hoists to the same one closing page', () => {
-    const parts = build(formInner({ n: 9, insight: 'The board is the source of truth.', note: 'Reviewed weekly.' }), 4);
-    assert.equal(parts.filter((p) => /<blockquote>/.test(p)).length, 1);
-    assert.equal(parts.filter((p) => /\blat-split-closing\b/.test(classOf(p))).length, 1);
-    assert.match(parts.at(-1), /<blockquote>[\s\S]*below-note/); // both, in source order
+  test('the note is injected INSIDE the content cell, after the last member', () => {
+    const parts = build(formInner({ n: 9, note: 'Trailing note.' }), 4);
+    const last = parts.at(-1);
+    const stageClose = last.indexOf('</div><div class="cell-footer">');
+    const noteAt = last.indexOf('lat-split-note');
+    assert.ok(noteAt > 0 && noteAt < stageClose, 'the note must sit inside .cell-stage, before the footer cell');
   });
 
-  test('no trailing material → NO closing page (never an empty closing slide)', () => {
+  test('a raw trailing <p> on a below-note-EXCLUDED layout also rides the last page', () => {
+    // stats/content/etc. never get the `.below-note` wrap (lib/core/below-note.js
+    // EXCLUDED) — but placement is orthogonal to that styling decision: the raw <p>
+    // still moves to the last body page, at the same reduced size, per owner review.
+    const raw = `${band()}<div class="cell-stage">${items(9)}<p>Raw trailing note.</p></div>`;
+    const parts = build(raw, 4);
+    const withP = parts.filter((p) => /Raw trailing note\./.test(p));
+    assert.equal(withP.length, 1);
+    assert.equal(withP[0], parts.at(-1));
+    // Marked directly on the <p> itself — not wrapped — so a component's OWN
+    // `> .cell-stage > p` styling (e.g. stats' centred caption treatment) still matches.
+    assert.match(parts.at(-1), /<p class="lat-split-note">Raw trailing note\.<\/p>/);
+  });
+
+  test('no trailing note → no extra page, no lat-split-note wrapper anywhere', () => {
     const parts = build(formInner({ n: 9 }), 4);
-    assert.equal(parts.filter((p) => /\blat-split-closing\b/.test(classOf(p))).length, 0);
+    assert.equal(parts.length, 4);
+    assert.ok(!parts.some((p) => /lat-split-note/.test(p)));
   });
 
   test('the lede is hoisted to the cover, so it appears exactly once too', () => {
@@ -159,6 +182,42 @@ describe('core: splitEnvelope — the CLOSING page (§0a, rule 9)', () => {
     const hits = parts.filter((p) => p.includes('All true before we ship.'));
     assert.equal(hits.length, 1);
     assert.equal(hits[0], parts[0]);
+  });
+});
+
+describe('core: splitEnvelope — the INSIGHT page (§0a, rule 9; owner review 2026-07-26)', () => {
+  test('a trailing key-insight blockquote gets its OWN dedicated page, last', () => {
+    const parts = build(formInner({ n: 9, insight: 'The board is the source of truth.' }), 4);
+    assert.equal(parts.length, 5); // cover + 3 bodies + the insight page
+    const withInsight = parts.filter((p) => /<blockquote>/.test(p));
+    assert.equal(withInsight.length, 1);
+    assert.equal(withInsight[0], parts.at(-1));
+    assert.match(classOf(parts.at(-1)), /\blat-split-insight\b/);
+    // Keeps the layout class + content cell, so the KEY INSIGHT panel CSS still applies.
+    assert.match(classOf(parts.at(-1)), /\bchecklist\b/);
+    assert.match(parts.at(-1), /<div class="cell-stage">/);
+    assert.doesNotMatch(parts.at(-1), /<li>/); // no collection member on this page
+  });
+
+  test('the insight page carries NO "(cont.)" — it is the takeaway, not a continuation', () => {
+    const parts = build(formInner({ n: 9, insight: 'Insight.' }), 4);
+    assert.doesNotMatch(parts.at(-1), /lat-cont/);
+  });
+
+  test('insight and note NEVER share a page — insight is last, note rides the body before it', () => {
+    const parts = build(formInner({ n: 9, insight: 'The board is the source of truth.', note: 'Reviewed weekly.' }), 4);
+    assert.equal(parts.length, 5); // cover + 3 bodies (last carries the note) + insight
+    const insightPage = parts.at(-1);
+    const notePage = parts.at(-2);
+    assert.match(classOf(insightPage), /\blat-split-insight\b/);
+    assert.doesNotMatch(insightPage, /below-note/);
+    assert.match(notePage, /\bbelow-note\b/);
+    assert.doesNotMatch(notePage, /<blockquote>/);
+  });
+
+  test('no key insight → no insight page', () => {
+    const parts = build(formInner({ n: 9, note: 'Note only.' }), 4);
+    assert.ok(!parts.some((p) => /lat-split-insight/.test(p)));
   });
 });
 
@@ -208,42 +267,45 @@ describe('core: splitEnvelope — readers', () => {
     assert.deepEqual(readCover(inner, 'item'), { eyebrow: null, heading: 'Launch readiness', subtitle: 'Sub', lede: 'One. Two.' });
   });
 
-  test('splitRegions: bounds the collection, the lede and the trailing material', () => {
-    const inner = formInner({ lede: 'Framing.', n: 3, note: 'Note.' });
+  test('splitRegions: bounds the collection, the lede, and the two trailing kinds separately', () => {
+    const inner = formInner({ lede: 'Framing.', n: 3, insight: 'Insight.', note: 'Note.' });
     const r = splitRegions(inner, 'item');
     assert.equal(r.lede.length, 1);
     assert.match(r.lede[0].outer, /Framing\./);
-    assert.equal(r.closing.length, 1);
-    assert.match(r.closing[0].outer, /below-note/);
+    assert.equal(r.insight.length, 1);
+    assert.match(r.insight[0].outer, /<blockquote>/);
+    assert.equal(r.note.length, 1);
+    assert.match(r.note[0].outer, /below-note/);
     assert.equal(inner.slice(r.coll.start, r.coll.end).startsWith('<ul>'), true);
   });
 
-  test('closingSpansIn: only the TRAILING run — a lead-in before another block is not a closing', () => {
+  test('trailingSpansIn: only the TRAILING run — a lead-in before another block is not trailing', () => {
     // `…</ul><p>lead-in</p><table>` — the <p> introduces the table, so nothing trails.
     const lead = `${band()}<div class="cell-stage">${items(9)}<p>What the table shows.</p><table><tbody><tr><td>a</td></tr></tbody></table></div>`;
-    assert.equal(splitRegions(lead, 'item').closing.length, 0);
+    const r0 = splitRegions(lead, 'item');
+    assert.equal(r0.insight.length + r0.note.length, 0);
     const parts = build(lead, 4);
-    assert.equal(parts.filter((p) => /lat-split-closing/.test(p)).length, 0);
+    assert.ok(!parts.some((p) => /lat-split-note|lat-split-insight/.test(p)));
     assert.equal(parts.filter((p) => p.includes('What the table shows.')).length, 3); // unchanged: still per body page
     // …but a note AFTER an opaque block still hoists (the run ends at that block).
     const tail = `${band()}<div class="cell-stage">${items(9)}<div class="foo">x</div><div class="below-note"><p>Note.</p></div></div>`;
     const r = splitRegions(tail, 'item');
-    assert.equal(r.closing.length, 1);
-    assert.match(r.closing[0].outer, /below-note/);
+    assert.equal(r.note.length, 1);
+    assert.match(r.note[0].outer, /below-note/);
   });
 
-  test('chrome does not end the trailing run — a cell-less slide still hoists its note', () => {
+  test('chrome does not end the trailing run — a cell-less slide still moves its note', () => {
     // A STAGE_DEFERRED / non-Form layout has no `.cell-stage`, so the region runs to the end
     // of the section and the Marp <footer> sits AFTER the note. Chrome must be stepped over,
     // or the FM-2 duplication survives here (and would flip on whether the deck sets `footer:`).
     const bare = `<header>H</header><h2>T</h2>${items(9)}<div class="below-note"><p>Note.</p></div><footer>F</footer>`;
-    assert.equal(splitRegions(bare, 'item').closing.length, 1);
+    assert.equal(splitRegions(bare, 'item').note.length, 1);
     const parts = build(bare, 4);
-    assert.equal(parts.filter((p) => /class="below-note"/.test(p)).length, 1);
-    assert.match(parts.at(-1), /lat-split-closing/);
+    assert.equal(parts.filter((p) => /\bbelow-note\b/.test(p)).length, 1);
+    assert.match(parts.at(-1), /lat-split-note/);
     // …and identically with no footer at all, so the shape can't depend on deck chrome.
     const noFooter = bare.replace('<footer>F</footer>', '');
-    assert.equal(splitRegions(noFooter, 'item').closing.length, 1);
+    assert.equal(splitRegions(noFooter, 'item').note.length, 1);
   });
 
   test('topLevelElements: depth-aware, void tags open no level, stops at the parent close', () => {
@@ -256,27 +318,36 @@ describe('core: the envelope through both auto-split passes (HARD RULE #1)', () 
   const cap = { checklist: { axis: 'item', hard: 5, sweet: 4 } };
   const doc = (inner) => `<section data-lattice-slide="1" data-lattice-pagination="1" data-lattice-pagination-total="1" class="checklist form">${inner}</section>`;
 
-  test('STATIC pass: cover → bodies → one closing, with the note only once', () => {
+  test('STATIC pass: cover → bodies, note on the last body page, only once', () => {
     const { html, splits } = autoSplitDeck(doc(formInner({ n: 9, note: 'Note.' })), cap);
     assert.equal(splits, 1);
     assert.equal((html.match(/lat-split-cover/g) || []).length, 1);
-    assert.equal((html.match(/lat-split-closing/g) || []).length, 1);
-    assert.equal((html.match(/class="below-note"/g) || []).length, 1);
+    assert.equal((html.match(/lat-split-insight/g) || []).length, 0); // no key insight here
+    assert.equal((html.match(/\bbelow-note\b/g) || []).length, 1);
+  });
+
+  test('STATIC pass: an insight gets its own page, separate from the note', () => {
+    const { html, splits } = autoSplitDeck(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
+    assert.equal(splits, 1);
+    assert.equal((html.match(/lat-split-cover/g) || []).length, 1);
+    assert.equal((html.match(/lat-split-insight/g) || []).length, 1);
+    assert.equal((html.match(/\bbelow-note\b/g) || []).length, 1);
+    assert.equal((html.match(/<blockquote>/g) || []).length, 1);
   });
 
   test('MEASURED pass: the same shape from the same builder', () => {
-    const { html, changed } = resplitDoc(doc(formInner({ n: 9, note: 'Note.' })), [{ slide: 1, ratio: 3 }], cap);
+    const { html, changed } = resplitDoc(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), [{ slide: 1, ratio: 3 }], cap);
     assert.equal(changed, 1);
     assert.equal((html.match(/lat-split-cover/g) || []).length, 1);
-    assert.equal((html.match(/lat-split-closing/g) || []).length, 1);
-    assert.equal((html.match(/class="below-note"/g) || []).length, 1);
+    assert.equal((html.match(/lat-split-insight/g) || []).length, 1);
+    assert.equal((html.match(/\bbelow-note\b/g) || []).length, 1);
   });
 
   test('both passes re-stamp the page number — attribute AND the real .lat-pagination span', () => {
-    const { html } = autoSplitDeck(doc(formInner({ n: 9, note: 'Note.' })), cap);
+    const { html } = autoSplitDeck(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
     const attrs = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
     const spans = [...html.matchAll(/class="lat-pagination">(\d+)</g)].map((m) => Number(m[1]));
-    assert.deepEqual(attrs, [1, 2, 3, 4, 5]); // cover + 3 bodies + closing
+    assert.deepEqual(attrs, [1, 2, 3, 4, 5]); // cover + 3 bodies + the insight page
     assert.deepEqual(spans, [2, 3, 4, 5]);    // the cover has no footer cell (the pseudo renders it)
     assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '5'));
   });
@@ -286,14 +357,14 @@ describe('core: the envelope through both auto-split passes (HARD RULE #1)', () 
   test('a hidden (paginate:false) slide keeps its position — the envelope numbers absolutely', () => {
     const hidden = '<section data-lattice-slide="1" class="title"><h1>cover</h1></section>';
     const trailing = '<section data-lattice-slide="3" data-lattice-pagination="3" data-lattice-pagination-total="3" class="content form"><p>after</p></section>';
-    const { html } = autoSplitDeck(hidden + doc(formInner({ n: 9, note: 'Note.' })).replace('data-lattice-pagination="1"', 'data-lattice-pagination="2"') + trailing, cap);
+    const { html } = autoSplitDeck(hidden + doc(formInner({ n: 9, insight: 'Insight.' })).replace('data-lattice-pagination="1"', 'data-lattice-pagination="2"') + trailing, cap);
     const attrs = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
-    assert.deepEqual(attrs, [2, 3, 4, 5, 6, 7]); // hidden holds 1; cover 2, bodies 3-5, closing 6, trailing 7
+    assert.deepEqual(attrs, [2, 3, 4, 5, 6, 7]); // hidden holds 1; cover 2, bodies 3-5, insight 6, trailing 7
     assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '7'));
   });
 
   test('a body page that STILL overflows paginates further — it never grows a second cover', () => {
-    const { html } = autoSplitDeck(doc(formInner({ n: 9, note: 'Note.' })), cap);
+    const { html } = autoSplitDeck(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
     // Re-measure: pretend body page 2 overflows. `lat-split-native` must keep it native.
     const tagged = html.replace(/data-lattice-slide="\d+"/g, (() => { let n = 0; return () => `data-lattice-slide="${(n += 1)}"`; })());
     const { html: out } = resplitDoc(tagged, [{ slide: 3, ratio: 2 }], cap);
@@ -301,25 +372,26 @@ describe('core: the envelope through both auto-split passes (HARD RULE #1)', () 
   });
 
   test('a NON-splitting deck is byte-identical through both passes', () => {
-    const html = doc(formInner({ n: 3, note: 'Note.' }));
+    const html = doc(formInner({ n: 3, insight: 'Insight.', note: 'Note.' }));
     assert.equal(autoSplitDeck(html, cap).html, html);
     assert.equal(resplitDoc(html, [], cap).html, html);
   });
 });
 
 // The gate rule 9 asks for: over a WHOLE deck, run by run, exactly one cover FIRST and at
-// most one closing LAST. Grouped by `data-split-run` — the same grouping `applyRails` uses —
-// so it also pins that the cover and the closing join their run rather than standing alone.
+// most one insight page LAST. Grouped by `data-split-run` — the same grouping `applyRails`
+// uses — so it also pins that the cover and the insight page join their run rather than
+// standing alone.
 describe('core: the envelope invariant, per split RUN across a whole deck (rule 9)', () => {
   const cap = { checklist: { axis: 'item', hard: 5, sweet: 4 }, cards: { axis: 'item', hard: 3, sweet: 2 } };
   const slide = (n, cls, inner) =>
     `<section data-lattice-slide="${n}" id="s${n}" data-lattice-pagination="${n}" data-lattice-pagination-total="4" class="${cls}">${inner}</section>`;
 
-  // A deck with: a plain slide, a splitting run WITH a trailing note, a splitting run
-  // WITHOUT one, and a title-less splitting slide (which keeps the bare partition).
+  // A deck with: a plain slide, a splitting run WITH a trailing note AND a key insight, a
+  // splitting run WITHOUT either, and a title-less splitting slide (bare partition).
   const deck =
     slide(1, 'content form', `${band({ title: 'Opening' })}<div class="cell-stage"><p>prose</p></div>`) +
-    slide(2, 'checklist form', formInner({ n: 9, lede: 'Framing.', note: 'Note.' })) +
+    slide(2, 'checklist form', formInner({ n: 9, lede: 'Framing.', insight: 'Insight.', note: 'Note.' })) +
     slide(3, 'cards form', formInner({ n: 7, subtitle: 'sub' })) +
     slide(4, 'cards form', `<div class="cell-stage">${items(7)}</div>`);
 
@@ -340,11 +412,11 @@ describe('core: the envelope invariant, per split RUN across a whole deck (rule 
     assert.ok(runs.size > 0, `${label}: expected at least one split run`);
     for (const [rid, classes] of runs) {
       const covers = classes.filter((c) => /\blat-split-cover\b/.test(c));
-      const closings = classes.filter((c) => /\blat-split-closing\b/.test(c));
+      const insights = classes.filter((c) => /\blat-split-insight\b/.test(c));
       assert.ok(covers.length <= 1, `${label} run ${rid}: ${covers.length} covers`);
-      assert.ok(closings.length <= 1, `${label} run ${rid}: ${closings.length} closings`);
+      assert.ok(insights.length <= 1, `${label} run ${rid}: ${insights.length} insight pages`);
       if (covers.length) assert.match(classes[0], /\blat-split-cover\b/, `${label} run ${rid}: cover is not first`);
-      if (closings.length) assert.match(classes.at(-1), /\blat-split-closing\b/, `${label} run ${rid}: closing is not last`);
+      if (insights.length) assert.match(classes.at(-1), /\blat-split-insight\b/, `${label} run ${rid}: insight page is not last`);
       // A run that HAS a masthead must be covered — the only uncovered run is the
       // title-less slide 4, whose members carry no heading at all.
       const titled = classes.some((c) => /\bchecklist\b|\bcards\b/.test(c));
@@ -359,7 +431,8 @@ describe('core: the envelope invariant, per split RUN across a whole deck (rule 
     assertEnvelope(applyRails(html), 'static + rails'); // rails must not disturb the shape
     // Slide 4 is title-less → bare partition, so the deck carries 2 covers, not 3.
     assert.equal((html.match(/lat-split-cover/g) || []).length, 2);
-    assert.equal((html.match(/lat-split-closing/g) || []).length, 1); // only slide 2 has a note
+    assert.equal((html.match(/lat-split-insight/g) || []).length, 1); // only slide 2 has a key insight
+    assert.equal((html.match(/\bbelow-note\b/g) || []).length, 1); // only slide 2 has a note
   });
 
   test('measured pass over the STATIC output converges without a second cover', () => {
@@ -375,8 +448,8 @@ describe('core: the envelope invariant, per split RUN across a whole deck (rule 
       if (!r.changed) break;
     }
     assert.equal((html.match(/lat-split-cover/g) || []).length, 2);
-    assert.equal((html.match(/lat-split-closing/g) || []).length, 1);
-    assert.equal((html.match(/class="below-note"/g) || []).length, 1); // still exactly once
+    assert.equal((html.match(/lat-split-insight/g) || []).length, 1);
+    assert.equal((html.match(/\bbelow-note\b/g) || []).length, 1); // still exactly once
     // Page numbers stay monotonic 1..N with the total matching, however many passes ran.
     const pages = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
     assert.deepEqual(pages, pages.map((_, i) => i + 1));

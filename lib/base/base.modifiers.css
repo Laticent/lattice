@@ -1415,55 +1415,141 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:
   align-content: center;
 }
 
-/* ── Shared split CLOSING page (lib/core/split-envelope.js) ───────────────────────
-   The envelope's optional final beat: the run's trailing material — a `.below-note`, a
-   key-insight blockquote — landing ONCE instead of being stamped on every body page
-   (§0a; rule 9). Deliberately NOT a second accent field: the closing keeps the run's own
-   layout class, masthead and content cell, so the note wears the treatment it already
-   has (`section.<layout> .below-note`) and the page reads as the same deck, just the last
-   of it. The only thing to add is placement — with the collection cut out, the cell holds
-   one short block. Anchor it UNDER the masthead rather than centring it in the tall empty
-   stage — centred, it reads as an orphan between two voids; anchored, the title and the note
-   are one cluster with the air below them. Palette-blind; no new colour, no margin (#3, #20).
+/* ── Shared split INSIGHT page (lib/core/split-envelope.js) ────────────────────────
+   The envelope's optional final beat: a trailing key-insight `<blockquote>` gets its OWN
+   page — never shared with the note or the body (owner review, 2026-07-26; §0a, rule 9).
+   It is the run's TAKEAWAY, not a caption, so unlike the note (below) it earns a page to
+   itself: vertically centred, and sized up a rung, so it reads as a small climax rather
+   than a paragraph stranded in a tall empty stage — matching the read-across family's own
+   precedent for a dedicated verdict page (`compare-split-verdict`,
+   compare-prose.styles.css). Deliberately NOT a second accent field: it keeps the run's
+   own layout class, masthead and content cell, so the blockquote wears the SAME "KEY
+   INSIGHT" panel it always has (the base rule above, scoped `section.<layout> >
+   blockquote`) — only its placement and size change. Palette-blind; no new colour, no
+   margin (#3, #20).
 
-   SPECIFICITY: the doubled `.lat-split-closing` is a deliberate weight bump (the same idiom
-   as `section.decision.decision`, `section.verdict-grid.verdict-grid`, `section.list.list`),
-   NOT a typo. Components legitimately own their stage's placement and text at up to
-   (0,3,1) — `section.inventory.cards > .cell-stage { justify-content: safe center }`,
-   `section.list-steps.timeline`, `section.list-steps:is(.chevron,…)`, and
-   `section.stats > .cell-stage > p` — and they'd otherwise win, leaving the closing page
-   composed for content it no longer holds (an inventory-cards closing centred its note at
-   ~52% of the page; a stats closing rendered it as a tiny italic caption). Layering is not
-   available to resolve this (HARD RULE #26 — the bundle is never half-layered), so the
-   weight is explicit here. */
-section.form.lat-split-closing.lat-split-closing > .cell-stage {
-  justify-content: flex-start;
-  align-items: stretch;   /* a component's centred stage would otherwise shrink-wrap the note */
+   SIZE: `--fs-emphasis` is not a new value picked for this — it is ALREADY documented
+   (engineering/typography.md) as "Lead paragraph, key-insight callout, step-forward
+   block. *One* block per slide that should read first," which is exactly this page now
+   that key insight is never shared with anything else (HARD RULE #15 — reuse the token
+   the scale already reserved for this, don't invent one).
+
+   SPECIFICITY: the doubled `.lat-split-insight` on the FIRST rule below is a deliberate
+   weight bump (the same idiom as `section.decision.decision`, `section.verdict-grid
+   .verdict-grid`, `section.list.list`), NOT a typo — components legitimately own their
+   stage's placement at up to (0,3,1) (`section.inventory.cards > .cell-stage {
+   justify-content: safe center }`, `section.list-steps.timeline`) and would otherwise win.
+
+   The SECOND rule (the font-size) needs a MUCH bigger bump, found only by an independent
+   checker pass measuring the real cascade: the base KEY INSIGHT rule two hundred lines
+   above (`section:not(.quote):not(.math):not(.citation-card):not(.redline):not(.inventory)
+   :not(.policy-recommendation):not([class*="layout-"]) > .cell-stage > blockquote p`)
+   carries SEVEN `:not()` clauses + `.cell-stage` — eight class-level specificity units —
+   because a `:not(.X)` costs the SAME specificity as `.X` costs to a rule that targets it.
+   The doubled `.lat-split-insight` (2) + `.form` (1) + `.cell-stage` (1) = 4 lost to that
+   outright: `CSS.getMatchedStylesForNode` on a real render showed the base rule winning on
+   13 of the 15 enrolled components (only `inventory`/`policy-recommendation` happened to
+   work, being in that rule's own exclusion list) — the blockquote rendered at `--fs-body`,
+   never reaching `--fs-emphasis` at all. Repeating `.lat-split-insight` five times, `.form`
+   twice, and `.cell-stage` twice on the SIZE rule gives nine class-level units — a full
+   unit of headroom above the competing rule's eight, not a bare tie a future `:not()`
+   addition there could flip back. Layering is not available to resolve this (HARD RULE
+   #26 — the bundle is never half-layered), so the weight is explicit here. */
+section.form.lat-split-insight.lat-split-insight > .cell-stage {
+  justify-content: center;
+  align-items: stretch;   /* a component's centred stage would otherwise shrink-wrap the blockquote */
 }
-/* The masthead rule already separates the note from the title here, so the note's OWN
-   full-width hairline (`.below-note::before`, compare-prose.styles.css) would read as a
-   doubled rule a few pixels beneath it. Drop the hairline and give the note the air the
-   rule was standing in for. */
-section.form.lat-split-closing.lat-split-closing > .cell-stage > .below-note { padding-top: var(--sp-lg); }
-section.form.lat-split-closing.lat-split-closing > .cell-stage > .below-note::before { content: none; }
-/* One block on a whole page carries the closing beat, so it reads a tier up from the
-   annotation it is beside live content — emphasis, not the slide-statement tier. The bare
-   `> p` is NOT redundant: below-note's kernel EXCLUDES a dozen layouts from the `.below-note`
-   wrap (lib/core/below-note.js EXCLUDED — `stats`, `content`, `progress`, `timeline-list`, …),
-   so on those the hoisted note is a raw `<p>` and would otherwise keep whatever the component
-   styles its captions as. Reset the caption treatment those layouts apply, since on a closing
-   page this paragraph is the subject, not an aside. */
-section.form.lat-split-closing.lat-split-closing > .cell-stage > .below-note > p,
-section.form.lat-split-closing.lat-split-closing > .cell-stage > blockquote > p,
-section.form.lat-split-closing.lat-split-closing > .cell-stage > p {
+section.form.form.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight > .cell-stage.cell-stage > blockquote p,
+section.form.form.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight.lat-split-insight > .cell-stage.cell-stage > blockquote li {
   font-size: var(--fs-emphasis); line-height: var(--lh-snug);
 }
-/* Reset only the ASIDE cues — the muted caption colour, the italic, and the caption's
-   own bottom pad — and deliberately NOT `text-align` / `align-self`: a layout that
-   centres its captions also centres its masthead (stats does both), so leaving its
-   alignment alone keeps the closing note aligned with the title above it, whichever
-   way that layout reads. */
-section.form.lat-split-closing.lat-split-closing > .cell-stage > p {
-  padding-top: var(--sp-lg); padding-bottom: 0;
-  color: var(--text-body); font-style: normal;
+
+/* ── Shared split NOTE (lib/core/split-envelope.js `markNote` / `injectTrailing`) ───────
+   The envelope's other trailing beat: a `.below-note` (or, on a layout below-note's
+   EXCLUDED list keeps raw, an unwrapped trailing `<p>`) rides the LAST BODY page instead
+   of a page of its own — unlike key insight (above), it is a FOOTNOTE of the content
+   immediately above it, not a takeaway, so it stays attached to that content (owner
+   review, 2026-07-26). Its wrap/exclude decision and its hairline are completely
+   UNCHANGED (lib/core/below-note.js is untouched) — the only thing this adds is ONE
+   step down in size, since it now shares a page with real content and must not compete
+   with it. `--fs-body-compact` is not a new value either: it is the scale's next rung
+   down from the default body size, documented as "sits one step below the default body"
+   (engineering/typography.md) — reused, not invented (HARD RULE #15).
+
+   The marker is the note's OWN element (`.below-note.lat-split-note` or `p.lat-split-note`)
+   — never a wrapping div (found by the second maker-checker pass: a wrapper broke
+   component-owned styling keyed on the direct-child relationship, e.g. `section.stats >
+   .cell-stage > p { text-align: center }` no longer matching `.cell-stage > wrapper > p`).
+   A rare multi-element note (more than one trailing element) still falls back to a
+   `.lat-split-note` wrapper div — the second selector in each pair below reaches it.
+
+   ANNOTATION (an em-only below-note, styled even smaller at `--fs-meta` with a ✦ glyph by
+   its own rule, base.modifiers.css § ANNOTATION) is a SEPARATE, narrower variant that only
+   ever meets a WRAPPED note — the RAW un-wrapped form (below-note.js's EXCLUDED layouts)
+   never carries it at all, so a raw note gets the compact size unconditionally, em-only or
+   not (rule 1). A WRAPPED note splits further: ANNOTATION covers only 16 named layouts, so
+   its em-only case must keep deferring to that even-smaller rule there (rule 2's
+   `:not(:has(…))` guard — mutual exclusion, not a specificity race), but on a wrapped,
+   ANNOTATION-carrying-nothing layout (`checklist`, `cycle`, `inventory`,
+   `policy-recommendation` among the 15 enrolled — the other two, `split-compare`/`stats`,
+   are on below-note's EXCLUDED list so they only ever reach rule 1) an em-only note would
+   get NO sizing at all if rule 2 excluded it outright — it would render LARGER than an
+   ordinary note beside it, the opposite of "slightly smaller" (found by the second
+   maker-checker pass, confirmed on a real render: 43.5px vs 37px). Rule 3 is that missing
+   case: the SAME em-only shape, but ONLY on layouts NOT in ANNOTATION's enumeration — the
+   list MIRRORS that rule's own enumeration exactly (below, § ANNOTATION) so the two cannot
+   drift apart. Palette-blind; no margin (#3, #20). */
+/* Rule 1 — a RAW note (below-note.js excludes the layout; ANNOTATION never reaches it).
+ * The second selector's `.lat-split-note:not(.below-note)` guard matters: the rare
+ * multi-span fallback wrapper (`markNote`, spans.length > 1) can carry a direct-child
+ * raw `<p>` sibling of a nested `.below-note` div, and THAT `<p>` is a raw note reached
+ * here — but the common single-span case marks a `.below-note` div itself directly
+ * (`class="below-note lat-split-note"`), and without the guard `.lat-split-note > p`
+ * also matches ITS OWN child `<p>`, out-specifying the ANNOTATION rule (which needs
+ * to win on an em-only note) and wrongly forcing every wrapped note to this compact
+ * size regardless of layout (found by the third maker-checker pass, confirmed on a
+ * real render: an em-only cards-grid note read 16.8px instead of ANNOTATION's 14.04px). */
+section.form.lat-split-native.lat-split-native > .cell-stage > p.lat-split-note,
+section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note:not(.below-note) > p {
+  font-size: var(--fs-body-compact);
 }
+/* Rule 2 — a WRAPPED note, any layout, the common non-em-only case. */
+section.form.lat-split-native.lat-split-native > .cell-stage > .below-note.lat-split-note > p:not(:has(> em:only-child)),
+section.form.lat-split-native.lat-split-native > .cell-stage > .lat-split-note > .below-note > p:not(:has(> em:only-child)) {
+  font-size: var(--fs-body-compact);
+}
+/* Rule 3 — a WRAPPED, em-only note, but ONLY on a layout ANNOTATION does not cover. */
+section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
+  > .cell-stage > .below-note.lat-split-note > p:has(> em:only-child),
+section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
+  > .cell-stage > .lat-split-note > .below-note > p:has(> em:only-child) {
+  font-size: var(--fs-body-compact);
+}
+
+/* ── Shared split NOTE, the `cover-cards` shape (lib/core/carousel.js `coverCardsSections`) ──
+   The SAME note treatment above, extended to the ONE carousel strategy that re-authors its
+   body from scratch (a wide table transposed to cards) instead of partitioning a collection,
+   so it never went through `splitEnvelope` and used to DROP a trailing insight/note outright
+   (found on a real render: both vanished — confirmed via `compare-table`, today's only
+   `cover-cards` component). `coverCardsSections` now calls the SAME `splitRegions` /
+   `markNote` / `injectTrailing` (HARD RULE #15), so the marker shape is identical; only the
+   DOM it lands in differs — `lat-split-cards` pages have no `.cell-stage` (their body is
+   `<div class="ct-cards">`, a direct child of `<section>`), so each selector below drops the
+   `.cell-stage >` step the native rules use. Same three-rule split, same reasoning (the
+   ANNOTATION guard, and the native Rule 1's `:not(.below-note)` fallback guard — HARD RULE
+   #18: omitting it here would reopen the exact F11 specificity gap on this shape too). */
+section.form.lat-split-cards.lat-split-cards > p.lat-split-note,
+section.form.lat-split-cards.lat-split-cards > .lat-split-note:not(.below-note) > p {
+  font-size: var(--fs-body-compact);
+}
+section.form.lat-split-cards.lat-split-cards > .below-note.lat-split-note > p:not(:has(> em:only-child)),
+section.form.lat-split-cards.lat-split-cards > .lat-split-note > .below-note > p:not(:has(> em:only-child)) {
+  font-size: var(--fs-body-compact);
+}
+section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
+  > .below-note.lat-split-note > p:has(> em:only-child),
+section.form.lat-split-cards.lat-split-cards:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
+  > .lat-split-note > .below-note > p:has(> em:only-child) {
+  font-size: var(--fs-body-compact);
+}
+

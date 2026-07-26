@@ -14,29 +14,29 @@ footer: "Split envelope"
 
 `Fit Ladder · the universal envelope`
 
-A slide that outgrows its box becomes several. Now it always becomes the same *shape*: a cover that carries the masthead, the body pages, and one closing beat.
+A slide that outgrows its box becomes several. Now it always becomes the same *shape*: a cover that carries the masthead, the body pages, and — only when earned — a dedicated insight.
 
 ---
 
 <!-- _class: content -->
 
-## Cover, body, closing
+## Cover, body, insight
 
-- **Cover — always.** A slide worth splitting carries a masthead worth a lead-in: eyebrow, title, subtitle, lede
-- **Body — the split content**, on the layout's own native pages, heading repeated, `(cont.)` from the second on
-- **Closing — only when earned.** The trailing note lands once, at the end, never stamped on every page
-- Footer, page number and the **progress rail** ride every page of the run
+- **Cover — always.** A masthead worth a lead-in: eyebrow, title, subtitle, lede
+- **Body — the split content**, native pages, heading repeated, `(cont.)` from the second on
+- **Key insight — its own page, only when earned.** The takeaway never shares a page
+- **Below-note — the last body page**, one size down, a footnote of the content above it
 
 ---
 
 <!-- _class: content -->
 
-## What this replaced
+## Two kinds of trailing material
 
-- A layout with a carousel `split` recipe got an accent cover; a plain list got a bare repeated heading
-- Two looks for one move — and `partitionAxis` repeats the collection's surroundings, so a trailing note was **duplicated onto every page**
-- One builder now serves both, so the shape can't drift apart again
-- Turn it on per deck with `autosplit: on`
+- A **key insight** is the run's takeaway — a whole page, centered, sized up
+- A **below-note** is a footnote of the content above it — the last body page, one size down
+- Before this, both shared one page — the wrong call for a takeaway
+- Neither repeats per body page — that duplication was the original bug
 
 ---
 
@@ -62,6 +62,8 @@ Everything below has to read true before we ship — the list is the gate, not a
 - [ ] Retrospective template ready
 - [ ] Metrics review automated
 - [ ] Customer interviews booked
+
+> The gate is the list — nothing ships until every row is checked.
 
 Source: the launch board, reviewed every Thursday.
 
@@ -92,6 +94,23 @@ The three unfunded programmes are listed in the appendix, not here.
 
 ---
 
+<!-- _class: compare-table -->
+
+## Build versus buy versus delay
+
+| | Build | Buy | Delay |
+|---|---|---|---|
+| Cost | High upfront, amortizes over years | Predictable subscription, scales with seats | Zero now, compounds later |
+| Speed | Slowest to first value | Fastest to first value | Fastest of all, until it is not |
+| Control | Full control of the roadmap | Vendor roadmap, some influence | No roadmap at all |
+| Risk | Execution risk concentrated in-house | Vendor lock-in and pricing risk | Deferred risk, often the worst kind |
+
+> The build option only pays off if we actually staff it — otherwise buy wins by default.
+
+Source: vendor evaluation, Q3 procurement review.
+
+---
+
 <!-- _class: inventory -->
 
 ## Systems of record
@@ -109,8 +128,8 @@ The three unfunded programmes are listed in the appendix, not here.
 
 ## The invariant
 
-- Every split run begins with **exactly one** cover and carries **at most one** closing
-- The closing keeps the run's own layout, masthead and content cell — the note wears the treatment it already had
+- Every split run begins with **exactly one** cover and carries **at most one** key-insight page
+- A below-note rides the **last body page** — never its own page, never repeated on every page
 - A title-less slide has no masthead to cover with, so it keeps the plain partition — an empty accent field would be worse
 - Nothing is dropped: every page is the source slide with spans **removed**, so no leaf can go missing
 
@@ -120,4 +139,4 @@ The three unfunded programmes are listed in the appendix, not here.
 
 # One move, one shape
 
-`Cover → body → closing`
+`Cover → body → insight`

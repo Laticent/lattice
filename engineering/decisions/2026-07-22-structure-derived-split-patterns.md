@@ -572,6 +572,92 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   says makes atomization unreadable. They get `perPage: 1` in the same slice that builds the
   signal, not before.
 
+  **Key insight and below-note split into two treatments (owner review, 2026-07-26).**
+  §0a's original wording treated a trailing key-insight `<blockquote>` and a `.below-note`
+  as one undifferentiated "trailing material," sharing one closing page. A third owner
+  review corrected this: they are not the same kind of thing.
+  - **Key insight is the run's TAKEAWAY — it always gets its OWN dedicated page**, never
+    shared with the note or the body. Vertically centered and sized up a rung
+    (`--fs-emphasis`) so it reads as a small climax, not a paragraph stranded in a tall
+    empty stage — matching the read-across family's own precedent for a dedicated verdict
+    page (`compare-prose`'s `cover-sides` strategy already does this for one family). The
+    size is not a new value: `--fs-emphasis` is documented in `engineering/typography.md`
+    as "Lead paragraph, key-insight callout... *one* block per slide that should read
+    first" — exactly this page, now that it is never shared with anything else.
+  - **Below-note is a FOOTNOTE of the content immediately above it — it rides the LAST
+    BODY page, one size down (`--fs-body-compact`), never a page of its own.** Its
+    wrap/exclude decision is completely untouched (`lib/core/below-note.js` is not
+    touched); only WHERE it lands and its size change. `--fs-body-compact` is likewise
+    not a new value — the scale's documented next rung down from the default body size.
+  - The two are mutually exclusive by construction (`isKeyInsightEl` / `isTrailingNoteEl`
+    in `split-envelope.js`), so a slide with both gets cover → bodies (note on the last
+    one) → insight page, never sharing.
+  - **A second-order defect this created and fixed in the same pass:** re-splitting an
+    already-noted body page (the measured loop's later passes) fed `partitionAxis` a page
+    whose injected `.lat-split-note` div was now baked into its trailing HTML,
+    which `partitionAxis` then repeated onto every new piece — reopening the exact FM-2
+    duplication this whole feature exists to kill, one level down. Fixed with
+    `partitionKeepingNote` (split-envelope.js): strip an existing note before a re-split,
+    re-inject it only on the last resulting piece — the same discipline the first cut
+    applies, so a second cut can't reopen the bug. Caught by the invariant test
+    (`the envelope invariant... across a whole deck`) before it shipped, not by inspection.
+  - The universal-chrome survey this review prompted (below-note's ANNOTATION em-only
+    variant, the head-center/right registers, watermark, chart/diagram captions,
+    UNIVERSAL PILL) needed no further changes: ANNOTATION's styling selector is a plain
+    descendant of `.below-note` (not adjacency-dependent), so it survives the new wrapper
+    unaffected — verified on a real render, not assumed; the rest are out of this
+    envelope's reach entirely (verified by grep against the 15 enrolled components).
+
+  **A second independent checker pass on the insight/note split (HARD RULE #25) confirmed
+  five defects, all fixed before this landed:**
+  - **The insight page's size rule lost the cascade on 13 of the 15 enrolled components.**
+    `section.form.lat-split-insight > .cell-stage > blockquote p` measured (0,4,3); the base
+    KEY INSIGHT rule two hundred lines above carries seven `:not()` clauses + `.cell-stage` —
+    (0,9,3) — so the blockquote rendered at `--fs-body`, never reaching `--fs-emphasis`, on
+    every component except `inventory`/`policy-recommendation` (which that rule already
+    excludes). Fixed by repeating `.lat-split-insight` five times and `.cell-stage`/`.form`
+    twice on the size rule — nine class-level units, a full unit of headroom, not a bare tie
+    a future `:not()` there could flip back (`CSS.getMatchedStylesForNode` on a real render).
+  - **The ANNOTATION guard on the em-only note left a gap.** Excluding ANNOTATION's 16
+    layouts from the compact-size rule (so ANNOTATION's own smaller `--fs-meta` could win)
+    meant an em-only note on one of the OTHER 15 enrolled layouts — `checklist`, `cycle`,
+    `inventory`, `policy-recommendation` — got no sizing at all, rendering LARGER than a
+    plain note beside it: 43.5px vs 37px on a real render. Fixed with a third rule scoped to
+    exactly the layouts ANNOTATION does not cover.
+  - **A wrapper div broke component-owned styling (HARD RULE #18, self-inflicted).**
+    Marking the note by wrapping it in a fresh `<div class="lat-split-note">` broke any
+    direct-child selector keyed on the note's own element — `section.stats > .cell-stage >
+    p { text-align: center }` no longer matched `.cell-stage > wrapper > p`. Fixed by having
+    `markNote` add the class to the note's OWN top-level element instead of wrapping it.
+  - **`partitionKeepingNote` silently dropped the note on a no-split path** (found latent,
+    fixed before it could ship): a re-split call that measured fewer than 2 pieces returned
+    the stripped `parts` (note removed, never re-injected) instead of the untouched original.
+  - **A lazy backtracking regex in the footer fallback could misplace the note.** Replaced
+    with a deterministic `lastIndexOf`/`indexOf` scan of the footer boundary.
+  All five were CSS/structural — none had a test asserting the real cascade OUTCOME (only
+  the generated HTML string), so a sixth was found writing the test that closed that gap:
+  - **The raw-note rule's fallback selector also matched the wrapped, combined case.**
+    `.cell-stage > .lat-split-note > p` (Rule 1, meant for the rare multi-element wrapper)
+    also matches a single `<div class="below-note lat-split-note">`'s own child `<p>` —
+    the common case, since `markNote` marks that div directly rather than wrapping it. At
+    (0,5,2) it out-specifies ANNOTATION's (0,3,3), so every wrapped note — including an
+    em-only one on an ANNOTATION layout — got forced to `--fs-body-compact` regardless of
+    layout (16.8px vs ANNOTATION's 14.04px on `cards-grid`, real render). Fixed by scoping
+    Rule 1's fallback to `.lat-split-note:not(.below-note) > p`, restoring the mutual
+    exclusion the ANNOTATION guard depends on.
+  - **The re-split "(cont.)" marker could double up** (found alongside it, same root cause
+    — a case the new integration test's fixture surfaced by exercising a second measured
+    pass): `emitParts` unconditionally inserted the marker into a piece's heading, but a
+    piece from a SECOND pass re-splitting an already-`(cont.)`-marked body page already
+    carries it — stacking a second one ("Heading (cont.) (cont.)"). Fixed by skipping the
+    insert when the marker is already present.
+  A new render-surface test closes the gap that let the first five ship invisibly:
+  `test/integration/invariants/split-envelope-css.test.js` drives the real emulator +
+  Chromium against a hand-authored fixture carrying the split kernel's own output shape
+  (`_class: <layout> lat-split-insight` / `lat-split-native`, a literal `.lat-split-note`),
+  and asserts the actual computed `font-size`/`text-align` — not the generated HTML string
+  (`split-envelope.test.js` already covers that) and not a claim from reading the CSS.
+
   **Scope note.** The envelope applies to whatever the opt-in gate already enrolls — the
   15 plain-axis components (`actors`, `agenda`, `cards-grid`, `cards-stack`, `checklist`,
   `cycle`, `inventory`, `kpi`, `list`, `list-steps`, `matrix-2x2`, `policy-recommendation`,
@@ -580,6 +666,32 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   `split-compare` are enrolled today despite §0c placing them as atomic / read-across, so
   they now split *with a cover* rather than *with a bare heading* — the fix is §0c's named
   follow-on (drop the stale `capacity.axis`), not this slice.
+  Of `carousel.js`'s 9 named strategies, only `cover-paginate` (glossary, q-and-a,
+  statute-stack, authority-chain, regulatory-update) calls `splitEnvelope` directly — the
+  other 8 hand-parse their own body (a table transposed to cards, side-by-side panels,
+  kanban lanes, a redline passage) and so do not get insight/note handling for free. Some
+  deliberately repurpose a below-note as something else (`compare-prose`'s `cover-sides`
+  treats it as a dedicated verdict page — a real, pre-existing precedent, not a bug); this
+  is a scope boundary, not a gap in every one of them.
+
+  **`cover-cards` (compare-table) DROPPED a trailing insight/note outright — found and
+  fixed in the same pass.** Unlike the other 7 bespoke strategies, `cover-cards` builds its
+  pages from `parseTable(inner)` alone (a wide read-across table reshaped into cards): any
+  key-insight `<blockquote>` or `.below-note` after `</table>` in the source never reached
+  ANY emitted page. Confirmed on a real render (both vanished silently, no warning) before
+  the fix. `coverCardsSections` now also calls `splitRegions(inner, 'row')` — the SAME
+  extraction `splitEnvelope` uses (HARD RULE #15) — and attaches the results the same way:
+  the note is marked (`markNote`) and spliced onto the LAST card page (`injectTrailing`,
+  reused as-is — its no-`.cell-stage` fallback already covers this DOM shape, since a
+  `lat-split-cards` page's body is a bare `<div class="ct-cards">`, not a Form `.cell-stage`
+  cell); a trailing insight blockquote gets its own final page via the newly-factored-out
+  `insightPage()` helper (the same construction `splitEnvelope` used inline, extracted so
+  BOTH callers share one builder rather than `cover-cards` growing a second one). Needed a
+  parallel `.lat-split-cards` CSS block (base.modifiers.css) mirroring the `.lat-split-native`
+  note rules exactly — same three-rule split, same `:not(.below-note)` fallback guard the
+  native Rule 1 needed (an F11-shaped gap would otherwise reopen here too), since a cards
+  page has no `.cell-stage` for the native selectors to match. Demonstrated in
+  `examples/split-envelope.md` (a `compare-table` run carrying both).
   Two defects fixed on the way, both on-path (HARD #18): the shared cover read the
   first `<code>` anywhere in the head, so a SUBTITLE (a code-only `<p>` after the title)
   rendered as the mono-caps eyebrow — and `cover-cards` dropped the lede outright; and a

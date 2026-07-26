@@ -223,23 +223,26 @@ in patch versions.
 ### Changed
 
 - **Every auto-split now reads the same way: a cover that carries the masthead, the body pages,
-  then one closing beat.** Before this, a split read two ways. A layout with a carousel `split`
-  recipe (`statute-stack`, `glossary`, `q-and-a`, …) opened with an accent cover; a plain layout —
-  one that declares only a `capacity.axis`, so `list`, `checklist`, `cards-grid`, `kpi`,
-  `inventory` and friends — got a bare repeated heading with a `(cont.)` span and no lead-in at all.
-  The universal envelope (`lib/core/split-envelope.js`) replaces both with one shape, **COVER →
-  BODY(1…n) → CLOSING?**, built by one builder for both paths:
+  then — only when earned — a dedicated key-insight page.** Before this, a split read two ways. A
+  layout with a carousel `split` recipe (`statute-stack`, `glossary`, `q-and-a`, …) opened with an
+  accent cover; a plain layout — one that declares only a `capacity.axis`, so `list`, `checklist`,
+  `cards-grid`, `kpi`, `inventory` and friends — got a bare repeated heading with a `(cont.)` span
+  and no lead-in at all. The universal envelope (`lib/core/split-envelope.js`) replaces both with
+  one shape, **COVER → BODY(1…n) → INSIGHT?**, built by one builder for both paths:
   - **The cover carries the whole masthead** — eyebrow · title · subtitle · lede — not just the
     title. On the carousel path this also **fixes two defects**: a code-only paragraph *after* the
     title is the SUBTITLE, and used to be rendered on the cover as the mono-caps eyebrow (the
     cover grabbed the first `<code>` anywhere in the head); and a framing lede paragraph was
     silently **dropped** by `cover-cards`, whose card bodies replace the original head.
-  - **A trailing note lands once.** `partitionAxis` repeats the collection's surroundings verbatim
-    per page, so a `.below-note` (and a key-insight `blockquote`, and a framing lede) was stamped on
-    **every** body page of a split. The trailing material now hoists to a single closing page — which
-    keeps the run's own layout class, masthead and content cell, so the note wears the treatment it
-    already had — and the lede hoists to the cover. No closing page is emitted when there is nothing
-    to put on it.
+  - **Two kinds of trailing material get two treatments, never one shared page.** A trailing
+    key-insight `<blockquote>` is the run's TAKEAWAY: it always gets its own dedicated page,
+    vertically centered and sized up a rung (`--fs-emphasis` — already documented as "key-insight
+    callout, one block per slide," reused rather than invented). A trailing `.below-note` is a
+    FOOTNOTE of the content immediately above it, not a takeaway: it rides the **last body page**
+    instead, one size down (`--fs-body-compact`, the scale's next rung below default body) — never
+    stamped on every page (`partitionAxis` repeats the collection's surroundings verbatim per page,
+    which used to duplicate it on **every** body page), and never its own page either. The lede
+    hoists to the cover. No insight page is emitted when there is no key insight.
   - **A title-less slide keeps the bare partition** — there is no masthead to build a cover from, and
     an empty accent field would be worse.
   - **Every page of a run is paced the same, and a member looks the same on all of them.** The cut is
@@ -258,7 +261,10 @@ in patch versions.
     page of a split, and for a heavy member those differ (setting `sweet: 1` would wrongly warn the
     author at two cards). Omit it and a light member packs to `sweet` as before.
   - Content is conserved by construction: every emitted page is the source slide with spans
-    *removed*, so no leaf text can go missing.
+    *removed*, so no leaf text can go missing — including on `compare-table`'s `cover-cards`
+    reshape (a wide table transposed to cards in portrait), which used to DROP a trailing
+    key-insight or below-note outright rather than move it; it now gets the same insight page /
+    last-page note as every other split.
   Deck output changes only for decks that actually split (`autosplit: on` plus real overflow); a
   non-splitting deck is byte-identical. Rebuilt: `examples/auto-split.pdf`,
   `examples/cover-paginate.pdf`, `examples/read-across-carousel.pdf`; new demo deck

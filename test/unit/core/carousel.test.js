@@ -370,6 +370,39 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
     const one = '<h2>X</h2><table><thead><tr><th></th><th>A</th></tr></thead><tbody><tr><td>r</td><td>v</td></tr></tbody></table>';
     assert.equal(carouselize(ctTag, one, ctRecipe, 2, 'compare-table'), null);
   });
+
+  // A trailing key-insight / below-note used to vanish entirely: cover-cards built its
+  // pages from the parsed <table> alone, so anything after </table> in the source never
+  // reached ANY emitted page (found on a real render — both a blockquote and a note
+  // disappeared). `coverCardsSections` now runs the SAME `splitRegions` extraction
+  // `splitEnvelope` uses, so this shape gets the identical envelope treatment.
+  const ctWithTrailing = ctInner.replace(
+    '</table>',
+    '</table><blockquote><p>Build only wins if we actually staff it.</p></blockquote>' +
+      '<div class="below-note"><p>Source: procurement review.</p></div>',
+  );
+  const trailingParts = carouselize(ctTag, ctWithTrailing, ctRecipe, 2, 'compare-table');
+
+  test('a trailing key-insight blockquote gets its OWN final page, not dropped', () => {
+    assert.equal(trailingParts.length, 4); // cover + 2 card pages + insight
+    assert.match(trailingParts.at(-1), /lat-split-insight/);
+    assert.match(trailingParts.at(-1), /Build only wins if we actually staff it\./);
+    assert.ok(trailingParts.slice(1, -1).every((p) => !p.includes('Build only wins')));
+  });
+
+  test('a trailing below-note rides the LAST card page, marked, not its own page', () => {
+    const lastCardPage = trailingParts.at(-2); // last card page, before the insight page
+    assert.match(lastCardPage, /class="below-note lat-split-note"/);
+    assert.match(lastCardPage, /Source: procurement review\./);
+    assert.ok(!trailingParts[1].includes('procurement review')); // not on the FIRST card page
+  });
+
+  test('a trailing note with no insight still lands on the last card page (no insight page emitted)', () => {
+    const noteOnly = ctInner.replace('</table>', '</table><div class="below-note"><p>Source only.</p></div>');
+    const parts2 = carouselize(ctTag, noteOnly, ctRecipe, 2, 'compare-table');
+    assert.equal(parts2.length, 3); // cover + 2 card pages, no extra insight page
+    assert.match(parts2.at(-1), /class="below-note lat-split-note"/);
+  });
 });
 
 describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {

@@ -155,6 +155,21 @@ describe('core: resplitDoc (measured pass)', () => {
     assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '3'));
   });
 
+  test('a SECOND measured pass re-splitting an already-"(cont.)" body page does not double the marker', () => {
+    // A page a first pass already split (lat-split-native, heading already carries the
+    // marker) that STILL overflows on re-measure. `emitParts` must not stack a second
+    // "(cont.)" onto the piece that inherits the already-marked heading.
+    const already = '<h2>T <span class="lat-cont">(cont.)</span></h2>' + list(8);
+    const doc = docSec(1, 'cards lat-split-native', already);
+    const { html, changed } = resplitDoc(doc, [{ slide: 1, ratio: 1.9 }], cap);
+    assert.equal(changed, 1);
+    assert.equal((html.match(/<section/g) || []).length, 2);
+    for (const heading of html.match(/<h2>.*?<\/h2>/g) || []) {
+      assert.equal((heading.match(/class="lat-cont"/g) || []).length, 1,
+        `expected exactly one (cont.) marker per heading, got: ${heading}`);
+    }
+  });
+
   test('a split does not shift the numbers of slides AFTER it', () => {
     // Hidden, hidden, splitting, trailing — the trailing slide's number must be its
     // real position in the grown deck (5), and the total the whole deck's count.
