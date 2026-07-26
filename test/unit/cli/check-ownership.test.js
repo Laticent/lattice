@@ -82,6 +82,11 @@ const {
   CAT_EDGE_FLOOR,
   VETRINA_DIR,
   VETRINA_IMPORT,
+  checkAgentModelPinning,
+  AGENT_MODELS,
+  AGENT_CALL,
+  AGENT_OPTIONS,
+  MODEL_PIN,
   run,
 } = require('../../../tools/check-ownership');
 const { loadAll } = require('../../../lib/components');
@@ -530,6 +535,86 @@ describe('check-ownership', () => {
       const stripped = src.replace(new RegExp(SANITIZE_CALL.source, 'g'), 'noop(');
       assert.ok(PREVIEW_BUILDER_MARKER.test(stripped), 'still a builder');
       assert.ok(!SANITIZE_CALL.test(stripped), 'sanitize call gone → gate would flag it');
+    });
+  });
+
+  describe('agent model-pinning gate (HARD RULE #27)', () => {
+    const ROOT = path.join(__dirname, '..', '..', '..');
+    const AGENTS_DIR = path.join(ROOT, '.claude', 'agents');
+    const WORKFLOWS_DIR = path.join(ROOT, '.claude', 'workflows');
+    const frontmatter = (src) => (/^---\n([\s\S]*?)\n---/.exec(src) || ['', ''])[1];
+
+    test('the live tree raises no #27 violations', () => {
+      const errors = [];
+      checkAgentModelPinning(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+
+    test('every roster agent pins a model the harness accepts', () => {
+      const agents = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md'));
+      assert.ok(agents.length > 0, '.claude/agents/ must not be empty — it IS the routing enforcement');
+      for (const file of agents) {
+        const declared = /^model:\s*(\S+)\s*$/m.exec(frontmatter(fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8')));
+        assert.ok(declared, `${file} declares no model: — it would silently inherit the session model`);
+        assert.ok(AGENT_MODELS.includes(declared[1]), `${file} pins unrecognized model "${declared[1]}"`);
+      }
+    });
+
+    // Mirror the gate exactly: it strips comments first, so `agent()` written inside a
+    // comment is not a call. Counting raw source over-counts and the test drifts off the gate.
+    const pins = (src) => (src.match(AGENT_OPTIONS) || []).filter((o) => MODEL_PIN.test(o)).length;
+
+    test('every workflow agent() call pins a model', () => {
+      for (const file of fs.readdirSync(WORKFLOWS_DIR).filter((f) => f.endsWith('.js'))) {
+        const src = stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, file), 'utf8'));
+        const calls = (src.match(AGENT_CALL) || []).length;
+        assert.ok(calls > 0, `${file} has no agent() calls — is it still a workflow?`);
+        assert.ok(pins(src) >= calls, `${file}: ${calls} agent() call(s) but ${pins(src)} model pin(s)`);
+      }
+    });
+
+    test('the gate bites: an agent that drops model:, or names a bogus one, is flagged', () => {
+      // Simulate both regressions in-memory against a real roster file (no FS mutation).
+      const real = fs.readFileSync(path.join(AGENTS_DIR, 'scout.md'), 'utf8');
+      assert.ok(/^model:\s*\S+$/m.test(frontmatter(real)), 'baseline: scout pins a model');
+
+      const dropped = real.replace(/^model:.*$/m, 'tools: Read');
+      assert.ok(!/^model:\s*(\S+)\s*$/m.test(frontmatter(dropped)), 'no model: → gate would flag it');
+
+      const bogus = real.replace(/^model:.*$/m, 'model: sonnet-5');
+      const declared = /^model:\s*(\S+)\s*$/m.exec(frontmatter(bogus));
+      assert.ok(declared && !AGENT_MODELS.includes(declared[1]), 'typo\'d model name → gate would flag it');
+    });
+
+    test('the gate bites: a workflow stage that drops its model option is flagged', () => {
+      const src = stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, 'design-competition.js'), 'utf8'));
+      const calls = (src.match(AGENT_CALL) || []).length;
+      assert.equal(pins(src), calls, 'baseline: every stage pinned, exactly');
+      // Drop the pin from a real options object — splice the edit into that object
+      // specifically, since a naive whole-file replace would hit meta.phases first.
+      const target = (src.match(AGENT_OPTIONS) || [])[0];
+      assert.ok(target && MODEL_PIN.test(target), 'baseline: first options object carries a pin');
+      const dropped = src.replace(target, target.replace(/,\s*model:\s*'(?:opus|sonnet|haiku|fable)'/, ''));
+      assert.equal(pins(dropped), calls - 1, 'one stage pin removed');
+      assert.ok(calls > pins(dropped), 'unpinned stage → gate would flag it');
+    });
+
+    test('the pin count ignores meta.phases, so it cannot go slack', () => {
+      // meta.phases entries legitimately carry `model:` too. Counting bare `model:`
+      // occurrences would let a real stage lose its pin and still pass — the exact
+      // slack this gate must not have. Keying on `label:` separates the two.
+      const src = stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, 'design-competition.js'), 'utf8'));
+      const bare = (src.match(/\bmodel:\s*'(?:opus|sonnet|haiku|fable)'/g) || []).length;
+      assert.ok(bare > pins(src), 'meta.phases contributes bare model: pins the gate must not count');
+      assert.equal(pins("{ title: 'Design', detail: 'x', model: 'opus' }"), 0, 'a phase entry is not an options object');
+      assert.equal(pins("{ label: 'design:1', phase: 'Design', model: 'opus' }"), 1, 'an options object is');
+    });
+
+    test('MODEL_PIN does not fire on a schema property merely named "model"', () => {
+      // The narrow pattern is what lets the count check stand in for real parsing:
+      // a JSON-schema field declaration must not be mistaken for a routing decision.
+      assert.equal(MODEL_PIN.test("model: { type: 'string' }"), false);
+      assert.equal(MODEL_PIN.test("model: 'opus'"), true);
     });
   });
 

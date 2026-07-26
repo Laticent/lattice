@@ -146,6 +146,43 @@ two (split inspection vs. assessment) only for the riskiest changes.** Skip it
 for trivial or low-risk edits — this earns its latency *and cost* only when a
 second set of eyes changes the merge decision. See `engineering/visual-review.md`.
 
+**Route each agent to the right model** — the ladder decides *whether* an agent
+runs, HARD RULE #27 decides *which model it runs on*. Dispatch table below.
+
+---
+
+## MODEL ROUTING — the cheapest model that clears the bar (HARD RULE #27)
+
+Two questions, in order: **(1) judgment or lookup?** — weighing tradeoffs and
+taste, or retrieve-and-summarize against a spec someone already wrote?
+**(2) who catches a mistake?** — a gate (`lint`, tests, `build:check`), or does
+it ship silently? *Judgment → Opus. Lookup + a gate → Sonnet, or Haiku if it's
+pure enumeration.* Torn → Opus.
+
+| Spawn this | Model | For |
+|---|---|---|
+| `scout` | sonnet | Locate code, map a subsystem, "where/how does X work" |
+| `fact-checker` | sonnet | Verify cited paths / fields / mechanisms against the repo |
+| `ci-triage` | sonnet | Diagnose a red gate and drive it green |
+| `inventory` | haiku | Enumerate, count, extract (200K context; no `effort`) |
+| `red-team` · `inversion` · `checker` | opus | The trio (#25) — **never downshifted** |
+| `docs-auditor` · `prose-checker` | opus · sonnet | Doc honesty · prose audit |
+
+Also on **sonnet**: test-writing to a spec, mechanical refactors on an existing
+pattern, localized bug fixes with a repro, deck authoring, docs/CHANGELOG,
+folding a critique in, visual-sweep **maker** passes. Stays **opus**: design and
+"rethink X", root-cause debugging, visual **sign-off**, token/cascade surgery,
+novel mechanisms, decision docs. Built-ins (`Explore`, `Plan`,
+`general-purpose`) inherit Opus — pass `model: 'sonnet'` explicitly or use
+`scout`. **The session's own model never changes** (it would void the prompt
+cache); savings come from pushing work *down* into subagents.
+
+`effort` and model are **two levers**: effort cuts output tokens, model cuts
+both rates — so a read-heavy scout is dominated by model, a write-heavy drafter
+by effort. Full table, prices, and overrides: `engineering/model-routing.md`.
+
+---
+
 This is the **middle rung of the verification ladder** (HARD RULE #25):
 routine work self-reviews with the gates; blast radius gets maker-checker;
 **critical, high-blast-radius, or genuinely novel work escalates to the
@@ -374,6 +411,26 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   `checkCascadeLayers` + `SANCTIONED_LAYER_BLOCKS` in `tools/check-ownership.js`,
   via `build:check`; budget 0 + order-pin + inert-note sentinel;
   `engineering/cascade.md`.)*
+- **#27 — Every subagent declares its model; route by task, not by reflex.** An
+  agent that names no model inherits the session's — Opus 5 — so *lookup* work
+  (locating code, verifying a cited path, triaging a red gate, enumerating files)
+  silently bills at 2.5× Sonnet 5's rate and 5× Haiku 4.5's, with no quality
+  gained. Decide with two questions — **judgment or lookup**, and **does a gate
+  catch a mistake** — then spawn the roster agent that pins the answer
+  (`.claude/agents/`), because choosing the agent *is* choosing the model. Two
+  directions are **not** negotiable: the adversarial trio and visual **sign-off**
+  stay on Opus (downshifting the thing that exists to catch expensive errors
+  inverts its purpose), and the **session's own** model never changes mid-task (it
+  voids the prompt cache, and it's the human's `/model` setting) — savings come
+  from pushing work *down* into subagents, never from cheapening the driver.
+  Model and `effort` are separate levers: `effort` trims output tokens, model
+  trims both rates. Overriding the table *upward* is always fine and needs one
+  line of why; overriding it downward silently is the defect. *(gated —
+  `checkAgentModelPinning` in `tools/check-ownership.js`, via `build:check`:
+  every `.claude/agents/*.md` needs a valid `model:`, and every
+  `.claude/workflows/*.js` `agent()` call needs one in its options. The gate sees
+  committed files only — an ad-hoc `Agent()` call in a live session rides on the
+  dispatch table above. `engineering/model-routing.md`.)*
 
 ---
 
@@ -408,6 +465,7 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
 | The 10/10 visual rubric | `engineering/decisions/2026-06-06-layout-audit/` |
 | A large visual sweep / parallel reviewer fan-out | `engineering/visual-review.md` |
 | Orchestrating agents — verification tiers, fan-out shapes, budgets (HARD RULE #25) | `engineering/orchestration.md` |
+| Picking a model for a task / agent — routing table, prices, the two levers (HARD RULE #27) | `engineering/model-routing.md` |
 | A self-driving UI walkthrough / product tour (the **Vetrina** library) | `docs/src/lib/vetrina/README.md` + `engineering/decisions/2026-07-05-vetrina-walkthrough-library.md` |
 | Release / publish | `RELEASE.md` |
 | The Drawing Board / Workbench (**FROZEN** — no feature work; the Studio succeeds them) | `engineering/decisions/2026-07-03-studio-succession.md` |

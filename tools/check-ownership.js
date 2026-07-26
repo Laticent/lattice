@@ -2328,6 +2328,94 @@ function checkCatContrast(errors) {
   }
 }
 
+// HARD RULE #27 — every subagent declares its model, so routing can't silently
+// drift back to inheriting Opus 5 from the session. Two surfaces, both of which
+// default to the session model when the field is simply absent (the expensive
+// failure mode: it still WORKS, it just costs 2.5x and nobody notices):
+//   • `.claude/agents/*.md` — the roster. Frontmatter needs a `model:` naming a
+//     model the harness actually accepts; a typo (`sonnet-5`) silently falls back.
+//   • `.claude/workflows/*.js` — every `agent()` call needs `model:` in its
+//     options. Counted rather than parsed: matching a call's options object to its
+//     own call means balanced-paren scanning through template literals, and the
+//     count catches the real regression (a stage added without a model) without it.
+// The numerator counts OPTIONS OBJECTS, not bare `model:` occurrences: `meta.phases`
+// entries legitimately carry `model:` too, and counting those would leave the gate
+// slack enough for a real stage to lose its pin and still pass. Every agent() options
+// object carries `label:`; meta.phases entries carry `title:`/`detail:` instead, so
+// keying on `label:` separates them. An options object with a NESTED literal escapes
+// the brace-free match and under-counts — which fails LOUDLY (calls > pins) rather
+// than silently passing, the right direction for a gate to be wrong in.
+// COVERAGE BOUNDARY (be honest): this gate sees COMMITTED files only. An ad-hoc
+// `Agent()` call in a live session is invisible to it — that path rides on the
+// roster + the CLAUDE.md dispatch table, not on this check.
+// See engineering/model-routing.md.
+const AGENT_MODELS = ['opus', 'sonnet', 'haiku', 'fable'];
+const AGENTS_DIR = path.join(ROOT, '.claude', 'agents');
+const WORKFLOWS_DIR = path.join(ROOT, '.claude', 'workflows');
+const AGENT_CALL = /\bagent\s*\(/g;
+// An object literal carrying `label:` — an agent() options object. Labels are usually
+// template literals (`design:${i + 1}`), so the filler tolerates ONE level of `${…}`
+// interpolation while still refusing a genuinely nested object literal. The three
+// alternatives are disjoint on their first character (`$` is excluded from the first
+// branch) so the nested quantifier cannot backtrack catastrophically.
+const OPT_FILLER = String.raw`(?:[^{}$]|\$(?!\{)|\$\{[^{}]*\})*`;
+const AGENT_OPTIONS = new RegExp(`\\{${OPT_FILLER}\\blabel:${OPT_FILLER}\\}`, 'g');
+// Deliberately narrow: a model ASSIGNED a known name. A schema property that
+// happens to be called `model` reads `model: { type: 'string' }` and won't match.
+// Non-global on purpose — it is used with .test(), which is stateful on /g/.
+const MODEL_PIN = /\bmodel:\s*['"](?:opus|sonnet|haiku|fable)['"]/;
+
+function checkAgentModelPinning(errors) {
+  if (fs.existsSync(AGENTS_DIR)) {
+    const agents = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md'));
+    if (!agents.length) {
+      errors.push(
+        '.claude/agents/ has no agent definitions — the model-routing roster is the enforcement ' +
+        'surface for HARD RULE #27; an empty roster means every subagent inherits Opus 5. ' +
+        'Restore it or retire the rule in engineering/model-routing.md.',
+      );
+    }
+    for (const file of agents) {
+      const rel = path.join('.claude', 'agents', file);
+      const src = fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8');
+      const fm = /^---\n([\s\S]*?)\n---/.exec(src);
+      if (!fm) {
+        errors.push(`${rel} has no YAML frontmatter — HARD RULE #27 needs a \`model:\` field there.`);
+        continue;
+      }
+      const declared = /^model:\s*(\S+)\s*$/m.exec(fm[1]);
+      if (!declared) {
+        errors.push(
+          `${rel} declares no \`model:\` in its frontmatter (HARD RULE #27), so it silently inherits ` +
+          `the session model — Opus 5, at 2.5x Sonnet 5's rate. Pin one of ${AGENT_MODELS.join(' / ')} ` +
+          `using the routing table in engineering/model-routing.md.`,
+        );
+      } else if (!AGENT_MODELS.includes(declared[1])) {
+        errors.push(
+          `${rel} pins \`model: ${declared[1]}\`, which the harness does not accept (HARD RULE #27) — ` +
+          `an unrecognized name falls back to the session model instead of erroring. ` +
+          `Use one of ${AGENT_MODELS.join(' / ')}.`,
+        );
+      }
+    }
+  }
+  if (!fs.existsSync(WORKFLOWS_DIR)) return;
+  for (const file of fs.readdirSync(WORKFLOWS_DIR).filter((f) => f.endsWith('.js'))) {
+    const rel = path.join('.claude', 'workflows', file);
+    const src = stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, file), 'utf8'));
+    const calls = (src.match(AGENT_CALL) || []).length;
+    const pinned = (src.match(AGENT_OPTIONS) || []).filter((o) => MODEL_PIN.test(o)).length;
+    if (calls > pinned) {
+      errors.push(
+        `${rel} has ${calls} agent() call(s) but only ${pinned} pinned \`model:\` option(s) ` +
+        `(HARD RULE #27). An unpinned stage inherits Opus 5 for work the routing table may put on ` +
+        `Sonnet 5 or Haiku 4.5 — add \`model: '<tier>'\` to each stage's options per ` +
+        `engineering/model-routing.md.`,
+      );
+    }
+  }
+}
+
 function checkSkillFreshness(errors) {
   if (!fs.existsSync(SKILLS_DIR)) return; // skills not present — nothing to guard
   for (const a of skillFreshnessAssertions()) {
@@ -2476,6 +2564,7 @@ function run() {
   checkSanctionedGestures(errors);
   checkCatContrast(errors);
   checkSkillFreshness(errors);
+  checkAgentModelPinning(errors);
   return {
     errors,
     counts: {
@@ -2582,6 +2671,11 @@ module.exports = {
   SANCTIONED_GESTURES,
   checkSkillFreshness,
   skillFreshnessAssertions,
+  checkAgentModelPinning,
+  AGENT_MODELS,
+  AGENT_CALL,
+  AGENT_OPTIONS,
+  MODEL_PIN,
   checkCatContrast,
   catResolve,
   catContrast,

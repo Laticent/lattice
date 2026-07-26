@@ -47,14 +47,20 @@ judged as a whole — regions verify detail, they cannot tell you the layout hol
 
 ## The loop
 
-1. **Maker pass.** Spawn N agents in one message, one per deck/bucket. Each
-   rasterizes its PDFs to PNG, **views every page**, reads the source and CSS,
-   and scores against the rubric
-   (`engineering/decisions/2026-06-06-layout-audit/`).
-2. **Checker pass.** Spawn N independent agents that re-render the same
-   artifacts and adversarially verify every maker claim —
+1. **Maker pass — `model: 'sonnet'`.** Spawn N agents in one message, one per
+   deck/bucket. Each rasterizes its PDFs to PNG, **views every page**, reads the
+   source and CSS, and scores against the rubric
+   (`engineering/decisions/2026-06-06-layout-audit/`). Sonnet 5 has the same
+   high-resolution vision as Opus 5 (2576px long edge), and this pass is
+   *matching slides against a written rubric* — the checker below makes the
+   actual call, so the maker is the half of the sweep that routes down
+   (HARD RULE #27).
+2. **Checker pass — `model: 'opus'`.** Spawn N independent agents that re-render
+   the same artifacts and adversarially verify every maker claim —
    CONFIRM / REFUTE / REVISE — catching missed issues and re-scoring. The
-   checker-adjudicated scores are authoritative.
+   checker-adjudicated scores are authoritative, which is precisely why this
+   pass is **not** downshifted: it is the aesthetic sign-off the QUALITY BAR is
+   about, and the maker's misses are what it exists to catch.
 3. **Lead verification.** Re-render the highest-severity claims first-hand
    before acting. Pixels, not summaries.
 
