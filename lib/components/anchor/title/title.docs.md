@@ -21,7 +21,7 @@ First slide of every deck. Sets the topic and the visual tone. Suppresses header
 ### Common mistakes
 
 - **Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.** Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the uppercase mono eyebrow lifted above the h1.
-- **Something other than the eyebrow paragraph sits directly after the `# heading` — e.g. the subtitle comes first, or a blank comment intervenes.** The eyebrow match is an immediate-next-sibling selector (`h1 + p:has(> code:only-child)`). Keep the source order heading → eyebrow → subtitle; anything between the h1 and the inline-code paragraph disqualifies it from the eyebrow style.
+- **The subtitle paragraph is authored before the eyebrow paragraph instead of after it.** The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h1 + p:has(> code:only-child)`) — it only counts element siblings, so an HTML comment between the h1 and the eyebrow is harmless, but another paragraph is not. Keep the source order heading → eyebrow → subtitle.
 - **Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.** Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis.
 
 ## When to use

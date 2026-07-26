@@ -20,8 +20,8 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 
 ### Variant decision rule
 
-- **default.** Analyst or working-session decks, or a low slice count (3-4) where the full disc reads cleanly without competing for the center.
-- **donut.** Board/investor decks by default — the hollow center reads as composed rather than as a missing slice. The hole itself stays visually empty; a per-slice `detail` sublist surfaces via the interactive popover and the PDF speaker note either way, not inside the hole.
+- **default (no modifier).** Analyst or working-session decks, or a low slice count (3-4) where the full disc reads cleanly without competing for the center.
+- **`donut`.** Board/investor decks by default — the hollow center reads as composed rather than as a missing slice. The hole itself stays visually empty; a per-slice `detail` sublist surfaces via the interactive popover and the PDF speaker note either way, not inside the hole.
 
 ### Common mistakes
 
@@ -31,7 +31,7 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 ### Data shape
 
 - Author slices in descending value order; the engine draws wedges in source order and never auto-sorts — a shuffled list scatters the visual hierarchy the wedges are supposed to carry.
-- Keep every slice label to 1-3 words — the legend sits beside the wedges and long labels wrap and crowd it.
+- Keep every slice label to 1-3 words — long labels wrap and crowd the legend, which sits in a right rail beside the wedges in a landscape box or stacks below them in a portrait box (the portrait layout budgets a wider label column, but short labels still read cleanest in both).
 - Stay at 3-6 slices for the sweet spot; the palette has six hues (Wong / Cleveland-McGill / IBM Carbon calibrated for perceptual distinction), so a 7th slice repeats a color already on the chart — consolidate the long tail into a single `Other` slice before then rather than adding a 7th.
 
 ## When to use

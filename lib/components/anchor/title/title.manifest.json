@@ -84,8 +84,8 @@
       "fix": "Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the uppercase mono eyebrow lifted above the h1."
     },
     {
-      "mistake": "Something other than the eyebrow paragraph sits directly after the `# heading` — e.g. the subtitle comes first, or a blank comment intervenes.",
-      "fix": "The eyebrow match is an immediate-next-sibling selector (`h1 + p:has(> code:only-child)`). Keep the source order heading → eyebrow → subtitle; anything between the h1 and the inline-code paragraph disqualifies it from the eyebrow style."
+      "mistake": "The subtitle paragraph is authored before the eyebrow paragraph instead of after it.",
+      "fix": "The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h1 + p:has(> code:only-child)`) — it only counts element siblings, so an HTML comment between the h1 and the eyebrow is harmless, but another paragraph is not. Keep the source order heading → eyebrow → subtitle."
     },
     {
       "mistake": "Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.",

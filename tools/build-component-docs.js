@@ -92,6 +92,17 @@ function tableCell(s) {
 }
 
 /**
+ * Collapse newlines in a string destined for a single markdown bullet line
+ * (Agent contract prose: commonMistakes/variantDecisionRule/dataShapeGuidance).
+ * Without this, a manifest string containing `\n\n## Heading` would inject a
+ * real heading into the middle of the generated doc — flattening to a single
+ * line keeps every entry exactly one bullet, regardless of manifest content.
+ */
+function bulletLine(s) {
+  return String(s).replace(/\s*\n+\s*/g, ' ').trim();
+}
+
+/**
  * Build <name>.docs.md content from a manifest.
  *
  * Sections, in order:
@@ -190,7 +201,11 @@ function emitAgentContract(m, lines) {
     lines.push('### Variant decision rule');
     lines.push('');
     for (const entry of m.variantDecisionRule) {
-      lines.push(`- **${entry.variant}.** ${entry.useWhen}`);
+      // "default" is the no-modifier sentinel, not a class token — render it
+      // distinctly from a real variant (backtick-wrapped) so an agent can't
+      // mistake it for a literal `_class:` modifier to copy.
+      const label = entry.variant === 'default' ? 'default (no modifier)' : `\`${entry.variant}\``;
+      lines.push(`- **${label}.** ${bulletLine(entry.useWhen)}`);
     }
     lines.push('');
   }
@@ -199,7 +214,7 @@ function emitAgentContract(m, lines) {
     lines.push('### Common mistakes');
     lines.push('');
     for (const entry of m.commonMistakes) {
-      lines.push(`- **${entry.mistake}** ${entry.fix}`);
+      lines.push(`- **${bulletLine(entry.mistake)}** ${bulletLine(entry.fix)}`);
     }
     lines.push('');
   }
@@ -208,7 +223,7 @@ function emitAgentContract(m, lines) {
     lines.push('### Data shape');
     lines.push('');
     for (const rule of m.dataShapeGuidance) {
-      lines.push(`- ${rule}`);
+      lines.push(`- ${bulletLine(rule)}`);
     }
     lines.push('');
   }
