@@ -25,7 +25,15 @@ section.compare-table.lat-split-cards .ct-card-title { font-size:var(--fs-emphas
 section.compare-table.lat-split-cards .ct-card-fields { display:grid; grid-template-columns:max-content 1fr; gap:0.4em var(--sp-md); margin:0; }
 section.compare-table.lat-split-cards .ct-field { display:contents; }
 section.compare-table.lat-split-cards .ct-field dt { font-family:var(--font-label); font-size:var(--fs-meta); font-weight:600; letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); }
-section.compare-table.lat-split-cards .ct-field dd { margin:0; font-size:var(--fs-body-compact); color:var(--text-body); }
+/* The value reads at CARD body size, not the native table's dense-cell size. `--fs-body-compact`
+   is documented for "dense reference cells — packs many cells in a fixed box" (engineering/
+   typography.md), which is exactly right for `section.compare-table td` and exactly WRONG here:
+   the reshape's output is a CARD, and the same doc's anti-pattern list says "ordinary cards and
+   lists read --fs-body" / "never shrink prose to fit". The compact size was inherited from the
+   table context and carried into the card context — and with one card per page (split.perPage:1)
+   there is no fixed box to pack, so the value gets the ideal size and the row WRAPS instead
+   (below) rather than the type shrinking to fit. Portrait: 4.35cqi, up from 3.7. */
+section.compare-table.lat-split-cards .ct-field dd { margin:0; font-size:var(--fs-body); color:var(--text-body); }
 section.compare-table.lat-split-cards .split-runhead { font-family:var(--font-label); font-size:var(--fs-meta); letter-spacing:0.10em; text-transform:uppercase; color:var(--text-label); padding-bottom:var(--sp-sm); opacity:0.85; }
 /* A card ALONE on its page FILLS the page — the reshape paces one transposed row per page
    (`split.perPage: 1`), so this is every cover-cards page. The universal split rule for this
