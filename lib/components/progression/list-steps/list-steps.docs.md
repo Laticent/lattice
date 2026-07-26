@@ -6,9 +6,18 @@
 
 **Tags** `process` · `walkthrough` · `planning`
 
+## Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, timeline-list / split across slides.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one sentence per step, not a paragraph.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the process. |
+| `steps` | `ol > li` | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
 
 Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.
 
@@ -36,13 +45,6 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 3. Third step — a sentence describing what you do here.
 4. Fourth step — a sentence describing what you do here.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the process. |
-| `steps` | `ol > li` | yes | Ordered list; each li gets a step number. Body can be one paragraph or a nested bullet list. |
 
 ## Anatomy
 

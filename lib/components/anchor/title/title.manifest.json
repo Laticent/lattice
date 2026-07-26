@@ -78,6 +78,20 @@
       "when": "the final slide — closes the bookend pair"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.",
+      "fix": "Wrap the eyebrow paragraph in backticks. The slot selector is `p > code`; plain or bold text doesn't map to the eyebrow slot at all — it just renders as an unstyled stray paragraph."
+    },
+    {
+      "mistake": "Eyebrow or subtitle authored before the `# heading` line.",
+      "fix": "Keep the source order heading → eyebrow → subtitle. Flex `order` repositions the eyebrow visually above the h1, but slot resolution reads structural position, not visual position."
+    },
+    {
+      "mistake": "Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.",
+      "fix": "Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis."
+    }
+  ],
   "specimenVoice": true,
   "excludes": [
     "accent",

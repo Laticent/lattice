@@ -6,6 +6,16 @@
 
 **Tags** `summary` · `takeaway` · `board-deck`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. |
+| `eyebrow` | `p > code` | no | Optional category label. |
+| `subtitle` | `p` | no | Optional supporting line. |
+
 Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals "we're done."
 
 ## When to use
@@ -32,14 +42,6 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 
 `Optional eyebrow`
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Closing line — takeaway, thank-you, or call to action. |
-| `eyebrow` | `p > code` | no | Optional category label. |
-| `subtitle` | `p` | no | Optional supporting line. |
 
 ## Anatomy
 

@@ -68,6 +68,30 @@ suggestions (`density-crowd` / `density-overflow`, `verbose-eyebrow` /
 `verbose-subtitle` / `verbose-key-insight`); writing tight up front is the fix.
 See `engineering/decisions/2026-06-30-prose-density-budget.md`.
 
+## Once you've picked one — read its agent contract
+
+`components.json` is for *picking*; each component's generated
+`lib/components/<bucket>/<name>/<name>.docs.md` is for *authoring inside* the
+one you picked (HARD RULE #6 in `CLAUDE.md`: open it before writing or editing
+that slide). Its `## Agent contract` section, right after the header, is the
+dense, scannable part — read it before the narrative below:
+
+- **Slots** — the table you already see in `components.json`, plus (where
+  declared) **Common mistakes**: authoring-time errors specific to this
+  component (wrong nesting, a slot's exact structural requirement, a variant
+  mixed with the wrong data), distinct from `antiPatterns`, which is about
+  whether to reach for the component at all.
+- **Variant decision rule** — for components with more than one variant, the
+  concrete signal that should drive the pick (e.g. audience, data shape),
+  not just what each variant looks like.
+- **Data shape** — for data-driven components, terse constraints on the data
+  itself (cardinality, sort order, label length, unit consistency) beyond the
+  generic `capacity`/`density` item-count budgets.
+
+Not every component has all three yet — they're being backfilled
+incrementally; when absent, fall back to the narrative `whenToUse` /
+`antiPatterns` sections below the contract.
+
 ## Author, then lint, then render
 
 ```text

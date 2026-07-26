@@ -6,6 +6,17 @@
 
 **Tags** `percentage` · `stoplight` · `status`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the progress view. |
+| `eyebrow` | `p > code` | no | Optional eyebrow caption above the heading. |
+| `subtitle` | `p` | no | Optional plain subtitle after the heading. |
+| `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary: on-track / live / at-risk / warn / blocked / fail / deferred / done. An optional nested bullet renders as a per-row note. |
+
 Use for status-tracking across multiple parallel items (project readiness, OKR progress, capacity utilization). Status colors via the chart-status vocabulary (on-track / done / live, at-risk / warn, blocked / fail, deferred).
 
 ## When to use
@@ -33,15 +44,6 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 - Second item `55%` `at-risk`
 - Third item `30%` `blocked`
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the progress view. |
-| `eyebrow` | `p > code` | no | Optional eyebrow caption above the heading. |
-| `subtitle` | `p` | no | Optional plain subtitle after the heading. |
-| `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary: on-track / live / at-risk / warn / blocked / fail / deferred / done. An optional nested bullet renders as a per-row note. |
 
 ## Anatomy
 

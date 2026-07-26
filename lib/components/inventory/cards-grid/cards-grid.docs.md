@@ -6,9 +6,19 @@
 
 **Tags** `overview` · `showcase` · `summary`
 
+## Agent contract
+
 **Capacity** ~3 items (crowds past 4, overflows past 4) — past that, list-tabular / split across slides.
 
 **Density** aim ~15 words per item; past ~24 it reads as a wall of text — a card body is one short clause, not a paragraph.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `cards` | `ul > li` | yes | Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule). |
+| `insight` | `blockquote` | no | Optional key-insight panel above the cards. |
 
 Use when the audience needs to compare or scan a small set of options at a glance. Avoid for more than 4 items — split into multiple slides. For ordered/numbered steps, use list-steps instead.
 
@@ -42,14 +52,6 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 - Fourth card title
   - Body text for the fourth card, one sentence.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `cards` | `ul > li` | yes | Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule). |
-| `insight` | `blockquote` | no | Optional key-insight panel above the cards. |
 
 ## Anatomy
 

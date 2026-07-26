@@ -6,6 +6,17 @@
 
 **Tags** `contract` · `contrast` · `compliance` · `transformation`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading naming the amendment or change. |
+| `citation` | `p:first-of-type > code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
+| `redline` | `blockquote` | yes | The amended language. Use <del>old text</del> and <ins>new text</ins> inline. |
+| `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
+
 Use when an amendment's diff is the slide. The blockquote carries the redlined text with ins/del markers; the trailing list explains why the diff matters operationally.
 
 ## When to use
@@ -33,15 +44,6 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 - **Why this matters.** What the amendment changes in operational terms, in one sentence.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading naming the amendment or change. |
-| `citation` | `p:first-of-type > code` | yes | Inline-code citation of the amended provision (e.g. 'Cal. Civ. Code §1798.135 · SB-362 (2024)'). |
-| `redline` | `blockquote` | yes | The amended language. Use <del>old text</del> and <ins>new text</ins> inline. |
-| `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
 
 ## Anatomy
 

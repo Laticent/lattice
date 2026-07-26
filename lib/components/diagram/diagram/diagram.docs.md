@@ -6,6 +6,16 @@
 
 **Tags** `flowchart` · `org-chart` · `sequence` · `process`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing what the diagram shows. |
+| `subtitle` | `p > code` | no | Optional eyebrow caption. |
+| `mermaid` | `div.mermaid, svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
+
 Use for relational or topological visuals — flowcharts, sequence diagrams, state machines, ER diagrams. The diagram should occupy at least half the slide.
 
 ## When to use
@@ -35,14 +45,6 @@ flowchart LR
   C -->|no| E[Path B]
 ```
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing what the diagram shows. |
-| `subtitle` | `p > code` | no | Optional eyebrow caption. |
-| `mermaid` | `div.mermaid, svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
 
 ## Anatomy
 

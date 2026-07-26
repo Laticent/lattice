@@ -6,9 +6,18 @@
 
 **Tags** `regulation` · `citation` · `sequence`
 
+## Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on) / statute-stack.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per tier.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading naming the rule whose chain is being walked. |
+| `tiers` | `ol > li` | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
 
 Use when the audience needs to see how a rule descends: what the statute says, how the agency implemented it, what guidance interpreted it, and what cases have applied it. Ordered list because the order is the argument.
 
@@ -44,13 +53,6 @@ Use when the audience needs to see how a rule descends: what the statute says, h
    - `Citation reference`
    - One-line gloss naming the precedent.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading naming the rule whose chain is being walked. |
-| `tiers` | `ol > li` | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
 
 ## Anatomy
 

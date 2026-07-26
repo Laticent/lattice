@@ -6,7 +6,28 @@
 
 **Tags** `two-by-two` · `prioritize` · `strategy` · `risk`
 
+## Agent contract
+
 **Density** aim ~10 words per item; past ~16 it reads as a wall of text — a short label per quadrant cell.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading naming the framework. |
+| `axes` | `ul > li` | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
+
+### Common mistakes
+
+- **Quadrant title names only one axis, e.g. `- **Priorities.**` instead of both poles.** Lead each quadrant with both axis poles: `- **High impact · Low effort.**`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes.
+- **The four outer list items authored in an arbitrary order.** Declaration order IS grid position: 1st item → top-left, 2nd → top-right, 3rd → bottom-left, 4th → bottom-right (a flex-wrap layout, not a labeled grid). Reordering the source list visibly reorders the quadrants.
+- **Whichever item was drafted last ends up 4th, unintentionally taking the accent styling.** The 4th (bottom-right) list item automatically receives the accent ring as the conventional "outcome"/high-priority cell (matrix-2x2.styles.css `:nth-child(4)`). Place the quadrant you want emphasized there, not whatever came last.
+
+### Data shape
+
+- Exactly four outer list items, one per quadrant — matrix-2x2 always renders a fixed 2×2, never 3 or 5 cells.
+- Each cell holds 1-4 inner items; past that the cell crowds (see `antiPatterns`).
+- An empty quadrant still needs a title and at least a placeholder item — a missing card breaks the 2×2 symmetry.
 
 Use for categorical 2×2 reasoning when the items are fixed and you control which cell each lands in. For data-plotted scatter on continuous axes, use quadrant instead.
 
@@ -39,13 +60,6 @@ Use for categorical 2×2 reasoning when the items are fixed and you control whic
 - **Low value · High cost.**
   - First item in this quadrant
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading naming the framework. |
-| `axes` | `ul > li` | yes | Four outer list items (one per cell). Lead each with **Quadrant label.** then the items as inner bullets. |
 
 ## Anatomy
 

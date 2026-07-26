@@ -123,5 +123,24 @@
       "when": "the items don't divide along two axes"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Quadrant title names only one axis, e.g. `- **Priorities.**` instead of both poles.",
+      "fix": "Lead each quadrant with both axis poles: `- **High impact · Low effort.**`. A single-axis label breaks the 2×2 read — the grid only communicates structure when all four titles name the same two axes."
+    },
+    {
+      "mistake": "The four outer list items authored in an arbitrary order.",
+      "fix": "Declaration order IS grid position: 1st item → top-left, 2nd → top-right, 3rd → bottom-left, 4th → bottom-right (a flex-wrap layout, not a labeled grid). Reordering the source list visibly reorders the quadrants."
+    },
+    {
+      "mistake": "Whichever item was drafted last ends up 4th, unintentionally taking the accent styling.",
+      "fix": "The 4th (bottom-right) list item automatically receives the accent ring as the conventional \"outcome\"/high-priority cell (matrix-2x2.styles.css `:nth-child(4)`). Place the quadrant you want emphasized there, not whatever came last."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Exactly four outer list items, one per quadrant — matrix-2x2 always renders a fixed 2×2, never 3 or 5 cells.",
+    "Each cell holds 1-4 inner items; past that the cell crowds (see `antiPatterns`).",
+    "An empty quadrant still needs a title and at least a placeholder item — a missing card breaks the 2×2 symmetry."
+  ],
   "specimenVoice": true
 }

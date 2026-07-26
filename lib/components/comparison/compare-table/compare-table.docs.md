@@ -6,9 +6,18 @@
 
 **Tags** `tradeoff` · `ranking` · `assessment`
 
+## Agent contract
+
 **Capacity** ~4 rows (crowds past 6, overflows past 8) — past that, split across slides.
 
 **Density** aim ~12 words per row; past ~18 it reads as a wall of text — a few words per cell.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the comparison. |
+| `table` | `table` | yes | Markdown table with header row and 2+ data rows. |
 
 Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-prose can hold legibly.
 
@@ -37,13 +46,6 @@ Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-pro
 | Second criterion | Value | Value | Value |
 | Third criterion | Value | Value | Value |
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the comparison. |
-| `table` | `table` | yes | Markdown table with header row and 2+ data rows. |
 
 ## Anatomy
 

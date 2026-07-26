@@ -6,6 +6,22 @@
 
 **Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h1` | yes | Deck title. |
+| `eyebrow` | `p > code` | no | Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above). |
+| `subtitle` | `p` | no | Optional plain-paragraph subtitle below the h1. |
+
+### Common mistakes
+
+- **Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.** Wrap the eyebrow paragraph in backticks. The slot selector is `p > code`; plain or bold text doesn't map to the eyebrow slot at all — it just renders as an unstyled stray paragraph.
+- **Eyebrow or subtitle authored before the `# heading` line.** Keep the source order heading → eyebrow → subtitle. Flex `order` repositions the eyebrow visually above the h1, but slot resolution reads structural position, not visual position.
+- **Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.** Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis.
+
 First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token).
 
 ## When to use
@@ -34,14 +50,6 @@ First slide of every deck. Sets the topic and the visual tone. Suppresses header
 
 One-line subtitle that frames the deck.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h1` | yes | Deck title. |
-| `eyebrow` | `p > code` | no | Optional category label rendered above the h1 (authored as an inline-code paragraph immediately after the h1; flex `order` lifts it above). |
-| `subtitle` | `p` | no | Optional plain-paragraph subtitle below the h1. |
 
 ## Anatomy
 

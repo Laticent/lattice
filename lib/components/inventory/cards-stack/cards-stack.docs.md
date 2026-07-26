@@ -6,9 +6,18 @@
 
 **Tags** `overview` · `summary` · `reference`
 
+## Agent contract
+
 **Capacity** ~3 items (crowds past 4, overflows past 4) — past that, list-tabular / split across slides.
 
 **Density** aim ~16 words per item; past ~26 it reads as a wall of text — a stacked card is a short paragraph at most.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `cards` | `ul > li` | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional trailing inline `code` on the title line renders as a right-anchored pill. |
 
 Use when the items want vertical reading order — sequential exploration rather than a-glance comparison. 2–4 items work best (a fourth fits with the `compact` modifier).
 
@@ -38,13 +47,6 @@ Use when the items want vertical reading order — sequential exploration rather
 - Third card title
   - Body text for the third stacked card.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `cards` | `ul > li` | yes | Each list item becomes one stacked card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text. An optional trailing inline `code` on the title line renders as a right-anchored pill. |
 
 ## Anatomy
 

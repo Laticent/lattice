@@ -6,6 +6,15 @@
 
 **Tags** `section-break` · `agenda-setting` · `walkthrough`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Section name. |
+| `eyebrow` | `p > code` | no | Optional section number or category label above the heading. |
+
 Marks the start of a major section. Use sparingly — every divider is a context switch for the audience. A 30-slide deck typically has 3-5 dividers; more becomes navigation noise.
 
 ## When to use
@@ -33,13 +42,6 @@ Marks the start of a major section. Use sparingly — every divider is a context
 
 ## Section name
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Section name. |
-| `eyebrow` | `p > code` | no | Optional section number or category label above the heading. |
 
 ## Anatomy
 

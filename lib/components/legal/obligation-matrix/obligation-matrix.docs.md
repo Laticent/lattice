@@ -6,6 +6,16 @@
 
 **Tags** `compliance` · `regulation` · `stoplight`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | yes | Slide heading framing what the matrix compares. |
+| `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells. |
+| `legend` | `p` | no | Optional trailing paragraph explaining the state-marker meanings or what to take from the matrix. |
+
 Use when many regimes need comparing across the same obligations. Cells carry the universal state-token grammar ([x] applies, [-] partial, [ ] exempt, [/] out of scope) shared with checklist / verdict-grid / roadmap.
 
 ## When to use
@@ -35,14 +45,6 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 
 Filled = applies, half = partial, empty = exempt.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | yes | Slide heading framing what the matrix compares. |
-| `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells. |
-| `legend` | `p` | no | Optional trailing paragraph explaining the state-marker meanings or what to take from the matrix. |
 
 ## Anatomy
 

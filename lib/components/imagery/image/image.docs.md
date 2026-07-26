@@ -6,6 +6,16 @@
 
 **Tags** `visual` · `showcase` · `pitch`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `image` | `.lattice-bg` | yes | Marp background image syntax: `![bg](path)` or `![bg right](path)` — rendered as a CSS background-image on the `.lattice-bg` panel (no `<img>`). |
+| `heading` | `h2` | no | Optional heading in the text slot. |
+| `body` | `p` | no | Optional caption or body text. |
+
 Use when a visual carries meaning on its own. You hand it any rectangle; the layout reads the asset's aspect at build time and, with the deck orientation, RESOLVES the composition for you — no modifier needed. The default is `clean` (a floated card shaped to the photo, ≈ zero crop); extreme aspects auto-pick `split` (shown whole) or `spotlight` (full-bleed cover). Name a composition to override: `clean` · `split` · `spotlight` · `gallery` (contain-on-matte, for diagrams) · `statement` (full-bleed + scrim + title). `mirror` flips the image side. Legacy `full`/`contain`/`museum` still work (→ spotlight/gallery/gallery).
 
 ## When to use
@@ -31,14 +41,6 @@ Swap the bg image below for your own asset — any aspect. The layout reads its 
 
 ![bg](sample-photo-wide.svg)
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `image` | `.lattice-bg` | yes | Marp background image syntax: `![bg](path)` or `![bg right](path)` — rendered as a CSS background-image on the `.lattice-bg` panel (no `<img>`). |
-| `heading` | `h2` | no | Optional heading in the text slot. |
-| `body` | `p` | no | Optional caption or body text. |
 
 ## Anatomy
 

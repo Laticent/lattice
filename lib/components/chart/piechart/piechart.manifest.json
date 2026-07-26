@@ -101,5 +101,35 @@
       "sample": "<!-- _class: piechart donut -->\n\n`H1 2026 · 1,840 person-hours`\n\n## donut opens the center for the total.\n\nThe toil-and-on-call slice is the one nobody put in the roadmap.\n\n- Signal Intake build `46%`\n- Scoring policy work `22%`\n- Decision Log integration `18%`\n- Explaining the framework to stakeholders `9%`\n- Toil and on-call `5%`\n\nRefreshed weekly · figures from the time-tracking export\n"
     }
   },
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Analyst or working-session decks, or a low slice count (3-4) where the full disc reads cleanly without competing for the center."
+    },
+    {
+      "variant": "donut",
+      "useWhen": "Board/investor decks by default, or whenever a `detail` sublist under a slice needs somewhere for its context to visually land — the open center is where that annotation reads."
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Slice values mix formats, e.g. some as `40%` and others as `120 hrs` in the same chart.",
+      "fix": "Every slice pill in one chart shares the same unit/format. Mixing formats breaks the part-to-whole read the wedges are supposed to communicate."
+    },
+    {
+      "mistake": "Slices authored in a random order instead of largest-to-smallest.",
+      "fix": "piechart does not auto-sort — author order is wedge draw order. List slices in descending value (or another deliberate narrative order); a shuffled list scatters the visual hierarchy the wedges carry."
+    },
+    {
+      "mistake": "A `detail` sublist under a slice authored as a numbered list.",
+      "fix": "Detail sublists must be bullet (`-`/`*`) lists, not numbered — the shared chart-family detail substrate (funnel/map/quadrant/radar too) only picks up bullet lists."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Values should sum to a meaningful whole (ideally ~100%, or one consistent unit like person-hours) — the wedge angles are only meaningful as a partition, not as independent metrics.",
+    "Author slices in descending value order; the engine draws wedges in source order and never auto-sorts.",
+    "Keep every slice label to 1-3 words — the legend sits beside the wedges and long labels wrap and crowd it.",
+    "Stay at 3-6 slices for the sweet spot; past ~8 the legend and wedges both degrade, and past 11 (the stress-tested ceiling) individual slices stop being readable — collapse the long tail into a single `Other` slice instead."
+  ],
   "specimenVoice": true
 }

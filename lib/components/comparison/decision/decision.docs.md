@@ -6,7 +6,16 @@
 
 **Tags** `recommendation` · `tradeoff` · `strategy`
 
+## Agent contract
+
 **Density** aim ~20 words per item; past ~32 it reads as a wall of text — each option's tradeoff in a sentence or two.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the decision. |
+| `options` | `ul > li` | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
 
 Use after a comparison slide to land the decision. The justifications render as one unified categorical strip — co-equal cards that together signal a single resolved verdict; the heading carries the decision, not a focal/subordinated split.
 
@@ -34,13 +43,6 @@ Use after a comparison slide to land the decision. The justifications render as 
 - Rejected option
   - One-line rationale for why this didn't fit.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the decision. |
-| `options` | `ul > li` | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
 
 ## Anatomy
 

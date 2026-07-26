@@ -97,15 +97,22 @@ function tableCell(s) {
  * Sections, in order:
  *   1. Heading + one-line description
  *   2. Function/Form/Substance triplet table
- *   3. When to use (from whenToUse[])
- *   4. When NOT to use (from antiPatterns[])
- *   5. Authoring skeleton (from skeleton)
- *   6. Slots (from slots{})
- *   7. Anatomy (from anatomy, if present)
- *   8. Variants (from variantDocs{}, layout-specific only)
- *   9. Universal modifiers pointer (always)
- *   10. Related components (from related[])
- *   11. Demo pointer (always)
+ *   3. Agent contract: capacity/density budgets, slots (from slots{}),
+ *      variant decision rule (from variantDecisionRule[]), common mistakes
+ *      (from commonMistakes[]), data shape guidance (from
+ *      dataShapeGuidance[]) — the machine-actionable block, front-loaded so
+ *      an agent authoring a slide of this component doesn't have to wade
+ *      through narrative prose to find it. Whole section omitted when the
+ *      manifest carries none of its inputs.
+ *   4. Purpose paragraph (from purpose)
+ *   5. When to use (from whenToUse[])
+ *   6. When NOT to use (from antiPatterns[])
+ *   7. Authoring skeleton (from skeleton)
+ *   8. Anatomy (from anatomy, if present)
+ *   9. Variants (from variantDocs{}, layout-specific only)
+ *   10. Universal modifiers pointer (always)
+ *   11. Related components (from related[])
+ *   12. Demo pointer (always)
  */
 // ── renderDocs sections ──────────────────────────────────────────────────
 // One emitter per numbered section of the doc (see the contract above);
@@ -125,21 +132,81 @@ function emitDocsHeader(m, lines) {
   }
 }
 
-function emitDocsBudgets(m, lines) {
-  if (m.capacity) {
+/**
+ * The machine-actionable contract: budgets, slots, and (where declared)
+ * the three agent-contract fields (variantDecisionRule, commonMistakes,
+ * dataShapeGuidance — manifest.schema.json). Emits nothing when the
+ * manifest carries none of these inputs, so an unmigrated component's
+ * docs.md is unchanged apart from section order.
+ */
+function emitAgentContract(m, lines) {
+  const hasCapacity = Boolean(m.capacity);
+  const hasDensity = Boolean(m.density);
+  const hasSlots = Boolean(m.slots && Object.keys(m.slots).length);
+  const hasVariantRule = Array.isArray(m.variantDecisionRule) && m.variantDecisionRule.length > 0;
+  const hasMistakes = Array.isArray(m.commonMistakes) && m.commonMistakes.length > 0;
+  const hasDataShape = Array.isArray(m.dataShapeGuidance) && m.dataShapeGuidance.length > 0;
+  if (!hasCapacity && !hasDensity && !hasSlots && !hasVariantRule && !hasMistakes && !hasDataShape) return;
+
+  lines.push('## Agent contract');
+  lines.push('');
+
+  if (hasCapacity) {
     const c = m.capacity;
     const sweet = c.sweet != null ? c.sweet : c.soft;
     const esc = Array.isArray(c.escalateTo) && c.escalateTo.length ? ` — past that, ${c.escalateTo.join(' / ')}` : '';
     lines.push(`**Capacity** ~${sweet} ${axisNoun(c.axis, sweet)} (crowds past ${c.soft}, overflows past ${c.hard})${esc}.`);
     lines.push('');
   }
-  if (m.density) {
+  if (hasDensity) {
     const d = m.density;
     const axis = d.axis || m.capacity?.axis || 'item';
     const note = d.note ? ` — ${d.note}` : '';
     lines.push(`**Density** aim ~${d.soft} words per ${axisNoun(axis, 1)}; past ~${d.hard} it reads as a wall of text${note}.`);
     lines.push('');
   }
+
+  if (hasSlots) {
+    lines.push('### Slots');
+    lines.push('');
+    lines.push('| Slot | Selector | Required | Description |');
+    lines.push('|---|---|---|---|');
+    for (const [slotName, slot] of Object.entries(m.slots)) {
+      const req = slot.required ? 'yes' : 'no';
+      lines.push(`| \`${slotName}\` | \`${slot.selector}\` | ${req} | ${tableCell(slot.description)} |`);
+    }
+    lines.push('');
+  }
+
+  if (hasVariantRule) {
+    lines.push('### Variant decision rule');
+    lines.push('');
+    for (const entry of m.variantDecisionRule) {
+      lines.push(`- **${entry.variant}.** ${entry.useWhen}`);
+    }
+    lines.push('');
+  }
+
+  if (hasMistakes) {
+    lines.push('### Common mistakes');
+    lines.push('');
+    for (const entry of m.commonMistakes) {
+      lines.push(`- **${entry.mistake}** ${entry.fix}`);
+    }
+    lines.push('');
+  }
+
+  if (hasDataShape) {
+    lines.push('### Data shape');
+    lines.push('');
+    for (const rule of m.dataShapeGuidance) {
+      lines.push(`- ${rule}`);
+    }
+    lines.push('');
+  }
+}
+
+function emitDocsPurpose(m, lines) {
   if (m.purpose) {
     lines.push(m.purpose);
     lines.push('');
@@ -172,17 +239,6 @@ function emitDocsAuthoring(m, lines) {
   lines.push(m.skeleton.replace(/\n$/, ''));
   lines.push('```');
   lines.push('');
-  if (m.slots && Object.keys(m.slots).length) {
-    lines.push('## Slots');
-    lines.push('');
-    lines.push('| Slot | Selector | Required | Description |');
-    lines.push('|---|---|---|---|');
-    for (const [slotName, slot] of Object.entries(m.slots)) {
-      const req = slot.required ? 'yes' : 'no';
-      lines.push(`| \`${slotName}\` | \`${slot.selector}\` | ${req} | ${tableCell(slot.description)} |`);
-    }
-    lines.push('');
-  }
   if (m.anatomyBlock) {
     lines.push('## Anatomy');
     lines.push('');
@@ -238,7 +294,8 @@ function emitDocsPointers(m, lines) {
 function renderDocs(m) {
   const lines = [];
   emitDocsHeader(m, lines);
-  emitDocsBudgets(m, lines);
+  emitAgentContract(m, lines);
+  emitDocsPurpose(m, lines);
   emitDocsGuidance(m, lines);
   emitDocsAuthoring(m, lines);
   emitDocsVariants(m, lines);

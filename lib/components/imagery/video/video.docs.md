@@ -6,6 +6,16 @@
 
 **Tags** `visual` · `showcase` · `pitch`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `heading` | `h2` | no | Optional heading — the so-what of the clip, not 'Video'. |
+| `video` | `.video-embed` | yes | The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR. |
+| `caption` | `.video-embed figcaption` | no | Optional caption bullet — `- Scan to watch `caption``. |
+
 Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the deck renders to a static PDF (and the engine bars iframes), a `video` slide shows a POSTER with a play badge + provider label — the poster is a clickable link in the HTML/PDF — and, when you add the `qr` modifier, a scannable code the room can scan to watch. Two compositions: `companion` (a claim leads on the left, the clip proves it on the right) and `gallery` (a contained, matted exhibit). Author the URL as a bare bullet; add an optional `caption` and an optional `poster` override. Provider is auto-detected.
 
 ## When to use
@@ -32,14 +42,6 @@ One screen, one story — the fastest way to see the product work.
 - https://www.youtube.com/watch?v=aqz-KE-bpKQ
 - A guided walkthrough `caption`
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `heading` | `h2` | no | Optional heading — the so-what of the clip, not 'Video'. |
-| `video` | `.video-embed` | yes | The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR. |
-| `caption` | `.video-embed figcaption` | no | Optional caption bullet — `- Scan to watch `caption``. |
 
 ## Variants (component-specific)
 

@@ -6,9 +6,19 @@
 
 **Tags** `dashboard` · `metric` · `percentage`
 
+## Agent contract
+
 **Capacity** ~4 items (crowds past 5, overflows past 6) — past that, kpi / split across slides.
 
 **Density** aim ~8 words per item; past ~14 it reads as a wall of text — a metric label, not a sentence.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the metrics. |
+| `subtitle` | `p > code` | no | Optional inline-code paragraph (eyebrow before the h2, or caption after it). Styled by the generic `> p`/`> em` rule, not a dedicated `p > code` rule. |
+| `tiles` | `ol > li` | yes | One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:     1. 73%        - faster close A bare number with no nested caption won't render as the big number. |
 
 Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile reads as Big Number + caption.
 
@@ -44,14 +54,6 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 4. −18d
    - avg cycle time
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the metrics. |
-| `subtitle` | `p > code` | no | Optional inline-code paragraph (eyebrow before the h2, or caption after it). Styled by the generic `> p`/`> em` rule, not a dedicated `p > code` rule. |
-| `tiles` | `ol > li` | yes | One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:     1. 73%        - faster close A bare number with no nested caption won't render as the big number. |
 
 ## Anatomy
 

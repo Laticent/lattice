@@ -6,7 +6,16 @@
 
 **Tags** `overview` · `summary` · `takeaway` · `walkthrough`
 
+## Agent contract
+
 **Density** aim ~14 words per item; past ~20 it reads as a wall of text — one statement per line, not a paragraph.
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading. |
+| `items` | `ul > li, ol > li` | yes | List items. Keep each under ~12 words. |
 
 Use when the items are genuinely a flat list of one-line points. The default renders accent-bordered pills; the `takeaway` variant renders hairline-ruled single-line takeaways (former tldr); the `principles` variant renders display-weight numbered statements with a large counter (former principles). For richer per-item structure, prefer cards-grid, cards-stack, or list-tabular.
 
@@ -37,13 +46,6 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 - Fourth short bullet point.
 - Fifth short bullet point.
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading. |
-| `items` | `ul > li, ol > li` | yes | List items. Keep each under ~12 words. |
 
 ## Anatomy
 

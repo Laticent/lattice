@@ -6,6 +6,34 @@
 
 **Tags** `donut` · `proportion` · `percentage`
 
+## Agent contract
+
+### Slots
+
+| Slot | Selector | Required | Description |
+|---|---|---|---|
+| `title` | `h2` | yes | Slide heading framing the breakdown. |
+| `slices` | `ul > li` | yes | One li per slice: label text then a trailing inline-code value pill, e.g. - Marketing `40%` (slices are drawn proportionally to the values). |
+| `detail` | `li > ul` | no | Optional nested sublist under a slice. Drives two surfaces from one source via the shared chart-family detail substrate (identical to funnel/map/quadrant/radar): (1) Present/Practice — the kernel keeps the label/value as-is, tags each wedge `<path>` with `data-mark`, and emits the sublist as an inert `<template class="chart-detail">` (inside a `.chart-details` wrapper) the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment, which notes-core lifts into the per-slide note channel (a PDF text annotation + the hidden `aside`). The note rides the existing channel, so the chart pixels stay byte-identical. A pie with no sublists emits no note and is unchanged. Detail sublists must be bullet (`-`/`*`) lists, not numbered. |
+
+### Variant decision rule
+
+- **default.** Analyst or working-session decks, or a low slice count (3-4) where the full disc reads cleanly without competing for the center.
+- **donut.** Board/investor decks by default, or whenever a `detail` sublist under a slice needs somewhere for its context to visually land — the open center is where that annotation reads.
+
+### Common mistakes
+
+- **Slice values mix formats, e.g. some as `40%` and others as `120 hrs` in the same chart.** Every slice pill in one chart shares the same unit/format. Mixing formats breaks the part-to-whole read the wedges are supposed to communicate.
+- **Slices authored in a random order instead of largest-to-smallest.** piechart does not auto-sort — author order is wedge draw order. List slices in descending value (or another deliberate narrative order); a shuffled list scatters the visual hierarchy the wedges carry.
+- **A `detail` sublist under a slice authored as a numbered list.** Detail sublists must be bullet (`-`/`*`) lists, not numbered — the shared chart-family detail substrate (funnel/map/quadrant/radar too) only picks up bullet lists.
+
+### Data shape
+
+- Values should sum to a meaningful whole (ideally ~100%, or one consistent unit like person-hours) — the wedge angles are only meaningful as a partition, not as independent metrics.
+- Author slices in descending value order; the engine draws wedges in source order and never auto-sorts.
+- Keep every slice label to 1-3 words — the legend sits beside the wedges and long labels wrap and crowd it.
+- Stay at 3-6 slices for the sweet spot; past ~8 the legend and wedges both degrade, and past 11 (the stress-tested ceiling) individual slices stop being readable — collapse the long tail into a single `Other` slice instead.
+
 Use for part-to-whole breakdowns with three to six slices. Add the `donut` modifier for a hole in the middle — visually cleaner for executive decks.
 
 ## When to use
@@ -34,14 +62,6 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 - Third slice `20%`
 - Fourth slice `10%`
 ```
-
-## Slots
-
-| Slot | Selector | Required | Description |
-|---|---|---|---|
-| `title` | `h2` | yes | Slide heading framing the breakdown. |
-| `slices` | `ul > li` | yes | One li per slice: label text then a trailing inline-code value pill, e.g. - Marketing `40%` (slices are drawn proportionally to the values). |
-| `detail` | `li > ul` | no | Optional nested sublist under a slice. Drives two surfaces from one source via the shared chart-family detail substrate (identical to funnel/map/quadrant/radar): (1) Present/Practice — the kernel keeps the label/value as-is, tags each wedge `<path>` with `data-mark`, and emits the sublist as an inert `<template class="chart-detail">` (inside a `.chart-details` wrapper) the reveal layer reads; (2) the static PDF — the same detail is folded into the slide's speaker note (`Label (value): item · item`) as a Marp-faithful comment, which notes-core lifts into the per-slide note channel (a PDF text annotation + the hidden `aside`). The note rides the existing channel, so the chart pixels stay byte-identical. A pie with no sublists emits no note and is unchanged. Detail sublists must be bullet (`-`/`*`) lists, not numbered. |
 
 ## Anatomy
 
