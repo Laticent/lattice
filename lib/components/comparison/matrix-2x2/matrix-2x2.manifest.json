@@ -27,7 +27,6 @@
       "quadrant"
     ],
     "capacity": {
-      "axis": "item",
       "wide": {
         "sweet": 4,
         "soft": 4,
@@ -47,7 +46,8 @@
         "sweet": 4,
         "soft": 4,
         "hard": 4
-      }
+      },
+      "axisRetired": "ATOMIC text grid — a 2x2 quadrant read is destroyed by splitting BETWEEN quadrants (you would see 2 of 4 cells with no axis structure), and it has no viewBox to scale, so it RINGS on overflow. §0c owner resolution 2026-07-22 + its named follow-on (\"stale capacity.axis - remove it from matrix-2x2\"). The axis was retained here only as a per-family COUNT estimate, but the split registry reads it as an opt-in, which enrolled the component against its own resolution."
     }
   },
   "tags": [

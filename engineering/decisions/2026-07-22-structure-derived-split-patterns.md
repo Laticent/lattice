@@ -225,8 +225,17 @@ packing — rejected as jarring); `code` splits into multiple code-cards.
 - **`code`** — a line/block code-card splitter (`partitionAxis` refuses `line` today).
 - **`kanban`** — reconcile "keep-whole" vs its `kanban-lanes` per-lane split (the
   per-lane split loses the To-Do/Doing/Done read).
-- **stale `capacity.axis`** — remove it from `matrix-2x2` (atomic, not splittable);
-  verify `cycle`'s is right for card-splitting.
+- **stale `capacity.axis`** — ~~remove it from `matrix-2x2` (atomic, not splittable)~~ **DONE
+  (P-envelope)**, together with `split-compare`, which had the identical defect and was missing
+  from this list. Both declared the axis under `adapt.capacity` only, which the split registry
+  reads as an OPT-IN, so both were enrolled against their own §0c resolutions. Caught visually:
+  a portrait render of the jargon gallery split `matrix-2x2` into three pages showing 2 of 4
+  quadrants with no axis structure, behind an accent cover that made the damage look deliberate
+  — on a slide whose heading is "How we sort the four tools against our two axes". It now RINGS
+  (the §0c terminal): one page, clipped, with the export's overflow warning naming it. NOTE the
+  ring does not restore the 2×2 in portrait — the component's own box-local reflow collapses the
+  quadrants to a single column at `aspect-ratio <= 0.9` regardless, which is a separate question
+  about whether an atomic text grid should reflow at all. Still open: verify `cycle`'s axis.
 
 **SVG container-responsiveness audit (2026-07-22) — the "graphics fill their box"
 contract holds, with one logged defect.** All SVG components (funnel, map, quadrant,

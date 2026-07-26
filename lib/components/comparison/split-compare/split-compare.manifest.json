@@ -28,7 +28,6 @@
       "option"
     ],
     "capacity": {
-      "axis": "item",
       "wide": {
         "sweet": 2,
         "soft": 2,
@@ -48,7 +47,8 @@
         "sweet": 2,
         "soft": 2,
         "hard": 2
-      }
+      },
+      "axisRetired": "READ-ACROSS — keep whole / carousel (§0c). Its meaning lives in the cross-reading between the two sides, so an item-axis split destroys it. Same stale-axis defect as matrix-2x2, which the follow-on list named while missing this one."
     }
   },
   "tags": [

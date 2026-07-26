@@ -287,6 +287,15 @@ in patch versions.
 
 ### Fixed
 
+- **`matrix-2x2` and `split-compare` no longer split — they ring, as their own design record says.**
+  Both declared a split axis under `adapt.capacity` only, and the split registry reads that as an
+  opt-in, so both were enrolled against the dated resolutions that place them as *atomic text grid*
+  and *read-across, keep whole*. A portrait render broke a 2×2 into three pages showing two of four
+  quadrants with no axis structure — on a slide headed "how we sort the four tools against our two
+  axes" — behind an accent cover that made it look intentional. Splitting a quadrant grid or a
+  read-across comparison destroys the only thing it says, so overflow now rings (the honest signal
+  to the author) instead of being silently re-authored.
+
 - **`inventory`'s row numbers no longer sit on top of the row titles in a portrait deck.** The
   ledger variant positions its `01`/`02` ordinal absolutely — it has to, because the row stacks a
   block title over its body prose — so the row must reserve the gutter itself. The gutter was sized
