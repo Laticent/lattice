@@ -87,8 +87,14 @@ function tc(s) {
  * Markdown-escape a string for use inside a table cell. Newlines and
  * pipe characters break table rendering.
  */
+// Matches any line-ending sequence — CRLF, bare CR, or bare LF. CommonMark
+// treats a bare \r as a line ending same as \n (spec §2.3), so a collapse
+// that only matches `\n+` leaves `\r\r## Heading` able to inject a real
+// heading; both tableCell() and bulletLine() must fold all three forms.
+const LINE_ENDINGS = /(?:\r\n|\r|\n)+/g;
+
 function tableCell(s) {
-  return String(s).replace(/\|/g, '\\|').replace(/\n+/g, ' ');
+  return String(s).replace(/\|/g, '\\|').replace(LINE_ENDINGS, ' ');
 }
 
 /**
@@ -99,7 +105,7 @@ function tableCell(s) {
  * line keeps every entry exactly one bullet, regardless of manifest content.
  */
 function bulletLine(s) {
-  return String(s).replace(/\s*\n+\s*/g, ' ').trim();
+  return String(s).replace(new RegExp(`\\s*${LINE_ENDINGS.source}\\s*`, 'g'), ' ').trim();
 }
 
 /**

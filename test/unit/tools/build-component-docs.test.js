@@ -62,6 +62,20 @@ describe('renderDocs — Agent contract', () => {
     assert.match(docs, /^- shape one ## Also injected too$/m);
   });
 
+  test('bare CR and CRLF line endings are also collapsed, not just LF (CommonMark treats \\r as a line ending too)', () => {
+    const docs = renderDocs({
+      ...BASE,
+      commonMistakes: [{ mistake: 'bare CR\r\r## Injected via CR', fix: 'ok' }],
+      dataShapeGuidance: ['CRLF\r\n\r\n## Injected via CRLF'],
+    });
+    const headings = docs.match(/^#{1,6} .+$/gm) || [];
+    for (const h of headings) {
+      assert.ok(!/injected/i.test(h), `an injected heading leaked through: ${h}`);
+    }
+    assert.match(docs, /^- \*\*bare CR ## Injected via CR\*\* ok$/m);
+    assert.match(docs, /^- CRLF ## Injected via CRLF$/m);
+  });
+
   test('the "default" variantDecisionRule sentinel renders distinctly from a real variant token', () => {
     const docs = renderDocs({
       ...BASE,

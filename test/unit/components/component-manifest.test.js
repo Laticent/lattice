@@ -339,6 +339,22 @@ describe('component-manifest', () => {
         validate({ ...GOOD, commonMistakes: [{ mistake: 'm', fix: '' }] })[0],
         /commonMistakes\[0\]\.fix must be a non-empty string/
       );
+      assert.match(
+        validate({ ...GOOD, commonMistakes: [{ mistake: '   ', fix: 'f' }] })[0],
+        /commonMistakes\[0\]\.mistake must be a non-empty string/,
+        'whitespace-only counts as empty (the generator trims it to nothing)'
+      );
+      assert.match(
+        validate({
+          ...GOOD,
+          commonMistakes: [
+            { mistake: 'Same mistake.', fix: 'a' },
+            { mistake: '  same mistake.  ', fix: 'b' },
+          ],
+        })[0],
+        /commonMistakes\[1\]\.mistake is a duplicate/,
+        'a repeated mistake (case/whitespace-insensitive) is rejected — the docs-site view keys its <li> on this string'
+      );
     });
 
     test('variantDecisionRule: accepts "default" and declared variants, rejects an undeclared one', () => {
@@ -369,6 +385,22 @@ describe('component-manifest', () => {
         validate({ ...GOOD, variantDecisionRule: [{ variant: 'default' }] })[0],
         /variantDecisionRule\[0\]\.useWhen must be a non-empty string/
       );
+      assert.match(
+        validate({ ...GOOD, variantDecisionRule: [{ variant: 'default', useWhen: '   ' }] })[0],
+        /variantDecisionRule\[0\]\.useWhen must be a non-empty string/,
+        'whitespace-only counts as empty'
+      );
+      assert.match(
+        validate({
+          ...GOOD,
+          variantDecisionRule: [
+            { variant: 'default', useWhen: 'a' },
+            { variant: 'default', useWhen: 'b' },
+          ],
+        })[0],
+        /variantDecisionRule\[1\]\.variant "default" is a duplicate/,
+        'a repeated variant token — even the default sentinel — is rejected, not silently doubled'
+      );
     });
 
     test('dataShapeGuidance: accepts an array of non-empty strings, rejects other shapes', () => {
@@ -381,6 +413,16 @@ describe('component-manifest', () => {
       assert.match(
         validate({ ...GOOD, dataShapeGuidance: [{ not: 'a string' }] })[0],
         /dataShapeGuidance\[0\] must be a non-empty string/
+      );
+      assert.match(
+        validate({ ...GOOD, dataShapeGuidance: ['   '] })[0],
+        /dataShapeGuidance\[0\] must be a non-empty string/,
+        'whitespace-only counts as empty (the generator trims it to nothing)'
+      );
+      assert.match(
+        validate({ ...GOOD, dataShapeGuidance: ['Same rule.', '  same rule.  '] })[0],
+        /dataShapeGuidance\[1\] is a duplicate/,
+        'a repeated rule (case/whitespace-insensitive) is rejected — the docs-site view keys its <li> on this string'
       );
     });
 
