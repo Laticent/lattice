@@ -96,7 +96,8 @@ function tableCell(s) {
  *
  * Sections, in order:
  *   1. Heading + one-line description
- *   2. Function/Form/Substance triplet table
+ *   2. Function/Form/Substance line + tags (a single inline line each,
+ *      not a table)
  *   3. Purpose paragraph (from purpose) — kept as plain top-matter, same as
  *      before this contract split, so it never dangles unheaded under the
  *      LAST subsection of the block that follows.
