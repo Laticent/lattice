@@ -17,6 +17,11 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 | `quotation` | `blockquote > p` | yes | The quoted text. |
 | `attribution` | `section > p:last-child` | no | Attribution line below the quote. |
 
+### Common mistakes
+
+- **Writing the attribution as a second line inside the blockquote (`> quote text` then `> — Person`) instead of a separate paragraph after it.** The attribution slot is the paragraph AFTER the blockquote, not inside it — written inside, it inherits the blockquote's large italic quotation styling instead of the smaller attribution treatment.
+- **Splitting the quotation across two paragraphs inside the blockquote.** The blockquote's opening/closing smart-quote glyphs decorate the blockquote as a whole, once — two paragraphs inside it both render at full quotation size with no visual distinction, instead of the single continuous quotation the layout expects.
+
 ## When to use
 
 - **Verbatim language matters.** When the audience needs to hear the words exactly as they were said — customer feedback, expert claim, regulatory text, mission statement. Paraphrasing would lose the impact.

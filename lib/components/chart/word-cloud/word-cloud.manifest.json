@@ -117,5 +117,37 @@
       "sample": "<!-- _class: word-cloud focal -->\n\n## focal crowns one word the center.\n\n- variants `5`\n- gallery `2`\n- manifest `2`\n- docs `1`\n- declared `1`\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Using a weight of zero or a negative number.",
+      "fix": "Weight must be a positive number — the sizing scale maps the lightest word to small/muted and the heaviest to hero size; a zero or negative weight has no defined position on that scale."
+    },
+    {
+      "mistake": "Using ascending rank numbers (1st place, 2nd place, …) as the weight, expecting rank 1 to render biggest.",
+      "fix": "Weight is a MAGNITUDE where higher means bigger — a rank-style scale where '1' means 'most important' renders as the SMALLEST word, not the biggest. Invert rank into magnitude before authoring (the top-ranked term gets the highest number)."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "The standard spiral pack — the plainest read for a moderate-sized cloud."
+    },
+    {
+      "variant": "constellation",
+      "useWhen": "The words should scatter like a starfield rather than pack tightly — a lighter, more open composition."
+    },
+    {
+      "variant": "dense",
+      "useWhen": "The corpus is large (15-20 items) and needs to pack tightly to fit without shrinking below legibility."
+    },
+    {
+      "variant": "spectrum",
+      "useWhen": "Weight should also read as a color gradient, not just size — reinforces rank with a second visual channel."
+    },
+    {
+      "variant": "focal",
+      "useWhen": "One single term dominates the theme and deserves to be crowned dead-center rather than just the largest node in a spiral."
+    }
+  ],
   "specimenVoice": true
 }

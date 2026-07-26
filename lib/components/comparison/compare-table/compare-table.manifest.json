@@ -119,5 +119,11 @@
       "when": "each row needs full-prose breathing room rather than a tabular cell"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing a vague or duplicate first column, assuming it's just another data column.",
+      "fix": "In a portrait/narrow box the Fit Ladder reshapes an overflowing table into row-cards (column headers become in-card labels) instead of clipping it — the FIRST column becomes each card's title in that reshape, so it needs to be a genuinely identifying label per row."
+    }
+  ],
   "specimenVoice": true
 }

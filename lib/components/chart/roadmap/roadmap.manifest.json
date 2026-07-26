@@ -125,6 +125,34 @@
       "sample": "<!-- _class: roadmap milestones -->\n\n`Layout · roadmap milestones`\n\n## milestones pins the dated path.\n\n| Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |\n| ------------- | -------------------- | ---------------------- | ------------------------- |\n| Signal Intake | Connector v1     | Multi-source dedupe        | Anomaly auto-routing  |\n| Scoring       | Equal weights        | Per-team calibration   | Per-decision profiles    |\n| Decision Log  | Append schema        | Outcome pairing        | Auditor export            |\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Writing the deliverable text before the state marker in a cell.",
+      "fix": "Each cell must LEAD with the state marker (`[x] Shipped item`), not follow it — a marker placed after the text isn't recognized as the cell's state."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "A plain phased grid — deliverables with state markers, no extra framing."
+    },
+    {
+      "variant": "horizons",
+      "useWhen": "The plan is framed as Now/Next/Later strategic horizons rather than literal calendar phases."
+    },
+    {
+      "variant": "status",
+      "useWhen": "Delivery state itself is the headline read — every cell already labels its own state explicitly, so the auto-emitted legend key is suppressed."
+    },
+    {
+      "variant": "swimlane",
+      "useWhen": "Each team's track should read as its own lane rather than a uniform grid — emphasizes team ownership over the grid structure."
+    },
+    {
+      "variant": "milestones",
+      "useWhen": "The phases are named, dated release gates (Beta/RC/GA) rather than generic quarters — pins a dated path."
+    }
+  ],
   "showcase": {
     "featured": true
   },

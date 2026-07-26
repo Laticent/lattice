@@ -21,6 +21,17 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 | `title` | `h2` | yes | Slide heading. |
 | `lanes` | `ul > li` | yes | Three levels. Outer li = column header as plain text (e.g. Backlog). Each inner li = a card: title then a trailing inline-code size badge (S/M/L/XL; other codes are left in the title). Each card may carry its own nested bullet = a categorical lane label, optionally with a trailing status pill, e.g. - platform `at-risk`. A column titled Done / Completed / Shipped / Closed dims its cards. Status vocabulary matches the shared chart set (on-track / done / live / at-risk / warn / blocked / fail / deferred / pilot / decision). |
 
+### Variant decision rule
+
+- **default (no modifier).** Color is spent only on STATUS pills — a calm neutral grid where a flagged card is the one visual standout.
+- **`keyline`.** Cards should be color-coded by CATEGORY (their nested lane label) via a hairline, not by column.
+- **`tinted`.** Each COLUMN/stage itself should carry a colored wash, making the board's stage structure the first thing the eye reads.
+
+### Common mistakes
+
+- **Naming a column something other than Done/Completed/Shipped/Closed, expecting the finished-work dimming treatment anyway.** The dimmed treatment for completed work triggers off the COLUMN TITLE TEXT matching Done/Completed/Shipped/Closed exactly — a column named e.g. 'Finished' or 'Live' won't dim even if it functionally means the same thing.
+- **Placing the status pill on the card's title line instead of its nested lane-label bullet.** Size badges (S/M/L/XL) trail the card TITLE; the status pill trails the nested lane-label bullet one level deeper (`- platform \`at-risk\``) — a status pill on the title line instead just becomes an unrecognized trailing code left in the title.
+
 ## When to use
 
 - **Status snapshot by stage.** When the audience needs to see what is in each lane right now — backlog, in progress, review, done. The board reads as the current state of the work, not its history or schedule.

@@ -156,5 +156,53 @@
       "sample": "<!-- _class: math matrix decompose -->\n\n## decompose colors the terms it names.\n\n$$\n\\begin{pmatrix} 2 & 1 \\\\ 4 & 3 \\end{pmatrix}\n=\n\\begin{pmatrix} 1 & 0 \\\\ 2 & 1 \\end{pmatrix}\n\\begin{pmatrix} 2 & 1 \\\\ 0 & 1 \\end{pmatrix}\n$$\n\n- **$A$** — the original matrix being factorized\n- **$L$** — lower-triangular, unit diagonal\n- **$U$** — upper-triangular\n- **use** — solve $Ax = b$ by forward then back substitution\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Eyebrow written as plain or bold text instead of inline code.",
+      "fix": "The eyebrow matches `p:has(> code:only-child):has(+ h2)` (the shared before-heading rule) — wrap it in backticks and keep it as the section's first child, immediately before the `## heading`; unwrapped it's just a plain paragraph with no eyebrow styling."
+    },
+    {
+      "mistake": "Legend items lead with plain text instead of the KaTeX symbol, e.g. \"beta hat — OLS coefficient\" instead of the symbol wrapped in `$...$`.",
+      "fix": "Each legend `li` should lead with the symbol exactly as it appears in the display equation, wrapped in `$...$` (e.g. `$\\hat\\beta$` — OLS coefficient) — plain text doesn't render as math and breaks the visual match between the equation and its legend."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Same as `feature` (the bare layout defaults to it) — a single hero equation with a \"where:\" legend."
+    },
+    {
+      "variant": "feature",
+      "useWhen": "Explicit synonym for the default layout — one closed-form expression, legend to the side."
+    },
+    {
+      "variant": "derivation",
+      "useWhen": "The argument is a multi-step chain (2-4 steps), each needing its own justification — a proof or derivation, not a single closed form."
+    },
+    {
+      "variant": "theorem",
+      "useWhen": "Formal Definition/Theorem/Proof exposition for a pure-math audience stating and proving a claim."
+    },
+    {
+      "variant": "compare",
+      "useWhen": "Two or three competing formulations side by side (e.g. frequentist vs Bayesian estimators) — the contrast between approaches is the point."
+    },
+    {
+      "variant": "canvas",
+      "useWhen": "The equation needs a paired visual — a function plot or diagram — typically for ML/quant audiences illustrating a curve or transformation."
+    },
+    {
+      "variant": "matrix",
+      "useWhen": "Linear-algebra-heavy content — a matrix or block structure that needs its own properties/dimensions legend alongside it."
+    },
+    {
+      "variant": "stats",
+      "useWhen": "The headline is a point estimate with uncertainty (CI, p-value, n) rather than a bare closed-form equation."
+    },
+    {
+      "variant": "decompose",
+      "useWhen": "A factorization — a matrix laid out as a sequence of matrices (e.g. LU, SVD) — a compound of `matrix`, not a single hero matrix."
+    }
+  ],
   "specimenVoice": true
 }

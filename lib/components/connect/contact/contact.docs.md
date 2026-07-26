@@ -18,6 +18,11 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 | `fields` | `ul > li` | yes | One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Sharmarke Aden `name``. Keys: name (required), title\|role, org\|company, email, phone\|tel, url\|web. Optional key: `caption` (CTA under the QR). |
 | `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to add me `caption` ``. |
 
+### Common mistakes
+
+- **No field is tagged with the `name` key.** Every contact card needs exactly one field trailing `` `name` `` — without it the vCard has no identity and the hero name area renders empty.
+- **The trailing key doesn't match a supported alias, e.g. `` `position` `` instead of `` `title`/`role` ``.** Only the documented keys are recognized (name, title|role, org|company, email, phone|tel, url|web, caption) — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
+
 ## When to use
 
 - **The scan-to-add-me close.** End a pitch or intro with a code the audience scans to save your contact, instead of trading business cards.

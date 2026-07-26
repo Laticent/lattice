@@ -113,5 +113,15 @@
       "when": "declared statements — the `principles` variant"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Authoring terms out of alphabetical order.",
+      "fix": "The range pill is derived from the FIRST and LAST terms in the list, not computed by sorting — an out-of-order list produces a range pill that doesn't actually describe the terms it contains."
+    },
+    {
+      "mistake": "A term with no nested definition bullet beneath it.",
+      "fix": "Every term needs exactly one nested definition bullet directly beneath it — a term with no nested bullet has no definition to promote into the table's second column."
+    }
+  ],
   "specimenVoice": true
 }

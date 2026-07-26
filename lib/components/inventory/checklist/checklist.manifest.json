@@ -107,6 +107,16 @@
       "when": "each item needs two sentences of body"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing the status pill as plain trailing text instead of inline code.",
+      "fix": "The optional trailing status tag must be inline `code` (e.g. `` `blocked` ``) to render as a floated pill — plain trailing text just becomes part of the line's prose."
+    },
+    {
+      "mistake": "Confusing `[/]` (out-of-scope, struck through) with `[-]` (partial / in-progress).",
+      "fix": "`[-]` marks partial progress (amber dash); `[/]` marks an item explicitly descoped (muted, struck through) — using `[/]` for 'in progress' mis-signals the row as cut rather than underway."
+    }
+  ],
   "showcase": {
     "featured": true
   },

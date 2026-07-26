@@ -17,6 +17,19 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 | `title` | `h2` | yes | Slide heading framing the cloud. |
 | `words` | `ul > li` | yes | One li per word. Format: `word `weight`` where weight is any positive number — a frequency count, a 1–5 rating, a percentage. Words are sized and colored RELATIVE to each other: the lightest maps to small/muted, the heaviest to the hero size/accent. |
 
+### Variant decision rule
+
+- **default (no modifier).** The standard spiral pack — the plainest read for a moderate-sized cloud.
+- **`constellation`.** The words should scatter like a starfield rather than pack tightly — a lighter, more open composition.
+- **`dense`.** The corpus is large (15-20 items) and needs to pack tightly to fit without shrinking below legibility.
+- **`spectrum`.** Weight should also read as a color gradient, not just size — reinforces rank with a second visual channel.
+- **`focal`.** One single term dominates the theme and deserves to be crowned dead-center rather than just the largest node in a spiral.
+
+### Common mistakes
+
+- **Using a weight of zero or a negative number.** Weight must be a positive number — the sizing scale maps the lightest word to small/muted and the heaviest to hero size; a zero or negative weight has no defined position on that scale.
+- **Using ascending rank numbers (1st place, 2nd place, …) as the weight, expecting rank 1 to render biggest.** Weight is a MAGNITUDE where higher means bigger — a rank-style scale where '1' means 'most important' renders as the SMALLEST word, not the biggest. Invert rank into magnitude before authoring (the top-ranked term gets the highest number).
+
 ## When to use
 
 - **Qualitative themes at a glance.** Retrospective summaries, survey verbatims, theme extraction, sentiment scans. The cloud lands what the corpus is about; the silhouette and the biggest words are the read.

@@ -107,6 +107,34 @@
       "sample": "<!-- _class: video companion qr -->\n\n## qr hands the video to the room’s phones.\n\nThe full 90-second tour — scan to open it on your phone.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Scan to watch `caption`\n- video-poster.svg `poster`\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "The caption or poster bullet has no trailing `` `caption` ``/`` `poster` `` inline-code key.",
+      "fix": "The transform only recognizes a caption/poster bullet by its trailing key — a plain bullet with no key is invisible to the payload resolver, so the caption never appears and the poster override is silently dropped."
+    },
+    {
+      "mistake": "Authoring more than one URL bullet, expecting a second clip or a contact-sheet grid.",
+      "fix": "The transform stops at the FIRST bullet whose text or link a provider recognizes — any additional URL bullets are silently ignored, not turned into a second video; only one clip renders per section."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "A standalone video callout with no strong claim beside it — poster plus meta column, the simplest look."
+    },
+    {
+      "variant": "companion",
+      "useWhen": "A specific claim leads the slide and the clip proves it — text and poster split left/right."
+    },
+    {
+      "variant": "gallery",
+      "useWhen": "The video is more exhibit than pitch — contained on a matte the way a diagram or screenshot would be."
+    },
+    {
+      "variant": "qr",
+      "useWhen": "The room should be able to open the clip on their own phones — combines with any other variant to add a scannable code beside the poster."
+    }
+  ],
   "showcase": {
     "featured": false
   },

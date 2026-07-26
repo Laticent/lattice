@@ -82,5 +82,11 @@
       "when": "the diagram is one element in a prose slide"
     }
   ],
-  "showcase": { "featured": true, "page": 4 }
+  "showcase": { "featured": true, "page": 4 },
+  "commonMistakes": [
+    {
+      "mistake": "Eyebrow written as plain or bold text instead of inline code.",
+      "fix": "The `subtitle` slot (an eyebrow caption despite its name) matches a `p > code` paragraph — wrap it in backticks; plain or bold text doesn't map to the slot and just renders as an unstyled stray line."
+    }
+  ]
 }

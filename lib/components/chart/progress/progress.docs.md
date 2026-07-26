@@ -19,6 +19,11 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 | `subtitle` | `p` | no | Optional plain subtitle after the heading. |
 | `rows` | `ul > li` | yes | One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary: on-track / live / at-risk / warn / blocked / fail / deferred / done. An optional nested bullet renders as a per-row note. |
 
+### Common mistakes
+
+- **Writing the fill value without the `%` sign (e.g. `` `80` `` instead of `` `80%` ``).** The percent chip must include the `%` sign — a bare number chip isn't recognized as the fill percentage.
+- **Writing the status pill before the percent chip.** Trailing chips are read percent first, status second (`` `68%` `` then `` `at-risk` ``) — reversing the order isn't the documented shape, even where the parser tolerates it.
+
 ## When to use
 
 - **Parallel workstreams at a glance.** When the audience needs to scan five to eight workstreams and immediately spot the ones in trouble. The bar length carries the magnitude; the status pill carries the verdict.

@@ -21,6 +21,11 @@ Use for completion reports, readiness audits, or pre-flight checks. State marker
 | `title` | `h2` | yes | Slide heading. |
 | `items` | `ul > li` | yes | Each item prefixed with a state marker — [x] done, [-] partial, [ ] todo, or [/] out-of-scope (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag. |
 
+### Common mistakes
+
+- **Writing the status pill as plain trailing text instead of inline code.** The optional trailing status tag must be inline `code` (e.g. `` `blocked` ``) to render as a floated pill — plain trailing text just becomes part of the line's prose.
+- **Confusing `[/]` (out-of-scope, struck through) with `[-]` (partial / in-progress).** `[-]` marks partial progress (amber dash); `[/]` marks an item explicitly descoped (muted, struck through) — using `[/]` for 'in progress' mis-signals the row as cut rather than underway.
+
 ## When to use
 
 - **Completion reports.** Use when the audience needs to see what's done, what's in progress, and what's outstanding. The state marks are the load-bearing signal.

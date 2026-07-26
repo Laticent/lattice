@@ -92,5 +92,16 @@
       "when": "sequential process with descriptive steps, no parallel lanes"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing the detail prose as a trailing inline-code token instead of a nested bullet.",
+      "fix": "Detail must be a nested bullet ONE level deeper than the task, not a trailing `` `code` `` token — only a nested bullet drives the reveal popover and speaker note; a trailing-token 'detail' isn't recognized at all."
+    }
+  ],
+  "dataShapeGuidance": [
+    "A chart uses dates OR ordinals (quarters/months) consistently — never mix `2026-03-15` spans with `Q1`/`Jan` spans in the same chart.",
+    "`..` is the only span delimiter — a hyphen or en-dash between two dates isn't recognized as a span.",
+    "`after: Task name` must reference another task's exact label already defined earlier in the chart, or the dependency is dangling."
+  ],
   "specimenVoice": true
 }

@@ -20,6 +20,20 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 | `eyebrow` | `p > code` | no | Optional inline-code eyebrow above the heading — mono, tracked uppercase (e.g. `Financial · Q4 2026`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
 | `kpis` | `ol > li` | yes | One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. A bare value with no nested bullets won't render as the number. |
 
+### Variant decision rule
+
+- **default (no modifier).** Board or investor reviews — the briefing default: one hero metric left, three hairline supports right.
+- **`attention`.** One metric is off-plan and needs to visually stand out — flags the hero tile in warn color rather than treating every metric equally.
+- **`ops`.** SRE/SLO reviews — a 2×2 grid of equally-weighted metrics against service-level targets.
+- **`compliance`.** Auditor or regulator packs — a vertical list with a source/citation footer, framed for legal review.
+- **`trajectory`.** Investor or period-over-period stories — four cards emphasizing the delta (up/down), not just the current value.
+- **`spotlight`.** A single hero metric with supporting body copy — monumentalizes one number rather than balancing several equally.
+
+### Common mistakes
+
+- **A KPI's lead value has no nested bullets beneath it, e.g. a bare `1. $2.4B` with nothing indented under it.** A bare value with no nested bullets won't render as the big display number — every KPI needs at least the metric-name bullet nested beneath its value.
+- **Eyebrow paragraph placed after the heading instead of before it, or written as plain/bold text instead of inline code.** The eyebrow is the section's first child — an inline-code-only paragraph before the `## heading` — keep it first and backtick-wrapped, or it won't get the mono/uppercase eyebrow treatment.
+
 ## When to use
 
 - **Status framing matters as much as the number.** Reach for kpi when the audience needs value, target, trend, AND status indicator together. For ungoverned metric rows use stats; for a single hero number use big-number.

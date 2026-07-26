@@ -133,5 +133,33 @@
       "sample": "<!-- _class: obligation-matrix lanes -->\n\n## lanes walks one regime per band.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nEach lane stripe signals that the row is its own regime, not a rank.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Leaving table columns left-aligned instead of center-aligned (`:---:`).",
+      "fix": "Every skeleton and sample center-aligns columns — left-aligned state-marker cells still render, but the glyphs won't sit centered under their header the way the reference examples do."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Neutral, data-first cell chrome with no additional emphasis — reference tone."
+    },
+    {
+      "variant": "heat",
+      "useWhen": "The matrix should read as exposure — applies means alarm, exempt means relief — not just coverage for reference."
+    },
+    {
+      "variant": "asymmetric",
+      "useWhen": "The regimes genuinely differ in kind and each deserves body-level breathing room as its own card rather than a strict grid cell."
+    },
+    {
+      "variant": "pills",
+      "useWhen": "The state should read as a word — a status label — rather than an iconographic mark, while keeping neutral, non-alarming chrome."
+    },
+    {
+      "variant": "lanes",
+      "useWhen": "Each regime should read as its own horizontal band, emphasizing that it's a distinct regime rather than a rank in a list."
+    }
+  ],
   "specimenVoice": true
 }

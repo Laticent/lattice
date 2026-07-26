@@ -19,6 +19,11 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 | `eyebrow` | `p:first-child > code` | no | Optional kicker above the heading, authored as an inline-code first line: `` `Room Wi-Fi` ``. |
 | `caption` | `ul > li` | no | Optional call-to-action under the QR, as a postfix-key bullet: ``- Scan to connect `caption` ``. |
 
+### Common mistakes
+
+- **Eyebrow written as plain or bold text instead of inline code, or not placed as the section's very first line.** The eyebrow matches `p:first-child > code` — it must be the FIRST line of the slide, wrapped in backticks; placed later or unwrapped, it renders as a plain stray paragraph with no kicker styling.
+- **The trailing key doesn't match a supported alias, e.g. `` `pass` `` for the security type instead of `` `security`/`auth` ``.** Only the documented keys are recognized (ssid|network, password|pass, security|auth, caption) — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
+
 ## When to use
 
 - **Get the room connected.** Guests scan to join instead of squinting at a password on the slide — the credentials are still shown for anyone who prefers to type.

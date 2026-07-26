@@ -135,5 +135,33 @@
       "sample": "<!-- _class: policy-recommendation defer -->\n\n`HR 19 · Municipal Facial Recognition`\n\n## Defer HR 19 pending an independent accuracy study.\n\nError rates for the proposed system are unpublished for the populations it would scan.\n\n- The evidence base is missing\n  - No demographic accuracy audit exists for this vendor `GAO request`.\n- A study is already funded\n  - The oversight office can report within one session `fiscal note`.\n\n> Refer HR 19 to interim study; revisit with the audit in hand.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Writing a reason's evidence line without a trailing inline-code citation chip.",
+      "fix": "Without the trailing citation chip, the evidence line reads as unsupported assertion rather than record-grade evidence — the nested evidence bullet should end in an inline-code citation, not just prose."
+    },
+    {
+      "mistake": "Placing the bill/docket eyebrow after the heading instead of before it, or leaving it unwrapped in backticks.",
+      "fix": "The eyebrow matches `p:first-of-type > code` — it must be the section's first line, wrapped in backticks, or it won't render as the kicker above the recommendation."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "adopt",
+      "useWhen": "The recommendation is in support of the measure — green verdict badge and rail."
+    },
+    {
+      "variant": "amend",
+      "useWhen": "Support is conditional on a specific change — amber badge and rail."
+    },
+    {
+      "variant": "oppose",
+      "useWhen": "The recommendation is against the measure — red badge and rail."
+    },
+    {
+      "variant": "defer",
+      "useWhen": "The evidence base is incomplete and the ask is to study first, not decide yet — neutral badge and rail."
+    }
+  ],
   "specimenVoice": true
 }

@@ -124,5 +124,15 @@
       "when": "the metrics are completion percentages across workstreams"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "A stat's number has no nested caption bullet beneath it.",
+      "fix": "A bare number with no nested caption won't render as the big number — every tile needs its label nested directly beneath the number."
+    },
+    {
+      "mistake": "Assuming the subtitle/eyebrow line needs inline-code wrapping to render, the way most other components' eyebrows do.",
+      "fix": "Stats' subtitle is styled by a generic paragraph rule (`> p, > em`), not the dedicated `p:has(> code)` eyebrow rule most components use — it renders as the same italic framing line whether wrapped in backticks or not. Backticks are optional here, unlike title/divider/kpi/math."
+    }
+  ],
   "specimenVoice": true
 }

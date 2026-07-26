@@ -22,6 +22,18 @@ Use when the audience needs to compare or scan a small set of options at a glanc
 | `cards` | `ul > li` | yes | Each list item becomes one card. Authoring contract: a top-level bullet is the card title (renders bold by default); an indented bullet underneath carries the body text (renders normal weight via the nested-list rule). |
 | `insight` | `blockquote` | no | Optional key-insight panel above the cards. |
 
+### Variant decision rule
+
+- **default (no modifier).** Two cards, or the default column count already fits — no need to force a specific column count.
+- **`three`.** Exactly three parallel items need equal width — widens the grid to three columns.
+- **`four`.** Four parallel items, often a 2×2 quadrant read where card position itself carries meaning.
+- **`numbered`.** The cards have an implicit rank or step order worth surfacing as corner numbers — author with `1.` instead of `-`.
+
+### Common mistakes
+
+- **Writing the card as one inline line (`- **Title.** body`) instead of a nested bullet.** cards-grid requires the nested `- Title` / `  - body` format (HARD RULE #5, lint-enforced) — the inline form fails the deck-authoring lint, and the body inherits the parent li's bold weight instead of rendering at normal weight.
+- **Adding a `numbered` class to the slide, expecting it to turn on corner numbers.** There is no `numbered` CSS class — the numbering comes purely from authoring the cards as an ordered list (`1.`) instead of a bullet list (`-`); the `numbered` entry in variants documents that authoring choice, not a class to type.
+
 ## When to use
 
 - **Parallel items.** Four cards or fewer, each item gets equal weight in the layout. Audience compares them at a glance.

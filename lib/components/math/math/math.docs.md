@@ -19,6 +19,23 @@ Use when the slide IS the equation. KaTeX renders `$$…$$` as centered display 
 | `equation` | `p` | yes | Display equation wrapped in `$$…$$`. KaTeX renders centered. |
 | `legend` | `ul > li` | no | 'where:' legend. Each li introduces an `$x$` symbol followed by its definition. |
 
+### Variant decision rule
+
+- **default (no modifier).** Same as `feature` (the bare layout defaults to it) — a single hero equation with a "where:" legend.
+- **`feature`.** Explicit synonym for the default layout — one closed-form expression, legend to the side.
+- **`derivation`.** The argument is a multi-step chain (2-4 steps), each needing its own justification — a proof or derivation, not a single closed form.
+- **`theorem`.** Formal Definition/Theorem/Proof exposition for a pure-math audience stating and proving a claim.
+- **`compare`.** Two or three competing formulations side by side (e.g. frequentist vs Bayesian estimators) — the contrast between approaches is the point.
+- **`canvas`.** The equation needs a paired visual — a function plot or diagram — typically for ML/quant audiences illustrating a curve or transformation.
+- **`matrix`.** Linear-algebra-heavy content — a matrix or block structure that needs its own properties/dimensions legend alongside it.
+- **`stats`.** The headline is a point estimate with uncertainty (CI, p-value, n) rather than a bare closed-form equation.
+- **`decompose`.** A factorization — a matrix laid out as a sequence of matrices (e.g. LU, SVD) — a compound of `matrix`, not a single hero matrix.
+
+### Common mistakes
+
+- **Eyebrow written as plain or bold text instead of inline code.** The eyebrow matches `p:has(> code:only-child):has(+ h2)` (the shared before-heading rule) — wrap it in backticks and keep it as the section's first child, immediately before the `## heading`; unwrapped it's just a plain paragraph with no eyebrow styling.
+- **Legend items lead with plain text instead of the KaTeX symbol, e.g. "beta hat — OLS coefficient" instead of the symbol wrapped in `$...$`.** Each legend `li` should lead with the symbol exactly as it appears in the display equation, wrapped in `$...$` (e.g. `$\hat\beta$` — OLS coefficient) — plain text doesn't render as math and breaks the visual match between the equation and its legend.
+
 ## When to use
 
 - **The equation IS the argument.** When a single closed-form expression, identity, or estimator carries the slide. KaTeX renders it; Lattice gives it the room. For surrounding prose with one inline `$x$`, use content.

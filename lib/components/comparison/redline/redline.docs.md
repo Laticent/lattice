@@ -19,6 +19,19 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 | `redline` | `blockquote` | yes | The amended language. Use <del>old text</del> and <ins>new text</ins> inline. |
 | `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
 
+### Variant decision rule
+
+- **default (no modifier).** One clause, ins/del inline in a single blockquote — the simplest, most common redline.
+- **`annotated`.** Each individual edit needs its own explanation, not just one trailing 'why this matters' line — numbers each marked edit against a footnoted rationale.
+- **`three-col`.** The audience should read old, new, and rationale as three distinct, separately labeled blocks rather than one inline-marked passage.
+- **`split`.** Before and after read better as two full parallel blockquotes than as one passage with inline markup.
+- **`stacked`.** The passage is long enough that side-by-side columns would be too narrow — stacks the prior text (struck) above the current instead.
+
+### Common mistakes
+
+- **Placing the citation paragraph after the blockquote instead of before it.** The citation slot matches `p:first-of-type > code` — it must be the section's first paragraph, appearing BEFORE the redlined blockquote, or it won't render as the citation line.
+- **Using Markdown strikethrough (`~~text~~`) instead of literal `<del>`/`<ins>` HTML tags.** The redline mechanism reads literal `<del>old</del>`/`<ins>new</ins>` inline HTML, not Markdown strikethrough syntax — `~~text~~` doesn't render as a tracked deletion.
+
 ## When to use
 
 - **Verbatim text matters.** When the amendment is the language — legal clauses, regulatory paragraphs, contract terms. Paraphrasing would lose the exact words the parties are bound by.

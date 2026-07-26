@@ -119,5 +119,29 @@
       "sample": "<!-- _class: logo-wall dense -->\n\n`logo-wall dense`\n\n## dense packs the long roster, captions off.\n\n- ![Acme](acme.svg)\n- ![Globex](globex.svg)\n- ![Initech](initech.svg)\n- ![Umbra](umbra.svg)\n- ![Vantage](vantage.svg)\n- ![Meridian](meridian.svg)\n- ![Helios](helios.svg)\n- ![Northwind](northwind.svg)\n- ![Cobalt](cobalt.svg)\n- ![Sable](sable.svg)\n- ![Quanta](quanta.svg)\n- ![Lumen](lumen.svg)\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Writing a caption's pill as plain nested text instead of backticks.",
+      "fix": "Under a mark's nested caption list, plain text becomes the NAME line; only a backticked token (e.g. `` `Series B` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill."
+    },
+    {
+      "mistake": "Placing the eyebrow paragraph after the headline instead of before it.",
+      "fix": "The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, it renders as a stray plain paragraph with no kicker styling."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "The default token-recolored silhouette treatment — one cohesive texture, theme-safe."
+    },
+    {
+      "variant": "color",
+      "useWhen": "The individual brand colors are themselves part of the credibility signal — a recognizable, colorful set of household names worth preserving."
+    },
+    {
+      "variant": "dense",
+      "useWhen": "The roster is long (12-18+ marks) and captions aren't needed — packs more columns, captions off."
+    }
+  ],
   "specimenVoice": true
 }

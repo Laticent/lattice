@@ -129,5 +129,37 @@
       "sample": "<!-- _class: redline stacked -->\n\n## stacked strikes the prior text above the current.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that collects consumers' personal information shall provide two or more designated methods for submitting requests to opt out of the sale of their personal information.\n\n> A business that collects, sells, or shares consumers' personal information shall provide at least one designated method for submitting requests to opt-out, including a clear and conspicuous homepage link titled \"Your Privacy Choices.\"\n\n- **Why this matters.** Stacking keeps the reading order vertical when each passage is a full sentence or more.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Placing the citation paragraph after the blockquote instead of before it.",
+      "fix": "The citation slot matches `p:first-of-type > code` — it must be the section's first paragraph, appearing BEFORE the redlined blockquote, or it won't render as the citation line."
+    },
+    {
+      "mistake": "Using Markdown strikethrough (`~~text~~`) instead of literal `<del>`/`<ins>` HTML tags.",
+      "fix": "The redline mechanism reads literal `<del>old</del>`/`<ins>new</ins>` inline HTML, not Markdown strikethrough syntax — `~~text~~` doesn't render as a tracked deletion."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "One clause, ins/del inline in a single blockquote — the simplest, most common redline."
+    },
+    {
+      "variant": "annotated",
+      "useWhen": "Each individual edit needs its own explanation, not just one trailing 'why this matters' line — numbers each marked edit against a footnoted rationale."
+    },
+    {
+      "variant": "three-col",
+      "useWhen": "The audience should read old, new, and rationale as three distinct, separately labeled blocks rather than one inline-marked passage."
+    },
+    {
+      "variant": "split",
+      "useWhen": "Before and after read better as two full parallel blockquotes than as one passage with inline markup."
+    },
+    {
+      "variant": "stacked",
+      "useWhen": "The passage is long enough that side-by-side columns would be too narrow — stacks the prior text (struck) above the current instead."
+    }
+  ],
   "specimenVoice": true
 }

@@ -117,5 +117,25 @@
       "sample": "<!-- _class: decision banner-tag -->\n\n## banner-tag headlines each card with its camp.\n\n- DECIDE\n  - The banner carries the stance; the body carries the reason.\n- RECORD\n  - Use when the slide is the decision log's public face.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Reordering justification cards, expecting their categorical accent color to travel with the same justification.",
+      "fix": "The accent color is assigned purely by card POSITION (an `nth-child` cycle through the categorical palette), not by content — reordering cards in the markdown reassigns colors; they don't follow the justification."
+    },
+    {
+      "mistake": "Manually bolding the option name with `**…**`.",
+      "fix": "The lead text auto-lifts to `<strong>` (the corner-tag CSS keys off it) — wrapping it yourself just nests a redundant, no-op bold marker."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "The reasoning carries the weight — a quiet corner tag labels each justification without competing with the verdict heading."
+    },
+    {
+      "variant": "banner-tag",
+      "useWhen": "The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card."
+    }
+  ],
   "specimenVoice": true
 }

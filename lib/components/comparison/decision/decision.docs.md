@@ -19,6 +19,16 @@ Use after a comparison slide to land the decision. The justifications render as 
 | `title` | `h2` | yes | Slide heading framing the decision. |
 | `options` | `ul > li` | yes | List items. Authoring contract: a top-level bullet is the option name (renders bold by default); an indented bullet underneath carries the short rationale. The cards render as a unified strip of co-equal categorical tags; the verdict is carried by the heading, not by emphasizing one card. |
 
+### Variant decision rule
+
+- **default (no modifier).** The reasoning carries the weight — a quiet corner tag labels each justification without competing with the verdict heading.
+- **`banner-tag`.** The camp or stance itself is worth headlining — converts the quiet corner tag into a full-width banner strip per card.
+
+### Common mistakes
+
+- **Reordering justification cards, expecting their categorical accent color to travel with the same justification.** The accent color is assigned purely by card POSITION (an `nth-child` cycle through the categorical palette), not by content — reordering cards in the markdown reassigns colors; they don't follow the justification.
+- **Manually bolding the option name with `**…**`.** The lead text auto-lifts to `<strong>` (the corner-tag CSS keys off it) — wrapping it yourself just nests a redundant, no-op bold marker.
+
 ## When to use
 
 - **Land the verdict.** Follows a comparison slide to make the chosen path unambiguous. The heading carries the verb of the decision; the cards substantiate it.

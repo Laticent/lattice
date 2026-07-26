@@ -19,6 +19,18 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 | `quotation` | `blockquote` | yes | Verbatim quote of the cited language. |
 | `gloss` | `ul > li` | no | Optional plain-English interpretation. Use **What we must do** for the actionable item. |
 
+### Variant decision rule
+
+- **default (no modifier).** The default full treatment — heading, citation, quote, and gloss all get equal room.
+- **`pull-quote`.** Only the single most operative phrase within a longer clause needs to be lifted and emphasized, not the whole provision.
+- **`split`.** The quote and its plain-English reading should sit side by side rather than stacked.
+- **`margin`.** The citation itself is secondary — hangs it in the gutter so the quote and gloss can dominate the canvas.
+- **`triptych`.** Three distinct pieces — citation, plain reading, and required action — each deserve their own visual panel.
+
+### Common mistakes
+
+- **Placing the citation paragraph after the blockquote instead of before it.** The citation slot matches `p:first-of-type > code` — it must be the section's first paragraph, appearing BEFORE the verbatim blockquote, or it won't render as the citation line.
+
 ## When to use
 
 - **One citation carries the slide.** When a single statute, contract clause, regulation, or standard is doing the argumentative work. The citation IS the evidence; the slide gives it the room to be read.

@@ -76,6 +76,115 @@ in patch versions.
   the `bar` role, milestones `point`), and the state-chart paints its states into the overlay it
   already drew its edges into. Its `inline` variant stays HTML by design — it is a compact row list,
   not a node-and-edge diagram.
+- **Agent contract backfill: the remaining 52 components now carry `commonMistakes` /
+  `variantDecisionRule` / `dataShapeGuidance` too, closing out the pilot above.** `anchor`,
+  `connect`, `diagram`, `evidence`, `imagery`, `math`, `progression`, `statement`, `comparison`,
+  `inventory`, `legal`, and `chart` are now fully enriched — each `commonMistakes`/
+  `variantDecisionRule` entry grounded in the component's own CSS selectors, transform logic, or
+  explicit slot-description text (before-vs-after-heading eyebrow rules, `li:last-child` targeting
+  for `chosen`/`rejected`, `ol`-vs-`ul` selector scoping, state-marker semantics, per-component
+  chip ordering). `dataShapeGuidance` is reserved for genuinely data-shaped components (`chart`
+  bucket: `funnel`, `gantt`, `quadrant`, `radar`, `map`, …) rather than forced onto every manifest.
+  `compare-code` was left out of this pass — its skeleton/sample don't render the documented
+  side-by-side columns (a pre-existing bug, tracked separately) and writing authoring guidance
+  atop broken output would teach the wrong thing. All 59 manifests validate against
+  `checkAgentContract`; regenerated docs pass `build:check`.
+- **Model routing: every subagent now declares which model it runs on, so lookup work stops
+  billing at Opus rates (HARD RULE #27).** Only two agents (`docs-auditor`, `prose-checker`) pinned
+  a model before; every other `Agent()` call inherited the session model — Opus 5 — which meant
+  locating code, verifying a cited path, triaging a red CI job, and enumerating files all cost
+  2.5× Sonnet 5's rate and 5× Haiku 4.5's, with nothing gained. Routing
+  is now decided by two questions (**judgment or lookup**, and **does a gate catch a mistake**) and
+  enforced where it cannot be forgotten: a roster of model-pinned agents in `.claude/agents/`
+  (`scout`, `fact-checker`, `ci-triage` on Sonnet 5; `inventory` on Haiku 4.5; `red-team`,
+  `inversion`, `checker` on Opus 5), so choosing the agent *is* choosing the model. **Routing uses
+  three tiers only — the latest Haiku, Sonnet, and Opus.** Tiers above Opus are not used here, so
+  `fable` is rejected by the gate and retired as a `model:*` card label (no issue carried it); prose
+  craft — editorial/voice sweeps, doc-prose rewrites, deck copy — routes to Opus. The
+  `design-competition` workflow now pins a model per stage — designers, critics, and judges on
+  Opus; the mechanical fold and the claims fact-check on Sonnet — and the `visual-review` sweep
+  splits maker passes (Sonnet) from the authoritative checker sign-off (Opus). Two things are
+  deliberately **not** downshifted: the adversarial trio, and the session's own model (switching it
+  mid-task voids the prompt cache). New gate `checkAgentModelPinning` in `tools/check-ownership.js`
+  fails `build:check` on an agent definition with no valid `model:` or a workflow `agent()` call
+  that omits one; it covers committed files only, so ad-hoc spawns ride on the dispatch table now
+  carried in `CLAUDE.md`. Full routing table, current prices, and the model-vs-`effort` guidance:
+  `engineering/model-routing.md`.
+- **Image-set export: the CLI now re-renders Mermaid diagrams to ANY cross-scheme `--svg-background`
+  look (light / dark / print), matching the Studio.** mmdc bakes diagram colors at render time from the
+  deck's palette, so the in-place CSS restyle that recolors token-driven charts can't touch diagrams —
+  a dark-source deck's diagram exported as a dark box on a light/print canvas. The CLI now re-renders
+  each diagram with the **look palette's** theme variables and flattens it in an *isolated* page held
+  in the look scheme (a clean document — a page already rendered dark/color can't be faithfully
+  retrofit in place). So `--svg-background light` on a dark deck exports dark-ink-on-light vectors
+  matching a native light render, `dark` exports a dark diagram, and `print` exports print-ready
+  **black-on-white** — the diagram look is correct for every scheme, not just print. Charts recolor
+  for any look regardless. A diagram that sets its **own** colors (an author `%%{init}%%` theme or
+  explicit `style`/`classDef` fills) overrides the look — the CLI warns with a count (ungated by
+  `--quiet`) and leaves those in their own colors rather than claiming a conversion it can't make.
+  (`lattice-emulator.js`; `engineering/pipeline.md` §5.)
+- **Chart mark-detail popups now work in the Studio's live editing preview — and coexist with chart
+  motion.** The authored per-mark detail reveal (hover a chart mark → its `.chart-details` popover)
+  ran only on `/playground` and the frozen Drawing-Board present; the Studio's live preview never
+  mounted the layer, so an author couldn't see the detail they'd written as they edited. The
+  parent-hosted layer + its shadcn popover are now ONE shared widget (`docs/src/components/chart-detail-layer.tsx`)
+  — the Playground refactors onto it (HARD RULE #15) and the Studio editing preview opts in via a new
+  `DeckPreview` `chartDetail` prop (thumbnails / specimens stay static). It **composes with motion**: an
+  animated chart carries both a hidden poster and a live clone, so `chart-interact` now binds the
+  VISIBLE svg — static, mid-build, and settled charts all reveal correctly (popover cursor-anchored).
+  Present is wired too, in pinned mode over its pointer-events-none delivery card (number-key reveal),
+  via a new `DeckPreview` `onRender` hook. The popover is a **readable-first** tooltip — a legible,
+  collision-aware card at a fixed size, NOT shrunk to a heavily-scaled mobile preview (a card scaled
+  into a tiny slide is unreadable, defeating the tooltip); it reads as proportionate on full-screen
+  Present. **Present's tap-reveal is fixed at the root:** the hit-surface used to never bind on the
+  slide Present opens on, because the host re-pin (`onSlide`) runs a microtask after render while the
+  srcdoc parses on the next task — so it found no chart and never retried. Pinned mode now re-binds on
+  the iframe's `load` event (the same self-heal hover mode already uses), so the surface binds the
+  instant the slide parses. (Root cause + fix confirmed by static trace and a unit test reproducing the
+  race; **Present's live runtime needs a real-device / deploy-preview check** — its overlay preview never
+  leaves the loader skeleton in the headless sandbox.)
+  (`docs/src/components/chart-detail-layer.tsx`, `DeckPreview.tsx`,
+  `docs/src/components/studio/StudioShell.tsx` + `PresentOverlay.tsx`, `docs/src/playground/chart-interact.js`.)
+- **Anima can now animate a real Lattice chart — with zero model calls.** A new ingest bridge
+  (`docs/src/lib/chart-anima.ts` `chartToScene`) reads a rendered chart's own marks (the
+  `[data-mark]` bands + `<text>` the chart already emits), maps each class to a motion role
+  (bar / label / …), mints stable ids, and returns a choreographed Anima scene — bands build in
+  top-to-bottom, labels follow, and a flagged mark (e.g. a funnel's worst drop-off) emphasizes.
+  The chart renderers are **untouched** (tagging happens at ingest, so the exported PDF stays
+  byte-identical), and there is **no LLM in the loop** — this is the model-free "animate what we
+  already render" on-ramp (`2026-07-19-anima-svg-first-cut-zdog.md` §0.75). The *mechanism* is
+  verified end-to-end on the funnel in a real browser (a scratch render harness) + the adapter's
+  output is unit-tested; the §5.2 proof gate (the same animation on the **real Studio**, via native
+  `data-anima-role` emission) is the next slice. The reveal machinery generalizes to the other SVG
+  charts; per-chart *choreography* (pie has no top-to-bottom order) still needs its own defaults.
+- **You can now animate a chart in place, model-free — add `chart-anima` to a slide or deck.** This
+  is the §0.75 in-place settings surface and the follow-through on the ingest bridge above: a
+  `<!-- _class: chart-anima -->` slide override (or a deck-level `class: chart-anima` in the
+  frontmatter) tells the live Studio to bring a rendered chart to life — the bands build in
+  top-to-bottom, labels follow, and the worst drop-off emphasizes — with **no LLM in the loop** and
+  the **exported PDF/PPTX byte-identical** (motion is preview-only; the still bakes into the export).
+  Two pieces make it authoritative rather than guesswork: the funnel renderer now emits a native
+  **`data-anima-role`** on each mark (the *role* Anima choreographs by — `bar` / `label` — read from
+  the chart itself, not inferred from a class name), and the animation runs through the **same host**
+  as a baked scene, so a chart gets the identical playback control (⏸ / ▶ / ↻), the reduced-motion
+  accessibility floor, and off-screen pausing — one animation lifecycle, not a fork. The renderer
+  emits the *role* only and no `id` (a fixed per-mark id isn't document-unique — two funnels would
+  collide); Anima's ingest mints the addressable ids at view time. Funnel-first; the other SVG charts
+  follow as each gets its choreography defaults. Verified on the real Playground
+  (`engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §0.75, §5.2; funnel renderer,
+  `docs/src/lib/chart-anima-hydrate.ts`, `docs/src/playground/anima-scenes.ts`).
+- **Anima's SVG engine now animates each part on its own — move, fade, and emphasize, not just
+  draw.** The `source:'svg'` motion set gains three per-element channels: **`slide`** (a 2-D
+  move-in — a part arrives from a `from: [dx, dy]` offset, so "value flows left→right" is real),
+  **`highlight`** (an emphasis pulse that bumps a part's stroke-weight and holds into the poster —
+  landing the eye on the one thing that matters), and **`reveal`** now fades a non-drawn part
+  (e.g. a label) in via opacity instead of pinning the stroke-draw. A new optional
+  `SvgElement.transform` (2-D — translate/scale/rotate-z) gives a part a base pose. This is the
+  per-element paint substrate for the SVG-first direction
+  (`engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §4.4a); the stroke-draw for
+  `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
+  `backends/vivus.ts`.)
+### Changed
 
 
 - **Chart motion is a first-class SETTING — a Motion tab with Play, Style, and Speed.** The in-place

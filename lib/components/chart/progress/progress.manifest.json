@@ -101,5 +101,15 @@
       "when": "the workstreams complete in sequence, not in parallel"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing the fill value without the `%` sign (e.g. `` `80` `` instead of `` `80%` ``).",
+      "fix": "The percent chip must include the `%` sign — a bare number chip isn't recognized as the fill percentage."
+    },
+    {
+      "mistake": "Writing the status pill before the percent chip.",
+      "fix": "Trailing chips are read percent first, status second (`` `68%` `` then `` `at-risk` ``) — reversing the order isn't the documented shape, even where the parser tolerates it."
+    }
+  ],
   "specimenVoice": true
 }

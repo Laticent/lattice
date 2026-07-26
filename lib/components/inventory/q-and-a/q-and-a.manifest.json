@@ -171,5 +171,41 @@
       "when": "a single verdict to state rather than a set of questions to defend"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Bolding or otherwise emphasizing the question text.",
+      "fix": "Author the question as plain interrogative text — no bold. The layout supplies its own numbered-index and prompt-weight styling, so manual emphasis fights the built-in treatment."
+    },
+    {
+      "mistake": "Assuming `ul` vs `ol` changes which marker or numbering renders.",
+      "fix": "Unlike `list`, where list type is a real signal, q-and-a indexes questions automatically regardless of list type — `ul` and `ol` render identically here, so the choice carries no meaning."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Three or four pairs read fine as a plain vertical stack — the base look needs no extra structure."
+    },
+    {
+      "variant": "spine",
+      "useWhen": "The pairs want a strong visual throughline connecting question to question — threads them down an accent spine."
+    },
+    {
+      "variant": "rail",
+      "useWhen": "Questions should be scannable as a left-hand index while answers sit in their own column."
+    },
+    {
+      "variant": "tab",
+      "useWhen": "Each question should read as a labeled tab with its answer folding directly beneath it."
+    },
+    {
+      "variant": "grid",
+      "useWhen": "Exactly four pairs fit naturally into a two-by-two — an even count, not five or three."
+    },
+    {
+      "variant": "solo",
+      "useWhen": "One single question is weighty enough to deserve the entire slide."
+    }
+  ],
   "specimenVoice": true
 }

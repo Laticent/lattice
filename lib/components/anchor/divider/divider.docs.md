@@ -17,6 +17,18 @@ Marks the start of a major section. Use sparingly — every divider is a context
 | `heading` | `h2` | yes | Section name. |
 | `eyebrow` | `p > code` | no | Optional section number or category label above the heading. |
 
+### Variant decision rule
+
+- **default (no modifier).** A standard mid-deck section start — dark canvas, one heading, no extra chrome.
+- **`numbered`.** Section numbering matters to the audience — a long, multi-part deck where a running section count in the corner helps orientation.
+- **`light`.** A narrower re-focus within a section rather than a full section start — sits between a dark divider and a run of content slides. Reserve the dark default for genuine section starts.
+- **`qr`.** The divider itself should carry a scannable link — a resource specific to the section it's opening.
+
+### Common mistakes
+
+- **Eyebrow written as plain text instead of inline code, e.g. plain `Section 01` instead of a backtick-wrapped one.** Divider's eyebrow uses the shared before-heading rule `p:has(> code:only-child):has(+ h2)` (base.modifiers.css) — wrap it in backticks; without the code span it's just a plain paragraph with no eyebrow treatment at all.
+- **Eyebrow paragraph placed AFTER the heading, copying the title/closing pattern.** Divider's eyebrow is the mirror image of title/closing's — it uses the BEFORE-heading rule (`p:has(> code:only-child):has(+ h2)`), not the after-heading one those two use. Keep it directly before `## Section name`; placed after, it still renders (via the separate after-heading rule) but as an italic secondary-color treatment, not the intended mono kicker.
+
 ## When to use
 
 - **Major section starts.** Marks the boundary between two themed sections of the deck. The dark canvas is a strong context-switch signal — use it when the audience needs to re-orient.

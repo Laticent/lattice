@@ -18,6 +18,18 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 | `matrix` | `table` | yes | Markdown table — rows are regulations, columns are obligations. Use state markers ([x] / [-] / [ ] / [/]) in cells. |
 | `legend` | `p` | no | Optional trailing paragraph explaining the state-marker meanings or what to take from the matrix. |
 
+### Variant decision rule
+
+- **default (no modifier).** Neutral, data-first cell chrome with no additional emphasis — reference tone.
+- **`heat`.** The matrix should read as exposure — applies means alarm, exempt means relief — not just coverage for reference.
+- **`asymmetric`.** The regimes genuinely differ in kind and each deserves body-level breathing room as its own card rather than a strict grid cell.
+- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark, while keeping neutral, non-alarming chrome.
+- **`lanes`.** Each regime should read as its own horizontal band, emphasizing that it's a distinct regime rather than a rank in a list.
+
+### Common mistakes
+
+- **Leaving table columns left-aligned instead of center-aligned (`:---:`).** Every skeleton and sample center-aligns columns — left-aligned state-marker cells still render, but the glyphs won't sit centered under their header the way the reference examples do.
+
 ## When to use
 
 - **Many regimes, shared obligations.** Three or more regulations or jurisdictions compared across the same set of duties. The grid lets the reader scan a row to know a regime and a column to know an obligation.

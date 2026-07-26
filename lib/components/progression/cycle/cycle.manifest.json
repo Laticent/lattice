@@ -57,5 +57,9 @@
     { "name": "list-steps", "when": "the process is linear — a real start and finish, not a loop" },
     { "name": "timeline-list", "when": "events fixed to dates rather than a repeating cycle" },
     { "name": "diagram", "when": "the loop has branches or feedback into non-adjacent stages" }
+  ],
+  "commonMistakes": [
+    { "mistake": "Authoring stages as a numbered list (`1.`) instead of a bullet list (`-`).", "fix": "The stage-node styling and connector chevrons are scoped to `ul > li` (`section.cycle > .cell-stage > ul`) — an `ol` doesn't match the selector, so stages render as a plain, unstyled numbered list with no ring, no chevrons, no return arc." },
+    { "mistake": "Assuming the eyebrow follows the after-heading pattern used by `title`/`closing`.", "fix": "cycle has no eyebrow-specific CSS — it inherits the shared before-heading rule (base.modifiers.css): the inline-code eyebrow paragraph must sit directly BEFORE the `## heading`, not after it, or it renders as a stray plain paragraph." }
   ]
 }

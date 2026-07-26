@@ -19,6 +19,17 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 | `logos` | `ul > li` | yes | One list item per mark, authored as `- ![Brand name](brand.svg)`. The alt text is the accessible label, not a rendered caption. SVG is preferred so marks stay crisp at projector scale. |
 | `caption` | `ul > li > ul > li` | no | Optional name + pill stacked below a mark, centered. Nest a list under the image: plain text is the name, a backticked token (`Series B`) is the pill. Either or both, per mark. |
 
+### Variant decision rule
+
+- **default (no modifier).** The default token-recolored silhouette treatment — one cohesive texture, theme-safe.
+- **`color`.** The individual brand colors are themselves part of the credibility signal — a recognizable, colorful set of household names worth preserving.
+- **`dense`.** The roster is long (12-18+ marks) and captions aren't needed — packs more columns, captions off.
+
+### Common mistakes
+
+- **Writing a caption's pill as plain nested text instead of backticks.** Under a mark's nested caption list, plain text becomes the NAME line; only a backticked token (e.g. `` `Series B` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill.
+- **Placing the eyebrow paragraph after the headline instead of before it.** The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, it renders as a stray plain paragraph with no kicker styling.
+
 ## When to use
 
 - **The proof is the logos.** Customers, partners, funders, accreditations, participating agencies — anywhere a set of recognisable marks carries more weight than a sentence. The audience scans the wall and concludes 'serious company keeps this company.'

@@ -71,6 +71,16 @@
       "when": "the card is a person's identity rather than a network"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Eyebrow written as plain or bold text instead of inline code, or not placed as the section's very first line.",
+      "fix": "The eyebrow matches `p:first-child > code` — it must be the FIRST line of the slide, wrapped in backticks; placed later or unwrapped, it renders as a plain stray paragraph with no kicker styling."
+    },
+    {
+      "mistake": "The trailing key doesn't match a supported alias, e.g. `` `pass` `` for the security type instead of `` `security`/`auth` ``.",
+      "fix": "Only the documented keys are recognized (ssid|network, password|pass, security|auth, caption) — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect."
+    }
+  ],
   "specimenVoice": true,
   "excludes": [
     "compact"

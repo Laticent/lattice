@@ -193,5 +193,49 @@
       "sample": "<!-- _class: list-steps phase roman -->\n\n## roman counts the phases in numerals.\n\n1. First\n   - Three steps demo a look best.\n2. Second\n   - The look changes; the grammar holds.\n3. Third\n   - Body budgets do not move.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Authoring steps as a bullet list (`-`) instead of a numbered list (`1.`).",
+      "fix": "The card chrome — background, border, STEP badge, connector arrow — is scoped to `ol > li` specifically; a `ul` renders as plain unstyled text with no cards, no counter, no badge."
+    },
+    {
+      "mistake": "Deleting or reordering a step without checking other steps' prose for a stale reference to its old position (e.g. \"as covered in step 3\").",
+      "fix": "The STEP/PHASE/… badge is generated purely from a CSS `counter()` on the `ol` position — it renumbers automatically, but any prose that names a step by number does not."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "vertical",
+      "useWhen": "The frame is narrow or portrait, or the step bodies need more vertical room — stacks steps down the page instead of across a row."
+    },
+    {
+      "variant": "chevron",
+      "useWhen": "The story argues through cascading stages (problem → vision → approach → plan) — down-chevron tabs read as a persuasive cascade rather than a neutral sequence."
+    },
+    {
+      "variant": "converge",
+      "useWhen": "The process narrows toward one outcome — a qualitative funnel shape without literal conversion percentages (use `funnel` when you have numbers)."
+    },
+    {
+      "variant": "ghost",
+      "useWhen": "The argument is the point and the process is secondary — a faint chevron watermark behind one hero description, editorial in tone."
+    },
+    {
+      "variant": "timeline",
+      "useWhen": "Steps are light labels with no body copy — dots on a spine, not full description cards."
+    },
+    {
+      "variant": "phase",
+      "useWhen": "The audience already thinks of the sequence as phases rather than steps — swaps the badge prefix word; `stage`/`milestone`/`rank`/`tier` swap it to match other vocabularies the same way."
+    },
+    {
+      "variant": "lettered",
+      "useWhen": "The audience reads order as letters (A, B, C) rather than numbers — swaps the counter format; combine with a prefix-word variant (e.g. `milestone lettered`)."
+    },
+    {
+      "variant": "roman",
+      "useWhen": "The sequence reads as eras or acts rather than a numbered checklist — swaps the counter format to roman numerals; typically paired with `phase`."
+    }
+  ],
   "specimenVoice": true
 }

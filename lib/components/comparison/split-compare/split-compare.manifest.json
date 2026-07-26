@@ -138,5 +138,15 @@
       "when": "three or more options scored against shared criteria"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Trying to rename the \"RECOMMENDATION\" tag by editing the blockquote text.",
+      "fix": "The tag text comes from the `--insight-label` CSS variable, set by an `insight-*` modifier class on the slide (e.g. `insight-verdict`) — not from anything inside the blockquote; editing the blockquote only changes the recommendation sentence, not its tag."
+    },
+    {
+      "mistake": "Placing the frame label (e.g. `Decision Required`) after the heading instead of before it, or leaving it unwrapped in backticks.",
+      "fix": "The frame label matches `p:first-of-type > code` — it must be the section's very first line, wrapped in backticks, or it won't render as the dark panel's kicker label."
+    }
+  ],
   "specimenVoice": true
 }

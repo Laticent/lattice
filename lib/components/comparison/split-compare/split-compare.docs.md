@@ -22,6 +22,11 @@ Use when a decision frames a binary choice and the recommendation must be unambi
 | `options` | `ul > li` | yes | Exactly two top-level items. First is the alternative; second is the preferred option. |
 | `verdict` | `blockquote` | yes | The recommendation — one short sentence in a blockquote. The card tag defaults to RECOMMENDATION; an insight-* modifier on the slide _class (e.g. insight-verdict) renames it via the shared --insight-label seam. See lib/base/base.docs.md § Renaming the eyebrow. |
 
+### Common mistakes
+
+- **Trying to rename the "RECOMMENDATION" tag by editing the blockquote text.** The tag text comes from the `--insight-label` CSS variable, set by an `insight-*` modifier class on the slide (e.g. `insight-verdict`) — not from anything inside the blockquote; editing the blockquote only changes the recommendation sentence, not its tag.
+- **Placing the frame label (e.g. `Decision Required`) after the heading instead of before it, or leaving it unwrapped in backticks.** The frame label matches `p:first-of-type > code` — it must be the section's very first line, wrapped in backticks, or it won't render as the dark panel's kicker label.
+
 ## When to use
 
 - **Binary decision with a recommendation.** The slide must close the question with one chosen path. Use when the audience needs both the trade-off and the verdict on one slide, not on two.

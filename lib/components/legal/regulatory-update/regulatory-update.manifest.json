@@ -156,5 +156,37 @@
       "sample": "<!-- _class: regulatory-update diff-bands -->\n\n## diff-bands shades what changed versus stayed.\n\n### Added\n\n1. Colorado AI Act\n   - `SB 24-205`\n   - New developer and deployer duties for consequential-decision systems.\n\n### Amended\n\n2. CCPA regulations\n   - `§7027`\n   - Opt-out preference signal handling clarified and tightened.\n\n### Repealed\n\n3. Small-business carve-out\n   - `§541.107`\n   - The blanket exemption was narrowed and partially repealed.\n\n### Enforced\n\n4. FTC v. Avast\n   - `§5 unfairness`\n   - $16.5M consent order finalized against deceptive privacy branding.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Placing the scope label after the heading instead of before it, or leaving it unwrapped in backticks.",
+      "fix": "The scope label matches `p:first-of-type > code` — it must be the section's first line, wrapped in backticks, or it won't render as the kicker above the ledger."
+    },
+    {
+      "mistake": "Using `diff-bands` without grouping items under `### ` category subheadings.",
+      "fix": "`diff-bands` expects the items split into separate ordered lists, each preceded by an `### Added`/`### Amended`/`### Repealed`/`### Enforced` subheading — a single flat list under `diff-bands` has no band to shade into."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "A plain numbered ledger of changes — the base look, order as authored."
+    },
+    {
+      "variant": "timeline",
+      "useWhen": "The changes should be read in effective-date order rather than authored or arbitrary order."
+    },
+    {
+      "variant": "priority",
+      "useWhen": "Only the changes with the highest exposure or impact matter and should be visually ranked, not just listed."
+    },
+    {
+      "variant": "cards",
+      "useWhen": "Each change deserves its own tile rather than a flowing numbered list — a more scannable, less document-like look."
+    },
+    {
+      "variant": "diff-bands",
+      "useWhen": "The changes fall into distinct categories of motion (Added/Amended/Repealed/Enforced) that should be visually grouped, not just listed chronologically."
+    }
+  ],
   "specimenVoice": true
 }

@@ -22,6 +22,11 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 | `subtitle` | `p > code` | no | Optional inline-code paragraph (eyebrow before the h2, or caption after it). Styled by the generic `> p`/`> em` rule, not a dedicated `p > code` rule. |
 | `tiles` | `ol > li` | yes | One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:     1. 73%        - faster close A bare number with no nested caption won't render as the big number. |
 
+### Common mistakes
+
+- **A stat's number has no nested caption bullet beneath it.** A bare number with no nested caption won't render as the big number — every tile needs its label nested directly beneath the number.
+- **Assuming the subtitle/eyebrow line needs inline-code wrapping to render, the way most other components' eyebrows do.** Stats' subtitle is styled by a generic paragraph rule (`> p, > em`), not the dedicated `p:has(> code)` eyebrow rule most components use — it renders as the same italic framing line whether wrapped in backticks or not. Backticks are optional here, unlike title/divider/kpi/math.
+
 ## When to use
 
 - **Three to five headline metrics.** Quarterly results, pilot outcomes, year-end summary — anywhere a small set of independent numbers tells the story together. Each tile reads as a `big-number` in miniature.

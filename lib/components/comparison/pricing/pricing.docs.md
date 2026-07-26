@@ -18,6 +18,17 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 | `tiers` | `ul > li` | yes | One top-level li per tier. Lead with the plain tier name (auto-bold), then a trailing inline-code price (`$49 / mo`, `Custom`). Add a single-asterisk marker (`*Most popular*`) to elevate one tier — it renders as a ribbon. Then a nested list: one feature per line led by a state marker, and a final marker-less ‘who it's for’ line. |
 | `features` | `ul > li > ul > li` | yes | Feature rows, each led by a state marker: `[x]` included (green check), `[/]` not included (muted, struck through), `[-]` limited (half). The LAST nested li carries NO marker — a short ‘who it's for’ line that anchors the bottom of the card. Keep the feature set and its order identical across every tier so the columns scan. |
 
+### Variant decision rule
+
+- **default (no modifier).** Three tiers is the natural width for a plans slide — good/better/best.
+- **`two`.** A straight head-to-head between exactly two plans — self-serve vs. enterprise, free vs. paid.
+- **`four`.** The whole ladder needs to be visible at once — compact enough to still read at four columns.
+
+### Common mistakes
+
+- **Writing the ribbon marker as `**Most popular**` (bold) instead of `*Most popular*` (single asterisk).** The ribbon is CSS-targeted at `li > em` specifically — `*…*` parses to `<em>`. A `**bold**` marker parses to `<strong>` instead and triggers neither the ribbon nor the accent-elevated card styling.
+- **Adding a state marker (`[x]`/`[/]`/`[-]`) to the final "who it's for" line.** The last nested item is identified by being marker-less — adding a marker turns it into another feature-badge row instead of the meta-styled audience line pinned to the card's bottom.
+
 ## When to use
 
 - **Two to four tiers.** Each tier is one column; the grid holds three across by default (`two` / `four` adjust the count). Past four the columns crowd and the prices stop scanning — move secondary options to a follow-up slide.

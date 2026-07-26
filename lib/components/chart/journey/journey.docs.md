@@ -17,6 +17,19 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 | `heading` | `h1, h2` | yes | Slide heading naming the journey or process. |
 | `sections` | `ul > li` | yes | Top-level li per section. Lead with the section name; nested ul carries tasks. Each task carries inline-code tokens: `@actor` (one or more), `:N` mood 1-5, optional `+N` volume (used by .weighted). |
 
+### Variant decision rule
+
+- **default (no modifier).** The classic Mermaid-style read — the plainest, most familiar rendering of the sequence.
+- **`heatmap`.** The fastest scan matters more than a precise trend — mood-tinted chips let the audience read the emotional contour at a glance.
+- **`curve`.** The trend across the journey is the point — a mood polyline with an axis makes the trajectory, not just each moment, legible.
+- **`swimlane`.** Actor load and handoff is the story — splits the journey into one row per actor.
+- **`weighted`.** Traffic volume through each step matters as much as mood — chip width encodes the `+N` volume token.
+
+### Common mistakes
+
+- **Treating the mood scale as if 1 were best instead of worst.** The mood scale runs 1 (worst) to 5 (best) — authoring it inverted flips heatmap tinting and the curve variant's trend direction.
+- **Omitting the `:N` mood token from a task.** Mood is the chart's whole point — a task with no `:N` token has nothing to plot under any of the four variants (heatmap tint, curve point, or otherwise); every task needs a mood score.
+
 ## When to use
 
 - **Affect is part of the story.** When a process matters not just for its steps but for how each step feels. The 1-5 mood score makes the emotional contour part of the chart instead of buried in narration.

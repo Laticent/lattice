@@ -17,6 +17,18 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 | `title` | `h2` | yes | Slide heading naming the plan. |
 | `rows` | `table` | yes | A markdown table. The header row lists the phases (each may carry an inline-code date pill, e.g. `Q2 2026`); the first column is the workstream name; each cell leads with a state marker [x]/[-]/[ ]/[/] then the deliverable. |
 
+### Variant decision rule
+
+- **default (no modifier).** A plain phased grid — deliverables with state markers, no extra framing.
+- **`horizons`.** The plan is framed as Now/Next/Later strategic horizons rather than literal calendar phases.
+- **`status`.** Delivery state itself is the headline read — every cell already labels its own state explicitly, so the auto-emitted legend key is suppressed.
+- **`swimlane`.** Each team's track should read as its own lane rather than a uniform grid — emphasizes team ownership over the grid structure.
+- **`milestones`.** The phases are named, dated release gates (Beta/RC/GA) rather than generic quarters — pins a dated path.
+
+### Common mistakes
+
+- **Writing the deliverable text before the state marker in a cell.** Each cell must LEAD with the state marker (`[x] Shipped item`), not follow it — a marker placed after the text isn't recognized as the cell's state.
+
 ## When to use
 
 - **Phased delivery across workstreams.** When the question is what each team ships in each phase. Workstreams down the side, phases across the top, deliverables in the cells — the whole plan reads in one glance.

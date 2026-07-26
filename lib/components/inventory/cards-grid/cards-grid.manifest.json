@@ -172,6 +172,34 @@
       "sample": "<!-- _class: cards-grid -->\n\n## An ordered list numbers the cards.\n\n1. Numbers appear\n   - Markdown's ordered list turns cards into steps.\n2. Sequence reads\n   - The grid now implies order, so mean it.\n3. Budget holds\n   - Same one-clause bodies as the unnumbered grid.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Writing the card as one inline line (`- **Title.** body`) instead of a nested bullet.",
+      "fix": "cards-grid requires the nested `- Title` / `  - body` format (HARD RULE #5, lint-enforced) — the inline form fails the deck-authoring lint, and the body inherits the parent li's bold weight instead of rendering at normal weight."
+    },
+    {
+      "mistake": "Adding a `numbered` class to the slide, expecting it to turn on corner numbers.",
+      "fix": "There is no `numbered` CSS class — the numbering comes purely from authoring the cards as an ordered list (`1.`) instead of a bullet list (`-`); the `numbered` entry in variants documents that authoring choice, not a class to type."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Two cards, or the default column count already fits — no need to force a specific column count."
+    },
+    {
+      "variant": "three",
+      "useWhen": "Exactly three parallel items need equal width — widens the grid to three columns."
+    },
+    {
+      "variant": "four",
+      "useWhen": "Four parallel items, often a 2×2 quadrant read where card position itself carries meaning."
+    },
+    {
+      "variant": "numbered",
+      "useWhen": "The cards have an implicit rank or step order worth surfacing as corner numbers — author with `1.` instead of `-`."
+    }
+  ],
   "showcase": {
     "featured": true
   },

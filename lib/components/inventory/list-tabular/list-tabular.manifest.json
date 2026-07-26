@@ -168,5 +168,53 @@
       "sample": "<!-- _class: list-tabular register outline -->\n\n## outline boxes each row in a keyline.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. quote `stable`\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Pairing a secondary modifier with the wrong primary variant (e.g. `def solid` or `metric rule`).",
+      "fix": "Each secondary modifier is scoped to exactly one primary — `rule` only styles `def`, `solid` only styles `metric`, `stacked` only styles `spec`, `outline` only styles `register`; pairing across combinations does nothing because no CSS selector matches."
+    },
+    {
+      "mistake": "Authoring rows as a bullet list (`-`) instead of a numbered list (`1.`).",
+      "fix": "The counter column and row styling are keyed to `ol > li` — a `ul` doesn't produce the numbered ledger at all."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "A plain hairline-ruled ledger — name left, description right, nothing tinted."
+    },
+    {
+      "variant": "def",
+      "useWhen": "Reference entries read like dictionary definitions — an eyebrow above each term and an enlarged counter spanning both lines."
+    },
+    {
+      "variant": "metric",
+      "useWhen": "Each row's value is the point — renders the trailing value in a bordered tile instead of a plain pill."
+    },
+    {
+      "variant": "spec",
+      "useWhen": "Rows are technical flags or parameters — monospace keys beside type chips."
+    },
+    {
+      "variant": "register",
+      "useWhen": "Each row carries a status — status pills per row, the lightest-weight of the four looks."
+    },
+    {
+      "variant": "rule",
+      "useWhen": "Under `def`, the rows need a visible horizontal separator between them rather than relying on whitespace alone."
+    },
+    {
+      "variant": "solid",
+      "useWhen": "Under `metric`, the values are headline numbers that deserve a filled panel instead of an outlined tile."
+    },
+    {
+      "variant": "stacked",
+      "useWhen": "Under `spec`, the description clause is long enough to want its own line below the key instead of trailing beside it."
+    },
+    {
+      "variant": "outline",
+      "useWhen": "Under `register`, a lighter, keyline-only pill treatment fits the deck's tone better than filled pills."
+    }
+  ],
   "specimenVoice": true
 }

@@ -97,5 +97,11 @@
       "when": "the events are parallel workstreams with completion percentages"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing the date as a trailing chip after the title instead of a leading chip before it.",
+      "fix": "Unlike most other chart components (where value/status chips trail the label), timeline-list's date pill LEADS the line — `` `2025 Q1` `` then the title — a date placed after the title is treated as a stray status-shaped chip instead of the event's date anchor."
+    }
+  ],
   "specimenVoice": true
 }
