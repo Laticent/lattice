@@ -161,16 +161,40 @@ in patch versions.
   existed anywhere in the docs-site — plus two independent CSS sizing regressions (#1187).**
   - **A crash on a specific slide could blank the ENTIRE Studio/Playground app.** `client:only`
     islands were wrapped only in `StrictMode` (a no-op in production, not an error boundary), so any
-    render/effect throw in the live preview — concretely, an anima chart hydrate/teardown call that
-    could throw uncaught — unwound the whole island to a white screen. Added a real `ErrorBoundary`
-    (`docs/src/components/ErrorBoundary.tsx`) at the island root (`StudioIsland.tsx`,
+    render/effect throw in the live preview unwound the whole island to a white screen. Added a real
+    `ErrorBoundary` (`docs/src/components/ErrorBoundary.tsx`) at the island root (`StudioIsland.tsx`,
     `PlaygroundIsland.tsx`) AND a tighter one scoped to just the live preview
     (`StudioShell.tsx`, keyed on deck/slide so a per-slide fault self-clears on navigation) — a
     preview fault now shows a recoverable card with the editor/toolbar still usable, instead of
-    blanking the app. Hardened the throw's actual source too: `anima-scenes.ts`'s `mount()` now
-    guards its `hydrate()` call and `disposeAll()`/dispose-in-diff now catch per-controller (mirroring
-    the sibling `hydrateScenes` guard), and `DeckPreview.tsx`'s unmount effect wraps its anima/engine
-    teardown so one fault can't skip the other's cleanup.
+    blanking the app. Hardened a plausible throw source too, as defense-in-depth:
+    `anima-scenes.ts`'s `mount()` now guards its `hydrate()` call and `disposeAll()`/dispose-in-diff
+    now catch per-controller (mirroring the sibling `hydrateScenes` guard), and `DeckPreview.tsx`'s
+    unmount effect wraps its anima/engine teardown so one fault can't skip the other's cleanup.
+  - **The actually-confirmed trigger for that crash (and a real, independent perf bug in its own
+    right): the overflow watcher's author-only "Fix Me" highlight redrew itself in an INFINITE LOOP
+    on any overflowing slide with an identifiable culprit** — `lib/runtime/index.js`'s
+    `drawFixMeTags()`, the shared engine runtime that drives the Studio, the Playground, AND the
+    VS Code Marp preview. `check()` (the overflow watcher) is scheduled to re-run on every DOM
+    mutation; `drawFixMeTags()` unconditionally cleared and rebuilt its highlight box + label on
+    every call, and that rebuild is itself a DOM mutation the SAME observer watches — a self-
+    triggering loop with no exit. Measured directly on a real overflowing slide (a dense
+    `list-tabular` ledger): a steady **60fps destroy-and-rebuild of the SAME two DOM nodes, forever**
+    (confirmed via object-identity tracking — 0 of 19 consecutive frames kept the same elements;
+    720 DOM mutations in a 4s at-rest window), for as long as the slide stays in view. Every sibling
+    write in this file was already explicitly change-gated against exactly this risk (a prior
+    investigation, `engineering/decisions/2026-07-17-preview-accumulation-leaks.md`, flagged the
+    general failure mode but reported it "disproven" — its test harness's default viewport
+    (below the Playground's 820px split breakpoint) silently measured a zero-size, not-actually-
+    laid-out preview pane, so an overflowing slide could never trigger it there) — this one function
+    was the omission. Now gated on a painted-signature comparison (same target elements, same
+    rounded rect, same label) before touching the DOM; a no-op redraw request is now a true no-op.
+    Sustained unthrottled 60fps DOM churn is a very plausible way to eventually crash or freeze a
+    real, thermally/memory-constrained mobile browser tab — invisibly to any JS error handler, since
+    nothing ever threw. `docs/scripts/runtime-settle-check.mjs` gains a new representative slide
+    (`overflowWithCulprit`) and its harness's viewport fix — confirmed via a before/after A/B that
+    this check now genuinely fails on the pre-fix runtime (it also caught two PRE-EXISTING affected
+    slide types, `denseOverflow` and `wideCode`, once the viewport fix let them actually measure) and
+    passes after.
   - **The Studio's live editor preview could go permanently blank on an iPad/iOS Safari (the "tablet
     preview is broken" report).** The preview box sized its width from `100cqh` against a
     `container-type:size` holder — a construct a prior decision doc
