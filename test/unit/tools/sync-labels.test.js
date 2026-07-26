@@ -74,7 +74,7 @@ describe('committed .github/labels.json', () => {
   test('model set is the advisory four-tier recommendation axis', () => {
     assert.deepEqual(
       names.filter((n) => n.startsWith('model:')).sort(),
-      ['model:fable', 'model:haiku', 'model:opus', 'model:sonnet'],
+      ['model:haiku', 'model:opus', 'model:sonnet'],
     );
   });
 });

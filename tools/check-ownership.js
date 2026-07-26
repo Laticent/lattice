@@ -2349,7 +2349,10 @@ function checkCatContrast(errors) {
 // roster + the CLAUDE.md dispatch table, not on this check.
 // See engineering/model-routing.md.
 const acorn = require('acorn');
-const AGENT_MODELS = ['opus', 'sonnet', 'haiku', 'fable'];
+// The latest Haiku / Sonnet / Opus, and deliberately nothing else — tiers above
+// Opus (Fable, Mythos) are not used in this repo, so `fable` is rejected by name
+// rather than quietly accepted. See engineering/model-routing.md § Three tiers.
+const AGENT_MODELS = ['opus', 'sonnet', 'haiku'];
 const AGENTS_DIR = path.join(ROOT, '.claude', 'agents');
 const WORKFLOWS_DIR = path.join(ROOT, '.claude', 'workflows');
 
@@ -2392,13 +2395,35 @@ function agentCallPins(src) {
 
   // `const spawn = agent` aliases the call, and a module-level `const opts = {...}`
   // may hold the options. Both were live bypasses under text scanning.
+  //
+  // The two are collected with DELIBERATELY different breadth, because getting them
+  // wrong fails in opposite directions (both halves found in review on #1187):
+  //
+  //  • OPTIONS objects — module-level `const` ONLY. This is the soundness boundary.
+  //    Accepting any declarator would let a block-scoped `const opts = {…}` in an
+  //    unrelated function, or a `let` reassigned before the call, satisfy an
+  //    `agent(p, opts)` elsewhere in the file — a false PASS certifying an unpinned
+  //    stage. A module-level `const` is the one binding that is unambiguous without
+  //    real scope analysis; anything else stays unresolved and is REPORTED.
+  //
+  //  • ALIASES — any scope. Narrowing these does not prevent a false pass, it just
+  //    stops the gate seeing the call at all: a function-scoped `const spawn = agent`
+  //    would make `spawn(p, {…})` invisible rather than flagged. Broader detection
+  //    errs toward reporting, which is the safe direction here.
   const aliases = new Set(['agent']);
-  const objectConsts = new Map();
   walkAst(ast, (n) => {
-    if (n.type !== 'VariableDeclarator' || n.id.type !== 'Identifier') return;
-    if (n.init?.type === 'Identifier' && aliases.has(n.init.name)) aliases.add(n.id.name);
-    if (n.init?.type === 'ObjectExpression') objectConsts.set(n.id.name, n.init);
+    if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' &&
+        n.init?.type === 'Identifier' && aliases.has(n.init.name)) aliases.add(n.id.name);
   });
+
+  const objectConsts = new Map();
+  for (const stmt of ast.body) {
+    const decl = stmt.type === 'ExportNamedDeclaration' ? stmt.declaration : stmt;
+    if (decl?.type !== 'VariableDeclaration' || decl.kind !== 'const') continue;
+    for (const d of decl.declarations) {
+      if (d.id.type === 'Identifier' && d.init?.type === 'ObjectExpression') objectConsts.set(d.id.name, d.init);
+    }
+  }
 
   const calls = [];
   walkAst(ast, (n) => {

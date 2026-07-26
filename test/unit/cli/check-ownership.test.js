@@ -705,6 +705,38 @@ describe('check-ownership', () => {
       }
     });
 
+    test('only three tiers exist — fable and anything above Opus are rejected', () => {
+      assert.deepEqual([...AGENT_MODELS].sort(), ['haiku', 'opus', 'sonnet'], 'the tier list is closed');
+      withFixture({ 'agents/a.md': AGENT('fable') }, (e) =>
+        assert.equal(only(e, 'which the harness does not accept').length, 1, 'roster must reject fable'));
+      withFixture({ 'agents/a.md': AGENT('opus'), 'workflows/w.js': "agent(p, { label: 'a', model: 'fable' })\n" }, (e) =>
+        assert.equal(only(e, "pins `model: 'fable'`").length, 1, 'workflow must reject fable'));
+    });
+
+    test('option resolution accepts ONLY a module-level const, but aliases from any scope', () => {
+      // Opposite failure directions, so opposite breadth. A block-scoped or reassigned
+      // binding must NOT satisfy a call (that would certify an unpinned stage); a
+      // function-scoped alias must still be SEEN (narrowing it just hides the call).
+      // Both found in review on #1187.
+      const unresolvable = [
+        "function h() { const opts = { label: 'x', model: 'opus' } }\nagent(p, opts)",
+        "let opts = { label: 'a', model: 'opus' }\nopts = build()\nagent(p, opts)",
+        "if (x) { const opts = { label: 'a', model: 'opus' } }\nagent(p, opts)",
+      ];
+      for (const body of unresolvable) {
+        const { calls } = agentCallPins(body);
+        assert.equal(calls.length, 1, body);
+        assert.equal(calls[0].pinned, false, `must not resolve: ${body}`);
+        assert.equal(calls[0].reason, 'options-unresolved', body);
+      }
+      const aliasedInFunction = agentCallPins("function h() { const spawn = agent\n spawn(p, { label: 'a' }) }");
+      assert.equal(aliasedInFunction.calls.length, 1, 'a function-scoped alias must still be seen');
+      assert.equal(aliasedInFunction.calls[0].reason, 'missing', 'and reported as unpinned, not skipped');
+      for (const body of ["const opts = { label: 'a', model: 'opus' }\nagent(p, opts)", "const spawn = agent\nspawn(p, { label: 'a', model: 'opus' })"]) {
+        assert.ok(agentCallPins(body).calls.every((c) => c.pinned), `module-level form must resolve: ${body}`);
+      }
+    });
+
     test('every shipped agent and workflow stage is pinned, and matches the routing doc', () => {
       const roster = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
       assert.ok(roster.length > 0, '.claude/agents/ must not be empty — it IS the routing enforcement');

@@ -35,7 +35,10 @@ in patch versions.
   is now decided by two questions (**judgment or lookup**, and **does a gate catch a mistake**) and
   enforced where it cannot be forgotten: a roster of model-pinned agents in `.claude/agents/`
   (`scout`, `fact-checker`, `ci-triage` on Sonnet 5; `inventory` on Haiku 4.5; `red-team`,
-  `inversion`, `checker` on Opus 5), so choosing the agent *is* choosing the model. The
+  `inversion`, `checker` on Opus 5), so choosing the agent *is* choosing the model. **Routing uses
+  three tiers only — the latest Haiku, Sonnet, and Opus.** Tiers above Opus are not used here, so
+  `fable` is rejected by the gate and retired as a `model:*` card label (no issue carried it); prose
+  craft — editorial/voice sweeps, doc-prose rewrites, deck copy — routes to Opus. The
   `design-competition` workflow now pins a model per stage — designers, critics, and judges on
   Opus; the mechanical fold and the claims fact-check on Sonnet — and the `visual-review` sweep
   splits maker passes (Sonnet) from the authoritative checker sign-off (Opus). Two things are

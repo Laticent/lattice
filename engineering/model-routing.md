@@ -18,7 +18,6 @@ never downshifted to move faster.
 
 | Model | Input $/MTok | Output $/MTok | Context | `effort` |
 |---|---|---|---|---|
-| **Fable 5** (`fable`) | $10.00 | $50.00 | 1M | full ladder, incl. `max` |
 | **Opus 5** (`opus`) | $5.00 | $25.00 | 1M | full ladder, incl. `max` |
 | **Sonnet 5** (`sonnet`) | **$2.00** → $3.00 | **$10.00** → $15.00 | 1M | full ladder, incl. `xhigh` |
 | **Haiku 4.5** (`haiku`) | $1.00 | $5.00 | **200K** | **none — rejected** |
@@ -38,39 +37,24 @@ skill**, which carries a cached copy plus the per-model constraints; note that i
 is a *harness-provided* skill, not a file in this repo — it is unrelated to
 `design/skills/`, which holds Lattice's own authoring skills.
 
-### Fable 5 is an UPSHIFT, not part of the cost ladder
+### Three tiers, and only three
 
-Read the table again: **Fable 5 costs 2× Opus 5.** Everything else in this doc is
-about routing *down* to the cheapest model that clears the bar; `fable` is the one
-tier you route *up* to, and only when the deliverable's quality ceiling — not its
-cost — is what you're optimizing. It is Anthropic's most capable widely released
-model.
+**Routing uses the latest Haiku, Sonnet, and Opus — nothing else.** Anthropic
+ships tiers above Opus (Fable 5 at $10/$50, and the invitation-only Mythos line);
+this repo does **not** use them, and `fable` is not an accepted value anywhere —
+not in `.claude/agents/` frontmatter, not in a workflow `agent()` option, and not
+as a card label. The gate rejects it by name.
 
-**When it applies here:** the repo already has a rubric for this, and it is
-`engineering/workflow.md` § Model recommendation, which defines the `model:fable`
-issue label as *"prose-heavy / editorial / voice — the deliverable is words a
-human reads and the craft is the writing: doc-prose rewrites, editorial/voice
-sweeps, gallery/deck copy,"* explicitly **not** a structural doc fix. **That
-rubric governs; this doc does not restate or override it.** The two are one
-system seen at two scales — that doc tags a *card* with the tier it should be
-worked at, this doc pins the *subagent* that does a slice of it — so a
-`model:fable` card whose deliverable really is the prose should spawn its writing
-agent on `fable`, not on the `sonnet` the generic docs row below would suggest.
+That is a standing decision, not an oversight to be corrected: three tiers spanning
+a 5× cost range already cover the judgment-to-mechanical spread this repo has, and
+a fourth tier above Opus buys a ceiling we have no task that needs while doubling
+the price of the most expensive work. **Prose craft — editorial and voice sweeps,
+doc-prose rewrites, deck copy — routes to `opus`**, the top of this ladder.
 
-**Its constraints differ from the rest of the ladder** and are worth knowing
-before you pin it: thinking is always on (`thinking: {type: "disabled"}` is a
-400 — omit the parameter), the raw chain of thought is never returned, assistant
-prefill is unsupported, and it requires 30-day data retention (unavailable under
-zero-retention). Its safety classifiers can also decline a request outright with
-`stop_reason: "refusal"`.
-
-**Why no agent in the roster is pinned to it:** the roster is lookup-and-verify
-work plus the adversarial trio — none of it is prose craft. `prose-checker` is
-the closest call and stays on `sonnet` deliberately: it *audits* writing against
-a stated checklist of AI tells and read-aloud failures and never edits, which is
-closer to lookup than to composition. If you want craft-tier auditing rather than
-checklist-tier, that is the one agent worth moving to `fable` — a judgment call,
-not an oversight.
+Adding a tier back is a deliberate change: update `AGENT_MODELS` in
+`tools/check-ownership.js`, this doc, the `CLAUDE.md` dispatch table, and
+`engineering/workflow.md`'s card rubric together. Do not pin a model here that the
+gate does not accept.
 
 ---
 
@@ -101,9 +85,8 @@ Look up the closest row; when nothing fits, fall back to the two questions.
 
 | Task | Model | Effort | Why |
 |---|---|---|---|
-| **Fable 5 — the words themselves are the deliverable (an UPSHIFT, 2× Opus)** ||||
-| Editorial / voice sweeps, doc-prose rewrites, gallery + deck copy | fable | high | `workflow.md`'s `model:fable` rubric — craft, not structure |
-| **Opus 5 — judgment, or a mistake ships silently** ||||
+| **Opus 5 — judgment, craft, or a mistake ships silently** ||||
+| Editorial / voice sweeps, doc-prose rewrites, gallery + deck copy | opus | high | The words *are* the deliverable; craft, not structure |
 | Design / architecture / "rethink X" | opus | high–xhigh | Wide solution space, no pattern to follow |
 | Red team, Munger inversion, independent checker | opus | high | The trio exists to catch costly errors (#25) |
 | Comparative judging of candidate designs | opus | high | Ranking on taste, side by side |

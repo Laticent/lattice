@@ -184,11 +184,10 @@ novel mechanisms, decision docs. Built-ins (`Explore`, `Plan`,
 `scout`. **The session's own model never changes** (it would void the prompt
 cache); savings come from pushing work *down* into subagents.
 
-**`fable` is an UPSHIFT, not part of this ladder** (2× Opus): route *up* to it
-only when the words themselves are the deliverable — editorial/voice sweeps,
-doc-prose rewrites, deck copy. That rubric lives in `workflow.md` § Model
-recommendation (the `model:fable` card label); routing pins the *agent*, that
-tags the *card*, and the two must agree.
+**Three tiers, and only three** — the latest Haiku, Sonnet, and Opus. Tiers above
+Opus (Fable, Mythos) are **not used here** and `fable` is not an accepted value
+anywhere; the gate rejects it. Prose craft — editorial/voice sweeps, doc-prose
+rewrites, deck copy — routes to **opus**, the top of this ladder.
 
 `effort` and model are **two levers**: effort cuts output tokens, model cuts
 both rates — so a read-heavy scout is dominated by model, a write-heavy drafter
