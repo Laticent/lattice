@@ -26,6 +26,7 @@ const {
   measureLabel,
   charBudget,
   deCollideLabels,
+  placeLabels,
 } = require('../../../lib/components/chart/_chart-family/svg-label');
 
 const tspans = (svg) => [...svg.matchAll(/<tspan\b[^>]*>([\s\S]*?)<\/tspan>/g)].map((m) => m[1]);
@@ -298,5 +299,93 @@ describe('deCollideLabels — direction fallback', () => {
       { minGap: 1, maxShift: 100 },
     );
     assert.ok(shifts[1] < 0, 'climbed, as its direction asked');
+  });
+});
+
+
+// ── placeLabels: a label is placed BESIDE ITS MARK, never slid away from it ──
+describe('placeLabels', () => {
+  const spec = { width: 60, fontSize: 8.5, maxLines: 1, className: 'x', emitFontSize: false };
+  const at = (cx, cy, text = 'Name', r = 4) => ({ text, cx, cy, r, spec });
+
+  test('an unobstructed label goes ABOVE its mark', () => {
+    const [p] = placeLabels([at(100, 100)]);
+    assert.equal(p.anchorKey, 'above');
+    assert.equal(attr(p.svg, 'text-anchor'), 'middle');
+  });
+
+  test('a blocked position moves to another POSITION, not further along one axis', () => {
+    // Something already occupies the space directly above the mark.
+    const [p] = placeLabels([at(100, 100)], {
+      obstacles: [{ left: 60, right: 140, top: 78, bottom: 95 }],
+    });
+    assert.notEqual(p.anchorKey, 'above');
+    assert.ok(p.box.top >= 95 || p.box.bottom <= 78, 'it cleared the obstacle');
+  });
+
+  test('a vertical position on a FURTHER ring beats a side position on the nearest', () => {
+    // Above and below are blocked at the first ring only; left and right are
+    // wide open there. Taking the first clear position found would answer
+    // "right"; the preference says climb instead, because a caption over its
+    // point reads correctly and one beside it does not.
+    const band = (top, bottom) => ({ left: 60, right: 140, top, bottom });
+    const [p] = placeLabels([at(100, 100)], {
+      obstacles: [band(86, 95), band(105, 114)],
+    });
+    assert.equal(p.anchorKey, 'above');
+  });
+
+  test('a side position IS used when the column above and below is full', () => {
+    const band = (top, bottom) => ({ left: 60, right: 140, top, bottom });
+    const [p] = placeLabels([at(100, 100)], {
+      obstacles: [band(40, 99), band(101, 160)],
+    });
+    assert.ok(['right', 'left', 'above-right', 'above-left', 'below-right', 'below-left'].includes(p.anchorKey),
+      `expected a lateral fallback, got ${p.anchorKey}`);
+  });
+
+  test('every label stays adjacent to its own mark, even in a cluster', () => {
+    const items = [
+      at(100, 100, 'Alpha'), at(104, 102, 'Bravo'), at(98, 104, 'Charlie'),
+      at(102, 97, 'Delta'), at(106, 99, 'Echo'),
+    ];
+    const placedBoxes = placeLabels(items).map((p) => p.box);
+    placedBoxes.forEach((b, i) => {
+      const it = items[i];
+      const d = Math.hypot(
+        Math.max(b.left - it.cx, 0, it.cx - b.right),
+        Math.max(b.top - it.cy, 0, it.cy - b.bottom),
+      );
+      assert.ok(d <= 40, `${items[i].text} sits ${d.toFixed(1)} units from its own mark`);
+    });
+  });
+
+  test('bounds keep a label inside the plot', () => {
+    const bounds = { x0: 0, y0: 90, x1: 200, y1: 200 };
+    const [p] = placeLabels([at(100, 100)], { bounds });
+    assert.ok(p.box.top >= bounds.y0 - 0.01, 'did not escape the top of the plot');
+  });
+
+  // The fallback re-emits the least-bad candidate, which can come from ANY ring.
+  // Rebuilding it at ring 0 would move the label to a position the pass never
+  // scored — the emitted box has to be the box that was chosen.
+  test('the no-clear-position fallback emits the position it actually scored', () => {
+    // Every position overlaps something, so the fallback runs. The emitted label
+    // must still sit on one of the rings, not at an unscored distance.
+    const wall = (top, bottom) => ({ left: 0, right: 200, top, bottom });
+    const [p] = placeLabels([at(100, 100)], { obstacles: [wall(0, 99), wall(101, 200)] });
+    const step = 8.5 * 1.18;
+    const dyToMark = Math.max(p.box.top - 100, 0, 100 - p.box.bottom);
+    const dxToMark = Math.max(p.box.left - 100, 0, 100 - p.box.right);
+    const reach = Math.max(dyToMark, dxToMark);
+    assert.ok(reach <= 4 + 4 + 2 * step + 12 + 0.01,
+      `emitted at reach ${reach.toFixed(1)}, past the furthest ring plus the nudge`);
+  });
+
+  test('placement is deterministic', () => {
+    const items = [at(100, 100, 'Alpha'), at(103, 101, 'Bravo')];
+    const a = placeLabels(items).map((p) => p.svg).join('');
+    const b = placeLabels(items).map((p) => p.svg).join('');
+    assert.equal(a, b);
   });
 });

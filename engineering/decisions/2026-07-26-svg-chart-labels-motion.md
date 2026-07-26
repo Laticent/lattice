@@ -401,10 +401,23 @@ Two mechanics produce that, and neither is fixable by tuning:
   model could say "you go left instead".
 
 So the answer is not a better slide. It is **somewhere else to go**:
-`placeLabels` tries eight anchors around the mark — above, below, right, left,
-then the four diagonals, each carrying the anchor/baseline/vAlign that makes the
-block grow away from the dot — at three distances, and takes the first that
-clears every mark, every already-placed label and the plot box.
+`placeLabels` tries eight anchors around the mark, each carrying the
+anchor/baseline/vAlign that makes the block grow away from the dot, at three
+distances, and takes the cheapest that clears every mark, every already-placed
+label and the plot box.
+
+**Vertical wins.** Above and below are the cheapest anchors, the diagonals next,
+and pure left/right last — with a gap wide enough that a vertical position on a
+FURTHER ring beats a horizontal one on the nearest. Over or under its point, a
+name reads as that point's caption; off to one side it reads as a row in a list
+that happens to sit near a dot. A side placement is what you fall back to when
+the column above and below a point is genuinely full, and the tests assert both
+halves of that (the preference, and that the fallback still happens).
+
+Note this is why every clear position is *scored* rather than taking the first
+one found: with the ring as the outer loop, "first found" would put a label
+beside its point rather than one line further above it, which is precisely the
+weaker read.
 
 Three things fell out of it rather than being designed:
 

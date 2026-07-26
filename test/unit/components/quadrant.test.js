@@ -682,6 +682,27 @@ test('buildQuadrant: a dense cluster fans out instead of overprinting', () => {
   }
 });
 
+// VERTICAL BEATS HORIZONTAL, and by enough that a further ring above a point
+// still wins over the nearest spot beside it. A name centered over or under its
+// point reads as that point's caption; a name off to one side reads as a row in
+// a list that happens to sit near a dot. A pure side placement is the only one
+// that paints `dominant-baseline="middle"`, so it is directly countable.
+test('buildQuadrant: labels go above or below their point, not beside it', () => {
+  const out = buildQuadrant(modelFour(), 'default', SCALE);
+  const sideways = (out.match(/<text class="quadrant-dot-label"[^>]*dominant-baseline="middle"/g) || []).length;
+  assert.equal(sideways, 0, 'a point with room above or below it must not be labelled from the side');
+
+  // And the preferred position is ABOVE: every label's anchor sits over its dot.
+  const dots = [...out.matchAll(/<circle class="quadrant-dot"[^>]*cx="([\d.]+)" cy="([\d.]+)"/g)]
+    .map((m) => ({ x: +m[1], y: +m[2] }));
+  const anchors = [...out.matchAll(/<text class="quadrant-dot-label"[^>]*>[\s\S]*?<tspan x="([-\d.]+)" y="([-\d.]+)"/g)]
+    .map((m) => ({ x: +m[1], y: +m[2] }));
+  assert.equal(anchors.length, dots.length);
+  const above = anchors.filter((a, i) => Math.abs(a.x - dots[i].x) < 0.01 && a.y < dots[i].y).length;
+  assert.ok(above >= dots.length - 1,
+    `${above}/${dots.length} labels are centered above their dot — a sparse scatter should place nearly all of them there`);
+});
+
 // ── quadrant names sit OUTSIDE the plot ─────────────────────────────────────
 // They used to be inset INSIDE their corner, where they competed with the data
 // for that corner (item labels had to be routed around them, and still

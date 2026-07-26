@@ -246,9 +246,12 @@ in patch versions.
   read as labelling something else; and every label in a cluster slid the SAME way, so three names
   stacked into a column while their three dots stayed put. A slide cannot fix that, because the
   problem is not that the label is in the wrong place, it is that only one place was on offer. The
-  new pass (`_chart-family/svg-label.js` `placeLabels`) offers eight anchors around the mark — above,
-  below, left, right, then the four diagonals — at three distances, rejects any that hit a mark, a
-  neighbor or the plot edge, and takes the most preferred survivor. A label is now always adjacent to
+  new pass (`_chart-family/svg-label.js` `placeLabels`) offers eight anchors around the mark — above
+  and below first, then the diagonals, and pure left/right only as a last resort — at three
+  distances, rejects any that hit a mark, a neighbor or the plot edge, and takes the cheapest
+  survivor. VERTICAL WINS, and by enough that a caption one line further above its point beats the
+  nearest spot beside it: over or under, a name reads as that point's caption; off to the side it
+  reads as a row in a list that happens to sit near a dot. A label is now always adjacent to
   its own mark: the distance is bounded by the mark's radius, never by a travel budget, and two close
   points get different SIDES rather than a stack. Measured on a six-point cluster: the labels
   overlapped by ~279 square units under the old single-ring model and by zero under this one, at the
