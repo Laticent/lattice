@@ -83,6 +83,7 @@ const {
   VETRINA_DIR,
   VETRINA_IMPORT,
   checkAgentModelPinning,
+  declaredModel,
   AGENT_MODELS,
   AGENT_CALL,
   AGENT_OPTIONS,
@@ -543,6 +544,7 @@ describe('check-ownership', () => {
     const AGENTS_DIR = path.join(ROOT, '.claude', 'agents');
     const WORKFLOWS_DIR = path.join(ROOT, '.claude', 'workflows');
     const frontmatter = (src) => (/^---\n([\s\S]*?)\n---/.exec(src) || ['', ''])[1];
+    const modelOf = (src) => declaredModel(frontmatter(src));
 
     test('the live tree raises no #27 violations', () => {
       const errors = [];
@@ -554,9 +556,9 @@ describe('check-ownership', () => {
       const agents = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md'));
       assert.ok(agents.length > 0, '.claude/agents/ must not be empty — it IS the routing enforcement');
       for (const file of agents) {
-        const declared = /^model:\s*(\S+)\s*$/m.exec(frontmatter(fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8')));
+        const declared = modelOf(fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8'));
         assert.ok(declared, `${file} declares no model: — it would silently inherit the session model`);
-        assert.ok(AGENT_MODELS.includes(declared[1]), `${file} pins unrecognized model "${declared[1]}"`);
+        assert.ok(AGENT_MODELS.includes(declared), `${file} pins unrecognized model "${declared}"`);
       }
     });
 
@@ -579,11 +581,43 @@ describe('check-ownership', () => {
       assert.ok(/^model:\s*\S+$/m.test(frontmatter(real)), 'baseline: scout pins a model');
 
       const dropped = real.replace(/^model:.*$/m, 'tools: Read');
-      assert.ok(!/^model:\s*(\S+)\s*$/m.test(frontmatter(dropped)), 'no model: → gate would flag it');
+      assert.equal(modelOf(dropped), null, 'no model: → gate would flag it');
+
+      const bare = real.replace(/^model:.*$/m, 'model:');
+      assert.equal(modelOf(bare), null, 'a valueless `model:` declares nothing → gate would flag it');
 
       const bogus = real.replace(/^model:.*$/m, 'model: sonnet-5');
-      const declared = /^model:\s*(\S+)\s*$/m.exec(frontmatter(bogus));
-      assert.ok(declared && !AGENT_MODELS.includes(declared[1]), 'typo\'d model name → gate would flag it');
+      assert.ok(!AGENT_MODELS.includes(modelOf(bogus)), 'typo\'d model name → gate would flag it');
+    });
+
+    test('the gate does NOT bite valid YAML: quoted scalars and trailing comments', () => {
+      // A raw \S+ capture takes `'sonnet'` WITH its quotes and rejects a perfectly valid
+      // roster — a false positive that teaches people to distrust the gate. Flagged by
+      // review on #1187; these are the shapes a human actually writes.
+      const real = fs.readFileSync(path.join(AGENTS_DIR, 'scout.md'), 'utf8');
+      for (const form of ["model: 'sonnet'", 'model: "sonnet"', 'model: sonnet   ', 'model: sonnet # cheapest tier that clears the bar']) {
+        const variant = real.replace(/^model:.*$/m, form);
+        assert.equal(modelOf(variant), 'sonnet', `${JSON.stringify(form)} should parse to the bare scalar`);
+        assert.ok(AGENT_MODELS.includes(modelOf(variant)), `${JSON.stringify(form)} must not be rejected`);
+      }
+    });
+
+    test('a MISSING roster directory fails loudly rather than no-opping the gate', () => {
+      // Flagged by review on #1187: guarding the roster half behind existsSync meant a
+      // deleted/renamed .claude/agents/ silently disabled it — the enforcement surface
+      // vanishes and build:check stays green, which is the drift the rule exists to stop.
+      const realExists = fs.existsSync;
+      const errors = [];
+      try {
+        fs.existsSync = (p) => (String(p).endsWith(path.join('.claude', 'agents')) ? false : realExists(p));
+        checkAgentModelPinning(errors);
+      } finally {
+        fs.existsSync = realExists;
+      }
+      assert.ok(
+        errors.some((e) => e.includes('.claude/agents/ does not exist')),
+        `a missing roster must be an error, got: ${JSON.stringify(errors)}`,
+      );
     });
 
     test('the gate bites: a workflow stage that drops its model option is flagged', () => {

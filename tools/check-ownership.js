@@ -2365,8 +2365,35 @@ const AGENT_OPTIONS = new RegExp(`\\{${OPT_FILLER}\\blabel:${OPT_FILLER}\\}`, 'g
 // Non-global on purpose — it is used with .test(), which is stateful on /g/.
 const MODEL_PIN = /\bmodel:\s*['"](?:opus|sonnet|haiku|fable)['"]/;
 
+// The YAML scalar after `model:` — tolerant of what a human will actually write.
+// A raw \S+ capture would take `'sonnet'` WITH its quotes and reject valid YAML, and
+// would reject a trailing `# comment` outright; both are false positives that teach
+// people to distrust the gate. Strip the comment, then the quotes.
+function declaredModel(frontmatter) {
+  const m = /^model:[ \t]*(.*)$/m.exec(frontmatter);
+  if (!m) return null;
+  const value = m[1]
+    .replace(/\s+#.*$/, '') // trailing YAML comment
+    .trim()
+    .replace(/^(['"])([\s\S]*)\1$/, '$2') // surrounding quotes, either style
+    .trim();
+  return value || null; // a bare `model:` with no value declares nothing
+}
+
 function checkAgentModelPinning(errors) {
-  if (fs.existsSync(AGENTS_DIR)) {
+  // A MISSING roster is not "nothing to check" — it means the enforcement surface
+  // CLAUDE.md and engineering/model-routing.md point at is gone, so every subagent
+  // silently inherits Opus 5: precisely the drift this rule exists to prevent. Treat
+  // it exactly like an empty one. (The workflows half below early-returns instead,
+  // and that asymmetry is deliberate: no workflows dir means no agent() calls exist,
+  // so there is nothing that COULD drift.)
+  if (!fs.existsSync(AGENTS_DIR)) {
+    errors.push(
+      '.claude/agents/ does not exist — the model-routing roster is the enforcement surface for ' +
+      'HARD RULE #27, and without it every subagent silently inherits Opus 5. Restore it, or ' +
+      'retire the rule in CLAUDE.md and engineering/model-routing.md and delete this gate.',
+    );
+  } else {
     const agents = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md'));
     if (!agents.length) {
       errors.push(
@@ -2383,16 +2410,16 @@ function checkAgentModelPinning(errors) {
         errors.push(`${rel} has no YAML frontmatter — HARD RULE #27 needs a \`model:\` field there.`);
         continue;
       }
-      const declared = /^model:\s*(\S+)\s*$/m.exec(fm[1]);
+      const declared = declaredModel(fm[1]);
       if (!declared) {
         errors.push(
           `${rel} declares no \`model:\` in its frontmatter (HARD RULE #27), so it silently inherits ` +
           `the session model — Opus 5, at 2.5x Sonnet 5's rate. Pin one of ${AGENT_MODELS.join(' / ')} ` +
           `using the routing table in engineering/model-routing.md.`,
         );
-      } else if (!AGENT_MODELS.includes(declared[1])) {
+      } else if (!AGENT_MODELS.includes(declared)) {
         errors.push(
-          `${rel} pins \`model: ${declared[1]}\`, which the harness does not accept (HARD RULE #27) — ` +
+          `${rel} pins \`model: ${declared}\`, which the harness does not accept (HARD RULE #27) — ` +
           `an unrecognized name falls back to the session model instead of erroring. ` +
           `Use one of ${AGENT_MODELS.join(' / ')}.`,
         );
@@ -2672,6 +2699,7 @@ module.exports = {
   checkSkillFreshness,
   skillFreshnessAssertions,
   checkAgentModelPinning,
+  declaredModel,
   AGENT_MODELS,
   AGENT_CALL,
   AGENT_OPTIONS,
