@@ -4,6 +4,7 @@ import {
 import * as React from 'react';
 import { toast } from 'sonner';
 import DeckPreview from '@/components/DeckPreview';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackSheet } from '@/components/site/FeedbackSheet';
 import { Button } from '@/components/ui/button';
 import {
@@ -1891,14 +1892,59 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 
 	// The preview card's aspect follows the deck's selected Size (not a fixed 16:9);
 	// The preview box CONTAINS the slide (whole slide visible, never cropped) at the deck's
-	// aspect ratio, letterboxing the pane's spare axis. This is now done with PURE CSS at the
-	// box itself — `width: min(100%, 100cqh × ratio)` against `container-type:size` on the pane
-	// — so there is NO measured fit state to race (the old `previewFitByHeight` measure could
-	// bail on a 0-dim read during the iOS load reflow and leave the box the wrong shape → the
-	// misplaced/oversized preview). See the box
-	// style below and engineering/decisions/2026-07-21-studio-preview-one-skeleton.md.
+	// aspect ratio, letterboxing the pane's spare axis.
+	//
+	// PRIOR ART (retired, #1186): a pure-CSS `width: min(100%, 100cqh × ratio)` against
+	// `container-type:size` on the pane — no measured state, no race. It broke on a real
+	// iPad/iOS Safari: `100cqh` intermittently resolves to 0 against a flex-derived container
+	// height, collapsing the box to 0-width. The shared render kernel gates its reveal on a
+	// real pixel width (single-slide-render.ts's `frameHasPainted` + `clientWidth`), so a
+	// 0-width box left the preview stuck on its loader forever — the reported "tablet preview
+	// is broken." engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md diagnosed
+	// this as the keystone root cause and prescribed a letterbox; a pure-CSS aspect-ratio
+	// letterbox was re-verified here and found to ALSO collapse (Chromium: `aspect-ratio` +
+	// `max-width/max-height: 100%` + `margin:auto` alone resolves to the box's tiny intrinsic
+	// size, not the pane's bounds, when neither axis has an explicit basis).
+	//
+	// So this measures instead — the same technique PresentOverlay already ships (its
+	// `slideMaxW` state, ResizeObserver on `slideRowRef`): a ResizeObserver reads the holder's
+	// real CONTENT-box size and the box's width is computed in JS as `min(paneW, paneH × ratio,
+	// cap)`. A transient 0-dim read (the iOS load reflow the retired comment warned about) is
+	// ignored — `measure()` only commits a size when BOTH dims are positive, so the box holds
+	// its last good size instead of collapsing.
+	//
+	// A CALLBACK ref, not `useRef` + a mount-once `useEffect` (checker-caught regression): the
+	// holder isn't a stable node for the shell's lifetime — `previewPane` (below) is one of
+	// several MUTUALLY EXCLUSIVE JSX branches (mobile / landscape-phone / desktop-tablet), so
+	// crossing one (e.g. rotating a phone) unmounts the old holder and mounts a fresh one. A
+	// `[]`-dep effect captures the FIRST holder only; the observer is left watching a detached
+	// node (which reports 0×0 and is correctly ignored by the `w>0 && h>0` guard above) while
+	// the NEW holder goes unobserved forever — `previewPaneSize` freezes at the pre-rotation
+	// value. A ref CALLBACK fires on every attach/detach, so each new holder gets its own
+	// observer and the stale one is torn down with it.
 	const previewRatio = sizeRatio(deckSize);
-	const previewHolderRef = React.useRef<HTMLDivElement>(null);
+	const previewRatioValue = previewRatio[0] / previewRatio[1];
+	const [previewPaneSize, setPreviewPaneSize] = React.useState<{ w: number; h: number } | null>(null);
+	const previewHolderRoRef = React.useRef<ResizeObserver | null>(null);
+	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
+		previewHolderRoRef.current?.disconnect();
+		previewHolderRoRef.current = null;
+		if (!holder || typeof ResizeObserver === 'undefined') return;
+		const measure = (contentRect?: { width: number; height: number }) => {
+			// `entry.contentRect` is the CONTENT box (excludes padding/border) — the same box
+			// `100cqh` measured pre-fix. `clientWidth`/`clientHeight` are the PADDING box
+			// (checker-caught: reading them here over-sized the letterbox by 2× the holder's
+			// padding, eating into the intended gutter). Fall back to them only for the
+			// synchronous first call below, where no ResizeObserverEntry exists yet.
+			const w = contentRect ? contentRect.width : holder.clientWidth;
+			const h = contentRect ? contentRect.height : holder.clientHeight;
+			if (w > 0 && h > 0) setPreviewPaneSize({ w, h });
+		};
+		measure();
+		const ro = new ResizeObserver(([entry]) => measure(entry?.contentRect));
+		ro.observe(holder);
+		previewHolderRoRef.current = ro;
+	}, []);
 	// Touch swipe (mobile) + horizontal wheel (trackpad) change the viewed slide.
 	// goToSlide(slideNo) is next, goToSlide(slideNo - 2) is prev (both clamp).
 	const swipeRef = React.useRef<{ x: number; y: number } | null>(null);
@@ -2637,7 +2683,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			)}
 			{/* Swipe (touch) + horizontal-wheel (trackpad) change slides; the card's
 			    aspect ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')} style={{ containerType: 'size' }} onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
+			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')} onTouchStart={onPreviewTouchStart} onTouchEnd={onPreviewTouchEnd} onWheel={onPreviewWheel}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -2651,21 +2697,27 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					// own `rounded-xl` corners (a square backing pokes its dark corners past the
 					// slide's rounded ones — the "notch" artifact). Elsewhere keep the full card.
 					landscapePhone ? 'rounded-xl' : 'rounded-xl border border-border shadow-[0_8px_24px_rgba(10,22,40,.10)]')}
-					// CONTAIN to a clean deck-ratio (usually 16:9) box with PURE CSS — no JS, no
-					// race. Width = the SMALLER of the available width (`100%`, padding-aware) and
-					// the height-derived width (`100cqh × ratio`, `100cqh` = the pane height via
-					// container-type:size on previewHolder). So it fits inside the pane on ANY
-					// shape: a portrait phone binds to width (letterboxed top/bottom), landscape
-					// binds to height — deterministically, with nothing to measure or go stale.
+					// CONTAIN to a clean deck-ratio (usually 16:9) box. Width = the SMALLER of the
+					// pane's measured width and its height-derived width (paneH × ratio) — see
+					// `previewPaneSize` above for why this is JS-measured, not `cqh`. So it fits
+					// inside the pane on ANY shape: a portrait phone binds to width (letterboxed
+					// top/bottom), landscape binds to height. Pre-measurement (first paint) falls
+					// back to `100%` — the flex holder still centers a full-width box correctly,
+					// it's just not yet height-letterboxed for one frame.
 					// The live preview lives IN-FLOW inside this box (no hoisted host tracking it),
-					// so the box's own CSS geometry IS the preview geometry. The 760px comfort cap
+					// so the box's own geometry IS the preview geometry. The 760px comfort cap
 					// applies except in the fill cases (Read full-bleed / cinema / editor collapsed).
 					style={{
 						aspectRatio: `${previewRatio[0]} / ${previewRatio[1]}`,
-						width:
-							split.collapsed === 'a' || previewChromeless
-								? `min(100%, calc(100cqh * ${(previewRatio[0] / previewRatio[1]).toFixed(4)}))`
-								: `min(100%, calc(100cqh * ${(previewRatio[0] / previewRatio[1]).toFixed(4)}), 760px)`,
+						width: previewPaneSize
+							? `${Math.floor(
+									Math.min(
+										previewPaneSize.w,
+										previewPaneSize.h * previewRatioValue,
+										split.collapsed === 'a' || previewChromeless ? Infinity : 760,
+									),
+								)}px`
+							: '100%',
 					}}>
 					{/* The editor's live preview lives IN-FLOW here (no hoisted fixed host, no
 					    measure-and-track controller). Being a normal layout child, the browser keeps
@@ -2674,7 +2726,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    unreachable because nothing is a position:fixed element chasing a slot.
 					    Present renders its OWN preview (PresentOverlay), so this one idles
 					    (active=false) while presenting but stays warm. */}
-					<DeckPreview options={options} sample={editorSample} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
+					{/* Preview-scoped boundary — a render/effect throw in the live preview (e.g. a
+					    chart slide's anima reveal/teardown, #1186) is contained HERE, leaving the
+					    editor + toolbar + slide navigator alive, instead of unmounting the whole
+					    island. `resetKeys` clears the fault when the user navigates to another
+					    slide or deck, so a per-slide fault self-recovers without a reload. */}
+					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]}>
+						<DeckPreview options={options} sample={editorSample} mermaid={editorMermaid} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} loader chartDetail />
+					</ErrorBoundary>
 				</div>
 			</div>
 			{/* Slide navigator — jump to any slide, see its component type. Dropped in the

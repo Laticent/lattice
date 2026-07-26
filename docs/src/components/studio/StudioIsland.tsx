@@ -1,4 +1,5 @@
 import { type ComponentProps, StrictMode } from 'react';
+import { ErrorBoundary } from '../ErrorBoundary.tsx';
 import StudioShell from './StudioShell.tsx';
 
 // Astro mounts this wrapper — not StudioShell directly — so StrictMode is an
@@ -11,9 +12,16 @@ import StudioShell from './StudioShell.tsx';
 // nothing and is a no-op in production builds, so shipping it on the island
 // costs nothing at runtime.
 export default function StudioIsland(props: ComponentProps<typeof StudioShell>) {
+	// The boundary is the ISLAND-LEVEL backstop: a throw anywhere in the shell (render,
+	// a lifecycle, an effect / its cleanup) lands here as a recoverable card instead of
+	// unmounting the whole client:only island to a white screen. A tighter boundary
+	// around the live preview (StudioShell) keeps the editor + toolbar alive on the
+	// common case — a preview fault — so this whole-shell fallback is the last resort.
 	return (
 		<StrictMode>
-			<StudioShell {...props} />
+			<ErrorBoundary label="Lattice Studio">
+				<StudioShell {...props} />
+			</ErrorBoundary>
 		</StrictMode>
 	);
 }

@@ -71,11 +71,30 @@ const SLIDES = {
 	piechart: '<!-- _class: piechart -->\n\n## Revenue by segment.\n\n- Enterprise `45`\n- Mid-market `30`\n- SMB `25`\n',
 	mermaid: '## A flow\n\n```mermaid\nflowchart LR\n  A[Start] --> B{Choice}\n  B -->|yes| C[Do]\n  B -->|no| D[Skip]\n  C --> E[End]\n  D --> E\n```\n',
 	wideCode: '## Wide code\n\n```js\nconst aVeryLongLine = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";\n```\n',
+	// #1186 regression guard: `denseOverflow`/`borderline` above are a BARE list with no
+	// `_class`, so they overflow with NO identifiable clip-cell/density-outlier culprit —
+	// `drawFixMeTags([])` short-circuits at its `!targets.length` branch and never
+	// exercises the redraw path at all. A REAL component with a bounded `.cell-stage`
+	// (list-tabular) overflowing gives the overflow watcher an actual Fix-Me CULPRIT to
+	// highlight — the exact case that, pre-fix, redrew the highlight box+tab from scratch
+	// on every animation frame forever (confirmed via object-identity tracking: 0/19
+	// frames kept the same DOM nodes). This is the one that would have caught it.
+	overflowWithCulprit: `<!-- _class: list-tabular -->\n\n## A ledger with too many rows.\n\n${Array.from({ length: 14 }, (_, i) => `${i + 1}. Row ${i + 1}\n   - A description long enough to add real height to every row in this ledger.`).join('\n')}\n`,
 };
 
 async function measure(browser, base, deck, windowMs) {
 	const ctx = await browser.createBrowserContext();
 	const page = await ctx.newPage();
+	// Above the Playground's 820px editor|preview split breakpoint (docs/src/styles/
+	// playground.css) — Puppeteer's DEFAULT viewport (800×600) falls just BELOW it, which
+	// silently lands the harness in the mobile single-pane shell with `data-pane='edit'`,
+	// leaving the PREVIEW pane at zero width/height. A zero-size section always measures
+	// 0 scrollHeight/clientHeight, so the overflow watcher can never fire regardless of
+	// slide content — the harness was unable to prove ANY of the overflow-adjacent slides
+	// below actually exercised the overflow path at all (found while adding
+	// `overflowWithCulprit`, #1186: it read `overflowClass:false` at the default viewport,
+	// `true` at this one, with IDENTICAL content).
+	await page.setViewport({ width: 1280, height: 900 });
 	await page.evaluateOnNewDocument((src) => {
 		try { localStorage.setItem('lattice-docs-pg-source', src); } catch {}
 	}, deck);
