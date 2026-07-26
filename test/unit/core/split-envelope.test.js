@@ -194,6 +194,20 @@ describe('core: splitEnvelope — readers', () => {
     assert.match(r.closing[0].outer, /below-note/);
   });
 
+  test('chrome does not end the trailing run — a cell-less slide still hoists its note', () => {
+    // A STAGE_DEFERRED / non-Form layout has no `.cell-stage`, so the region runs to the end
+    // of the section and the Marp <footer> sits AFTER the note. Chrome must be stepped over,
+    // or the FM-2 duplication survives here (and would flip on whether the deck sets `footer:`).
+    const bare = `<header>H</header><h2>T</h2>${items(9)}<div class="below-note"><p>Note.</p></div><footer>F</footer>`;
+    assert.equal(splitRegions(bare, 'item').closing.length, 1);
+    const parts = build(bare, 4);
+    assert.equal(parts.filter((p) => /class="below-note"/.test(p)).length, 1);
+    assert.match(parts.at(-1), /lat-split-closing/);
+    // …and identically with no footer at all, so the shape can't depend on deck chrome.
+    const noFooter = bare.replace('<footer>F</footer>', '');
+    assert.equal(splitRegions(noFooter, 'item').closing.length, 1);
+  });
+
   test('topLevelElements: depth-aware, void tags open no level, stops at the parent close', () => {
     const els = topLevelElements('<p>a</p><div><p>nested</p></div><hr class="x"><blockquote>q</blockquote></div><p>outside</p>');
     assert.deepEqual(els.map((e) => e.name), ['p', 'div', 'hr', 'blockquote']);
@@ -227,6 +241,17 @@ describe('core: the envelope through both auto-split passes (HARD RULE #1)', () 
     assert.deepEqual(attrs, [1, 2, 3, 4, 5]); // cover + 3 bodies + closing
     assert.deepEqual(spans, [2, 3, 4, 5]);    // the cover has no footer cell (the pseudo renders it)
     assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '5'));
+  });
+
+  // The engine's contract: absolute position, whole-deck total, hidden slides counted
+  // (lib/engine/slides.js §3). The envelope must not shift a slide the split never saw.
+  test('a hidden (paginate:false) slide keeps its position — the envelope numbers absolutely', () => {
+    const hidden = '<section data-lattice-slide="1" class="title"><h1>cover</h1></section>';
+    const trailing = '<section data-lattice-slide="3" data-lattice-pagination="3" data-lattice-pagination-total="3" class="content form"><p>after</p></section>';
+    const { html } = autoSplitDeck(hidden + doc(formInner({ n: 9, note: 'Note.' })).replace('data-lattice-pagination="1"', 'data-lattice-pagination="2"') + trailing, cap);
+    const attrs = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
+    assert.deepEqual(attrs, [2, 3, 4, 5, 6, 7]); // hidden holds 1; cover 2, bodies 3-5, closing 6, trailing 7
+    assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '7'));
   });
 
   test('a body page that STILL overflows paginates further — it never grows a second cover', () => {

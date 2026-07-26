@@ -138,13 +138,33 @@ describe('core: resplitDoc (measured pass)', () => {
     assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '3'));
   });
 
-  test('a paginate:false slide (no pagination attr) does not advance the page counter', () => {
+  // The engine numbers a slide by its ABSOLUTE position and totals the WHOLE deck
+  // (lib/engine/slides.js §3: "Count EVERY slide… A `_paginate: false` slide is still
+  // counted (its number is hidden), so the next paginated slide reads its true
+  // position, not one less"). The re-paginate after a split has to agree, or every
+  // page following a hidden slide reads one low — including pages the split never
+  // touched. This test used to assert the opposite (`[1, 2]`), pinning a divergence
+  // from the engine that predated the envelope.
+  test('a paginate:false slide is not numbered but STILL advances the counter', () => {
     const doc =
       '<section data-lattice-slide="1" class="title"><h1>cover</h1></section>' +
-      `<section data-lattice-slide="2" data-lattice-pagination="1" class="cards">${list(8)}</section>`;
+      `<section data-lattice-slide="2" data-lattice-pagination="2" data-lattice-pagination-total="2" class="cards">${list(8)}</section>`;
     const { html } = resplitDoc(doc, [{ slide: 2, ratio: 1.9 }], cap);
     const pages = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
-    assert.deepEqual(pages, [1, 2]); // the cover carries none; the two cards pages are 1, 2
+    assert.deepEqual(pages, [2, 3]); // the hidden title holds position 1
+    assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '3'));
+  });
+
+  test('a split does not shift the numbers of slides AFTER it', () => {
+    // Hidden, hidden, splitting, trailing — the trailing slide's number must be its
+    // real position in the grown deck (5), and the total the whole deck's count.
+    const hidden = (n, cls) => `<section data-lattice-slide="${n}" class="${cls}"><p>x</p></section>`;
+    const paged = (n, cls, inner) => `<section data-lattice-slide="${n}" data-lattice-pagination="${n}" data-lattice-pagination-total="4" class="${cls}">${inner}</section>`;
+    const doc = hidden(1, 'title') + hidden(2, 'content') + paged(3, 'cards', `<h2>T</h2>${list(8)}`) + paged(4, 'content', '<p>after</p>');
+    const { html } = resplitDoc(doc, [{ slide: 3, ratio: 1.9 }], cap);
+    const pages = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
+    assert.deepEqual(pages, [3, 4, 5, 6]); // cover 3, bodies 4-5, trailing 6
+    assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '6'));
   });
 });
 

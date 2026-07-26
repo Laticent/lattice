@@ -15867,19 +15867,48 @@ section.lat-split-cover.split-cover-compare-table .split-feat-h::after {
    of it. The only thing to add is placement — with the collection cut out, the cell holds
    one short block. Anchor it UNDER the masthead rather than centring it in the tall empty
    stage — centred, it reads as an orphan between two voids; anchored, the title and the note
-   are one cluster with the air below them. Palette-blind; no new colour, no margin (#3, #20). */
-section.lat-split-closing > .cell-stage { justify-content: flex-start; }
+   are one cluster with the air below them. Palette-blind; no new colour, no margin (#3, #20).
+
+   SPECIFICITY: the doubled `.lat-split-closing` is a deliberate weight bump (the same idiom
+   as `section.decision.decision`, `section.verdict-grid.verdict-grid`, `section.list.list`),
+   NOT a typo. Components legitimately own their stage's placement and text at up to
+   (0,3,1) — `section.inventory.cards > .cell-stage { justify-content: safe center }`,
+   `section.list-steps.timeline`, `section.list-steps:is(.chevron,…)`, and
+   `section.stats > .cell-stage > p` — and they'd otherwise win, leaving the closing page
+   composed for content it no longer holds (an inventory-cards closing centred its note at
+   ~52% of the page; a stats closing rendered it as a tiny italic caption). Layering is not
+   available to resolve this (HARD RULE #26 — the bundle is never half-layered), so the
+   weight is explicit here. */
+section.form.lat-split-closing.lat-split-closing > .cell-stage {
+  justify-content: flex-start;
+  align-items: stretch;   /* a component's centred stage would otherwise shrink-wrap the note */
+}
 /* The masthead rule already separates the note from the title here, so the note's OWN
    full-width hairline (`.below-note::before`, compare-prose.styles.css) would read as a
    doubled rule a few pixels beneath it. Drop the hairline and give the note the air the
    rule was standing in for. */
-section.lat-split-closing > .cell-stage > .below-note { padding-top: var(--sp-lg); }
-section.lat-split-closing > .cell-stage > .below-note::before { content: none; }
+section.form.lat-split-closing.lat-split-closing > .cell-stage > .below-note { padding-top: var(--sp-lg); }
+section.form.lat-split-closing.lat-split-closing > .cell-stage > .below-note::before { content: none; }
 /* One block on a whole page carries the closing beat, so it reads a tier up from the
-   annotation it is beside live content — emphasis, not the slide-statement tier. */
-section.lat-split-closing > .cell-stage > .below-note > p,
-section.lat-split-closing > .cell-stage > blockquote > p {
+   annotation it is beside live content — emphasis, not the slide-statement tier. The bare
+   `> p` is NOT redundant: below-note's kernel EXCLUDES a dozen layouts from the `.below-note`
+   wrap (lib/core/below-note.js EXCLUDED — `stats`, `content`, `progress`, `timeline-list`, …),
+   so on those the hoisted note is a raw `<p>` and would otherwise keep whatever the component
+   styles its captions as. Reset the caption treatment those layouts apply, since on a closing
+   page this paragraph is the subject, not an aside. */
+section.form.lat-split-closing.lat-split-closing > .cell-stage > .below-note > p,
+section.form.lat-split-closing.lat-split-closing > .cell-stage > blockquote > p,
+section.form.lat-split-closing.lat-split-closing > .cell-stage > p {
   font-size: var(--fs-emphasis); line-height: var(--lh-snug);
+}
+/* Reset only the ASIDE cues — the muted caption colour, the italic, and the caption's
+   own bottom pad — and deliberately NOT `text-align` / `align-self`: a layout that
+   centres its captions also centres its masthead (stats does both), so leaving its
+   alignment alone keeps the closing note aligned with the title above it, whichever
+   way that layout reads. */
+section.form.lat-split-closing.lat-split-closing > .cell-stage > p {
+  padding-top: var(--sp-lg); padding-bottom: 0;
+  color: var(--text-body); font-style: normal;
 }
 
 /* === lib/integrations/highlight-js/highlight-js.css === */

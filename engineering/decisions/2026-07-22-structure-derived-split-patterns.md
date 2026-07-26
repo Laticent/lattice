@@ -536,6 +536,46 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   split slide's page number was never re-stamped on the real `<span class="lat-pagination">`
   (nor at all by the static pass), so every body page of a run showed the first page's
   number.
+
+  **Maker-checker (HARD RULE #25) — what the checker changed.** An independent checker
+  pass on the diff confirmed four defects and one pre-existing gap; all are folded in:
+  - **The re-paginate diverged from the engine's numbering contract.** It advanced its
+    counter only on slides carrying `data-lattice-pagination` and totalled only those,
+    where `lib/engine/slides.js` §3 deliberately counts EVERY slide (absolute position,
+    whole-deck total) precisely because "incrementing only on paginated slides renumbered
+    after a hidden slide and undercounted the total". Since this slice also re-stamps the
+    VISIBLE `.lat-pagination` span, that would have put a wrong number on slides the split
+    never touched, in a deck with any `_paginate: false` slide. `resplitDoc`'s pre-existing
+    regex had the same flaw and a unit test pinned it (`[1, 2]`); both are corrected, and
+    a real render now reproduces the engine's numbering exactly (hidden ×2 → cover 3,
+    bodies 4–6, untouched trailing slide 7, total 7).
+  - **The closing page's placement rule lost the cascade where it mattered most.**
+    `section.lat-split-closing > .cell-stage` is (0,2,1), but components own their stage
+    placement at (0,3,1) — `section.inventory.cards`, `section.list-steps.timeline`,
+    `section.stats > .cell-stage > p` — so an `inventory cards` closing centred its note at
+    ~52% of the page (the orphan the rule exists to prevent) and a `stats` closing rendered
+    it as a tiny italic caption. Now weighted with the repo's own doubled-class idiom, and
+    the raw-`<p>` case is covered too: below-note's kernel EXCLUDES a dozen layouts from the
+    `.below-note` wrap, so on those the hoisted note is a bare `<p>` that matched none of the
+    closing rules. Both re-rendered and inspected.
+  - **Chrome ended the trailing-run scan.** On a `.cell-stage`-less layout the region runs to
+    the end of the section, so the Marp `<footer>` sat after the note and stopped the backward
+    walk — the FM-2 duplication survived there, and flipped on whether the deck set `footer:`.
+    Chrome tags are now stepped over. (Unreachable in the shipping catalog — `split-compare` is
+    the only cell-less eligible layout and it fails `readMasthead` anyway — but a live trap for
+    the next non-Form or STAGE_DEFERRED opt-in.)
+  - **A long lede on the cover was flagged as possible silent clipping.** Not reproduced: the
+    cover has no clip cell, so an over-tall one grows `section.scrollHeight` and the export's
+    overflow probe reports it — verified, `⚠ OVERFLOW … page 1`, which is the spine's honest
+    terminal for a box that can't be split. It takes a 4× pathological lede at the shortest
+    preset (`square`) to reach; a merely long one fits.
+  - **Kept deliberately:** the closing page carries `(cont.)`. It is a page OF the run — it
+    carries the run's rail, footer and numbering — and the alternative, an unmarked repeat of
+    the title, reads as a new slide, which is worse than a marker that is a shade imprecise.
+  - **Logged, not fixed (pre-existing, off-path):** `cover-cards` body pages carry
+    `lat-split-cards` and so sit outside the "already emitted" guard. They re-enter the
+    carousel branch and bail harmlessly (no `<table>` on a transposed cards page), so no
+    output differs; widening the guard belongs with P1's carousel work.
 - **P-floor — the viewBox legibility floor + honest ring** (rule 8): measure
   rendered figure text; ring below the floor. Gates the "graphics never ship
   illegible" claim before default-on.

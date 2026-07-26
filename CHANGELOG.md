@@ -260,6 +260,11 @@ in patch versions.
   neither), so the *visible* number on split body pages was wrong: a seven-page `statute-stack` run
   showed "3" on all six body pages. Both passes now re-stamp the attribute, the span, and the
   page total from one counter in document order. (`lib/core/auto-split.js` `repaginate`.)
+  The same fix corrects a **second, older divergence** on that path: the measured pass
+  renumbered only the slides that *carry* a page number, where the engine deliberately counts
+  every slide (`lib/engine/slides.js` §3 — absolute position, whole-deck total), so on a deck
+  with any `_paginate: false` slide every page after it read one low and the total undercounted.
+  A split now leaves the numbering of slides it never touched exactly as the engine set it.
 
 - **The Playground and Studio splitters are now the shadcn resizable panel (`react-resizable-panels`),
   and the Studio's Coach / Chat / Library / Settings side panels are resizable too.** The
