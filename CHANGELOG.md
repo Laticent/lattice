@@ -28,9 +28,10 @@ in patch versions.
 ### Added
 
 - **Model routing: every subagent now declares which model it runs on, so lookup work stops
-  billing at Opus rates (HARD RULE #27).** Previously any `Agent()` call inherited the session
-  model — Opus 5 — which meant locating code, verifying a cited path, triaging a red CI job, and
-  enumerating files all cost 2.5× Sonnet 5's rate and 5× Haiku 4.5's, with nothing gained. Routing
+  billing at Opus rates (HARD RULE #27).** Only two agents (`docs-auditor`, `prose-checker`) pinned
+  a model before; every other `Agent()` call inherited the session model — Opus 5 — which meant
+  locating code, verifying a cited path, triaging a red CI job, and enumerating files all cost
+  2.5× Sonnet 5's rate and 5× Haiku 4.5's, with nothing gained. Routing
   is now decided by two questions (**judgment or lookup**, and **does a gate catch a mistake**) and
   enforced where it cannot be forgotten: a roster of model-pinned agents in `.claude/agents/`
   (`scout`, `fact-checker`, `ci-triage` on Sonnet 5; `inventory` on Haiku 4.5; `red-team`,

@@ -196,6 +196,7 @@ there is no separate step to skip:
 | `inversion` | opus | Trio lens 2: argue it is the wrong design entirely |
 | `checker` | opus | Trio lens 3 / maker-checker default: refute the load-bearing claims |
 | `docs-auditor` | opus | Cross-reference what ships against what the docs claim |
+| | | *(opus, not sonnet, despite the fact-checking row above: it decides what a doc **implies** and whether an omission misleads — judgment, not lookup)* |
 | `prose-checker` | sonnet | Audit human-facing writing for AI tells and read-aloud failures |
 
 `Explore`, `Plan`, and `general-purpose` are harness built-ins with no pinned

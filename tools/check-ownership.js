@@ -2334,65 +2334,109 @@ function checkCatContrast(errors) {
 // failure mode: it still WORKS, it just costs 2.5x and nobody notices):
 //   • `.claude/agents/*.md` — the roster. Frontmatter needs a `model:` naming a
 //     model the harness actually accepts; a typo (`sonnet-5`) silently falls back.
-//   • `.claude/workflows/*.js` — every `agent()` call needs `model:` in its options,
-//     checked PER CALL: the scanner walks each call's own arguments and looks for the
-//     pin there. An earlier version counted `agent(` occurrences against label-bearing
-//     object literals file-wide, which was unsound — any unrelated `{label, model}`
-//     object masked a genuinely unpinned stage, and a `label` added to a `meta.phases`
-//     entry would have done exactly that. Two independent counts never proved the
-//     association they were standing in for (found in review on #1187).
+//   • `.claude/workflows/*.{js,mjs,cjs}` (recursively) — every `agent()` call needs
+//     `model:` in its options, resolved from the **AST**, not from text. Three
+//     successive text-based versions of this check were all unsound, in both
+//     directions (review on #1187): file-wide counting let any stray `{label, model}`
+//     object mask an unpinned stage; a balanced-paren scan then still accepted a pin
+//     that appeared in a prompt STRING, in a NESTED object, or in an inner call's
+//     options, while wrongly REJECTING valid code whose options held an inline object,
+//     a callback, or a `)` inside a regex — and a URL in a prompt broke it outright.
+//     Parsing ends that whole class: `agent(…)` is a CallExpression whose LAST argument
+//     is the options object, and nothing textual can impersonate one.
 // COVERAGE BOUNDARY (be honest): this gate sees COMMITTED files only. An ad-hoc
 // `Agent()` call in a live session is invisible to it — that path rides on the
 // roster + the CLAUDE.md dispatch table, not on this check.
 // See engineering/model-routing.md.
+const acorn = require('acorn');
 const AGENT_MODELS = ['opus', 'sonnet', 'haiku', 'fable'];
 const AGENTS_DIR = path.join(ROOT, '.claude', 'agents');
 const WORKFLOWS_DIR = path.join(ROOT, '.claude', 'workflows');
-const AGENT_CALL = /\bagent\s*\(/g;
-// An object literal carrying `label:` — an agent() options object. Labels are usually
-// template literals (`design:${i + 1}`), so the filler tolerates ONE level of `${…}`
-// interpolation while still refusing a genuinely nested object literal. The three
-// alternatives are disjoint on their first character (`$` is excluded from the first
-// branch) so the nested quantifier cannot backtrack catastrophically.
-const OPT_FILLER = String.raw`(?:[^{}$]|\$(?!\{)|\$\{[^{}]*\})*`;
-const AGENT_OPTIONS = new RegExp(`\\{${OPT_FILLER}\\blabel:${OPT_FILLER}\\}`, 'g');
 
-// Return the raw argument text of every `agent(...)` call, by balanced-paren scan.
-// Quote-aware so a paren inside a prompt string can't end the call early, and
-// template-aware so `${…}` inside a backtick string doesn't close it either. A call
-// whose parens never balance yields null, which the caller reports rather than skips —
-// an unreadable call must not silently count as pinned.
-function agentCallArgs(src) {
-  const out = [];
-  const finder = new RegExp(AGENT_CALL.source, 'g');
-  let m;
-  while ((m = finder.exec(src)) !== null) {
-    const open = m.index + m[0].length - 1; // the '(' itself
-    let depth = 0;
-    let quote = null;
-    let tmpl = 0; // `${` nesting while inside a template literal
-    let args = null;
-    for (let i = open; i < src.length; i++) {
-      const ch = src[i];
-      if (quote) {
-        if (ch === '\\') i++;
-        else if (quote === '`' && ch === '$' && src[i + 1] === '{') { tmpl++; i++; }
-        else if (quote === '`' && ch === '}' && tmpl > 0) tmpl--;
-        else if (ch === quote && tmpl === 0) quote = null;
-        continue;
-      }
-      if (ch === "'" || ch === '"' || ch === '`') quote = ch;
-      else if (ch === '(') depth++;
-      else if (ch === ')' && --depth === 0) { args = src.slice(open + 1, i); break; }
+// Minimal AST walker — acorn-walk is present but only transitively, so it is not
+// safe to require. Visits every node with a `type`, skipping position bookkeeping.
+function walkAst(node, visit) {
+  if (!node || typeof node !== 'object') return;
+  if (Array.isArray(node)) {
+    for (const child of node) walkAst(child, visit);
+    return;
+  }
+  if (typeof node.type === 'string') visit(node);
+  for (const key of Object.keys(node)) {
+    if (key === 'type' || key === 'start' || key === 'end' || key === 'loc' || key === 'range') continue;
+    walkAst(node[key], visit);
+  }
+}
+
+const propNamed = (obj, name) =>
+  obj.properties.find(
+    (p) => p.type === 'Property' && !p.computed &&
+      ((p.key.type === 'Identifier' && p.key.name === name) || (p.key.type === 'Literal' && p.key.value === name)),
+  );
+
+// Every `agent(...)` call in a workflow, with whether its options pin a model.
+// Returns { error } when the file cannot be parsed — an unreadable workflow is
+// reported, never treated as compliant.
+function agentCallPins(src) {
+  let ast;
+  try {
+    ast = acorn.parse(src, {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      allowReturnOutsideFunction: true, // workflow scripts top-level `return`
+      allowAwaitOutsideFunction: true, //  …and top-level `await`
+    });
+  } catch (e) {
+    return { error: e.message, calls: [] };
+  }
+
+  // `const spawn = agent` aliases the call, and a module-level `const opts = {...}`
+  // may hold the options. Both were live bypasses under text scanning.
+  const aliases = new Set(['agent']);
+  const objectConsts = new Map();
+  walkAst(ast, (n) => {
+    if (n.type !== 'VariableDeclarator' || n.id.type !== 'Identifier') return;
+    if (n.init?.type === 'Identifier' && aliases.has(n.init.name)) aliases.add(n.id.name);
+    if (n.init?.type === 'ObjectExpression') objectConsts.set(n.id.name, n.init);
+  });
+
+  const calls = [];
+  walkAst(ast, (n) => {
+    if (n.type !== 'CallExpression' || n.callee.type !== 'Identifier' || !aliases.has(n.callee.name)) return;
+    const last = n.arguments[n.arguments.length - 1];
+    let options = null;
+    if (last?.type === 'ObjectExpression') options = last;
+    else if (last?.type === 'Identifier' && objectConsts.has(last.name)) options = objectConsts.get(last.name);
+
+    if (!options) {
+      calls.push({ label: null, pinned: false, unresolved: true });
+      return;
     }
-    out.push(args);
+    const model = propNamed(options, 'model');
+    const label = propNamed(options, 'label');
+    calls.push({
+      label:
+        label?.value.type === 'Literal' ? String(label.value.value)
+        : label?.value.type === 'TemplateLiteral' ? label.value.quasis.map((q) => q.value.cooked).join('…')
+        : null,
+      pinned: model?.value.type === 'Literal' && AGENT_MODELS.includes(model.value.value),
+      unresolved: false,
+    });
+  });
+  return { error: null, calls };
+}
+
+// Workflow sources, recursively — `.mjs` and a subdirectory were both silent
+// escape hatches when this filtered a flat `.js` listing.
+function listWorkflowFiles(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) listWorkflowFiles(p, out);
+    else if (/\.(?:js|mjs|cjs)$/.test(e.name)) out.push(p);
   }
   return out;
 }
-// Deliberately narrow: a model ASSIGNED a known name. A schema property that
-// happens to be called `model` reads `model: { type: 'string' }` and won't match.
-// Non-global on purpose — it is used with .test(), which is stateful on /g/.
-const MODEL_PIN = /\bmodel:\s*['"](?:opus|sonnet|haiku|fable)['"]/;
 
 // The YAML scalar after `model:` — tolerant of what a human will actually write.
 // A raw \S+ capture would take `'sonnet'` WITH its quotes and reject valid YAML, and
@@ -2409,21 +2453,29 @@ function declaredModel(frontmatter) {
   return value || null; // a bare `model:` with no value declares nothing
 }
 
-function checkAgentModelPinning(errors) {
+// `dirs` is injectable so the tests can drive the REAL function over fixture trees
+// and assert its actual errors. The previous tests asserted against a re-implementation
+// of this logic, which meant deleting the gate's call site left the suite green —
+// found by the maker-checker pass on #1187.
+function checkAgentModelPinning(errors, dirs = {}) {
+  const agentsDir = dirs.agents || AGENTS_DIR;
+  const workflowsDir = dirs.workflows || WORKFLOWS_DIR;
   // A MISSING roster is not "nothing to check" — it means the enforcement surface
   // CLAUDE.md and engineering/model-routing.md point at is gone, so every subagent
   // silently inherits Opus 5: precisely the drift this rule exists to prevent. Treat
   // it exactly like an empty one. (The workflows half below early-returns instead,
   // and that asymmetry is deliberate: no workflows dir means no agent() calls exist,
   // so there is nothing that COULD drift.)
-  if (!fs.existsSync(AGENTS_DIR)) {
+  if (!fs.existsSync(agentsDir)) {
     errors.push(
       '.claude/agents/ does not exist — the model-routing roster is the enforcement surface for ' +
       'HARD RULE #27, and without it every subagent silently inherits Opus 5. Restore it, or ' +
       'retire the rule in CLAUDE.md and engineering/model-routing.md and delete this gate.',
     );
   } else {
-    const agents = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md'));
+    // README.md documents the roster rather than defining an agent — the harness
+    // registers agents by frontmatter, so a doc file is not a missing pin.
+    const agents = fs.readdirSync(agentsDir).filter((f) => f.endsWith('.md') && f !== 'README.md');
     if (!agents.length) {
       errors.push(
         '.claude/agents/ has no agent definitions — the model-routing roster is the enforcement ' +
@@ -2432,9 +2484,9 @@ function checkAgentModelPinning(errors) {
       );
     }
     for (const file of agents) {
-      const rel = path.join('.claude', 'agents', file);
-      const src = fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8');
-      const fm = /^---\n([\s\S]*?)\n---/.exec(src);
+      const rel = path.relative(ROOT, path.join(agentsDir, file));
+      const src = fs.readFileSync(path.join(agentsDir, file), 'utf8');
+      const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src); // \r? — CRLF is still valid frontmatter
       if (!fm) {
         errors.push(`${rel} has no YAML frontmatter — HARD RULE #27 needs a \`model:\` field there.`);
         continue;
@@ -2455,28 +2507,27 @@ function checkAgentModelPinning(errors) {
       }
     }
   }
-  if (!fs.existsSync(WORKFLOWS_DIR)) return;
-  for (const file of fs.readdirSync(WORKFLOWS_DIR).filter((f) => f.endsWith('.js'))) {
-    const rel = path.join('.claude', 'workflows', file);
-    const src = stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, file), 'utf8'));
-    const calls = agentCallArgs(src);
-    if (!calls.length) continue; // a workflow with no agent() calls has nothing to pin
-    calls.forEach((args, i) => {
-      if (args === null) {
-        errors.push(
-          `${rel}: agent() call #${i + 1} has unbalanced parentheses — the HARD RULE #27 gate ` +
-          `cannot read its options, so it cannot confirm a \`model:\` pin. Fix the syntax.`,
-        );
-        return;
-      }
-      const options = (args.match(AGENT_OPTIONS) || []).filter((o) => MODEL_PIN.test(o));
-      if (options.length) return;
-      const named = /\blabel:\s*['"`]([^'"`]*)/.exec(args);
-      const which = named ? `\`${named[1]}\`` : `#${i + 1}`;
+  for (const file of listWorkflowFiles(workflowsDir)) {
+    const rel = path.relative(ROOT, file);
+    const { error, calls } = agentCallPins(fs.readFileSync(file, 'utf8'));
+    if (error) {
       errors.push(
-        `${rel}: agent() call ${which} passes no \`model:\` in its options (HARD RULE #27), so ` +
-        `that stage inherits Opus 5 for work the routing table may put on Sonnet 5 or Haiku 4.5. ` +
-        `Add \`model: '<tier>'\` to its options per engineering/model-routing.md.`,
+        `${rel} does not parse (${error}) — the HARD RULE #27 gate cannot read its agent() calls, ` +
+        `so it cannot confirm their \`model:\` pins. Fix the syntax.`,
+      );
+      continue;
+    }
+    calls.forEach((call, i) => {
+      if (call.pinned) return;
+      const which = call.label ? `\`${call.label}\`` : `#${i + 1}`;
+      errors.push(
+        call.unresolved
+          ? `${rel}: agent() call ${which} passes options the gate cannot resolve statically ` +
+            `(HARD RULE #27) — pass an inline object literal, or a module-level \`const\`, so the ` +
+            `\`model:\` pin is checkable.`
+          : `${rel}: agent() call ${which} passes no \`model:\` in its options (HARD RULE #27), so ` +
+            `that stage inherits Opus 5 for work the routing table may put on Sonnet 5 or Haiku 4.5. ` +
+            `Add \`model: '<tier>'\` to its options per engineering/model-routing.md.`,
       );
     });
   }
@@ -2739,11 +2790,9 @@ module.exports = {
   skillFreshnessAssertions,
   checkAgentModelPinning,
   declaredModel,
-  agentCallArgs,
+  agentCallPins,
+  listWorkflowFiles,
   AGENT_MODELS,
-  AGENT_CALL,
-  AGENT_OPTIONS,
-  MODEL_PIN,
   checkCatContrast,
   catResolve,
   catContrast,

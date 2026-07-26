@@ -6,7 +6,9 @@ export const meta = {
 		'A design fork with a genuinely WIDE solution space and real cost of getting it wrong — an architecture, a core UX model, a schema — where independent parallel attempts beat one iterated attempt. NOT for a bounded tweak ("rethink the footer padding"): that is a solo edit, not a 17-agent competition. Presents candidates for the human pick; the adversarial trio then hardens ONLY the winner, outside this workflow (HARD RULE #25, engineering/orchestration.md).',
 	phases: [
 		{ title: 'Design', detail: 'one agent per track, iterating internally', model: 'opus' },
-		{ title: 'Critique', detail: 'one fresh-eyes critic per track (opus), folded back at low effort (sonnet)', model: 'opus' },
+		// No `model` key: this phase spans two tiers (critic on opus, fold on sonnet),
+		// so a single phase-level model would be false. The per-call pins are canonical.
+		{ title: 'Critique', detail: 'one fresh-eyes critic per track (opus), folded back at low effort (sonnet)' },
 		{ title: 'Fact-check', detail: 'one shared pass over every load-bearing claim', model: 'sonnet' },
 		{ title: 'Judge', detail: 'comparative scoring, all candidates in one context', model: 'opus' },
 	],

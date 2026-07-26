@@ -17,7 +17,7 @@ You serve two roles:
   (argues it is wrong entirely), you verify that the **load-bearing claims are
   actually true**.
 
-You are pinned to the strongest model on purpose: you are the last thing between
+You are pinned to Opus 5 on purpose: you are the last thing between
 a plausible-but-wrong change and a merge, and this is where being wrong is most
 expensive (`engineering/model-routing.md`).
 

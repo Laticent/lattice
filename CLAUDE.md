@@ -149,6 +149,13 @@ second set of eyes changes the merge decision. See `engineering/visual-review.md
 **Route each agent to the right model** — the ladder decides *whether* an agent
 runs, HARD RULE #27 decides *which model it runs on*. Dispatch table below.
 
+**Maker-checker is the middle rung of the verification ladder** (HARD RULE #25):
+routine work self-reviews with the gates; blast radius gets maker-checker;
+**critical, high-blast-radius, or genuinely novel work escalates to the
+adversarial trio — red team + Munger inversion + independent checker —
+applied to what will actually ship.** Ladder, definitions, and fan-out cost
+rules: `engineering/orchestration.md`.
+
 ---
 
 ## MODEL ROUTING — the cheapest model that clears the bar (HARD RULE #27)
@@ -186,15 +193,6 @@ tags the *card*, and the two must agree.
 `effort` and model are **two levers**: effort cuts output tokens, model cuts
 both rates — so a read-heavy scout is dominated by model, a write-heavy drafter
 by effort. Full table, prices, and overrides: `engineering/model-routing.md`.
-
----
-
-This is the **middle rung of the verification ladder** (HARD RULE #25):
-routine work self-reviews with the gates; blast radius gets maker-checker;
-**critical, high-blast-radius, or genuinely novel work escalates to the
-adversarial trio — red team + Munger inversion + independent checker —
-applied to what will actually ship.** Ladder, definitions, and fan-out cost
-rules: `engineering/orchestration.md`.
 
 ---
 
