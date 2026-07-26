@@ -530,10 +530,36 @@ describe('StudioShell — responsive layout', () => {
 		expect(inertWrap('studio-pane-editor')).not.toBeNull(); // editor mounted but inert
 		// Architect is NOT a persistent column on mobile.
 		expect(screen.queryByText('Board readiness')).not.toBeInTheDocument();
-		// Swap to the editor pane — the inert flips, nothing remounts.
-		await user.click(screen.getByRole('button', { name: 'Edit' }));
+		// Swap to the editor pane — the inert flips, nothing remounts. "Markdown source"
+		// is the Eight-Cell Bar's Source cell (2026-07-26-studio-mobile-eight-cell-bar.md);
+		// it replaces the old icon-only "Edit" toggle.
+		await user.click(screen.getByRole('button', { name: 'Markdown source' }));
 		expect(inertWrap('studio-pane-editor')).toBeNull(); // editor now active
 		expect(inertWrap('studio-pane-preview')).not.toBeNull(); // preview now inert (still mounted)
+	});
+
+	it('mobile: tapping the Source cell from a fresh Read boot steps Read→Write (round-1 regression: a prior wiring spec carried this step on only ONE of the two edit-entry handlers)', async () => {
+		localStorage.clear(); // a true fresh visitor — boots on Read, per the posture-dial block above
+		setViewport('mobile');
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('read');
+		await user.click(screen.getByRole('button', { name: 'Markdown source' }));
+		const saved = JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}');
+		expect(saved.posture).toBe('write');
+		expect(saved.readHintSeen).toBe(true);
+	});
+
+	it('mobile: tapping the Compose cell from a fresh Read boot ALSO steps Read→Write — the same posture step, on the OTHER handler', async () => {
+		localStorage.clear();
+		setViewport('mobile');
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('read');
+		await user.click(screen.getByRole('button', { name: 'Compose — rich editor' }));
+		const saved = JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}');
+		expect(saved.posture).toBe('write');
+		expect(saved.readHintSeen).toBe(true);
 	});
 
 	it('mobile: the Architect opens as a slide-in sheet', async () => {
@@ -646,19 +672,26 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.queryByRole('menuitem', { name: /Switch to (dark|light) mode/ })).not.toBeInTheDocument();
 	});
 
-	it('mobile: the deck actions stay inline on the pane bar (icon Edit/Preview toggle, no ⋯ hiding)', async () => {
+	it('mobile: the deck actions stay inline on the Eight-Cell Bar (captioned cells, no ⋯ hiding)', async () => {
 		setViewport('mobile');
 		const user = setup();
-		// The deck actions live one-tap on the pane toolbar (row 2), not behind a ⋯ —
-		// an icon-only Edit/Preview toggle reclaims the width to keep them inline.
+		// The six protected controls live one-tap on the pane toolbar, not behind a ⋯ —
+		// the Eight-Cell Bar (2026-07-26-studio-mobile-eight-cell-bar.md) reclaims width by
+		// merging Markdown/Compose/Preview into one segment and dropping all gaps/padding,
+		// not by hiding anything.
 		const paneBar = screen.getByRole('toolbar', { name: 'Deck actions' });
 		expect(within(paneBar).getByRole('button', { name: 'Present' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Share' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Toggle Coach' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Settings' })).toBeInTheDocument();
-		// The icon toggle keeps its accessible names.
+		// The merged pane segment keeps distinct accessible names for all three states.
 		expect(within(paneBar).getByRole('button', { name: 'Preview' })).toBeInTheDocument();
-		expect(within(paneBar).getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+		expect(within(paneBar).getByRole('button', { name: 'Markdown source' })).toBeInTheDocument();
+		expect(within(paneBar).getByRole('button', { name: 'Compose — rich editor' })).toBeInTheDocument();
+		// Every cell carries a persistent visible caption, not just an aria-label.
+		expect(within(paneBar).getByRole('button', { name: 'Markdown source' })).toHaveTextContent('Source');
+		expect(within(paneBar).getByRole('button', { name: 'Toggle Coach' })).toHaveTextContent('Coach');
+		expect(within(paneBar).getByRole('button', { name: 'Settings' })).toHaveTextContent('Settings');
 		// The header keeps the launcher, the deck switcher, the 1-tap mode flip, and ⋯.
 		expect(screen.getByRole('button', { name: 'Workspace launcher' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Q3 Board Review/ })).toBeInTheDocument();
@@ -695,11 +728,17 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(await screen.findByPlaceholderText(/Search|command/i)).toBeInTheDocument();
 	});
 
-	it('compact: opening ⋯ then resizing to desktop and back leaves it closed (H4)', async () => {
+	it('mobile: opening the StudioDrawer then resizing to desktop and back leaves it closed (H4)', async () => {
 		// A matchMedia that starts compact and can flip to desktop, firing the hook's
 		// listeners so `compact` actually changes (the shared stub is a no-op on change).
 		// Only the breakpoint media queries feed `listeners` (other consumers — e.g.
 		// CodeMirror's print listener — get a no-op so firing a resize can't crash them).
+		// NOTE: this mock matches BOTH the 699 and the 1099 queries while compact, and
+		// useBreakpoint checks 699 first — so it resolves to MOBILE, not tablet, and this
+		// test exercises the StudioDrawer (Sheet + plain buttons), not the tablet
+		// DropdownMenu. The tablet path gets its own twin test below (round-2 mobile-
+		// toolbar competition, graft from "The Verb Row & the View Row": the prior single
+		// test's regex made it silently exercise only one tier, never the other).
 		const listeners = new Set<(e: { type: string; matches: boolean }) => void>();
 		let isCompact = true;
 		window.matchMedia = ((q: string) => {
@@ -720,7 +759,7 @@ describe('StudioShell — topbar information architecture', () => {
 		}) as unknown as typeof window.matchMedia;
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'More controls' }));
-		expect(await screen.findByRole('menuitem', { name: 'Library' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Library' })).toBeInTheDocument();
 		// Resize to desktop → ⋯ unmounts; resize back to compact → ⋯ returns CLOSED
 		// (the breakpoint effect reset its open state, so it doesn't reopen stale).
 		const flip = (compact: boolean) => act(() => { isCompact = compact; for (const cb of listeners) cb({ type: 'change', matches: compact }); });
@@ -728,7 +767,42 @@ describe('StudioShell — topbar information architecture', () => {
 		await waitFor(() => expect(screen.queryByRole('button', { name: 'More controls' })).not.toBeInTheDocument());
 		await flip(true);
 		expect(await screen.findByRole('button', { name: 'More controls' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Library' })).not.toBeInTheDocument();
+	});
+
+	it('tablet: opening ⋯ then flipping to mobile and back leaves it closed (H4, tablet twin — the mobile↔tablet reset gap the round-2 competition found: `compact` alone never fires across that flip)', async () => {
+		// Matches ONLY the 1099 query, never 699 — useBreakpoint resolves TABLET here, so
+		// this exercises the real tablet DropdownMenu/menuitem path the previous single
+		// test's regex accidentally never reached.
+		const listeners = new Set<(e: { type: string; matches: boolean }) => void>();
+		let tier: 'tablet' | 'mobile' = 'tablet';
+		window.matchMedia = ((q: string) => {
+			const is699 = q.includes('699');
+			const is1099 = q.includes('1099');
+			return {
+				get matches() { return tier === 'mobile' ? is699 || is1099 : is1099; },
+				media: q,
+				onchange: null,
+				addEventListener: (_: string, cb: (e: { type: string; matches: boolean }) => void) => { if (is699 || is1099) listeners.add(cb); },
+				removeEventListener: (_: string, cb: (e: { type: string; matches: boolean }) => void) => { listeners.delete(cb); },
+				addListener: () => {},
+				removeListener: () => {},
+				dispatchEvent: () => false,
+			};
+		}) as unknown as typeof window.matchMedia;
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		expect(await screen.findByRole('menuitem', { name: 'Library' })).toBeInTheDocument();
+		// Flip straight to mobile (both `compact` AND `bp` change: tablet→mobile is exactly
+		// the transition `compact` alone can't see, since it's true on both sides of it) —
+		// the tablet DropdownMenu must not survive as a stale open mobile StudioDrawer.
+		const flip = (next: 'tablet' | 'mobile') => act(() => { tier = next; for (const cb of listeners) cb({ type: 'change', matches: true }); });
+		flip('mobile');
+		await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Library' })).not.toBeInTheDocument());
+		flip('tablet');
+		expect(await screen.findByRole('button', { name: 'More controls' })).toBeInTheDocument();
 		expect(screen.queryByRole('menuitem', { name: 'Library' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Library' })).not.toBeInTheDocument();
 	});
 });
 

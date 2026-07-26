@@ -41,6 +41,14 @@ export const CHROME = {
 	workspaceSettings: 'Workspace settings',
 	/** The version-history sheet trigger. */
 	versionHistory: 'Version history',
+	/**
+	 * The "···" overflow trigger — SAME accessible name and header position at every
+	 * breakpoint, but a DIFFERENT surface underneath (2026-07-26-studio-mobile-eight-
+	 * cell-bar.md): tablet opens the flat DropdownMenu (rows are `role="menuitem"`);
+	 * mobile opens the StudioDrawer, a bottom Sheet (rows are plain `role="button"`).
+	 * A spec asserting a row inside it must pick the role for the tier it's testing.
+	 */
+	moreControls: 'More controls',
 } as const;
 
 // The live compose preview: the engine renders the deck INSIDE this srcdoc

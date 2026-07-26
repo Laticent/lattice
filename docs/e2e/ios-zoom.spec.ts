@@ -33,8 +33,10 @@ test('@mobile studio: no text control computes under 16px on a touch device', as
 	// The emulation premise the whole spec rests on — fail loudly if it breaks.
 	expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
 
-	// The deck editor (CodeMirror contenteditable) — themed by editor-theme.ts.
-	await page.getByRole('button', { name: 'Edit', exact: true }).click();
+	// The deck editor (CodeMirror contenteditable) — themed by editor-theme.ts. "Markdown
+	// source" is the Eight-Cell Bar's Source cell (2026-07-26-studio-mobile-eight-cell-
+	// bar.md), replacing the old icon-only "Edit" toggle.
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).click();
 	const cm = page.getByLabel('Deck source');
 	await expect(cm).toBeVisible();
 	expect(await cm.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(MIN);

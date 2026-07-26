@@ -14,6 +14,7 @@ import {
 	type WorkspaceLensConfig,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
+import { LensIcon } from './icons';
 // The reader archetypes (the "Add a reader view" menu) — the SHARED source of truth, also used by the
 // workspace default reader views (workspace-lenses.ts), so the panel and the defaults can't drift.
 import { ARCHETYPES } from './lens-archetypes';
@@ -264,7 +265,7 @@ function LensRow({
 			{/* Header: two lines so it never clips in the narrow Architect column — the lens NAME on top,
 			    then its reader count + a short status pill. The whole header toggles the editor. */}
 			<button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 px-2.5 py-2 text-left">
-				<Eye className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+				<LensIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
 				<span className="min-w-0 flex-1">
 					<span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{lens.label}</span>
 					<span className="mt-1 flex flex-wrap items-center gap-1.5">

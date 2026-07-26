@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, Eye, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, MessageSquareHeart, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -49,6 +49,7 @@ import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './fin
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatter, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter } from './front-matter';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
+import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import { LensesPanel, type TagChange } from './LensesPanel';
@@ -64,6 +65,8 @@ import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
+import { StudioDrawer } from './StudioDrawer';
+import { ScrollFade } from './scroll-fade';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
 import { sizeRatio } from './slide-size';
@@ -818,6 +821,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		// (where its trigger unmounts) — red-team H4.
 		setMoreOpen(false);
 	}, [compact]);
+	// `compact` is true on BOTH tablet and mobile, so the effect above never fires on
+	// a tablet↔mobile flip — and "More controls" switches from the tablet DropdownMenu
+	// to the mobile StudioDrawer (different component, different trigger identity) at
+	// exactly that transition. A menu left open on one side would otherwise reopen as
+	// the WRONG surface on the other. Kept as its OWN effect, deliberately separate from
+	// the one above, so that effect's dependency array (and its H4 test) stay untouched
+	// (round-2 mobile-toolbar competition, graft from "The Verb Row & the View Row").
+	// biome-ignore lint/correctness/useExhaustiveDependencies: same shape as the effect above — the reset must fire on the bp/landscape flip itself, not on a reactive value the body reads.
+	React.useEffect(() => {
+		setMoreOpen(false);
+	}, [bp, landscapePhone]);
 
 	// Privacy & Data's "Decks" / "Delete everything" clear reloads the Studio
 	// shortly after — but the editor stays visible and interactive right up
@@ -1403,6 +1417,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setMobilePane,
 		mobile,
 	});
+	// A mobile tour types into the Markdown editor then points at SEL.panePreview
+	// (tour-kit.ts) — if Compose typing had already collapsed the pane bar
+	// (`chromeCollapsed`, fed by ComposeView's onTypingCollapse) and a tour starts
+	// right after, every cursor target on that bar would be zero-height. Force it
+	// back open the instant a demo goes live, same as the reveal-on-scroll path a
+	// real user already gets. (Round-2 mobile-toolbar competition, graft from
+	// CADENCE / The Long Rail — both independently flagged this as a latent,
+	// pre-existing hazard the Eight-Cell Bar sits directly on top of.)
+	React.useEffect(() => {
+		if (demoActive) setChromeCollapsed(false);
+	}, [demoActive]);
 
 	// ── Resizable/collapsible editor|preview split (2026-07-02 decision) ─────
 	// Active on every non-mobile Compose branch (desktop, tablet, focus) — on
@@ -2845,9 +2870,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    sheet-from-a-globals-icon and not a tab inside the AI coach. */}
 			<span className="mt-0.5 font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Tools</span>
 			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))}><Gauge className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><MessageSquareHeart className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><ChatIcon className="size-[18px]" /></BarIcon>
 			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={libraryOpen} onClick={() => setActiveAssistant((p) => (p === 'library' ? null : 'library'))}><FileBox className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Lenses" hint="Lenses — reader views" caption="Lenses" active={lensesOpen} onClick={() => setActiveAssistant((p) => (p === 'lenses' ? null : 'lenses'))}><Eye className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Lenses" hint="Lenses — reader views" caption="Lenses" active={lensesOpen} onClick={() => setActiveAssistant((p) => (p === 'lenses' ? null : 'lenses'))}><LensIcon className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />
 			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
 			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={activeSettings === 'slide'} onClick={() => setActiveSettings((p) => (p === 'slide' ? null : 'slide'))}><FileSliders className="size-[18px]" /></BarIcon>
@@ -3046,7 +3071,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{!mobile && <PostureDial posture={posture} quietened={quietened} revealBuild={revealBuild} onChange={changePosture} />}
 				{/* Feedback — a persistent, one-tap entry point (not gated on onboarded — first
 				    impressions matter too). Opens a pre-filled GitHub issue; no token, no backend. */}
-				{!compact && <Tip label="Send feedback"><Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback"><MessageSquareHeart className="size-[18px]" /></Button></Tip>}
+				{!compact && <Tip label="Send feedback"><Button variant="ghost" size="icon-sm" onClick={() => setFeedbackOpen(true)} aria-label="Send feedback"><FeedbackIcon className="size-[18px]" /></Button></Tip>}
 				{/* Architect + Inspector — the working-panel toggles stay 1-tap at EVERY width
 				    (never folded into ⋯): visible aria-pressed/active color, and the #635
 				    first-edit Inspector pulse always lands on a visible button. On phones
@@ -3055,15 +3080,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				    left activity bar; mobile from the pane bar below. (A landscape phone renders
 				    no header at all — the cinema morph — so no leak here.) */}
 				{bp === 'tablet' && <Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>}
-				{bp === 'tablet' && <Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><MessageSquareHeart className="size-[18px]" /></Button></Tip>}
+				{bp === 'tablet' && <Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><ChatIcon className="size-[18px]" /></Button></Tip>}
 				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
 				{!compact && <Separator orientation="vertical" className="h-5" />}
 
-				{/* Compact (≤1099): the mode toggle stands alone (1-tap), then ONE ⋯ overflow
-				    holds the genuinely-secondary controls — theme picker, Library, Workspace,
-				    and a Search/commands row (the touch path to the ⌘K palette). */}
+				{/* Compact (≤1099): the mode toggle stands alone (1-tap). The "More controls"
+				    trigger below it is SHARED by tablet and mobile (same position, same
+				    accessible name, exactly one exists per breakpoint) but opens a different
+				    surface per tier: tablet keeps the flat DropdownMenu; mobile gets the
+				    StudioDrawer (2026-07-26-studio-mobile-eight-cell-bar.md) — five fixed named
+				    zones instead of one 30-item scroll, and none of the six protected controls
+				    (Present/Share/Coach/Chat/Settings/pane toggle) are anywhere in it. */}
 				{compact && <Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>}
-				{compact && (
+				{bp === 'tablet' && (
 					<DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
 						<DropdownMenuTrigger asChild>
 							<Button variant="ghost" size="icon-sm" aria-label="More controls"><MoreHorizontal className="size-[18px]" /></Button>
@@ -3072,49 +3101,47 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						    Radix submenu flies out to the side, which on a phone overflows the
 						    viewport (clips off-screen) and hides that the theme list scrolls.
 						    Actions sit first; the theme picker fills the rest as one scroll
-						    region so a clipped row signals "more below". */}
+						    region so a clipped row signals "more below". Tablet-only now — the
+						    two `mobile &&` blocks this used to carry were already dead here. */}
 						<DropdownMenuContent align="end" className="w-56 overflow-hidden p-0">
 							<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
-								{/* Editor actions — relocated here from the (now mobile-hidden) EDIT toolbar
-								    band. Only while EDITING (the edit pane), so the preview pane isn't cluttered. */}
-								{mobile && effPane === 'edit' && (
-									<>
-										<DropdownMenuLabel className="flex items-center gap-2"><PencilLine className="size-4" />Editor</DropdownMenuLabel>
-										{insertComponents.length > 0 && (
-											<DropdownMenuItem className="pl-8" onSelect={() => setInsertOpen(true)}><Plus className="size-4" />Insert component</DropdownMenuItem>
-										)}
-										<DropdownMenuItem className="pl-8" disabled={!issues} onSelect={() => editorRef.current?.fixAll()}><ListChecks className="size-4" />Fix all issues{issues > 0 && <span className="ml-auto text-[11px] text-muted-foreground">{issues}</span>}</DropdownMenuItem>
-										<DropdownMenuItem className="pl-8" onSelect={() => setHistoryOpen(true)}><History className="size-4" />Version history</DropdownMenuItem>
-										<DropdownMenuSeparator />
-									</>
-								)}
-								{/* Show me — the persistent phone entry to the guided tours. The welcome-banner
-								    button is the first-run affordance, but it vanishes once dismissed; the topbar
-								    menu is desktop/tablet-only. So on mobile the tours live here too, inlined (a
-								    nested Radix submenu flies off-screen on a phone), so a newcomer who dismissed
-								    the banner can still pick one. */}
-								{mobile && !demoActive && (
-									<>
-										<DropdownMenuLabel className="flex items-center gap-2"><MonitorPlay className="size-4" />Show me…</DropdownMenuLabel>
-										{TOURS.map((t) => (
-											<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2 pl-8">
-												<span className="font-medium">{t.label}</span>
-												<span className="text-[12px] text-muted-foreground">{t.description}</span>
-											</DropdownMenuItem>
-										))}
-										<DropdownMenuSeparator />
-									</>
-								)}
 								<DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>
-								<DropdownMenuItem onSelect={() => setLensesOpen(true)}><Eye className="size-4" />Lenses — reader views</DropdownMenuItem>
+								<DropdownMenuItem onSelect={() => setLensesOpen(true)}><LensIcon className="size-4" />Lenses — reader views</DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<Kbd className="ml-auto text-[10px]">⌘K</Kbd></DropdownMenuItem>
-								<DropdownMenuItem onSelect={() => setFeedbackOpen(true)}><MessageSquareHeart className="size-4" />Send feedback</DropdownMenuItem>
+								<DropdownMenuItem onSelect={() => setFeedbackOpen(true)}><FeedbackIcon className="size-4" />Send feedback</DropdownMenuItem>
 								<DropdownMenuSeparator />
 								<ThemeMenuItems palette={palette} onPick={applyPalette} saved={savedMenu} />
 							</ScrollFade>
 						</DropdownMenuContent>
 					</DropdownMenu>
+				)}
+				{mobile && (
+					<Button variant="ghost" size="icon-sm" aria-label="More controls" onClick={() => setMoreOpen(true)}><MoreHorizontal className="size-[18px]" /></Button>
+				)}
+				{mobile && (
+					<StudioDrawer
+						open={moreOpen}
+						onOpenChange={setMoreOpen}
+						effPane={effPane}
+						insertComponents={insertComponents}
+						issues={issues}
+						onInsert={() => setInsertOpen(true)}
+						onFixAll={() => editorRef.current?.fixAll()}
+						onVersionHistory={() => setHistoryOpen(true)}
+						onSlideSettings={() => { setInspectorScope('slide'); setInspectorOpen(true); }}
+						onLenses={() => setLensesOpen(true)}
+						demoActive={demoActive}
+						tours={TOURS}
+						onStartDemo={startDemo}
+						onLibrary={() => setLibraryOpen(true)}
+						onWorkspace={() => setWorkspaceOpen(true)}
+						onSearch={() => setCmdOpen(true)}
+						onFeedback={() => setFeedbackOpen(true)}
+						palette={palette}
+						savedThemes={savedMenu}
+						onApplyPalette={applyPalette}
+					/>
 				)}
 
 				{/* Library + Workspace + account — on DESKTOP these live in the left activity
@@ -3155,42 +3182,33 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<div className="sr-only" aria-live="polite">Slide {slideNo} of {viewSlides.length}</div>
 				</div>
 			) : mobile ? (
-				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. The deck
-				   actions stay INLINE and one-tap — an icon-only Edit/Preview toggle reclaims
-				   the width that keeps them on the bar at 390px (no ⋯ hiding). The top row
-				   spends its width on the deck title (2026-07-03 decision). Contextual extras
-				   stay per-pane so the row fits: the issues pill on the Edit pane; History +
-				   Slide settings on the Preview pane (the Edit pane's editor header has them). */
+				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. THE EIGHT-CELL
+				   BAR (2026-07-26-studio-mobile-eight-cell-bar.md, round 2 of the mobile-toolbar
+				   design competition): eight edge-to-edge captioned cells, identical on both
+				   panes — nothing appears, disappears, or reflows when you switch panes. Zero
+				   gaps + zero container padding is the width reclaim (today's bar computes to
+				   392px of gap-1/p-1.5 chrome for 9 uncaptioned controls, 2px over budget at
+				   390px); merging Markdown/Compose/Preview into one 3-way segment is what makes
+				   eight cells fit instead of nine. History, Slide settings and the "···" menu's
+				   old contents move into the StudioDrawer (below the header's "More controls"
+				   trigger, unchanged in position) — ten compliant 44px cells would compute to
+				   38.8px each, under the touch floor, so eight is the largest bar this width
+				   can hold. Present/Share/Coach/Chat/Settings/the pane toggle are never in the
+				   drawer — HARD RULE per the round-1 postmortem: those six stay one tap, inline,
+				   always, full stop. */
 				<div className="flex min-h-0 flex-1 flex-col">
-					<div role="toolbar" aria-label="Deck actions" className={cn('flex shrink-0 items-center gap-1 border-b border-border bg-card p-1.5 transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 py-0 opacity-0')}>
-						{/* Icon-only Edit/Preview toggle — dropping the two text labels reclaims
-						    ~78px, which is what lets the deck actions stay INLINE (one tap, no ⋯)
-						    and still fit 390px. (A landscape phone never reaches this toolbar — it
-						    renders the cinema morph above.) */}
-						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							<PaneBtn active={mobilePane === 'edit'} onClick={() => { setMobilePane('edit'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }} icon={<PencilLine className="size-4" />} label="Edit" demo="pane-edit" />
-							<PaneBtn active={mobilePane === 'preview'} onClick={() => setMobilePane('preview')} icon={<Eye className="size-4" />} label="Preview" demo="pane-preview" />
-						</div>
-						{/* Markdown ⟷ Compose — the editing-paradigm toggle, on the EDIT pane. It moved
-						    here from the (mobile-hidden) EDIT band; the default is Markdown, so this must
-						    stay one tap, not buried in ⋯. */}
-						{effPane === 'edit' && (
-							<div className="ml-0.5 inline-flex items-center gap-0.5 rounded-lg border border-border bg-background p-[3px]">
-								<button type="button" aria-label="Markdown source" onClick={() => setEditMode('markdown')} aria-pressed={editMode === 'markdown'} className={cn('inline-flex items-center rounded-md p-1.5 transition-colors', editMode === 'markdown' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground')}><FileText className="size-4" /></button>
-								<button type="button" aria-label="Compose — rich editor" onClick={() => setEditMode('compose')} aria-pressed={editMode === 'compose'} className={cn('inline-flex items-center rounded-md p-1.5 transition-colors', editMode === 'compose' ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground')}><Sparkles className="size-4" /></button>
-							</div>
-						)}
-						<span className="flex-1" />
-						{effPane === 'edit' && issues > 0 && <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-2,#9c3f00)_35%,transparent)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_8%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]"><AlertTriangle className="size-3" />{issues}</span>}
-						{/* Version history + Slide settings ride the pane bar only on the PREVIEW
-						    pane — the EDIT pane's own editor header already carries both. */}
-						{effPane === 'preview' && <Tip label="Version history — save & restore snapshots"><Button variant="ghost" size="icon-sm" onClick={() => setHistoryOpen(true)} aria-label="Version history"><History className="size-[18px]" /></Button></Tip>}
-						{effPane === 'preview' && <Tip label="Slide settings — look, status, chrome, notes"><Button variant="ghost" size="icon-sm" onClick={() => { setInspectorScope('slide'); setInspectorOpen(true); }} aria-label="Slide settings"><FileSliders className="size-[18px]" /></Button></Tip>}
-						<Tip label="Present"><Button variant="outline" size="sm" onClick={openPresent} className="gap-1.5 px-2" aria-label="Present"><Play className="size-4" /></Button></Tip>
-						<Tip label="Share"><Button size="sm" onClick={() => setShareOpen(true)} className="gap-1.5 px-2" aria-label="Share"><Share2 className="size-4" /></Button></Tip>
-						<Tip label="Coach — deterministic deck assessment"><Button variant="ghost" size="icon-sm" aria-pressed={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))} aria-label="Toggle Coach" className={cn(coachOpen && 'text-[var(--accent)]')}><Gauge className="size-[18px]" /></Button></Tip>
-						<Tip label="Chat — AI conversation about your deck"><Button variant="ghost" size="icon-sm" aria-pressed={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))} aria-label="Toggle Chat" className={cn(chatOpen && 'text-[var(--accent)]')}><MessageSquareHeart className="size-[18px]" /></Button></Tip>
-						<Tip label="Settings — deck & slide"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>
+					<div role="toolbar" aria-label="Deck actions" className={cn('flex shrink-0 items-stretch border-b border-border bg-card transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
+						<BarIcon variant="bar" label="Markdown source" hint="Markdown source" caption="Source" active={effPane === 'edit' && editMode === 'markdown'} demo={editMode === 'markdown' ? 'pane-edit' : undefined} badge={issues} describedBy={issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { setMobilePane('edit'); setEditMode('markdown'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><FileText className="size-[17px]" /></BarIcon>
+						{issues > 0 && <span id="mobile-issue-count" className="sr-only">{issues} unresolved {issues === 1 ? 'issue' : 'issues'}</span>}
+						<BarIcon variant="bar" label="Compose — rich editor" hint="Compose — rich editor" caption="Compose" active={effPane === 'edit' && editMode === 'compose'} demo={editMode === 'compose' ? 'pane-edit' : undefined} onClick={() => { setMobilePane('edit'); setEditMode('compose'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><Sparkles className="size-[17px]" /></BarIcon>
+						<BarIcon variant="bar" label="Preview" hint="Preview" caption="Preview" active={effPane === 'preview'} demo="pane-preview" onClick={() => setMobilePane('preview')}><PreviewIcon className="size-[17px]" /></BarIcon>
+						<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />
+						<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment" caption="Coach" variant="bar" active={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))}><Gauge className="size-[17px]" /></BarIcon>
+						<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" variant="bar" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><ChatIcon className="size-[17px]" /></BarIcon>
+						<BarIcon label="Settings" hint="Settings — deck & slide" caption="Settings" variant="bar" active={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))}><SlidersHorizontal className="size-[17px]" /></BarIcon>
+						<span aria-hidden="true" className="my-2 w-px shrink-0 bg-border" />
+						<BarIcon label="Present" hint="Present" caption="Present" variant="bar" tone="outline" demo="present" onClick={openPresent}><Play className="size-[17px]" /></BarIcon>
+						<BarIcon label="Share" hint="Share" caption="Share" variant="bar" tone="solid" demo="share" onClick={() => setShareOpen(true)}><Share2 className="size-[17px]" /></BarIcon>
 					</div>
 					{/* Both panes stay MOUNTED — the inactive one is hidden (opacity + inert) but keeps
 					    its full size, so the preview keeps rendering the live deck and a swap to it is
@@ -3361,7 +3379,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<Sheet open={chatOpen} onOpenChange={setChatOpen}>
 						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[320px]">
 							<SheetHeader className="border-b border-border">
-								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><MessageSquareHeart className="size-4 text-[var(--accent)]" />Chat</SheetTitle>
+								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><ChatIcon className="size-4 text-[var(--accent)]" />Chat</SheetTitle>
 								<SheetDescription className="sr-only">A conversation with the AI Architect about this deck, with reviewable edits.</SheetDescription>
 							</SheetHeader>
 							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBody}</div>
@@ -3371,7 +3389,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<Sheet open={lensesOpen} onOpenChange={setLensesOpen}>
 						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[340px]">
 							<SheetHeader className="border-b border-border">
-								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><Eye className="size-4 text-[var(--accent)]" />Lenses</SheetTitle>
+								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><LensIcon className="size-4 text-[var(--accent)]" />Lenses</SheetTitle>
 								<SheetDescription className="sr-only">Reader views of this deck — build a subset for one kind of reader, preview it, and approve it.</SheetDescription>
 							</SheetHeader>
 							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{lensesBody}</div>
@@ -3481,38 +3499,6 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 }
 
 // ── small local building blocks ─────────────────────────────────────────
-// A scroll container that shows a bottom fade + chevron WHILE more content sits
-// below the fold — the only reliable "there's more" cue for a long menu on touch,
-// where the OS hides native scrollbars and Radix DropdownMenu has no scroll
-// buttons. The cue clears once you reach the bottom. `pointer-events-none` so it
-// never eats a tap on the row beneath it.
-function ScrollFade({ children, className }: { children: React.ReactNode; className?: string }) {
-	const ref = React.useRef<HTMLDivElement>(null);
-	const [more, setMore] = React.useState(false);
-	const check = React.useCallback(() => {
-		const el = ref.current;
-		if (el) setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
-	}, []);
-	React.useLayoutEffect(() => {
-		const el = ref.current;
-		if (!el) return;
-		// ResizeObserver fires once on observe — catching the settled height after the
-		// menu's open animation, when scrollHeight/clientHeight are finally valid.
-		const ro = new ResizeObserver(check);
-		ro.observe(el);
-		return () => ro.disconnect();
-	}, [check]);
-	return (
-		<div className="relative">
-			<div ref={ref} onScroll={check} className={className}>{children}</div>
-			{more && (
-				<div className="pointer-events-none absolute inset-x-0 bottom-0 flex h-8 items-end justify-center bg-gradient-to-t from-popover via-popover/80 to-transparent">
-					<ChevronDown className="size-4 translate-y-[-2px] text-muted-foreground" />
-				</div>
-			)}
-		</div>
-	);
-}
 // Icon-only segmented button (Edit / Preview). The label rides `aria-label`/`title`
 // (+ aria-pressed for the active side) rather than visible text, so the toggle stays
 // compact — that reclaimed width keeps the deck actions inline instead of behind a ⋯.
@@ -3558,11 +3544,6 @@ function PostureDial({ posture, quietened, revealBuild, onChange }: { posture: P
 		</fieldset>
 	);
 }
-function PaneBtn({ active, onClick, icon, label, demo }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; demo?: string }) {
-	return (
-		<Tip label={label}><button type="button" onClick={onClick} data-demo={demo} aria-label={label} aria-pressed={active} className={cn('grid size-8 place-items-center rounded-md text-[13px] font-semibold', active ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{icon}</button></Tip>
-	);
-}
 
 // The one whisper of chrome over the iPhone-landscape "cinema" morph (the slide fills
 // the frame, swipe to move, nothing else): a slide-progress counter that fades ~2.2s
@@ -3589,22 +3570,42 @@ function LandscapeWhisper({ current, total, revealKey }: { current: number; tota
 // leave a newcomer facing mystery glyphs; 2026-07-06-studio-activity-bar.md).
 // `active` is passed only for the panel toggles (Coach/Slide/Deck) → aria-pressed;
 // the globals (Library/Workspace) open dialogs, so they get no pressed state.
-function BarIcon({ label, hint, caption, active, onClick, children }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode }) {
+//
+// `variant="bar"` is the mobile Eight-Cell Bar's horizontal cell (2026-07-26-studio-
+// mobile-eight-cell-bar.md): flex-1 instead of a fixed w-11 rail width, a bottom active
+// rule instead of the rail's left-edge marker, `demo` for a tour data-demo passthrough,
+// and `badge`/`describedBy` so a status count can ride the cell without changing its
+// accessible name. Both variants now floor at `min-h-11` (44px) — the rail's own
+// `py-1.5` box computed to ~41px, itself under the touch floor.
+function BarIcon({ label, hint, caption, active, onClick, children, variant = 'rail', demo, badge, describedBy, tone = 'ghost' }: { label: string; hint: string; caption: string; active?: boolean; onClick: () => void; children: React.ReactNode; variant?: 'rail' | 'bar'; demo?: string; badge?: number; describedBy?: string; tone?: 'ghost' | 'outline' | 'solid' }) {
+	const bar = variant === 'bar';
 	return (
 		<Tip label={hint}><button
 			type="button"
 			aria-label={label}
 			aria-pressed={active}
+			aria-describedby={describedBy}
+			data-demo={demo}
 			onClick={onClick}
 			className={cn(
-				'group/bar relative flex w-11 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[8.5px] font-semibold leading-none transition-colors',
-				active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
+				'group/bar relative flex min-h-11 flex-col items-center justify-center gap-0.5 font-semibold leading-none transition-colors',
+				bar ? 'min-w-0 flex-1 gap-[3px] rounded-none px-1 py-1.5 text-[9px]' : 'w-11 gap-0.5 rounded-xl py-2 text-[8.5px]',
+				tone === 'solid' ? 'bg-[var(--accent)] text-[var(--on-accent)]'
+					: tone === 'outline' ? 'border border-border text-[var(--text-heading)]'
+					: active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
 			)}
 		>
-			{/* Active-marker rail, VSCode-style, on the bar's inner edge. */}
-			{active && <span aria-hidden="true" className="absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]" />}
+			{/* Active marker: the rail variant gets a left-edge rule (VSCode-style, on a
+			    vertical bar's inner edge); the bar variant gets a bottom rule (correct for
+			    a horizontal cell — the rail's left marker would sit under the wrong neighbor). */}
+			{active && tone === 'ghost' && (
+				<span aria-hidden="true" className={bar ? 'absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full bg-[var(--accent)]' : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
+			)}
 			{children}
 			<span className="tracking-tight">{caption}</span>
+			{typeof badge === 'number' && badge > 0 && (
+				<span aria-hidden="true" className="absolute -top-1 -right-1 flex h-[15px] min-w-[15px] items-center justify-center rounded-full border-[1.5px] border-[var(--bg-alt)] bg-[color-mix(in_srgb,var(--chart-2,#9c3f00)_92%,transparent)] px-[3px] font-mono text-[9px] font-bold leading-none text-white">{badge > 99 ? '99+' : badge}</span>
+			)}
 		</button></Tip>
 	);
 }

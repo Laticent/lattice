@@ -1,4 +1,4 @@
-import { Cloud, Cpu, Database, Download, ExternalLink, Eye, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
+import { Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyRound, Languages, LifeBuoy, MessageSquareText, MonitorDown, MousePointer2, Plug, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, Volume2, Wallet, Zap } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -16,6 +16,7 @@ import { onViewportDebugEnabledChange, setViewportDebugEnabled, VIEWPORT_DEBUG_A
 import { onVizOverlayEnabledChange, setVizOverlayEnabled, VIZ_OVERLAY_AVAILABLE, vizOverlayEnabled } from '@/playground/viz-overlay-prefs';
 import { architectSpend, connectOpenRouter, disconnectOpenRouter, setBudget, setStudioTier, useArchitectStatus } from './architect';
 import { clearDownloadedModels, clearEverything, clearLibraryAssets, clearSiteCache, fmtBytes, type GovernanceStats, loadGovernanceStats } from './governance';
+import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { LanguageSelect } from './LanguageSelect';
 import { DeleteBtn } from './Library';
@@ -387,7 +388,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 							<p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground"><SlidersHorizontal className="size-3" /> Both AI tiers — cloud and on-device — write in this language; component and theme names stay in English.</p>
 
 							<div className="mt-6">
-								<GroupLabel icon={<Eye className="size-3.5" />}>Default reader views</GroupLabel>
+								<GroupLabel icon={<LensIcon className="size-3.5" />}>Default reader views</GroupLabel>
 								<div className="flex items-start gap-3 rounded-xl border border-border bg-background p-3">
 									<Switch
 										checked={lensDefaults}

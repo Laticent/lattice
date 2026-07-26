@@ -8463,6 +8463,28 @@ in patch versions.
 
 ### Changed
 
+- **The Studio's mobile toolbar is now the Eight-Cell Bar — eight equal, captioned, edge-to-edge
+  cells that never reflow between panes, replacing nine icon-only controls with no visible label.**
+  Markdown/Compose/Preview merge into one exclusive 3-way segment (freeing exactly the width eight
+  captioned ≥44×44 cells need); Coach, Chat, Settings, Present, and Share stay exactly where they
+  were — one tap, inline, never behind a menu. The mobile "···" overflow is now the **StudioDrawer**,
+  a bottom sheet with five fixed, named zones (Edit · Views · Show me · Look · Workspace) and a
+  sticky jump strip, replacing one flat scroll that mixed tour copy, navigation, and an 18-theme
+  catalog with no section a user noticed; long catalogs (tours, themes) now scroll sideways inside
+  their own zone instead of stacking vertically. Tablet's overflow is unchanged (still the flat
+  dropdown; Version history moves from Preview's pane bar into the drawer's Edit zone). Two real
+  icon collisions are fixed everywhere they occur: `MessageSquareHeart` no longer means both Chat
+  and Send Feedback (Chat moves to a distinct bot-chat glyph, at all four Chat sites), and `Eye` no
+  longer means both Preview and Lenses/reader-views (Lenses moves to a glasses glyph, at all six
+  Lenses sites plus the screen-reader "Description" label that shared it). `PaneBtn`'s 32px tap
+  target is retired outright; all eight bar cells are now a real ≥44×44 hit area (the drawer's own
+  rows are a separate, lower-frequency surface and are not held to the same floor). Landed after a
+  two-round design competition and an adversarial review that rejected the
+  round-1 winner (moving Coach/Chat/Settings behind a secondary surface) for reopening a
+  twice-settled product decision and breaking the guided-tour engine; this design keeps those three
+  controls exactly where the prior decisions require.
+  (`docs/src/components/studio/{StudioShell.tsx,StudioDrawer.tsx,icons.ts,scroll-fade.tsx}`;
+  `engineering/decisions/2026-07-26-studio-mobile-eight-cell-bar.md`.)
 - **Quadrant names now sit OUTSIDE the plot, centered on their column, in their own quadrant's color.**
   They used to be inset inside their corner, where they cost twice over: they competed with the data
   for the corner they occupied (item labels had to be routed around them, and still collided when a

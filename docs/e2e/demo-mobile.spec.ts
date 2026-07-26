@@ -40,10 +40,12 @@ async function firstDeckSource(page: import('@playwright/test').Page): Promise<s
 /** The `_class` slide count in a source string (one per slide). */
 const slideClasses = (src: string) => (src.match(/<!--\s*_class:/g) ?? []).length;
 
-/** Launch a tour from the persistent phone entry — the ⋯ overflow menu's inlined "Show me…"
- *  tour list. This is the persistent affordance (there is no first-run banner any more — the
- *  posture dial replaced it), so it also proves that entry point works. Defaults to the full
- *  walkthrough (4 slides: title · big-number · radar · close). */
+/** Launch a tour from the persistent phone entry — "More controls" opens the StudioDrawer
+ *  (2026-07-26-studio-mobile-eight-cell-bar.md; a bottom Sheet, replacing the old inlined "···"
+ *  DropdownMenu), whose "Show me…" zone carries the same `[data-tour]` cards. This is the
+ *  persistent affordance (there is no first-run banner any more — the posture dial replaced
+ *  it), so it also proves that entry point works. Defaults to the full walkthrough (4 slides:
+ *  title · big-number · radar · close). */
 async function startMobileDemo(page: import('@playwright/test').Page, tourId = 'walkthrough'): Promise<void> {
 	await page.getByRole('button', { name: 'More controls' }).click();
 	await page.locator(`[data-tour="${tourId}"]`).first().click();
