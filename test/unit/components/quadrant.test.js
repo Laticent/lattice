@@ -616,6 +616,72 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
   }
 });
 
+// THE property the placement engine exists for: a label sits NEXT TO the mark
+// it names. The pass it replaced could slide a crowded label a fifth of the plot
+// away from its dot — at which point it reads as labelling something else, which
+// is the failure a reader actually reports ("the text and the point are not
+// close to each other"). Adjacency is bounded by the mark's radius plus the
+// anchor ring, never by a travel budget.
+test('buildQuadrant: every item label stays adjacent to the mark it names', () => {
+  const ul = innerOf(`<ul>
+    <li>Quick Wins<ul>
+      <li>Weekly signal digest <code>8, 88</code></li>
+      <li>Slack intake bot <code>8, 86</code></li>
+      <li>Decision-log API <code>7, 87</code></li>
+      <li>Scoring model v2 <code>8, 84</code></li>
+    </ul></li>
+    <li>Defer<ul>
+      <li>Maturity self-assessment <code>1, 12</code></li>
+      <li>Per-team weighting UI <code>2, 14</code></li>
+    </ul></li>
+  </ul>`);
+  const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
+  const dots = [...out.matchAll(/<circle class="quadrant-dot"[^>]*cx="([\d.]+)" cy="([\d.]+)" r="([\d.]+)"/g)]
+    .map((m) => ({ cx: +m[1], cy: +m[2], r: +m[3] }));
+  const labels = textBoxes(out, 'quadrant-dot-label', FS_ITEM);
+  assert.equal(labels.length, 6);
+
+  // Three anchor rings at a ~10.6-unit line height, plus the dot radius and the
+  // 4-unit gap, plus half a wrapped block's own extent.
+  const LIMIT = 46;
+  for (const L of labels) {
+    const near = Math.min(...dots.map((d) => Math.hypot(
+      Math.max(L.left - d.cx, 0, d.cx - L.right),
+      Math.max(L.top - d.cy, 0, d.cy - L.bottom),
+    )));
+    assert.ok(near <= LIMIT,
+      `a label box (${L.left.toFixed(1)}…${L.right.toFixed(1)} × ${L.top.toFixed(1)}…${L.bottom.toFixed(1)}) ` +
+      `sits ${near.toFixed(1)} units from the nearest dot — it no longer reads as that dot's name`);
+  }
+});
+
+// Six items inside ~4 units of data — the case one ring of anchors cannot solve.
+// Measured both ways: with a single ring the six labels overlap each other by
+// ~279 square units; with the three rings they overlap by ZERO, and the price is
+// that the farthest label sits 22.8 units from its dot instead of 13.6. That
+// trade is the whole design — a label a little further out still reads as its
+// dot's name, a label printed through another one reads as neither.
+test('buildQuadrant: a dense cluster fans out instead of overprinting', () => {
+  const ul = innerOf(`<ul><li>Quick Wins<ul>
+    <li>Weekly signal digest <code>8, 88</code></li>
+    <li>Slack intake bot <code>8, 87</code></li>
+    <li>Decision-log API <code>7.6, 87</code></li>
+    <li>Scoring model v2 <code>8.2, 86</code></li>
+    <li>Partner API keys <code>7.8, 85</code></li>
+    <li>Self-serve onboarding <code>8.1, 84</code></li>
+  </ul></li></ul>`);
+  const out = buildQuadrant(parseQuadrant(ul), 'default', SCALE);
+  const boxes = textBoxes(out, 'quadrant-dot-label', FS_ITEM);
+  assert.equal(boxes.length, 6);
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i], b = boxes[j];
+      const hit = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      assert.ok(!hit, `labels ${i} and ${j} overprint in a six-point cluster`);
+    }
+  }
+});
+
 // ── quadrant names sit OUTSIDE the plot ─────────────────────────────────────
 // They used to be inset INSIDE their corner, where they competed with the data
 // for that corner (item labels had to be routed around them, and still

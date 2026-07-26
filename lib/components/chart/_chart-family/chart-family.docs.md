@@ -249,10 +249,19 @@ without claiming a popover index.
 
 Every label a kernel draws inside its diagram goes through
 `_chart-family/svg-label.js`, which breaks it into `<tspan>` lines sized in
-viewBox user units. See
-`engineering/decisions/2026-07-26-svg-chart-labels-motion.md` for why `<tspan>`
-and not `<foreignObject>`, who owns the font size, and how the scatter
-de-collision pass places labels.
+viewBox user units.
+
+A **scatter** label has a second problem: wrapping cannot help two points
+plotted on top of each other. `placeLabels` in the same module handles that by
+trying eight anchors around the mark — above, below, left, right, then the four
+diagonals — at three distances, and taking the first that clears every mark,
+every already-placed label, and the plot box. So a label is always ADJACENT to
+its own point, and two close points get different sides rather than a stack. A
+kernel hands over the mark, never a position.
+
+See `engineering/decisions/2026-07-26-svg-chart-labels-motion.md` for why
+`<tspan>` and not `<foreignObject>`, who owns the font size, and (§14) why
+placement is a choice of position rather than a nudge.
 
 ---
 

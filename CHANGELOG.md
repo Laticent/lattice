@@ -239,6 +239,20 @@ in patch versions.
 
 ### Changed
 
+- **Scatter labels are PLACED, not slid — a quadrant label now sits beside the point it names.**
+  Placement used to be one guess plus a slide along one axis: a zone heuristic picked above / below /
+  beside per dot, then the de-collision pass pushed the box until it cleared. Two things followed. A
+  label that started in a crowded spot slid a long way from its dot — up to a fifth of the plot — and
+  read as labelling something else; and every label in a cluster slid the SAME way, so three names
+  stacked into a column while their three dots stayed put. A slide cannot fix that, because the
+  problem is not that the label is in the wrong place, it is that only one place was on offer. The
+  new pass (`_chart-family/svg-label.js` `placeLabels`) offers eight anchors around the mark — above,
+  below, left, right, then the four diagonals — at three distances, rejects any that hit a mark, a
+  neighbor or the plot edge, and takes the most preferred survivor. A label is now always adjacent to
+  its own mark: the distance is bounded by the mark's radius, never by a travel budget, and two close
+  points get different SIDES rather than a stack. Measured on a six-point cluster: the labels
+  overlapped by ~279 square units under the old single-ring model and by zero under this one, at the
+  cost of the farthest label sitting 22.8 units from its dot instead of 13.6.
 - **Quadrant names now sit OUTSIDE the plot, centered on their column, in their own quadrant's color.**
   They used to be inset inside their corner, where they cost twice over: they competed with the data
   for the corner they occupied (item labels had to be routed around them, and still collided when a

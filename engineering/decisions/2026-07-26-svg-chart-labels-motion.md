@@ -80,6 +80,11 @@ sets no `font-size` on `.chart-key-label` for the same reason.
 
 ## 4. Wrapping is not enough — placement is its own problem
 
+> **Superseded by §14.** The diagnosis below stands; the mechanism does not.
+> `deCollideLabels` slid one guessed position along one axis, which is why a
+> crowded label ended up far from its dot and a cluster stacked into a column.
+> `placeLabels` replaced it. Kept here because §14 only makes sense against it.
+
 Wrapping fixes a label that is too WIDE. It does nothing for two labels that
 land on the same spot, which is a *placement* problem: on a scatter chart two
 nearby points carry two labels that overprint no matter how narrow each is.
@@ -370,3 +375,52 @@ holds just as well if `splitX` is ignored entirely. Verified: stubbing the
 split to the viewBox midpoint left that test green. It asserts the actual
 centers now, and every new test in this pass was checked to FAIL under the bug
 it guards.
+
+## 14. Placement, rethought: eight positions beat one slide
+
+The first cut of §4 was right that placement is its own problem and wrong about
+what to do with it. It kept the old model — *one* position per label, chosen by
+a zone heuristic, then a de-collision pass that slid the box along one axis until
+it cleared — and only made the slide smarter.
+
+A rendered deck showed what that costs. Two labels in the DEFER corner
+("Maturity self-assessment", "Per-team weighting UI") had stacked into a column
+near the top of the quadrant while both their dots sat well below, and the same
+thing had happened in three of the four corners. Each label was, individually,
+correctly de-collided. Collectively they had stopped naming anything: a label
+that travels far enough from its point reads as labelling whatever it landed
+near.
+
+Two mechanics produce that, and neither is fixable by tuning:
+
+- **A slide has one direction.** `maxShift` was 44 on a 244-unit plot, so a
+  crowded label could legitimately end up a fifth of the chart from its dot and
+  the pass would call it a success.
+- **Every label in a cluster slides the same way.** They were all placed above
+  their dots, so they all climbed, so they queued up in a column. Nothing in the
+  model could say "you go left instead".
+
+So the answer is not a better slide. It is **somewhere else to go**:
+`placeLabels` tries eight anchors around the mark — above, below, right, left,
+then the four diagonals, each carrying the anchor/baseline/vAlign that makes the
+block grow away from the dot — at three distances, and takes the first that
+clears every mark, every already-placed label and the plot box.
+
+Three things fell out of it rather than being designed:
+
+- **Adjacency is now a property, not a hope.** The distance from a label to its
+  mark is bounded by the mark's radius plus the ring, so there is no
+  configuration in which a label wanders. The test asserts it directly.
+- **The rim case stopped needing a special case.** The old code had a hand-written
+  "near corner" zone that pushed labels toward the chart interior. With the plot
+  box as `bounds`, every outward anchor at a rim dot simply fails and an inward
+  one wins. The zone heuristic and its constants are deleted.
+- **The bubble's flip rule went with it.** `renderBubble` had its own
+  below-then-flip-above test (the one that read a deleted constant and silently
+  became `NaN` — §13). Above and below are just two of the eight anchors now.
+
+The three rings are load-bearing and were measured, not assumed: on a six-point
+cluster inside ~4 units of data, one ring leaves the six labels overlapping by
+~279 square units; three rings leave them overlapping by **zero**, and the price
+is the farthest label sitting 22.8 units from its dot instead of 13.6. Both
+numbers are in a test, and the test fails if the extra rings are removed.
