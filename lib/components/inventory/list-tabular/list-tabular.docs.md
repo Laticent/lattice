@@ -23,10 +23,10 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 
 - **default (no modifier).** A plain hairline-ruled ledger — name left, description right, nothing tinted.
 - **`def`.** Reference entries read like dictionary definitions — an eyebrow above each term and an enlarged counter spanning both lines.
-- **`metric`.** Each row's value is the point — renders the trailing value in a bordered tile instead of a plain pill.
+- **`metric`.** Each row's value is the point — renders the trailing value as a display-weight figure instead of the default's plain mono text.
 - **`spec`.** Rows are technical flags or parameters — monospace keys beside type chips.
-- **`register`.** Each row carries a status — status pills per row, the lightest-weight of the four looks.
-- **`rule`.** Under `def`, the rows need a visible horizontal separator between them rather than relying on whitespace alone.
+- **`register`.** Each row carries a status — status pills per row.
+- **`rule`.** Under `def`, the register wants a visible accent rail running down the left edge of the whole list, not just the per-term counter.
 - **`solid`.** Under `metric`, the values are headline numbers that deserve a filled panel instead of an outlined tile.
 - **`stacked`.** Under `spec`, the description clause is long enough to want its own line below the key instead of trailing beside it.
 - **`outline`.** Under `register`, a lighter, keyline-only pill treatment fits the deck's tone better than filled pills.

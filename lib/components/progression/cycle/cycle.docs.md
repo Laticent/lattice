@@ -25,7 +25,7 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
 ### Common mistakes
 
 - **Authoring stages as a numbered list (`1.`) instead of a bullet list (`-`).** The stage-node styling and connector chevrons are scoped to `ul > li` (`section.cycle > .cell-stage > ul`) — an `ol` doesn't match the selector, so stages render as a plain, unstyled numbered list with no ring, no chevrons, no return arc.
-- **Assuming the eyebrow follows the after-heading pattern used by `title`/`closing`.** cycle has no eyebrow-specific CSS — it inherits the shared before-heading rule (base.modifiers.css): the inline-code eyebrow paragraph must sit directly BEFORE the `## heading`, not after it, or it renders as a stray plain paragraph.
+- **Assuming the eyebrow follows the after-heading pattern used by `title`/`closing`.** cycle has no eyebrow-specific CSS — it inherits the shared before-heading rule (base.modifiers.css): the inline-code eyebrow paragraph must sit directly BEFORE the `## heading`, not after it, or the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker.
 
 ## When to use
 

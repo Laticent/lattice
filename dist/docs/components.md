@@ -697,7 +697,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 
 ##### Common mistakes
 
-- **Using a `## heading` in the left panel under `pullquote` instead of a `>` blockquote.** The pull-quote display type is scoped to the blockquote inside `.panel-left` — an `h2` there renders as a plain heading, not the oversized italic quotation the variant is for.
+- **Using a `## heading` in the left panel under `pullquote` instead of a `>` blockquote.** Under `pullquote` the transform builds the left panel from ONLY the blockquote and its citation — an `h2` never lands in the left panel at all; it gets swept into the right column above the supporting points instead, leaving the featured panel blank.
 - **Adding a third line to `watermark`'s trailing metadata footer, expecting a third labeled row.** The footer's "Audience ·" / "Intent ·" prefixes are hard-coded to the first two list items only — a third item renders with no label prefix at all.
 
 #### When to use
@@ -2044,10 +2044,10 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 
 - **default (no modifier).** A plain hairline-ruled ledger — name left, description right, nothing tinted.
 - **`def`.** Reference entries read like dictionary definitions — an eyebrow above each term and an enlarged counter spanning both lines.
-- **`metric`.** Each row's value is the point — renders the trailing value in a bordered tile instead of a plain pill.
+- **`metric`.** Each row's value is the point — renders the trailing value as a display-weight figure instead of the default's plain mono text.
 - **`spec`.** Rows are technical flags or parameters — monospace keys beside type chips.
-- **`register`.** Each row carries a status — status pills per row, the lightest-weight of the four looks.
-- **`rule`.** Under `def`, the rows need a visible horizontal separator between them rather than relying on whitespace alone.
+- **`register`.** Each row carries a status — status pills per row.
+- **`rule`.** Under `def`, the register wants a visible accent rail running down the left edge of the whole list, not just the per-term counter.
 - **`solid`.** Under `metric`, the values are headline numbers that deserve a filled panel instead of an outlined tile.
 - **`stacked`.** Under `spec`, the description clause is long enough to want its own line below the key instead of trailing beside it.
 - **`outline`.** Under `register`, a lighter, keyline-only pill treatment fits the deck's tone better than filled pills.
@@ -2268,7 +2268,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 ##### Common mistakes
 
 - **Writing a caption's pill as plain nested text instead of backticks.** Under a mark's nested caption list, plain text becomes the NAME line; only a backticked token (e.g. `` `Series B` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill.
-- **Placing the eyebrow paragraph after the headline instead of before it.** The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, it renders as a stray plain paragraph with no kicker styling.
+- **Placing the eyebrow paragraph after the headline instead of before it.** The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker.
 
 #### When to use
 
@@ -3086,7 +3086,7 @@ Use for the plans / packages slide — two to four tiers compared on price and f
 ##### Common mistakes
 
 - **Writing the ribbon marker as `**Most popular**` (bold) instead of `*Most popular*` (single asterisk).** The ribbon is CSS-targeted at `li > em` specifically — `*…*` parses to `<em>`. A `**bold**` marker parses to `<strong>` instead and triggers neither the ribbon nor the accent-elevated card styling.
-- **Adding a state marker (`[x]`/`[/]`/`[-]`) to the final "who it's for" line.** The last nested item is identified by being marker-less — adding a marker turns it into another feature-badge row instead of the meta-styled audience line pinned to the card's bottom.
+- **Adding a state marker (`[x]`/`[/]`/`[-]`) to the final "who it's for" line.** The audience line is styled by its POSITION — the nested list's `:last-child` — not by being marker-less; adding a marker doesn't move the pinned-bottom, meta-color treatment, it just layers badge chrome (check icon + strike, etc.) on top of it, so the line ends up looking like a feature row instead of a plain caption.
 
 #### When to use
 
@@ -3594,7 +3594,7 @@ Use when the sequence is CIRCULAR: a natural cycle, a feedback loop, a recurring
 ##### Common mistakes
 
 - **Authoring stages as a numbered list (`1.`) instead of a bullet list (`-`).** The stage-node styling and connector chevrons are scoped to `ul > li` (`section.cycle > .cell-stage > ul`) — an `ol` doesn't match the selector, so stages render as a plain, unstyled numbered list with no ring, no chevrons, no return arc.
-- **Assuming the eyebrow follows the after-heading pattern used by `title`/`closing`.** cycle has no eyebrow-specific CSS — it inherits the shared before-heading rule (base.modifiers.css): the inline-code eyebrow paragraph must sit directly BEFORE the `## heading`, not after it, or it renders as a stray plain paragraph.
+- **Assuming the eyebrow follows the after-heading pattern used by `title`/`closing`.** cycle has no eyebrow-specific CSS — it inherits the shared before-heading rule (base.modifiers.css): the inline-code eyebrow paragraph must sit directly BEFORE the `## heading`, not after it, or the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker.
 
 #### When to use
 
@@ -5726,7 +5726,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 - **`cohort`.** The categorical grouping itself, not the axes, is what the audience should color-scan first.
 - **`threshold`.** Specific numeric cutoffs on each axis are the point — draws the actual threshold lines instead of leaving the quadrant split purely visual.
 - **`magic`.** The four quadrants have established, named archetypes (Leaders/Challengers/Visionaries/Niche Players) worth labeling explicitly, Gartner-style.
-- **`minimal`.** The chrome (axis labels, thresholds) would distract — just the points and the grouping colors.
+- **`minimal`.** The quadrant tint fields, bubble fills, and cohort hull shading would distract — strips them to outlined points, while axis labels and threshold lines stay visible.
 
 ##### Common mistakes
 
@@ -5734,8 +5734,8 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 
 ##### Data shape
 
-- Each item is ONE inline-code chip with comma-separated numbers — `Label — x, y[, size]` as `` `3, 70` `` or `` `3, 70, 2.4` `` under `bubble` — not separate chips per number.
-- All items must share the same coordinate scale across both axes — state the units in the eyebrow (`Effort 0–10 → Reach 0–100`) so a bare `3` and `70` aren't ambiguous.
+- An item is ONE inline-code chip with comma-separated numbers — `Label — x, y[, size]` as `` `3, 70` `` or `` `3, 70, 2.4` `` under `bubble` — EXCEPT `trail`, which needs TWO chips (`` `5, 60` `` `` `3, 78` ``, from-position then to-position); splitting a non-`trail` item's coordinates into two chips silently zeroes the second axis instead of erroring.
+- The eyebrow isn't just a label — it SETS the axis domain when present (`Effort 0–10 → Reach 0–100` fixes the scale instead of deriving it from the data), and `threshold` reads its own `· targets X, Y` suffix on the same eyebrow line to place the cutoff lines; omit either and the chart falls back to a data-derived scale / a midpoint threshold.
 
 #### When to use
 
@@ -7392,7 +7392,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 - **`branching`.** The authority forks — several regulations, guidance, or cases all trace back to the SAME originating statute — shown as one tier with multiple citations instead of a strict one-to-one descent.
 - **`trail`.** The descent should read as a lightweight breadcrumb rather than a heavier, chrome-forward chain.
 - **`pyramid`.** The tiers carry different legal weight and that hierarchy of force should be visually apparent, not just their order — tier width narrows from statute down to case.
-- **`bracket`.** Tiers are grouped by which actor issued them (legislature vs. agency vs. court) rather than purely by descent order.
+- **`bracket`.** The tiers should read as one clamped, continuous block — a tighter, seamless rail (zero gap, squared corners, a doubled outer edge) instead of the default's separated cards.
 
 ##### Common mistakes
 

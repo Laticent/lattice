@@ -126,7 +126,7 @@
     },
     {
       "mistake": "Placing the eyebrow paragraph after the headline instead of before it.",
-      "fix": "The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, it renders as a stray plain paragraph with no kicker styling."
+      "fix": "The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker."
     }
   ],
   "variantDecisionRule": [

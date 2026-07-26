@@ -168,7 +168,7 @@
     },
     {
       "variant": "bracket",
-      "useWhen": "Tiers are grouped by which actor issued them (legislature vs. agency vs. court) rather than purely by descent order."
+      "useWhen": "The tiers should read as one clamped, continuous block — a tighter, seamless rail (zero gap, squared corners, a doubled outer edge) instead of the default's separated cards."
     }
   ],
   "specimenVoice": true

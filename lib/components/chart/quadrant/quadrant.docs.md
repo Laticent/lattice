@@ -27,7 +27,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 - **`cohort`.** The categorical grouping itself, not the axes, is what the audience should color-scan first.
 - **`threshold`.** Specific numeric cutoffs on each axis are the point — draws the actual threshold lines instead of leaving the quadrant split purely visual.
 - **`magic`.** The four quadrants have established, named archetypes (Leaders/Challengers/Visionaries/Niche Players) worth labeling explicitly, Gartner-style.
-- **`minimal`.** The chrome (axis labels, thresholds) would distract — just the points and the grouping colors.
+- **`minimal`.** The quadrant tint fields, bubble fills, and cohort hull shading would distract — strips them to outlined points, while axis labels and threshold lines stay visible.
 
 ### Common mistakes
 
@@ -35,8 +35,8 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 
 ### Data shape
 
-- Each item is ONE inline-code chip with comma-separated numbers — `Label — x, y[, size]` as `` `3, 70` `` or `` `3, 70, 2.4` `` under `bubble` — not separate chips per number.
-- All items must share the same coordinate scale across both axes — state the units in the eyebrow (`Effort 0–10 → Reach 0–100`) so a bare `3` and `70` aren't ambiguous.
+- An item is ONE inline-code chip with comma-separated numbers — `Label — x, y[, size]` as `` `3, 70` `` or `` `3, 70, 2.4` `` under `bubble` — EXCEPT `trail`, which needs TWO chips (`` `5, 60` `` `` `3, 78` ``, from-position then to-position); splitting a non-`trail` item's coordinates into two chips silently zeroes the second axis instead of erroring.
+- The eyebrow isn't just a label — it SETS the axis domain when present (`Effort 0–10 → Reach 0–100` fixes the scale instead of deriving it from the data), and `threshold` reads its own `· targets X, Y` suffix on the same eyebrow line to place the cutoff lines; omit either and the chart falls back to a data-derived scale / a midpoint threshold.
 
 ## When to use
 

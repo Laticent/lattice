@@ -33,7 +33,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 
 ### Common mistakes
 
-- **Using a `## heading` in the left panel under `pullquote` instead of a `>` blockquote.** The pull-quote display type is scoped to the blockquote inside `.panel-left` — an `h2` there renders as a plain heading, not the oversized italic quotation the variant is for.
+- **Using a `## heading` in the left panel under `pullquote` instead of a `>` blockquote.** Under `pullquote` the transform builds the left panel from ONLY the blockquote and its citation — an `h2` never lands in the left panel at all; it gets swept into the right column above the supporting points instead, leaving the featured panel blank.
 - **Adding a third line to `watermark`'s trailing metadata footer, expecting a third labeled row.** The footer's "Audience ·" / "Intent ·" prefixes are hard-coded to the first two list items only — a third item renders with no label prefix at all.
 
 ## When to use

@@ -136,7 +136,7 @@
     },
     {
       "mistake": "Adding a state marker (`[x]`/`[/]`/`[-]`) to the final \"who it's for\" line.",
-      "fix": "The last nested item is identified by being marker-less — adding a marker turns it into another feature-badge row instead of the meta-styled audience line pinned to the card's bottom."
+      "fix": "The audience line is styled by its POSITION — the nested list's `:last-child` — not by being marker-less; adding a marker doesn't move the pinned-bottom, meta-color treatment, it just layers badge chrome (check icon + strike, etc.) on top of it, so the line ends up looking like a feature row instead of a plain caption."
     }
   ],
   "variantDecisionRule": [

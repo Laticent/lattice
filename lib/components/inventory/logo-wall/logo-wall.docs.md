@@ -28,7 +28,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 ### Common mistakes
 
 - **Writing a caption's pill as plain nested text instead of backticks.** Under a mark's nested caption list, plain text becomes the NAME line; only a backticked token (e.g. `` `Series B` ``) becomes the pill — writing the round label without backticks renders it as a second name line instead of a pill.
-- **Placing the eyebrow paragraph after the headline instead of before it.** The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, it renders as a stray plain paragraph with no kicker styling.
+- **Placing the eyebrow paragraph after the headline instead of before it.** The eyebrow matches `p > code:only-child` as the section's kicker, positioned before the `## headline` — placed after, the masthead lift re-seats it as the italic, secondary-color subtitle instead of the intended mono kicker.
 
 ## When to use
 

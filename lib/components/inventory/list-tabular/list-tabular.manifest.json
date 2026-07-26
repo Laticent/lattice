@@ -189,7 +189,7 @@
     },
     {
       "variant": "metric",
-      "useWhen": "Each row's value is the point — renders the trailing value in a bordered tile instead of a plain pill."
+      "useWhen": "Each row's value is the point — renders the trailing value as a display-weight figure instead of the default's plain mono text."
     },
     {
       "variant": "spec",
@@ -197,11 +197,11 @@
     },
     {
       "variant": "register",
-      "useWhen": "Each row carries a status — status pills per row, the lightest-weight of the four looks."
+      "useWhen": "Each row carries a status — status pills per row."
     },
     {
       "variant": "rule",
-      "useWhen": "Under `def`, the rows need a visible horizontal separator between them rather than relying on whitespace alone."
+      "useWhen": "Under `def`, the register wants a visible accent rail running down the left edge of the whole list, not just the per-term counter."
     },
     {
       "variant": "solid",
