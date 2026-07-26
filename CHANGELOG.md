@@ -50,7 +50,10 @@ in patch versions.
   buckets (`title`, `big-number`, `piechart`, `matrix-2x2`, `code`) — the remaining 54 render an
   Agent contract with just capacity/density/slots until their `commonMistakes` /
   `variantDecisionRule` / `dataShapeGuidance` are backfilled. `AGENTS.md` points agents at the new
-  section.
+  section. The docs-site component pages (`docs/src/components/components-ref/ComponentDocsView.tsx`)
+  now render the same three fields as their own sections — "Common mistakes" after When-not-to-use,
+  "Data shape" after Slots, "Variant decision rule" before Variants — since that page already reads
+  the full manifest at build time, not the trimmed picker catalog.
 - **Model routing: every subagent now declares which model it runs on, so lookup work stops
   billing at Opus rates (HARD RULE #27).** Only two agents (`docs-auditor`, `prose-checker`) pinned
   a model before; every other `Agent()` call inherited the session model — Opus 5 — which meant
