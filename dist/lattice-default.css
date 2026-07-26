@@ -4656,14 +4656,29 @@ section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul 
    * claims the height that let the legacy slide-height layout breathe. */
   list-style: none; padding: 0 0 var(--sp-xs);
   display: flex; flex-direction: column; counter-reset: r;
+  /* The ordinal's own box, and the gutter the row leaves for it, from ONE source — they
+   * cannot drift apart. The ordinal is absolutely positioned (it must not join the row's
+   * flow, which stacks a block <strong> title over its body prose), so nothing pushes the
+   * text out of its way: the row has to reserve enough room, and the two sizes were picked
+   * independently IN DIFFERENT UNITS — the gutter in CONTAINER units (`5cqi`), the numeral
+   * in TYPE units (`--fs-h3`). Those track different things, so the pairing only held at
+   * some widths: in a landscape box 5cqi is ~96px and cleared the 34px numeral, but in a
+   * portrait box it collapses to 50px while `01` still renders 69px (`--font-mono` advances
+   * 0.6em/digit — measured — so two digits are 1.2em), and the numeral sat 19px INSIDE the
+   * title on every portrait default-variant inventory slide. Both now derive from --fs-h3,
+   * the thing the numeral is actually made of, so they scale together on every preset.
+   * `capacity.hard` is 6, so the ordinal is always two digits. */
+  --inv-ord-w: calc(var(--fs-h3) * 1.2);
+  --inv-ord-gap: var(--sp-sm);
 }
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li {
   counter-increment: r; position: relative; list-style: none;
-  padding: var(--sp-3xs) 0 var(--sp-3xs) 5cqi;
+  padding: var(--sp-3xs) 0 var(--sp-3xs) calc(var(--inv-ord-w) + var(--inv-ord-gap));
   border-bottom: 1px solid var(--border); font-size: var(--fs-body); color: var(--text-body);
 }
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li::before {
   content: counter(r, decimal-leading-zero); position: absolute; left: 0; top: var(--sp-2xs);
+  width: var(--inv-ord-w);
   font-family: var(--font-mono); font-size: var(--fs-h3); font-weight: 600; color: var(--accent);
 }
 section.inventory:not(.cards):not(.timeline):not(.editorial) > .cell-stage > ul > li strong {

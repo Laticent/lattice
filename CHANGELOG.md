@@ -277,6 +277,17 @@ in patch versions.
 
 ### Fixed
 
+- **`inventory`'s row numbers no longer sit on top of the row titles in a portrait deck.** The
+  ledger variant positions its `01`/`02` ordinal absolutely — it has to, because the row stacks a
+  block title over its body prose — so the row must reserve the gutter itself. The gutter was sized
+  in CONTAINER units (`padding-left: 5cqi`) while the numeral was sized in TYPE units (`--fs-h3`),
+  and those track different things: in a landscape box 5cqi is ~96px and cleared the 34px numeral,
+  but in a portrait box it collapses to 50px while `01` still renders 69px — so the ordinal sat
+  **19px inside the title** on every portrait `inventory` slide. It shipped that way because the
+  component's own demo and gallery are landscape. Both sizes now derive from one custom property, so
+  they scale together on every preset. Pre-existing, unrelated to the split work that surfaced it.
+  (`lib/components/inventory/inventory/inventory.styles.css`; rebuilt `examples/inventory.pdf`.)
+
 - **A split slide's page number is no longer stuck on the first page's.** The engine bakes each
   page number twice — the `data-lattice-pagination` attribute (which `section.form::after` renders)
   and the real `<span class="lat-pagination">` element inside `.cell-footer` — and a split copies
