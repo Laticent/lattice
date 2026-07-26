@@ -385,6 +385,7 @@
         "axis": "item",
         "min": 3,
         "sweet": 4,
+        "perPage": 1,
         "soft": 6,
         "hard": 7,
         "escalateTo": [
@@ -1115,6 +1116,7 @@
         "axis": "item",
         "min": 2,
         "sweet": 3,
+        "perPage": 1,
         "soft": 4,
         "hard": 4,
         "escalateTo": [
@@ -1308,6 +1310,7 @@
         "axis": "item",
         "min": 2,
         "sweet": 3,
+        "perPage": 1,
         "soft": 4,
         "hard": 4,
         "escalateTo": [
@@ -6761,6 +6764,7 @@
         "axis": "item",
         "min": 2,
         "sweet": 3,
+        "perPage": 1,
         "soft": 3,
         "hard": 4,
         "escalateTo": [

@@ -557,7 +557,20 @@ ${indent}   - ${body.trim()}`;
             if (!n) break;
             const comfort = cap.sweet != null ? cap.sweet : cap.soft;
             if (cap.hard != null && n > cap.hard) {
-              if (autosplitOn && orientation === "portrait") continue;
+              if (autosplitOn && orientation === "portrait") {
+                const target = cap.perPage ?? cap.sweet ?? cap.soft ?? cap.hard;
+                const pages = Math.max(1, Math.ceil(n / target));
+                findings.push({
+                  slide: idx - fm + 1,
+                  rule: "capacity-autosplit",
+                  severity: "info",
+                  classToken: t,
+                  line: m[0],
+                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably; this slide has ${n}, so auto-split will divide it into ${pages} pages of ${Math.ceil(n / pages)}` + (cap.perPage != null ? ` (${t} paces ${cap.perPage} per page when split)` : ""),
+                  fix: `Intended? Nothing to do \u2014 the split leads with a cover and every page is paced the same. To keep it on ONE slide, trim to ${cap.hard} or fewer ${axisNoun(cap.axis, cap.hard)}.`
+                });
+                continue;
+              }
               findings.push({
                 slide: idx - fm + 1,
                 rule: "capacity-overflow",

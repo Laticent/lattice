@@ -15,7 +15,7 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { splitEnvelope, readCover, readMasthead, splitRegions, topLevelElements, chromeOf } = require('../../../lib/core/split-envelope');
+const { splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements, chromeOf } = require('../../../lib/core/split-envelope');
 const { autoSplitDeck, resplitDoc, applyRails } = require('../../../lib/core/auto-split');
 const { splitSections } = require('../../../lib/core/split-sections');
 
@@ -46,6 +46,44 @@ const openTag = '<section data-lattice-slide="4" id="s4" data-lattice-pagination
 const build = (inner, per = 4, opts = {}) =>
   splitEnvelope(openTag, inner, chromeOf(inner), { axis: 'item', per, layoutName: 'checklist', ...opts });
 const classOf = (sec) => (sec.match(/\sclass="([^"]*)"/) || ['', ''])[1];
+
+describe('core: balancedPerPage — the BODY pacing (§0b granularity)', () => {
+  test('spreads evenly over the pages the target implies — never a runt last page', () => {
+    // The defect this exists to kill: 14 checklist items at a target of 6 used to emit
+    // 6/6/2, and because members stretch to fill the stage that 2-item page rendered with
+    // grotesquely tall rows. 5/5/4 instead.
+    assert.equal(balancedPerPage(14, 6), 5);
+    assert.equal(balancedPerPage(9, 4), 3);   // 3/3/3, not 4/4/1
+    assert.equal(balancedPerPage(7, 4), 4);   // 4/3 — already as even as it gets
+    assert.equal(balancedPerPage(6, 3), 3);   // exact fit is unchanged
+  });
+
+  test('never exceeds the target, and a target of 1 atomizes', () => {
+    assert.equal(balancedPerPage(6, 1), 1);   // a HEAVY member: one per page
+    assert.equal(balancedPerPage(100, 1), 1);
+    for (const [n, t] of [[14, 6], [9, 4], [7, 4], [13, 5], [2, 9]]) {
+      assert.ok(balancedPerPage(n, t) <= Math.max(t, 1) || n <= t, `${n}/${t}`);
+    }
+  });
+
+  test('degenerate input does not divide by zero or emit a non-positive page size', () => {
+    for (const [n, t] of [[0, 3], [5, 0], [5, null], [5, undefined], [-1, 3], [3, 2.5]]) {
+      const r = balancedPerPage(n, t);
+      assert.ok(Number.isInteger(r) && r >= 1, `balancedPerPage(${n}, ${t}) = ${r}`);
+    }
+  });
+
+  test('the authoring lint predicts the SAME page count the kernel will produce', () => {
+    // lint-core cannot require the kernel (it is fs-free and rides the browser bundle),
+    // so it recomputes `ceil(n / target)`. Pin the two together or the author is told a
+    // page count the export then contradicts.
+    const lintPages = (n, target) => Math.max(1, Math.ceil(n / target));
+    for (const [n, t] of [[14, 6], [6, 1], [9, 4], [7, 4], [13, 5], [20, 3]]) {
+      const per = balancedPerPage(n, t);
+      assert.equal(Math.ceil(n / per), lintPages(n, t), `n=${n} target=${t}`);
+    }
+  });
+});
 
 describe('core: splitEnvelope — the envelope shape (§0a)', () => {
   test('COVER → BODY(1…n): exactly one cover, first, then the native body pages', () => {

@@ -1313,7 +1313,10 @@ const SPLIT_CAP = (() => {
     const axis = m.capacity?.axis ?? m.adapt?.capacity?.axis;
     // A layout joins the split registry if it can paginate (has a capacity axis) OR
     // declares a carousel `split` recipe (read-across re-authored as a sequence).
-    if (axis || m.split) map[m.name] = { axis: axis ?? null, hard: m.capacity?.hard ?? null, sweet: m.capacity?.sweet ?? null, soft: m.capacity?.soft ?? null, split: m.split ?? null };
+    // `perPage` is the AUTHORED split pacing — how many members ride one page of a split
+    // run (1 for a heavy member that atomizes). Distinct from `sweet`, which is authoring
+    // comfort; auto-split.js `splitTargetOf` prefers it and falls back to sweet → soft → hard.
+    if (axis || m.split) map[m.name] = { axis: axis ?? null, hard: m.capacity?.hard ?? null, sweet: m.capacity?.sweet ?? null, soft: m.capacity?.soft ?? null, perPage: m.capacity?.perPage ?? null, split: m.split ?? null };
   }
   // An empty registry with autosplit requested means the manifests were not
   // found — the exact silent failure this resolver fix closes. Never quiet.

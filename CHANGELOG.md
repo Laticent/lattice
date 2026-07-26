@@ -242,6 +242,19 @@ in patch versions.
     to put on it.
   - **A title-less slide keeps the bare partition** — there is no masthead to build a cover from, and
     an empty accent field would be worse.
+  - **Every page of a run is paced the same, and a member looks the same on all of them.** The cut is
+    balanced rather than greedy, so 14 checklist items emit 5/5/4 instead of 6/6/2 — no runt last
+    page (this also fixes the runt page `cover-paginate` has always left). And because collections
+    normally DISTRIBUTE their members to fill the stage, a page holding fewer members used to render
+    each one visibly larger; on a split body page members now keep their natural height and pack from
+    the top, so a row is the same size on page 1 and page 4 and the last page simply carries trailing
+    air.
+  - **Heavy members atomize — one card per page.** New authored `capacity.perPage`, set to 1 for
+    `cards-grid`, `cards-stack`, `actors` and `policy-recommendation`: a card carrying a title AND a
+    body clause is one page's worth. It is a separate field from `sweet` on purpose — `sweet` is how
+    many are comfortable to author on one slide, `perPage` how many are comfortable to read on one
+    page of a split, and for a heavy member those differ (setting `sweet: 1` would wrongly warn the
+    author at two cards). Omit it and a light member packs to `sweet` as before.
   - Content is conserved by construction: every emitted page is the source slide with spans
     *removed*, so no leaf text can go missing.
   Deck output changes only for decks that actually split (`autosplit: on` plus real overflow); a
@@ -249,6 +262,16 @@ in patch versions.
   `examples/cover-paginate.pdf`, `examples/read-across-carousel.pdf`; new demo deck
   `examples/split-envelope.md` (+ PDF). See
   `engineering/decisions/2026-07-22-structure-derived-split-patterns.md` §0a and §8 rule 9.
+
+- **The per-component budget speaks again on an `autosplit: on` deck.** `capacity-overflow` was
+  suppressed outright on autosplit portrait decks, so a slide past its budget produced no authoring
+  signal at all — the author had no way to know a slide was about to become several. It is replaced
+  by **`capacity-autosplit`**, which reports what will actually happen: *"'checklist' holds about 6
+  items comfortably; this slide has 14, so auto-split will divide it into 3 pages of 5."* It lands at
+  the advisory tier, not as a warning, because `lint:deck --strict` is a blocking gate and a
+  deliberate split is not a defect — `tools/lint-deck.js` now routes `info`/`suggestion` findings to
+  the never-blocking suggestions channel, matching what the Playground's editor diagnostics already
+  did with them.
 
 ### Fixed
 

@@ -633,6 +633,11 @@ var require_manifest_schema = __commonJS({
               minimum: 1,
               description: "The ideal count surfaced to the author/agent."
             },
+            perPage: {
+              type: "integer",
+              minimum: 1,
+              description: "AUTHORED SPLIT PACING \u2014 how many members ride ONE page when auto-split divides this slide (the plain-axis mirror of `split.perPage`, which carries the same intent for a carousel layout). Distinct from `sweet`, and deliberately so: `sweet` is how many are comfortable to AUTHOR on one slide, this is how many are comfortable to READ on one page of a split run, and for a HEAVY member they are different numbers \u2014 cards-grid authors 3 comfortably but atomizes to 1 per page, so setting `sweet: 1` would wrongly warn at two cards. Omit for a LIGHT member (bullets, tiles): the split then packs to `sweet` (falling back soft \u2192 hard). Either way the cut is BALANCED, never greedy \u2014 14 items at a target of 6 emit 5/5/4, not 6/6/2 \u2014 so no page of a run is a runt. Pacing is authored, never derived from content (engineering/decisions/2026-07-22-structure-derived-split-patterns.md \xA70b granularity table, \xA73f)."
+            },
             soft: {
               type: "integer",
               minimum: 1,

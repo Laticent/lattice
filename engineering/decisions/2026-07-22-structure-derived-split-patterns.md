@@ -522,6 +522,44 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   4. **Conservation is structural, not audited.** Every page is the source `inner` with
      SPANS REMOVED (bodies drop lede + trailing; the closing drops lede + collection),
      so §5's conservation requirement holds by construction rather than by a gate.
+  **The §0b granularity table, built (owner review, 2026-07-26).** The first cut of this
+  slice shipped the envelope but paced the BODY from `capacity.sweet` with `partitionAxis`'s
+  greedy chunk, which the owner caught on a real export: a 14-item `checklist` came out
+  6/6/2 and `cards-grid` packed 3 per page against §0c's heavy → 1/slide. Three things were
+  wrong, and all three are now fixed:
+  1. **Pacing is balanced, never greedy.** The target is a CEILING and the members spread
+     evenly over the pages it implies — 14 at 6 → 5/5/4, not 6/6/2 (`balancedPerPage`,
+     split-envelope.js). Applied to the carousel path too, so `cover-paginate` stops leaving
+     a runt page as well.
+  2. **Heavy members atomize, via an AUTHORED field.** New `capacity.perPage` (schema +
+     `cards-grid`, `cards-stack`, `actors`, `policy-recommendation` = 1). It had to be a
+     separate field from `sweet`: `sweet` is how many are comfortable to AUTHOR on one
+     slide, `perPage` is how many are comfortable to READ on one page of a split, and for a
+     heavy member those are different numbers — setting `sweet: 1` would wrongly warn the
+     author at two cards. This keeps pacing AUTHORED (§3f), not derived, so it does not
+     front-run P2's classification defaults. `q-and-a` and the other carousel layouts keep
+     their existing authored `split.perPage`.
+  3. **A member renders identically on every page of the run.** The real ugliness was not
+     the uneven count — it was that collections DISTRIBUTE their members to fill the stage
+     (`checklist.styles.css` spreads rows; `cards-grid` uses `align-content:stretch`), so a
+     page holding fewer members rendered each one visibly larger. On a `lat-split-native`
+     page members now keep their natural height and pack from the top; the last page simply
+     carries trailing air. Pacing evens the COUNT, this evens the SIZE — and without it a
+     balanced 5/5/4 would still have shown one page of taller rows.
+  **The budget speaks again at authoring time.** `capacity-overflow` was suppressed outright
+  on autosplit portrait decks, so an over-budget slide got NO signal — which is how the
+  badly-paced 14-item checklist shipped. It is replaced by `capacity-autosplit`, which
+  reports what will actually happen ("14 items, so auto-split will divide it into 3 pages of
+  5"). At the **advisory `info` tier**, deliberately: `lint:deck:all --strict` is a blocking
+  CI gate and a pre-push hook, so a warning would red every deck that intends to split —
+  gating against the feature working. `tools/lint-deck.js` now routes `info`/`suggestion` to
+  the never-blocking suggestions channel, matching what the Playground already did.
+  **Still deferred:** the CONNECTED components (`list-steps`, `cycle`, `verdict-grid`) are
+  §0c "1/slide + relationship signal" — they keep packing to their budget here, because
+  atomizing them without the →next / ↻loop / compare-N-of-M adornment is precisely what §0b
+  says makes atomization unreadable. They get `perPage: 1` in the same slice that builds the
+  signal, not before.
+
   **Scope note.** The envelope applies to whatever the opt-in gate already enrolls — the
   15 plain-axis components (`actors`, `agenda`, `cards-grid`, `cards-stack`, `checklist`,
   `cycle`, `inventory`, `kpi`, `list`, `list-steps`, `matrix-2x2`, `policy-recommendation`,

@@ -14,6 +14,7 @@
     "axis": "item",
     "min": 2,
     "sweet": 3,
+    "perPage": 1,
     "soft": 3,
     "hard": 4,
     "escalateTo": ["list-criteria", "split across slides"],

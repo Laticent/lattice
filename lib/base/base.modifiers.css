@@ -1362,6 +1362,37 @@ section.lat-split-cover.split-cover-compare-table .split-feat-h::after {
   background: var(--spectrum-structure);
 }
 
+/* ── Split BODY pages — a member looks the same on every page of the run ──────────
+   A collection normally DISTRIBUTES its members to fill the bounded stage: checklist
+   spreads its rows (`checklist.styles.css` — "rows distribute to fill the bounded
+   stage"), cards-grid tiles with `align-content: stretch`. That is right for a single
+   slide, where filling the box is the composition — and wrong for a SPLIT run, where it
+   means a page holding fewer members renders each one visibly larger. A 14-item
+   checklist cut 5/5/4 would still show one page of noticeably taller rows; cut 6/6/2 (the
+   old greedy chunk) it was grotesque.
+   On a body page the members therefore keep their NATURAL height and pack from the top:
+   an item renders identically on page 1 and page 4, and the last page simply carries
+   trailing air. That is what makes a split read as the same deck, just more of it —
+   pacing (`balancedPerPage`) evens the COUNT, this evens the SIZE.
+   Scoped to `lat-split-native` (only pages this splitter emitted), so an unsplit slide is
+   untouched. The doubled class is a deliberate weight bump — a component's own
+   `section.X > .cell-stage > ul` sits at (0,2,2) and would otherwise win. Palette-blind;
+   no margin (HARD #3, #20). */
+section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  align-content: flex-start;
+}
+section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li {
+  flex-grow: 0;
+  flex-basis: auto;
+}
+/* NOTE — a member ALONE on its page (a heavy member paced `capacity.perPage: 1`) does NOT
+   need a width rule here: a tiling component already answers it for its own grid, e.g.
+   cards-grid promotes `li:last-child:nth-child(odd)` to `width:100%`, which a single card
+   matches. Measured on the real render (1000px, the full measure) — an `:only-child`
+   override was tried, found to change nothing, and removed rather than shipped dead. */
+
 /* ── Shared split CLOSING page (lib/core/split-envelope.js) ───────────────────────
    The envelope's optional final beat: the run's trailing material — a `.below-note`, a
    key-insight blockquote — landing ONCE instead of being stamped on every body page
