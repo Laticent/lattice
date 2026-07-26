@@ -157,9 +157,16 @@ async function collectBlacks() {
               // so a bare `tspan.` key would alias EVERY unclassed tspan in
               // every chart onto one sanction. One legitimately-black ink would
               // then mask a genuinely dropped color anywhere else.
+              // When neither exists the key is the BARE TAG, with no trailing
+              // dot: `tspan.` reads like a class that happens to be empty and
+              // still aliases every classless tspan, which is the masking this
+              // guards against. `tspan` says plainly that the sanction is for
+              // an unattributable element — and that is a reason to look.
               const own = el.getAttribute('class');
-              let selector = `${tag}.${own ? own.split(/\s+/)[0] : ''}`;
-              if (!own) {
+              let selector = tag;
+              if (own) {
+                selector = `${tag}.${own.split(/\s+/)[0]}`;
+              } else {
                 const host = el.parentElement?.closest('svg [class]');
                 const hostClass = host?.getAttribute('class');
                 if (hostClass) {
