@@ -397,6 +397,23 @@ describe('core: carousel — cover-cards (compare-table portrait RESHAPE)', () =
     assert.ok(!trailingParts[1].includes('procurement review')); // not on the FIRST card page
   });
 
+  // The density figure is a CEILING, so chunking `i += per` by it left a runt last page —
+  // 4 three-field rows at cap 3 came out 3+1, the same "jarring uneven slides" §0b rejects
+  // and that `balancedPerPage` fixes on the plain + cover-paginate paths. The suite's other
+  // cover-cards cases use perPage 2, where balanced and greedy agree (2+2), which is why
+  // this escaped: it needs a cap that does NOT divide the row count evenly. Caught by
+  // looking at the re-rendered demo deck.
+  test('card pages are BALANCED against the density ceiling, not greedily chunked (no runt page)', () => {
+    const per3 = { ...ctRecipe, perPage: 3 };
+    const parts3 = carouselize(ctTag, ctInner, per3, 2, 'compare-table');
+    const cardPages = parts3.slice(1);
+    assert.equal(cardPages.length, 2, '4 rows at a ceiling of 3 → 2 balanced pages, not 3+1');
+    const counts = cardPages.map((p) => (p.match(/class="ct-card"/g) || []).length);
+    assert.deepEqual(counts, [2, 2], `expected an even 2+2 cut, got ${counts.join('+')}`);
+    // …and the ceiling is still respected — balancing never grows a page past the density cap.
+    assert.ok(Math.max(...counts) <= 3, 'a balanced page must not exceed the density ceiling');
+  });
+
   test('a trailing note with no insight still lands on the last card page (no insight page emitted)', () => {
     const noteOnly = ctInner.replace('</table>', '</table><div class="below-note"><p>Source only.</p></div>');
     const parts2 = carouselize(ctTag, noteOnly, ctRecipe, 2, 'compare-table');

@@ -670,6 +670,23 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   needs the same fidelity as the render (verified both branches by test, and by confirming
   the reverted text fails the new title-less assertion).
 
+  **And one the tests could not have caught — found by LOOKING at the re-rendered deck.**
+  With the trailing material fixed, the `compare-table` demo run came out **3 cards + 1** —
+  a runt last page, the exact §0b defect this slice's headline pacing fix exists to remove,
+  visibly contradicting it in the demo deck. Cause: `coverCardsSections` derived a per-page
+  count from field DENSITY (fewer cards per page as the column count grows) and then fed it
+  straight to `i += per`, i.e. a greedy chunk — while the plain path and `cover-paginate`
+  both route through `balancedPerPage`. Now balanced against the density figure as a
+  CEILING (4 rows at 3 → 2+2, both still ≤ 3, so the density intent that keeps a tall card
+  page inside a portrait box is preserved). Worth recording WHY the suite missed it: every
+  existing cover-cards case used `perPage: 2` against 4 rows, where balanced and greedy
+  agree (2+2) — a runt only appears when the ceiling does not divide the count evenly, so
+  the fixture choice hid the bug. The new test uses `perPage: 3` and fails on the old code.
+  The sibling gap in `coverWindow` (same greedy chunk; live for `split-panel` and
+  `list-tabular` at `perPage: 3`, structurally immune for `decision`/`compare-prose` which
+  page 1-at-a-time) is **logged, not fixed** — this slice never touches it and ships no deck
+  that shows it, so pulling four more strategies in would break #17 (see #1194).
+
   **Scope note.** The envelope applies to whatever the opt-in gate already enrolls — the
   15 plain-axis components (`actors`, `agenda`, `cards-grid`, `cards-stack`, `checklist`,
   `cycle`, `inventory`, `kpi`, `list`, `list-steps`, `matrix-2x2`, `policy-recommendation`,

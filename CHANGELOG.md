@@ -264,7 +264,9 @@ in patch versions.
     *removed*, so no leaf text can go missing — including on `compare-table`'s `cover-cards`
     reshape (a wide table transposed to cards in portrait), which used to DROP a trailing
     key-insight or below-note outright rather than move it; it now gets the same insight page /
-    last-page note as every other split.
+    last-page note as every other split. That reshape's card pages are now **balanced** too
+    (they were chunked greedily against a density ceiling, so four three-column rows came out
+    3 + 1 — a runt page, the very thing the pacing fix above removes everywhere else).
   Deck output changes only for decks that actually split (`autosplit: on` plus real overflow); a
   non-splitting deck is byte-identical. Rebuilt: `examples/auto-split.pdf`,
   `examples/cover-paginate.pdf`, `examples/read-across-carousel.pdf`; new demo deck
