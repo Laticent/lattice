@@ -73,7 +73,11 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // payload, or its <template data-mark> would be miscounted as a mark — the
   // kernels emit the payload as a sibling). See
   // engineering/decisions/2026-06-20-chart-detail-reveal-family.md.
-  const CHART_SVG_SEL = '.piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .state-chart-figure, .gantt-chart';
+  // Every entry is the chart's own <svg>, which is what the Anima host mounts as
+  // the live clone — so the same selector finds the static poster AND the animated
+  // copy. `.gantt-chart` used to appear here because the gantt was HTML; it is
+  // SVG-native now, so it is matched by `.gantt-svg` like every other chart.
+  const CHART_SVG_SEL = '.piechart-svg, .funnel-svg, .map-svg, .quadrant-svg, .radar-svg, .state-chart-figure, .gantt-svg';
   // The same list scoped to the Anima live stage — each selector must be prefixed individually (a bare
   // `.scene-live ${CHART_SVG_SEL}` would only scope the FIRST of the comma list). Prefers the clone
   // EXPLICITLY over inferring visibility from box size (see chartSvgIn).

@@ -31,6 +31,8 @@ const ROLE_BY_CLASS: Record<string, ChartRole> = {
   'quadrant-trail-after': 'point',  // the "after" end of a movement trail
   'radar-poly': 'region',           // a series' filled area
   'map-region': 'region',
+  'gantt-bar': 'bar',
+  'gantt-milestone': 'point',   // a zero-duration marker, not a span
   'funnel-label': 'label',
   'funnel-value': 'label',
   'funnel-conv': 'label',
