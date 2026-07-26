@@ -84,6 +84,7 @@ const {
   VETRINA_IMPORT,
   checkAgentModelPinning,
   declaredModel,
+  agentCallArgs,
   AGENT_MODELS,
   AGENT_CALL,
   AGENT_OPTIONS,
@@ -563,16 +564,32 @@ describe('check-ownership', () => {
     });
 
     // Mirror the gate exactly: it strips comments first, so `agent()` written inside a
-    // comment is not a call. Counting raw source over-counts and the test drifts off the gate.
-    const pins = (src) => (src.match(AGENT_OPTIONS) || []).filter((o) => MODEL_PIN.test(o)).length;
+    // comment is not a call, and it associates each options object with its OWN call.
+    const workflowSrc = (f) => stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, f), 'utf8'));
+    const isPinned = (args) => args !== null && (args.match(AGENT_OPTIONS) || []).some((o) => MODEL_PIN.test(o));
 
     test('every workflow agent() call pins a model', () => {
       for (const file of fs.readdirSync(WORKFLOWS_DIR).filter((f) => f.endsWith('.js'))) {
-        const src = stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, file), 'utf8'));
-        const calls = (src.match(AGENT_CALL) || []).length;
-        assert.ok(calls > 0, `${file} has no agent() calls — is it still a workflow?`);
-        assert.ok(pins(src) >= calls, `${file}: ${calls} agent() call(s) but ${pins(src)} model pin(s)`);
+        const calls = agentCallArgs(workflowSrc(file));
+        assert.ok(calls.length > 0, `${file} has no agent() calls — is it still a workflow?`);
+        assert.ok(!calls.includes(null), `${file}: an agent() call has unbalanced parens; the gate can't read it`);
+        calls.forEach((args, i) => {
+          assert.ok(isPinned(args), `${file}: agent() call #${i + 1} has no model pin`);
+        });
       }
+    });
+
+    test('the scanner reads each call\'s OWN arguments, parens and templates included', () => {
+      // Prompt strings in this repo contain both parens and `${…}` interpolation; a naive
+      // scan ends the call early on the first ')' inside a string and reads the wrong options.
+      const calls = agentCallArgs(workflowSrc('design-competition.js'));
+      assert.equal(calls.length, 5, 'design-competition has five stages');
+      const labels = calls.map((a) => (/\blabel:\s*['"`]([^'"`]*)/.exec(a) || ['', ''])[1]);
+      assert.deepEqual(
+        labels.map((l) => l.replace(/\$\{[^}]*\}/, 'N')),
+        ['design:N', 'critique:N', 'fold:N', 'fact-check', 'judge:N'],
+        'each call resolved to its own options object, in source order',
+      );
     });
 
     test('the gate bites: an agent that drops model:, or names a bogus one, is flagged', () => {
@@ -620,28 +637,41 @@ describe('check-ownership', () => {
       );
     });
 
-    test('the gate bites: a workflow stage that drops its model option is flagged', () => {
-      const src = stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, 'design-competition.js'), 'utf8'));
-      const calls = (src.match(AGENT_CALL) || []).length;
-      assert.equal(pins(src), calls, 'baseline: every stage pinned, exactly');
-      // Drop the pin from a real options object — splice the edit into that object
-      // specifically, since a naive whole-file replace would hit meta.phases first.
+    // Drop the pin from one real stage, targeting that options object specifically —
+    // a naive whole-file replace would hit a meta.phases entry instead.
+    const dropOnePin = (src) => {
       const target = (src.match(AGENT_OPTIONS) || [])[0];
       assert.ok(target && MODEL_PIN.test(target), 'baseline: first options object carries a pin');
-      const dropped = src.replace(target, target.replace(/,\s*model:\s*'(?:opus|sonnet|haiku|fable)'/, ''));
-      assert.equal(pins(dropped), calls - 1, 'one stage pin removed');
-      assert.ok(calls > pins(dropped), 'unpinned stage → gate would flag it');
+      return src.replace(target, target.replace(/,\s*model:\s*'(?:opus|sonnet|haiku|fable)'/, ''));
+    };
+
+    test('the gate bites: a workflow stage that drops its model option is flagged', () => {
+      const src = workflowSrc('design-competition.js');
+      assert.ok(agentCallArgs(src).every(isPinned), 'baseline: every stage pinned');
+      const pinned = agentCallArgs(dropOnePin(src)).map(isPinned);
+      assert.deepEqual(pinned, [false, true, true, true, true], 'exactly the edited stage is unpinned');
     });
 
-    test('the pin count ignores meta.phases, so it cannot go slack', () => {
-      // meta.phases entries legitimately carry `model:` too. Counting bare `model:`
-      // occurrences would let a real stage lose its pin and still pass — the exact
-      // slack this gate must not have. Keying on `label:` separates the two.
-      const src = stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, 'design-competition.js'), 'utf8'));
-      const bare = (src.match(/\bmodel:\s*'(?:opus|sonnet|haiku|fable)'/g) || []).length;
-      assert.ok(bare > pins(src), 'meta.phases contributes bare model: pins the gate must not count');
-      assert.equal(pins("{ title: 'Design', detail: 'x', model: 'opus' }"), 0, 'a phase entry is not an options object');
-      assert.equal(pins("{ label: 'design:1', phase: 'Design', model: 'opus' }"), 1, 'an options object is');
+    test('an unrelated {label, model} object cannot mask an unpinned stage', () => {
+      // The gate used to compare two independent file-wide counts, which never proved the
+      // association they stood in for: any stray label+model literal — a `label` added to a
+      // meta.phases entry would do it — restored the count and hid a real unpinned stage.
+      // Found in review on #1187. Per-call scanning is what closes it.
+      const src = workflowSrc('design-competition.js');
+      const bypassed = `${dropOnePin(src)}\nconst decoy = { label: 'not-an-agent', model: 'opus' }\n`;
+
+      const naiveCalls = (bypassed.match(AGENT_CALL) || []).length;
+      const naivePins = (bypassed.match(AGENT_OPTIONS) || []).filter((o) => MODEL_PIN.test(o)).length;
+      assert.ok(naiveCalls <= naivePins, 'the decoy does restore the old count — the bypass was real');
+
+      assert.ok(!agentCallArgs(bypassed).every(isPinned), 'per-call scanning still flags the unpinned stage');
+    });
+
+    test('meta.phases model entries are not mistaken for stage pins', () => {
+      // meta.phases entries legitimately carry `model:`; only an options object counts.
+      const opts = (s) => (s.match(AGENT_OPTIONS) || []).filter((o) => MODEL_PIN.test(o)).length;
+      assert.equal(opts("{ title: 'Design', detail: 'x', model: 'opus' }"), 0, 'a phase entry is not an options object');
+      assert.equal(opts("{ label: 'design:1', phase: 'Design', model: 'opus' }"), 1, 'an options object is');
     });
 
     test('MODEL_PIN does not fire on a schema property merely named "model"', () => {

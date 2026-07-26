@@ -30,8 +30,13 @@ go at all: a **200K context window** (a fifth of the others — it cannot hold a
 wide repo sweep) and **no `effort` parameter** (passing one errors), so it is
 model-lever-only and cannot be tuned up for a harder-than-expected task.
 
-Refresh these numbers from the `claude-api` skill before citing them; do not
-quote them from memory.
+**These prices are point-in-time — re-check before citing them, and never quote
+them from memory.** The authoritative source is Anthropic's pricing page
+(`https://platform.claude.com/docs/en/pricing`) or the Models API. An agent
+working in this repo can also invoke the bundled **`claude-api` Claude Code
+skill**, which carries a cached copy plus the per-model constraints; note that it
+is a *harness-provided* skill, not a file in this repo — it is unrelated to
+`design/skills/`, which holds Lattice's own authoring skills.
 
 ### Fable 5 is an UPSHIFT, not part of the cost ladder
 

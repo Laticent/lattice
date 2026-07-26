@@ -2334,17 +2334,13 @@ function checkCatContrast(errors) {
 // failure mode: it still WORKS, it just costs 2.5x and nobody notices):
 //   • `.claude/agents/*.md` — the roster. Frontmatter needs a `model:` naming a
 //     model the harness actually accepts; a typo (`sonnet-5`) silently falls back.
-//   • `.claude/workflows/*.js` — every `agent()` call needs `model:` in its
-//     options. Counted rather than parsed: matching a call's options object to its
-//     own call means balanced-paren scanning through template literals, and the
-//     count catches the real regression (a stage added without a model) without it.
-// The numerator counts OPTIONS OBJECTS, not bare `model:` occurrences: `meta.phases`
-// entries legitimately carry `model:` too, and counting those would leave the gate
-// slack enough for a real stage to lose its pin and still pass. Every agent() options
-// object carries `label:`; meta.phases entries carry `title:`/`detail:` instead, so
-// keying on `label:` separates them. An options object with a NESTED literal escapes
-// the brace-free match and under-counts — which fails LOUDLY (calls > pins) rather
-// than silently passing, the right direction for a gate to be wrong in.
+//   • `.claude/workflows/*.js` — every `agent()` call needs `model:` in its options,
+//     checked PER CALL: the scanner walks each call's own arguments and looks for the
+//     pin there. An earlier version counted `agent(` occurrences against label-bearing
+//     object literals file-wide, which was unsound — any unrelated `{label, model}`
+//     object masked a genuinely unpinned stage, and a `label` added to a `meta.phases`
+//     entry would have done exactly that. Two independent counts never proved the
+//     association they were standing in for (found in review on #1187).
 // COVERAGE BOUNDARY (be honest): this gate sees COMMITTED files only. An ad-hoc
 // `Agent()` call in a live session is invisible to it — that path rides on the
 // roster + the CLAUDE.md dispatch table, not on this check.
@@ -2360,6 +2356,39 @@ const AGENT_CALL = /\bagent\s*\(/g;
 // branch) so the nested quantifier cannot backtrack catastrophically.
 const OPT_FILLER = String.raw`(?:[^{}$]|\$(?!\{)|\$\{[^{}]*\})*`;
 const AGENT_OPTIONS = new RegExp(`\\{${OPT_FILLER}\\blabel:${OPT_FILLER}\\}`, 'g');
+
+// Return the raw argument text of every `agent(...)` call, by balanced-paren scan.
+// Quote-aware so a paren inside a prompt string can't end the call early, and
+// template-aware so `${…}` inside a backtick string doesn't close it either. A call
+// whose parens never balance yields null, which the caller reports rather than skips —
+// an unreadable call must not silently count as pinned.
+function agentCallArgs(src) {
+  const out = [];
+  const finder = new RegExp(AGENT_CALL.source, 'g');
+  let m;
+  while ((m = finder.exec(src)) !== null) {
+    const open = m.index + m[0].length - 1; // the '(' itself
+    let depth = 0;
+    let quote = null;
+    let tmpl = 0; // `${` nesting while inside a template literal
+    let args = null;
+    for (let i = open; i < src.length; i++) {
+      const ch = src[i];
+      if (quote) {
+        if (ch === '\\') i++;
+        else if (quote === '`' && ch === '$' && src[i + 1] === '{') { tmpl++; i++; }
+        else if (quote === '`' && ch === '}' && tmpl > 0) tmpl--;
+        else if (ch === quote && tmpl === 0) quote = null;
+        continue;
+      }
+      if (ch === "'" || ch === '"' || ch === '`') quote = ch;
+      else if (ch === '(') depth++;
+      else if (ch === ')' && --depth === 0) { args = src.slice(open + 1, i); break; }
+    }
+    out.push(args);
+  }
+  return out;
+}
 // Deliberately narrow: a model ASSIGNED a known name. A schema property that
 // happens to be called `model` reads `model: { type: 'string' }` and won't match.
 // Non-global on purpose — it is used with .test(), which is stateful on /g/.
@@ -2430,16 +2459,26 @@ function checkAgentModelPinning(errors) {
   for (const file of fs.readdirSync(WORKFLOWS_DIR).filter((f) => f.endsWith('.js'))) {
     const rel = path.join('.claude', 'workflows', file);
     const src = stripJsComments(fs.readFileSync(path.join(WORKFLOWS_DIR, file), 'utf8'));
-    const calls = (src.match(AGENT_CALL) || []).length;
-    const pinned = (src.match(AGENT_OPTIONS) || []).filter((o) => MODEL_PIN.test(o)).length;
-    if (calls > pinned) {
+    const calls = agentCallArgs(src);
+    if (!calls.length) continue; // a workflow with no agent() calls has nothing to pin
+    calls.forEach((args, i) => {
+      if (args === null) {
+        errors.push(
+          `${rel}: agent() call #${i + 1} has unbalanced parentheses — the HARD RULE #27 gate ` +
+          `cannot read its options, so it cannot confirm a \`model:\` pin. Fix the syntax.`,
+        );
+        return;
+      }
+      const options = (args.match(AGENT_OPTIONS) || []).filter((o) => MODEL_PIN.test(o));
+      if (options.length) return;
+      const named = /\blabel:\s*['"`]([^'"`]*)/.exec(args);
+      const which = named ? `\`${named[1]}\`` : `#${i + 1}`;
       errors.push(
-        `${rel} has ${calls} agent() call(s) but only ${pinned} pinned \`model:\` option(s) ` +
-        `(HARD RULE #27). An unpinned stage inherits Opus 5 for work the routing table may put on ` +
-        `Sonnet 5 or Haiku 4.5 — add \`model: '<tier>'\` to each stage's options per ` +
-        `engineering/model-routing.md.`,
+        `${rel}: agent() call ${which} passes no \`model:\` in its options (HARD RULE #27), so ` +
+        `that stage inherits Opus 5 for work the routing table may put on Sonnet 5 or Haiku 4.5. ` +
+        `Add \`model: '<tier>'\` to its options per engineering/model-routing.md.`,
       );
-    }
+    });
   }
 }
 
@@ -2700,6 +2739,7 @@ module.exports = {
   skillFreshnessAssertions,
   checkAgentModelPinning,
   declaredModel,
+  agentCallArgs,
   AGENT_MODELS,
   AGENT_CALL,
   AGENT_OPTIONS,
