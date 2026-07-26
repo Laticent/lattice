@@ -393,7 +393,9 @@ describe('radar — per-axis detail (interactive reveal substrate)', () => {
   for (const variant of ['default', 'target', 'delta', 'benchmark', 'small-multiples']) {
     test(`${variant}: axis-label data-mark aligns with the detail templates`, () => {
       const html = build(variant);
-      const axisMarks = [...html.matchAll(/radar-axis-label" data-mark="(\d+)"/g)].map((x) => +x[1]);
+      // The label is emitted by the shared wrapping emitter now, so text-anchor
+      // sits between the class and data-mark.
+      const axisMarks = [...html.matchAll(/radar-axis-label"[^>]*data-mark="(\d+)"/g)].map((x) => +x[1]);
       const tplMarks = [...html.matchAll(/class="chart-detail" data-mark="(\d+)"/g)].map((x) => +x[1]).sort();
       assert.deepEqual([...new Set(axisMarks)].sort(), [0, 1, 2], 'every axis label carries its index');
       assert.deepEqual(tplMarks, [0, 2], 'only the two detailed axes emit a template');
@@ -403,6 +405,6 @@ describe('radar — per-axis detail (interactive reveal substrate)', () => {
 
   test('the detail sublist does not leak into the axis label text', () => {
     const html = build('default');
-    assert.doesNotMatch(html, /<text[^>]*radar-axis-label[^>]*>[^<]*Strongest/);
+    assert.doesNotMatch(html, /<t(?:ext|span)[^>]*>[^<]*Strongest/);
   });
 });

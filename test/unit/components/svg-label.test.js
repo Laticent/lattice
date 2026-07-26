@@ -25,6 +25,7 @@ const {
   wrapSvgLabel,
   measureLabel,
   charBudget,
+  deCollideLabels,
 } = require('../../../lib/components/chart/_chart-family/svg-label');
 
 const tspans = (svg) => [...svg.matchAll(/<tspan\b[^>]*>([\s\S]*?)<\/tspan>/g)].map((m) => m[1]);
@@ -196,5 +197,106 @@ describe('resolution independence', () => {
     const b = wrapSvgLabel('Enterprise Procurement Qualification Review', { x: 100, y: 200, width: 760, fontSize: 85 });
     assert.equal(a.lines.length, b.lines.length);
     assert.ok(Math.abs(b.height - a.height * 10) < 0.01);
+  });
+});
+
+// ── de-collision ────────────────────────────────────────────────────────────
+// Wrapping narrows a label; it cannot separate two labels that land on the same
+// spot. That is a placement problem and needs its own pass — verified on the
+// quadrant, where two dots in one corner overprinted each other and the
+// corner's own name.
+describe('deCollideLabels', () => {
+  const box = (top, bottom, extra = {}) => ({ left: 0, right: 100, top, bottom, ...extra });
+
+  test('leaves non-overlapping labels exactly where they are', () => {
+    const shifts = deCollideLabels([box(0, 10), box(40, 50)]);
+    assert.deepEqual(shifts, [0, 0]);
+  });
+
+  test('pushes an overlapping label clear, in its own direction', () => {
+    const shifts = deCollideLabels([box(0, 10), box(5, 15, { dir: 1 })], { minGap: 1 });
+    assert.equal(shifts[0], 0, 'the first box holds its place');
+    assert.ok(shifts[1] > 0, 'the second moves down, away from its mark');
+    // And it ends up genuinely clear.
+    assert.ok(5 + shifts[1] >= 10 + 1);
+  });
+
+  test("dir -1 moves a label UP — never down through the dot it names", () => {
+    const shifts = deCollideLabels([box(10, 20), box(15, 25, { dir: -1 })], { minGap: 1 });
+    assert.ok(shifts[1] < 0);
+    assert.ok(25 + shifts[1] <= 10 - 1);
+  });
+
+  test('labels in different columns never interfere', () => {
+    const shifts = deCollideLabels([
+      { left: 0, right: 40, top: 0, bottom: 10 },
+      { left: 60, right: 100, top: 0, bottom: 10 },
+    ]);
+    assert.deepEqual(shifts, [0, 0]);
+  });
+
+  test('a fixed box never moves, and others move around it', () => {
+    // How a chart pins its structural labels (a quadrant corner name) and lets
+    // only the data labels shift.
+    const shifts = deCollideLabels([box(0, 10, { fixed: true }), box(5, 15, { dir: 1 })], { minGap: 1 });
+    assert.equal(shifts[0], 0);
+    assert.ok(shifts[1] > 0);
+  });
+
+  test('a chain of three stacked labels all end up mutually clear', () => {
+    const boxes = [box(0, 10), box(2, 12, { dir: 1 }), box(4, 14, { dir: 1 })];
+    const shifts = deCollideLabels(boxes, { minGap: 1, maxShift: 100 });
+    const final = boxes.map((b, i) => ({ top: b.top + shifts[i], bottom: b.bottom + shifts[i] }));
+    for (let i = 0; i < final.length; i++) {
+      for (let j = i + 1; j < final.length; j++) {
+        const overlap = final[i].top < final[j].bottom && final[i].bottom > final[j].top;
+        assert.ok(!overlap, `boxes ${i} and ${j} still overlap`);
+      }
+    }
+  });
+
+  test('gives up past maxShift rather than dragging a label away from its mark', () => {
+    // A label hauled halfway across the chart no longer reads as belonging to
+    // its own dot — a slight overlap is the lesser defect.
+    const shifts = deCollideLabels([box(0, 100, { fixed: true }), box(50, 60, { dir: 1 })], { maxShift: 5 });
+    assert.equal(shifts[1], 0);
+  });
+
+  test('is deterministic — the same input yields the same output every time', () => {
+    const mk = () => [box(0, 10), box(2, 12, { dir: 1 }), box(3, 13, { dir: -1 })];
+    assert.deepEqual(deCollideLabels(mk()), deCollideLabels(mk()));
+  });
+
+  test('terminates on a pathological pile-up', () => {
+    const many = Array.from({ length: 40 }, () => box(0, 10, { dir: 1 }));
+    const shifts = deCollideLabels(many, { maxShift: 1e9 });
+    assert.equal(shifts.length, 40);
+    assert.ok(shifts.every((s) => Number.isFinite(s)));
+  });
+});
+
+describe('deCollideLabels — direction fallback', () => {
+  const box = (top, bottom, extra = {}) => ({ left: 0, right: 100, top, bottom, ...extra });
+
+  test('falls back to the opposite direction when the preferred one cannot clear', () => {
+    // The real case: a dot near the top of the plot wants its label ABOVE it,
+    // but that is where the quadrant's corner name sits. Climbing would have to
+    // clear the whole corner label; dropping below the dot is the better read.
+    const shifts = deCollideLabels(
+      [box(0, 40, { fixed: true }), box(38, 48, { dir: -1 })],
+      { minGap: 1, maxShift: 15 },
+    );
+    assert.ok(shifts[1] > 0, 'flipped downward rather than climbing past the obstacle');
+    assert.ok(38 + shifts[1] >= 41);
+  });
+
+  test('but keeps the preferred direction whenever it fits inside maxShift', () => {
+    // Same geometry, a budget big enough to climb: the preferred direction wins,
+    // because dir encodes "away from my own mark", not merely "whichever is nearer".
+    const shifts = deCollideLabels(
+      [box(0, 40, { fixed: true }), box(38, 48, { dir: -1 })],
+      { minGap: 1, maxShift: 100 },
+    );
+    assert.ok(shifts[1] < 0, 'climbed, as its direction asked');
   });
 });

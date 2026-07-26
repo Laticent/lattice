@@ -334,7 +334,9 @@ test('buildQuadrant: default labels four quadrant corners', () => {
   const out = buildQuadrant(modelFour(), 'default', SCALE);
   assert.equal((out.match(/class="quadrant-label"/g) || []).length, 4);
   // Reading-order check: top-left is data-cell="0" with "Strategic Bets"
-  assert.match(out, /data-cell="0"[^>]*>[^<]*Strategic Bets/);
+  // The label text now lives in a <tspan> (labels wrap), so the corner name
+  // sits one element deeper than the flat <text> this used to match.
+  assert.match(out, /data-cell="0"[^>]*>(?:<tspan[^>]*>)?[^<]*Strategic Bets/);
 });
 
 test('buildQuadrant: bubble — √-scaled bubbles + size pill', () => {
