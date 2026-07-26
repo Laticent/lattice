@@ -15898,11 +15898,33 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li 
   flex-grow: 0;
   flex-basis: auto;
 }
-/* NOTE — a member ALONE on its page (a heavy member paced `capacity.perPage: 1`) does NOT
-   need a width rule here: a tiling component already answers it for its own grid, e.g.
-   cards-grid promotes `li:last-child:nth-child(odd)` to `width:100%`, which a single card
-   matches. Measured on the real render (1000px, the full measure) — an `:only-child`
-   override was tried, found to change nothing, and removed rather than shipped dead. */
+/* …WITH ONE EXCEPTION: a member ALONE on its page FILLS the page.
+   The natural-height rule above exists because a page holding FEWER members must not
+   render each one LARGER — that is what made a runt page look wrong. It says nothing about
+   a page holding exactly ONE member, and applying it there is a different mistake: a HEAVY
+   member paced `capacity.perPage: 1` (a card — a header plus its content) IS the page's
+   content, so it should claim the stage, not sit as a small box above two-thirds of white.
+   Uniformity is untouched by this: with `perPage: 1` EVERY page of the run holds exactly
+   one member, so every page fills identically. It cannot re-open the runt-page defect
+   either, since that needs pages with DIFFERENT counts, and a light member packed to a
+   group never lands a lone member on a page.
+   (Width needs no rule — a tiling component already answers it: cards-grid promotes
+   `li:last-child:nth-child(odd)` to `width:100%`, which a single card matches. Verified on
+   the real render at the full 1000px measure.) */
+section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):has(> li:only-child) {
+  flex: 1 1 auto;
+  align-content: stretch;   /* the wrap case (cards-grid tiles) — one line, full height */
+}
+section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child {
+  flex: 1 1 auto;           /* the column case (cards-stack, actors) */
+  /* …and its content sits in the card's optical center rather than hugging the top edge
+     of a now page-tall box. Every heavy member's card is the same shape — a wrap-flex row
+     — and `actors` ALREADY resolves to `align-content: center`, so this brings cards-grid
+     and cards-stack (`flex-start`/`start`, right for a multi-card grid where cards align
+     at their tops) into line with it rather than inventing a treatment. Only ever applies
+     to a card that is alone on its page. */
+  align-content: center;
+}
 
 /* ── Shared split CLOSING page (lib/core/split-envelope.js) ───────────────────────
    The envelope's optional final beat: the run's trailing material — a `.below-note`, a

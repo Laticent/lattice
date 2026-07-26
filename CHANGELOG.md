@@ -248,7 +248,9 @@ in patch versions.
     normally DISTRIBUTE their members to fill the stage, a page holding fewer members used to render
     each one visibly larger; on a split body page members now keep their natural height and pack from
     the top, so a row is the same size on page 1 and page 4 and the last page simply carries trailing
-    air.
+    air. A member **alone** on its page is the exception — it fills the page, and its content centers
+    in it, because a card paced one-per-page *is* that page's content rather than a small box above
+    two-thirds of white.
   - **Heavy members atomize — one card per page.** New authored `capacity.perPage`, set to 1 for
     `cards-grid`, `cards-stack`, `actors` and `policy-recommendation`: a card carrying a title AND a
     body clause is one page's worth. It is a separate field from `sweet` on purpose — `sweet` is how

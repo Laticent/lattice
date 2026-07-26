@@ -546,6 +546,18 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
      page members now keep their natural height and pack from the top; the last page simply
      carries trailing air. Pacing evens the COUNT, this evens the SIZE — and without it a
      balanced 5/5/4 would still have shown one page of taller rows.
+     **With one exception, caught on a second owner review: a member ALONE on its page
+     FILLS the page.** The natural-height rule was over-generalized — it exists so a page
+     holding FEWER members doesn't render each one LARGER, which says nothing about a page
+     holding exactly ONE. A heavy member paced 1/page (a card — a header plus its content)
+     IS the page's content, so it claims the stage; shipped first as a small box above
+     two-thirds of white, which is not what "1 per slide" means. Its content also centers in
+     that now page-tall card, matching what `actors` already resolved to (`align-content:
+     center`) — cards-grid and cards-stack were `flex-start`, right for a multi-card grid
+     where cards align at their tops, wrong for a lone spotlight card. Uniformity is
+     untouched: with `perPage: 1` every page holds one member, so every page fills the same.
+     Measured on the real render — checklist rows 114px on a 5-member AND a 4-member page;
+     the lone cards-grid card 994px, the full stage.
   **The budget speaks again at authoring time.** `capacity-overflow` was suppressed outright
   on autosplit portrait decks, so an over-budget slide got NO signal — which is how the
   badly-paced 14-item checklist shipped. It is replaced by `capacity-autosplit`, which
