@@ -60,6 +60,63 @@ const SVG_PROP_RE =
 const SVG_SEL_RE =
   /(?:^|[\s,>+~(])(?:svg|text|tspan|line|circle|ellipse|rect|polygon|polyline|path|g|defs|marker)\b|-svg\b|\.wedge\b|\.wc-word\b|\.radar-(?:area|axis|grid|ring|spoke|label|dot)\b|\.quadrant-(?:label|dot|tick|axis)\b|\.funnel-(?:label|value|conv|seg)\b|\.map-(?:region|label|svg)\b/;
 
+// A selector that targets the SVG's OWN BOX rather than something inside its
+// viewBox: the `svg` element, or the `-svg` class convention the chart family
+// uses for its root (`.radar-svg`, `.piechart-svg`, `.gantt-svg`, and modifier
+// forms like `.radar-svg--mini`). Sizing THESE in px pins the diagram to a
+// physical size; sizing anything inside the viewBox in px does not.
+//
+// Three `<svg>` roots predate the `-svg` convention and are named here, because
+// a root the pattern misses is exempted wholesale — the #1184 hole, one name
+// over.
+const SVG_BOX_EXTRA = ['journey-curve', 'journey-face', 'state-chart-edges'];
+const SVG_BOX_SEL_RE = new RegExp(
+  `^(?:svg|[.#][\\w-]*-svg(?:--[\\w-]+)?|[.#](?:${SVG_BOX_EXTRA.join('|')}))`
+  + '(?:[:.[][^\\s]*)?$',
+);
+
+/**
+ * Does this selector target an `<svg>` element's own box?
+ *
+ * Tested against the LAST COMPOUND of each comma-separated selector — the
+ * element the rule actually styles. Matching anywhere in the string called
+ * `.radar-svg--mini .radar-axis-label` an svg box (it is a `<text>` INSIDE one),
+ * which would then wrongly scan a legitimate viewBox-unit `height` on it.
+ */
+// Split on the given separators, but only at paren depth 0 — a comma or a space
+// inside `:is(…)` / `:not(…)` belongs to that functional pseudo-class, not to
+// the selector list or the descendant chain.
+function splitTopLevel(selector, seps) {
+  const parts = [];
+  let depth = 0, cur = '';
+  for (const ch of selector) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (depth === 0 && seps.includes(ch)) { parts.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  parts.push(cur);
+  return parts.map((p) => p.trim()).filter(Boolean);
+}
+
+function targetsSvgBox(selector) {
+  return splitTopLevel(selector, ',').some((part) => {
+    const compounds = splitTopLevel(part, ' \t\n>+~');
+    const last = compounds[compounds.length - 1] || '';
+    // Unwrap a trailing `:is(…)` / `:where(…)` so `:is(.radar-svg, .x-svg)` is
+    // read as the alternatives it stands for.
+    const inner = last.match(/^:(?:is|where)\((.*)\)$/);
+    if (inner) return targetsSvgBox(inner[1]);
+    return SVG_BOX_SEL_RE.test(last);
+  });
+}
+
+// The properties that size the svg's OUTER box. Only these are still checked on
+// an svg-box rule; a px font-size or padding in the same rule is a viewBox unit.
+const SVG_BOX_PROPS = new Set([
+  'width', 'height', 'min-width', 'max-width', 'min-height', 'max-height',
+]);
+
 const PX_RE = /-?\d*\.?\d+px/;
 
 /**
@@ -105,26 +162,40 @@ function findViolations(css) {
   for (const rule of rules) {
     if (rule.selector.startsWith('@')) continue;     // @media / @supports wrapper
     if (rule.body.includes('{')) continue;            // a wrapper (its inner rules are captured separately)
-    if (SVG_SEL_RE.test(rule.selector) || SVG_PROP_RE.test(rule.body)) continue; // viewBox units
+    // SVG context exempts px because inside a viewBox, px IS a user unit. But
+    // that exemption must stop at the SVG's OWN BOX: `width`/`height` on the
+    // <svg> element are CSS pixels in the PAGE, so they pin the diagram to a
+    // fixed physical size and it stops tracking its container — the exact
+    // defect this lint exists to catch (#1184: `.radar-svg--mini` sat at
+    // 188px, ~14.7cqi at HD collapsing to ~4.9cqi at 4K while the type around
+    // it grew 3×). The blanket `-svg` exemption is why it slipped through.
+    // So an svg-BOX rule is still scanned, for width/height only.
+    const svgCtx = SVG_SEL_RE.test(rule.selector) || SVG_PROP_RE.test(rule.body);
+    const svgBox = targetsSvgBox(rule.selector);
+    if (svgCtx && !svgBox) continue;                       // viewBox units
+    const onlyBoxProps = svgCtx && svgBox;                 // scan width/height only
 
     // Walk declarations (split on ; — `blanked` has no comment-embedded ;).
     let declStart = rule.bodyStart;
     const bodyEnd = rule.bodyStart + rule.body.length;
     for (let j = rule.bodyStart; j <= bodyEnd; j++) {
       if (j === bodyEnd || blanked[j] === ';') {
-        scanDecl(declStart, j);
+        scanDecl(declStart, j, onlyBoxProps);
         declStart = j + 1;
       }
     }
   }
 
-  function scanDecl(start, end) {
+  function scanDecl(start, end, onlyBoxProps) {
     const decl = blanked.slice(start, end);                 // comment-free
     const m = decl.match(/^\s*(-?[a-zA-Z][\w-]*)\s*:\s*([\s\S]*)$/);
     if (!m) return;
     const prop = m[1].toLowerCase();
     const value = m[2].trim();
     if (!LAYOUT_PROPS.has(prop)) return;
+    // An SVG-context rule that targets the svg BOX is scanned for its box size
+    // only — everything else in it (font-size, padding…) is still viewBox units.
+    if (onlyBoxProps && !SVG_BOX_PROPS.has(prop)) return;
     // Drop `var(--token, …)` fallbacks before testing: a px there is the
     // fallback if the (resolution-stable) token is undefined, not the live
     // value — e.g. `width: var(--chart-spine-w, 2px)` rides the clamp token.

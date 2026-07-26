@@ -12,7 +12,7 @@
  *
  * Layout output:
  *   <div class="quadrant-figure" data-variant="default" data-groups="4" data-items="N">
- *     <svg class="quadrant-svg" viewBox="0 0 420 320">
+ *     <svg class="quadrant-svg" viewBox="0 0 420 348">
  *       <g class="quadrant-tints">…four region rects…</g>
  *       <g class="quadrant-frame">…bounds + midlines/target lines…</g>
  *       <g class="quadrant-axes">…axis labels + corner ticks…</g>
@@ -97,7 +97,7 @@
 
 /* The COHORT variant is excluded — it ships the SVG-native key (diagram + spine +
  * key in one viewBox) and is sized by the shared rule in chart-family.css, so the
- * old square-ish `aspect-ratio:420/320` + `50cqh` cap (which would letterbox the
+ * old square-ish `aspect-ratio:420/348` + `50cqh` cap (which would letterbox the
  * now-wider unit) must not reach it. */
 :is(section.quadrant, figure.chart-frame) .quadrant-svg:not(.quadrant-svg--cohort) {
   /* Section-relative fill, capped at 50cqh (50% slide height). Outside the
@@ -107,9 +107,16 @@
   height: 100%;
   max-height: 50cqh;
   width: auto;
-  aspect-ratio: 420 / 320;
+  /* Mirrors the kernel's viewBox (quadrant.transform.js `vbHeight`). The lower
+   * 28 units carry the bottom quadrant names; a chart with NO names emits the
+   * shorter box and says so with `data-band="none"`. A stale ratio here does
+   * not clip — `meet` letterboxes — but it shrinks the plot for nothing. */
+  aspect-ratio: 420 / 348;
   flex: 0 1 auto;
   overflow: visible;
+}
+:is(section.quadrant, figure.chart-frame) .quadrant-svg[data-band="none"] {
+  aspect-ratio: 420 / 320;   /* no quadrant names → no band to reserve */
 }
 /* IN-FORM (section.form) — the pie's proven fill-the-parent pattern
  * (piechart.styles.css §IN-FORM, 2026-06-15-form-chart-clip.md), which the
@@ -133,7 +140,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-figure {
 section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quadrant-svg--cohort) {
   /* Container-fill (2026-07-04-chart-container-fill-sizing.md): the .chart-body is a container-type:size box and the
      figure is display:contents, so the SVG fills BOTH axes of that definite box;
-     preserveAspectRatio `meet` fits the 420/320 plot inside, shrink-to-fit.
+     preserveAspectRatio `meet` fits the 420/348 plot inside, shrink-to-fit.
      max-height:none + flex:0 0 auto clear the base rule's slide-relative 50cqh cap
      and flex-shrink, which would otherwise re-clamp the plot to half the stage. */
   width: 100%;
@@ -179,7 +186,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
 }
 
 /* ── Axis labels + corner ticks ───────────────────────────────────────── */
-/* SVG font-size bypass: labels sit inside a ~420×320-unit SVG viewBox, so
+/* SVG font-size bypass: labels sit inside a ~420×348-unit SVG viewBox, so
  * CSS px ≠ pt. Values are intentional deviations from the 12-token scale;
  * scoped to :is(section.quadrant, figure.chart-frame) so themes can override per-component via the token. */
 :is(section.quadrant, figure.chart-frame) {
@@ -207,7 +214,13 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg:not(.quad
  * so text never uses cell-ink; and softened --text-heading reads a touch
  * light on the vivid zones, so the labels take true black/white instead. */
 :is(section.quadrant, figure.chart-frame) .quadrant-label {
-  fill: var(--quadrant-label-ink);
+  /* The name takes ITS QUADRANT'S ink. It sits outside the plot now, on the
+   * page canvas rather than on the region's tint, so the vivid cell ink both
+   * clears contrast and binds the name to the block it describes — which is
+   * the whole job of a region label. (While it lived INSIDE the tint it had to
+   * be maximum-contrast black/white, because cell ink on its own tint cannot
+   * clear AA.) `--cell-ink` is routed from the `data-cell` the label carries. */
+  fill: var(--cell-ink, var(--quadrant-label-ink));
   font-family: var(--font-body);
   font-size: 11px;
   font-weight: 700;

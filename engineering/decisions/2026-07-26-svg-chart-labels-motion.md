@@ -263,3 +263,110 @@ different because of them. The ones worth remembering:
   present if the layout pass never runs.
 
 The gates were green for every one of these.
+
+## 11. Two follow-on asks, folded in
+
+Both came from review after the branch was otherwise complete.
+
+**Quadrant names moved outside the plot.** They had been inset inside their own
+corner. Outside — the top pair centered above their column, the bottom pair
+below, each in its cell's ink — is better on three counts: the plot interior
+belongs entirely to the marks, the name reads as the region's title rather than
+as an annotation on a nearby point, and the de-collision pass loses four fixed
+obstacles (which is what had been forcing item labels into awkward placements in
+crowded corners). Names center on the REAL split, not the viewBox midpoint, so
+the author-movable threshold/target variants stay correct. The viewBox grew
+420×320 → 420×348 for the lower band; the tick row and axis title moved below it.
+
+**#1184 — radar minis were pinned to 188px.** Fixed at the symptom AND the root
+cause, per the issue:
+
+- The mini sizes from a `--radar-mini-size` token in `cqi`. The token is
+  calibrated by MEASUREMENT: `cqi` resolves against the nearest size container's
+  CONTENT box, and it must be measured on the surface whose BYTES ship — the
+  emulator document Chrome prints the PDF from. There `.chart-body` is 960px on
+  the 1280px HD slide (not the slide, and not the body's 1080px border box), so
+  the old 188px is **19.583cqi**. The issue's own estimate of ~14.7cqi assumed a
+  slide-relative basis and would have shrunk every mini by a quarter.
+
+  This number is easy to get wrong three different ways, and I did: a differently
+  padded HOST resolves the same token against ITS chart body and lands somewhere
+  else (the scoped docs-site path reads 921.6px, so it renders the mini a few
+  percent smaller). That is the point of a relative unit, not a defect — but it
+  means "measure it" is only an answer once you name WHICH surface. The PDF is
+  the one with bytes to preserve, so it is the one calibrated.
+- The lint's blanket `-svg` exemption is why a fixed-px SVG box slipped past the
+  gate. Inside a viewBox `px` IS a user unit, so the exemption is right for
+  anything drawn in the chart's coordinate space — but it must stop at the
+  SVG's OWN box, where `width`/`height` are page pixels. The gate now scans
+  svg-box rules for their box size only, still exempting everything internal.
+
+Verified in a real browser at two container sizes, because the obvious check
+does not actually test this: rasterizing one PDF at two DPIs scales every pixel
+uniformly and would "pass" for a hard-coded px box. Resizing the CONTAINER is
+the test. With the fix the mini is exactly **188px at HD** and holds **17.41% of
+its chart body at 1280px, 2560px and 5120px** — drift 0.00pp. Pinned back to
+188px as a control, that fraction collapses by construction: the box does not
+move while the container quadruples.
+
+## 12. A second gate the wrapping had blunted
+
+`tools/check-viz-render.js` keys each sanctioned black paint by the element's
+tag plus its own first class. A wrapped label is `<text class="…"><tspan>`, and
+the tspan carries no class of its own — so every unclassed tspan in every chart
+collapsed onto the single key `tspan.`. Sanctioning the one legitimately-black
+ink in the tree (`--quadrant-label-ink`, `light-dark(black, white)` by design)
+would therefore have sanctioned a dropped color on *any* tspan anywhere. That is
+the exact failure the key was given a tag prefix to prevent (checker M3), reached
+by a different road.
+
+A classless element now takes its nearest classed ancestor as a prefix, so the
+key reads `text.quadrant-dot-label>tspan`. Precision restored, and the baseline
+re-blessed against it.
+
+The re-bless is also an independent confirmation of the `--cell-ink` routing:
+`text.quadrant-label` **dropped out** of the black list (it takes its cell's ink
+now) while the dot label's tspan stayed in, which is only possible if `--cell-ink`
+resolves on the scoped playground/Studio/Player path — the one path that
+re-scopes every selector and where #956 broke exactly this kind of token.
+
+## 13. What the checker found in §11, and what it cost
+
+An independent checker was run over the two follow-on changes before they were
+committed. It found seven real defects; five of them were mine, created by the
+relocation itself, and one of them shipped a visible overprint in the rendered
+PDF. Worth recording, because they share a shape.
+
+**Moving a label out of the plot does not end its relationship with the plot.**
+Three of the five come straight from believing it did.
+
+- `GEOM.cornerInset` was deleted with the inset placement, but a bubble's
+  "flip the caption above the dot" test still read it. `undefined` made the
+  comparison `NaN`, `NaN` made the test permanently false, and a low bubble's
+  caption printed into the bottom name band. A deleted geometry constant is a
+  compile error in a typed language and a silent `NaN` here; the lesson is to
+  grep the constant, not the feature.
+- `cornerObstacles()` was emptied on the reasoning that a name outside the plot
+  cannot collide with anything inside it. But "outside" is six units out, and
+  nothing stops a label from crossing that edge. The names are obstacles again.
+- A name is centered on its COLUMN but wraps to its own budget, so a `threshold`
+  target near an axis extreme hung a 120-unit name over a 15-unit column and off
+  the viewBox. Now the budget comes from the column and the center is clamped.
+
+**A variant that does not use a feature must not pay for it.** `cohort` draws no
+quadrant names — it labels clusters at their centroids — yet it reserved the
+28-unit band anyway and shrank ~8% to fit an empty gap. The band is conditional
+now, on the names actually present rather than on the variant.
+
+**And the stale mirror.** `aspect-ratio: 420/320` in CSS against a `420 348`
+viewBox does not clip — `meet` letterboxes — so nothing looked broken while the
+chart rendered ~8% small in a width-limited container. The CSS mirrors the
+kernel again, and a chart with no name band says so with `data-band="none"`.
+
+The two that were not mine: the `20.98cqi` calibration (§11 above, now
+19.583cqi, and the reason it was wrong is worth more than the number), and a
+`splitX` test that asserted only `max(left) < min(right)` — an ordering that
+holds just as well if `splitX` is ignored entirely. Verified: stubbing the
+split to the viewBox midpoint left that test green. It asserts the actual
+centers now, and every new test in this pass was checked to FAIL under the bug
+it guards.

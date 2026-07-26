@@ -39,6 +39,45 @@ const {
   matchEyebrowText,
 } = require('../../../lib/components/chart/quadrant/quadrant.transform');
 
+// ── Painted-box reconstruction ─────────────────────────────────────────
+// Nominal sizes mirroring quadrant.styles.css, same as the kernel's own FS
+// table. Kept here rather than imported so a kernel-side typo can't make the
+// test agree with the bug.
+const FS_LABEL = 11;    // .quadrant-label
+const FS_ZONE = 10.5;   // .quadrant-label--zone
+const FS_ITEM = 8.5;    // .quadrant-dot-label / .quadrant-bubble-label
+const ADV_UPPER = 0.68; // uppercase + tracked, as the emitter measures it
+const ADV = 0.6;
+
+/**
+ * Rebuild the boxes a `<text class="…">` set actually paints, honoring both
+ * `text-anchor` (horizontal extent) and `dominant-baseline` (vertical extent).
+ * Measuring every label as if it sat on an alphabetic baseline at a start
+ * anchor is precisely the bug this area had twice.
+ */
+function textBoxes(html, className, fontSize) {
+  const re = new RegExp(`<text class="[^"]*\\b${className}\\b[^"]*"([^>]*)>([\\s\\S]*?)</text>`, 'g');
+  const upper = /quadrant-label/.test(className);
+  const adv = upper ? ADV_UPPER : ADV;
+  return [...html.matchAll(re)].map((m) => {
+    const attrs = m[1];
+    const baseline = (attrs.match(/dominant-baseline="([\w-]+)"/) || [])[1] || 'auto';
+    const anchor = (attrs.match(/text-anchor="(\w+)"/) || [])[1] || 'start';
+    const [above, below] = BASELINE_EXTENT[baseline] || BASELINE_EXTENT.auto;
+    const lines = [...m[2].matchAll(/<tspan x="([-\d.]+)" y="([-\d.]+)">([^<]*)</g)]
+      .map((t) => ({ x: +t[1], y: +t[2], text: t[3] }));
+    const widest = lines.reduce((w, l) => Math.max(w, l.text.length), 0) * fontSize * adv;
+    const x0 = lines[0].x;
+    const left = anchor === 'middle' ? x0 - widest / 2 : anchor === 'end' ? x0 - widest : x0;
+    return {
+      left,
+      right: left + widest,
+      top: Math.min(...lines.map((l) => l.y)) - fontSize * above,
+      bottom: Math.max(...lines.map((l) => l.y)) + fontSize * below,
+    };
+  });
+}
+
 // ── Fixtures ───────────────────────────────────────────────────────────
 
 const UL_FOUR = (
@@ -568,4 +607,138 @@ test('buildQuadrant: a de-collided label never overlaps a plotted dot', () => {
         `(${d.cx}, ${d.cy}) — labels must be placed clear of every plotted mark`);
     }
   }
+});
+
+// ── quadrant names sit OUTSIDE the plot ─────────────────────────────────────
+// They used to be inset INSIDE their corner, where they competed with the data
+// for that corner (item labels had to be routed around them, and still
+// collided when a cluster sat there) and read as an annotation rather than as
+// the name of the whole region.
+test('buildQuadrant: quadrant names sit outside the plot, centered on their column', () => {
+  const out = buildQuadrant(modelFour(), 'default', SCALE);
+  const { plot } = GEOM;
+  const splitX = (plot.x0 + plot.x1) / 2;
+  const leftMid = (plot.x0 + splitX) / 2;
+  const rightMid = (splitX + plot.x1) / 2;
+
+  const labels = [...out.matchAll(/<text class="quadrant-label"[^>]*data-cell="(\d)"[^>]*>[\s\S]*?<tspan x="([-\d.]+)" y="([-\d.]+)"/g)]
+    .map((m) => ({ cell: +m[1], x: +m[2], y: +m[3] }));
+  assert.equal(labels.length, 4);
+
+  for (const L of labels) {
+    const top = L.cell === 0 || L.cell === 1;
+    // Outside the plot box, on the correct side.
+    if (top) assert.ok(L.y < plot.y0, `cell ${L.cell} label (y=${L.y}) must sit ABOVE the plot (y0=${plot.y0})`);
+    else assert.ok(L.y > plot.y1, `cell ${L.cell} label (y=${L.y}) must sit BELOW the plot (y1=${plot.y1})`);
+    // Centered on its own column.
+    const wantX = (L.cell === 0 || L.cell === 2) ? leftMid : rightMid;
+    assert.ok(Math.abs(L.x - wantX) < 0.01, `cell ${L.cell} label x=${L.x} should center on ${wantX}`);
+  }
+  // Centered means the anchor is middle, not a corner-hugging start/end.
+  assert.equal((out.match(/class="quadrant-label"[^>]*text-anchor="middle"/g) || []).length, 4);
+});
+
+test('buildQuadrant: a moved split re-centers the names on their real columns', () => {
+  // The split is author-movable (threshold/target), so the names must follow it
+  // rather than assume the viewBox midpoint.
+  const model = parseQuadrant(innerOf(UL_FOUR));
+  const scale = { ...SCALE, targets: { x: 8, y: 20 } };
+  const out = buildQuadrant(model, 'threshold', scale);
+  const xs = [...out.matchAll(/<text class="quadrant-label[^"]*"[^>]*data-cell="(\d)"[^>]*>[\s\S]*?<tspan x="([-\d.]+)"/g)]
+    .map((m) => ({ cell: +m[1], x: +m[2] }));
+  const left = xs.filter((l) => l.cell === 0 || l.cell === 2).map((l) => l.x);
+  const right = xs.filter((l) => l.cell === 1 || l.cell === 3).map((l) => l.x);
+  assert.ok(left.length && right.length);
+
+  // Assert the ACTUAL centers, not merely that left < right: the ordering holds
+  // just as well if the kernel ignored `splitX` and used the viewBox midpoint,
+  // so an ordering-only assertion passes under the bug it exists to catch
+  // (verified — stubbing splitX to the midpoint left this test green).
+  const { plot } = GEOM;
+  const splitX = plot.x0 + ((8 - SCALE.x.min) / (SCALE.x.max - SCALE.x.min)) * (plot.x1 - plot.x0);
+  const wantLeft = (plot.x0 + splitX) / 2;
+  const wantRight = (splitX + plot.x1) / 2;
+  const naiveLeft = (plot.x0 + (plot.x0 + plot.x1) / 2) / 2;
+  for (const x of left) assert.ok(Math.abs(x - wantLeft) < 0.01, `left name x=${x}, expected ${wantLeft}`);
+  for (const x of right) assert.ok(Math.abs(x - wantRight) < 0.01, `right name x=${x}, expected ${wantRight}`);
+  assert.ok(Math.abs(wantLeft - naiveLeft) > 10,
+    'the fixture must move the split far enough that the midpoint answer is visibly wrong');
+});
+
+// A name sits only `labelGap` outside the plot, and nothing stops an item label
+// from crossing that edge — a caption under a low dot lands squarely in the
+// bottom name band. The names are fixed obstacles precisely so the item labels
+// route around them; this is the assertion that was missing when they briefly
+// were not.
+test('buildQuadrant: an item label never overprints a quadrant name', () => {
+  const ul = innerOf(`<ul>
+    <li>Quick Wins<ul>
+      <li>Weekly signal digest <code>1, 99</code></li>
+      <li>Slack intake bot <code>2, 97</code></li>
+    </ul></li>
+    <li>Strategic Bets<ul><li>Decision-log API <code>9, 98</code></li></ul></li>
+    <li>Defer<ul><li>Maturity self-assessment <code>1, 1</code></li></ul></li>
+    <li>Time Sinks<ul><li>Bespoke board exports <code>9, 2</code></li></ul></li>
+  </ul>`);
+  for (const variant of ['default', 'bubble']) {
+    const out = buildQuadrant(parseQuadrant(ul), variant, SCALE);
+    const names = textBoxes(out, 'quadrant-label', FS_LABEL);
+    const items = textBoxes(out, variant === 'bubble' ? 'quadrant-bubble-label' : 'quadrant-dot-label', FS_ITEM);
+    assert.ok(names.length === 4, `${variant}: expected 4 quadrant names, got ${names.length}`);
+    assert.ok(items.length >= 4, `${variant}: expected every item to be labelled`);
+    for (const n of names) {
+      for (const it of items) {
+        const hits = it.left < n.right && it.right > n.left && it.top < n.bottom && it.bottom > n.top;
+        assert.ok(!hits,
+          `${variant}: an item label (${it.left.toFixed(1)}…${it.right.toFixed(1)} × ` +
+          `${it.top.toFixed(1)}…${it.bottom.toFixed(1)}) overprints a quadrant name ` +
+          `(${n.left.toFixed(1)}…${n.right.toFixed(1)} × ${n.top.toFixed(1)}…${n.bottom.toFixed(1)})`);
+      }
+    }
+  }
+});
+
+// A caption under a bottom-row bubble would cross the plot floor into the name
+// band, so it flips ABOVE its bubble instead. The de-collision pass would also
+// shove it clear, but shoving sends it DOWN (away from the bubble), which is the
+// wrong direction — past the names and into the tick row. The flip is what keeps
+// it in the plot.
+test('buildQuadrant: a bottom-row bubble caption flips above its bubble', () => {
+  const ul = innerOf(`<ul>
+    <li>Quick Wins<ul><li>Weekly signal digest <code>2, 90</code> <code>40</code></li></ul></li>
+    <li>Time Sinks<ul><li>Custom audit log UI <code>8, 3</code> <code>60</code></li></ul></li>
+  </ul>`);
+  const out = buildQuadrant(parseQuadrant(ul), 'bubble', SCALE);
+  const captions = [...out.matchAll(/<text class="quadrant-bubble-label"([^>]*)>[\s\S]*?<tspan x="([-\d.]+)" y="([-\d.]+)"/g)]
+    .map((m) => ({ baseline: (m[1].match(/dominant-baseline="([\w-]+)"/) || [])[1] || 'auto', y: +m[3] }));
+  assert.equal(captions.length, 2);
+  const low = captions.reduce((a, b) => (a.y > b.y ? a : b));
+  assert.equal(low.baseline, 'auto',
+    'the bottom bubble\'s caption must be placed ABOVE its bubble (alphabetic baseline), not below');
+  for (const c of captions) {
+    assert.ok(c.y < GEOM.plot.y1,
+      `a bubble caption at y=${c.y} crossed the plot floor (y1=${GEOM.plot.y1}) into the name band`);
+  }
+});
+
+// A name is centered on its COLUMN but wraps to its own budget, so a target near
+// an axis extreme used to hang it past the viewBox edge (measured: 345.6…438.4
+// in a 420-wide box). Both guards — budget from the column, center clamped — are
+// asserted at the extremes.
+test('buildQuadrant: a target at the axis extreme keeps every name inside the viewBox', () => {
+  for (const tx of [0, 0.5, 5, 9.5, 10]) {
+    const out = buildQuadrant(parseQuadrant(innerOf(UL_FOUR)), 'threshold', { ...SCALE, targets: { x: tx, y: 50 } });
+    for (const b of textBoxes(out, 'quadrant-label--zone', FS_ZONE)) {
+      assert.ok(b.left >= -0.01 && b.right <= GEOM.vbW + 0.01,
+        `target x=${tx}: a zone name spans ${b.left.toFixed(1)}…${b.right.toFixed(1)}, ` +
+        `outside the 0…${GEOM.vbW} viewBox`);
+    }
+  }
+});
+
+test('buildQuadrant: the x-axis tick row clears the bottom name band', () => {
+  const out = buildQuadrant(modelFour(), 'default', SCALE);
+  const tickY = Number((out.match(/<text class="quadrant-tick"[^>]*>[\s\S]*?<tspan x="[-\d.]+" y="([-\d.]+)"/) || [])[1]);
+  const nameY = Math.max(...[...out.matchAll(/<text class="quadrant-label"[^>]*>[\s\S]*?<tspan[^>]*y="([-\d.]+)"/g)].map((m) => +m[1]));
+  assert.ok(tickY > nameY, `tick row (y=${tickY}) must sit below the lowest quadrant name (y=${nameY})`);
 });

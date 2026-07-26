@@ -5484,14 +5484,14 @@ The lines that matter, drawn.
 
 ##### `magic` — magic
 
-Four named corners.
+All four quadrants named.
 
 ```markdown
 <!-- _class: quadrant magic -->
 
 `Completeness of vision 0–100 → Ability to execute 0–100`
 
-## magic draws the four named corners.
+## magic names all four quadrants.
 
 - Challengers
   - Productboard `30, 82`

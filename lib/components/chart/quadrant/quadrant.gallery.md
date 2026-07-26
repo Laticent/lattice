@@ -125,11 +125,11 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 ---
 
 <!-- _class: quadrant magic -->
-<!-- _footer: "magic · quadrant magic — Four named corners." -->
+<!-- _footer: "magic · quadrant magic — All four quadrants named." -->
 
 `Completeness of vision 0–100 → Ability to execute 0–100`
 
-## magic draws the four named corners.
+## magic names all four quadrants.
 
 - Challengers
   - Productboard `30, 82`

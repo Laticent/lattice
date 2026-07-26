@@ -150,8 +150,22 @@ async function collectBlacks() {
               // The element's own most-specific class (or tag), PREFIXED with the
               // tag — so two different elements sharing a first class can't alias
               // onto one sanction key (checker M3).
+              //
+              // A CLASSLESS element gets its nearest classed ancestor as a
+              // prefix. Wrapped SVG labels are `<text class="…"><tspan>` — the
+              // tspan carries no class of its own and inherits the text's fill,
+              // so a bare `tspan.` key would alias EVERY unclassed tspan in
+              // every chart onto one sanction. One legitimately-black ink would
+              // then mask a genuinely dropped color anywhere else.
               const own = el.getAttribute('class');
-              const selector = `${tag}.${own ? own.split(/\s+/)[0] : ''}`;
+              let selector = `${tag}.${own ? own.split(/\s+/)[0] : ''}`;
+              if (!own) {
+                const host = el.parentElement?.closest('svg [class]');
+                const hostClass = host?.getAttribute('class');
+                if (hostClass) {
+                  selector = `${host.tagName.toLowerCase()}.${hostClass.split(/\s+/)[0]}>${tag}`;
+                }
+              }
 
               // A gradient <stop> paints no shape but feeds a shape's fill; a
               // themed stop-color that dropped to black is a real #956-family

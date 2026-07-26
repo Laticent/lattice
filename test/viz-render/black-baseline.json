@@ -19,7 +19,7 @@
     {
       "family": "chart",
       "component": "quadrant",
-      "selector": "text.quadrant-label",
+      "selector": "text.quadrant-dot-label>tspan",
       "property": "fill",
       "scheme": "light"
     }

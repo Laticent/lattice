@@ -59,6 +59,44 @@ chart's interior.
 
 ---
 
+## Sizing: the SVG's own box is container-relative, its interior is not
+
+Two coordinate systems meet at the `<svg>` element, and the units mean opposite
+things on either side of it.
+
+- **Inside** the viewBox, a `px` is a **user unit** — a coordinate in the chart's
+  own space that scales with the box. Every geometry number a kernel emits, and
+  every `font-size` on an in-diagram `<text>`, is in these units. They are
+  resolution-free by construction: the same numbers paint correctly on an SD
+  projector and an 8K panel.
+- **On** the `<svg>` element, `width` / `height` (and the `min-`/`max-` forms) are
+  **page pixels**. A length there pins the diagram to a physical size, so it stops
+  growing with the slide while the `cqi`-sized type around it keeps going. That is
+  the whole of #1184: a radar mini held ~18.7% of the chart body at HD and ~4.2%
+  at 4K — it shrank away from its own caption.
+
+So: **size the SVG's box in container units** (`cqi`, or `100%` of a
+container-sized parent), and leave everything drawn inside it in user units.
+
+Where a member needs a named size, it goes through a token on the chart root so a
+theme or variant can retune it in one place — e.g. `--radar-mini-size`, the edge
+of one radar small-multiple.
+
+Calibrating such a token is a **measurement**, not an estimate: `cqi` resolves
+against the nearest size container's **content box**, which for a chart is
+`.chart-body` — and it has to be measured on the surface whose bytes ship, the
+emulator document Chrome prints the PDF from, where that box is 960px on the
+1280px HD slide. Reading it off the slide width instead is a ~25% error, which
+silently redesigns the chart while looking like a units cleanup. A differently
+padded HOST resolves the same token against ITS chart body and gets a
+proportionally different pixel size — that is what a relative unit is for.
+
+`tools/check-chart-responsiveness.js` gates this. It exempts everything internal
+to an SVG rule (correctly — those are user units) but scans svg-box rules for
+their box size, so a fixed-px `<svg>` box fails the gate.
+
+---
+
 ## Legend / key system
 
 A chart carries a **key** only when it encodes meaning by colour, symbol, or

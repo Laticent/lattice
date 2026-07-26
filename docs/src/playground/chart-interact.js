@@ -451,8 +451,9 @@ export function createChartInteract({ stage, getFrame, tilt = true, onReveal, on
   // <text> node with no element children AND for one whose only children are
   // the <tspan> lines a wrapped label emits.
   function isTextMark(el) {
-    if (!el.textContent || !el.textContent.trim()) return false;
+    if (!el.textContent?.trim()) return false;
     const kids = el.children ? [...el.children] : [];
+
     return kids.every((k) => k.tagName?.toLowerCase() === 'tspan');
   }
 
