@@ -28,12 +28,34 @@
  * component contract.
  */
 
+/* NO box dimension here — the DECK owns the slide box, and each render path
+ * pins it onto the section itself.
+ *
+ * `height: 100%` shipped here in #1207 and broke every live preview while
+ * leaving the PDF perfect. The export was unharmed only because
+ * lattice-emulator.js emits `section[data-lattice-slide] { width/height:
+ * !important }` — importance, not specificity, is what kept it out. In the
+ * Playground the percentage resolved against `div.lattice`, whose inline
+ * height the preview's fit() routine sets to the height of the WHOLE
+ * FILMSTRIP: measured on the real Playground at 390px, the section became
+ * 2517px — exactly `.lattice`'s 2517px — against ~667px of actual content.
+ * lib/runtime/index.js stampOrientation() then read that 1280x2517 box
+ * (aspect 0.51) as portrait and applied the portrait type scale (--fs-h1
+ * 9.05x vs landscape 5x) to a landscape slide.
+ *
+ * Note the percentage did NOT fall back to content height — it resolved
+ * against a perfectly definite containing block that simply was not the
+ * slide. "It looked right in the export" proves nothing about this class.
+ *
+ * PDF-only gates cannot see it: golden-diff was green throughout.
+ * `align-items: center` already does the vertical centering the height was
+ * reaching for. Gated by checkSectionBoxOwnership (tools/check-ownership.js).
+ */
 section.premise {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: var(--sp-2xl);
-  height: 100%;
   padding: 0 var(--sp-2xl);
   box-sizing: border-box;
 }

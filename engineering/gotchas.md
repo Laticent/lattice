@@ -521,6 +521,75 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   Compare the SAME tool's measurement before vs. after an explicit
   `document.fonts.load()` + `document.fonts.ready` wait on the SAME page.
 
+### One slide renders at ~2x type and overflows, but ONLY in a live preview — the PDF is perfect
+
+- **Symptom:** a single layout looks right in the exported `.pdf` and right in
+  CI, but in the Playground / Studio its type is roughly double size, one or
+  two words wrap per line, and it carries an "OVERFLOWS" tab. Neighbouring
+  slides in the same deck are fine. Because the preview scales the whole
+  filmstrip assuming every section is exactly `SH` tall, the *other* slides'
+  scroll and clip geometry goes wrong too — so the deck can look broken well
+  past the one bad slide.
+- **Cause:** a component stylesheet set a box dimension on the SECTION element
+  — e.g. `section.premise { height: 100% }` — making a component a second
+  source of truth for a value the DECK owns. The geometry has one source (the
+  `size:` directive → a named `@size`), but each render path pins it onto the
+  section differently, and they do **not** agree on who wins. The EXPORT
+  survives only because `lattice-emulator.js` emits `section[data-lattice-slide]
+  { width/height: !important }` — *importance*, not specificity, keeps the
+  component declaration out, so the PDF looks correct. In a live DOM preview the
+  percentage resolves against `div.lattice`, whose inline height the preview's
+  `fit()` routine sets to the height of the **whole filmstrip**. Measured on the
+  real Playground at 390px: the section became 2517px — exactly `.lattice`'s
+  2517px — against ~667px of actual content.
+- **The percentage did NOT fall back to content height.** It resolved against a
+  perfectly definite containing block that simply was not the slide. Do not
+  reason about this class as "the parent was auto-height"; and note that
+  "it renders right in the export" proves nothing here.
+  `stampOrientation()` (`lib/runtime/index.js`) then
+  measures that box, reads the aspect as portrait, and stamps
+  `data-orientation="portrait"`, which swaps in the portrait type scale
+  (`--fs-h1` 9.05x vs landscape 5x) on a landscape slide — which grows the box
+  again. The loop latches.
+- **Why no gate caught it:** `golden-diff` compares PDFs, and the PDF is
+  correct. Unit tests and `build:check` never lay the deck out in a browser.
+  This class is invisible to CI by construction.
+- **Fix:** never set a box dimension on the section itself — the deck owns the
+  slide box. That includes the logical synonyms (`block-size`, `inline-size`
+  and their min/max) and `aspect-ratio`, which re-derives one axis from the
+  other. Place content with `align-items` / `justify-content` / `padding`, or
+  scope the size to a descendant (`section.foo .card { height: 100% }` is
+  fine). `checkSectionBoxOwnership` in `tools/check-ownership.js` (via
+  `build:check`) now fails this at commit time, with
+  `SANCTIONED_SECTION_BOXES` for the one legitimate case (the fluid **view
+  mode**, which deliberately unpins the box and is gated on an attribute no
+  export ever sets). Shipped as #1207, found in production; see `CHANGELOG.md`.
+
+### A slide clips 30-70px in the Playground that the exported PDF renders whole
+
+- **Symptom:** the live preview shows an "OVERFLOWS" tab and visibly cuts a
+  line of the lede or a caption, but the same slide in the exported `.pdf` is
+  complete. Distinct from the font-race false positive above: fonts are fully
+  loaded (`document.fonts.status === 'loaded'`, same family, same measure) and
+  the clipping is stable, not transient.
+- **Cause:** the two paths render the slide at different absolute widths. The
+  export lays out at **1152px** (`--_sec-1cqi` = 11.52px); the live preview
+  lays out at **1280px** (`--_sec-1cqi` = 12.8px) and scales down with a
+  transform. That is a 11.1% difference, and it is not uniform: `--fs-*` is
+  `cqi`-proportional so type grows with the container, while the `--sp-*`
+  spacing scale is pinned to a fixed 1280px baseline. The type-to-spacing
+  ratio therefore differs between the paths, and any slide whose content is
+  near its stage height crosses over in preview but not in export.
+- **Scope:** systemic and long-standing — it is not specific to any one
+  component. Measured in unscaled slide px on the same surface:
+  `list-tabular` 72px, `roadmap` 45px, `matrix-grid` 40px, `compare-prose
+  axis` 29px, `cards-stack` 14px.
+- **Status: OPEN, not fixed.** Recorded here rather than patched per-component:
+  trimming a deck's copy to fit the preview would degrade the export, which is
+  the correct rendering. The real fix is to make the two paths agree on a slide
+  width (or make `--sp-*` proportional), which is engine-wide and needs its own
+  change.
+
 ### Exported fluid viewer: an overflowing slide shows NO marker tab, or the red author ring leaks to a reader
 
 - **Symptom:** in the opt-in `--fluid` viewer, either (a) a genuinely over-dense

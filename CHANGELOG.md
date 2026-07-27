@@ -153,6 +153,25 @@ in patch versions.
 
 ### Fixed
 
+- **`premise` slides rendered at roughly double type size and overflowed their frame in every live
+  preview (Playground, Studio).** `section.premise` set `height: 100%`, making a component a second
+  source of truth for a value the deck owns — the `size:` directive resolves to a named `@size`, which
+  each render path then pins onto the section. The paths do not agree on who wins: the EXPORT survived
+  only because `lattice-emulator.js` emits `section[data-lattice-slide] { width/height: !important }`,
+  so importance — not specificity — kept the declaration out and the PDF correct. In a live DOM preview
+  the percentage resolved against `div.lattice`, whose inline height the preview's fit() routine sets
+  to the height of the WHOLE FILMSTRIP. Measured on the real Playground at 390px: the section became
+  1280x2517 — exactly `.lattice`'s 2517px — against ~667px of actual content. (The percentage did not
+  fall back to content height; it resolved against a definite containing block that simply was not the
+  slide.) `stampOrientation()`
+  in `lib/runtime/index.js` then measured that box, read its 0.51 aspect as portrait, and stamped
+  `data-orientation="portrait"` — applying the portrait type scale (`--fs-h1` 9.05x vs landscape 5x)
+  to a landscape slide, which grew the box further. Every CI gate stayed green throughout because
+  golden-diff compares PDFs. `premise` now lets the scaffold own the box; `align-items: center`
+  already did the vertical centering the height was reaching for. A new `checkSectionBoxOwnership`
+  gate (`tools/check-ownership.js`, via `build:check`) fails any component rule that sets a box
+  dimension on the section element itself, so this class cannot recur silently.
+
 - **`matrix-grid`'s rotated row-axis label rendered at 46% of the column-axis label's size, from the
   same token.** Both declared `var(--fs-meta)`; the row axis computed to 6.2px against the column
   axis's 13.5px. Cause: `--fs-*` tokens are `cqi`-based, and Chromium resolves `cqi` against the axis
