@@ -15821,10 +15821,16 @@ section:not(.overflow) > .overflow-tab { display: none; }
 section.illegible {
   box-shadow: inset 0 0 0 4px #b8730a;
 }
+/* Top-RIGHT, matching the overflow tab — not top-left, which is exactly where
+   `section.form > header` begins, so the tab printed over the deck header on every ringed
+   slide (caught by the trio in a real preview). When a slide earns BOTH signals the
+   legibility tab drops by its own height rather than a magic number, so the two stack
+   instead of overlapping. Both tabs are position:absolute, so neither can perturb the
+   height math the watcher itself is measuring. */
 section.illegible > .illegible-tab {
   position: absolute;
   top: 0;
-  left: 0;
+  right: 0;
   z-index: 50;
   background: #b8730a;
   color: #fff;
@@ -15835,9 +15841,12 @@ section.illegible > .illegible-tab {
   text-transform: uppercase;
   line-height: 1;
   padding: var(--sp-2xs) var(--sp-sm);
-  border-bottom-right-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
   pointer-events: none;
 }
+/* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
+   stays correct at any type scale or preset. */
+section.overflow.illegible > .illegible-tab { transform: translateY(100%); }
 section:not(.illegible) > .illegible-tab { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -20343,21 +20352,34 @@ section.form > .cell-footer > .lat-pagination {
 }
 /* The progress rail docks in-flow in the footer row (de-absolute-positioned) when
  * the frame has a footer Cell — grouped just left of the page number.
- * It KEEPS the centre zone's width reserve (--footer-center-w) rather than
- * `max-width: none`. In flow the reserve is not decoration: the rail's label is
- * `white-space: nowrap`, so its min-content contribution is the FULL label width
- * (`.seg`'s `min-width: 0` lowers the automatic minimum, it does not lower the
- * contribution) — un-capped, a long section name made the rail an unshrinkable
- * 730px flex item and the running footer, the only shrinkable sibling, collapsed
- * from 431px of text to 38px: a single clipped glyph, measured on
- * examples/split-relationship.pdf. `min-width: 0` lets the rail take its share of
- * any remaining deficit, and `.seg` ellipsises inside it (progress.css) — which is
- * what the reserve was always for. */
+ *
+ * `min-width: 0` is the load-bearing part. The rail's label is `white-space: nowrap`, so
+ * its min-content CONTRIBUTION is the full label width (`.seg`'s own `min-width: 0` lowers
+ * its automatic minimum, not its contribution). With `min-width: auto` the rail was an
+ * unshrinkable 730px flex item, and the running footer — the band's only other shrinkable
+ * item — absorbed the entire deficit: 38px of a 431px string, one clipped glyph, measured
+ * on examples/split-relationship.pdf. Letting the rail take its share fixes that.
+ *
+ * The width RESERVE below is scoped to a band that actually contends (one carrying the
+ * split k-of-N rail), NOT applied unconditionally. `max-width` does not know whether the
+ * band is under pressure, so an unconditional cap truncated the section label on pages with
+ * ~470px of slack — 84 of the 117 gallery pages, none of them split, each rendering the
+ * full label on `main`. That was a regression on surfaces nowhere near this feature
+ * (HARD RULE #18), caught by the trio's red team. A fourth mark in the band is what makes
+ * the reserve necessary; without one, `min-width: 0` alone already keeps the band honest. */
 section.form > .cell-footer > .tile-progress {
   position: static;
   inset: auto;
-  max-width: var(--footer-center-w);
+  /* Still `none` here — the progress-centre Cell caps the rail at --footer-center-w for its
+   * ABSOLUTE placement, where the reserve is the only thing keeping it off the page number.
+   * In flow the row already spaces it, so the cap would truncate a label with hundreds of
+   * pixels of slack beside it. (Dropping this override was how the scoped cap below leaked
+   * onto all 84 railed gallery pages on the first attempt.) */
+  max-width: none;
   min-width: 0;
+}
+section.form > .cell-footer:has(> .lat-split-rail) > .tile-progress {
+  max-width: var(--footer-center-w);
 }
 /* Retire the pagination PSEUDO wherever the real element exists (the decorative
  * numbered-divider numeral, a different `::after`, is untouched). */

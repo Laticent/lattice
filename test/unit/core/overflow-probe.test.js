@@ -268,10 +268,12 @@ describe('overflow-probe', () => {
 describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
   // A fake <text> whose computed font-size the stubbed getComputedStyle below returns.
   const text = (fontSize, content = 'Label') => ({ textContent: content, __fs: fontSize });
-  const svg = ({ vbW = 300, vbH = 300, boxW = 300, boxH = 300, texts = [] }) => ({
+  // Selector-aware, because the probe now asks two questions of a figure: which `<text>` can it
+  // measure, and does the figure carry `<foreignObject>` labels it CANNOT (mermaid's htmlLabels).
+  const svg = ({ vbW = 300, vbH = 300, boxW = 300, boxH = 300, texts = [], foreign = 0 }) => ({
     getBoundingClientRect: () => ({ width: boxW, height: boxH }),
     viewBox: { baseVal: { width: vbW, height: vbH } },
-    querySelectorAll: () => texts,
+    querySelectorAll: (sel) => (sel === 'foreignObject' ? new Array(foreign).fill({}) : texts),
   });
   // `clientHeight` is the slide height the ratio floor resolves against — 720px (a `hd` canvas),
   // so a ratio of 1/72 reads as an 10px floor and the arithmetic in these tests stays legible.
@@ -339,6 +341,21 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
     });
   });
 
+  test('a figure whose labels the probe CANNOT read reports "unmeasured", never silence', () => {
+    // Mermaid runs with htmlLabels, so a flowchart emits `<foreignObject>` HTML instead of SVG
+    // `<text>`. Three shipped `diagram` gallery pages carry 39 / 6 / 25 such labels and zero
+    // `<text>`, so the probe returned null — "nothing to judge", which reads downstream as
+    // "legible". A flowchart is the most common diagram there is; its labels shrinking to 4px is
+    // exactly what this rule exists to catch, so the honest answer is "not measured".
+    withStubbedStyle(() => {
+      const r = probeFigureLegibility(section([svg({ texts: [], foreign: 39 })]), floorAt(8));
+      assert.ok(r, 'must not be null — silence reads as a pass');
+      assert.equal(r.count, 0);
+      assert.equal(r.unmeasured, 1);
+      assert.equal(r.under, false, 'unmeasured is never a failure either');
+    });
+  });
+
   test('a figure with no viewBox dims falls back to scale 1 rather than guessing', () => {
     withStubbedStyle(() => {
       const noVb = { getBoundingClientRect: () => ({ width: 600, height: 600 }), viewBox: null, querySelectorAll: () => [text(9)] };
@@ -378,5 +395,111 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
       const s = section([svg({ boxW: 150, boxH: 150, texts: [text(11)] })]);
       assert.deepEqual(reified(s, 8), probeFigureLegibility(s, 8));
     });
+  });
+});
+
+describe('overflow-probe: the SQUEEZED child (a flex cell that reports it fits)', () => {
+  // The third measurement blind spot. `section.checklist > .cell-stage` distributes its rows,
+  // so a `<ul>` wanting more room than it gets is SHRUNK rather than allowed to spill: the
+  // cell's own `scrollHeight - clientHeight` is 0, the rect walk finds no geometric spill, and
+  // the rows are simply drawn on top of each other. Every level of the geometry says "fits".
+  //
+  // These pin the mechanism AND its two false-positive guards. Before them, deleting the whole
+  // squeezed branch was invisible to 4363 unit + 571 integration tests, while a committed demo
+  // deck silently lost a split — the same shape as the vacuous `col` tests §12 already caught.
+  const styled = (overflowY) => ({ position: 'static', overflowY, overflowX: 'visible' });
+  const withStyles = (fn) => {
+    const prev = global.getComputedStyle;
+    global.getComputedStyle = (el) => styled(el._ovy || 'visible');
+    try { return fn(); } finally { global.getComputedStyle = prev; }
+  };
+  // A clip cell `h` px tall at y=0, holding one child. The cell's own dims say it fits —
+  // that is the whole premise: the squeeze is invisible above the child.
+  const cellWith = (child, h = 1000) => ({
+    scrollHeight: h, clientHeight: h, scrollWidth: 1280, clientWidth: 1280,
+    getBoundingClientRect: () => ({ top: 0, bottom: h, left: 0, right: 1280 }),
+    children: [child],
+  });
+  const section = (c, h = 1000) => ({
+    scrollHeight: h, clientHeight: h, scrollWidth: 1280, clientWidth: 1280,
+    querySelectorAll: () => [c],
+  });
+
+  test('a crushed child whose content clears the cell IS overflow', () => {
+    // The real case: flex shrank the `<ul>` to 700px, its content wants 1000 → the last 300px
+    // of rows paint past the cell's bottom edge, where the cell clips them away.
+    const child = {
+      scrollHeight: 1000, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280,
+      getBoundingClientRect: () => ({ top: 100, bottom: 800, left: 0, right: 1280, width: 1280, height: 700 }),
+    };
+    const r = withStyles(() => probeSectionOverflow(section(cellWith(child)), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(r.over, true, 'the squeezed child must be caught — nothing else in the geometry can see it');
+    assert.equal(r.scrollH, 1000 + 100, 'content bottom 800+300=1100 → 100px past the cell');
+  });
+
+  test('a crushed MIDDLE child that paints over its SIBLING is overflow, though it never reaches the cell edge', () => {
+    // The case a "does it clear the cell's bottom edge" test misses, and the one that actually
+    // shipped: on examples/split-relationship.md the checklist's `<ul>` was squeezed to 125px
+    // with 375px of content and drew its rows straight over the closing paragraph and the key
+    // insight below it — text on top of text, no warning, and three splits silently lost. The
+    // limit for a non-final child is the NEXT sibling's top, not the cell's bottom.
+    const crushed = {
+      scrollHeight: 375, clientHeight: 125, scrollWidth: 1280, clientWidth: 1280,
+      getBoundingClientRect: () => ({ top: 300, bottom: 425, left: 0, right: 1280, width: 1280, height: 125 }),
+    };
+    const after = {
+      scrollHeight: 300, clientHeight: 300, scrollWidth: 1280, clientWidth: 1280,
+      getBoundingClientRect: () => ({ top: 425, bottom: 725, left: 0, right: 1280, width: 1280, height: 300 }),
+    };
+    const cell = {
+      scrollHeight: 1000, clientHeight: 1000, scrollWidth: 1280, clientWidth: 1280,
+      getBoundingClientRect: () => ({ top: 0, bottom: 1000, left: 0, right: 1280 }),
+      children: [crushed, after],
+    };
+    const r = withStyles(() => probeSectionOverflow(section(cell), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(r.over, true, '250px of rows painting over the next block is overflow, cell edge or not');
+  });
+
+  test('a child hiding pixels into EMPTY space inside the cell is NOT overflow', () => {
+    // The gallery `cycle` page: a `<ul>` hiding 43px in a cell with a third of its height free.
+    // The content lands in blank space; nothing is lost. Summing hidden pixels called this an
+    // overflow and printed "⚠ OVERFLOW … CLIPPED" on a page that plainly fits.
+    const child = {
+      scrollHeight: 654, clientHeight: 611, scrollWidth: 1280, clientWidth: 1280,
+      getBoundingClientRect: () => ({ top: 0, bottom: 611, left: 0, right: 1280, width: 1280, height: 611 }),
+    };
+    const r = withStyles(() => probeSectionOverflow(section(cellWith(child)), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(r.over, false, '611+43=654 is well inside a 1000px cell');
+  });
+
+  test('a child that CLIPS ITS OWN overflow is doing its job, not overflowing the slide', () => {
+    // `.chart-body` wraps a container-responsive figure at `overflow: hidden` and steadily
+    // reports ~43 hidden px. Counted, it produced a false CLIPPED warning on two shipped decks
+    // — and fed `resplitDoc`, which cut a fitting slide into half-empty pages.
+    // The measured shape from examples/portrait-gantt-statechart.md p4: cell 1423, child box
+    // 1355 (fits), child content 1398.
+    const child = {
+      _ovy: 'hidden',
+      scrollHeight: 1398, clientHeight: 1355, scrollWidth: 1280, clientWidth: 1280,
+      getBoundingClientRect: () => ({ top: 0, bottom: 1355, left: 0, right: 1280, width: 1280, height: 1355 }),
+    };
+    const r = withStyles(() => probeSectionOverflow(section(cellWith(child, 1423), 1423), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(r.over, false, "a designed clip box's hidden pixels are not the slide's overflow");
+  });
+
+  test('…and that still holds when the clip box FILLS the cell — where geometry alone cannot tell', () => {
+    // The case that needs the overflow-style check and not just the edge arithmetic: a
+    // `flex: 1` figure wrapper whose box ends exactly at the cell's bottom. Its hidden pixels
+    // now DO compute as "past the edge", so only the fact that it clips them itself
+    // distinguishes a designed clip box from a squeezed child painting over its siblings.
+    const box = (ovy) => ({
+      _ovy: ovy,
+      scrollHeight: 1043, clientHeight: 1000, scrollWidth: 1280, clientWidth: 1280,
+      getBoundingClientRect: () => ({ top: 0, bottom: 1000, left: 0, right: 1280, width: 1280, height: 1000 }),
+    });
+    const clipped = withStyles(() => probeSectionOverflow(section(cellWith(box('hidden'))), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(clipped.over, false, 'it clips its own 43px — that is the design, not a slide overflow');
+    const visible = withStyles(() => probeSectionOverflow(section(cellWith(box('visible'))), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(visible.over, true, 'the same 43px with visible overflow paints past the cell and IS lost');
   });
 });

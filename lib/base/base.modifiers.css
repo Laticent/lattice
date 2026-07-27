@@ -1217,10 +1217,16 @@ section:not(.overflow) > .overflow-tab { display: none; }
 section.illegible {
   box-shadow: inset 0 0 0 4px #b8730a;
 }
+/* Top-RIGHT, matching the overflow tab — not top-left, which is exactly where
+   `section.form > header` begins, so the tab printed over the deck header on every ringed
+   slide (caught by the trio in a real preview). When a slide earns BOTH signals the
+   legibility tab drops by its own height rather than a magic number, so the two stack
+   instead of overlapping. Both tabs are position:absolute, so neither can perturb the
+   height math the watcher itself is measuring. */
 section.illegible > .illegible-tab {
   position: absolute;
   top: 0;
-  left: 0;
+  right: 0;
   z-index: 50;
   background: #b8730a;
   color: #fff;
@@ -1231,9 +1237,12 @@ section.illegible > .illegible-tab {
   text-transform: uppercase;
   line-height: 1;
   padding: var(--sp-2xs) var(--sp-sm);
-  border-bottom-right-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
   pointer-events: none;
 }
+/* Both signals on one slide: stack, don't overlap. `100%` of the tab's own height, so it
+   stays correct at any type scale or preset. */
+section.overflow.illegible > .illegible-tab { transform: translateY(100%); }
 section:not(.illegible) > .illegible-tab { display: none; }
 
 /* ════════════════════════════════════════════════════════════════════════

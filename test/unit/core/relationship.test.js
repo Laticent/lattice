@@ -261,3 +261,31 @@ describe('core: relationship — degenerate inputs say nothing rather than lie',
     assert.equal(labelOf('<li><p><strong>Build in region</strong></p><p>body</p></li>'), 'Build in region');
   });
 });
+
+describe('core: the signal resolves its axis from the PAGE, not the manifest (§8 rule 1)', () => {
+  // The cut is made on the DERIVED axis. If the signal resolves its own axis from the manifest
+  // instead, the two disagree exactly where rule 1 says they can — a component that authors one
+  // shape and renders another — and `membersIn` then searches for a collection that is not on the
+  // page: the three narrative kinds go silent and `comparison` prints a count of zero.
+  //
+  // SYNTHETIC on purpose, and worth stating plainly: all four components that declare
+  // `capacity.relationship` today author `item` AND render `<ul>`/`<ol>`, so no shipped deck can
+  // exercise this. Without a fixture the guard is unpinned — reverting it to `cap.split?.axis ||
+  // cap.axis` passed all 4363 tests.
+  const CAP = { 'pivot-grid': { axis: 'item', perPage: 1, relationship: 'comparison' } };
+  const row = (name) => `<tr><td><strong>${name}</strong></td><td><span class="badge b">Residency</span></td></tr>`;
+  const page = (n, rows) =>
+    `<section data-split-run="r1" data-split-role="${n === 0 ? 'cover' : 'body'}" ` +
+    `data-lattice-slide="${n + 1}" class="${n === 0 ? 'content lat-split-cover form' : 'pivot-grid form lat-split-native'}">` +
+    `<h2>T</h2><table><tbody>${rows.map(row).join('')}</tbody></table></section>`;
+
+  test('an `item`-declaring component that RENDERS a table still counts its rows', () => {
+    const deck = [page(0, ['x']), page(1, ['Build']), page(2, ['Buy']), page(3, ['Delay'])].join('');
+    const out = applyRelationshipSignals(deck, CAP);
+    assert.match(out, /Option 1 of 3/, 'the members are the rendered rows, not the authored items');
+    assert.match(out, /Option 2 of 3/);
+    assert.match(out, /Option 3 of 3/);
+    assert.doesNotMatch(out, /of 0/, '"Option 1 of 0" is the failure this guards');
+    assert.match(out, /comparing Residency/, 'the criteria still read off the first member');
+  });
+});

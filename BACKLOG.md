@@ -61,6 +61,14 @@ only *status*. **45 open** items.
 - [#501](https://github.com/SlideWright/lattice/issues/501) fix(inventory): glossary range pill is stale on cover-paginate split pages — low · inventory
 - [#519](https://github.com/SlideWright/lattice/issues/519) examples: ship the four portrait demo decks + PDFs for the retired landscape locks — low · docs
 - [#578](https://github.com/SlideWright/lattice/issues/578) US English: rename internal UK-spelled identifiers (progress-centre cell id; `--footer-centre-*` is DONE) — low · engine
+- (unfiled) fix(forms): on an UN-SPLIT Form page the running footer and the docked section rail
+  can overlap — the footer is `position: absolute` with a fixed `--footerleft-w` budget while the
+  rail is an in-flow flex item, so neither yields. Measured on `examples/split-relationship.md`
+  p2: footer occupies 22–511px, rail starts at 278px — 233px of overprint, byte-identical on
+  `origin/main`. Pre-existing and NOT touched by the P-envelope branch (which only reworks the
+  band on split pages, where a fourth mark forces the issue). The fix is to make the footer a real
+  flex item wherever the band carries a docked rail, which changes geometry on ~84 gallery pages
+  and needs its own visual review — hence its own change, per HARD RULE #17. — low · engine
 
 ## In progress (0)
 

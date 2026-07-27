@@ -547,19 +547,38 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    (Measure the same way if you re-calibrate: through `node lattice-emulator.js`, not by loading
    the exported HTML in a bare browser — a figure's box, and so its scaled text, depends on the
    viewport, so a bare page load reports different numbers for the same slide.)
-   **It fires on shipped output, and that is the finding, not a false positive** — nine gallery
-   slides: `state-chart` p6/p5/p9 at **0.68 / 0.74 / 0.99%**, `radar` p7 (the `small-multiples`
-   variant) at **0.94%**, and five mermaid `diagram` pages at **0.65–0.92%**. That 0.65% is
-   literally the "ships silently at 6px type" this rule was written about.
-   **Disclosed rather than papered over:** the catalog straddles the floor closely — `diagram`
-   p12/p29 at **1.02 / 1.03%** and `quadrant`'s densest at **1.07%** are one re-tune from ringing;
-   `piechart` (1.33%), `word-cloud` (1.38%), `map` (1.78%), `funnel` (1.86%) and `gantt` (2.24%)
-   clear with room. The floor was **not** moved to buy that margin: a floor chosen to keep the
-   catalog quiet is not a floor. Re-sizing the ringing variants is a **design decision left to the
-   owner** and deliberately not taken here (HARD RULE #18: a pre-existing, off-path defect is
-   logged, not pulled into this diff). The ring is authoring-only — the emulator strips it before
-   printing, so no committed PDF changes.
-9. **☑ GATE MADE REAL (P-envelope).** The mechanism shipped, but the gate this rule
+   **It fires on shipped output, and that is the finding, not a false positive** — eight gallery
+   slides: `diagram` p15 / p26 / p8 / p17 / p27 at **0.70 / 0.78 / 0.86 / 0.86 / 0.98%**,
+   `state-chart` p6 / p5 at **0.74 / 0.81%**, and `radar` p7 (the `small-multiples` variant) at
+   **0.95%**. That 0.70% is literally the "ships silently at 6px type" this rule was written about.
+   **Disclosed rather than papered over:** the catalog straddles the floor closely — `state-chart`
+   p9 and `diagram` p12 at **1.09%**, p2 / p7 / p29 at **1.11%**, and `quadrant`'s densest at
+   **1.13%** are one re-tune from ringing. The floor was **not** moved to buy that margin: a floor
+   chosen to keep the catalog quiet is not a floor. Re-sizing the ringing variants is a **design
+   decision left to the owner** and deliberately not taken here (HARD RULE #18: a pre-existing,
+   off-path defect is logged, not pulled into this diff).
+   **And the probe's own blind spot is reported, not assumed away.** Mermaid runs with
+   `htmlLabels`, so a flowchart's labels are `<foreignObject>` HTML rather than SVG `<text>` and
+   cannot be sized: `diagram` p16 / p22 / p24 carry **39 / 6 / 25** such labels and zero `<text>`.
+   Those returned `null` — "nothing to judge" — which reads downstream as *legible*, on the most
+   common diagram type there is. They now come back `unmeasured` and get their own
+   `ⓘ TYPE FLOOR NOT MEASURED` line. The figures above are therefore a measurement of the part of
+   the catalog this probe can see, which is stated rather than implied (HARD RULE #23).
+   **Re-measure the same way** if you re-calibrate: render through `node lattice-emulator.js` AND
+   read the result at the deck's own slide canvas, which is the viewport the emulator sets. A bare
+   page load at another size reports different numbers for the same slide — that mistake is how the
+   first published version of this table shipped values that did not reproduce.
+   The ring is **author-only**: the emulator strips it before printing, so no committed PDF changes,
+   and the live watcher runs it only under `authorTags` — a reader cannot resize a figure, so an
+   amber alarm in front of a boardroom would be a diagnostic with no action attached.
+9. **"Cover always" (§0a) is a MECHANISM phase, not a free consequence.** No split
+   path may emit a bare `(cont.)` partition once §0a lands: `autoSplitDeck` and
+   `resplitDoc`'s plain branch must route through the same cover→body→closing
+   builder as `cover-paginate`, and `partitionAxis`'s repeated `post` must hoist any
+   `.below-note`/key-insight into ONE closing slide — never stamped per body page (it
+   duplicates today). A gate asserts every split run begins with exactly one cover
+   and carries ≤1 closing. (FM-2.)
+   **☑ GATE MADE REAL (P-envelope).** The mechanism shipped, but the gate this rule
    demands was HOLLOW: it keyed on the CLASS `lat-split-cover`, which only the plain path
    and `cover-paginate`/`cover-cards` emit. The per-layout strategies emit their own
    (`split-panel-cover`, `list-tabular-cover`, `decision-cover`, `compare-code-cover`), so
@@ -571,14 +590,6 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    now runs the invariant over ALL NINE strategies, and an un-stamped page FAILS — so a new
    strategy cannot fall outside the gate. Verified on a real render: 18 run sections, 0
    missing a role. The role is also the hook rules 6 and 12a key on.
-
-9. **"Cover always" (§0a) is a MECHANISM phase, not a free consequence.** No split
-   path may emit a bare `(cont.)` partition once §0a lands: `autoSplitDeck` and
-   `resplitDoc`'s plain branch must route through the same cover→body→closing
-   builder as `cover-paginate`, and `partitionAxis`'s repeated `post` must hoist any
-   `.below-note`/key-insight into ONE closing slide — never stamped per body page (it
-   duplicates today). A gate asserts every split run begins with exactly one cover
-   and carries ≤1 closing. (FM-2.)
 10. **The pre-render count pass may only DEFER, never CUT.** With axis derivation at
     render time, the startup pass's sole job is "might this overflow? → hand it to
     the measured loop." It must not emit a final partition on the *authoring*-shape
@@ -604,9 +615,19 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
     `examples/split-envelope.md` were the only two the static pass still cut (1 and 2 slides); the
     measured loop now cuts exactly those, and both export with zero overflow. Nothing regressed
     because the measured loop runs in the same invocation, right after a real render.
-    **What this deliberately gives up:** a slide OVER `capacity.hard` that nevertheless FITS is no
-    longer split. That is the rule's intent — `hard` is an authoring-comfort bound, not a page
-    budget — and the count signal keeps its home in `lint:deck`'s advisory `capacity-autosplit`.
+    **What "defer" does and does not mean.** It moves WHERE the cut is made, not whether one
+    happens. The deferred ordinals enter the FIRST measured pass as candidates
+    (`lattice-emulator.js`, `DEFERRED_BY_COUNT`), so a slide over `capacity.hard` that nevertheless
+    FITS is still cut — by the render-time builder, on the derived axis, with a cover. That is
+    deliberate: `lint:deck`'s `capacity-autosplit` advisory promises the author "auto-split will
+    divide this into 2 pages of 4", and a deferral that silently dropped the count signal would
+    make the advisory a lie — the same lie-to-the-author defect this branch fixed once already.
+    *An earlier version of this entry (and of the CHANGELOG, as a `**Breaking:**` bullet) claimed
+    the opposite — that a fitting slide is no longer split. It was never true of the code; caught
+    by the trio's inversion pass with a 10-item `checklist` that fits and still becomes three
+    pages.* Whether `hard` SHOULD force a cut on a slide that fits is a real question — two of
+    those three pages are mostly white — but it is a change to what `capacity.hard` means, and
+    that is the owner's call, not this rule's.
 11. **The oracle records a VERIFIED default, it never mints one.** Adding a component
     to the standing golden (rule 5) requires a committed demo deck exercising its
     overflow path (HARD #9) + reviewer sign-off that the derived (axis, read-across,

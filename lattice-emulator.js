@@ -2149,9 +2149,13 @@ async function renderBody(browser, g, closeBrowser) {
       // splittable — a figure has no seam to divide, so the honest answer is the ring.
       const leg = probeFigureLegibility(s, floorRatio);
       const illegible = leg?.under ? leg : null;
+      // Figures whose labels the probe cannot size at all (mermaid's `<foreignObject>` HTML
+      // labels). Carried on its own field so the report can say "not measured" rather than
+      // let silence read as "legible" (HARD RULE #23).
+      const unmeasured = leg && !leg.count && leg.unmeasured ? leg.unmeasured : 0;
       if (illegible && !over) {
         // Illegible while its box FITS: nothing to split (a figure has no seam), so record and stop.
-        out.push({ slide: i + 1, ratio: 1, canSplit: false, splitRatio: 1, illegible });
+        out.push({ slide: i + 1, ratio: 1, canSplit: false, splitRatio: 1, illegible, unmeasured });
         return;
       }
       if (!over) return;
@@ -2168,7 +2172,7 @@ async function renderBody(browser, g, closeBrowser) {
       // it). Mark it splittable and let resplitDoc's carousel branch own it (the ratio is
       // irrelevant to a structural re-author).
       if (structuralCarousel.some((c) => s.classList.contains(c))) {
-        out.push({ slide: i + 1, ratio, canSplit: true, splitRatio: ratio, illegible });
+        out.push({ slide: i + 1, ratio, canSplit: true, splitRatio: ratio, illegible, unmeasured });
         return;
       }
       // A VERTICAL PAGINATOR (cover-paginate) divides a row/item collection; it can only fix
@@ -2177,7 +2181,7 @@ async function renderBody(browser, g, closeBrowser) {
       // for the ring (this is the guard that lets a wide compare-table / obligation-matrix
       // carry a split recipe without ever ballooning).
       if (paginatorCarousel.some((c) => s.classList.contains(c))) {
-        out.push({ slide: i + 1, ratio, canSplit: vOver, splitRatio: ratio, illegible });
+        out.push({ slide: i + 1, ratio, canSplit: vOver, splitRatio: ratio, illegible, unmeasured });
         return;
       }
       // The auto-splitter only divides a list (ul/ol) or table — so a split can only
@@ -2247,7 +2251,7 @@ async function renderBody(browser, g, closeBrowser) {
       const headroom = C - (probe.scrollH - collH - hoistH); // room a BODY page will have
       const canSplit = vOver && collH > 0 && headroom > C * 0.2;
       const splitRatio = canSplit ? Math.max(2, collH / headroom) : ratio;
-      out.push({ slide: i + 1, ratio, canSplit, splitRatio, illegible });
+      out.push({ slide: i + 1, ratio, canSplit, splitRatio, illegible, unmeasured });
     });
     return out;
   }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
@@ -2318,6 +2322,17 @@ async function renderBody(browser, g, closeBrowser) {
     console.warn('    A container-responsive figure never overflows — it scales its own labels instead, so the');
     console.warn('    overflow check cannot see this. Simplify the figure (fewer labels, shorter text), give it a');
     console.warn('    bigger box, or split it across slides. The export stays clean — no ring is printed.');
+  }
+  // …and the figures the floor could not judge AT ALL. Mermaid's `htmlLabels` emit
+  // `<foreignObject>` HTML rather than SVG `<text>`, which the probe cannot size — so a
+  // flowchart whose labels shrank to 4px would otherwise pass in silence. Said out loud rather
+  // than implied: "not measured" is an honest answer, a quiet pass is not (HARD RULE #23).
+  const unjudged = overflow.filter((o) => o.unmeasured);
+  if (unjudged.length) {
+    const n = unjudged.length;
+    console.warn(`  ⓘ TYPE FLOOR NOT MEASURED — ${n} slide${n > 1 ? 's' : ''} carr${n > 1 ? 'y' : 'ies'} a viewBox figure whose ` +
+      `labels are HTML (<foreignObject>, e.g. a mermaid flowchart): page${n > 1 ? 's' : ''} ${unjudged.map((o) => o.slide).join(', ')}.`);
+    console.warn('    The legibility floor could not judge these. Check them by eye.');
   }
   // A slide can be on BOTH lists — its box clips AND its figure is illegible. Only the ones that
   // are illegible while their box FITS are off this one; for them "CLIPPED" would be a lie.

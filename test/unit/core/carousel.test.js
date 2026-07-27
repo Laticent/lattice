@@ -493,6 +493,26 @@ describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {
     assert.match(out[0], /blockquote class="rl-old"/);
     assert.match(out[1], /blockquote class="rl-new"/);
   });
+
+  test('a NON-trailing third blockquote rides the last body page — never dropped', () => {
+    // The first fix for the duplication above cut every extra blockquote from both pages and
+    // relied on the conservation hoist to rescue it. The hoist only sees a CONTIGUOUS TRAILING
+    // run, so a third blockquote followed by the why-list was rescued by nothing and landed on
+    // NO page — trading a visible duplication for a silent drop, which is strictly worse. Only
+    // what the hoist will actually rescue may be cut from both pages.
+    const stranded = rlInner.replace(
+      '<ul><li><strong>Why this matters.</strong>',
+      '<blockquote><p>One duty is cheaper to audit than two.</p></blockquote><ul><li><strong>Why this matters.</strong>',
+    );
+    const out = carouselize(rlTag, stranded, rlRecipe);
+    const joined = out.join('');
+    assert.equal(joined.split('One duty is cheaper to audit').length - 1, 1, 'exactly one copy — not two, not zero');
+    assert.match(out.at(-1), /One duty is cheaper to audit/, 'it rides the LAST body page');
+    // Neither passage nor the why-list is disturbed by carrying it.
+    assert.equal(joined.split('two or more methods').length - 1, 1);
+    assert.equal(joined.split('at least one method').length - 1, 1);
+    assert.equal(joined.split('One duty now').length - 1, 1);
+  });
 });
 
 describe('core: carousel — kanban-lanes (kanban portrait, one lane per slide)', () => {

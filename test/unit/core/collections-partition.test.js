@@ -12,7 +12,7 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { partitionAxis, directChildren, firstList } = require('../../../lib/core/collections');
+const { partitionAxis, directChildren, firstList, countAxis } = require('../../../lib/core/collections');
 
 describe('collections: partitionAxis', () => {
   test('item: splits a list into ceil(n/perSlide) slides, last group smaller', () => {
@@ -166,5 +166,55 @@ describe('collections: partitionAxis', () => {
   test('item: an empty list is a no-op single slide', () => {
     const html = '<ul></ul>';
     assert.deepEqual(partitionAxis(html, 'item', 1), [html]);
+  });
+});
+
+describe('collections: firstList picks the PRIMARY collection, not the first one', () => {
+  // Reproduced on a real render before it was fixed: an `inventory` slide with a two-item
+  // bulleted aside above its six records split the ASIDE — one aside bullet per page, all six
+  // records repeated verbatim on both, both pages clipped, under a "(cont.)" heading. §8 rule
+  // 1's `deriveAxis` hardening cannot help: it resolves which AXIS is on the page, and both
+  // lists are `item`. The container choice lives here. The rule-6 conservation gate is
+  // structurally blind to it — containment reports shortfalls, never duplicates.
+  const aside = '<ul><li>aside A</li><li>aside B</li></ul>';
+  const register = '<ul><li>rec 1</li><li>rec 2</li><li>rec 3</li><li>rec 4</li></ul>';
+
+  test('the bigger list is the collection, wherever it sits', () => {
+    const html = `<h2>T</h2>${aside}${register}`;
+    assert.equal(countAxis(html, 'item'), 4, 'capacity counted the aside before this');
+    const slides = partitionAxis(html, 'item', 2);
+    assert.equal(slides.length, 2);
+    for (const s of slides) {
+      assert.equal((s.match(/aside A/g) || []).length, 1, 'the aside is framing — it repeats, once per page');
+      assert.equal((s.match(/aside B/g) || []).length, 1);
+    }
+    // …and every record appears exactly ONCE across the run, which is the whole point.
+    const all = slides.join('');
+    for (const rec of ['rec 1', 'rec 2', 'rec 3', 'rec 4']) {
+      assert.equal((all.match(new RegExp(rec, 'g')) || []).length, 1, `${rec} must appear exactly once`);
+    }
+  });
+
+  test('…and symmetrically when the big list comes FIRST (no positional preference at all)', () => {
+    const html = `<h2>T</h2>${register}${aside}`;
+    assert.equal(countAxis(html, 'item'), 4);
+    const all = partitionAxis(html, 'item', 2).join('');
+    for (const rec of ['rec 1', 'rec 4']) {
+      assert.equal((all.match(new RegExp(rec, 'g')) || []).length, 1);
+    }
+  });
+
+  test('a nested list is a member BODY, never a candidate collection', () => {
+    // The card contract (`- Title` / `  - body`) nests a list inside every <li>. A nested list
+    // with more entries than the outer one must not be mistaken for the slide's collection.
+    const html = '<ul><li>A<ul><li>b1</li><li>b2</li><li>b3</li></ul></li><li>B<ul><li>b4</li></ul></li></ul>';
+    assert.equal(countAxis(html, 'item'), 2, 'two outer members, not the three nested bullets');
+  });
+
+  test('ties go to the first, and a single-list slide is untouched', () => {
+    const tie = '<ul><li>x1</li><li>x2</li></ul><ul><li>y1</li><li>y2</li></ul>';
+    assert.match(firstList(tie).body, /x1/);
+    const one = '<h2>T</h2><ul><li>only</li></ul>';
+    assert.equal(firstList(one).body, '<li>only</li>');
   });
 });

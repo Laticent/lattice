@@ -162,21 +162,29 @@ in patch versions.
 - **The split axis is read from the RENDERED DOM** (§8 rule 1). `capacity.axis` is an
   authoring-shape claim and the two legitimately disagree — `glossary` authors a list and renders a
   table, which needed a second declaration (`split.axis`) to correct the first. `deriveAxis` reads
-  the first recognizable container inside the content cell: `<table>` → row, `<ul>`/`<ol>` → item,
-  `<pre>` → line, a viewBox `<svg>` → figure (no seam). Enrollment is untouched — still the
-  manifest's opt-in, so a rendered collection never implies a seam — and a component that declares
-  a carousel recipe keeps its own declared axis, so derivation can't invent a seam `redline`
-  deliberately doesn't have.
+  the recognizable containers inside the content cell: `<table>` → row, `<ul>`/`<ol>` → item,
+  `<pre>` → line, a viewBox `<svg>` → figure (no seam). It RESOLVES AGAINST the axes the manifest
+  declares rather than taking the first container by position, treats a declared `col`/`cell` as a
+  veto (read-across has no seam, and derivation must not route around a component that said so),
+  and prefers a real collection over a figure when nothing is declared. Enrollment is untouched —
+  still the manifest's opt-in, so a rendered collection never implies a seam — and a component that
+  declares a carousel recipe keeps its own declared axis, so derivation can't invent a seam
+  `redline` deliberately doesn't have. Today no shipped manifest declares `col`/`cell`, so that
+  branch is a latent guard rather than a fix to observed output.
 
-- **Breaking:** **the pre-render static pass now DEFERS instead of cutting** (§8 rule 10).
+- **Breaking:** (API only — no deck's output changes) **the pre-render static pass now DEFERS
+  instead of cutting** (§8 rule 10). `autoSplitDeck` returns `splits: 0` always and a new
+  `deferred` array; a caller invoking it directly and expecting a partition gets none.
   `autoSplitDeck` emits no partition: it counts against `capacity.hard` on the derived axis, names
   the slides at risk, and hands them to the measured loop, which reads the really-rendered DOM and
   owns every cut and every cover. A cut made pre-render is on the authoring-shape axis, and that
   can disagree with the rendered one. Verified equivalent on the two committed demo decks the
   static pass still cut — the measured loop cuts exactly those, with zero overflow. **What changes
-  for a deck:** a slide over `capacity.hard` that nevertheless FITS is no longer split; `hard` is an
-  authoring-comfort bound, and the count signal keeps its home in `lint:deck`'s advisory
-  `capacity-autosplit`.
+  for a deck: nothing about WHETHER a slide is split, only where the cut is decided.** The count
+  estimate's slides are handed to the measured pass as candidates, so a slide over `capacity.hard`
+  is still divided — by the render-time builder, on the derived axis, and now with a cover — which
+  keeps `lint:deck`'s `capacity-autosplit` advisory ("auto-split will divide this into 2 pages of
+  4") true.
 
 - **A legibility floor for viewBox figures** (§8 rule 8). A container-responsive figure never
   overflows its box — it scales its own labels — so the overflow probe is structurally blind to a
@@ -188,11 +196,15 @@ in patch versions.
   floor — in **both** the live preview and the export watcher, off one probe — and its own stderr
   report, and it is never handed to the splitter (a figure has no seam). The ring is
   authoring-only: the emulator strips it before printing, so no exported artifact changes.
-  It flags nine gallery slides today — `state-chart` p6/p5/p9 at 0.68/0.74/0.99%, `radar` p7 (the
-  `small-multiples` variant) at 0.94%, and five mermaid `diagram` pages at 0.65–0.92% — which is
-  the finding, not a false positive; re-sizing them is a separate design call. The margin is thin
-  and deliberately not padded: `diagram` p12/p29 (1.02/1.03%) and `quadrant`'s densest (1.07%) are
-  one re-tune from ringing, and a floor chosen to keep the catalog quiet is not a floor.
+  It flags eight gallery slides today — `diagram` p15/p26/p8/p17/p27 at 0.70–0.98%, `state-chart`
+  p6/p5 at 0.74/0.81%, and `radar` p7 (the `small-multiples` variant) at 0.95% — which is the
+  finding, not a false positive; re-sizing them is a separate design call. The margin is thin and
+  deliberately not padded: `state-chart` p9 and `diagram` p12 (1.09%), p2/p7/p29 (1.11%) and
+  `quadrant`'s densest (1.13%) are one re-tune from ringing, and a floor chosen to keep the catalog
+  quiet is not a floor. **Not every figure is measurable, and the export says so** rather than
+  passing it in silence: mermaid's `htmlLabels` emit `<foreignObject>` HTML instead of SVG `<text>`,
+  which the probe cannot size, so `diagram` p16/p22/p24 (39/6/25 such labels, no `<text>`) get their
+  own `ⓘ TYPE FLOOR NOT MEASURED` line.
 
 - **Per-component agent contract: `<name>.docs.md` now front-loads a dense, machine-actionable
   block instead of burying it in narrative prose.** Generated docs previously interleaved the
@@ -4857,6 +4869,47 @@ in patch versions.
   `lib/base/base.docs.md § Custom logo` and `examples/custom-logo.md`.
 
 ### Fixed
+- **The type-floor ring is an AUTHOR signal and now stays off a reader's screen.** The live
+  watcher ran it ungated, so a `--fluid` export — the shared, reader-facing one — printed an amber
+  `Type 3px · floor 8.4px` diagnostic over the deck header on 7 of 11 slides of the `state-chart`
+  gallery at phone size. The floor is a fraction of the SLIDE box, and in the fluid viewer that box
+  is the reader's screen, so essentially every figure tripped it. Unlike the overflow marker (which
+  becomes a calm "More below" for a reader) this signal has no reader action — nobody reading a
+  deck can resize a figure — so it is gated on `authorTags` instead of restyled. The author's
+  stderr report and preview ring are unchanged.
+
+- **A slide could report a false "CLIPPED", and be split because of it.** The squeezed-child
+  measurement counted any child hiding pixels, including one that clips them by design:
+  `.chart-body` wraps a container-responsive figure at `overflow: hidden` and steadily reports
+  ~43px, so `examples/portrait-gantt-statechart.md` and a gallery `cycle` page were reported
+  clipped while rendering pixel-identically to `main` — and the false measurement fed the splitter,
+  cutting a fitting slide into half-empty pages whose "overflow" never cleared. It now skips
+  designed clip boxes and measures the spill against what the content would actually cover: the
+  next sibling's top, or the cell's bottom edge for the last child. That limit matters in both
+  directions — a `<ul>` hiding 43px into blank space loses nothing, while one crushed mid-cell
+  paints over the block below it long before reaching the cell's edge.
+
+- **The split cut the first list on the slide, not its primary collection.** An `inventory` slide
+  with a two-item bulleted aside above its six records split the ASIDE: one aside bullet per page,
+  all six records repeated verbatim on both, both pages clipped, under a "(cont.)" heading with the
+  ordinal restarted. `deriveAxis` cannot help — it resolves which AXIS is on the page and both
+  lists are `item` — so `firstList` now picks the outer list with the most members (ties to the
+  first). Single-list slides are byte-identical; only slides already being cut on the wrong
+  container change. The same choice corrects `countAxis` (capacity was counting the aside) and the
+  `build`/`focus` per-item transforms.
+
+- **`redline-blocks` could drop a third blockquote entirely.** Cutting every extra blockquote from
+  both pages relied on the conservation hoist to rescue it, but the hoist only sees a contiguous
+  TRAILING run — so one followed by the why-list landed on no page at all. Only what the hoist will
+  rescue is cut from both pages now; anything else rides the last body page. Exactly once, either
+  way.
+
+- **The running footer stopped truncating the section label on pages that had room.** The width
+  reserve added for the split band was unconditional, so it capped the rail on 84 of the 117
+  gallery pages — none of them split, each with ~470px of slack and each rendering the full label
+  on `main`. The reserve is scoped to a band carrying the split k-of-N rail, which is the only one
+  that genuinely contends.
+
 - **In `--print`, five of the six split-cover layouts rendered a BLANK page.** The print de-flood
   that turns the cover's accent field into the bookends' light framed panel was keyed on the
   `lat-split-cover` CLASS, which only the shared cover carries. The read-across strategies each
@@ -4905,13 +4958,16 @@ in patch versions.
   down. It is cut from both body pages now and routed to the insight page.
 
 - **The relationship signal read the manifest's axis while the cut had been made from the DOM.**
-  Rule 1 exists because those two can disagree; when they did, `membersIn` looked for a collection
-  that was not on the page and every signal silently vanished — except `comparison`, which printed
-  the human-visible "Option 1 of 0". The signal derives its axis the same way the cut does now,
-  and an empty member matrix emits nothing rather than a count of zero. Two smaller readers fixed
-  with it: a `<tbody>`-less table counted its `<thead>` row as a member, and a member's label was
-  read from a `<strong>` anywhere in its body rather than a leading one (so "Sign off — the chair
-  signs the **policy hash**" signalled "next: policy hash").
+  Rule 1 exists because those two can disagree; where they do, `membersIn` looks for a collection
+  that is not on the page and every signal silently vanishes — except `comparison`, which would
+  print the human-visible "Option 1 of 0". The signal derives its axis the same way the cut does
+  now, and an empty member matrix emits nothing rather than a count of zero. *A latent guard, to be
+  precise about it: all four components that declare `capacity.relationship` today author `item`
+  and render `<ul>`/`<ol>`, so the two axes agree and this changes no shipped output. It is pinned
+  by a synthetic fixture rather than a real one.* Two smaller readers fixed with it: a
+  `<tbody>`-less table counted its `<thead>` row as a member, and a member's label was read from a
+  `<strong>` anywhere in its body rather than a leading one (so "Sign off — the chair signs the
+  **policy hash**" signalled "next: policy hash").
 
 - **`capabilities:check` — and therefore `build:check` — was red on `main`.** Seven npm scripts added
   by #1119 (`anima-player:build`/`:check`, `test:adaptive`, `test:concepts`, `test:exemplars`,
