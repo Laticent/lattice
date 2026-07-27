@@ -764,17 +764,32 @@ in patch versions.
   `section.foo:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > …`.
   `:where()` contributes zero specificity, so all 34 blocks converted without changing a single
   cascade winner, and `wide` stays unstamped so landscape output is byte-identical. **Verified by
-  render:** at `size: square` the `decision` component now reflows to one column (it was inert),
-  while `matrix-2x2` correctly stays two-up there because its rule is tall+strip only.
+  render** (`tools/check-family-tiers.js`): at `size: square` `stats` now wraps 2-up where it was
+  inert, while `decision` and `matrix-2x2` deliberately KEEP their side-by-side set there — square
+  is the balanced family, and collapsing it was measured to cost capacity. See the square entry.
   The container form's advertised box-local reach — a nested Cell naming itself `lattice` so a
   component resolved against its cell — was never implemented (`container-name: lattice` appeared
   exactly once in the library, on `section`), so nothing real was given up.
-  **Breaking:** `familyQuery()` is replaced by `familySelector()`, and `CSS_BOUNDARIES` /
-  `DECK_TO_CSS_BOUNDARY` are gone from `lib/adaptive/families.js` — there is one boundary list again.
-  `npm run check:families` and `tools/check-adaptive-families.js` are removed: they existed only to
-  catch the two classifiers disagreeing, and there is now one classifier. A CSS-authoring component
-  that wrote its own `@container … aspect-ratio` rule must switch to the stamp; a new unit test fails
-  the build if one reappears anywhere in `lib/`.
+  **Breaking:** `familyQuery()` is replaced by `familySelector()` on `lib/adaptive/families.js`, and
+  the reserved `CATEGORY_QUERY` export is gone from `lib/typography/scale.js`. Those two shipped;
+  `CSS_BOUNDARIES`, `DECK_TO_CSS_BOUNDARY`, `--lat-family` and `check:families` were introduced AND
+  removed inside this same change, so they are not removals a consumer can observe. A CSS-authoring
+  component that wrote its own `@container … aspect-ratio` rule must switch to the stamp; a new unit
+  test fails the build if one reappears anywhere in `lib/`.
+- **Every deck is now linted against its OWN family's capacity budget.** `adapt.capacity.{wide,
+  square,tall,strip}` has existed since the adaptive model landed and **nothing read it** — the
+  linter took the flat `capacity` block and applied one number to every deck, so a mobile deck was
+  checked against a landscape budget. The deck's family is now derived by resolving `size:` through
+  the engine's own `parseSizes`, rather than matching size NAMES against a hand-kept list. Note this
+  **loosens** some landscape warnings, where a component's `adapt.capacity.wide` is more generous
+  than its flat block (`cards-grid`: flat hard 4, wide hard 6), and tightens `tall`/`strip` ones.
+- **Portrait, story, square and mobile EXPORTS change beyond the component reflow.** The engine now
+  stamps `data-family` on every section, and the Frame's own generated rules
+  (`section.form[data-family="tall"|"strip"] { --masthead-cols: … }`) key off it. Those rules only
+  ever fired under the runtime, which the export path strips — so in PDF/HTML export they were
+  inert. The masthead bay goes from a 0px column to a full-width row on every tall/strip slide.
+  Swept across all 19 non-landscape example decks: **no overflow regressions**, three decks
+  improved. Landscape is untouched.
 - **`progress` drew every bar ~11px too long, so the bars lied about their own values.**
   `.progress-fill` was `box-sizing: content-box` (the CSS default), so its 4px accent border, 1px
   hairline and 0.625cqi of readout padding all sat OUTSIDE `width: calc(var(--pct) * 1%)` — a fixed

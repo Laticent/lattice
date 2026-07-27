@@ -126,7 +126,7 @@
       "required": [
         "mode"
       ],
-      "description": "Adaptivity declaration (engineering/decisions/2026-06-20-adaptive-manifest-contract.md). `mode` is the REQUIRED, deterministic statement of how the layout handles non-landscape boxes; every component declares one. `families` and the rest are the box-local reflow CONTRACT — the honest support list + declared layout INTENT the authored per-family CSS honors (the data a future resolver would consume without re-authoring). The CSS is hand-written (#2 'authored per family'); this block does NOT generate layout. NOTE: distinct from the top-level `families` field, which names opt-in modifier groups (e.g. state-markers).",
+      "description": "Adaptivity declaration (engineering/decisions/2026-06-20-adaptive-manifest-contract.md). `mode` is the REQUIRED, deterministic statement of how the layout handles non-landscape boxes; every component declares one. `families` and the rest are the family reflow CONTRACT — the honest support list + declared layout INTENT the authored per-family CSS honors (the data a future resolver would consume without re-authoring). The CSS is hand-written (#2 'authored per family'); this block does NOT generate layout. NOTE: distinct from the top-level `families` field, which names opt-in modifier groups (e.g. state-markers).",
       "properties": {
         "mode": {
           "enum": [

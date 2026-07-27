@@ -90,7 +90,13 @@ Three properties make this a safe mechanical conversion of 34 blocks:
    The stamp is *on* the section and sections are direct children of `<body>`, so
    a leading `:where([data-family=…]) section.foo` is a descendant combinator
    looking for an ancestor that does not exist. This is the one real trap in the
-   conversion, and it is now covered by a test (below).
+   conversion. It is covered for the AI canon (`component-ai.test.js` matches each
+   taught selector against a stamped slide in jsdom) and spot-checked for three
+   components by `check-family-tiers` — but there is NO gate that reads the ~30
+   converted stylesheets and rejects the leading form, so a regression in one of
+   them would ship green. The current conversion was verified clean by an
+   independent paren-aware parse of all 187 comma-parts; the standing guard is
+   the gap.
 
 The chart components write `:is(section.x, figure.x) …`, where one branch **is**
 the section and the other is a `figure` inside it. No single filter covers both,
@@ -165,16 +171,22 @@ load-bearing.
 Rendered through the real emulator at four deck sizes, reading the computed
 result of a reflow rule only that tier can produce:
 
-| size | stamp | `decision` list | `matrix-2x2` list |
-|---|---|---|---|
-| hd | (none → wide) | row | row |
-| square | `square` | **column** | row |
-| portrait | `tall` | column | column |
-| mobile | `strip` | column | column |
+| size | stamp | `stats` wrap | `decision` list | `matrix-2x2` list |
+|---|---|---|---|---|
+| hd | (none → wide) | nowrap | row | row |
+| square | `square` | **wrap** | row | row |
+| portrait | `tall` | nowrap | column | column |
+| mobile | `strip` | nowrap | column | column |
 
-The square row is the fix: `decision` reflows at square (it was inert), while
-`matrix-2x2` correctly stays `row` there because its rule is tall+strip only — so
-the boundary is precise, not a blanket "everything non-landscape".
+The square row is the fix: `stats` wraps 2-up there where the whole tier was
+inert, while `decision` and `matrix-2x2` deliberately keep their side-by-side set
+— so the boundary is precise, not a blanket "everything non-landscape".
+
+An earlier draft of this note, and of the CHANGELOG, claimed `decision` reflows
+to ONE column at square. It does not, and the shipped code says so in its own
+comment: square is the balanced family, and collapsing it was measured to cost
+capacity. The claim was written before that decision was made and never revised —
+caught by the independent checker, recorded here rather than quietly corrected.
 
 ## Square is a real family now — two layouts fixed, and one number that isn't
 
@@ -185,8 +197,13 @@ and both are fixed here rather than filed:
   a square box has: four stats needed 825px of a 750px stage and clipped
   `examples/social-square.md` — the first tile's number sheared off, the fourth
   tile's label gone entirely. A 2x2 wrap uses both axes, which is what
-  `families.js` says square *means* ("balanced — 2x2 grids, 2-up"), and takes the
-  measured ceiling 3 → 6. Two wrong answers were tried first and are recorded in
+  `families.js` says square *means* ("balanced — 2x2 grids, 2-up"), and lifts the
+  measured ceiling from 3 to **4** at `calibrate-capacity`'s default basis
+  (`density.soft`), or to 6 at a terse 6-word basis. The two numbers are not a
+  contradiction — a count ceiling is a function of element size — but the basis
+  has to be NAMED, and an earlier draft quoted the terse figure as if it were the
+  default. See the capacity section below for why that distinction is the whole
+  unfinished problem. Two wrong answers were tried first and are recorded in
   the CSS so nobody repeats them: keeping the WIDE N-across row (crowds every
   number — a square box is not a wide one), and keeping one column (the clip).
 
@@ -228,3 +245,51 @@ the canonical authored element already sitting in every manifest. That is the
 next step, and it is a derivation, not another number to hand-maintain. Shipping
 the current values would have replaced one set of unverified numbers with
 another, which is the exact failure this whole note is about.
+
+## The export change this note did not originally mention
+
+`data-family` was stamped only by the RUNTIME before this change, and
+`lattice-emulator.js` strips the runtime from the export document. So the Frame's
+own generated rules —
+
+```css
+section.form[data-family="tall"]  { --masthead-cols: [masthead-lede masthead-bay] 1fr; }
+section.form[data-family="strip"] { --masthead-cols: [masthead-lede masthead-bay] 1fr; }
+```
+
+— **never fired in PDF or HTML export.** Stamping server-side turns them on. The
+masthead bay goes from a 0px column to a full-width row on every tall/strip slide
+in every export path, which is a far wider blast radius than "34 blocks in 30
+files" and belongs in the record.
+
+Measured across all 19 non-landscape example decks, both engines: **zero overflow
+regressions**, three decks improved (`adaptive-sweep` pages 14–15, `social-square`
+page 4, `reflow-legal` two of three). A computed-style diff of `adaptive-sweep`
+(`size: story`) shows 132 property changes, all either this masthead column or
+the intended `citation-card` fix. Landscape output is unchanged and pixel-verified.
+
+It reads as an improvement, but it alters exported bytes library-wide, so it goes
+through the export sign-off gate rather than riding along with the reflow work.
+
+## Corrections this note carries
+
+An independent checker found five load-bearing claims here and in the CHANGELOG
+that the code, this branch's own gate, or its own measurement tool contradicted.
+They are corrected above and listed here so the pattern is visible rather than
+buried:
+
+1. `decision` reflows to one column at square — **false**, it keeps 2-up.
+2. `stats` square ceiling "3 → 6" — **basis-dependent**; 4 at the tool's default.
+3. The `**Breaking:**` list named four removals (`CSS_BOUNDARIES`,
+   `DECK_TO_CSS_BOUNDARY`, `--lat-family`, `check:families`) that this branch both
+   created and removed, so no consumer could observe them.
+4. `split-envelope` "had stopped demonstrating the split" — **false**; the split
+   fires at six cards too. The real effect was lint-only (`capacity-autosplit` →
+   `capacity-crowd`), which is still a fair reason to edit the deck.
+5. The leading-prefix trap was described as gated; it is gated for the AI canon
+   only.
+
+The common thread: each was written at the moment the work was *intended*, and
+none was re-checked after the implementation changed under it. The lesson is the
+same one this note is about — an assertion nobody re-derives drifts from what
+ships.

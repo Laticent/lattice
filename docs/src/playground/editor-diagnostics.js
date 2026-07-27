@@ -77,6 +77,11 @@ export function buildVocabSets(vocab) {
 	if (v.toneStyleNames) sets.toneStyleNames = v.toneStyleNames; // deck-wide `tone:` validator
 	if (v.spectrumNames) sets.spectrumNames = v.spectrumNames; // deck-wide `spectrum:` validator
 	if (v.capacity) sets.capacity = v.capacity; // per-layout content-capacity contract
+	// The registered `@size` geometry, so the browser linter DERIVES the deck's
+	// adaptive family the same way the CLI does. Without it lint-core falls back to
+	// a name table that a newly-registered `@size` slips past — the drift class the
+	// family stamp exists to end (#1218).
+	if (v.sizes) sets.sizes = v.sizes;
 	if (v.exclusiveAxes) sets.exclusiveAxes = v.exclusiveAxes; // conflicting-variants axes
 	return sets;
 }

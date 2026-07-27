@@ -2571,7 +2571,10 @@ section.citation-card :is(ul,ol) > li > strong ~ * { font-weight: 400; }
  * to the SECTION — where it does nothing, since the section is already a flex
  * column — and their stage stayed `flex-direction: row`. The variants therefore
  * never reflowed at all, and at `story` the un-collapsed row clipped by 293px
- * (stage 1504, content 1797; examples/adaptive-sweep.md pages 14-15). A selector
+ * (content 1797 against a 1504 stage — both on the FIXED tree; on the pre-fix tree
+ * the stage measured 1421.77, since the family stamp also widens the masthead, so
+ * the pair is not a before/after. The clip is real either way.
+ * examples/adaptive-sweep.md pages 14-15). A selector
  * list distributes nothing: each comma-part needs its own combinator. */
 section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage,
 section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage,
