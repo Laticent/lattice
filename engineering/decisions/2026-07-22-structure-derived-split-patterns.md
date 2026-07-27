@@ -1159,3 +1159,52 @@ across them — and both were found by *rendering the artifact and looking at it
 rule-6 conservation gate is a genuine gate and it earned its keep (five real drops), but
 its published scope is now stated honestly: it detects **drops, not duplication**, and
 FM-2 needs its own assertions, which the suite now carries.
+
+## 13. The two follow-ons, closed (2026-07-27)
+
+P-envelope shipped with two defects logged rather than fixed, on the HARD RULE #18 grounds that
+both were pre-existing and off the path of the split work. Both are now closed, and one of them
+turned out to be considerably worse than the note claimed.
+
+**The footer band's last un-migrated mark.** The footer Cell exists to retire "three absolutes at
+the same baseline with no shared budget" (`design/forms.md` §6). The running `footer:` text never
+finished that migration — it stayed `position: absolute` with a fixed `--footerleft-w` (52cqi)
+budget beside an in-flow `nowrap` section rail, so neither side could yield and on a deck with
+two long strings they overprinted. The P-envelope work promoted the footer to a flex ITEM on
+SPLIT pages only, which fixed the band it had touched and left the rest exactly as it was. The
+promotion now applies wherever the band carries a docked mark, and the row allocates the width.
+Four of the 117 gallery pages change; all four were broken before (p78 painted
+"…tint-edge at-right" straight through "THE ANNEXES · APPROVED DECORATION"; p47/p58 wrapped the
+footer to a second line the band then clipped). Pinned by
+`test/integration/invariants/footer-band.test.js`, which drives a deliberately contended fixture
+in real Chromium and asserts the flex contract rather than a pixel diff.
+
+**Measuring it went wrong twice, and the record is worth keeping**, because the failure mode is
+this branch's recurring one — a plausible number that is not the truth:
+- Comparing the footer's BOX against the rail's reported **42 bad pages**. An absolute footer's
+  box is its 52cqi budget, not its text, so most of those had no ink near the rail.
+- Measuring the text with a `Range` reported the fix making things **worse**. `getClientRects()`
+  returns laid-out text, and `overflow: hidden` clips paint without moving layout, so a
+  correctly-ellipsised run still measures full width.
+- Only rasterizing the band settled it: **2** pages with real ink collision, plus 2 more wrapping.
+The test therefore asserts the property that *guarantees* the pixels — flex items cannot overlap,
+and `overflow: hidden` confines ink to the box — not a derived measurement of them.
+
+**The docs-site preview alarms: a gate, not a behavior change.** The docs site's live component
+previews all come from one builder (`docs/src/lib/single-slide-render.ts`), which injects
+`lattice-runtime.js` into each srcdoc frame where the watcher self-boots in AUTHOR mode. So both
+engine alarms — the red `.overflow` ring and the amber `.illegible` type floor — can paint on a
+page someone is merely browsing. That default is correct for the surfaces where the reader can
+act (the Specimen has an Edit face; the Studio is an editor) and it is the SAME builder, so
+flipping it to reader mode would silence the ring where it is wanted. The real defect was that
+the exposure was **unmonitored**: nothing trips it today, and the first person to learn that a
+component sample had drifted dense enough to ring would have been a prospective user.
+`docs/e2e/reader-alarms.spec.ts` (@smoke, so it runs per-PR) asserts no shipped preview paints
+either alarm on a reader route — and carries a **positive control** that injects a 4px-label
+figure and requires the watcher to react, so "zero alarms" can never pass because the watcher
+never booted. That is the §8 rule 9 hollow-gate failure, and it is now designed out of this gate
+rather than discovered in it.
+
+*(Process note: both follow-ons were originally recorded in `BACKLOG.md`, which is a generated
+one-way mirror of the open issue queue — `tools/sync-backlog.js`, "DO NOT EDIT". Hand-added notes
+there survive only until the next sync. Durable design notes belong here.)*

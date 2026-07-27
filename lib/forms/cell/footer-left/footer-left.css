@@ -11,6 +11,12 @@ section.form > footer {
   inset: var(--footerleft-inset, auto auto var(--frame-inset-y) var(--frame-inset-x));
   /* Stay clear of the right-hand wayfinding group (rail + pagination) — the band
    * no longer dodges a centred rail with a magic-number calc; it is simply
-   * width-bounded on its own side. */
+   * width-bounded on its own side.
+   * A BUDGET is not a negotiation, though, and that is this rule's limit: it bounds the
+   * footer without telling it what the rail is doing, so when both strings are long the two
+   * marks overprint (measured at 233–301px on the shipped gallery). Wherever the band carries
+   * a docked mark, base.modifiers.css promotes the footer to a real flex ITEM instead, and the
+   * row allocates the width — the budget below then only governs the un-docked case, where the
+   * footer is the band's sole occupant and nothing can collide with it. */
   max-width: var(--footerleft-w, 52cqi);
 }

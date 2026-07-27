@@ -16218,13 +16218,23 @@ section.form > .cell-footer > .lat-split-rail {
    (seen on a real render: "conservation" struck through "SECTION"). So on a docked-rail page
    the footer text becomes a real flex item that ABSORBS the free space and ellipsises instead
    of overrunning — `flex-grow`, not `margin-right:auto` (HARD RULE #20 — a margin is invisible
-   to the height math the Fit Spine measures). Scoped by `:has(> .lat-split-rail)` to split-run
-   pages only: the un-split band keeps its current geometry byte for byte.
-   This only WORKS because the docked section rail keeps a width reserve (stage.css,
-   `--footer-center-w`): a flex item can only absorb free space if its siblings can give it up,
-   and an un-capped nowrap rail cannot. Measured on examples/split-relationship.pdf at 1036px of
-   band: footer 485/485px (nothing truncated), rail capped at 282, k-of-N and page number clear. */
-section.form > .cell-footer:has(> .lat-split-rail) > footer,
+   to the height math the Fit Spine measures).
+   Applies to ANY band carrying a docked mark, not just a split run's. Scoped to
+   `:has(> .lat-split-rail)` alone it left the un-split band exactly as it was — which was
+   already broken, just less visibly: an absolute footer with a fixed 52cqi budget beside an
+   in-flow nowrap rail means NEITHER side yields, so on a deck whose footer text and section
+   label are both long they simply overprint. Measured on examples/split-relationship.md p2:
+   footer 22–511px, rail from 278px — 233px of overprint, byte-identical on the pre-fix engine.
+   Two absolutes at the same baseline with no shared budget is the exact defect the footer Cell
+   was created to retire (forms.md §6); this finishes that migration for the last mark that had
+   not joined the row.
+   Where the band has room — 468px of slack on a gallery page — a `flex: 1 1 auto` footer simply
+   fills it and renders identically to the absolute it replaces; only a contended band changes,
+   and there the two shrink proportionally and the footer ellipsises instead of overprinting.
+   It works because both sides can now give ground: the footer carries `min-width: 0` below and
+   the docked rail carries it in stage.css (an un-capped nowrap rail with `min-width: auto` is
+   unshrinkable, which is what made the first version of this fix collapse the footer to 38px). */
+section.form > .cell-footer:has(> .tile-progress, > .lat-split-rail) > footer,
 section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
   inset: auto;
@@ -20220,7 +20230,13 @@ section.form > footer {
   inset: var(--footerleft-inset, auto auto var(--frame-inset-y) var(--frame-inset-x));
   /* Stay clear of the right-hand wayfinding group (rail + pagination) — the band
    * no longer dodges a centred rail with a magic-number calc; it is simply
-   * width-bounded on its own side. */
+   * width-bounded on its own side.
+   * A BUDGET is not a negotiation, though, and that is this rule's limit: it bounds the
+   * footer without telling it what the rail is doing, so when both strings are long the two
+   * marks overprint (measured at 233–301px on the shipped gallery). Wherever the band carries
+   * a docked mark, base.modifiers.css promotes the footer to a real flex ITEM instead, and the
+   * row allocates the width — the budget below then only governs the un-docked case, where the
+   * footer is the band's sole occupant and nothing can collide with it. */
   max-width: var(--footerleft-w, 52cqi);
 }
 
