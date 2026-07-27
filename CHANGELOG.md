@@ -8495,7 +8495,12 @@ in patch versions.
   two-round design competition and an adversarial review that rejected the
   round-1 winner (moving Coach/Chat/Settings behind a secondary surface) for reopening a
   twice-settled product decision and breaking the guided-tour engine; this design keeps those three
-  controls exactly where the prior decisions require.
+  controls exactly where the prior decisions require. **The active bar cell now swaps
+  `--text-heading`/`--bg` instead of tinting with `--accent-soft`** — reported as too subtle to
+  read at a glance; the swap paints a solid, high-contrast chip in the *other* mode's look (a dark
+  chip in light mode, a light chip in dark mode) using only tokens every palette already carries,
+  no new ones. Scoped to the bar variant only — the desktop/tablet activity rail's accent-soft
+  active state is unchanged.
   (`docs/src/components/studio/{StudioShell.tsx,StudioDrawer.tsx,icons.ts,scroll-fade.tsx}`;
   `engineering/decisions/2026-07-26-studio-mobile-eight-cell-bar.md`.)
 - **Quadrant names now sit OUTSIDE the plot, centered on their column, in their own quadrant's color.**

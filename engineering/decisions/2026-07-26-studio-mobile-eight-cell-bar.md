@@ -151,6 +151,25 @@ toast was confirmed to never fire at all on the untouched desktop
 `demo.spec.ts` path either — see below). A stray unconditional
 screen-reader-only span (rendered even at zero issues) was also removed.
 
+## Selected-state contrast — swap the mode pair, don't tint
+
+Follow-up feedback: the active bar cell's `--accent-soft` tint (the same
+low-contrast treatment the rail uses) was too subtle to register at a
+glance on the bar specifically. Rather than introduce a new token, `BarIcon`
+now paints the active **bar** cell (not rail — scope confirmed with the
+user) with `bg-[var(--text-heading)] text-[var(--bg)]`: swapping the
+theme's own primary text/background pair. Since that pair is *already*
+tuned for maximum contrast in every palette (it's the base text-on-surface
+relationship every theme is built around), the swap reads as "the other
+mode's look" for free — a dark, high-contrast chip in light mode, a light
+one in dark mode — with zero new tokens, zero palette-specific casing, and
+guaranteed-legible contrast by construction. Verified with real screenshots
+in both modes on `indaco` and on `onyx` (the palette's monochrome edge
+case, where the swap becomes a literal solid-black/solid-white chip). The
+bar's redundant bottom-accent-rule marker is dropped for this state (the
+fill itself is now the marker); the rail's left-edge rule marker is
+unchanged.
+
 ## A real-device report found a second, cross-browser bug
 
 After the PR opened, the user tapped Source → Compose → Preview on a real

@@ -3592,14 +3592,23 @@ function BarIcon({ label, hint, caption, active, onClick, children, variant = 'r
 				bar ? 'min-w-0 flex-1 gap-[3px] rounded-none px-1 py-1.5 text-[9px]' : 'w-11 gap-0.5 rounded-xl py-2 text-[8.5px]',
 				tone === 'solid' ? 'bg-[var(--accent)] text-[var(--on-accent)]'
 					: tone === 'outline' ? 'border border-border text-[var(--text-heading)]'
-					: active ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
+					: active
+						// The mobile BAR's selected state swaps --text-heading/--bg rather than tinting with
+						// --accent-soft: in light mode that paints a dark chip (light mode's near-black text
+						// color as the fill), in dark mode a light chip — the palette's OWN opposite-mode look,
+						// with zero new tokens (every palette already carries both, high-contrast by
+						// construction since they're the theme's primary text/background pair). Reported as
+						// too subtle to read at a glance; the rail's accent-soft tint is unchanged (scoped fix).
+						? (bar ? 'bg-[var(--text-heading)] text-[var(--bg)]' : 'bg-[var(--accent-soft)] text-[var(--accent)]')
+						: 'text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]',
 			)}
 		>
 			{/* Active marker: the rail variant gets a left-edge rule (VSCode-style, on a
-			    vertical bar's inner edge); the bar variant gets a bottom rule (correct for
-			    a horizontal cell — the rail's left marker would sit under the wrong neighbor). */}
-			{active && tone === 'ghost' && (
-				<span aria-hidden="true" className={bar ? 'absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full bg-[var(--accent)]' : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
+			    vertical bar's inner edge). The bar variant has no separate marker — its
+			    inverted-chip fill above IS the marker, so a second accent rule under a
+			    solid block would just be visual noise. */}
+			{active && tone === 'ghost' && !bar && (
+				<span aria-hidden="true" className="absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]" />
 			)}
 			{children}
 			<span className="tracking-tight">{caption}</span>
