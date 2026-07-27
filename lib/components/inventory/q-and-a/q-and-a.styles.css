@@ -341,43 +341,42 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
   line-height: var(--lh-snug);
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The default ledger, spine, and tab looks are already single-column streams and
    need no reflow. Two looks pack horizontally and crush in a tall box: `grid`
    (2×2 quadrant) and `rail` (number | question | answer columns). Collapse both to
    a single vertical column — grid drops its cross rules, rail falls back to the
-   ledger's hanging-index form — so a portrait deck (or a narrow nested cell) reads
-   one pair per band. Keyed on the nearest `lattice` container's aspect. */
-@container lattice (aspect-ratio <= 0.93) {
-  /* grid 2×2 → one column; retire the dividing cross. The container is a flex/grid
-     descendant (`> ul`) so the container query CAN restyle it: drop to a flex column
-     so the pairs pack by content height + gap (the grid's stretched auto-rows left
-     huge gaps), and reset each pair's reserved two-line header to natural height. */
-  section.q-and-a.grid > .cell-stage > :is(ul, ol) {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: stretch;
-    gap: var(--sp-lg);
-  }
-  /* release the quadrant cell sizing — natural-height pairs in the single column. */
-  section.q-and-a.grid > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; justify-content: flex-start; }
-  section.q-and-a.grid > .cell-stage > :is(ul, ol) > li > strong { min-height: 0; }
-  section.q-and-a.grid > .cell-stage > :is(ul, ol)::before,
-  section.q-and-a.grid > .cell-stage > :is(ul, ol)::after { display: none; }
-  /* rail columns → the ledger's hanging-index block so Q and A stack legibly. */
-  section.q-and-a.rail > .cell-stage > :is(ul, ol) > li {
-    display: block;
-    position: relative; /* self-contained context for the absolute index ::before */
-    padding-left: var(--qa-gutter);
-    padding-bottom: var(--sp-lg);
-    border-left: 2px solid var(--accent);
-  }
-  section.q-and-a.rail > .cell-stage > :is(ul, ol) > li::before {
-    content: "0" counter(qa);
-    position: absolute;
-    left: var(--sp-md);
-    top: 0;
-  }
-  section.q-and-a.rail > .cell-stage > :is(ul, ol) > li > :is(ul, ol) { padding-top: var(--sp-xs); }
+   ledger's hanging-index form — so a tall or strip deck reads
+   one pair per band. Keyed on the deck's `data-family` stamp. */
+/* grid 2×2 → one column; retire the dividing cross. The container is a flex/grid
+   descendant (`> ul`) so the container query CAN restyle it: drop to a flex column
+   so the pairs pack by content height + gap (the grid's stretched auto-rows left
+   huge gaps), and reset each pair's reserved two-line header to natural height. */
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: var(--sp-lg);
 }
+/* release the quadrant cell sizing — natural-height pairs in the single column. */
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; justify-content: flex-start; }
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong { min-height: 0; }
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before,
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::after { display: none; }
+/* rail columns → the ledger's hanging-index block so Q and A stack legibly. */
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
+  display: block;
+  position: relative; /* self-contained context for the absolute index ::before */
+  padding-left: var(--qa-gutter);
+  padding-bottom: var(--sp-lg);
+  border-left: 2px solid var(--accent);
+}
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li::before {
+  content: "0" counter(qa);
+  position: absolute;
+  left: var(--sp-md);
+  top: 0;
+}
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) { padding-top: var(--sp-xs); }
+

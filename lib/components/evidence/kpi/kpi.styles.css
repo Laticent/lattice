@@ -473,58 +473,56 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
 
 
 
-/* ── Box-local family reflow (2026-06-18-component-adaptive-sizing.md) ──────
+/* ── Family reflow (2026-06-18-component-adaptive-sizing.md) ──────
  * Every kpi variant (briefing, ops, spotlight, trajectory) places metric <li>s
  * on an explicit grid — a hero spanning rows + supports in a side column, or a
  * 2×2 matrix. In a square-or-narrower box that side-by-side composition is
  * cramped. Switching the metric list to a single flex COLUMN linearises every
  * variant at once: flex ignores the children's grid-column / grid-row, so the
  * hero stacks on top and the supports follow, full width — no per-variant
- * override. Keyed on the nearest `lattice` container's aspect, so it fires on a
- * portrait deck AND inside a narrow nested cell, replacing the data-orientation
+ * override. Keyed on the deck's `data-family` stamp, so it fires on any tall or strip
+ * deck, replacing the data-orientation
  * stamp. `.kpi.kpi` (class doubled) lifts the selector to (0,2,2) so it matches
  * the per-variant grid rules' specificity (`section.kpi.spotlight > .cell-stage > ol`) and wins
  * on source order — the role the old `[data-orientation]` attribute played. */
-@container lattice (aspect-ratio <= 1.25) {
-  section.kpi.kpi > .cell-stage > ol,
-  section.kpi.kpi > .cell-stage > ul {
-    display: flex;
-    flex-direction: column;
-    /* The list keeps `flex: 1` (fills the slide below the title), so centre the
-     * metrics WITHIN it — centring the section can't, the list absorbs the slack. */
-    justify-content: center;
-    gap: var(--sp-md);
-    align-content: normal;
-  }
-  /* Demote the hero CARD to the lead row of a uniform ledger. The wide-grid
-   * briefing hero is a full-width accent box with the supports in its right
-   * column; linearised, that box keeps a dead right half AND eats the vertical
-   * room a short square/portrait frame needs — so the 4th metric clipped. As a
-   * hairline lead row (bigger number, no box) all four metrics read as one ledger
-   * and fit. Scoped away from ops/compliance/trajectory, which are already uniform
-   * grids/cards. (0,3,3) ties the briefing hero rules and wins on source order. */
-  section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol > li:nth-child(1) {
-    background: none;
-    border-left: none;
-    border-top: 1.5px solid var(--text-heading);
-    padding: var(--sp-sm) 0;
-  }
-  section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol > li:nth-child(1)::after {
-    content: none;
-  }
-  section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol > li:nth-child(1) > strong {
-    font-size: var(--fs-h1);
-    line-height: 1;
-  }
-  section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol > li:nth-child(1) > ul > li:first-child {
-    font-family: var(--font-body);
-    font-size: var(--fs-body);
-    padding-top: var(--sp-3xs);
-  }
+section.kpi.kpi:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol,
+section.kpi.kpi:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  display: flex;
+  flex-direction: column;
+  /* The list keeps `flex: 1` (fills the slide below the title), so centre the
+   * metrics WITHIN it — centring the section can't, the list absorbs the slack. */
+  justify-content: center;
+  gap: var(--sp-md);
+  align-content: normal;
 }
+/* Demote the hero CARD to the lead row of a uniform ledger. The wide-grid
+ * briefing hero is a full-width accent box with the supports in its right
+ * column; linearised, that box keeps a dead right half AND eats the vertical
+ * room a short square/portrait frame needs — so the 4th metric clipped. As a
+ * hairline lead row (bigger number, no box) all four metrics read as one ledger
+ * and fit. Scoped away from ops/compliance/trajectory, which are already uniform
+ * grids/cards. (0,3,3) ties the briefing hero rules and wins on source order. */
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) {
+  background: none;
+  border-left: none;
+  border-top: 1.5px solid var(--text-heading);
+  padding: var(--sp-sm) 0;
+}
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1)::after {
+  content: none;
+}
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > strong {
+  font-size: var(--fs-h1);
+  line-height: 1;
+}
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > ul > li:first-child {
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  padding-top: var(--sp-3xs);
+}
+
 /* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): shed the
  * status pills, the lowest-priority unit (manifest `adapt.droppable`), so the
  * numbers and their labels own the narrow frame instead of crowding it. */
-@container lattice (aspect-ratio <= 0.5) {
-  section.kpi.kpi > .cell-stage > :is(ol,ul) li code { display: none; }
-}
+section.kpi.kpi:where([data-family="strip"]) > .cell-stage > :is(ol,ul) li code { display: none; }
+

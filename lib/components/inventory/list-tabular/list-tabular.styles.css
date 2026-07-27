@@ -303,44 +303,43 @@ section.list-tabular.register.outline ol > li > code {
 /* ── Universal modifier: compact ──────────────────────────────────────── */
 section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The row is a four-track grid (counter · name · description · meta); in a tall box
    those tracks crush to slivers and the meta wraps badly. Collapse the row to a
    block flow — the counter and name lead the line, the meta sits inline after the
    name, and the description drops to its own line beneath. (Block flow, not a grid
    re-track, because the name is a bare text node the grid can place only by source
    order — a block flow lays them out in that order without fighting it.) Keyed on
-   the nearest `lattice` container's aspect; the doubled class `.list-tabular.list-
+   the deck's `data-family` stamp; the doubled class `.list-tabular.list-
    tabular` reaches the variants' (0,2,N) weight and source order keeps it last. */
-@container lattice (aspect-ratio <= 0.93) {
-  section.list-tabular.list-tabular ol > li {
-    display: block;
-    grid-template-columns: none;
-  }
-  section.list-tabular.list-tabular ol > li::before {
-    padding-right: var(--sp-sm);
-  }
-  /* meta code → inline after the name (no longer a right-aligned column). */
-  section.list-tabular.list-tabular ol > li > code {
-    display: inline-block;
-    padding-left: var(--sp-sm);
-    text-align: left;
-  }
-  /* description (nested list) → its own line below the name. */
-  section.list-tabular.list-tabular ol > li > ul { display: block; }
-  section.list-tabular.list-tabular ol > li > ul > li:first-child {
-    display: block;
-    padding-top: var(--sp-2xs);
-  }
-  /* the 3-line authoring contract carries meta as a second nested li (not inline
-     `<code>`); in block flow its base `grid-column:4; text-align:right` would orphan
-     it right-aligned, so left-align it onto its own line like the inline-code meta. */
-  section.list-tabular.list-tabular ol > li > ul > li:nth-child(2) {
-    display: block;
-    text-align: left;
-    padding-top: var(--sp-2xs);
-  }
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li {
+  display: block;
+  grid-template-columns: none;
 }
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li::before {
+  padding-right: var(--sp-sm);
+}
+/* meta code → inline after the name (no longer a right-aligned column). */
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > code {
+  display: inline-block;
+  padding-left: var(--sp-sm);
+  text-align: left;
+}
+/* description (nested list) → its own line below the name. */
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul { display: block; }
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:first-child {
+  display: block;
+  padding-top: var(--sp-2xs);
+}
+/* the 3-line authoring contract carries meta as a second nested li (not inline
+   `<code>`); in block flow its base `grid-column:4; text-align:right` would orphan
+   it right-aligned, so left-align it onto its own line like the inline-code meta. */
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:nth-child(2) {
+  display: block;
+  text-align: left;
+  padding-top: var(--sp-2xs);
+}
+
 
 /* ── Cover-rows carousel — list-tabular's owned SPLIT forms ────────────────────
    An overflowing tabular list re-authors at export into a title COVER + the rows

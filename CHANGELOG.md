@@ -431,23 +431,32 @@ in patch versions.
   `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
   `backends/vivus.ts`.)
 ### Fixed
-- **Every `@container lattice (aspect-ratio …)` rule was INERT on a square deck — 18 files.**
+- **Every `@container lattice (aspect-ratio …)` rule was INERT on a square deck — 34 blocks in 30 files.**
   The adaptive family model was classified twice against two different boxes: `familyFor()` on the
   DECK geometry in JS, and a container query on the container's CONTENT box in CSS. `section` is
   `container-type: size` with asymmetric padding (more vertical than horizontal), so its content box
   runs proportionally wider than the deck — a 1080×1080 deck classified `square` in JS while the CSS
-  saw **1.051** — missing the 1.05 boundary by a thousandth — and matched `wide`. Both halves were internally consistent, so nothing rendered
-  visibly wrong and no test could see it: the square tier simply never ran. Only `square` was
-  affected — its band is 0.15 wide against a +0.051 drift, while `tall`'s 0.4-wide band absorbs
-  its +0.021, which is why portrait always worked.
-  The two lists are now separate (`BOUNDARIES` for the deck, `CSS_BOUNDARIES` for the CSS literals),
-  each CSS boundary placed at the MIDPOINT of its measured gap: `0.9 → 0.93`, `1.05 → 1.25`
-  (`0.5` unchanged). Not a formula — the drift is not a clean function of deck aspect (padding is
-  `cqi` resolved against the ICB, which is the export geometry while the section box may be a scaled
-  CSS size), but `size:` must name a REGISTERED `@size`, so the authorable aspects are finite and
-  boundaries placed in the gaps are exact. **`npm run check:families`** renders all 14 registered
-  sizes and fails if the CSS's own verdict (`--lat-family`) and `familyFor()` ever disagree — which
-  is what catches a new `@size`, a padding change, or someone merging the two lists back together.
+  saw **1.051**, missing the 1.05 boundary by a thousandth, and matched `wide`. Both halves were
+  internally consistent, so nothing rendered visibly wrong and no test could see it: the square tier
+  simply never ran. Only `square` was affected — its band is 0.15 wide against a +0.051 drift, while
+  `tall`'s 0.4-wide band absorbs its +0.021, which is why portrait always worked.
+  Fixed by removing the second measurement rather than calibrating around it. The engine now stamps
+  `data-family` on each `section` from the deck geometry (the same convention as `data-orientation`,
+  and what the runtime already did for Frames), and component CSS selects that stamp:
+  `section.foo:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > …`.
+  `:where()` contributes zero specificity, so all 34 blocks converted without changing a single
+  cascade winner, and `wide` stays unstamped so landscape output is byte-identical. **Verified by
+  render:** at `size: square` the `decision` component now reflows to one column (it was inert),
+  while `matrix-2x2` correctly stays two-up there because its rule is tall+strip only.
+  The container form's advertised box-local reach — a nested Cell naming itself `lattice` so a
+  component resolved against its cell — was never implemented (`container-name: lattice` appeared
+  exactly once in the library, on `section`), so nothing real was given up.
+  **Breaking:** `familyQuery()` is replaced by `familySelector()`, and `CSS_BOUNDARIES` /
+  `DECK_TO_CSS_BOUNDARY` are gone from `lib/adaptive/families.js` — there is one boundary list again.
+  `npm run check:families` and `tools/check-adaptive-families.js` are removed: they existed only to
+  catch the two classifiers disagreeing, and there is now one classifier. A CSS-authoring component
+  that wrote its own `@container … aspect-ratio` rule must switch to the stamp; a new unit test fails
+  the build if one reappears anywhere in `lib/`.
 - **`progress` drew every bar ~11px too long, so the bars lied about their own values.**
   `.progress-fill` was `box-sizing: content-box` (the CSS default), so its 4px accent border, 1px
   hairline and 0.625cqi of readout padding all sat OUTSIDE `width: calc(var(--pct) * 1%)` — a fixed

@@ -249,29 +249,27 @@ section.list-steps.ghost ol > li > ul > li {
   font-size:var(--fs-h4); color:var(--text-heading); font-weight:400; line-height:var(--lh-snug);
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The default strip is a horizontal flex row of step cards with right-pointing
    connectors; in a tall box those columns crush. Apply the existing `vertical`
    treatment automatically — stack the cards down the frame, content-height, with a
-   down-pointing connector on the bottom edge. Keyed on the nearest `lattice`
-   container's aspect (a portrait deck OR a narrow nested cell). `:not(.timeline)`
+   down-pointing connector on the bottom edge. Keyed on the deck's `data-family` stamp (any tall or strip deck). `:not(.timeline)`
    spares the dots-on-a-spine variant (its own layout); the `:not()` also lifts the
    selector to (0,3,2) so it clears the equal-weight variant rules cleanly. Boundary
    is `≤ 0.9` (tall + strip): a square box fits neither the horizontal row (it
    overflows) nor 3–4 full cards stacked (also overflows), so `square` is left out of
    `adapt.families` and the vertical stack fires only on the taller frames. */
-@container lattice (aspect-ratio <= 0.93) {
-  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol {
-    flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
-  }
-  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol > li { flex: 0 0 auto; }
-  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol > li:not(:last-child)::after {
-    right: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
-    transform: translate(50%, 50%);
-    border-top: 10px solid var(--border); border-bottom: none;
-    border-left: 10px solid transparent; border-right: 10px solid transparent;
-  }
+section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol {
+  flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
 }
+section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol > li { flex: 0 0 auto; }
+section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol > li:not(:last-child)::after {
+  right: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
+  transform: translate(50%, 50%);
+  border-top: 10px solid var(--border); border-bottom: none;
+  border-left: 10px solid transparent; border-right: 10px solid transparent;
+}
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

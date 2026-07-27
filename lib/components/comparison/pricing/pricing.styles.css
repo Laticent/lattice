@@ -136,16 +136,15 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul {
 section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
   flex: 0 0 auto;
 }
-/* Box-local family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
- * (≤0.9) stack the tiers to one column, keyed on the nearest `lattice` container
- * so it fires on a portrait deck AND inside a narrow nested cell — replacing the
+/* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
+ * (≤0.9) stack the tiers to one column, keyed on the deck's `data-family` stamp
+ * so it fires on any tall or strip deck — replacing the
  * deck-wide data-orientation stamp. Doubled class reaches (0,2,2) to match the
  * [data-orientation] reflow it mirrors. */
-@container lattice (aspect-ratio <= 0.93) {
-  section.pricing.pricing > .cell-stage > ul {
-    flex-direction: column;
-  }
-  section.pricing.pricing > .cell-stage > ul > li {
-    flex: 0 0 auto;
-  }
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  flex-direction: column;
 }
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
+  flex: 0 0 auto;
+}
+

@@ -13,6 +13,23 @@ const assert = require('node:assert/strict');
 
 const { ASK_SYSTEM, askComponentMessages, askRepairMessages, askDesignRefineMessages, askComponentRefineMessages, coerceRefinement, coerceComponent, rankSimilar, auditComponentDesign, addScopePrefix, MAX_CSS_BYTES } = require('../../../lib/layout/ai.js');
 const { gateComponent, findUnscopedSelectors } = require('../../../lib/layout/gate.js');
+const { JSDOM } = require('jsdom');
+const { FAMILY_NAMES } = require('../../../lib/adaptive/families.js');
+
+// Every family selector the canon teaches must actually MATCH a stamped slide.
+// The gate only proves a selector is SCOPED, not that it fires — a leading
+// `:where([data-family=…]) section.x` is perfectly scoped and matches nothing,
+// because the engine stamps `data-family` ON the section, so the leading form is
+// a descendant combinator looking for an ancestor that does not exist. That is
+// the #1218 failure mode reproduced in the AI canon, and only a match test
+// catches it.
+function matchesInStampedSlide(selector, family, sectionClass) {
+  const dom = new JSDOM(
+    `<section class="${sectionClass}" data-family="${family}">` +
+    '<div class="cell-stage"><ul><li><strong>a</strong><ul><li>b</li></ul></li></ul></div></section>');
+  const doc = dom.window.document;
+  return [...doc.querySelectorAll('*')].some((el) => el.matches(selector));
+}
 
 describe('component-ai — prompt', () => {
   test('askComponentMessages carries the canon, the output contract, and a worked example', () => {
@@ -122,9 +139,8 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
       '  padding:var(--sp-sm) var(--sp-md);',
       '  font-size:var(--fs-body); font-weight:700; color:var(--text-heading); line-height:var(--lh-snug);',
       '}',
-      '@container lattice (aspect-ratio <= 1.05) {',
-      '  section.capability-cards.capability-cards > .cell-stage > ul > li { width:100%; }',
-      '}',
+      'section.capability-cards.capability-cards:where([data-family="square"], [data-family="tall"], [data-family="strip"])',
+      '  > .cell-stage > ul > li { width:100%; }',
     ].join('\n'),
     manifest: {
       name: 'capability-cards', function: 'inventory', form: 'grid', substance: 'structure', bucket: 'inventory',
@@ -159,7 +175,7 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
       'section.status-cards > .cell-stage > ul > li.pass { border-left-color:var(--pass); }',
       'section.status-cards > .cell-stage > ul > li.warn { border-left-color:var(--warn); }',
       'section.status-cards > .cell-stage > ul > li.fail { border-left-color:var(--fail); }',
-      '@container lattice (aspect-ratio <= 1.05) { section.status-cards.status-cards > .cell-stage > ul > li { width:100%; } }',
+      'section.status-cards.status-cards:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width:100%; }',
     ].join('\n'),
     manifest: { name: 'status-cards', function: 'inventory', form: 'grid', substance: 'structure', bucket: 'inventory', tags: ['cards', 'status', 'grid'], description: 'Status-tagged capability cards.', skeleton: '<!-- _class: status-cards -->\n\n## Capability status\n\n- Ingest pipeline\n- Scoring engine\n- Audit trail' },
   };
@@ -177,12 +193,41 @@ describe('component-ai — the worked examples are gate-clean (make-or-break)', 
       'section.build-buy > .cell-stage > ul { display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-lg); align-content:start; flex:1; min-height:0; list-style:none; padding:0; margin:0; }',
       'section.build-buy > .cell-stage > ul > li { background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); font-size:var(--fs-message); font-weight:700; color:var(--text-heading); }',
       'section.build-buy > .cell-stage > ul > li > ul { list-style:none; padding:var(--sp-sm) 0 0 0; margin:0; display:flex; flex-direction:column; gap:var(--sp-xs); font-size:var(--fs-body); font-weight:400; color:var(--text-body); }',
-      '@container lattice (aspect-ratio <= 0.9) { section.build-buy.build-buy > .cell-stage > ul { grid-template-columns:1fr; } }',
+      'section.build-buy.build-buy:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul { grid-template-columns:1fr; }',
     ].join('\n'),
     manifest: { name: 'build-buy', function: 'comparison', form: 'split', substance: 'structure', bucket: 'comparison', tags: ['comparison', 'two-column', 'tradeoff'], description: 'Two options side by side.', skeleton: '<!-- _class: build-buy -->\n\n## Build vs buy\n\n- Build\n  - Full control\n- Buy\n  - Faster' },
   };
   test('worked example D (two-column comparison) passes gateComponent — grid + gap, no margin', () => {
     assert.equal(gateComponent(COMPARE).ok, true, JSON.stringify(gateComponent(COMPARE).errors));
+  });
+
+  describe('component-ai — the canon\'s family reflow actually fires', () => {
+    // Pull the family selectors straight out of the worked examples so the test
+    // tracks whatever the canon currently teaches, not a copy of it.
+    // A selector may wrap across lines, so match from the end of the previous rule
+    // (or the start of the sheet) up to the `{` — selectors never contain braces.
+    const FAMILY_RULE = /(?:^|\})\s*([^{}]*\[data-family=[^{}]*?)\s*\{/g;
+    const cases = [
+      { css: CARDS.css, cls: 'capability-cards' },
+      { css: REUSE.css, cls: 'status-cards' },
+      { css: COMPARE.css, cls: 'build-buy' },
+    ];
+    for (const { css, cls } of cases) {
+      test(`${cls}: every taught family selector matches a stamped slide`, () => {
+        const selectors = [...css.matchAll(FAMILY_RULE)].map((m) => m[1].replace(/\s+/g, ' ').trim());
+        assert.ok(selectors.length > 0, `${cls} teaches no family rule`);
+        for (const sel of selectors) {
+          const families = FAMILY_NAMES.filter((f) => sel.includes(`[data-family="${f}"]`));
+          assert.ok(families.length > 0, `${sel} names no canonical family`);
+          for (const fam of families) {
+            assert.ok(
+              matchesInStampedSlide(sel, fam, cls),
+              `taught selector never matches on a data-family="${fam}" slide:\n  ${sel}`,
+            );
+          }
+        }
+      });
+    }
   });
 
   // Example E — the MATRIX-as-table example. A real GFM table in the skeleton

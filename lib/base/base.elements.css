@@ -12,12 +12,17 @@
 
 section {
   container-type:size;
-  /* Name the slide query-container `lattice` so components reflow box-locally via
-   * `@container lattice (aspect-ratio …)`. A split/grid Cell can name ITSELF
-   * `lattice` to shadow this, so a nested component resolves against its cell.
-   * Geometry-independent, so it lives here (every render path loads dist) rather
-   * than the per-geometry engine emitter. See engineering/decisions/
-   * 2026-06-18-component-adaptive-sizing.md. */
+  /* The slide is a size container so every `cq*` unit in the token system resolves
+   * against it — that is what `container-type` is here for, and it is load-bearing.
+   *
+   * The `lattice` NAME is now queried by NO engine rule. Structural family reflow
+   * used to key off `@container lattice (aspect-ratio …)`; #1218 replaced that with
+   * the `data-family` stamp the engine derives from the deck geometry, because a
+   * container query measures the container's CONTENT box, which drifts off the deck
+   * aspect (see the header of lib/adaptive/families.js). The name is kept as a
+   * stable handle for theme and deck CSS that wants to size-query the slide box —
+   * it costs nothing and removing it would break any such rule silently. Do NOT
+   * reintroduce an aspect-ratio query on it. */
   container-name:lattice;
   box-sizing:border-box; overflow:hidden; position:relative;
   display:flex; flex-direction:column;
@@ -28,24 +33,6 @@ section {
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility;
   border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum); border-image-slice: 1;
 }
-
-/* ── The CSS's OWN family verdict, made readable (#1218) ──────────────────────
- * `--lat-family` is not consumed by any layout — it exists so the CSS's actual
- * classification can be READ, by `tools/check-adaptive-families.js` and by anyone
- * debugging a reflow. It is the only way to observe which branch the cascade
- * really took; every other signal (a gated declaration's computed value) is
- * component-specific and tells you about that component, not about the tier.
- *
- * Stamped on `.cell-stage`, not `section`, because a container CANNOT query
- * ITSELF — the section names the `lattice` container, so only its descendants
- * can match. Boundaries are CSS_BOUNDARIES (lib/adaptive/families.js): the
- * container measures its CONTENT box, which runs proportionally wider than the
- * deck box `familyFor()` classifies. The gate renders every registered `@size`
- * and fails if this verdict and `familyFor()` disagree. */
-@container lattice (aspect-ratio <= 0.5) { .cell-stage { --lat-family: strip; } }
-@container lattice (aspect-ratio > 0.5) and (aspect-ratio <= 0.93) { .cell-stage { --lat-family: tall; } }
-@container lattice (aspect-ratio > 0.93) and (aspect-ratio <= 1.25) { .cell-stage { --lat-family: square; } }
-@container lattice (aspect-ratio > 1.25) { .cell-stage { --lat-family: wide; } }
 
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives

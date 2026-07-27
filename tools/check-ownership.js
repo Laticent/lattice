@@ -1161,17 +1161,22 @@ const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').pr
  *   3. CONSISTENT — `single-orientation` ⟺ the `orientation` field lists exactly
  *      one orientation; `native` must support BOTH (it adapts by scaling, so it
  *      can't be orientation-restricted).
- *   4. SANE       — `native` must NOT carry `@container … aspect-ratio` (the
+ *   4. SANE       — `native` must NOT carry a `[data-family=…]` reflow rule (the
  *      contrapositive of rule 2, stated for a clear message).
  */
 function checkAdaptDeclarations(manifests, errors) {
-  const CONTAINER_ASPECT = /@container[^{]*aspect-ratio/;
-  // The shared chart-frame CSS carries a box-local `@container … aspect-ratio`
-  // rule that restructures `.chart-body` on tall boxes for EVERY chart-frame
-  // member — so a chart's reflow can live there, not in its own styles.css. The
-  // anti-drift rule must see it, or a chart could declare `native` while inheriting
-  // box-local reflow (the false-negative the maker-checker caught). Union it in for
-  // chart-bucket components, the way checkVariantDeclaration unions base.modifiers.
+  // The family stamp the engine writes from the deck geometry (lib/adaptive/
+  // families.js). This REPLACED `@container … aspect-ratio` in #1218 — a container
+  // query measures the section's content box, which drifts off the deck aspect, so
+  // the whole square tier was silently inert. Matching the attribute (not the
+  // at-rule) is what keeps this gate seeing real reflow.
+  const FAMILY_REFLOW = /\[data-family\s*=/;
+  // The shared chart-frame CSS carries a family reflow rule that restructures
+  // `.chart-body` on tall boxes for EVERY chart-frame member — so a chart's reflow
+  // can live there, not in its own styles.css. The anti-drift rule must see it, or a
+  // chart could declare `native` while inheriting reflow (the false-negative the
+  // maker-checker caught). Union it in for chart-bucket components, the way
+  // checkVariantDeclaration unions base.modifiers.
   const chartFamilyCss = (() => {
     const p = path.join(COMPONENTS_DIR, 'chart', '_chart-family', 'chart-family.css');
     return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
@@ -1188,14 +1193,14 @@ function checkAdaptDeclarations(manifests, errors) {
     const cssPath = componentStylesPath(m);
     let css = cssPath ? fs.readFileSync(cssPath, 'utf8') : '';
     if (manifestBucket(m) === 'chart') css += `\n${chartFamilyCss}`;
-    const hasContainerReflow = CONTAINER_ASPECT.test(css);
+    const hasContainerReflow = FAMILY_REFLOW.test(css);
     // orientation defaults to BOTH when omitted (the manifest's documented default).
     const orientation = Array.isArray(m.orientation) ? m.orientation : ['landscape', 'portrait'];
 
     if (hasContainerReflow && mode !== 'reflow') {
       errors.push(
-        `${m.name}: declares adapt.mode "${mode}" but its CSS uses \`@container … aspect-ratio\` ` +
-        `(box-local reflow) — must be "reflow". Fix the manifest or remove the @container rule.`,
+        `${m.name}: declares adapt.mode "${mode}" but its CSS uses \`[data-family=…]\` ` +
+        `(family reflow) — must be "reflow". Fix the manifest or remove the family rule.`,
       );
     }
     if (mode === 'single-orientation' && orientation.length !== 1) {

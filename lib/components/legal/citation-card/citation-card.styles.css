@@ -230,13 +230,14 @@ section.citation-card :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    VARIANTS — .split (quote | gloss), .triptych (three panels), .margin (annotated
    margins) — collapsing each to one stacked column on a portrait/square frame.
 
-   These variants put `display:grid` on the SECTION element itself, so the
-   box-local `@container lattice` recipe cannot reach them — a container query
+   These variants put `display:grid` on the SECTION element itself. Under the
+   retired `@container lattice` form that was unreachable — a container query
    styles a descendant against its ANCESTOR container, never the container
-   element itself (§11). This is the same section-element boundary split-panel
-   rides, so we use the same gate-sanctioned signal: the deck-level
-   `[data-orientation]` stamp (lib/engine/slides.js), which CAN restyle the
-   section. Landscape is untouched. */
+   element itself (§11) — so this rule was written against the deck-level
+   `[data-orientation]` stamp instead. #1218 removed that constraint (family
+   rules now select `[data-family]` ON the section), but portrait + square is
+   exactly the square ∪ tall ∪ strip set, so the rule is already correct and
+   stays as-is rather than churning a verified layout. Landscape is untouched. */
 section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]),
 section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]),
 section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage { display:flex; flex-direction:column;

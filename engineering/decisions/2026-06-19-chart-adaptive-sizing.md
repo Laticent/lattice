@@ -346,3 +346,9 @@ With this, **Phase 4 is complete**: funnel, the four keyed charts, gantt,
 state-chart, journey, and roadmap all adapt to a tall box — the whole chart family
 now restructures to the box it occupies. Demos: `examples/portrait-journey.md`,
 `examples/portrait-roadmap.md` (+ committed `.pdf`s).
+
+> **Mechanism superseded (2026-07-27).** The per-family chart recipes below still
+> hold; the `@container lattice (aspect-ratio …)` trigger they are written with does
+> not. It measures the section's CONTENT box, which drifts off the deck aspect
+> (#1218), so charts now select the engine's `data-family` stamp instead. See
+> `2026-07-27-family-stamp-replaces-container-queries.md`.

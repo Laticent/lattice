@@ -69,30 +69,29 @@ section.matrix-2x2 li > ol > li {
  * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
 section.matrix-2x2 :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
-/* ── Box-local family reflow (2026-06-18-component-adaptive-sizing.md). Wide and
+/* ── Family reflow (2026-06-18-component-adaptive-sizing.md). Wide and
  * square keep the 2×2 (a square box reads the quadrants fine); tall and strip
- * collapse to a single column. Keyed on the nearest `lattice` container's aspect,
- * so it fires on a portrait deck AND inside a narrow nested cell — replacing the
+ * collapse to a single column. Keyed on the deck's `data-family` stamp,
+ * so it fires on any tall or strip deck — replacing the
  * deck-wide data-orientation stamp. */
 /* `.matrix-2x2.matrix-2x2` (class doubled) reaches (0,2,2) to match the original
  * `[data-orientation]` reflow's specificity and stay robust to future variant
  * grid rules — the role the attribute played. */
-@container lattice (aspect-ratio <= 0.93) {
-  /* Tall/strip → single column: flex-column, each card flex:1 to split the height
-   * (the flex mirror of the grid's `grid-auto-rows:minmax(0,1fr)`). */
-  section.matrix-2x2.matrix-2x2 > .cell-stage > ul,
-  section.matrix-2x2.matrix-2x2 > .cell-stage > ol {
-    flex-direction: column;
-    flex-wrap: nowrap;
-  }
-  section.matrix-2x2.matrix-2x2 > .cell-stage > ul > li,
-  section.matrix-2x2.matrix-2x2 > .cell-stage > ol > li {
-    width: 100%;
-    height: auto;
-    flex: 1;
-    min-height: 0;
-  }
+/* Tall/strip → single column: flex-column, each card flex:1 to split the height
+ * (the flex mirror of the grid's `grid-auto-rows:minmax(0,1fr)`). */
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  flex-direction: column;
+  flex-wrap: nowrap;
 }
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
+  width: 100%;
+  height: auto;
+  flex: 1;
+  min-height: 0;
+}
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

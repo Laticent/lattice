@@ -89,19 +89,16 @@ section.stats[data-orientation='portrait'] > .cell-stage > ol > li > ul > li,
 section.stats[data-orientation='square'] > .cell-stage > ol > li > ul > li {
   font-size: var(--fs-body); /* label legible under the big number (was --fs-meta) */
 }
-/* Box-local family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
- * strip (≤1.05) stack the numbers into a tall column and enlarge them, keyed on the
- * nearest `lattice` container so it fires on a portrait/square deck AND inside a
- * narrow nested cell. Doubled class matches the [data-orientation] reflow's
+/* Family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
+ * strip (≤1.05) stack the numbers into a tall column and enlarge them, keyed on the deck's `data-family` stamp so it fires on any square, tall or strip deck. Doubled class matches the [data-orientation] reflow's
  * specificity. */
-@container lattice (aspect-ratio <= 1.25) {
-  section.stats.stats > .cell-stage > ol { display:flex; flex-direction:column;
-    flex-direction: column; gap: var(--sp-sm); width: 100%; justify-content: space-evenly; flex: 1;
-  }
-  section.stats.stats > .cell-stage > ol > li > strong {
-    font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
-  }
-  section.stats.stats > .cell-stage > ol > li > ul > li {
-    font-size: var(--fs-body);
-  }
+section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol { display:flex; flex-direction:column;
+  flex-direction: column; gap: var(--sp-sm); width: 100%; justify-content: space-evenly; flex: 1;
 }
+section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > strong {
+  font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
+}
+section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > ul > li {
+  font-size: var(--fs-body);
+}
+

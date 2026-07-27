@@ -198,24 +198,22 @@ section.cards-grid.four .cards-grid-inner--ordered > .card:last-child:nth-child(
  * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
 section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
-/* ── Box-local family reflow (2026-06-18-component-adaptive-sizing.md). Wide keeps
+/* ── Family reflow (2026-06-18-component-adaptive-sizing.md). Wide keeps
    the 2-col grid; square and narrower go single-column, content-height rows
    distributed to fill (instead of grid-auto-rows:1fr ballooning each card on a tall
-   frame). Keyed on the nearest `lattice` container's aspect — fires on a portrait
-   deck AND inside a narrow nested cell, replacing the data-orientation stamp. */
+   frame). Keyed on the deck's `data-family` stamp — fires on any tall or strip deck, replacing the data-orientation stamp. */
 /* `.cards-grid.cards-grid` (class doubled) reaches (0,2,2) so it matches the
  * `:not(:has(.cards-grid-inner))` base grid rule and wins on source order — the
  * role the old `[data-orientation]` attribute played. */
-@container lattice (aspect-ratio <= 1.25) {
-  section.cards-grid.cards-grid > .cell-stage > ul,
-  section.cards-grid.cards-grid > .cell-stage > ol {
-    align-content: space-evenly;   /* content-height rows distributed, not stretched-to-fill */
-  }
-  section.cards-grid.cards-grid > .cell-stage > ul > li,
-  section.cards-grid.cards-grid > .cell-stage > ol > li {
-    width: 100%; min-height: 0;     /* single column */
-  }
+section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  align-content: space-evenly;   /* content-height rows distributed, not stretched-to-fill */
 }
+section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
+  width: 100%; min-height: 0;     /* single column */
+}
+
 
 /* ── Struck elevation ── lift each card off the stage. One rule covers all three
  * emit paths (marp-cli ul/ol>li · lattice.js .card · VS Code :not(:has) fallback).

@@ -386,14 +386,13 @@ section.chart-frame > .cell-stage { justify-content: center; }
  * padding (≈4× --sp-2xl total) — right for a wide slide, but in portrait that eats
  * precious width and shrinks every chart and its labels/numbers. Pull the side
  * inset right in so the figure (and its text) reads as large as possible. Keyed on
- * the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
+ * the deck's `data-family` stamp; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.93) {
-  section.chart-frame .chart-body {
-    width: calc(100cqi - 2 * var(--sp-sm));
-    padding: var(--sp-md) var(--sp-sm);
-  }
+section.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-body {
+  width: calc(100cqi - 2 * var(--sp-sm));
+  padding: var(--sp-md) var(--sp-sm);
 }
+
 
 /* Chart surface panel — every chart sits on its own quiet glass surface,
  * Apple "Liquid Glass" inspired at editorial-whisper intensity: a faint

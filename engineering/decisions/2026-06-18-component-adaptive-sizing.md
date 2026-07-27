@@ -15,6 +15,17 @@ that reflows to **whatever box it actually occupies**, whether that is a full
 slide, half of a `split`, a grid quadrant, a landscape projector, or a 9:19.5
 phone canvas.
 
+> **Mechanism superseded (2026-07-27).** The family MODEL below — four structural
+> families, `wide` · `square` · `tall` · `strip`, and where each one reflows — is
+> still canonical. The *trigger* is not: `@container lattice (aspect-ratio …)`
+> measures the section's CONTENT box, which drifts off the deck aspect and left the
+> whole square tier inert (#1218). Components now select the `data-family` stamp the
+> engine derives from the deck geometry. Read
+> `2026-07-27-family-stamp-replaces-container-queries.md` before writing a reflow
+> rule; every `@container` snippet below is history, not a recipe. The §11 note that
+> a container query cannot style its own container element no longer binds either —
+> the stamp sits on the section.
+
 > Status: **pilot landed (5 components).** The mechanism is built and rendered
 > through the real engine for `kpi`, `list`, `matrix-2x2`, `cards-grid`, and
 > `split-compare`; landscape output is byte-identical. Implementation notes and

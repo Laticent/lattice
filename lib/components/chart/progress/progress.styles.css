@@ -153,22 +153,24 @@
   font-style: italic;
 }
 
-/* ── Box-local FILL (square + tall + strip, ≤1.05): the bars already stack, but
+/* ── Family FILL (square + tall + strip, ≤1.05): the bars already stack, but
  * on a tall/square box they crowd the top and leave the canvas empty. Distribute
  * the rows down the full height and thicken the tracks so the bars read big.
- * Keyed on the nearest `lattice` container; landscape untouched. See
+ * Keyed on the deck's `data-family` stamp; landscape untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 1.25) {
-  :is(section.progress, figure.progress) .progress-bars {
-    height: 100%;
-    justify-content: space-evenly;
-    row-gap: var(--sp-md);
-  }
-  :is(section.progress, figure.progress) .progress-track { height: 4cqi; }
-  :is(section.progress, figure.progress) .progress-label { font-size: var(--fs-message); }
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-bars,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-bars {
+  height: 100%;
+  justify-content: space-evenly;
+  row-gap: var(--sp-md);
 }
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-track,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-track { height: 4cqi; }
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-label,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-label { font-size: var(--fs-message); }
 
-/* ── Box-local STACK (tall only, ≤0.9): the label gets its own full-width row.
+
+/* ── Family STACK (tall only, ≤0.9): the label gets its own full-width row.
  *
  * The three-column row (`18.75cqi 1fr 7.5cqi`) pulls apart at portrait because
  * its two halves scale in OPPOSITE directions. `cqi` is a share of container
@@ -190,40 +192,46 @@
  * Scoped ≤0.9, not ≤1.05: square already fits (measured -178.1px of headroom)
  * and a layout change there would be churn without a defect behind it. See
  * #1209, #1210 and 2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.93) {
-  :is(section.progress, figure.progress) .progress-row {
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "label label"
-      "track pill";
-    row-gap: var(--sp-2xs);
-    column-gap: var(--sp-sm);
-  }
-  :is(section.progress, figure.progress) .progress-label {
-    grid-area: label;
-    /* Left-aligned now that it heads the row instead of butting against the
-     * bar's origin — right-alignment only reads as a gutter beside the track. */
-    text-align: left;
-    /* Back to the body step. The ≤1.05 block above bumps the label to
-     * `--fs-message` to help a narrow three-column row fill a taller box — but
-     * once the label has its OWN full-width row that bump only buys height, and
-     * five two-line rows plus the gallery's real subtitle put the stack 10.5px
-     * past the stage. Statement scale is for a slide's message, not a row label
-     * (engineering/typography.md). */
-    font-size: var(--fs-body);
-  }
-  :is(section.progress, figure.progress) .progress-track { grid-area: track; }
-  :is(section.progress, figure.progress) .progress-row > .chart-status,
-  :is(section.progress, figure.progress) .progress-row > .chart-status-empty {
-    grid-area: pill;
-  }
-  /* The note follows the bar it annotates; `grid-column: 2/3` above targets the
-   * three-column template and would land it under the pill here. */
-  :is(section.progress, figure.progress) .progress-note {
-    grid-area: track;
-    grid-row: 3;
-  }
-  /* Rows are now two lines tall, so the between-row rhythm tightens to keep the
-   * five of them inside the stage. */
-  :is(section.progress, figure.progress) .progress-bars { row-gap: var(--sp-sm); }
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row {
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "label label"
+    "track pill";
+  row-gap: var(--sp-2xs);
+  column-gap: var(--sp-sm);
 }
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-label,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-label {
+  grid-area: label;
+  /* Left-aligned now that it heads the row instead of butting against the
+   * bar's origin — right-alignment only reads as a gutter beside the track. */
+  text-align: left;
+  /* Back to the body step. The ≤1.05 block above bumps the label to
+   * `--fs-message` to help a narrow three-column row fill a taller box — but
+   * once the label has its OWN full-width row that bump only buys height, and
+   * five two-line rows plus the gallery's real subtitle put the stack 10.5px
+   * past the stage. Statement scale is for a slide's message, not a row label
+   * (engineering/typography.md). */
+  font-size: var(--fs-body);
+}
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-track,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-track { grid-area: track; }
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row > .chart-status,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row > .chart-status,
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row > .chart-status-empty,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row > .chart-status-empty {
+  grid-area: pill;
+}
+/* The note follows the bar it annotates; `grid-column: 2/3` above targets the
+ * three-column template and would land it under the pill here. */
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-note,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-note {
+  grid-area: track;
+  grid-row: 3;
+}
+/* Rows are now two lines tall, so the between-row rhythm tightens to keep the
+ * five of them inside the stage. */
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-bars,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-bars { row-gap: var(--sp-sm); }
+

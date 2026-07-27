@@ -631,7 +631,7 @@ section.math.stats > p:not(:has(> .katex-display)):not(:first-of-type) {
   line-height: var(--lh-base);
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The hero+legend (`feature`/bare) and matrix+properties (`matrix`) layouts put the
    equation and its annotations in two columns; in a tall box those crush. Collapse
    each by spanning BOTH children full-width (`grid-column: 1 / -1`) and stacking the
@@ -642,42 +642,42 @@ section.math.stats > p:not(:has(> .katex-display)):not(:first-of-type) {
    `derivation`/`theorem`/`stats` are already single-column. (`compare` uses CSS
    multi-`column-count` and `canvas` uses `grid-template-areas` — both are section-
    element properties a container query can't reach, so they stay landscape; see the
-   manifest `adapt.families` note.) Keyed on the nearest `lattice` container's aspect;
+   manifest `adapt.families` note.) Keyed on the deck's `data-family` stamp;
    the doubled class `.math.math` matches the variant rules' weight (and beats the
    zero-specificity `:where()` bare-math selector). */
-@container lattice (aspect-ratio <= 0.93) {
-  /* feature (+ bare): equation full-width, legend full-width beneath it. */
-  section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> .katex-display),
-  section.math.math.feature > p:has(> .katex-display) {
-    grid-column: 1 / -1; grid-row: 3;
-    align-self: start; padding-top: var(--sp-xl);
-    border-right: none; padding-right: 0; padding-bottom: var(--sp-md);
-  }
-  section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol),
-  section.math.math.feature > :is(ul, ol) {
-    grid-column: 1 / -1; grid-row: 4; align-self: start;
-  }
-  /* Tall frame = room for a monumental hero equation; scale it up so it owns the
-     canvas instead of floating small in a void. */
-  section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> .katex-display) .katex-display > .katex,
-  section.math.math.feature > p:has(> .katex-display) .katex-display > .katex {
-    font-size: 2.7em;
-  }
-  /* matrix: equation full-width over properties; left rule → top rule. */
-  section.math.math.matrix > p:has(> .katex-display) { grid-column: 1 / -1; grid-row: 3; align-self: start; padding-top: var(--sp-xl); }
-  section.math.math.matrix > p:has(> .katex-display) .katex-display > .katex { font-size: 2.4em; }
-  section.math.math.matrix > :is(ul, ol) {
-    grid-column: 1 / -1; grid-row: 4; align-self: start;
-    padding-left: 0; border-left: none;
-    padding-top: var(--sp-md); border-top: 1px solid var(--border);
-  }
+/* feature (+ bare): equation full-width, legend full-width beneath it. */
+section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display),
+section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) {
+  grid-column: 1 / -1; grid-row: 3;
+  align-self: start; padding-top: var(--sp-xl);
+  border-right: none; padding-right: 0; padding-bottom: var(--sp-md);
+}
+section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > :is(ul, ol),
+section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > :is(ul, ol) {
+  grid-column: 1 / -1; grid-row: 4; align-self: start;
+}
+/* Tall frame = room for a monumental hero equation; scale it up so it owns the
+   canvas instead of floating small in a void. */
+section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) .katex-display > .katex,
+section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) .katex-display > .katex {
+  font-size: 2.7em;
+}
+/* matrix: equation full-width over properties; left rule → top rule. */
+section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) { grid-column: 1 / -1; grid-row: 3; align-self: start; padding-top: var(--sp-xl); }
+section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) .katex-display > .katex { font-size: 2.4em; }
+section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > :is(ul, ol) {
+  grid-column: 1 / -1; grid-row: 4; align-self: start;
+  padding-left: 0; border-left: none;
+  padding-top: var(--sp-md); border-top: 1px solid var(--border);
 }
 
+
 /* `compare` (CSS multi-`column-count`) and `canvas` (`grid-template-areas`) put their
-   layout on the SECTION — section-element properties a `@container` query can't reach
-   (§11). They key on the deck-wide `data-orientation` stamp instead (the sanctioned
-   path; cf. split-compare): on a portrait deck `compare` reads as one column and
-   `canvas` stacks the equation over the plot. */
+   layout on the SECTION. Under the retired `@container` form those were unreachable
+   (§11 — a query can't style its own container), so both key on the deck-wide
+   `data-orientation` stamp; cf. split-compare. #1218 lifted that constraint, but
+   these rules are correct as written and stay: on a portrait deck `compare` reads as
+   one column and `canvas` stacks the equation over the plot. */
 section.math.compare[data-orientation="portrait"] { column-count: 1; }
 section.math.compare[data-orientation="portrait"] > h3 { break-before: avoid; }
 section.math.canvas[data-orientation="portrait"] {

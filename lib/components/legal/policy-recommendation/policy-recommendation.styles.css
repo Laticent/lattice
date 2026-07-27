@@ -154,10 +154,9 @@
 
   /* ── Portrait / square reflow (adapt.mode: reflow). Tighten the rhythm and let
    *    the reasons pack from the top instead of centering in a tall box. ─────── */
-  @container lattice (aspect-ratio <= 1.25) {
-    section.policy-recommendation > .cell-stage { gap: var(--sp-sm); }
-    section.policy-recommendation > .cell-stage > ul {
-      flex: 0 0 auto;
-      justify-content: flex-start;
-    }
+  section.policy-recommendation:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage { gap: var(--sp-sm); }
+  section.policy-recommendation:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+    flex: 0 0 auto;
+    justify-content: flex-start;
   }
+

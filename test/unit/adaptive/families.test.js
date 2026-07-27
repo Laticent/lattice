@@ -7,8 +7,7 @@ const {
   FAMILIES,
   FAMILY_NAMES,
   BOUNDARIES,
-  CSS_BOUNDARIES,
-  familyQuery,
+  familySelector,
   familyFor,
   ORIENTATION_TO_FAMILIES,
 } = require('../../../lib/adaptive/families.js');
@@ -39,28 +38,19 @@ test('familyFor classifies canonical sizes correctly', () => {
   assert.strictEqual(familyFor(1080 / 2340), 'strip');// 9:19.5 mobile (0.46)
 });
 
-// familyQuery emits the CSS boundaries, NOT the deck ones: a container query
-// measures the container's CONTENT box, which is proportionally wider than the
-// deck box `familyFor()` classifies (#1218).
-test('familyQuery emits a valid @container prelude with only canonical CSS boundaries', () => {
-  assert.strictEqual(familyQuery('tall'), '@container lattice (aspect-ratio > 0.5) and (aspect-ratio <= 0.93)');
-  assert.strictEqual(familyQuery('wide'), '@container lattice (aspect-ratio > 1.25)');
-  assert.strictEqual(familyQuery('strip'), '@container lattice (aspect-ratio <= 0.5)');
-});
-
-// The two lists are the same bands measured two ways, so they must stay
-// positionally paired and ordered — a CSS boundary below its deck counterpart
-// would mean the content box reads NARROWER than the deck, which the geometry
-// cannot produce (the section's vertical padding always exceeds its horizontal).
-test('CSS boundaries pair positionally with the deck boundaries, never lower', () => {
-  assert.strictEqual(CSS_BOUNDARIES.length, BOUNDARIES.length);
-  for (let i = 0; i < BOUNDARIES.length; i++) {
-    assert.ok(CSS_BOUNDARIES[i] >= BOUNDARIES[i],
-      `CSS boundary ${CSS_BOUNDARIES[i]} is below its deck counterpart ${BOUNDARIES[i]}`);
-  }
-  // Strictly ascending, so the bands stay contiguous and gapless in CSS too.
-  for (let i = 1; i < CSS_BOUNDARIES.length; i++) {
-    assert.ok(CSS_BOUNDARIES[i] > CSS_BOUNDARIES[i - 1], 'CSS boundaries must ascend');
+// The selector prefix must stay at ZERO specificity, or scoping an existing rule
+// to a family would silently change which rule wins the cascade — the property
+// that made the #1218 conversion of 34 blocks safe in the first place.
+test('familySelector emits a zero-specificity :where() prefix', () => {
+  assert.strictEqual(familySelector('tall'), ':where([data-family="tall"])');
+  assert.strictEqual(familySelector('strip'), ':where([data-family="strip"])');
+  assert.strictEqual(familySelector('square'), ':where([data-family="square"])');
+  // `wide` is the DEFAULT — the engine emits no stamp for it, so it is the
+  // absence of the attribute, not a value to match.
+  assert.strictEqual(familySelector('wide'), ':where(section:not([data-family]))');
+  assert.throws(() => familySelector('nope'), /unknown family/);
+  for (const name of FAMILY_NAMES) {
+    assert.ok(familySelector(name).startsWith(':where('), `${name} prefix must be :where()-wrapped`);
   }
 });
 
@@ -69,51 +59,68 @@ test('orientation → families derivation covers all four', () => {
   assert.deepStrictEqual(derived.slice().sort(), FAMILY_NAMES.slice().sort());
 });
 
-// ── Drift guard: every aspect-ratio used in a component's @container query must
-// be a canonical boundary. @container can't read var(), so the numbers live as
-// literals in CSS — this keeps them from silently diverging from families.js.
-test('component @container aspect queries use only canonical boundaries', () => {
-  const cssFiles = [];
+// ── Walk every stylesheet under lib/, not just components: the shared chart-frame
+// rules live in `_chart-family/chart-family.css` and base rules in `lib/base`, and
+// a violation in either would slip past a components-only walk exactly as one in
+// chart-family once did (gap caught in maker-checker review, 2026-06-19).
+function libCss() {
+  const out = [];
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, e.name);
       if (e.isDirectory()) walk(p);
-      // Any component CSS (not only `*.styles.css`): the shared chart-frame rules
-      // live in `_chart-family/chart-family.css`, which carries `@container`
-      // queries too — the guard must walk it or a non-canonical boundary there
-      // would slip past (gap caught in maker-checker review, 2026-06-19).
-      else if (e.name.endsWith('.css')) cssFiles.push(p);
+      else if (e.name.endsWith('.css')) out.push(p);
     }
   };
-  // ALL of lib/, not just components: `lib/base` carries the `--lat-family`
-  // stamp's own queries (#1218), and a non-canonical boundary there would have
-  // slipped past a components-only walk exactly as one in chart-family once did.
   walk(path.join(ROOT, 'lib'));
+  return out;
+}
 
-  // CSS literals must be the CSS boundaries — the deck numbers are JS-side only.
-  const allowed = new Set(CSS_BOUNDARIES.map(String));
-  // Any `@container …{` prelude (any/no name), captured up to its opening brace.
-  const containerRe = /@container\b[^{}]*\{/g;
-  // Every aspect-ratio boundary in a prelude, BOTH operand orders and the colon
-  // (`aspect-ratio: N`, `min-/max-aspect-ratio: N`) + range (`N < aspect-ratio`) forms.
-  const numRe = /(?:(?:min-|max-)?aspect-ratio\s*[<>:]=?\s*([0-9]*\.?[0-9]+))|(?:([0-9]*\.?[0-9]+)\s*[<>]=?\s*aspect-ratio)/g;
+// ── Drift guard: every family named in engine CSS must be one of the four the
+// engine can actually stamp. A typo (`[data-family="portrait"]`) is a rule that
+// matches nothing and fails silently — the exact failure mode of #1218.
+test('component family selectors name only canonical families', () => {
+  const familyRe = /\[data-family\s*=\s*["']([^"']*)["']\]/g;
+  const known = new Set(FAMILY_NAMES);
   let checked = 0;
 
-  for (const file of cssFiles) {
+  for (const file of libCss()) {
     const css = fs.readFileSync(file, 'utf8');
-    for (const block of css.match(containerRe) || []) {
-      if (!/aspect-ratio/.test(block)) continue;
-      let m;
-      numRe.lastIndex = 0;
-      while ((m = numRe.exec(block))) {
-        const n = m[1] ?? m[2];
-        checked++;
-        assert.ok(
-          allowed.has(n),
-          `${path.relative(ROOT, file)}: @container aspect-ratio boundary ${n} is not canonical (allowed: ${[...allowed].join(', ')}). Add it to lib/adaptive/families.js or fix the CSS.`,
-        );
-      }
+    let m;
+    familyRe.lastIndex = 0;
+    while ((m = familyRe.exec(css))) {
+      checked++;
+      assert.ok(
+        known.has(m[1]),
+        `${path.relative(ROOT, file)}: [data-family="${m[1]}"] is not a canonical family (${FAMILY_NAMES.join(', ')}).`,
+      );
+      // `wide` carries no stamp, so matching it by value can never fire.
+      assert.notStrictEqual(
+        m[1], 'wide',
+        `${path.relative(ROOT, file)}: [data-family="wide"] never matches — wide is the UNSTAMPED default. Use ${familySelector('wide')}.`,
+      );
     }
   }
-  assert.ok(checked > 0, 'expected at least one @container aspect query across the component CSS');
+  assert.ok(checked > 0, 'expected at least one [data-family] reflow selector across the component CSS');
+});
+
+// ── The retired mechanism must stay retired (#1218). A container query evaluates
+// the container's CONTENT box; the section's asymmetric padding makes that
+// proportionally wider than the deck, so a 1080×1080 deck — `square` to
+// `familyFor()` — measured 1.051 and missed every `<= 1.05` rule in the library.
+// Reintroducing one anywhere in engine CSS reopens the whole class of bug, and it
+// fails silently, which is why it needs a gate rather than review.
+test('no engine CSS reintroduces an @container aspect-ratio query', () => {
+  const containerRe = /@container\b[^{}]*\{/g;
+  const offenders = [];
+  for (const file of libCss()) {
+    const css = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const block of css.match(containerRe) || []) {
+      if (/aspect-ratio/.test(block)) offenders.push(`${path.relative(ROOT, file)}: ${block.trim()}`);
+    }
+  }
+  assert.deepStrictEqual(
+    offenders, [],
+    'aspect-ratio container queries are retired — select the `data-family` stamp instead (lib/adaptive/families.js).',
+  );
 });

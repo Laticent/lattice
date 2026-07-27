@@ -254,7 +254,7 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3) { border-left-color:var(--pass); }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3)::before { background:var(--pass); }
 
-/* ── Box-local family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
+/* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
    A1). The DEFAULT changelog row is a five-column `auto auto auto 1fr auto` grid
    (counter · name · cite · prose · pill) — five tracks crush in a square/tall/
    strip box. Collapse each row to a hanging counter + a single stacked content
@@ -265,22 +265,21 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
    follow-up). The nested list uses `display:contents`, so its <li> children are
    direct grid items — re-anchor each to column 2 and let them auto-flow down the
    rows. */
-@container lattice (aspect-ratio <= 1.25) {
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li {
-    grid-template-columns: auto 1fr;
-    grid-template-rows: none;
-    grid-auto-flow: row;
-    row-gap: var(--sp-xs);
-    align-items: baseline;
-  }
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child),
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child) {
-    grid-column: 2;
-    grid-row: auto;
-    justify-self: start;
-  }
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
+  grid-template-columns: auto 1fr;
+  grid-template-rows: none;
+  grid-auto-flow: row;
+  row-gap: var(--sp-xs);
+  align-items: baseline;
 }
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child),
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child) {
+  grid-column: 2;
+  grid-row: auto;
+  justify-self: start;
+}
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

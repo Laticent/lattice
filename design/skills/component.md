@@ -116,7 +116,10 @@ families; the rest are substance- or domain-defined.
    it's inert here and a layered rule loses to unlayered base rules; cascade.md),
    anchor every selector on `section.<name> > .cell-stage`, palette-blind, `padding`/`gap` only.
    Cover the native markdown path *and* the post-processed path in the one file.
-   Add `@container lattice (aspect-ratio <= 1.05) { … }` if `adapt.mode: "reflow"`.
+   Scope the reflow by attaching `:where([data-family="square"], [data-family="tall"],
+   [data-family="strip"])` to the `section.<name>` compound if `adapt.mode: "reflow"` —
+   never `@container … aspect-ratio` (retired in #1218: it measures the section's
+   content box, which drifts off the deck aspect and silently fails to match).
 5. **If structure/series** and you must rebuild DOM: add `<name>.transform.js` as a
    pure, idempotent string-in/string-out function, and register it in
    `lib/transformers/registry.js` in the right order — wired identically across the
@@ -184,9 +187,15 @@ section.cards-grid > .cell-stage > ul > li {
   border: 1px solid var(--border);
   color: var(--text-body);
 }
-@container lattice (aspect-ratio <= 1.05) {
-  section.cards-grid > .cell-stage > ul > li { width: 100%; }
-}
+/* Family reflow: the engine stamps `data-family` ON the section from the deck
+   geometry, so the filter attaches to the `section.<name>` compound — a LEADING
+   `:where([data-family=…]) section.cards-grid` is a descendant combinator and
+   matches nothing. `wide` (>1.05) carries NO stamp, so name the families you
+   target and omit it. `:where()` is zero-specificity — it never changes which
+   rule wins, which is why the class is doubled when the rule must outrank the
+   base one. */
+section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"])
+  > .cell-stage > ul > li { width: 100%; }
 ```
 
 **Variant tiers** — know which is which so you don't list the wrong ones:

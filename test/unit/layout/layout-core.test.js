@@ -137,6 +137,25 @@ describe('gate — selector scoping', () => {
   test('does not confuse a name prefix (.foobar) for .foo', () => {
     assert.equal(findUnscopedSelectors('.foobar { }', 'foo').length, 1);
   });
+  // A comma inside `:is()`/`:where()`/`:not()` belongs to that construct, not to
+  // the selector LIST. A naive split reads the family-reflow idiom as two parts
+  // and calls the first one an unscoped leak — a false positive that would block
+  // every reflowing component the AI generates (lib/adaptive/families.js).
+  test('a comma inside :where() does not split the selector list', () => {
+    const css = ':where([data-family="tall"], [data-family="strip"]) section.foo > ul { }';
+    assert.deepEqual(findUnscopedSelectors(css, 'foo'), []);
+  });
+  test('a comma inside :is() / :not() does not split either', () => {
+    assert.deepEqual(findUnscopedSelectors('section.foo > :is(ul, ol) { }', 'foo'), []);
+    assert.deepEqual(findUnscopedSelectors('section.foo:not(.a, .b) { }', 'foo'), []);
+  });
+  test('a comma inside a quoted attribute value does not split', () => {
+    assert.deepEqual(findUnscopedSelectors('section.foo[data-x="a,b"] { }', 'foo'), []);
+  });
+  test('still splits the real list around a nested comma', () => {
+    const u = findUnscopedSelectors(':where([data-family="tall"], [data-family="strip"]) .foo, ul { }', 'foo');
+    assert.deepEqual(u.map(x => x.selector), ['ul']);
+  });
   test('descends into @media but ignores @keyframes', () => {
     const css = '@media print { ul { } } @keyframes x { from { opacity: 0 } }';
     const u = findUnscopedSelectors(css, 'foo');

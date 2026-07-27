@@ -336,25 +336,31 @@
 :is(section.kanban, figure.kanban).tinted .kanban-lane { color: var(--text-muted); }
 :is(section.kanban, figure.kanban).tinted .kanban-lane::before { display: none; }
 
-/* ── Box-local RESTRUCTURE (tall + strip, ≤0.9): the side-by-side board becomes
+/* ── Family RESTRUCTURE (tall + strip, ≤0.9): the side-by-side board becomes
  * a vertical stack — each lane is now a full-width band, and its cards flow as a
  * wrapping row so the width is used instead of running off the bottom. Keyed on
- * the nearest `lattice` container; landscape (side-by-side board) untouched. See
+ * the deck's `data-family` stamp; landscape (side-by-side board) untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.93) {
-  :is(section.kanban, figure.kanban) .kanban-board {
-    flex-direction: column;
-    height: 100%;
-    justify-content: space-evenly;
-  }
-  :is(section.kanban, figure.kanban) .kanban-cards { flex-direction: row; flex-wrap: wrap; }
-  :is(section.kanban, figure.kanban) .kanban-card { flex: 1 1 14cqi; min-width: 0; }
-
-  /* Auto-split lane slides (carousel.js kanban-lanes): one lane has the WHOLE slide, so its
-   * cards stack as a full-width column instead of wrapping into a cramped row (which clipped
-   * the titles). More specific than the all-lanes reflow above, so it wins for split bodies. */
-  :is(section.kanban, figure.kanban).lat-split-native .kanban-board { justify-content: flex-start; }
-  :is(section.kanban, figure.kanban).lat-split-native .kanban-column { width: 100%; }
-  :is(section.kanban, figure.kanban).lat-split-native .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
-  :is(section.kanban, figure.kanban).lat-split-native .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
+section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-board,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban .kanban-board {
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-evenly;
 }
+section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-cards,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban .kanban-cards { flex-direction: row; flex-wrap: wrap; }
+section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-card,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban .kanban-card { flex: 1 1 14cqi; min-width: 0; }
+
+/* Auto-split lane slides (carousel.js kanban-lanes): one lane has the WHOLE slide, so its
+ * cards stack as a full-width column instead of wrapping into a cramped row (which clipped
+ * the titles). More specific than the all-lanes reflow above, so it wins for split bodies. */
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-board,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-board { justify-content: flex-start; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-column,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-column { width: 100%; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-cards,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-card,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
+
