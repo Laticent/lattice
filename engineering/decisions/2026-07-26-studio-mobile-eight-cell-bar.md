@@ -151,6 +151,41 @@ toast was confirmed to never fire at all on the untouched desktop
 `demo.spec.ts` path either — see below). A stray unconditional
 screen-reader-only span (rendered even at zero issues) was also removed.
 
+## A real-device report found a second, cross-browser bug
+
+After the PR opened, the user tapped Source → Compose → Preview on a real
+iPhone (via the Cloudflare Pages preview deploy) and reported Compose's
+per-slide formatting pill still visible, painted on top of the Preview
+pane's header. Reproduced identically in Chromium via Playwright — this is
+a plain CSS bug, not a Safari-specific compositing quirk.
+
+Root cause: the mobile pane-swap wrapper (`StudioShell.tsx`, pre-existing
+from the 2026-07-21 preview-reframe work, unrelated to this PR) sets the
+inactive pane's wrapper to `visibility:hidden` via a Tailwind `invisible`
+class. `ComposeView.tsx`'s `.cs-sb-pill` (the insert/table/settings pill
+shown on Compose's active slide) carries `.cs-slide-active > .cs-slide-bar
+> .cs-sb-pill{visibility:visible}` — a completely ordinary descendant
+selector, but CSS `visibility` is only *inherited*, so an explicit
+`visibility:visible` on a descendant overrides an ancestor's hidden value
+regardless of that ancestor's computed state. The pill kept rendering,
+z-order'd beneath the Preview pane's own header (hence "painted behind the
+Full-deck pill" in the report) but still visibly on top of the slide canvas.
+
+This predates the Eight-Cell Bar — the pane-swap wrapper and the pill CSS
+are both untouched by this PR's diff — but the redesign made Compose →
+Preview a trivial one-tap-then-one-tap sequence for the first time on
+mobile (Compose was previously one of nine unlabeled icons), which is very
+likely why nobody had hit it before. Fixed at the source: `ComposeView`
+now adds a `cs-paused` class to its root when its existing `visible` prop
+(already threaded from `StudioShell`, previously unused for this) is
+false, and a higher-specificity selector
+(`.cs-surface.cs-paused .cs-slide-active > .cs-slide-bar >
+.cs-sb-pill{visibility:hidden;opacity:0}` — 5 classes vs. the original
+rule's 3) forces the pill hidden while its pane is inactive, deterministically,
+regardless of source order. Verified via a Playwright repro script that
+reproduced the leak pre-fix and confirmed it gone post-fix, plus the full
+862-test Studio suite and `build:check`/lint clean.
+
 ## Pre-existing gaps found, not fixed (HARD RULE #18 — off-path)
 
 - `SEL.theme` (`tour-kit.ts`) was already unresolvable on mobile before this

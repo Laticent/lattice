@@ -862,7 +862,7 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 		);
 	}
 	return (
-		<div className={cn('cs-surface', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
+		<div className={cn('cs-surface', !visible && 'cs-paused', className)} style={{ '--cs-trim': trimGradient(source) } as React.CSSProperties}>
 			<ComposeStyles />
 			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
 			    (context-sensitive). Just the writing surface. */}
@@ -931,6 +931,13 @@ function ComposeStyles() {
 				   never reflows content down — it fades in place. Hidden = non-interactive + out of tab order. */
 			.cs-sb-pill{grid-area:1/1;justify-self:center;z-index:1;display:inline-flex;visibility:hidden;opacity:0;align-items:center;gap:3px;padding:3px 5px;background:var(--bg-alt,#f2f5fa);border:1px solid var(--border,#e4eaf2);border-radius:12px;box-shadow:0 5px 15px -8px color-mix(in oklab,var(--accent,#006fa8),transparent 66%),0 1px 3px -1px color-mix(in oklab,var(--text-heading,#0a1628),transparent 84%);transition:opacity .12s ease}
 			.cs-slide-active > .cs-slide-bar > .cs-sb-pill{visibility:visible;opacity:1}
+			/* PAUSED (mobile: Compose isn't the active pane) — an ancestor 'invisible' class hides this
+			   whole surface, but visibility is only INHERITED, and the rule above explicitly reasserts
+			   visibility:visible on the active slide's pill, which wins over the ancestor regardless of
+			   its computed value. That let the pill bleed through on top of the Preview pane after a
+			   Compose to Preview pane swap (reported against the shipped mobile toolbar). Higher
+			   specificity than the rule above (5 classes vs. 3) beats it deterministically. */
+			.cs-surface.cs-paused .cs-slide-active > .cs-slide-bar > .cs-sb-pill{visibility:hidden;opacity:0}
 			.cs-sb-format{display:inline-flex;align-items:center;gap:2px}
 			.cs-sb-actions{display:inline-flex;align-items:center;gap:2px}
 			.cs-sb-div{flex:none;width:1px;height:14px;border-radius:1px;background:var(--border,#e4eaf2)}

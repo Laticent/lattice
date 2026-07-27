@@ -5097,7 +5097,17 @@ in patch versions.
 - **`obligation-matrix`'s `heat` variant gallery caption claimed green cells meant "exempt (relief)",
   but exempt cells render neutral, not green (#1199).** The caption now reads "Exempt cells stay
   neutral — heat marks burden, not relief," matching what the `heat` variant actually renders.
-
+- **Compose's per-slide formatting pill bled through onto the Preview pane on mobile after a
+  Compose → Preview tap.** Found on a real device against the shipped Eight-Cell Bar: switching
+  panes sets the inactive pane's wrapper to `visibility:hidden`, but `.cs-sb-pill` (Compose's
+  insert/table/settings pill on the active slide) carries its own `.cs-slide-active
+  > .cs-slide-bar > .cs-sb-pill{visibility:visible}` rule — a plain CSS descendant override wins
+  over an ancestor's inherited `hidden` regardless of the ancestor's computed value, so the pill
+  kept painting on top of Preview. `ComposeView` now adds a `cs-paused` class to its root when its
+  `visible` prop is false (already threaded from `StudioShell`'s pane-swap state), and a
+  higher-specificity rule forces the pill back to hidden while paused. Reproduces identically in
+  Chromium, so this was a genuine cross-browser bug, not a Safari quirk — just one the toolbar
+  redesign made trivially reachable for the first time. (`docs/src/components/studio/ComposeView.tsx`.)
 - **The radar's shape never animated.** Its series polygons carried no addressable attribute, so
   chart motion saw only the axis labels and animated the text of an otherwise static chart. The
   polygons now declare `data-anima-role` — deliberately *without* a `data-mark`, because the radar's
