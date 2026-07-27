@@ -16,7 +16,7 @@
       "timeline-list",
       "split across slides"
     ],
-    "note": "past five steps the row begins to crowd; a split run paces ONE step per page and carries a derived \u201c\u2192 next: \u2026\u201d signal (\u00a70b connected members)"
+    "note": "past five steps the row begins to crowd; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
   },
   "density": {
     "axis": "item",
@@ -49,7 +49,7 @@
     "planning"
   ],
   "description": "Horizontal row of ordered step cards, each with a full description body (the `vertical` variant stacks them instead).",
-  "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list. Add `cat` on top of `capsule` when the steps are a categorical set in a sequence's clothing and each badge should carry its own hue instead of one repeated accent.",
+  "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.",
   "variants": [
     "vertical",
     "chevron",
@@ -63,8 +63,7 @@
     "rank",
     "tier",
     "roman",
-    "capsule",
-    "cat"
+    "capsule"
   ],
   "slots": {
     "title": {
@@ -138,13 +137,8 @@
   "variantDocs": {
     "capsule": {
       "label": "capsule",
-      "summary": "Centered cards, a pill-shaped step badge, a serif title.",
+      "summary": "Centered editorial group: pill badge per step in its own categorical hue, serif title, no connector arrows, no masthead hairline.",
       "sample": "<!-- _class: list-steps capsule -->\n\n## Turn the framework into a habit.\n\n1. Name it\n   - Say the verb and the reach you operate at today.\n2. Pick the next move\n   - One deeper verb, or the same verb carried wider.\n3. Keep the evidence\n   - A doc, a metric, a postmortem — proof the shift happened.\n"
-    },
-    "cat": {
-      "label": "cat",
-      "summary": "Composes with `capsule`: each badge tints with its own categorical color instead of one repeated accent.",
-      "sample": "<!-- _class: list-steps capsule cat -->\n\n## Three samples across the ladder, not three steps in a row.\n\n1. Place yourself\n   - Name the verb you own and how far it reaches today.\n2. Pick your next move\n   - A deeper verb, or the same verb carried wider.\n3. Collect the evidence\n   - Artifacts that prove the shift happened.\n"
     },
     "chevron": {
       "label": "chevron",
@@ -220,11 +214,7 @@
   "variantDecisionRule": [
     {
       "variant": "capsule",
-      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit) reads better centered under a quiet pill badge than left-aligned under a mono caption. Centers the masthead with the cards and drops the connector arrows between steps: the badges carry the sequence, and a reflective practice is not a pipeline."
-    },
-    {
-      "variant": "cat",
-      "useWhen": "Composes with `capsule` only. The steps are secretly a categorical set (each one a distinct sample point, not an ordered march) and should read as visually distinct, not as one repeated accent stepping forward. Default `capsule` stays one tint on purpose for a genuine sequence — reach for `cat` only when that reasoning doesn't hold."
+      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit). One class carries the whole look: centered masthead and cards, a pill badge per step in its own categorical hue, a serif title, no connector arrows, and no masthead hairline. Add `rule-full` if you want the hairline back."
     },
     {
       "variant": "vertical",

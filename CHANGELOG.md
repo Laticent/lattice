@@ -57,6 +57,20 @@ in patch versions.
 
 ### Changed
 
+- **Breaking (`list-steps`, unreleased): `capsule` absorbs the `cat` variant and the masthead-rule
+  choice — the whole editorial look is one class.** Was `list-steps capsule cat rule-none`; now
+  `list-steps capsule`.
+
+  Two of those four classes were doing the same job as the variant itself. `cat` (per-step
+  categorical badge hues) drew a distinction — sequence gets one accent, a set gets many — that did
+  not survive contact: `capsule` IS the editorial register, and an editorial step group reads better
+  with its own hues than one accent repeated three times. `rule-none` is a base modifier, but a
+  full-width hairline under a centered title fights the centered group `capsule` exists to make.
+  Both are now part of the variant. The `cat` variant is removed.
+
+  `rule-full` still restores the hairline — `capsule`'s default is scoped `:not(.rule-full)` so the
+  base modifiers stay authoritative when an author asks for one explicitly.
+
 - **Breaking (`split-panel`, unreleased): a `proof` slide's categorical tint is assigned by the
   engine from its position in the deck; `capstone` implies `proof`.** Authors write
   `split-panel proof` and, for the sequence's last entry, `split-panel capstone` — nothing else.

@@ -201,8 +201,8 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 
 ---
 
-<!-- _class: list-steps capsule cat rule-none -->
-<!-- _footer: "How to use this tomorrow · list-steps capsule cat" -->
+<!-- _class: list-steps capsule -->
+<!-- _footer: "How to use this tomorrow · list-steps capsule" -->
 
 ## How to use this tomorrow.
 
