@@ -136,7 +136,7 @@
     "axis": {
       "label": "axis",
       "summary": "A lede above, numeral-led facet cards, a closing note below.",
-      "sample": "<!-- _class: compare-prose axis -->\n\n## The second axis: how far it reaches.\n\nThe verb is one axis — how you think. **Reach** is the other — how far what you make travels.\n\n- \n  - I\n  - Own the verb\n  - You can do the cognitive work — correct, clear, complete. So far it reaches only you.\n- \n  - II\n  - Widen the reach\n  - The work travels: team, org, field — the farther it carries, the higher the level.\n\n*Most engineers stall here — not on the thinking, but on making it travel past their own hands.*\n"
+      "sample": "<!-- _class: compare-prose axis -->\n\n## The second axis: how far it reaches.\n\nThe verb is one axis — how you think. **Reach** is the other — how far what you make travels.\n\n1. Own the verb\n   - You can do the cognitive work — correct, clear, complete. It reaches only you.\n2. Widen the reach\n   - The work travels: team, org, field. Documented, adopted, durable.\n\n*Most engineers stall on making it travel, not on the thinking.*\n"
     },
     "transition": {
       "label": "transition",
@@ -191,7 +191,7 @@
   "variantDecisionRule": [
     {
       "variant": "axis",
-      "useWhen": "The pair are two facets of one idea (not before/after, not a verdict) — frame them with a lede above and land the takeaway in a closing note below."
+      "useWhen": "Two FACETS of one idea, not a before/after change of state — authored as a numbered list (`1. Title` + a nested body line). The I/II numerals are generated from the ol counter, never typed, and the variant opts out of the family's corner-tag treatment so the title stacks under the numeral."
     },
     {
       "variant": "transition",

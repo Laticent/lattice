@@ -9302,12 +9302,7 @@
         "points": {
           "selector": "ul > li",
           "required": true,
-          "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof`, exactly two items render as paired proof cards instead of a vertical list."
-        },
-        "signal": {
-          "selector": "h3 + p",
-          "required": false,
-          "description": "`proof` only. An h3 naming the scenario (e.g. \"You know you're here when\") followed by one paragraph — rendered as a bordered callout above the two proof cards."
+          "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. \"You know you're here when\"); the other two render as the paired proof cards."
         }
       },
       "skeleton": "<!-- _class: split-panel -->\n\n`Eyebrow context`\n\n## Headline that anchors the panel.\n\nOne-sentence framing paragraph explaining what the points cover.\n\n- First point\n  - Supporting detail explaining the first point.\n- Second point\n  - Supporting detail explaining the second point.\n- Third point\n  - Supporting detail explaining the third point.\n",

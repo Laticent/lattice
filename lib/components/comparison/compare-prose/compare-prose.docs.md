@@ -23,7 +23,7 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 
 ### Variant decision rule
 
-- **`axis`.** The pair are two facets of one idea (not before/after, not a verdict) — frame them with a lede above and land the takeaway in a closing note below.
+- **`axis`.** Two FACETS of one idea, not a before/after change of state — authored as a numbered list (`1. Title` + a nested body line). The I/II numerals are generated from the ol counter, never typed, and the variant opts out of the family's corner-tag treatment so the title stacks under the numeral.
 - **`transition`.** The comparison is a state change over time — left is before, right is after; implies causation, not two co-equal preferences.
 - **`mirror`.** Same anatomy, but the deck's rhythm wants the accented (second) option to land visually on the left instead of the right.
 - **`chosen`.** One option is the winner and the other keeps its full, undiminished case — crowns the second option without dimming the first.
@@ -199,16 +199,12 @@ A lede above, numeral-led facet cards, a closing note below.
 
 The verb is one axis — how you think. **Reach** is the other — how far what you make travels.
 
-- 
-  - I
-  - Own the verb
-  - You can do the cognitive work — correct, clear, complete. So far it reaches only you.
-- 
-  - II
-  - Widen the reach
-  - The work travels: team, org, field — the farther it carries, the higher the level.
+1. Own the verb
+   - You can do the cognitive work — correct, clear, complete. It reaches only you.
+2. Widen the reach
+   - The work travels: team, org, field. Documented, adopted, durable.
 
-*Most engineers stall here — not on the thinking, but on making it travel past their own hands.*
+*Most engineers stall on making it travel, not on the thinking.*
 ```
 
 ## Universal modifiers

@@ -88,32 +88,38 @@ section.split-panel.proof .panel-left h2 { font-size:var(--fs-h2); }
 section.split-panel.proof .panel-left p { font-size:var(--fs-body); }
 section.split-panel.proof .panel-left p em:first-child { display:block; font-family:var(--font-display); font-style:italic; font-size:var(--fs-message); color:var(--on-dark-secondary); padding-bottom:var(--sp-xs); }
 section.split-panel.proof .panel-right { gap:var(--sp-md); }
-section.split-panel.proof .panel-right > h3 { border-bottom:none; margin:0; padding:0 0 var(--sp-2xs); flex:0 0 auto; }
-/* ── The evidence stack FILLS the column ──────────────────────────────────
- * `.panel-right` is already a flex column (base rule above), so the signal card
- * and the proof-card grid each take `flex:1 1 0` — an equal share of whatever
- * height is left under the label — instead of collapsing to content height and
- * stranding the bottom half of the slide empty. `min-height:0` keeps the flex
- * default (`min-height:auto`, which refuses to shrink) from overflowing a
- * long scenario instead of fitting it. Proportional, not a fixed height: the
- * stack holds at any slide size or `--fs-scale`, which a pixel height would not. */
-section.split-panel.proof .panel-right > p { background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md) var(--sp-lg); margin:0; font-size:var(--fs-body); color:var(--text-heading); line-height:var(--lh-relaxed); flex:1 1 0; min-height:0; display:flex; flex-direction:column; justify-content:center; }
-section.split-panel.proof .panel-right > :is(ul,ol) { display:grid; grid-template-columns:1fr 1fr; align-items:stretch; gap:var(--sp-md); flex:1 1 0; min-height:0; justify-content:initial; list-style:none; padding:0; margin:0; }
-/* `align-items:stretch` on the grid (above) makes both cards match the row's
- * tallest card; `display:flex` + `justify-content:center` here centers each
- * card's own content block vertically within that shared height — a short
- * card and a long card read as two symmetric peers, not a tall card next to
- * a top-anchored short one floating in leftover space. */
-section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; justify-content:center; }
+/* ── The evidence stack is ONE list ───────────────────────────────────────
+ * Item 1 is the scenario signal (its lead is the label, e.g. "You know you're
+ * here when"); items 2-3 are the paired proof cards. Authoring is therefore
+ * uniform — three items of `- Title` + `  - body`, no separate `### heading`
+ * + paragraph shape to remember — and it matches the reference deck, where the
+ * label sits INSIDE the signal card rather than floating above it.
+ *
+ * `grid-auto-rows: 1fr` is what makes the stack FILL the column: the signal row
+ * and the card row split the available height evenly instead of collapsing to
+ * content and stranding the bottom of the slide. `min-height: 0` lets a long
+ * scenario shrink to fit rather than overflow. Proportional, so it holds at any
+ * slide size or --fs-scale. */
+section.split-panel.proof .panel-right > :is(ul,ol) {
+  display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr;
+  align-items:stretch; gap:var(--sp-md); flex:1 1 auto; min-height:0;
+  justify-content:initial; list-style:none; padding:0; margin:0;
+}
+section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child { grid-column:1 / -1; }
+section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:center; }
 section.split-panel.proof .panel-right > :is(ul,ol) > li > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--accent); font-weight:600; padding-bottom:var(--sp-xs); }
+section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) { list-style:none; padding:0; margin:0; }
 section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) > li { font-size:var(--fs-body-compact); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-base); }
+/* The signal row carries the slide's scenario — it reads at body scale, not the
+ * compact card scale the two proof cards use. */
+section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child > :is(ul,ol) > li { font-size:var(--fs-body); color:var(--text-heading); line-height:var(--lh-relaxed); }
 
 /* ── .capstone — proof's climactic entry: the signal reads as a literal
  * quotation (italic display face, left-accent card) instead of a described
  * scenario, and the two proof points read as plain top-rule pillars instead
  * of boxed cards — the sequence's final, most-earned slide reads as
- * evidence delivered, not one more checkpoint. Composes with `.proof`; same
- * DOM (h3 label, p signal, ul checkpoints) — only the chrome differs.
+ * evidence delivered, not one more checkpoint. Composes with `.proof`; the
+ * SAME three-item list — only the chrome differs.
  * `var(--panel-mark, var(--accent))` so it still works stacked on `.proof`
  * alone, without a `cat-N` companion class. */
 /* The claim panel spreads instead of bottom-clustering: the eyebrow rides the
@@ -128,26 +134,22 @@ section.split-panel.proof.capstone .panel-left p em:first-child {
   font-size: var(--fs-h2);
   line-height: var(--lh-tight);
 }
-/* Capstone keeps `proof`'s equal split (both regions still fill the column) but
- * settles the proof pillars to the BOTTOM of their half — the evidence reads as
- * a footing under the quotation rather than floating directly beneath it with
- * dead space below. */
-section.split-panel.proof.capstone .panel-right > :is(ul,ol) { align-content: end; }
-/* `--accent`, not `--panel-mark`: this label sits on the light `--bg`, and the
- * categorical contract only guarantees a mark 3:1 against a background — enough
- * for the rules and borders below, not for type. `--accent` measures 5.47:1 on
- * --bg and 9.27:1 in dark. The category still reads: the rules ARE the mark. */
-section.split-panel.proof.capstone .panel-right > h3 {
-  color: var(--accent);
-}
-section.split-panel.proof.capstone .panel-right > p {
-  background: var(--bg); border: 1px solid var(--border); border-left: 4px solid var(--panel-mark, var(--accent));
+/* Capstone re-skins the same three items: the signal row becomes a quotation
+ * card, the two proof rows become plain top-rule pillars with their content
+ * settled to the bottom so the evidence reads as a footing under the quote. */
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child {
+  background: var(--bg); border: 1px solid var(--border);
+  border-left: 4px solid var(--panel-mark, var(--accent));
   border-radius: var(--radius-md); padding: var(--sp-md) var(--sp-lg);
+}
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child > :is(ul,ol) > li {
   font-family: var(--font-display); font-style: italic; color: var(--text-heading);
 }
-section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li {
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child > strong { color: var(--accent); }
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2) {
   background: none; border: none; border-top: 2px solid var(--panel-mark, var(--accent)); border-radius: 0;
   padding: var(--sp-sm) 0 0;
+  justify-content: flex-end;
 }
 
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */

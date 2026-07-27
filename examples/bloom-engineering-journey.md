@@ -64,10 +64,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 *How is this done?* You recall syntax, patterns, and standards — the path is known, and the job is to follow it without error.
 
-### You know you're here when
-
-You implement a feature via an existing API. Tests pass, review comes back clean, and rework is rare.
-
+- You know you're here when
+  - You implement a feature via an existing API. Tests pass, review comes back clean, and rework is rare.
 - Follows examples well
   - Compiles, runs, and tests locally with confidence.
 - Works from brief tickets
@@ -84,10 +82,8 @@ You implement a feature via an existing API. Tests pass, review comes back clean
 
 *Why does it work?* You read the system, trace the flow, and explain failure modes — changes you make no longer surprise anyone at integration time.
 
-### You know you're here when
-
-You trace a request end-to-end, pinpoint a bottleneck, and explain the tradeoff between two fixes to a peer.
-
+- You know you're here when
+  - You trace a request end-to-end, pinpoint a bottleneck, and explain the tradeoff between two fixes to a peer.
 - Draws the flow
   - Reads code you didn't write and explains failure modes clearly.
 - Documents assumptions
@@ -104,10 +100,8 @@ You trace a request end-to-end, pinpoint a bottleneck, and explain the tradeoff 
 
 *How do I make it work here?* You use known patterns in new contexts, shipping features with reliability, observability, and on-call readiness.
 
-### You know you're here when
-
-You design and deliver a scalable microservice with CI/CD, SLOs, and runbooks — and you carry the pager.
-
+- You know you're here when
+  - You design and deliver a scalable microservice with CI/CD, SLOs, and runbooks — and you carry the pager.
 - Delivers end-to-end
   - Meets SLOs, on-call ready and effective.
 - Adapts the pattern
@@ -124,10 +118,8 @@ You design and deliver a scalable microservice with CI/CD, SLOs, and runbooks �
 
 *Where does it break?* You decompose complexity across boundaries — when something breaks between services, you find the root cause.
 
-### You know you're here when
-
-You re-architect a data pipeline to resolve distributed latency that three teams couldn't isolate independently.
-
+- You know you're here when
+  - You re-architect a data pipeline to resolve distributed latency that three teams couldn't isolate independently.
 - Finds root causes
   - Traces across services and proposes options with tradeoffs.
 - Leads the change
@@ -144,10 +136,8 @@ You re-architect a data pipeline to resolve distributed latency that three teams
 
 *Which option should win?* You frame criteria, compare architectures, and make calls that hold up over a three-year horizon.
 
-### You know you're here when
-
-You choose a modular monolith over microservices — weighing scale, TCO, and compliance — and get buy-in from four teams.
-
+- You know you're here when
+  - You choose a modular monolith over microservices — weighing scale, TCO, and compliance — and get buy-in from four teams.
 - Frames criteria
   - Compares options and recommends with clear rationale.
 - Gains adoption
@@ -164,10 +154,8 @@ You choose a modular monolith over microservices — weighing scale, TCO, and co
 
 *What should exist?* You synthesize new frameworks, platforms, and operating models — the artifact you produce becomes the standard others build on.
 
-### The signal
-
-You design a cross-cloud, policy-aware data platform framework, and teams across the enterprise adopt it as their foundation.
-
+- The signal
+  - You design a cross-cloud, policy-aware data platform framework, and teams across the enterprise adopt it as their foundation.
 - Reference architecture
   - The implementation exists and is validated.
 - Organization-wide adoption
@@ -182,14 +170,10 @@ You design a cross-cloud, policy-aware data platform framework, and teams across
 
 The verb is one axis — how you think. **Reach** is the other — how far what you make travels. Your level is where they meet: **Evaluate** for your team and **Evaluate** across the org are different levels with the same verb.
 
-- 
-  - I
-  - Own the verb
-  - You can do the cognitive work — correct, clear, complete. So far it reaches only you.
-- 
-  - II
-  - Widen the reach
-  - The work travels: team, org, field. Documented, adopted, durable — the farther it carries, the higher the level.
+1. Own the verb
+   - You can do the cognitive work — correct, clear, complete. So far it reaches only you.
+2. Widen the reach
+   - The work travels: team, org, field. Documented, adopted, durable — the farther it carries, the higher the level.
 
 *Most engineers stall here — not on the thinking, but on making it travel past their own hands. That gap, not the verb, is what earns the title.*
 

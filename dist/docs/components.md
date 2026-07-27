@@ -821,8 +821,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 | `eyebrow` | `p:first-of-type > code` | no | Optional inline-code label above the feature (the phase number under `steps`, the unit under `metric`). |
 | `heading` | `h2` | yes | The featured element in the left panel — a heading by default; a hero number under `metric`; the phase name under `steps`. (Under `pullquote`, use a blockquote instead — see the variant.) |
 | `lede` | `p` | no | One-sentence framing paragraph under the feature. |
-| `points` | `ul > li` | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof`, exactly two items render as paired proof cards instead of a vertical list. |
-| `signal` | `h3 + p` | no | `proof` only. An h3 naming the scenario (e.g. "You know you're here when") followed by one paragraph — rendered as a bordered callout above the two proof cards. |
+| `points` | `ul > li` | yes | Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. "You know you're here when"); the other two render as the paired proof cards. |
 
 ##### Variant decision rule
 
@@ -982,10 +981,8 @@ Scenario signal + two paired proof cards, filling the column top to bottom. Narr
 
 *How is this done?* You recall syntax, patterns, and standards — the path is known, and the job is to follow it without error.
 
-### You know you're here when
-
-You implement a feature via an existing API. Tests pass, review comes back clean, and rework is rare.
-
+- You know you're here when
+  - You ship on an existing API and rework is rare.
 - Follows examples well
   - Compiles, runs, and tests locally with confidence.
 - Works from brief tickets
@@ -1003,12 +1000,10 @@ Composes with `proof`: the signal reads as a quoted card, the two proof points r
 
 ## Build what didn't exist before.
 
-*What should exist?* You synthesize new frameworks, platforms, and operating models — the artifact you produce becomes the standard others build on.
+*What should exist?* You synthesize new frameworks, platforms and operating models — what you produce becomes the standard.
 
-### The signal
-
-You design a cross-cloud, policy-aware data platform framework, and teams across the enterprise adopt it as their foundation.
-
+- The signal
+  - Teams across the enterprise adopt your framework as their foundation.
 - Reference architecture
   - The implementation exists and is validated.
 - Organization-wide adoption
@@ -2922,7 +2917,7 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 
 ##### Variant decision rule
 
-- **`axis`.** The pair are two facets of one idea (not before/after, not a verdict) — frame them with a lede above and land the takeaway in a closing note below.
+- **`axis`.** Two FACETS of one idea, not a before/after change of state — authored as a numbered list (`1. Title` + a nested body line). The I/II numerals are generated from the ol counter, never typed, and the variant opts out of the family's corner-tag treatment so the title stacks under the numeral.
 - **`transition`.** The comparison is a state change over time — left is before, right is after; implies causation, not two co-equal preferences.
 - **`mirror`.** Same anatomy, but the deck's rhythm wants the accented (second) option to land visually on the left instead of the right.
 - **`chosen`.** One option is the winner and the other keeps its full, undiminished case — crowns the second option without dimming the first.
@@ -3098,16 +3093,12 @@ A lede above, numeral-led facet cards, a closing note below.
 
 The verb is one axis — how you think. **Reach** is the other — how far what you make travels.
 
-- 
-  - I
-  - Own the verb
-  - You can do the cognitive work — correct, clear, complete. So far it reaches only you.
-- 
-  - II
-  - Widen the reach
-  - The work travels: team, org, field — the farther it carries, the higher the level.
+1. Own the verb
+   - You can do the cognitive work — correct, clear, complete. It reaches only you.
+2. Widen the reach
+   - The work travels: team, org, field. Documented, adopted, durable.
 
-*Most engineers stall here — not on the thinking, but on making it travel past their own hands.*
+*Most engineers stall on making it travel, not on the thinking.*
 ```
 
 #### Universal modifiers

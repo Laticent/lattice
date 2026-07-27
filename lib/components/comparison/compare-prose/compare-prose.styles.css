@@ -370,7 +370,23 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   justify-items: center;
   text-align: center;
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li:nth-child(1) {
+/* Numerals are GENERATED from the ordered list, not authored. The previous
+ * contract asked the author to leave the outer item's lead BLANK and then write
+ * the numeral as the first nested bullet — an empty `- ` in the markdown, which
+ * is indefensible authoring and silently produced a numeral-less card if anyone
+ * "tidied" it. Now the shape is the ordinary numbered one used everywhere else:
+ *   1. Own the verb
+ *      - the body
+ * upper-roman because this variant pairs two FACETS of one idea (I / II), where
+ * arabic would read as sequence. */
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol {
+  counter-reset: axis-facet;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
+  counter-increment: axis-facet;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li::before {
+  content: counter(axis-facet, upper-roman);
   font-family: var(--font-display);
   font-size: var(--fs-h1);
   font-weight: 700;
@@ -378,22 +394,45 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   color: var(--accent);
   padding-bottom: var(--sp-sm);
 }
-/* The numeral's own text picks up an auto-bold lift (slot-label-lift on a
- * single-word lead), landing it inside a <strong> — which carries its OWN
- * explicit `section strong { color:var(--text-heading) }` rule (base.elements.css).
- * An explicit same-element rule always wins over an inherited value
- * regardless of the inherited rule's specificity, so without this the
- * numeral silently reverts to ink instead of the accent set above. */
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li:nth-child(1) strong {
-  color: inherit;
+/* `axis` opts OUT of the family's corner-tag recipe. That recipe lifts a card's
+ * leading <strong> into a flush top-left chip and reserves top padding for it —
+ * right for a labeled comparison card, wrong here, where the facet title belongs
+ * UNDER the numeral as part of the centered stack. This is the rule the old
+ * blank-lead contract was dodging; opting out explicitly is what lets the item
+ * be authored as an ordinary `1. Title` + nested body. */
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
+  padding-top: var(--sp-lg);
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li:nth-child(2) {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
+  position: static;
+  background: none;
+  padding: 0 0 var(--sp-xs);
+  border-radius: 0;
+  min-width: 0;
+  letter-spacing: normal;
+  text-transform: none;
+  /* The chip recipe also set chip INK (--on-accent) and a mono label face; both
+   * have to come back to card-title values or the title renders near-white on
+   * the light card. */
+  color: var(--text-heading);
+  font-family: var(--font-body);
+  font-size: var(--fs-h3);
+  font-weight: 700;
+  text-align: center;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > strong {
+  display: block;
   font-size: var(--fs-h3);
   font-weight: 700;
   color: var(--text-heading);
   padding-bottom: var(--sp-xs);
 }
-section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li:nth-child(3) {
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
   font-size: var(--fs-body);
   font-weight: 400;
   color: var(--text-body);

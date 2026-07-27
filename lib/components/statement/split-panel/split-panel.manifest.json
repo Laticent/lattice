@@ -77,12 +77,7 @@
     "points": {
       "selector": "ul > li",
       "required": true,
-      "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof`, exactly two items render as paired proof cards instead of a vertical list."
-    },
-    "signal": {
-      "selector": "h3 + p",
-      "required": false,
-      "description": "`proof` only. An h3 naming the scenario (e.g. \"You know you're here when\") followed by one paragraph — rendered as a bordered callout above the two proof cards."
+      "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof` there are exactly THREE items and the FIRST is the scenario signal (its lead is the label, e.g. \"You know you're here when\"); the other two render as the paired proof cards."
     }
   },
   "skeleton": "<!-- _class: split-panel -->\n\n`Eyebrow context`\n\n## Headline that anchors the panel.\n\nOne-sentence framing paragraph explaining what the points cover.\n\n- First point\n  - Supporting detail explaining the first point.\n- Second point\n  - Supporting detail explaining the second point.\n- Third point\n  - Supporting detail explaining the third point.\n",
@@ -172,12 +167,12 @@
     "proof": {
       "label": "proof",
       "summary": "Scenario signal + two paired proof cards, filling the column top to bottom. Narrows the claim panel to 31% and steps the claim heading to the h2 tier — the evidence side carries three stacked regions where the base carries one list.",
-      "sample": "<!-- _class: split-panel proof -->\n\n`Level 1 · Remembering`\n\n## Execute with accuracy.\n\n*How is this done?* You recall syntax, patterns, and standards — the path is known, and the job is to follow it without error.\n\n### You know you're here when\n\nYou implement a feature via an existing API. Tests pass, review comes back clean, and rework is rare.\n\n- Follows examples well\n  - Compiles, runs, and tests locally with confidence.\n- Works from brief tickets\n  - Consistent quality without hand-holding.\n"
+      "sample": "<!-- _class: split-panel proof -->\n\n`Level 1 · Remembering`\n\n## Execute with accuracy.\n\n*How is this done?* You recall syntax, patterns, and standards — the path is known, and the job is to follow it without error.\n\n- You know you're here when\n  - You ship on an existing API and rework is rare.\n- Follows examples well\n  - Compiles, runs, and tests locally with confidence.\n- Works from brief tickets\n  - Consistent quality without hand-holding.\n"
     },
     "capstone": {
       "label": "capstone",
       "summary": "Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry.",
-      "sample": "<!-- _class: split-panel proof capstone cat-6 -->\n\n`Level 6 · Creating`\n\n## Build what didn't exist before.\n\n*What should exist?* You synthesize new frameworks, platforms, and operating models — the artifact you produce becomes the standard others build on.\n\n### The signal\n\nYou design a cross-cloud, policy-aware data platform framework, and teams across the enterprise adopt it as their foundation.\n\n- Reference architecture\n  - The implementation exists and is validated.\n- Organization-wide adoption\n  - Measurable outcomes follow.\n"
+      "sample": "<!-- _class: split-panel proof capstone cat-6 -->\n\n`Level 6 · Creating`\n\n## Build what didn't exist before.\n\n*What should exist?* You synthesize new frameworks, platforms and operating models — what you produce becomes the standard.\n\n- The signal\n  - Teams across the enterprise adopt your framework as their foundation.\n- Reference architecture\n  - The implementation exists and is validated.\n- Organization-wide adoption\n  - Measurable outcomes follow.\n"
     },
     "cat-1": {
       "label": "cat-1",

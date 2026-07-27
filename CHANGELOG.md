@@ -57,6 +57,26 @@ in patch versions.
 
 ### Changed
 
+- **Breaking (`split-panel.proof` / `compare-prose.axis`, both unreleased): both drop their bespoke
+  row grammars for the ordinary nested-list shape.**
+
+  `proof`'s scenario signal was a `### heading` + paragraph sitting above the two proof cards — a
+  second, different shape to remember on every level slide. It is now simply the FIRST of three list
+  items, so the whole right zone is one uniform list of `- Title` + `  - body`. This also matches the
+  reference deck more closely, where the "you know you're here when" label sits INSIDE the signal
+  card rather than floating above it. The stack still fills the column: the item grid uses
+  `grid-auto-rows: 1fr`, so the signal row and the card row split the height evenly. `capstone`
+  re-skins the same three items rather than needing its own DOM.
+
+  `axis` asked the author to leave a list item's lead **blank** and write the numeral as the first
+  nested bullet — a literal empty `- ` in the markdown, which is indefensible authoring and silently
+  produced a numeral-less card if anyone tidied it away. Numerals are now generated from the `ol`
+  counter (`upper-roman`, because the variant pairs two FACETS rather than a sequence) and the item
+  is written `1. Title` + a nested body line. Making that work meant opting `axis` out of the
+  compare-prose family's corner-tag recipe, which lifts a card's leading `<strong>` into a flush
+  top-left chip — right for a labeled comparison card, wrong where the title belongs under the
+  numeral. That opt-out is precisely what the old blank-lead contract had been dodging.
+
 - **Breaking (`premise`, unreleased): rows are authored as an ORDERED list instead of one inline
   four-segment line.** Was `` - `01` **Remember** Recall facts, syntax, rules. *How is this done?* `` —
   four inline segments whose ROLES were positional, with a hand-typed ordinal and hand-typed bold.
