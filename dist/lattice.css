@@ -16219,22 +16219,24 @@ section.form > .cell-footer > .lat-split-rail {
    the footer text becomes a real flex item that ABSORBS the free space and ellipsises instead
    of overrunning — `flex-grow`, not `margin-right:auto` (HARD RULE #20 — a margin is invisible
    to the height math the Fit Spine measures).
-   Applies to ANY band carrying a docked mark, not just a split run's. Scoped to
-   `:has(> .lat-split-rail)` alone it left the un-split band exactly as it was — which was
-   already broken, just less visibly: an absolute footer with a fixed 52cqi budget beside an
-   in-flow nowrap rail means NEITHER side yields, so on a deck whose footer text and section
-   label are both long they simply overprint. Measured on examples/split-relationship.md p2:
-   footer 22–511px, rail from 278px — 233px of overprint, byte-identical on the pre-fix engine.
-   Two absolutes at the same baseline with no shared budget is the exact defect the footer Cell
-   was created to retire (forms.md §6); this finishes that migration for the last mark that had
-   not joined the row.
-   Where the band has room — 468px of slack on a gallery page — a `flex: 1 1 auto` footer simply
-   fills it and renders identically to the absolute it replaces; only a contended band changes,
-   and there the two shrink proportionally and the footer ellipsises instead of overprinting.
-   It works because both sides can now give ground: the footer carries `min-width: 0` below and
-   the docked rail carries it in stage.css (an un-capped nowrap rail with `min-width: auto` is
+   Scoped by `:has(> .lat-split-rail)` to split-run pages, where a FOURTH mark in the row makes the
+   band genuinely over-subscribed. The un-split band keeps its current geometry byte for byte — it
+   still overprints when both strings are long, which is a real defect, logged as a design fork
+   rather than fixed here (see the decision doc; the obvious fix makes the export strictly worse).
+   This works because both sides can give ground: the footer carries `min-width: 0` below and the
+   docked rail carries it in stage.css (an un-capped nowrap rail with `min-width: auto` is
    unshrinkable, which is what made the first version of this fix collapse the footer to 38px). */
-section.form > .cell-footer:has(> .tile-progress, > .lat-split-rail) > footer,
+/* SCOPED TO SPLIT BANDS, and an attempt to widen it to every band with a docked mark was REVERTED
+   — see `engineering/decisions/2026-07-27-footer-band-allocation.md`. The short version, because
+   the temptation to widen it again is obvious: promoting the footer to a flex item makes it BID for
+   the row's width (`flex-basis: auto` = its full single-line intrinsic width), and `nowrap` forbids
+   the wrap it was previously using. On an un-split band that trades a visible overprint for text
+   DELETED FROM THE EXPORTED PDF's TEXT LAYER — measured on an ordinary board deck, a
+   confidentiality footer lost "any person not named on the distribution schedule" and the section
+   label lost "ING LEVERAGE", where `main` rendered both in full across a wrapped footer. On a SPLIT
+   band the trade is right, because a fourth mark makes the row genuinely over-subscribed and there
+   is no wrap to preserve. */
+section.form > .cell-footer:has(> .lat-split-rail) > footer,
 section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
   inset: auto;
@@ -16246,6 +16248,19 @@ section[data-split-role="cover"] > .cell-footer > footer {
   min-width: 0;
   max-width: none;
   white-space: nowrap;
+  /* `overflow: hidden` is what makes the ellipsis possible — and it is also a HORIZONTAL clip
+     that arrives with a VERTICAL one attached, because the base footer sets `line-height: 1`
+     (above, `section footer`). At `hd` that is a 12.73px padding box around a 17px em box: the
+     half-leading goes NEGATIVE and ~3px of the ink zone sits above the box top. An absolute
+     footer never noticed (it was `overflow: visible` inside a 20.4px `inset-block: 0` box), but a
+     clipping one shaves off everything above cap height — measured: `ÜBERPRÜFUNG` printed as
+     `UBERPRUFUNG` and `ÅÉÀÖ` as `ĀEAO`, in the running footer of every railed page. Lowercase
+     accents survived, which is exactly why it could have shipped unnoticed on an English deck.
+     So the promoted footer sets its own leading, big enough to contain the ink it now clips.
+     1.45 restores every diacritic and changes NO geometry: the band stays 20.4px tall at the
+     same top, so no other mark in the row moves. (HARD RULE #25 inversion pass, on a raster —
+     no box or ink measurement can see this, since the loss is sub-box paint.) */
+  line-height: 1.45;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -20233,10 +20248,13 @@ section.form > footer {
    * width-bounded on its own side.
    * A BUDGET is not a negotiation, though, and that is this rule's limit: it bounds the
    * footer without telling it what the rail is doing, so when both strings are long the two
-   * marks overprint (measured at 233–301px on the shipped gallery). Wherever the band carries
-   * a docked mark, base.modifiers.css promotes the footer to a real flex ITEM instead, and the
-   * row allocates the width — the budget below then only governs the un-docked case, where the
-   * footer is the band's sole occupant and nothing can collide with it. */
+   * marks overprint — 105.2px of real INK overlap on p78 of the shipped gallery, measured by
+   * rasterizing the band. (Comparing the two BOXES says 233–301px, which is not the truth: an
+   * absolute footer's box is its 52cqi budget, not its text.) On a SPLIT band and a split cover,
+   * base.modifiers.css promotes the footer to a real flex ITEM so the row allocates the width;
+   * widening that to every docked band was tried and reverted for deleting text from the exported
+   * PDF. The un-split band's allocation policy is an OPEN question — see
+   * engineering/decisions/2026-07-27-footer-band-allocation.md. */
   max-width: var(--footerleft-w, 52cqi);
 }
 
@@ -20653,6 +20671,18 @@ section.form > .cell-footer > .tile-progress {
    * onto all 84 railed gallery pages on the first attempt.) */
   max-width: none;
   min-width: 0;
+  /* NO shrink weighting here, and that is deliberate — an attempt to make the rail yield before
+   * the author's footer text (`flex-shrink: 8`) did not prioritise it, it ANNIHILATED it: the whole
+   * `.tile-progress` measured 0px wide on every split page, dots included, so the section label
+   * vanished rather than truncated. The `--footer-center-w` cap below already bounds the rail on a
+   * split band, which is what makes the row resolvable; an extra shrink weight on top of a capped
+   * basis just drives it to zero. Measured on test/fixtures/footer-band-contended.md: with the
+   * weight, footer/rail = 783.4/0; without it, 611.9/171.5. Re-measure both if that fixture's
+   * section label changes — it was retuned once already, to bring the footer's share above its
+   * 52cqi cap so the `max-width: none` override is actually exercised.
+   * Shrink PRIORITY between generated wayfinding and author text is a real open question
+   * (see engineering/decisions/2026-07-27-footer-band-allocation.md), but flex-shrink is not the
+   * lever, and the un-capped un-split band is where it would actually matter. */
 }
 section.form > .cell-footer:has(> .lat-split-rail) > .tile-progress {
   max-width: var(--footer-center-w);

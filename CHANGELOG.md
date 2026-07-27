@@ -82,15 +82,17 @@ in patch versions.
   pre-fix tree it fails at exactly the clipped slides (+38px, +102.7px), and passes on the fix. A
   36-case sweep also found **12 pre-existing clips** on `main` — every 5–8-series small-multiples deck
   carrying a below-note, and all 9-series decks, by up to 150px.
-- **A per-PR gate that no shipped docs preview paints an authoring alarm at a reader.** The docs
+- **A per-PR check that no shipped docs preview paints an authoring alarm at a reader.** The docs
   site's live component previews inject the runtime into each frame, where the overflow watcher
   boots in AUTHOR mode — correct for the Specimen (it has an Edit face) and the Studio, but it
   means the red "Overflows" ring and the amber type-floor ring *can* appear on a marketing page.
   Nothing trips either today; the defect was that nobody would know if something started to.
   `docs/e2e/reader-alarms.spec.ts` (@smoke) asserts both stay silent on reader routes, and carries
-  a **positive control** — it injects a 4px-label figure and requires the watcher to react — so
-  "zero alarms" can never pass because the watcher never ran. That hollow-gate failure has shipped
-  in this repo before (§8 rule 9's cover gate asserted over an empty set), so it is designed out.
+  a **positive control** — it injects a 4px-label figure into every frame it read and requires the
+  watcher to react in all of them — so "zero alarms" can never pass because the watcher never ran.
+  That hollow-gate failure has shipped in this repo before (§8 rule 9's cover gate asserted over an
+  empty set), so it is designed out. A *check*, not a gate: it runs in `studio-smoke`, which is
+  advisory — outside the aggregate `ci` job — so it goes red without blocking a merge.
 
 - **Every visualization now declares what it is DRAWN with, and the declaration is checked
   against the rendered artifact.** There was no way to tell which charts are real SVG, which
@@ -5033,17 +5035,13 @@ in patch versions.
   swatch·label·value row model `buildSvgLegend` builds), but the stated reason was false. Corrected in
   place with a dated note rather than a rewrite. It was surfaced by the `render` derivation reporting
   `hybrid`, which is the argument for deriving rather than asserting, made against a decision record.
-- **The running footer and the section rail no longer overprint each other.** The footer Cell was
-  created to retire three absolutes sharing a baseline with no shared budget, but the running
-  `footer:` text never finished that migration: it stayed `position: absolute` with a fixed
-  `--footerleft-w` (52cqi) budget beside an in-flow `nowrap` section rail, so neither side could
-  yield. On a deck with two long strings they simply collided — on the shipped 117-page gallery,
-  p78 painted "…tint-edge at-right" straight through "THE ANNEXES · APPROVED DECORATION", and
-  p47/p58 wrapped the footer onto a second line the band then clipped. Wherever the band carries a
-  docked mark the footer is now a real flex item, so the row allocates the width and both marks
-  ellipsise instead of overlapping. Four of 117 gallery pages change; all four were broken before.
-  Bands with room render identically — a `flex: 1 1 auto` footer simply fills the space the
-  absolute used to occupy.
+- **A clipping footer no longer shaves the diacritics off accented capitals.** #1191 gave the
+  promoted split-band footer `overflow: hidden` so it could ellipsise — and on the base footer's
+  `line-height: 1` that is a *vertical* clip too: a 12.7px box around 17px of ink, so everything
+  above cap height was painted away. `ÜBERPRÜFUNG` printed as `UBERPRUFUNG` and `ÅÉÀÖ` as `ĀEAO`,
+  in the running footer of every page of a split run. Lowercase accents survived, which is exactly
+  why it could ship unnoticed on an English deck. The promoted footer sets its own leading now;
+  the band's height and every other mark's position are unchanged.
 
 - **The type-floor ring is an AUTHOR signal and now stays off a reader's screen.** The live
   watcher ran it ungated, so a `--fluid` export — the shared, reader-facing one — printed an amber

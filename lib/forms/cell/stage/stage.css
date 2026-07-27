@@ -228,6 +228,18 @@ section.form > .cell-footer > .tile-progress {
    * onto all 84 railed gallery pages on the first attempt.) */
   max-width: none;
   min-width: 0;
+  /* NO shrink weighting here, and that is deliberate — an attempt to make the rail yield before
+   * the author's footer text (`flex-shrink: 8`) did not prioritise it, it ANNIHILATED it: the whole
+   * `.tile-progress` measured 0px wide on every split page, dots included, so the section label
+   * vanished rather than truncated. The `--footer-center-w` cap below already bounds the rail on a
+   * split band, which is what makes the row resolvable; an extra shrink weight on top of a capped
+   * basis just drives it to zero. Measured on test/fixtures/footer-band-contended.md: with the
+   * weight, footer/rail = 783.4/0; without it, 611.9/171.5. Re-measure both if that fixture's
+   * section label changes — it was retuned once already, to bring the footer's share above its
+   * 52cqi cap so the `max-width: none` override is actually exercised.
+   * Shrink PRIORITY between generated wayfinding and author text is a real open question
+   * (see engineering/decisions/2026-07-27-footer-band-allocation.md), but flex-shrink is not the
+   * lever, and the un-capped un-split band is where it would actually matter. */
 }
 section.form > .cell-footer:has(> .lat-split-rail) > .tile-progress {
   max-width: var(--footer-center-w);

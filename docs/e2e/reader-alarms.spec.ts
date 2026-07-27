@@ -11,24 +11,30 @@ import { expect, test } from './studio-fixture';
  *   · the amber `.illegible` ring + a "Type Npx · floor Npx" tab (§8 rule 8's type floor).
  *
  * Author mode is the right default for the surfaces where the reader can ACT — the Specimen has an
- * Edit face, the Studio is an editor — so this is deliberately NOT a behavior change. It is a gate.
- * Nothing in the shipped previews trips either alarm today, verified against a local build of the
- * deployed bundle (including `radar` and `diagram`, whose galleries DO ring at gallery size). The
- * exposure being unmonitored was the actual defect: a component sample drifting dense enough to
- * ring would put a QA badge on a marketing page, and the first to know would be a prospective user.
+ * Edit face, the Studio is an editor — so this is deliberately NOT a behavior change. It is a
+ * regression check on an exposure that was previously unmonitored: a component sample drifting
+ * dense enough to ring would put a QA badge on a marketing page, and the first to know would be a
+ * prospective user. Nothing in the shipped previews trips either alarm today, verified against a
+ * local build of the deployed bundle (including `radar` and `diagram`, whose galleries DO ring at
+ * gallery size).
  *
- * The positive control is part of the gate, not a nicety. Without it "zero alarms" could pass
- * because the watcher never booted — the hollow-gate failure this repo has already shipped once
- * (§8 rule 9's cover gate keyed on a class only one of six emitting paths used, so it asserted
- * over an empty set and passed trivially).
+ * Not a GATE, though, and the distinction matters: these specs run in `studio-smoke`, which
+ * `ci.yml` leaves OUT of the aggregate `ci` job, so a regression here goes red without blocking a
+ * merge. Calling it a gate would be the same hollow claim the positive control below exists to
+ * prevent.
+ *
+ * That control is load-bearing. Without it "zero alarms" could pass because the watcher never
+ * booted — the hollow-gate failure this repo has already shipped once (§8 rule 9's cover gate keyed
+ * on a class only one of six emitting paths used, so it asserted over an empty set and passed
+ * trivially). It therefore proves the watcher runs in EVERY frame the assertions read, not merely
+ * in one of them.
  */
 
-// Candidate reader routes. Which of these actually MOUNTS a live preview is a property of the
-// marketing copy, not of this gate — it moved between a local build and CI on the first run, and
-// pinning it would make the suite fail whenever a page is rewritten. So the routes are probed and
-// the ones without previews are skipped; the hollow-gate guard is the CUMULATIVE `inspected` count
-// at the end, which is the assertion that actually matters ("something was really checked").
-const READER_ROUTES = ['/', '/overview/', '/features/', '/comparison/'];
+// Only the landing page mounts live previews (`src/pages/index.astro` → `DeckPreview`); every other
+// marketing route is static prose, and probing them cost ~24s of a 60s budget to learn nothing.
+// Which pages carry a preview is a property of the copy, not of this check, so the route list is
+// still probed rather than assumed — the load-bearing assertion is the `inspected` count.
+const READER_ROUTES = ['/'];
 const FRAME = 'iframe.live';
 
 /** Wait for previews on this route; false when the page simply has none. */
@@ -43,6 +49,18 @@ async function previewsAppear(page: import('@playwright/test').Page): Promise<bo
 	return true;
 }
 
+/** Indices of the preview frames on the current page that actually rendered a slide. */
+async function slideFrames(page: import('@playwright/test').Page): Promise<number[]> {
+	const out: number[] = [];
+	const n = await page.locator(FRAME).count();
+	for (let i = 0; i < n; i += 1) {
+		const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
+		const slides = await frame.locator('section[data-lattice-slide]').count().catch(() => 0);
+		if (slides) out.push(i);
+	}
+	return out;
+}
+
 test('@smoke docs: no shipped preview paints an authoring alarm to a reader', async ({ page }) => {
 	let inspected = 0;
 	const visited: string[] = [];
@@ -52,11 +70,8 @@ test('@smoke docs: no shipped preview paints an authoring alarm to a reader', as
 		if (!(await previewsAppear(page))) continue;
 		visited.push(route);
 
-		const n = await page.locator(FRAME).count();
-		for (let i = 0; i < n; i += 1) {
+		for (const i of await slideFrames(page)) {
 			const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
-			const slides = await frame.locator('section[data-lattice-slide]').count().catch(() => 0);
-			if (!slides) continue;
 			inspected += 1;
 			expect(await frame.locator('section.overflow').count(), `${route} frame ${i}: ringed "Overflows"`).toBe(0);
 			expect(await frame.locator('section.illegible').count(), `${route} frame ${i}: ringed below the type floor`).toBe(0);
@@ -70,27 +85,35 @@ test('@smoke docs: no shipped preview paints an authoring alarm to a reader', as
 	).toBeGreaterThan(0);
 });
 
-test('@smoke docs: the alarm gate is not hollow — a preview frame IS watched', async ({ page }) => {
-	// POSITIVE CONTROL. Inject a figure whose labels render far below the type floor into a real
-	// preview frame and require the watcher to react. If nothing reacts, the assertions above are
-	// measuring an unwatched surface and prove nothing.
+test('@smoke docs: EVERY inspected preview frame is really watched', async ({ page }) => {
+	// POSITIVE CONTROL, per frame. Inject a figure whose labels render far below the type floor into
+	// each preview frame the test above reads, and require the watcher to react in ALL of them.
+	// Proving one frame is watched would leave the rest free to be silent for the wrong reason.
 	await page.goto('/', { waitUntil: 'networkidle' });
 	expect(await previewsAppear(page), 'the landing page must carry a live preview to control against').toBe(true);
 
-	const n = await page.locator(FRAME).count();
-	let proved = false;
-	for (let i = 0; i < n && !proved; i += 1) {
+	const frames = await slideFrames(page);
+	expect(frames.length, 'no preview frame rendered a slide, so there is nothing to control').toBeGreaterThan(0);
+
+	const silent: number[] = [];
+	for (const i of frames) {
 		const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
-		const slide = frame.locator('section[data-lattice-slide]').first();
-		if (!(await slide.count().catch(() => 0))) continue;
-		await slide.evaluate((s: Element) => {
+		await frame.locator('section[data-lattice-slide]').first().evaluate((s: Element) => {
 			s.insertAdjacentHTML(
 				'beforeend',
 				'<svg viewBox="0 0 900 60" width="900" height="60"><text x="0" y="40" font-size="4">tiny</text></svg>',
 			);
 		});
-		await page.waitForTimeout(3000);
-		if ((await frame.locator('section.illegible').count().catch(() => 0)) > 0) proved = true;
 	}
-	expect(proved, 'no preview frame reacted to a 4px figure — the watcher is not running there, so the gate above proves nothing').toBe(true);
+	// One shared settle: the watcher is debounced, and 3s per frame would blow the smoke budget.
+	await page.waitForTimeout(3000);
+	for (const i of frames) {
+		const frame = page.frameLocator(`${FRAME} >> nth=${i}`);
+		if ((await frame.locator('section.illegible').count().catch(() => 0)) === 0) silent.push(i);
+	}
+
+	expect(
+		silent,
+		`frame(s) ${silent.join(', ')} of ${frames.length} did not react to a 4px figure — the watcher is not running there, so the "zero alarms" assertion proves nothing about them`,
+	).toEqual([]);
 });
