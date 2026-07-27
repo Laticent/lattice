@@ -487,6 +487,24 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    on-page text px; below the floor → the honest ring, never a silent shrink. This
    is the FM-1 fix and it removes the §0b contradiction between "no type floor" and
    "the honest ring."
+   **☑ BUILT (P-envelope).** `probeFigureLegibility` (lib/core/overflow-probe.js) measures the
+   figure's effective ON-PAGE glyph size — `font-size` inside a viewBox is in USER units, so it is
+   multiplied by the viewBox→box scale — and compares it to `FIGURE_TEXT_FLOOR_PX`. Single-sourced
+   and `.toString()`-injected exactly like `probeSectionOverflow`, so the live-preview watcher (an
+   amber `illegible` ring + a tab naming the measured px against the floor) and the export measure
+   apply ONE rule. The slide is never handed to the splitter — a figure has no seam — and it is
+   reported on its OWN stderr axis, because "CLIPPED / trim content" would be two lies at once:
+   the box fits, and the fix is a simpler figure or a bigger box.
+   The floor is **ABSOLUTE canvas px, not a fraction of the type scale** — a ratio against
+   `--fs-meta` would pass the same rendered glyph in landscape (meta 14px) and fail it in portrait
+   (27px), which is not a floor. Calibrated at **8px** against all 59 figures in the shipped chart
+   galleries: the catalog's smallest is 7.2px, the next 9.9px, then 10.5px, everything else ≥12.3px.
+   **It fires on shipped output, and that is the finding, not a false positive:** `radar
+   small-multiples` (6.9px) and `state-chart` (5.3–7.9px across five gallery slides) render labels
+   below the floor today — `state-chart`'s 5.3px is literally the "ships silently at 6px type" this
+   rule was written about. Re-sizing those two variants is a **design decision left to the owner**
+   and deliberately not taken here (HARD RULE #18: a pre-existing, off-path defect is logged, not
+   pulled into this diff).
 9. **☑ GATE MADE REAL (P-envelope).** The mechanism shipped, but the gate this rule
    demands was HOLLOW: it keyed on the CLASS `lat-split-cover`, which only the plain path
    and `cover-paginate`/`cover-cards` emit. The per-layout strategies emit their own

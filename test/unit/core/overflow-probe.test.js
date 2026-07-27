@@ -11,7 +11,10 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { CLIP_CELL_SELECTOR, probeSectionOverflow, PROBE_SRC } = require('../../../lib/core/overflow-probe');
+const {
+  CLIP_CELL_SELECTOR, probeSectionOverflow, PROBE_SRC,
+  probeFigureLegibility, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_PX,
+} = require('../../../lib/core/overflow-probe');
 
 // Minimal fake <section>: its own box dims + a list of "clip cell" children
 // returned from querySelectorAll(selector). The selector is ignored by the fake
@@ -255,5 +258,100 @@ describe('overflow-probe', () => {
     const reified = new Function('return (' + PROBE_SRC + ')')();
     const s = fakeSection({ scrollHeight: 700, clientHeight: 700, cells: [cell(828, 718)] });
     assert.equal(reified(s, CLIP_CELL_SELECTOR, TOL).over, true);
+  });
+});
+
+// ── §8 rule 8 — the viewBox figure's legibility floor ───────────────────────────
+// The overflow probe above is STRUCTURALLY blind to a container-responsive figure: it never
+// spills its box, it shrinks its own labels instead. Driven with fake SVG nodes, since the probe
+// only reads getBoundingClientRect / viewBox.baseVal / computed font-size.
+describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
+  // A fake <text> whose computed font-size the stubbed getComputedStyle below returns.
+  const text = (fontSize, content = 'Label') => ({ textContent: content, __fs: fontSize });
+  const svg = ({ vbW = 300, vbH = 300, boxW = 300, boxH = 300, texts = [] }) => ({
+    getBoundingClientRect: () => ({ width: boxW, height: boxH }),
+    viewBox: { baseVal: { width: vbW, height: vbH } },
+    querySelectorAll: () => texts,
+  });
+  const section = (figs) => ({ querySelectorAll: (sel) => (sel === 'svg[viewBox]' ? figs : []) });
+
+  // The probe reads getComputedStyle(t).fontSize; the fakes carry it on `__fs`.
+  const withStubbedStyle = (fn) => {
+    const had = Object.hasOwn(globalThis, 'getComputedStyle');
+    const prev = globalThis.getComputedStyle;
+    globalThis.getComputedStyle = (el) => ({ fontSize: `${el.__fs}px` });
+    try { return fn(); } finally {
+      if (had) globalThis.getComputedStyle = prev; else delete globalThis.getComputedStyle;
+    }
+  };
+
+  test('scale is applied: user units × the viewBox→box ratio is the ON-PAGE size', () => {
+    withStubbedStyle(() => {
+      // 11 user units in a 300-unit viewBox rendered into a 600px box → 22px on the page.
+      const big = probeFigureLegibility(section([svg({ boxW: 600, boxH: 600, texts: [text(11)] })]), 8);
+      assert.equal(big.minPx, 22);
+      assert.equal(big.under, false);
+      // …the SAME figure in a 150px box → 5.5px, which is below the floor.
+      const small = probeFigureLegibility(section([svg({ boxW: 150, boxH: 150, texts: [text(11)] })]), 8);
+      assert.equal(small.minPx, 5.5);
+      assert.equal(small.under, true);
+    });
+  });
+
+  test('the SMALLEST text decides — a legible title does not rescue a 5px tick label', () => {
+    withStubbedStyle(() => {
+      const r = probeFigureLegibility(section([svg({ texts: [text(24), text(11), text(5)] })]), 8);
+      assert.equal(r.minPx, 5);
+      assert.equal(r.count, 3);
+      assert.equal(r.under, true);
+    });
+  });
+
+  test('a non-square box takes the SMALLER ratio (preserveAspectRatio fits, it does not stretch)', () => {
+    withStubbedStyle(() => {
+      const r = probeFigureLegibility(section([svg({ boxW: 600, boxH: 150, texts: [text(10)] })]), 8);
+      assert.equal(r.minPx, 5, 'the height ratio (0.5) governs, not the width ratio (2)');
+    });
+  });
+
+  test('reported minPx rounds DOWN, so a flagged figure never prints as equal to its floor', () => {
+    withStubbedStyle(() => {
+      const r = probeFigureLegibility(section([svg({ boxW: 217, texts: [text(11) ] })]), 8);
+      assert.ok(r.under, 'this is a genuine miss');
+      assert.ok(r.minPx < r.floorPx, `${r.minPx} must read as below ${r.floorPx}`);
+    });
+  });
+
+  test('nothing to judge → null (never a false "legible")', () => {
+    withStubbedStyle(() => {
+      assert.equal(probeFigureLegibility(section([]), 8), null, 'no figure');
+      assert.equal(probeFigureLegibility(section([svg({ texts: [] })]), 8), null, 'a figure with no text');
+      assert.equal(probeFigureLegibility(section([svg({ texts: [text(11, '   ')] })]), 8), null, 'whitespace-only text');
+      assert.equal(probeFigureLegibility(section([svg({ texts: [text(11)] })]), 0), null, 'no floor given');
+    });
+  });
+
+  test('a figure with no viewBox dims falls back to scale 1 rather than guessing', () => {
+    withStubbedStyle(() => {
+      const noVb = { getBoundingClientRect: () => ({ width: 600, height: 600 }), viewBox: null, querySelectorAll: () => [text(9)] };
+      const r = probeFigureLegibility(section([noVb]), 8);
+      assert.equal(r.minPx, 9);
+      assert.equal(r.under, false);
+    });
+  });
+
+  test('the floor is an absolute canvas px, so it cannot move with the preset', () => {
+    // A ratio against `--fs-meta` would pass this figure in landscape (meta 14px) and fail it in
+    // portrait (27px) — the same rendered glyph, two verdicts. The constant is the guard.
+    assert.equal(typeof FIGURE_TEXT_FLOOR_PX, 'number');
+    assert.ok(FIGURE_TEXT_FLOOR_PX > 6 && FIGURE_TEXT_FLOOR_PX < 12, `implausible floor: ${FIGURE_TEXT_FLOOR_PX}`);
+  });
+
+  test('LEGIBILITY_SRC re-inflates and behaves identically (it is injected as a string)', () => {
+    withStubbedStyle(() => {
+      const reified = new Function('return (' + LEGIBILITY_SRC + ')')();
+      const s = section([svg({ boxW: 150, boxH: 150, texts: [text(11)] })]);
+      assert.deepEqual(reified(s, 8), probeFigureLegibility(s, 8));
+    });
   });
 });

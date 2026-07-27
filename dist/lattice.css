@@ -15787,6 +15787,41 @@ section.overflow > .overflow-tab {
  * the slide is fixed (the runtime watcher also removes it). */
 section:not(.overflow) > .overflow-tab { display: none; }
 
+/* ── The TYPE-FLOOR ring (§8 rule 8) ──────────────────────────────────────────────
+   The overflow ring's blind spot, made visible. A viewBox figure is CONTAINER-RESPONSIVE:
+   it never spills its box, it shrinks its own labels — so the overflow probe (box spill and
+   nothing else) is structurally incapable of seeing a figure that has scaled its text to 6px,
+   and the slide ships silently unreadable. `lib/core/overflow-probe.js`'s
+   `probeFigureLegibility` measures the figure's rendered on-page glyph size against the deck's
+   own smallest type (`--fs-meta`) and the watcher stamps `illegible` below it.
+
+   A DISTINCT signal, not the overflow ring: the box does fit, and the fix is a simpler figure
+   or a bigger box — not "trim content". Amber rather than red for the same reason, and the two
+   are visually distinguishable when a slide somehow earns both. Fixed authoring colors, like
+   the overflow ring's (same documented exception: an authoring-only signal must not depend on
+   a palette that could make it invisible). */
+section.illegible {
+  box-shadow: inset 0 0 0 4px #b8730a;
+}
+section.illegible > .illegible-tab {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  background: #b8730a;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+  padding: var(--sp-2xs) var(--sp-sm);
+  border-bottom-right-radius: var(--radius-md);
+  pointer-events: none;
+}
+section:not(.illegible) > .illegible-tab { display: none; }
+
 /* ════════════════════════════════════════════════════════════════════════
  * CUSTOM LOGO — discreet author-supplied brand mark, top-right corner.
  * Author contract, gotchas, and full rationale at lib/base/_logo/logo.docs.md.

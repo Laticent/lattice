@@ -317,8 +317,25 @@ in patch versions.
   the never-blocking suggestions channel, matching what the Playground's editor diagnostics already
   did with them.
 
+- **A legibility floor for viewBox figures** (§8 rule 8). A container-responsive figure never
+  overflows its box — it scales its own labels — so the overflow probe is structurally blind to a
+  figure that has shrunk its text to 5px. `probeFigureLegibility` measures the effective on-page
+  glyph size (user units × the viewBox→box scale) against an absolute 8px canvas floor, calibrated
+  against all 59 figures in the shipped chart galleries. Below it the slide gets an amber ring in
+  the preview and its own stderr report, and is never handed to the splitter (a figure has no
+  seam). It flags two shipped variants today — `radar small-multiples` at 6.9px and `state-chart`
+  at 5.3–7.9px — which is the finding, not a false positive; re-sizing them is a separate design
+  call.
+
 ### Fixed
 
+- **The split veto no longer clips a slide it should have split.** Two independent measurement
+  errors, each silent: the collection was measured with `offsetHeight`, which in a bounded flex
+  stage reports the SQUEEZED box (a checklist's `<ul>` measured 0 against a scrollHeight of 312, so
+  the gate concluded the list contributed nothing to the overflow); and the headroom counted the
+  framing lede and the trailing note as immovable, though the envelope hoists both off the body
+  pages. A checklist of 8 items with a long lede and a long below-note clipped, while the identical
+  slide with those two blocks deleted split cleanly.
 - **Split COVER chrome is legible on the accent field.** Measured on a real render, the deck
   header and footer came out at **1.34:1** on a cover page and the section rail's label at
   **1.00:1** — `--accent` text on `--accent`, literally invisible — because the chrome kept the

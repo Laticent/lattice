@@ -511,7 +511,7 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
-const { CLIP_CELL_SELECTOR, PROBE_SRC } = require('./lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, PROBE_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_PX } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
 // An image set's `--image-mode light|dark` forces the palette's light / dark variant
 // (the same `<name>-dark` companion the Studio's dark export picks — HARD RULE #1),
@@ -1842,6 +1842,7 @@ ${stateChartScript}
   var TOL = 12;
   var CLIP_CELL_SELECTOR = ${JSON.stringify(CLIP_CELL_SELECTOR)};
   var probeSectionOverflow = ${PROBE_SRC};
+  var probeFigureLegibility = ${LEGIBILITY_SRC};
   var settleFonts = ${SETTLE_FONTS_SRC};
   function check(){
     document.querySelectorAll('section[data-lattice-slide]').forEach(function(s){
@@ -1849,6 +1850,26 @@ ${stateChartScript}
       // section, so probe the cells too (lib/core/overflow-probe.js).
       var over = probeSectionOverflow(s, CLIP_CELL_SELECTOR, TOL).over;
       s.classList.toggle('overflow', over);
+      // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
+      // so the probe above is blind to it by construction. Ring it separately when the figure's
+      // rendered type falls below the deck's own smallest size.
+      var leg = probeFigureLegibility(s, ${FIGURE_TEXT_FLOOR_PX});
+      var under = !!(leg && leg.under);
+      s.classList.toggle('illegible', under);
+      // The labelled tab — the ring is colour-only (WCAG 1.4.1), so name the condition in text,
+      // and name it with the NUMBERS, since "too small" is only actionable next to the floor it
+      // missed. Presence-guarded; position:absolute, so it never changes the measured height.
+      var tab = s.querySelector(':scope > .illegible-tab');
+      if (under && !tab) {
+        tab = document.createElement('div');
+        tab.className = 'illegible-tab';
+        tab.textContent = 'Type ' + leg.minPx + 'px · floor ' + leg.floorPx + 'px';
+        s.appendChild(tab);
+      } else if (!under && tab) {
+        tab.remove();
+      } else if (under && tab) {
+        tab.textContent = 'Type ' + leg.minPx + 'px · floor ' + leg.floorPx + 'px';
+      }
     });
   }
   // Force every declared @font-face to load before the FIRST measurement —
@@ -2085,18 +2106,28 @@ async function renderBody(browser, g, closeBrowser) {
   // clientHeight) — the signal both the author warning and the measured auto-split
   // pass below read. Scope to real slide sections only — `<section>` literals inside
   // code blocks parse as nested DOM and would pollute the indices.
-  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, probeSrc }) => {
+  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, probeSrc, legibilitySrc, floorPx }) => {
     const TOL = 12; // filter sub-pixel rounding; see lattice-runtime.js
     // Cell-aware probe (lib/core/overflow-probe.js, injected verbatim): a bounded
     // content cell that clips hides its overflow from section.scrollHeight, so we
     // fold the cell's internal overflow back into the section's effective extent —
     // otherwise autosplit never sees an over-stuffed cell and the content is lost.
     const probeSectionOverflow = new Function('return (' + probeSrc + ')')();
+    const probeFigureLegibility = new Function('return (' + legibilitySrc + ')')();
     const out = [];
     document.querySelectorAll('section[data-lattice-slide]').forEach((s, i) => {
       const probe = probeSectionOverflow(s, clipSel, TOL);
       const vOver = probe.vOver;
       const over = probe.over;
+      // §8 rule 8 — the LEGIBILITY FLOOR. A viewBox figure is container-responsive: it never
+      // overflows its box, it shrinks its own text, so `probe.over` is structurally blind to it
+      // and a dense figure ships silently at 6px type. Reported on its own axis, and NEVER
+      // splittable — a figure has no seam to divide, so the honest answer is the ring.
+      const leg = probeFigureLegibility(s, floorPx);
+      if (leg?.under) {
+        out.push({ slide: i + 1, ratio: 1, canSplit: false, splitRatio: 1, illegible: leg });
+        return;
+      }
       if (!over) return;
       const C = probe.clientH;
       const ratio = C > 0 ? probe.scrollH / C : 2;
@@ -2125,15 +2156,68 @@ async function renderBody(browser, g, closeBrowser) {
       // an incidental list), splitting just copies that block onto every piece and never
       // fits — leave it for the ring. `canSplit` gates the measured pass; `splitRatio`
       // sizes it from the collection's own height, not the whole slide's.
+      // The collection's REAL extent, not its laid-out box. `offsetHeight` was the measure, and
+      // in a bounded flex stage it reports the SQUEEZED height: a checklist's `ul` inside
+      // `section.checklist > .cell-stage { display: flex; flex-direction: column }` shrank to
+      // offsetHeight 0 (rect 0, scrollHeight 312) and the veto therefore concluded the
+      // collection contributed NOTHING to the overflow — the exact opposite of the truth — and
+      // refused to split a slide whose list was the entire driver. It clipped, silently.
+      // `scrollHeight` is the content extent a clipping or squeezed box hides, which is what
+      // "how tall does this collection want to be" means; the rect is the floor for the ordinary
+      // un-squeezed case. Same cell-aware reasoning as `probeSectionOverflow` itself.
+      const extentOf = (el) => Math.max(el.scrollHeight, Math.round(el.getBoundingClientRect().height));
       let collH = 0;
-      s.querySelectorAll('ul, ol, table').forEach((el) => { collH = Math.max(collH, el.offsetHeight); });
-      const headroom = C - (probe.scrollH - collH); // box space left for the collection (cell-aware extent)
+      let collEl = null;
+      s.querySelectorAll('ul, ol, table').forEach((el) => {
+        const h = extentOf(el);
+        if (h > collH) { collH = h; collEl = el; }
+      });
+      // …AND the headroom must be measured against the slide the split will actually EMIT, not
+      // the one on screen. The envelope HOISTS the framing lede to the cover and the trailing
+      // note/key-insight off every page but the last, so counting them as immovable
+      // non-collection content under-reports the room a body page will have. Measured: a
+      // checklist of 8 items with a long lede and a long below-note reported 288px of headroom
+      // against a 270px floor and was VETOED — it clipped, silently — while the identical slide
+      // with those two blocks deleted split cleanly. The author's fix would have been to cut the
+      // lede, which is exactly the content the envelope was built to relocate.
+      //
+      // Mirrors split-envelope.js's own `ledeSpansIn` / `trailingSpansIn` (HARD RULE #1 — same
+      // two regions, read here from the DOM instead of the HTML string): the LEDE is the
+      // cell's direct-child <p>s before the collection, minus the code-only eyebrow/subtitle
+      // and a chart subtitle; the TRAILING run is the contiguous <p> / .below-note /
+      // <blockquote> after it. Deliberately narrow — over-counting would let an unsplittable
+      // slide into the loop and balloon the deck.
+      let hoistH = 0;
+      if (collEl) {
+        const cell = s.querySelector(':scope > .cell-stage') || s;
+        if (cell.contains(collEl)) {
+          const kids = [...cell.children];
+          const at = kids.findIndex((el) => el === collEl || el.contains(collEl));
+          if (at > 0) {
+            for (const el of kids.slice(0, at)) {
+              if (el.tagName !== 'P') continue;
+              if (el.classList.contains('chart-subtitle')) continue;
+              if (el.children.length === 1 && el.firstElementChild.tagName === 'CODE') continue;
+              hoistH += extentOf(el);
+            }
+          }
+          for (let k = kids.length - 1; k > at; k--) {
+            const el = kids[k];
+            if (el.tagName === 'HEADER' || el.tagName === 'FOOTER' || el.tagName === 'NAV') continue;
+            const trailing = el.tagName === 'P' || el.tagName === 'BLOCKQUOTE'
+              || (el.tagName === 'DIV' && el.classList.contains('below-note'));
+            if (!trailing) break;
+            hoistH += extentOf(el);
+          }
+        }
+      }
+      const headroom = C - (probe.scrollH - collH - hoistH); // room a BODY page will have
       const canSplit = vOver && collH > 0 && headroom > C * 0.2;
       const splitRatio = canSplit ? Math.max(2, collH / headroom) : ratio;
       out.push({ slide: i + 1, ratio, canSplit, splitRatio });
     });
     return out;
-  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, probeSrc: PROBE_SRC }), 'measure overflow');
+  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, floorPx: FIGURE_TEXT_FLOOR_PX }), 'measure overflow');
   let overflow = await measureOverflow();
   // MEASURED auto-split — the loop that makes "split" fit REAL boxes. Divide every
   // overflowing SPLITTABLE slide by how much it overflows, re-render, re-measure,
@@ -2174,7 +2258,19 @@ async function renderBody(browser, g, closeBrowser) {
       }), 'load fonts (rails)');
     }
   }
-  const overflowing = overflow.map((o) => o.slide);
+  // §8 rule 8's figures are reported on their OWN line: "clipped" would be a lie (the box fits)
+  // and so would "trim content" (the fix is a simpler figure, or a bigger box).
+  const illegible = overflow.filter((o) => o.illegible);
+  if (illegible.length) {
+    const n = illegible.length;
+    console.warn(`  ⚠ TYPE FLOOR — ${n} viewBox figure${n > 1 ? 's' : ''} render${n > 1 ? '' : 's'} text below the ` +
+      `${illegible[0].illegible.floorPx}px legibility floor: ` +
+      illegible.map((o) => `page ${o.slide} at ${o.illegible.minPx}px`).join(', ') + '.');
+    console.warn('    A container-responsive figure never overflows — it scales its own labels instead, so the');
+    console.warn('    overflow check cannot see this. Simplify the figure (fewer labels, shorter text), give it a');
+    console.warn('    bigger box, or split it across slides. The export stays clean — no ring is printed.');
+  }
+  const overflowing = overflow.filter((o) => !o.illegible).map((o) => o.slide);
   if (overflowing.length) {
     const n = overflowing.length;
     console.warn(`  ⚠ OVERFLOW — ${n} slide${n > 1 ? 's' : ''} exceed the frame and ${n > 1 ? 'are' : 'is'} CLIPPED in this export: page${n > 1 ? 's' : ''} ${overflowing.join(', ')}.`);
@@ -2190,6 +2286,11 @@ async function renderBody(browser, g, closeBrowser) {
   // `section:not(.overflow) > .overflow-tab { display:none }`.)
   await g(() => page.evaluate(() => {
     for (const s of document.querySelectorAll('section.overflow')) s.classList.remove('overflow');
+    // The §8 rule 8 TYPE-FLOOR marker is the same kind of authoring-only signal (an amber ring
+    // plus a tab naming the measured px against the floor), and it leaves the deliverable for the
+    // same reason. The stderr warning above is the author's channel.
+    for (const s of document.querySelectorAll('section.illegible')) s.classList.remove('illegible');
+    for (const t of document.querySelectorAll('.illegible-tab')) t.remove();
   }), 'strip overflow marker');
   // Rasterize SVG <img>/background images before printing the VECTOR pdf: the
   // clipped/cropped placements Chromium prints for them emit shading-pattern /

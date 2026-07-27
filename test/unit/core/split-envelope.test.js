@@ -19,7 +19,10 @@
 
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements, chromeOf } = require('../../../lib/core/split-envelope');
+const {
+  splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements,
+  chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote,
+} = require('../../../lib/core/split-envelope');
 const { evenGroups } = require('../../../lib/core/collections');
 const { autoSplitDeck, resplitDoc, applyRails } = require('../../../lib/core/auto-split');
 const { splitSections } = require('../../../lib/core/split-sections');
@@ -555,5 +558,105 @@ describe('core: the envelope invariant, per split RUN across a whole deck (rule 
     const pages = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
     assert.deepEqual(pages, pages.map((_, i) => i + 1));
     assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => Number(m[1]) === pages.length));
+  });
+});
+
+// ── The two placement primitives, pinned ────────────────────────────────────────
+// Both were fixed under mutation testing (a deliberate break that no test caught) and then
+// again on a real render; these are the tests that were owed.
+describe('core: split-envelope — partitionKeepingNote is a true no-op when the cut does not fit', () => {
+  const cell = (body) => `<header>H</header><div class="cell-masthead"><div class="masthead-lede"><h2>T</h2></div></div>` +
+    `<div class="cell-stage">${body}</div><div class="cell-footer"><footer>F</footer></div>`;
+
+  test('a page whose collection already fits comes back BYTE-IDENTICAL, note and all', () => {
+    // `partitionAxis`'s "already fits" return is a length-1 array holding its INPUT — which here
+    // is the note-STRIPPED html, so returning it as-is silently dropped the note. The guard
+    // re-injects on the untouched original instead, which must be indistinguishable from a bare
+    // `partitionAxis` call on a slide with no note at all.
+    const inner = cell('<ul><li>a</li><li>b</li></ul><p class="lat-split-note">A footnote.</p>');
+    const out = partitionKeepingNote(inner, 'item', 5);
+    assert.equal(out.length, 1);
+    assert.equal(out[0], inner, 'the no-split path must not rewrite the page');
+  });
+
+  test('when it DOES cut, the note rides the last piece only', () => {
+    const inner = cell('<ul><li>a</li><li>b</li><li>c</li><li>d</li></ul><p class="lat-split-note">A footnote.</p>');
+    const out = partitionKeepingNote(inner, 'item', 2);
+    assert.equal(out.length, 2);
+    assert.doesNotMatch(out[0], /lat-split-note/, 'the note must not repeat on every piece');
+    assert.match(out.at(-1), /lat-split-note/);
+    assert.equal((out.join('').match(/lat-split-note/g) || []).length, 1);
+  });
+
+  test('a page with no note at all is exactly a bare partitionAxis', () => {
+    const inner = cell('<ul><li>a</li><li>b</li><li>c</li><li>d</li></ul>');
+    const out = partitionKeepingNote(inner, 'item', 2);
+    assert.equal(out.length, 2);
+    assert.ok(out.every((p) => !/lat-split-note/.test(p)));
+  });
+});
+
+describe('core: split-envelope — injectTrailing places the note before the TRAILING CHROME RUN', () => {
+  test('with a `.cell-stage`, the note lands at the end of the content cell', () => {
+    const inner = '<header>H</header><div class="cell-stage"><ul><li>a</li></ul></div><footer>F</footer>';
+    const out = injectTrailing(inner, '<p class="lat-split-note">N</p>');
+    assert.match(out, /<\/ul><p class="lat-split-note">N<\/p><\/div>/);
+  });
+
+  test('with NO stage, it lands before the footer AND the section rail that follows it', () => {
+    // The earlier rule was "right before the last `<footer>`, but only if nothing but whitespace
+    // follows its close". A rendered Form slide ends `…</footer><nav class="tile-progress">…</nav>`,
+    // so something DID follow, the check failed, and the note was appended AFTER the section's own
+    // chrome. Keyed on the trailing chrome RUN now.
+    const inner = '<header>H</header><ul><li>a</li></ul><footer>F</footer><nav class="tile-progress"><span class="seg">S</span></nav>';
+    const out = injectTrailing(inner, '<p class="lat-split-note">N</p>');
+    assert.match(out, /<\/ul><p class="lat-split-note">N<\/p><footer>/);
+    assert.ok(out.indexOf('lat-split-note') < out.indexOf('<footer>'));
+    assert.ok(out.indexOf('lat-split-note') < out.indexOf('tile-progress'));
+  });
+
+  test('a page whose CONTENT mentions a literal <footer> is not misplaced (the lazy-regex trap)', () => {
+    const inner = '<header>H</header><ul><li>see &lt;footer&gt; below</li></ul><p>tail text</p><footer>F</footer>';
+    const out = injectTrailing(inner, '<p class="lat-split-note">N</p>');
+    assert.ok(out.indexOf('lat-split-note') > out.indexOf('tail text'), 'the note must follow the real content');
+    assert.ok(out.indexOf('lat-split-note') < out.indexOf('<footer>F'));
+  });
+
+  test('no note is a no-op', () => {
+    const inner = '<header>H</header><ul><li>a</li></ul><footer>F</footer>';
+    assert.equal(injectTrailing(inner, ''), inner);
+    assert.equal(injectTrailing(inner, markNote([])), inner);
+  });
+});
+
+describe('core: split-envelope — footerCell / stripChrome', () => {
+  const chrome = { header: '<header>H</header>', footer: '<footer>F</footer>', rail: '<nav class="tile-progress"><span class="seg">S</span></nav>' };
+
+  test('a paginated slide gets footer + rail + a page-number element to re-stamp', () => {
+    const cellHtml = footerCell('<section data-lattice-pagination="3" class="x">', chrome);
+    assert.match(cellHtml, /^<div class="cell-footer">/);
+    assert.match(cellHtml, /<footer>F<\/footer>/);
+    assert.match(cellHtml, /tile-progress/);
+    assert.match(cellHtml, /<span class="lat-pagination">0<\/span>/);
+  });
+
+  test('a `paginate: false` slide gets the Cell WITHOUT a number — never a literal "0"', () => {
+    const cellHtml = footerCell('<section class="x">', chrome);
+    assert.doesNotMatch(cellHtml, /lat-pagination/);
+    assert.match(cellHtml, /<footer>F<\/footer>/);
+  });
+
+  test('no chrome at all → no empty Cell', () => {
+    assert.equal(footerCell('<section class="x">', { header: '', footer: '', rail: '' }), '');
+  });
+
+  test('stripChrome removes the EXACT chrome strings, and nothing that merely looks like them', () => {
+    const slice = `${chrome.header}<div class="chart-header"><h2>T</h2></div>${chrome.footer}`;
+    assert.equal(stripChrome(slice, chrome), '<div class="chart-header"><h2>T</h2></div>');
+    // A component's own nested <nav> is not the slide rail and must survive.
+    const nested = `${chrome.header}<div><nav class="pager">1</nav></div>`;
+    assert.equal(stripChrome(nested, chrome), '<div><nav class="pager">1</nav></div>');
+    // Tolerates a slice that begins mid-nesting (kanban's board closes).
+    assert.equal(stripChrome(`</div></div>${chrome.footer}`, chrome), '</div></div>');
   });
 });
