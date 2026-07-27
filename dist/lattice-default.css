@@ -11894,22 +11894,49 @@ section.regulatory-update > .cell-stage {
     flex: 1 1 auto;
     min-height: 0;
   }
-  /* KNOWN, deliberate: a split page UNDER-FILLS. Measured, a one-card page puts a
-   * 314.8px card in an 835.6px stage. The cause is the `.viz-frame` pin —
-   * `section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) >
-   * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.css) — which
-   * holds the body at natural height, so nothing inside it can claim the freed
-   * space. `grid-auto-rows: 1fr` and a `height: 100%` card were tried here and
-   * are INERT against it (the pin is (0,4,1); they lost), so they are not left
-   * in place pretending to work.
+  /* FILL A SPLIT PAGE — without blinding the probe that triggers the split.
    *
-   * Out-specifying the pin is the obvious next move and is deliberately NOT
-   * taken: the pin exists so an overstuffed chart SPILLS the stage clip where
-   * `overflow-probe.js` can see it, and that probe is what TRIGGERS this
-   * component's own split. Unpinning to win back whitespace risks silently
-   * disabling the pagination — trading a real mechanism for cosmetics. Filling a
-   * split page properly means giving roadmap a fill posture that survives the
-   * probe, which is a frame-level change, not a roadmap tweak. Tracked on #1209. */
+   * Once `roadmap-horizons` paginates, a page can hold one card and the stage is
+   * mostly empty: measured, a 314.8px card in an 835.6px stage. The height is
+   * held by the `.viz-frame` pin —
+   * `section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) >
+   * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.css).
+   *
+   * The obvious move — flip the body to `flex: 1 1 0` so it fills — is WRONG,
+   * and measuring the frame says why. `.chart-body` is `overflow: hidden`, so
+   * content never spills THROUGH it into the stage. The probe fires because the
+   * pin gives the body its NATURAL height, so an overstuffed chart makes the
+   * BODY itself exceed the stage (`stage.scrollHeight > clientHeight`). Set
+   * `flex: 1 1 0` and the body is exactly stage height, its overflow clipped
+   * inside it, and `overflow-probe.js` goes blind — which would silently
+   * disable this component's own pagination.
+   *
+   * So keep natural growth and add a FLOOR. `min-height: 100%` makes the body at
+   * least the stage's height when content is smaller (the split case → it
+   * fills), while `flex: 0 0 auto` still lets it grow PAST the stage when
+   * content is larger (the overstuffed case → the probe still fires and the
+   * split still triggers). One property, both behaviours, no pin to fight.
+   *
+   * Both directions are covered by tests: `check:chart-fit` renders the split
+   * pages, and the carousel suite asserts an overstuffed roadmap still divides.
+   * See #1209. */
+  section.chart-frame.roadmap.horizons > .cell-stage > .chart-body {
+    min-height: 100%;
+  }
+  /* With the body floored, these can finally hand the height down: `1fr` rows
+   * stretch the cards that remain on the page, and the card's own rows spread
+   * into it instead of bunching under the header. */
+  :is(section.roadmap, figure.roadmap).horizons .horizons {
+    grid-auto-rows: 1fr;
+  }
+  :is(section.roadmap, figure.roadmap).horizons .horizon-card {
+    height: 100%;
+    min-height: 0;
+  }
+  :is(section.roadmap, figure.roadmap).horizons .horizon-rows {
+    height: 100%;
+    justify-content: space-evenly;
+  }
   /* The row's height is set by `.row-text`, which carries the glyphs — setting
    * font-size on the <li> does nothing, because both spans declare their own. */
   :is(section.roadmap, figure.roadmap).horizons .row-text { font-size: var(--fs-meta); }

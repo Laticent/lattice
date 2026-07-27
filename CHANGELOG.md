@@ -449,6 +449,12 @@ in patch versions.
   pages: `perSlide = ceil(N/4)` caps the run and `evenGroups` balances it, so 3 phases → 3 pages,
   5 phases → 2+2+1, and 16 phases still → 4 pages. Verified for every phase count 2–16, with
   conservation (no phase dropped or duplicated) and balance (no page 2+ cards heavier) asserted.
+  A split page also FILLS its stage rather than trading the clip for dead space: `.chart-body`
+  gains `min-height: 100%` at portrait. Not `flex: 1 1 0` — `.chart-body` is `overflow: hidden`,
+  so content never spills through it, and the overflow probe fires only because the pinned body
+  takes its NATURAL height and outgrows the stage. Filling it that way would have blinded the
+  probe and silently disabled this very split. A min-height floor gives both: it fills when the
+  content is smaller, and still outgrows the stage when it is larger.
   **Autosplit is opt-in per deck** (`autosplit: on`), and applies to portrait/square only.
 - **`roadmap` clipped its status key on a square deck.** The key's top separation rides
   `--canvas-scale` to 60.1px; the table clears the stage by 128.8px but table + key made a 780.3px
