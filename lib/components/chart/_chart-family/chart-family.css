@@ -665,17 +665,27 @@ section.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort {
    Scoped to section.form so non-form chart rendering stays byte-identical. */
 section.form.radar:not(.claim-hero):not(.claim-bleed) .chart-body,
 section.form.map:not(.claim-hero):not(.claim-bleed) .chart-body,
-section.form.quadrant:not(.claim-hero):not(.claim-bleed) .chart-body {
+section.form.quadrant:not(.claim-hero):not(.claim-bleed) .chart-body,
+/* word-cloud joined the container-fill model on 2026-07-27, when its size key
+   moved inside the cloud's viewBox. Before that it could not: the key was an
+   absolutely-positioned HTML rail that needed `.word-cloud-canvas` as a sized
+   positioning context, so the canvas was pinned at `85.9375cqi × 25cqi` and the
+   figure sat at a fixed fraction of the slide instead of filling its body — most
+   visibly in portrait, where a tall box left the cloud stranded in white space.
+   One viewBox means one box to fill. */
+section.form.word-cloud:not(.claim-hero):not(.claim-bleed) .chart-body {
   container-type: size;
 }
 section.form.radar:not(.claim-hero):not(.claim-bleed) .radar-figure:not([data-variant="small-multiples"]),
 section.form.map:not(.claim-hero):not(.claim-bleed) .map-figure,
-section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-figure[data-variant="cohort"] {
+section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-figure[data-variant="cohort"],
+section.form.word-cloud:not(.claim-hero):not(.claim-bleed) .word-cloud-canvas {
   display: contents;
 }
 section.form.radar:not(.claim-hero):not(.claim-bleed) .radar-svg:not(.radar-svg--mini),
 section.form.map:not(.claim-hero):not(.claim-bleed) .map-svg,
-section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort {
+section.form.quadrant:not(.claim-hero):not(.claim-bleed) .quadrant-svg--cohort,
+section.form.word-cloud:not(.claim-hero):not(.claim-bleed) .wc-svg {
   /* Container-fill (was height:100cqh; width:auto) — same as the piechart
      rule: the chart-body is a container-type:size box and the figure is
      display:contents, so the SVG fills both axes and preserveAspectRatio `meet`

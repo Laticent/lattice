@@ -15,7 +15,37 @@ in patch versions.
 > | Category in `## Unreleased` | Bump |
 > |---|---|
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
-> | `### Added`, `### Changed`, `### Deprecated` | **minor** |
+> | `### Added`, `### Changed
+
+- **word-cloud and radar small-multiples follow the piechart's portrait + container-fill model.**
+  Two behaviors the pie has had since #598 and these two did not. (a) **Key below at portrait.**
+  word-cloud's `size = frequency` key moves from a side rail to a band UNDER the cloud, with the
+  horizontal accent rule and a left→right A-ramp — `svg-legend.js buildPortrait`'s model, threaded
+  through `ctx.orientation` the way roadmap already does. In a tall box the scarce axis is width, so
+  a rail squeezed the cloud AND cramped the key; the cloud now packs the full width against a taller
+  portrait canvas. (b) **Fill the container.** word-cloud joins the chart-family container-fill rule
+  (`.chart-body{container-type:size}` + canvas `display:contents` + svg `100%/100%`) — it could not
+  before, because the absolutely-positioned HTML key needed the canvas as a sized positioning
+  context, pinning it to `85.9375cqi × 25cqi`. The svg box now fills 88.9% × 87.2% of its chart
+  body, matching the piechart — though the box was already 88.9% wide, so only the height fill
+  changed and the LANDSCAPE drawing is the same size as before. The real gain is portrait, where the
+  cloud's word ink goes **5% → 25%** of the body (biggest word 89px → 134px), which needed the word
+  sizes scaled with the taller canvas — enlarging the canvas alone bought emptier canvas.
+  radar's small-multiples became a **grid** (`auto-fit` + `minmax` + `grid-auto-rows:1fr`) that
+  divides the body on both axes: portrait fill goes **23% → 43%** at six series. Landscape is
+  deliberately unchanged — four minis already fill the row width, and square tiles in a 2.4:1 body
+  cannot do better. The grid also repairs a **pre-existing** defect: across a 36-case sweep the
+  baseline tree clipped 12 (every 5–8-series deck with a below-note, and all 9-series decks, by up to
+  150px); the tip clips none. Trade to know about: the mini's diagram is no longer a fixed physical
+  size (351.6px at 1–2 series, 188.1px at four, 78.6px at nine with a note) and nothing enforces a
+  legibility floor at the top of that range.
+
+  A wrapping flex row was the wrong tool and briefly shipped here: with `flex:1 1 basis` a six-series
+  chart wraps 4+2 and the two survivors stretch to fill a four-wide row, growing their height with
+  them — measured **607.8px against a 449.1px stage, clipping 115.8px of chart off the top**. The grid
+  gives every cell the same width whatever row it lands in, and `1fr` rows split the height, so the
+  same deck now fits with 130px to spare.
+`, `### Deprecated` | **minor** |
 > | `### Fixed`, `### Security` | **patch** |
 >
 > Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty
@@ -26,6 +56,16 @@ in patch versions.
 ## Unreleased
 
 ### Added
+
+- **`npm run check:chart-fit` — a gate for the invariant that broke twice.** Every other chart gate
+  asks whether a chart is right in ISOLATION (does it scale, is its CSS relative, does its paint
+  survive the scoped path). None asked whether the rendered thing fits `.cell-stage`, which is
+  `overflow: clip` — so an overflowing chart is silently CUT, not visibly broken. The new tool renders
+  `test/fixtures/chart-fit.md` through the emulator, loads the sidecar in headless Chromium, and
+  compares each chart's painted extent against its stage box. It discriminates: run against the
+  pre-fix tree it fails at exactly the clipped slides (+38px, +102.7px), and passes on the fix. A
+  36-case sweep also found **12 pre-existing clips** on `main` — every 5–8-series small-multiples deck
+  carrying a below-note, and all 9-series decks, by up to 150px.
 
 - **Every visualization now declares what it is DRAWN with, and the declaration is checked
   against the rendered artifact.** There was no way to tell which charts are real SVG, which
@@ -364,6 +404,46 @@ in patch versions.
   `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
   `backends/vivus.ts`.)
 ### Changed
+- **Every chart that draws SVG now draws all of it — the last two HTML labels moved into their
+  viewBoxes.** `word-cloud`'s `size = frequency` key and `radar`'s small-multiple captions were the
+  only HTML text left in an otherwise-SVG figure (243 and 22 characters respectively), and both flip
+  those components from `render: hybrid` to `svg` — derived and gated, not asserted. Concretely: a
+  small-multiples radar exported as a standalone `.svg` used to come out as four unnamed shapes and a
+  word cloud without the legend explaining its one encoding; chart-motion animated the minis while
+  their names sat still. And both labels were **slide-relative where the figures around them were
+  chart-relative** — sized from the `--fs-*` scale while the chart scaled with its own box. In
+  landscape at the default size the two agree, which is why it went unnoticed; elsewhere they do not.
+  In **portrait** the old word-cloud key rendered at 26.5px against a 62.5px biggest word (42%) and
+  **overflowed its own rail**, wrapping "SIZE = FREQUENCY" onto two lines that escaped above the
+  spine; a radar mini caption rendered at 23.9px against a 175px diagram. Both now hold their
+  landscape proportion (17.8% and 5.74%) at any orientation, and follow a retuned
+  `--radar-mini-size` instead of ignoring it. So this is size-neutral where the old render was right
+  and a **fix** where it was not. The chart family is now seven SVG, two hybrid (`state-chart`,
+  `journey` — both structural, not stray labels), four HTML.
+
+  Both conversions are **size-neutral at the landscape default** and were measured, not eyeballed:
+  radar's caption renders at 10.78px as before with the diagram unchanged at 188.0px, and
+  word-cloud's key reproduces the token scale it replaces (13.48px label, 36/25.2/19.24px ramp —
+  verified via `getScreenCTM`, not an assumed scale: `preserveAspectRatio: meet` makes that canvas
+  WIDTH-bound at 0.83783, and converting through the 0.9 height ratio shipped the whole key 6.9%
+  small in a first cut). The SPINE is the deliberate exception: thickness 2.00px → 2.40px because it
+  now uses the family ratio rather than word-cloud's bespoke 2px hairline floor (the piechart's is
+  2.73px on the same surface), and length 224.6px → 209.1px because 78% now means 78% of the drawing
+  rather than of the letterboxed CSS box. radar's caption band is
+  sized per chart from the longest name (one line or two) and its height travels to the CSS on
+  `--radar-mini-vb`, so a chart of one-line names stays height-neutral (206.7px → 206.2px) instead of
+  reserving a wrap it does not have — height the Fit Spine would otherwise have to find, which can
+  tip a tight deck into an autosplit it did not need. Two traps are recorded in the decision note
+  because the last SVG conversion predicted them — growing radar's viewBox without updating the CSS
+  divisor would have shrunk the diagram 14% inside an unchanged box, and applying the family's
+  `FS = 0.045 · height` key rule to a mini (rendered at a fraction of the body) would have shrunk the
+  caption to 8.5px, the rule defeating its own intent. The spine geometry is now a shared
+  `buildSpine` in `svg-legend.js` instead of a third inline copy of the same gradient — a byte-identical
+  extraction, verified by diffing rendered output for all four keyed charts. Removed as dead:
+  `--chart-spine` / `-w` / `-h` and `--wc-cloud-frac`. Two new gates: a CSS-mirror test on the kernel
+  viewBox vs the CSS divisor, and a guard that these label classes declare no CSS `font-size` — which
+  is what would silently hand their size back to the slide scale and re-introduce the portrait defect.
+  See `engineering/decisions/2026-07-27-chart-family-all-svg.md`.
 
 
 - **Chart motion is a first-class SETTING — a Motion tab with Play, Style, and Speed.** The in-place
@@ -4869,6 +4949,12 @@ in patch versions.
   `lib/base/base.docs.md § Custom logo` and `examples/custom-logo.md`.
 
 ### Fixed
+- **`engineering/decisions/2026-06-13-svg-native-legend.md` §7 claimed "word-cloud never had a key."**
+  It had one — an `aria-hidden` `size = frequency` A-ramp in the right rail — and the claim stood for
+  six weeks. The scoping decision it justified was still right (a size ramp is not the
+  swatch·label·value row model `buildSvgLegend` builds), but the stated reason was false. Corrected in
+  place with a dated note rather than a rewrite. It was surfaced by the `render` derivation reporting
+  `hybrid`, which is the argument for deriving rather than asserting, made against a decision record.
 - **The type-floor ring is an AUTHOR signal and now stays off a reader's screen.** The live
   watcher ran it ungated, so a `--fluid` export — the shared, reader-facing one — printed an amber
   `Type 3px · floor 8.4px` diagnostic over the deck header on 7 of 11 slides of the `state-chart`
@@ -4968,7 +5054,6 @@ in patch versions.
   `<tbody>`-less table counted its `<thead>` row as a member, and a member's label was read from a
   `<strong>` anywhere in its body rather than a leading one (so "Sign off — the chair signs the
   **policy hash**" signalled "next: policy hash").
-
 - **`capabilities:check` — and therefore `build:check` — was red on `main`.** Seven npm scripts added
   by #1119 (`anima-player:build`/`:check`, `test:adaptive`, `test:concepts`, `test:exemplars`,
   `test:forms`, `test:transform-dsl`) were never described in `SCRIPT_META`, so the freshness gate

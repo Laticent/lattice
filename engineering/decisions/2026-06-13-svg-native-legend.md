@@ -261,6 +261,25 @@ a key. But it now *solely* owns those tokens; a future cleanup could move them
 onto `section.word-cloud` and drop them from the shared `section.chart-frame`
 block.
 
+> **CORRECTION — 2026-07-27.** The sentence "word-cloud never had a key" was
+> wrong, and stayed wrong here for six weeks. word-cloud shipped a
+> `size = frequency` key (`.wc-key` — an `aria-hidden` A-ramp in the right rail)
+> that this section did not account for. The SCOPING decision was still right:
+> word-cloud's key is a size ramp, not the swatch·label·value rows
+> `buildSvgLegend` builds, so it could not have been folded into the four-chart
+> fan-out. Only the stated reason was false.
+>
+> It was found by the `render` field's derivation (#1201), which measures what a
+> component actually draws and reported word-cloud as `hybrid` — prompting the
+> question this paragraph had answered incorrectly. That is the argument for
+> deriving rather than asserting, made against this document.
+>
+> **The cleanup this paragraph anticipated is now done.** word-cloud's key and
+> spine moved into its viewBox on 2026-07-27, so the `--chart-spine*` trio has no
+> reader left and is deleted rather than relocated. The spine geometry both
+> callers now share lives in `svg-legend.js buildSpine`. See
+> `engineering/decisions/2026-07-27-chart-family-all-svg.md`.
+
 ## 8. Alternatives considered (and why not)
 - **Keep #233's fixed HTML key (do nothing).** The floor; loses proportional +
   self-contained. Fine if the spike fails.

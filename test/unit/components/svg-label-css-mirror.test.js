@@ -130,6 +130,132 @@ describe('radar: kernel font sizes mirror radar.styles.css', () => {
   });
 });
 
+// ── the mini's viewBox ↔ CSS BOX mirror ─────────────────────────────────────
+// A second mirror, same trap, different quantity. The small-multiple caption
+// moved inside the mini's viewBox (2026-07-27), which made the viewBox TALLER —
+// 300 diagram + a fixed caption band. The CSS has to divide by that same total
+// or the diagram silently changes rendered size: divide by too little and the
+// mini letterboxes, by too much and it grows past the four-up row that
+// MINI_LABEL_PAD was tuned for. Nothing else would fail — it would just look
+// slightly wrong, which is the worst kind of drift.
+//
+// This is exactly the failure the SVG-native legend conversion hit and recorded
+// ("audit the component's existing aspect-ratio / max-height FIRST — the kernel
+// is the easy part"), so it gets a gate rather than a comment.
+describe('radar mini viewBox ↔ CSS box mirror', () => {
+  const css = read('lib/components/chart/radar/radar.styles.css');
+
+  // The kernel is the source of truth: load it and read the real viewBox it
+  // emits, rather than re-deriving the arithmetic here (a re-derivation that
+  // duplicates the formula would agree with a broken formula).
+  const rendered = require('../../../lib/engine').render(
+    read('lib/components/chart/radar/radar.gallery.md'), 'indaco', { preview: true },
+  ).html;
+  const vb = /class="radar-svg radar-svg--mini" viewBox="(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"/.exec(rendered);
+
+  test('the mini renders with a caption band below the 300-unit diagram', () => {
+    assert.ok(vb, 'no .radar-svg--mini in the rendered gallery — the mirror has nothing to check');
+    assert.ok(+vb[4] > 300, `mini viewBox height ${vb[4]} must exceed the 300-unit diagram (the caption band)`);
+  });
+
+  test('CSS states no viewBox height at all — the browser derives it', () => {
+    // The mini fills its grid cell (`width:100%; height:100%`) and
+    // `preserveAspectRatio: meet` fits the viewBox inside, so the caption band's
+    // share of the drawing comes from the viewBox itself. This replaced a
+    // `height: calc(var(--radar-mini-size) * <vbH> / 300)` mirror, which required
+    // CSS to know a number the kernel computes from CONTENT (one line of series
+    // names or two) — correct only for the band it was written against, and
+    // letterboxing or cropping the moment a name wrapped. The best mirror is no
+    // mirror; this test guards that it stays gone.
+    const rule = /\.radar-svg--mini\s*\{([^}]*)\}/s.exec(css);
+    assert.ok(rule, 'no .radar-svg--mini rule in radar.styles.css');
+    assert.match(rule[1], /height:\s*100%/,
+      'the mini must fill its grid cell on BOTH axes; preserveAspectRatio fits the viewBox inside');
+    assert.ok(!/height:\s*calc\([^)]*\/\s*300\s*\)/.test(rule[1]),
+      'the mini height must not divide by a hard-coded viewBox height again');
+  });
+
+  test('the mini fills the width its flex track was given', () => {
+    const rule = /\.radar-svg--mini\s*\{([^}]*)\}/s.exec(css);
+    assert.match(rule[1], /width:\s*100%/,
+      'the mini must fill its track — a fixed width is what left four minis at 5% of a portrait body');
+  });
+
+  test('the caption is SVG — no <figcaption> survives in the small-multiples output', () => {
+    // Gated on RENDERED output, not on kernel source: the source still MENTIONS
+    // `<figcaption>` in the comment explaining why it no longer emits one, and a
+    // text scan cannot tell an emitter from its own epitaph.
+    assert.ok(!/<figcaption/.test(rendered),
+      'the rendered radar gallery still contains a <figcaption>; the mini caption must live in the viewBox');
+    assert.match(rendered, /<text class="radar-mini-label"/, 'no SVG mini caption in the rendered gallery');
+  });
+});
+
+// ── in-viewBox labels must be CHART-relative, never slide-relative ──────────
+// The property that makes an SVG label responsive: its size is a user unit in the
+// chart's own viewBox, so it scales with the chart. The moment a CSS rule gives
+// one of these classes a `font-size` from the `--fs-*` scale, it becomes
+// SLIDE-relative again and the two drift apart the instant the chart's box stops
+// being a fixed fraction of the slide.
+//
+// That is not hypothetical — it is what these labels did before 2026-07-27, and
+// it was measurably wrong in portrait: word-cloud's key rendered at 26.5px
+// against a cloud whose biggest word was 62.5px (42% — it overflowed its own
+// rail and wrapped), and a radar mini caption rendered at 23.9px against a 175px
+// diagram. In viewBox units both hold their landscape proportion exactly
+// (17.8% and 5.74%) at any orientation or container size.
+//
+// So: the kernel owns the size for these classes, and CSS may not take it back.
+describe('SVG label sizes stay chart-relative, not slide-relative', () => {
+  const OWNED_BY_KERNEL = [
+    { css: 'lib/components/chart/radar/radar.styles.css', sel: '.radar-mini-label' },
+    { css: 'lib/components/chart/word-cloud/word-cloud.styles.css', sel: '.wc-key-label' },
+    { css: 'lib/components/chart/word-cloud/word-cloud.styles.css', sel: '.wc-key-edge' },
+    { css: 'lib/components/chart/word-cloud/word-cloud.styles.css', sel: '.wc-key-a' },
+  ];
+  for (const { css, sel } of OWNED_BY_KERNEL) {
+    test(`${sel} declares no font-size in CSS`, () => {
+      const text = read(css);
+      // Scan from each MENTION of the class to the end of the block it opens,
+      // rather than matching `prelude { body }` pairs. The pair form cannot see
+      // inside an at-rule: for `@media (…) { .wc-key-a { font-size: … } }` the
+      // prelude is the `@media` and the class sits in the BODY, so the block is
+      // filtered out and the very declaration this guards slips through green.
+      let found = 0;
+      for (const m of text.matchAll(new RegExp(sel.replace('.', '\\.'), 'g'))) {
+        const open = text.indexOf('{', m.index);
+        if (open < 0) continue;
+        // Walk to the matching close brace so a nested block is included.
+        let depth = 0; let end = open;
+        for (; end < text.length; end += 1) {
+          if (text[end] === '{') depth += 1;
+          else if (text[end] === '}') { depth -= 1; if (depth === 0) break; }
+        }
+        const body = text.slice(open + 1, end);
+        found += 1;
+        assert.ok(!/(^|[\s;])font-size\s*:/.test(body),
+          `${sel}: CSS sets font-size near offset ${m.index} — that makes the label ` +
+          'slide-relative again. Size these from the kernel, in viewBox user units.');
+      }
+      assert.ok(found > 0, `no rule found for ${sel} in ${css}`);
+    });
+  }
+
+  test('the emitted labels carry their own font-size attribute', () => {
+    // The other half: if the kernel stopped emitting it, the labels would fall
+    // back to an inherited size and the CSS check above would pass vacuously.
+    const radar = require('../../../lib/engine').render(
+      read('lib/components/chart/radar/radar.gallery.md'), 'indaco', { preview: true },
+    ).html;
+    const wc = require('../../../lib/engine').render(
+      read('lib/components/chart/word-cloud/word-cloud.gallery.md'), 'indaco', { preview: true },
+    ).html;
+    assert.match(radar, /<text class="radar-mini-label" font-size="[\d.]+"/);
+    assert.match(wc, /<text class="wc-key-label" font-size="[\d.]+"/);
+    assert.match(wc, /<text class="wc-key-a" [^>]*font-size="[\d.]+"/);
+  });
+});
+
 describe('the mirror gate itself', () => {
   test('declaredFontSize resolves a literal px size', () => {
     assert.equal(declaredFontSize('.a { font-size: 8.5px; }', '.a'), 8.5);

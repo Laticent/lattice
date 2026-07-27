@@ -4,7 +4,7 @@
 
 **Function** evidence · **Form** scatter · **Substance** series
 
-**Drawn with** `hybrid` — The web, spokes, area polygons and axis labels are `<svg>`; the small-multiples variant then labels each mini radar with an HTML `<figcaption>` beneath it, so a `mini` deck is a grid of SVG figures with HTML captions between them. Chart-motion animates the polygons; those captions do not move.
+**Drawn with** `svg` — The web, spokes, area polygons, axis labels, the key and — since the 2026-07-27 conversion — the small-multiples captions are all one `<svg>`. Each mini carries its series name in a fixed caption band inside its own viewBox, so a standalone SVG export of a small-multiples radar names its four shapes instead of shipping them blank, and chart-motion moves a mini's caption with the mini rather than leaving it behind.
 
 **Tags** `spider` · `assessment` · `positioning`
 

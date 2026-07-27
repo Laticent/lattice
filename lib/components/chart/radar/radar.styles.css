@@ -217,26 +217,69 @@
 /* ── small-multiples: one mini radar per series ───────────────────────── */
 :is(section.radar, figure.chart-frame) .radar-figure[data-variant="small-multiples"] {
   gap: 0;
+  /* A DEFINITE height, so the grid's `1fr` rows have something to divide. Without
+   * it the figure is content-sized, `1fr` collapses to max-content, and the minis
+   * stay at their basis while the body keeps the leftover.
+   *
+   * SCOPED to the same condition that makes `.chart-body` a size container
+   * (chart-family.css excludes claim-hero/claim-bleed). `100cqh` with no query
+   * container resolves against the VIEWPORT, and at claim-hero the pre-existing
+   * `section.radar:is(.claim-hero,.claim-bleed) .radar-figure { height: auto }
+/* The definite height, scoped to exactly where `.chart-body` is a size container
+   (chart-family.css). See the note in the rule above. */
+section.form.radar:not(.claim-hero):not(.claim-bleed) .radar-figure[data-variant="small-multiples"] {
+  height: 100cqh;
+}`
+   * ties this rule on specificity — so leaving it unscoped would hand the
+   * outcome to source order. Logged separately: small-multiples at claim-hero is
+   * already broken in both trees (1-column, overflowing). */
+  min-height: 0;
 }
 :is(section.radar, figure.chart-frame) .radar-multiples {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: center;
+  /* A GRID, not a wrapping flex row.
+   *
+   * With `flex: 1 1 <basis>` the LAST row balloons: six minis wrap 4 + 2, and
+   * the two survivors stretch to fill a four-wide row, so their height (auto,
+   * from the viewBox) grows with them — the row measured 607.8px against a
+   * 449.1px stage and clipped 115.8px of chart off the top. `auto-fit` +
+   * `minmax(basis, 1fr)` gives every cell the SAME width whatever row it lands
+   * in, which is what a small-multiples grid means.
+   *
+   * `grid-auto-rows: 1fr` then splits the available HEIGHT evenly, and each mini
+   * fits its cell via `preserveAspectRatio: meet`. So the minis fill the body on
+   * both axes and can never overflow it — the sizing question stops being "how
+   * big is a mini" and becomes "how big is a cell", which the container answers. */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--radar-mini-size) * 340 / 300)), 1fr));
+  grid-auto-rows: 1fr;
+  justify-items: center;
+  align-items: center;
   gap: var(--sp-md) var(--sp-lg);
   flex: 1 1 auto;
+  /* Take the figure's full height: the figure is a flex ROW with
+   * `align-items:center`, so without this the grid is content-sized, `1fr` has
+   * nothing to divide, and a two-row grid overflows the stage instead of
+   * splitting the height between its rows. */
+  height: 100%;
+  min-height: 0;
 }
 :is(section.radar, figure.chart-frame) .radar-mini {
   margin: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sp-3xs);
+  justify-content: center;
+  /* min-* 0 so a grid item may shrink below its content's intrinsic size —
+   * without it the svg's intrinsic height wins and the row overflows again. */
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
 }
 /* Small-multiple minis size in cqi, not px (#1184). A fixed 188px pinned each
  * mini to a PHYSICAL size: it held ~19.6% of the chart body at HD but collapsed
- * to ~4.9% at 4K while the cqi-sized type around it grew ~3×, so the minis
- * shrank away from their own captions.
+ * to ~4.9% at 4K while the cqi-sized type around it grew ~3x, so the minis
+ * shrank away from their captions.
  *
  * The token is calibrated by MEASUREMENT against the surface whose BYTES ship —
  * the emulator document Chrome prints the PDF from, AT THE VIEWPORT IT PRINTS
@@ -247,30 +290,38 @@
  * The viewport is not a detail: loading the same document at puppeteer's default
  * 800x600 gives a 960px body and answers 19.583cqi, which renders 180.5px — a 4%
  * shrink dressed up as a units cleanup. Measure the surface, at the size the
- * surface actually runs.
- *
- * A differently-padded HOST resolves the same token against ITS chart body and
- * gets a proportionally different pixel size. That is the point of the change,
- * not a defect: the mini is meant to be a fraction of its container. Only the
- * PDF path can be pinned to a number, so that is the one calibrated. */
+ * surface actually runs. */
 :is(section.radar, figure.chart-frame) {
   --radar-mini-size: 20.399cqi;
 }
-/* The mini's viewBox is widened by MINI_LABEL_PAD each side (radar.transform.js)
- * so a six-letter rim label can't break mid-word. Height still pins the 300-unit
- * diagram, so the DIAGRAM's rendered size is unchanged; the extra width is
- * label bleed. The ratio mirrors the kernel's viewBox — 340/300. */
+/* The mini fills the width its flex track was given, and HEIGHT FOLLOWS THE
+ * viewBox — no divisor in CSS at all.
+ *
+ * This used to be `height: calc(var(--radar-mini-size) * <vbH> / 300)`, which
+ * meant CSS had to know the kernel's viewBox height. That number is not fixed:
+ * the caption band is content-sized (one line of series names or two), so a
+ * literal was correct only for the band it was written against and would
+ * letterbox or crop the moment a name wrapped. `height: auto` lets the browser
+ * derive it from the viewBox, so the band's share is always exactly right and
+ * there is no mirror to keep in sync. */
 :is(section.radar, figure.chart-frame) .radar-svg--mini {
-  width: calc(var(--radar-mini-size) * 340 / 300);
-  height: var(--radar-mini-size);
+  /* Fill the grid cell on both axes; `preserveAspectRatio: meet` (the default)
+   * fits the diagram+caption unit inside without distortion. No divisor in CSS
+   * at all — the caption band's share of the drawing comes from the viewBox. */
+  width: 100%;
+  height: 100%;
 }
 :is(section.radar, figure.chart-frame) .radar-svg--mini .radar-axis-label {
   font-size: 11px;   /* the mini keeps the 300-unit plot, so label units too */
 }
+/* The mini's series name is an SVG <text> inside its own viewBox (2026-07-27),
+ * so this rule carries TYPE and PAINT only — position and font-size are
+ * presentation attributes in user units, emitted by radar.transform.js. Same
+ * division of labour as .radar-axis-label and .chart-key-label. */
 :is(section.radar, figure.chart-frame) .radar-mini-label {
-  font-size: var(--fs-meta);
   font-weight: 600;
-  color: var(--series-color);
+  fill: var(--series-color);
+  text-anchor: middle;
 }
 
 /* ── minimal: stroke-only polygons, fainter grid (composable) ─────────── */
