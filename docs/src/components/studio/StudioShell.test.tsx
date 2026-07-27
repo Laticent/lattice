@@ -728,6 +728,36 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(await screen.findByPlaceholderText(/Search|command/i)).toBeInTheDocument();
 	});
 
+	it('mobile: a drawer row that opens NO sheet must not arm the drawer-reopen flag', async () => {
+		// REGRESSION (shipped CI-green in eb8e734, fixed in 89e914e). The drawer reopens
+		// itself when a sheet IT opened is closed. That flag was armed by EVERY drawer row
+		// — including the two that open no sheet at all ("Fix all issues" runs an editor
+		// method; a tour just starts). With nothing to close, the flag stayed armed
+		// indefinitely, so the NEXT close of ANY wrapped sheet, from ANY entry point,
+		// sprang the drawer open on top of the user.
+		setViewport('mobile');
+		// A FRESH visitor, not the seeded returning user: the shipped welcome deck carries
+		// real lint findings, so "Fix all issues" is ENABLED and its tap actually lands.
+		// The seeded Q3 deck is clean, which leaves that row disabled and the tap a no-op —
+		// the test would then pass for the wrong reason.
+		localStorage.clear();
+		const user = setup();
+		// The Edit block (which hosts Fix all issues) renders only on the edit pane.
+		await user.click(screen.getByRole('button', { name: 'Markdown source' }));
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		const fixAll = await screen.findByRole('button', { name: 'Fix all issues' });
+		expect(fixAll).toBeEnabled(); // the seed did its job; otherwise this proves nothing
+		await user.click(fixAll);
+		await waitFor(() => expect(screen.queryAllByRole('dialog')).toHaveLength(0), { timeout: 3000 });
+		// Drive a wrapped sheet from a path that is NOT the drawer (⌘K), then close it.
+		await user.keyboard('{Meta>}k{/Meta}');
+		expect(await screen.findByPlaceholderText(/Search|command/i)).toBeInTheDocument();
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.queryByPlaceholderText(/Search|command/i)).not.toBeInTheDocument(), { timeout: 3000 });
+		// The drawer must stay shut — it never opened this palette. Pre-fix it reopened here.
+		expect(screen.queryAllByRole('dialog')).toHaveLength(0);
+	});
+
 	it('mobile: opening the StudioDrawer then resizing to desktop and back leaves it closed (H4)', async () => {
 		// A matchMedia that starts compact and can flip to desktop, firing the hook's
 		// listeners so `compact` actually changes (the shared stub is a no-op on change).
