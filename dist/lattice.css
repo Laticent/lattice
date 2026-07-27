@@ -11427,7 +11427,9 @@ section.regulatory-update > .cell-stage {
   display:inline-flex; align-items:center; justify-content:center;
   text-align:center; line-height:1;
   font-family:var(--pill-font);
-  font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
+  /* Floored: the tag tracks the cqi-proportional grid cell, but rendered 9.35px
+   * at landscape and 8.35px at square with no bottom at all. See #1213. */
+  font-size:max(var(--chart-text-min), 0.859375cqi);
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
   color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
@@ -11738,7 +11740,9 @@ section.regulatory-update > .cell-stage {
   display:inline-flex; align-items:center; justify-content:center;
   text-align:center; line-height:1;
   font-family:var(--pill-font);
-  font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
+  /* Floored: the tag tracks the cqi-proportional grid cell, but rendered 9.35px
+   * at landscape and 8.35px at square with no bottom at all. See #1213. */
+  font-size:max(var(--chart-text-min), 0.859375cqi);
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
   color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
@@ -12973,7 +12977,27 @@ section.state-chart .state-edge-arrow[data-dir="back"] {
  * the label with a clear gap on each side. */
 section.state-chart .state-edge-label {
   fill: var(--state-node-ink);
-  font-size: 0.859375cqi; /* cqi-ok: edge label on a cqi-sized transition arrow */
+  /* Floored — but the floor is NOT the whole story here, and this rule must not
+   * be read as a legibility guarantee.
+   *
+   * `max()` raises the declared size to `--chart-text-min` on a narrow box.
+   * state-chart, though, is a SELF-SCALING chart (2026-07-16-state-chart-self-
+   * scale.md): `draw()` letterbox-scales `.state-chart-scale` by
+   * k = min(viewH/natH, viewW/natW), and that transform multiplies EVERYTHING
+   * afterwards — including this text. Measured on the gallery machine, with the
+   * floor in place at 11px declared:
+   *
+   *     landscape  k=0.593  →  6.52px effective   ← worst case, NOT portrait
+   *     portrait   k=1.000  → 11.00px effective
+   *     square     k=0.771  →  8.48px effective
+   *
+   * So the floor helps (it lifted landscape from ~5.5px to 6.5px) but cannot
+   * pin an effective minimum: the only lever that would is k, and squeezing to
+   * fit is the whole point of the self-scale decision — which explicitly accepts
+   * that an over-stuffed machine "just gets cramped." A real guarantee has to be
+   * applied in `draw()`, where k is known, or by bounding k. Tracked on #1213;
+   * not silently claimed here. */
+  font-size: max(var(--chart-text-min), 0.859375cqi);
   font-family: var(--font-mono);
   paint-order: stroke;
   stroke: var(--state-label-bg);
@@ -16907,6 +16931,26 @@ section.chart-frame,
    * untouched. */
   --chart-hairline: clamp(1px, 0.078cqi, 2px);   /* 1px borders, rules, separators */
   --chart-accent-lg: clamp(6px, 0.46cqi, 9px);   /* heavy accent stripe (roadmap milestone) */
+
+  /* LEGIBILITY FLOOR for chart-internal text that is sized in raw `cqi` rather
+   * than through the `--fs-*` role scale (HARD RULE #4 / #1213). A few marks
+   * genuinely must track their own geometry — an edge label riding a
+   * cqi-sized transition arrow, a tag pinned to a cqi-proportional grid cell —
+   * and those legitimately sit outside the role system. What they must NOT do
+   * is fall through the bottom of readability, and a bare `cqi` length has no
+   * bottom at all.
+   *
+   * Measured on the chart gallery, these were sub-10px at EVERY deck size, not
+   * just portrait as #1213 assumed: the state-chart edge label rendered 7.7px
+   * at landscape and 6.8px at portrait; the roadmap phase tag 9.35px landscape,
+   * 8.35px square. For scale, `--fs-meta` — the smallest ROLE token, reserved
+   * for chrome — lands near 12.7px in the same render.
+   *
+   * Used as a floor via `max()`, never a cap: growing with the slide is the
+   * whole point of sizing in cqi, so only the small end needs defending.
+   * Deliberately NOT named `--fs-*`: the 12-token role scale is closed
+   * (checkTypographyTokens), and this is a minimum, not a role. */
+  --chart-text-min: 11px;
 }
 
 /* .viz-frame merge (2026-07-15-viz-frame-merge.md): the chart chrome (eyebrow + h2 +

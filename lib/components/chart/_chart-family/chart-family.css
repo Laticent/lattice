@@ -258,6 +258,26 @@ section.chart-frame,
    * untouched. */
   --chart-hairline: clamp(1px, 0.078cqi, 2px);   /* 1px borders, rules, separators */
   --chart-accent-lg: clamp(6px, 0.46cqi, 9px);   /* heavy accent stripe (roadmap milestone) */
+
+  /* LEGIBILITY FLOOR for chart-internal text that is sized in raw `cqi` rather
+   * than through the `--fs-*` role scale (HARD RULE #4 / #1213). A few marks
+   * genuinely must track their own geometry — an edge label riding a
+   * cqi-sized transition arrow, a tag pinned to a cqi-proportional grid cell —
+   * and those legitimately sit outside the role system. What they must NOT do
+   * is fall through the bottom of readability, and a bare `cqi` length has no
+   * bottom at all.
+   *
+   * Measured on the chart gallery, these were sub-10px at EVERY deck size, not
+   * just portrait as #1213 assumed: the state-chart edge label rendered 7.7px
+   * at landscape and 6.8px at portrait; the roadmap phase tag 9.35px landscape,
+   * 8.35px square. For scale, `--fs-meta` — the smallest ROLE token, reserved
+   * for chrome — lands near 12.7px in the same render.
+   *
+   * Used as a floor via `max()`, never a cap: growing with the slide is the
+   * whole point of sizing in cqi, so only the small end needs defending.
+   * Deliberately NOT named `--fs-*`: the 12-token role scale is closed
+   * (checkTypographyTokens), and this is a minimum, not a role. */
+  --chart-text-min: 11px;
 }
 
 /* .viz-frame merge (2026-07-15-viz-frame-merge.md): the chart chrome (eyebrow + h2 +

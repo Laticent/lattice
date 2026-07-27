@@ -146,7 +146,9 @@
   display:inline-flex; align-items:center; justify-content:center;
   text-align:center; line-height:1;
   font-family:var(--pill-font);
-  font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
+  /* Floored: the tag tracks the cqi-proportional grid cell, but rendered 9.35px
+   * at landscape and 8.35px at square with no bottom at all. See #1213. */
+  font-size:max(var(--chart-text-min), 0.859375cqi);
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
   color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
@@ -457,7 +459,9 @@
   display:inline-flex; align-items:center; justify-content:center;
   text-align:center; line-height:1;
   font-family:var(--pill-font);
-  font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
+  /* Floored: the tag tracks the cqi-proportional grid cell, but rendered 9.35px
+   * at landscape and 8.35px at square with no bottom at all. See #1213. */
+  font-size:max(var(--chart-text-min), 0.859375cqi);
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
   color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
