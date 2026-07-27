@@ -15,6 +15,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { carouselize, readSubjects, readFeature, readRows } = require('../../../lib/core/carousel');
 const { splitSections } = require('../../../lib/core/split-sections');
+// The content-cell reader + depth-aware top-level walk the engine itself uses to place
+// trailing material — the rule-6 gate below appends its sentinels at the SAME position
+// rather than guessing one (HARD RULE #15).
+const { extractStage } = require('../../../lib/core/below-note');
+const { topLevelElements } = require('../../../lib/core/split-envelope');
 
 const fixture = fs.readFileSync(path.join(__dirname, 'fixtures/compare-prose.rendered.html'), 'utf8');
 const [section] = splitSections(fixture).filter((p) => p.type === 'section');
@@ -535,43 +540,47 @@ test('carouselize degrades to null on Object.prototype-shadowing strategy names'
 // Now every strategy stamps a kernel-owned `data-split-role` (split-envelope.js `withRole`),
 // so ONE assertion covers all of them — and a NEW strategy that forgets to stamp a role
 // fails here rather than falling silently outside the invariant.
+// The nine-strategy table, at module scope so the rule-9 invariant (below) and the rule-6
+// conservation gate (further below) drive the SAME set — a strategy added to one is
+// automatically covered by the other. The five read-across cases use the committed rendered
+// fixtures; the four dense/native cases hand-author the minimum shape their parser needs.
+const ssTag = '<section data-lattice-slide="1" id="s1" class="statute-stack form">';
+const ssInner = '<h2>Statutes</h2><ul>' +
+  ['A', 'B', 'C', 'D'].map((k) => `<li><strong>${k}</strong><ul><li>body ${k}</li></ul></li>`).join('') +
+  '</ul>';
+const ctTag = '<section id="s1" class="content compare-table form" data-lattice-slide="1">';
+const ctInner = '<h2>Build versus buy.</h2>' +
+  '<table><thead><tr><th></th><th>Build</th><th>Buy</th></tr></thead><tbody>' +
+  '<tr><td>Cost</td><td>high</td><td>low</td></tr>' +
+  '<tr><td>Speed</td><td>slow</td><td>fast</td></tr>' +
+  '<tr><td>Risk</td><td>ours</td><td>theirs</td></tr>' +
+  '</tbody></table>';
+const rlTag = '<section data-lattice-slide="1" id="s1" class="redline split form">';
+const rlInner = '<h2>Clause 4</h2><p><code>s.12</code></p>' +
+  '<blockquote><p>old text</p></blockquote><blockquote><p>new text</p></blockquote><ul><li>why</li></ul>';
+const kbTag = '<section data-lattice-slide="1" id="s1" class="kanban form">';
+const kbInner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">' +
+  '<div class="kanban-board">' +
+  '<div class="kanban-column"><h3>To do</h3><div class="kanban-card">a</div></div>' +
+  '<div class="kanban-column"><h3>Doing</h3><div class="kanban-card">b</div></div>' +
+  '</div></div>';
+
+const STRATEGY_CASES = [
+  ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
+  ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
+  ['cover-rows',     ltSection.openTag, ltSection.inner, { strategy: 'cover-rows', perPage: 1 }],
+  ['cover-decision', dcSection.openTag, dcSection.inner, { strategy: 'cover-decision', perPage: 1 }],
+  ['cover-code',     ccSection.openTag, ccSection.inner, { strategy: 'cover-code' }],
+  ['cover-paginate', ssTag,             ssInner,         { strategy: 'cover-paginate', axis: 'item', perPage: 2 }],
+  ['cover-cards',    ctTag,             ctInner,         { strategy: 'cover-cards', axis: 'row', perPage: 1 }],
+  ['redline-blocks', rlTag,             rlInner,         { strategy: 'redline-blocks' }],
+  ['kanban-lanes',   kbTag,             kbInner,         { strategy: 'kanban-lanes' }],
+];
+
+const roleOf = (sec) => (sec.match(/\sdata-split-role="([^"]*)"/) || [])[1] || null;
+
 describe('core: carousel — every strategy emits a role-stamped envelope (§8 rule 9)', () => {
-  const ssTag = '<section data-lattice-slide="1" id="s1" class="statute-stack form">';
-  const ssInner = '<h2>Statutes</h2><ul>' +
-    ['A', 'B', 'C', 'D'].map((k) => `<li><strong>${k}</strong><ul><li>body ${k}</li></ul></li>`).join('') +
-    '</ul>';
-  const ctTag = '<section id="s1" class="content compare-table form" data-lattice-slide="1">';
-  const ctInner = '<h2>Build versus buy.</h2>' +
-    '<table><thead><tr><th></th><th>Build</th><th>Buy</th></tr></thead><tbody>' +
-    '<tr><td>Cost</td><td>high</td><td>low</td></tr>' +
-    '<tr><td>Speed</td><td>slow</td><td>fast</td></tr>' +
-    '<tr><td>Risk</td><td>ours</td><td>theirs</td></tr>' +
-    '</tbody></table>';
-  const rlTag = '<section data-lattice-slide="1" id="s1" class="redline split form">';
-  const rlInner = '<h2>Clause 4</h2><p><code>s.12</code></p>' +
-    '<blockquote><p>old text</p></blockquote><blockquote><p>new text</p></blockquote><ul><li>why</li></ul>';
-  const kbTag = '<section data-lattice-slide="1" id="s1" class="kanban form">';
-  const kbInner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">' +
-    '<div class="kanban-board">' +
-    '<div class="kanban-column"><h3>To do</h3><div class="kanban-card">a</div></div>' +
-    '<div class="kanban-column"><h3>Doing</h3><div class="kanban-card">b</div></div>' +
-    '</div></div>';
-
-  const CASES = [
-    ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
-    ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
-    ['cover-rows',     ltSection.openTag, ltSection.inner, { strategy: 'cover-rows', perPage: 1 }],
-    ['cover-decision', dcSection.openTag, dcSection.inner, { strategy: 'cover-decision', perPage: 1 }],
-    ['cover-code',     ccSection.openTag, ccSection.inner, { strategy: 'cover-code' }],
-    ['cover-paginate', ssTag,             ssInner,         { strategy: 'cover-paginate', axis: 'item', perPage: 2 }],
-    ['cover-cards',    ctTag,             ctInner,         { strategy: 'cover-cards', axis: 'row', perPage: 1 }],
-    ['redline-blocks', rlTag,             rlInner,         { strategy: 'redline-blocks' }],
-    ['kanban-lanes',   kbTag,             kbInner,         { strategy: 'kanban-lanes' }],
-  ];
-
-  const roleOf = (sec) => (sec.match(/\sdata-split-role="([^"]*)"/) || [])[1] || null;
-
-  for (const [name, tag, inner, rec] of CASES) {
+  for (const [name, tag, inner, rec] of STRATEGY_CASES) {
     test(`${name}: every emitted page carries a valid role, cover first, insight last`, () => {
       const parts = carouselize(tag, inner, rec, 2, name);
       assert.ok(Array.isArray(parts) && parts.length >= 2, `${name}: expected a multi-page split, got ${parts?.length}`);
@@ -588,4 +597,129 @@ describe('core: carousel — every strategy emits a role-stamped envelope (§8 r
       if (roles.includes('insight')) assert.equal(roles.at(-1), 'insight', `${name}: insight is not last — ${roles}`);
     });
   }
+});
+
+// ── §8 rule 6 — CONTENT CONSERVATION, across ALL NINE strategies ────────────────
+// "Slot-driven re-author must pass content-conservation before any builder retires (§5) —
+// no silent drop of watermark/eyebrow/lede/verdict."
+//
+// Six of the nine strategies RE-AUTHOR the body from a parsed shape rather than partitioning
+// the source, so anything their parser doesn't read simply never reaches a page. That is not
+// a hypothetical: building this gate found five separate silent drops on real committed
+// fixtures, each fixed in the same change —
+//
+//   · the deck's SECTION RAIL (`nav.tile-progress`) was not in `chromeOf`, so every cover
+//     page lost it — including the PLAIN path's, whose own body pages keep it (a run whose
+//     chrome flickered off and back on mid-run);
+//   · `split-panel`'s panel-right `<h3>` SUBHEAD was read by nothing → dropped;
+//   · a trailing `.below-note` was dropped outright by `cover-decision`, `cover-code` and
+//     `redline-blocks` (none of them consumes one);
+//   · trailing material inside `.panel-right` (where split-panel puts its body AND its
+//     footer) was invisible to the top-level trailing scan → dropped by `feature-cover`;
+//   · `kanban-lanes` swept anything after the board into its `suffix` and repeated it on
+//     EVERY lane (the FM-2 duplication, in the one strategy that looked immune).
+//
+// The check is a WORD MULTISET containment: every whitespace-separated token in the source
+// section must appear at least as many times across the emitted pages. Deliberately
+// insensitive to WHERE a leaf ends up — a strategy that RELOCATES material (compare-prose
+// turning a trailing note into its verdict page, cover-rows promoting one to the cover lede)
+// passes, because relocation is not loss. Counts can only rise (a repeated heading, a runhead),
+// so containment never has to model duplication.
+//
+// Three variants per strategy: the fixture as committed, plus a sentinel key-insight and a
+// sentinel note+insight appended at the true end of the content cell — the exact position the
+// engine renders trailing material into. A strategy that consumes one of the two kinds is
+// unaffected (containment, again); one that drops it fails here.
+describe('core: carousel — no strategy drops content (§8 rule 6)', () => {
+  // A drop is a DEFECT, not a config: this list is the escape hatch for a substitution the
+  // engine makes deliberately, and it is EMPTY. Every drop the gate found was fixable, so
+  // none was sanctioned. Adding an entry requires the justification inline — and a stale
+  // entry (one whose strategy no longer drops anything) fails too, so the list can't rot.
+  // Shape: { strategy, variant, words: [...], why }.
+  const SANCTIONED_SPLIT_DROPS = [];
+
+  const words = (html) => String(html)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&[a-zA-Z]+;|&#\d+;/g, ' ')   // the cover's `&rarr;` etc. are added, never source
+    .split(/\s+/)
+    .filter(Boolean);
+  const bag = (ws) => ws.reduce((m, w) => m.set(w, (m.get(w) || 0) + 1), new Map());
+  /** Source tokens the emitted pages are short of, as `word×n`. Empty ⇒ conserved. */
+  function droppedWords(src, emitted) {
+    const have = bag(words(emitted));
+    const out = [];
+    for (const [w, n] of bag(words(src))) {
+      const short = n - (have.get(w) || 0);
+      if (short > 0) out.push(`${w}×${short}`);
+    }
+    return out;
+  }
+
+  const SENTINEL_INSIGHT = '<blockquote><p>Zq the run takeaway sentinel.</p></blockquote>';
+  const SENTINEL_NOTE = '<div class="below-note"><p>Zn the footnote sentinel.</p></div>';
+
+  // Append at the END OF THE CONTENT CELL — where below-note.js places trailing material on a
+  // `.cell-stage` slide, and the end of the section otherwise. Hand-placing it anywhere else
+  // (before the `<footer>`, say) tests a shape the engine never emits.
+  function withTrailing(inner, extra) {
+    const stage = extractStage(inner);
+    if (stage) return inner.slice(0, stage.bodyEnd) + extra + inner.slice(stage.bodyEnd);
+    const els = topLevelElements(inner);
+    let at = els.length;
+    while (at > 0 && ['header', 'footer', 'nav'].includes(els[at - 1].name)) at -= 1;
+    return at < els.length ? inner.slice(0, els[at].start) + extra + inner.slice(els[at].start) : inner + extra;
+  }
+
+  const VARIANTS = [
+    ['as-committed', (inner) => inner],
+    ['+key-insight', (inner) => withTrailing(inner, SENTINEL_INSIGHT)],
+    // A slide never carries two `.below-note` divs (below-note.js wraps ONE trailing region),
+    // so a fixture that already has one gets its own replaced rather than a second added.
+    ['+note+insight', (inner) => withTrailing(
+      inner.replace(/<div class="below-note">[\s\S]*?<\/div>\s*<\/div>|<div class="below-note">[\s\S]*?<\/div>/, ''),
+      SENTINEL_NOTE + SENTINEL_INSIGHT,
+    )],
+  ];
+
+  for (const [name, tag, inner, rec] of STRATEGY_CASES) {
+    for (const [variant, mutate] of VARIANTS) {
+      test(`${name} (${variant}): every source text leaf survives somewhere`, () => {
+        const src = mutate(inner);
+        const parts = carouselize(tag, src, rec, 2, name);
+        assert.ok(Array.isArray(parts) && parts.length >= 2, `${name}/${variant}: expected a split`);
+        const dropped = droppedWords(src, parts.join(''));
+        const sanction = SANCTIONED_SPLIT_DROPS.find((s) => s.strategy === name && s.variant === variant);
+        if (!sanction) {
+          assert.deepEqual(dropped, [], `${name}/${variant} DROPPED ${dropped.join(' ')} — rule 6 forbids a ` +
+            `silent drop. Carry it (the cover for masthead material, the last body page for a ` +
+            `footnote, its own page for a key insight), or add a justified SANCTIONED_SPLIT_DROPS entry.`);
+          return;
+        }
+        assert.deepEqual(dropped.sort(), [...sanction.words].sort(),
+          `${name}/${variant}: the sanctioned drop is STALE or has changed. Sanctioned "${sanction.why}"`);
+      });
+    }
+  }
+
+  test('SANCTIONED_SPLIT_DROPS carries a justification for every entry (no bare escape hatch)', () => {
+    for (const s of SANCTIONED_SPLIT_DROPS) {
+      assert.ok(s.why && s.why.length > 20, `sanctioned drop for ${s.strategy}/${s.variant} has no justification`);
+      assert.ok(Array.isArray(s.words) && s.words.length, `sanctioned drop for ${s.strategy} names no words`);
+      assert.ok(STRATEGY_CASES.some((c) => c[0] === s.strategy), `sanctioned drop names unknown strategy ${s.strategy}`);
+    }
+  });
+
+  // The gate has to be able to FAIL. A strategy stripped of the generic trailing hoist must
+  // report the sentinel as dropped — otherwise a green run proves nothing (the exact way the
+  // rule-9 gate was hollow for 6 of 9 strategies before this PR).
+  test('the gate detects a real drop (negative control)', () => {
+    const src = withTrailing(dcSection.inner, SENTINEL_INSIGHT);
+    const parts = carouselize(dcSection.openTag, src, { strategy: 'cover-decision', perPage: 1 }, 2, 'cover-decision');
+    const withoutInsightPage = parts.filter((p) => roleOf(p) !== 'insight');
+    assert.ok(withoutInsightPage.length < parts.length, 'sentinel did not produce an insight page');
+    assert.ok(
+      droppedWords(src, withoutInsightPage.join('')).some((w) => w.startsWith('Zq')),
+      'the gate did NOT notice the sentinel missing — containment check is not actually checking',
+    );
+  });
 });

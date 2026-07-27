@@ -454,6 +454,23 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    `perPage` revert: each is caught and named.
 6. **Slot-driven re-author must pass content-conservation before any builder
    retires** (§5) — no silent drop of watermark/eyebrow/lede/verdict.
+   **☑ GATE BUILT (P-envelope).** `test/unit/core/carousel.test.js` § "no strategy drops
+   content" runs a WORD-MULTISET containment check over all nine strategies × three variants
+   (as-committed, + a sentinel key insight, + a sentinel note and insight, both appended at the
+   true end of the content cell). Deliberately insensitive to WHERE a leaf lands, so a strategy
+   that RELOCATES material passes (compare-prose turning a trailing note into its verdict page,
+   cover-rows promoting one to the cover lede) — relocation is not loss. `SANCTIONED_SPLIT_DROPS`
+   follows the `SANCTIONED_PREVIEW_BUILDERS` idiom (justified entries; a stale entry fails too)
+   and is **EMPTY**: every drop the gate found was fixable. It found five, all fixed here — the
+   deck's section rail missing from `chromeOf` (so every cover lost it, the plain path's included,
+   while that run's own body pages kept it); `split-panel`'s panel-right `<h3>` subhead read by
+   nothing; a trailing `.below-note` dropped by `cover-decision` / `cover-code` /
+   `redline-blocks`; trailing material inside `.panel-right` invisible to the top-level scan; and
+   `kanban-lanes` repeating anything after the board on EVERY lane. A negative control proves the
+   check can fail. Three structural defects surfaced with them: kanban emitted a spurious empty
+   page (Form docks the footer Cell inside the board, so "every div child" counted it as a lane),
+   and redline emitted two `<header>`s and left `.cell-stage` unclosed — it is now a span-removal
+   over the source inner, the plain envelope's own discipline, instead of a re-author.
 7. **No dead-but-present fields.** A field is deleted in the same PR that flips its
    consumers to the default (HARD #18); and any signal the browser probe consumes
    must resolve at registry-build time from static manifest data, not render.
@@ -509,6 +526,33 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
     split resolves its collection **inside the content cell** (`.cell-stage` / the
     declared content slot), never "first `<ul>` in the section" — chrome, masthead,
     footer, and nested-component lists are out of scope by construction. (FM-6, FM-3.)
+    **☑ (a) BUILT (P-envelope).** `lib/core/relationship.js` derives all four kinds from the
+    rendered members; a component opts in with `capacity.relationship`
+    (`sequence`/`cycle`/`hierarchy`/`comparison`), recorded in the rule-5 oracle so dropping it
+    fails CI. The rule's own acceptance test is in
+    `test/unit/core/relationship.test.js` — editing member N+1 changes member N's signal, end to
+    end, plus the same for a cycle's loop-back (first member) and a hierarchy's "under ↑"
+    (previous member). `list-steps`, `cycle` and `verdict-grid` take `capacity.perPage: 1` in the
+    SAME change, exactly as this doc required ("they get `perPage: 1` in the same slice that
+    builds the signal, not before"); `authority-chain` keeps its authored `split.perPage` — the
+    signal reads across pages whatever the pacing.
+    **Stamped POST-CONVERGENCE** (`applyRelationshipSignals`, auto-split.js), beside `applyRails`
+    and for the same reason: the signal is a RUN-level fact, and a run can be cut across several
+    measured passes. Built inside `splitEnvelope` first, it went stale AND doubled on a real
+    render — a 5-tier `authority-chain` cut 3/2 on pass 1 and re-cut 2/1 on pass 2 carried
+    "governs ↓ Case law" on two pages, one naming a tier that was no longer its neighbor.
+    Two silent-no-op traps found by LOOKING at the render, not by a test: `SPLIT_CAP`
+    (lattice-emulator.js) projects a hand-listed whitelist of capacity fields, so
+    `capacity.relationship` never reached the kernel; and resolving a run's contract from its
+    FIRST member reads the accent COVER, whose class is swapped to `content lat-split-cover form`
+    — and `content` carries a capacity contract of its own, so the lookup found the wrong
+    component and every signal vanished. It resolves from a BODY page now.
+    Atomizing also exposed what §0b predicted about the members themselves: the generic
+    lone-member fill lost on specificity to a component's box-local portrait reflow (a
+    content-height card above two-thirds of white), `list-steps`/`authority-chain` restarted
+    their ordinals at 1 on every page, and `cycle` drew its return arc — a bracket around one
+    card, pointing at nothing — on every split page. All three fixed here; the loop is carried by
+    the signal instead.
 
 ## 9. Phasing (corrected; each one branch → one PR, HARD #17; green + demo each step)
 

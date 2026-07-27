@@ -9,7 +9,12 @@
  * carries the flex-column context the strip `ol` (flex:1) needs to fill the bounded
  * cell. The `.timeline` variant overrides this with centring (below). */
 section.list-steps > .cell-stage { display:flex; flex-direction:column; min-height:0; }
-section.list-steps ol { list-style:none; counter-reset:step-counter; display:flex; gap:var(--sp-xl); flex:1; padding:0; margin:0; align-items:stretch; }
+/* `--lat-split-offset` is set by the auto-splitter on a body page of a split run (the count
+ * of members on prior pages), so an atomized sequence continues STEP 01 → 02 → 03 instead
+ * of restarting at 01 on every page — which is what it did the moment §0b's `perPage: 1`
+ * landed (seen on a real render: page 2 of the run read "STEP 01 · Circulate for comment").
+ * 0 (the default) on an unsplit slide, so nothing else changes. Same idiom as q-and-a. */
+section.list-steps ol { list-style:none; counter-reset:step-counter var(--lat-split-offset, 0); display:flex; gap:var(--sp-xl); flex:1; padding:0; margin:0; align-items:stretch; }
 section.list-steps ol > li { counter-increment:step-counter; flex:1; background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); position:relative; font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading); }
 section.list-steps ol > li:not(:last-child)::after {
   content:'';
@@ -276,4 +281,22 @@ section.list-steps ol > li {
 }
 section.list-steps > .cell-stage {
   padding-block: var(--elevation-berth);
+}
+
+/* ── Split run (§0b connected members, `capacity.perPage: 1`) ───────────────────────────
+ * A step ALONE on its page fills the stage (the generic lone-member rule,
+ * base.modifiers.css), so its content must sit in the card's optical center rather than
+ * hugging the top edge of a now page-tall box. The generic rule sets `align-content`, which
+ * answers the WRAP-row cards (cards-grid, actors); a step card is a flex COLUMN, so its
+ * equivalent is `justify-content`. Only ever a lone card. */
+section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child {
+  justify-content: center;
+}
+/* …and the body must stop absorbing the free space, or there IS none to center with: the
+ * step's nested body list (and its bare-`<p>` form) carry `flex: 1` so a card in a row of
+ * cards fills its share, which on a page-tall lone card expanded the body to 716px of a 922px
+ * box and left the text pinned to its top edge — `justify-content` had nothing to distribute
+ * (measured on the real render). Content-height here, so the group centers. */
+section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child > :is(ul, p) {
+  flex: 0 0 auto;
 }

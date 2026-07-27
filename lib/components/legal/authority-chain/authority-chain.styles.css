@@ -35,7 +35,10 @@ section.authority-chain > .cell-stage > ul {
    * (flex cell-tree §6) — without it the list's min-height:auto floor kept the rows at
    * natural height and clipped the last tier on a 4-tier chain. */
   gap:var(--sp-md); flex:1; min-height:0; justify-content:center;
-  counter-reset:auth;
+  /* `--lat-split-offset` (set by the auto-splitter on a body page of a split run) continues the
+   * tier index across pages instead of restarting at 1 on each — a chain whose numbering resets
+   * mid-run reads as several chains. 0 on an unsplit slide. Same idiom as q-and-a. */
+  counter-reset:auth var(--lat-split-offset, 0);
 }
 section.authority-chain > .cell-stage > :is(ol, ul) > li {
   counter-increment:auth;

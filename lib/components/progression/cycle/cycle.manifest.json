@@ -9,12 +9,14 @@
   "focusAxes": ["item"],
   "capacity": {
     "axis": "item",
+    "perPage": 1,
+    "relationship": "cycle",
     "min": 3,
     "sweet": 4,
     "soft": 5,
     "hard": 6,
     "escalateTo": ["list-steps", "split across slides"],
-    "note": "under three there is no loop to read; past six the ring crowds"
+    "note": "under three there is no loop to read; past six the ring crowds; a split run paces ONE stage per page and closes with a derived \u201c\u21bb back to {stage 1}\u201d signal (\u00a70b connected members)"
   },
   "density": {
     "axis": "item",

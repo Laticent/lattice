@@ -1502,7 +1502,10 @@ section.authority-chain > .cell-stage > ul {
    * (flex cell-tree §6) — without it the list's min-height:auto floor kept the rows at
    * natural height and clipped the last tier on a 4-tier chain. */
   gap:var(--sp-md); flex:1; min-height:0; justify-content:center;
-  counter-reset:auth;
+  /* `--lat-split-offset` (set by the auto-splitter on a body page of a split run) continues the
+   * tier index across pages instead of restarting at 1 on each — a chain whose numbering resets
+   * mid-run reads as several chains. 0 on an unsplit slide. Same idiom as q-and-a. */
+  counter-reset:auth var(--lat-split-offset, 0);
 }
 section.authority-chain > .cell-stage > :is(ol, ul) > li {
   counter-increment:auth;
@@ -3627,6 +3630,29 @@ section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
     bottom: 50%;
     transform: translate(-35%, 50%);
   }
+}
+
+/* ── Split run (§0b connected members, `capacity.perPage: 1`) ────────────────────────
+ * A cycle that overflows is atomized to ONE stage per page, and the drawn ring cannot
+ * survive that: the return arc and its ↻ glyph join the LAST stage back to the FIRST, so
+ * on a page holding one stage they render as a bracket wrapping a single card, pointing at
+ * nothing (seen on a real portrait render). The loop is not lost — it moves to the derived
+ * relationship signal, which puts "↻ back to {stage 1}" on the run's last page
+ * (lib/core/relationship.js, §8 rule 12a). So the arc is suppressed on split pages and the
+ * chevron between stages goes with it (there is no next stage on the page to point at).
+ * The unsplit ring is untouched. */
+section.cycle.lat-split-native > .cell-stage > ul::after,
+section.cycle.lat-split-native > .cell-stage > ul::before,
+section.cycle.lat-split-native > .cell-stage > ul > li:not(:last-child)::after {
+  content: none;
+}
+section.cycle.lat-split-native > .cell-stage > ul { padding-bottom: 0; }
+
+/* A stage ALONE on its page fills the stage cell, so center its content in the now page-tall
+ * card — same reasoning as list-steps' rule (the generic lone-member rule sets
+ * `align-content`, which answers a wrap-row card; a stage node is a flex column). */
+section.cycle.lat-split-native > .cell-stage > ul > li:only-child {
+  justify-content: center;
 }
 
 /* === lib/components/comparison/decision/decision.styles.css === */
@@ -6766,7 +6792,12 @@ section.list-criteria:not(:has(.crit-body)) > .cell-stage > :is(ol, ul) > li > u
  * carries the flex-column context the strip `ol` (flex:1) needs to fill the bounded
  * cell. The `.timeline` variant overrides this with centring (below). */
 section.list-steps > .cell-stage { display:flex; flex-direction:column; min-height:0; }
-section.list-steps ol { list-style:none; counter-reset:step-counter; display:flex; gap:var(--sp-xl); flex:1; padding:0; margin:0; align-items:stretch; }
+/* `--lat-split-offset` is set by the auto-splitter on a body page of a split run (the count
+ * of members on prior pages), so an atomized sequence continues STEP 01 → 02 → 03 instead
+ * of restarting at 01 on every page — which is what it did the moment §0b's `perPage: 1`
+ * landed (seen on a real render: page 2 of the run read "STEP 01 · Circulate for comment").
+ * 0 (the default) on an unsplit slide, so nothing else changes. Same idiom as q-and-a. */
+section.list-steps ol { list-style:none; counter-reset:step-counter var(--lat-split-offset, 0); display:flex; gap:var(--sp-xl); flex:1; padding:0; margin:0; align-items:stretch; }
 section.list-steps ol > li { counter-increment:step-counter; flex:1; background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; gap:var(--sp-xs); position:relative; font-size:var(--fs-body); line-height:var(--lh-snug); font-weight:700; color:var(--text-heading); }
 section.list-steps ol > li:not(:last-child)::after {
   content:'';
@@ -7033,6 +7064,24 @@ section.list-steps ol > li {
 }
 section.list-steps > .cell-stage {
   padding-block: var(--elevation-berth);
+}
+
+/* ── Split run (§0b connected members, `capacity.perPage: 1`) ───────────────────────────
+ * A step ALONE on its page fills the stage (the generic lone-member rule,
+ * base.modifiers.css), so its content must sit in the card's optical center rather than
+ * hugging the top edge of a now page-tall box. The generic rule sets `align-content`, which
+ * answers the WRAP-row cards (cards-grid, actors); a step card is a flex COLUMN, so its
+ * equivalent is `justify-content`. Only ever a lone card. */
+section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child {
+  justify-content: center;
+}
+/* …and the body must stop absorbing the free space, or there IS none to center with: the
+ * step's nested body list (and its bare-`<p>` form) carry `flex: 1` so a card in a row of
+ * cards fills its share, which on a page-tall lone card expanded the body to 716px of a 922px
+ * box and left the text pinned to its top edge — `justify-content` had nothing to distribute
+ * (measured on the real render). Content-height here, so the group centers. */
+section.list-steps.lat-split-native > .cell-stage > :is(ol, ul) > li:only-child > :is(ul, p) {
+  flex: 0 0 auto;
 }
 
 /* === lib/components/inventory/list-tabular/list-tabular.styles.css === */
@@ -15849,6 +15898,50 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
   background: currentColor; opacity: 0.22;
 }
 .lat-split-rail .seg.on { opacity: 0.8; }
+/* …UNLESS the deck's SECTION rail is in the same band. `12cqi` clears the page number, but
+   it lands squarely inside the berth the section rail (`.tile-progress`, the progress-centre
+   Cell) reserves — right of `--footer-pag-reserve`, up to `--footer-centre-w` wide — so on
+   any deck WITH dividers the k-of-N segments were drawn on top of the section label's last
+   characters. Seen on a real portrait render, and pre-existing on the plain path (a body page
+   carries the source's rail verbatim); the conservation fix that carries the section rail onto
+   re-authored cover pages would have spread it to every split page. So when both marks are
+   present the split rail parks LEFT of the reserved berth, and the three wayfinding marks read
+   as one right-grouped cluster: [ split k-of-N ] [ section rail ] [ page number ]. The `claim-*`
+   Frames that HIDE the section rail are excluded — a hidden rail reserves nothing, and the
+   split rail must not drift left to dodge a mark that isn't drawn. */
+section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):has(.tile-progress) > .lat-split-rail {
+  right: calc(var(--footer-pag-reserve, 4cqi) + var(--footer-centre-w, 30cqi) + var(--_sec-1cqi, 1cqi) * 1.5);
+}
+/* Docked in the footer Cell (auto-split.js `applyRails`, mirroring how the progress Tile docks
+   the section rail): de-absolute so the footer row lays the marks out in flow —
+   footer text · section rail · k-of-N · page number. Same rule shape as
+   `section.form > .cell-footer > .tile-progress` in the stage Cell. */
+section.form > .cell-footer > .lat-split-rail {
+  position: static; inset: auto;
+}
+/* …and the band needs a real width budget once a FOURTH mark joins it. The running footer text
+   is an absolute pinned to the band's left edge with a fixed `--footerleft-w` (52cqi) budget,
+   so nothing stops it meeting the wayfinding group — it only ever LOOKED safe because a short
+   footer string never reached that far. Add the k-of-N rail and the group grows left into it
+   (seen on a real render: "conservation" struck through "SECTION"). So on a docked-rail page
+   the footer text becomes a real flex item that ABSORBS the free space and ellipsises instead
+   of overrunning — `flex-grow`, not `margin-right:auto` (HARD RULE #20 — a margin is invisible
+   to the height math the Fit Spine measures). Scoped by `:has(> .lat-split-rail)` to split-run
+   pages only: the un-split band keeps its current geometry byte for byte. */
+section.form > .cell-footer:has(> .lat-split-rail) > footer {
+  position: static;
+  inset: auto;
+  /* `block`, not the band's default `flex`: `text-overflow: ellipsis` never applies to a flex
+     CONTAINER, so the text was clipped mid-word with no ellipsis. Vertical centering is the
+     footer Cell's `align-items: center` now that this is a real flex ITEM. */
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ── Shared split COVER (lib/core/split-envelope.js) ──────────────────────────────
    EVERY split opens with this one accent field — the universal envelope's cover
@@ -15956,12 +16049,21 @@ section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li 
    group never lands a lone member on a page.
    (Width needs no rule — a tiling component already answers it: cards-grid promotes
    `li:last-child:nth-child(odd)` to `width:100%`, which a single card matches. Verified on
-   the real render at the full 1000px measure.) */
-section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):has(> li:only-child) {
+   the real render at the full 1000px measure.)
+
+   WEIGHT: these two rules repeat `.lat-split-native` FOUR times, not the two the natural-height
+   rules above need. A component's BOX-LOCAL PORTRAIT REFLOW is the thing they have to beat, and
+   those selectors are heavy: list-steps' is
+   `section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol > li`
+   — (0,6,3), because the four `:not()`s each count. At two repetitions the generic lone-member
+   fill sat at (0,5,3) and LOST, so `perPage: 1` produced a content-height card above two-thirds
+   of white on exactly the components §0b had just atomized (seen on a real render of a split
+   list-steps run). Four repetitions clear it with a rung to spare. */
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol):has(> li:only-child) {
   flex: 1 1 auto;
   align-content: stretch;   /* the wrap case (cards-grid tiles) — one line, full height */
 }
-section.form.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child {
+section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native > .cell-stage > :is(ul, ol) > li:only-child {
   flex: 1 1 auto;           /* the column case (cards-stack, actors) */
   /* …and its content sits in the card's optical center rather than hugging the top edge
      of a now page-tall box. Every heavy member's card is the same shape — a wrap-flex row
@@ -16081,6 +16183,32 @@ section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.ca
 section.form.lat-split-native.lat-split-native:not(.actors):not(.agenda):not(.cards-grid):not(.cards-stack):not(.compare-prose):not(.compare-table):not(.decision):not(.kpi):not(.list):not(.list-criteria):not(.list-steps):not(.list-tabular):not(.matrix-2x2):not(.principles):not(.timeline):not(.verdict-grid)
   > .cell-stage > .lat-split-note > .below-note > p:has(> em:only-child) {
   font-size: var(--fs-body-compact);
+}
+
+/* ── Shared split RELATIONSHIP SIGNAL (lib/core/relationship.js) ───────────────────
+   The one-line adornment a CONNECTED member's split run carries on every page — "→ next: {next
+   step}", "↻ back to {stage 1}", "governs ↓ {next tier}", "Option N of M · comparing …"
+   (engineering/decisions/2026-07-22-structure-derived-split-patterns.md §0b, §8 rule 12a). §0b
+   atomizes a connected member to one per slide, and atomizing a sequence is exactly what
+   destroys it — this line is what keeps four steps on four slides reading as one sequence.
+
+   Wayfinding, NOT content: it reads at `--fs-meta` in the label font, muted, the same register
+   as the section rail and the page number, so it can never be mistaken for the member's own
+   text. Sits at the foot of the content cell, after the trailing note, with a hairline above it
+   separating it from the body. Palette-blind (#3), spaced with padding + border only (#20).
+   The text itself is DERIVED at build time and never authored, so nothing here can go stale. */
+section.form.lat-split-native > .cell-stage > .lat-split-rel,
+section.form.lat-split-native > .lat-split-rel {
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-xs);
+  /* A comparison signal is the long one ("Option 2 of 4 · comparing Residency · Self-serve ·
+     SOC 2") and wraps in a portrait box; `balance` keeps it from orphaning a two-character
+     fragment on line two, which is what it did on the real render. */
+  text-wrap: balance;
 }
 
 /* ── Shared split NOTE, the `cover-cards` shape (lib/core/carousel.js `coverCardsSections`) ──

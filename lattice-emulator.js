@@ -1316,7 +1316,12 @@ const SPLIT_CAP = (() => {
     // `perPage` is the AUTHORED split pacing — how many members ride one page of a split
     // run (1 for a heavy member that atomizes). Distinct from `sweet`, which is authoring
     // comfort; auto-split.js `splitTargetOf` prefers it and falls back to sweet → soft → hard.
-    if (axis || m.split) map[m.name] = { axis: axis ?? null, hard: m.capacity?.hard ?? null, sweet: m.capacity?.sweet ?? null, soft: m.capacity?.soft ?? null, perPage: m.capacity?.perPage ?? null, split: m.split ?? null };
+    // `relationship` is the CONNECTED-MEMBER kind (§0b, §8 rule 12a) — the split kernel needs it
+    // to derive each page's "→ next / ↻ back to / governs ↓ / Option N of M" adornment. This
+    // projection is a hand-listed whitelist, so a capacity field absent here reaches the kernel as
+    // `undefined` and the feature is a SILENT no-op (the manifests declared it, every unit test
+    // passed, and the real render emitted nothing — caught only by looking at the render).
+    if (axis || m.split) map[m.name] = { axis: axis ?? null, hard: m.capacity?.hard ?? null, sweet: m.capacity?.sweet ?? null, soft: m.capacity?.soft ?? null, perPage: m.capacity?.perPage ?? null, relationship: m.capacity?.relationship ?? null, split: m.split ?? null };
   }
   // An empty registry with autosplit requested means the manifests were not
   // found — the exact silent failure this resolver fix closes. Never quiet.
@@ -2137,7 +2142,7 @@ async function renderBody(browser, g, closeBrowser) {
   // DENSITY overflow a count threshold can't see — dominant in a tall/portrait box.
   // Opt-in (`autosplit: on`). See lib/core/auto-split.js + the-fit-spine.md §3.
   if (AUTOSPLIT_APPLIES) {
-    const { resplitDoc, applyRails } = require('./lib/core/auto-split');
+    const { resplitDoc, applyRails, applyRelationshipSignals } = require('./lib/core/auto-split');
     for (let pass = 1; pass <= 5 && overflow.some((o) => o.canSplit); pass++) {
       // Only the slides whose OWN collection drives the overflow (canSplit); size each
       // split from its collection-relative ratio so the loop converges instead of
@@ -2154,10 +2159,12 @@ async function renderBody(browser, g, closeBrowser) {
       overflow = await measureOverflow();
       if (!QUIET) console.log(`  auto-split (measured) pass ${pass}: ${r.changed} slide(s) divided to fit`);
     }
-    // Splitting has converged — NOW stamp the k-of-N progress rail, run by run (a slide may
-    // have split across several passes; only the final grouping knows each run's true
-    // length). One re-render so the rails land in the exported DOM.
-    const railed = applyRails(cleanDocHtml);
+    // Splitting has converged — NOW stamp the two RUN-LEVEL adornments, run by run (a slide may
+    // have split across several passes; only the final grouping knows each run's true length and
+    // membership): the k-of-N progress rail, and the §0b relationship signal a connected
+    // component's atomized members carry ("→ next: …" / "↻ back to …" / "governs ↓ …" /
+    // "Option N of M"). One re-render so both land in the exported DOM.
+    const railed = applyRails(applyRelationshipSignals(cleanDocHtml, SPLIT_CAP));
     if (railed !== cleanDocHtml) {
       cleanDocHtml = railed;
       fs.writeFileSync(outHtml, cleanDocHtml);

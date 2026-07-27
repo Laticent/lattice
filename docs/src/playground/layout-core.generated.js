@@ -638,6 +638,15 @@ var require_manifest_schema = __commonJS({
               minimum: 1,
               description: "AUTHORED SPLIT PACING \u2014 how many members ride ONE page when auto-split divides this slide (the plain-axis mirror of `split.perPage`, which carries the same intent for a carousel layout). Distinct from `sweet`, and deliberately so: `sweet` is how many are comfortable to AUTHOR on one slide, this is how many are comfortable to READ on one page of a split run, and for a HEAVY member they are different numbers \u2014 cards-grid authors 3 comfortably but atomizes to 1 per page, so setting `sweet: 1` would wrongly warn at two cards. Omit for a LIGHT member (bullets, tiles): the split then packs to `sweet` (falling back soft \u2192 hard). Either way the cut is BALANCED, never greedy \u2014 14 items at a target of 6 emit 5/5/4, not 6/6/2 \u2014 so no page of a run is a runt. Pacing is authored, never derived from content (engineering/decisions/2026-07-22-structure-derived-split-patterns.md \xA70b granularity table, \xA73f)."
             },
+            relationship: {
+              enum: [
+                "sequence",
+                "cycle",
+                "hierarchy",
+                "comparison"
+              ],
+              description: 'CONNECTED-MEMBER RELATIONSHIP \u2014 declares that this layout\'s members are RELATED to each other, and how, so an auto-split run can carry a derived wayfinding signal on every page (engineering/decisions/2026-07-22-structure-derived-split-patterns.md \xA70b, \xA78 rule 12a). \xA70b atomizes a connected member to one per slide (set `perPage: 1` alongside), and atomizing a sequence is exactly what destroys it \u2014 four steps on four slides read as four unrelated slides \u2014 so each page gets a one-line adornment naming the relationship: `sequence` \u2192 "\u2192 next: {next step}"; `cycle` \u2192 the same through the run, then "\u21BB back to {stage 1}" on the last page; `hierarchy` \u2192 "governs \u2193 {next tier}" / "under \u2191 {previous tier}", never a temporal "next"; `comparison` \u2192 "Option N of M \xB7 comparing {shared criteria}". The text is DERIVED from the neighbor member at build time and never authored (lib/core/relationship.js), so it cannot go stale. Omit for INDEPENDENT members (bullets, tiles, cards that don\'t reference each other) \u2014 a signal there would claim a relationship the content doesn\'t have.'
+            },
             soft: {
               type: "integer",
               minimum: 1,

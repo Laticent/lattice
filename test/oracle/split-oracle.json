@@ -9,7 +9,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": 1
+      "perPage": 1,
+      "relationship": null
     },
     "agenda": {
       "treatment": "list-light",
@@ -19,7 +20,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "authority-chain": {
       "treatment": "connected",
@@ -29,7 +31,8 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 4
+      "perPage": 4,
+      "relationship": "hierarchy"
     },
     "big-number": {
       "treatment": "atomic",
@@ -39,7 +42,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "cards-grid": {
       "treatment": "list-heavy",
@@ -49,7 +53,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": 1
+      "perPage": 1,
+      "relationship": null
     },
     "cards-stack": {
       "treatment": "list-heavy",
@@ -59,7 +64,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": 1
+      "perPage": 1,
+      "relationship": null
     },
     "checklist": {
       "treatment": "list-light",
@@ -69,7 +75,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "citation-card": {
       "treatment": "atomic",
@@ -79,7 +86,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "closing": {
       "treatment": "anchor",
@@ -89,7 +97,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "code": {
       "treatment": "code",
@@ -99,7 +108,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "compare-code": {
       "treatment": "read-across",
@@ -109,7 +119,8 @@
       "strategy": "cover-code",
       "reshape": "width-reducing",
       "coverClass": "compare-code-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "compare-prose": {
       "treatment": "read-across",
@@ -119,7 +130,8 @@
       "strategy": "cover-sides",
       "reshape": "width-reducing",
       "coverClass": "compare-prose-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "compare-table": {
       "treatment": "read-across",
@@ -129,7 +141,8 @@
       "strategy": "cover-cards",
       "reshape": "width-reducing",
       "coverClass": "lat-split-cover",
-      "perPage": 1
+      "perPage": 1,
+      "relationship": null
     },
     "contact": {
       "treatment": "atomic",
@@ -139,7 +152,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "content": {
       "treatment": "list-light",
@@ -149,7 +163,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "cycle": {
       "treatment": "connected",
@@ -159,7 +174,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": null
+      "perPage": 1,
+      "relationship": "cycle"
     },
     "decision": {
       "treatment": "read-across",
@@ -169,7 +185,8 @@
       "strategy": "cover-decision",
       "reshape": "paginator",
       "coverClass": "decision-cover",
-      "perPage": 1
+      "perPage": 1,
+      "relationship": null
     },
     "diagram": {
       "treatment": "graphic",
@@ -179,7 +196,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "divider": {
       "treatment": "anchor",
@@ -189,7 +207,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "funnel": {
       "treatment": "graphic",
@@ -199,7 +218,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "gantt": {
       "treatment": "atomic",
@@ -209,7 +229,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "glossary": {
       "treatment": "record",
@@ -219,7 +240,8 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 8
+      "perPage": 8,
+      "relationship": null
     },
     "image": {
       "treatment": "asset",
@@ -229,7 +251,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "inventory": {
       "treatment": "list-light",
@@ -239,7 +262,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "journey": {
       "treatment": "connected",
@@ -249,7 +273,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "kanban": {
       "treatment": "read-across",
@@ -259,7 +284,8 @@
       "strategy": "kanban-lanes",
       "reshape": "paginator",
       "coverClass": "kanban-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "kpi": {
       "treatment": "list-heavy",
@@ -269,7 +295,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "list": {
       "treatment": "list-light",
@@ -279,7 +306,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "list-criteria": {
       "treatment": "list-light",
@@ -289,7 +317,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "list-steps": {
       "treatment": "connected",
@@ -299,7 +328,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": null
+      "perPage": 1,
+      "relationship": "sequence"
     },
     "list-tabular": {
       "treatment": "record",
@@ -309,7 +339,8 @@
       "strategy": "cover-rows",
       "reshape": "paginator",
       "coverClass": "list-tabular-cover",
-      "perPage": 3
+      "perPage": 3,
+      "relationship": null
     },
     "logo-wall": {
       "treatment": "list-light",
@@ -319,7 +350,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "map": {
       "treatment": "graphic",
@@ -329,7 +361,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "math": {
       "treatment": "atomic",
@@ -339,7 +372,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "matrix-2x2": {
       "treatment": "atomic",
@@ -349,7 +383,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "obligation-matrix": {
       "treatment": "atomic",
@@ -359,7 +394,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "piechart": {
       "treatment": "graphic",
@@ -369,7 +405,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "policy-recommendation": {
       "treatment": "list-heavy",
@@ -379,7 +416,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": 1
+      "perPage": 1,
+      "relationship": null
     },
     "pricing": {
       "treatment": "connected",
@@ -389,7 +427,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "progress": {
       "treatment": "needs-call",
@@ -399,7 +438,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "q-and-a": {
       "treatment": "list-heavy",
@@ -409,7 +449,8 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 3
+      "perPage": 3,
+      "relationship": null
     },
     "quadrant": {
       "treatment": "graphic",
@@ -419,7 +460,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "quote": {
       "treatment": "atomic",
@@ -429,7 +471,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "radar": {
       "treatment": "graphic",
@@ -439,7 +482,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "redline": {
       "treatment": "read-across",
@@ -449,7 +493,8 @@
       "strategy": "redline-blocks",
       "reshape": "paginator",
       "coverClass": "redline-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "regulatory-update": {
       "treatment": "record",
@@ -459,7 +504,8 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 4
+      "perPage": 4,
+      "relationship": null
     },
     "roadmap": {
       "treatment": "atomic",
@@ -469,7 +515,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "scene": {
       "treatment": "graphic",
@@ -479,7 +526,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "split-compare": {
       "treatment": "read-across",
@@ -489,7 +537,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "split-panel": {
       "treatment": "read-across",
@@ -499,7 +548,8 @@
       "strategy": "feature-cover",
       "reshape": "paginator",
       "coverClass": "split-panel-cover",
-      "perPage": 3
+      "perPage": 3,
+      "relationship": null
     },
     "state-chart": {
       "treatment": "graphic",
@@ -509,7 +559,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "stats": {
       "treatment": "list-heavy",
@@ -519,7 +570,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "statute-stack": {
       "treatment": "record",
@@ -529,7 +581,8 @@
       "strategy": "cover-paginate",
       "reshape": "paginator",
       "coverClass": "lat-split-cover",
-      "perPage": 2
+      "perPage": 2,
+      "relationship": null
     },
     "timeline-list": {
       "treatment": "connected",
@@ -539,7 +592,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "title": {
       "treatment": "anchor",
@@ -549,7 +603,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "verdict-grid": {
       "treatment": "connected",
@@ -559,7 +614,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": "lat-split-cover",
-      "perPage": null
+      "perPage": 1,
+      "relationship": "comparison"
     },
     "video": {
       "treatment": "asset",
@@ -569,7 +625,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "wifi": {
       "treatment": "atomic",
@@ -579,7 +636,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     },
     "word-cloud": {
       "treatment": "graphic",
@@ -589,7 +647,8 @@
       "strategy": null,
       "reshape": null,
       "coverClass": null,
-      "perPage": null
+      "perPage": null,
+      "relationship": null
     }
   }
 }

@@ -607,6 +607,15 @@
           "minimum": 1,
           "description": "AUTHORED SPLIT PACING — how many members ride ONE page when auto-split divides this slide (the plain-axis mirror of `split.perPage`, which carries the same intent for a carousel layout). Distinct from `sweet`, and deliberately so: `sweet` is how many are comfortable to AUTHOR on one slide, this is how many are comfortable to READ on one page of a split run, and for a HEAVY member they are different numbers — cards-grid authors 3 comfortably but atomizes to 1 per page, so setting `sweet: 1` would wrongly warn at two cards. Omit for a LIGHT member (bullets, tiles): the split then packs to `sweet` (falling back soft → hard). Either way the cut is BALANCED, never greedy — 14 items at a target of 6 emit 5/5/4, not 6/6/2 — so no page of a run is a runt. Pacing is authored, never derived from content (engineering/decisions/2026-07-22-structure-derived-split-patterns.md §0b granularity table, §3f)."
         },
+        "relationship": {
+          "enum": [
+            "sequence",
+            "cycle",
+            "hierarchy",
+            "comparison"
+          ],
+          "description": "CONNECTED-MEMBER RELATIONSHIP — declares that this layout's members are RELATED to each other, and how, so an auto-split run can carry a derived wayfinding signal on every page (engineering/decisions/2026-07-22-structure-derived-split-patterns.md §0b, §8 rule 12a). §0b atomizes a connected member to one per slide (set `perPage: 1` alongside), and atomizing a sequence is exactly what destroys it — four steps on four slides read as four unrelated slides — so each page gets a one-line adornment naming the relationship: `sequence` → \"→ next: {next step}\"; `cycle` → the same through the run, then \"↻ back to {stage 1}\" on the last page; `hierarchy` → \"governs ↓ {next tier}\" / \"under ↑ {previous tier}\", never a temporal \"next\"; `comparison` → \"Option N of M · comparing {shared criteria}\". The text is DERIVED from the neighbor member at build time and never authored (lib/core/relationship.js), so it cannot go stale. Omit for INDEPENDENT members (bullets, tiles, cards that don't reference each other) — a signal there would claim a relationship the content doesn't have."
+        },
         "soft": {
           "type": "integer",
           "minimum": 1,

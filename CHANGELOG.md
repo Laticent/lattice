@@ -63,6 +63,25 @@ in patch versions.
   but four of the thirteen chart components draw no SVG at all — and teaching that `series` means SVG
   was plausibly the seed of the confusion. The column is gone; nothing referenced it.
 
+- **A cross-slide RELATIONSHIP SIGNAL on split runs of connected components** (§0b, §8 rule
+  12a). §0b atomizes a connected member to one per slide, and atomizing a sequence is exactly
+  what destroys it — four steps on four slides read as four unrelated slides. Each page now
+  carries a one-line derived adornment naming the relationship: `list-steps` → "→ next: {next
+  step}", `cycle` → the same through the run then "↻ back to {stage 1}" on its last page,
+  `authority-chain` → "governs ↓ {next tier}" / "under ↑ {previous tier}", `verdict-grid` →
+  "Option N of M · comparing {shared criteria}". A component opts in with
+  `capacity.relationship` (`sequence` / `cycle` / `hierarchy` / `comparison`); the text is
+  DERIVED from the neighbor member at build time and never authored, so it cannot go stale.
+  Stamped post-convergence beside the k-of-N rail, because a run can be cut across several
+  measured passes. `list-steps`, `cycle` and `verdict-grid` also flip to `capacity.perPage: 1`
+  in the same change, which is what §0b required: the pacing and the signal land together or
+  atomization is unreadable. New kernel `lib/core/relationship.js`.
+- **A content-CONSERVATION gate over all nine carousel split strategies** (§8 rule 6). Six of
+  the nine re-author the body from a parsed shape, so anything their parser misses never
+  reaches a page. The gate asserts every source text leaf survives somewhere across the
+  emitted pages, with a `SANCTIONED_SPLIT_DROPS` allowlist that is EMPTY — every drop it found
+  was fixable — plus a negative control proving the check can fail.
+
 - **A standing oracle for split behaviour, gated in `build:check`.** Every component's split
   facts — resolved axis and *which of the three sites declared it*, whether it opts in, its
   carousel strategy, whether that strategy reduces width or paginates, the cover class it
@@ -299,6 +318,39 @@ in patch versions.
   did with them.
 
 ### Fixed
+
+- **Five silent content drops in the carousel split strategies**, each found by the new
+  conservation gate and fixed rather than sanctioned: the deck's SECTION RAIL
+  (`nav.tile-progress`) was missing from the split chrome set, so every cover page lost it —
+  including the plain path's, whose own body pages keep it, so a run's chrome flickered off and
+  back on mid-run; `split-panel`'s panel-right `<h3>` subhead was read by nothing; a trailing
+  `.below-note` was dropped outright by `cover-decision`, `cover-code` and `redline-blocks`;
+  trailing material inside `.panel-right` (where `split-panel` puts its body and its footer)
+  was invisible to the top-level trailing scan; and `kanban-lanes` swept anything after the
+  board into its per-lane suffix and repeated it on EVERY lane.
+- **A split run's k-of-N rail no longer strikes through the deck's section rail.** Both marks
+  drew in the same corner of the footer band — pre-existing on plain-path body pages, and the
+  chrome fix above would have spread it to every split page. The k-of-N rail now docks in the
+  footer Cell when the frame has one (the same docking the progress Tile uses) and parks left
+  of the section rail's reserved berth otherwise, so footer text · section rail · k-of-N · page
+  number read as one row; the footer text ellipsises instead of overrunning.
+- **`kanban-lanes` no longer emits a spurious empty final page**, and `redline-blocks` no
+  longer emits two `<header>` elements or leaves `.cell-stage` unclosed. Form docks the footer
+  Cell INSIDE the kanban board, so "every div child of the board" counted it as a lane; both
+  strategies also re-emitted a source slice that already contained the section's own chrome and
+  then prepended it again. `redline-blocks` is now a span-removal over the source inner (the
+  plain envelope's own discipline) rather than a re-author from parsed pieces.
+- **A step or stage ALONE on its page fills the page, and its ordinal keeps counting.** The
+  generic lone-member fill lost on specificity to a component's box-local portrait reflow, so
+  the components §0b had just atomized rendered a content-height card above two-thirds of
+  white; `list-steps` and `authority-chain` also restarted their counters at 1 on every page
+  ("STEP 01" on page two of the run). `cycle` additionally suppresses its drawn return arc on a
+  split page — a bracket around a single card points at nothing, and the loop is carried by the
+  "↻ back to {stage 1}" signal instead.
+- **`capacity.relationship` reaches the split kernel.** `SPLIT_CAP` in `lattice-emulator.js`
+  projects a hand-listed whitelist of capacity fields, so a field absent from it arrives as
+  `undefined` and the feature is a silent no-op — the manifests declared the relationship,
+  every unit test passed, and the real render emitted nothing.
 
 - **`matrix-2x2` and `split-compare` no longer split — they ring, as their own design record says.**
   Both declared a split axis under `adapt.capacity` only, and the split registry reads that as an

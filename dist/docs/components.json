@@ -759,6 +759,7 @@
       "familyModifiers": [],
       "capacity": {
         "axis": "item",
+        "relationship": "hierarchy",
         "min": 2,
         "sweet": 4,
         "soft": 5,
@@ -767,7 +768,7 @@
           "split across slides (auto with autosplit: on)",
           "statute-stack"
         ],
-        "note": "past six tiers the chain overflows a portrait box"
+        "note": "past six tiers the chain overflows a portrait box; a split run carries a derived “governs ↓ / under ↑” signal — a hierarchy, never a temporal “next” (§0b connected members). Pacing stays the authored split.perPage: the signal reads across pages whatever the pacing"
       },
       "density": {
         "axis": "item",
@@ -2916,6 +2917,8 @@
       ],
       "capacity": {
         "axis": "item",
+        "perPage": 1,
+        "relationship": "cycle",
         "min": 3,
         "sweet": 4,
         "soft": 5,
@@ -2924,7 +2927,7 @@
           "list-steps",
           "split across slides"
         ],
-        "note": "under three there is no loop to read; past six the ring crowds"
+        "note": "under three there is no loop to read; past six the ring crowds; a split run paces ONE stage per page and closes with a derived “↻ back to {stage 1}” signal (§0b connected members)"
       },
       "density": {
         "axis": "item",
@@ -5350,6 +5353,8 @@
       ],
       "capacity": {
         "axis": "item",
+        "perPage": 1,
+        "relationship": "sequence",
         "min": 3,
         "sweet": 4,
         "soft": 5,
@@ -5358,7 +5363,7 @@
           "timeline-list",
           "split across slides"
         ],
-        "note": "past five steps the row begins to crowd"
+        "note": "past five steps the row begins to crowd; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
       },
       "density": {
         "axis": "item",
@@ -9907,6 +9912,8 @@
       ],
       "capacity": {
         "axis": "item",
+        "perPage": 1,
+        "relationship": "comparison",
         "min": 2,
         "sweet": 3,
         "soft": 4,
@@ -9915,7 +9922,7 @@
           "compare-table",
           "split across slides"
         ],
-        "note": "the cards crowd and badges lose legibility past four"
+        "note": "the cards crowd and badges lose legibility past four; a split run spotlights ONE option per page and carries a derived “Option N of M · comparing …” signal so the atomized tiers still read as a compared set (§0b connected members)"
       },
       "density": {
         "axis": "item",
