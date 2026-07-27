@@ -1,7 +1,7 @@
 import { Check, Download, FileBox, FileText, Package, Plus, Search, Share2, Trash2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { cn } from '@/lib/utils';
@@ -60,21 +60,22 @@ function themeSwatches(t: StudioTheme): string[] {
 	return ['var(--accent)'];
 }
 
-// The Library's transport: a docked left column (desktop-Build) or a right Sheet
-// (compact). The inner content is identical; only the wrapper + header title element
-// differ (a plain <h2> when docked — SheetTitle needs a Dialog context it wouldn't
-// have — vs SheetHeader/SheetTitle in the Sheet).
+// The Library's transport: a docked left column (desktop-Build) or a PanelSheet
+// (compact) — a right sheet at tablet, a bottom sheet on a phone. The inner content
+// is identical across all three; `PanelHeader` absorbs the one difference that used
+// to need a fork (a bare `h2` when docked vs `SheetTitle` inside the portal).
 function LibraryFrame({ docked, open, onOpenChange, children }: { docked?: boolean; open: boolean; onOpenChange: (o: boolean) => void; children: React.ReactNode }) {
 	// [container-type:inline-size]: the docked column is a size container so its header
 	// controls (the Import label, the filter-tab count) collapse on PANE width when it's
 	// dragged narrow — the Sheet is viewport-wide, so it doesn't need it.
 	if (docked) return <div className="flex h-full min-h-0 flex-col [container-type:inline-size]">{children}</div>;
+	// PanelSheet, not a hand-rolled SheetContent: it is what makes this a bottom sheet
+	// on a phone (and keeps the 720px right sheet at tablet) — one framing decision,
+	// made once, for every panel the drawer can open (#1211).
 	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[720px]">
-				{children}
-			</SheetContent>
-		</Sheet>
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="lg" tier="full">
+			{children}
+		</PanelSheet>
 	);
 }
 
@@ -264,10 +265,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const selCount = sel.size;
 
 	// The header controls (search + contextual add) — shared by both transports; only
-	// the title element differs (plain h2 when docked vs SheetTitle in the Sheet).
 	const headerControls = (
 		<>
-			<div className="ml-1 flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-muted-foreground">
+			{/* On a phone this wraps to its OWN row (`basis-full` + the header's
+			    `flex-wrap`): icon + title + import + close already fill 390px, and
+			    squeezing a fifth item in truncated the placeholder to "Search th". */}
+			<div className="ml-1 flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-muted-foreground max-[699px]:order-last max-[699px]:ml-0 max-[699px]:basis-full">
 						<Search className="size-3.5 shrink-0" />
 						<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search themes, components, finishes & docs…" aria-label="Search library" className="min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground" />
 					</div>
@@ -283,19 +286,21 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		</>
 	);
 
-	// The header — a plain <h2> when docked (SheetTitle needs a Dialog context it
-	// wouldn't have), else SheetHeader/SheetTitle in the Sheet.
-	const header = docked ? (
-		<div className="flex flex-row items-center gap-3 border-b border-border py-3 pl-4 pr-4">
-			<h2 className="flex shrink-0 items-center gap-2 text-[15px] font-semibold text-[var(--text-heading)]"><FileBox className="size-[18px] text-[var(--accent)]" />Library</h2>
-			{headerControls}
-		</div>
-	) : (
-		<SheetHeader className="flex-row items-center gap-3 space-y-0 border-b border-border py-3 pl-4 pr-12">
-			<SheetTitle className="flex shrink-0 items-center gap-2 text-[15px]"><FileBox className="size-[18px] text-[var(--accent)]" />Library</SheetTitle>
-			<SheetDescription className="sr-only">Saved themes, components, and finishes — search, filter, apply, or import a .zip.</SheetDescription>
-			{headerControls}
-		</SheetHeader>
+	// ONE header for both transports. `PanelHeader` already resolves the docked-vs-sheet
+	// difference internally (a bare `h2` when docked, `SheetTitle` inside the portal), so
+	// the two hand-rolled variants this replaces were the fork the primitive exists to
+	// prevent — and the reason this panel's close was the Sheet's own 16px X rather than
+	// the 44px one every other panel now gets on a phone (#1211).
+	const header = (
+		<PanelHeader
+			icon={<FileBox />}
+			title="Library"
+			srDescription="Saved themes, components, and finishes — search, filter, apply, or import a .zip."
+			actions={headerControls}
+			className="max-[699px]:flex-wrap"
+			onClose={docked ? () => onOpenChange(false) : undefined}
+			showClose={!docked}
+		/>
 	);
 
 	return (
@@ -313,8 +318,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 							))}
 						</div>
 					</div>
-					{/* The count hides on a narrow docked pane (container query); the Sheet keeps it. */}
-					<span className={cn('shrink-0 whitespace-nowrap font-mono text-[11px] text-muted-foreground', docked ? 'hidden @[22rem]:inline' : 'inline')}>{selCount > 0 ? `${selCount} selected · ` : ''}{total} total</span>
+					{/* The count hides on a narrow docked pane (container query) AND on a phone
+					    (media query). Five pills need ~340px; at 390px the count stole just
+					    enough that "Docs" clipped mid-word to "Doc" and sat flush against
+					    "0 total", which reads as a collision rather than as a scroller (#1211).
+					    The count is secondary — the filters are the control. */}
+					<span className={cn('shrink-0 whitespace-nowrap font-mono text-[11px] text-muted-foreground', docked ? 'hidden @[22rem]:inline' : 'hidden sm:inline')}>{selCount > 0 ? `${selCount} selected · ` : ''}{total} total</span>
 				</div>
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">

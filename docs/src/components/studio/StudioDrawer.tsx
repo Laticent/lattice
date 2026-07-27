@@ -15,16 +15,14 @@
 //      touch. There is not a single `overflow-x` in this file.
 //   2. A chevron means TRAVEL. A row with one goes somewhere (a sheet, or a door);
 //      a row without one acts in place. "Fix all issues" is the only such leaf.
-//   3. The sheet is as tall as its contents, capped at 85dvh. Level 0 measures 495px
-//      (Preview) / 613px (Edit) and fits without scrolling on a 390×844 phone. It is
-//      NOT true that it never scrolls: the cap is a fraction of viewport HEIGHT, so on
-//      a 375×667 iPhone SE the Edit index overflows by 46px, and by 130px at 320×568.
-//      (An earlier version of this comment claimed "never scrolls at 390/375/360" — three
-//      WIDTHS at one height. The independent checker measured the heights.) The
-//      predecessor was a flat 85dvh box with ~40% dead air, which is WHY its controls
-//      stretched to `flex-1`, why every group grew a shouty header to justify its band,
-//      and why a jump strip appeared to navigate the emptiness. Fixing the height removes
-//      the cause, not the symptom.
+//   3. ONE height, at every level, shared with every other panel — `MOBILE_TIER.auto`
+//      (88dvh, less the keyboard). Content-height came first and was wrong for the same
+//      reason the panels around it were: the index and the Themes door came up different
+//      sizes, and nothing told a user which of those was a rule. The predecessor's flat
+//      85dvh box had ~40% dead air, which is WHY its controls stretched to `flex-1`, why
+//      every group grew a shouty header to justify its band, and why a jump strip appeared
+//      to navigate the emptiness — but the fix for dead air is fewer, larger rows, not a
+//      height that changes under you when you open a door.
 //   4. No mono, no uppercase, nothing under 11.5px. That eyebrow voice belongs to the
 //      ARTIFACT — it earns its formality on a projected slide. At 10px on a phone it
 //      is the least legible combination available, and it was being used to shout
@@ -35,6 +33,7 @@
 // (the toolbar's Settings cell owns it) nor Workspace settings (promoted to the header).
 import { Check, ChevronLeft, ChevronRight, FileBox, History as HistoryIcon, ListChecks, MonitorPlay, MoreHorizontal, Palette, Plus, Search, X } from 'lucide-react';
 import * as React from 'react';
+import { MOBILE_OFFSET, MOBILE_TIER, useKeyboardInset } from '@/components/ui/panel';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { FeedbackIcon, LensIcon } from './icons';
@@ -191,6 +190,12 @@ export function StudioDrawer({
 	savedThemes: SavedTheme[];
 	onApplyPalette: (name: string) => void;
 }) {
+	// The drawer is a phone-only surface, so it always wants the keyboard inset — no
+	// breakpoint guard needed. It shares the shell's listener and its `auto` height
+	// rather than keeping the bespoke `max-h-[85dvh]` it shipped with: content-height
+	// made the Themes door and the index different sizes, which is the same "which of
+	// these is a rule and which is an accident" problem the tiers exist to end (#1211).
+	useKeyboardInset(open);
 	const [level, setLevel] = React.useState<Level>('index');
 	const backRef = React.useRef<HTMLButtonElement>(null);
 	const doorRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
@@ -258,7 +263,7 @@ export function StudioDrawer({
 				showCloseButton={false}
 				onEscapeKeyDown={(e) => { if (inDoor) { e.preventDefault(); back(); } }}
 				style={{ WebkitTapHighlightColor: 'color-mix(in srgb, var(--accent) 16%, transparent)' }}
-				className="flex max-h-[85dvh] flex-col gap-0 rounded-t-2xl p-0"
+				className={cn('flex flex-col gap-0 rounded-t-2xl p-0', MOBILE_OFFSET, MOBILE_TIER.auto)}
 			>
 				{/* Nav bar: the SAME three-slot left-aligned strip at both levels, fixed 56px,
 				    never centers. The back affordance is a chevron plus the literal name of
@@ -349,15 +354,20 @@ export function StudioDrawer({
 						</div>
 					)}
 
-					{/* ── Door 1 — Themes. A 3-column grid of colour-field tiles with real names,
+					{/* ── Door 1 — Themes. A 3-column grid of color-field tiles with real names,
 					    scrolling DOWN like everything else. The three group headers survive here
 					    and only here: they are the sole navigational structure in a 7-row grid,
 					    and the inventory must stay legible AS GROUPS. */}
 					{level === 'themes' && (
 						<div className="flex flex-col gap-4">
 							{themeGroups.map((g) => (
-								<section key={g.label ?? 'themes'}>
-									{g.label && <h3 className="mb-2 text-[13px] font-semibold text-[var(--text-heading)]">{g.label}</h3>}
+								/* `gap`, not the heading's own `mb-2` — that margin measured ZERO between the
+								   heading box and the grid, so the selected tile's `ring-offset-2` (which paints
+								   4px OUTSIDE the tile) drew its white band straight through "Curated". It read
+								   as a sheared heading and was actually a collision. A flex gap cannot collapse
+								   the way that margin did. */
+								<section key={g.label ?? 'themes'} className="flex flex-col gap-2.5">
+									{g.label && <h3 className="text-[13px] font-semibold leading-normal text-[var(--text-heading)]">{g.label}</h3>}
 									<div className="grid grid-cols-3 gap-2.5">
 										{g.options.map((opt) => {
 											const on = opt.value === palette;
@@ -368,7 +378,7 @@ export function StudioDrawer({
 													aria-pressed={on}
 													aria-label={opt.label}
 													onClick={() => onApplyPalette(opt.value)}
-													// The tile's outline is what separates an ARBITRARY swatch colour from the
+													// The tile's outline is what separates an ARBITRARY swatch color from the
 													// sheet, so it can't use `--border`: that token is tuned against the
 													// palette's own surfaces and drops to ~1.4:1 against a dark swatch in a
 													// dark palette (measured). A --text-heading mix is contrasty by

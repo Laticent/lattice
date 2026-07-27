@@ -1,14 +1,14 @@
 import { ChevronDown, Layers, Plus, Search, X } from 'lucide-react';
 import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { NEW_SLIDE } from './deck-ops';
 import { SlideThumbFace, useInView } from './slide-thumb';
 import { componentLooks, variantSample } from './slide-variants';
-import { useBreakpoint } from './use-breakpoint';
 
 // The add-slide GALLERY — the canonical "insert a slide" surface, replacing the
 // old cmdk text list (InsertComponent.tsx). Every tile is the REAL engine render
@@ -282,14 +282,15 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	const description = 'Search the slide gallery and add one as a new slide.';
 
 	if (compact) {
+		// The sixth surface the mobile drawer opens ("Insert component", on the Edit
+		// pane) — so it wears the same shell as the other five (#1211). It was the one
+		// bottom sheet at `h-[100dvh]`: a full-screen page with a 16px radius pretending
+		// to be a sheet. 85dvh still leaves ~717px of gallery on a 390×844 phone.
 		return (
-			<Sheet open={open} onOpenChange={onOpenChange}>
-				<SheetContent side="bottom" className="flex h-[100dvh] flex-col gap-0 p-0">
-					<SheetTitle className="px-4 pt-3 text-[15px]">Add a slide</SheetTitle>
-					<SheetDescription className="sr-only">{description}</SheetDescription>
-					{body}
-				</SheetContent>
-			</Sheet>
+			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg" tier="full">
+				<PanelHeader icon={<Plus />} title="Add a slide" srDescription={description} />
+				{body}
+			</PanelSheet>
 		);
 	}
 	return (

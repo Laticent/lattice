@@ -109,8 +109,16 @@ Slide-settings Status/Decoration/Chrome/Comments, MetricDetail.
 ## Deferred
 - **Library** Docs-vs-assets distinction (Docs breaks the select/share/bulk contract) —
   a smaller follow-up, tracked here.
-- Full `PanelSheet`/`PanelHeader` component migration of every sheet (Feedback is the
-  pilot); the rest were normalized in place this pass and can adopt the primitive later.
+- ~~Full `PanelSheet`/`PanelHeader` component migration of every sheet (Feedback is the
+  pilot); the rest were normalized in place this pass and can adopt the primitive later.~~
+  **DONE (2026-07-27, #1211)** — and the bill for deferring it came due first. "Normalized
+  in place" held the *header* grammar but not the *framing*: with each sheet still owning
+  its own `SheetContent`, the Studio's mobile drawer ended up launching panels from four
+  different edges, at five heights and three widths, with close targets of 16px, 30px, and
+  44px. Two rows one apart in the same card opened in opposite directions. The migration
+  that closed it is in `2026-07-27-mobile-panel-framing.md`; the lesson worth keeping is
+  that a primitive nobody is required to adopt only guarantees cohesion where it is wired,
+  exactly as this section's own STATUS note warned.
 
 ## Open design tensions (surfaced by the adversarial trio — HARD RULE #25)
 

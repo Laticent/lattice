@@ -39,6 +39,13 @@
 	--lx-ui-accent: color-mix(in oklab, var(--bg-alt), var(--accent) 14%);
 	/* Structural, palette-blind (same discipline as shadows). */
 	--radius: 0.5rem;
+	/* On-screen keyboard height, published by useKeyboardInset (ui/panel.tsx) while a
+	   mobile sheet is open. Declared here so every consumer can write `var(--kb)` with
+	   no fallback: `var(--kb,0px)` as a Tailwind arbitrary value has to escape a comma
+	   inside the class selector, and that is exactly where it silently failed to
+	   generate for one surface (the command palette stayed pinned under the keyboard
+	   while every other sheet lifted clear). One declaration, no commas, no escaping. */
+	--kb: 0px;
 	/* Danger is hue-universal; themes/ defines no destructive token, so this is
 	 * a palette-blind ramp (one light value, one dark — WCAG-checked). */
 	--lx-ui-destructive: #c0362c;

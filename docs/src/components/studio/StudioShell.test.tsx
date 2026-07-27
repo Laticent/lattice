@@ -223,14 +223,14 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		// panel (its own first-class panel now) opens, since "Reshape for a reader"
 		// targets reader views directly.
 		expect(await screen.findByRole('button', { name: 'Open Library' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Toggle Lenses' })).toHaveAttribute('aria-pressed', 'true');
+		expect(screen.getByRole('button', { name: 'Toggle Reader views' })).toHaveAttribute('aria-pressed', 'true');
 		// …but the SAVED posture is untouched: reaching a Build tool never persists Build.
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 		// The dial marks the lit Build as TRANSIENT ("showing temporarily") so clicking it
 		// to persist is deliberate, never a silent no-op on a seemingly-selected segment.
 		expect(screen.getAllByRole('button', { name: /Build — every panel, showing temporarily/ }).length).toBeGreaterThan(0);
 		// Closing the summoned Lenses panel recedes to Write — launcher gone, posture still Write.
-		await user.click(screen.getByRole('button', { name: 'Toggle Lenses' }));
+		await user.click(screen.getByRole('button', { name: 'Toggle Reader views' }));
 		await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Library' })).not.toBeInTheDocument());
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 		// …and the dial no longer marks any stop transient (Build is no longer even shown).
@@ -249,14 +249,14 @@ describe('StudioShell — the posture dial (persona experiences)', () => {
 		await user.keyboard('{Meta>}k{/Meta}');
 		const dialog = await screen.findByRole('dialog', { name: /Studio commands/i });
 		await user.click(within(dialog).getByText(/Reshape for a reader/));
-		expect(await screen.findByRole('button', { name: 'Toggle Lenses' })).toHaveAttribute('aria-pressed', 'true');
+		expect(await screen.findByRole('button', { name: 'Toggle Reader views' })).toHaveAttribute('aria-pressed', 'true');
 		// Esc recedes the transient reveal — back to Write (launcher gone), posture untouched.
 		await user.keyboard('{Escape}');
-		await waitFor(() => expect(screen.queryByRole('button', { name: 'Toggle Lenses' })).not.toBeInTheDocument());
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Toggle Reader views' })).not.toBeInTheDocument());
 		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('write');
 		// Dial UP to a persistent Build: the summoned-then-dismissed panel stays CLOSED (no orphan).
 		await user.click(screen.getByRole('button', { name: 'Build — every panel' }));
-		expect(await screen.findByRole('button', { name: 'Toggle Lenses' })).toHaveAttribute('aria-pressed', 'false');
+		expect(await screen.findByRole('button', { name: 'Toggle Reader views' })).toHaveAttribute('aria-pressed', 'false');
 	});
 
 	it('the ⌘K "Library" command reveals Build and opens the Library from Write — never a dead click', async () => {
@@ -455,7 +455,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('previewing a reader view reshapes the Compose preview, and clears back to full', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} components={q3Catalog} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Lenses' })); // open the Lenses panel (first-class now)
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Reader views' })); // open the Lenses panel (first-class now)
 		expect(screen.getByText('Slide 1 / 6')).toBeInTheDocument();
 		// Build a Bottom-line view (suggester-proposed members) and preview it — the Compose preview
 		// reshapes to that view's slides (a strict subset). Author-side preview needs no approval.
@@ -477,7 +477,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 	it('the human-in-the-loop gate: Present offers a reader view ONLY after the author approves it', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} components={q3Catalog} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Lenses' })); // open the Lenses panel (first-class now)
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Reader views' })); // open the Lenses panel (first-class now)
 
 		// Add a Bottom-line reader view and accept the suggester's proposal (it becomes a DRAFT).
 		await user.click(screen.getByRole('button', { name: /Add a reader view/ }));
@@ -792,6 +792,32 @@ describe('StudioShell — topbar information architecture', () => {
 		await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Show me' });
 	});
 
+	it.each([
+		// Was ['Search / commands', 'Studio commands'] — the one pair in this table that
+		// encoded the very mismatch the test is named for. The palette is a PanelSheet on
+		// mobile now and answers to its row's own words, so the exception is gone.
+		['Search / commands', 'Search / commands'],
+		['Library', 'Library'],
+		['Reader views', 'Reader views'],
+		['Version history', 'Version history'],
+		['Send feedback', 'Send feedback'],
+	])('mobile: the %s panel answers to the name its drawer row promised', async (row, dialogName) => {
+		// The naming half of #1211. Every panel the drawer opens must call itself what the
+		// row said it would be — "Reader views" arrived as "LENSES", and the palette named
+		// itself nowhere on screen. The FRAMING half (one edge, one radius, one 44px close)
+		// is geometry and lives in the Playwright measurement, not here: jsdom has no
+		// layout, so asserting it in this tier would be asserting nothing.
+		setViewport('mobile');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(await screen.findByRole('button', { name: row }));
+		await waitFor(async () => {
+			const dialogs = screen.queryAllByRole('dialog');
+			expect(dialogs.length).toBeGreaterThan(0);
+			expect(dialogs[dialogs.length - 1]).toHaveAccessibleName(dialogName);
+		}, { timeout: 3000 });
+	});
+
 	it('mobile: a drawer-opened palette that LAUNCHES another surface does not resurface the drawer under it', async () => {
 		// REGRESSION (Munger inversion, F7). The reopen used to hang off each sheet's own
 		// `onOpenChange`, which fires on the CLOSING sheet and cannot see what opened in the
@@ -817,7 +843,10 @@ describe('StudioShell — topbar information architecture', () => {
 		await waitFor(() => expect(screen.queryByPlaceholderText(PALETTE)).not.toBeInTheDocument(), { timeout: 3000 });
 		const dialogs = screen.queryAllByRole('dialog');
 		expect(dialogs).toHaveLength(1);
-		expect(dialogs[0]).toHaveTextContent('Saved themes, components');
+		// Identify it by its accessible NAME, not by body copy — the name is the contract
+		// (`CHROME`), the copy is not. Asserting on the sr-only description broke the
+		// moment the Library adopted `PanelHeader` in #1211, for no behavioral reason.
+		expect(dialogs[0]).toHaveAccessibleName('Library');
 	});
 
 	it('mobile: running a command the drawer knows NOTHING about still leaves the drawer shut', async () => {
@@ -937,7 +966,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('a fresh deck inherits both starter views as rows, and the Add menu no longer offers them', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Lenses' })); // open the Lenses panel (first-class now)
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Reader views' })); // open the Lenses panel (first-class now)
 		// Both inherited starters appear in the Lenses panel without the author adding anything.
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();
 		expect(screen.getByText('The evidence')).toBeInTheDocument();
@@ -954,7 +983,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('the empty inherited "Bottom line" cannot be previewed (no blank-rail flash / lying toast)', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Lenses' })); // open the Lenses panel (first-class now)
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Reader views' })); // open the Lenses panel (first-class now)
 		// Expand Bottom line (base:none, 0 members) — its Preview button is disabled until a slide is tagged.
 		await user.click(screen.getByText('Bottom line'));
 		const preview = screen.getAllByRole('button', { name: /^Preview$/ }).at(-1) as HTMLButtonElement;
@@ -964,7 +993,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 	it('an inherited view is reader-invisible until approved — the same human gate (fail closed)', async () => {
 		const user = userEvent.setup();
 		render(<StudioShell options={options} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Lenses' })); // open the Lenses panel (first-class now)
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Reader views' })); // open the Lenses panel (first-class now)
 		// The inherited "The evidence" (base:all) already has every slide as a member, but it is UNAPPROVED,
 		// so Present must not offer it to a reader.
 		await user.click(screen.getByRole('button', { name: 'Present' }));
@@ -991,7 +1020,7 @@ describe('StudioShell — workspace-inherited reader views (B)', () => {
 		// the shape loadSource reads).
 		localStorage.setItem('lattice-studio-src-q3-board', JSON.stringify('<!-- _class: title -->\n<!-- _lens: +brief -->\n\n# Q3\n\n---\n\n## Detail'));
 		render(<StudioShell options={options} />);
-		fireEvent.click(screen.getByRole('button', { name: 'Toggle Lenses' })); // open the Lenses panel (first-class now)
+		fireEvent.click(screen.getByRole('button', { name: 'Toggle Reader views' })); // open the Lenses panel (first-class now)
 		expect(screen.getByText('Bottom line')).toBeInTheDocument();
 		expect(screen.getByText('The evidence')).toBeInTheDocument();
 		// brief is tagged → no longer an untouched Starter; only the untouched evidence keeps its badge.

@@ -1,6 +1,6 @@
 import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Images, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
 import * as React from 'react';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { deckColorMode } from '@/lib/deck-theme';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
@@ -104,13 +104,13 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 	const deckDefaultScheme = deckCm && deckCm !== 'print' ? deckCm : mode;
 
 	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="w-full gap-0 sm:max-w-[440px]">
-				<SheetHeader className="border-b border-border">
-					<SheetTitle className="flex items-center gap-2 text-[15px]"><Link2 className="size-[18px] text-[var(--accent)]" />Share “{deckTitle}”</SheetTitle>
-					<SheetDescription className="sr-only">Hand off the rendered deck or the Markdown source.</SheetDescription>
-				</SheetHeader>
-				<div className="space-y-6 overflow-y-auto p-5 overscroll-contain [touch-action:pan-y] min-w-0">
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
+			<PanelHeader
+				icon={<Link2 />}
+				title={`Share “${deckTitle}”`}
+				srDescription="Hand off the rendered deck or the Markdown source."
+			/>
+			<PanelBody padded={false} className="space-y-6 p-5">
 					{view === 'pdf' ? (
 						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'html' ? (
@@ -142,8 +142,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 							</section>
 						</>
 					)}
-				</div>
-			</SheetContent>
-		</Sheet>
+			</PanelBody>
+		</PanelSheet>
 	);
 }

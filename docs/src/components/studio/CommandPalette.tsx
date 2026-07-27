@@ -1,5 +1,8 @@
-import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Settings2, Share2, Sparkles } from 'lucide-react';
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Search, Settings2, Share2, Sparkles } from 'lucide-react';
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import { PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { useBreakpoint } from '@/lib/use-breakpoint';
+import { cn } from '@/lib/utils';
 import type { StudioDeck } from './decks';
 import { FeedbackIcon } from './icons';
 
@@ -50,13 +53,19 @@ export function CommandPalette({
 	onExpandPane?: () => void;
 	onResetSplit?: () => void;
 }) {
+	// The palette is the surface where the keyboard bug was REPORTED: with the keyboard
+	// up its list collapsed to a single row, with iOS's own accessory bar drawn over it.
+	// On mobile it is now a PanelSheet, which owns the keyboard listener — so there is
+	// nothing to mount here.
+	const mobile = useBreakpoint() === 'mobile';
 	const run = (fn: () => void) => () => {
 		onRun?.();
 		onOpenChange(false);
 		fn();
 	};
-	return (
-		<CommandDialog open={open} onOpenChange={onOpenChange} title="Studio commands" description="Run a command or jump somewhere">
+	// The palette body is identical on both transports — only the frame differs.
+	const body = (
+		<>
 			<CommandInput placeholder="Search or run a command…" />
 			<CommandList>
 				<CommandEmpty>No matches.</CommandEmpty>
@@ -97,6 +106,55 @@ export function CommandPalette({
 					))}
 				</CommandGroup>
 			</CommandList>
+		</>
+	);
+
+	// MOBILE: a PanelSheet, like every other overlay. This was a `CommandDialog` with
+	// mobile overrides, and it was the last surface in the app on a different primitive
+	// — which is precisely why it kept behaving differently. `DialogContent` will not
+	// take a bottom offset at all: an inline `bottom: 336px` on it still computes to
+	// `0px`, so with the keyboard up this sheet alone stayed pinned underneath while
+	// every PanelSheet lifted clear (reported from a real iPhone). Rather than keep
+	// fighting the primitive, it now uses the one that already works.
+	if (mobile) {
+		return (
+			<PanelSheet open={open} onOpenChange={onOpenChange} tier="full">
+				<PanelHeader icon={<Search />} title="Search / commands" srDescription="Run a command or jump somewhere in the Studio." />
+				{/* The field wears the SAME dress as the Library's search: an inset rounded
+				    box with the magnifier inside it, on its own row under the header. The
+				    cmdk default is edge-to-edge with the icon out at the screen edge and a
+				    `border-b` instead of a border — so the app had two search fields that
+				    looked nothing alike, and this one's focus ring was clipped by the
+				    header divider. One search field, one look. */}
+				<Command
+					className={cn(
+						'flex min-h-0 flex-1 flex-col',
+						// the field: inset, rounded, bordered — Library's treatment exactly
+						'[&_[data-slot=command-input-wrapper]]:mx-3.5 [&_[data-slot=command-input-wrapper]]:mt-3 [&_[data-slot=command-input-wrapper]]:mb-1',
+						'[&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border',
+						'[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:bg-background [&_[data-slot=command-input-wrapper]]:px-2.5',
+						'[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground',
+						'[&_[cmdk-group]]:px-2 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5',
+					)}
+				>
+					{body}
+				</Command>
+			</PanelSheet>
+		);
+	}
+
+	return (
+		<CommandDialog
+			open={open}
+			onOpenChange={onOpenChange}
+			title="Studio commands"
+			description="Run a command or jump somewhere"
+			// `DialogContent`'s close is absolutely positioned in the top-right corner,
+			// which on this dialog lands ON the search input — the first row. Reserving
+			// the corner keeps a click on the end of the field from dismissing the palette.
+			className="[&_[data-slot=command-input-wrapper]]:pr-12"
+		>
+			{body}
 		</CommandDialog>
 	);
 }

@@ -21,7 +21,7 @@ test('"Reshape for a reader" opens the Lenses panel', async ({ page }) => {
 	await page.getByRole('option', { name: 'Reshape for a reader' }).click();
 
 	// The command opens the Lenses panel (its own first-class home for reader views).
-	await expect(page.getByRole('button', { name: 'Toggle Lenses' })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByRole('button', { name: 'Toggle Reader views' })).toHaveAttribute('aria-pressed', 'true');
 	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeVisible();
 });
 

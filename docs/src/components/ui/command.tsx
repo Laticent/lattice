@@ -32,6 +32,7 @@ function CommandDialog({
   description = "Search for a command to run...",
   children,
   className,
+  style,
   showCloseButton = true,
   open,
   onOpenChange,
@@ -42,6 +43,10 @@ function CommandDialog({
   title?: string
   description?: string
   className?: string
+  /** DEVIATION from the shadcn base: forwarded to `DialogContent`. The Studio's
+   *  palette needs a keyboard offset that cannot silently fail to generate as a
+   *  Tailwind arbitrary value — see CommandPalette. */
+  style?: React.CSSProperties
   showCloseButton?: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -52,6 +57,7 @@ function CommandDialog({
     <Dialog open={open} onOpenChange={onOpenChange} defaultOpen={defaultOpen} modal={modal}>
       <DialogContent
         className={cn("overflow-hidden p-0", className)}
+        style={style}
         showCloseButton={showCloseButton}
       >
         {/* Inside DialogContent so Radix resolves aria-labelledby/-describedby. */}
@@ -75,15 +81,28 @@ function CommandInput({
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
+    // DEVIATION from the shadcn base, and the one place this file departs from it.
+    // The base pairs an `h-10` (40px) input with an `h-9` (36px) wrapper — a child
+    // 4px taller than the box that contains it, so a focused field's ring clips top
+    // and bottom. `CommandDialog` happens to paper over it by forcing both to h-12,
+    // which is why it only shows on a bare `CommandInput` (reference-doc-ui). The
+    // wrapper now sizes to its content and the input carries the height, so the two
+    // cannot disagree again.
+    //
+    // `text-sm` is also gone rather than corrected: `.lx-ui input { font: inherit }`
+    // (tailwind.css) outranks it, so every input in this app already renders at the
+    // inherited 16px. Leaving a dead 14px declaration in place implies a size that
+    // never applies — and 16px is what keeps iOS Safari from zooming the viewport on
+    // focus, so the inherited value is the one we want anyway. Do not "restore" it.
     <div
       data-slot="command-input-wrapper"
-      className="flex h-9 items-center gap-2 border-b px-3"
+      className="flex items-center gap-2 border-b px-3"
     >
       <SearchIcon className="size-4 shrink-0 opacity-50" />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
-          "flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-11 w-full rounded-md bg-transparent outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}
         {...props}

@@ -51,8 +51,8 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).p
 // full deck as a fallback for a scoped lens — it says, plainly, why the view isn't available, so the
 // author can see (in Present) that an unapproved / stale / empty lens is gated exactly as a reader will.
 const UNAVAILABLE_COPY: Record<string, { title: string; body: string }> = {
-	unapproved: { title: 'This view is awaiting approval', body: 'A human hasn’t approved this reader view yet, so it isn’t shown. Approve it in the Lenses panel to make it readable.' },
-	drifted: { title: 'This view is out of date', body: 'The deck changed since this view was approved, so it’s withheld until re-approved. Re-approve it in the Lenses panel.' },
+	unapproved: { title: 'This view is awaiting approval', body: 'A human hasn’t approved this reader view yet, so it isn’t shown. Approve it in the Reader views panel to make it readable.' },
+	drifted: { title: 'This view is out of date', body: 'The deck changed since this view was approved, so it’s withheld until re-approved. Re-approve it in the Reader views panel.' },
 	empty: { title: 'This view has no slides', body: 'No slide is tagged into this view, so there’s nothing to present. Tag slides into it, then approve.' },
 	hidden: { title: 'This view isn’t available', body: 'This reader view is hidden.' },
 	unknown: { title: 'This view doesn’t exist', body: 'No reader view by that name is defined for this deck.' },

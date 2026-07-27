@@ -90,7 +90,7 @@ export function FeedbackSheet({
 	};
 
 	return (
-		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md" tier="full">
 			<PanelHeader
 				icon={<MessageSquareHeart />}
 				title="Send feedback"

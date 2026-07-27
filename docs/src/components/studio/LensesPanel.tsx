@@ -155,7 +155,10 @@ export function LensesPanel({
 
 	return (
 		<div>
-			<p className="text-xs leading-relaxed text-muted-foreground">A reader view is a subset of this deck for one kind of reader. You approve exactly what each reader sees — a machine only suggests.</p>
+			{/* The "what a reader view IS" half of this lede moved to the panel header in
+			    #1211, where every panel now states its purpose. Keeping both put the same
+			    sentence on screen twice, 40px apart. What is left is the part the header
+			    has no room for and that a user cannot infer: who decides. */}
 
 			{lenses.length > 0 && (
 				<ul className="mt-2.5 list-none space-y-2 pl-0">

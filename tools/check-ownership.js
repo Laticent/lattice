@@ -1099,7 +1099,7 @@ function listRepoTextFiles(dir = ROOT, out = []) {
 // living text surfaces. EXCEED-only (mirrors the margin gate): a NEW British spelling
 // fails the build; the existing backlog is tracked in migration tickets and burned
 // down by lowering US_ENGLISH_BUDGET as it drops. Target zero.
-const US_ENGLISH_BUDGET = 1338;
+const US_ENGLISH_BUDGET = 1336;
 
 function checkUsEnglish(errors) {
   const re = new RegExp(`\\b(${UK_ENGLISH_FORMS.join('|')})\\b`, 'gi');
