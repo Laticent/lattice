@@ -263,6 +263,46 @@ ends. The lesson is recorded in the CSS: **source measures cannot be copied as
 numbers**, because our body tier is 1.67cqi where the reference set 1.33cqi. A
 measure has to be set for the tier that will actually occupy it.
 
+## C3. Two findings the geometry pass could not have caught
+
+Both surfaced only by measuring the rendered slide, and both are general Lattice
+lessons rather than deck-specific fixes.
+
+### C3.1 — `cqi` silently changes axis inside `writing-mode: vertical-*`
+
+`matrix-grid`'s two axis labels declare the SAME token (`var(--fs-meta)`) and
+rendered at **6.2px vs 13.5px**. `--fs-*` tokens are `cqi`-based, and Chromium
+resolves `cqi` against the axis that is inline *for the element's own writing
+mode*. Under `vertical-rl` that is the container's **block** axis (528px on a
+16:9 slide) instead of its inline axis (1152px) — a 46% silent shrink.
+
+Fixed without touching the token: declare the size on the (horizontal) figure and
+let the rotated `::before` inherit an already-computed length. **Any `cqi`-based
+size inside a rotated box has this bug**; it is invisible in review because the
+CSS looks correct.
+
+### C3.2 — the token audit cannot see what a component invents
+
+`tools/contrast-audit.js` was green — 704 pairs, 32 themes — while the rendered
+deck carried **44 sub-AA text runs, several at 2.54:1**. No contradiction: that
+tool checks each theme's own token matrix, i.e. the pairs a palette DECLARES. It
+has no way to see `--text-secondary` placed on a `--cat-N-fill`, or `--cat-N-mark`
+used as a card label — pairings that exist only once a component renders.
+
+Root cause of every failure was the same misread: **`--cat-N-mark` is a stroke
+token**, guaranteed 3:1 against the BACKGROUND. `--cat-on-fill` is the ink
+guaranteed 4.5:1 against any fill. Using a mark as small type borrows a guarantee
+it never carried. Two legitimate resolutions, both used here:
+- swap to the ink the contract guarantees (`--cat-on-fill`), accepting that a fill
+  has exactly ONE guaranteed ink, so hierarchy must come from size/weight/case/face;
+- or keep the mark and meet the bar it DOES carry — `premise`'s verb names went to
+  weight 700, which puts them over WCAG's large-text threshold (>=18.66px + >=700)
+  where 3:1 is the requirement.
+
+`tools/check-slide-contrast.js` now exists to make this repeatable. The remaining
+sub-4.5 runs are the footer caption and page number — the muted-chrome tier the
+palette contract explicitly exempts.
+
 ## D. What needs a decision rather than an edit
 
 - **B14** — moving the italic question above the heading changes

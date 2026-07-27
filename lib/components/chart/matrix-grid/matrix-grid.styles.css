@@ -39,6 +39,11 @@
  * grid. */
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-row-axis] {
   padding-left: var(--sp-lg);
+  /* Resolve the axis-label size HERE, in a horizontal writing mode, so the
+   * rotated ::before can inherit a finished length instead of re-resolving a
+   * cqi token against the wrong axis (see the ::before rule below). The table
+   * declares its own font-size, so this inherits to the pseudo and nothing else. */
+  font-size: var(--fs-meta);
 }
 
 /* Row-axis label — the second half of the two-part eyebrow, stashed on the
@@ -61,7 +66,14 @@
   transform: rotate(180deg);
   white-space: nowrap;
   font-family: var(--font-label);
-  font-size: var(--fs-meta);
+  /* font-size is deliberately NOT declared here — it INHERITS from the figure
+   * (the rule below). `--fs-*` tokens are cqi-based, and Chromium resolves `cqi`
+   * against the axis that is INLINE for the element's own writing mode: under
+   * `vertical-rl` that is the container's BLOCK axis (528px on a 16:9 slide)
+   * rather than its inline axis (1152px). Declaring the token here rendered this
+   * label at 6.2px against the column label's 13.5px — same token, 46% the size.
+   * Inheriting a length already computed in a horizontal context sidesteps the
+   * axis swap entirely and keeps both axis labels on one token. */
   font-weight: 700;
   letter-spacing: 0.10em;
   text-transform: uppercase;
@@ -230,7 +242,10 @@
   gap: 0.4em;
   padding-left: 0.9em;
   font-style: italic;
-  color: var(--text-muted);
+  /* Legend text is CONTENT (it decodes the grid), not the "muted chrome" the
+   * palette contract exempts from AA — --text-muted is 4.10:1 on --bg,
+   * --text-secondary is 6.85:1. */
+  color: var(--text-secondary);
 }
 :is(section.matrix-grid, figure.matrix-grid) .chart-caption em::before {
   content: '';

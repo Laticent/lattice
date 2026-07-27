@@ -153,14 +153,18 @@ section.list-steps.capsule ol > li > ul > li {
  * tinted on its own — the same reasoning `statement/premise`'s per-row
  * color already established. Mirrors premise's exact 8-slot
  * nth-child(8n+N) mechanism and its --cat-N-fill/--cat-N-mark pairing. */
-section.list-steps.capsule.cat ol > li:nth-child(8n+1)::before { background: var(--cat-1-fill); color: var(--cat-1-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+2)::before { background: var(--cat-2-fill); color: var(--cat-2-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+3)::before { background: var(--cat-3-fill); color: var(--cat-3-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+4)::before { background: var(--cat-4-fill); color: var(--cat-4-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+5)::before { background: var(--cat-5-fill); color: var(--cat-5-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+6)::before { background: var(--cat-6-fill); color: var(--cat-6-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+7)::before { background: var(--cat-7-fill); color: var(--cat-7-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n)::before   { background: var(--cat-8-fill); color: var(--cat-8-mark); }
+/* Badge ink is `--cat-on-fill`, the one token the categorical contract
+ * guarantees >=4.5:1 against any `--cat-N-fill`. It was `--cat-N-mark`, which
+ * the contract only guarantees against the BACKGROUND (it is a stroke token) —
+ * on the fill it measured 4.25:1, below AA. */
+section.list-steps.capsule.cat ol > li:nth-child(8n+1)::before { background: var(--cat-1-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+2)::before { background: var(--cat-2-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+3)::before { background: var(--cat-3-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+4)::before { background: var(--cat-4-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+5)::before { background: var(--cat-5-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+6)::before { background: var(--cat-6-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+7)::before { background: var(--cat-7-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n)::before   { background: var(--cat-8-fill); color: var(--cat-on-fill); }
 
 /* ── timeline variant — former `timeline` component (progression.list-steps.timeline) ──
  * Dots-on-a-spine: ordered stages as labelled nodes along one horizontal axis.

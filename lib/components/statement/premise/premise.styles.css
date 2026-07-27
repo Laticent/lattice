@@ -72,7 +72,10 @@ section.premise > ul > li {
 section.premise > ul > li code {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
-  color: var(--text-muted);
+  /* --text-secondary, not --text-muted: the ordinal and the question are row
+   * CONTENT, not the "muted chrome" the palette contract exempts from AA.
+   * --text-muted measures 3.75:1 on --bg-alt; --text-secondary is 6.27:1. */
+  color: var(--text-secondary);
   background: transparent;
   border: none;
   padding: 0;
@@ -80,6 +83,14 @@ section.premise > ul > li code {
 section.premise > ul > li strong {
   font-size: var(--fs-body);
   color: var(--row-mark, var(--text-heading));
+  /* 700, not the inherited 600, and this is a contrast requirement rather than a
+   * taste call. `--cat-N-mark` is guaranteed 3:1 against the background — the
+   * WCAG NON-TEXT / large-text bar, which is what a stroke token is scoped to.
+   * Text only qualifies for that 3:1 bar at >=18.66px AND >=700 weight; at 600
+   * the verb names fell under the 4.5:1 normal-text rule and measured 4.16–4.25:1.
+   * Bumping the weight puts them inside the guarantee the token actually carries
+   * instead of borrowing a token that was never gated for small type. */
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -91,7 +102,7 @@ section.premise > ul > li .premise-desc {
 section.premise > ul > li em {
   font-style: normal;
   font-size: var(--fs-meta);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-align: right;
 }
 

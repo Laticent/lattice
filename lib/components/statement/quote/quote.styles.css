@@ -46,7 +46,10 @@ section.quote.bare > .cell-stage > p {
   font-size: var(--fs-meta);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  /* The attribution is the quote's only other content — it names whose words
+   * these are — so it reads at --text-secondary (6.85:1 on --bg), not the
+   * --text-muted chrome tier the palette contract exempts from AA (4.10:1). */
+  color: var(--text-secondary);
 }
 section.quote.bare > .cell-stage > p em { font-style: normal; }
 

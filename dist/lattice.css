@@ -7064,14 +7064,18 @@ section.list-steps.capsule ol > li > ul > li {
  * tinted on its own — the same reasoning `statement/premise`'s per-row
  * color already established. Mirrors premise's exact 8-slot
  * nth-child(8n+N) mechanism and its --cat-N-fill/--cat-N-mark pairing. */
-section.list-steps.capsule.cat ol > li:nth-child(8n+1)::before { background: var(--cat-1-fill); color: var(--cat-1-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+2)::before { background: var(--cat-2-fill); color: var(--cat-2-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+3)::before { background: var(--cat-3-fill); color: var(--cat-3-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+4)::before { background: var(--cat-4-fill); color: var(--cat-4-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+5)::before { background: var(--cat-5-fill); color: var(--cat-5-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+6)::before { background: var(--cat-6-fill); color: var(--cat-6-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n+7)::before { background: var(--cat-7-fill); color: var(--cat-7-mark); }
-section.list-steps.capsule.cat ol > li:nth-child(8n)::before   { background: var(--cat-8-fill); color: var(--cat-8-mark); }
+/* Badge ink is `--cat-on-fill`, the one token the categorical contract
+ * guarantees >=4.5:1 against any `--cat-N-fill`. It was `--cat-N-mark`, which
+ * the contract only guarantees against the BACKGROUND (it is a stroke token) —
+ * on the fill it measured 4.25:1, below AA. */
+section.list-steps.capsule.cat ol > li:nth-child(8n+1)::before { background: var(--cat-1-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+2)::before { background: var(--cat-2-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+3)::before { background: var(--cat-3-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+4)::before { background: var(--cat-4-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+5)::before { background: var(--cat-5-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+6)::before { background: var(--cat-6-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+7)::before { background: var(--cat-7-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule.cat ol > li:nth-child(8n)::before   { background: var(--cat-8-fill); color: var(--cat-on-fill); }
 
 /* ── timeline variant — former `timeline` component (progression.list-steps.timeline) ──
  * Dots-on-a-spine: ordered stages as labelled nodes along one horizontal axis.
@@ -8858,6 +8862,11 @@ section.matrix-2x2 > .cell-stage {
  * grid. */
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-row-axis] {
   padding-left: var(--sp-lg);
+  /* Resolve the axis-label size HERE, in a horizontal writing mode, so the
+   * rotated ::before can inherit a finished length instead of re-resolving a
+   * cqi token against the wrong axis (see the ::before rule below). The table
+   * declares its own font-size, so this inherits to the pseudo and nothing else. */
+  font-size: var(--fs-meta);
 }
 
 /* Row-axis label — the second half of the two-part eyebrow, stashed on the
@@ -8880,7 +8889,14 @@ section.matrix-2x2 > .cell-stage {
   transform: rotate(180deg);
   white-space: nowrap;
   font-family: var(--font-label);
-  font-size: var(--fs-meta);
+  /* font-size is deliberately NOT declared here — it INHERITS from the figure
+   * (the rule below). `--fs-*` tokens are cqi-based, and Chromium resolves `cqi`
+   * against the axis that is INLINE for the element's own writing mode: under
+   * `vertical-rl` that is the container's BLOCK axis (528px on a 16:9 slide)
+   * rather than its inline axis (1152px). Declaring the token here rendered this
+   * label at 6.2px against the column label's 13.5px — same token, 46% the size.
+   * Inheriting a length already computed in a horizontal context sidesteps the
+   * axis swap entirely and keeps both axis labels on one token. */
   font-weight: 700;
   letter-spacing: 0.10em;
   text-transform: uppercase;
@@ -9049,7 +9065,10 @@ section.matrix-2x2 > .cell-stage {
   gap: 0.4em;
   padding-left: 0.9em;
   font-style: italic;
-  color: var(--text-muted);
+  /* Legend text is CONTENT (it decodes the grid), not the "muted chrome" the
+   * palette contract exempts from AA — --text-muted is 4.10:1 on --bg,
+   * --text-secondary is 6.85:1. */
+  color: var(--text-secondary);
 }
 :is(section.matrix-grid, figure.matrix-grid) .chart-caption em::before {
   content: '';
@@ -9587,7 +9606,10 @@ section.premise > ul > li {
 section.premise > ul > li code {
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
-  color: var(--text-muted);
+  /* --text-secondary, not --text-muted: the ordinal and the question are row
+   * CONTENT, not the "muted chrome" the palette contract exempts from AA.
+   * --text-muted measures 3.75:1 on --bg-alt; --text-secondary is 6.27:1. */
+  color: var(--text-secondary);
   background: transparent;
   border: none;
   padding: 0;
@@ -9595,6 +9617,14 @@ section.premise > ul > li code {
 section.premise > ul > li strong {
   font-size: var(--fs-body);
   color: var(--row-mark, var(--text-heading));
+  /* 700, not the inherited 600, and this is a contrast requirement rather than a
+   * taste call. `--cat-N-mark` is guaranteed 3:1 against the background — the
+   * WCAG NON-TEXT / large-text bar, which is what a stroke token is scoped to.
+   * Text only qualifies for that 3:1 bar at >=18.66px AND >=700 weight; at 600
+   * the verb names fell under the 4.5:1 normal-text rule and measured 4.16–4.25:1.
+   * Bumping the weight puts them inside the guarantee the token actually carries
+   * instead of borrowing a token that was never gated for small type. */
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -9606,7 +9636,7 @@ section.premise > ul > li .premise-desc {
 section.premise > ul > li em {
   font-style: normal;
   font-size: var(--fs-meta);
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-align: right;
 }
 
@@ -10805,7 +10835,10 @@ section.quote.bare > .cell-stage > p {
   font-size: var(--fs-meta);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  /* The attribution is the quote's only other content — it names whose words
+   * these are — so it reads at --text-secondary (6.85:1 on --bg), not the
+   * --text-muted chrome tier the palette contract exempts from AA (4.10:1). */
+  color: var(--text-secondary);
 }
 section.quote.bare > .cell-stage > p em { font-style: normal; }
 
@@ -13235,8 +13268,12 @@ section.split-panel.proof.capstone .panel-left p em:first-child {
  * a footing under the quotation rather than floating directly beneath it with
  * dead space below. */
 section.split-panel.proof.capstone .panel-right > :is(ul,ol) { align-content: end; }
+/* `--accent`, not `--panel-mark`: this label sits on the light `--bg`, and the
+ * categorical contract only guarantees a mark 3:1 against a background — enough
+ * for the rules and borders below, not for type. `--accent` measures 5.47:1 on
+ * --bg and 9.27:1 in dark. The category still reads: the rules ARE the mark. */
 section.split-panel.proof.capstone .panel-right > h3 {
-  color: var(--panel-mark, var(--accent));
+  color: var(--accent);
 }
 section.split-panel.proof.capstone .panel-right > p {
   background: var(--bg); border: 1px solid var(--border); border-left: 4px solid var(--panel-mark, var(--accent));
@@ -13388,22 +13425,26 @@ section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .
 section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left::before {
   background: var(--panel-mark);
 }
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left h2 {
-  color: var(--text-heading);
-}
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left p {
-  color: var(--text-secondary);
-}
-/* The eyebrow label and the proof checkpoints' own labels are MARKS, not body
- * copy — tinted with the category color (not left neutral like the panel's
- * prose) so the category identity carries through every labeled element on
- * the slide, not just the fill. */
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-eyebrow {
-  color: var(--panel-mark);
-}
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-left p em:first-child,
-section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-right > :is(ul,ol) > li > strong {
-  color: var(--panel-mark);
+/* EVERY text run on the tinted panel takes `--cat-on-fill` — the one ink the
+ * categorical token contract guarantees against any `--cat-N-fill` (>=4.5:1,
+ * gated by checkCatContrast; see the themes/*.css header and
+ * engineering/decisions/2026-07-15-categorical-token-contract.md).
+ *
+ * This replaced a set of hand-picked tokens that MEASURED as AA failures on the
+ * real render: `--text-secondary` on the lede is 4.08:1 on cat-3 and 2.54–2.91:1
+ * across every cat in dark mode, and `--panel-mark` on the eyebrow and the
+ * italic question bottomed out at 2.76:1. `--cat-N-mark` is a STROKE token — the
+ * contract only guarantees it 3:1 against the BACKGROUND, never as text on the
+ * fill — so it is used below for borders and rules only, never for type.
+ *
+ * One ink means hierarchy is carried by size, weight, case and face rather than
+ * color: the eyebrow stays mono/uppercase/tracked, the question stays display
+ * italic, the lede stays a tier down. That is the trade the contract asks for. */
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left h2,
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left p,
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-eyebrow,
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-left p em:first-child {
+  color: var(--cat-on-fill);
 }
 
 /* === lib/components/chart/state-chart/state-chart.styles.css === */

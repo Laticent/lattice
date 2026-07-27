@@ -55,6 +55,43 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **`matrix-grid`'s rotated row-axis label rendered at 46% of the column-axis label's size, from the
+  same token.** Both declared `var(--fs-meta)`; the row axis computed to 6.2px against the column
+  axis's 13.5px. Cause: `--fs-*` tokens are `cqi`-based, and Chromium resolves `cqi` against the axis
+  that is INLINE **for the element's own writing mode** — under the row label's `writing-mode:
+  vertical-rl` that is the container's BLOCK axis (528px on a 16:9 slide) rather than its inline axis
+  (1152px). The fix does not touch the token: the size is now declared on the figure, which is
+  horizontal, and the rotated `::before` inherits an already-computed length, sidestepping the axis
+  swap. The table declares its own `font-size`, so nothing else inherits it. **Any `cqi`-based size
+  inside a `writing-mode: vertical-*` box has this bug** — worth knowing before the next one.
+- **Six AA contrast failures introduced by the categorical-tint work, found by measuring the rendered
+  deck rather than the token table.** `tools/contrast-audit.js` passes (704 pairs, 32 themes) because
+  it checks the theme's own token matrix — it cannot see a pairing a COMPONENT invents. Probing the
+  real DOM found 44 sub-AA text runs. The root cause in every case was treating `--cat-N-mark` as a
+  text color: the categorical contract guarantees a mark only **3:1 against the background** (it is a
+  stroke/border token), while `--cat-on-fill` is the ink guaranteed **4.5:1 against any
+  `--cat-N-fill``.
+  - `split-panel` `cat-N`: the eyebrow, the italic question and the lede all now take `--cat-on-fill`.
+    Measured before: `--text-secondary` on the lede was 4.08:1 on cat-3 and **2.54–2.91:1 across every
+    cat in dark mode**; `--panel-mark` on the eyebrow and question bottomed out at **2.76:1**.
+    Hierarchy is now carried by size, weight, case and face instead of color — the trade the contract
+    asks for, since it guarantees exactly one ink per fill.
+  - `split-panel.capstone`'s signal label moves to `--accent` (5.47:1 on `--bg`, 9.27:1 dark); the
+    mark stays on the rules and borders, where its 3:1 guarantee is the right one.
+  - `list-steps.capsule.cat` badges take `--cat-on-fill` (was `--cat-N-mark` at 4.25:1).
+  - `premise`'s verb names keep their categorical mark but go to **weight 700**: text qualifies for
+    WCAG's 3:1 large-text bar only at >=18.66px AND >=700: at 600 they fell under the 4.5:1 rule and
+    measured 4.16–4.25:1. This puts them inside the guarantee the token actually carries rather than
+    swapping to a token that was never gated for small type.
+  - `premise`'s ordinal/question columns, `matrix-grid`'s legend and `quote.bare`'s attribution move
+    from `--text-muted` to `--text-secondary` — all three are CONTENT, not the "muted chrome" the
+    palette contract exempts from AA (3.75–4.10:1 → 6.27–6.85:1).
+
+  Every content text run on the deck now clears AA. The only runs left below 4.5:1 are the footer
+  caption and the page number, which are the sanctioned muted-chrome tier.
+
 ### Changed
 
 - **`split-panel.proof` fills its evidence column instead of collapsing to content height.**
