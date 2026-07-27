@@ -2769,6 +2769,70 @@ function checkSkillFreshness(errors) {
   }
 }
 
+// §8 rule 5 + rule 11 — the STANDING ORACLE for split behaviour
+// (engineering/decisions/2026-07-22-structure-derived-split-patterns.md). Rule 5 asks for
+// "a committed, blessed golden of {component → (axis, read-across, cover-class,
+// reshape-class)}, gated in build:check, so a later DOM refactor that drifts a *default*
+// fails CI"; rule 11 adds that the record documents a VERIFIED default and never mints one.
+//
+// Two things fail here, and they catch different classes of defect:
+//   (a) TREATMENT CONSISTENCY — a manifest that contradicts its own §0c placement. This is
+//       the #1193 class: `matrix-2x2` is resolved as an atomic text grid and `split-compare`
+//       as read-across, yet both shipped a live split axis (declared under `adapt.capacity`,
+//       which reads like a per-family count estimate but the registry consumes as an OPT-IN),
+//       so a portrait render shredded a 2×2 into pages showing two of four quadrants. §0c's
+//       own follow-on list named the first and missed the second — prose cannot fail CI.
+//   (b) RECORD DRIFT — any change to a component's derived split facts that was not blessed.
+//       `npm run oracle:bless` updates the record deliberately; the diff is the review artifact.
+function checkSplitOracle(manifests, errors) {
+  const { splitFactsFor, treatmentViolations } = require('../lib/core/split-facts');
+  const ORACLE = path.join(ROOT, 'test', 'oracle', 'split-oracle.json');
+  for (const m of manifests) {
+    for (const v of treatmentViolations(m, splitFactsFor(m))) errors.push(v);
+  }
+  let blessed = null;
+  try { blessed = JSON.parse(fs.readFileSync(ORACLE, 'utf8')).components; } catch { /* handled below */ }
+  if (!blessed) {
+    errors.push(
+      'split oracle record missing or unreadable (test/oracle/split-oracle.json) — §8 rule 5 ' +
+      'requires a committed blessed golden. Run `npm run oracle:bless`.',
+    );
+    return;
+  }
+  const fresh = {};
+  for (const m of manifests) fresh[m.name] = splitFactsFor(m);
+  for (const name of Object.keys(fresh)) {
+    if (!blessed[name]) {
+      errors.push(
+        `${name}: not in the blessed split oracle. A new component's split behaviour is a ` +
+        `DECISION, not a default (§8 rule 11) — confirm its §0c treatment, then ` +
+        `\`npm run oracle:bless\`.`,
+      );
+      continue;
+    }
+    for (const k of Object.keys(fresh[name])) {
+      const a = JSON.stringify(fresh[name][k]);
+      const b = JSON.stringify(blessed[name][k]);
+      if (a !== b) {
+        errors.push(
+          `${name}.${k}: split behaviour DRIFTED from the blessed oracle (${b} → ${a}). ` +
+          `If intended, \`npm run oracle:bless\` and justify it in the PR; the record is ` +
+          `the review artifact (§8 rule 5). If not, the manifest change has a side effect ` +
+          `on how this component splits.`,
+        );
+      }
+    }
+  }
+  for (const name of Object.keys(blessed)) {
+    if (!fresh[name]) {
+      errors.push(
+        `${name}: in the blessed split oracle but no longer a component — a STALE entry ` +
+        `(the record must not rot). Re-bless after confirming the removal was intended.`,
+      );
+    }
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
@@ -2803,6 +2867,7 @@ function run() {
   checkCatContrast(errors);
   checkSkillFreshness(errors);
   checkAgentModelPinning(errors);
+  checkSplitOracle(manifests, errors);
   return {
     errors,
     counts: {
@@ -2884,6 +2949,7 @@ module.exports = {
   PREVIEW_BUILDER_MARKER,
   SANITIZE_CALL,
   checkHexLiterals,
+  checkSplitOracle,
   LAYOUT_HEX_BUDGET,
   SANCTIONED_HEX,
   checkUsEnglish,

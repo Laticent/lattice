@@ -1,7 +1,7 @@
 {
   "name": "@slidewright/lattice",
   "version": "1.0.0",
-  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts — 58 layouts, one palette, WCAG AA throughout. Lattice is the engine layer of the SlideWright deck system; decks can also export to Marp for recipients who prefer that tool.",
+  "description": "A slide deck engine for boardroom-quality PDFs from Markdown. Author every slide as plain Markdown lists; render it as KaTeX math, gantt/kanban/roadmaps, all 25 Mermaid diagram types, native charts, and legal layouts \u2014 58 layouts, one palette, WCAG AA throughout. Lattice is the engine layer of the SlideWright deck system; decks can also export to Marp for recipients who prefer that tool.",
   "keywords": [
     "slides",
     "presentation",
@@ -174,6 +174,8 @@
     "bench": "node test/benchmark/engine-bench.mjs",
     "bench:bless": "node test/benchmark/engine-bench.mjs --bless",
     "bench:check": "node test/benchmark/engine-bench.mjs --check",
+    "oracle:bless": "node tools/bless-split-oracle.js",
+    "oracle:check": "node tools/bless-split-oracle.js --check",
     "regress": "node tools/regression-gate.mjs",
     "bless": "node tools/regression-gate.mjs --bless",
     "test:coverage": "c8 node --test 'test/unit/**/*.test.js'",

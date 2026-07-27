@@ -440,6 +440,18 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    of `{component → (axis, read-across, cover-class, reshape-class)}`, gated in
    `build:check`, so a later DOM refactor that drifts a *default* fails CI —
    parity-at-migration is necessary but not sufficient.
+   **☑ BUILT (P-envelope, ahead of its P2 slot).** `lib/core/split-facts.js` resolves the
+   facts (mirroring `lattice-emulator.js`'s SPLIT_CAP, so the oracle describes what the
+   engine really does — including that an axis has THREE declaration sites and that an
+   `adapt.capacity` axis is a live opt-in, not an estimate); `test/oracle/split-oracle.json`
+   is the blessed record; `checkSplitOracle` gates it in `build:check`; `npm run
+   oracle:bless` / `oracle:check` are the deliberate-update and verify paths (the
+   `bench:bless` idiom). It also machine-checks §0c's TREATMENT table, which was the
+   missing half: a manifest contradicting its own placement now fails with the reason.
+   Pulled forward from P2 because the drift it guards had already shipped twice —
+   `matrix-2x2` and `split-compare` (§0c follow-on named only the first) — and a prose
+   table cannot fail CI. Verified by re-introducing both defects and the silent
+   `perPage` revert: each is caught and named.
 6. **Slot-driven re-author must pass content-conservation before any builder
    retires** (§5) — no silent drop of watermark/eyebrow/lede/verdict.
 7. **No dead-but-present fields.** A field is deleted in the same PR that flips its

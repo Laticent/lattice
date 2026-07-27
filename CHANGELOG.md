@@ -63,6 +63,19 @@ in patch versions.
   but four of the thirteen chart components draw no SVG at all — and teaching that `series` means SVG
   was plausibly the seed of the confusion. The column is gone; nothing referenced it.
 
+- **A standing oracle for split behaviour, gated in `build:check`.** Every component's split
+  facts — resolved axis and *which of the three sites declared it*, whether it opts in, its
+  carousel strategy, whether that strategy reduces width or paginates, the cover class it
+  emits, and its per-page pacing — are now recomputed from the manifests and diffed against a
+  committed blessed record (`test/oracle/split-oracle.json`, `npm run oracle:bless` to update
+  deliberately, the same shape as `bench:bless`). It also machine-checks the design record's
+  own treatment table, which is the half that was missing: a component placed as *atomic* or
+  *read-across* can no longer ship a live split axis. That had already happened twice —
+  `matrix-2x2` and `split-compare` — because an axis declared under `adapt.capacity` reads
+  like a per-family count estimate while the split registry consumes it as an opt-in switch,
+  and a table written in prose cannot fail CI. A silent edit that reverts a component's
+  pacing now fails by name (`compare-table.perPage: 1 → 3`) rather than passing quietly.
+
 - **Per-component agent contract: `<name>.docs.md` now front-loads a dense, machine-actionable
   block instead of burying it in narrative prose.** Generated docs previously interleaved the
   ~30% of content an authoring agent actually needs (slots, capacity/density) with human-narrative

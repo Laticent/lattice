@@ -220,6 +220,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
+| `oracle:bless` | **TODO: describe `oracle:bless` in tools/build-capabilities.js (SCRIPT_META).** |
+| `oracle:check` | **TODO: describe `oracle:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
 
@@ -317,6 +319,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `tools/ascii-preview.py` | ASCII layout preview helper for engineering/templates.md (and friends). |
+| `tools/bless-split-oracle.js` | bless-split-oracle — write the STANDING ORACLE record (§8 rule 5). |
 | `tools/build-a11y-textures.js` | Bundle the categorical/chart texture-<defs> kernel for the browser. |
 | `tools/build-anima-player.js` | Bundle the Anima host + vector backends into ONE self-contained IIFE string, for |
 | `tools/build-axis-dom-catalog.js` | Generates lib/runtime/axis-dom-catalog.generated.js — a plain CJS lookup |

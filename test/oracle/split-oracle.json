@@ -1,0 +1,595 @@
+{
+  "$comment": "BLESSED RECORD — §8 rule 5 of engineering/decisions/2026-07-22-structure-derived-split-patterns.md. Recomputed from the component manifests by tools/bless-split-oracle.js and gated by checkSplitOracle in tools/check-ownership.js (build:check). A diff here is a SPLIT-BEHAVIOUR CHANGE to review, not noise: run `npm run oracle:bless` only when you intend it, and justify each moved entry in the PR (rule 11 — the record documents a verified default, it never mints one).",
+  "components": {
+    "actors": {
+      "treatment": "list-heavy",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": 1
+    },
+    "agenda": {
+      "treatment": "list-light",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": null
+    },
+    "authority-chain": {
+      "treatment": "connected",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "cover-paginate",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 4
+    },
+    "big-number": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "cards-grid": {
+      "treatment": "list-heavy",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": 1
+    },
+    "cards-stack": {
+      "treatment": "list-heavy",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": 1
+    },
+    "checklist": {
+      "treatment": "list-light",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": null
+    },
+    "citation-card": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "closing": {
+      "treatment": "anchor",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "code": {
+      "treatment": "code",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "compare-code": {
+      "treatment": "read-across",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": true,
+      "strategy": "cover-code",
+      "reshape": "width-reducing",
+      "coverClass": "compare-code-cover",
+      "perPage": null
+    },
+    "compare-prose": {
+      "treatment": "read-across",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": true,
+      "strategy": "cover-sides",
+      "reshape": "width-reducing",
+      "coverClass": "compare-prose-cover",
+      "perPage": null
+    },
+    "compare-table": {
+      "treatment": "read-across",
+      "axis": "row",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "cover-cards",
+      "reshape": "width-reducing",
+      "coverClass": "lat-split-cover",
+      "perPage": 1
+    },
+    "contact": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "content": {
+      "treatment": "list-light",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "cycle": {
+      "treatment": "connected",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": null
+    },
+    "decision": {
+      "treatment": "read-across",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": true,
+      "strategy": "cover-decision",
+      "reshape": "paginator",
+      "coverClass": "decision-cover",
+      "perPage": 1
+    },
+    "diagram": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "divider": {
+      "treatment": "anchor",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "funnel": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "gantt": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "glossary": {
+      "treatment": "record",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": true,
+      "strategy": "cover-paginate",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 8
+    },
+    "image": {
+      "treatment": "asset",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "inventory": {
+      "treatment": "list-light",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": null
+    },
+    "journey": {
+      "treatment": "connected",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "kanban": {
+      "treatment": "read-across",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "kanban-lanes",
+      "reshape": "paginator",
+      "coverClass": "kanban-cover",
+      "perPage": null
+    },
+    "kpi": {
+      "treatment": "list-heavy",
+      "axis": "item",
+      "declaredIn": "adapt.capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": null
+    },
+    "list": {
+      "treatment": "list-light",
+      "axis": "item",
+      "declaredIn": "adapt.capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": null
+    },
+    "list-criteria": {
+      "treatment": "list-light",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "list-steps": {
+      "treatment": "connected",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": null
+    },
+    "list-tabular": {
+      "treatment": "record",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": true,
+      "strategy": "cover-rows",
+      "reshape": "paginator",
+      "coverClass": "list-tabular-cover",
+      "perPage": 3
+    },
+    "logo-wall": {
+      "treatment": "list-light",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "map": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "math": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "matrix-2x2": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "obligation-matrix": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "piechart": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "policy-recommendation": {
+      "treatment": "list-heavy",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": 1
+    },
+    "pricing": {
+      "treatment": "connected",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "progress": {
+      "treatment": "needs-call",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "q-and-a": {
+      "treatment": "list-heavy",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "cover-paginate",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 3
+    },
+    "quadrant": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "quote": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "radar": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "redline": {
+      "treatment": "read-across",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": true,
+      "strategy": "redline-blocks",
+      "reshape": "paginator",
+      "coverClass": "redline-cover",
+      "perPage": null
+    },
+    "regulatory-update": {
+      "treatment": "record",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "cover-paginate",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 4
+    },
+    "roadmap": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "scene": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "split-compare": {
+      "treatment": "read-across",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "split-panel": {
+      "treatment": "read-across",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": true,
+      "strategy": "feature-cover",
+      "reshape": "paginator",
+      "coverClass": "split-panel-cover",
+      "perPage": 3
+    },
+    "state-chart": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "stats": {
+      "treatment": "list-heavy",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": null
+    },
+    "statute-stack": {
+      "treatment": "record",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "cover-paginate",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 2
+    },
+    "timeline-list": {
+      "treatment": "connected",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "title": {
+      "treatment": "anchor",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "verdict-grid": {
+      "treatment": "connected",
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": "lat-split-cover",
+      "perPage": null
+    },
+    "video": {
+      "treatment": "asset",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "wifi": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    },
+    "word-cloud": {
+      "treatment": "graphic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null
+    }
+  }
+}
