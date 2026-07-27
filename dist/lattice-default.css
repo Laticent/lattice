@@ -10440,16 +10440,23 @@ section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-m
  * diagram, so the DIAGRAM's rendered size is unchanged; the extra width is
  * label bleed. The ratio mirrors the kernel's viewBox — 340/300. */
 :is(section.radar, figure.chart-frame) .radar-svg--mini {
-  /* Height carries the 349-unit viewBox (300 diagram + 49 caption band), so the
-   * DIAGRAM still renders at exactly --radar-mini-size and the caption adds
-   * below it — the band must not shrink the shape it names. Width then follows
-   * the viewBox aspect (340/349 × height = 340/300 × --radar-mini-size), which
-   * is why the width ratio is unchanged by the caption moving inside. Auditing
-   * these two lines FIRST is the lesson recorded in
-   * engineering/decisions/2026-06-13-svg-native-legend.md §7: on that
-   * conversion the kernel was easy and the figure sizing is what letterboxed. */
+  /* Height carries the mini's FULL viewBox — 300 diagram + a caption band the
+   * kernel sizes from the longest series name — so the DIAGRAM still renders at
+   * exactly --radar-mini-size and the caption adds below it. The band must not
+   * shrink the shape it names.
+   *
+   * `--radar-mini-vb` is emitted per chart by radar.transform.js because the band
+   * is CONTENT-sized: one line of names (329) or two (349). A hard-coded divisor
+   * would letterbox every one-line chart, or crop the caption the moment a name
+   * wrapped. The fallback matches the one-line case.
+   *
+   * Width then follows the viewBox aspect (340/vb × height = 340/300 ×
+   * --radar-mini-size), which is why the width ratio is unaffected by the caption
+   * moving inside. Auditing these two lines FIRST is the lesson recorded in
+   * engineering/decisions/2026-06-13-svg-native-legend.md §7: on that conversion
+   * the kernel was easy and the figure sizing is what letterboxed. */
   width: calc(var(--radar-mini-size) * 340 / 300);
-  height: calc(var(--radar-mini-size) * 349 / 300);
+  height: calc(var(--radar-mini-size) * var(--radar-mini-vb, 329) / 300);
 }
 :is(section.radar, figure.chart-frame) .radar-svg--mini .radar-axis-label {
   font-size: 11px;   /* the mini keeps the 300-unit plot, so label units too */

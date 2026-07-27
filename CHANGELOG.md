@@ -370,21 +370,33 @@ in patch versions.
   those components from `render: hybrid` to `svg` — derived and gated, not asserted. Concretely: a
   small-multiples radar exported as a standalone `.svg` used to come out as four unnamed shapes and a
   word cloud without the legend explaining its one encoding; chart-motion animated the minis while
-  their names sat still; and word-cloud's key scaled with `--fs-*` while the cloud scaled with its
-  svg box, so the two drifted apart as the container changed. The chart family is now seven SVG, two
-  hybrid (`state-chart`, `journey` — both structural, not stray labels), four HTML.
+  their names sat still. And both labels were **slide-relative where the figures around them were
+  chart-relative** — sized from the `--fs-*` scale while the chart scaled with its own box. In
+  landscape at the default size the two agree, which is why it went unnoticed; elsewhere they do not.
+  In **portrait** the old word-cloud key rendered at 26.5px against a 62.5px biggest word (42%) and
+  **overflowed its own rail**, wrapping "SIZE = FREQUENCY" onto two lines that escaped above the
+  spine; a radar mini caption rendered at 23.9px against a 175px diagram. Both now hold their
+  landscape proportion (17.8% and 5.74%) at any orientation, and follow a retuned
+  `--radar-mini-size` instead of ignoring it. So this is size-neutral where the old render was right
+  and a **fix** where it was not. The chart family is now seven SVG, two hybrid (`state-chart`,
+  `journey` — both structural, not stray labels), four HTML.
 
-  Both conversions are deliberately **size-neutral** and were measured, not eyeballed: radar's
-  caption renders at 10.78px as before with the diagram unchanged at 188.0px, and word-cloud's key
-  type and rhythm reproduce the token scale it replaces. Two traps are recorded in the decision note
+  Both conversions are **size-neutral at the landscape default** and were measured, not eyeballed:
+  radar's caption renders at 10.78px as before with the diagram unchanged at 188.0px, and
+  word-cloud's key type and rhythm reproduce the token scale it replaces. radar's caption band is
+  sized per chart from the longest name (one line or two) and its height travels to the CSS on
+  `--radar-mini-vb`, so a chart of one-line names stays height-neutral (206.7px → 206.2px) instead of
+  reserving a wrap it does not have — height the Fit Spine would otherwise have to find, which can
+  tip a tight deck into an autosplit it did not need. Two traps are recorded in the decision note
   because the last SVG conversion predicted them — growing radar's viewBox without updating the CSS
   divisor would have shrunk the diagram 14% inside an unchanged box, and applying the family's
   `FS = 0.045 · height` key rule to a mini (rendered at a fraction of the body) would have shrunk the
   caption to 8.5px, the rule defeating its own intent. The spine geometry is now a shared
   `buildSpine` in `svg-legend.js` instead of a third inline copy of the same gradient — a byte-identical
   extraction, verified by diffing rendered output for all four keyed charts. Removed as dead:
-  `--chart-spine` / `-w` / `-h` and `--wc-cloud-frac`. A new CSS-mirror test gates the kernel viewBox
-  against the CSS divisor, since nothing else would fail if they drifted.
+  `--chart-spine` / `-w` / `-h` and `--wc-cloud-frac`. Two new gates: a CSS-mirror test on the kernel
+  viewBox vs the CSS divisor, and a guard that these label classes declare no CSS `font-size` — which
+  is what would silently hand their size back to the slide scale and re-introduce the portrait defect.
   See `engineering/decisions/2026-07-27-chart-family-all-svg.md`.
 
 

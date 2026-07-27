@@ -158,13 +158,47 @@ describe('radar mini viewBox ↔ CSS box mirror', () => {
     assert.ok(+vb[4] > 300, `mini viewBox height ${vb[4]} must exceed the 300-unit diagram (the caption band)`);
   });
 
-  test('the CSS height divides by the kernel viewBox height, not by 300', () => {
-    // `height: calc(var(--radar-mini-size) * <vbH> / 300)` — the numerator MUST
-    // be the emitted viewBox height so the DIAGRAM keeps rendering at exactly
-    // --radar-mini-size and the band adds below it.
-    const m = /\.radar-svg--mini\s*\{[^}]*?height:\s*calc\(var\(--radar-mini-size\)\s*\*\s*([\d.]+)\s*\/\s*300\)/s.exec(css);
-    assert.ok(m, 'could not find the .radar-svg--mini height calc() in radar.styles.css');
-    assert.equal(+m[1], +vb[4], `CSS divides the mini box by ${m[1]} but the kernel emits a viewBox height of ${vb[4]}`);
+  test('the CSS height divides by the EMITTED viewBox height, not a hard-coded one', () => {
+    // `height: calc(var(--radar-mini-size) * var(--radar-mini-vb, N) / 300)`.
+    // The numerator must be the property the kernel emits, so the DIAGRAM keeps
+    // rendering at exactly --radar-mini-size whichever band size was chosen. A
+    // literal here would be correct only for the band it was written against and
+    // would letterboxen or crop as soon as a name wrapped.
+    const m = /\.radar-svg--mini\s*\{[^}]*?height:\s*calc\(var\(--radar-mini-size\)\s*\*\s*var\(--radar-mini-vb,\s*([\d.]+)\)\s*\/\s*300\)/s.exec(css);
+    assert.ok(m, 'the .radar-svg--mini height must divide by var(--radar-mini-vb, <one-line fallback>)');
+
+    // The rendered figure must actually carry the property, and it must equal
+    // the viewBox height it is standing in for.
+    const emitted = /<figure class="radar-mini"[^>]*--radar-mini-vb:(\d+)/.exec(rendered);
+    assert.ok(emitted, 'the mini figure emits no --radar-mini-vb, so the CSS falls back silently');
+    assert.equal(+emitted[1], +vb[4],
+      `figure declares --radar-mini-vb:${emitted[1]} but its svg viewBox height is ${vb[4]}`);
+
+    // The CSS fallback is the ONE-LINE band — the value used if the property ever
+    // goes missing. It must be a real band height, not a guess.
+    assert.ok(+m[1] > 300 && +m[1] <= +vb[4],
+      `the fallback ${m[1]} must be a caption band height (>300, <= the emitted ${vb[4]})`);
+  });
+
+  test('the band grows for a wrapped name and every mini in the chart shares it', () => {
+    // The row is a flex row: one taller mini would misalign it. All minis in a
+    // chart must therefore carry the SAME --radar-mini-vb, sized by the longest
+    // name — and a chart with no wrap must not pay for a second line.
+    const engine = require('../../../lib/engine');
+    const deck = (names) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: radar small-multiples -->\n\n## T\n\n${
+      names.map((n) => `- ${n}\n  - Speed \`8\`\n  - Cost \`6\`\n  - Risk \`7\``).join('\n')}\n`;
+    const vbsOf = (html) => [...new Set([...html.matchAll(/--radar-mini-vb:(\d+)/g)].map((m) => +m[1]))];
+
+    const short = vbsOf(engine.render(deck(['Atlas', 'Beacon']), 'indaco', { preview: true }).html);
+    const long = vbsOf(engine.render(
+      deck(['Northwind Logistics and Distribution Group International', 'Atlas', 'Beacon']),
+      'indaco', { preview: true },
+    ).html);
+
+    assert.equal(short.length, 1, `all minis must share one band height, got ${short}`);
+    assert.equal(long.length, 1, `all minis must share one band height, got ${long}`);
+    assert.ok(long[0] > short[0],
+      `a wrapped name must grow the band (one-line ${short[0]}, wrapped ${long[0]})`);
   });
 
   test('the CSS width divides by 300 — the caption must not change the diagram width', () => {
@@ -180,6 +214,58 @@ describe('radar mini viewBox ↔ CSS box mirror', () => {
     assert.ok(!/<figcaption/.test(rendered),
       'the rendered radar gallery still contains a <figcaption>; the mini caption must live in the viewBox');
     assert.match(rendered, /<text class="radar-mini-label"/, 'no SVG mini caption in the rendered gallery');
+  });
+});
+
+// ── in-viewBox labels must be CHART-relative, never slide-relative ──────────
+// The property that makes an SVG label responsive: its size is a user unit in the
+// chart's own viewBox, so it scales with the chart. The moment a CSS rule gives
+// one of these classes a `font-size` from the `--fs-*` scale, it becomes
+// SLIDE-relative again and the two drift apart the instant the chart's box stops
+// being a fixed fraction of the slide.
+//
+// That is not hypothetical — it is what these labels did before 2026-07-27, and
+// it was measurably wrong in portrait: word-cloud's key rendered at 26.5px
+// against a cloud whose biggest word was 62.5px (42% — it overflowed its own
+// rail and wrapped), and a radar mini caption rendered at 23.9px against a 175px
+// diagram. In viewBox units both hold their landscape proportion exactly
+// (17.8% and 5.74%) at any orientation or container size.
+//
+// So: the kernel owns the size for these classes, and CSS may not take it back.
+describe('SVG label sizes stay chart-relative, not slide-relative', () => {
+  const OWNED_BY_KERNEL = [
+    { css: 'lib/components/chart/radar/radar.styles.css', sel: '.radar-mini-label' },
+    { css: 'lib/components/chart/word-cloud/word-cloud.styles.css', sel: '.wc-key-label' },
+    { css: 'lib/components/chart/word-cloud/word-cloud.styles.css', sel: '.wc-key-edge' },
+    { css: 'lib/components/chart/word-cloud/word-cloud.styles.css', sel: '.wc-key-a' },
+  ];
+  for (const { css, sel } of OWNED_BY_KERNEL) {
+    test(`${sel} declares no font-size in CSS`, () => {
+      const text = read(css);
+      // Every rule block whose selector mentions this class.
+      const blocks = [...text.matchAll(/([^{}]*)\{([^}]*)\}/g)]
+        .filter(([, selector]) => selector.includes(sel));
+      assert.ok(blocks.length > 0, `no rule found for ${sel} in ${css}`);
+      for (const [, selector, body] of blocks) {
+        assert.ok(!/(^|[\s;])font-size\s*:/.test(body),
+          `${sel}: CSS sets font-size (${selector.trim()}) — that makes the label slide-relative ` +
+          'again. Size these from the kernel, in viewBox user units.');
+      }
+    });
+  }
+
+  test('the emitted labels carry their own font-size attribute', () => {
+    // The other half: if the kernel stopped emitting it, the labels would fall
+    // back to an inherited size and the CSS check above would pass vacuously.
+    const radar = require('../../../lib/engine').render(
+      read('lib/components/chart/radar/radar.gallery.md'), 'indaco', { preview: true },
+    ).html;
+    const wc = require('../../../lib/engine').render(
+      read('lib/components/chart/word-cloud/word-cloud.gallery.md'), 'indaco', { preview: true },
+    ).html;
+    assert.match(radar, /<text class="radar-mini-label" font-size="[\d.]+"/);
+    assert.match(wc, /<text class="wc-key-label" font-size="[\d.]+"/);
+    assert.match(wc, /<text class="wc-key-a" [^>]*font-size="[\d.]+"/);
   });
 });
 
