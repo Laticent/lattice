@@ -9304,6 +9304,20 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
   position: absolute;
   inset: 0 auto 0 0;
   width: calc(var(--pct) * 1%);
+  /* BORDER-BOX, or the bar lies about its own value. `width` here IS the datum,
+   * and the fill carries 4px of accent border + a 1px hairline + 0.625cqi of
+   * right padding for the in-bar readout. Under the CSS default (content-box)
+   * every one of those sits OUTSIDE the percentage, so each bar rendered a
+   * constant ~11px too long: measured at portrait, a 551px track drew 92% as
+   * 518.0px (94.0%) and 12% as 77.2px (14.0%). The offset is additive, so
+   * ranking survived and the defect read as cosmetic — but the whole point of
+   * the component is comparing bar LENGTHS, and a fixed overhang overstates
+   * small values ~8x more than large ones (12%→14.0% is +17% relative; 92%→94.0%
+   * is +2%). At --pct:0 it drew 11px of "progress" against zero. border-box
+   * folds the chrome inside the datum: 12% of the track is 12% of the track.
+   * Matches .chart-body / .chart-key (chart-family.css) — the family default;
+   * this rule was the outlier. See #1210. */
+  box-sizing: border-box;
   /* CHART-FAMILY MATERIAL, progress-SPECIALIZED GEOMETRY. Progress shares the
    * family's hue/ink palette (--fill-* below), 1px hue-tint border, and 4px
    * vivid left accent — the same MATERIAL as the kanban card / gantt bar /
@@ -9401,6 +9415,59 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
   }
   :is(section.progress, figure.progress) .progress-track { height: 4cqi; }
   :is(section.progress, figure.progress) .progress-label { font-size: var(--fs-message); }
+}
+
+/* ── Box-local STACK (tall only, ≤0.9): the label gets its own full-width row.
+ *
+ * The three-column row (`18.75cqi 1fr 7.5cqi`) pulls apart at portrait because
+ * its two halves scale in OPPOSITE directions. `cqi` is a share of container
+ * INLINE size, so the label column SHRINKS as the deck narrows (1920→1080 takes
+ * 18.75cqi from ~324px to ~182px), while `--fs-message` above rides
+ * `--canvas-scale` (~1.95 at portrait) and GROWS the label to 50.5px with an
+ * 80.9px line box. A 50px font in a 182px column fits about four characters, so
+ * every two-word label wrapped: measured, rows 1-4 came out 161.8px (two lines)
+ * against row 5 "Adoption" at 80.9px, totalling 870.3px of bars in a 702.2px
+ * stage — 168px cut, silently, because `.cell-stage` is `overflow: clip`.
+ *
+ * Widening the column cannot fix it ("Calibration cadence" at 50.5px wants
+ * ~475px, half the deck). So at portrait the label stops competing for width
+ * and takes its own row above the bar — the same "portrait stacks what
+ * landscape puts side by side" move piechart makes with its key
+ * (`buildPortrait`) and word-cloud with its size key. The bar also gets the FULL
+ * width, which is a straight win: length is the datum this component encodes.
+ *
+ * Scoped ≤0.9, not ≤1.05: square already fits (measured -178.1px of headroom)
+ * and a layout change there would be churn without a defect behind it. See
+ * #1209, #1210 and 2026-06-19-chart-adaptive-sizing.md. */
+@container lattice (aspect-ratio <= 0.9) {
+  :is(section.progress, figure.progress) .progress-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "label label"
+      "track pill";
+    row-gap: var(--sp-2xs);
+    column-gap: var(--sp-sm);
+  }
+  :is(section.progress, figure.progress) .progress-label {
+    grid-area: label;
+    /* Left-aligned now that it heads the row instead of butting against the
+     * bar's origin — right-alignment only reads as a gutter beside the track. */
+    text-align: left;
+  }
+  :is(section.progress, figure.progress) .progress-track { grid-area: track; }
+  :is(section.progress, figure.progress) .progress-row > .chart-status,
+  :is(section.progress, figure.progress) .progress-row > .chart-status-empty {
+    grid-area: pill;
+  }
+  /* The note follows the bar it annotates; `grid-column: 2/3` above targets the
+   * three-column template and would land it under the pill here. */
+  :is(section.progress, figure.progress) .progress-note {
+    grid-area: track;
+    grid-row: 3;
+  }
+  /* Rows are now two lines tall, so the between-row rhythm tightens to keep the
+   * five of them inside the stage. */
+  :is(section.progress, figure.progress) .progress-bars { row-gap: var(--sp-sm); }
 }
 
 /* === lib/components/inventory/q-and-a/q-and-a.styles.css === */
