@@ -521,21 +521,24 @@ the Inspector's Header field and Page-numbers toggle both moved under the
   fix).
 - `SEL.slideSettings` would hit the same gap once Slide settings lives only in
   the drawer, but no tour references it today; same disposition.
-- `demo-mobile.spec.ts`'s 4-slide completion test fails a `toastText`
-  assertion — **deterministically, not a timing flake, and not a missing
-  toast**: a second-pass independent checker corrected the root cause once
-  more. `docs/e2e/studio-fixture.ts`'s `toastText()` locator
-  (`[role="status"].fixed.inset-x-0`) is stale for the sonner-based toast
-  system Studio actually uses (`docs/src/components/ui/sonner.tsx`) — sonner
-  renders `aria-live="polite"`, never `role="status"`, and no element in
-  `docs/src` carries `fixed inset-x-0` with `role="status"`. The locator
-  cannot match ANY toast, on any spec. Confirmed on the untouched **desktop**
-  `demo.spec.ts` (this change does not touch it) and on `decks.spec.ts` (also
-  untouched) — both fail the identical way. Grep counted **24 assertions
-  across 13 e2e files** using this dead locator; fixing the fixture itself is
-  a separate, repo-wide e2e-tier fix, well outside this PR's scope (#17) —
-  logged here as the follow-up this finding actually calls for, rather than
-  the narrower "one flaky toast" framing an earlier pass gave it.
+- **RESOLVED (round 7).** The `toastText()` locator
+  (`[role="status"].fixed.inset-x-0`) was stale for the Sonner toast system Studio
+  actually uses, matching zero elements and failing 22 assertions across 12 spec
+  files. This doc previously logged it as "a separate, repo-wide e2e-tier fix,
+  well outside this PR's scope" — it was fixed in round 7 instead, because it
+  blocked verifying that round's own change. See §"The dead toast oracle".
+- `demo.spec.ts`'s "the walkthrough reskin drives the REAL deck Inspector (not a
+  phantom point)" fails **deterministically** — the docked `<aside>` carrying
+  "Editing the whole deck" never becomes visible inside the test's 100s budget.
+  **PRE-EXISTING and OFF-PATH**, and that is measured, not assumed: it fails
+  identically on `origin/main` at `15149c7` with no code from this branch present
+  (`git checkout origin/main -- docs/src docs/e2e`, rebuild, run — same failure).
+  It is a desktop guided-tour beat with no relationship to the mobile drawer, so
+  per HARD RULE #18 it is logged rather than pulled into this diff (#17). Two
+  candidate causes, neither confirmed: the walkthrough types four slides before
+  the reskin beat, which may simply exceed the 100s budget the spec was written
+  with; or `reskin()`'s `openInspector(true)` no longer lands. Whoever picks it up
+  should start by timing the beat rather than raising the timeout.
 
 ## Verification (HARD RULE #23)
 
@@ -563,3 +566,44 @@ the Inspector's Header field and Page-numbers toggle both moved under the
   those sections — but a full dark-mode sweep of the whole drawer still
   hasn't happened.) Marked
   **UNVERIFIED** per HARD RULE #23 rather than claimed.
+
+### Round 7 verification
+
+Every number below came from a real production build (`npm run build:e2e` +
+`astro preview`) driven by a real Chromium at a real phone viewport, after the
+rebase onto `main` — not from a harness or a jsdom stand-in.
+
+- **Gates:** `npm run lint` clean with **zero** warnings (the one remaining
+  pre-existing warning was fixed too), `astro sync && tsc --noEmit`, `npm run
+  build:check`, root `npm test` 4187/4187, docs `vitest run
+  src/components/studio` 866/866 across 85 files.
+- **e2e, real Chromium on the built site:** all 3 `@mobile` `demo-mobile` specs
+  pass at 390×844 — the specs the Two Doors rewrite had broken, and whose toast
+  assertion had never run at all before the fixture repair. 24 of 25 desktop
+  specs pass across `slide-ops`, `decks`, `insert-component`, `inspector`,
+  `share`, `demo`; the one failure is the pre-existing, off-path `demo.spec.ts`
+  case recorded above and proven to fail identically on `origin/main`.
+- **The selected-tile disc, measured on the live grid** by clicking the real tile
+  in the real drawer and reading `getComputedStyle` — 10 palette×mode
+  combinations including every case the checker refuted. Worst boundary after the
+  `--bg` ring: **3.59:1** (concrete/light, carried by the disc), and the
+  double-stroke rescues every collapse — onyx/light 1.00:1 → **21:1** on the ring,
+  atelier/light 1.00 → 14.91, ardesia/light 1.20 → 15.78, a11y-achromatopsia 2.48
+  → 8.45. All ten clear the 3:1 non-text floor. (Two of my own measurement bugs
+  had to be fixed first: the ring's colour is the LAST segment of `box-shadow`,
+  not the first — the first is Tailwind's transparent `--tw-shadow` placeholder —
+  and `aria-pressed="true"` matches the pane toggle unless the query is scoped
+  inside the dialog.)
+- **The door scroll-carry fix, measured at 375×667 on the Edit pane** — the
+  configuration where the index actually overflows: scroll the index to its
+  bottom (`scrollTop 46/46`), enter Themes → `scrollTop 0` (was 46, opening the
+  grid with its "Curated" header gone and the first tile row sliced under the nav
+  bar); Back → `scrollTop 0` (was 46, landing on "Fix all issues" clipped to a
+  sliver). Screenshots of both, before and after.
+- **Looked at, not just measured:** the index and the Themes door at 390×844 in
+  indaco/onyx/concrete × light/dark, and the Themes door at 375×667.
+- **Still UNVERIFIED**, and not claimed: real touch and iOS Safari (so the
+  `active:` press wash, `WebkitTapHighlightColor`, and `env(safe-area-inset-
+  bottom)` are unproven on a device), and whether the new `role="status"` push/pop
+  announcement actually speaks in VoiceOver or NVDA. The mechanism is standard;
+  the observation is owed.
