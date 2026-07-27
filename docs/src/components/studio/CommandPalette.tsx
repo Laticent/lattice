@@ -2,6 +2,7 @@ import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClos
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { useBreakpoint } from '@/lib/use-breakpoint';
+import { cn } from '@/lib/utils';
 import type { StudioDeck } from './decks';
 import { FeedbackIcon } from './icons';
 
@@ -119,7 +120,23 @@ export function CommandPalette({
 		return (
 			<PanelSheet open={open} onOpenChange={onOpenChange} tier="full">
 				<PanelHeader icon={<Search />} title="Search / commands" srDescription="Run a command or jump somewhere in the Studio." />
-				<Command className="flex min-h-0 flex-1 flex-col **:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+				{/* The field wears the SAME dress as the Library's search: an inset rounded
+				    box with the magnifier inside it, on its own row under the header. The
+				    cmdk default is edge-to-edge with the icon out at the screen edge and a
+				    `border-b` instead of a border — so the app had two search fields that
+				    looked nothing alike, and this one's focus ring was clipped by the
+				    header divider. One search field, one look. */}
+				<Command
+					className={cn(
+						'flex min-h-0 flex-1 flex-col',
+						// the field: inset, rounded, bordered — Library's treatment exactly
+						'[&_[data-slot=command-input-wrapper]]:mx-3.5 [&_[data-slot=command-input-wrapper]]:mt-3 [&_[data-slot=command-input-wrapper]]:mb-1',
+						'[&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border',
+						'[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:bg-background [&_[data-slot=command-input-wrapper]]:px-2.5',
+						'[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground',
+						'[&_[cmdk-group]]:px-2 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5',
+					)}
+				>
 					{body}
 				</Command>
 			</PanelSheet>

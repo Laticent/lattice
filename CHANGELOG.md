@@ -5348,7 +5348,11 @@ in patch versions.
   `bottom: 336px` on it still computes to `0px` — and it was the last overlay in the app on a
   different primitive, which is why it kept needing its own exceptions. It also stops being the
   one panel whose accessible name disagreed with its own drawer row ("Studio commands" vs
-  "Search / commands"). Desktop keeps the centred ⌘K dialog. **The `auto` tier is now one fixed
+  "Search / commands"). Desktop keeps the centred ⌘K dialog. **Its search field now wears the
+  same dress as the Library's** — an inset rounded box with the magnifier inside it. cmdk's
+  default is edge-to-edge with the icon out at the screen edge and a `border-b` rather than a
+  border, so the app shipped two search fields that looked nothing alike, and this one's focus
+  ring was clipped by the header divider above it. **The `auto` tier is now one fixed
   height (88dvh) rather than content height** — 224px for Version history against 717px for Coach
   was variation a user could not tell from a rule — and `full` moved 92 → 96dvh so the two tiers
   differ by more than the 33px nobody could see. **The StudioDrawer joins the same scale**, so
