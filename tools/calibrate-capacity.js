@@ -64,10 +64,11 @@ function calibratable() {
   return Object.keys(BUILDERS).filter((name) => findManifest(name)).sort();
 }
 
-const components = has('all')
-  ? calibratable()
-  : [argv.find((a) => !a.startsWith('--') && !FAMILIES.includes(a)) || die(
-      'Usage: node tools/calibrate-capacity.js <component> [--family square] [--all]')];
+const named = argv.find((a) => !a.startsWith('--') && !FAMILIES.includes(a));
+if (!has('all') && !named) {
+  die('Usage: node tools/calibrate-capacity.js <component> [--family square] [--all]');
+}
+const components = has('all') ? calibratable() : [named];
 
 /**
  * The declared per-family capacity, falling back to the component-level block.
@@ -110,7 +111,8 @@ const results = [];
 let violations = 0;
 
 for (const comp of components) {
-  const manifest = findManifest(comp) || die(`No manifest for '${comp}'.`);
+  const manifest = findManifest(comp);
+  if (!manifest) die(`No manifest for '${comp}'.`);
   if (!BUILDERS[comp]) {
     die(`No element builder for '${comp}'. Add one to tools/lib/calibrate-core.js BUILDERS (covers: ${Object.keys(BUILDERS).sort().join(', ')}).`);
   }

@@ -39,7 +39,8 @@ const flag = (name, def) => {
 const SIZE = (() => { const s = flag('size', '16:9'); return SIZE_ALIAS[s] || s; })();
 const STEPS = flag('steps', '6,9,12,15,18,21,24,27,30').split(',').map((s) => parseInt(s, 10)).filter(Boolean);
 
-const manifest = findManifest(comp) || die(`No manifest for '${comp}' under lib/components/*/${comp}/`);
+const manifest = findManifest(comp);
+if (!manifest) die(`No manifest for '${comp}' under lib/components/*/${comp}/`);
 const COUNT = parseInt(flag('count', String(manifest.capacity?.sweet || 3)), 10);
 
 const build = BUILDERS[comp];

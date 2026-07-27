@@ -112,12 +112,12 @@
 	"quote.light": {
 		"src": "lib/components/statement/quote/quote.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "a212d7636d1644a64bc6acb6e90b2749b79bc38f55f4cb5145ddd7d70dde4b35"
+		"srcSha256": "e38fc314f9ddfde8a508107003046bf1fa9b95dd0740335f3cd301020371c95f"
 	},
 	"quote.dark": {
 		"src": "lib/components/statement/quote/quote.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "a0678bc8f1438e3fe1f97c262ec0c54b0e7f723ad15e1eb4007b3ac2b0d13b5b"
+		"srcSha256": "44aec75228d63c2bd2008f0415e68888ee3666cac036b1cfd58da2bd33273b13"
 	},
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
