@@ -75,7 +75,7 @@ Source: the launch board, reviewed every Thursday.
 
 `spend against plan`
 
-Four programmes carried the quarter; the rest were holding patterns.
+Four programs carried the quarter; the rest were holding patterns.
 
 - Signal intake
   - Rebuilt end to end; latency down from minutes to seconds.
@@ -90,7 +90,7 @@ Four programmes carried the quarter; the rest were holding patterns.
 - Audit readiness
   - Evidence pack drafted, gaps listed, none signed yet.
 
-The three unfunded programmes are listed in the appendix, not here.
+The three unfunded programs are listed in the appendix, not here.
 
 ---
 
