@@ -150,5 +150,33 @@
       "sample": "<!-- _class: statute-stack lane -->\n\n## lane runs the stack in one column.\n\n| Jurisdiction | Citation              | Headline obligation       | Status      |\n| ------------ | --------------------- | ------------------------- | ----------- |\n| Federal      | 15 U.S.C. §6501       | Parental consent <13 data | In effect   |\n| State        | Cal. Civ. Code §1798  | Notice + opt-out + DSAR   | Enforced    |\n| Local        | NYC §22-1201          | Annual AEDT bias audit    | Effective   |\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Placing both the citation and status chip on the header line under the default rail look.",
+      "fix": "Pill placement follows the card shape — the DEFAULT narrow rail splits citation (header line) and status (nested, opposite corner); `hierarchy`/`bands`/`preemption` keep BOTH trailing codes on the header line together. Using the row-variant's two-chip header under the default look misplaces the status chip."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Three parallel jurisdictions in a compact rail — the base look, with the status pill split to the opposite corner from the citation."
+    },
+    {
+      "variant": "hierarchy",
+      "useWhen": "The rows should visually communicate legal supremacy — ordered explicitly by which law controls."
+    },
+    {
+      "variant": "bands",
+      "useWhen": "The jurisdictions read better as full-width horizontal strips than as a narrow column rail."
+    },
+    {
+      "variant": "preemption",
+      "useWhen": "The relationship between jurisdictions is the point — which law yields to which — rather than just parallel listing."
+    },
+    {
+      "variant": "lane",
+      "useWhen": "More than four jurisdictions need to fit, or the citation/obligation/status structure reads better as a literal table than as cards."
+    }
+  ],
   "specimenVoice": true
 }

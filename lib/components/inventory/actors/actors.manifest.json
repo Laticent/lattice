@@ -114,5 +114,11 @@
       "when": "the left column is a term, not an actor"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Putting the actor name as the first word of the row instead of a trailing inline-code chip.",
+      "fix": "The row reads responsibility-then-actor: the label leads (auto-bold), and the actor name must be a TRAILING, direct-child inline-code chip on the same line — `- Owns the first part \\`First actor\\`` — not the other way around, or it won't render as the right-aligned pill."
+    }
+  ],
   "specimenVoice": true
 }

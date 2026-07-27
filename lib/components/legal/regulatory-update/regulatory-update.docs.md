@@ -22,6 +22,19 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 | `scope` | `p:first-of-type > code` | no | Optional inline-code scope label (e.g. 'Federal · State · International'). |
 | `items` | `ol > li` | yes | Ordered list of changes. Each item leads with a plain text name; nested ul carries citation (code), summary, and effective date (code). |
 
+### Variant decision rule
+
+- **default (no modifier).** A plain numbered ledger of changes — the base look, order as authored.
+- **`timeline`.** The changes should be read in effective-date order rather than authored or arbitrary order.
+- **`priority`.** Only the changes with the highest exposure or impact matter and should be visually ranked, not just listed.
+- **`cards`.** Each change deserves its own tile rather than a flowing numbered list — a more scannable, less document-like look.
+- **`diff-bands`.** The changes fall into distinct categories of motion (Added/Amended/Repealed/Enforced) that should be visually grouped, not just listed chronologically.
+
+### Common mistakes
+
+- **Leaving the scope label unwrapped in plain text instead of inline code.** The component's own dedicated 'kicker above the ledger' styling is unreachable from every placement an author would naturally use — the shared masthead lift claims a code-only paragraph placed before OR immediately after the heading (the only two positions the natural heading-then-scope-then-items flow offers), leaving no gap for the dedicated selector to match. Wrap it in backticks so it's at least recognized as a label; expect the generic mono-caps eyebrow or italic subtitle treatment, not a distinct kicker.
+- **Using `diff-bands` without grouping items under `### ` category subheadings.** `diff-bands` expects the items split into separate ordered lists, each preceded by an `### Added`/`### Amended`/`### Repealed`/`### Enforced` subheading — a single flat list under `diff-bands` has no band to shade into.
+
 ## When to use
 
 - **Period-bounded digest.** When a quarter or half of regulatory motion needs to land as a single scannable ledger. The audience sees what moved, when it took effect, and where to read it — without flipping through a multi-page memo.

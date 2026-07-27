@@ -176,5 +176,37 @@
       "sample": "<!-- _class: agenda checks progress-3 -->\n\n## checks ticks the stops already behind you.\n\n1. The four marker styles share one anatomy\n2. Numbers are the default\n3. This variant swaps the marker\n4. Progress still tracks the current stop\n5. Five stops keep the demo honest\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Hand-typing the page number into the section title instead of a trailing inline-code page ref.",
+      "fix": "A page reference is a trailing `` `p.N` `` inline-code chip on the item line — text baked into the title itself doesn't get the right-aligned leader-dot treatment."
+    },
+    {
+      "mistake": "Assuming `progress-N` alone changes which marker style (circles/rail/cards/checks) is used.",
+      "fix": "`progress-N` only marks which stop is current — it composes with a style variant but doesn't imply one; the default numbered `ledger` look still applies unless you also add `circles`/`rail`/`cards`/`checks`."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "A contents page with optional page references — the plainest, most document-like agenda look."
+    },
+    {
+      "variant": "circles",
+      "useWhen": "Section markers should read as a track of dots rather than numbers — a more visual, less document-like tone."
+    },
+    {
+      "variant": "rail",
+      "useWhen": "The agenda should read as a vertical journey down a side rail rather than a flat numbered list."
+    },
+    {
+      "variant": "cards",
+      "useWhen": "Each section deserves its own boxed card, with the current one taking the accent — a punchier, more graphic agenda."
+    },
+    {
+      "variant": "checks",
+      "useWhen": "The deck has forward momentum and past sections should visibly tick off as done, with an arrow marking the current one."
+    }
+  ],
   "specimenVoice": true
 }

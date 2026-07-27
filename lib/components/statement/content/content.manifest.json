@@ -94,5 +94,11 @@
       "when": "the prose IS an ordered sequence"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Nesting a second level of bullets to add sub-points, expecting them to read with the same weight as the top level.",
+      "fix": "A nested list steps DOWN to body-size text (smaller than the top-level prose size) — nested items read as supporting asides, not equal peers. If the items should carry equal weight, keep them all at the top level."
+    }
+  ],
   "specimenVoice": true
 }

@@ -24,6 +24,18 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 | `rationale` | `ul > li` | yes | Two-to-four evidence-grounded reasons. Each li leads with the reason (rendered bold automatically — no `**…**`); a nested `- ` line carries the evidence, ideally ending in an inline-code citation chip. |
 | `ask` | `blockquote` | no | The specific legislative action — the closing call to action (e.g. 'Vote YES on HB 214 § 3, or sponsor the floor amendment'). Rendered as the accent ask bar. |
 
+### Variant decision rule
+
+- **`adopt`.** The recommendation is in support of the measure — green verdict badge and rail.
+- **`amend`.** Support is conditional on a specific change — amber badge and rail.
+- **`oppose`.** The recommendation is against the measure — red badge and rail.
+- **`defer`.** The evidence base is incomplete and the ask is to study first, not decide yet — neutral badge and rail.
+
+### Common mistakes
+
+- **Writing a reason's evidence line without a trailing inline-code citation chip.** Without the trailing citation chip, the evidence line reads as unsupported assertion rather than record-grade evidence — the nested evidence bullet should end in an inline-code citation, not just prose.
+- **Placing the bill/docket eyebrow after the heading instead of before it, or leaving it unwrapped in backticks.** A code-only paragraph immediately before the heading is lifted into the masthead and picked up by the shared mono-caps eyebrow rule — it must be the section's first line, wrapped in backticks, or it either stays a plain paragraph (if unwrapped) or becomes an italic subtitle instead (if placed after the heading).
+
 ## When to use
 
 - **One recommendation, put to lawmakers.** When a brief must land a single policy ask — adopt, amend, oppose, or defer — with the evidence that earns it and the exact legislative move to make. The stance badge is the verdict; the ask is the call to action.

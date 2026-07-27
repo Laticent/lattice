@@ -113,5 +113,37 @@
       "sample": "<!-- _class: journey weighted -->\n\n## weighted sizes the stages by importance.\n\n- Discover\n  - Search `@prospect` `:4` `+45`\n  - Referral `@prospect` `:5` `+18`\n- Convert\n  - Pricing page `@prospect` `:3` `+12`\n  - Checkout `@prospect` `:2` `+10`\n- Support\n  - Settings `@user` `:3` `+8`\n  - Help docs `@user` `:4` `+7`\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Treating the mood scale as if 1 were best instead of worst.",
+      "fix": "The mood scale runs 1 (worst) to 5 (best) — authoring it inverted flips heatmap tinting and the curve variant's trend direction."
+    },
+    {
+      "mistake": "Assuming an omitted `:N` mood token leaves the task unplotted.",
+      "fix": "Omitting `:N` silently defaults the task to a neutral mood of 3 — it still plots normally under every variant, just without a deliberate score. Always give an explicit `:N` so the chart reflects real affect instead of a silent default."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "The classic Mermaid-style read — the plainest, most familiar rendering of the sequence."
+    },
+    {
+      "variant": "heatmap",
+      "useWhen": "The fastest scan matters more than a precise trend — mood-tinted chips let the audience read the emotional contour at a glance."
+    },
+    {
+      "variant": "curve",
+      "useWhen": "The trend across the journey is the point — a mood polyline with an axis makes the trajectory, not just each moment, legible."
+    },
+    {
+      "variant": "swimlane",
+      "useWhen": "Actor load and handoff is the story — splits the journey into one row per actor."
+    },
+    {
+      "variant": "weighted",
+      "useWhen": "Traffic volume through each step matters as much as mood — chip width encodes the `+N` volume token."
+    }
+  ],
   "specimenVoice": true
 }

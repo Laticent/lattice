@@ -21,6 +21,18 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
 | `heading` | `h2` | yes | Slide heading framing what the three rows compare. |
 | `rows` | `ul > li` | yes | One li per jurisdiction. Lead with the jurisdiction label as a plain text first line; nested ul items carry the citation (inline code), obligation summary, and status (inline code). |
 
+### Variant decision rule
+
+- **default (no modifier).** Three parallel jurisdictions in a compact rail — the base look, with the status pill split to the opposite corner from the citation.
+- **`hierarchy`.** The rows should visually communicate legal supremacy — ordered explicitly by which law controls.
+- **`bands`.** The jurisdictions read better as full-width horizontal strips than as a narrow column rail.
+- **`preemption`.** The relationship between jurisdictions is the point — which law yields to which — rather than just parallel listing.
+- **`lane`.** More than four jurisdictions need to fit, or the citation/obligation/status structure reads better as a literal table than as cards.
+
+### Common mistakes
+
+- **Placing both the citation and status chip on the header line under the default rail look.** Pill placement follows the card shape — the DEFAULT narrow rail splits citation (header line) and status (nested, opposite corner); `hierarchy`/`bands`/`preemption` keep BOTH trailing codes on the header line together. Using the row-variant's two-chip header under the default look misplaces the status chip.
+
 ## When to use
 
 - **Three parallel jurisdictions.** Federal / state / local — or any three peer regimes — that the room must hold side-by-side. The hue rotation cues which row is which without a legend.

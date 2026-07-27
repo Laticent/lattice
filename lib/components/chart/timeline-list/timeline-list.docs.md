@@ -19,6 +19,10 @@ Use for milestone history or annotated timelines. Each event sits on a left-to-r
 | `title` | `h2` | yes | Slide heading framing the timeline. |
 | `events` | `ol > li` | yes | Ordered list (numbered). One li per event: a leading inline-code date pill, then the title, then an optional trailing inline-code status pill, then nested body bullets — e.g. 1. `2025 Q1` Framework approved `decision`. Status vocabulary: decision / live / at-risk / blocked / done / on-track / deferred. |
 
+### Common mistakes
+
+- **Writing the date as a trailing chip after the title instead of a leading chip before it.** Unlike most other chart components (where value/status chips trail the label), timeline-list's date pill LEADS the line — `` `2025 Q1` `` then the title — a date placed after the title is treated as a stray status-shaped chip instead of the event's date anchor.
+
 ## When to use
 
 - **Milestones in time.** Project history, regulatory deadlines, deployment phases, incident post-mortems — anywhere the sequence is in calendar time and each entry needs a date, a verdict, and a sentence of body. The date pill anchors the spine.

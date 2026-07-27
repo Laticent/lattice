@@ -19,6 +19,21 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 | `title` | `h2` | yes | Slide heading framing the comparison. |
 | `options` | `ul > li` | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. |
 
+### Variant decision rule
+
+- **`transition`.** The comparison is a state change over time — left is before, right is after; implies causation, not two co-equal preferences.
+- **`mirror`.** Same anatomy, but the deck's rhythm wants the accented (second) option to land visually on the left instead of the right.
+- **`chosen`.** One option is the winner and the other keeps its full, undiminished case — crowns the second option without dimming the first.
+- **`decision`.** The decision is made and the slide is the record — composes `chosen` with a de-emphasized first card and a stronger connector.
+- **`vertical`.** Either case needs more room than the two-column width can hold — stacks the panes top/bottom instead of side by side.
+- **`banner-tag`.** The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag.
+- **`rejected`.** One option was considered and explicitly declined — dims and strikes the second card as the record of what didn't make it.
+
+### Common mistakes
+
+- **Assuming `chosen`/`rejected`/`decision` mark whichever option is authored first.** All three target the SECOND card (`li:last-child`) in the markdown — the option to crown (`chosen`) or strike (`rejected`) must be written second, not first.
+- **Combining `mirror` with `chosen`/`rejected`/`decision`, expecting the marked card to move with the visual swap.** `mirror` only reverses the VISUAL row (`flex-direction: row-reverse`) — the chosen/rejected treatment still targets the second option in markdown SOURCE order, so mirroring changes where it appears on screen, not which option gets the accent.
+
 ## When to use
 
 - **Two prose alternatives.** Both sides are full sentences of argument, not lists of facts. The audience reads each column as a paragraph and weighs them against each other.

@@ -134,5 +134,29 @@
       "when": "options scored against shared criteria, not stage-tracked"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Naming a column something other than Done/Completed/Shipped/Closed, expecting the finished-work dimming treatment anyway.",
+      "fix": "The dimmed treatment for completed work triggers off the COLUMN TITLE TEXT matching Done/Completed/Shipped/Closed exactly — a column named e.g. 'Finished' or 'Live' won't dim even if it functionally means the same thing."
+    },
+    {
+      "mistake": "Placing the status pill on the card's title line instead of its nested lane-label bullet.",
+      "fix": "Size badges (S/M/L/XL) trail the card TITLE; the status pill trails the nested lane-label bullet one level deeper (`- platform \\`at-risk\\``) — a status pill on the title line instead just becomes an unrecognized trailing code left in the title."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Color is spent on status — a flagged card's surface and border tint to its status, and the Done column dims — while unflagged cards and other columns stay neutral. `keyline`/`tinted` move status color OFF the card surface and onto the chip/column instead, keeping cards themselves neutral regardless of status."
+    },
+    {
+      "variant": "keyline",
+      "useWhen": "Cards should be color-coded by CATEGORY (their nested lane label) via a hairline, not by column."
+    },
+    {
+      "variant": "tinted",
+      "useWhen": "Each COLUMN/stage itself should carry a colored wash, making the board's stage structure the first thing the eye reads."
+    }
+  ],
   "specimenVoice": true
 }

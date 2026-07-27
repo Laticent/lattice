@@ -141,6 +141,46 @@
       "sample": "<!-- _class: radar minimal -->\n\n`Scale · 0–10`\n\n## minimal strips the rings to the shape.\n\n- Lattice\n  - Performance `9`\n  - Pricing `7`\n  - Support `8`\n  - Ecosystem `6`\n  - Security `9`\n- Rival North\n  - Performance `7`\n  - Pricing `8`\n  - Support `6`\n  - Ecosystem `9`\n  - Security `7`\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Authoring a detail sublist as a numbered list (`1.`) instead of `-`/`*` bullets.",
+      "fix": "Detail sublists must use `-`/`*` bullets — a numbered list isn't recognized as the axis's detail content."
+    },
+    {
+      "mistake": "Giving a series a different number of values than there are axes.",
+      "fix": "Each series must supply exactly one number per axis, using the SAME axis labels every other series uses — later series align to the first series's axes by label (case-insensitive), falling back to position only when a label doesn't match, so reordering axes across series is safe as long as the labels agree. A genuinely mismatched count or label desyncs which value maps to which spoke."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Two to four options compared on the shared polygon — the plain radar."
+    },
+    {
+      "variant": "target",
+      "useWhen": "Actual performance should be measured against an explicit goal shape — draws the target as its own series the actual shape must clear."
+    },
+    {
+      "variant": "delta",
+      "useWhen": "Only two periods or options are being compared and the CHANGE between them, not each one individually, is the point — shades the gap."
+    },
+    {
+      "variant": "benchmark",
+      "useWhen": "One shape is 'us' and the rest should read as a single reference range, not named individuals — every series after the first collapses into ONE shaded min-max band labeled 'Comparison range' in the legend; competitor names are not shown. Use `default`/`small-multiples` instead if each competitor needs to stay individually identifiable."
+    },
+    {
+      "variant": "quadrant",
+      "useWhen": "The axes themselves fall into natural categories (People/Process/Technology/Risk) worth grouping and shading by compass quarter."
+    },
+    {
+      "variant": "small-multiples",
+      "useWhen": "More options need comparing than overlapping polygons could hold without tangling — gives each option its own small radar instead."
+    },
+    {
+      "variant": "minimal",
+      "useWhen": "The scale rings would distract — strips them, leaving just the shape."
+    }
+  ],
   "showcase": {
     "featured": true
   },

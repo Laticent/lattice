@@ -18,6 +18,18 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 | `video` | `.video-embed` | yes | The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR. |
 | `caption` | `.video-embed figcaption` | no | Optional caption bullet — a plain bullet line ending with the `caption` marker (see Authoring below for the full syntax). |
 
+### Variant decision rule
+
+- **default (no modifier).** A standalone video callout with no strong claim beside it — poster plus meta column, the simplest look.
+- **`companion`.** A specific claim leads the slide and the clip proves it — text and poster split left/right.
+- **`gallery`.** The video is more exhibit than pitch — contained on a matte the way a diagram or screenshot would be.
+- **`qr`.** The room should be able to open the clip on their own phones — combines with any other variant to add a scannable code beside the poster.
+
+### Common mistakes
+
+- **The caption or poster bullet has no trailing `` `caption` ``/`` `poster` `` inline-code key.** The transform only recognizes a caption/poster bullet by its trailing key — a plain bullet with no key is invisible to the payload resolver, so the caption never appears and the poster override is silently dropped.
+- **Authoring more than one URL bullet, expecting a second clip or a contact-sheet grid.** The transform stops at the FIRST bullet whose text or link a provider recognizes — any additional URL bullets are silently ignored, not turned into a second video; only one clip renders per section.
+
 ## When to use
 
 - **A clip makes the point better than a screenshot.** A product walkthrough, a customer testimonial, a demo reel — anywhere motion carries the argument. The slide shows a clean poster; the room scans the QR (or clicks it in the HTML/PDF) to watch.

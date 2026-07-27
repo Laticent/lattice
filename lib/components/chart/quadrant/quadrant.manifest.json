@@ -142,5 +142,45 @@
       "sample": "<!-- _class: quadrant minimal -->\n\n`Effort 0–10 → Reach 0–100`\n\n## minimal strips the chart to its points.\n\n- Strategic Bets\n  - Scoring model v2 `3, 70`\n  - Per-team calibration `5, 85`\n- Quick Wins\n  - Weekly signal brief `8, 80`\n  - Snapshot exports `9, 55`\n- Defer\n  - Vendor scoping `2, 30`\n- Time Sinks\n  - Custom audit log UI `7, 18`\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Under `magic`, expecting the group heading text to move an item into that quadrant.",
+      "fix": "Placement is driven entirely by the item's `x, y` coordinate — the group heading is an editorial label only; an item whose coordinates don't fall in the region a heading like 'Leaders' implies still renders wherever its numbers place it."
+    }
+  ],
+  "dataShapeGuidance": [
+    "An item is ONE inline-code chip with comma-separated numbers — `Label — x, y[, size]` as `` `3, 70` `` or `` `3, 70, 2.4` `` under `bubble` — EXCEPT `trail`, which needs TWO chips (`` `5, 60` `` `` `3, 78` ``, from-position then to-position); splitting a non-`trail` item's coordinates into two chips silently zeroes the second axis instead of erroring.",
+    "The eyebrow isn't just a label — it SETS the axis domain when present (`Effort 0–10 → Reach 0–100` fixes the scale instead of deriving it from the data), and `threshold` reads its own `· targets X, Y` suffix on the same eyebrow line to place the cutoff lines; omit either and the chart falls back to a data-derived scale / a midpoint threshold."
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Each item is a single, current position on the two axes — the plain scatter."
+    },
+    {
+      "variant": "bubble",
+      "useWhen": "A third numeric dimension (size, cost, headcount) should scale each point's radius, not just its x/y position."
+    },
+    {
+      "variant": "trail",
+      "useWhen": "Items have moved — the story is the delta from a prior position to now, shown as a dashed connector line between a faded before-dot and a solid after-dot."
+    },
+    {
+      "variant": "cohort",
+      "useWhen": "The categorical grouping itself, not the axes, is what the audience should color-scan first."
+    },
+    {
+      "variant": "threshold",
+      "useWhen": "Specific numeric cutoffs on each axis are the point — draws the actual threshold lines instead of leaving the quadrant split purely visual."
+    },
+    {
+      "variant": "magic",
+      "useWhen": "The four quadrants have established, named archetypes (Leaders/Challengers/Visionaries/Niche Players) worth labeling explicitly, Gartner-style."
+    },
+    {
+      "variant": "minimal",
+      "useWhen": "The quadrant tint fields, bubble fills, and cohort hull shading would distract — strips them to outlined points, while axis labels and threshold lines stay visible."
+    }
+  ],
   "specimenVoice": true
 }

@@ -155,5 +155,45 @@
     "summary": "Three items at full budget.",
     "sample": "<!-- _class: split-panel -->\n\n`split-panel · stress`\n\n## Three full items is this column's ceiling.\n\nThe framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.\n\n- First item at full width\n  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.\n- Second item, same weight\n  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.\n- Third item closes the set\n  - A fourth would push past the footer — split the slide instead.\n"
   },
+  "commonMistakes": [
+    {
+      "mistake": "Using a `## heading` in the left panel under `pullquote` instead of a `>` blockquote.",
+      "fix": "Under `pullquote` the transform builds the left panel from ONLY the blockquote and its citation — an `h2` never lands in the left panel at all; it gets swept into the right column above the supporting points instead, leaving the featured panel blank."
+    },
+    {
+      "mistake": "Adding a third line to `watermark`'s trailing metadata footer, expecting a third labeled row.",
+      "fix": "The footer's \"Audience ·\" / \"Intent ·\" prefixes are hard-coded to the first two list items only — a third item renders with no label prefix at all."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "A thesis heading deserves the panel and the right column substantiates it with prose points — the plain briefing look."
+    },
+    {
+      "variant": "metric",
+      "useWhen": "A hero number is the featured element — the panel flips light and the number becomes the display type."
+    },
+    {
+      "variant": "pullquote",
+      "useWhen": "The featured element is a verbatim quotation — author a blockquote in the left panel instead of a heading."
+    },
+    {
+      "variant": "steps",
+      "useWhen": "The panel anchors a numbered phase rather than a heading, and the right column is a numbered sequence rather than loose points."
+    },
+    {
+      "variant": "watermark",
+      "useWhen": "You want a decorative accent panel — an oversized letterform behind the heading — plus an optional two-line Audience/Intent metadata footer after the points."
+    },
+    {
+      "variant": "mirror",
+      "useWhen": "Same anatomy, but the deck's reading rhythm wants the featured panel to land on the right instead of the left."
+    },
+    {
+      "variant": "qr",
+      "useWhen": "A URL to scan supplements the panel — a bullet tagged `qr` (or a bare URL) auto-resolves into a QR figure appended to the RIGHT (supporting) column; the left panel keeps its normal required heading/lede, it doesn't become the QR."
+    }
+  ],
   "specimenVoice": true
 }

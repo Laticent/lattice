@@ -129,6 +129,30 @@
       "sample": "<!-- _class: pricing four compact -->\n\n## four compact fits the whole ladder.\n\n- Free `$0`\n  - [x] One seat\n  - [/] The rest\n  - For trying.\n- Team `$29`\n  - [x] Five seats\n  - [/] SSO\n  - For starting.\n- Growth `$49` *Most popular*\n  - [x] SSO\n  - [/] Support\n  - For scaling.\n- Enterprise `Custom`\n  - [x] Everything\n  - [x] Support\n  - For fleets.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Writing the ribbon marker as `**Most popular**` (bold) instead of `*Most popular*` (single asterisk).",
+      "fix": "The ribbon is CSS-targeted at `li > em` specifically — `*…*` parses to `<em>`. A `**bold**` marker parses to `<strong>` instead and triggers neither the ribbon nor the accent-elevated card styling."
+    },
+    {
+      "mistake": "Adding a state marker (`[x]`/`[/]`/`[-]`) to the final \"who it's for\" line.",
+      "fix": "The audience line is styled by its POSITION — the nested list's `:last-child` — not by being marker-less; adding a marker doesn't move the pinned-bottom, meta-color treatment, it just layers badge chrome (check icon + strike, etc.) on top of it, so the line ends up looking like a feature row instead of a plain caption."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "Three tiers is the natural width for a plans slide — good/better/best."
+    },
+    {
+      "variant": "two",
+      "useWhen": "A straight head-to-head between exactly two plans — self-serve vs. enterprise, free vs. paid."
+    },
+    {
+      "variant": "four",
+      "useWhen": "The whole ladder needs to be visible at once — compact enough to still read at four columns."
+    }
+  ],
   "showcase": {
     "featured": true
   },

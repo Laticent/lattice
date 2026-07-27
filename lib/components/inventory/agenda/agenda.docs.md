@@ -21,6 +21,19 @@ Use as the second slide of any multi-section deck. Numbers are generated; author
 | `title` | `h2` | yes | Slide heading — typically 'Agenda' or 'What we'll cover'. |
 | `items` | `ol > li` | yes | Ordered list of section titles. |
 
+### Variant decision rule
+
+- **default (no modifier).** A contents page with optional page references — the plainest, most document-like agenda look.
+- **`circles`.** Section markers should read as a track of dots rather than numbers — a more visual, less document-like tone.
+- **`rail`.** The agenda should read as a vertical journey down a side rail rather than a flat numbered list.
+- **`cards`.** Each section deserves its own boxed card, with the current one taking the accent — a punchier, more graphic agenda.
+- **`checks`.** The deck has forward momentum and past sections should visibly tick off as done, with an arrow marking the current one.
+
+### Common mistakes
+
+- **Hand-typing the page number into the section title instead of a trailing inline-code page ref.** A page reference is a trailing `` `p.N` `` inline-code chip on the item line — text baked into the title itself doesn't get the right-aligned leader-dot treatment.
+- **Assuming `progress-N` alone changes which marker style (circles/rail/cards/checks) is used.** `progress-N` only marks which stop is current — it composes with a style variant but doesn't imply one; the default numbered `ledger` look still applies unless you also add `circles`/`rail`/`cards`/`checks`.
+
 ## When to use
 
 - **Second slide of the deck.** Right after the title, before the first section. Orients the audience and sets the cadence of what's coming.

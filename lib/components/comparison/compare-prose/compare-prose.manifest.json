@@ -158,5 +158,45 @@
       "sample": "<!-- _class: compare-prose rejected -->\n\n## rejected strikes the losing pane.\n\n- The pick\n  - The surviving option reads at full strength.\n- The rejected pane\n  - Dimmed and struck — the record of what was considered and declined.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Assuming `chosen`/`rejected`/`decision` mark whichever option is authored first.",
+      "fix": "All three target the SECOND card (`li:last-child`) in the markdown — the option to crown (`chosen`) or strike (`rejected`) must be written second, not first."
+    },
+    {
+      "mistake": "Combining `mirror` with `chosen`/`rejected`/`decision`, expecting the marked card to move with the visual swap.",
+      "fix": "`mirror` only reverses the VISUAL row (`flex-direction: row-reverse`) — the chosen/rejected treatment still targets the second option in markdown SOURCE order, so mirroring changes where it appears on screen, not which option gets the accent."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "transition",
+      "useWhen": "The comparison is a state change over time — left is before, right is after; implies causation, not two co-equal preferences."
+    },
+    {
+      "variant": "mirror",
+      "useWhen": "Same anatomy, but the deck's rhythm wants the accented (second) option to land visually on the left instead of the right."
+    },
+    {
+      "variant": "chosen",
+      "useWhen": "One option is the winner and the other keeps its full, undiminished case — crowns the second option without dimming the first."
+    },
+    {
+      "variant": "decision",
+      "useWhen": "The decision is made and the slide is the record — composes `chosen` with a de-emphasized first card and a stronger connector."
+    },
+    {
+      "variant": "vertical",
+      "useWhen": "Either case needs more room than the two-column width can hold — stacks the panes top/bottom instead of side by side."
+    },
+    {
+      "variant": "banner-tag",
+      "useWhen": "The corner labels are short, loud verdicts (camps, teams) that deserve a full-width banner instead of a quiet corner tag."
+    },
+    {
+      "variant": "rejected",
+      "useWhen": "One option was considered and explicitly declined — dims and strikes the second card as the record of what didn't make it."
+    }
+  ],
   "specimenVoice": true
 }

@@ -145,5 +145,41 @@
       "when": "the geography needs detail (counties, cities, routes) the basemap can't draw"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Assuming an unresolved region name is silently dropped.",
+      "fix": "An unmatched region name isn't silently dropped or fatal — it surfaces as a muted '?' row in the legend and is stamped on the figure, AND `npm run lint:deck` flags it explicitly (an `unknown-map-region` warning naming the region). Fix the spelling; the lint output tells you which name didn't resolve."
+    },
+    {
+      "mistake": "Using `highlight` with numeric-looking trailing values, expecting a color ramp.",
+      "fix": "Under `highlight`, the trailing value is just an optional legend LABEL, not a magnitude — it doesn't drive a color ramp the way it does under the default choropleth; a numeric string there is treated as a category label, not a number."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Region names resolve by full name, ISO/postal code, or common alias — the resolver accepts any mix, but picking one convention per chart keeps the legend readable.",
+    "Choropleth values must share one consistent unit/scale across all regions — the ramp maps low→high over the full authored range, so mixing e.g. raw counts and percentages skews the gradient."
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "world",
+      "useWhen": "The story spans multiple countries — program reach, service territories, grants — the default basemap, spelled out."
+    },
+    {
+      "variant": "us",
+      "useWhen": "The story is entirely within the United States — swaps to the US-states basemap with insets."
+    },
+    {
+      "variant": "highlight",
+      "useWhen": "The regions are a SET, not a ranked magnitude — membership matters (pilot states, regions served), not a gradient of values."
+    },
+    {
+      "variant": "robinson",
+      "useWhen": "A more familiar, traditional-atlas world silhouette fits the deck's visual tone better than the default. Note this trades away area accuracy: Equal Earth (the default) is area-preserving by construction, so `robinson` is a LESS area-faithful compromise projection, not a more faithful one — pick it for the recognizable shape, not for improved area accuracy."
+    },
+    {
+      "variant": "grouped",
+      "useWhen": "Whole blocs, continents, or categories should fill as one unit (European Union, ASEAN) rather than spelling out every member country."
+    }
+  ],
   "specimenVoice": true
 }

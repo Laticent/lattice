@@ -19,6 +19,23 @@ Use for compact reference tables: glossary-style entries, key/value pairs, specs
 | `title` | `h2` | yes | Slide heading. |
 | `rows` | `ol > li` | yes | Each numbered item (`1.`) is one row — the name on the line, with an optional nested bullet for its description or value. The leading column is the auto counter. |
 
+### Variant decision rule
+
+- **default (no modifier).** A plain hairline-ruled ledger — name left, description right, nothing tinted.
+- **`def`.** Reference entries read like dictionary definitions — an eyebrow above each term and an enlarged counter spanning both lines.
+- **`metric`.** Each row's value is the point — renders the trailing value as a display-weight figure instead of the default's plain mono text.
+- **`spec`.** Rows are technical flags or parameters — monospace keys beside type chips.
+- **`register`.** Each row carries a status — status pills per row.
+- **`rule`.** Under `def`, the register wants a visible accent rail running down the left edge of the whole list, not just the per-term counter.
+- **`solid`.** Under `metric`, the values are headline numbers that deserve a filled panel instead of an outlined tile.
+- **`stacked`.** Under `spec`, the description clause is long enough to want its own line below the key instead of trailing beside it.
+- **`outline`.** Under `register`, a lighter, keyline-only pill treatment fits the deck's tone better than filled pills.
+
+### Common mistakes
+
+- **Pairing a secondary modifier with the wrong primary variant (e.g. `def solid` or `metric rule`).** Each secondary modifier is scoped to exactly one primary — `rule` only styles `def`, `solid` only styles `metric`, `stacked` only styles `spec`, `outline` only styles `register`; pairing across combinations does nothing because no CSS selector matches.
+- **Authoring rows as a bullet list (`-`) instead of a numbered list (`1.`).** The counter column and row styling are keyed to `ol > li` — a `ul` doesn't produce the numbered ledger at all.
+
 ## When to use
 
 - **Compact reference rows.** Five or more rows where each row is a name plus a short description or value. Glossary-style entries, key/value pairs, technical specs.

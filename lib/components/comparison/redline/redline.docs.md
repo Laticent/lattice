@@ -19,6 +19,19 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 | `redline` | `blockquote` | yes | The amended language. Use <del>old text</del> and <ins>new text</ins> inline. |
 | `implications` | `ul > li` | no | Optional explanation. Use **Why this matters** for the operational read. |
 
+### Variant decision rule
+
+- **default (no modifier).** One clause, ins/del inline in a single blockquote — the simplest, most common redline.
+- **`annotated`.** Each individual edit needs its own explanation, not just one trailing 'why this matters' line — numbers each marked edit against a footnoted rationale.
+- **`three-col`.** The audience should read old, new, and rationale as three distinct, separately labeled blocks rather than one inline-marked passage.
+- **`split`.** Before and after read better as two full parallel blockquotes than as one passage with inline markup.
+- **`stacked`.** The passage is long enough that side-by-side columns would be too narrow — stacks the prior text (struck) above the current instead.
+
+### Common mistakes
+
+- **Expecting the citation paragraph to get redline's dedicated accent-mono styling regardless of where it's placed.** The dedicated citation styling only applies when the citation has something else FOLLOWING it in the section — in practice, between the blockquote and a trailing implications list. Adjacent to the heading (before OR immediately after) it's captured by the shared masthead treatment instead (eyebrow or italic subtitle); left as the section's very last element with nothing after it, it falls to a plain trailing-note style. Pair the citation with an implications list (the `- **Why this matters.**` bullet) if the dedicated styling matters — without one, no placement reaches it.
+- **Assuming Markdown strikethrough (`~~text~~`) doesn't render as a tracked deletion the way literal `<del>` does.** `~~text~~` DOES render as a tracked deletion — Markdown strikethrough produces `<s>`, and redline's CSS styles `del`/`s` identically (line-through, fail-red color and background). Either syntax works for a deletion; `<ins>new</ins>` still needs literal HTML since Markdown has no native insertion syntax.
+
 ## When to use
 
 - **Verbatim text matters.** When the amendment is the language — legal clauses, regulatory paragraphs, contract terms. Paraphrasing would lose the exact words the parties are bound by.

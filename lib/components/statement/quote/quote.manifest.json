@@ -83,6 +83,16 @@
       "when": "the most memorable thing is a metric, not a phrase"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing the attribution as a second line inside the blockquote (`> quote text` then `> — Person`) instead of a separate paragraph after it.",
+      "fix": "The attribution slot is the paragraph AFTER the blockquote, not inside it — written inside, it inherits the blockquote's large italic quotation styling instead of the smaller attribution treatment."
+    },
+    {
+      "mistake": "Splitting the quotation across two paragraphs inside the blockquote.",
+      "fix": "The blockquote's opening/closing smart-quote glyphs decorate the blockquote as a whole, once — two paragraphs inside it both render at full quotation size with no visual distinction, instead of the single continuous quotation the layout expects."
+    }
+  ],
   "showcase": {
     "featured": true
   },

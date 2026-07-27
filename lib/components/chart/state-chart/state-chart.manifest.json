@@ -133,5 +133,33 @@
       "sample": "<!-- _class: state-chart curved -->\n\n## curved eases the arrows between states.\n\n1. Draft `start`\n   - `submit => 2`\n   - `discard => 5`\n2. In Review `at-risk`\n   - `approve => 3`\n   - `revise => self`\n   - `reject => 1`\n3. Approved\n   - `publish => 4`\n4. Published `live`\n   - `archive => 5`\n5. Archived `end`\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Writing a transition's event/target as plain text instead of a single inline-code arrow.",
+      "fix": "The transition/detail distinction is purely mechanical — a nested bullet whose SOLE content is one inline-code token matching `event => N` or `=> N` (N a digit or `self`) is a transition; anything else — plain text, or an inline-code token with a non-numeric target like `` `approve => Approved` `` — is captured as detail prose instead. A transition written as plain text (or with a named target) is silently treated as detail, not as an edge, and no arrow renders."
+    },
+    {
+      "mistake": "Using a state's NAME instead of its numeric index as a transition target (`` `approve => Approved` `` instead of `` `approve => 4` ``).",
+      "fix": "Transitions target the state's INDEX — its position in the numbered list, which is the stable ref — not its name; a name in the target position won't resolve to any state."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "The default top-to-bottom vertical stack — the plainest read, no extra framing needed."
+    },
+    {
+      "variant": "lr",
+      "useWhen": "The states read more naturally as a left-to-right flow (e.g. a pipeline direction) than top-to-bottom."
+    },
+    {
+      "variant": "inline",
+      "useWhen": "The chart needs to sit directly beside its explanatory prose rather than take the full canvas."
+    },
+    {
+      "variant": "curved",
+      "useWhen": "Eased, curved connectors fit the deck's visual tone better than straight arrows."
+    }
+  ],
   "specimenVoice": true
 }

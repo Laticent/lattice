@@ -23,6 +23,18 @@ Use for a small register of related items where each carries similar weight. Aut
 | `items` | `ul > li` | yes | Each list item is one entry, authored as `- **Lead.** detail sentence.` — the bold lead is the entry name, the rest is its description. |
 | `insight` | `blockquote` | no | Optional trailing insight or takeaway. Renders as an accent band (ledger), a centered pull-quote (cards), a kicker above the run (timeline), or an accent-ruled sidebar (editorial). |
 
+### Variant decision rule
+
+- **default (no modifier).** A plain numbered reference list — the most document-like, least decorated look.
+- **`cards`.** The register wants a more visual, tile-based presentation; an optional trailing insight reads best as a centered pull-quote.
+- **`timeline`.** The parts have an implicit left-to-right progression worth suggesting, even though they remain parallel, not sequential.
+- **`editorial`.** The slide wants a magazine feel — a column of entries with a sidebar takeaway rather than a flat register.
+
+### Common mistakes
+
+- **Writing a long, multi-sentence insight blockquote.** The insight is a single closing line across every look — under `timeline` it must fit as a kicker ABOVE the run, and under `cards` as a centered pull-quote; a multi-sentence blockquote breaks those tighter treatments even though the plain ledger's accent band might absorb it.
+- **Re-authoring the item list differently for each look/variant.** The four looks — ledger, cards, timeline, editorial — share ONE content contract; switching the variant class alone reskins the same markdown. Re-writing items per-variant is wasted effort and risks the exact drift (lopsided density, mismatched leads) the layout exists to avoid.
+
 ## When to use
 
 - **A parallel register.** Two to six related items of similar weight — a framework's parts, a set of principles, the moving pieces of a system.

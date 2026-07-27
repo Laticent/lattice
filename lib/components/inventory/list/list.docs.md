@@ -19,6 +19,21 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 | `title` | `h2` | yes | Slide heading. |
 | `items` | `ul > li, ol > li` | yes | List items. Keep each under ~12 words. |
 
+### Variant decision rule
+
+- **default (no modifier).** A flat set of accent-bordered pill points — the plainest bulleted list, no special framing.
+- **`takeaway`.** The list closes a section with headline-weight conclusions — hairline-ruled single lines instead of pills.
+- **`principles`.** The items are declared tenets or house rules — display-weight numbered statements with a large accent counter.
+- **`numbered`.** A `takeaway` box needs to read as ranked priorities, not just findings — adds an accent counter.
+- **`lettered`.** Under `principles`, the order is arbitrary rather than sequential — letters read as options, not a ranking.
+- **`roman`.** The principles are a formal charter or mandate that wants numeral gravitas — reserve for a short list, past five it reads as parody.
+- **`bullet`.** The principles are true peers with no ranking or sequence at all — strips the counter back to plain dots.
+
+### Common mistakes
+
+- **Combining `numbered` with `principles`, or `lettered`/`roman`/`bullet` with `takeaway`, expecting the counter to change.** `numbered` only composes with `takeaway` (adds its accent counter); `lettered`/`roman`/`bullet` only compose with `principles` (swap ITS counter format) — the two modifier sets don't cross over.
+- **Picking `ol` or `ul` arbitrarily under the default/`takeaway` look, without regard to whether order matters.** For the default and `takeaway` looks, list type is a real authoring signal — `ol` renders a tabular leading number column implying sequence; `ul` doesn't. Use `ol` only when the sequence is load-bearing. This does NOT apply to `principles` (and its `lettered`/`roman`/`bullet` sub-variants) — that family is `ol`-only regardless of whether the tenets are ordered; a `ul` there renders completely unstyled.
+
 ## When to use
 
 - **Genuinely a list.** Five to six short points, each under twelve words. No internal structure per item — just a heading and the bullets.

@@ -21,6 +21,10 @@ Use to show 'who owns what' across a process, scoring policy, or org chart. Two-
 | `title` | `h2` | yes | Slide heading. |
 | `rows` | `ul > li` | yes | One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing inline-code actor name (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body. |
 
+### Common mistakes
+
+- **Putting the actor name as the first word of the row instead of a trailing inline-code chip.** The row reads responsibility-then-actor: the label leads (auto-bold), and the actor name must be a TRAILING, direct-child inline-code chip on the same line — `- Owns the first part \`First actor\`` — not the other way around, or it won't render as the right-aligned pill.
+
 ## When to use
 
 - **Who owns what.** Each row pairs a named actor with the slice of work they own. Use when the audience needs to know accountability, not process flow.

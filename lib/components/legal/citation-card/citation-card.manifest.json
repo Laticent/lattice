@@ -138,5 +138,33 @@
       "sample": "<!-- _class: citation-card triptych -->\n\n## triptych sets three authorities abreast.\n\n`GDPR Art. 4(1) · definitions`\n\n> 'Personal data' means any information relating to an identified or identifiable natural person.\n\n- In plain English.\n  - Any online identifier that can single out a person — IP address, cookie ID, device fingerprint.\n- **What we must do.**\n  - Scope notice and retention to cover online identifiers, not just named-person records.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Expecting the citation paragraph to get its dedicated accent-mono styling regardless of where it's placed.",
+      "fix": "The dedicated citation styling only applies when the citation has something else FOLLOWING it in the section — in practice, between the blockquote and a trailing gloss list. Adjacent to the heading (before OR immediately after) it's captured by the shared masthead treatment instead (eyebrow or italic subtitle); left as the section's very last element with nothing after it, it falls to a plain trailing-note style. Pair the citation with a gloss list if the dedicated styling matters — without one, no placement reaches it."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "The default full treatment — heading, citation, quote, and gloss all get equal room."
+    },
+    {
+      "variant": "pull-quote",
+      "useWhen": "Only the single most operative phrase within a longer clause needs to be lifted and emphasized, not the whole provision."
+    },
+    {
+      "variant": "split",
+      "useWhen": "The quote and its plain-English reading should sit side by side rather than stacked."
+    },
+    {
+      "variant": "margin",
+      "useWhen": "The citation itself is secondary — hangs it in the gutter so the quote and gloss can dominate the canvas."
+    },
+    {
+      "variant": "triptych",
+      "useWhen": "Three distinct pieces — citation, plain reading, and required action — each deserve their own visual panel."
+    }
+  ],
   "specimenVoice": true
 }

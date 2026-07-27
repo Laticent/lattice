@@ -125,6 +125,42 @@
       "sample": "<!-- _class: scene mirror -->\n\n## mirror lands the scene on the left.\n\n<svg viewBox=\"0 0 240 150\" xmlns=\"http://www.w3.org/2000/svg\"><ellipse cx=\"120\" cy=\"80\" rx=\"82\" ry=\"30\" fill=\"none\" stroke=\"var(--cat-2-mark)\" stroke-width=\"9\"/><polygon points=\"120,42 152,96 88,96\" fill=\"var(--accent)\"/><circle cx=\"202\" cy=\"80\" r=\"11\" fill=\"var(--cat-4-mark)\"/><rect x=\"76\" y=\"112\" width=\"88\" height=\"11\" rx=\"3\" fill=\"var(--text-muted)\"/></svg>\n\nScene anchors from the left; the text leads from the right.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Pasting a raster export (PNG/JPG) of the poster instead of the literal inline `<svg>…</svg>` markup.",
+      "fix": "The `scene` slot must be an INLINE `<svg>` so its `var(--token)` fills recolor with the theme in light and dark and bake crisp into the PDF — a raster image breaks the palette-blind contract and never recolors."
+    },
+    {
+      "mistake": "Naming a composition class (`scene spotlight`, `scene gallery`, …) reflexively instead of leaving it unset.",
+      "fix": "scene is a faithful mirror of `image`: the composition RESOLVES from the poster's own aspect plus the deck orientation — an explicit class always wins over the resolver, so naming one out of habit can force a crop the auto-picked composition would have avoided."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "clean",
+      "useWhen": "The poster has a moderate, unremarkable aspect — the safe default; leave the class off and let the resolver land here."
+    },
+    {
+      "variant": "split",
+      "useWhen": "The poster has an extreme aspect — a tall rig or a wide mechanism — and needs its own full-height column or full-width band shown whole."
+    },
+    {
+      "variant": "spotlight",
+      "useWhen": "The poster already matches the canvas's own aspect and can own the frame on a matte stage."
+    },
+    {
+      "variant": "gallery",
+      "useWhen": "The scene is diagram-like — the whole still matted like an exhibit with a placard is the point."
+    },
+    {
+      "variant": "statement",
+      "useWhen": "You want the still on a matte stage with the title riding an editorial band beneath it — a deliberate opt-in look."
+    },
+    {
+      "variant": "mirror",
+      "useWhen": "The composition is right but the deck's rhythm wants the scene on the left instead of the right — flips the side without changing the composition."
+    }
+  ],
   "showcase": {
     "featured": false
   },

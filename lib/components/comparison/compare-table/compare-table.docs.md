@@ -21,6 +21,10 @@ Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-pro
 | `title` | `h2` | yes | Slide heading framing the comparison. |
 | `table` | `table` | yes | Markdown table with header row and 2+ data rows. |
 
+### Common mistakes
+
+- **Writing a vague or duplicate first column, assuming it's just another data column.** When the deck opts into `autosplit: on` and the table overflows a portrait/narrow box, the Fit Ladder reshapes it into row-cards (column headers become in-card labels) instead of clipping — the FIRST column becomes each card's title in that reshape, so it needs to be a genuinely identifying label per row. Without `autosplit: on`, an overflowing table is not automatically protected this way.
+
 ## When to use
 
 - **Wider than compare-prose.** Three or more options, or four or more rows of criteria. compare-prose maxes out at two columns and short bodies; compare-table scales further.

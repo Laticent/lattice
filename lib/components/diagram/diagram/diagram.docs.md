@@ -18,6 +18,10 @@ Use for relational or topological visuals — flowcharts, sequence diagrams, sta
 | `subtitle` | `p > code` | no | Optional eyebrow caption. |
 | `mermaid` | `div.mermaid, svg` | yes | Fenced ```mermaid block, pre-rendered to SVG at build time. |
 
+### Common mistakes
+
+- **Eyebrow written as plain or bold text instead of inline code.** The `subtitle` slot (an eyebrow caption despite its name) matches a `p > code` paragraph — wrap it in backticks; plain or bold text doesn't map to the slot and just renders as an unstyled stray line.
+
 ## When to use
 
 - **Relational structure is the message.** Flowcharts, sequence diagrams, state machines, ER diagrams, journey maps. The relationships between nodes carry meaning the audience needs to see at a glance.

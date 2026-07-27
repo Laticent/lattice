@@ -95,6 +95,16 @@
       "when": "a single conversion rate is the whole story"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Assuming the `detail` sublist appears somewhere visible on the printed chart face.",
+      "fix": "Detail bullets render NOWHERE on the chart itself — they drive a hover/tap reveal popover on screen and fold into the PDF's speaker note; a funnel with detail bullets looks pixel-identical to one without on the printed page."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Stage values must be monotonically non-increasing in authored order (top to bottom) — the taper and every printed conversion percentage assume each stage is a strict subset of the one before it.",
+    "The trailing value is a single number tolerant of thousands commas (`4,800`) — it takes the FIRST numeric run and discards everything after, so a magnitude suffix is silently dropped, not scaled: `$12k` parses as `12`, not `12000`. Use consistent full-magnitude numbers across every stage (`12,000`, not `$12k`) or the taper and every printed conversion percentage will be wrong."
+  ],
   "showcase": {
     "featured": true
   },

@@ -181,6 +181,34 @@
       "sample": "<!-- _class: inventory editorial -->\n\n`inventory editorial`\n\n## editorial sets the parts as a column.\n\n- **One part per row.** A name and one clause of body.\n- **Four parts reads best.** Five fits; six is the hard stop.\n- **Bodies stay clauses.** Fourteen words soft, twenty-two hard.\n- **Looks reskin the list.** Same content, magazine form.\n\n> The sidebar carries the register's one takeaway.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Writing a long, multi-sentence insight blockquote.",
+      "fix": "The insight is a single closing line across every look — under `timeline` it must fit as a kicker ABOVE the run, and under `cards` as a centered pull-quote; a multi-sentence blockquote breaks those tighter treatments even though the plain ledger's accent band might absorb it."
+    },
+    {
+      "mistake": "Re-authoring the item list differently for each look/variant.",
+      "fix": "The four looks — ledger, cards, timeline, editorial — share ONE content contract; switching the variant class alone reskins the same markdown. Re-writing items per-variant is wasted effort and risks the exact drift (lopsided density, mismatched leads) the layout exists to avoid."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "A plain numbered reference list — the most document-like, least decorated look."
+    },
+    {
+      "variant": "cards",
+      "useWhen": "The register wants a more visual, tile-based presentation; an optional trailing insight reads best as a centered pull-quote."
+    },
+    {
+      "variant": "timeline",
+      "useWhen": "The parts have an implicit left-to-right progression worth suggesting, even though they remain parallel, not sequential."
+    },
+    {
+      "variant": "editorial",
+      "useWhen": "The slide wants a magazine feel — a column of entries with a sidebar takeaway rather than a flat register."
+    }
+  ],
   "showcase": {
     "featured": true
   },

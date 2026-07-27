@@ -132,6 +132,16 @@
       "when": "one set of criteria, not many options against them"
     }
   ],
+  "commonMistakes": [
+    {
+      "mistake": "Using `[ ]` (empty) to mean \"not applicable\" or a soft neutral, rather than an explicit fail.",
+      "fix": "In verdict-grid specifically (and pricing), `[ ]` reads as a hard fail/alarm state, not neutral — for a partial reading use `[-]`; for a muted, not-alarming 'not included' use `[/]`. This is verdict-grid's own scoring, not the shared state-marker vocabulary's default: the same `[ ]` reads as a neutral 'not yet' in checklist, obligation-matrix, and roadmap. Picking the wrong marker here changes the badge's color semantics, not just its shape."
+    },
+    {
+      "mistake": "Putting the recommended option first instead of last.",
+      "fix": "The focal-verdict treatment is applied to the LAST option card, not whichever one the author considers the pick — order the option you want to recommend so it's written last."
+    }
+  ],
   "showcase": {
     "hero": true
   },

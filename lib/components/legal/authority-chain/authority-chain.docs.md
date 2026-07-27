@@ -21,6 +21,18 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 | `heading` | `h2` | yes | Slide heading naming the rule whose chain is being walked. |
 | `tiers` | `ol > li` | yes | Ordered list of authority tiers (Statute, Regulation, Guidance, Case) — not hyperlinks. Each leads with the tier label; nested ul carries the citation (code) and the one-line gloss. |
 
+### Variant decision rule
+
+- **default (no modifier).** A plain descent from statute to case — the base look for a straightforward, single-line chain.
+- **`branching`.** The authority forks — several regulations, guidance, or cases all trace back to the SAME originating statute — shown as one tier with multiple citations instead of a strict one-to-one descent.
+- **`trail`.** The descent should read as a lightweight breadcrumb rather than a heavier, chrome-forward chain.
+- **`pyramid`.** The tiers carry different legal weight and that hierarchy of force should be visually apparent, not just their order — tier width narrows from statute down to case.
+- **`bracket`.** The tiers should read as one clamped, continuous block — a tighter, seamless rail (zero gap, squared corners, a doubled outer edge) instead of the default's separated cards.
+
+### Common mistakes
+
+- **Reversing the order of the nested citation and gloss lines, or writing the citation as plain text instead of inline code.** The citation chip is matched by `li:first-child:has(> code:only-child)` — it must be the FIRST nested item and contain ONLY inline code; a citation written second, or as plain text, doesn't get the citation-chip treatment.
+
 ## When to use
 
 - **Provenance is the argument.** Use when the audience needs to see exactly where a rule comes from and how it has been interpreted. The chain itself is the evidence that the obligation is grounded, not invented.

@@ -23,6 +23,20 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 | `question` | `ul > li, ol > li` | yes | One top-level list item per question, in the order you want to take them (lead with the toughest). Author it as plain interrogative text — no bold. Questions are indexed automatically (01, 02, …), so a `ul` and an `ol` render the same. |
 | `answer` | `ul > li > ul > li, ol > li > ol > li` | yes | The prepared answer, nested one level under its question. Two or three sentences that actually close the question down — a reasoned response, not a restatement. Every question needs one. |
 
+### Variant decision rule
+
+- **default (no modifier).** Three or four pairs read fine as a plain vertical stack — the base look needs no extra structure.
+- **`spine`.** The pairs want a strong visual throughline connecting question to question — threads them down an accent spine.
+- **`rail`.** Questions should be scannable as a left-hand index while answers sit in their own column.
+- **`tab`.** Each question should read as a labeled tab with its answer folding directly beneath it.
+- **`grid`.** Exactly four pairs fit naturally into a two-by-two — an even count, not five or three.
+- **`solo`.** One single question is weighty enough to deserve the entire slide.
+
+### Common mistakes
+
+- **Bolding or otherwise emphasizing the question text.** Author the question as plain interrogative text. The layout supplies its own numbered-index and prompt-weight styling — bolding the question doesn't fight it (the lift step already no-ops on an already-bolded lead) but italicizing or otherwise marking it up can nest inside that styling in ways that look inconsistent across questions, so keep it plain.
+- **Assuming `ul` vs `ol` changes which marker or numbering renders.** Unlike `list`, where list type is a real signal, q-and-a indexes questions automatically regardless of list type — `ul` and `ol` render identically here, so the choice carries no meaning.
+
 ## When to use
 
 - **The questions are the point.** The slide that ends a pitch by naming the hard questions and answering them first. Anticipating the objection and closing it on your terms is more persuasive than waiting to be asked — it signals you have already done the thinking.

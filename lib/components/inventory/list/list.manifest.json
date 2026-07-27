@@ -167,5 +167,45 @@
       "sample": "<!-- _class: list principles bullet -->\n\n## bullet strips the markers back to dots.\n\n1. Dots drop the counting entirely.\n2. The principles frame stays.\n3. Use when rules are peers.\n"
     }
   },
+  "commonMistakes": [
+    {
+      "mistake": "Combining `numbered` with `principles`, or `lettered`/`roman`/`bullet` with `takeaway`, expecting the counter to change.",
+      "fix": "`numbered` only composes with `takeaway` (adds its accent counter); `lettered`/`roman`/`bullet` only compose with `principles` (swap ITS counter format) — the two modifier sets don't cross over."
+    },
+    {
+      "mistake": "Picking `ol` or `ul` arbitrarily under the default/`takeaway` look, without regard to whether order matters.",
+      "fix": "For the default and `takeaway` looks, list type is a real authoring signal — `ol` renders a tabular leading number column implying sequence; `ul` doesn't. Use `ol` only when the sequence is load-bearing. This does NOT apply to `principles` (and its `lettered`/`roman`/`bullet` sub-variants) — that family is `ol`-only regardless of whether the tenets are ordered; a `ul` there renders completely unstyled."
+    }
+  ],
+  "variantDecisionRule": [
+    {
+      "variant": "default",
+      "useWhen": "A flat set of accent-bordered pill points — the plainest bulleted list, no special framing."
+    },
+    {
+      "variant": "takeaway",
+      "useWhen": "The list closes a section with headline-weight conclusions — hairline-ruled single lines instead of pills."
+    },
+    {
+      "variant": "principles",
+      "useWhen": "The items are declared tenets or house rules — display-weight numbered statements with a large accent counter."
+    },
+    {
+      "variant": "numbered",
+      "useWhen": "A `takeaway` box needs to read as ranked priorities, not just findings — adds an accent counter."
+    },
+    {
+      "variant": "lettered",
+      "useWhen": "Under `principles`, the order is arbitrary rather than sequential — letters read as options, not a ranking."
+    },
+    {
+      "variant": "roman",
+      "useWhen": "The principles are a formal charter or mandate that wants numeral gravitas — reserve for a short list, past five it reads as parody."
+    },
+    {
+      "variant": "bullet",
+      "useWhen": "The principles are true peers with no ranking or sequence at all — strips the counter back to plain dots."
+    }
+  ],
   "specimenVoice": true
 }
