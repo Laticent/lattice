@@ -18,7 +18,7 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 |---|---|---|---|
 | `heading` | `h2` | yes | The claim — why the ordering in the ledger matters, not a summary of it. |
 | `lede` | `h2 + p` | yes | One-to-two sentence framing paragraph under the claim, naming the two axes or dimensions the ledger's rows walk. |
-| `rows` | `ul > li` | yes | Each row is ONE line with four inline segments in order: `` `NN` `` (index, inline code), `**Term**` (bold), a bare description clause, and `*a short question or note*` (italic, right-aligned). 3-8 rows; each is colored by its own slot in the theme's categorical palette. |
+| `rows` | `ol > li` | yes | Each row is a NUMBERED item: the term on the item's own line, then exactly two nested bullets — the description clause, then a short framing question. The ordinal is a CSS counter (never author-typed, so rows renumber on reorder) and the term bolds automatically. 3-8 rows; each is colored by its own slot in the theme's categorical palette. |
 
 ### Common mistakes
 
@@ -51,9 +51,15 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 
 One or two sentences naming the axes the rows below walk.
 
-- `01` **First term** A short clause describing it. *A question it answers?*
-- `02` **Second term** A short clause describing it. *A question it answers?*
-- `03` **Third term** A short clause describing it. *A question it answers?*
+1. First term
+   - A short clause describing it.
+   - A question it answers?
+2. Second term
+   - A short clause describing it.
+   - A question it answers?
+3. Third term
+   - A short clause describing it.
+   - A question it answers?
 ```
 
 ## Anatomy

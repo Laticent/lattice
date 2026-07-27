@@ -10,13 +10,19 @@
  * <!-- _class: premise -->
  * ## The claim.
  * One-sentence lede naming the axes.
- * - `01` **Term** A short clause. *A framing question?*
+ * 1. Term
+ *    - A short clause describing it.
+ *    - A framing question?
  *
- * The section-level restructure (grouping <h2> + lede into one
- * .premise-claim wrapper) happens in lib/core/premise.js; the per-row inline
- * markup (<code>/<strong>/<span class="premise-desc">/<em>) is tagged at
- * markdown-parse time by the premiseRows plugin
- * (lib/integrations/markdown-it/plugins.js).
+ * The ledger is an ORDERED list — the same shape every other numbered layout
+ * in Lattice uses (LEDGER_OL_LAYOUTS, lib/authoring/lint-core.js). The ordinal
+ * is a CSS counter, never author-typed, so rows renumber on reorder. Each row's
+ * two nested items are, in order, the description and the framing question.
+ *
+ * The section-level restructure (grouping <h2> + lede into one .premise-claim
+ * wrapper) happens in lib/core/premise.js. The term is lifted to <strong> by
+ * the shared slotLabelLift (premise is in its SLOT_LAYOUTS); no premise-only
+ * markdown plugin is involved.
  *
  * See lib/components/statement/premise/premise.manifest.json for the
  * component contract.
@@ -45,7 +51,7 @@ section.premise .premise-claim > p {
   color: var(--text-secondary);
 }
 
-section.premise > ul {
+section.premise > ol {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -54,10 +60,12 @@ section.premise > ul {
   list-style: none;
   padding: 0;
   margin: 0;
+  counter-reset: premise-row;
 }
-section.premise > ul > li {
+section.premise > ol > li {
+  counter-increment: premise-row;
   display: grid;
-  grid-template-columns: 3.28125cqi 10.9375cqi 1fr auto;
+  grid-template-columns: 3.28125cqi 10.9375cqi 1fr;
   align-items: center;
   gap: var(--sp-sm);
   padding: var(--sp-sm) var(--sp-md);
@@ -69,18 +77,17 @@ section.premise > ul > li {
   color: var(--text-heading);
   white-space: nowrap;
 }
-section.premise > ul > li code {
+/* The ordinal is generated, not authored — rows renumber themselves on reorder,
+ * which a hand-typed `01` cannot. --text-secondary, not --text-muted: this is
+ * row CONTENT, not the "muted chrome" the palette contract exempts from AA
+ * (--text-muted is 3.75:1 on --bg-alt; --text-secondary is 6.27:1). */
+section.premise > ol > li::before {
+  content: counter(premise-row, decimal-leading-zero);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
-  /* --text-secondary, not --text-muted: the ordinal and the question are row
-   * CONTENT, not the "muted chrome" the palette contract exempts from AA.
-   * --text-muted measures 3.75:1 on --bg-alt; --text-secondary is 6.27:1. */
   color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  padding: 0;
 }
-section.premise > ul > li strong {
+section.premise > ol > li > strong {
   font-size: var(--fs-body);
   color: var(--row-mark, var(--text-heading));
   /* 700, not the inherited 600, and this is a contrast requirement rather than a
@@ -95,12 +102,23 @@ section.premise > ul > li strong {
   text-overflow: ellipsis;
   min-width: 0;
 }
-section.premise > ul > li .premise-desc {
+/* The row's two nested items share the last grid track: description takes the
+ * space, the framing question sits right-aligned against the row's edge. */
+section.premise > ol > li > ul {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--sp-sm);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+section.premise > ol > li > ul > li:nth-child(1) {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-section.premise > ul > li em {
-  font-style: normal;
+section.premise > ol > li > ul > li:nth-child(2) {
   font-size: var(--fs-meta);
   color: var(--text-secondary);
   text-align: right;
@@ -112,11 +130,11 @@ section.premise > ul > li em {
  * split). Precedent: math.theorem's blockquote border-left + strong color
  * pairing (lib/components/math/math/math.styles.css) uses the exact same
  * --cat-N-mark-as-text-on-a-neutral-background pattern. */
-section.premise > ul > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); }
-section.premise > ul > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); }
-section.premise > ul > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); }
-section.premise > ul > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); }
-section.premise > ul > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); }
-section.premise > ul > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); }
-section.premise > ul > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); }
-section.premise > ul > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }
+section.premise > ol > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); }
+section.premise > ol > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); }
+section.premise > ol > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); }
+section.premise > ol > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); }
+section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); }
+section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); }
+section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); }
+section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }

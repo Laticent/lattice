@@ -55,6 +55,29 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **Breaking (`premise`, unreleased): rows are authored as an ORDERED list instead of one inline
+  four-segment line.** Was `` - `01` **Remember** Recall facts, syntax, rules. *How is this done?* `` —
+  four inline segments whose ROLES were positional, with a hand-typed ordinal and hand-typed bold.
+  Now:
+
+  ```
+  1. Remember
+     - Recall facts, syntax, rules.
+     - How is this done?
+  ```
+
+  This is the shape every other numbered layout in Lattice already uses (`LEDGER_OL_LAYOUTS`,
+  `lib/authoring/lint-core.js`), so `premise` stops being the one component with a bespoke row
+  grammar. Three consequences beyond consistency: the ordinal is now a CSS counter, so **rows
+  renumber themselves when reordered** where a typed `01` silently went stale; the term bolds via
+  the shared `slotLabelLift` (`premise` joins its `SLOT_LAYOUTS`) rather than authored `**…**`; and
+  the description/question are real list items rather than "the text between `</strong>` and `<em>`".
+  **The `premiseRows` markdown-it plugin is deleted** — it existed only to wrap that in-between text
+  in a `<span class="premise-desc">`, and the nested shape needs no such splitting. Renders
+  identically. `premise` is new in this same unreleased cycle, so no shipped deck is affected.
+
 ### Fixed
 
 - **`matrix-grid`'s rotated row-axis label rendered at 46% of the column-axis label's size, from the

@@ -672,9 +672,15 @@
       "",
       "One or two sentences naming the axes the rows below walk.",
       "",
-      "- `01` **First term** A short clause describing it. *A question it answers?*",
-      "- `02` **Second term** A short clause describing it. *A question it answers?*",
-      "- `03` **Third term** A short clause describing it. *A question it answers?*"
+      "1. First term",
+      "   - A short clause describing it.",
+      "   - A question it answers?",
+      "2. Second term",
+      "   - A short clause describing it.",
+      "   - A question it answers?",
+      "3. Third term",
+      "   - A short clause describing it.",
+      "   - A question it answers?"
     ],
     "description": "A framing claim beside a vertically centered ledger of parallel rows — a number, a term, a description, and a right-aligned note, each row colored by its own categorical hue."
   },

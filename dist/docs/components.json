@@ -7167,12 +7167,12 @@
           "description": "One-to-two sentence framing paragraph under the claim, naming the two axes or dimensions the ledger's rows walk."
         },
         "rows": {
-          "selector": "ul > li",
+          "selector": "ol > li",
           "required": true,
-          "description": "Each row is ONE line with four inline segments in order: `` `NN` `` (index, inline code), `**Term**` (bold), a bare description clause, and `*a short question or note*` (italic, right-aligned). 3-8 rows; each is colored by its own slot in the theme's categorical palette."
+          "description": "Each row is a NUMBERED item: the term on the item's own line, then exactly two nested bullets — the description clause, then a short framing question. The ordinal is a CSS counter (never author-typed, so rows renumber on reorder) and the term bolds automatically. 3-8 rows; each is colored by its own slot in the theme's categorical palette."
         }
       },
-      "skeleton": "<!-- _class: premise -->\n\n## The claim the ledger exists to support.\n\nOne or two sentences naming the axes the rows below walk.\n\n- `01` **First term** A short clause describing it. *A question it answers?*\n- `02` **Second term** A short clause describing it. *A question it answers?*\n- `03` **Third term** A short clause describing it. *A question it answers?*\n",
+      "skeleton": "<!-- _class: premise -->\n\n## The claim the ledger exists to support.\n\nOne or two sentences naming the axes the rows below walk.\n\n1. First term\n   - A short clause describing it.\n   - A question it answers?\n2. Second term\n   - A short clause describing it.\n   - A question it answers?\n3. Third term\n   - A short clause describing it.\n   - A question it answers?\n",
       "whenToUse": [
         {
           "title": "An ordered vocabulary needs one overview slide",

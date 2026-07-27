@@ -832,67 +832,6 @@ describe('markdown-it-plugins', () => {
     assert.match(html, />plain text<\/td>/);
   });
 
-  // ── premiseRows ────────────────────────────────────────────────────────
-
-  test('premiseRows: wraps the bare description text between </strong> and <em> in a span', () => {
-    const m = makeHost(plugins.premiseRows);
-    const md = [
-      '<!-- _class: premise -->',
-      '## Title',
-      '',
-      'A lede.',
-      '',
-      "- `01` **Remember** Recall facts, syntax, rules. *How is this done?*",
-    ].join('\n');
-    const { html } = m.render(md);
-    assert.match(
-      html,
-      /<li><code>01<\/code> <strong>Remember<\/strong><span class="premise-desc"> Recall facts, syntax, rules\. <\/span><em>How is this done\?<\/em><\/li>/,
-    );
-  });
-
-  test('premiseRows: does NOT fire outside the premise class', () => {
-    const m = makeHost(plugins.premiseRows);
-    const md = [
-      '## Title',
-      '',
-      "- `01` **Remember** Recall facts, syntax, rules. *How is this done?*",
-    ].join('\n');
-    const { html } = m.render(md);
-    assert.doesNotMatch(html, /class="premise-desc"/);
-  });
-
-  test('premiseRows: a row with no strong+em pair passes through unchanged', () => {
-    const m = makeHost(plugins.premiseRows);
-    const md = [
-      '<!-- _class: premise -->',
-      '## Title',
-      '',
-      'A lede.',
-      '',
-      '- A plain row with no bold/italic markers at all',
-    ].join('\n');
-    const { html } = m.render(md);
-    assert.doesNotMatch(html, /class="premise-desc"/);
-    assert.match(html, /<li>A plain row with no bold\/italic markers at all<\/li>/);
-  });
-
-  test("premiseRows: does not touch the heading/lede's own inline content", () => {
-    const m = makeHost(plugins.premiseRows);
-    const md = [
-      '<!-- _class: premise -->',
-      '## A **bold** claim with *emphasis* in the heading',
-      '',
-      'A lede with **bold** and *emphasis* too.',
-      '',
-      "- `01` **Remember** Recall facts. *How?*",
-    ].join('\n');
-    const { html } = m.render(md);
-    // Exactly one premise-desc span — from the list row, not the heading/lede.
-    const matches = html.match(/class="premise-desc"/g) || [];
-    assert.equal(matches.length, 1);
-  });
-
   // ── checklistItemStates ──────────────────────────────────────────────
 
   test('checklistItemStates: top-level [x]/[-]/[ ]/[/] items get state + shape classes on <li>', () => {

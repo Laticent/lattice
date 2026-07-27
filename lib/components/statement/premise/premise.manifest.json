@@ -39,14 +39,14 @@
       "description": "One-to-two sentence framing paragraph under the claim, naming the two axes or dimensions the ledger's rows walk."
     },
     "rows": {
-      "selector": "ul > li",
+      "selector": "ol > li",
       "required": true,
-      "description": "Each row is ONE line with four inline segments in order: `` `NN` `` (index, inline code), `**Term**` (bold), a bare description clause, and `*a short question or note*` (italic, right-aligned). 3-8 rows; each is colored by its own slot in the theme's categorical palette."
+      "description": "Each row is a NUMBERED item: the term on the item's own line, then exactly two nested bullets — the description clause, then a short framing question. The ordinal is a CSS counter (never author-typed, so rows renumber on reorder) and the term bolds automatically. 3-8 rows; each is colored by its own slot in the theme's categorical palette."
     }
   },
-  "skeleton": "<!-- _class: premise -->\n\n## The claim the ledger exists to support.\n\nOne or two sentences naming the axes the rows below walk.\n\n- `01` **First term** A short clause describing it. *A question it answers?*\n- `02` **Second term** A short clause describing it. *A question it answers?*\n- `03` **Third term** A short clause describing it. *A question it answers?*\n",
+  "skeleton": "<!-- _class: premise -->\n\n## The claim the ledger exists to support.\n\nOne or two sentences naming the axes the rows below walk.\n\n1. First term\n   - A short clause describing it.\n   - A question it answers?\n2. Second term\n   - A short clause describing it.\n   - A question it answers?\n3. Third term\n   - A short clause describing it.\n   - A question it answers?\n",
   "anatomyBlock": "premise",
-  "sample": "<!-- _class: premise -->\n\n## Growth is a change in thinking, not title.\n\nSix cognitive verbs map the questions an engineer learns to ask — your level is the highest verb you reliably own, and how far that thinking travels.\n\n- `01` **Remember** Recall facts, syntax, rules. *How is this done?*\n- `02` **Understand** Explain behavior and dependencies. *Why does it work?*\n- `03` **Apply** Use patterns in new contexts. *How do I make it work here?*\n- `04` **Analyze** Decompose across boundaries. *Where does it break?*\n- `05` **Evaluate** Judge options against strategy. *Which option should win?*\n- `06` **Create** Synthesize what isn't there. *What should exist?*\n",
+  "sample": "<!-- _class: premise -->\n\n## Growth is a change in thinking, not title.\n\nSix cognitive verbs map the questions an engineer learns to ask — your level is the highest verb you reliably own, and how far that thinking travels.\n\n1. Remember\n   - Recall facts, syntax, rules.\n   - How is this done?\n2. Understand\n   - Explain behavior and dependencies.\n   - Why does it work?\n3. Apply\n   - Use patterns in new contexts.\n   - How do I make it work here?\n4. Analyze\n   - Decompose across boundaries.\n   - Where does it break?\n5. Evaluate\n   - Judge options against strategy.\n   - Which option should win?\n6. Create\n   - Synthesize what isn't there.\n   - What should exist?\n",
   "whenToUse": [
     {
       "title": "An ordered vocabulary needs one overview slide",
@@ -109,7 +109,7 @@
   ],
   "stressDoc": {
     "summary": "Eight rows — the categorical palette's ceiling.",
-    "sample": "<!-- _class: premise -->\n\n## Eight is where one palette cycle ends.\n\nPast eight rows the categorical hues repeat, so eight is this layout's practical ceiling.\n\n- `01` **Novice** Follows a script closely. *Can you repeat it?*\n- `02` **Advanced beginner** Recognizes recurring situations. *Have you seen this before?*\n- `03` **Competent** Plans deliberately. *What's the goal here?*\n- `04` **Proficient** Sees the whole, not just rules. *What does the situation call for?*\n- `05` **Expert** Acts on intuition built from experience. *What feels right?*\n- `06` **Master** Refines the craft itself. *What could be better about how we do this?*\n- `07` **Practitioner** Teaches the craft to others. *How do I pass this on?*\n- `08` **Steward** Shapes the field's standards. *What should the craft become?*\n"
+    "sample": "<!-- _class: premise -->\n\n## Eight is where one palette cycle ends.\n\nPast eight rows the categorical hues repeat, so eight is this layout's practical ceiling.\n\n1. Novice\n   - Follows a script closely.\n   - Can you repeat it?\n2. Advanced beginner\n   - Recognizes recurring situations.\n   - Have you seen this before?\n3. Competent\n   - Plans deliberately.\n   - What's the goal here?\n4. Proficient\n   - Sees the whole, not just rules.\n   - What does the situation call for?\n5. Expert\n   - Acts on intuition from experience.\n   - What feels right?\n6. Master\n   - Refines the craft itself.\n   - What could be better?\n7. Practitioner\n   - Teaches the craft to others.\n   - How do I pass this on?\n8. Steward\n   - Shapes the field's standards.\n   - What should the craft become?\n"
   },
   "specimenVoice": true
 }
