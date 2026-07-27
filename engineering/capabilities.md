@@ -341,7 +341,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-suono-lib.js` | Build the Suono library's consumable dist/ — the ESM entry + the CJS entry + type |
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
-| `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the stage it was given? |
+| `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |
 | `tools/check-render-nature.js` | check-render-nature — the DERIVE-AND-GATE half of the `render` manifest field. |
 | `tools/check-viz-render.js` | check-viz-render — the SCOPED-CSS black-fill guard (born from the #956 |

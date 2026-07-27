@@ -11814,6 +11814,44 @@ section.regulatory-update > .cell-stage {
   font-family:var(--font-mono);
 }
 
+/* ── NON-LANDSCAPE legend, keyed on `data-orientation` NOT a container query ──
+ * The status key's top separation is `--sp-lg + --sp-sm`, which rides
+ * `--canvas-scale` to 60.1px on a square deck — 60px of pure chrome in the box
+ * with the least vertical room to give. That alone put the figure over:
+ * measured at 1080x1080 the table is 625.5px and clears the 728.2px stage by
+ * 128.8px, but table + a 154.8px legend makes a 780.3px figure, 26px outside
+ * the stage clip top and bottom.
+ *
+ * WHY NOT `@container lattice (aspect-ratio <= 1.05)`, which is how every other
+ * box-local rule here is written: on a square deck that query DOES NOT MATCH.
+ * `orientationFor` classifies the DECK box (1080x1080 → 1.00, inside the
+ * 0.9–1.05 square band, and `data-orientation="square"` is emitted correctly),
+ * but a container query evaluates the container's CONTENT box — 972 x 909.23
+ * once the section's asymmetric padding (74.25 top + 96.525 bottom vs 54 + 54)
+ * is removed, an aspect of 1.069. That is outside the same 1.05 boundary, so
+ * the whole `≤1.05` branch is inert at square. Verified against a known-gated
+ * declaration: `.progress-track` renders 2.5cqi (base) at square and 4cqi
+ * (gated) at portrait.
+ *
+ * That mismatch is a pre-existing, library-wide defect — 18 files carry a
+ * `≤1.05` branch that never fires on a square deck — and it is off the path of
+ * #1209, so it is filed rather than fixed here (HARD RULE #18). This rule keys
+ * on the attribute the engine already derives, which is the one source of
+ * truth and agrees with `orientationFor` by construction.
+ *
+ * Landscape keeps the generous separation: it has the height, and the key
+ * should read as detached from the grid. See #1209. */
+:is(section.roadmap, figure.roadmap):is([data-orientation='square'], [data-orientation='portrait']) .roadmap-legend {
+  padding-top: var(--sp-sm);
+  gap: var(--sp-2xs) var(--sp-lg);
+  /* Chrome step, not the content step. At portrait `--fs-body-compact` renders
+   * ~39px, which takes four status chips past the 877px row and WRAPS the key
+   * to two lines — 144.7px of legend under an already-tight grid. A status key
+   * is chrome (`--fs-meta`'s stated role: pills, micro-captions, labels), so
+   * this is the more correct token here as well as the shorter one. */
+  font-size: var(--fs-meta);
+}
+
 /* ── Box-local portrait (placed AFTER the base horizon rules so it wins on
  * source order at equal specificity) ────────────────────────────────────────
  * A wide table letterboxes, so on a tall box the kernel auto-selects horizons
@@ -11824,22 +11862,47 @@ section.regulatory-update > .cell-stage {
  * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md §10. */
 @container lattice (aspect-ratio <= 0.9) {
   :is(section.roadmap, figure.roadmap).horizons .horizons {
+    /* ONE column is right; the TYPE inside it was the problem. Measured, a
+     * 4-workstream card came out 382.4px with its rows already collapsed to one
+     * line (54px each), so three of them made 1194.5px of grid inside an 835.6px
+     * stage — 284px cut, silently, at `.cell-stage`'s `overflow: clip`.
+     *
+     * More columns was tried and is WORSE, not better: `auto-fit`/`minmax` gives
+     * 2 columns of 426.8px at portrait, and the narrower card wraps the
+     * one-line workstream rows, taking cards to 694.6px for a 1424px grid. A
+     * card's height is set by whether its rows wrap, so narrowing the column
+     * fights the very thing that makes it short.
+     *
+     * What actually binds is that card text rides `--canvas-scale` (~1.95 at
+     * portrait) while the card does not: the rows render at 46.98px. Stepping
+     * the card body down the ROLE scale (HARD RULE #4 — `--fs-*`, never a raw
+     * length) buys the height back without touching the column count. See
+     * #1209, and #1213 for the general defect this is one instance of. */
     grid-template-columns: 1fr;
     gap: var(--sp-sm);
     flex: 1 1 auto;
+    min-height: 0;
   }
+  /* The row's height is set by `.row-text`, which carries the glyphs — setting
+   * font-size on the <li> does nothing, because both spans declare their own. */
+  :is(section.roadmap, figure.roadmap).horizons .row-text { font-size: var(--fs-meta); }
+  /* Chrome tightens hard at portrait. Every `--sp-*` rides `--canvas-scale`
+   * (~1.95 here) just like the type does, so card padding, the head rule's
+   * clearance and the inter-row gaps are all ~2x their landscape selves — and
+   * three cards multiply that. Trimming a step off each is where the remaining
+   * height comes from, without pushing any text below the role scale. */
   :is(section.roadmap, figure.roadmap).horizons .horizon-card {
-    padding: var(--sp-sm) var(--sp-md);
-    gap: var(--sp-xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
+    padding: var(--sp-xs) var(--sp-sm);
+    gap: var(--sp-2xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
   }
   :is(section.roadmap, figure.roadmap).horizons .horizon-head {
     flex-direction: row;
     align-items: baseline;
     gap: var(--sp-sm);
-    padding-bottom: var(--sp-xs);
+    padding-bottom: var(--sp-2xs);
   }
   :is(section.roadmap, figure.roadmap).horizons .horizon-title { font-size: var(--fs-body-compact); }
-  :is(section.roadmap, figure.roadmap).horizons .horizon-rows { gap: var(--sp-xs); }
+  :is(section.roadmap, figure.roadmap).horizons .horizon-rows { gap: var(--sp-2xs); }
   /* Each workstream row collapses to ONE line (LABEL · value) — halves the card
    * body so 4+ phases stack without overflow. */
   :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li {
