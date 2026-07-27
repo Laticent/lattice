@@ -133,7 +133,7 @@
     },
     {
       "mistake": "Adding a fourth card without the `compact` modifier.",
-      "fix": "A fourth card only fits with `compact` — without it, four full-size stacked cards overflow the frame; the component's own stress sample demonstrates `cards-stack compact` at four rows."
+      "fix": "A fourth card at or near the density budget (16-26 words) needs `compact` to avoid overflowing the frame — the component's own stress sample demonstrates `cards-stack compact` at four full-budget rows. Four short cards can fit without it; `compact` is a density fix, not a hard card-count switch."
     }
   ],
   "variantDecisionRule": [

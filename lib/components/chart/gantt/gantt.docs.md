@@ -26,7 +26,7 @@ Use for project plans with overlapping or staggered tasks. Each task is a bar on
 
 - A chart uses dates OR ordinals (quarters/months) consistently — never mix `2026-03-15` spans with `Q1`/`Jan` spans in the same chart.
 - `..` is the only span delimiter — a hyphen or en-dash between two dates isn't recognized as a span.
-- `after: Task name` must reference another task's exact label somewhere on the same slide — source order doesn't matter (every task is indexed before dependencies are checked), so a forward reference to a task defined later is fine. Only a nonexistent label is flagged as dangling.
+- `after: Task name` must reference another task's exact (case-insensitive) label AND that task must itself carry a parseable time span — a task with only status pills and no `START..END`/point is never indexed, so `after:` pointing at it is flagged dangling even though the label is on the slide and visibly rendered. Source order doesn't matter otherwise: a forward reference to a spanned task defined later is fine.
 
 ## When to use
 

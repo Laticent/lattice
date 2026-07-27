@@ -24,7 +24,7 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 - **default (no modifier).** Two to four options compared on the shared polygon — the plain radar.
 - **`target`.** Actual performance should be measured against an explicit goal shape — draws the target as its own series the actual shape must clear.
 - **`delta`.** Only two periods or options are being compared and the CHANGE between them, not each one individually, is the point — shades the gap.
-- **`benchmark`.** One shape is 'us' and the rest are reference or competitor overlays — visually distinguishes the primary shape from the benchmarks.
+- **`benchmark`.** One shape is 'us' and the rest should read as a single reference range, not named individuals — every series after the first collapses into ONE shaded min-max band labeled 'Comparison range' in the legend; competitor names are not shown. Use `default`/`small-multiples` instead if each competitor needs to stay individually identifiable.
 - **`quadrant`.** The axes themselves fall into natural categories (People/Process/Technology/Risk) worth grouping and shading by compass quarter.
 - **`small-multiples`.** More options need comparing than overlapping polygons could hold without tangling — gives each option its own small radar instead.
 - **`minimal`.** The scale rings would distract — strips them, leaving just the shape.

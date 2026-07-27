@@ -136,7 +136,7 @@
   "commonMistakes": [
     {
       "mistake": "Writing a transition's event/target as plain text instead of a single inline-code arrow.",
-      "fix": "The transition/detail distinction is purely mechanical — a nested bullet WITH one inline-code arrow token (`` `submit => 2` ``) is a transition; one WITHOUT is captured as detail prose instead. A transition written as plain text is silently treated as detail, not as an edge, and no arrow renders."
+      "fix": "The transition/detail distinction is purely mechanical — a nested bullet whose SOLE content is one inline-code token matching `event => N` or `=> N` (N a digit or `self`) is a transition; anything else — plain text, or an inline-code token with a non-numeric target like `` `approve => Approved` `` — is captured as detail prose instead. A transition written as plain text (or with a named target) is silently treated as detail, not as an edge, and no arrow renders."
     },
     {
       "mistake": "Using a state's NAME instead of its numeric index as a transition target (`` `approve => Approved` `` instead of `` `approve => 4` ``).",

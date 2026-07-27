@@ -21,7 +21,7 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 ### Common mistakes
 
 - **No field is tagged with the `name` key.** Every contact card needs exactly one field trailing `` `name` `` — without it the vCard has no identity and the hero name area renders empty.
-- **The trailing key doesn't match a supported alias, e.g. `` `position` `` instead of `` `title`/`role` ``.** Only the documented keys are recognized (name, title|role, org|company, email, phone|tel|mobile, url|web|site, caption) — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
+- **The trailing key doesn't match a supported alias, e.g. `` `position` `` instead of `` `title`/`role` ``.** Only the documented keys are recognized (name, title|role, org|company, email, phone|tel|mobile, url|web|site, caption) — an unrecognized key isn't mapped to any card field, so the whole bullet is silently dropped from both the rendered card and the vCard, not merely misplaced.
 
 ## When to use
 

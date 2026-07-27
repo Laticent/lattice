@@ -23,7 +23,7 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 
 ### Variant decision rule
 
-- **default (no modifier).** Color is spent only on STATUS pills — a calm neutral grid where a flagged card is the one visual standout.
+- **default (no modifier).** Color is spent on status — a flagged card's surface and border tint to its status, and the Done column dims — while unflagged cards and other columns stay neutral. `keyline`/`tinted` move status color OFF the card surface and onto the chip/column instead, keeping cards themselves neutral regardless of status.
 - **`keyline`.** Cards should be color-coded by CATEGORY (their nested lane label) via a hairline, not by column.
 - **`tinted`.** Each COLUMN/stage itself should carry a colored wash, making the board's stage structure the first thing the eye reads.
 

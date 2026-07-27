@@ -34,7 +34,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 ### Common mistakes
 
-- **Bolding or otherwise emphasizing the question text.** Author the question as plain interrogative text — no bold. The layout supplies its own numbered-index and prompt-weight styling, so manual emphasis fights the built-in treatment.
+- **Bolding or otherwise emphasizing the question text.** Author the question as plain interrogative text. The layout supplies its own numbered-index and prompt-weight styling — bolding the question doesn't fight it (the lift step already no-ops on an already-bolded lead) but italicizing or otherwise marking it up can nest inside that styling in ways that look inconsistent across questions, so keep it plain.
 - **Assuming `ul` vs `ol` changes which marker or numbering renders.** Unlike `list`, where list type is a real signal, q-and-a indexes questions automatically regardless of list type — `ul` and `ol` render identically here, so the choice carries no meaning.
 
 ## When to use

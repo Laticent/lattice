@@ -119,8 +119,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Assuming a weight of zero or a negative number breaks the sizing scale.",
-      "fix": "Weight is read as a relative magnitude, min-max normalized across the whole cloud — zero and negative numbers work fine and still get a well-defined proportional size. What actually breaks the scale is a non-numeric or non-finite value."
+      "mistake": "Assuming a zero, negative, or non-numeric weight breaks the sizing scale.",
+      "fix": "None of these break anything — weight is min-max normalized across the whole cloud, so zero and negative numbers still get a well-defined proportional size, and a non-numeric or non-finite weight (e.g. a typo) is silently mapped to the MIDDLE of the scale rather than erroring. That silence is the actual hazard: a mistyped weight doesn't fail loudly, it just quietly lands a word at a plausible mid-size."
     },
     {
       "mistake": "Using ascending rank numbers (1st place, 2nd place, …) as the weight, expecting rank 1 to render biggest.",
@@ -146,7 +146,7 @@
     },
     {
       "variant": "focal",
-      "useWhen": "One single term dominates the theme and deserves to be crowned dead-center rather than just the largest node in a spiral."
+      "useWhen": "One single term dominates the theme and deserves an outsized size ceiling — every variant already centers the top-weight word at the spiral's origin; `focal` widens the size range so the leader dwarfs the rest, rather than changing where it sits."
     }
   ],
   "specimenVoice": true

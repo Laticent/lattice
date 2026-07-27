@@ -147,7 +147,7 @@
   "variantDecisionRule": [
     {
       "variant": "default",
-      "useWhen": "Color is spent only on STATUS pills — a calm neutral grid where a flagged card is the one visual standout."
+      "useWhen": "Color is spent on status — a flagged card's surface and border tint to its status, and the Done column dims — while unflagged cards and other columns stay neutral. `keyline`/`tinted` move status color OFF the card surface and onto the chip/column instead, keeping cards themselves neutral regardless of status."
     },
     {
       "variant": "keyline",

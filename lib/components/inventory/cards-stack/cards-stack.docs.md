@@ -30,7 +30,7 @@ Use when the items want vertical reading order — sequential exploration rather
 ### Common mistakes
 
 - **Adding a `numbered` class to the slide, expecting it to turn on corner numbers.** There is no `numbered` CSS class — the ranking numbers come purely from authoring the cards as an ordered list (`1.`) instead of `-`.
-- **Adding a fourth card without the `compact` modifier.** A fourth card only fits with `compact` — without it, four full-size stacked cards overflow the frame; the component's own stress sample demonstrates `cards-stack compact` at four rows.
+- **Adding a fourth card without the `compact` modifier.** A fourth card at or near the density budget (16-26 words) needs `compact` to avoid overflowing the frame — the component's own stress sample demonstrates `cards-stack compact` at four full-budget rows. Four short cards can fit without it; `compact` is a density fix, not a hard card-count switch.
 
 ## When to use
 

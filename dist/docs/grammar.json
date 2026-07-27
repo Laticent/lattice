@@ -2179,7 +2179,7 @@
         "kpis": {
           "selector": "ol > li",
           "required": true,
-          "description": "One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. A bare value with no nested bullets won't render as the number."
+          "description": "One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. The value still renders big with no nested bullets, but the tile has no metric-name label under it — always nest at least one."
         }
       },
       "requiredSlots": [
@@ -4362,7 +4362,7 @@
         "tiles": {
           "selector": "ol > li",
           "required": true,
-          "description": "One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:\n\n    1. 73%\n       - faster close\n\nA bare number with no nested caption won't render as the big number."
+          "description": "One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:\n\n    1. 73%\n       - faster close\n\nThe number still renders big with no nested caption, but the tile has no label under it — always nest a caption."
         }
       },
       "requiredSlots": [

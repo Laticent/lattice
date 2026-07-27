@@ -29,7 +29,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ### Common mistakes
 
-- **Placing the citation paragraph immediately after the heading (before the blockquote).** A code-only paragraph immediately after the heading is captured by the shared masthead subtitle rule and rendered as a generic italic subtitle, not the component's dedicated citation styling. Place the citation paragraph AFTER the blockquote instead, where citation-card's own selector gives it the mono, accent-colored citation treatment.
+- **Expecting the citation paragraph to get its dedicated accent-mono styling regardless of where it's placed.** The dedicated citation styling only applies when the citation has something else FOLLOWING it in the section — in practice, between the blockquote and a trailing gloss list. Adjacent to the heading (before OR immediately after) it's captured by the shared masthead treatment instead (eyebrow or italic subtitle); left as the section's very last element with nothing after it, it falls to a plain trailing-note style. Pair the citation with a gloss list if the dedicated styling matters — without one, no placement reaches it.
 
 ## When to use
 

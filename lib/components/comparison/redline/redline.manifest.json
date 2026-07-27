@@ -131,8 +131,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Not being deliberate about where the citation paragraph goes relative to the heading and blockquote — each position gets different styling.",
-      "fix": "The citation paragraph always renders — position just changes which mechanism claims it: before the `## heading` it's captured as the masthead eyebrow (mono-caps kicker); immediately after the heading it's captured as the masthead subtitle (italic, generic); left after the blockquote it stays in the body and gets redline's own accent-mono citation styling. Pick the placement for the look you want."
+      "mistake": "Expecting the citation paragraph to get redline's dedicated accent-mono styling regardless of where it's placed.",
+      "fix": "The dedicated citation styling only applies when the citation has something else FOLLOWING it in the section — in practice, between the blockquote and a trailing implications list. Adjacent to the heading (before OR immediately after) it's captured by the shared masthead treatment instead (eyebrow or italic subtitle); left as the section's very last element with nothing after it, it falls to a plain trailing-note style. Pair the citation with an implications list (the `- **Why this matters.**` bullet) if the dedicated styling matters — without one, no placement reaches it."
     },
     {
       "mistake": "Assuming Markdown strikethrough (`~~text~~`) doesn't render as a tracked deletion the way literal `<del>` does.",

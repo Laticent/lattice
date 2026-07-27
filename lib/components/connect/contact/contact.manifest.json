@@ -73,7 +73,7 @@
     },
     {
       "mistake": "The trailing key doesn't match a supported alias, e.g. `` `position` `` instead of `` `title`/`role` ``.",
-      "fix": "Only the documented keys are recognized (name, title|role, org|company, email, phone|tel|mobile, url|web|site, caption) — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect."
+      "fix": "Only the documented keys are recognized (name, title|role, org|company, email, phone|tel|mobile, url|web|site, caption) — an unrecognized key isn't mapped to any card field, so the whole bullet is silently dropped from both the rendered card and the vCard, not merely misplaced."
     }
   ],
   "specimenVoice": true,

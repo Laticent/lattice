@@ -86,7 +86,7 @@
     "kpis": {
       "selector": "ol > li",
       "required": true,
-      "description": "One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. A bare value with no nested bullets won't render as the number."
+      "description": "One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. The value still renders big with no nested bullets, but the tile has no metric-name label under it — always nest at least one."
     }
   },
   "skeleton": "<!-- _class: kpi -->\n\n`Financial · Q4 2026`\n\n## Revenue ahead of plan; margin and cash both expanded.\n\n1. $2.4B\n   - Total revenue\n   - target $2.2B · +9% `On plan` `Board`\n2. 42%\n   - Gross margin\n   - +2pp QoQ `On plan` `Audit`\n3. $1.1B\n   - Cash & equivalents\n   - +$180M QoQ `On plan` `Investor`\n",

@@ -64,7 +64,7 @@
     "tiles": {
       "selector": "ol > li",
       "required": true,
-      "description": "One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:\n\n    1. 73%\n       - faster close\n\nA bare number with no nested caption won't render as the big number."
+      "description": "One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:\n\n    1. 73%\n       - faster close\n\nThe number still renders big with no nested caption, but the tile has no label under it — always nest a caption."
     }
   },
   "skeleton": "<!-- _class: stats -->\n\n`Impact · Pilot Results`\n\n## Six months of results across four product teams.\n\n`Measured against pre-framework baseline, same teams, same market conditions.`\n\n1. 73%\n   - faster close\n2. 4.2×\n   - signal recall\n3. $1.2M\n   - prevented losses\n4. −18d\n   - avg cycle time\n",
@@ -130,8 +130,8 @@
       "fix": "A bare number still renders as the tile's big display number (the lead auto-bolds and is styled hero-sized regardless of nested content) — but with no nested caption there's no label under it. Nest a bullet directly beneath each number for its caption."
     },
     {
-      "mistake": "Assuming the subtitle/eyebrow line needs inline-code wrapping to render, the way most other components' eyebrows do.",
-      "fix": "Stats' subtitle DOES change styling depending on backtick-wrapping and position: a backtick-wrapped, code-only paragraph adjacent to the heading gets lifted into the masthead and picked up by the shared eyebrow/subtitle rule (secondary color, message size); plain unwrapped text instead stays in the body and matches stats' own generic paragraph rule (label color, body size) — a visibly different color and size, not the same line. Wrap it in backticks for the masthead treatment."
+      "mistake": "Writing the subtitle/eyebrow line as plain text instead of inline code.",
+      "fix": "Stats' subtitle DOES change styling depending on backtick-wrapping: a backtick-wrapped, code-only paragraph adjacent to the heading gets lifted into the masthead and picked up by the shared eyebrow/subtitle rule (secondary color, message size); plain unwrapped text instead stays in the body and matches stats' own generic paragraph rule (label color, body size) — a visibly different color and size. Wrap it in backticks for the masthead treatment."
     }
   ],
   "specimenVoice": true

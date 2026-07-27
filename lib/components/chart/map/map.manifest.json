@@ -148,7 +148,7 @@
   "commonMistakes": [
     {
       "mistake": "Assuming an unresolved region name is silently dropped.",
-      "fix": "An unmatched region name isn't silently dropped or fatal — it surfaces as a muted '?' row in the legend and is stamped on the figure; fix the spelling rather than assuming the pipeline validates names for you."
+      "fix": "An unmatched region name isn't silently dropped or fatal — it surfaces as a muted '?' row in the legend and is stamped on the figure, AND `npm run lint:deck` flags it explicitly (an `unknown-map-region` warning naming the region). Fix the spelling; the lint output tells you which name didn't resolve."
     },
     {
       "mistake": "Using `highlight` with numeric-looking trailing values, expecting a color ramp.",
@@ -174,7 +174,7 @@
     },
     {
       "variant": "robinson",
-      "useWhen": "A different, less area-distorting world projection fits the deck's visual tone better than the default Equal Earth."
+      "useWhen": "A more familiar, traditional-atlas world silhouette fits the deck's visual tone better than the default. Note this trades away area accuracy: Equal Earth (the default) is area-preserving by construction, so `robinson` is a LESS area-faithful compromise projection, not a more faithful one — pick it for the recognizable shape, not for improved area accuracy."
     },
     {
       "variant": "grouped",

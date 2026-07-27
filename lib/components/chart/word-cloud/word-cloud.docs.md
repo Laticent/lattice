@@ -23,11 +23,11 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 - **`constellation`.** The words should scatter like a starfield rather than pack tightly — a lighter, more open composition.
 - **`dense`.** The corpus is large (15-20 items) and needs to pack tightly to fit without shrinking below legibility.
 - **`spectrum`.** Weight should also read as a color gradient, not just size — reinforces rank with a second visual channel.
-- **`focal`.** One single term dominates the theme and deserves to be crowned dead-center rather than just the largest node in a spiral.
+- **`focal`.** One single term dominates the theme and deserves an outsized size ceiling — every variant already centers the top-weight word at the spiral's origin; `focal` widens the size range so the leader dwarfs the rest, rather than changing where it sits.
 
 ### Common mistakes
 
-- **Assuming a weight of zero or a negative number breaks the sizing scale.** Weight is read as a relative magnitude, min-max normalized across the whole cloud — zero and negative numbers work fine and still get a well-defined proportional size. What actually breaks the scale is a non-numeric or non-finite value.
+- **Assuming a zero, negative, or non-numeric weight breaks the sizing scale.** None of these break anything — weight is min-max normalized across the whole cloud, so zero and negative numbers still get a well-defined proportional size, and a non-numeric or non-finite weight (e.g. a typo) is silently mapped to the MIDDLE of the scale rather than erroring. That silence is the actual hazard: a mistyped weight doesn't fail loudly, it just quietly lands a word at a plausible mid-size.
 - **Using ascending rank numbers (1st place, 2nd place, …) as the weight, expecting rank 1 to render biggest.** Weight is a MAGNITUDE where higher means bigger — a rank-style scale where '1' means 'most important' renders as the SMALLEST word, not the biggest. Invert rank into magnitude before authoring (the top-ranked term gets the highest number).
 
 ## When to use

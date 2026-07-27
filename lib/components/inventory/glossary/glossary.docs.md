@@ -22,7 +22,7 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 ### Common mistakes
 
 - **Authoring terms out of alphabetical order.** The range pill is derived from the FIRST and LAST terms in the list, not computed by sorting — an out-of-order list produces a range pill that doesn't actually describe the terms it contains.
-- **A term with no nested definition bullet beneath it.** Every term needs exactly one nested definition bullet directly beneath it — a term with no nested bullet has no definition to promote into the table's second column.
+- **A term with no nested definition bullet beneath it, or a term with a SECOND nested definition bullet.** Every term needs EXACTLY one nested definition bullet directly beneath it. Zero bullets leaves that row's definition cell empty; a second bullet is silently DROPPED (only the first is captured), so the extra content just vanishes rather than erroring or appending.
 
 ## When to use
 

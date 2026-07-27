@@ -124,7 +124,7 @@
     },
     {
       "mistake": "Manually bolding the option name with `**…**`.",
-      "fix": "The lead text auto-lifts to `<strong>` (the corner-tag CSS keys off it) — wrapping it yourself just nests a redundant, no-op bold marker."
+      "fix": "The lead text auto-lifts to `<strong>` (the corner-tag CSS keys off it), and the lift step already skips an already-bolded lead — a manually bolded lead and a plain one produce byte-identical output. Wrapping it yourself is a harmless no-op, not a defect, but it's also unnecessary — write plain text and let the lift handle the weight."
     }
   ],
   "variantDecisionRule": [

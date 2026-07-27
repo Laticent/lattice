@@ -18,7 +18,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading naming the KPI group. |
 | `eyebrow` | `p > code` | no | Optional inline-code eyebrow above the heading — mono, tracked uppercase (e.g. `Financial · Q4 2026`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
-| `kpis` | `ol > li` | yes | One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. A bare value with no nested bullets won't render as the number. |
+| `kpis` | `ol > li` | yes | One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. The value still renders big with no nested bullets, but the tile has no metric-name label under it — always nest at least one. |
 
 ### Variant decision rule
 

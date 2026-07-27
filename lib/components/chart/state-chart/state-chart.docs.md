@@ -29,7 +29,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 
 ### Common mistakes
 
-- **Writing a transition's event/target as plain text instead of a single inline-code arrow.** The transition/detail distinction is purely mechanical — a nested bullet WITH one inline-code arrow token (`` `submit => 2` ``) is a transition; one WITHOUT is captured as detail prose instead. A transition written as plain text is silently treated as detail, not as an edge, and no arrow renders.
+- **Writing a transition's event/target as plain text instead of a single inline-code arrow.** The transition/detail distinction is purely mechanical — a nested bullet whose SOLE content is one inline-code token matching `event => N` or `=> N` (N a digit or `self`) is a transition; anything else — plain text, or an inline-code token with a non-numeric target like `` `approve => Approved` `` — is captured as detail prose instead. A transition written as plain text (or with a named target) is silently treated as detail, not as an edge, and no arrow renders.
 - **Using a state's NAME instead of its numeric index as a transition target (`` `approve => Approved` `` instead of `` `approve => 4` ``).** Transitions target the state's INDEX — its position in the numbered list, which is the stable ref — not its name; a name in the target position won't resolve to any state.
 
 ## When to use

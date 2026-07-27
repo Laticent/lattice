@@ -76,7 +76,7 @@
     },
     {
       "title": "Risk axis with heat",
-      "body": "The `heat` variant flips the palette so applies = alarm and exempt = relief. Use when the matrix is read for exposure, not for coverage."
+      "body": "The `heat` variant flips the palette so applies (`[x]`) reads as alarm. Exempt (`[ ]`) cells resolve to the neutral state and are NOT recolored — they don't turn 'relief' green. Use when the matrix is read for exposure, not for coverage."
     }
   ],
   "antiPatterns": [
@@ -154,7 +154,7 @@
     },
     {
       "variant": "pills",
-      "useWhen": "The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the `[x]`/`[-]`/`[ ]` state-marker grammar — a table still written with bracket markers renders identically to the default under `pills`, since the marker grammar emits an icon-only mark with no text for `pills`' word-styling to catch."
+      "useWhen": "The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the `[x]`/`[-]`/`[ ]` state-marker grammar — `pills`' word-styling only targets literal text, so a table still written with bracket markers keeps its icon-only marks (no word appears), though the cell padding and row-zebra shift anyway since `pills` restyles every cell regardless of content."
     },
     {
       "variant": "lanes",

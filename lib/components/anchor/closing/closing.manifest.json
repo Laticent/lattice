@@ -97,7 +97,7 @@
     },
     {
       "mistake": "In the `index` variant, the leading reference key isn't wrapped in inline code, e.g. `docs — the component catalog` instead of leading with a backtick-wrapped key.",
-      "fix": "The `index` variant's mono reference-key styling (`section.closing.index li code`) only applies to an actual `<code>` element — wrap the leading key in backticks so it renders as a mono chip, not plain text."
+      "fix": "The `index` variant's mono reference-key styling (`section.closing.index :is(ul,ol) li code`) only applies to an actual `<code>` element — wrap the leading key in backticks so it renders as a mono chip, not plain text."
     }
   ],
   "variantDecisionRule": [

@@ -23,12 +23,12 @@ Use when the story is geographic — program reach, service territories, where t
 - **`world`.** The story spans multiple countries — program reach, service territories, grants — the default basemap, spelled out.
 - **`us`.** The story is entirely within the United States — swaps to the US-states basemap with insets.
 - **`highlight`.** The regions are a SET, not a ranked magnitude — membership matters (pilot states, regions served), not a gradient of values.
-- **`robinson`.** A different, less area-distorting world projection fits the deck's visual tone better than the default Equal Earth.
+- **`robinson`.** A more familiar, traditional-atlas world silhouette fits the deck's visual tone better than the default. Note this trades away area accuracy: Equal Earth (the default) is area-preserving by construction, so `robinson` is a LESS area-faithful compromise projection, not a more faithful one — pick it for the recognizable shape, not for improved area accuracy.
 - **`grouped`.** Whole blocs, continents, or categories should fill as one unit (European Union, ASEAN) rather than spelling out every member country.
 
 ### Common mistakes
 
-- **Assuming an unresolved region name is silently dropped.** An unmatched region name isn't silently dropped or fatal — it surfaces as a muted '?' row in the legend and is stamped on the figure; fix the spelling rather than assuming the pipeline validates names for you.
+- **Assuming an unresolved region name is silently dropped.** An unmatched region name isn't silently dropped or fatal — it surfaces as a muted '?' row in the legend and is stamped on the figure, AND `npm run lint:deck` flags it explicitly (an `unknown-map-region` warning naming the region). Fix the spelling; the lint output tells you which name didn't resolve.
 - **Using `highlight` with numeric-looking trailing values, expecting a color ramp.** Under `highlight`, the trailing value is just an optional legend LABEL, not a magnitude — it doesn't drive a color ramp the way it does under the default choropleth; a numeric string there is treated as a category label, not a number.
 
 ### Data shape

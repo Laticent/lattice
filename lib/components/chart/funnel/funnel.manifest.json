@@ -103,7 +103,7 @@
   ],
   "dataShapeGuidance": [
     "Stage values must be monotonically non-increasing in authored order (top to bottom) — the taper and every printed conversion percentage assume each stage is a strict subset of the one before it.",
-    "The trailing value is a single number tolerant of commas and units (`4,800`, `$12k`) — don't combine two figures or a range into one chip."
+    "The trailing value is a single number tolerant of thousands commas (`4,800`) — it takes the FIRST numeric run and discards everything after, so a magnitude suffix is silently dropped, not scaled: `$12k` parses as `12`, not `12000`. Use consistent full-magnitude numbers across every stage (`12,000`, not `$12k`) or the taper and every printed conversion percentage will be wrong."
   ],
   "showcase": {
     "featured": true

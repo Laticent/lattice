@@ -166,7 +166,7 @@
     },
     {
       "variant": "benchmark",
-      "useWhen": "One shape is 'us' and the rest are reference or competitor overlays — visually distinguishes the primary shape from the benchmarks."
+      "useWhen": "One shape is 'us' and the rest should read as a single reference range, not named individuals — every series after the first collapses into ONE shaded min-max band labeled 'Comparison range' in the legend; competitor names are not shown. Use `default`/`small-multiples` instead if each competitor needs to stay individually identifiable."
     },
     {
       "variant": "quadrant",

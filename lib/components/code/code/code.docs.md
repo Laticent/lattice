@@ -20,7 +20,7 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 ### Common mistakes
 
 - **Fence tagged with the wrong language, e.g. ```js on a Python snippet.** Match the fence tag to the actual language exactly. The highlighter keys off the tag alone, not the code's content — a wrong tag mis-highlights every token.
-- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — the sample's own convention puts the comfort line at twelve, the hard wall at twenty (`whenToUse`/`stressDoc`). Cut scaffolding with `// ...` rather than spending that budget on it.
+- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — `whenToUse`/`stressDoc` put the hard wall at twenty lines (code declares no enforced capacity/density budget, so nothing gates this besides legibility). Cut scaffolding with `// ...` rather than spending that budget on it.
 
 ## When to use
 

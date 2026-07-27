@@ -21,7 +21,7 @@ Use to enumerate the criteria a decision must meet, in priority order. Numbering
 
 ### Common mistakes
 
-- **Manually bolding the criterion title with `**…**`.** The lead text of each `li` is auto-lifted to `<strong>` by the engine's slot-label-lift step — wrapping it in `**…**` yourself just nests a redundant bold marker; write plain text and let the lift handle the weight.
+- **Manually bolding the criterion title with `**…**`.** The lead text of each `li` is auto-lifted to `<strong>` by the engine's slot-label-lift step, which already skips a lead that's already bolded — a manually bolded lead and a plain one produce byte-identical output. Wrapping it yourself is a harmless no-op, not a defect, but it's also unnecessary — write plain text and let the lift handle the weight.
 - **Nesting the rationale as a numbered sub-list (`1.`) instead of a bullet (`-`).** The rationale styling only targets a nested `ul` — a numbered sub-list (`1.`) falls back to default list markup instead of the muted, unmarked rationale line.
 
 ## When to use

@@ -100,7 +100,7 @@
     },
     {
       "mistake": "The unit or label baked into the number line itself, e.g. `- 1,248,500,000 users`.",
-      "fix": "Keep the number list item to the numeral plus its own unit symbol (`%`, `$`, `×`). Put the semantic label — what's being counted — in the eyebrow, not appended prose after the number."
+      "fix": "Keep the number list item to the numeral plus its own unit symbol (`%`, `$`, `×`). Put what's being counted in the nested caption (the layout's demonstrated pattern — see the skeleton/sample) or, for a short category name, the eyebrow — not appended prose after the number itself."
     },
     {
       "mistake": "Eyebrow restates the number's value instead of naming its category, e.g. eyebrow `92%` above a number `92%`.",

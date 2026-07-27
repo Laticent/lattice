@@ -114,7 +114,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 
 - **Eyebrow written as bold or plain text instead of inline code.** The eyebrow match is `h2 + p:has(> code:only-child)` — wrap it in backticks immediately after the heading; without the code span it falls through to the general italic subtitle rule instead of the uppercase mono eyebrow lifted above the heading.
 - **The subtitle paragraph is authored before the eyebrow paragraph instead of after it.** The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h2 + p:has(> code:only-child)`) — keep the source order heading → eyebrow → subtitle.
-- **In the `index` variant, the leading reference key isn't wrapped in inline code, e.g. `docs — the component catalog` instead of leading with a backtick-wrapped key.** The `index` variant's mono reference-key styling (`section.closing.index li code`) only applies to an actual `<code>` element — wrap the leading key in backticks so it renders as a mono chip, not plain text.
+- **In the `index` variant, the leading reference key isn't wrapped in inline code, e.g. `docs — the component catalog` instead of leading with a backtick-wrapped key.** The `index` variant's mono reference-key styling (`section.closing.index :is(ul,ol) li code`) only applies to an actual `<code>` element — wrap the leading key in backticks so it renders as a mono chip, not plain text.
 
 #### When to use
 
@@ -450,7 +450,7 @@ Use to make one metric land. The number should be the headline — supporting te
 ##### Common mistakes
 
 - **Caption authored as a second top-level bullet instead of nested under the number's list item.** Indent the caption as a sub-bullet of the number, not a sibling `- caption` line — a sibling bullet doesn't just miss the caption styling, it matches the SAME top-level rule as the number itself and renders as a second giant hero-sized line.
-- **The unit or label baked into the number line itself, e.g. `- 1,248,500,000 users`.** Keep the number list item to the numeral plus its own unit symbol (`%`, `$`, `×`). Put the semantic label — what's being counted — in the eyebrow, not appended prose after the number.
+- **The unit or label baked into the number line itself, e.g. `- 1,248,500,000 users`.** Keep the number list item to the numeral plus its own unit symbol (`%`, `$`, `×`). Put what's being counted in the nested caption (the layout's demonstrated pattern — see the skeleton/sample) or, for a short category name, the eyebrow — not appended prose after the number itself.
 - **Eyebrow restates the number's value instead of naming its category, e.g. eyebrow `92%` above a number `92%`.** The eyebrow names the metric class ("Audience recall", "Q3 revenue"); the number carries the value. Restating the value in both places wastes the eyebrow's one job.
 
 #### When to use
@@ -1414,7 +1414,7 @@ Use when the items want vertical reading order — sequential exploration rather
 ##### Common mistakes
 
 - **Adding a `numbered` class to the slide, expecting it to turn on corner numbers.** There is no `numbered` CSS class — the ranking numbers come purely from authoring the cards as an ordered list (`1.`) instead of `-`.
-- **Adding a fourth card without the `compact` modifier.** A fourth card only fits with `compact` — without it, four full-size stacked cards overflow the frame; the component's own stress sample demonstrates `cards-stack compact` at four rows.
+- **Adding a fourth card without the `compact` modifier.** A fourth card at or near the density budget (16-26 words) needs `compact` to avoid overflowing the frame — the component's own stress sample demonstrates `cards-stack compact` at four full-budget rows. Four short cards can fit without it; `compact` is a density fix, not a hard card-count switch.
 
 #### When to use
 
@@ -1618,7 +1618,7 @@ Use for jargon-heavy decks where the audience needs a reference page. The runtim
 ##### Common mistakes
 
 - **Authoring terms out of alphabetical order.** The range pill is derived from the FIRST and LAST terms in the list, not computed by sorting — an out-of-order list produces a range pill that doesn't actually describe the terms it contains.
-- **A term with no nested definition bullet beneath it.** Every term needs exactly one nested definition bullet directly beneath it — a term with no nested bullet has no definition to promote into the table's second column.
+- **A term with no nested definition bullet beneath it, or a term with a SECOND nested definition bullet.** Every term needs EXACTLY one nested definition bullet directly beneath it. Zero bullets leaves that row's definition cell empty; a second bullet is silently DROPPED (only the first is captured), so the extra content just vanishes rather than erroring or appending.
 
 #### When to use
 
@@ -1871,7 +1871,7 @@ Use when the items are genuinely a flat list of one-line points. The default ren
 ##### Common mistakes
 
 - **Combining `numbered` with `principles`, or `lettered`/`roman`/`bullet` with `takeaway`, expecting the counter to change.** `numbered` only composes with `takeaway` (adds its accent counter); `lettered`/`roman`/`bullet` only compose with `principles` (swap ITS counter format) — the two modifier sets don't cross over.
-- **Picking `ol` or `ul` arbitrarily, without regard to whether order matters.** The list type is a real authoring signal, not decoration — `ol` renders a tabular leading number column implying sequence; `ul` doesn't. Use `ol` only when the sequence is load-bearing.
+- **Picking `ol` or `ul` arbitrarily under the default/`takeaway` look, without regard to whether order matters.** For the default and `takeaway` looks, list type is a real authoring signal — `ol` renders a tabular leading number column implying sequence; `ul` doesn't. Use `ol` only when the sequence is load-bearing. This does NOT apply to `principles` (and its `lettered`/`roman`/`bullet` sub-variants) — that family is `ol`-only regardless of whether the tenets are ordered; a `ul` there renders completely unstyled.
 
 #### When to use
 
@@ -2418,7 +2418,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 ##### Common mistakes
 
-- **Bolding or otherwise emphasizing the question text.** Author the question as plain interrogative text — no bold. The layout supplies its own numbered-index and prompt-weight styling, so manual emphasis fights the built-in treatment.
+- **Bolding or otherwise emphasizing the question text.** Author the question as plain interrogative text. The layout supplies its own numbered-index and prompt-weight styling — bolding the question doesn't fight it (the lift step already no-ops on an already-bolded lead) but italicizing or otherwise marking it up can nest inside that styling in ways that look inconsistent across questions, so keep it plain.
 - **Assuming `ul` vs `ol` changes which marker or numbering renders.** Unlike `list`, where list type is a real signal, q-and-a indexes questions automatically regardless of list type — `ul` and `ol` render identically here, so the choice carries no meaning.
 
 #### When to use
@@ -2796,7 +2796,7 @@ Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-pro
 
 ##### Common mistakes
 
-- **Writing a vague or duplicate first column, assuming it's just another data column.** In a portrait/narrow box the Fit Ladder reshapes an overflowing table into row-cards (column headers become in-card labels) instead of clipping it — the FIRST column becomes each card's title in that reshape, so it needs to be a genuinely identifying label per row.
+- **Writing a vague or duplicate first column, assuming it's just another data column.** When the deck opts into `autosplit: on` and the table overflows a portrait/narrow box, the Fit Ladder reshapes it into row-cards (column headers become in-card labels) instead of clipping — the FIRST column becomes each card's title in that reshape, so it needs to be a genuinely identifying label per row. Without `autosplit: on`, an overflowing table is not automatically protected this way.
 
 #### When to use
 
@@ -2889,7 +2889,7 @@ Use after a comparison slide to land the decision. The justifications render as 
 ##### Common mistakes
 
 - **Reordering justification cards, expecting their categorical accent color to travel with the same justification.** The accent color is assigned purely by card POSITION (an `nth-child` cycle through the categorical palette), not by content — reordering cards in the markdown reassigns colors; they don't follow the justification.
-- **Manually bolding the option name with `**…**`.** The lead text auto-lifts to `<strong>` (the corner-tag CSS keys off it) — wrapping it yourself just nests a redundant, no-op bold marker.
+- **Manually bolding the option name with `**…**`.** The lead text auto-lifts to `<strong>` (the corner-tag CSS keys off it), and the lift step already skips an already-bolded lead — a manually bolded lead and a plain one produce byte-identical output. Wrapping it yourself is a harmless no-op, not a defect, but it's also unnecessary — write plain text and let the lift handle the weight.
 
 #### When to use
 
@@ -3234,7 +3234,7 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 ##### Common mistakes
 
-- **Not being deliberate about where the citation paragraph goes relative to the heading and blockquote — each position gets different styling.** The citation paragraph always renders — position just changes which mechanism claims it: before the `## heading` it's captured as the masthead eyebrow (mono-caps kicker); immediately after the heading it's captured as the masthead subtitle (italic, generic); left after the blockquote it stays in the body and gets redline's own accent-mono citation styling. Pick the placement for the look you want.
+- **Expecting the citation paragraph to get redline's dedicated accent-mono styling regardless of where it's placed.** The dedicated citation styling only applies when the citation has something else FOLLOWING it in the section — in practice, between the blockquote and a trailing implications list. Adjacent to the heading (before OR immediately after) it's captured by the shared masthead treatment instead (eyebrow or italic subtitle); left as the section's very last element with nothing after it, it falls to a plain trailing-note style. Pair the citation with an implications list (the `- **Why this matters.**` bullet) if the dedicated styling matters — without one, no placement reaches it.
 - **Assuming Markdown strikethrough (`~~text~~`) doesn't render as a tracked deletion the way literal `<del>` does.** `~~text~~` DOES render as a tracked deletion — Markdown strikethrough produces `<s>`, and redline's CSS styles `del`/`s` identically (line-through, fail-red color and background). Either syntax works for a deletion; `<ins>new</ins>` still needs literal HTML since Markdown has no native insertion syntax.
 
 #### When to use
@@ -3488,7 +3488,7 @@ Use to evaluate 2–4 options against the same set of criteria, with pass/partia
 
 ##### Common mistakes
 
-- **Using `[ ]` (empty) to mean "not applicable" or a soft neutral, rather than an explicit fail.** `[ ]` reads as a hard fail/alarm state, not neutral — for a partial reading use `[-]`; for a muted, not-alarming 'not included' use `[/]`. Picking the wrong marker changes the badge's color semantics, not just its shape.
+- **Using `[ ]` (empty) to mean "not applicable" or a soft neutral, rather than an explicit fail.** In verdict-grid specifically (and pricing), `[ ]` reads as a hard fail/alarm state, not neutral — for a partial reading use `[-]`; for a muted, not-alarming 'not included' use `[/]`. This is verdict-grid's own scoring, not the shared state-marker vocabulary's default: the same `[ ]` reads as a neutral 'not yet' in checklist, obligation-matrix, and roadmap. Picking the wrong marker here changes the badge's color semantics, not just its shape.
 - **Putting the recommended option first instead of last.** The focal-verdict treatment is applied to the LAST option card, not whichever one the author considers the pick — order the option you want to recommend so it's written last.
 
 #### When to use
@@ -3662,7 +3662,7 @@ Use to enumerate the criteria a decision must meet, in priority order. Numbering
 
 ##### Common mistakes
 
-- **Manually bolding the criterion title with `**…**`.** The lead text of each `li` is auto-lifted to `<strong>` by the engine's slot-label-lift step — wrapping it in `**…**` yourself just nests a redundant bold marker; write plain text and let the lift handle the weight.
+- **Manually bolding the criterion title with `**…**`.** The lead text of each `li` is auto-lifted to `<strong>` by the engine's slot-label-lift step, which already skips a lead that's already bolded — a manually bolded lead and a plain one produce byte-identical output. Wrapping it yourself is a harmless no-op, not a defect, but it's also unnecessary — write plain text and let the lift handle the weight.
 - **Nesting the rationale as a numbered sub-list (`1.`) instead of a bullet (`-`).** The rationale styling only targets a nested `ul` — a numbered sub-list (`1.`) falls back to default list markup instead of the muted, unmarked rationale line.
 
 #### When to use
@@ -4058,7 +4058,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading naming the KPI group. |
 | `eyebrow` | `p > code` | no | Optional inline-code eyebrow above the heading — mono, tracked uppercase (e.g. `Financial · Q4 2026`). Authored as an inline-code paragraph, not a heading, so it stays lint-safe (no heading-order violation). |
-| `kpis` | `ol > li` | yes | One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. A bare value with no nested bullets won't render as the number. |
+| `kpis` | `ol > li` | yes | One li per KPI, authored as an ordered list (`1.`). The lead is the metric value (the big number) — it renders in display type automatically (no `**…**` needed); follow it with nested bullets for the metric name, target/trend, and status pills. The value still renders big with no nested bullets, but the tile has no metric-name label under it — always nest at least one. |
 
 ##### Variant decision rule
 
@@ -4276,12 +4276,12 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the metrics. |
 | `subtitle` | `p > code` | no | Optional inline-code paragraph (eyebrow before the h2, or caption after it). Styled by the generic `> p`/`> em` rule, not a dedicated `p > code` rule. |
-| `tiles` | `ol > li` | yes | One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:     1. 73%        - faster close A bare number with no nested caption won't render as the big number. |
+| `tiles` | `ol > li` | yes | One li per stat tile, authored as an ordered list (`1.`). The lead is the number (it renders in display type automatically — no `**…**` needed); the caption is a nested bullet beneath it:     1. 73%        - faster close The number still renders big with no nested caption, but the tile has no label under it — always nest a caption. |
 
 ##### Common mistakes
 
 - **A stat's number has no nested caption bullet beneath it.** A bare number still renders as the tile's big display number (the lead auto-bolds and is styled hero-sized regardless of nested content) — but with no nested caption there's no label under it. Nest a bullet directly beneath each number for its caption.
-- **Assuming the subtitle/eyebrow line needs inline-code wrapping to render, the way most other components' eyebrows do.** Stats' subtitle DOES change styling depending on backtick-wrapping and position: a backtick-wrapped, code-only paragraph adjacent to the heading gets lifted into the masthead and picked up by the shared eyebrow/subtitle rule (secondary color, message size); plain unwrapped text instead stays in the body and matches stats' own generic paragraph rule (label color, body size) — a visibly different color and size, not the same line. Wrap it in backticks for the masthead treatment.
+- **Writing the subtitle/eyebrow line as plain text instead of inline code.** Stats' subtitle DOES change styling depending on backtick-wrapping: a backtick-wrapped, code-only paragraph adjacent to the heading gets lifted into the masthead and picked up by the shared eyebrow/subtitle rule (secondary color, message size); plain unwrapped text instead stays in the body and matches stats' own generic paragraph rule (label color, body size) — a visibly different color and size. Wrap it in backticks for the masthead treatment.
 
 #### When to use
 
@@ -4867,7 +4867,7 @@ Use for a pipeline that narrows — a sales / conversion funnel, a hiring or gra
 ##### Data shape
 
 - Stage values must be monotonically non-increasing in authored order (top to bottom) — the taper and every printed conversion percentage assume each stage is a strict subset of the one before it.
-- The trailing value is a single number tolerant of commas and units (`4,800`, `$12k`) — don't combine two figures or a range into one chip.
+- The trailing value is a single number tolerant of thousands commas (`4,800`) — it takes the FIRST numeric run and discards everything after, so a magnitude suffix is silently dropped, not scaled: `$12k` parses as `12`, not `12000`. Use consistent full-magnitude numbers across every stage (`12,000`, not `$12k`) or the taper and every printed conversion percentage will be wrong.
 
 #### When to use
 
@@ -4955,7 +4955,7 @@ Use for project plans with overlapping or staggered tasks. Each task is a bar on
 
 - A chart uses dates OR ordinals (quarters/months) consistently — never mix `2026-03-15` spans with `Q1`/`Jan` spans in the same chart.
 - `..` is the only span delimiter — a hyphen or en-dash between two dates isn't recognized as a span.
-- `after: Task name` must reference another task's exact label somewhere on the same slide — source order doesn't matter (every task is indexed before dependencies are checked), so a forward reference to a task defined later is fine. Only a nonexistent label is flagged as dangling.
+- `after: Task name` must reference another task's exact (case-insensitive) label AND that task must itself carry a parseable time span — a task with only status pills and no `START..END`/point is never indexed, so `after:` pointing at it is flagged dangling even though the label is on the slide and visibly rendered. Source order doesn't matter otherwise: a forward reference to a spanned task defined later is fine.
 
 #### When to use
 
@@ -5215,7 +5215,7 @@ Use for status snapshots: what's in each lane (todo/doing/done or similar). Each
 
 ##### Variant decision rule
 
-- **default (no modifier).** Color is spent only on STATUS pills — a calm neutral grid where a flagged card is the one visual standout.
+- **default (no modifier).** Color is spent on status — a flagged card's surface and border tint to its status, and the Done column dims — while unflagged cards and other columns stay neutral. `keyline`/`tinted` move status color OFF the card surface and onto the chip/column instead, keeping cards themselves neutral regardless of status.
 - **`keyline`.** Cards should be color-coded by CATEGORY (their nested lane label) via a hairline, not by column.
 - **`tinted`.** Each COLUMN/stage itself should carry a colored wash, making the board's stage structure the first thing the eye reads.
 
@@ -5354,12 +5354,12 @@ Use when the story is geographic — program reach, service territories, where t
 - **`world`.** The story spans multiple countries — program reach, service territories, grants — the default basemap, spelled out.
 - **`us`.** The story is entirely within the United States — swaps to the US-states basemap with insets.
 - **`highlight`.** The regions are a SET, not a ranked magnitude — membership matters (pilot states, regions served), not a gradient of values.
-- **`robinson`.** A different, less area-distorting world projection fits the deck's visual tone better than the default Equal Earth.
+- **`robinson`.** A more familiar, traditional-atlas world silhouette fits the deck's visual tone better than the default. Note this trades away area accuracy: Equal Earth (the default) is area-preserving by construction, so `robinson` is a LESS area-faithful compromise projection, not a more faithful one — pick it for the recognizable shape, not for improved area accuracy.
 - **`grouped`.** Whole blocs, continents, or categories should fill as one unit (European Union, ASEAN) rather than spelling out every member country.
 
 ##### Common mistakes
 
-- **Assuming an unresolved region name is silently dropped.** An unmatched region name isn't silently dropped or fatal — it surfaces as a muted '?' row in the legend and is stamped on the figure; fix the spelling rather than assuming the pipeline validates names for you.
+- **Assuming an unresolved region name is silently dropped.** An unmatched region name isn't silently dropped or fatal — it surfaces as a muted '?' row in the legend and is stamped on the figure, AND `npm run lint:deck` flags it explicitly (an `unknown-map-region` warning naming the region). Fix the spelling; the lint output tells you which name didn't resolve.
 - **Using `highlight` with numeric-looking trailing values, expecting a color ramp.** Under `highlight`, the trailing value is just an optional legend LABEL, not a magnitude — it doesn't drive a color ramp the way it does under the default choropleth; a numeric string there is treated as a category label, not a number.
 
 ##### Data shape
@@ -5530,7 +5530,7 @@ Use for part-to-whole breakdowns with three to six slices. Add the `donut` modif
 
 - Author slices in descending value order; the engine draws wedges in source order and never auto-sorts — a shuffled list scatters the visual hierarchy the wedges are supposed to carry.
 - Keep every slice label to 1-3 words — long labels wrap and crowd the legend, which sits in a right rail beside the wedges in a landscape box or stacks below them in a portrait box (the portrait layout budgets a wider label column, but short labels still read cleanest in both).
-- Stay at 3-6 slices for the sweet spot; the palette has six hues (Wong / Cleveland-McGill / IBM Carbon calibrated for perceptual distinction), so a 7th slice repeats a color already on the chart — consolidate the long tail into a single `Other` slice before then rather than adding a 7th.
+- Stay at 3-6 slices for the sweet spot; the palette has six hues (Wong 2011 / IBM Carbon, calibrated for perceptual distinction), so a 7th slice repeats a color already on the chart — consolidate the long tail into a single `Other` slice before then rather than adding a 7th.
 
 #### When to use
 
@@ -5970,7 +5970,7 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 - **default (no modifier).** Two to four options compared on the shared polygon — the plain radar.
 - **`target`.** Actual performance should be measured against an explicit goal shape — draws the target as its own series the actual shape must clear.
 - **`delta`.** Only two periods or options are being compared and the CHANGE between them, not each one individually, is the point — shades the gap.
-- **`benchmark`.** One shape is 'us' and the rest are reference or competitor overlays — visually distinguishes the primary shape from the benchmarks.
+- **`benchmark`.** One shape is 'us' and the rest should read as a single reference range, not named individuals — every series after the first collapses into ONE shaded min-max band labeled 'Comparison range' in the legend; competitor names are not shown. Use `default`/`small-multiples` instead if each competitor needs to stay individually identifiable.
 - **`quadrant`.** The axes themselves fall into natural categories (People/Process/Technology/Risk) worth grouping and shading by compass quarter.
 - **`small-multiples`.** More options need comparing than overlapping polygons could hold without tangling — gives each option its own small radar instead.
 - **`minimal`.** The scale rings would distract — strips them, leaving just the shape.
@@ -6441,7 +6441,7 @@ Use to show a finite-state machine — the discrete states a system can be in an
 
 ##### Common mistakes
 
-- **Writing a transition's event/target as plain text instead of a single inline-code arrow.** The transition/detail distinction is purely mechanical — a nested bullet WITH one inline-code arrow token (`` `submit => 2` ``) is a transition; one WITHOUT is captured as detail prose instead. A transition written as plain text is silently treated as detail, not as an edge, and no arrow renders.
+- **Writing a transition's event/target as plain text instead of a single inline-code arrow.** The transition/detail distinction is purely mechanical — a nested bullet whose SOLE content is one inline-code token matching `event => N` or `=> N` (N a digit or `self`) is a transition; anything else — plain text, or an inline-code token with a non-numeric target like `` `approve => Approved` `` — is captured as detail prose instead. A transition written as plain text (or with a named target) is silently treated as detail, not as an edge, and no arrow renders.
 - **Using a state's NAME instead of its numeric index as a transition target (`` `approve => Approved` `` instead of `` `approve => 4` ``).** Transitions target the state's INDEX — its position in the numbered list, which is the stable ref — not its name; a name in the target position won't resolve to any state.
 
 #### When to use
@@ -6688,11 +6688,11 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 - **`constellation`.** The words should scatter like a starfield rather than pack tightly — a lighter, more open composition.
 - **`dense`.** The corpus is large (15-20 items) and needs to pack tightly to fit without shrinking below legibility.
 - **`spectrum`.** Weight should also read as a color gradient, not just size — reinforces rank with a second visual channel.
-- **`focal`.** One single term dominates the theme and deserves to be crowned dead-center rather than just the largest node in a spiral.
+- **`focal`.** One single term dominates the theme and deserves an outsized size ceiling — every variant already centers the top-weight word at the spiral's origin; `focal` widens the size range so the leader dwarfs the rest, rather than changing where it sits.
 
 ##### Common mistakes
 
-- **Assuming a weight of zero or a negative number breaks the sizing scale.** Weight is read as a relative magnitude, min-max normalized across the whole cloud — zero and negative numbers work fine and still get a well-defined proportional size. What actually breaks the scale is a non-numeric or non-finite value.
+- **Assuming a zero, negative, or non-numeric weight breaks the sizing scale.** None of these break anything — weight is min-max normalized across the whole cloud, so zero and negative numbers still get a well-defined proportional size, and a non-numeric or non-finite weight (e.g. a typo) is silently mapped to the MIDDLE of the scale rather than erroring. That silence is the actual hazard: a mistyped weight doesn't fail loudly, it just quietly lands a word at a plausible mid-size.
 - **Using ascending rank numbers (1st place, 2nd place, …) as the weight, expecting rank 1 to render biggest.** Weight is a MAGNITUDE where higher means bigger — a rank-style scale where '1' means 'most important' renders as the SMALLEST word, not the biggest. Invert rank into magnitude before authoring (the top-ranked term gets the highest number).
 
 #### When to use
@@ -7211,7 +7211,7 @@ Use when the code IS the slide — an API snippet, a config example, a migration
 ##### Common mistakes
 
 - **Fence tagged with the wrong language, e.g. ```js on a Python snippet.** Match the fence tag to the actual language exactly. The highlighter keys off the tag alone, not the code's content — a wrong tag mis-highlights every token.
-- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — the sample's own convention puts the comfort line at twelve, the hard wall at twenty (`whenToUse`/`stressDoc`). Cut scaffolding with `// ...` rather than spending that budget on it.
+- **Shebang, import block, or file-header boilerplate left in as padding before the interesting line.** Trim to the lines that carry the point — `whenToUse`/`stressDoc` put the hard wall at twenty lines (code declares no enforced capacity/density budget, so nothing gates this besides legibility). Cut scaffolding with `// ...` rather than spending that budget on it.
 
 #### When to use
 
@@ -7580,7 +7580,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ##### Common mistakes
 
-- **Placing the citation paragraph immediately after the heading (before the blockquote).** A code-only paragraph immediately after the heading is captured by the shared masthead subtitle rule and rendered as a generic italic subtitle, not the component's dedicated citation styling. Place the citation paragraph AFTER the blockquote instead, where citation-card's own selector gives it the mono, accent-colored citation treatment.
+- **Expecting the citation paragraph to get its dedicated accent-mono styling regardless of where it's placed.** The dedicated citation styling only applies when the citation has something else FOLLOWING it in the section — in practice, between the blockquote and a trailing gloss list. Adjacent to the heading (before OR immediately after) it's captured by the shared masthead treatment instead (eyebrow or italic subtitle); left as the section's very last element with nothing after it, it falls to a plain trailing-note style. Pair the citation with a gloss list if the dedicated styling matters — without one, no placement reaches it.
 
 #### When to use
 
@@ -7739,7 +7739,7 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 - **default (no modifier).** Neutral, data-first cell chrome with no additional emphasis — reference tone.
 - **`heat`.** The matrix should read as exposure — applies (`[x]`) reads as alarm — not just coverage for reference. Exempt (`[ ]`) cells resolve to a neutral state that `heat` does NOT re-color; they keep their default neutral ring rather than turning 'relief' green.
 - **`asymmetric`.** The regimes genuinely differ in kind and each deserves body-level breathing room as its own card rather than a strict grid cell.
-- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the `[x]`/`[-]`/`[ ]` state-marker grammar — a table still written with bracket markers renders identically to the default under `pills`, since the marker grammar emits an icon-only mark with no text for `pills`' word-styling to catch.
+- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the `[x]`/`[-]`/`[ ]` state-marker grammar — `pills`' word-styling only targets literal text, so a table still written with bracket markers keeps its icon-only marks (no word appears), though the cell padding and row-zebra shift anyway since `pills` restyles every cell regardless of content.
 - **`lanes`.** Each regime should read as its own horizontal band, emphasizing that it's a distinct regime rather than a rank in a list.
 
 ##### Common mistakes
@@ -7750,7 +7750,7 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 
 - **Many regimes, shared obligations.** Three or more regulations or jurisdictions compared across the same set of duties. The grid lets the reader scan a row to know a regime and a column to know an obligation.
 - **State markers, not values.** Cells are pass/partial/fail/skip — the universal `[x]` / `[-]` / `[ ]` / `[/]` grammar. For textual cell values use `compare-table`.
-- **Risk axis with heat.** The `heat` variant flips the palette so applies = alarm and exempt = relief. Use when the matrix is read for exposure, not for coverage.
+- **Risk axis with heat.** The `heat` variant flips the palette so applies (`[x]`) reads as alarm. Exempt (`[ ]`) cells resolve to the neutral state and are NOT recolored — they don't turn 'relief' green. Use when the matrix is read for exposure, not for coverage.
 
 #### When NOT to use
 
@@ -8097,7 +8097,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 ##### Common mistakes
 
-- **Leaving the scope label unwrapped in plain text instead of inline code.** The component's own dedicated 'kicker above the ledger' styling is currently unreachable — the shared masthead lift always claims a code-only paragraph adjacent to the heading first (as an italic subtitle if placed after the heading, or a mono eyebrow if placed before). Wrap it in backticks so it's at least recognized as a label; expect the generic mono-caps eyebrow or italic subtitle treatment, not a distinct kicker.
+- **Leaving the scope label unwrapped in plain text instead of inline code.** The component's own dedicated 'kicker above the ledger' styling is unreachable from every placement an author would naturally use — the shared masthead lift claims a code-only paragraph placed before OR immediately after the heading (the only two positions the natural heading-then-scope-then-items flow offers), leaving no gap for the dedicated selector to match. Wrap it in backticks so it's at least recognized as a label; expect the generic mono-caps eyebrow or italic subtitle treatment, not a distinct kicker.
 - **Using `diff-bands` without grouping items under `### ` category subheadings.** `diff-bands` expects the items split into separate ordered lists, each preceded by an `### Added`/`### Amended`/`### Repealed`/`### Enforced` subheading — a single flat list under `diff-bands` has no band to shade into.
 
 #### When to use
@@ -8478,7 +8478,7 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 ##### Common mistakes
 
 - **No field is tagged with the `name` key.** Every contact card needs exactly one field trailing `` `name` `` — without it the vCard has no identity and the hero name area renders empty.
-- **The trailing key doesn't match a supported alias, e.g. `` `position` `` instead of `` `title`/`role` ``.** Only the documented keys are recognized (name, title|role, org|company, email, phone|tel|mobile, url|web|site, caption) — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
+- **The trailing key doesn't match a supported alias, e.g. `` `position` `` instead of `` `title`/`role` ``.** Only the documented keys are recognized (name, title|role, org|company, email, phone|tel|mobile, url|web|site, caption) — an unrecognized key isn't mapped to any card field, so the whole bullet is silently dropped from both the rendered card and the vCard, not merely misplaced.
 
 #### When to use
 
@@ -8540,7 +8540,7 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 ##### Common mistakes
 
 - **Eyebrow written as plain or bold text instead of inline code.** The card is reassembled from its recognized parts, so the eyebrow's SOURCE position doesn't matter — but it must be backtick-wrapped: unwrapped plain or bold text matches nothing and is silently dropped from the rendered card, not shown as a stray paragraph.
-- **The trailing key doesn't match a supported alias, e.g. `` `pass` `` for the security type instead of `` `security`/`auth`/`encryption` ``.** The recognized keys are ssid|network, password|pass, security|auth|encryption, and caption — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
+- **Using `` `pass` `` as a shorthand for the security TYPE (e.g. `` WPA2 `pass` ``), or using a genuinely unrecognized key like `` `encrypt` ``.** `pass` IS recognized, but as an alias for `password`, not `security` — `` WPA2 `pass` `` routes "WPA2" into the password field (and into the scannable QR payload as the actual password), not the security-type field. For the security type use `security`/`auth`/`encryption`. A genuinely unrecognized key isn't mapped to any card field at all, and the whole bullet is silently dropped from the rendered card — it doesn't just land in the wrong place.
 
 #### When to use
 

@@ -22,7 +22,7 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 ### Common mistakes
 
 - **Eyebrow written as plain or bold text instead of inline code.** The card is reassembled from its recognized parts, so the eyebrow's SOURCE position doesn't matter — but it must be backtick-wrapped: unwrapped plain or bold text matches nothing and is silently dropped from the rendered card, not shown as a stray paragraph.
-- **The trailing key doesn't match a supported alias, e.g. `` `pass` `` for the security type instead of `` `security`/`auth`/`encryption` ``.** The recognized keys are ssid|network, password|pass, security|auth|encryption, and caption — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
+- **Using `` `pass` `` as a shorthand for the security TYPE (e.g. `` WPA2 `pass` ``), or using a genuinely unrecognized key like `` `encrypt` ``.** `pass` IS recognized, but as an alias for `password`, not `security` — `` WPA2 `pass` `` routes "WPA2" into the password field (and into the scannable QR payload as the actual password), not the security-type field. For the security type use `security`/`auth`/`encryption`. A genuinely unrecognized key isn't mapped to any card field at all, and the whole bullet is silently dropped from the rendered card — it doesn't just land in the wrong place.
 
 ## When to use
 
