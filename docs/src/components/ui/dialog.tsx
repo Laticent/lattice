@@ -77,7 +77,7 @@ function DialogContent({
             // in place). The base is `absolute top-4 right-4` around a bare 16px glyph —
             // a 16×16 hit area, well under the 44px touch floor the rest of the chrome
             // holds, on EVERY dialog in the app. On a coarse pointer the button becomes a
-            // 44×44 grid and its inset drops 16px→2px, which leaves the glyph's centre
+            // 44×44 grid and its inset drops 16px→2px, which leaves the glyph's center
             // exactly where it was (24px from each edge) while the target reaches the
             // floor. Fine pointers keep the base verbatim. (#1211)
             className="absolute top-4 right-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground pointer-coarse:top-0.5 pointer-coarse:right-0.5 pointer-coarse:grid pointer-coarse:size-11 pointer-coarse:place-items-center [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"

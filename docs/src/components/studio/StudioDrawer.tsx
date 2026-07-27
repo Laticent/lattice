@@ -354,7 +354,7 @@ export function StudioDrawer({
 						</div>
 					)}
 
-					{/* ── Door 1 — Themes. A 3-column grid of colour-field tiles with real names,
+					{/* ── Door 1 — Themes. A 3-column grid of color-field tiles with real names,
 					    scrolling DOWN like everything else. The three group headers survive here
 					    and only here: they are the sole navigational structure in a 7-row grid,
 					    and the inventory must stay legible AS GROUPS. */}
@@ -373,7 +373,7 @@ export function StudioDrawer({
 													aria-pressed={on}
 													aria-label={opt.label}
 													onClick={() => onApplyPalette(opt.value)}
-													// The tile's outline is what separates an ARBITRARY swatch colour from the
+													// The tile's outline is what separates an ARBITRARY swatch color from the
 													// sheet, so it can't use `--border`: that token is tuned against the
 													// palette's own surfaces and drops to ~1.4:1 against a dark swatch in a
 													// dark palette (measured). A --text-heading mix is contrasty by

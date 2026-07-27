@@ -40,7 +40,7 @@ measure rather than to redesign: open all eight surfaces on the real production 
 | Send feedback | Send feedback | Full bleed | 390×844 | 0 | 92px | 30×30 |
 | Library | Library | Full bleed | 390×844 | 0 | 59px | **16×16** |
 | Version history | Version history | **Right edge** | 343×844 | 0 | 107px | **16×16** |
-| Search / commands | *(unnamed on screen)* | **Centre float** | 358×350 | 8px all | — | **16×16** |
+| Search / commands | *(unnamed on screen)* | **Center float** | 358×350 | 8px all | — | **16×16** |
 | Reader views | **LENSES** | **Left edge** | 343×844 | 0 | 49px | **16×16** |
 
 Four entry edges. Five heights. Three widths. Three close sizes. The three surfaces
@@ -270,7 +270,7 @@ overlay already uses. It was the last surface in the app on a different one,
 which is precisely why it kept behaving differently: it was also the only panel
 whose accessible name disagreed with its own drawer row ("Studio commands" vs
 "Search / commands"), and the conversion fixed that for free by giving it the
-shared `PanelHeader`. The desktop path keeps `CommandDialog`, where a centred
+shared `PanelHeader`. The desktop path keeps `CommandDialog`, where a centered
 ⌘K dialog is the right idiom and there is no keyboard to clear.
 
 The general lesson is the one this whole PR keeps re-learning: **a surface that
@@ -285,7 +285,7 @@ every dialog in the app.
 
 Fixed there, marked in place as a deviation from the vendored base the way `sonner.tsx`
 marks its two: on a **coarse pointer** the button becomes a 44×44 grid and its inset drops
-16px→2px, which leaves the glyph's centre exactly where it was (24px from each edge) while
+16px→2px, which leaves the glyph's center exactly where it was (24px from each edge) while
 the target reaches the floor. Fine pointers keep the base verbatim — a mouse does not need
 the padding, and the header is denser without it. `PanelCloseButton` follows the same rule
 (44 on a phone, 30 otherwise).
@@ -327,7 +327,7 @@ heights was not.
 
 Tablet and desktop verified unchanged in the same pass: at 820px Library is still a 720px
 right sheet, Reader views a 340px left sheet, Send feedback 440px right, the palette still
-centre-floating; at 1440px Library and Reader views still dock and the other two are still
+center-floating; at 1440px Library and Reader views still dock and the other two are still
 right sheets. One deliberate change rides along — Version history moved from a bespoke
 `sm:max-w-[360px]` onto the shared `width="sm"` (340px), a 20px narrowing at tablet and
 desktop, which is the point of having a width scale.
@@ -368,6 +368,6 @@ desktop, which is the point of having a width scale.
   no layout, so asserting geometry there would assert nothing. It lives in the Playwright
   measurement above.
 - **UNVERIFIED, not claimed:** real touch and iOS Safari. In particular `pointer: coarse` is
-  exercised through Chromium's emulation, not a device, and the `dvh` cap's behaviour as
+  exercised through Chromium's emulation, not a device, and the `dvh` cap's behavior as
   Safari's URL bar collapses remains open — both tracked in #1216 with the two other
   claims that pass owed.
