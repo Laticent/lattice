@@ -1580,8 +1580,10 @@ section[data-split-role="cover"][data-split-role="cover"] > header,
 section[data-split-role="cover"][data-split-role="cover"] > footer,
 section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > footer,
 section[data-split-role="cover"][data-split-role="cover"] > .lat-pagination,
-section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > .lat-pagination,
-section[data-split-role="cover"][data-split-role="cover"] .tile-progress .seg {
+/* (No `.tile-progress .seg` arm — the progress rail no longer emits a label on any path;
+   rank 4 of the band's allocation policy. `.lat-split-rail .seg` is a different element,
+   a k-of-N segment bar, and is coloured by its own rules.) */
+section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > .lat-pagination {
   color: currentColor;
   opacity: 0.9;
 }

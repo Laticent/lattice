@@ -1177,16 +1177,18 @@ everywhere the band carries a docked mark — was implemented, then **reverted**
 makes the footer bid for the row's width and `nowrap` forbids the wrap that was working, so an
 ordinary board deck's 150-char confidentiality line went from complete-over-three-lines to
 `…or its advisers, or …` **in the exported PDF's text layer**, and the rail it was never meant to
-touch truncated too. That is an export regression, not a visual one. The promotion therefore stays
-scoped to split bands and split covers, where #1191 introduced it and where a fourth mark makes the
-row genuinely over-subscribed with no wrap to lose. What DID ship here: `line-height: 1.45` on the
-promoted footer, because `overflow: hidden` on the base footer's `line-height: 1` was shaving every
-glyph above cap height (`ÜBERPRÜFUNG` printed `UBERPRUFUNG`), plus
-`test/integration/invariants/footer-band.test.js`, which drives a genuinely contended, genuinely
-splitting fixture in real Chromium and asserts the properties that guarantee the rendering rather
-than a pixel diff. **The general allocation policy for the un-split band is unresolved and belongs
-to the owner** — options, costs, and a recommendation in
-`engineering/decisions/2026-07-27-footer-band-allocation.md`.
+touch truncated too. That is an export regression, not a visual one.
+
+**It was then resolved properly, at the owner's call, by ranking instead of arbitrating** — the band
+now has a fixed priority order (page number > dots > the author's words > the section name), and the
+section name is removed from the markup entirely, which leaves exactly one flexible item in the row
+and makes the promotion safe on every band. Full record, including the two costs accepted and the
+options whose shared premise turned out to be false:
+`engineering/decisions/2026-07-27-footer-band-allocation.md`. Also shipped here: `line-height: 1.45`
+on the footer, because `overflow: hidden` on the base footer's `line-height: 1` was shaving every
+glyph above cap height (`ÜBERPRÜFUNG` printed `UBERPRUFUNG`), and
+`test/integration/invariants/footer-band.test.js`, which drives a genuinely contended fixture in
+real Chromium and asserts the properties that guarantee the rendering rather than a pixel diff.
 
 **Measuring it went wrong four times, and the record is worth keeping**, because the failure mode is
 this branch's recurring one — a plausible number that is not the truth:

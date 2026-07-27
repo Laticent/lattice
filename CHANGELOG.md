@@ -5053,9 +5053,9 @@ in patch versions.
   24-section deck drew 24 dots on every page, in a band shared with your own footer text. Past ten,
   sections are bucketed into ten dots — the one you are in stays elongated and accented, the first
   section lights the first dot and the last lights the last. Ten is a width budget expressed as a
-  count: the dots are sized in `cqi`, so they occupy the same ~19cqi fraction of the band at every
-  canvas size, and nothing is measured at render time. Decks with ten or fewer sections are
-  unchanged.
+  count: the dots are sized in container units, so they take a fixed *fraction* of the band rather
+  than a fixed number of pixels, and nothing is measured at render time. Decks with ten or fewer
+  sections are unchanged.
 - **Fixed: the local test render cache never invalidated on an engine change.** `runEmulator`'s
   cache key listed `lib/*.js` one level deep, and almost nothing lives at the top of `lib/` — so a
   change to a transform, a component, or a Form Cell left the key identical and an integration test

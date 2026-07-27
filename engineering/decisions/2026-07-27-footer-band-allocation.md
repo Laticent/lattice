@@ -77,9 +77,19 @@ Three further consequences the trio measured, all downstream of the same lever, 
 ## What shipped alongside the policy
 
 - `line-height: 1.45` on the footer, so a clipping box contains its own ink.
-- `--footer-center-w` retuned 30cqi → 20cqi. It was a truncation reserve for a label of unbounded
-  length; the rail's width is now computable (9 × 0.85cqi + 2.6cqi + 9 × 0.9375cqi = **18.69cqi**),
-  so the old value reserved ~10cqi of empty band that the undocked split rail had to stand clear of.
+- `--footer-center-w` raised 30 → **34** `--_sec-1cqi` units, from a measured 10-dot rail (32.17 in
+  portrait, 21.48 at `hd`) rather than a computed one. A revision of this change *cut* it to 20 on
+  arithmetic that used the wrong token; see below, it is the most expensive mistake here.
+- `height: 1.6em` on the footer. Promoting it to an in-flow item removed the definite height that
+  `inset-block: 0` used to give it, and `footer:` passes raw HTML through — so `Acme<sup>®</sup> …
+  <img width=80>` grew the band from 21.6px to 103px. The band is bottom-anchored, so it grew
+  *upward* past `--footer-reserve` into the stage, and the page number jumped 40px between slides.
+  A definite height makes the band uniform by construction; a cap alone would still let a `<sup>`
+  nudge one page out of line. Found by the trio's red team.
+- `progress-centre.cell.json` `clip: true` → `false`. The manifest promised the §6 clip guarantee
+  while the Cell's CSS has always been `overflow: visible`; it was approximately true only because
+  the removed label carried its own `overflow: hidden`. Clipping the dots would be the wrong fix —
+  the berth is sized to fit them instead.
 - `test/integration/invariants/footer-band.test.js` — a genuinely contended, genuinely splitting
   fixture asserting the properties that guarantee the rendering: one flexible item, no label on the
   rail, the flex contract, the row (not a re-imposed budget) setting the width, the box containing
@@ -119,9 +129,38 @@ Rank 4 is what makes the rest work, and it is the answer to the trio's objection
 way around it. The reverted attempt failed because promoting the footer put *two* unshrinkable
 strings in one row, and flexbox resolves that by shrinking both. Delete one of the strings and
 there is exactly **one flexible item** in the row: the author's words, taking the remainder of a
-width every other mark's claim on is fixed and known. Nothing measures anything; nothing can
-overprint, because flex items don't; and the failure family this document is mostly about — a
-plausible number that is not the truth — has no place left to occur.
+width every other mark's claim on is fixed and known.
+
+**But "flex items cannot overlap" is not the guarantee it sounds like, and this document asserted
+it once too often.** A first cut of the policy also cut `--footer-center-w` from 30cqi to 20cqi and
+deleted the `max-width: none` override on the docked rail, on the strength of this arithmetic:
+9 × 0.85cqi + 2.6cqi + 9 × `--sp-sm` = 18.69cqi, with `--sp-sm` read as `0.9375cqi`. **That value is
+the `section.compact` override** (`lib/shared/shared.styles.css`); the default is
+`1.25 × --_sec-1cqi × --canvas-scale` (`lib/base/base.tokens.css`), and `--canvas-scale` is larger
+in portrait. So the cap sat well under what it was capping — and because the rail's `overflow` is
+`visible` with `justify-content: flex-end`, an under-sized cap does not clip the dots, it **spills
+them leftward across the author's footer text.** Every portrait deck with eight or more sections
+overprinted, by 82.8px at ten. Flexbox guarantees *items* don't overlap; it says nothing about a
+clamped flex *container* whose contents escape it.
+
+That was caught by the HARD RULE #25 inversion pass, on a raster, after the change had passed a
+fully green CI run and a suite written specifically to make this class of failure impossible. Which
+was the fourth instance of this document's own subject: a plausible number that is not the truth.
+
+**And then a fifth, in the fix.** The first correction re-measured the rail as **28.95** — which is
+its width as a percentage of the SLIDE. `--footer-center-w`'s unit is `--_sec-1cqi`, which is
+9.72px in portrait against a 10.80px slide-percent, so the "corrected" 30 was still 21px short. The
+independent checker caught that one. Measured in the token's own unit, from a rendered 10-dot rail:
+**32.17 portrait, 21.48 at `hd`** — the token is now **34**.
+
+Three wrong values for one quantity, each arrived at by reasoning from token names instead of
+reading a render. So the guard is no longer a number at all: `footer-band.test.js` resolves
+`--footer-center-w` on the live canvas and asserts **the rail fits inside it**, which fails at both
+20 and 30 and cannot be invalidated by a future change to canvas scale or dot size. The
+`max-width: none` override is restored as a second, token-independent guard, and the overlap
+assertion now measures the LEFTMOST DOT rather than the rail's reported box — the rail's rect said
+it cleared the footer by 35px while its dots were 82.8px inside it, and `scrollWidth` reported no
+overflow at all.
 
 Ranks 2 and 4 are markup, not CSS (`lib/forms/tile/progress/progress.transform.js`): a label
 hidden with `display: none` is still a node that could be un-hidden, and the whole policy rests
@@ -131,10 +170,17 @@ ONLY flexible item" — the property, not the pixels it produces.
 
 **What it costs, accepted deliberately.** A footer longer than the band no longer wraps to a
 second line; it ellipsises. So the tail is absent from the exported PDF's text layer, not merely
-off-screen — the same class of loss that got the earlier attempt reverted, but ~3× less of it
-(the label's removal hands its width back to the footer: 132 of a 199-character confidentiality
-line survives, against ~40 before) and now a stated trade rather than a side effect. Signed off
-on a rendered before/after.
+off-screen — the same class of loss that got the earlier attempt reverted, but less of it, because
+the label's removal hands its width back to the footer. **The survival rate is orientation-dependent
+and the landscape figure alone flatters it:** at `hd`, 132 of a 199-character confidentiality line
+survives (~⅔); in portrait, where `--canvas-scale` inflates the wayfinding marks and shrinks the
+remainder, closer to **a quarter**. Portrait is first-class here — this policy's own test fixture is
+portrait — so the quarter is the number to hold in mind, not the two-thirds.
+
+The failure has an awkward shape: the line ends in "…", which reads as stylistic truncation of
+something decorative rather than "the distribution restriction stops here", and nothing tells the
+author it happened. Anyone whose footer is legally operative should keep it short enough to fit, and
+**that is not currently enforced or warned about** — see the open item below.
 
 ## The options that were considered and not taken
 

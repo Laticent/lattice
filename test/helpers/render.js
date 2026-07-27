@@ -14,7 +14,16 @@
  *   - source .md content
  *   - lattice-emulator.js
  *   - lattice.css + all themes/*.css
- *   - all lib/*.js
+ *   - all lib/**"/"*.js AND lib/**"/"*.css, RECURSIVELY. This listed `lib/*.js` one level deep
+ *     until 2026-07-27, which matched ZERO files — nothing .js sits at the top of lib/ — so the
+ *     key never changed when the engine did, and a local run could pass against a render made
+ *     before the edit. CI sets CI=true and skips the cache, so it only ever misled locally.
+ *   - all lib/**"/"*.json — the emulator resolves the manifest tree at render time to build the
+ *     autosplit registry, and a capacity or `fits` edit changes the render. Same bug class as the
+ *     one above, in the same hot path.
+ *     STILL NOT covered, knowingly: dist/fonts/ (base64'd into the PDF) and the resolved Chromium
+ *     binary — a font or browser swap reuses renders. `process.version` is keyed, but Node is not
+ *     what lays the page out.
  *   - mermaid-v11.min.js
  *   - package-lock.json (catches dep upgrades)
  *   - palette argument
@@ -99,6 +108,10 @@ function emulatorCacheKey(mdPath, palette) {
     // in practice, but only while the bundle is up to date, which is exactly the state a test run
     // cannot assume.
     ...listFiles(path.join(ROOT, 'lib'), '.css'),
+    // …and the manifests. The emulator resolves the manifest tree at render time to build the
+    // autosplit registry, so a `capacity` or `fits` edit changes the render while touching no JS
+    // and no CSS — the same invisible-staleness bug as the one-level walk above.
+    ...listFiles(path.join(ROOT, 'lib'), '.json'),
     ...listFiles(path.join(ROOT, 'themes'), '.css'),
   ].sort());
   h.update(palette);

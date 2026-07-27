@@ -12,14 +12,16 @@ section.form > footer {
   /* Stay clear of the right-hand wayfinding group (rail + pagination) — the band
    * no longer dodges a centred rail with a magic-number calc; it is simply
    * width-bounded on its own side.
-   * A BUDGET is not a negotiation, though, and that is this rule's limit: it bounds the
-   * footer without telling it what the rail is doing, so when both strings are long the two
-   * marks overprint — 105.2px of real INK overlap on p78 of the shipped gallery, measured by
-   * rasterizing the band. (Comparing the two BOXES says 233–301px, which is not the truth: an
-   * absolute footer's box is its 52cqi budget, not its text.) On a SPLIT band and a split cover,
-   * base.modifiers.css promotes the footer to a real flex ITEM so the row allocates the width;
-   * widening that to every docked band was tried and reverted for deleting text from the exported
-   * PDF. The un-split band's allocation policy is an OPEN question — see
-   * engineering/decisions/2026-07-27-footer-band-allocation.md. */
+   * THIS RULE IS THE LEGACY PATH ONLY. It matches a footer that is a DIRECT child of
+   * `section.form` — the un-migrated / sovereign frames that have no `.cell-footer`. Every frame
+   * that has one routes through `section.form > .cell-footer > footer` in stage.css, where the
+   * band's allocation policy lives: the footer is a flex item taking whatever the wayfinding marks
+   * do not need, and no budget applies. That policy is settled, not open
+   * (engineering/decisions/2026-07-27-footer-band-allocation.md).
+   * Here, a budget is still all there is, and its limit is worth stating: it bounds the footer
+   * without telling it what the rail is doing, so if both strings are long they overprint —
+   * 105.2px of real INK overlap on p78 of the shipped gallery, measured by rasterizing the band.
+   * (Comparing the two BOXES says 233–301px, which is not the truth: an absolute footer's box is
+   * its 52cqi budget, not its text.) */
   max-width: var(--footerleft-w, 52cqi);
 }

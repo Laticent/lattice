@@ -76,12 +76,21 @@ describe('footer band — a contended band keeps every mark legible', () => {
     const read = await page.evaluate(() => {
       const promoted = [];
       const suppressed = [];
-      // Ink extent of an element's text via a Range: this is LAID-OUT text, so it is the right
+      // Ink extent of an element's TEXT via a Range: this is LAID-OUT text, so it is the right
       // tool for "does the box contain its own ink" and the WRONG tool for "is the text clipped".
+      // Text nodes only, deliberately. A Range over an element's whole contents also returns rects
+      // for replaced elements, and the footer is allowed — required — to clip a tall inline `<img>`
+      // rather than grow the band. Including it would turn the diacritic assertion into a
+      // band-height assertion, which is a different test that lives below.
       const inkHeight = (el) => {
-        const r = document.createRange();
-        r.selectNodeContents(el);
-        const rs = [...r.getClientRects()];
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        const rs = [];
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if (!n.nodeValue.trim()) continue;
+          const r = document.createRange();
+          r.selectNodeContents(n);
+          rs.push(...r.getClientRects());
+        }
         if (!rs.length) return 0;
         return Math.max(...rs.map((x) => x.bottom)) - Math.min(...rs.map((x) => x.top));
       };
@@ -112,6 +121,16 @@ describe('footer band — a contended band keeps every mark legible', () => {
           footerInkH: inkHeight(footer),
           rail: box(rail),
           railHasLabel: !!rail.querySelector('.seg'),
+          // The rail's own rect is NOT where its ink is. `overflow` on the rail is `visible`, so a
+          // `max-width` narrower than the dots does not clip them — it spills them leftward, out of
+          // the reported box and over the footer. Comparing the two BOXES is the first wrong
+          // measurement this whole investigation catalogues, and it shipped here once more: a
+          // clamped rail overlapped the footer by 82.8px while its rect said it started 35px clear.
+          // `scrollWidth` is no help either (it reported 194 against 194). So take the LEFTMOST DOT.
+          inkLeft: (() => {
+            const ds = [...rail.querySelectorAll('.dot')].map((d) => d.getBoundingClientRect().left);
+            return ds.length ? Math.min(...ds, rail.getBoundingClientRect().left) : rail.getBoundingClientRect().left;
+          })(),
           // Every OTHER item in the row, with the two properties that decide whether it can take
           // width from the footer. This is the assertion that makes the export regression
           // structurally impossible rather than merely absent today.
@@ -126,6 +145,18 @@ describe('footer band — a contended band keeps every mark legible', () => {
             return { on: d.classList.contains('on'), w: b.width, h: b.height };
           }),
           band: box(cell),
+          // The reserve the rail is supposed to fit inside, resolved to px on this canvas. The
+          // rail's natural width against its own berth is the quantity that has been wrong three
+          // times in this change's history, so it is asserted directly rather than inferred from
+          // whether anything happens to overlap today.
+          centerW: (() => {
+            const probe = document.createElement('div');
+            probe.style.cssText = 'position:absolute;visibility:hidden;width:var(--footer-center-w)';
+            cell.appendChild(probe);
+            const w = probe.getBoundingClientRect().width;
+            probe.remove();
+            return w;
+          })(),
         });
       });
       return { promoted, suppressed };
@@ -208,10 +239,51 @@ describe('footer band — a contended band keeps every mark legible', () => {
     }
   });
 
-  test('the footer and the section rail never overlap', () => {
+  test('the footer and the section rail never overlap — measured against the DOTS', () => {
+    // Against `inkLeft`, not `rail.left`. Flex items cannot overlap, but a `max-width` on a flex
+    // CONTAINER whose `overflow` is `visible` lets its contents escape the box — so the rail's rect
+    // can sit clear of the footer while its dots are painted straight through the author's words.
+    // That is not hypothetical: a revision of this change cut `--footer-center-w` to 20cqi on
+    // arithmetic that used `section.compact`'s `--sp-sm` instead of the default, and every portrait
+    // deck with 8+ sections overprinted. The rail's rect said it cleared by 35px; the dots were
+    // 82.8px inside the footer. The trio's inversion pass found it on a raster.
     for (const b of bands) {
-      assert.ok(b.footer.right <= b.rail.left + 1,
-        `p${b.page}: footer box ends at ${b.footer.right.toFixed(1)} but the rail starts at ${b.rail.left.toFixed(1)}`);
+      assert.ok(b.footer.right <= b.inkLeft + 1,
+        `p${b.page}: the footer's box ends at ${b.footer.right.toFixed(1)} but the leftmost DOT is at `
+        + `${b.inkLeft.toFixed(1)} — the rail is painting over the author's footer text. `
+        + `(The rail's own rect starts at ${b.rail.left.toFixed(1)}, which is why box-vs-box misses this.)`);
+    }
+  });
+
+  test('the rail FITS the berth reserved for it — the constant that keeps being wrong', () => {
+    // `--footer-center-w` is the rail's reserved width. It governs the ABSOLUTE placement
+    // (progress-centre.css) and the undocked split rail's dodge, neither of which the docked
+    // `max-width: none` reaches — so an under-sized value still spills dots over the footer there.
+    // This has been set wrong twice: once from `section.compact`'s `--sp-sm` instead of the
+    // default (18.69 → a 20-unit token → 82.8px of dots through the footer on every portrait deck
+    // of 8+ sections), and once from a re-measurement taken as a percentage of the SLIDE rather
+    // than in the token's own `--_sec-1cqi` unit (28.95 → a 30-unit token, still 21px short).
+    // Assert the relationship instead of the number, so the next canvas or dot-size change cannot
+    // silently invalidate it.
+    for (const b of bands) {
+      assert.ok(b.rail.width <= b.centerW + 1,
+        `p${b.page}: the rail is ${b.rail.width.toFixed(1)}px but its reserved berth `
+        + `(--footer-center-w) is only ${b.centerW.toFixed(1)}px. The reserve is not a clip — the `
+        + 'dots will spill leftward over the footer wherever the cap actually applies. Re-measure a '
+        + 'full 10-dot rail IN PORTRAIT, in --_sec-1cqi units, and raise the token.');
+    }
+  });
+
+  test('the rail\'s box CONTAINS its dots — a cap here spills, it does not clip', () => {
+    // The direct form of the same defect, independent of whether the footer happens to be long
+    // enough to be hit. `--footer-center-w` is a RESERVE, and a reserve smaller than what it
+    // reserves for is worse than none: `overflow: visible` + `justify-content: flex-end` sends the
+    // excess leftward across the band. Re-measure in PORTRAIT if MAX_DOTS changes — portrait's
+    // larger `--canvas-scale` makes the rail 28.95cqi against 19.33cqi at `hd`.
+    for (const b of bands) {
+      assert.ok(b.inkLeft >= b.rail.left - 1,
+        `p${b.page}: the rail's dots start at ${b.inkLeft.toFixed(1)}, outside its own box at `
+        + `${b.rail.left.toFixed(1)} — something capped the rail below the width its dots need.`);
     }
   });
 

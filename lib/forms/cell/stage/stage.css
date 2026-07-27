@@ -65,14 +65,29 @@ section.form {
    * rules) — footer-left yields it so the two can never collide. */
   --footer-h: calc(var(--_sec-1cqi, 1cqi) * 5);
   --footer-reserve: calc(var(--frame-inset-y) + var(--footer-h) + var(--sp-sm));
-  /* 30cqi while the rail printed a section label beside its dots — a reserve for a string
-   * whose length nothing bounded. The rail is dots only now (rank 4 of the band's allocation
-   * policy, below), and dots have a computable maximum: MAX_DOTS = 10 in
-   * progress.transform.js, so 9 × 0.85cqi off + 2.6cqi on + 9 × 0.9375cqi gap = 18.69cqi.
-   * 20 is that, plus a little headroom, and it is now a real bound rather than a guess —
-   * leaving it at 30 reserved ~10cqi of empty band that the undocked split rail then had to
-   * stand clear of. */
-  --footer-center-w: calc(var(--_sec-1cqi, 1cqi) * 20);
+  /* The rail's reserved berth. 34 — and the number of times this constant has been wrong is the
+   * reason for the length of this note.
+   *
+   * It is a RESERVE, not a clip: the rail's `overflow` is `visible` and the band packs `flex-end`,
+   * so a reserve SMALLER than the rail does not trim the dots, it spills them leftward across the
+   * author's footer text. Under-sizing it is therefore worse than omitting it.
+   *
+   * Two ways it has been got wrong, both by computing instead of measuring:
+   *   1. `9 × 0.85 + 2.6 + 9 × --sp-sm = 18.69`, taking `--sp-sm` as `0.9375cqi`. That is the
+   *      `section.compact` OVERRIDE (lib/shared/shared.styles.css); the default is
+   *      `1.25 × --_sec-1cqi × --canvas-scale` (lib/base/base.tokens.css), and `--canvas-scale`
+   *      is 1.95 in portrait. The resulting cut to 20 overprinted every portrait deck of 8+
+   *      sections — 82.8px of dots through the footer.
+   *   2. Re-measuring the rail as a percentage of the SLIDE (28.95). This token's unit is
+   *      `--_sec-1cqi`, which is 9.72px in portrait against a 10.80px slide-percent — so the
+   *      "corrected" 30 was still 21px short.
+   * MEASURED, in this token's own unit, on a rendered 10-dot rail: **32.17 portrait**, 21.48 at
+   * `hd`. 34 is the portrait figure plus headroom.
+   *
+   * If MAX_DOTS changes, re-measure — in PORTRAIT, and in `--_sec-1cqi` units, from a real render.
+   * Do not recompute it from token names. See
+   * engineering/decisions/2026-07-27-footer-band-allocation.md. */
+  --footer-center-w: calc(var(--_sec-1cqi, 1cqi) * 34);
   --footer-center-half: calc(var(--footer-center-w) / 2);
   /* The progress rail's default right offset — it parks just left of the page
    * number so the two wayfinding marks read as one group. Sized for the page
@@ -218,6 +233,19 @@ section.form > .cell-footer > footer {
    * tall at the same top, so no other mark in the row moves. (HARD RULE #25 inversion pass, on
    * a raster — no box or ink measurement can see this, since the loss is sub-box paint.) */
   line-height: 1.45;
+  /* DEFINITE height, and load-bearing — promoting the footer took away the thing that used to make
+   * a growing band impossible. As an absolute with `inset-block: 0` it had a definite height and
+   * could not affect the band; as an in-flow item it has auto height, and `footer:` passes raw HTML
+   * through. A board footer carrying a small mark — `Acme<sup>®</sup> … <img width=80>` — grew the
+   * band from 21.6px to 103px, and because the band is bottom-anchored it grows UPWARD: past
+   * `--footer-reserve` (a static `--footer-h` token that would then no longer describe it) and into
+   * the stage, with the page number jumping 40px between slides. Found by the trio's red team.
+   * `height`, not `max-height`, so the band is uniform BY CONSTRUCTION rather than uniform as long
+   * as no page happens to carry a taller run — page-to-page jitter in the wayfinding marks is the
+   * actual defect, and a cap alone still lets a `<sup>` nudge one page out of line. 1.6em over a
+   * 1.45 line so ordinary inline decoration (a ®, a footnote marker) still fits; `overflow: hidden`
+   * above clips anything genuinely oversized instead of reflowing the page. */
+  height: 1.6em;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -258,9 +286,12 @@ section.form > .cell-footer > .lat-pagination {
  * Rank 4 is what makes the rest possible. The rail used to carry the divider's eyebrow,
  * one `white-space: nowrap` string that could not yield, so it either overprinted the
  * footer or bid its width away and deleted words from the exported PDF. With the label
- * gone the rail is DOTS ONLY — at most ten of them, sized in `cqi` — so it occupies a
- * constant ~19.6cqi of the band at every canvas size and can neither grow into the
- * footer's words nor shrink into an unreadable smear.
+ * gone the rail is DOTS ONLY — at most ten of them, sized in container units — so it occupies a
+ * fixed FRACTION of the band rather than a fixed pixel width, and can neither grow into the
+ * footer's words nor shrink into an unreadable smear. (That fraction differs by ORIENTATION,
+ * because the gaps carry `--canvas-scale` and the dots do not: 21.48 `--_sec-1cqi` units at `hd`,
+ * 32.17 in portrait. See `--footer-center-w` above — assuming one number for both is what caused
+ * the overprint this policy was supposed to make impossible.)
  *
  * Hence `flex: 0 0 auto` and NO `min-width` / `max-width` here. Both of those were
  * arbitration devices for a rail whose width was unbounded; the cap truncated labels on
@@ -271,6 +302,20 @@ section.form > .cell-footer > .tile-progress {
   position: static;
   inset: auto;
   flex: 0 0 auto;
+  /* `none`. The progress-centre Cell caps the rail at `--footer-center-w` for its ABSOLUTE
+   * placement, where the reserve is the only thing keeping it off the page number. In flow the rail
+   * is `flex: 0 0 auto`, so its content size IS its box and a clamp can only ever be too small —
+   * and `overflow` on the rail is `visible` with `justify-content: flex-end`, so a clamped box does
+   * not clip its dots, it spills them LEFTWARD over the author's words. Deleting this line is how a
+   * revision of this change shipped an 82.8px overprint (dots spanning 312.7px inside a 194.4px
+   * box) past a green CI run; neither `scrollWidth` nor the rail's own rect could see it.
+   * REDUNDANT WHILE `--footer-center-w` IS ADEQUATE — with the token correct at 34 units the cap
+   * has nothing to bind on, and footer-band.test.js stays green if you remove this. Kept anyway,
+   * and the distinction is the point: this line makes the docked rail safe REGARDLESS of the
+   * token, and that token has been wrong twice. Two independent guards, deliberately. The test
+   * asserts the token relationship separately, which is the one that governs the paths this line
+   * does not reach. */
+  max-width: none;
 }
 /* Rank 2, at the mark level: a dot keeps its shape. `.dot` carried the default
  * `flex-shrink: 1`, so on a contended band the "you are here" pill collapsed from a 39×13 pill
@@ -278,11 +323,14 @@ section.form > .cell-footer > .tile-progress {
  * where you are. Found by the trio's inversion pass, on a raster.
  * (`.lat-split-rail` marks its k-of-N steps with `.seg` — a segment BAR, not the section label
  * of the same class name on the progress rail. Both are fixed-size marks that must not deform.)
- * REDUNDANT TODAY, and stated as such rather than credited with work it isn't doing: their
- * containers are `flex: 0 0 auto` above, so neither rail shrinks and nothing reaches the marks
- * inside it. Removing this line leaves footer-band.test.js green — verified, not assumed. It
- * stays because it expresses the mark-level intent, and because whoever makes a rail flexible
- * again should have to think about the dots rather than discover them flattened. */
+ * A previous revision called this REDUNDANT — "verified: removing it leaves the suite green". It
+ * was neither. The rail is a flex ITEM (rigid, so nothing reaches the dots that way) but it is
+ * ALSO a flex CONTAINER carrying `max-width: var(--footer-center-w)` from the progress-centre
+ * Cell, and a binding cap there reaches straight through: with the default `flex-shrink: 1`
+ * restored and the cap under-sized, every dot measured **0px wide**. The suite was green because
+ * its fixture had ONE dot and never approached the cap. Whether the cap binds today depends on
+ * `--footer-center-w` being adequate — a value that has been wrong twice — so this line is not
+ * claimed to be redundant, and is not to be removed on the argument that it is. */
 .tile-progress .dot,
 .lat-split-rail .seg { flex: 0 0 auto; }
 /* Ranks 1 and 2 again, at the item level: neither wayfinding mark bids for or yields width. */
