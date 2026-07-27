@@ -8,6 +8,6 @@
   "fill": "center",
   "gap": "--footer-center-half",
   "geometry": { "size": "--footer-center-w" },
-  "clip": true,
+  "clip": false,
   "css": true
 }

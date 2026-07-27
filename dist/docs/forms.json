@@ -375,7 +375,7 @@
       "geometry": {
         "size": "--footer-center-w"
       },
-      "clip": true,
+      "clip": false,
       "css": true
     },
     {

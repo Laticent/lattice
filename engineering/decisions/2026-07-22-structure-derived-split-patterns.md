@@ -1159,3 +1159,70 @@ across them — and both were found by *rendering the artifact and looking at it
 rule-6 conservation gate is a genuine gate and it earned its keep (five real drops), but
 its published scope is now stated honestly: it detects **drops, not duplication**, and
 FM-2 needs its own assertions, which the suite now carries.
+
+## 13. The two follow-ons, closed (2026-07-27)
+
+P-envelope shipped with two defects logged rather than fixed, on the HARD RULE #18 grounds that
+both were pre-existing and off the path of the split work. Both are now closed, and one of them
+turned out to be considerably worse than the note claimed.
+
+**The footer band's last un-migrated mark — attempted, reverted, and escalated to a decision.**
+The footer Cell exists to retire "three absolutes at the same baseline with no shared budget"
+(`design/forms.md` §6). The running `footer:` text never finished that migration — it stayed
+`position: absolute` with a fixed `--footerleft-w` (52cqi) budget beside an in-flow `nowrap`
+section rail, so neither side can yield and on a deck with two long strings they overprint (p78 of
+the shipped gallery paints "…tint-edge at-right" straight through "THE ANNEXES · APPROVED
+DECORATION", 105.2px of real ink overlap). The obvious fix — promote the footer to a flex item
+everywhere the band carries a docked mark — was implemented, then **reverted**: `flex-basis: auto`
+makes the footer bid for the row's width and `nowrap` forbids the wrap that was working, so an
+ordinary board deck's 150-char confidentiality line went from complete-over-three-lines to
+`…or its advisers, or …` **in the exported PDF's text layer**, and the rail it was never meant to
+touch truncated too. That is an export regression, not a visual one.
+
+**It was then resolved properly, at the owner's call, by ranking instead of arbitrating** — the band
+now has a fixed priority order (page number > dots > the author's words > the section name), and the
+section name is removed from the markup entirely, which leaves exactly one flexible item in the row
+and makes the promotion safe on every band. Full record, including the two costs accepted and the
+options whose shared premise turned out to be false:
+`engineering/decisions/2026-07-27-footer-band-allocation.md`. Also shipped here: `line-height: 1.45`
+on the footer, because `overflow: hidden` on the base footer's `line-height: 1` was shaving every
+glyph above cap height (`ÜBERPRÜFUNG` printed `UBERPRUFUNG`), and
+`test/integration/invariants/footer-band.test.js`, which drives a genuinely contended fixture in
+real Chromium and asserts the properties that guarantee the rendering rather than a pixel diff.
+
+**Measuring it went wrong four times, and the record is worth keeping**, because the failure mode is
+this branch's recurring one — a plausible number that is not the truth:
+- Comparing the footer's BOX against the rail's reported **42 bad pages**. An absolute footer's
+  box is its 52cqi budget, not its text, so most of those had no ink near the rail.
+- Measuring the text with a `Range` reported the fix making things **worse**. `getClientRects()`
+  returns laid-out text, and `overflow: hidden` clips paint without moving layout, so a
+  correctly-ellipsised run still measures full width.
+- `flex-shrink: 8` on the rail, to give the footer priority, drove the rail to **0px wide** — a
+  shrink weight on top of an already-capped basis zeroes it rather than making it yield.
+- Only rasterizing the band and looking, and reading the PDF's text layer with `pdftotext`, gave
+  answers that held.
+The test therefore asserts the properties that *guarantee* the pixels — flex items cannot overlap,
+`overflow: hidden` confines ink to the box, and the box must be tall enough to contain that ink —
+not a derived measurement of them.
+
+**The docs-site preview alarms: a check, not a behavior change.** The docs site's live component
+previews all come from one builder (`docs/src/lib/single-slide-render.ts`), which injects
+`lattice-runtime.js` into each srcdoc frame where the watcher self-boots in AUTHOR mode. So both
+engine alarms — the red `.overflow` ring and the amber `.illegible` type floor — can paint on a
+page someone is merely browsing. That default is correct for the surfaces where the reader can
+act (the Specimen has an Edit face; the Studio is an editor) and it is the SAME builder, so
+flipping it to reader mode would silence the ring where it is wanted. The real defect was that
+the exposure was **unmonitored**: nothing trips it today, and the first person to learn that a
+component sample had drifted dense enough to ring would have been a prospective user.
+`docs/e2e/reader-alarms.spec.ts` (@smoke, so it runs per-PR in the `studio-smoke` job) asserts no
+shipped preview paints either alarm on a reader route — and carries a **positive control** that
+injects a 4px-label figure and requires the watcher to react in every frame it inspected, so "zero
+alarms" can never pass because the watcher never booted. That is the §8 rule 9 hollow-gate failure,
+designed out of this check rather than discovered in it. Worth stating plainly, because it bounds
+what the check is worth: **`studio-smoke` is advisory, not a required check** (`ci.yml`, the
+aggregate `ci` job does not gate on it), so a regression here goes red without blocking a merge.
+Calling it a gate would be the same hollow claim one level up.
+
+*(Process note: both follow-ons were originally recorded in `BACKLOG.md`, which is a generated
+one-way mirror of the open issue queue — `tools/sync-backlog.js`, "DO NOT EDIT". Hand-added notes
+there survive only until the next sync. Durable design notes belong here.)*

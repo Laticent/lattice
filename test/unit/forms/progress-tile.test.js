@@ -23,6 +23,46 @@ const deck = sec('divider', '<h2>The Lift</h2>') + sec('content form') +
              sec('divider', '<h2>The Bay</h2>') + sec('content form no-progress') +
              sec('content form');
 
+describe('progress Tile — the rail\'s width budget (dot bucketing)', () => {
+  // Rank 2 of the footer band's allocation policy: the dots never yield, which is only
+  // affordable because their number is bounded. One dot per section drew 24 dots on every page
+  // of a 24-section deck, in a band shared with the author's footer text — so past MAX_DOTS the
+  // sections are BUCKETED. This is pure boundary arithmetic, and boundary arithmetic that is
+  // *nearly* right is this branch's recurring failure, so it is pinned directly rather than
+  // inferred from rendered markup.
+  const { dotPlan, MAX_DOTS } = progress;
+
+  test('at or under the cap, bucketing is the IDENTITY — nothing changes for a normal deck', () => {
+    for (const total of [1, 2, 5, MAX_DOTS]) {
+      for (let idx = 1; idx <= total; idx++) {
+        assert.deepEqual(dotPlan(idx, total), { shown: total, on: idx - 1 },
+          `${idx}/${total}: a deck within budget must render exactly one dot per section`);
+      }
+    }
+  });
+
+  test('over the cap, the rail is capped and every section still lands on a dot', () => {
+    for (const total of [MAX_DOTS + 1, 17, 24, 99]) {
+      const seen = new Set();
+      let prev = -1;
+      for (let idx = 1; idx <= total; idx++) {
+        const { shown, on } = dotPlan(idx, total);
+        assert.equal(shown, MAX_DOTS, `${idx}/${total}: the rail must stay within its budget`);
+        assert.ok(on >= 0 && on < MAX_DOTS, `${idx}/${total}: lit dot ${on} is outside the rail`);
+        assert.ok(on >= prev, `${idx}/${total}: the lit dot went BACKWARDS (${prev} → ${on})`);
+        prev = on;
+        seen.add(on);
+      }
+      // The two ends are what a reader checks against: section 1 must light the first dot and
+      // the last section the last one, or the rail lies about where the deck starts and ends.
+      assert.equal(dotPlan(1, total).on, 0, `${total}: the first section must light the first dot`);
+      assert.equal(dotPlan(total, total).on, MAX_DOTS - 1,
+        `${total}: the last section must light the LAST dot — off-by-one here reads as "not finished"`);
+      assert.equal(seen.size, MAX_DOTS, `${total}: every dot must be reachable, else one never lights`);
+    }
+  });
+});
+
 describe('progress Tile — applyToHtml (HTML-string path)', () => {
   test('injects a dot-rail into form slides within a section', () => {
     const html = deckHtml([
@@ -43,13 +83,25 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
     assert.match(out, /class="tile-progress"/);   // the rail itself is present
   });
 
-  test('rail label prefers the divider eyebrow over its heading', () => {
+  test('the rail carries NO section label — dots only', () => {
+    // Rank 4 of the footer band's allocation policy. The rail used to print the divider's
+    // eyebrow beside the dots, and that one `white-space: nowrap` string is what made the band
+    // unresolvable: it could not yield, so it either overprinted the author's footer text or bid
+    // the footer's width away and deleted words from the exported PDF. Not emitted at all now —
+    // hiding it in CSS would leave a node that can still bid.
+    // engineering/decisions/2026-07-27-footer-band-allocation.md
     const html = deckHtml([
       sec('divider', '<p><code>Section 01</code></p><h2>A long editorial heading</h2>'),
       sec('content form'),
     ]);
-    const seg = progress.applyToHtml(html).match(/<span class="seg">([^<]*)<\/span>/);
-    assert.equal(seg[1], 'Section 01');
+    const out = progress.applyToHtml(html);
+    const rail = out.match(/<nav class="tile-progress"[\s\S]*?<\/nav>/)[0];
+    assert.doesNotMatch(rail, /class="seg"/);
+    // Scoped to the RAIL, not the whole deck — the divider slide itself still carries its own
+    // eyebrow and heading, which is the point: the section is named where the reader is looking.
+    assert.doesNotMatch(rail, /Section 01|A long editorial heading/,
+      'neither the eyebrow nor the heading may reach the rail');
+    assert.match(rail, /class="dot on"/, 'the dots still say where you are');
   });
 
   test('no dividers → no-op (nothing to orient against)', () => {
@@ -100,12 +152,12 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
 });
 
 describe('progress Tile — applyToDom (live-DOM path)', () => {
-  test('one rail per eligible form slide; dots + .on + label correct', () => {
+  test('one rail per eligible form slide; dots + .on correct, and no label', () => {
     const d = doc(deck);
     progress.applyToDom(d);
     const rails = [...d.querySelectorAll('.tile-progress')];
     assert.equal(rails.length, 2, 'skips the no-progress slide');
-    assert.equal(rails[0].querySelector('.seg').textContent, 'The Lift');
+    assert.equal(rails[0].querySelector('.seg'), null, 'the rail carries dots only — see applyToHtml');
     assert.deepEqual([...rails[0].querySelectorAll('.dot')].map((x) => x.className), ['dot on', 'dot']);
     assert.deepEqual([...rails[1].querySelectorAll('.dot')].map((x) => x.className), ['dot', 'dot on']);
   });

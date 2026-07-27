@@ -1,7 +1,17 @@
 /* ── PROGRESS-CENTRE Cell — the section dot-rail's slot ──────────────────────
  * Real Form Cell (was css:false). The Cell owns the rail's POSITION; the progress
- * Tile (lib/forms/tile/progress) owns its appearance (dots, label, font). Default:
- * bottom-right, just left of the pagination — so the two wayfinding marks (rail +
+ * Tile (lib/forms/tile/progress) owns its appearance (the dots).
+ *
+ * `clip: false` in the manifest, corrected from `true`. The declaration promised the §6 clip
+ * guarantee — "content is cut at the Cell, never bled across a neighbour" — while the CSS here
+ * has always been `overflow: visible`. It was approximately true only because the rail's section
+ * label carried its own `overflow: hidden`; that label is gone (rank 4 of the band's allocation
+ * policy) and the dots are deliberately unshrinkable, so nothing clips and the manifest was
+ * asserting a guarantee no rule provided. Clipping the dots would be the wrong fix — half a dot
+ * is worse than a dot outside its berth. The berth is instead sized to fit them
+ * (`--footer-center-w`, stage.css), which is the guarantee that actually holds.
+ *
+ * Default position: bottom-right, just left of the pagination — so the two wayfinding marks (rail +
  * page number) read as ONE group at the same baseline and the same --fs-meta size.
  * A single `--progress-inset` var() hook lets a Frame relocate the rail
  * INDEPENDENTLY (e.g. to the right-middle) for infinite layouts (forms.md §7.3).
@@ -15,8 +25,15 @@ section.form .tile-progress {
    * drop the rail to the right-middle (independent movability, forms.md §7.3). */
   inset: var(--progress-inset, auto var(--footer-pag-reserve) var(--frame-inset-y) auto);
   z-index: 3;
-  /* Reserved width (the manifest geometry token) — a long section label truncates
-   * inside it rather than crowding the page number. */
+  /* Reserved width (the manifest geometry token), for the ABSOLUTE placement this Cell owns.
+   * It was a truncation cap for a section label of unbounded length; the rail is dots only now
+   * (progress.transform.js caps them at MAX_DOTS), so it is a real reserve — but ONLY while the
+   * token is at least the rail's true width, measured at 32.17 `--_sec-1cqi` units in portrait
+   * against a 34-unit token. It is not a clip: `overflow` here is `visible`, so a cap smaller
+   * than the dots spills them leftward over the running footer instead of trimming them, and it
+   * squeezes the dots themselves to zero if they are ever made shrinkable. Do not shrink this
+   * token without re-measuring a full 10-dot rail in PORTRAIT — the arithmetic has been wrong
+   * twice; see the note beside `--footer-center-w` in stage.css. */
   max-width: var(--footer-center-w);
   pointer-events: none;
 }

@@ -16226,31 +16226,40 @@ section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):has(.tile-progress)
 section.form > .cell-footer > .lat-split-rail {
   position: static; inset: auto;
 }
-/* …and the band needs a real width budget once a FOURTH mark joins it. The running footer text
-   is an absolute pinned to the band's left edge with a fixed `--footerleft-w` (52cqi) budget,
-   so nothing stops it meeting the wayfinding group — it only ever LOOKED safe because a short
-   footer string never reached that far. Add the k-of-N rail and the group grows left into it
-   (seen on a real render: "conservation" struck through "SECTION"). So on a docked-rail page
-   the footer text becomes a real flex item that ABSORBS the free space and ellipsises instead
-   of overrunning — `flex-grow`, not `margin-right:auto` (HARD RULE #20 — a margin is invisible
-   to the height math the Fit Spine measures). Scoped by `:has(> .lat-split-rail)` to split-run
-   pages only: the un-split band keeps its current geometry byte for byte.
-   This only WORKS because the docked section rail keeps a width reserve (stage.css,
-   `--footer-center-w`): a flex item can only absorb free space if its siblings can give it up,
-   and an un-capped nowrap rail cannot. Measured on examples/split-relationship.pdf at 1036px of
-   band: footer 485/485px (nothing truncated), rail capped at 282, k-of-N and page number clear. */
-section.form > .cell-footer:has(> .lat-split-rail) > footer,
+/* RANK 3 of the band's allocation policy (stage.css states the whole order): the author's
+   own words take everything the wayfinding marks don't need, and ellipsise past that.
+
+   The footer was an absolute pinned to the band's left edge with a fixed `--footerleft-w`
+   (52cqi) budget. A budget is not a negotiation — it bounds the footer without telling it
+   what else is in the row — so when both strings were long the marks simply overprinted
+   ("conservation" struck through "SECTION" on a real render; 105.2px of ink on gallery p78).
+   As a flex ITEM the footer cannot overlap anything, by construction: flex items don't.
+
+   THIS WAS TRIED ONCE AND REVERTED, and the difference is worth stating because the
+   selector looks identical. The first attempt promoted the footer while the rail still
+   carried its `white-space: nowrap` section label. Two unshrinkable strings bidding for one
+   row means flexbox shrinks BOTH: an ordinary board deck lost "any person not named on the
+   distribution schedule" from the exported PDF's text layer, and the rail — a mark the
+   change was not meant to touch — truncated to "SECTION 02 · OPERAT…". The label is now
+   gone from the markup entirely (rank 4, progress.transform.js), and the dots are bounded
+   by count, so there is exactly ONE flexible item in the row. That is what makes this safe
+   now and unsafe then. Do not re-introduce a growable mark into this band without
+   re-deciding the order. engineering/decisions/2026-07-27-footer-band-allocation.md
+
+   Rank 3 itself lives on `section.form > .cell-footer > footer` in stage.css, beside the rest
+   of the order, with the full rationale. This rule only extends it to a split COVER, which is
+   not a `.form` frame and so is not reached by that selector. Same declarations, deliberately
+   duplicated rather than merged into one selector list across two files — the cover's chrome
+   is assembled here, and a cross-file selector list is the kind of thing that gets half-edited. */
 section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
   inset: auto;
-  /* `block`, not the band's default `flex`: `text-overflow: ellipsis` never applies to a flex
-     CONTAINER, so the text was clipped mid-word with no ellipsis. Vertical centering is the
-     footer Cell's `align-items: center` now that this is a real flex ITEM. */
   display: block;
   flex: 1 1 auto;
   min-width: 0;
   max-width: none;
   white-space: nowrap;
+  line-height: 1.45;   /* contains the ink `overflow: hidden` would otherwise shave — see stage.css */
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -16420,8 +16429,10 @@ section[data-split-role="cover"][data-split-role="cover"] > header,
 section[data-split-role="cover"][data-split-role="cover"] > footer,
 section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > footer,
 section[data-split-role="cover"][data-split-role="cover"] > .lat-pagination,
-section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > .lat-pagination,
-section[data-split-role="cover"][data-split-role="cover"] .tile-progress .seg {
+/* (No `.tile-progress .seg` arm — the progress rail no longer emits a label on any path;
+   rank 4 of the band's allocation policy. `.lat-split-rail .seg` is a different element,
+   a k-of-N segment bar, and is coloured by its own rules.) */
+section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > .lat-pagination {
   color: currentColor;
   opacity: 0.9;
 }
@@ -20235,7 +20246,18 @@ section.form > footer {
   inset: var(--footerleft-inset, auto auto var(--frame-inset-y) var(--frame-inset-x));
   /* Stay clear of the right-hand wayfinding group (rail + pagination) — the band
    * no longer dodges a centred rail with a magic-number calc; it is simply
-   * width-bounded on its own side. */
+   * width-bounded on its own side.
+   * THIS RULE IS THE LEGACY PATH ONLY. It matches a footer that is a DIRECT child of
+   * `section.form` — the un-migrated / sovereign frames that have no `.cell-footer`. Every frame
+   * that has one routes through `section.form > .cell-footer > footer` in stage.css, where the
+   * band's allocation policy lives: the footer is a flex item taking whatever the wayfinding marks
+   * do not need, and no budget applies. That policy is settled, not open
+   * (engineering/decisions/2026-07-27-footer-band-allocation.md).
+   * Here, a budget is still all there is, and its limit is worth stating: it bounds the footer
+   * without telling it what the rail is doing, so if both strings are long they overprint —
+   * 105.2px of real INK overlap on p78 of the shipped gallery, measured by rasterizing the band.
+   * (Comparing the two BOXES says 233–301px, which is not the truth: an absolute footer's box is
+   * its 52cqi budget, not its text.) */
   max-width: var(--footerleft-w, 52cqi);
 }
 
@@ -20400,8 +20422,18 @@ section.form::after {
 /* === lib/forms/cell/progress-centre/progress-centre.css === */
 /* ── PROGRESS-CENTRE Cell — the section dot-rail's slot ──────────────────────
  * Real Form Cell (was css:false). The Cell owns the rail's POSITION; the progress
- * Tile (lib/forms/tile/progress) owns its appearance (dots, label, font). Default:
- * bottom-right, just left of the pagination — so the two wayfinding marks (rail +
+ * Tile (lib/forms/tile/progress) owns its appearance (the dots).
+ *
+ * `clip: false` in the manifest, corrected from `true`. The declaration promised the §6 clip
+ * guarantee — "content is cut at the Cell, never bled across a neighbour" — while the CSS here
+ * has always been `overflow: visible`. It was approximately true only because the rail's section
+ * label carried its own `overflow: hidden`; that label is gone (rank 4 of the band's allocation
+ * policy) and the dots are deliberately unshrinkable, so nothing clips and the manifest was
+ * asserting a guarantee no rule provided. Clipping the dots would be the wrong fix — half a dot
+ * is worse than a dot outside its berth. The berth is instead sized to fit them
+ * (`--footer-center-w`, stage.css), which is the guarantee that actually holds.
+ *
+ * Default position: bottom-right, just left of the pagination — so the two wayfinding marks (rail +
  * page number) read as ONE group at the same baseline and the same --fs-meta size.
  * A single `--progress-inset` var() hook lets a Frame relocate the rail
  * INDEPENDENTLY (e.g. to the right-middle) for infinite layouts (forms.md §7.3).
@@ -20415,8 +20447,15 @@ section.form .tile-progress {
    * drop the rail to the right-middle (independent movability, forms.md §7.3). */
   inset: var(--progress-inset, auto var(--footer-pag-reserve) var(--frame-inset-y) auto);
   z-index: 3;
-  /* Reserved width (the manifest geometry token) — a long section label truncates
-   * inside it rather than crowding the page number. */
+  /* Reserved width (the manifest geometry token), for the ABSOLUTE placement this Cell owns.
+   * It was a truncation cap for a section label of unbounded length; the rail is dots only now
+   * (progress.transform.js caps them at MAX_DOTS), so it is a real reserve — but ONLY while the
+   * token is at least the rail's true width, measured at 32.17 `--_sec-1cqi` units in portrait
+   * against a 34-unit token. It is not a clip: `overflow` here is `visible`, so a cap smaller
+   * than the dots spills them leftward over the running footer instead of trimming them, and it
+   * squeezes the dots themselves to zero if they are ever made shrinkable. Do not shrink this
+   * token without re-measuring a full 10-dot rail in PORTRAIT — the arithmetic has been wrong
+   * twice; see the note beside `--footer-center-w` in stage.css. */
   max-width: var(--footer-center-w);
   pointer-events: none;
 }
@@ -20489,7 +20528,29 @@ section.form {
    * rules) — footer-left yields it so the two can never collide. */
   --footer-h: calc(var(--_sec-1cqi, 1cqi) * 5);
   --footer-reserve: calc(var(--frame-inset-y) + var(--footer-h) + var(--sp-sm));
-  --footer-center-w: calc(var(--_sec-1cqi, 1cqi) * 30);
+  /* The rail's reserved berth. 34 — and the number of times this constant has been wrong is the
+   * reason for the length of this note.
+   *
+   * It is a RESERVE, not a clip: the rail's `overflow` is `visible` and the band packs `flex-end`,
+   * so a reserve SMALLER than the rail does not trim the dots, it spills them leftward across the
+   * author's footer text. Under-sizing it is therefore worse than omitting it.
+   *
+   * Two ways it has been got wrong, both by computing instead of measuring:
+   *   1. `9 × 0.85 + 2.6 + 9 × --sp-sm = 18.69`, taking `--sp-sm` as `0.9375cqi`. That is the
+   *      `section.compact` OVERRIDE (lib/shared/shared.styles.css); the default is
+   *      `1.25 × --_sec-1cqi × --canvas-scale` (lib/base/base.tokens.css), and `--canvas-scale`
+   *      is 1.95 in portrait. The resulting cut to 20 overprinted every portrait deck of 8+
+   *      sections — 82.8px of dots through the footer.
+   *   2. Re-measuring the rail as a percentage of the SLIDE (28.95). This token's unit is
+   *      `--_sec-1cqi`, which is 9.72px in portrait against a 10.80px slide-percent — so the
+   *      "corrected" 30 was still 21px short.
+   * MEASURED, in this token's own unit, on a rendered 10-dot rail: **32.17 portrait**, 21.48 at
+   * `hd`. 34 is the portrait figure plus headroom.
+   *
+   * If MAX_DOTS changes, re-measure — in PORTRAIT, and in `--_sec-1cqi` units, from a real render.
+   * Do not recompute it from token names. See
+   * engineering/decisions/2026-07-27-footer-band-allocation.md. */
+  --footer-center-w: calc(var(--_sec-1cqi, 1cqi) * 34);
   --footer-center-half: calc(var(--footer-center-w) / 2);
   /* The progress rail's default right offset — it parks just left of the page
    * number so the two wayfinding marks read as one group. Sized for the page
@@ -20589,20 +20650,67 @@ section.form.footer-inset > .cell-footer {
 section.form.footer-inset:has(> .cell-footer) {
   padding-bottom: calc(var(--footer-reserve) + var(--footer-h));
 }
-/* The running footer text. Pinned absolutely to the band's LEFT edge (the band is
- * the absolute cell above, so it's the containing block) rather than flowing as a
- * flex item with `margin-right:auto` — auto-margin is still a margin (HARD RULE #20).
- * Out of flex flow, it leaves only the wayfinding group (rail · page no.) in the row,
- * which `justify-content:flex-end` already right-aligns; absent footer text changes
- * nothing. `inset-block:0` + the inner flex centres the text vertically, matching the
- * band's `align-items:center`. Appearance (colour, size) comes from the Marp footer tier. */
+/* RANK 3 of the band's allocation policy (stated in full below, at the rail): the author's
+ * own words take everything the wayfinding marks don't need, and ellipsise past that.
+ *
+ * This was an absolute pinned to the band's left edge with a fixed `--footerleft-w` (52cqi)
+ * budget. A budget is not a negotiation — it bounds the footer without telling it what else
+ * is in the row — so when both strings were long the marks simply overprinted ("conservation"
+ * struck through "SECTION" on a real render; 105.2px of ink on gallery p78). As a flex ITEM
+ * the footer cannot overlap anything, by construction: flex items don't. `flex-grow`, never
+ * `margin-right: auto` — an auto margin is still a margin, invisible to the height math the
+ * Fit Spine measures (HARD RULE #20).
+ *
+ * THIS WAS TRIED ONCE AND REVERTED, and the difference matters because the rule looks
+ * identical. The first attempt promoted the footer while the rail still carried its
+ * `white-space: nowrap` section label. Two unshrinkable strings bidding for one row means
+ * flexbox shrinks BOTH: an ordinary board deck lost "any person not named on the distribution
+ * schedule" from the exported PDF's text layer, and the rail — a mark the change was not meant
+ * to touch — truncated to "SECTION 02 · OPERAT…". The label is gone from the markup now
+ * (rank 4, progress.transform.js) and the dots are bounded by count, so there is exactly ONE
+ * flexible item in the row. That is what makes this safe now and unsafe then. Do not
+ * re-introduce a growable mark into this band without re-deciding the order.
+ *
+ * The cost this DOES carry, accepted deliberately: a footer longer than the band no longer
+ * wraps to a second line, it ellipsises — so the tail is absent from the exported text layer,
+ * not merely off-screen. engineering/decisions/2026-07-27-footer-band-allocation.md */
 section.form > .cell-footer > footer {
-  position: absolute;
-  left: 0;
-  inset-block: 0;
-  display: flex;
-  align-items: center;
-  max-width: var(--footerleft-w, 52cqi);
+  position: static;
+  inset: auto;
+  /* `block`, not the band's `flex`: `text-overflow: ellipsis` never applies to a flex
+   * CONTAINER, so the text clipped mid-word with no ellipsis. Vertical centring is the
+   * band's own `align-items: center` now that this is a real flex ITEM. */
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  /* `overflow: hidden` is what makes the ellipsis possible — and it is also a HORIZONTAL clip
+   * that arrives with a VERTICAL one attached, because the base footer sets `line-height: 1`.
+   * At `hd` that is a 12.73px padding box around a 17px em box: the half-leading goes NEGATIVE
+   * and ~3px of the ink zone sits above the box top. An absolute footer never noticed (it was
+   * `overflow: visible` inside a 20.4px `inset-block: 0` box), but a clipping one shaves off
+   * everything above cap height — measured: `ÜBERPRÜFUNG` printed as `UBERPRUFUNG` and `ÅÉÀÖ`
+   * as `ĀEAO`. Lowercase accents survived, which is exactly why it could have shipped unnoticed
+   * on an English deck. So the footer sets its own leading, big enough to contain the ink it
+   * now clips. 1.45 restores every diacritic and changes NO geometry: the band stays 20.4px
+   * tall at the same top, so no other mark in the row moves. (HARD RULE #25 inversion pass, on
+   * a raster — no box or ink measurement can see this, since the loss is sub-box paint.) */
+  line-height: 1.45;
+  /* DEFINITE height, and load-bearing — promoting the footer took away the thing that used to make
+   * a growing band impossible. As an absolute with `inset-block: 0` it had a definite height and
+   * could not affect the band; as an in-flow item it has auto height, and `footer:` passes raw HTML
+   * through. A board footer carrying a small mark — `Acme<sup>®</sup> … <img width=80>` — grew the
+   * band from 21.6px to 103px, and because the band is bottom-anchored it grows UPWARD: past
+   * `--footer-reserve` (a static `--footer-h` token that would then no longer describe it) and into
+   * the stage, with the page number jumping 40px between slides. Found by the trio's red team.
+   * `height`, not `max-height`, so the band is uniform BY CONSTRUCTION rather than uniform as long
+   * as no page happens to carry a taller run — page-to-page jitter in the wayfinding marks is the
+   * actual defect, and a cap alone still lets a `<sup>` nudge one page out of line. 1.6em over a
+   * 1.45 line so ordinary inline decoration (a ®, a footnote marker) still fits; `overflow: hidden`
+   * above clips anything genuinely oversized instead of reflowing the page. */
+  height: 1.6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* `no-footer` / `silent` drop the running footer text on a Form deck. The base
  * variant rule `section.no-footer > footer` is a DIRECT-CHILD selector, so it
@@ -20625,37 +20733,72 @@ section.form > .cell-footer > .lat-pagination {
   white-space: nowrap;
   pointer-events: none;
 }
-/* The progress rail docks in-flow in the footer row (de-absolute-positioned) when
- * the frame has a footer Cell — grouped just left of the page number.
+/* ── THE BAND'S ALLOCATION POLICY, as flex settings ──────────────────────────────
+ * The footer band is a shared, finite width with up to four marks in it, and for a long
+ * time nothing said who yields. Three separate attempts to arbitrate it at layout time
+ * failed, each by re-deriving a plausible number that was not the truth
+ * (engineering/decisions/2026-07-27-footer-band-allocation.md). The policy is now an
+ * ORDER, and every rank is a fixed declaration rather than a measurement:
  *
- * `min-width: 0` is the load-bearing part. The rail's label is `white-space: nowrap`, so
- * its min-content CONTRIBUTION is the full label width (`.seg`'s own `min-width: 0` lowers
- * its automatic minimum, not its contribution). With `min-width: auto` the rail was an
- * unshrinkable 730px flex item, and the running footer — the band's only other shrinkable
- * item — absorbed the entire deficit: 38px of a 431px string, one clipped glyph, measured
- * on examples/split-relationship.pdf. Letting the rail take its share fixes that.
+ *   1. the page number   — never yields (`.lat-pagination`, below)
+ *   2. the dots          — never yield; bucketed to MAX_DOTS in progress.transform.js,
+ *                          so the rail's own width is bounded by construction
+ *   3. the author's text — takes everything left, `…` past that
+ *   4. the section name  — gone. Not hidden: not emitted.
  *
- * The width RESERVE below is scoped to a band that actually contends (one carrying the
- * split k-of-N rail), NOT applied unconditionally. `max-width` does not know whether the
- * band is under pressure, so an unconditional cap truncated the section label on pages with
- * ~470px of slack — 84 of the 117 gallery pages, none of them split, each rendering the
- * full label on `main`. That was a regression on surfaces nowhere near this feature
- * (HARD RULE #18), caught by the trio's red team. A fourth mark in the band is what makes
- * the reserve necessary; without one, `min-width: 0` alone already keeps the band honest. */
+ * Rank 4 is what makes the rest possible. The rail used to carry the divider's eyebrow,
+ * one `white-space: nowrap` string that could not yield, so it either overprinted the
+ * footer or bid its width away and deleted words from the exported PDF. With the label
+ * gone the rail is DOTS ONLY — at most ten of them, sized in container units — so it occupies a
+ * fixed FRACTION of the band rather than a fixed pixel width, and can neither grow into the
+ * footer's words nor shrink into an unreadable smear. (That fraction differs by ORIENTATION,
+ * because the gaps carry `--canvas-scale` and the dots do not: 21.48 `--_sec-1cqi` units at `hd`,
+ * 32.17 in portrait. See `--footer-center-w` above — assuming one number for both is what caused
+ * the overprint this policy was supposed to make impossible.)
+ *
+ * Hence `flex: 0 0 auto` and NO `min-width` / `max-width` here. Both of those were
+ * arbitration devices for a rail whose width was unbounded; the cap truncated labels on
+ * 84 gallery pages that had ~470px of slack, and `min-width: 0` silently decided who
+ * yielded (113px of it). Neither has anything left to arbitrate, and a `min-width: 0`
+ * would now be actively wrong — it would let the dots be crushed. */
 section.form > .cell-footer > .tile-progress {
   position: static;
   inset: auto;
-  /* Still `none` here — the progress-centre Cell caps the rail at --footer-center-w for its
-   * ABSOLUTE placement, where the reserve is the only thing keeping it off the page number.
-   * In flow the row already spaces it, so the cap would truncate a label with hundreds of
-   * pixels of slack beside it. (Dropping this override was how the scoped cap below leaked
-   * onto all 84 railed gallery pages on the first attempt.) */
+  flex: 0 0 auto;
+  /* `none`. The progress-centre Cell caps the rail at `--footer-center-w` for its ABSOLUTE
+   * placement, where the reserve is the only thing keeping it off the page number. In flow the rail
+   * is `flex: 0 0 auto`, so its content size IS its box and a clamp can only ever be too small —
+   * and `overflow` on the rail is `visible` with `justify-content: flex-end`, so a clamped box does
+   * not clip its dots, it spills them LEFTWARD over the author's words. Deleting this line is how a
+   * revision of this change shipped an 82.8px overprint (dots spanning 312.7px inside a 194.4px
+   * box) past a green CI run; neither `scrollWidth` nor the rail's own rect could see it.
+   * REDUNDANT WHILE `--footer-center-w` IS ADEQUATE — with the token correct at 34 units the cap
+   * has nothing to bind on, and footer-band.test.js stays green if you remove this. Kept anyway,
+   * and the distinction is the point: this line makes the docked rail safe REGARDLESS of the
+   * token, and that token has been wrong twice. Two independent guards, deliberately. The test
+   * asserts the token relationship separately, which is the one that governs the paths this line
+   * does not reach. */
   max-width: none;
-  min-width: 0;
 }
-section.form > .cell-footer:has(> .lat-split-rail) > .tile-progress {
-  max-width: var(--footer-center-w);
-}
+/* Rank 2, at the mark level: a dot keeps its shape. `.dot` carried the default
+ * `flex-shrink: 1`, so on a contended band the "you are here" pill collapsed from a 39×13 pill
+ * to an 11×13 circle and the off dots to 3×13 slivers — losing the one difference that says
+ * where you are. Found by the trio's inversion pass, on a raster.
+ * (`.lat-split-rail` marks its k-of-N steps with `.seg` — a segment BAR, not the section label
+ * of the same class name on the progress rail. Both are fixed-size marks that must not deform.)
+ * A previous revision called this REDUNDANT — "verified: removing it leaves the suite green". It
+ * was neither. The rail is a flex ITEM (rigid, so nothing reaches the dots that way) but it is
+ * ALSO a flex CONTAINER carrying `max-width: var(--footer-center-w)` from the progress-centre
+ * Cell, and a binding cap there reaches straight through: with the default `flex-shrink: 1`
+ * restored and the cap under-sized, every dot measured **0px wide**. The suite was green because
+ * its fixture had ONE dot and never approached the cap. Whether the cap binds today depends on
+ * `--footer-center-w` being adequate — a value that has been wrong twice — so this line is not
+ * claimed to be redundant, and is not to be removed on the argument that it is. */
+.tile-progress .dot,
+.lat-split-rail .seg { flex: 0 0 auto; }
+/* Ranks 1 and 2 again, at the item level: neither wayfinding mark bids for or yields width. */
+section.form > .cell-footer > .lat-pagination,
+section.form > .cell-footer > .lat-split-rail { flex: 0 0 auto; }
 /* Retire the pagination PSEUDO wherever the real element exists (the decorative
  * numbered-divider numeral, a different `::after`, is untouched). */
 section.form:has(> .cell-footer)::after { content: none; }
@@ -20823,23 +20966,14 @@ section.form .tile-progress {
   justify-content: flex-end;
   gap: var(--sp-sm);
 }
-.tile-progress .seg {
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 500;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--text-label);
-  /* Extra breathing room after the label, on top of the flex `gap`. padding (inside the
-   * no-bg label box), not margin — HARD RULE #20. The ellipsis clip honours it as right inset. */
-  padding-right: var(--sp-xs);
-  /* Within the reserved centre zone, a very long label still truncates
-     gracefully rather than crowding the dots. */
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* NO `.seg` RULES — the rail carries dots only. It used to print the divider's eyebrow
+ * beside them, and that single `white-space: nowrap` string is what made the footer band
+ * unresolvable: it could not yield, so it either overprinted the author's footer text or
+ * bid the footer's width away (deleting words from the exported PDF). The band's priority
+ * order is pagination > dots > the author's words > the section name, and the section name
+ * loses outright. Removed from the markup in progress.transform.js rather than hidden here,
+ * so nothing in the row can bid for width at all.
+ * engineering/decisions/2026-07-27-footer-band-allocation.md */
 .tile-progress .dot {
   width: 0.85cqi;
   height: 0.85cqi;

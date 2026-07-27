@@ -1377,31 +1377,40 @@ section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):has(.tile-progress)
 section.form > .cell-footer > .lat-split-rail {
   position: static; inset: auto;
 }
-/* …and the band needs a real width budget once a FOURTH mark joins it. The running footer text
-   is an absolute pinned to the band's left edge with a fixed `--footerleft-w` (52cqi) budget,
-   so nothing stops it meeting the wayfinding group — it only ever LOOKED safe because a short
-   footer string never reached that far. Add the k-of-N rail and the group grows left into it
-   (seen on a real render: "conservation" struck through "SECTION"). So on a docked-rail page
-   the footer text becomes a real flex item that ABSORBS the free space and ellipsises instead
-   of overrunning — `flex-grow`, not `margin-right:auto` (HARD RULE #20 — a margin is invisible
-   to the height math the Fit Spine measures). Scoped by `:has(> .lat-split-rail)` to split-run
-   pages only: the un-split band keeps its current geometry byte for byte.
-   This only WORKS because the docked section rail keeps a width reserve (stage.css,
-   `--footer-center-w`): a flex item can only absorb free space if its siblings can give it up,
-   and an un-capped nowrap rail cannot. Measured on examples/split-relationship.pdf at 1036px of
-   band: footer 485/485px (nothing truncated), rail capped at 282, k-of-N and page number clear. */
-section.form > .cell-footer:has(> .lat-split-rail) > footer,
+/* RANK 3 of the band's allocation policy (stage.css states the whole order): the author's
+   own words take everything the wayfinding marks don't need, and ellipsise past that.
+
+   The footer was an absolute pinned to the band's left edge with a fixed `--footerleft-w`
+   (52cqi) budget. A budget is not a negotiation — it bounds the footer without telling it
+   what else is in the row — so when both strings were long the marks simply overprinted
+   ("conservation" struck through "SECTION" on a real render; 105.2px of ink on gallery p78).
+   As a flex ITEM the footer cannot overlap anything, by construction: flex items don't.
+
+   THIS WAS TRIED ONCE AND REVERTED, and the difference is worth stating because the
+   selector looks identical. The first attempt promoted the footer while the rail still
+   carried its `white-space: nowrap` section label. Two unshrinkable strings bidding for one
+   row means flexbox shrinks BOTH: an ordinary board deck lost "any person not named on the
+   distribution schedule" from the exported PDF's text layer, and the rail — a mark the
+   change was not meant to touch — truncated to "SECTION 02 · OPERAT…". The label is now
+   gone from the markup entirely (rank 4, progress.transform.js), and the dots are bounded
+   by count, so there is exactly ONE flexible item in the row. That is what makes this safe
+   now and unsafe then. Do not re-introduce a growable mark into this band without
+   re-deciding the order. engineering/decisions/2026-07-27-footer-band-allocation.md
+
+   Rank 3 itself lives on `section.form > .cell-footer > footer` in stage.css, beside the rest
+   of the order, with the full rationale. This rule only extends it to a split COVER, which is
+   not a `.form` frame and so is not reached by that selector. Same declarations, deliberately
+   duplicated rather than merged into one selector list across two files — the cover's chrome
+   is assembled here, and a cross-file selector list is the kind of thing that gets half-edited. */
 section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
   inset: auto;
-  /* `block`, not the band's default `flex`: `text-overflow: ellipsis` never applies to a flex
-     CONTAINER, so the text was clipped mid-word with no ellipsis. Vertical centering is the
-     footer Cell's `align-items: center` now that this is a real flex ITEM. */
   display: block;
   flex: 1 1 auto;
   min-width: 0;
   max-width: none;
   white-space: nowrap;
+  line-height: 1.45;   /* contains the ink `overflow: hidden` would otherwise shave — see stage.css */
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1571,8 +1580,10 @@ section[data-split-role="cover"][data-split-role="cover"] > header,
 section[data-split-role="cover"][data-split-role="cover"] > footer,
 section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > footer,
 section[data-split-role="cover"][data-split-role="cover"] > .lat-pagination,
-section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > .lat-pagination,
-section[data-split-role="cover"][data-split-role="cover"] .tile-progress .seg {
+/* (No `.tile-progress .seg` arm — the progress rail no longer emits a label on any path;
+   rank 4 of the band's allocation policy. `.lat-split-rail .seg` is a different element,
+   a k-of-N segment bar, and is coloured by its own rules.) */
+section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > .lat-pagination {
   color: currentColor;
   opacity: 0.9;
 }

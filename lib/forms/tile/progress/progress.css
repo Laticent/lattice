@@ -13,23 +13,14 @@ section.form .tile-progress {
   justify-content: flex-end;
   gap: var(--sp-sm);
 }
-.tile-progress .seg {
-  font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  font-weight: 500;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--text-label);
-  /* Extra breathing room after the label, on top of the flex `gap`. padding (inside the
-   * no-bg label box), not margin — HARD RULE #20. The ellipsis clip honours it as right inset. */
-  padding-right: var(--sp-xs);
-  /* Within the reserved centre zone, a very long label still truncates
-     gracefully rather than crowding the dots. */
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* NO `.seg` RULES — the rail carries dots only. It used to print the divider's eyebrow
+ * beside them, and that single `white-space: nowrap` string is what made the footer band
+ * unresolvable: it could not yield, so it either overprinted the author's footer text or
+ * bid the footer's width away (deleting words from the exported PDF). The band's priority
+ * order is pagination > dots > the author's words > the section name, and the section name
+ * loses outright. Removed from the markup in progress.transform.js rather than hidden here,
+ * so nothing in the row can bid for width at all.
+ * engineering/decisions/2026-07-27-footer-band-allocation.md */
 .tile-progress .dot {
   width: 0.85cqi;
   height: 0.85cqi;
