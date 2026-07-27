@@ -180,6 +180,14 @@ describe('footer band — a contended band keeps both marks legible', () => {
         `p${b.page}: the footer starts at ${b.footer.left.toFixed(1)} but the band's left margin is `
         + `${b.band.left.toFixed(1)} — it no longer lines up with the header and the body.`);
     }
+    // NOT asserted here, deliberately: the docked rail's own `min-width: 0` (stage.css) is a
+    // shrink-PRIORITY lever, not a correctness one. Remove it and the rail's automatic minimum
+    // becomes max-content — it has no `overflow: hidden` to suppress that the way the footer does —
+    // and 113px moves from the author's footer (611.9 → 491.8) to the generated rail (141 → 254 of
+    // label). Both marks are clipped either way and nothing overlaps, so the difference is purely
+    // who yields first, which is the open question this branch refuses to settle by accident
+    // (engineering/decisions/2026-07-27-footer-band-allocation.md). `footer.width > rail.width`
+    // below is the one priority claim the engine actually makes, and it holds in both states.
   });
 
   test('the footer and the section rail never overlap', () => {

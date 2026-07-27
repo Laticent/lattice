@@ -16219,23 +16219,25 @@ section.form > .cell-footer > .lat-split-rail {
    the footer text becomes a real flex item that ABSORBS the free space and ellipsises instead
    of overrunning — `flex-grow`, not `margin-right:auto` (HARD RULE #20 — a margin is invisible
    to the height math the Fit Spine measures).
-   Scoped by `:has(> .lat-split-rail)` to split-run pages, where a FOURTH mark in the row makes the
-   band genuinely over-subscribed. The un-split band keeps its current geometry byte for byte — it
-   still overprints when both strings are long, which is a real defect, logged as a design fork
-   rather than fixed here (see the decision doc; the obvious fix makes the export strictly worse).
-   This works because both sides can give ground: the footer carries `min-width: 0` below and the
-   docked rail carries it in stage.css (an un-capped nowrap rail with `min-width: auto` is
-   unshrinkable, which is what made the first version of this fix collapse the footer to 38px). */
-/* SCOPED TO SPLIT BANDS, and an attempt to widen it to every band with a docked mark was REVERTED
-   — see `engineering/decisions/2026-07-27-footer-band-allocation.md`. The short version, because
-   the temptation to widen it again is obvious: promoting the footer to a flex item makes it BID for
-   the row's width (`flex-basis: auto` = its full single-line intrinsic width), and `nowrap` forbids
-   the wrap it was previously using. On an un-split band that trades a visible overprint for text
-   DELETED FROM THE EXPORTED PDF's TEXT LAYER — measured on an ordinary board deck, a
-   confidentiality footer lost "any person not named on the distribution schedule" and the section
-   label lost "ING LEVERAGE", where `main` rendered both in full across a wrapped footer. On a SPLIT
-   band the trade is right, because a fourth mark makes the row genuinely over-subscribed and there
-   is no wrap to preserve. */
+   SCOPED BY `:has(> .lat-split-rail)` TO SPLIT-RUN PAGES, and an attempt to widen it to every band
+   carrying a docked mark was REVERTED — see
+   `engineering/decisions/2026-07-27-footer-band-allocation.md`. The short version, because the
+   temptation to widen it again is obvious: promotion makes the footer BID for the row's width
+   (`flex-basis: auto` = its full single-line intrinsic width), and `nowrap` forbids the wrap it was
+   previously using. On an un-split band that trades a visible overprint for text DELETED FROM THE
+   EXPORTED PDF's TEXT LAYER — measured on an ordinary board deck, a confidentiality footer lost
+   "any person not named on the distribution schedule" and the section label lost "ING LEVERAGE",
+   where `main` renders both in full across a wrapped footer. On a SPLIT band the trade is right: a
+   fourth mark makes the row genuinely over-subscribed, and the band is already the tightest it gets,
+   so there is no wrap to preserve.
+   So the un-split band keeps its geometry byte for byte, and still overprints when both strings are
+   long. That is a real defect, logged as a design fork rather than fixed here.
+   The row resolves because the rail can give ground: `min-width: 0` on the docked `.tile-progress`
+   in stage.css, where it is also the shrink-PRIORITY dial (removing it moves 113px from the footer
+   to the label). The footer's own `min-width: 0` below is NOT doing that work — css-flexbox-1 §4.5
+   already suppresses the automatic minimum size for a box whose main-axis overflow is not `visible`,
+   which `overflow: hidden` below makes true. Measured identical widths with and without it; kept as
+   the paired idiom, not as load-bearing. */
 section.form > .cell-footer:has(> .lat-split-rail) > footer,
 section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
@@ -20670,6 +20672,13 @@ section.form > .cell-footer > .tile-progress {
    * pixels of slack beside it. (Dropping this override was how the scoped cap below leaked
    * onto all 84 railed gallery pages on the first attempt.) */
   max-width: none;
+  /* This one IS a shrink-priority lever, and the only one that works. Without it the rail's
+   * automatic minimum is max-content (it has no `overflow: hidden` to suppress that, the way the
+   * promoted footer does), so it stops yielding and 113px moves from the author's footer to the
+   * generated label — measured on test/fixtures/footer-band-contended.md: footer 611.9 → 491.8,
+   * label 141 → 254 of a 466px string. Both marks stay clipped and nothing overlaps either way, so
+   * this is a POLICY choice, not a correctness one, and it is deliberately not pinned by a test —
+   * see engineering/decisions/2026-07-27-footer-band-allocation.md. */
   min-width: 0;
   /* NO shrink weighting here, and that is deliberate — an attempt to make the rail yield before
    * the author's footer text (`flex-shrink: 8`) did not prioritise it, it ANNIHILATED it: the whole

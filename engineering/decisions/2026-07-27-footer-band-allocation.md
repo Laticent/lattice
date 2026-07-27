@@ -104,6 +104,18 @@ Whichever is chosen, two containment fixes belong with it: `flex-shrink: 0` on `
 cannot deform, and keying the promotion on paint rather than DOM presence so `claim-*` frames are
 excluded.
 
+**And the lever that actually moves shrink priority is already in the tree, undeclared as such:**
+`min-width: 0` on the docked `.tile-progress` (`stage.css`). Without it the rail's automatic minimum
+is max-content — it carries no `overflow: hidden` to suppress that, the way the promoted footer does
+— so it stops yielding, and 113px moves from the author's footer to the generated label (measured on
+`test/fixtures/footer-band-contended.md`: footer 611.9 → 491.8px, label 141 → 254px of a 466px
+string). Both marks stay clipped either way and nothing overlaps, so this is not a defect in either
+position; it is the priority dial, and today it is set to "the author's words win" by a declaration
+that reads like boilerplate. Whoever settles the policy above should set it on purpose. It is
+deliberately NOT pinned by `footer-band.test.js`, because a test there would freeze the answer to
+the open question. `flex-shrink` is not the dial — a weight on top of an already-capped basis drives
+the rail to 0px, as recorded below.
+
 ## A note on measurement, because this cost four attempts
 
 Every wrong answer here came from a plausible number that was not the truth:

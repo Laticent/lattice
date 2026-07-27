@@ -227,6 +227,13 @@ section.form > .cell-footer > .tile-progress {
    * pixels of slack beside it. (Dropping this override was how the scoped cap below leaked
    * onto all 84 railed gallery pages on the first attempt.) */
   max-width: none;
+  /* This one IS a shrink-priority lever, and the only one that works. Without it the rail's
+   * automatic minimum is max-content (it has no `overflow: hidden` to suppress that, the way the
+   * promoted footer does), so it stops yielding and 113px moves from the author's footer to the
+   * generated label — measured on test/fixtures/footer-band-contended.md: footer 611.9 → 491.8,
+   * label 141 → 254 of a 466px string. Both marks stay clipped and nothing overlaps either way, so
+   * this is a POLICY choice, not a correctness one, and it is deliberately not pinned by a test —
+   * see engineering/decisions/2026-07-27-footer-band-allocation.md. */
   min-width: 0;
   /* NO shrink weighting here, and that is deliberate — an attempt to make the rail yield before
    * the author's footer text (`flex-shrink: 8`) did not prioritise it, it ANNIHILATED it: the whole
