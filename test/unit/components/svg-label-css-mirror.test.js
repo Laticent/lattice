@@ -158,53 +158,27 @@ describe('radar mini viewBox ↔ CSS box mirror', () => {
     assert.ok(+vb[4] > 300, `mini viewBox height ${vb[4]} must exceed the 300-unit diagram (the caption band)`);
   });
 
-  test('the CSS height divides by the EMITTED viewBox height, not a hard-coded one', () => {
-    // `height: calc(var(--radar-mini-size) * var(--radar-mini-vb, N) / 300)`.
-    // The numerator must be the property the kernel emits, so the DIAGRAM keeps
-    // rendering at exactly --radar-mini-size whichever band size was chosen. A
-    // literal here would be correct only for the band it was written against and
-    // would letterboxen or crop as soon as a name wrapped.
-    const m = /\.radar-svg--mini\s*\{[^}]*?height:\s*calc\(var\(--radar-mini-size\)\s*\*\s*var\(--radar-mini-vb,\s*([\d.]+)\)\s*\/\s*300\)/s.exec(css);
-    assert.ok(m, 'the .radar-svg--mini height must divide by var(--radar-mini-vb, <one-line fallback>)');
-
-    // The rendered figure must actually carry the property, and it must equal
-    // the viewBox height it is standing in for.
-    const emitted = /<figure class="radar-mini"[^>]*--radar-mini-vb:(\d+)/.exec(rendered);
-    assert.ok(emitted, 'the mini figure emits no --radar-mini-vb, so the CSS falls back silently');
-    assert.equal(+emitted[1], +vb[4],
-      `figure declares --radar-mini-vb:${emitted[1]} but its svg viewBox height is ${vb[4]}`);
-
-    // The CSS fallback is the ONE-LINE band — the value used if the property ever
-    // goes missing. It must be a real band height, not a guess.
-    assert.ok(+m[1] > 300 && +m[1] <= +vb[4],
-      `the fallback ${m[1]} must be a caption band height (>300, <= the emitted ${vb[4]})`);
+  test('CSS states no viewBox height at all — the browser derives it', () => {
+    // The mini fills its grid cell (`width:100%; height:100%`) and
+    // `preserveAspectRatio: meet` fits the viewBox inside, so the caption band's
+    // share of the drawing comes from the viewBox itself. This replaced a
+    // `height: calc(var(--radar-mini-size) * <vbH> / 300)` mirror, which required
+    // CSS to know a number the kernel computes from CONTENT (one line of series
+    // names or two) — correct only for the band it was written against, and
+    // letterboxing or cropping the moment a name wrapped. The best mirror is no
+    // mirror; this test guards that it stays gone.
+    const rule = /\.radar-svg--mini\s*\{([^}]*)\}/s.exec(css);
+    assert.ok(rule, 'no .radar-svg--mini rule in radar.styles.css');
+    assert.match(rule[1], /height:\s*100%/,
+      'the mini must fill its grid cell on BOTH axes; preserveAspectRatio fits the viewBox inside');
+    assert.ok(!/height:\s*calc\([^)]*\/\s*300\s*\)/.test(rule[1]),
+      'the mini height must not divide by a hard-coded viewBox height again');
   });
 
-  test('the band grows for a wrapped name and every mini in the chart shares it', () => {
-    // The row is a flex row: one taller mini would misalign it. All minis in a
-    // chart must therefore carry the SAME --radar-mini-vb, sized by the longest
-    // name — and a chart with no wrap must not pay for a second line.
-    const engine = require('../../../lib/engine');
-    const deck = (names) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: radar small-multiples -->\n\n## T\n\n${
-      names.map((n) => `- ${n}\n  - Speed \`8\`\n  - Cost \`6\`\n  - Risk \`7\``).join('\n')}\n`;
-    const vbsOf = (html) => [...new Set([...html.matchAll(/--radar-mini-vb:(\d+)/g)].map((m) => +m[1]))];
-
-    const short = vbsOf(engine.render(deck(['Atlas', 'Beacon']), 'indaco', { preview: true }).html);
-    const long = vbsOf(engine.render(
-      deck(['Northwind Logistics and Distribution Group International', 'Atlas', 'Beacon']),
-      'indaco', { preview: true },
-    ).html);
-
-    assert.equal(short.length, 1, `all minis must share one band height, got ${short}`);
-    assert.equal(long.length, 1, `all minis must share one band height, got ${long}`);
-    assert.ok(long[0] > short[0],
-      `a wrapped name must grow the band (one-line ${short[0]}, wrapped ${long[0]})`);
-  });
-
-  test('the CSS width divides by 300 — the caption must not change the diagram width', () => {
-    const m = /\.radar-svg--mini\s*\{[^}]*?width:\s*calc\(var\(--radar-mini-size\)\s*\*\s*([\d.]+)\s*\/\s*300\)/s.exec(css);
-    assert.ok(m, 'could not find the .radar-svg--mini width calc() in radar.styles.css');
-    assert.equal(+m[1], +vb[3], `CSS width numerator ${m[1]} must equal the viewBox width ${vb[3]}`);
+  test('the mini fills the width its flex track was given', () => {
+    const rule = /\.radar-svg--mini\s*\{([^}]*)\}/s.exec(css);
+    assert.match(rule[1], /width:\s*100%/,
+      'the mini must fill its track — a fixed width is what left four minis at 5% of a portrait body');
   });
 
   test('the caption is SVG — no <figcaption> survives in the small-multiples output', () => {
@@ -242,15 +216,28 @@ describe('SVG label sizes stay chart-relative, not slide-relative', () => {
   for (const { css, sel } of OWNED_BY_KERNEL) {
     test(`${sel} declares no font-size in CSS`, () => {
       const text = read(css);
-      // Every rule block whose selector mentions this class.
-      const blocks = [...text.matchAll(/([^{}]*)\{([^}]*)\}/g)]
-        .filter(([, selector]) => selector.includes(sel));
-      assert.ok(blocks.length > 0, `no rule found for ${sel} in ${css}`);
-      for (const [, selector, body] of blocks) {
+      // Scan from each MENTION of the class to the end of the block it opens,
+      // rather than matching `prelude { body }` pairs. The pair form cannot see
+      // inside an at-rule: for `@media (…) { .wc-key-a { font-size: … } }` the
+      // prelude is the `@media` and the class sits in the BODY, so the block is
+      // filtered out and the very declaration this guards slips through green.
+      let found = 0;
+      for (const m of text.matchAll(new RegExp(sel.replace('.', '\\.'), 'g'))) {
+        const open = text.indexOf('{', m.index);
+        if (open < 0) continue;
+        // Walk to the matching close brace so a nested block is included.
+        let depth = 0; let end = open;
+        for (; end < text.length; end += 1) {
+          if (text[end] === '{') depth += 1;
+          else if (text[end] === '}') { depth -= 1; if (depth === 0) break; }
+        }
+        const body = text.slice(open + 1, end);
+        found += 1;
         assert.ok(!/(^|[\s;])font-size\s*:/.test(body),
-          `${sel}: CSS sets font-size (${selector.trim()}) — that makes the label slide-relative ` +
-          'again. Size these from the kernel, in viewBox user units.');
+          `${sel}: CSS sets font-size near offset ${m.index} — that makes the label ` +
+          'slide-relative again. Size these from the kernel, in viewBox user units.');
       }
+      assert.ok(found > 0, `no rule found for ${sel} in ${css}`);
     });
   }
 

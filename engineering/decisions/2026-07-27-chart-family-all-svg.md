@@ -72,15 +72,21 @@ heading, the `more`/`less` edges, the A-ramp and the spine as SVG in the same
 caption band and the name is emitted through the shared wrapping emitter, so a
 long series name breaks to a second line instead of overrunning.
 
-The band is sized **per chart, from the longest name** — one line (329) or two
-(349) — and the height rides out on `--radar-mini-vb` so the CSS divides by what
-was actually emitted. Every mini in a chart shares the value, so the flex row
-stays aligned. The first cut reserved two lines unconditionally and made every
-mini 12px taller than the HTML caption it replaced, whether or not any name
-wrapped: height the Fit Spine has to find, since the overflow probe measures the
-rendered box. A constant band spends the slide's budget on whitespace and can tip
-a tight deck into an autosplit it did not need. Content-sized, the common case is
+The band is sized **per chart, from the longest name** — one line (viewBox 334)
+or two (354), plus the last line's descent so a wrapped `…Ledger` stays inside
+the box. Every mini in a chart shares the value, so the grid row stays aligned.
+The first cut reserved two lines unconditionally and made every mini 12px taller
+than the HTML caption it replaced, whether or not any name wrapped: height the
+Fit Spine has to find, since the overflow probe measures the rendered box. A
+constant band spends the slide's budget on whitespace and can tip a tight deck
+into an autosplit it did not need. Content-sized, the common case is
 height-neutral (206.7px before → 206.2px after).
+
+**No number crosses into CSS.** The mini fills its grid cell (`width:100%;
+height:100%`) and `preserveAspectRatio: meet` fits the viewBox inside, so the
+band's share of the drawing is settled by the viewBox alone. An earlier cut had
+CSS divide by the emitted height via a `--radar-mini-vb` custom property; the
+grid made even that unnecessary. The best mirror is no mirror.
 
 ## 3. The sizing trap, hit exactly where the last conversion said it would be
 
@@ -89,18 +95,12 @@ existing `aspect-ratio` / `max-height` first — the kernel is the easy part."*
 Both halves of this change hit it.
 
 **radar.** `--radar-mini-size` mapped the 300-unit viewBox to a rendered height.
-Growing the viewBox without touching the CSS would have kept the BOX the same size
-and shrunk the diagram inside it by up to 14% — the caption eating the shape it
-names. The height rule now divides by `--radar-mini-vb`, the height the kernel
-actually emitted, so the diagram renders at exactly `--radar-mini-size` whether
-the band holds one line or two. Measured, not assumed: diagram 187.98px before →
-188.0px after.
-
-A hard-coded divisor would have been the same trap one step later — correct for
-the band it was written against, letterboxing or cropping the moment the band
-changed size. That is why the number travels with the render instead of being
-mirrored by hand, and why the mirror test reads the RENDERED viewBox rather than
-re-deriving the arithmetic.
+Growing the viewBox while CSS still divided by 300 would have kept the BOX the
+same size and shrunk the diagram inside it by up to 14% — the caption eating the
+shape it names. Two cuts chased this (a hard-coded divisor, then a
+kernel-emitted one) before the grid removed the question: the cell has a size,
+`meet` fits the viewBox into it, and no divisor exists to be wrong. Measured, not
+assumed: diagram 187.98px before → 188.0px after, landscape unchanged.
 
 **Type size is the same trap one level down.** The family's key rule is
 `FS = 0.045 · diagram height`, which equalizes the PHYSICAL size of every chart's
@@ -113,10 +113,12 @@ viewBox, and lands at 10.78px — the same number, measured on the emulator's pr
 surface at the viewport it prints at.
 
 word-cloud's key sizes were solved the same way, from measured before/after
-positions: 14.98 user units for the label, 40/28/21.38 for the ramp, and gaps
-derived from the CSS line boxes they replace (the ramp's `line-height: 0.95` is
-why the three A's nest closely — modelling every row at 1.0 spread them out and
-shortened the block by 12%).
+positions: **16.09** user units for the label and **42.97 / 30.08 / 22.96** for
+the ramp, with gaps derived from the CSS line boxes they replace (the ramp's
+`line-height: 0.95` is why the three A's nest closely — modelling every row at
+1.0 spread them out and shortened the block by 12%). Those constants are the
+measured px divided by **0.83783**, the canvas's true uniform scale; see §6.5 for
+the 6.9% error that came of dividing by the height ratio instead.
 
 **Both conversions are size-neutral at the landscape default** — the before/after
 crops there are indistinguishable, which is the bar for a construction change. The
@@ -157,6 +159,39 @@ This is the second time in three branches that a derived fact has caught a
 hand-written claim, and the ratio is now hard to argue with: the machine-checked
 half has never been wrong, and the prose half has been wrong four times.
 
+## 5.5 The piechart model — portrait key-below and container-fill
+
+Moving the labels inside the viewBox was the precondition for two behaviors the
+piechart has had since #598 and these two components did not.
+
+**Key below at portrait.** word-cloud's key now sits UNDER the cloud in a tall
+box, with the horizontal accent rule and a left→right A-ramp — the shape
+`buildPortrait` gives the four keyed charts, threaded through `ctx.orientation`
+the way roadmap already selects `horizons`. In a tall box the scarce axis is
+width: a side rail squeezes the cloud and cramps the key at the same time, which
+is why the old HTML key overflowed its rail there. The portrait cloud also packs
+the FULL width against a taller canvas (1100×760), because the landscape canvas
+is 3.4:1 and `meet` fits that by width, stranding the height.
+
+**Fill the container.** word-cloud joins the chart-family container-fill rule
+and now fills **88%** of its chart body — the same number the piechart posts.
+It could not join before: the absolutely-positioned HTML key needed
+`.word-cloud-canvas` as a sized positioning context, so the canvas was pinned at
+`85.9375cqi × 25cqi`. One viewBox means one box to fill.
+
+radar's small-multiples became a **grid** rather than a wrapping flex row.
+Portrait fill goes from **5% to 43%** and the minis lay out 2-up instead of 3+1.
+Landscape is unchanged on purpose: four minis already fill the row width, and
+square tiles in a 2.4:1 body cannot exceed ~40% whatever you do.
+
+**Why a grid and not `flex: 1 1 basis`.** The flex form shipped here briefly and
+was wrong: six series wrap 4+2, the two survivors stretch to fill a four-wide
+row, and their height (derived from the viewBox) grows with them — **607.8px
+against a 449.1px stage, 115.8px of chart clipped off the top.** `auto-fit` +
+`minmax(basis, 1fr)` gives every cell the same width whatever row it lands in,
+and `grid-auto-rows: 1fr` splits the available height between rows, so the minis
+fit both axes by construction. The same deck now clears the stage by 130px.
+
 ## 6. Consequences
 
 - The chart family is **seven SVG, two hybrid, four HTML** (was five/four/four).
@@ -172,6 +207,34 @@ half has never been wrong, and the prose half has been wrong four times.
 - `--chart-spine` / `-w` / `-h` and `--wc-cloud-frac` are deleted. The cleanup
   §7 of the legend decision anticipated is done, by removal rather than
   relocation.
+
+## 6.5 What the checker caught
+
+Four confirmed defects, all fixed here; recorded because three of them are
+instructive rather than incidental.
+
+- **The key was 6.9% small.** Converting the measured px sizes to user units, I
+  divided by 0.9 — the canvas HEIGHT ratio — when `preserveAspectRatio: meet`
+  makes that box WIDTH-bound at 0.83783. Every constant inherited the error, and
+  three documents called the result size-neutral. Fixed to `KEY_FS = 16.09` and
+  re-verified with `getScreenCTM`, which reports the actual uniform scale instead
+  of letting me assume which axis binds.
+- **The minis left the accessibility tree.** The mini `<svg>` is
+  `aria-hidden="true"`, correct when its meaning lives in surrounding prose. It
+  is not correct once the series NAME moved inside it: four option names that
+  used to be an exposed `<figcaption>` became unreadable, leaving the slide with
+  only its heading. A labelled mini is now `role="img"` with an `aria-label`.
+  The word-cloud key's `aria-hidden` got an explicit justification; radar's minis
+  got none, which is exactly how a11y regressions ship.
+- **The caption band did not hold a descender.** `gap + lines·LH` measures to the
+  final BASELINE, so a wrapped name ending in `g`/`p`/`y` painted ~1.6 units
+  outside the viewBox — visible only because the svg is `overflow: visible`, i.e.
+  it looked fine and was wrong. The band now adds `BASELINE_EXTENT`'s descent.
+- **The new CSS guard was evadable.** Matching `prelude { body }` pairs cannot see
+  into an at-rule: for `@media (…) { .wc-key-a { font-size: … } }` the class sits
+  in the BODY, so the block was filtered out and the exact declaration the guard
+  exists to stop passed green. It now scans from each mention of the class to its
+  matching close brace, and I verified it fails on the evasion.
 
 ## 7. Unverified
 

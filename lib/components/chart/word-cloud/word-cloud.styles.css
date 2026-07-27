@@ -87,8 +87,10 @@
  * overflow:visible lets a glyph's optical bbox breathe past the viewBox edge
  * (the packer already keeps anchors inside), matching the old span behaviour. */
 :is(section.word-cloud, figure.chart-frame) .wc-svg {
-  position: absolute;
-  inset: 0;
+  /* No longer absolutely positioned: `position:absolute; inset:0` existed so the
+   * HTML key rail could overlay it. The key is inside the viewBox now, so the
+   * SVG is an ordinary in-flow box — and under the chart-family container-fill
+   * rule it fills the chart-body directly (the canvas div is display:contents). */
   width: 100%;
   height: 100%;
   display: block;

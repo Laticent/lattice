@@ -15,7 +15,29 @@ in patch versions.
 > | Category in `## Unreleased` | Bump |
 > |---|---|
 > | `### Removed`, or any `**Breaking:**` bullet / `BREAKING CHANGE` token | **major** |
-> | `### Added`, `### Changed`, `### Deprecated` | **minor** |
+> | `### Added`, `### Changed
+
+- **word-cloud and radar small-multiples follow the piechart's portrait + container-fill model.**
+  Two behaviors the pie has had since #598 and these two did not. (a) **Key below at portrait.**
+  word-cloud's `size = frequency` key moves from a side rail to a band UNDER the cloud, with the
+  horizontal accent rule and a left→right A-ramp — `svg-legend.js buildPortrait`'s model, threaded
+  through `ctx.orientation` the way roadmap already does. In a tall box the scarce axis is width, so
+  a rail squeezed the cloud AND cramped the key; the cloud now packs the full width against a taller
+  portrait canvas. (b) **Fill the container.** word-cloud joins the chart-family container-fill rule
+  (`.chart-body{container-type:size}` + canvas `display:contents` + svg `100%/100%`) — it could not
+  before, because the absolutely-positioned HTML key needed the canvas as a sized positioning
+  context, pinning it to `85.9375cqi × 25cqi`. It now fills **88%** of its chart body, exactly matching
+  the piechart. radar's small-multiples became a **grid** (`auto-fit` + `minmax` + `grid-auto-rows:1fr`)
+  that divides the body on both axes: in portrait the minis go from **5% → 43%** of the body and lay
+  out 2-up instead of an awkward 3+1. Landscape is deliberately unchanged — four minis already fill
+  the row width, and square tiles in a 2.4:1 body cannot do better.
+
+  A wrapping flex row was the wrong tool and briefly shipped here: with `flex:1 1 basis` a six-series
+  chart wraps 4+2 and the two survivors stretch to fill a four-wide row, growing their height with
+  them — measured **607.8px against a 449.1px stage, clipping 115.8px of chart off the top**. The grid
+  gives every cell the same width whatever row it lands in, and `1fr` rows split the height, so the
+  same deck now fits with 130px to spare.
+`, `### Deprecated` | **minor** |
 > | `### Fixed`, `### Security` | **patch** |
 >
 > Keep entries here current **as changes land** (see `CLAUDE.md`) — an empty
@@ -383,7 +405,10 @@ in patch versions.
 
   Both conversions are **size-neutral at the landscape default** and were measured, not eyeballed:
   radar's caption renders at 10.78px as before with the diagram unchanged at 188.0px, and
-  word-cloud's key type and rhythm reproduce the token scale it replaces. radar's caption band is
+  word-cloud's key reproduces the token scale it replaces (13.48px label, 36/25.2/19.24px ramp —
+  verified via `getScreenCTM`, not an assumed scale: `preserveAspectRatio: meet` makes that canvas
+  WIDTH-bound at 0.83783, and converting through the 0.9 height ratio shipped the whole key 6.9%
+  small in a first cut). radar's caption band is
   sized per chart from the longest name (one line or two) and its height travels to the CSS on
   `--radar-mini-vb`, so a chart of one-line names stays height-neutral (206.7px → 206.2px) instead of
   reserving a wrap it does not have — height the Fit Spine would otherwise have to find, which can
