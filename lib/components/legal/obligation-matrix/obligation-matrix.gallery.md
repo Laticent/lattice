@@ -48,7 +48,7 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
 | GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
 
-Red = applies (exposure), green = exempt (relief). Brackets frame the structure.
+Red = applies (exposure). Exempt cells stay neutral — heat marks burden, not relief.
 
 
 ---

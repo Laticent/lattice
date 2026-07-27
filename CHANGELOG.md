@@ -4691,6 +4691,24 @@ in patch versions.
 
 ### Fixed
 
+- **`compare-code`'s manifest `skeleton` used a markdown heading (`### Before`/`### After`) the
+  transform never recognized, collapsing both fenced blocks into one lopsided column instead of two
+  side-by-side (#1195).** `transformCompareCodeSection` splits columns on `<p><code>` boundaries
+  only — a heading isn't a boundary at all. `sample`/`stressDoc.sample` already used the correct,
+  working convention (backtick-wrapped labels like `` `Before` ``); `skeleton` is now consistent with
+  them, and `commonMistakes` documents the failure mode for authoring agents.
+- **`citation-card`/`redline`/`regulatory-update`'s own dedicated citation/scope-label CSS was
+  permanently shadowed by the shared masthead-lift kernel (#1199).** Each ships a
+  `.cell-stage > p:has(> code:only-child)` rule keyed to a code-only paragraph immediately after the
+  heading, but `extractSubtitleP` unconditionally captured that exact paragraph into the generic
+  `.cell-masthead` subtitle band first, so the dedicated rule never had anything left to match. Both
+  render paths (`lib/forms/cell/masthead/masthead.transform.js`, `lib/transformers/masthead-lift.js`)
+  now skip the subtitle capture for a narrow, named exemption (`OWN_TRAILING_LABEL`) covering just
+  these three components — the shared masthead/stage frame is otherwise untouched.
+- **`obligation-matrix`'s `heat` variant gallery caption claimed green cells meant "exempt (relief)",
+  but exempt cells render neutral, not green (#1199).** The caption now reads "Exempt cells stay
+  neutral — heat marks burden, not relief," matching what the `heat` variant actually renders.
+
 - **The radar's shape never animated.** Its series polygons carried no addressable attribute, so
   chart motion saw only the axis labels and animated the text of an otherwise static chart. The
   polygons now declare `data-anima-role` — deliberately *without* a `data-mark`, because the radar's

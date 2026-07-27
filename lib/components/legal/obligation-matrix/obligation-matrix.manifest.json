@@ -115,7 +115,7 @@
     "heat": {
       "label": "heat",
       "summary": "Cells shaded by burden.",
-      "sample": "<!-- _class: obligation-matrix heat -->\n\n## heat shades the cells by burden.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nRed = applies (exposure), green = exempt (relief). Brackets frame the structure.\n"
+      "sample": "<!-- _class: obligation-matrix heat -->\n\n## heat shades the cells by burden.\n\n| Regulation | Notice | Consent | Retention | Breach | DSAR  |\n| ---------- | :----: | :-----: | :-------: | :----: | :---: |\n| GDPR       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| CCPA/CPRA  | [x]    | [-]     | [x]       | [x]    | [x]   |\n| LGPD       | [x]    | [x]     | [x]       | [x]    | [x]   |\n| PIPEDA     | [x]    | [x]     | [-]       | [x]    | [-]   |\n| HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |\n| GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |\n\nRed = applies (exposure). Exempt cells stay neutral — heat marks burden, not relief.\n"
     },
     "asymmetric": {
       "label": "asymmetric",

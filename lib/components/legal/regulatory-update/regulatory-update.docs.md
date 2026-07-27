@@ -32,7 +32,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 ### Common mistakes
 
-- **Leaving the scope label unwrapped in plain text instead of inline code.** The component's own dedicated 'kicker above the ledger' styling is unreachable from every placement an author would naturally use — the shared masthead lift claims a code-only paragraph placed before OR immediately after the heading (the only two positions the natural heading-then-scope-then-items flow offers), leaving no gap for the dedicated selector to match. Wrap it in backticks so it's at least recognized as a label; expect the generic mono-caps eyebrow or italic subtitle treatment, not a distinct kicker.
+- **Placing the scope label BEFORE the heading instead of after it, or leaving it unwrapped in plain text.** Immediately after the heading (the documented placement) the scope label stays in the flow and gets the component's own dedicated styling. Before the heading, it's captured as the shared masthead eyebrow instead — a different, generic treatment. It must also be backtick-wrapped, or it isn't recognized as a label at all. Keep it after the heading, matching the skeleton.
 - **Using `diff-bands` without grouping items under `### ` category subheadings.** `diff-bands` expects the items split into separate ordered lists, each preceded by an `### Added`/`### Amended`/`### Repealed`/`### Enforced` subheading — a single flat list under `diff-bands` has no band to shade into.
 
 ## When to use
