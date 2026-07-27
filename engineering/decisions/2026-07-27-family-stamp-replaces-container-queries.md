@@ -175,3 +175,56 @@ result of a reflow rule only that tier can produce:
 The square row is the fix: `decision` reflows at square (it was inert), while
 `matrix-2x2` correctly stays `row` there because its rule is tall+strip only — so
 the boundary is precise, not a blanket "everything non-landscape".
+
+## Square is a real family now — two layouts fixed, and one number that isn't
+
+Turning the tier on exposed layouts nobody had ever seen render. Two were wrong,
+and both are fixed here rather than filed:
+
+- **`stats` at square is now 2-UP.** Stacking it into one column wasted the width
+  a square box has: four stats needed 825px of a 750px stage and clipped
+  `examples/social-square.md` — the first tile's number sheared off, the fourth
+  tile's label gone entirely. A 2x2 wrap uses both axes, which is what
+  `families.js` says square *means* ("balanced — 2x2 grids, 2-up"), and takes the
+  measured ceiling 3 → 6. Two wrong answers were tried first and are recorded in
+  the CSS so nobody repeats them: keeping the WIDE N-across row (crowds every
+  number — a square box is not a wide one), and keeping one column (the clip).
+
+- **`citation-card`'s `.split` and `.triptych` never reflowed at all.** Their
+  collapse rule listed three comma-parts but only the third carried `> .cell-stage`,
+  so the first two applied it to the SECTION — a no-op, since the section is
+  already a flex column — and the stage stayed `flex-direction: row`. At `story`
+  that clipped by 293px (stage 1504, content 1797), on two slides whose own titles
+  read "collapsed to bands" and "collapsed to a stream". A selector list
+  distributes nothing; each part needs its own combinator. Pre-existing (it
+  reproduces on `main`), but squarely on this branch's path.
+
+`tools/check-family-tiers.js` now probes `stats`' **flex-wrap** rather than its
+direction: since stats went 2-up, square and wide are both `row`, and only square
+`wrap`s. Mutation-tested — repointing the square rule at another family fails the
+gate.
+
+## What is NOT fixed: the capacity numbers, and why
+
+`tools/calibrate-capacity.js` measures a real ceiling, and the per-family lint
+plumbing ships. The NUMBERS do not, because the basis is not yet trustworthy —
+and the reason is worth recording, because it is the same defect one level down.
+
+A count ceiling is only meaningful for a stated element size, so the tool holds
+words-per-element fixed and grows the count. Calibrated at each component's
+declared `density.soft`, 34 declared values exceeded their ceiling — but the
+result warned on decks that render perfectly (`social-portrait`, `social-story`),
+because real decks write terser than their budget allows. Re-calibrated at a flat
+terse 6 words, 21 exceeded — and it *still* warned on `social-portrait`.
+
+The reason is `stats`: it declares `density.soft: 8` with the note "a metric
+label, not a sentence", while its own skeleton uses **two** words (`73%` /
+`faster close`). The declared density is four times its own canonical example. A
+capacity ceiling measured against it is measuring a slide nobody writes.
+
+So: **capacity cannot be grounded until density is honest**, and the right basis
+is neither `density.soft` nor any constant — it is each component's own SKELETON,
+the canonical authored element already sitting in every manifest. That is the
+next step, and it is a derivation, not another number to hand-maintain. Shipping
+the current values would have replaced one set of unverified numbers with
+another, which is the exact failure this whole note is about.

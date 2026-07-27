@@ -33,9 +33,12 @@ function resolveChrome() {
 }
 
 // Three probes, chosen so the harness proves BOTH directions:
-//   stats       — stacks at square/tall/strip, row at wide. If the square TIER
-//                 stopped firing this goes `row` at square, so it is the probe
-//                 that would catch a #1218 regression.
+//   stats       — the SQUARE probe, and the only family that WRAPS: wide is a
+//                 nowrap row, square a 2-up wrapped row, tall/strip a column. So
+//                 its flex-wrap alone separates square from every other family —
+//                 if the square tier stopped firing, square would read `nowrap`
+//                 like wide and this fails. Direction alone is no longer enough
+//                 (square and wide are both `row` since stats went 2-up).
 //   decision    — keeps its 2-up at square, collapses only at tall/strip.
 //   matrix-2x2  — same, and always did ("a square box reads the quadrants fine").
 // Without the stats probe, decision and matrix-2x2 now expect the same thing at
@@ -116,6 +119,10 @@ const SIZES = [
         decisionList: dir(dec, '.cell-stage > ul, .cell-stage > ol'),
         matrixList: dir(mat, '.cell-stage > ul, .cell-stage > ol'),
         statsList: dir(st, '.cell-stage > ol'),
+        statsWrap: (() => {
+          const el = st?.querySelector('.cell-stage > ol');
+          return el ? getComputedStyle(el).flexWrap : 'MISSING';
+        })(),
       };
     }));
     await page.close();
@@ -123,7 +130,7 @@ const SIZES = [
   }
   await browser.close();
 
-  console.log('size      expect   stamp             decision   matrix     stats');
+  console.log('size      expect   stamp             decision   matrix     stats      wrap');
   let bad = 0;
   SIZES.forEach((s, i) => {
     const r = rows[i];
@@ -135,14 +142,17 @@ const SIZES = [
     // still readable side by side, which is the point of a decision slide.
     const wantDec = (s.family === 'tall' || s.family === 'strip') ? 'column' : 'row';
     const wantMat = (s.family === 'tall' || s.family === 'strip') ? 'column' : 'row';
-    // stats DOES stack at square — the probe that proves the square tier fires.
-    const wantStats = s.family === 'wide' ? 'row' : 'column';
-    const ok = stampOk && r.decisionList === wantDec && r.matrixList === wantMat && r.statsList === wantStats;
+    // stats: wide = nowrap row · square = WRAPPED row (2-up) · tall/strip = column.
+    // The wrap is what proves the square tier fired.
+    const wantStats = (s.family === 'tall' || s.family === 'strip') ? 'column' : 'row';
+    const wantWrap = s.family === 'square' ? 'wrap' : 'nowrap';
+    const ok = stampOk && r.decisionList === wantDec && r.matrixList === wantMat
+      && r.statsList === wantStats && r.statsWrap === wantWrap;
     if (!ok) bad++;
     console.log(
       `${s.size.padEnd(9)} ${s.family.padEnd(8)} ${r.stamp.padEnd(17)} ` +
-      `${r.decisionList.padEnd(10)} ${r.matrixList.padEnd(10)} ${r.statsList.padEnd(9)} ` +
-      `${ok ? 'OK' : `FAIL (want ${wantDec}/${wantMat}/${wantStats})`}`);
+      `${r.decisionList.padEnd(10)} ${r.matrixList.padEnd(10)} ${r.statsList.padEnd(10)} ${r.statsWrap.padEnd(8)} ` +
+      `${ok ? 'OK' : `FAIL (want ${wantDec}/${wantMat}/${wantStats}/${wantWrap})`}`);
   });
   console.log(bad ? `\n${bad} FAILURES` : '\nall tiers fire');
   process.exitCode = bad ? 1 : 0;

@@ -2581,8 +2581,15 @@ section.citation-card :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    rules now select `[data-family]` ON the section), but portrait + square is
    exactly the square ∪ tall ∪ strip set, so the rule is already correct and
    stays as-is rather than churning a verified layout. Landscape is untouched. */
-section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]),
-section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]),
+/* All THREE parts must reach `> .cell-stage`. They did not: only `.margin`
+ * carried the child combinator, so `.split` and `.triptych` applied this collapse
+ * to the SECTION — where it does nothing, since the section is already a flex
+ * column — and their stage stayed `flex-direction: row`. The variants therefore
+ * never reflowed at all, and at `story` the un-collapsed row clipped by 293px
+ * (stage 1504, content 1797; examples/adaptive-sweep.md pages 14-15). A selector
+ * list distributes nothing: each comma-part needs its own combinator. */
+section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage,
+section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage,
 section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage { display:flex; flex-direction:column;
   grid-template-columns: 1fr;
   grid-template-rows: none;
@@ -14301,15 +14308,33 @@ section.stats[data-orientation='square'] > .cell-stage > ol > li > ul > li {
  * `data-family` stamp; the doubled class matches the [data-orientation] reflow's
  * specificity.
  *
- * SQUARE STACKS TOO, and that is measured, not assumed. Square is the `balanced`
- * family, so keeping the numbers side by side looked like the obvious call — but
- * a square box is not WIDE, and an N-across row of stats there is narrow enough
- * that each label wraps taller than the stack it replaced: the measured ceiling
- * is 3 either way (tools/calibrate-capacity.js), and the row crowds every number.
- * A real 2-up square layout would beat both; the N-across wide row is not it. */
-section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+ * TALL AND STRIP stack; SQUARE goes 2-UP, and both are measured rather than
+ * assumed. Two wrong answers were tried first: keeping the WIDE N-across row at
+ * square crowds every number (a square box is not wide — each label wraps taller
+ * than the stack it replaced, ceiling 3 either way), and stacking square into ONE
+ * column wastes the width it does have (ceiling 3, and four stats clipped
+ * examples/social-square.md by 75px — stage 750, content 825). A 2-up wrap uses
+ * both axes, which is exactly what `square` means in lib/adaptive/families.js:
+ * "balanced — 2x2 grids, 2-up". Measured with tools/calibrate-capacity.js. */
+section.stats.stats:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
   display: flex; flex-direction: column; gap: var(--sp-sm); width: 100%;
   justify-content: space-evenly; flex: 1;
+}
+/* Square — two tiles per row, rows sharing the height. `flex-basis` is the 2-up
+ * split minus its share of the gap (the same calc idiom cards-grid uses); wrap
+ * puts the overflow on the next row, and `align-content: space-evenly` spreads
+ * the rows down the frame instead of stretching each tile to fill it. */
+section.stats.stats:where([data-family="square"]) > .cell-stage > ol {
+  display: flex; flex-wrap: wrap; width: 100%; flex: 1;
+  /* `row` is stated, not inherited: the older `[data-orientation="square"]` rule
+   * above sets `column` at the same specificity, and without this the 50%
+   * flex-basis would divide the HEIGHT (main axis) instead of the width. */
+  flex-direction: row;
+  gap: var(--sp-sm); justify-content: center; align-content: space-evenly;
+}
+section.stats.stats:where([data-family="square"]) > .cell-stage > ol > li {
+  flex: 0 1 calc(50% - var(--sp-sm) / 2);
+  box-sizing: border-box;
 }
 section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > strong {
   font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));

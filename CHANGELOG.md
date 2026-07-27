@@ -737,6 +737,18 @@ in patch versions.
   `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
   `backends/vivus.ts`.)
 ### Fixed
+- **`stats` at square is now a 2-up grid, and four stats stopped clipping.** Square is the
+  `balanced` family — `lib/adaptive/families.js` defines its intent as "2×2 grids, 2-up" — but
+  `stats` stacked into a single column there, wasting the width a square box has. Four stats
+  needed 825px of a 750px stage: `examples/social-square.md` lost the top of its first number and
+  the whole label of its fourth. A 2×2 wrap uses both axes and takes the measured ceiling 3 → 6
+  (`tools/calibrate-capacity.js`). Landscape, portrait and mobile are unchanged.
+- **`citation-card`'s `split` and `triptych` variants never reflowed at all.** Their portrait/square
+  collapse listed three comma-parts, but only the third carried `> .cell-stage` — so the first two
+  applied it to the SECTION, where it does nothing, and the stage stayed a row. At `story` that
+  clipped by 293px on two slides of `examples/adaptive-sweep.md` whose own titles read "collapsed
+  to bands" and "collapsed to a stream". A CSS selector list distributes nothing: each comma-part
+  needs its own combinator.
 - **Every `@container lattice (aspect-ratio …)` rule was INERT on a square deck — 34 blocks in 30 files.**
   The adaptive family model was classified twice against two different boxes: `familyFor()` on the
   DECK geometry in JS, and a container query on the container's CONTENT box in CSS. `section` is
