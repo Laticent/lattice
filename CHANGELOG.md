@@ -57,6 +57,22 @@ in patch versions.
 
 ### Added
 
+- **`check:chart-fit` now sweeps three deck sizes and asserts the viewBox crop too.** The fixture
+  covers all 13 chart components (was: radar/word-cloud stress shapes only) and is rendered at
+  landscape, portrait AND square — 54 chart slides plus 30 SVGs per run. A chart that fits at
+  landscape routinely clips at portrait, because `cqi` shrinks ~44% as the box grows taller. The new
+  second assertion compares each SVG's content bbox against its own viewBox, in user units: the
+  stage check compares PAINTED extent, and paint has already been cropped by the viewBox before
+  anything measures it, so an SVG that overdraws its own box was invisible to the stage check AND to
+  `lib/core/overflow-probe.js`. SVGs whose computed `overflow` is `visible` (`.wc-svg`,
+  `.state-chart-edges`) genuinely do not crop and are skipped and counted — asserting on them would
+  be a false positive. A `SANCTIONED_CLIPS` allowlist carries known, justified clips with their
+  issue and a cap; an entry that matches nothing fails as STALE, so it cannot rot.
+- **The `cqi` font-size guard checks its own exemptions.** `cqi-ok:` was a self-granted comment —
+  any author could write one, nothing verified it, and it had accumulated to 22 sites. It is now a
+  per-file allowlist with counts and justifications, and a floored cqi
+  (`max(var(--chart-text-min), …)`) is a first-class way to satisfy the rule alongside a `--fs-*`
+  token. A second test fails any entry that over-counts, so the list shrinks as sites are fixed.
 - **`npm run check:chart-fit` — a gate for the invariant that broke twice.** Every other chart gate
   asks whether a chart is right in ISOLATION (does it scale, is its CSS relative, does its paint
   survive the scoped path). None asked whether the rendered thing fits `.cell-stage`, which is
@@ -403,6 +419,39 @@ in patch versions.
   (`engineering/decisions/2026-07-19-anima-svg-first-cut-zdog.md` §4.4a); the stroke-draw for
   `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
   `backends/vivus.ts`.)
+### Fixed
+- **`progress` drew every bar ~11px too long, so the bars lied about their own values.**
+  `.progress-fill` was `box-sizing: content-box` (the CSS default), so its 4px accent border, 1px
+  hairline and 0.625cqi of readout padding all sat OUTSIDE `width: calc(var(--pct) * 1%)` — a fixed
+  overhang added to every bar. Measured at portrait against a 551px track, 92% drew 518.0px (94.0%)
+  and 12% drew 77.2px (14.0%). The offset is additive, so the ranking still read correctly and it
+  looked cosmetic; it is not. Comparing bar LENGTHS is the whole component, and a fixed overhang
+  overstates small values about 8x more than large ones (12%→14.0% is +17% relative, 92%→94.0% is
+  +2%), flattening exactly the contrast the chart exists to show. At `--pct: 0` it drew 11px of
+  progress against none. All five gallery bars now paint their authored value to 0.01%.
+- **`progress` clipped its first four rows at portrait.** The label column (`18.75cqi`) and the label
+  type scale in OPPOSITE directions: `cqi` shrinks with inline size (~324px landscape → ~182px
+  portrait) while `--fs-message` rides `--canvas-scale` (~1.95) up to 50.5px with an 80.9px line box.
+  Four characters fit, so every two-word label wrapped — 870.3px of bars in a 702.2px stage, 168px
+  cut silently. At portrait the label now takes its own full-width row above the bar (the same
+  stack-what-landscape-puts-side-by-side move piechart makes with its key), which also gives the bar
+  the full width — a straight win for a component whose datum is length. Square is unchanged.
+- **`roadmap` clipped its status key on a square deck.** The key's top separation rides
+  `--canvas-scale` to 60.1px; the table clears the stage by 128.8px but table + key made a 780.3px
+  figure in a 728.2px stage. The key now tightens on non-landscape decks and drops to the chrome
+  type step (it was also wrapping to two lines at portrait). Portrait roadmap is **improved
+  284.3px → 80.4px per side but not closed** — it is over-capacity rather than mis-tuned, and
+  closing it needs card text below the role scale, which contradicts the legibility floor below.
+  Tracked on #1209 and sanctioned in `check:chart-fit` so the debt is visible, not silent.
+- **Chart text sized in raw `cqi` had no lower bound.** `cqi` is a share of container INLINE size, so
+  such text is simultaneously fine on a wide box and unreadable on a narrow one. Measured, it was
+  sub-10px at EVERY deck size, not just portrait: the roadmap phase tag rendered 9.35px at landscape
+  and 8.35px at square. New `--chart-text-min` is applied as a floor via `max()` (never a cap —
+  growing with the slide is the point of cqi) to roadmap's phase tag and state-chart's edge labels.
+  **Caveat:** a CSS floor cannot pin an EFFECTIVE size on a self-scaling chart — state-chart's
+  `draw()` letterbox-scales the diagram by k afterwards, so 11px declared is 6.52px effective at
+  landscape (k=0.593). The floor helps but is not a guarantee; a real one has to live in `draw()`.
+
 ### Changed
 - **Every chart that draws SVG now draws all of it — the last two HTML labels moved into their
   viewBoxes.** `word-cloud`'s `size = frequency` key and `radar`'s small-multiple captions were the
