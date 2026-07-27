@@ -15,14 +15,19 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the comparison. |
-| `left` | `section > h3:first-of-type + pre` | yes | Left label (h3) and code block. |
-| `right` | `section > h3:nth-of-type(2) + pre` | yes | Right label (h3) and code block. |
+| `left` | `p:has(> code:only-child):first-of-type + pre` | yes | Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it. |
+| `right` | `p:has(> code:only-child):nth-of-type(2) + pre` | yes | Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it. |
+
+### Common mistakes
+
+- **Using a markdown heading (`### Before`) for a column label instead of an inline-code paragraph.** The transform splits columns on `<p><code>` boundaries only — a heading isn't recognized at all, so both fenced blocks collapse into one lopsided column instead of two. Label each side with a backtick-wrapped paragraph (`` `Before` ``), matching the sample.
+- **Omitting the second column's label.** The split happens at each label boundary — a missing second label leaves the second fenced block trailing inside the first column instead of starting a new one. Every side needs its own inline-code label.
 
 ## When to use
 
 - **Concrete code on both sides.** Both sides hold short, readable snippets — refactor before/after, two API styles, two configurations. The diff is the point of the slide.
 - **Equal-length snippets.** Snippets render side-by-side. Wildly different lengths break the visual balance — trim aggressively or split into two slides.
-- **Names the change.** The h3 label on each side names what the reader is looking at (Before, After, v1, v2). Without labels the audience has to infer.
+- **Names the change.** The inline-code label on each side names what the reader is looking at (`` `Before` ``, `` `After` ``, `` `v1` ``, `` `v2` ``). Without labels the audience has to infer.
 
 ## When NOT to use
 
@@ -37,7 +42,7 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 
 ## Heading framing the comparison.
 
-### Before
+`Before`
 
 ```js
 function before() {
@@ -45,7 +50,7 @@ function before() {
 }
 ```
 
-### After
+`After`
 
 ```js
 function after() {

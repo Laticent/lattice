@@ -43,17 +43,17 @@
       "description": "Slide heading framing the comparison."
     },
     "left": {
-      "selector": "section > h3:first-of-type + pre",
+      "selector": "p:has(> code:only-child):first-of-type + pre",
       "required": true,
-      "description": "Left label (h3) and code block."
+      "description": "Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it."
     },
     "right": {
-      "selector": "section > h3:nth-of-type(2) + pre",
+      "selector": "p:has(> code:only-child):nth-of-type(2) + pre",
       "required": true,
-      "description": "Right label (h3) and code block."
+      "description": "Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it."
     }
   },
-  "skeleton": "<!-- _class: compare-code -->\n\n## Heading framing the comparison.\n\n### Before\n\n```js\nfunction before() {\n  return 'old';\n}\n```\n\n### After\n\n```js\nfunction after() {\n  return 'new';\n}\n```\n",
+  "skeleton": "<!-- _class: compare-code -->\n\n## Heading framing the comparison.\n\n`Before`\n\n```js\nfunction before() {\n  return 'old';\n}\n```\n\n`After`\n\n```js\nfunction after() {\n  return 'new';\n}\n```\n",
   "anatomyBlock": "compare-code",
   "sample": "<!-- _class: compare-code -->\n\n`Query path · report generation`\n\n## Before and after, the diff you can read aloud.\n\n`Before · one query per row`\n\n```js\nconst signals = await db.signals.findAll();\nfor (const s of signals) {\n  s.owner = await db.users.find(s.ownerId);\n}\nreturn signals;\n```\n\n`After · one batched join`\n\n```js\nconst signals = await db.signals.findAll({\n  include: { owner: true },\n});\nreturn signals;\n```\n",
   "stressDoc": {
@@ -71,7 +71,7 @@
     },
     {
       "title": "Names the change",
-      "body": "The h3 label on each side names what the reader is looking at (Before, After, v1, v2). Without labels the audience has to infer."
+      "body": "The inline-code label on each side names what the reader is looking at (`` `Before` ``, `` `After` ``, `` `v1` ``, `` `v2` ``). Without labels the audience has to infer."
     }
   ],
   "antiPatterns": [
@@ -104,6 +104,16 @@
     {
       "name": "compare-table",
       "when": "three or more variants on shared dimensions"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Using a markdown heading (`### Before`) for a column label instead of an inline-code paragraph.",
+      "fix": "The transform splits columns on `<p><code>` boundaries only — a heading isn't recognized at all, so both fenced blocks collapse into one lopsided column instead of two. Label each side with a backtick-wrapped paragraph (`` `Before` ``), matching the sample."
+    },
+    {
+      "mistake": "Omitting the second column's label.",
+      "fix": "The split happens at each label boundary — a missing second label leaves the second fenced block trailing inside the first column instead of starting a new one. Every side needs its own inline-code label."
     }
   ],
   "specimenVoice": true

@@ -877,7 +877,7 @@
       "classToken": "compare-code",
       "bucket": "code",
       "substance": "structure",
-      "skeleton": "<!-- _class: compare-code -->\n\n## Heading framing the comparison.\n\n### Before\n\n```js\nfunction before() {\n  return 'old';\n}\n```\n\n### After\n\n```js\nfunction after() {\n  return 'new';\n}\n```\n",
+      "skeleton": "<!-- _class: compare-code -->\n\n## Heading framing the comparison.\n\n`Before`\n\n```js\nfunction before() {\n  return 'old';\n}\n```\n\n`After`\n\n```js\nfunction after() {\n  return 'new';\n}\n```\n",
       "slots": {
         "title": {
           "selector": "h2",
@@ -885,14 +885,14 @@
           "description": "Slide heading framing the comparison."
         },
         "left": {
-          "selector": "section > h3:first-of-type + pre",
+          "selector": "p:has(> code:only-child):first-of-type + pre",
           "required": true,
-          "description": "Left label (h3) and code block."
+          "description": "Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it."
         },
         "right": {
-          "selector": "section > h3:nth-of-type(2) + pre",
+          "selector": "p:has(> code:only-child):nth-of-type(2) + pre",
           "required": true,
-          "description": "Right label (h3) and code block."
+          "description": "Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it."
         }
       },
       "requiredSlots": [

@@ -158,8 +158,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Leaving the scope label unwrapped in plain text instead of inline code.",
-      "fix": "The component's own dedicated 'kicker above the ledger' styling is unreachable from every placement an author would naturally use — the shared masthead lift claims a code-only paragraph placed before OR immediately after the heading (the only two positions the natural heading-then-scope-then-items flow offers), leaving no gap for the dedicated selector to match. Wrap it in backticks so it's at least recognized as a label; expect the generic mono-caps eyebrow or italic subtitle treatment, not a distinct kicker."
+      "mistake": "Placing the scope label BEFORE the heading instead of after it, or leaving it unwrapped in plain text.",
+      "fix": "Immediately after the heading (the documented placement) the scope label stays in the flow and gets the component's own dedicated styling. Before the heading, it's captured as the shared masthead eyebrow instead — a different, generic treatment. It must also be backtick-wrapped, or it isn't recognized as a label at all. Keep it after the heading, matching the skeleton."
     },
     {
       "mistake": "Using `diff-bands` without grouping items under `### ` category subheadings.",

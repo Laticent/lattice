@@ -3234,7 +3234,7 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 ##### Common mistakes
 
-- **Expecting the citation paragraph to get redline's dedicated accent-mono styling regardless of where it's placed.** The dedicated citation styling only applies when the citation has something else FOLLOWING it in the section — in practice, between the blockquote and a trailing implications list. Adjacent to the heading (before OR immediately after) it's captured by the shared masthead treatment instead (eyebrow or italic subtitle); left as the section's very last element with nothing after it, it falls to a plain trailing-note style. Pair the citation with an implications list (the `- **Why this matters.**` bullet) if the dedicated styling matters — without one, no placement reaches it.
+- **Placing the citation paragraph BEFORE the heading instead of after it.** Immediately after the heading (the documented placement) the citation paragraph stays in the flow and gets redline's dedicated accent-mono citation styling. Before the heading, it's captured as the shared masthead eyebrow (mono-caps kicker) instead — a different, generic treatment. Keep it after the heading, matching the skeleton.
 - **Assuming Markdown strikethrough (`~~text~~`) doesn't render as a tracked deletion the way literal `<del>` does.** `~~text~~` DOES render as a tracked deletion — Markdown strikethrough produces `<s>`, and redline's CSS styles `del`/`s` identically (line-through, fail-red color and background). Either syntax works for a deletion; `<ins>new</ins>` still needs literal HTML since Markdown has no native insertion syntax.
 
 #### When to use
@@ -7289,14 +7289,19 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the comparison. |
-| `left` | `section > h3:first-of-type + pre` | yes | Left label (h3) and code block. |
-| `right` | `section > h3:nth-of-type(2) + pre` | yes | Right label (h3) and code block. |
+| `left` | `p:has(> code:only-child):first-of-type + pre` | yes | Left label (an inline-code-only paragraph, e.g. `` `Before` ``) and the code block right after it. |
+| `right` | `p:has(> code:only-child):nth-of-type(2) + pre` | yes | Right label (an inline-code-only paragraph, e.g. `` `After` ``) and the code block right after it. |
+
+##### Common mistakes
+
+- **Using a markdown heading (`### Before`) for a column label instead of an inline-code paragraph.** The transform splits columns on `<p><code>` boundaries only — a heading isn't recognized at all, so both fenced blocks collapse into one lopsided column instead of two. Label each side with a backtick-wrapped paragraph (`` `Before` ``), matching the sample.
+- **Omitting the second column's label.** The split happens at each label boundary — a missing second label leaves the second fenced block trailing inside the first column instead of starting a new one. Every side needs its own inline-code label.
 
 #### When to use
 
 - **Concrete code on both sides.** Both sides hold short, readable snippets — refactor before/after, two API styles, two configurations. The diff is the point of the slide.
 - **Equal-length snippets.** Snippets render side-by-side. Wildly different lengths break the visual balance — trim aggressively or split into two slides.
-- **Names the change.** The h3 label on each side names what the reader is looking at (Before, After, v1, v2). Without labels the audience has to infer.
+- **Names the change.** The inline-code label on each side names what the reader is looking at (`` `Before` ``, `` `After` ``, `` `v1` ``, `` `v2` ``). Without labels the audience has to infer.
 
 #### When NOT to use
 
@@ -7311,7 +7316,7 @@ Use to contrast a before/after refactor, two API styles, or two configurations. 
 
 ## Heading framing the comparison.
 
-### Before
+`Before`
 
 ```js
 function before() {
@@ -7319,7 +7324,7 @@ function before() {
 }
 ```
 
-### After
+`After`
 
 ```js
 function after() {
@@ -7580,7 +7585,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ##### Common mistakes
 
-- **Expecting the citation paragraph to get its dedicated accent-mono styling regardless of where it's placed.** The dedicated citation styling only applies when the citation has something else FOLLOWING it in the section — in practice, between the blockquote and a trailing gloss list. Adjacent to the heading (before OR immediately after) it's captured by the shared masthead treatment instead (eyebrow or italic subtitle); left as the section's very last element with nothing after it, it falls to a plain trailing-note style. Pair the citation with a gloss list if the dedicated styling matters — without one, no placement reaches it.
+- **Placing the citation paragraph BEFORE the heading instead of after it.** Immediately after the heading (the documented placement) the citation paragraph stays in the flow and gets the dedicated accent-mono citation styling. Before the heading, it's captured as the shared masthead eyebrow (mono-caps kicker) instead — a different, generic treatment. Keep it after the heading, matching the skeleton.
 
 #### When to use
 
@@ -7812,7 +7817,7 @@ Cells shaded by burden.
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
 | GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
 
-Red = applies (exposure), green = exempt (relief). Brackets frame the structure.
+Red = applies (exposure). Exempt cells stay neutral — heat marks burden, not relief.
 ```
 
 ##### `asymmetric` — asymmetric
@@ -8097,7 +8102,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 ##### Common mistakes
 
-- **Leaving the scope label unwrapped in plain text instead of inline code.** The component's own dedicated 'kicker above the ledger' styling is unreachable from every placement an author would naturally use — the shared masthead lift claims a code-only paragraph placed before OR immediately after the heading (the only two positions the natural heading-then-scope-then-items flow offers), leaving no gap for the dedicated selector to match. Wrap it in backticks so it's at least recognized as a label; expect the generic mono-caps eyebrow or italic subtitle treatment, not a distinct kicker.
+- **Placing the scope label BEFORE the heading instead of after it, or leaving it unwrapped in plain text.** Immediately after the heading (the documented placement) the scope label stays in the flow and gets the component's own dedicated styling. Before the heading, it's captured as the shared masthead eyebrow instead — a different, generic treatment. It must also be backtick-wrapped, or it isn't recognized as a label at all. Keep it after the heading, matching the skeleton.
 - **Using `diff-bands` without grouping items under `### ` category subheadings.** `diff-bands` expects the items split into separate ordered lists, each preceded by an `### Added`/`### Amended`/`### Repealed`/`### Enforced` subheading — a single flat list under `diff-bands` has no band to shade into.
 
 #### When to use

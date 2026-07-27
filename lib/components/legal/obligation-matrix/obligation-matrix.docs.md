@@ -96,7 +96,7 @@ Cells shaded by burden.
 | HIPAA      | [x]    | [x]     | [x]       | [x]    | [-]   |
 | GLBA       | [x]    | [-]     | [-]       | [x]    | [ ]   |
 
-Red = applies (exposure), green = exempt (relief). Brackets frame the structure.
+Red = applies (exposure). Exempt cells stay neutral — heat marks burden, not relief.
 ```
 
 ### `asymmetric` — asymmetric

@@ -156,6 +156,36 @@ describe('masthead-lift — HTML-string kernel', () => {
     assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><p><code>A subtitle after the heading<\/code><\/p><hr class="masthead-rule"><\/div>/);
   });
 
+  // issue #1199: citation-card/redline/regulatory-update own their trailing
+  // code-only paragraph as dedicated citation/scope-label chrome — it must
+  // NOT be captured as the generic masthead subtitle, or their own
+  // `.cell-stage > p:has(> code:only-child)` CSS never sees it.
+  test('OWN_TRAILING_LABEL components: the trailing code-only <p> is NOT lifted into the masthead — it stays in .cell-stage', () => {
+    for (const name of ['citation-card', 'redline', 'regulatory-update']) {
+      const inner = '<h2>Title</h2><p><code>Citation ref</code></p><blockquote><p>Quote.</p></blockquote>';
+      const out = kernel.transformMastheadSection(inner, `${name} form`);
+      assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><hr class="masthead-rule"><\/div>/, `${name}: h2 still lifts alone`);
+      assert.match(
+        out,
+        /<div class="cell-stage"><p><code>Citation ref<\/code><\/p><blockquote><p>Quote\.<\/p><\/blockquote><\/div>$/,
+        `${name}: the citation paragraph stays as the first child of .cell-stage, not the masthead`,
+      );
+    }
+  });
+
+  test('a leading eyebrow on an OWN_TRAILING_LABEL component is still lifted normally — only the trailing label is exempt', () => {
+    const inner = '<p><code>Kicker</code></p><h2>Title</h2><p><code>Citation ref</code></p>';
+    const out = kernel.transformMastheadSection(inner, 'citation-card form');
+    assert.match(out, /<div class="masthead-lede"><p><code>Kicker<\/code><\/p><h2>Title<\/h2><hr class="masthead-rule"><\/div>/);
+    assert.match(out, /<div class="cell-stage"><p><code>Citation ref<\/code><\/p><\/div>$/);
+  });
+
+  test('the OWN_TRAILING_LABEL exemption does not affect unrelated components', () => {
+    const inner = '<h2>Title</h2><p><code>Subtitle</code></p><p>Body.</p>';
+    const out = kernel.transformMastheadSection(inner, 'kpi form');
+    assert.match(out, /<div class="masthead-lede"><h2>Title<\/h2><p><code>Subtitle<\/code><\/p><hr class="masthead-rule"><\/div>/);
+  });
+
   test('a leading eyebrow (code-only <p> BEFORE h2) is unaffected by subtitle scoping', () => {
     const inner = '<p><code>Kicker</code></p><h2>Title</h2><p>Body.</p>';
     const out = kernel.transformMastheadSection(inner, 'content form');
@@ -324,6 +354,29 @@ describe('masthead-lift — DOM mirror agrees with the kernel', () => {
     assert.equal(lede.children[0].tagName, 'H2');
     assert.equal(lede.children[1].tagName, 'P');
     assert.equal(lede.children[1].textContent, 'A subtitle');
+  });
+
+  test('DOM path: OWN_TRAILING_LABEL components keep the trailing code-only <p> in .cell-stage, not the masthead', () => {
+    for (const name of ['citation-card', 'redline', 'regulatory-update']) {
+      const doc = dom(`<section class="${name} form"><h2>Title</h2><p><code>Citation ref</code></p><p>Body.</p></section>`);
+      adapter.applyToDom(doc);
+      const lede = doc.querySelector('.masthead-lede');
+      assert.equal(lede.children.length, 2, `${name}: lede has only h2 + hr`);
+      assert.equal(lede.children[0].tagName, 'H2');
+      assert.equal(lede.children[1].tagName, 'HR');
+      const stage = doc.querySelector('.cell-stage');
+      assert.equal(stage.children[0].tagName, 'P');
+      assert.equal(stage.children[0].textContent, 'Citation ref');
+    }
+  });
+
+  test('DOM path and HTML-string kernel agree on the OWN_TRAILING_LABEL exemption', () => {
+    const section = '<section class="redline form"><h2>Title</h2><p><code>Citation ref</code></p><p>Body.</p></section>';
+    const engineOut = sectionOuterHtml(adapter.applyToHtml(section));
+    const domDoc = dom(section);
+    adapter.applyToDom(domDoc);
+    assert.equal(engineOut, domDoc.querySelector('section').outerHTML,
+      'the engine (HTML-string) and runtime (DOM-walk) paths must converge on identical DOM');
   });
 
   test('DOM path: leading eyebrow + trailing subtitle are both captured, in order', () => {
