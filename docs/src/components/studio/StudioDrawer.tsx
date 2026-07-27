@@ -15,14 +15,14 @@
 //      touch. There is not a single `overflow-x` in this file.
 //   2. A chevron means TRAVEL. A row with one goes somewhere (a sheet, or a door);
 //      a row without one acts in place. "Fix all issues" is the only such leaf.
-//   3. ONE height, at every level, shared with every other panel — `MOBILE_TIER.auto`
-//      (88dvh, less the keyboard). Content-height came first and was wrong for the same
-//      reason the panels around it were: the index and the Themes door came up different
-//      sizes, and nothing told a user which of those was a rule. The predecessor's flat
-//      85dvh box had ~40% dead air, which is WHY its controls stretched to `flex-1`, why
-//      every group grew a shouty header to justify its band, and why a jump strip appeared
-//      to navigate the emptiness — but the fix for dead air is fewer, larger rows, not a
-//      height that changes under you when you open a door.
+//   3. ONE height, at every level, shared with every other panel — `MOBILE_HEIGHT`
+//      (the viewport less the app header, less the keyboard). Content-height came first
+//      and was wrong for the same reason the panels around it were: the index and the
+//      Themes door came up different sizes, and nothing told a user which of those was a
+//      rule. The predecessor's flat 85dvh box had ~40% dead air, which is WHY its controls
+//      stretched to `flex-1`, why every group grew a shouty header to justify its band,
+//      and why a jump strip appeared to navigate the emptiness — but the fix for dead air
+//      is fewer, larger rows, not a height that changes under you when you open a door.
 //   4. No mono, no uppercase, nothing under 11.5px. That eyebrow voice belongs to the
 //      ARTIFACT — it earns its formality on a projected slide. At 10px on a phone it
 //      is the least legible combination available, and it was being used to shout
@@ -33,7 +33,7 @@
 // (the toolbar's Settings cell owns it) nor Workspace settings (promoted to the header).
 import { Check, ChevronLeft, ChevronRight, FileBox, History as HistoryIcon, ListChecks, MonitorPlay, MoreHorizontal, Palette, Plus, Search, X } from 'lucide-react';
 import * as React from 'react';
-import { MOBILE_OFFSET, MOBILE_TIER, useKeyboardInset } from '@/components/ui/panel';
+import { MOBILE_HEIGHT, MOBILE_OFFSET, useKeyboardInset } from '@/components/ui/panel';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { FeedbackIcon, LensIcon } from './icons';
@@ -249,11 +249,13 @@ export function StudioDrawer({
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
-			{/* ONE rule for height, at every level: as tall as the content, capped at 85dvh.
-			    `side="bottom"` is already `h-auto`, so `max-h` alone does the whole job —
-			    the index settles ~495px (Preview) / ~613px (Edit) and never scrolls, the
-			    Themes door hits the cap and scrolls, and the Show me door sizes to its five
-			    rows instead of opening as a tall box with dead air under it.
+			{/* ONE rule for height, at every level AND on every other panel: `MOBILE_HEIGHT`.
+			    This comment used to say "as tall as the content, capped at 85dvh… the Show me
+			    door sizes to its five rows instead of opening as a tall box with dead air under
+			    it." That stopped being true in #1217, which pinned the drawer to a fixed tier
+			    on the line below without updating the paragraph above it — so the file
+			    documented a behavior it had lost, and Show me did open as a tall box with dead
+			    air under it (measured: the index alone runs 35% blank).
 			    Deliberately NOT a measured, animated height: a ResizeObserver reading
 			    scrollHeight on a panel inside a scroller can oscillate, and it fires during
 			    the Sheet's own open animation when heights aren't settled. The design does
@@ -263,7 +265,7 @@ export function StudioDrawer({
 				showCloseButton={false}
 				onEscapeKeyDown={(e) => { if (inDoor) { e.preventDefault(); back(); } }}
 				style={{ WebkitTapHighlightColor: 'color-mix(in srgb, var(--accent) 16%, transparent)' }}
-				className={cn('flex flex-col gap-0 rounded-t-2xl p-0', MOBILE_OFFSET, MOBILE_TIER.auto)}
+				className={cn('flex flex-col gap-0 rounded-t-2xl p-0', MOBILE_OFFSET, MOBILE_HEIGHT)}
 			>
 				{/* Nav bar: the SAME three-slot left-aligned strip at both levels, fixed 56px,
 				    never centers. The back affordance is a chevron plus the literal name of
@@ -288,10 +290,16 @@ export function StudioDrawer({
 					    region above is the announcement; this is the label. (Munger inversion.)
 					    The back button says "Back to Studio", not "Studio", so the two never
 					    announce as the same string. */}
-					<SheetTitle className="flex min-w-0 flex-1 items-center gap-2 truncate text-[15px] font-semibold text-[var(--text-heading)]">
-						{level === 'index' && <MoreHorizontal aria-hidden="true" className="size-4 shrink-0 text-[var(--accent)]" />}
-						{level === 'themes' && <Palette aria-hidden="true" className="size-4 shrink-0 text-[var(--accent)]" />}
-						{level === 'show-me' && <MonitorPlay aria-hidden="true" className="size-4 shrink-0 text-[var(--accent)]" />}
+					{/* The SAME 30px accent chip `PanelHeader` gives the other eleven drawers.
+					    This was a bare inline glyph — the one header idiom in the app that did
+					    not match, on the surface every other drawer is launched from, so it was
+					    the one setting the expectation the rest then broke. */}
+					<span aria-hidden="true" className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] [&_svg]:size-[17px]">
+						{level === 'index' && <MoreHorizontal />}
+						{level === 'themes' && <Palette />}
+						{level === 'show-me' && <MonitorPlay />}
+					</span>
+					<SheetTitle className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-tight text-[var(--text-heading)]">
 						{title}
 					</SheetTitle>
 					<SheetDescription className="sr-only">Editor actions, guided tours, reader views, and themes.</SheetDescription>

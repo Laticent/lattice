@@ -36,7 +36,7 @@ import {
 // as the StudioDrawer. This is not a stylistic preference; it is the fix for a
 // measured defect (#1211). With `side` honored everywhere, the drawer's own rows
 // launched panels from FOUR different edges — "Reader views" slid in from the
-// left and "Version history", its neighbour one row down, from the right — across
+// left and "Version history", its neighbor one row down, from the right — across
 // five heights and three widths, from a drawer that is itself bottom-anchored.
 // A phone has one comfortable edge and it is the bottom one.
 //
@@ -45,21 +45,48 @@ import {
 // down one side and the panel read as a drawer over a live surface rather than a
 // place you had gone.
 //
-// ── TWO TIERS, AND THE KEYBOARD ────────────────────────────────────────────────
-// `auto` is the pull-out: ONE height for every panel in the tier, not content
-// height. Content-sized looked principled and read as noise — Version history
-// came up at 224px, the palette at 350, Coach and Share at 717, and a user
-// cannot tell which of those is a rule and which is an accident. A sheet's
-// height is part of its frame, and this PR's whole claim is that the frame is
-// the same everywhere. So: one number, and the deck still shows above it.
+// ── ONE HEIGHT, AND THE KEYBOARD ───────────────────────────────────────────────
+// There was a two-tier system here — `auto` (100dvh-7rem) and `full` (100dvh-1rem)
+// — split on "do you work here, or do you pick and go". It is gone, and the three
+// measurements that retired it are worth keeping, because each one kills a
+// different defense of it.
 //
-// `full` is the working surface: a fixed tall panel you DWELL in. The axis is not
-// "how much content" (that drifts every time a panel gains a row) and it is not
-// "does it have a text field" — Reader views has no input at all and is still a
-// place you expand rows, compare and approve. It is: do you work here, or do you
-// pick and go. Declared per call site, because only the caller knows.
+// 1. THE TIERS ALREADY COLLAPSE, in the state where height is most contested.
+//    `max(7rem, --kb)` and `max(1rem, --kb)` both resolve to `--kb` the moment the
+//    keyboard exceeds 112px. Measured on the built site with a 336px keyboard, every
+//    panel in BOTH tiers came up at top 0, bottom 508, height 508 — byte-identical.
+//    The distinction only existed with the keyboard down.
 //
-// Both tiers subtract the KEYBOARD. `dvh` tracks Safari's URL bar but NOT the
+// 2. THE TIER TRACKED NOTHING. Measured against what each panel's content actually
+//    wants: Reader views got 828 and wanted 310 (518px of dead air), Chat 828/312,
+//    Version history 732/224. Meanwhile `auto` — the SHORT tier — held the app's two
+//    TALLEST panels: Share wanted 1008 and Coach 1140 in a 732 box. The assignment
+//    was uncorrelated with demand in both directions, which is what you get from an
+//    axis ("work vs pick") that no measurement can falsify.
+//
+// 3. A PERCENTAGE CANNOT HOLD A RELATIONSHIP TO FIXED-PIXEL CHROME. The obvious
+//    replacement — one tier at 88dvh — lands in three different places: 112px on a
+//    430x932 (clears the chrome), 101px on a 390x844 (grazes the bar), and 80px on a
+//    375x667, which is straight through the Eight-Cell Bar's caption band (measured
+//    at 81-95px on every phone). Hence an inset, not a percentage.
+//
+// THE NUMBER IS THE APP HEADER, 54px (`h-[54px]` in StudioShell). Measured chrome:
+// header 0-54, Eight-Cell Bar 54-102, its captions 81-95. An inset of exactly the
+// header height leaves that header WHOLE — you always know which deck you are in —
+// and covers the bar COMPLETELY, at every phone height, with no sliced captions.
+//
+// Covering the bar is a feature, not a compromise. With a panel open the bar is
+// `aria-hidden` and the overlay eats its taps (measured: `elementFromPoint` over the
+// Coach cell returns `DIV.sheet-overlay`), yet it goes on rendering that cell in its
+// PRESSED state — the universal "tap again to close" signal, attached to a control
+// that cannot be tapped. The old `auto` tier existed to preserve that bar. It was
+// preserving a picture of one.
+//
+// The 54px band is also the tap-to-dismiss target, and that is the second thing this
+// fixes: `full` exposed 16px of scrim, under half the 44px touch floor, on the
+// gesture most people reach for before they hunt for the X.
+//
+// The height subtracts the KEYBOARD. `dvh` tracks Safari's URL bar but NOT the
 // on-screen keyboard, so a sheet capped at 85dvh keeps its full height while the
 // keyboard covers the bottom ~55% of it — measured on a real iPhone, the command
 // palette collapsed to one row with iOS's own accessory bar drawn over it. The
@@ -80,25 +107,23 @@ import {
 // measurement was real, the surface was not).
 export const MOBILE_OFFSET = 'bottom-[var(--kb)]';
 const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t`;
-//
-// The heights are expressed as an inset from the TOP, not as a percentage, because
-// a percentage lands wherever it lands — and on a 390×844 phone 96dvh put the sheet's
-// top edge 34px down, i.e. straight through the middle of the Studio's own header,
-// slicing "Welcome to Lattice" in half. 88dvh was no better: 101px down cuts the
-// Eight-Cell Bar's captions off under their icons. Both looked broken for the same
-// reason, and no percentage fixes it, because the chrome is a fixed pixel height and
-// the viewport is not.
-//
-// `7rem` is that chrome: the app header (56px) plus the Eight-Cell Bar (56px). An
-// `auto` sheet stops exactly beneath it, so the bar stays whole and legible above the
-// panel at every phone height. `full` keeps a 1rem sliver so the top radius still
-// reads as a sheet edge rather than a page.
-export const MOBILE_TIER = {
-	auto: 'h-[calc(100dvh-max(7rem,var(--kb)))]',
-	full: 'h-[calc(100dvh-max(1rem,var(--kb)))]',
-} as const;
 
-export type PanelTier = keyof typeof MOBILE_TIER;
+/**
+ * THE height for every mobile panel — see the block above for why there is one.
+ *
+ * `3.375rem` IS the app header (`h-[54px]` in StudioShell), and it is spelled as a
+ * literal on purpose: this string must survive Tailwind's source scan verbatim.
+ * Building it by interpolation (`h-[calc(100dvh-max(${APP_HEADER},…))]`) type-checks,
+ * lints, and ships a class for which NO RULE IS EVER GENERATED — the scanner reads
+ * source text, not evaluated template literals — so every panel silently fell back to
+ * content height. Caught only by measuring the built site (HARD RULE #23): twelve
+ * drawers came back at twelve different heights, from 274px to 5133px.
+ *
+ * `var(--kb,0px)`, with the fallback, for the same class of reason: `useKeyboardInset`
+ * REMOVES the property on cleanup, so between panels `--kb` is unset, and a bare
+ * `var(--kb)` inside `max()` makes the whole declaration invalid rather than zero.
+ */
+export const MOBILE_HEIGHT = 'h-[calc(100dvh-max(3.375rem,var(--kb,0px)))]';
 
 /**
  * Publishes the on-screen keyboard's height as `--kb` on <html>.
@@ -167,7 +192,6 @@ export function PanelSheet({
 	onOpenChange,
 	side = 'right',
 	width = 'md',
-	tier = 'auto',
 	overlay = true,
 	modal = true,
 	className,
@@ -177,9 +201,6 @@ export function PanelSheet({
 	onOpenChange: (v: boolean) => void;
 	side?: 'left' | 'right';
 	width?: PanelWidth;
-	/** Phone height tier — see MOBILE_TIER above. `full` for a surface you work in
-	 *  (typing, expanding, comparing); `auto` for one you pick from and leave. */
-	tier?: PanelTier;
 	overlay?: boolean;
 	/** Non-modal (page behind stays live + un-scroll-locked) — the Playground /
 	 *  MetricDetail pattern that dodges the iOS Safari scroll-lock lingering bug. */
@@ -197,7 +218,7 @@ export function PanelSheet({
 				showCloseButton={false}
 				className={cn(
 					'flex w-full flex-col gap-0 p-0',
-					mobile ? cn(MOBILE_BASE, MOBILE_TIER[tier]) : PANEL_WIDTH[width],
+					mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width],
 					className,
 				)}
 			>
@@ -236,11 +257,28 @@ function PanelCloseButton({ label, onClose }: { label: string; onClose?: () => v
 	return inSheet ? <SheetClose asChild>{btn}</SheetClose> : btn;
 }
 
+/**
+ * ONE header, ONE height — a single row: chip, title, actions, close.
+ *
+ * It used to take a visible `description` and an `eyebrow`, and between them the app
+ * shipped FOUR header heights on surfaces that claim to share a frame: 56px (the
+ * StudioDrawer, no chip), 73px (title only), 92px (Version history and Reader views,
+ * whose descriptions wrapped to two lines) and 125px (the Library, with its search
+ * welded on). Measured, all four, on the built site at 390×844.
+ *
+ * Both slots are gone, and the rule that replaces them is: THE HEADER IS IDENTITY,
+ * THE BODY IS EXPLANATION. A panel that has more to say says it where there is room
+ * to say it and where a zero-state can carry it — not in a header that then wraps and
+ * pushes every neighbor's geometry out of agreement. `srDescription` stays, because
+ * AT still needs the sentence Radix wants; it just no longer costs 19px of chrome.
+ *
+ * `eyebrow` had ZERO call sites when it was removed. The one panel that wanted one
+ * (Workspace) had hand-rolled an inline "YOUR SETUP" trailing the title instead, i.e.
+ * the app's only eyebrow was in the one position the slot did not support.
+ */
 export function PanelHeader({
 	icon,
-	eyebrow,
 	title,
-	description,
 	srDescription,
 	actions,
 	onClose,
@@ -251,20 +289,13 @@ export function PanelHeader({
 }: {
 	/** Leading glyph — rendered in the fixed accent chip; pass a bare lucide icon. */
 	icon?: React.ReactNode;
-	/** Optional mono uppercase micro-label above the title (scope, e.g. "This slide"). */
-	eyebrow?: string;
 	title: React.ReactNode;
-	/** Visible sub-label. Omit → an sr-only description echoing the title keeps
-	 *  Radix Dialog happy without visual noise. Pass a node to show it. */
-	description?: React.ReactNode;
 	/** A description for screen readers ONLY — when the panel has more to say than
-	 *  its title but no room to say it. Without this the sr-only fallback just
-	 *  echoes the title, so AT hears the same word twice and learns nothing; the
-	 *  Library ("Saved themes, components, and finishes — search, filter, apply, or
-	 *  import a .zip") is the case that surfaced it. Ignored when `description` is
-	 *  given, since that is already announced. */
+	 *  its title. Without it the sr-only fallback just echoes the title, so AT hears
+	 *  the same word twice and learns nothing; the Library ("Saved themes, components,
+	 *  and finishes — search, filter, apply, or import a .zip") surfaced that. */
 	srDescription?: string;
-	/** Trailing controls placed before the close (search, add, …). */
+	/** Trailing controls placed before the close (import, add, …). */
 	actions?: React.ReactNode;
 	/** Docked-column close handler (ignored inside a Sheet — SheetClose owns it). */
 	onClose?: () => void;
@@ -275,24 +306,18 @@ export function PanelHeader({
 }) {
 	const inSheet = React.useContext(PanelSheetCtx);
 	const Title = inSheet ? SheetTitle : 'h2';
-	const Desc = inSheet ? SheetDescription : 'p';
+	// `h-14` — the SAME 56px the StudioDrawer's own nav bar uses, so the two agree
+	// rather than sitting 17px apart as they did.
 	return (
-		<div className={cn('flex items-center gap-3 p-3.5', border && 'border-b border-border', className)}>
+		<div className={cn('flex h-14 shrink-0 items-center gap-3 px-3.5', border && 'border-b border-border', className)}>
 			{icon ? (
 				<span className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] [&_svg]:size-[17px]">
 					{icon}
 				</span>
 			) : null}
 			<div className="min-w-0 flex-1">
-				{eyebrow ? (
-					<div className="font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">{eyebrow}</div>
-				) : null}
 				<Title className="truncate text-[15px] font-semibold leading-tight text-[var(--text-heading)]">{title}</Title>
-				{description ? (
-					<Desc className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{description}</Desc>
-				) : inSheet ? (
-					<SheetDescription className="sr-only">{title}</SheetDescription>
-				) : null}
+				{inSheet ? <SheetDescription className="sr-only">{srDescription ?? title}</SheetDescription> : null}
 			</div>
 			{actions}
 			{showClose ? <PanelCloseButton label={closeLabel} onClose={onClose} /> : null}
@@ -302,11 +327,14 @@ export function PanelHeader({
 
 export function PanelBody({
 	padded = true,
+	center = false,
 	className,
 	children,
 }: {
 	/** Standard `p-4`; set false for edge-to-edge lists/grids that pad themselves. */
 	padded?: boolean;
+	/** Center the content in the available height — for a ZERO STATE. See PanelEmpty. */
+	center?: boolean;
 	className?: string;
 	children: React.ReactNode;
 }) {
@@ -318,11 +346,85 @@ export function PanelBody({
 				// panel. Intentional horizontal scrollers re-opt-in with [touch-action:pan-x]
 				// on the strip itself (e.g. the slide filmstrip).
 				'min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [touch-action:pan-y]',
+				// The home indicator. This was the StudioDrawer's padding and NOWHERE else:
+				// one of nineteen drawers reserved it, and the panel bottom sits at the
+				// viewport bottom, so every list's last row and every composer sat under it.
+				// Fixed once here instead of per surface.
+				'pb-[env(safe-area-inset-bottom)]',
 				padded && 'p-4',
+				center && 'grid place-items-center',
 				className,
 			)}
 		>
 			{children}
+		</div>
+	);
+}
+
+/**
+ * The bottom input dock — the panel's primary text field, pinned above the keyboard.
+ *
+ * A FILTER panel (Search / commands, the Library, Add a slide) puts its field at the
+ * TOP, so the thing you touch is at the far end of the screen from your thumb and the
+ * results run away from the keyboard that is filtering them. Chat already had it
+ * right — composer at the bottom — so this is that one idiom, shared, rather than a
+ * fourth arrangement.
+ *
+ * The list ORDER is deliberately not inverted. Anchoring the field to the thumb is
+ * the win; renumbering a ranked result list bottom-up would be a novel mechanic, and
+ * a novel mechanic is what this whole pass is removing.
+ *
+ * `PanelBody` owns the safe-area inset when it is the last child; when a dock follows
+ * it, the dock owns it instead — hence `pb-[max(...)]` here and why a panel should
+ * pass `padded={false}`-style bottom control to whichever element actually ends it.
+ */
+export function PanelDock({ className, children }: { className?: string; children: React.ReactNode }) {
+	return (
+		<div
+			className={cn(
+				'shrink-0 border-t border-border bg-[var(--bg)] px-3.5 pt-3',
+				'pb-[max(0.875rem,env(safe-area-inset-bottom))]',
+				className,
+			)}
+		>
+			{children}
+		</div>
+	);
+}
+
+/**
+ * A zero state that OWNS its space instead of floating at the top of it.
+ *
+ * Measured before this existed: Version history was 73% blank, Reader views 64%, the
+ * Library 32% — "No saved versions yet" as one 12px line at the top of an 800px
+ * surface. That dead air is what argued for a shorter sheet, and a shorter sheet is
+ * how the two-tier system got built; centering the empty state decouples the two so
+ * the height question stops being contaminated by a blank-slate gap.
+ */
+export function PanelEmpty({
+	icon,
+	title,
+	children,
+	action,
+}: {
+	icon?: React.ReactNode;
+	title: string;
+	/** The sentence that used to live in the header's `description`. */
+	children?: React.ReactNode;
+	action?: React.ReactNode;
+}) {
+	return (
+		<div className="mx-auto flex max-w-[19rem] flex-col items-center gap-3 px-2 text-center">
+			{icon ? (
+				<span className="grid size-12 shrink-0 place-items-center rounded-xl bg-[var(--bg-alt)] text-[var(--text-muted)] [&_svg]:size-6">
+					{icon}
+				</span>
+			) : null}
+			<div className="space-y-1.5">
+				<p className="text-[15px] font-semibold text-[var(--text-heading)]">{title}</p>
+				{children ? <p className="text-[13px] leading-snug text-[var(--text-muted)]">{children}</p> : null}
+			</div>
+			{action}
 		</div>
 	);
 }

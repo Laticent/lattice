@@ -57,6 +57,23 @@ in patch versions.
 
 ### Changed
 
+- **Studio mobile drawers: one height, one header, and the search field above the keyboard.**
+  The two-tier phone panel height (`auto` / `full`) is retired for a single height — an inset of
+  exactly the app header — so all twelve Studio drawers now open at the same size, with the same
+  56px header and the same 54px tap-to-dismiss band. Measured on the built site at 390×844: the
+  tiers already collapsed to byte-identical geometry whenever the keyboard was up, the assignment
+  was uncorrelated with what any panel's content wanted (the short tier held the two tallest
+  panels), and the bar the short tier existed to preserve was `aria-hidden` and untappable.
+
+  Also in this pass: `PanelHeader` drops its visible `description` and its (unused) `eyebrow`, so
+  four header heights become one — the header is identity, the body is explanation; the three
+  filter panels (Search / commands, Library, Add a slide) dock their search field at the bottom
+  above the keyboard, matching Chat's composer; empty states are centered via a new `PanelEmpty`;
+  `PanelBody` reserves `env(safe-area-inset-bottom)` for every panel rather than just the drawer;
+  Add a slide's filter chips wrap instead of scrolling sideways inside the vertical scroller; and
+  that panel is titled "Insert a component", matching both controls that open it.
+  See `engineering/decisions/2026-07-28-one-panel-height.md`.
+
 - **Breaking (`list-steps`, unreleased): `capsule` absorbs the `cat` variant and the masthead-rule
   choice — the whole editorial look is one class.** Was `list-steps capsule cat rule-none`; now
   `list-steps capsule`.

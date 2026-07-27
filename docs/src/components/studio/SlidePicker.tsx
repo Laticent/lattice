@@ -1,7 +1,7 @@
 import { ChevronDown, Layers, Plus, Search, X } from 'lucide-react';
 import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
@@ -212,34 +212,45 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		return nodes;
 	};
 
+	// The search field, hoisted out of `body` so the two transports can order it
+	// differently: the desktop dialog keeps it on top; a phone docks it at the BOTTOM,
+	// above the keyboard, beside the thumb that is doing the typing.
+	const searchField = (
+		<div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus-within:ring-2 focus-within:ring-[var(--accent-soft)]">
+			<Search className="size-4 shrink-0 text-muted-foreground" />
+			<input
+				ref={searchRef}
+				value={query}
+				onChange={(e) => setQuery(e.target.value)}
+				placeholder={compact ? 'Search slides…' : `Search ${items.length} slides — name, bucket, or what it's for…`}
+				aria-label="Search slides"
+				className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground"
+			/>
+			{query && (
+				<button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="shrink-0 text-muted-foreground hover:text-foreground">
+					<X className="size-4" />
+				</button>
+			)}
+		</div>
+	);
+
 	const body = (
 		<>
-			{/* Chrome: search (co-equal to the grid) + single-select function filter + count. */}
-			<div className="flex items-center gap-2 px-4 pt-3 sm:px-5">
-				<div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus-within:ring-2 focus-within:ring-[var(--accent-soft)]">
-					<Search className="size-4 shrink-0 text-muted-foreground" />
-					<input
-						ref={searchRef}
-						value={query}
-						onChange={(e) => setQuery(e.target.value)}
-						placeholder={`Search ${items.length} slides — name, bucket, or what it's for…`}
-						aria-label="Search slides"
-						className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground"
-					/>
-					{query && (
-						<button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="shrink-0 text-muted-foreground hover:text-foreground">
-							<X className="size-4" />
-						</button>
-					)}
-				</div>
-			</div>
+			{/* Desktop/tablet: search on top. A phone gets it in the dock instead. */}
+			{!compact && <div className="flex items-center gap-2 px-4 pt-3 sm:px-5">{searchField}</div>}
 			{functions.length > 0 && (
-				<div className="flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 sm:px-5 [scrollbar-width:none]">
+				/* The chips WRAP on a phone instead of scrolling sideways. A horizontal
+				   scroller nested inside the panel's vertical one is exactly what the
+				   StudioDrawer's rule 1 bans ("one scroll direction, always down") — and this
+				   surface is two taps from that drawer. At 390px the strip also clipped
+				   "Comparison" against the panel edge, so the sideways scroll was not just a
+				   drag-direction lottery, it was hiding the filters. */
+				<div className={cn('flex items-center gap-1.5 px-4 py-2.5 sm:px-5', compact ? 'flex-wrap' : 'overflow-x-auto [scrollbar-width:none]')}>
 					<FilterChip label="All" active={!facet} onClick={() => setFacet(null)} />
 					{functions.map((f) => (
 						<FilterChip key={f} label={cap(f)} active={facet === f} onClick={() => setFacet(facet === f ? null : f)} />
 					))}
-					<span className="ml-auto shrink-0 pl-2 font-mono text-[11px] text-muted-foreground">{count} slides</span>
+					<span className={cn('shrink-0 pl-2 font-mono text-[11px] text-muted-foreground', compact ? 'ml-0' : 'ml-auto')}>{count} slides</span>
 				</div>
 			)}
 
@@ -263,8 +274,11 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 				)}
 			</div>
 
-			{/* Detail rail — prose on demand (the highlighted slide's purpose). */}
-			<div className="flex min-h-[46px] items-center gap-3 border-t border-border bg-card px-4 py-2.5 sm:px-5">
+			{/* Detail rail — prose on demand (the highlighted slide's purpose). Hidden on a
+			    phone: `detail` is set by hover/focus, and a touch screen has no hover, so it
+			    sat there showing its static placeholder hint as a permanent 46px band —
+			    directly above the search dock, i.e. two stacked bars, one of them inert. */}
+			<div className={cn('min-h-[46px] items-center gap-3 border-t border-border bg-card px-4 py-2.5 sm:px-5', compact ? 'hidden' : 'flex')}>
 				{detail ? (
 					<>
 						<span className="shrink-0 font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{detail.name}</span>
@@ -287,9 +301,15 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		// bottom sheet at `h-[100dvh]`: a full-screen page with a 16px radius pretending
 		// to be a sheet. 85dvh still leaves ~717px of gallery on a 390×844 phone.
 		return (
-			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg" tier="full">
-				<PanelHeader icon={<Plus />} title="Add a slide" srDescription={description} />
+			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg">
+				{/* "Insert a component", not "Add a slide". Both launchers — the drawer row and
+				    the command palette's "Insert a component…" — say insert-a-component, and the
+				    panel they opened was titled something else. Same class of defect as the
+				    "Reader views" row landing on a panel headed LENSES, one card over (#1211). */}
+				<PanelHeader icon={<Plus />} title={title} srDescription={description} />
 				{body}
+				{/* Phone: search docks above the keyboard. */}
+				<PanelDock>{searchField}</PanelDock>
 			</PanelSheet>
 		);
 	}
