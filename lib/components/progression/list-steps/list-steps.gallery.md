@@ -218,6 +218,21 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
+<!-- _class: list-steps capsule -->
+<!-- _footer: "capsule · list-steps capsule — Centered editorial group: pill badge per step in its own categorical hue, serif title, no connector arrows, no masthead hairline." -->
+
+## Turn the framework into a habit.
+
+1. Name it
+   - Say the verb and the reach you operate at today.
+2. Pick the next move
+   - One deeper verb, or the same verb carried wider.
+3. Keep the evidence
+   - A doc, a metric, a postmortem — proof the shift happened.
+
+
+---
+
 <!-- _class: list-steps -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · list-steps — Six steps — the last honest sequence." -->

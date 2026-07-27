@@ -18,11 +18,12 @@
     "board-deck"
   ],
   "description": "Final slide. Dark canvas mirror of title.",
-  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals \"we're done.\"",
+  "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out.",
   "variants": [
     "numbered",
     "qr",
-    "index"
+    "index",
+    "spectrum"
   ],
   "slots": {
     "heading": {
@@ -116,9 +117,18 @@
     {
       "variant": "index",
       "useWhen": "The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence."
+    },
+    {
+      "variant": "spectrum",
+      "useWhen": "`title` also carries `spectrum` — closes the bookend pair with the same generated gradient bar, echoing the deck's own multi-step color story one last time."
     }
   ],
   "variantDocs": {
+    "spectrum": {
+      "label": "spectrum",
+      "summary": "Mirrors title's generated gradient bar — the deck's color story, one last time.",
+      "sample": "<!-- _class: closing silent spectrum -->\n\n## The closing echoes the same six-step spectrum.\n\n`Closing · spectrum`\n"
+    },
     "numbered": {
       "label": "numbered",
       "summary": "Counts closings apart from dividers.",

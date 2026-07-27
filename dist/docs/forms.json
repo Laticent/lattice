@@ -3,7 +3,7 @@
   "model": "Form 1.0",
   "modelHref": "https://github.com/slidewright/lattice/blob/main/design/forms.md",
   "counts": {
-    "frames": 11,
+    "frames": 12,
     "cells": 9,
     "tiles": 14
   },
@@ -13,6 +13,7 @@
     "divider",
     "image",
     "math",
+    "premise",
     "scene",
     "split-compare",
     "split-panel",
@@ -130,6 +131,26 @@
       ],
       "suppresses": [
         "progress-centre"
+      ]
+    },
+    {
+      "$schema": "../../schema/frame.schema.json",
+      "id": "premise",
+      "form": "split",
+      "kind": "sovereign",
+      "exemptFromChrome": true,
+      "description": "Sovereign framing-claim-beside-a-ledger split — a featured heading + lede on one side, a vertically centered ledger of parallel rows on the other, both on one continuous canvas (no colored panel divide, unlike split-panel). Suppresses the masthead and footer.",
+      "cells": [
+        "stage"
+      ],
+      "suppresses": [
+        "masthead",
+        "masthead-lede",
+        "masthead-bay",
+        "footer",
+        "footer-left",
+        "progress-centre",
+        "pagination-right"
       ]
     },
     {

@@ -6,7 +6,7 @@
 
 **Tags** `pitch` · `board-deck` · `showcase` · `kickoff`
 
-First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token).
+First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token). Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here.
 
 ## Agent contract
 
@@ -23,6 +23,7 @@ First slide of every deck. Sets the topic and the visual tone. Suppresses header
 - **Eyebrow written as bold or plain text instead of inline code, e.g. `**Category · Date**`.** Wrap the eyebrow paragraph in backticks. The eyebrow CSS matches `h1 + p:has(> code:only-child)`; without the code span the paragraph falls through to the general subtitle rule instead — it still renders styled, just as a second subtitle line, not the uppercase mono eyebrow lifted above the h1.
 - **The subtitle paragraph is authored before the eyebrow paragraph instead of after it.** The eyebrow match is an immediate-next-ELEMENT-sibling selector (`h1 + p:has(> code:only-child)`) — it only counts element siblings, so an HTML comment between the h1 and the eyebrow is harmless, but another paragraph is not. Keep the source order heading → eyebrow → subtitle.
 - **Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.** Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis.
+- **Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.** Every top-level `hr` token in a slide body is Marp's slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated.
 
 ## When to use
 
@@ -63,6 +64,22 @@ One-line subtitle that frames the deck.
 │           Subtitle or tagline           │
 │                                         │
 └─────────────────────────────────────────┘
+```
+
+## Variants (component-specific)
+
+### `spectrum` — spectrum
+
+A generated gradient bar below the subtitle, in the theme's own six-step palette.
+
+```markdown
+<!-- _class: title silent spectrum -->
+
+# A deck built on a color-coded spectrum.
+
+`Six stages, six colors`
+
+The title echoes the same six-step story the deck's own components carry.
 ```
 
 ## Universal modifiers

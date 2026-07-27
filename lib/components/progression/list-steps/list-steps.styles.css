@@ -98,6 +98,85 @@ section.list-steps.vertical ol > li:not(:last-child)::after {
 }
 
 
+/* ── capsule variant — centered cards, a pill-shaped step badge, a serif
+ * title. Same DOM and STEP-counter mechanism as the default cards (the
+ * badge text is unchanged — CSS-generated, not authored); only the badge's
+ * chrome, the text alignment, and the title's font change. Each badge takes its
+ * own categorical hue (rules further down), the masthead centers, the connector
+ * arrows drop, and the row caps its width — capsule owns the whole editorial
+ * look rather than making the author assemble it from four classes. */
+/* Centered masthead to match the centered cards below it — the whole slide
+ * reads as one centered editorial group. Same headline-seam mechanism the
+ * `timeline` variant uses (see the rule near the end of this file). */
+section.form.list-steps.capsule .cell-masthead .masthead-lede {
+  text-align: var(--headline-align, center);
+  align-items: var(--headline-justify, center);
+}
+/* The centered group reads as one editorial block, so the full-width masthead
+ * hairline under a centered title fights it — capsule drops it by default
+ * instead of making every author remember `rule-none`. Scoped so the explicit
+ * `rule-full` modifier can still put it back; `rule-short`/`rule-accent`
+ * already clear the border themselves. */
+section.form.list-steps.capsule:not(.rule-full) .cell-masthead { border-bottom: none; }
+section.list-steps.capsule > .cell-stage { justify-content: center; }
+/* A slide-proportional cap so three cards stay a readable centered group
+ * rather than stretching the full frame width. */
+section.list-steps.capsule ol { flex: 0 1 auto; max-width: 80cqi; align-self: center; width: 100%; }
+/* `capsule` is the editorial register — a reflective practice, not a pipeline —
+ * so it drops the base variant's step-to-step connector arrows. The badges
+ * already carry the sequence. */
+section.list-steps.capsule ol > li:not(:last-child)::after { content: none; }
+section.list-steps.capsule ol > li {
+  align-items: center;
+  text-align: center;
+}
+section.list-steps.capsule ol > li::before {
+  display: inline-block;
+  align-self: center;
+  padding: var(--sp-3xs) var(--sp-sm);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-meta);
+}
+section.list-steps.capsule ol > li strong {
+  font-family: var(--font-display);
+  font-size: var(--fs-h4);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+section.list-steps.capsule ol > li > p,
+section.list-steps.capsule ol > li > ul > li {
+  text-align: center;
+}
+
+/* ── Per-item categorical badge color — part of `capsule`, not a separate
+ * opt-in. The old `.cat` flag drew a distinction (sequence = one accent, set =
+ * many) that did not survive contact: `capsule` is already the editorial
+ * register, and an editorial step group reads better with its own hues than
+ * with one accent repeated three times. Folding it in removes a class the
+ * author had to know about to get the intended look. Historical note on the
+ * distinction that was dropped:
+ * `.capsule` alone deliberately stays one repeated accent (a sequence, not a
+ * set — see above). Some step sequences ARE a categorical set wearing a
+ * sequence's clothing (three steps sampled across a wider leveled
+ * progression, each meant to read as its own thing) and want each badge
+ * tinted on its own — the same reasoning `statement/premise`'s per-row
+ * color already established. Mirrors premise's exact 8-slot
+ * nth-child(8n+N) mechanism and its --cat-N-fill/--cat-N-mark pairing. */
+/* Badge ink is `--cat-on-fill`, the one token the categorical contract
+ * guarantees >=4.5:1 against any `--cat-N-fill`. It was `--cat-N-mark`, which
+ * the contract only guarantees against the BACKGROUND (it is a stroke token) —
+ * on the fill it measured 4.25:1, below AA. */
+section.list-steps.capsule ol > li:nth-child(8n+1)::before { background: var(--cat-1-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule ol > li:nth-child(8n+2)::before { background: var(--cat-2-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule ol > li:nth-child(8n+3)::before { background: var(--cat-3-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule ol > li:nth-child(8n+4)::before { background: var(--cat-4-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule ol > li:nth-child(8n+5)::before { background: var(--cat-5-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule ol > li:nth-child(8n+6)::before { background: var(--cat-6-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule ol > li:nth-child(8n+7)::before { background: var(--cat-7-fill); color: var(--cat-on-fill); }
+section.list-steps.capsule ol > li:nth-child(8n)::before   { background: var(--cat-8-fill); color: var(--cat-on-fill); }
+
 /* ── timeline variant — former `timeline` component (progression.list-steps.timeline) ──
  * Dots-on-a-spine: ordered stages as labelled nodes along one horizontal axis.
  * ol → numbered discs; ul → plain dots. Resets the list-steps card + STEP-badge

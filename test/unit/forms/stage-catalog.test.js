@@ -35,12 +35,12 @@ const EXPECTED_FLOW = [
   'quote', 'redline', 'regulatory-update', 'stats', 'statute-stack', 'verdict-grid',
 ].sort();
 const EXPECTED_CANVAS = [
-  'contact', 'diagram', 'funnel', 'gantt', 'journey', 'kanban', 'map', 'piechart',
+  'contact', 'diagram', 'funnel', 'gantt', 'journey', 'kanban', 'map', 'matrix-grid', 'piechart',
   'progress', 'quadrant', 'radar', 'roadmap', 'state-chart', 'timeline-list',
   'video', 'wifi', 'word-cloud',
 ].sort();
 const EXPECTED_SOVEREIGN = [
-  'closing', 'compare-code', 'divider', 'image', 'math', 'scene', 'split-compare',
+  'closing', 'compare-code', 'divider', 'image', 'math', 'premise', 'scene', 'split-compare',
   'split-panel', 'title',
 ].sort();
 

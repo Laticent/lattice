@@ -109,6 +109,10 @@
     {
       "name": "checklist",
       "when": "one set of obligations against one regime, not many"
+    },
+    {
+      "name": "matrix-grid",
+      "when": "the grid marks one position on two ordered axes, not a pass/partial/exempt status per cell"
     }
   ],
   "variantDocs": {

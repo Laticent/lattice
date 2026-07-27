@@ -37,6 +37,14 @@ const SHOWCASES = [
     label: 'Data visualization',
     file: 'examples/data-viz-gallery.md',
   },
+  {
+    // The deck that inspired split-panel's `proof` modifier and the
+    // matrix-grid component — see engineering/decisions/
+    // 2026-07-27-bloom-engineering-journey-components.md.
+    id: 'bloom-engineering-journey',
+    label: 'Bloom engineering journey',
+    file: 'examples/bloom-engineering-journey.md',
+  },
 ];
 
 // One survey deck per component family (bucket), in design-system catalog

@@ -16,7 +16,7 @@
       "timeline-list",
       "split across slides"
     ],
-    "note": "past five steps the row begins to crowd; a split run paces ONE step per page and carries a derived \u201c\u2192 next: \u2026\u201d signal (\u00a70b connected members)"
+    "note": "past five steps the row begins to crowd; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
   },
   "density": {
     "axis": "item",
@@ -62,7 +62,8 @@
     "stage",
     "rank",
     "tier",
-    "roman"
+    "roman",
+    "capsule"
   ],
   "slots": {
     "title": {
@@ -134,6 +135,11 @@
     }
   ],
   "variantDocs": {
+    "capsule": {
+      "label": "capsule",
+      "summary": "Centered editorial group: pill badge per step in its own categorical hue, serif title, no connector arrows, no masthead hairline.",
+      "sample": "<!-- _class: list-steps capsule -->\n\n## Turn the framework into a habit.\n\n1. Name it\n   - Say the verb and the reach you operate at today.\n2. Pick the next move\n   - One deeper verb, or the same verb carried wider.\n3. Keep the evidence\n   - A doc, a metric, a postmortem — proof the shift happened.\n"
+    },
     "chevron": {
       "label": "chevron",
       "summary": "Down-chevron tabs cascade into keyed description cards.",
@@ -206,6 +212,10 @@
     }
   ],
   "variantDecisionRule": [
+    {
+      "variant": "capsule",
+      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit). One class carries the whole look: centered masthead and cards, a pill badge per step in its own categorical hue, a serif title, no connector arrows, and no masthead hairline. Add `rule-full` if you want the hairline back."
+    },
     {
       "variant": "vertical",
       "useWhen": "The frame is narrow or portrait, or the step bodies need more vertical room — stacks steps down the page instead of across a row."

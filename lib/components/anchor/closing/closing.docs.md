@@ -6,7 +6,7 @@
 
 **Tags** `summary` · `takeaway` · `board-deck`
 
-Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals "we're done."
+Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals "we're done." Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out.
 
 ## Agent contract
 
@@ -24,6 +24,7 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 - **`numbered`.** The deck's dividers also use the `numbered` variant — keeps the closing's corner stamp consistent with that numbering scheme.
 - **`qr`.** The audience should leave with a scannable link (docs URL, contact card) rather than just a text call-to-action.
 - **`index`.** The closing is a reference/see-also list of multiple next steps or resources, not a single takeaway sentence.
+- **`spectrum`.** `title` also carries `spectrum` — closes the bookend pair with the same generated gradient bar, echoing the deck's own multi-step color story one last time.
 
 ### Common mistakes
 
@@ -116,6 +117,18 @@ Ends on a reference list — see also, next steps.
 - `docs` — the component catalog and authoring contracts
 - `gallery` — every layout rendered in light and dark
 - `studio` — compose and preview a deck in the browser
+```
+
+### `spectrum` — spectrum
+
+Mirrors title's generated gradient bar — the deck's color story, one last time.
+
+```markdown
+<!-- _class: closing silent spectrum -->
+
+## The closing echoes the same six-step spectrum.
+
+`Closing · spectrum`
 ```
 
 ## Universal modifiers

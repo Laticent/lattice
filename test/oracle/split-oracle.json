@@ -386,6 +386,17 @@
       "perPage": null,
       "relationship": null
     },
+    "matrix-grid": {
+      "treatment": "atomic",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
+      "relationship": null
+    },
     "obligation-matrix": {
       "treatment": "atomic",
       "axis": null,
@@ -417,6 +428,17 @@
       "reshape": null,
       "coverClass": "lat-split-cover",
       "perPage": 1,
+      "relationship": null
+    },
+    "premise": {
+      "treatment": "read-across",
+      "axis": null,
+      "declaredIn": null,
+      "enrolled": false,
+      "strategy": null,
+      "reshape": null,
+      "coverClass": null,
+      "perPage": null,
       "relationship": null
     },
     "pricing": {

@@ -6,7 +6,7 @@
 
 **Tags** `pull-quote` · `quotation` · `showcase`
 
-Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit.
+Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit. `bare` drops the card, border, and quotation-mark glyphs for a plain, display-scale statement — a hook or cold-open line, not a sourced quotation.
 
 ## Agent contract
 
@@ -57,6 +57,20 @@ Use to land a phrase verbatim — customer voice, expert claim, mission statemen
 │                                         │
 │  footer                           1/19  │
 └─────────────────────────────────────────┘
+```
+
+## Variants (component-specific)
+
+### `bare` — bare
+
+No card, no quotation marks — a plain display-scale line.
+
+```markdown
+<!-- _class: quote bare -->
+
+> The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.
+
+*The question this framework answers*
 ```
 
 ## Universal modifiers

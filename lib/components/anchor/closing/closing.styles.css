@@ -1,6 +1,7 @@
 /* closing — anchor.bookend.closing
  *
- * Mirror of title. Dark canvas, centered, no spectrum bar.
+ * Mirror of title. Dark canvas, centered; the `spectrum` variant below adds
+ * the generated gradient bar (title carries the same one).
  *
  * See lib/components/closing/closing.manifest.json for the component contract.
  */
@@ -13,8 +14,13 @@
 section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.closing { border-top: none; }
 section.closing hr { margin:0; }
-section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:54.6875cqi; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
-section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:42.1875cqi; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
+/* Measures widened so a normal closing line holds together: at --fs-h1 the old
+ * 54.7cqi cap broke a six-word sign-off onto a second line with one orphan word,
+ * and the 42.2cqi body cap ran a three-clause sentence to five short lines. Both
+ * are still measures (they cap, they don't stretch) — just set where the type
+ * tier actually sits rather than where a smaller tier once did. */
+section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:62cqi; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
+section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:48.4cqi; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
 
 /* Mirror of title: the inline-code paragraph after the heading is the
  * eyebrow, rendered visually ABOVE the heading via flex order (overriding
@@ -37,6 +43,38 @@ section.closing h2 + p:has(> code:only-child) > code {
   border: none;
   padding: 0;
   border-radius: 0;
+}
+
+/* ── spectrum — mirrors title.spectrum: a generated gradient bar reading
+ * the theme's own `--chart-catN` input tokens directly (not the scoped
+ * `--chart-cat-N-hue`, which resolves to nothing outside `.chart-frame`;
+ * not `--cat-N-mark`, which collapses to washed-out near-white on a dark
+ * bookend canvas — see title.styles.css for both, empirically confirmed).
+ * See title.styles.css for why this must be CSS-generated (no authoring
+ * hook exists for a real closing-body <hr>) and why it's a `::before` +
+ * `order` pair, not `::after` (the universal `silent` modifier claims
+ * `section::after` for its own pagination suppression). */
+section.closing.spectrum::before {
+  content: '';
+  display: block;
+  order: 1;
+  width: 200px;
+  height: 4px;
+  /* padding-top (not margin-top — HARD RULE #20) reserves the gap above the
+   * bar; background-clip keeps the gradient painted only in the content
+   * box, so the padding area stays blank instead of tinting the gap. */
+  padding-top: var(--sp-lg);
+  background: linear-gradient(
+    90deg,
+    var(--chart-cat1, light-dark(#0A6CE0, #2E8BFF)),
+    var(--chart-cat2, light-dark(#C2670A, #FFA630)),
+    var(--chart-cat3, light-dark(#1E9E48, #34D058)),
+    var(--chart-cat4, light-dark(#9333D6, #BE5AF2)),
+    var(--chart-cat5, light-dark(#0E96AE, #3FC8E0)),
+    var(--chart-cat6, light-dark(#E11D48, #FF4D6A))
+  );
+  background-clip: content-box;
+  border-radius: 2px;
 }
 
 /* ── Trailing list (base safety-net) ──────────────────────────────────────

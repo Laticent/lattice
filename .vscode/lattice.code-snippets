@@ -587,6 +587,27 @@
     ],
     "description": "Static 2×2 quadrant grid with author-placed items per cell."
   },
+  "lattice: matrix-grid": {
+    "prefix": "lattice-matrix-grid",
+    "body": [
+      "<!-- _class: matrix-grid -->",
+      "",
+      "## Where each level sits on two axes.",
+      "",
+      "Your position is the diagonal — depth and reach meet at one cell.",
+      "",
+      "`Wider reach`  `Deeper cognition`",
+      "",
+      "| Depth | Self | Team | Org |",
+      "| ---------- | :--: | :--: | :-: |",
+      "| Advanced   | [ ]  | [-]  | [x] Lead |",
+      "| Proficient | [-]  | [x] Senior | [-] |",
+      "| Beginner   | [x] Junior | [-]  | [ ]  |",
+      "",
+      "**Your position** · *reachable*"
+    ],
+    "description": "Two ordered axes as an N×M chart-family grid — each cell marks a position (filled / reachable / not applicable), colored by its row's category from the theme's chart palette."
+  },
   "lattice: obligation-matrix": {
     "prefix": "lattice-obligation-matrix",
     "body": [
@@ -641,6 +662,27 @@
       "> The specific legislative ask — sponsor, vote, or amend, with the section."
     ],
     "description": "A legislative recommendation — a stance verdict beside the recommendation, its evidence, and the specific ask to lawmakers."
+  },
+  "lattice: premise": {
+    "prefix": "lattice-premise",
+    "body": [
+      "<!-- _class: premise -->",
+      "",
+      "## The claim the ledger exists to support.",
+      "",
+      "One or two sentences naming the axes the rows below walk.",
+      "",
+      "1. First term",
+      "   - A short clause describing it.",
+      "   - A question it answers?",
+      "2. Second term",
+      "   - A short clause describing it.",
+      "   - A question it answers?",
+      "3. Third term",
+      "   - A short clause describing it.",
+      "   - A question it answers?"
+    ],
+    "description": "A framing claim beside a vertically centered ledger of parallel rows — a number, a term, a description, and a right-aligned note, each row colored by its own categorical hue."
   },
   "lattice: pricing": {
     "prefix": "lattice-pricing",

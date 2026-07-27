@@ -23,4 +23,34 @@ section.quote blockquote::after  { content:'\201D'; font-family:var(--font-displ
 section.quote blockquote p { font-family:var(--font-display); font-size:var(--fs-message); font-style:italic; color:var(--text-heading); line-height:var(--lh-snug); margin:0; text-align:center; }
 section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-secondary); text-align:center; }
 
+/* ── bare — no card, no quotation-mark glyphs: a plain display-scale
+ * statement (a hook / cold-open line), not a sourced quotation. Keeps the
+ * same italic serif voice as the default quote — only the chrome and the
+ * scale change. */
+section.quote.bare blockquote {
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  max-width: 84.375cqi;
+}
+section.quote.bare blockquote::before,
+section.quote.bare blockquote::after { content: none; }
+section.quote.bare blockquote p {
+  font-size: var(--fs-emphasis);
+  line-height: var(--lh-snug);
+}
+section.quote.bare > .cell-stage > p {
+  padding-top: var(--sp-xl);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  /* The attribution is the quote's only other content — it names whose words
+   * these are — so it reads at --text-secondary (6.85:1 on --bg), not the
+   * --text-muted chrome tier the palette contract exempts from AA (4.10:1). */
+  color: var(--text-secondary);
+}
+section.quote.bare > .cell-stage > p em { font-style: normal; }
+
 
