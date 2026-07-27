@@ -8,10 +8,15 @@ test.beforeEach(async ({ page }) => {
 	await gotoStudio(page);
 });
 
+// "Add slide" is the #1058 "one insert door": it opens the add-slide gallery
+// rather than dropping a bare blank, so the quick-blank path is the gallery's
+// synthetic Blank tile. (Until #1198 this test still asserted the retired
+// "Slide added." toast — invisible because the fixture's toast locator was dead.)
 test('add slide grows the deck by one', async ({ page }) => {
 	const n = await slideCount(page);
 	await page.getByRole('button', { name: 'Add slide' }).click();
-	await expect(toastText(page)).toContainText('Slide added');
+	await page.getByRole('button', { name: /^Insert Blank/i }).first().click();
+	await expect(toastText(page)).toContainText('Inserted');
 	await expect(railButtons(page)).toHaveCount(n + 1);
 });
 

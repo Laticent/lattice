@@ -15,11 +15,16 @@
 //      touch. There is not a single `overflow-x` in this file.
 //   2. A chevron means TRAVEL. A row with one goes somewhere (a sheet, or a door);
 //      a row without one acts in place. "Fix all issues" is the only such leaf.
-//   3. The sheet is as tall as its contents, capped. Level 0 measures ~630px on a
-//      390px phone and does not scroll. The predecessor was a flat 85dvh box with
-//      ~40% dead air, which is WHY its controls stretched to `flex-1`, why every
-//      group grew a shouty header to justify its band, and why a jump strip appeared
-//      to navigate the emptiness. Fixing the height removes the cause, not the symptom.
+//   3. The sheet is as tall as its contents, capped at 85dvh. Level 0 measures 495px
+//      (Preview) / 613px (Edit) and fits without scrolling on a 390×844 phone. It is
+//      NOT true that it never scrolls: the cap is a fraction of viewport HEIGHT, so on
+//      a 375×667 iPhone SE the Edit index overflows by 46px, and by 130px at 320×568.
+//      (An earlier version of this comment claimed "never scrolls at 390/375/360" — three
+//      WIDTHS at one height. The independent checker measured the heights.) The
+//      predecessor was a flat 85dvh box with ~40% dead air, which is WHY its controls
+//      stretched to `flex-1`, why every group grew a shouty header to justify its band,
+//      and why a jump strip appeared to navigate the emptiness. Fixing the height removes
+//      the cause, not the symptom.
 //   4. No mono, no uppercase, nothing under 11.5px. That eyebrow voice belongs to the
 //      ARTIFACT — it earns its formality on a projected slide. At 10px on a phone it
 //      is the least legible combination available, and it was being used to shout
@@ -44,7 +49,15 @@ type Level = 'index' | 'themes' | 'show-me';
 // the predecessor gave zero press feedback AND left sticky hover states after a tap.
 // The tap-highlight on the sheet root covers iOS Safari, where `:active` does not fire
 // without a touch listener on the element or an ancestor.
-const PRESS = 'transition-colors hover:bg-[var(--accent-soft)] active:bg-[var(--accent-soft)]';
+//
+// An INK WASH (translucent --text-heading), not --accent-soft. Rows sit on a `Block`
+// (--bg-alt), and --accent-soft is a near-twin of --bg-alt in every light palette —
+// measured 1.00–1.17:1 luminance across all twelve, and byte-identical on `concrete`
+// (both #D5D5D2), so the press state was invisible exactly where it was advertised.
+// Mixing --text-heading into transparency composites over WHATEVER is beneath (the
+// --bg-alt of a Block, the --bg of the header), and the token contract guarantees
+// --text-heading contrasts with both, in both modes. Found by the Munger inversion.
+const PRESS = 'transition-colors hover:bg-[color-mix(in_srgb,var(--text-heading)_8%,transparent)] active:bg-[color-mix(in_srgb,var(--text-heading)_14%,transparent)]';
 
 /** A card block. Grouping is the block plus the 12px gap — there is no header.
  *  `--border` is belt-and-braces: `--bg-alt` against `--bg` is only #F2F5FA vs #FFFFFF
@@ -55,7 +68,13 @@ function Block({ children }: { children: React.ReactNode }) {
 }
 
 /** A leaf. `travels` draws the chevron — rule 2. Every trailing decoration is
- *  `aria-hidden` so the accessible name stays exactly the contract string. */
+ *  `aria-hidden` so the accessible NAME stays exactly the contract string (specs and
+ *  the tablet dropdown both target it verbatim) — but the count and the zero-state are
+ *  the row's whole point, so they come back as the DESCRIPTION. Marking them
+ *  `aria-hidden` and stopping there, as the first cut did, told a screen-reader user
+ *  "Fix all issues, button" and nothing else: the one channel a sighted user reads at a
+ *  glance, removed from the only users with no other channel. Found by the Munger
+ *  inversion. Description, not name, so the contract string survives. */
 function Row({ icon, label, count, done, disabled, travels = true, onClick }: {
 	icon: React.ReactNode;
 	label: string;
@@ -65,20 +84,25 @@ function Row({ icon, label, count, done, disabled, travels = true, onClick }: {
 	travels?: boolean;
 	onClick: () => void;
 }) {
+	const descId = React.useId();
+	const hasCount = typeof count === 'number' && count > 0;
+	const desc = hasCount ? `${count} to fix` : done ? 'Nothing to fix' : null;
 	return (
 		<button
 			type="button"
 			aria-label={label}
+			aria-describedby={desc ? descId : undefined}
 			disabled={disabled}
 			onClick={onClick}
 			className={cn('flex min-h-[52px] w-full items-center gap-3 border-t border-border px-3.5 text-left first:border-t-0 disabled:opacity-100', !disabled && PRESS)}
 		>
+			{desc && <span id={descId} className="sr-only">{desc}</span>}
 			<span aria-hidden="true" className="shrink-0 text-[var(--text-muted)]">{icon}</span>
 			<span className={cn('min-w-0 flex-1 truncate text-[15px] font-medium', disabled ? 'text-[var(--text-muted)]' : 'text-[var(--text-heading)]')}>{label}</span>
 			{/* --warn is a real per-palette/mode token; `--chart-2` (the predecessor's) is
 			    defined NOWHERE in this codebase and always fell back to a hardcoded orange
 			    that failed AA in every dark palette. Do not reopen. */}
-			{typeof count === 'number' && count > 0 && <span aria-hidden="true" className="shrink-0 font-mono text-[12px] font-bold text-[var(--warn)]">{count}</span>}
+			{hasCount && <span aria-hidden="true" className="shrink-0 font-mono text-[12px] font-bold text-[var(--warn)]">{count}</span>}
 			{/* A disabled row that still REPORTS is a settings-row idiom; a 40%-opacity
 			    ghost is a dead pixel. The row must stay rendered — the inventory is fixed. */}
 			{done && (
@@ -92,16 +116,24 @@ function Row({ icon, label, count, done, disabled, travels = true, onClick }: {
 }
 
 /** A door. 60px against the leaf's 52px — the only size signal that these two are a
- *  different kind of thing — plus an accent icon and a live value of what's behind it. */
-const Door = React.forwardRef<HTMLButtonElement, { icon: React.ReactNode; label: string; value: React.ReactNode; onClick: () => void }>(
-	({ icon, label, value, onClick }, ref) => (
-		<button ref={ref} type="button" aria-label={label} onClick={onClick} className={cn('flex min-h-[60px] w-full items-center gap-3 border-t border-border px-3.5 text-left first:border-t-0', PRESS)}>
-			<span aria-hidden="true" className="shrink-0 text-[var(--accent)]">{icon}</span>
-			<span className="flex-1 text-[15px] font-medium text-[var(--text-heading)]">{label}</span>
-			<span aria-hidden="true" className="flex min-w-0 items-center gap-1.5 text-[13px] text-[var(--text-muted)]">{value}</span>
-			<ChevronRight aria-hidden="true" className="size-4 shrink-0 text-[var(--text-muted)]" />
-		</button>
-	),
+ *  different kind of thing — plus an accent icon and a live value of what's behind it.
+ *  `valueText` is that value spoken: the rendered `value` is a swatch plus text and has
+ *  to stay `aria-hidden`, but "the current theme, named on the row" is the whole reason
+ *  the door row exists, and the first cut gave AT users "Themes, button" and nothing
+ *  else. Description, not name, so the label stays the exact contract string. */
+const Door = React.forwardRef<HTMLButtonElement, { icon: React.ReactNode; label: string; value: React.ReactNode; valueText: string; onClick: () => void }>(
+	({ icon, label, value, valueText, onClick }, ref) => {
+		const descId = React.useId();
+		return (
+			<button ref={ref} type="button" aria-label={label} aria-describedby={descId} onClick={onClick} className={cn('flex min-h-[60px] w-full items-center gap-3 border-t border-border px-3.5 text-left first:border-t-0', PRESS)}>
+				<span id={descId} className="sr-only">{valueText}</span>
+				<span aria-hidden="true" className="shrink-0 text-[var(--accent)]">{icon}</span>
+				<span className="flex-1 text-[15px] font-medium text-[var(--text-heading)]">{label}</span>
+				<span aria-hidden="true" className="flex min-w-0 items-center gap-1.5 text-[13px] text-[var(--text-muted)]">{value}</span>
+				<ChevronRight aria-hidden="true" className="size-4 shrink-0 text-[var(--text-muted)]" />
+			</button>
+		);
+	},
 );
 Door.displayName = 'Door';
 
@@ -177,10 +209,33 @@ export function StudioDrawer({
 	// the user on a level whose entry point just vanished.
 	React.useEffect(() => { if (demoActive) setLevel((l) => (l === 'show-me' ? 'index' : l)); }, [demoActive]);
 
-	const enter = (l: Level) => { setLevel(l); requestAnimationFrame(() => backRef.current?.focus()); };
+	// What the live region below says after a level change. Separate from `title` so
+	// OPENING the drawer stays silent here (the dialog's own open announcement already
+	// names it) and only a push/pop speaks.
+	const [announce, setAnnounce] = React.useState('');
+	React.useEffect(() => { if (!open) setAnnounce(''); }, [open]);
+
+	// A door swaps the scroller's CONTENT without remounting it, so scrollTop survives
+	// the push — the Themes door used to open already scrolled past its "Curated" header
+	// with the first row of tiles sliced off under the nav bar, and Back landed you at the
+	// bottom of the index with "Fix all issues" clipped to a sliver. Only reachable where
+	// the index itself scrolls (measured: 46px of overflow at 375×667, 130px at 320×568 —
+	// iPhone SE and the 360×640 Android class, which is why a sweep over three WIDTHS at
+	// one height missed it). Push navigation starts at the top of the new screen.
+	const scrollRef = React.useRef<HTMLDivElement>(null);
+	const toTop = () => { if (scrollRef.current) scrollRef.current.scrollTop = 0; };
+
+	const enter = (l: Level) => {
+		setLevel(l);
+		setAnnounce(l === 'themes' ? 'Themes' : 'Show me');
+		toTop();
+		requestAnimationFrame(() => backRef.current?.focus());
+	};
 	const back = () => {
 		const from = level;
 		setLevel('index');
+		setAnnounce('Studio');
+		toTop();
 		requestAnimationFrame(() => doorRefs.current[from]?.focus());
 	};
 
@@ -208,6 +263,8 @@ export function StudioDrawer({
 				{/* Nav bar: the SAME three-slot left-aligned strip at both levels, fixed 56px,
 				    never centers. The back affordance is a chevron plus the literal name of
 				    where it goes — not an icon you have to interpret. */}
+				{/* Push/pop announcement — see `announce` above. */}
+				<div role="status" aria-live="polite" className="sr-only">{announce}</div>
 				<SheetHeader className="h-14 shrink-0 flex-row items-center gap-2 border-b border-border px-2 py-0">
 					{inDoor ? (
 						<>
@@ -219,9 +276,13 @@ export function StudioDrawer({
 					) : (
 						<span aria-hidden="true" className="w-1.5 shrink-0" />
 					)}
-					{/* The dialog's accessible name tracks the level — correct AT behavior for
-					    push navigation. The back button says "Back to Studio", not "Studio",
-					    so the two never announce as the same string. */}
+					{/* The dialog's accessible name tracks the level. That is correct, but it is
+					    NOT an announcement: retargeting an OPEN dialog's label does not re-speak
+					    in VoiceOver or NVDA, so on its own a blind user tapped "Themes", heard
+					    "Back to Studio, button", and was never told they had arrived. The live
+					    region above is the announcement; this is the label. (Munger inversion.)
+					    The back button says "Back to Studio", not "Studio", so the two never
+					    announce as the same string. */}
 					<SheetTitle className="flex min-w-0 flex-1 items-center gap-2 truncate text-[15px] font-semibold text-[var(--text-heading)]">
 						{level === 'index' && <MoreHorizontal aria-hidden="true" className="size-4 shrink-0 text-[var(--accent)]" />}
 						{level === 'themes' && <Palette aria-hidden="true" className="size-4 shrink-0 text-[var(--accent)]" />}
@@ -244,7 +305,7 @@ export function StudioDrawer({
 				    of bug as the original wrapperClassName miss, and invisible unless you
 				    measure scrollHeight vs clientHeight. Sheet(flex col, max-h) → wrapper
 				    (flex-1, min-h-0, flex col) → scroller(flex-1, min-h-0, overflow-y-auto). */}
-				<ScrollFade wrapperClassName="flex min-h-0 flex-1 flex-col" className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+				<ScrollFade scrollRef={scrollRef} wrapperClassName="flex min-h-0 flex-1 flex-col" className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
 					{level === 'index' && (
 						<div className="flex flex-col gap-3">
 							{effPane === 'edit' && (
@@ -268,6 +329,7 @@ export function StudioDrawer({
 									icon={<Palette className="size-[18px]" />}
 									label="Themes"
 									value={<><span className={cn('size-3.5 shrink-0 rounded-full', SWATCH_EDGE)} style={{ background: active.color }} /><span className="truncate">{active.label}</span></>}
+									valueText={`Currently ${active.label}`}
 									onClick={() => enter('themes')}
 								/>
 								{!demoActive && (
@@ -276,6 +338,7 @@ export function StudioDrawer({
 										icon={<MonitorPlay className="size-[18px]" />}
 										label="Show me"
 										value={`${tours.length} tours`}
+										valueText={`${tours.length} guided ${tours.length === 1 ? 'tour' : 'tours'}`}
 										onClick={() => enter('show-me')}
 									/>
 								)}
@@ -315,17 +378,39 @@ export function StudioDrawer({
 													{/* Only a BOTTOM divider: the tile's own `border` already outlines the
 													    field on the other three sides, and that outline is what makes a
 													    #000000 onyx swatch visible on a #000000 onyx-dark sheet. */}
-													<span className="relative block h-16 border-b border-[color-mix(in_srgb,var(--text-heading)_20%,transparent)]" style={{ background: typeof opt.swatch?.background === 'string' ? opt.swatch.background : 'var(--accent)' }}>
+													{/* A NEUTRAL placeholder when a saved theme has no accent of its own —
+													    not `var(--accent)`. That default resolves LIVE to the current
+													    palette's accent, so a theme saved with `essentials: null` painted a
+													    pixel-perfect duplicate of whichever built-in tile is active, and the
+													    duplicate followed you as you picked other themes. */}
+													<span className="relative block h-16 border-b border-[color-mix(in_srgb,var(--text-heading)_20%,transparent)]" style={{ background: typeof opt.swatch?.background === 'string' && opt.swatch.background !== 'var(--accent)' ? opt.swatch.background : 'color-mix(in srgb, var(--text-heading) 22%, var(--bg))' }}>
 														{/* Palette-blind selected mark: a --text-heading disc with a --bg
 														    glyph. Never --accent — it resolves to exactly --text-heading in
-														    13 of 36 palette×mode combinations. */}
+														    13 of 36 palette×mode combinations.
+														    DOUBLE-STROKED, and that is the load-bearing part. A bare disc is
+														    --text-heading on an ARBITRARY swatch fill, and measurement found
+														    the same invisible-control bug this grid exists to fix: onyx/light
+														    is a #000 disc on a #000 field, 1.00:1, byte-identical; a11y-
+														    achromatopsia is 2.48:1, under the 3:1 non-text floor. The --bg
+														    ring means at least one of the two strokes always contrasts with
+														    the field, whatever the field is (onyx/light: ring 21:1; onyx/dark:
+														    ring collapses but the disc is 21:1). Found by the independent
+														    checker, which also caught that the 3.31–5.47:1 range this once
+														    claimed was indaco measured twice and generalized. */}
 														{on && (
-															<span aria-hidden="true" className="absolute top-1.5 right-1.5 grid size-5 place-items-center rounded-full bg-[var(--text-heading)]">
+															<span aria-hidden="true" className="absolute top-1.5 right-1.5 grid size-5 place-items-center rounded-full bg-[var(--text-heading)] ring-2 ring-[var(--bg)]">
 																<Check className="size-3 text-[var(--bg)]" />
 															</span>
 														)}
 													</span>
-													<span aria-hidden="true" className={cn('block bg-[var(--bg-alt)] px-1.5 py-2 text-center text-[11.5px] leading-tight', on ? 'font-semibold text-[var(--text-heading)]' : 'font-medium text-[var(--text-body)]')}>{opt.label}</span>
+													{/* `line-clamp-2` + `break-words`, because a saved theme's label is free
+													    user text with no length cap anywhere on the path. Un-clamped, a
+													    43-char single word overflowed a 113px tile by 2.1× and was
+													    hard-clipped mid-word with no ellipsis, and a long multi-word name
+													    wrapped to four lines — a 140px tile in a 96px grid row, with dead
+													    space under every neighbor. The predecessor truncated here; the
+													    rewrite dropped it. Two lines, then an ellipsis. */}
+													<span aria-hidden="true" className={cn('block break-words bg-[var(--bg-alt)] px-1.5 py-2 text-center text-[11.5px] leading-tight line-clamp-2', on ? 'font-semibold text-[var(--text-heading)]' : 'font-medium text-[var(--text-body)]')}>{opt.label}</span>
 												</button>
 											);
 										})}

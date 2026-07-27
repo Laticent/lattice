@@ -300,7 +300,7 @@ describe('lint-core: auto-fix', () => {
     const f = ruleFor(src, 'card-style-inline-title');
     assert.equal(f.slide, 2, 'the finding is numbered fence-aware (slide 2, not 3)');
     const fixed = core.applyFix(src, f);
-    assert.ok(fixed && fixed.includes('- First\n  - inline body'), 'the fix applied to slide 2');
+    assert.ok(fixed?.includes('- First\n  - inline body'), 'the fix applied to slide 2');
     assert.ok(fixed.includes('title: X\n---\nbody'), 'the fenced code sample is untouched');
     // …and the batch pass clears it rather than halting on it.
     const all = core.applyAllFixes(src, vocab);

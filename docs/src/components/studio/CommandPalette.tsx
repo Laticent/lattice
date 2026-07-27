@@ -5,11 +5,21 @@ import { FeedbackIcon } from './icons';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
-	open, onOpenChange, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
+	open, onOpenChange, onRun, decks, palettes, onPickDeck, onNewDeck, onPalette, onPresent, onShare, onFabricate, onReshape, onWatchDemo, onInsert, onFocus, onFeedback, onLibrary, onWorkspace,
 	onCollapseEditor, onCollapsePreview, onExpandPane, onResetSplit,
 }: {
 	open: boolean;
 	onOpenChange: (v: boolean) => void;
+	/**
+	 * Fired when the palette closes because the user RAN something, as opposed to
+	 * dismissing it. `onOpenChange(false)` alone cannot tell those apart, and the caller
+	 * sometimes needs to: the mobile StudioDrawer re-opens itself when a surface it
+	 * launched goes away, and without this signal running any of ~31 commands from the
+	 * drawer's own "Search / commands" row sprang the drawer back up on top of the result
+	 * — including over a live guided tour, whose "click anywhere to take over" tap the
+	 * drawer's modal overlay then ate. (Red team, PR #1198.)
+	 */
+	onRun?: () => void;
 	decks: StudioDeck[];
 	palettes: string[];
 	onPickDeck: (d: StudioDeck) => void;
@@ -41,6 +51,7 @@ export function CommandPalette({
 	onResetSplit?: () => void;
 }) {
 	const run = (fn: () => void) => () => {
+		onRun?.();
 		onOpenChange(false);
 		fn();
 	};

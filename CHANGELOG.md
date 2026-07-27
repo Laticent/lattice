@@ -5080,6 +5080,17 @@ in patch versions.
   with any `_paginate: false` slide every page after it read one low and the total undercounted.
   A split now leaves the numbering of slides it never touched exactly as the engine set it.
 
+- **The Studio E2E suite's toast oracle had been dead since the Sonner migration, silently
+  failing 22 assertions across 12 spec files.** `toastText()` matched
+  `[role="status"].fixed.inset-x-0` — the hand-rolled pill Sonner replaced. Sonner's toast carries
+  neither `role` nor `aria-live` on the `<li>` (its live region is the wrapping `<section>`), so the
+  locator matched zero elements and every `toContainText` on it timed out. Because the E2E tier is
+  nightly rather than per-PR, nothing surfaced it. It now targets `[data-sonner-toaster]` — the one
+  always-present container, so a spec that chains two actions can't trip strict mode. Fixing it
+  exposed three assertions that had drifted behind the chrome underneath: "Add slide" opens the
+  add-slide gallery (the #1058 one-insert-door) rather than emitting a retired "Slide added." toast,
+  and the Inspector's Header field and Page-numbers toggle moved under the "Marks" tab. Same class
+  of drift as #780, which is why `CHROME` exists — these three predate the map and are now green.
 - **`compare-code`'s manifest `skeleton` used a markdown heading (`### Before`/`### After`) the
   transform never recognized, collapsing both fenced blocks into one lopsided column instead of two
   side-by-side (#1195).** `transformCompareCodeSection` splits columns on `<p><code>` boundaries
@@ -8478,15 +8489,10 @@ in patch versions.
   Markdown/Compose/Preview merge into one exclusive 3-way segment (freeing exactly the width eight
   captioned ≥44×44 cells need); Coach, Chat, Settings, Present, and Share stay exactly where they
   were — one tap, inline, never behind a menu. The mobile "···" overflow is now the **StudioDrawer**,
-  a bottom sheet with five fixed, named zones (Workspace · Edit · Views · Show me · Look) and a
-  sticky jump strip, replacing one flat scroll that mixed tour copy, navigation, and an 18-theme
-  catalog with no section a user noticed; long catalogs (tours, themes) now scroll sideways inside
-  their own zone instead of stacking vertically. **Workspace leads the drawer, not the foot of it**
-  — Library, Workspace settings, Search, and Send Feedback render as a scannable icon-button row
-  (icon + caption, like the toolbar) at the very top, not a vertical list buried under Views/Show
-  me/Look. Tablet's overflow is unchanged (still the flat dropdown; Version history moves from
-  Preview's pane bar into the drawer's always-visible Views zone — not the Edit zone, which only
-  renders on the Edit pane; gating deck-level snapshot recovery on which pane you're looking at had
+  a bottom sheet, replacing one flat scroll that mixed tour copy, navigation, and an 18-theme
+  catalog with no section a user noticed. Tablet's overflow is unchanged (still the flat dropdown;
+  Version history moves from Preview's pane bar into the drawer, where it is always visible —
+  an earlier cut gated it on the Edit pane, and gating deck-level snapshot recovery on which pane you're looking at had
   silently removed it from Preview entirely, caught by a post-launch adversarial trio pass). Two real icon collisions are fixed everywhere they occur:
   `MessageSquareHeart` no longer means both Chat and Send Feedback (Chat moves to a distinct
   bot-chat glyph, at all four Chat sites, including the command palette), and `Eye` no longer
@@ -8526,20 +8532,49 @@ in patch versions.
   own Workspace row drops it in turn, so it isn't a setting with two homes. **Slide settings is
   dropped from the drawer too** — it duplicated the toolbar's own Settings cell, the sole entry
   point now (reported: "we shouldn't have deck/slide settings in this drawer"). **Reader views and
-  Version history — both deck-level, neither tied to a specific slide — read as one icon row now**
-  instead of two stacked vertical rows, the same idiom Workspace already used. **Closing a sheet
-  the drawer opened (Library, Reader views, Version history, Search, Send feedback, Insert
-  component) now reopens the drawer** instead of dropping back to the bare toolbar — reported as a
-  real navigation bug ("closing the new drawer does not result in going back to the previous
-  drawer"); a `closeDrawerAndOpen`/`withDrawerReturn` pair in `StudioShell.tsx` arms a one-shot flag
-  when the drawer navigates away and reopens it exactly when that flag is armed, so every other
-  entry point into these same sheets (the activity bar, the command palette, the tablet dropdown,
-  the new header button) is unaffected — none of them ever arm it. **The drawer's title also gains
+  Version history — both deck-level, neither tied to a specific slide — sit together now** rather
+  than in separate stacked groups. **Closing a sheet the drawer opened (Library, Reader views,
+  Version history, Search, Send feedback, Insert component) now reopens the drawer** instead of
+  dropping back to the bare toolbar — reported as a real navigation bug ("closing the new drawer
+  does not result in going back to the previous drawer"); `closeDrawerAndOpen` in `StudioShell.tsx`
+  arms a one-shot flag when the drawer navigates away, and the drawer returns when the last surface
+  it could have launched is gone, so every other entry point into these same sheets (the activity
+  bar, the command palette, the tablet dropdown, the new header button) is unaffected — none of them
+  ever arm it. **The drawer's title also gains
   the accent-colored icon every other Studio sheet's title carries** (Settings, Lenses, Version
   history, Workspace all lead with one) — it was plain, colorless text, the one sheet in the whole
   app that read as a different kind of surface instead of a peer of the others (reported as
   confusing); the icon matches the "More controls" trigger that opens it, the same "title icon
   matches its own toggle" pattern every other sheet already follows.
+
+  **The drawer's own layout was then rebuilt as "Two Doors"** after a third design competition
+  (five independent designs, judged) — the zoned version it replaces had grown a sticky jump strip,
+  five mono-uppercase zone headers, two sideways-scrolling catalogs, and rows stretched to fill,
+  and was reported as a mess. It now follows four rules: **rows are rows** (52px, icon · label ·
+  chevron, never stretched to fill a column); **the only navigation is down**, so there is not one
+  `overflow-x` in the file; **grouping is a card plus a gap**, not a shouted header; and the two
+  big catalogs become **doors** (60px, accent icon, showing their live value — the current theme's
+  name and swatch, "5 tours") that push a second level into the *same* sheet with a "‹ Studio" back
+  affordance. Nothing left the drawer — the full inventory is still reachable from it, and seven of
+  nine rows stay one tap. Escape pops a door before it closes the sheet; the level always resets to
+  the index on reopen; focus moves to Back on the way in and returns to the door you came from on
+  the way out; and a `role="status"` region announces the push and the pop, because retargeting an
+  open dialog's `aria-labelledby` does not re-speak in VoiceOver or NVDA. **The theme grid also
+  fixes a swatch that was literally invisible** — onyx's dot is `#000000` and the onyx-dark sheet is
+  `#000000`, so with a transparent border it was byte-identical to its own background; every tile
+  now carries a `--text-heading`-derived hairline and a real name, and the selected tile is marked
+  in `--text-heading`, never `--accent` (in 13 of 36 palette×mode combinations those two tokens
+  resolve to the same value). A follow-up Munger inversion then caught three more: the drawer's
+  press feedback was `--accent-soft` over a `--bg-alt` card, which measures 1.00–1.17:1 in all
+  twelve light palettes and is byte-identical on `concrete` — an "active" state you cannot see; it
+  is now a translucent `--text-heading` ink wash that composites visibly over any surface in either
+  mode. "Fix all issues" was announcing as bare "Fix all issues" to a screen reader because its
+  count and its "None ✓" zero-state were both `aria-hidden`; they come back as the button's
+  description, so the accessible *name* stays the exact contract string. And the drawer-return flag
+  moved from per-sheet `onOpenChange` wrappers to one effect over the set of surfaces the drawer can
+  launch: the wrapper fired on the *closing* sheet and could not see what opened in the same commit,
+  so drawer → "Search / commands" → "Library" resurfaced the drawer and lost the Library, and the
+  Lenses/Library paths that close via a bare `setActiveAssistant(null)` left the flag armed for good.
   (`docs/src/components/studio/{StudioShell.tsx,StudioDrawer.tsx,icons.ts,scroll-fade.tsx,
   ComposeView.tsx,CommandPalette.tsx,LensesPanel.tsx}`;
   `engineering/decisions/2026-07-26-studio-mobile-eight-cell-bar.md`.)

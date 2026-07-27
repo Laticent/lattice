@@ -403,27 +403,33 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Reader views, Version history, Search, Feedback, Insert component) used to just
 	// close the drawer and open the child — so dismissing the child dropped the user all
 	// the way back to the toolbar, not back to the drawer they came from (reported).
-	// `closeDrawerAndOpen` arms this flag when the drawer navigates away; `withDrawerReturn`
-	// wraps a sheet's own `onOpenChange` so closing it re-opens the drawer, but ONLY when
-	// the drawer was the one that opened it — every one of these surfaces has other entry
-	// points too (the activity bar, the command palette, the tablet dropdown), and those
-	// paths never arm the flag, so this is a no-op for them.
+	// `closeDrawerAndOpen` arms this flag when the drawer navigates away, and the effect
+	// below re-opens the drawer once the surface it left for is gone — but ONLY when the
+	// drawer was the one that opened it. Every one of these surfaces has other entry points
+	// (the activity bar, the command palette, the tablet dropdown), and those paths never
+	// arm the flag, so this is a no-op for them.
 	//
 	// `returns: false` is REQUIRED for a row that opens NO sheet — "Fix all issues" runs an
 	// editor method, "Show me" starts a tour. Arming the flag for those left it armed
 	// forever (nothing ever closes to disarm it), so the NEXT close of ANY wrapped sheet,
 	// from ANY entry point, sprang the drawer open. Found by two independent design agents
 	// reading this code; CI could never have caught it.
+	//
+	// WHY an effect over "no child is open" rather than wrapping each sheet's own
+	// `onOpenChange` (which is what this did first): the wrapper fired on the CLOSING sheet
+	// and could not see what opened in the same commit. Two live paths broke it — the
+	// command palette's `run` is `onOpenChange(false); fn()`, so drawer → Search → "Library"
+	// re-opened the drawer UNDERNEATH the Library it just launched; and Lenses/Library also
+	// close via a bare `setActiveAssistant(null)` (the docked frame is a div and never fires
+	// `onOpenChange`), which left the flag armed indefinitely. Deriving the reopen from the
+	// SET of child surfaces makes both correct by construction: whatever closed, the drawer
+	// comes back exactly when nothing it could have launched is on screen any more.
 	const [drawerPendingReturn, setDrawerPendingReturn] = React.useState(false);
 	const closeDrawerAndOpen = React.useCallback((openChild: () => void, opts?: { returns?: boolean }) => {
 		setMoreOpen(false);
 		setDrawerPendingReturn(opts?.returns !== false);
 		openChild();
 	}, []);
-	const withDrawerReturn = React.useCallback((setOpen: (v: boolean) => void) => (v: boolean) => {
-		setOpen(v);
-		if (!v && drawerPendingReturn) { setDrawerPendingReturn(false); setMoreOpen(true); }
-	}, [drawerPendingReturn]);
 	// When the reference-doc picker's "Manage in Library" link opens the Library, jump
 	// it straight to the Docs tab (#651). Undefined for the normal Library button.
 	const [libInitialFilter, setLibInitialFilter] = React.useState<'refdoc' | undefined>(undefined);
@@ -482,6 +488,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
+	// Every surface a StudioDrawer row can launch. The drawer comes back when the LAST of
+	// them closes — see `drawerPendingReturn` above for why this is a set, not a wrapper.
+	const drawerChildOpen = lensesOpen || libraryOpen || feedbackOpen || historyOpen || cmdOpen || insertOpen;
+	React.useEffect(() => {
+		if (!drawerPendingReturn || drawerChildOpen) return;
+		setDrawerPendingReturn(false);
+		setMoreOpen(true);
+	}, [drawerPendingReturn, drawerChildOpen]);
 	// Deck Inspector sections as pill-tabs (ordered by reach): Look leads; the two
 	// read-aloud groups (Lexicon + Acronyms) fold into one Speech tab so the panel
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
@@ -3422,7 +3436,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</SheetContent>
 					</Sheet>
 					{/* Lenses (reader views) — its own compact sheet, a peer of the Architect. */}
-					<Sheet open={lensesOpen} onOpenChange={withDrawerReturn(setLensesOpen)}>
+					<Sheet open={lensesOpen} onOpenChange={setLensesOpen}>
 						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[340px]">
 							<SheetHeader className="border-b border-border">
 								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><LensIcon className="size-4 text-[var(--accent)]" />Lenses</SheetTitle>
@@ -3452,13 +3466,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} notify={notify} />
-			<FeedbackSheet open={feedbackOpen} onOpenChange={withDrawerReturn(setFeedbackOpen)} area="Studio" context={{ Deck: deck.title, Theme: `${palette} · ${mode}` }} />
+			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deck.title, Theme: `${palette} · ${mode}` }} />
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
 			    so it lives in its own sheet off the top bar rather than in the inspector
 			    (which is now settings-only). Restore stays always-visible (not hover-only)
 			    so it works on touch. */}
-			<Sheet open={historyOpen} onOpenChange={withDrawerReturn(setHistoryOpen)}>
+			<Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
 				<SheetContent side="right" className="flex w-[88vw] flex-col gap-0 p-0 sm:max-w-[360px]">
 					<SheetHeader className="border-b border-border">
 						<SheetTitle className="flex items-center gap-2 text-[15px]"><History className="size-4 text-[var(--accent)]" />Version history</SheetTitle>
@@ -3488,7 +3502,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{compact && view === 'compose' && (
 				<Library
 					open={libraryOpen}
-					onOpenChange={withDrawerReturn(setLibraryOpen)}
+					onOpenChange={setLibraryOpen}
 					options={options}
 					activePalette={palette}
 					activeFinish={finish}
@@ -3503,7 +3517,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
 			<CommandPalette
 				open={cmdOpen}
-				onOpenChange={withDrawerReturn(setCmdOpen)}
+				onOpenChange={setCmdOpen}
+				// Running a command is a deliberate departure, not a dismissal: the drawer
+				// must not follow you to wherever the command took you. Without this, all
+				// ~31 commands sprang the drawer back open on top of the result.
+				onRun={() => setDrawerPendingReturn(false)}
 				decks={decks}
 				palettes={BUILTIN_PALETTES}
 				onPickDeck={loadDeck}
@@ -3524,7 +3542,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				onExpandPane={split.collapsed ? () => { const c = splitApiRef.current.collapsed; if (c) splitApiRef.current.expand(c); } : undefined}
 				onResetSplit={splitUsable ? () => splitApiRef.current.reset() : undefined}
 			/>
-			<SlidePicker open={insertOpen} onOpenChange={withDrawerReturn(setInsertOpen)} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
+			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}
 			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 

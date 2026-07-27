@@ -758,6 +758,92 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.queryAllByRole('dialog')).toHaveLength(0);
 	});
 
+	it('mobile: the drawer PUSHES a door in place and pops back to the index', async () => {
+		// The Two Doors rewrite added a second level inside the SAME sheet (Themes, Show me)
+		// and had ZERO coverage of it — no test entered a door, returned from one, or checked
+		// that the level resets. That gap is exactly how the rewrite shipped with the phone's
+		// only path to a guided tour silently broken in the e2e tier.
+		setViewport('mobile');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		const sheet = await screen.findByRole('dialog');
+
+		// Push: the door's own row is replaced by the door's contents, IN PLACE — still one
+		// dialog, not a second stacked sheet.
+		await user.click(within(sheet).getByRole('button', { name: 'Show me' }));
+		expect(screen.queryAllByRole('dialog')).toHaveLength(1);
+		await within(sheet).findByRole('button', { name: 'Back to Studio' });
+		// The tour cards live here and ONLY here — the drawer is the phone's sole tour entry.
+		expect(sheet.querySelector('[data-tour]')).not.toBeNull();
+
+		// Pop: back to the index, and the door row is reachable again.
+		await user.click(within(sheet).getByRole('button', { name: 'Back to Studio' }));
+		await within(sheet).findByRole('button', { name: 'Show me' });
+		expect(sheet.querySelector('[data-tour]')).toBeNull();
+
+		// Reopening always lands on the index — nobody returns to a screen they forgot.
+		await user.click(within(sheet).getByRole('button', { name: 'Show me' }));
+		await within(sheet).findByRole('button', { name: 'Back to Studio' });
+		await user.keyboard('{Escape}'); // in a door, Escape pops rather than closing
+		await within(sheet).findByRole('button', { name: 'Show me' });
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.queryAllByRole('dialog')).toHaveLength(0), { timeout: 3000 });
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Show me' });
+	});
+
+	it('mobile: a drawer-opened palette that LAUNCHES another surface does not resurface the drawer under it', async () => {
+		// REGRESSION (Munger inversion, F7). The reopen used to hang off each sheet's own
+		// `onOpenChange`, which fires on the CLOSING sheet and cannot see what opened in the
+		// same commit. CommandPalette's `run` is `onOpenChange(false); fn()` — so drawer →
+		// "Search / commands" → "Library" re-opened the drawer as the palette closed, and the
+		// Library that arrived a beat later lost the race for the mobile assistant slot. What
+		// the user got for picking "Library" was the drawer they started from. Measured, not
+		// theorized: pre-fix this lands on the drawer dialog, post-fix on the Library.
+		setViewport('mobile');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(await screen.findByRole('button', { name: 'Search / commands' }));
+		// The palette's OWN placeholder, not /Search/ — the Library it launches has a search
+		// field too, so a loose match would still be satisfied by the wrong surface.
+		const PALETTE = 'Search or run a command…';
+		await user.type(await screen.findByPlaceholderText(PALETTE), 'Library');
+		await screen.findByRole('option', { name: /Library/i });
+		await user.keyboard('{Enter}'); // cmdk's canonical selection path
+
+		// Exactly one surface is up, and it is the LIBRARY. Assert which one, not how many:
+		// pre-fix there was also exactly one dialog — the drawer, resurfaced, with the
+		// Library the user actually asked for nowhere on screen.
+		await waitFor(() => expect(screen.queryByPlaceholderText(PALETTE)).not.toBeInTheDocument(), { timeout: 3000 });
+		const dialogs = screen.queryAllByRole('dialog');
+		expect(dialogs).toHaveLength(1);
+		expect(dialogs[0]).toHaveTextContent('Saved themes, components');
+	});
+
+	it('mobile: running a command the drawer knows NOTHING about still leaves the drawer shut', async () => {
+		// The companion to the test above, and the harder half. The drawer's return can only
+		// be derived from surfaces it can name; the palette can reach ~31 commands, most of
+		// which land somewhere the drawer has never heard of (Present, Share, Fabricate, a
+		// deck switch, a guided tour). The red team drove four of them and got the drawer
+		// back on top of the result every time — over a LIVE tour in one case, whose "click
+		// anywhere to take over" tap the drawer's own modal overlay then swallowed. So
+		// running a command now disarms the return outright: it is a deliberate departure,
+		// not a dismissal. "Present" stands in for the whole unlistable tail.
+		setViewport('mobile');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(await screen.findByRole('button', { name: 'Search / commands' }));
+		const PALETTE = 'Search or run a command…';
+		await user.type(await screen.findByPlaceholderText(PALETTE), 'Present');
+		await screen.findByRole('option', { name: /Present/i });
+		await user.keyboard('{Enter}');
+
+		await waitFor(() => expect(screen.queryByPlaceholderText(PALETTE)).not.toBeInTheDocument(), { timeout: 3000 });
+		// Whatever Present put on screen, the drawer is not part of it.
+		expect(screen.queryByRole('button', { name: 'Search / commands' })).not.toBeInTheDocument();
+		expect(screen.queryAllByRole('dialog').some((d) => d.textContent?.includes('Editor actions, guided tours'))).toBe(false);
+	});
+
 	it('mobile: opening the StudioDrawer then resizing to desktop and back leaves it closed (H4)', async () => {
 		// A matchMedia that starts compact and can flip to desktop, firing the hook's
 		// listeners so `compact` actually changes (the shared stub is a no-op on change).

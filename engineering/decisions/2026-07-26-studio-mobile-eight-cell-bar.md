@@ -385,6 +385,132 @@ accent-colored icon as the trigger that opens it, matching the
 follows. Confirmed via a fresh screenshot; no gate reruns needed beyond
 the standard typecheck/lint/build:check/unit sweep (all clean).
 
+## Seventh round: "Two Doors" — the drawer rebuilt, and the broken windows closed
+
+The sixth round's icon fix did not touch the drawer's *layout*, and the
+next look at it was blunt: "this is a hot fucking mess." A third design
+competition ran — five independent UI/UX designs plus a judge, per HARD
+RULE #25 — under one hard constraint issued mid-judging: **"focus on this
+drawer. we can not take these things out."** The full inventory stays in
+the drawer; nothing cut, nothing relocated to another surface. The judge
+resolved the tension between that constraint and the arithmetic (nine
+rows plus an 18-theme catalog plus five tour cards do not fit above the
+fold on a 390px phone) the only way it can be resolved: a second level
+*inside the same sheet* is still "in the drawer."
+
+**Two Doors, and its four rules:**
+
+1. **A row is a row.** 52px, icon · label · chevron, never stretched to
+   fill a column. The zoned predecessor had `flex-1` icon-over-caption
+   buttons whose glyphs marooned in the middle of dead space.
+2. **The only navigation is down.** There is not one `overflow-x` in the
+   file. Two sideways-scrolling catalogs were the predecessor's worst
+   affordance — a drag lottery with no scrollbar on a phone.
+3. **Grouping is a card plus a gap.** No mono-uppercase zone headers, no
+   sticky jump strip. Five shouted headers over a surface you can see the
+   whole of is structure that costs more than it pays.
+4. **The two big catalogs are doors.** 60px (against the leaf's 52px),
+   accent icon, and a live value on the face — the current theme's name
+   and swatch, "5 tours" — pushing a second level into the same sheet
+   behind a "‹ Studio" back affordance.
+
+Seven of nine rows stay one tap; Themes and Show me go one deeper. The
+push/pop is a real navigation mechanism, so it carries the obligations of
+one: Escape pops a door before it closes the sheet, the level always
+resets to the index on reopen (nobody returns to a screen they forgot
+they were in), focus moves to Back on the way in and back to the door you
+came from on the way out.
+
+Two measured bugs were fixed on the way. The theme grid's onyx swatch was
+`#000000` on an onyx-dark sheet of `#000000` with a transparent border —
+**byte-identical to its own background**, an invisible control, not a
+subtle one; every tile now carries a `--text-heading`-derived hairline
+and a real name. And the sheet's scroll chain was broken by `h-full`
+under `max-h`: `height:100%` cannot resolve against an auto-height
+parent, so it laid an 817px scroller inside a 660px wrapper and nothing
+scrolled. Neither is visible by looking — both were caught by measuring.
+
+### The Munger inversion on this diff, and HARD RULE #18
+
+The inversion's headline objection was about process, not design: seven
+rebuilds of one surface in about thirty-six hours, each provoked by the
+same signal (the product owner looked at it and disliked it), with no
+oracle and no stopping rule. That criticism is recorded here because it
+is correct and unresolved — this doc is the seventh section of a document
+that should have needed two. Its concrete findings were all real:
+
+- **A self-inflicted broken window.** `demo-mobile.spec.ts`'s
+  `startMobileDemo()` clicked `[data-tour=…]` straight off the drawer's
+  index. Two Doors moved the tour cards behind the Show me door, and the
+  drawer is the **only** mobile entry to a guided tour
+  (`StudioShell.tsx`'s tour menu is gated `!mobile`). All three `@mobile`
+  demo specs would have timed out — and per-PR CI runs only
+  `test:e2e:smoke` (`--project=desktop --grep @smoke`), so it would have
+  shipped green and landed as a nightly failure on `main`. Fixed in the
+  helper, plus a unit test that enters a door, pops it, and asserts the
+  tour cards live one level in.
+- **An invisible press state.** `PRESS` was `active:bg-[var(--accent-soft)]`
+  and every row sits on a `Block` of `--bg-alt`. Measured across all
+  twelve light palettes that pairing runs 1.00–1.17:1, and on `concrete`
+  the two tokens are byte-identical (`#D5D5D2`). The press feedback the
+  design advertised did not exist in the default theme and was a literal
+  no-op in one palette. Now a translucent `--text-heading` ink wash,
+  which composites visibly over any surface in either mode.
+- **An accessible-name regression I introduced.** `Row` set
+  `aria-label={label}` and marked the issue count *and* the "None ✓"
+  zero-state `aria-hidden`, so a screen-reader user heard "Fix all
+  issues, button" and nothing else — the one channel a sighted user reads
+  at a glance, removed from the only users with no other channel. They
+  return as the button's `aria-describedby` description, so the
+  accessible *name* stays the exact contract string specs target.
+- **An unverified AT claim.** A code comment asserted the dialog's
+  accessible name tracking the level was "correct AT behavior for push
+  navigation." Retargeting an open dialog's `aria-labelledby` does not
+  re-speak in VoiceOver or NVDA; the label is not an announcement. A
+  `role="status"` region now announces the push and the pop. (The
+  announcement's *behavior in a real screen reader* remains
+  **UNVERIFIED** from this sandbox — the mechanism is standard, the
+  observation is owed.)
+- **A live residue in the drawer-return flag.** The reopen hung off each
+  sheet's own `onOpenChange`, which fires on the *closing* sheet and
+  cannot see what opened in the same commit. `CommandPalette`'s `run` is
+  `onOpenChange(false); fn()`, so drawer → "Search / commands" →
+  "Library" resurfaced the drawer and lost the Library entirely
+  (measured: pre-fix the surviving dialog is the drawer, post-fix it is
+  the Library). Separately, Lenses/Library also close via a bare
+  `setActiveAssistant(null)`, which never passed through the wrapper and
+  left the flag armed indefinitely. Both are fixed by construction: the
+  return is now one effect over the *set* of surfaces the drawer can
+  launch, so the drawer comes back exactly when none of them is on screen
+  — whatever closed, and however it closed.
+- **Zero coverage of the new mechanism**, which is how the first item
+  above could exist. Two unit tests were added: door push/pop/reset with
+  focus and Escape, and the palette-chain regression. Both were confirmed
+  to fail against the pre-fix code before being kept.
+
+### The dead toast oracle (pre-existing, now fixed)
+
+The gap this doc logged two rounds ago as "a separate, repo-wide e2e-tier
+fix, well outside this PR's scope" was fixed here instead, because
+"broken windows should be fixed" and because it was blocking the very
+verification the item above needed. `toastText()` matched
+`[role="status"].fixed.inset-x-0`, the hand-rolled pill Sonner replaced;
+it matched **zero** elements, so all 22 assertions on it across 12 spec
+files were failing in the nightly tier. Confirmed by driving a live build
+and reading the real DOM: Sonner's toast is
+`<li data-sonner-toast>` inside `<ol data-sonner-toaster>` inside
+`<section aria-label="Notifications alt+T">`, with `role` and `aria-live`
+both null on the `<li>`. The locator now targets `[data-sonner-toaster]`
+— the always-present container, chosen over `[data-sonner-toast]` so a
+spec that stacks two toasts can't trip Playwright's strict mode.
+
+Repairing the oracle immediately exposed three assertions that had
+drifted behind the chrome beneath them, all invisible while the locator
+was dead: "Add slide" opens the add-slide gallery (the #1058
+one-insert-door) rather than emitting a retired `Slide added.` toast, and
+the Inspector's Header field and Page-numbers toggle both moved under the
+"Marks" tab. Same class of drift as #780. All three are fixed and green.
+
 ## Pre-existing gaps found, not fixed (HARD RULE #18 — off-path)
 
 - `SEL.theme` (`tour-kit.ts`) was already unresolvable on mobile before this
