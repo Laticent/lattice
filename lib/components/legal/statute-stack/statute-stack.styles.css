@@ -331,7 +331,7 @@ section.statute-stack.lane td:last-child {
    Doubled class reaches (0,2,N) to beat the base grid on specificity — the role
    the old [data-orientation] stamp played; keyed on the nearest `lattice`
    container's aspect so it fires on a portrait deck AND a narrow nested cell. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul,
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol {
     /* portrait → single column of content-height cards, evenly distributed (flex mirror

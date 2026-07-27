@@ -87,7 +87,7 @@ section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    frame so the set still fills the canvas. Keyed on the nearest `lattice` container's
    aspect (a portrait deck OR a narrow nested cell). The doubled class
    `.decision.decision` reaches (0,2,1) — clearing the base `> :is(ul,ol)` (0,1,1). */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.decision.decision > .cell-stage > :is(ul, ol) { flex-direction: column; }
   /* Each card fills a share of the tall frame; centre the justification so it sits
      in the card's optical middle (the corner tag stays pinned top-left) instead of

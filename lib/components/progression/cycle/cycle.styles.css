@@ -114,7 +114,7 @@ section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
 /* ── Reflow: a narrow / portrait frame stacks the ring vertically. The forward
  *    connector becomes a down-chevron between rows; the return arc runs up the
  *    left side back to the top. ── */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.cycle > .cell-stage > ul {
     flex-direction: column;
     padding: 0 0 0 var(--sp-xl);

@@ -115,7 +115,7 @@ section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
 /* `.list.list` (class doubled) reaches (0,2,2) to match the original
    `[data-orientation]` reflow's specificity, so the takeaway/principles registers
    (whose variant rules are (0,2,N)) still de-balloon — the role the attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.list.list > .cell-stage > :is(ul,ol) { justify-content: space-evenly; }
   section.list.list > .cell-stage > :is(ul,ol) > li { flex: 0 0 auto; }
 }

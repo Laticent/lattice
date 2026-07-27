@@ -141,7 +141,7 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
  * so it fires on a portrait deck AND inside a narrow nested cell — replacing the
  * deck-wide data-orientation stamp. Doubled class reaches (0,2,2) to match the
  * [data-orientation] reflow it mirrors. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.pricing.pricing > .cell-stage > ul {
     flex-direction: column;
   }

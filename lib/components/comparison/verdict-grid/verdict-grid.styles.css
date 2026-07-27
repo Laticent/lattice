@@ -114,7 +114,7 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { just
  * (≤0.9) collapse the verdict grid to one column, keyed on the nearest `lattice`
  * container so it fires on a portrait deck AND inside a narrow nested cell. Doubled
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.verdict-grid.verdict-grid > .cell-stage > ul {
     flex-direction: column;
   }

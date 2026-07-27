@@ -300,7 +300,7 @@ section.state-chart .state-edge {
  * this vertical default at build time — see state-chart.transform.js.) Keyed on
  * the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md §10. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* The figure viewport already fills the stage (flex:1). The SCALE BOX must also
    * take the full height so `.state-nodes { height:100% }` below resolves against a
    * DEFINITE height and `space-evenly` has room to distribute — otherwise the box's

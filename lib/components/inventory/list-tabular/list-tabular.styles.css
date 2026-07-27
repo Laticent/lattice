@@ -312,7 +312,7 @@ section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
    order — a block flow lays them out in that order without fighting it.) Keyed on
    the nearest `lattice` container's aspect; the doubled class `.list-tabular.list-
    tabular` reaches the variants' (0,2,N) weight and source order keeps it last. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.list-tabular.list-tabular ol > li {
     display: block;
     grid-template-columns: none;

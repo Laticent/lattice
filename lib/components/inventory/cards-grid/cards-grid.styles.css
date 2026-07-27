@@ -206,7 +206,7 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 /* `.cards-grid.cards-grid` (class doubled) reaches (0,2,2) so it matches the
  * `:not(:has(.cards-grid-inner))` base grid rule and wins on source order — the
  * role the old `[data-orientation]` attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.cards-grid.cards-grid > .cell-stage > ul,
   section.cards-grid.cards-grid > .cell-stage > ol {
     align-content: space-evenly;   /* content-height rows distributed, not stretched-to-fill */

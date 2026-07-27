@@ -145,7 +145,7 @@
  * rail, the date/title/body fill the width beside it. Keyed on the nearest
  * `lattice` container (the section), so it fires on a portrait deck AND inside a
  * narrow nested cell. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   :is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
     align-items: stretch;
     justify-content: center;

@@ -485,7 +485,7 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
  * stamp. `.kpi.kpi` (class doubled) lifts the selector to (0,2,2) so it matches
  * the per-variant grid rules' specificity (`section.kpi.spotlight > .cell-stage > ol`) and wins
  * on source order — the role the old `[data-orientation]` attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.kpi.kpi > .cell-stage > ol,
   section.kpi.kpi > .cell-stage > ul {
     display: flex;

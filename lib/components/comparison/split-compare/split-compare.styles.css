@@ -60,7 +60,7 @@ section.split-compare .verdict blockquote p { font-size:var(--fs-body); font-fam
  * a real component; the foundation enables it. */
 section.split-compare[data-orientation="portrait"],
 section.split-compare[data-orientation="square"] { flex-direction: column; }
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.split-compare .compare-left { width: auto; }
   section.split-compare .options { grid-template-columns: 1fr; }
 }

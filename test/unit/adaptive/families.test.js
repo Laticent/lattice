@@ -7,6 +7,7 @@ const {
   FAMILIES,
   FAMILY_NAMES,
   BOUNDARIES,
+  CSS_BOUNDARIES,
   familyQuery,
   familyFor,
   ORIENTATION_TO_FAMILIES,
@@ -38,10 +39,29 @@ test('familyFor classifies canonical sizes correctly', () => {
   assert.strictEqual(familyFor(1080 / 2340), 'strip');// 9:19.5 mobile (0.46)
 });
 
-test('familyQuery emits a valid @container prelude with only canonical boundaries', () => {
-  assert.strictEqual(familyQuery('tall'), '@container lattice (aspect-ratio > 0.5) and (aspect-ratio <= 0.9)');
-  assert.strictEqual(familyQuery('wide'), '@container lattice (aspect-ratio > 1.05)');
+// familyQuery emits the CSS boundaries, NOT the deck ones: a container query
+// measures the container's CONTENT box, which is proportionally wider than the
+// deck box `familyFor()` classifies (#1218).
+test('familyQuery emits a valid @container prelude with only canonical CSS boundaries', () => {
+  assert.strictEqual(familyQuery('tall'), '@container lattice (aspect-ratio > 0.5) and (aspect-ratio <= 0.93)');
+  assert.strictEqual(familyQuery('wide'), '@container lattice (aspect-ratio > 1.25)');
   assert.strictEqual(familyQuery('strip'), '@container lattice (aspect-ratio <= 0.5)');
+});
+
+// The two lists are the same bands measured two ways, so they must stay
+// positionally paired and ordered — a CSS boundary below its deck counterpart
+// would mean the content box reads NARROWER than the deck, which the geometry
+// cannot produce (the section's vertical padding always exceeds its horizontal).
+test('CSS boundaries pair positionally with the deck boundaries, never lower', () => {
+  assert.strictEqual(CSS_BOUNDARIES.length, BOUNDARIES.length);
+  for (let i = 0; i < BOUNDARIES.length; i++) {
+    assert.ok(CSS_BOUNDARIES[i] >= BOUNDARIES[i],
+      `CSS boundary ${CSS_BOUNDARIES[i]} is below its deck counterpart ${BOUNDARIES[i]}`);
+  }
+  // Strictly ascending, so the bands stay contiguous and gapless in CSS too.
+  for (let i = 1; i < CSS_BOUNDARIES.length; i++) {
+    assert.ok(CSS_BOUNDARIES[i] > CSS_BOUNDARIES[i - 1], 'CSS boundaries must ascend');
+  }
 });
 
 test('orientation → families derivation covers all four', () => {
@@ -65,9 +85,13 @@ test('component @container aspect queries use only canonical boundaries', () => 
       else if (e.name.endsWith('.css')) cssFiles.push(p);
     }
   };
-  walk(path.join(ROOT, 'lib', 'components'));
+  // ALL of lib/, not just components: `lib/base` carries the `--lat-family`
+  // stamp's own queries (#1218), and a non-canonical boundary there would have
+  // slipped past a components-only walk exactly as one in chart-family once did.
+  walk(path.join(ROOT, 'lib'));
 
-  const allowed = new Set(BOUNDARIES.map(String));
+  // CSS literals must be the CSS boundaries — the deck numbers are JS-side only.
+  const allowed = new Set(CSS_BOUNDARIES.map(String));
   // Any `@container …{` prelude (any/no name), captured up to its opening brace.
   const containerRe = /@container\b[^{}]*\{/g;
   // Every aspect-ratio boundary in a prelude, BOTH operand orders and the colon

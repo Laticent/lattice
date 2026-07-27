@@ -119,7 +119,7 @@ section.actors > .cell-stage > ol > li > ol > li {
    Keyed on the nearest `lattice` container's aspect (portrait deck OR narrow nested
    cell). The doubled class `.actors.actors` clears the base `> :is(ul,ol) > li`
    grid placement. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* Collapse to a single column: the responsibility fills row 1 (flex-basis:100%), so the
      chip and body each wrap onto their own line below it. */
   /* the strong's padding-bottom (not a chip margin-top) supplies the sp-2xs gap above

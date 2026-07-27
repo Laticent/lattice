@@ -645,7 +645,7 @@ section.math.stats > p:not(:has(> .katex-display)):not(:first-of-type) {
    manifest `adapt.families` note.) Keyed on the nearest `lattice` container's aspect;
    the doubled class `.math.math` matches the variant rules' weight (and beats the
    zero-specificity `:where()` bare-math selector). */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* feature (+ bare): equation full-width, legend full-width beneath it. */
   section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> .katex-display),
   section.math.math.feature > p:has(> .katex-display) {

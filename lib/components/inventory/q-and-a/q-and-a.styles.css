@@ -348,7 +348,7 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
    a single vertical column — grid drops its cross rules, rail falls back to the
    ledger's hanging-index form — so a portrait deck (or a narrow nested cell) reads
    one pair per band. Keyed on the nearest `lattice` container's aspect. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* grid 2×2 → one column; retire the dividing cross. The container is a flex/grid
      descendant (`> ul`) so the container query CAN restyle it: drop to a flex column
      so the pairs pack by content height + gap (the grid's stretched auto-rows left

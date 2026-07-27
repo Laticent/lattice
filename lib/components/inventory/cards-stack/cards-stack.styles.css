@@ -164,7 +164,7 @@ section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
  * on the nearest `lattice` container so it fires on a portrait/square deck AND
  * inside a narrow nested cell. Doubled class matches the [data-orientation]
  * reflow's specificity. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.cards-stack.cards-stack > .cell-stage > :is(ul,ol) {
     justify-content: space-evenly;
   }

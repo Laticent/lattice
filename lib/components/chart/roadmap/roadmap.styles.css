@@ -530,7 +530,7 @@
  * 128.8px, but table + a 154.8px legend makes a 780.3px figure, 26px outside
  * the stage clip top and bottom.
  *
- * WHY NOT `@container lattice (aspect-ratio <= 1.05)`, which is how every other
+ * WHY NOT `@container lattice (aspect-ratio <= 1.25)`, which is how every other
  * box-local rule here is written: on a square deck that query DOES NOT MATCH.
  * `orientationFor` classifies the DECK box (1080x1080 → 1.00, inside the
  * 0.9–1.05 square band, and `data-orientation="square"` is emitted correctly),
@@ -568,7 +568,7 @@
  * and the workstream rows tighten so a 3–4 phase roadmap fits without overflow.
  * Keyed on the nearest `lattice` container; landscape (N-across) untouched.
  * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md §10. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   :is(section.roadmap, figure.roadmap).horizons .horizons {
     /* ONE column is right; the TYPE inside it was the problem. Measured, a
      * 4-workstream card came out 382.4px with its rows already collapsed to one

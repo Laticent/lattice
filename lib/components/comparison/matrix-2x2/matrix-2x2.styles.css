@@ -77,7 +77,7 @@ section.matrix-2x2 :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 /* `.matrix-2x2.matrix-2x2` (class doubled) reaches (0,2,2) to match the original
  * `[data-orientation]` reflow's specificity and stay robust to future variant
  * grid rules — the role the attribute played. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* Tall/strip → single column: flex-column, each card flex:1 to split the height
    * (the flex mirror of the grid's `grid-auto-rows:minmax(0,1fr)`). */
   section.matrix-2x2.matrix-2x2 > .cell-stage > ul,

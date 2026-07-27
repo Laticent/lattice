@@ -94,7 +94,7 @@ section.stats[data-orientation='square'] > .cell-stage > ol > li > ul > li {
  * nearest `lattice` container so it fires on a portrait/square deck AND inside a
  * narrow nested cell. Doubled class matches the [data-orientation] reflow's
  * specificity. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.stats.stats > .cell-stage > ol { display:flex; flex-direction:column;
     flex-direction: column; gap: var(--sp-sm); width: 100%; justify-content: space-evenly; flex: 1;
   }

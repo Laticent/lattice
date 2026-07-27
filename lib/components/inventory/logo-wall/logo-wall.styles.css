@@ -197,7 +197,7 @@ section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 12) > .logo-mark
    cell. NOTE: the column count must be set on the `> ul` GRID (a descendant) —
    a `@container` rule cannot restyle its own container element (the section), so
    overriding `--logo-cols` on the section is a silent no-op (the §11 constraint). */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.logo-wall.logo-wall > .cell-stage > ul {
     --logo-cols: 2;
     --logo-col-gap: var(--sp-xl);

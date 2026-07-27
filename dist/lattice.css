@@ -925,6 +925,24 @@ section {
   border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum); border-image-slice: 1;
 }
 
+/* ── The CSS's OWN family verdict, made readable (#1218) ──────────────────────
+ * `--lat-family` is not consumed by any layout — it exists so the CSS's actual
+ * classification can be READ, by `tools/check-adaptive-families.js` and by anyone
+ * debugging a reflow. It is the only way to observe which branch the cascade
+ * really took; every other signal (a gated declaration's computed value) is
+ * component-specific and tells you about that component, not about the tier.
+ *
+ * Stamped on `.cell-stage`, not `section`, because a container CANNOT query
+ * ITSELF — the section names the `lattice` container, so only its descendants
+ * can match. Boundaries are CSS_BOUNDARIES (lib/adaptive/families.js): the
+ * container measures its CONTENT box, which runs proportionally wider than the
+ * deck box `familyFor()` classifies. The gate renders every registered `@size`
+ * and fails if this verdict and `familyFor()` disagree. */
+@container lattice (aspect-ratio <= 0.5) { .cell-stage { --lat-family: strip; } }
+@container lattice (aspect-ratio > 0.5) and (aspect-ratio <= 0.93) { .cell-stage { --lat-family: tall; } }
+@container lattice (aspect-ratio > 0.93) and (aspect-ratio <= 1.25) { .cell-stage { --lat-family: square; } }
+@container lattice (aspect-ratio > 1.25) { .cell-stage { --lat-family: wide; } }
+
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives
  * exclusively on the `<p><code>` modifier in base.modifiers.css, and
@@ -1161,7 +1179,7 @@ section.actors > .cell-stage > ol > li > ol > li {
    Keyed on the nearest `lattice` container's aspect (portrait deck OR narrow nested
    cell). The doubled class `.actors.actors` clears the base `> :is(ul,ol) > li`
    grid placement. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* Collapse to a single column: the responsibility fills row 1 (flex-basis:100%), so the
      chip and body each wrap onto their own line below it. */
   /* the strong's padding-bottom (not a chip margin-top) supplies the sp-2xs gap above
@@ -1684,7 +1702,7 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
    one). The excluded variants keep their landscape shape for now — portrait
    handling for the variants is out of Batch A1 scope (tracked follow-up). Doubled
    class + the variant guards win on specificity. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   /* Collapse the tier-label rail: the label fills row 1 (flex-basis:100%) so the body wraps
      onto its own line below — tier label over body. */
   section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket) > .cell-stage > :is(ol, ul) > li {
@@ -1936,7 +1954,7 @@ section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 /* `.cards-grid.cards-grid` (class doubled) reaches (0,2,2) so it matches the
  * `:not(:has(.cards-grid-inner))` base grid rule and wins on source order — the
  * role the old `[data-orientation]` attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.cards-grid.cards-grid > .cell-stage > ul,
   section.cards-grid.cards-grid > .cell-stage > ol {
     align-content: space-evenly;   /* content-height rows distributed, not stretched-to-fill */
@@ -2137,7 +2155,7 @@ section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
  * on the nearest `lattice` container so it fires on a portrait/square deck AND
  * inside a narrow nested cell. Doubled class matches the [data-orientation]
  * reflow's specificity. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.cards-stack.cards-stack > .cell-stage > :is(ul,ol) {
     justify-content: space-evenly;
   }
@@ -3072,7 +3090,7 @@ section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > st
    --sp-* and reserve matching top space on the card so the badge scales with the
    frame. Keyed on `<= 1.05` (square + tall + strip); landscape keeps the raw value,
    so its export stays byte-identical. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
   section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
     padding-top: calc(var(--sp-md) + var(--fs-meta));
@@ -3172,7 +3190,7 @@ section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage >
    aspect. Targets the live DOM (`:not(:has(.compare-prose-inner))`), matching the
    base layout; the doubled class `.compare-prose.compare-prose` holds specificity
    over the base flex-row rule. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) {
     /* mirror `.vertical` — flex column, the connector slot is the divider row (cards
        order:1/3 + connector order:2 carry from the base). */
@@ -3474,7 +3492,7 @@ section.content[data-orientation='square'] > .cell-stage > :is(p,ul,ol) {
  * strip (≤1.05) cap the prose measure and centre the block, keyed on the nearest
  * `lattice` container so it fires on a portrait/square deck AND inside a narrow
  * nested cell. Doubled class matches the [data-orientation] reflow's specificity. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.content.content > .cell-stage {
     display: flex; flex-direction: column;
   }
@@ -3600,7 +3618,7 @@ section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
 /* ── Reflow: a narrow / portrait frame stacks the ring vertically. The forward
  *    connector becomes a down-chevron between rows; the return arc runs up the
  *    left side back to the top. ── */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.cycle > .cell-stage > ul {
     flex-direction: column;
     padding: 0 0 0 var(--sp-xl);
@@ -3745,7 +3763,7 @@ section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    frame so the set still fills the canvas. Keyed on the nearest `lattice` container's
    aspect (a portrait deck OR a narrow nested cell). The doubled class
    `.decision.decision` reaches (0,2,1) — clearing the base `> :is(ul,ol)` (0,1,1). */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.decision.decision > .cell-stage > :is(ul, ol) { flex-direction: column; }
   /* Each card fills a share of the tall frame; centre the justification so it sits
      in the card's optical middle (the corner tag stays pinned top-left) instead of
@@ -6017,7 +6035,7 @@ section.journey .journey-vmood .journey-face {
  * wrapping row so the width is used instead of running off the bottom. Keyed on
  * the nearest `lattice` container; landscape (side-by-side board) untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   :is(section.kanban, figure.kanban) .kanban-board {
     flex-direction: column;
     height: 100%;
@@ -6523,7 +6541,7 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
  * stamp. `.kpi.kpi` (class doubled) lifts the selector to (0,2,2) so it matches
  * the per-variant grid rules' specificity (`section.kpi.spotlight > .cell-stage > ol`) and wins
  * on source order — the role the old `[data-orientation]` attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.kpi.kpi > .cell-stage > ol,
   section.kpi.kpi > .cell-stage > ul {
     display: flex;
@@ -6685,7 +6703,7 @@ section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
 /* `.list.list` (class doubled) reaches (0,2,2) to match the original
    `[data-orientation]` reflow's specificity, so the takeaway/principles registers
    (whose variant rules are (0,2,N)) still de-balloon — the role the attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.list.list > .cell-stage > :is(ul,ol) { justify-content: space-evenly; }
   section.list.list > .cell-stage > :is(ul,ol) > li { flex: 0 0 auto; }
 }
@@ -7043,7 +7061,7 @@ section.list-steps.ghost ol > li > ul > li {
    is `≤ 0.9` (tall + strip): a square box fits neither the horizontal row (it
    overflows) nor 3–4 full cards stacked (also overflows), so `square` is left out of
    `adapt.families` and the vertical stack fires only on the taller frames. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol {
     flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
   }
@@ -7399,7 +7417,7 @@ section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
    order — a block flow lays them out in that order without fighting it.) Keyed on
    the nearest `lattice` container's aspect; the doubled class `.list-tabular.list-
    tabular` reaches the variants' (0,2,N) weight and source order keeps it last. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.list-tabular.list-tabular ol > li {
     display: block;
     grid-template-columns: none;
@@ -7674,7 +7692,7 @@ section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 12) > .logo-mark
    cell. NOTE: the column count must be set on the `> ul` GRID (a descendant) —
    a `@container` rule cannot restyle its own container element (the section), so
    overriding `--logo-cols` on the section is a silent no-op (the §11 constraint). */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.logo-wall.logo-wall > .cell-stage > ul {
     --logo-cols: 2;
     --logo-col-gap: var(--sp-xl);
@@ -8415,7 +8433,7 @@ section.math.stats > p:not(:has(> .katex-display)):not(:first-of-type) {
    manifest `adapt.families` note.) Keyed on the nearest `lattice` container's aspect;
    the doubled class `.math.math` matches the variant rules' weight (and beats the
    zero-specificity `:where()` bare-math selector). */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* feature (+ bare): equation full-width, legend full-width beneath it. */
   section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> .katex-display),
   section.math.math.feature > p:has(> .katex-display) {
@@ -8597,7 +8615,7 @@ section.matrix-2x2 :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 /* `.matrix-2x2.matrix-2x2` (class doubled) reaches (0,2,2) to match the original
  * `[data-orientation]` reflow's specificity and stay robust to future variant
  * grid rules — the role the attribute played. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* Tall/strip → single column: flex-column, each card flex:1 to split the height
    * (the flex mirror of the grid's `grid-auto-rows:minmax(0,1fr)`). */
   section.matrix-2x2.matrix-2x2 > .cell-stage > ul,
@@ -9070,7 +9088,7 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
 
   /* ── Portrait / square reflow (adapt.mode: reflow). Tighten the rhythm and let
    *    the reasons pack from the top instead of centering in a tall box. ─────── */
-  @container lattice (aspect-ratio <= 1.05) {
+  @container lattice (aspect-ratio <= 1.25) {
     section.policy-recommendation > .cell-stage { gap: var(--sp-sm); }
     section.policy-recommendation > .cell-stage > ul {
       flex: 0 0 auto;
@@ -9222,7 +9240,7 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
  * so it fires on a portrait deck AND inside a narrow nested cell — replacing the
  * deck-wide data-orientation stamp. Doubled class reaches (0,2,2) to match the
  * [data-orientation] reflow it mirrors. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.pricing.pricing > .cell-stage > ul {
     flex-direction: column;
   }
@@ -9392,7 +9410,7 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
  * the rows down the full height and thicken the tracks so the bars read big.
  * Keyed on the nearest `lattice` container; landscape untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   :is(section.progress, figure.progress) .progress-bars {
     height: 100%;
     justify-content: space-evenly;
@@ -9424,7 +9442,7 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
  * Scoped ≤0.9, not ≤1.05: square already fits (measured -178.1px of headroom)
  * and a layout change there would be churn without a defect behind it. See
  * #1209, #1210 and 2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   :is(section.progress, figure.progress) .progress-row {
     grid-template-columns: 1fr auto;
     grid-template-areas:
@@ -9813,7 +9831,7 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
    a single vertical column — grid drops its cross rules, rail falls back to the
    ledger's hanging-index form — so a portrait deck (or a narrow nested cell) reads
    one pair per band. Keyed on the nearest `lattice` container's aspect. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* grid 2×2 → one column; retire the dividing cross. The container is a flex/grid
      descendant (`> ul`) so the container query CAN restyle it: drop to a flex column
      so the pairs pack by content height + gap (the grid's stretched auto-rows left
@@ -11258,7 +11276,7 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
    follow-up). The nested list uses `display:contents`, so its <li> children are
    direct grid items — re-anchor each to column 2 and let them auto-flow down the
    rows. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li {
     grid-template-columns: auto 1fr;
     grid-template-rows: none;
@@ -11818,7 +11836,7 @@ section.regulatory-update > .cell-stage {
  * 128.8px, but table + a 154.8px legend makes a 780.3px figure, 26px outside
  * the stage clip top and bottom.
  *
- * WHY NOT `@container lattice (aspect-ratio <= 1.05)`, which is how every other
+ * WHY NOT `@container lattice (aspect-ratio <= 1.25)`, which is how every other
  * box-local rule here is written: on a square deck that query DOES NOT MATCH.
  * `orientationFor` classifies the DECK box (1080x1080 → 1.00, inside the
  * 0.9–1.05 square band, and `data-orientation="square"` is emitted correctly),
@@ -11856,7 +11874,7 @@ section.regulatory-update > .cell-stage {
  * and the workstream rows tighten so a 3–4 phase roadmap fits without overflow.
  * Keyed on the nearest `lattice` container; landscape (N-across) untouched.
  * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md §10. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   :is(section.roadmap, figure.roadmap).horizons .horizons {
     /* ONE column is right; the TYPE inside it was the problem. Measured, a
      * 4-workstream card came out 382.4px with its rows already collapsed to one
@@ -12510,7 +12528,7 @@ section.split-compare .verdict blockquote p { font-size:var(--fs-body); font-fam
  * a real component; the foundation enables it. */
 section.split-compare[data-orientation="portrait"],
 section.split-compare[data-orientation="square"] { flex-direction: column; }
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.split-compare .compare-left { width: auto; }
   section.split-compare .options { grid-template-columns: 1fr; }
 }
@@ -13013,7 +13031,7 @@ section.state-chart .state-edge {
  * this vertical default at build time — see state-chart.transform.js.) Keyed on
  * the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md §10. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   /* The figure viewport already fills the stage (flex:1). The SCALE BOX must also
    * take the full height so `.state-nodes { height:100% }` below resolves against a
    * DEFINITE height and `space-evenly` has room to distribute — otherwise the box's
@@ -13457,7 +13475,7 @@ section.stats[data-orientation='square'] > .cell-stage > ol > li > ul > li {
  * nearest `lattice` container so it fires on a portrait/square deck AND inside a
  * narrow nested cell. Doubled class matches the [data-orientation] reflow's
  * specificity. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.stats.stats > .cell-stage > ol { display:flex; flex-direction:column;
     flex-direction: column; gap: var(--sp-sm); width: 100%; justify-content: space-evenly; flex: 1;
   }
@@ -13803,7 +13821,7 @@ section.statute-stack.lane td:last-child {
    Doubled class reaches (0,2,N) to beat the base grid on specificity — the role
    the old [data-orientation] stamp played; keyed on the nearest `lattice`
    container's aspect so it fires on a portrait deck AND a narrow nested cell. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul,
   section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol {
     /* portrait → single column of content-height cards, evenly distributed (flex mirror
@@ -13981,7 +13999,7 @@ section.statute-stack > .cell-stage {
  * rail, the date/title/body fill the width beside it. Keyed on the nearest
  * `lattice` container (the section), so it fires on a portrait deck AND inside a
  * narrow nested cell. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   :is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
     align-items: stretch;
     justify-content: center;
@@ -14203,7 +14221,7 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { just
  * (≤0.9) collapse the verdict grid to one column, keyed on the nearest `lattice`
  * container so it fires on a portrait deck AND inside a narrow nested cell. Doubled
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.verdict-grid.verdict-grid > .cell-stage > ul {
     flex-direction: column;
   }
@@ -17146,7 +17164,7 @@ section.chart-frame > .cell-stage { justify-content: center; }
  * inset right in so the figure (and its text) reads as large as possible. Keyed on
  * the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.chart-frame .chart-body {
     width: calc(100cqi - 2 * var(--sp-sm));
     padding: var(--sp-md) var(--sp-sm);

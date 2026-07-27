@@ -341,7 +341,7 @@
  * wrapping row so the width is used instead of running off the bottom. Keyed on
  * the nearest `lattice` container; landscape (side-by-side board) untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   :is(section.kanban, figure.kanban) .kanban-board {
     flex-direction: column;
     height: 100%;

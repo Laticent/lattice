@@ -222,7 +222,7 @@ section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > st
    --sp-* and reserve matching top space on the card so the badge scales with the
    frame. Keyed on `<= 1.05` (square + tall + strip); landscape keeps the raw value,
    so its export stays byte-identical. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
   section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
     padding-top: calc(var(--sp-md) + var(--fs-meta));
@@ -322,7 +322,7 @@ section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage >
    aspect. Targets the live DOM (`:not(:has(.compare-prose-inner))`), matching the
    base layout; the doubled class `.compare-prose.compare-prose` holds specificity
    over the base flex-row rule. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) {
     /* mirror `.vertical` — flex column, the connector slot is the divider row (cards
        order:1/3 + connector order:2 carry from the base). */

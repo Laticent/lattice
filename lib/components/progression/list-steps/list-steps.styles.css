@@ -260,7 +260,7 @@ section.list-steps.ghost ol > li > ul > li {
    is `≤ 0.9` (tall + strip): a square box fits neither the horizontal row (it
    overflows) nor 3–4 full cards stacked (also overflows), so `square` is left out of
    `adapt.families` and the vertical stack fires only on the taller frames. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol {
     flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
   }

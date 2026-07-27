@@ -388,7 +388,7 @@ section.chart-frame > .cell-stage { justify-content: center; }
  * inset right in so the figure (and its text) reads as large as possible. Keyed on
  * the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
+@container lattice (aspect-ratio <= 0.93) {
   section.chart-frame .chart-body {
     width: calc(100cqi - 2 * var(--sp-sm));
     padding: var(--sp-md) var(--sp-sm);

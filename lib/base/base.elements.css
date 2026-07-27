@@ -29,6 +29,24 @@ section {
   border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum); border-image-slice: 1;
 }
 
+/* ── The CSS's OWN family verdict, made readable (#1218) ──────────────────────
+ * `--lat-family` is not consumed by any layout — it exists so the CSS's actual
+ * classification can be READ, by `tools/check-adaptive-families.js` and by anyone
+ * debugging a reflow. It is the only way to observe which branch the cascade
+ * really took; every other signal (a gated declaration's computed value) is
+ * component-specific and tells you about that component, not about the tier.
+ *
+ * Stamped on `.cell-stage`, not `section`, because a container CANNOT query
+ * ITSELF — the section names the `lattice` container, so only its descendants
+ * can match. Boundaries are CSS_BOUNDARIES (lib/adaptive/families.js): the
+ * container measures its CONTENT box, which runs proportionally wider than the
+ * deck box `familyFor()` classifies. The gate renders every registered `@size`
+ * and fails if this verdict and `familyFor()` disagree. */
+@container lattice (aspect-ratio <= 0.5) { .cell-stage { --lat-family: strip; } }
+@container lattice (aspect-ratio > 0.5) and (aspect-ratio <= 0.93) { .cell-stage { --lat-family: tall; } }
+@container lattice (aspect-ratio > 0.93) and (aspect-ratio <= 1.25) { .cell-stage { --lat-family: square; } }
+@container lattice (aspect-ratio > 1.25) { .cell-stage { --lat-family: wide; } }
+
 /* h1-h6 wired to the 10-token heading scale. h3 and h5 were previously
  * eyebrow-styled (mono uppercase 13 px); the eyebrow visual now lives
  * exclusively on the `<p><code>` modifier in base.modifiers.css, and

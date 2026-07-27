@@ -217,7 +217,7 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
    one). The excluded variants keep their landscape shape for now — portrait
    handling for the variants is out of Batch A1 scope (tracked follow-up). Doubled
    class + the variant guards win on specificity. */
-@container lattice (aspect-ratio <= 1.05) {
+@container lattice (aspect-ratio <= 1.25) {
   /* Collapse the tier-label rail: the label fills row 1 (flex-basis:100%) so the body wraps
      onto its own line below — tier label over body. */
   section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket) > .cell-stage > :is(ol, ul) > li {
