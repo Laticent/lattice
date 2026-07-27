@@ -94,8 +94,11 @@ export function StudioDrawer({
 	 *  itself — the host (StudioShell) closes the drawer, opens the target, and
 	 *  remembers to REOPEN the drawer once that target closes, so dismissing a
 	 *  child sheet returns here instead of dropping all the way back to the
-	 *  toolbar (reported: it used to just vanish both). */
-	onNavigate: (openTarget: () => void) => void;
+	 *  toolbar (reported: it used to just vanish both).
+	 *  `returns: false` for a row that opens NO sheet (Fix all issues runs an editor
+	 *  method; a tour just starts) — otherwise the reopen flag arms and never clears,
+	 *  and the next unrelated sheet close springs this drawer open. */
+	onNavigate: (openTarget: () => void, opts?: { returns?: boolean }) => void;
 	effPane: 'edit' | 'preview';
 	insertComponents: ComponentEntry[];
 	issues: number;
@@ -116,7 +119,11 @@ export function StudioDrawer({
 	const zoneRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
 	const jumpTo = (key: string) => zoneRefs.current[key]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	const themeGroups = React.useMemo(() => themeSelectGroups(savedThemes), [savedThemes]);
+	/** Opens a further surface — the drawer reopens when that surface closes. */
 	const go = (fn: () => void) => () => onNavigate(fn);
+	/** Fires an action that opens NO surface — the drawer just closes, and must NOT
+	 *  arm the reopen flag (see the `onNavigate` contract above). */
+	const act = (fn: () => void) => () => onNavigate(fn, { returns: false });
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -156,7 +163,7 @@ export function StudioDrawer({
 						<div ref={(el) => { zoneRefs.current.edit = el; }}>
 							<Zone label="Edit">
 								{insertComponents.length > 0 && <Row icon={<Plus className="size-4 text-muted-foreground" />} label="Insert component" onClick={go(onInsert)} />}
-								<Row icon={<ListChecks className="size-4 text-muted-foreground" />} label="Fix all issues" badge={issues} disabled={!issues} onClick={go(onFixAll)} />
+								<Row icon={<ListChecks className="size-4 text-muted-foreground" />} label="Fix all issues" badge={issues} disabled={!issues} onClick={act(onFixAll)} />
 							</Zone>
 						</div>
 					)}
@@ -180,7 +187,7 @@ export function StudioDrawer({
 							<Zone label="Show me">
 								<ScrollFade axis="x" wrapperClassName="-mx-3.5" className="flex gap-2.5 overflow-x-auto px-3.5 pb-1">
 									{tours.map((t) => (
-										<button key={t.id} type="button" data-tour={t.id} onClick={go(() => onStartDemo(t.id))} className="w-[168px] shrink-0 rounded-lg border border-border bg-background p-3 text-left hover:border-[var(--accent)]">
+										<button key={t.id} type="button" data-tour={t.id} onClick={act(() => onStartDemo(t.id))} className="w-[168px] shrink-0 rounded-lg border border-border bg-background p-3 text-left hover:border-[var(--accent)]">
 											<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--text-heading)]"><MonitorPlay className="size-3.5 text-[var(--accent)]" />{t.label}</span>
 											<span className="mt-1 block text-[11px] leading-snug text-muted-foreground">{t.description}</span>
 										</button>

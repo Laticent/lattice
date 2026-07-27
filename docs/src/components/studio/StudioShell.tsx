@@ -408,10 +408,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// the drawer was the one that opened it — every one of these surfaces has other entry
 	// points too (the activity bar, the command palette, the tablet dropdown), and those
 	// paths never arm the flag, so this is a no-op for them.
+	//
+	// `returns: false` is REQUIRED for a row that opens NO sheet — "Fix all issues" runs an
+	// editor method, "Show me" starts a tour. Arming the flag for those left it armed
+	// forever (nothing ever closes to disarm it), so the NEXT close of ANY wrapped sheet,
+	// from ANY entry point, sprang the drawer open. Found by two independent design agents
+	// reading this code; CI could never have caught it.
 	const [drawerPendingReturn, setDrawerPendingReturn] = React.useState(false);
-	const closeDrawerAndOpen = React.useCallback((openChild: () => void) => {
+	const closeDrawerAndOpen = React.useCallback((openChild: () => void, opts?: { returns?: boolean }) => {
 		setMoreOpen(false);
-		setDrawerPendingReturn(true);
+		setDrawerPendingReturn(opts?.returns !== false);
 		openChild();
 	}, []);
 	const withDrawerReturn = React.useCallback((setOpen: (v: boolean) => void) => (v: boolean) => {
@@ -850,6 +856,9 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// biome-ignore lint/correctness/useExhaustiveDependencies: same shape as the effect above — the reset must fire on the bp/landscape flip itself, not on a reactive value the body reads.
 	React.useEffect(() => {
 		setMoreOpen(false);
+		// Disarm too: a flag armed on a phone must not survive a flip to a tier where the
+		// drawer doesn't exist, or the next sheet closed on THAT tier would try to reopen it.
+		setDrawerPendingReturn(false);
 	}, [bp, landscapePhone]);
 
 	// Privacy & Data's "Decks" / "Delete everything" clear reloads the Studio
