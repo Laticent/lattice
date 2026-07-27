@@ -5048,7 +5048,12 @@ in patch versions.
   say where you are. **Two visible changes to existing decks:** the section name disappears from
   the footer of every railed page, and a footer longer than the band ellipsises on one line instead
   of wrapping onto a second — so a very long footer's tail is now absent from the exported PDF's
-  text layer, not merely off-screen. A 199-character confidentiality line keeps 132 characters.
+  text layer, not merely off-screen. **The truncation applies on every deck, including ones with no
+  dividers and no rail**, where nothing is competing for the band; a plain deck's 152-character
+  confidentiality notice that wrapped across three lines is now cut with an ellipsis. How much
+  survives depends on orientation — roughly two thirds of a 199-character line at `hd`, nearer a
+  quarter in portrait. If your footer is legally operative, keep it short enough to fit: nothing
+  warns you when it is cut.
 - **The section dots are budgeted, so a long deck no longer draws a dot per section.** A
   24-section deck drew 24 dots on every page, in a band shared with your own footer text. Past ten,
   sections are bucketed into ten dots — the one you are in stays elongated and accented, the first

@@ -180,7 +180,22 @@ portrait — so the quarter is the number to hold in mind, not the two-thirds.
 The failure has an awkward shape: the line ends in "…", which reads as stylistic truncation of
 something decorative rather than "the distribution restriction stops here", and nothing tells the
 author it happened. Anyone whose footer is legally operative should keep it short enough to fit, and
-**that is not currently enforced or warned about** — see the open item below.
+**that is not enforced or warned about.**
+
+**It applies on EVERY deck, including ones where nothing competes for the band** — no dividers, no
+split, no rail. Measured on a plain two-slide deck: `main` renders a 152-character confidentiality
+notice complete across three wrapped lines; this policy truncates it to `…nor to an…` in the
+exported text layer. That is the same string, on the same class of deck, whose loss got the first
+attempt reverted — it now arrives by a different mechanism (`white-space: nowrap` on rank 3, rather
+than two marks bidding for one row), and it was **put to the owner with that comparison and signed
+off deliberately** on 2026-07-27. The alternative offered and declined was to let the footer wrap
+when no wayfinding mark sits beside it; it was declined in favour of one uniform behaviour on every
+band. Recording it here because a future reader will find this exact regression and reasonably
+assume it was an oversight. It was not.
+
+If it is ever revisited, the cheapest opening is option (d) below — route over-subscription into the
+existing `.overflow` alarm so the author is told — which stands on its own again now that
+truncation, unlike the overprint it replaced, is invisible.
 
 ## The options that were considered and not taken
 
