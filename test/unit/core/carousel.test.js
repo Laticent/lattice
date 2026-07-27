@@ -523,3 +523,69 @@ test('carouselize degrades to null on Object.prototype-shadowing strategy names'
     assert.equal(carouselize('<section>', '<h2>t</h2>', { strategy }, 1.4, 'content'), null, strategy);
   }
 });
+
+// ── §8 rule 9 — the envelope invariant, across ALL NINE strategies ──────────────
+// This is the test the rule always asked for and never had. The gate in
+// split-envelope.test.js keyed on the CLASS `lat-split-cover`, which only the plain path
+// and cover-paginate/cover-cards emit; the per-layout strategies emit their own
+// (`split-panel-cover`, `list-tabular-cover`, `decision-cover`, `compare-code-cover`), so
+// `covers.length` was 0, `<= 1` passed trivially, and the ordering assertions SKIPPED for
+// 6 of the 9 strategies. Found by the HARD RULE #25 trio, two lenses independently.
+//
+// Now every strategy stamps a kernel-owned `data-split-role` (split-envelope.js `withRole`),
+// so ONE assertion covers all of them — and a NEW strategy that forgets to stamp a role
+// fails here rather than falling silently outside the invariant.
+describe('core: carousel — every strategy emits a role-stamped envelope (§8 rule 9)', () => {
+  const ssTag = '<section data-lattice-slide="1" id="s1" class="statute-stack form">';
+  const ssInner = '<h2>Statutes</h2><ul>' +
+    ['A', 'B', 'C', 'D'].map((k) => `<li><strong>${k}</strong><ul><li>body ${k}</li></ul></li>`).join('') +
+    '</ul>';
+  const ctTag = '<section id="s1" class="content compare-table form" data-lattice-slide="1">';
+  const ctInner = '<h2>Build versus buy.</h2>' +
+    '<table><thead><tr><th></th><th>Build</th><th>Buy</th></tr></thead><tbody>' +
+    '<tr><td>Cost</td><td>high</td><td>low</td></tr>' +
+    '<tr><td>Speed</td><td>slow</td><td>fast</td></tr>' +
+    '<tr><td>Risk</td><td>ours</td><td>theirs</td></tr>' +
+    '</tbody></table>';
+  const rlTag = '<section data-lattice-slide="1" id="s1" class="redline split form">';
+  const rlInner = '<h2>Clause 4</h2><p><code>s.12</code></p>' +
+    '<blockquote><p>old text</p></blockquote><blockquote><p>new text</p></blockquote><ul><li>why</li></ul>';
+  const kbTag = '<section data-lattice-slide="1" id="s1" class="kanban form">';
+  const kbInner = '<div class="chart-header"><h2>Board</h2></div><div class="chart-body">' +
+    '<div class="kanban-board">' +
+    '<div class="kanban-column"><h3>To do</h3><div class="kanban-card">a</div></div>' +
+    '<div class="kanban-column"><h3>Doing</h3><div class="kanban-card">b</div></div>' +
+    '</div></div>';
+
+  const CASES = [
+    ['cover-sides',    section.openTag,   section.inner,   { strategy: 'cover-sides' }],
+    ['feature-cover',  spSection.openTag, spSection.inner, { strategy: 'feature-cover', perPage: 2 }],
+    ['cover-rows',     ltSection.openTag, ltSection.inner, { strategy: 'cover-rows', perPage: 1 }],
+    ['cover-decision', dcSection.openTag, dcSection.inner, { strategy: 'cover-decision', perPage: 1 }],
+    ['cover-code',     ccSection.openTag, ccSection.inner, { strategy: 'cover-code' }],
+    ['cover-paginate', ssTag,             ssInner,         { strategy: 'cover-paginate', axis: 'item', perPage: 2 }],
+    ['cover-cards',    ctTag,             ctInner,         { strategy: 'cover-cards', axis: 'row', perPage: 1 }],
+    ['redline-blocks', rlTag,             rlInner,         { strategy: 'redline-blocks' }],
+    ['kanban-lanes',   kbTag,             kbInner,         { strategy: 'kanban-lanes' }],
+  ];
+
+  const roleOf = (sec) => (sec.match(/\sdata-split-role="([^"]*)"/) || [])[1] || null;
+
+  for (const [name, tag, inner, rec] of CASES) {
+    test(`${name}: every emitted page carries a valid role, cover first, insight last`, () => {
+      const parts = carouselize(tag, inner, rec, 2, name);
+      assert.ok(Array.isArray(parts) && parts.length >= 2, `${name}: expected a multi-page split, got ${parts?.length}`);
+      const roles = parts.map(roleOf);
+      assert.ok(
+        roles.every((r) => ['cover', 'body', 'insight'].includes(r)),
+        `${name}: un-stamped or unknown role(s) — ${JSON.stringify(roles)}. Every split path must stamp ` +
+        `data-split-role or it falls outside the §8 rule 9 invariant, which is how 6 of 9 strategies ` +
+        `escaped the gate.`,
+      );
+      assert.ok(roles.filter((r) => r === 'cover').length <= 1, `${name}: ${roles.filter((r) => r === 'cover').length} covers`);
+      assert.ok(roles.filter((r) => r === 'insight').length <= 1, `${name}: >1 insight page`);
+      if (roles.includes('cover')) assert.equal(roles[0], 'cover', `${name}: cover is not first — ${roles}`);
+      if (roles.includes('insight')) assert.equal(roles.at(-1), 'insight', `${name}: insight is not last — ${roles}`);
+    });
+  }
+});

@@ -66,7 +66,16 @@ describe('core: autoSplitDeck', () => {
   test('preserves gaps and the section openTag/attributes across copies', () => {
     const html = `\n<section class="cards" data-x="1">${list(6)}</section>\n`;
     const { html: out } = autoSplitDeck(html, cap); // 6/4 → 2 slides
-    assert.equal((out.match(/<section class="cards" data-x="1">/g) || []).length, 2);
+    // Assert the ATTRIBUTES survived, not a byte-exact tag: the kernel also stamps
+    // `data-split-run` and `data-split-role` (§8 rule 9), so pinning the literal string
+    // would make every future kernel attribute a test failure rather than a real signal.
+    const tags = out.match(/<section[^>]*>/g) || [];
+    assert.equal(tags.length, 2);
+    for (const t of tags) {
+      assert.match(t, /\sclass="cards"/);
+      assert.match(t, /\sdata-x="1"/);
+      assert.match(t, /\sdata-split-role="body"/);
+    }
     assert.match(out, /^\n/); // leading gap preserved
     assert.match(out, /\n$/); // trailing gap preserved
   });
@@ -83,8 +92,15 @@ describe('core: autoSplitDeck', () => {
     const { html: out } = autoSplitDeck(html, cap);
     assert.equal((out.match(/<section/g) || []).length, 2);
     assert.equal((out.match(/id="2"/g) || []).length, 1); // only the first copy keeps it
-    assert.match(out, /<section data-split-run="2" class="cards" id="2">/); // first intact, run-tagged
-    assert.match(out, /<section data-split-run="2" class="cards"><ul>/); // continuation: run-tagged, no id
+    const tags = out.match(/<section[^>]*>/g) || [];
+    assert.equal(tags.length, 2);
+    for (const t of tags) {                                  // both run-tagged + role-stamped
+      assert.match(t, /\sdata-split-run="2"/);
+      assert.match(t, /\sdata-split-role="body"/);
+      assert.match(t, /\sclass="cards"/);
+    }
+    assert.match(tags[0], /\sid="2"/);                        // first keeps the engine id
+    assert.doesNotMatch(tags[1], /\sid="/);                   // continuation drops it
   });
 
   test('capacityForClass: first capacity-bearing token wins; modifiers carry none', () => {

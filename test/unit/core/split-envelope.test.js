@@ -467,6 +467,9 @@ describe('core: the envelope invariant, per split RUN across a whole deck (rule 
     slide(3, 'cards form', formInner({ n: 7, subtitle: 'sub' })) +
     slide(4, 'cards form', `<div class="cell-stage">${items(7)}</div>`);
 
+  // Collect each run's pages as { cls, role }. The ROLE is the kernel's own stamp
+  // (`data-split-role`, split-envelope.js `withRole`) and is what the invariant keys on —
+  // see the note on assertEnvelope below for why the class cannot serve.
   const runsOf = (html) => {
     const runs = new Map();
     for (const p of splitSections(html)) {
@@ -474,24 +477,43 @@ describe('core: the envelope invariant, per split RUN across a whole deck (rule 
       const rid = (p.openTag.match(/\sdata-split-run="([^"]*)"/) || [])[1];
       if (!rid) continue;
       if (!runs.has(rid)) runs.set(rid, []);
-      runs.get(rid).push(p.cls || '');
+      runs.get(rid).push({
+        cls: p.cls || '',
+        role: (p.openTag.match(/\sdata-split-role="([^"]*)"/) || [])[1] || null,
+      });
     }
     return runs;
   };
 
+  // §8 rule 9's gate. Keyed on the kernel's ROLE, not on a class.
+  //
+  // It used to filter `/\blat-split-cover\b/`, which ONLY the plain path and
+  // `cover-paginate`/`cover-cards` emit — the per-layout strategies emit their own
+  // (`split-panel-cover`, `list-tabular-cover`, `decision-cover`, `compare-code-cover`).
+  // So for 6 of the 9 strategies `covers.length` was 0, `covers.length <= 1` passed
+  // trivially, and the `if (covers.length)` ordering checks SKIPPED: a gate blind to two
+  // thirds of its subject. Found by the HARD RULE #25 trio (two lenses independently).
   const assertEnvelope = (html, label) => {
     const runs = runsOf(html);
     assert.ok(runs.size > 0, `${label}: expected at least one split run`);
-    for (const [rid, classes] of runs) {
-      const covers = classes.filter((c) => /\blat-split-cover\b/.test(c));
-      const insights = classes.filter((c) => /\blat-split-insight\b/.test(c));
+    for (const [rid, pages] of runs) {
+      const roles = pages.map((p) => p.role);
+      // EVERY page of a run carries a role — so a new strategy that forgets to stamp one
+      // FAILS here instead of quietly falling outside the invariant.
+      assert.ok(
+        roles.every((r) => r && ['cover', 'body', 'insight'].includes(r)),
+        `${label} run ${rid}: un-stamped or unknown split role(s): ${JSON.stringify(roles)}`,
+      );
+      const covers = roles.filter((r) => r === 'cover');
+      const insights = roles.filter((r) => r === 'insight');
       assert.ok(covers.length <= 1, `${label} run ${rid}: ${covers.length} covers`);
       assert.ok(insights.length <= 1, `${label} run ${rid}: ${insights.length} insight pages`);
-      if (covers.length) assert.match(classes[0], /\blat-split-cover\b/, `${label} run ${rid}: cover is not first`);
-      if (insights.length) assert.match(classes.at(-1), /\blat-split-insight\b/, `${label} run ${rid}: insight page is not last`);
-      // A run that HAS a masthead must be covered — the only uncovered run is the
-      // title-less slide 4, whose members carry no heading at all.
-      const titled = classes.some((c) => /\bchecklist\b|\bcards\b/.test(c));
+      if (covers.length) assert.equal(roles[0], 'cover', `${label} run ${rid}: cover is not first`);
+      if (insights.length) assert.equal(roles.at(-1), 'insight', `${label} run ${rid}: insight page is not last`);
+      // Body pages are contiguous between them — no body after the insight beat.
+      const lastBody = roles.lastIndexOf('body');
+      if (insights.length) assert.ok(lastBody < roles.indexOf('insight'), `${label} run ${rid}: body page after the insight`);
+      const titled = pages.some((p) => /\bchecklist\b|\bcards\b/.test(p.cls));
       assert.ok(titled, `${label} run ${rid}: unexpected run shape`);
     }
   };

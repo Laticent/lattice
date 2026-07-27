@@ -470,6 +470,19 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    on-page text px; below the floor → the honest ring, never a silent shrink. This
    is the FM-1 fix and it removes the §0b contradiction between "no type floor" and
    "the honest ring."
+9. **☑ GATE MADE REAL (P-envelope).** The mechanism shipped, but the gate this rule
+   demands was HOLLOW: it keyed on the CLASS `lat-split-cover`, which only the plain path
+   and `cover-paginate`/`cover-cards` emit. The per-layout strategies emit their own
+   (`split-panel-cover`, `list-tabular-cover`, `decision-cover`, `compare-code-cover`), so
+   `covers.length` was 0, the `<= 1` assertion passed trivially, and the ordering checks
+   SKIPPED — for 6 of the 9 strategies. Fixed by stamping a kernel-owned
+   `data-split-role="cover|body|insight"` at every emission site (`withRole`,
+   split-envelope.js; 9 sites across split-envelope / carousel / auto-split, the title-less
+   bare partition included) and re-keying the invariant on the ROLE. A cross-strategy test
+   now runs the invariant over ALL NINE strategies, and an un-stamped page FAILS — so a new
+   strategy cannot fall outside the gate. Verified on a real render: 18 run sections, 0
+   missing a role. The role is also the hook rules 6 and 12a key on.
+
 9. **"Cover always" (§0a) is a MECHANISM phase, not a free consequence.** No split
    path may emit a bare `(cont.)` partition once §0a lands: `autoSplitDeck` and
    `resplitDoc`'s plain branch must route through the same cover→body→closing
