@@ -8485,10 +8485,9 @@ in patch versions.
   — Library, Workspace settings, Search, and Send Feedback render as a scannable icon-button row
   (icon + caption, like the toolbar) at the very top, not a vertical list buried under Views/Show
   me/Look. Tablet's overflow is unchanged (still the flat dropdown; Version history moves from
-  Preview's pane bar into the drawer's always-visible Views zone, alongside Slide settings and
-  Reader views — not the Edit zone, which only renders on the Edit pane; gating deck-level
-  snapshot recovery on which pane you're looking at had silently removed it from Preview entirely,
-  caught by a post-launch adversarial trio pass). Two real icon collisions are fixed everywhere they occur:
+  Preview's pane bar into the drawer's always-visible Views zone — not the Edit zone, which only
+  renders on the Edit pane; gating deck-level snapshot recovery on which pane you're looking at had
+  silently removed it from Preview entirely, caught by a post-launch adversarial trio pass). Two real icon collisions are fixed everywhere they occur:
   `MessageSquareHeart` no longer means both Chat and Send Feedback (Chat moves to a distinct
   bot-chat glyph, at all four Chat sites, including the command palette), and `Eye` no longer
   means both Preview and Lenses/reader-views (Lenses moves to a glasses glyph, at all seven Lenses
@@ -8522,6 +8521,20 @@ in patch versions.
   defensive effect was added so Compose's floating selection toolbar (a `document.body` portal,
   invisible to the mobile pane-swap wrapper's `invisible`/`inert`) can never survive its pane going
   inactive, closing the same class of leak the `cs-paused` fix above closed by a different route.
+  **Workspace settings moves out of the drawer entirely, promoted to the header** (between the
+  mode toggle and "More controls") — reported as buried a drawer-open-plus-a-tap deep; the drawer's
+  own Workspace row drops it in turn, so it isn't a setting with two homes. **Slide settings is
+  dropped from the drawer too** — it duplicated the toolbar's own Settings cell, the sole entry
+  point now (reported: "we shouldn't have deck/slide settings in this drawer"). **Reader views and
+  Version history — both deck-level, neither tied to a specific slide — read as one icon row now**
+  instead of two stacked vertical rows, the same idiom Workspace already used. **Closing a sheet
+  the drawer opened (Library, Reader views, Version history, Search, Send feedback, Insert
+  component) now reopens the drawer** instead of dropping back to the bare toolbar — reported as a
+  real navigation bug ("closing the new drawer does not result in going back to the previous
+  drawer"); a `closeDrawerAndOpen`/`withDrawerReturn` pair in `StudioShell.tsx` arms a one-shot flag
+  when the drawer navigates away and reopens it exactly when that flag is armed, so every other
+  entry point into these same sheets (the activity bar, the command palette, the tablet dropdown,
+  the new header button) is unaffected — none of them ever arm it.
   (`docs/src/components/studio/{StudioShell.tsx,StudioDrawer.tsx,icons.ts,scroll-fade.tsx,
   ComposeView.tsx,CommandPalette.tsx,LensesPanel.tsx}`;
   `engineering/decisions/2026-07-26-studio-mobile-eight-cell-bar.md`.)

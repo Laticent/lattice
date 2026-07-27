@@ -312,6 +312,57 @@ exception to the 44px floor, not revisited; 320px-and-below degrades
 (cells drop under 44px) but is outside this repo's stated ~390px mobile
 target, so left as a documented boundary rather than a bug.
 
+## Fifth round: settings placement and a real navigation bug
+
+More direct feedback against the live PR, this time on information
+architecture and navigation rather than color/contrast:
+
+- **Workspace settings promoted from the drawer to the header** (between
+  the mode toggle and "More controls") — "shouldn't be buried," and it
+  was: drawer-open, then a tap, for a workspace-level setting used often
+  enough to want one tap. It's dropped from the drawer's Workspace row in
+  the same move, so it isn't a setting with two homes — precisely the
+  "duplicate Settings" complaint this round raised about Slide settings,
+  applied consistently to the thing that was itself just promoted.
+- **Slide settings dropped from the drawer** — it duplicated the toolbar's
+  own Settings cell (deck/slide scope, one tap, always present); the
+  drawer copy added a second path to the same surface for no reason. The
+  toolbar cell is now the sole entry point.
+- **Reader views and Version history merged into one icon row** in the
+  Views zone — both are deck-level actions, neither is tied to editing the
+  current slide, and stacking them as two vertical `Row`s (the pre-#1
+  pattern this whole redesign was supposed to move past) never reflected
+  a real distinction between them. They now use the same `IconAction`
+  idiom as Workspace.
+- **A real navigation bug**: tapping a drawer row that opens a further
+  sheet (Library, Reader views, Version history, Search, Send feedback,
+  Insert component) closed the drawer and opened the sheet — correct so
+  far — but dismissing THAT sheet just closed it, dropping the user back
+  at the bare toolbar instead of the drawer they'd been navigating from.
+  Every one of these sheets has other entry points too (the activity bar,
+  the command palette, the tablet dropdown), so the fix couldn't just
+  make them always reopen the drawer on close. `StudioShell.tsx` gained a
+  one-shot `drawerPendingReturn` flag: `closeDrawerAndOpen` (passed to
+  `StudioDrawer` as a new `onNavigate` prop, replacing the drawer's old
+  `onOpenChange(false); fn()` inline) closes the drawer, arms the flag,
+  then opens the target; `withDrawerReturn` wraps that target's own
+  `onOpenChange` so closing it re-opens the drawer only when the flag is
+  armed, then disarms it. Six sheets got the wrapper (Library, Lenses,
+  Version history, Search/CommandPalette, Send feedback, Insert
+  component/SlidePicker); every other way of opening any of them —
+  including the new header Workspace-settings button — never arms the
+  flag, so those paths are unaffected by construction, not by a per-site
+  special case.
+
+Verified live against a real build: the header button opens Workspace
+settings and closing it does NOT reopen the drawer (correct — it wasn't
+opened from there); opening the drawer confirms Slide settings and
+Workspace settings are both gone and Reader views + Version history sit
+on one row; tapping Reader views from the drawer, then dismissing the
+Lenses sheet, DOES reopen the drawer (the actual bug, now fixed). Full
+Studio suite (862/862), `responsive.spec.ts` + `ios-zoom.spec.ts` (8/8),
+`build:check`, typecheck, and lint all re-run clean.
+
 ## Pre-existing gaps found, not fixed (HARD RULE #18 — off-path)
 
 - `SEL.theme` (`tour-kit.ts`) was already unresolvable on mobile before this

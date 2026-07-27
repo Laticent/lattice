@@ -399,6 +399,25 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	const [shareOpen, setShareOpen] = React.useState(false);
 	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
 	const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
+	// Mobile StudioDrawer "back" behavior: a row that opens a further sheet (Library,
+	// Reader views, Version history, Search, Feedback, Insert component) used to just
+	// close the drawer and open the child — so dismissing the child dropped the user all
+	// the way back to the toolbar, not back to the drawer they came from (reported).
+	// `closeDrawerAndOpen` arms this flag when the drawer navigates away; `withDrawerReturn`
+	// wraps a sheet's own `onOpenChange` so closing it re-opens the drawer, but ONLY when
+	// the drawer was the one that opened it — every one of these surfaces has other entry
+	// points too (the activity bar, the command palette, the tablet dropdown), and those
+	// paths never arm the flag, so this is a no-op for them.
+	const [drawerPendingReturn, setDrawerPendingReturn] = React.useState(false);
+	const closeDrawerAndOpen = React.useCallback((openChild: () => void) => {
+		setMoreOpen(false);
+		setDrawerPendingReturn(true);
+		openChild();
+	}, []);
+	const withDrawerReturn = React.useCallback((setOpen: (v: boolean) => void) => (v: boolean) => {
+		setOpen(v);
+		if (!v && drawerPendingReturn) { setDrawerPendingReturn(false); setMoreOpen(true); }
+	}, [drawerPendingReturn]);
 	// When the reference-doc picker's "Manage in Library" link opens the Library, jump
 	// it straight to the Docs tab (#651). Undefined for the normal Library button.
 	const [libInitialFilter, setLibInitialFilter] = React.useState<'refdoc' | undefined>(undefined);
@@ -3116,6 +3135,15 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
+				{/* Workspace settings promoted to the header, between mode and "More controls" —
+				    it was buried a drawer-open + one more tap deep and shouldn't have been
+				    (reported). Opened directly here, it never arms `drawerPendingReturn`, so
+				    closing it doesn't spuriously reopen the drawer; it's dropped from the
+				    drawer's own Workspace row below to avoid the exact "same setting, two
+				    homes" problem just fixed for Slide settings. */}
+				{mobile && (
+					<Tip label="Workspace settings"><Button variant="ghost" size="icon-sm" aria-label="Workspace settings" onClick={() => setWorkspaceOpen(true)}><Settings2 className="size-[18px]" /></Button></Tip>
+				)}
 				{mobile && (
 					<Button variant="ghost" size="icon-sm" aria-label="More controls" onClick={() => setMoreOpen(true)}><MoreHorizontal className="size-[18px]" /></Button>
 				)}
@@ -3123,19 +3151,18 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					<StudioDrawer
 						open={moreOpen}
 						onOpenChange={setMoreOpen}
+						onNavigate={closeDrawerAndOpen}
 						effPane={effPane}
 						insertComponents={insertComponents}
 						issues={issues}
 						onInsert={() => setInsertOpen(true)}
 						onFixAll={() => editorRef.current?.fixAll()}
 						onVersionHistory={() => setHistoryOpen(true)}
-						onSlideSettings={() => { setInspectorScope('slide'); setInspectorOpen(true); }}
 						onLenses={() => setLensesOpen(true)}
 						demoActive={demoActive}
 						tours={TOURS}
 						onStartDemo={startDemo}
 						onLibrary={() => setLibraryOpen(true)}
-						onWorkspace={() => setWorkspaceOpen(true)}
 						onSearch={() => setCmdOpen(true)}
 						onFeedback={() => setFeedbackOpen(true)}
 						palette={palette}
@@ -3386,7 +3413,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</SheetContent>
 					</Sheet>
 					{/* Lenses (reader views) — its own compact sheet, a peer of the Architect. */}
-					<Sheet open={lensesOpen} onOpenChange={setLensesOpen}>
+					<Sheet open={lensesOpen} onOpenChange={withDrawerReturn(setLensesOpen)}>
 						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[340px]">
 							<SheetHeader className="border-b border-border">
 								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><LensIcon className="size-4 text-[var(--accent)]" />Lenses</SheetTitle>
@@ -3416,13 +3443,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			<ShareSheet open={shareOpen} onOpenChange={setShareOpen} deckTitle={deck.title} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} options={options} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} notify={notify} />
-			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deck.title, Theme: `${palette} · ${mode}` }} />
+			<FeedbackSheet open={feedbackOpen} onOpenChange={withDrawerReturn(setFeedbackOpen)} area="Studio" context={{ Deck: deck.title, Theme: `${palette} · ${mode}` }} />
 			<WorkspaceSheet open={workspaceOpen} onOpenChange={setWorkspaceOpen} notify={notify} />
 			{/* Version history — an ACTION (save/restore snapshots), not a deck setting,
 			    so it lives in its own sheet off the top bar rather than in the inspector
 			    (which is now settings-only). Restore stays always-visible (not hover-only)
 			    so it works on touch. */}
-			<Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+			<Sheet open={historyOpen} onOpenChange={withDrawerReturn(setHistoryOpen)}>
 				<SheetContent side="right" className="flex w-[88vw] flex-col gap-0 p-0 sm:max-w-[360px]">
 					<SheetHeader className="border-b border-border">
 						<SheetTitle className="flex items-center gap-2 text-[15px]"><History className="size-4 text-[var(--accent)]" />Version history</SheetTitle>
@@ -3452,7 +3479,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{compact && view === 'compose' && (
 				<Library
 					open={libraryOpen}
-					onOpenChange={setLibraryOpen}
+					onOpenChange={withDrawerReturn(setLibraryOpen)}
 					options={options}
 					activePalette={palette}
 					activeFinish={finish}
@@ -3467,7 +3494,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} notify={notify} />
 			<CommandPalette
 				open={cmdOpen}
-				onOpenChange={setCmdOpen}
+				onOpenChange={withDrawerReturn(setCmdOpen)}
 				decks={decks}
 				palettes={BUILTIN_PALETTES}
 				onPickDeck={loadDeck}
@@ -3488,7 +3515,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				onExpandPane={split.collapsed ? () => { const c = splitApiRef.current.collapsed; if (c) splitApiRef.current.expand(c); } : undefined}
 				onResetSplit={splitUsable ? () => splitApiRef.current.reset() : undefined}
 			/>
-			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
+			<SlidePicker open={insertOpen} onOpenChange={withDrawerReturn(setInsertOpen)} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			{/* Hidden file input for "Import deck…" (.md upload). */}
 			<input ref={importInputRef} type="file" accept=".md,.markdown,.mdx,.lattice,text/markdown,text/plain" onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 

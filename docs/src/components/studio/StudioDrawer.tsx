@@ -6,16 +6,20 @@
 // genuinely secondary stuff: low-frequency editor actions, guided tours, reader
 // views, the theme catalog, and workspace-level settings.
 //
-// Workspace leads (Library, Workspace settings, Search, Feedback) — post-launch
-// feedback moved it from last zone to first, and from a vertical Row list to a
-// scannable icon-button row (IconAction below), because these get reached for
-// far more often than "buried behind Look" implied.
+// Workspace leads (Library, Search, Feedback) — post-launch feedback moved it from
+// last zone to first, and from a vertical Row list to a scannable icon-button row
+// (IconAction below), because these get reached for far more often than "buried
+// behind Look" implied. Workspace SETTINGS itself later moved out of this row
+// entirely, promoted to the header (between mode and "More controls") so it's
+// reachable in one tap instead of drawer-open-then-tap; keeping it here too would
+// recreate the exact "same setting, two homes" problem just fixed by removing
+// Slide settings from Views below (Settings is the toolbar's own cell).
 //
 // Long catalogs (tours, themes) scroll SIDEWAYS inside their own zone rather than
 // stacking vertically — the structural fix for the old "···"'s real failure mode: an
 // 18-theme, 4-tier catalog dominating one undifferentiated vertical scroll with no
 // section header a user actually notices.
-import { FileBox, History as HistoryIcon, ListChecks, MonitorPlay, Plus, Search, Settings2, SlidersHorizontal } from 'lucide-react';
+import { FileBox, History as HistoryIcon, ListChecks, MonitorPlay, Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -66,19 +70,18 @@ function IconAction({ icon, label, caption, onClick }: { icon: React.ReactNode; 
 export function StudioDrawer({
 	open,
 	onOpenChange,
+	onNavigate,
 	effPane,
 	insertComponents,
 	issues,
 	onInsert,
 	onFixAll,
 	onVersionHistory,
-	onSlideSettings,
 	onLenses,
 	demoActive,
 	tours,
 	onStartDemo,
 	onLibrary,
-	onWorkspace,
 	onSearch,
 	onFeedback,
 	palette,
@@ -87,19 +90,23 @@ export function StudioDrawer({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	/** A row that opens a further surface calls this INSTEAD of closing the drawer
+	 *  itself — the host (StudioShell) closes the drawer, opens the target, and
+	 *  remembers to REOPEN the drawer once that target closes, so dismissing a
+	 *  child sheet returns here instead of dropping all the way back to the
+	 *  toolbar (reported: it used to just vanish both). */
+	onNavigate: (openTarget: () => void) => void;
 	effPane: 'edit' | 'preview';
 	insertComponents: ComponentEntry[];
 	issues: number;
 	onInsert: () => void;
 	onFixAll: () => void;
 	onVersionHistory: () => void;
-	onSlideSettings: () => void;
 	onLenses: () => void;
 	demoActive: boolean;
 	tours: TourMeta[];
 	onStartDemo: (id: string) => void;
 	onLibrary: () => void;
-	onWorkspace: () => void;
 	onSearch: () => void;
 	onFeedback: () => void;
 	palette: string;
@@ -109,9 +116,7 @@ export function StudioDrawer({
 	const zoneRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
 	const jumpTo = (key: string) => zoneRefs.current[key]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	const themeGroups = React.useMemo(() => themeSelectGroups(savedThemes), [savedThemes]);
-	// A row that opens a further surface must close the drawer first — two Radix
-	// portals (this Sheet + the next dialog/sheet) fighting over focus otherwise.
-	const go = (fn: () => void) => () => { onOpenChange(false); fn(); };
+	const go = (fn: () => void) => () => onNavigate(fn);
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -134,20 +139,13 @@ export function StudioDrawer({
 						<Zone label="Workspace">
 							<div className="flex gap-1">
 								<IconAction icon={<FileBox className="size-5" />} label="Library" caption="Library" onClick={go(onLibrary)} />
-								<IconAction icon={<Settings2 className="size-5" />} label="Workspace settings" caption="Workspace" onClick={go(onWorkspace)} />
 								<IconAction icon={<Search className="size-5" />} label="Search / commands" caption="Search" onClick={go(onSearch)} />
 								<IconAction icon={<FeedbackIcon className="size-5" />} label="Send feedback" caption="Feedback" onClick={go(onFeedback)} />
 							</div>
 						</Zone>
 					</div>
 					{/* This slide's editor actions — only while EDITING, so the Preview pane
-					    reader doesn't see controls that act on a surface they aren't looking at.
-					    Version history is a DECK-level recovery action, not a slide-editing one —
-					    it lives in Views (below, always rendered) so it stays one drawer-open away
-					    on the Preview pane too. Losing it there was a real regression the trio
-					    caught (2026-07-26-studio-mobile-eight-cell-bar.md): the pre-redesign mobile
-					    Preview pane carried a one-tap Version history button this drawer replaced,
-					    and gating it on Edit silently removed it from Preview entirely. */}
+					    reader doesn't see controls that act on a surface they aren't looking at. */}
 					{effPane === 'edit' && (
 						<div ref={(el) => { zoneRefs.current.edit = el; }}>
 							<Zone label="Edit">
@@ -156,11 +154,17 @@ export function StudioDrawer({
 							</Zone>
 						</div>
 					)}
+					{/* Slide settings dropped (2026-07-27 feedback) — it duplicated the toolbar's
+					    own Settings cell, which is the sole entry point now. Reader views and
+					    Version history — both deck-level, neither slide-editing-specific, no
+					    reason they were ever stacked as two vertical rows — read together as one
+					    icon row, the same idiom as Workspace above. */}
 					<div ref={(el) => { zoneRefs.current.views = el; }}>
 						<Zone label="Views">
-							<Row icon={<SlidersHorizontal className="size-4 text-muted-foreground" />} label="Slide settings" onClick={go(onSlideSettings)} />
-							<Row icon={<LensIcon className="size-4 text-muted-foreground" />} label="Reader views" onClick={go(onLenses)} />
-							<Row icon={<HistoryIcon className="size-4 text-muted-foreground" />} label="Version history" onClick={go(onVersionHistory)} />
+							<div className="flex gap-1">
+								<IconAction icon={<LensIcon className="size-5" />} label="Reader views" caption="Reader" onClick={go(onLenses)} />
+								<IconAction icon={<HistoryIcon className="size-5" />} label="Version history" caption="History" onClick={go(onVersionHistory)} />
+							</div>
 						</Zone>
 					</div>
 					{/* Hidden while a guided demo is live — same gate the old "···" tour list
