@@ -223,3 +223,41 @@ describe('core: relationship — through the real emission path (post-convergenc
       'the wayfinding signal must read after the footnote, not before it');
   });
 });
+
+describe('core: relationship — degenerate inputs say nothing rather than lie', () => {
+  test('a table with no <tbody> does not count its HEADER row as a member', () => {
+    // markdown-it always emits a `<tbody>`, so this is the raw-HTML / hand-authored path. Left
+    // unguarded, the scan started at 0 and swept the `<thead>` row in: a three-option table
+    // signalled "Option 1 of 4", and the count disagreed with `countAxis`, which sees none.
+    const html = '<table><thead><tr><th>Criterion</th></tr></thead>'
+      + '<tr><td>A</td></tr><tr><td>B</td></tr></table>';
+    const ms = membersIn(html, 'row');
+    assert.equal(ms.length, 2);
+    assert.ok(ms.every((m) => !m.includes('<th')), 'the header row is criteria, never a member');
+  });
+
+  test('a <tbody> table is unchanged by that guard', () => {
+    const html = '<table><thead><tr><th>C</th></tr></thead><tbody><tr><td>A</td></tr></tbody></table>';
+    assert.equal(membersIn(html, 'row').length, 1);
+  });
+
+  test('no members on any page → no signal, never "Option 1 of 0"', () => {
+    // Reachable whenever the resolved axis finds no collection on the page. The comparison
+    // branch floors its range at one member, so an empty matrix used to print a human-visible
+    // count of zero on every page.
+    assert.deepEqual(relationshipSignals('comparison', [[], []]), ['', '']);
+    assert.deepEqual(relationshipSignals('sequence', [[], []]), ['', '']);
+  });
+
+  test('labelOf reads a LEADING <strong>, not a bolded phrase in the body', () => {
+    const leading = '<li><strong>Sign off</strong><ul><li>The chair signs the policy hash.</li></ul></li>';
+    assert.equal(labelOf(leading), 'Sign off');
+    // A flat member whose emphasis sits mid-sentence must fall through to the clause reader.
+    const buried = '<li>Sign off — the chair signs the <strong>policy hash</strong>.</li>';
+    assert.equal(labelOf(buried), 'Sign off');
+  });
+
+  test('labelOf handles the LOOSE list form markdown-it wraps in a <p>', () => {
+    assert.equal(labelOf('<li><p><strong>Build in region</strong></p><p>body</p></li>'), 'Build in region');
+  });
+});

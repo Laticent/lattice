@@ -181,12 +181,18 @@ in patch versions.
 - **A legibility floor for viewBox figures** (§8 rule 8). A container-responsive figure never
   overflows its box — it scales its own labels — so the overflow probe is structurally blind to a
   figure that has shrunk its text to 5px. `probeFigureLegibility` measures the effective on-page
-  glyph size (user units × the viewBox→box scale) against an absolute 8px canvas floor, calibrated
-  by rendering every shipped chart gallery through the emulator (the surface the gate runs on).
-  Below the floor the slide gets an amber ring in the preview and its own stderr report, and is
-  never handed to the splitter (a figure has no seam). It flags two galleries today — `radar` page
-  7, the `small-multiples` variant, at 6.8px, and `state-chart` at 5.3–7.9px across five slides —
-  which is the finding, not a false positive; re-sizing them is a separate design call.
+  glyph size (user units × the viewBox→box scale) against **1% of the slide's own height** —
+  the only preset-invariant form of the floor, since a deck is displayed scaled-to-fit and one
+  `state-chart` design measures 5.2px at `square` and 23.7px at `4K` while looking identical.
+  Below the floor the slide gets an amber ring plus a tab naming the measured px against the
+  floor — in **both** the live preview and the export watcher, off one probe — and its own stderr
+  report, and it is never handed to the splitter (a figure has no seam). The ring is
+  authoring-only: the emulator strips it before printing, so no exported artifact changes.
+  It flags nine gallery slides today — `state-chart` p6/p5/p9 at 0.68/0.74/0.99%, `radar` p7 (the
+  `small-multiples` variant) at 0.94%, and five mermaid `diagram` pages at 0.65–0.92% — which is
+  the finding, not a false positive; re-sizing them is a separate design call. The margin is thin
+  and deliberately not padded: `diagram` p12/p29 (1.02/1.03%) and `quadrant`'s densest (1.07%) are
+  one re-tune from ringing, and a floor chosen to keep the catalog quiet is not a floor.
 
 - **Per-component agent contract: `<name>.docs.md` now front-loads a dense, machine-actionable
   block instead of burying it in narrative prose.** Generated docs previously interleaved the
@@ -4851,6 +4857,62 @@ in patch versions.
   `lib/base/base.docs.md § Custom logo` and `examples/custom-logo.md`.
 
 ### Fixed
+- **In `--print`, five of the six split-cover layouts rendered a BLANK page.** The print de-flood
+  that turns the cover's accent field into the bookends' light framed panel was keyed on the
+  `lat-split-cover` CLASS, which only the shared cover carries. The read-across strategies each
+  emit their own (`compare-split-cover`, `split-panel-cover`, `list-tabular-cover`,
+  `decision-cover`, `compare-code-cover`), so they got no de-flood — and no accent flood either,
+  because `section.print` repaints `--bg` over the layout's own field from later in the bundle.
+  The result was `--on-accent` white text on a white page: measured contrast **1.00:1**, a sheet
+  of nothing between two ink-on-white slides. Re-keyed on the `data-split-role="cover"` stamp all
+  six share; measured **17.78:1** after, on a real `--print` render of
+  `examples/read-across-carousel.md`.
+
+- **The running footer collapsed to a single clipped glyph on every split page.** The docked
+  section rail carried `max-width: none`, and its label is `white-space: nowrap`, so its
+  min-content contribution was the full label width and it could not shrink — leaving the footer
+  text as the only shrinkable item in the band to absorb the whole deficit. Measured on
+  `examples/split-relationship.pdf`: footer **38px** against 431px of text. The docked rail keeps
+  the centre zone's `--footer-center-w` reserve now and truncates inside it, which is what the
+  reserve was always for; the footer measures 485/485px after. The same fix closes the
+  pre-existing 277px footer/rail overlap on un-split pages of a Form deck.
+
+- **A slide that was both illegible and over-full was reported as neither splittable nor
+  clipping.** The type-floor branch `return`ed before the overflow check, so ONE small viewBox
+  figure anywhere on a slide took it off the overflow list entirely: no ring, no `⚠ OVERFLOW`
+  line, and autosplit never saw it — a perfectly splittable checklist shipped clipped with items
+  lost off-cell. The two conditions are orthogonal; the legibility result now rides along on the
+  record instead of replacing it.
+
+- **The type-floor ring never appeared in the live preview.** Rule 8 shipped in the export
+  watcher only — `lib/runtime/index.js` (the VS Code preview and the docs Playground) never ran
+  the probe, so `dist/lattice.css` carried a ring and a tab no live surface could trigger. Both
+  watchers run it now, off the same injected probe and the same shared label helper
+  (`lib/runtime/fluid-view-policy.js`), so they cannot drift.
+
+- **Axis derivation could both invent a seam and refuse a real one.** Taking the first
+  recognizable container by position meant an author's table above an `inventory` slide's record
+  bullets derived `row` — the splitter cut between table rows and repeated all six records on all
+  three pages — while a decorative viewBox glyph above a `checklist` derived `figure`, which has
+  no seam, so a 14-item list refused to split and clipped. Derivation now resolves against the
+  axes the manifest declares, treats a declared `col`/`cell` as a **veto** (read-across has no
+  seam, and derivation must not route around a component that said so), and prefers a real
+  collection over a figure when nothing is declared.
+
+- **`redline-blocks` printed a trailing key insight on both pages instead of giving it a closing
+  slide.** A third top-level blockquote was in neither page's drop-set, so it survived on both —
+  and the conservation hoist, which is a containment check, saw its text already emitted and stood
+  down. It is cut from both body pages now and routed to the insight page.
+
+- **The relationship signal read the manifest's axis while the cut had been made from the DOM.**
+  Rule 1 exists because those two can disagree; when they did, `membersIn` looked for a collection
+  that was not on the page and every signal silently vanished — except `comparison`, which printed
+  the human-visible "Option 1 of 0". The signal derives its axis the same way the cut does now,
+  and an empty member matrix emits nothing rather than a count of zero. Two smaller readers fixed
+  with it: a `<tbody>`-less table counted its `<thead>` row as a member, and a member's label was
+  read from a `<strong>` anywhere in its body rather than a leading one (so "Sign off — the chair
+  signs the **policy hash**" signalled "next: policy hash").
+
 - **`capabilities:check` — and therefore `build:check` — was red on `main`.** Seven npm scripts added
   by #1119 (`anima-player:build`/`:check`, `test:adaptive`, `test:concepts`, `test:exemplars`,
   `test:forms`, `test:transform-dsl`) were never described in `SCRIPT_META`, so the freshness gate
@@ -4884,9 +4946,12 @@ in patch versions.
   truncated. The Cell makes the band one flex row, and the page number becomes a real element
   `repaginate` re-stamps rather than the `::after` pseudo.
 
-- **`--footer-centre-w` / `--footer-centre-half` renamed to `--footer-center-*`** (HARD RULE
-  #21). Not a rename for its own sake: the split-cover work needed two new references to the
-  token, and adding British spellings is what the ratchet exists to prevent.
+- **Breaking:** `--footer-centre-w` / `--footer-centre-half` renamed to `--footer-center-w` /
+  `--footer-center-half` (HARD RULE #21). Not a rename for its own sake: the split-cover work
+  needed two new references to the token, and adding British spellings is what the ratchet exists
+  to prevent. A theme or deck override that sets the old names silently stops applying — the
+  footer band's reserved centre zone falls back to its 30cqi default. Rename the custom property
+  in place; nothing else about it changed.
 
 - **Five silent content drops in the carousel split strategies**, each found by the new
   conservation gate and fixed rather than sanctioned: the deck's SECTION RAIL

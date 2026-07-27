@@ -428,15 +428,28 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    authority; `capacity.axis` is retained only as the pre-render count estimate.
    (This supersedes the first draft's "never read from a slide's DOM" — that
    confused authored markdown with rendered HTML; see §0b.)
-   **☑ BUILT (P-envelope).** `deriveAxis` (lib/core/split-envelope.js) reads the first
-   recognizable container inside the CONTENT CELL (rule 12b) and maps it: `<table>` → row,
-   `<ul>`/`<ol>` → item, `<pre>` → line, a viewBox `<svg>` → figure (no seam — rule 8 judges it
-   instead), nothing → null. An inline `<svg>` without a viewBox is skipped: an icon in a list item
-   is not the slide's collection. Both the count estimate and the cut now read it, so the
-   authoring/render mismatch that needed a SECOND declaration to correct (`glossary` authors a list
-   and renders a table, so `capacity.axis: item` + `split.axis: row`) resolves itself.
+   **☑ BUILT (P-envelope).** `deriveAxis` (lib/core/split-envelope.js) scans the recognizable
+   containers inside the CONTENT CELL (rule 12b) and maps them: `<table>` → row, `<ul>`/`<ol>` →
+   item, `<pre>` → line, a viewBox `<svg>` → figure (no seam — rule 8 judges it instead), nothing
+   → null. An inline `<svg>` without a viewBox is skipped: an icon in a list item is not the
+   slide's collection. Both the count estimate and the cut now read it, so the authoring/render
+   mismatch stops needing a manifest correction: `glossary` authors a list and renders a table,
+   and derivation now reports `row` from the rendered DOM — which is what its manifest's
+   `split.axis: "row"` was there to say by hand. (Its own manifest note is explicit that it has
+   **no `capacity` block at all**, "no capacity contract: it authors as a list but renders as a
+   table" — so the field derivation replaces is `split.axis`, not a second `capacity.axis`. The
+   field stays load-bearing for now regardless: a component with a carousel RECIPE keeps its
+   declared axis, per the boundary below.)
    **Enrollment is untouched** — it stays the manifest's opt-in (rule 3), so a rendered collection
    still never implies a seam.
+   **Two more boundaries, both found by the HARD RULE #25 trio on real exports.** (a) Derivation
+   RESOLVES AGAINST the declared axes rather than taking the first container by position: an
+   `inventory` slide (declares `item`) with an author's table above its record bullets derived
+   `row`, cut between table rows, and repeated all six records on all three pages. (b) A declared
+   `col`/`cell` axis is a **veto**, not a preference — `partitionAxis` refuses those on purpose
+   ("splitting destroys read-across"), and derivation must not route around a component that
+   declared *there is no seam here*. Where nothing is declared, a real collection outranks a
+   `figure`, so a decorative viewBox glyph above a list can no longer veto the split.
    **One boundary the rule's wording doesn't state, found on a real render:** derivation must NOT
    override a component that declares a carousel RECIPE. `redline` declares `redline-blocks` and no
    axis, because its members are two passages and its own record says "never splits a passage
@@ -481,12 +494,20 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    deck's section rail missing from `chromeOf` (so every cover lost it, the plain path's included,
    while that run's own body pages kept it); `split-panel`'s panel-right `<h3>` subhead read by
    nothing; a trailing `.below-note` dropped by `cover-decision` / `cover-code` /
-   `redline-blocks`; trailing material inside `.panel-right` invisible to the top-level scan; and
-   `kanban-lanes` repeating anything after the board on EVERY lane. A negative control proves the
-   check can fail. Three structural defects surfaced with them: kanban emitted a spurious empty
-   page (Form docks the footer Cell inside the board, so "every div child" counted it as a lane),
-   and redline emitted two `<header>`s and left `.cell-stage` unclosed — it is now a span-removal
-   over the source inner, the plain envelope's own discipline, instead of a re-author.
+   `redline-blocks`; and trailing material inside `.panel-right` invisible to the top-level scan.
+   A negative control proves the check can fail.
+   **Name its limit honestly: this gate detects DROPS, not duplication.** Multiset *containment*
+   can only report a shortfall — a leaf emitted twice satisfies it exactly as well as a leaf
+   emitted once. So the gate is a no-drop gate, and FM-2 (duplication) needs its own assertions,
+   which the same suite now carries: `kanban-lanes` repeating everything after the board on every
+   lane, and `redline-blocks` printing a third top-level blockquote on both pages, were both found
+   by READING the emitted pages, not by this check. The conservation hoist's `carried()` shares
+   the blindness by construction and stood down on the duplicated copy — fixed at the source, in
+   the strategy, rather than by teaching a containment check to count.
+   Three structural defects surfaced alongside: kanban emitted a spurious empty page (Form docks
+   the footer Cell inside the board, so "every div child" counted it as a lane), and redline
+   emitted two `<header>`s and left `.cell-stage` unclosed — it is now a span-removal over the
+   source inner, the plain envelope's own discipline, instead of a re-author.
 7. **No dead-but-present fields.** A field is deleted in the same PR that flips its
    consumers to the default (HARD #18); and any signal the browser probe consumes
    must resolve at registry-build time from static manifest data, not render.
@@ -505,26 +526,39 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    "the honest ring."
    **☑ BUILT (P-envelope).** `probeFigureLegibility` (lib/core/overflow-probe.js) measures the
    figure's effective ON-PAGE glyph size — `font-size` inside a viewBox is in USER units, so it is
-   multiplied by the viewBox→box scale — and compares it to `FIGURE_TEXT_FLOOR_PX`. Single-sourced
-   and `.toString()`-injected exactly like `probeSectionOverflow`, so the live-preview watcher (an
-   amber `illegible` ring + a tab naming the measured px against the floor) and the export measure
-   apply ONE rule. The slide is never handed to the splitter — a figure has no seam — and it is
-   reported on its OWN stderr axis, because "CLIPPED / trim content" would be two lies at once:
-   the box fits, and the fix is a simpler figure or a bigger box.
-   The floor is **ABSOLUTE canvas px, not a fraction of the type scale** — a ratio against
-   `--fs-meta` would pass the same rendered glyph in landscape (meta 14px) and fail it in portrait
-   (27px), which is not a floor. Calibrated at **8px** by rendering every shipped chart gallery
-   through the emulator — the surface the gate runs on, so the numbers are the ones a deck really
-   gets. (Measure it the same way if you re-calibrate: a figure's box, and so its scaled text,
-   depends on the viewport, so loading the exported HTML in a bare browser reports different px for
-   the same slide.)
-   **It fires on shipped output, and that is the finding, not a false positive:** `radar` page 7
-   (the `small-multiples` variant) at **6.8px**, and `state-chart` at **5.3 / 5.8 / 7.8 / 7.9 /
-   7.9px** across five gallery slides — that 5.3px is literally the "ships silently at 6px type"
-   this rule was written about. `quadrant`, `funnel`, `piechart`, `word-cloud` and `map` are all
-   clear of it. Re-sizing those two variants is a **design decision left to the owner**
-   and deliberately not taken here (HARD RULE #18: a pre-existing, off-path defect is logged, not
-   pulled into this diff).
+   multiplied by the viewBox→box scale — and compares it to `FIGURE_TEXT_FLOOR_RATIO`.
+   Single-sourced and `.toString()`-injected exactly like `probeSectionOverflow`, and **both**
+   watchers run it: the live preview (`lib/runtime/index.js` — the VS Code preview and the docs
+   Playground) and the export (the emulator's inline watcher). Each stamps an amber `illegible`
+   ring plus a tab naming the measured px against the floor, off the same probe and the same
+   shared label helper (`lib/runtime/fluid-view-policy.js`), so the two cannot drift. The slide is
+   never handed to the splitter — a figure has no seam — and it is reported on its OWN stderr
+   axis, because "CLIPPED / trim content" would be two lies at once: the box fits, and the fix is
+   a simpler figure or a bigger box. It is reported **in addition to** overflow, never instead of
+   it: a slide whose box also clips stays on the overflow list and stays splittable.
+   The floor is a **fraction of SLIDE HEIGHT (1%)**, which is the only preset-invariant form. Not
+   the type scale — a ratio against `--fs-meta` would pass the same rendered glyph in landscape
+   (meta 14px) and fail it in portrait (27px). And not absolute px either, which was this rule's
+   first answer and wrong for the mirror-image reason: a deck is displayed scaled-to-fit, so one
+   `state-chart` design measures **5.2px at `square`, 6.7px at `portrait`, 7.9px at `hd` and
+   23.7px at `4K`** — a 4.5× spread on one design, with an 8px floor silently passing it at one
+   preset. As a fraction, `hd` and `4K` agree exactly. 1% is a legibility judgment (~2mm on a
+   laptop-sized slide, ~2cm projected), not a number fitted to the catalog.
+   (Measure the same way if you re-calibrate: through `node lattice-emulator.js`, not by loading
+   the exported HTML in a bare browser — a figure's box, and so its scaled text, depends on the
+   viewport, so a bare page load reports different numbers for the same slide.)
+   **It fires on shipped output, and that is the finding, not a false positive** — nine gallery
+   slides: `state-chart` p6/p5/p9 at **0.68 / 0.74 / 0.99%**, `radar` p7 (the `small-multiples`
+   variant) at **0.94%**, and five mermaid `diagram` pages at **0.65–0.92%**. That 0.65% is
+   literally the "ships silently at 6px type" this rule was written about.
+   **Disclosed rather than papered over:** the catalog straddles the floor closely — `diagram`
+   p12/p29 at **1.02 / 1.03%** and `quadrant`'s densest at **1.07%** are one re-tune from ringing;
+   `piechart` (1.33%), `word-cloud` (1.38%), `map` (1.78%), `funnel` (1.86%) and `gantt` (2.24%)
+   clear with room. The floor was **not** moved to buy that margin: a floor chosen to keep the
+   catalog quiet is not a floor. Re-sizing the ringing variants is a **design decision left to the
+   owner** and deliberately not taken here (HARD RULE #18: a pre-existing, off-path defect is
+   logged, not pulled into this diff). The ring is authoring-only — the emulator strips it before
+   printing, so no committed PDF changes.
 9. **☑ GATE MADE REAL (P-envelope).** The mechanism shipped, but the gate this rule
    demands was HOLLOW: it keyed on the CLASS `lat-split-cover`, which only the plain path
    and `cover-paginate`/`cover-cards` emit. The per-layout strategies emit their own
@@ -1064,3 +1098,43 @@ legibility floor, one *discriminator* (not "one bit") atop a retained vector,
 deterministic atomization with relationship signals, and the coverage table
 corrected — plus five new binding rules and three new phases for the failure modes a
 build would otherwise hit.
+
+### Third trio pass (2026-07-27) — on the P-envelope BUILD, not the doc
+
+The first two passes hardened the *model*. This one ran against the shipped diff — the
+code, the CSS and the rendered PDFs — and it found what a doc review structurally
+cannot: eleven defects, six of them in output a reader would actually see. Every one
+was fixed in the same change (HARD RULE #18); none was filed and shipped.
+
+- **Red team** — three that reached the page. (1) In `--print`, five of the six cover
+  classes rendered a **blank sheet**: the de-flood was keyed on the `lat-split-cover`
+  class rather than the role, so the per-layout covers got neither the light panel nor
+  their own accent field — `--on-accent` white on white, **1.00:1**, measured. (2) The
+  conservation hoist compared stripped TEXT against RAW emitted HTML, so italicising one
+  word in a key insight produced **two identical insight slides**. (3) A member's label
+  was read from a `<strong>` anywhere in its body, so a bolded phrase mid-sentence became
+  the wayfinding signal.
+- **Munger inversion** — the floor itself was wrong. An absolute 8px canvas floor
+  *looked* preset-invariant and is not: the same `state-chart` figure measures 5.2px at
+  `square` and 23.7px at `4K`, a 4.5× spread on one design, with an 8px floor silently
+  passing it at one preset. The floor is now a fraction of slide height, which is the
+  only form that holds across presets.
+- **Independent checker** — the most valuable finding was a **silent content-loss
+  regression the whole rest of the review would have missed**: the legibility branch
+  `return`ed before the overflow check, so one small viewBox figure anywhere on a slide
+  removed it from the overflow list — no ring, no warning, and autosplit never saw it, so
+  a splittable slide shipped clipped. Reproduced against `origin/main` in both directions.
+  It also caught: the running footer collapsed to **38px** on every split page (an
+  un-capped nowrap rail left the footer as the band's only shrinkable item); a third
+  redline blockquote printed on both pages; `deriveAxis` overruling a declared read-across
+  axis in one direction and refusing a real seam in the other; the type-floor ring having
+  **no live-preview surface at all** while this doc claimed it had one; and three prose
+  claims that had gone false (the `--fs-meta` floor, the `glossary` example, and this
+  doc's own credit to the rule-6 gate for a duplication a containment check cannot detect).
+
+**What the pass says about the gates.** Two of the three worst defects were invisible to
+every automated gate in the repo — `npm test`, `lint` and `build:check` were all green
+across them — and both were found by *rendering the artifact and looking at it*. The
+rule-6 conservation gate is a genuine gate and it earned its keep (five real drops), but
+its published scope is now stated honestly: it detects **drops, not duplication**, and
+FM-2 needs its own assertions, which the suite now carries.

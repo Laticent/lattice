@@ -474,6 +474,25 @@ describe('core: carousel — redline-blocks (redline portrait SPLIT)', () => {
     const one = '<h2>X</h2><p><code>cite</code></p><blockquote><p>one passage</p></blockquote>';
     assert.equal(carouselize(rlTag, one, rlRecipe), null);
   });
+
+  test('a THIRD blockquote is the key insight — its own closing page, printed ONCE', () => {
+    // FM-2 by another route, and the one the rule-6 conservation gate structurally cannot see:
+    // a third top-level blockquote was in neither drop-set, so it survived on BOTH pages, and
+    // the hoist's containment check then found its text already emitted and stood down. The
+    // result was two body pages each carrying the takeaway, and no insight page at all.
+    const withInsight = rlInner.replace(
+      '<footer>F</footer>',
+      '<blockquote><p>One duty is cheaper to audit than two.</p></blockquote><footer>F</footer>',
+    );
+    const out = carouselize(rlTag, withInsight, rlRecipe);
+    const copies = out.join('').split('One duty is cheaper to audit').length - 1;
+    assert.equal(copies, 1, 'the key insight appears exactly once across the run');
+    assert.equal(out.filter((p) => /\sdata-split-role="insight"/.test(p)).length, 1);
+    assert.match(out.at(-1), /One duty is cheaper to audit/);
+    // …and the two passages are still where they belong.
+    assert.match(out[0], /blockquote class="rl-old"/);
+    assert.match(out[1], /blockquote class="rl-new"/);
+  });
 });
 
 describe('core: carousel — kanban-lanes (kanban portrait, one lane per slide)', () => {

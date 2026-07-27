@@ -21,8 +21,9 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   splitEnvelope, balancedPerPage, readCover, readMasthead, splitRegions, topLevelElements,
-  chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote,
+  chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote, deriveAxis,
 } = require('../../../lib/core/split-envelope');
+const { dockInFooterCell } = require('../../../lib/core/footer-dock');
 const { evenGroups } = require('../../../lib/core/collections');
 const { resplitDoc, applyRails } = require('../../../lib/core/auto-split');
 const { splitSections } = require('../../../lib/core/split-sections');
@@ -674,5 +675,84 @@ describe('core: split-envelope — footerCell / stripChrome', () => {
     assert.equal(stripChrome(nested, chrome), '<div><nav class="pager">1</nav></div>');
     // Tolerates a slice that begins mid-nesting (kanban's board closes).
     assert.equal(stripChrome(`</div></div>${chrome.footer}`, chrome), '</div></div>');
+  });
+});
+
+describe('core: deriveAxis — the DOM is the authority, within the manifest\'s claim (§8 rule 1)', () => {
+  const svg = '<svg viewBox="0 0 10 10"><text>x</text></svg>';
+  const ul = '<ul><li>a</li><li>b</li></ul>';
+  const table = '<table><tbody><tr><td>a</td></tr></tbody></table>';
+
+  test('reads the rendered container when nothing is declared', () => {
+    assert.equal(deriveAxis(`<h2>T</h2>${ul}`), 'item');
+    assert.equal(deriveAxis(`<h2>T</h2>${table}`), 'row');
+    assert.equal(deriveAxis('<h2>T</h2><p>prose</p>'), null);
+  });
+
+  test('a bare inline <svg> (no viewBox) is an icon, not the slide\'s collection', () => {
+    assert.equal(deriveAxis(`<h2>T</h2><svg><path/></svg>${ul}`), 'item');
+  });
+
+  test('the DECLARED axis wins over a foreign container that happens to come first', () => {
+    // An author's table above an `inventory` slide's record bullets used to derive `row`: the
+    // splitter cut between table rows and repeated all six records on all three pages.
+    assert.equal(deriveAxis(`<h2>T</h2>${table}${ul}`, ['item']), 'item');
+    // …and symmetrically, a component that really is row-shaped still gets `row`.
+    assert.equal(deriveAxis(`<h2>T</h2>${table}${ul}`, ['row']), 'row');
+  });
+
+  test('a declared col/cell axis is a VETO — read-across has no seam to derive', () => {
+    assert.equal(deriveAxis(`<h2>T</h2>${table}`, ['col']), null);
+    assert.equal(deriveAxis(`<h2>T</h2>${table}`, ['cell']), null);
+    assert.equal(deriveAxis(`<h2>T</h2>${ul}`, ['cell']), null);
+  });
+
+  test('with nothing declared, a real collection outranks a figure whatever the order', () => {
+    // `figure` is not splittable, so first-by-position let a decorative caption veto the split.
+    assert.equal(deriveAxis(`<h2>T</h2>${svg}${ul}`), 'item');
+    assert.equal(deriveAxis(`<h2>T</h2>${svg}${table}`), 'row');
+    // A figure ALONE still derives `figure` — that is rule 8's subject, and it has no seam.
+    assert.equal(deriveAxis(`<h2>T</h2>${svg}`), 'figure');
+  });
+});
+
+describe('core: dockInFooterCell — ONE docking rule for both footer marks (HARD RULE #15)', () => {
+  const mark = '<nav class="lat-split-rail"></nav>';
+
+  test('docks just LEFT of the page number when the band has one', () => {
+    const inner = '<div class="cell-footer"><footer>F</footer><span class="lat-pagination">3</span></div>';
+    assert.equal(
+      dockInFooterCell(inner, mark),
+      `<div class="cell-footer"><footer>F</footer>${mark}<span class="lat-pagination">3</span></div>`,
+    );
+  });
+
+  test('docks at the END of the cell when the deck is `paginate: false`', () => {
+    const inner = '<div class="cell-footer"><footer>F</footer></div>';
+    assert.equal(dockInFooterCell(inner, mark), `<div class="cell-footer"><footer>F</footer>${mark}</div>`);
+  });
+
+  test('no footer Cell → appended at section level, where CSS keeps its own berth', () => {
+    assert.equal(dockInFooterCell('<h2>T</h2>', mark), `<h2>T</h2>${mark}`);
+  });
+
+  test('finds the cell wherever it sits — a NESTED, non-terminal band never drops the mark', () => {
+    // The `$`-anchored regex both call sites used to carry only matched a `.cell-footer`
+    // whose `</div>` ended the section. kanban-lanes docks the band INSIDE the board, so on a
+    // `paginate: false` kanban page neither branch matched and the k-of-N rail vanished.
+    const inner = '<div class="board"><div class="cell-footer"><footer>F</footer></div><div class="col">c</div></div>';
+    const out = dockInFooterCell(inner, mark);
+    assert.equal(
+      out,
+      `<div class="board"><div class="cell-footer"><footer>F</footer>${mark}</div><div class="col">c</div></div>`,
+    );
+  });
+
+  test('nesting INSIDE the cell is respected — the mark lands at the cell\'s own close', () => {
+    const inner = '<div class="cell-footer"><div class="x"><footer>F</footer></div></div>';
+    assert.equal(
+      dockInFooterCell(inner, mark),
+      `<div class="cell-footer"><div class="x"><footer>F</footer></div>${mark}</div>`,
+    );
   });
 });

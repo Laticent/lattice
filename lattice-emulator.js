@@ -511,8 +511,12 @@ const md = WANT_PRINT ? withPrintClass(mdRaw) : mdRaw;
 // matter > default). Logic lives in lib/resolve-palette.js so it can
 // be unit-tested in isolation; see test/unit/palette-resolution.test.js.
 const { resolvePalette } = require('./lib/core/resolve-palette');
-const { CLIP_CELL_SELECTOR, PROBE_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_PX } = require('./lib/core/overflow-probe');
+const { CLIP_CELL_SELECTOR, PROBE_SRC, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO } = require('./lib/core/overflow-probe');
 const { SETTLE_FONTS_SRC } = require('./lib/core/font-settle');
+const {
+  LEGIBILITY_TAB_TEXT_SRC,
+  LEGIBILITY_TAB_ACTION_SRC,
+} = require('./lib/runtime/fluid-view-policy');
 // An image set's `--image-mode light|dark` forces the palette's light / dark variant
 // (the same `<name>-dark` companion the Studio's dark export picks — HARD RULE #1),
 // on top of the normal precedence chain. `inherit`/`print` leave the resolved name alone
@@ -1439,6 +1443,13 @@ function splitTopLevelSections(latticeHtml) {
   return out;
 }
 
+// §8 rule 10 — the slides the DEFER-ONLY static pass named as at-risk from its count estimate.
+// Module-level because the pass runs during assembly and the MEASURED loop that owns every cut
+// runs later, in the export path: "defer" has to mean the measured loop is actually asked, not
+// that a number is printed. Ordinals (1-based slide positions), matching the `data-lattice-slide`
+// the assembler stamps immediately after.
+let DEFERRED_BY_COUNT = [];
+
 function engineSlides() {
   const latticeEngine = require('./lib/engine');
   // mathOutput:'html' drops KaTeX's hidden MathML annotation — it can't be read
@@ -1473,8 +1484,10 @@ function engineSlides() {
     // the AUTHORING-shape axis, and the two can disagree.
     const r = require('./lib/core/auto-split').autoSplitDeck(renderedHtml, SPLIT_CAP);
     html = r.html;
-    if (r.deferred?.length && !QUIET) {
-      console.log(`  auto-split (static estimate): ${r.deferred.length} slide(s) over capacity — page${r.deferred.length > 1 ? 's' : ''} ${r.deferred.join(', ')}; the measured pass decides`);
+    DEFERRED_BY_COUNT = r.deferred || [];
+    if (DEFERRED_BY_COUNT.length && !QUIET) {
+      const n = DEFERRED_BY_COUNT.length;
+      console.log(`  auto-split (static estimate): ${n} slide(s) over capacity — page${n > 1 ? 's' : ''} ${DEFERRED_BY_COUNT.join(', ')}; deferred to the measured pass`);
     }
   }
   const imageScrim = require('./lib/transformers/image-scrim');
@@ -1847,6 +1860,12 @@ ${stateChartScript}
   var CLIP_CELL_SELECTOR = ${JSON.stringify(CLIP_CELL_SELECTOR)};
   var probeSectionOverflow = ${PROBE_SRC};
   var probeFigureLegibility = ${LEGIBILITY_SRC};
+  // The legibility tab's LABEL and its add/update/remove decision are injected from the
+  // same policy module the live runtime imports (lib/runtime/fluid-view-policy.js), not
+  // re-typed here — the two watchers stamp the same class and must not drift in what they
+  // call the same measurement (HARD RULE #15).
+  var legibilityTabText = ${LEGIBILITY_TAB_TEXT_SRC};
+  var legibilityTabAction = ${LEGIBILITY_TAB_ACTION_SRC};
   var settleFonts = ${SETTLE_FONTS_SRC};
   function check(){
     document.querySelectorAll('section[data-lattice-slide]').forEach(function(s){
@@ -1857,22 +1876,23 @@ ${stateChartScript}
       // §8 rule 8 — a viewBox figure NEVER overflows its box; it shrinks its own text instead,
       // so the probe above is blind to it by construction. Ring it separately when the figure's
       // rendered type falls below the deck's own smallest size.
-      var leg = probeFigureLegibility(s, ${FIGURE_TEXT_FLOOR_PX});
+      var leg = probeFigureLegibility(s, ${FIGURE_TEXT_FLOOR_RATIO});
       var under = !!(leg && leg.under);
       s.classList.toggle('illegible', under);
       // The labelled tab — the ring is colour-only (WCAG 1.4.1), so name the condition in text,
       // and name it with the NUMBERS, since "too small" is only actionable next to the floor it
       // missed. Presence-guarded; position:absolute, so it never changes the measured height.
       var tab = s.querySelector(':scope > .illegible-tab');
-      if (under && !tab) {
+      var legAction = legibilityTabAction({ under: under, hasTab: !!tab });
+      if (legAction === 'add') {
         tab = document.createElement('div');
         tab.className = 'illegible-tab';
-        tab.textContent = 'Type ' + leg.minPx + 'px · floor ' + leg.floorPx + 'px';
+        tab.textContent = legibilityTabText(leg);
         s.appendChild(tab);
-      } else if (!under && tab) {
+      } else if (legAction === 'update') {
+        tab.textContent = legibilityTabText(leg);
+      } else if (legAction === 'remove') {
         tab.remove();
-      } else if (under && tab) {
-        tab.textContent = 'Type ' + leg.minPx + 'px · floor ' + leg.floorPx + 'px';
       }
     });
   }
@@ -2110,7 +2130,7 @@ async function renderBody(browser, g, closeBrowser) {
   // clientHeight) — the signal both the author warning and the measured auto-split
   // pass below read. Scope to real slide sections only — `<section>` literals inside
   // code blocks parse as nested DOM and would pollute the indices.
-  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, probeSrc, legibilitySrc, floorPx }) => {
+  const measureOverflow = () => g(() => page.evaluate(({ structuralCarousel, paginatorCarousel, clipSel, probeSrc, legibilitySrc, floorRatio }) => {
     const TOL = 12; // filter sub-pixel rounding; see lattice-runtime.js
     // Cell-aware probe (lib/core/overflow-probe.js, injected verbatim): a bounded
     // content cell that clips hides its overflow from section.scrollHeight, so we
@@ -2127,12 +2147,19 @@ async function renderBody(browser, g, closeBrowser) {
       // overflows its box, it shrinks its own text, so `probe.over` is structurally blind to it
       // and a dense figure ships silently at 6px type. Reported on its own axis, and NEVER
       // splittable — a figure has no seam to divide, so the honest answer is the ring.
-      const leg = probeFigureLegibility(s, floorPx);
-      if (leg?.under) {
-        out.push({ slide: i + 1, ratio: 1, canSplit: false, splitRatio: 1, illegible: leg });
+      const leg = probeFigureLegibility(s, floorRatio);
+      const illegible = leg?.under ? leg : null;
+      if (illegible && !over) {
+        // Illegible while its box FITS: nothing to split (a figure has no seam), so record and stop.
+        out.push({ slide: i + 1, ratio: 1, canSplit: false, splitRatio: 1, illegible });
         return;
       }
       if (!over) return;
+      // …and a slide that is BOTH illegible and clipping must be reported on BOTH axes. Returning
+      // early above swallowed such a slide's CLIPPED warning and its split — flagged as a latent
+      // ordering hazard by the HARD RULE #25 inversion pass, which could not construct the
+      // co-occurrence (once the box overflows the figure stops being squeezed) but was right that
+      // nothing prevented it. `illegible` now rides along on the record instead of replacing it.
       const C = probe.clientH;
       const ratio = C > 0 ? probe.scrollH / C : 2;
       // A STRUCTURAL carousel (cover-code/cover-sides) re-authors a side-by-side layout to
@@ -2141,7 +2168,7 @@ async function renderBody(browser, g, closeBrowser) {
       // it). Mark it splittable and let resplitDoc's carousel branch own it (the ratio is
       // irrelevant to a structural re-author).
       if (structuralCarousel.some((c) => s.classList.contains(c))) {
-        out.push({ slide: i + 1, ratio, canSplit: true, splitRatio: ratio });
+        out.push({ slide: i + 1, ratio, canSplit: true, splitRatio: ratio, illegible });
         return;
       }
       // A VERTICAL PAGINATOR (cover-paginate) divides a row/item collection; it can only fix
@@ -2150,7 +2177,7 @@ async function renderBody(browser, g, closeBrowser) {
       // for the ring (this is the guard that lets a wide compare-table / obligation-matrix
       // carry a split recipe without ever ballooning).
       if (paginatorCarousel.some((c) => s.classList.contains(c))) {
-        out.push({ slide: i + 1, ratio, canSplit: vOver, splitRatio: ratio });
+        out.push({ slide: i + 1, ratio, canSplit: vOver, splitRatio: ratio, illegible });
         return;
       }
       // The auto-splitter only divides a list (ul/ol) or table — so a split can only
@@ -2220,11 +2247,27 @@ async function renderBody(browser, g, closeBrowser) {
       const headroom = C - (probe.scrollH - collH - hoistH); // room a BODY page will have
       const canSplit = vOver && collH > 0 && headroom > C * 0.2;
       const splitRatio = canSplit ? Math.max(2, collH / headroom) : ratio;
-      out.push({ slide: i + 1, ratio, canSplit, splitRatio });
+      out.push({ slide: i + 1, ratio, canSplit, splitRatio, illegible });
     });
     return out;
-  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, floorPx: FIGURE_TEXT_FLOOR_PX }), 'measure overflow');
+  }, { structuralCarousel: STRUCTURAL_CAROUSEL_NAMES, paginatorCarousel: PAGINATOR_CAROUSEL_NAMES, clipSel: CLIP_CELL_SELECTOR, probeSrc: PROBE_SRC, legibilitySrc: LEGIBILITY_SRC, floorRatio: FIGURE_TEXT_FLOOR_RATIO }), 'measure overflow');
   let overflow = await measureOverflow();
+  // …plus the slides the static COUNT estimate deferred (§8 rule 10). Deferral has to be real: a
+  // slide over `capacity.hard` may still FIT, so a measured pass fed only by box spill would never
+  // see it, the count signal would do nothing, and `lint:deck`'s `capacity-autosplit` advisory
+  // ("auto-split will divide it into 2 pages of 4") would describe a split that never happens — the
+  // same lie-to-the-author defect this branch fixed once already. So they enter the first measured
+  // pass as candidates, and the render-time builder — reading the real DOM, on the derived axis,
+  // with a cover — makes the cut, which is exactly what the rule asks. `ratio: 2` lets the AUTHORED
+  // target govern the pacing (`resplitDoc` takes the tighter of target and ratio-implied), so an
+  // over-capacity-but-fitting slide paces the way its manifest says, not the way a box measurement
+  // it never failed would. First pass only: after it, slide numbers have shifted.
+  if (AUTOSPLIT_APPLIES && DEFERRED_BY_COUNT.length) {
+    const measured = new Set(overflow.map((o) => o.slide));
+    overflow = overflow.concat(
+      DEFERRED_BY_COUNT.filter((n) => !measured.has(n)).map((n) => ({ slide: n, ratio: 2, canSplit: true, splitRatio: 2, byCount: true })),
+    );
+  }
   // MEASURED auto-split — the loop that makes "split" fit REAL boxes. Divide every
   // overflowing SPLITTABLE slide by how much it overflows, re-render, re-measure,
   // until the deck fits or only un-splittable overflow remains (read-across / atomic /
@@ -2270,13 +2313,15 @@ async function renderBody(browser, g, closeBrowser) {
   if (illegible.length) {
     const n = illegible.length;
     console.warn(`  ⚠ TYPE FLOOR — ${n} viewBox figure${n > 1 ? 's' : ''} render${n > 1 ? '' : 's'} text below the ` +
-      `${illegible[0].illegible.floorPx}px legibility floor: ` +
-      illegible.map((o) => `page ${o.slide} at ${o.illegible.minPx}px`).join(', ') + '.');
+      `legibility floor (${(FIGURE_TEXT_FLOOR_RATIO * 100).toFixed(2)}% of slide height = ${illegible[0].illegible.floorPx}px here): ` +
+      illegible.map((o) => `page ${o.slide} at ${o.illegible.minPx}px (${o.illegible.pct}%)`).join(', ') + '.');
     console.warn('    A container-responsive figure never overflows — it scales its own labels instead, so the');
     console.warn('    overflow check cannot see this. Simplify the figure (fewer labels, shorter text), give it a');
     console.warn('    bigger box, or split it across slides. The export stays clean — no ring is printed.');
   }
-  const overflowing = overflow.filter((o) => !o.illegible).map((o) => o.slide);
+  // A slide can be on BOTH lists — its box clips AND its figure is illegible. Only the ones that
+  // are illegible while their box FITS are off this one; for them "CLIPPED" would be a lie.
+  const overflowing = overflow.filter((o) => !o.illegible || o.ratio > 1).map((o) => o.slide);
   if (overflowing.length) {
     const n = overflowing.length;
     console.warn(`  ⚠ OVERFLOW — ${n} slide${n > 1 ? 's' : ''} exceed the frame and ${n > 1 ? 'are' : 'is'} CLIPPED in this export: page${n > 1 ? 's' : ''} ${overflowing.join(', ')}.`);

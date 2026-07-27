@@ -1203,8 +1203,11 @@ section:not(.overflow) > .overflow-tab { display: none; }
    it never spills its box, it shrinks its own labels — so the overflow probe (box spill and
    nothing else) is structurally incapable of seeing a figure that has scaled its text to 6px,
    and the slide ships silently unreadable. `lib/core/overflow-probe.js`'s
-   `probeFigureLegibility` measures the figure's rendered on-page glyph size against the deck's
-   own smallest type (`--fs-meta`) and the watcher stamps `illegible` below it.
+   `probeFigureLegibility` measures the figure's rendered on-page glyph size against a fraction
+   of the SLIDE's own height (`FIGURE_TEXT_FLOOR_RATIO`, 1%) — a preset-invariant floor, since
+   the same design at 1080p and at 4K must pass or fail the same way — and the watcher stamps
+   `illegible` below it. Both watchers do: the live preview (lib/runtime/index.js) and the
+   export (the emulator's inline watcher), off the same injected probe.
 
    A DISTINCT signal, not the overflow ring: the box does fit, and the fix is a simpler figure
    or a bigger box — not "trim content". Amber rather than red for the same reason, and the two
@@ -1373,7 +1376,11 @@ section.form > .cell-footer > .lat-split-rail {
    the footer text becomes a real flex item that ABSORBS the free space and ellipsises instead
    of overrunning — `flex-grow`, not `margin-right:auto` (HARD RULE #20 — a margin is invisible
    to the height math the Fit Spine measures). Scoped by `:has(> .lat-split-rail)` to split-run
-   pages only: the un-split band keeps its current geometry byte for byte. */
+   pages only: the un-split band keeps its current geometry byte for byte.
+   This only WORKS because the docked section rail keeps a width reserve (stage.css,
+   `--footer-center-w`): a flex item can only absorb free space if its siblings can give it up,
+   and an un-capped nowrap rail cannot. Measured on examples/split-relationship.pdf at 1036px of
+   band: footer 485/485px (nothing truncated), rail capped at 282, k-of-N and page number clear. */
 section.form > .cell-footer:has(> .lat-split-rail) > footer,
 section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
@@ -1435,14 +1442,24 @@ section.lat-split-cover .split-feat-lede {
    rest; the split cover is the same kind of full-bleed field, so in print it follows them
    rather than inventing a third answer. Caught by the trio on a real print render — the blue
    field became a black page between two ink-on-white slides. Palette-blind (#3): every value
-   is a token, and the color modes are untouched (this rule is print-scoped). */
-section.print.lat-split-cover { background: var(--surface-inverse); }
-section.print.lat-split-cover,
-section.print.lat-split-cover .split-feat-h { color: var(--text-heading); }
-section.print.lat-split-cover .split-feat-eye,
-section.print.lat-split-cover .split-feat-sub,
-section.print.lat-split-cover .split-feat-lede,
-section.print.lat-split-cover .split-cover-lead { color: var(--text-body); }
+   is a token, and the color modes are untouched (this rule is print-scoped).
+
+   Keyed on `data-split-role="cover"`, NOT `.lat-split-cover`: the shared cover is only ONE
+   of six cover classes — the read-across strategies each emit their own
+   (`compare-split-cover`, `split-panel-cover`, `list-tabular-cover`, `decision-cover`,
+   `compare-code-cover`). Keyed on the class, those five got no de-flood AND no accent
+   flood either, because `section.print` (above, later in the bundle than any component
+   sheet) repaints `--bg` over their layout's accent field — leaving `--on-accent` white
+   text on a white page at 1.00:1, a blank sheet. The role stamp is what all six share
+   (split-envelope.js `withRole`), so the print answer is keyed on the role, exactly as the
+   cover-chrome contrast block below is. */
+section.print[data-split-role="cover"] { background: var(--surface-inverse); }
+section.print[data-split-role="cover"],
+section.print[data-split-role="cover"] .split-feat-h { color: var(--text-heading); }
+section.print[data-split-role="cover"] .split-feat-eye,
+section.print[data-split-role="cover"] .split-feat-sub,
+section.print[data-split-role="cover"] .split-feat-lede,
+section.print[data-split-role="cover"] .split-cover-lead { color: var(--text-body); }
 /* compare-table's split cover carries ONE signature from the live layout — the --spectrum
    strip that underlines its <thead> (compare-table.styles.css) — so a split reads as the
    same deck. Scoped via the `split-cover-compare-table` marker the carousel stamps, NOT

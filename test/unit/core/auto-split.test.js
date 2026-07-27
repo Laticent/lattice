@@ -71,10 +71,33 @@ describe('core: the measured pass makes the cut (rule 10 retired the static one)
   });
 
   test('a non-splittable axis (col read-across) is left for the ring, never split', () => {
-    const html = sec('redline', '<table><tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody></table>');
+    // MULTI-ROW on purpose. With a single row this passed for the wrong reason — the
+    // `count <= 1` guard fired and the read-across branch was never reached, so the test
+    // would have stayed green through the whole rule-1 migration while the guard it names
+    // was gone. Three rows make the `col` veto the only thing that can stop the cut.
+    const rows = '<tr><td>a</td><td>b</td><td>c</td></tr>'.repeat(3);
+    const html = sec('redline', `<table><tbody>${rows}</tbody></table>`);
     const { html: out, splits } = measuredSplit(docify(html), cap); // 3 cols > hard 2, but col → null
     assert.equal(splits, 0);
     assert.equal(out, docify(html));
+  });
+
+  test('a DERIVED row axis never overrules a declared col: the manifest says there is no seam', () => {
+    // §8 rule 1 replaces a MISSING or mis-shaped axis; it must not route around a component
+    // that declared read-across. A read-across table renders as a plain `<table>`, so bare
+    // derivation hands back `row` and cuts between the rows the layout exists to be read across.
+    const rows = '<tr><td>a</td><td>b</td></tr>'.repeat(6);
+    const html = docify(sec('redline', `<h2>T</h2><table><tbody>${rows}</tbody></table>`));
+    assert.equal(resplitDoc(html, [{ slide: 1, ratio: 3 }], cap).changed, 0);
+  });
+
+  test('a decorative viewBox figure above the collection does not veto the split', () => {
+    // The mirror-image failure: `figure` has no seam, so taking the FIRST container by position
+    // made a small inline chart caption refuse a perfectly splittable list — the slide clipped.
+    const html = docify(sec('cards', `<h2>T</h2><svg viewBox="0 0 10 10"></svg>${list(9)}`));
+    const { html: out, changed } = resplitDoc(html, [{ slide: 1, ratio: 3 }], cap);
+    assert.equal(changed, 1);
+    assert.ok((out.match(/<section/g) || []).length > 1, 'the list is cut despite the leading figure');
   });
 
   test('a slide with no capacity entry passes through', () => {
@@ -152,7 +175,10 @@ describe('core: resplitDoc (measured pass)', () => {
   });
 
   test('a non-splittable (col read-across) overflow is left for the ring', () => {
-    const doc = docSec(1, 'redline', '<table><tbody><tr><td>a</td><td>b</td></tr></tbody></table>');
+    // Multi-row for the same reason as the block above: one row is stopped by the count guard,
+    // not by the read-across veto, so it would pass with the veto deleted.
+    const rows = '<tr><td>a</td><td>b</td></tr>'.repeat(4);
+    const doc = docSec(1, 'redline', `<table><tbody>${rows}</tbody></table>`);
     assert.equal(resplitDoc(doc, [{ slide: 1, ratio: 2 }], cap).changed, 0);
   });
 

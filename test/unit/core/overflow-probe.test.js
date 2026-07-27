@@ -13,7 +13,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   CLIP_CELL_SELECTOR, probeSectionOverflow, PROBE_SRC,
-  probeFigureLegibility, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_PX,
+  probeFigureLegibility, LEGIBILITY_SRC, FIGURE_TEXT_FLOOR_RATIO,
 } = require('../../../lib/core/overflow-probe');
 
 // Minimal fake <section>: its own box dims + a list of "clip cell" children
@@ -273,7 +273,15 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
     viewBox: { baseVal: { width: vbW, height: vbH } },
     querySelectorAll: () => texts,
   });
-  const section = (figs) => ({ querySelectorAll: (sel) => (sel === 'svg[viewBox]' ? figs : []) });
+  // `clientHeight` is the slide height the ratio floor resolves against — 720px (a `hd` canvas),
+  // so a ratio of 1/72 reads as an 10px floor and the arithmetic in these tests stays legible.
+  const SLIDE_H = 720;
+  const section = (figs, clientHeight = SLIDE_H) => ({
+    clientHeight,
+    querySelectorAll: (sel) => (sel === 'svg[viewBox]' ? figs : []),
+  });
+  /** A ratio that resolves to `px` on the default 720px slide. */
+  const floorAt = (px) => px / SLIDE_H;
 
   // The probe reads getComputedStyle(t).fontSize; the fakes carry it on `__fs`.
   const withStubbedStyle = (fn) => {
@@ -288,11 +296,11 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
   test('scale is applied: user units × the viewBox→box ratio is the ON-PAGE size', () => {
     withStubbedStyle(() => {
       // 11 user units in a 300-unit viewBox rendered into a 600px box → 22px on the page.
-      const big = probeFigureLegibility(section([svg({ boxW: 600, boxH: 600, texts: [text(11)] })]), 8);
+      const big = probeFigureLegibility(section([svg({ boxW: 600, boxH: 600, texts: [text(11)] })]), floorAt(8));
       assert.equal(big.minPx, 22);
       assert.equal(big.under, false);
       // …the SAME figure in a 150px box → 5.5px, which is below the floor.
-      const small = probeFigureLegibility(section([svg({ boxW: 150, boxH: 150, texts: [text(11)] })]), 8);
+      const small = probeFigureLegibility(section([svg({ boxW: 150, boxH: 150, texts: [text(11)] })]), floorAt(8));
       assert.equal(small.minPx, 5.5);
       assert.equal(small.under, true);
     });
@@ -300,7 +308,7 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
 
   test('the SMALLEST text decides — a legible title does not rescue a 5px tick label', () => {
     withStubbedStyle(() => {
-      const r = probeFigureLegibility(section([svg({ texts: [text(24), text(11), text(5)] })]), 8);
+      const r = probeFigureLegibility(section([svg({ texts: [text(24), text(11), text(5)] })]), floorAt(8));
       assert.equal(r.minPx, 5);
       assert.equal(r.count, 3);
       assert.equal(r.under, true);
@@ -309,14 +317,14 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
 
   test('a non-square box takes the SMALLER ratio (preserveAspectRatio fits, it does not stretch)', () => {
     withStubbedStyle(() => {
-      const r = probeFigureLegibility(section([svg({ boxW: 600, boxH: 150, texts: [text(10)] })]), 8);
+      const r = probeFigureLegibility(section([svg({ boxW: 600, boxH: 150, texts: [text(10)] })]), floorAt(8));
       assert.equal(r.minPx, 5, 'the height ratio (0.5) governs, not the width ratio (2)');
     });
   });
 
   test('reported minPx rounds DOWN, so a flagged figure never prints as equal to its floor', () => {
     withStubbedStyle(() => {
-      const r = probeFigureLegibility(section([svg({ boxW: 217, texts: [text(11) ] })]), 8);
+      const r = probeFigureLegibility(section([svg({ boxW: 217, texts: [text(11) ] })]), floorAt(8));
       assert.ok(r.under, 'this is a genuine miss');
       assert.ok(r.minPx < r.floorPx, `${r.minPx} must read as below ${r.floorPx}`);
     });
@@ -324,9 +332,9 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
 
   test('nothing to judge → null (never a false "legible")', () => {
     withStubbedStyle(() => {
-      assert.equal(probeFigureLegibility(section([]), 8), null, 'no figure');
-      assert.equal(probeFigureLegibility(section([svg({ texts: [] })]), 8), null, 'a figure with no text');
-      assert.equal(probeFigureLegibility(section([svg({ texts: [text(11, '   ')] })]), 8), null, 'whitespace-only text');
+      assert.equal(probeFigureLegibility(section([]), floorAt(8)), null, 'no figure');
+      assert.equal(probeFigureLegibility(section([svg({ texts: [] })]), floorAt(8)), null, 'a figure with no text');
+      assert.equal(probeFigureLegibility(section([svg({ texts: [text(11, '   ')] })]), floorAt(8)), null, 'whitespace-only text');
       assert.equal(probeFigureLegibility(section([svg({ texts: [text(11)] })]), 0), null, 'no floor given');
     });
   });
@@ -334,17 +342,34 @@ describe('core: overflow-probe — probeFigureLegibility (§8 rule 8)', () => {
   test('a figure with no viewBox dims falls back to scale 1 rather than guessing', () => {
     withStubbedStyle(() => {
       const noVb = { getBoundingClientRect: () => ({ width: 600, height: 600 }), viewBox: null, querySelectorAll: () => [text(9)] };
-      const r = probeFigureLegibility(section([noVb]), 8);
+      const r = probeFigureLegibility(section([noVb]), floorAt(8));
       assert.equal(r.minPx, 9);
       assert.equal(r.under, false);
     });
   });
 
-  test('the floor is an absolute canvas px, so it cannot move with the preset', () => {
-    // A ratio against `--fs-meta` would pass this figure in landscape (meta 14px) and fail it in
-    // portrait (27px) — the same rendered glyph, two verdicts. The constant is the guard.
-    assert.equal(typeof FIGURE_TEXT_FLOOR_PX, 'number');
-    assert.ok(FIGURE_TEXT_FLOOR_PX > 6 && FIGURE_TEXT_FLOOR_PX < 12, `implausible floor: ${FIGURE_TEXT_FLOOR_PX}`);
+  test('the floor is a FRACTION OF SLIDE HEIGHT, so one design gets one verdict on every preset', () => {
+    // The same figure at the same design measures 5.2px on `square` and 23.7px on `4K`; an absolute
+    // px floor therefore passed it on one preset and failed it on another. As a fraction of slide
+    // height the two agree, which is what an invariant floor has to do.
+    assert.equal(typeof FIGURE_TEXT_FLOOR_RATIO, 'number');
+    assert.ok(FIGURE_TEXT_FLOOR_RATIO > 0.005 && FIGURE_TEXT_FLOOR_RATIO < 0.03, `implausible ratio: ${FIGURE_TEXT_FLOOR_RATIO}`);
+    // One figure, one design, two canvases: the verdict must not change.
+    withStubbedStyle(() => {
+      const fig = (boxPx) => svg({ vbW: 300, vbH: 300, boxW: boxPx, boxH: boxPx, texts: [text(9)] });
+      const short = probeFigureLegibility(section([fig(360)], 720), FIGURE_TEXT_FLOOR_RATIO);
+      const tall = probeFigureLegibility(section([fig(1080)], 2160), FIGURE_TEXT_FLOOR_RATIO);
+      assert.equal(short.under, tall.under, 'the same design got two verdicts on two presets');
+      // Within a rounding step: `pct` is floored to two decimals, and the two scales differ in the
+      // last binary place (9 × 1.2 is 10.799999…), which can land either side of a boundary.
+      assert.ok(Math.abs(short.pct - tall.pct) <= 0.02, `ratio drifted: ${short.pct} vs ${tall.pct}`);
+    });
+  });
+
+  test('a slide with no measurable height is not judged (never a divide-by-zero verdict)', () => {
+    withStubbedStyle(() => {
+      assert.equal(probeFigureLegibility(section([svg({ texts: [text(11)] })], 0), FIGURE_TEXT_FLOOR_RATIO), null);
+    });
   });
 
   test('LEGIBILITY_SRC re-inflates and behaves identically (it is injected as a string)', () => {

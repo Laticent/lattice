@@ -60,7 +60,7 @@ only *status*. **45 open** items.
 - [#577](https://github.com/SlideWright/lattice/issues/577) US English sweep: convert British spellings in prose (docs, comments, manifest text) — medium · docs
 - [#501](https://github.com/SlideWright/lattice/issues/501) fix(inventory): glossary range pill is stale on cover-paginate split pages — low · inventory
 - [#519](https://github.com/SlideWright/lattice/issues/519) examples: ship the four portrait demo decks + PDFs for the retired landscape locks — low · docs
-- [#578](https://github.com/SlideWright/lattice/issues/578) US English: rename internal UK-spelled identifiers (progress-centre, --footer-centre-*) — low · engine
+- [#578](https://github.com/SlideWright/lattice/issues/578) US English: rename internal UK-spelled identifiers (progress-centre cell id; `--footer-centre-*` is DONE) — low · engine
 
 ## In progress (0)
 

@@ -897,7 +897,8 @@ const SANCTIONED_HEX = [
     file: 'lib/base/base.modifiers.css', hex: '#b8730a', count: 2,
     why: 'TYPE-FLOOR warning ring + tab fill (§8 rule 8) — the same fixed-authoring-alarm exception '
        + 'as the overflow red above, in amber so the two signals stay distinguishable: the box FITS, '
-       + 'the figure has scaled its own labels below the deck\'s smallest type, and the fix is a '
+       + 'the figure has scaled its own labels below the legibility floor (1% of slide height, '
+       + 'preset-invariant), and the fix is a '
        + 'simpler figure rather than less content (documented at the declaration, base.modifiers.css '
        + '"The TYPE-FLOOR ring").',
   },

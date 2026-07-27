@@ -202,11 +202,22 @@ section.form > .cell-footer > .lat-pagination {
   pointer-events: none;
 }
 /* The progress rail docks in-flow in the footer row (de-absolute-positioned) when
- * the frame has a footer Cell — grouped just left of the page number. */
+ * the frame has a footer Cell — grouped just left of the page number.
+ * It KEEPS the centre zone's width reserve (--footer-center-w) rather than
+ * `max-width: none`. In flow the reserve is not decoration: the rail's label is
+ * `white-space: nowrap`, so its min-content contribution is the FULL label width
+ * (`.seg`'s `min-width: 0` lowers the automatic minimum, it does not lower the
+ * contribution) — un-capped, a long section name made the rail an unshrinkable
+ * 730px flex item and the running footer, the only shrinkable sibling, collapsed
+ * from 431px of text to 38px: a single clipped glyph, measured on
+ * examples/split-relationship.pdf. `min-width: 0` lets the rail take its share of
+ * any remaining deficit, and `.seg` ellipsises inside it (progress.css) — which is
+ * what the reserve was always for. */
 section.form > .cell-footer > .tile-progress {
   position: static;
   inset: auto;
-  max-width: none;
+  max-width: var(--footer-center-w);
+  min-width: 0;
 }
 /* Retire the pagination PSEUDO wherever the real element exists (the decorative
  * numbered-divider numeral, a different `::after`, is untouched). */
