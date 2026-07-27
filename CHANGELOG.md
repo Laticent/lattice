@@ -364,6 +364,28 @@ in patch versions.
   `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
   `backends/vivus.ts`.)
 ### Changed
+- **Every chart that draws SVG now draws all of it — the last two HTML labels moved into their
+  viewBoxes.** `word-cloud`'s `size = frequency` key and `radar`'s small-multiple captions were the
+  only HTML text left in an otherwise-SVG figure (243 and 22 characters respectively), and both flip
+  those components from `render: hybrid` to `svg` — derived and gated, not asserted. Concretely: a
+  small-multiples radar exported as a standalone `.svg` used to come out as four unnamed shapes and a
+  word cloud without the legend explaining its one encoding; chart-motion animated the minis while
+  their names sat still; and word-cloud's key scaled with `--fs-*` while the cloud scaled with its
+  svg box, so the two drifted apart as the container changed. The chart family is now seven SVG, two
+  hybrid (`state-chart`, `journey` — both structural, not stray labels), four HTML.
+
+  Both conversions are deliberately **size-neutral** and were measured, not eyeballed: radar's
+  caption renders at 10.78px as before with the diagram unchanged at 188.0px, and word-cloud's key
+  type and rhythm reproduce the token scale it replaces. Two traps are recorded in the decision note
+  because the last SVG conversion predicted them — growing radar's viewBox without updating the CSS
+  divisor would have shrunk the diagram 14% inside an unchanged box, and applying the family's
+  `FS = 0.045 · height` key rule to a mini (rendered at a fraction of the body) would have shrunk the
+  caption to 8.5px, the rule defeating its own intent. The spine geometry is now a shared
+  `buildSpine` in `svg-legend.js` instead of a third inline copy of the same gradient — a byte-identical
+  extraction, verified by diffing rendered output for all four keyed charts. Removed as dead:
+  `--chart-spine` / `-w` / `-h` and `--wc-cloud-frac`. A new CSS-mirror test gates the kernel viewBox
+  against the CSS divisor, since nothing else would fail if they drifted.
+  See `engineering/decisions/2026-07-27-chart-family-all-svg.md`.
 
 
 - **Chart motion is a first-class SETTING — a Motion tab with Play, Style, and Speed.** The in-place
@@ -4869,6 +4891,12 @@ in patch versions.
   `lib/base/base.docs.md § Custom logo` and `examples/custom-logo.md`.
 
 ### Fixed
+- **`engineering/decisions/2026-06-13-svg-native-legend.md` §7 claimed "word-cloud never had a key."**
+  It had one — an `aria-hidden` `size = frequency` A-ramp in the right rail — and the claim stood for
+  six weeks. The scoping decision it justified was still right (a size ramp is not the
+  swatch·label·value row model `buildSvgLegend` builds), but the stated reason was false. Corrected in
+  place with a dated note rather than a rewrite. It was surfaced by the `render` derivation reporting
+  `hybrid`, which is the argument for deriving rather than asserting, made against a decision record.
 - **The type-floor ring is an AUTHOR signal and now stays off a reader's screen.** The live
   watcher ran it ungated, so a `--fluid` export — the shared, reader-facing one — printed an amber
   `Type 3px · floor 8.4px` diagnostic over the deck header on 7 of 11 slides of the `state-chart`
@@ -4968,7 +4996,6 @@ in patch versions.
   `<tbody>`-less table counted its `<thead>` row as a member, and a member's label was read from a
   `<strong>` anywhere in its body rather than a leading one (so "Sign off — the chair signs the
   **policy hash**" signalled "next: policy hash").
-
 - **`capabilities:check` — and therefore `build:check` — was red on `main`.** Seven npm scripts added
   by #1119 (`anima-player:build`/`:check`, `test:adaptive`, `test:concepts`, `test:exemplars`,
   `test:forms`, `test:transform-dsl`) were never described in `SCRIPT_META`, so the freshness gate

@@ -4,7 +4,7 @@
 
 **Function** evidence · **Form** canvas · **Substance** series
 
-**Drawn with** `hybrid` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do. The HTML half is small and is NOT the terms: a right-rail `size = frequency` key (`aria-hidden`, so assistive tech reads the SVG words rather than the ramp) explaining the one mapping a reader cannot quantify by looking.
+**Drawn with** `svg` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do — and since the 2026-07-27 conversion the `size = frequency` key and the spine share that same viewBox. Key and cloud used to scale by two different rules (`--fs-*` against the slide, the words against the svg box); now they are locked together at any size, and an export carries the legend that makes the words readable. The key stays `aria-hidden`: a screen reader gets the words themselves, not the A-ramp.
 
 **Tags** `tag-cloud` · `themes` · `proportion`
 

@@ -261,16 +261,28 @@
  * diagram, so the DIAGRAM's rendered size is unchanged; the extra width is
  * label bleed. The ratio mirrors the kernel's viewBox — 340/300. */
 :is(section.radar, figure.chart-frame) .radar-svg--mini {
+  /* Height carries the 349-unit viewBox (300 diagram + 49 caption band), so the
+   * DIAGRAM still renders at exactly --radar-mini-size and the caption adds
+   * below it — the band must not shrink the shape it names. Width then follows
+   * the viewBox aspect (340/349 × height = 340/300 × --radar-mini-size), which
+   * is why the width ratio is unchanged by the caption moving inside. Auditing
+   * these two lines FIRST is the lesson recorded in
+   * engineering/decisions/2026-06-13-svg-native-legend.md §7: on that
+   * conversion the kernel was easy and the figure sizing is what letterboxed. */
   width: calc(var(--radar-mini-size) * 340 / 300);
-  height: var(--radar-mini-size);
+  height: calc(var(--radar-mini-size) * 349 / 300);
 }
 :is(section.radar, figure.chart-frame) .radar-svg--mini .radar-axis-label {
   font-size: 11px;   /* the mini keeps the 300-unit plot, so label units too */
 }
+/* The mini's series name is an SVG <text> inside its own viewBox (2026-07-27),
+ * so this rule carries TYPE and PAINT only — position and font-size are
+ * presentation attributes in user units, emitted by radar.transform.js. Same
+ * division of labour as .radar-axis-label and .chart-key-label. */
 :is(section.radar, figure.chart-frame) .radar-mini-label {
-  font-size: var(--fs-meta);
   font-weight: 600;
-  color: var(--series-color);
+  fill: var(--series-color);
+  text-anchor: middle;
 }
 
 /* ── minimal: stroke-only polygons, fainter grid (composable) ─────────── */

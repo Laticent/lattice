@@ -112,10 +112,12 @@ unit that scales together (emitted by `svg-legend.js` — see
 `engineering/decisions/2026-06-13-svg-native-legend.md`). No CSS grid, no
 `::before` spine — the key is SVG `<text>`/`<rect>` in viewBox units, so it tracks
 the diagram at any size and the four read as one family; long labels **wrap**
-(never clip). `word-cloud` is the lone holdout: it still lays out as a CSS `grid`
-(cloud in the left ~68%, a vertical "size = frequency" ramp in the right rail)
-with a gradient **spine** drawn by `.word-cloud-canvas::after`, and it now
-**solely owns the `--chart-spine*` tokens** the keyed charts used to share.
+(never clip). `word-cloud` joined them on 2026-07-27 with a key of a different
+KIND: not swatch·label·value rows but a `size = frequency` A-ramp, since word size
+is what encodes weight there. It is emitted by the kernel rather than by
+`buildSvgLegend`, but it shares the family's **spine** (`svg-legend.js buildSpine`)
+and lives in the cloud's own viewBox, so key and words scale as one unit. The
+`--chart-spine*` tokens it used to own are deleted — nothing reads them now.
 
 **Wide diagram → bottom-centre key.** `roadmap` (status markers ✓/–/○/╱,
 emitted by `buildStatusLegend` for the states present; omitted only on
@@ -131,17 +133,22 @@ pill on each tile), so a separate key would be redundant.
 
 The keyed charts' key carries only TYPE from CSS — `.chart-key-label` / `-value`
 / `-head` set fill + route `--font-label` / `--font-mono` (so the `sketch` finish
-reskins the labels); the GEOMETRY lives in the SVG. The only CSS-rail tokens left
-are `word-cloud`'s own `--chart-spine` / `--chart-spine-w` / `--chart-spine-h` (on
-`section.word-cloud`). The roadmap/gantt/journey keys ride the shared
-`transformChartSection`, adding no slides, so cross-renderer parity holds.
+reskins the labels); the GEOMETRY lives in the SVG. `word-cloud`'s `.wc-key-*`
+rules follow the same division of labour. **No CSS-rail spine tokens remain**: the
+`--chart-spine*` trio was deleted with word-cloud's conversion, since every spine
+in the family is now drawn by `svg-legend.js buildSpine`. The
+roadmap/gantt/journey keys ride the shared `transformChartSection`, adding no
+slides, so cross-renderer parity holds.
 
 ---
 
 ## Standalone export — one chart as a self-contained `.svg`
 
-Because the four keyed charts are **one `<svg>`** (diagram + spine + key in a
-single viewBox), a chart can be lifted out of a deck as a portable file. It is
+Because the keyed charts are **one `<svg>`** (diagram + spine + key in a
+single viewBox), a chart can be lifted out of a deck as a portable file. Since
+2026-07-27 that includes `word-cloud` (key inside the viewBox) and a
+small-multiples `radar` (each mini's series name inside its own viewBox) — both
+previously exported with their labels missing. It is
 not portable *as-emitted*, though: colours are `var(--token)`/`color-mix()` and
 the key text is styled by `.chart-key-*` CSS classes, so a detached SVG with no
 stylesheet renders **black, unstyled, serif**. The export resolves this:
@@ -256,25 +263,28 @@ justifying it, and is **derived from the rendered export and gated**
 it there rather than inferring it here: the manifest is checked against reality
 every time the gate runs, and a prose table is not.
 
-Today the family splits five SVG (`funnel`, `gantt`, `map`, `piechart`,
-`quadrant` — plus `diagram`, which is SVG but is not a member of this family),
-four hybrid (`journey`, `radar`, `state-chart`, `word-cloud`), and four HTML
+Today the family splits seven SVG (`funnel`, `gantt`, `map`, `piechart`,
+`quadrant`, `radar`, `word-cloud` — plus `diagram`, which is SVG but is not a
+member of this family), two hybrid (`journey`, `state-chart`), and four HTML
 (`kanban`, `progress`, `roadmap`, `timeline-list`).
 
-The hybrids are the interesting ones, and each `renderNote` names its own seam —
-note that the seam is often smaller than you would guess, and is not always where
-the motion story is:
+`radar` and `word-cloud` were hybrid until 2026-07-27, each by a single small
+label: radar's small-multiple captions were HTML `<figcaption>`s beside the minis,
+and word-cloud's size key was an HTML rail over the canvas. Both moved into their
+viewBoxes — see `engineering/decisions/2026-07-27-chart-family-all-svg.md`. Every
+chart that draws SVG at all now draws ALL of it.
 
-- **radar** — SVG minis, each captioned by an HTML `<figcaption>` in the
-  small-multiples variant. That one caption is the whole HTML side.
-- **word-cloud** — SVG words; the HTML is the right-rail `size = frequency` key,
-  which is `aria-hidden` and carries no terms.
-- **state-chart** — the authored `<ol>` is measured and then painted over, so a
-  DEFAULT slide ends up SVG in practice; the hybrid verdict comes from the
-  `inline` variant, whose chip row is never painted over.
-- **journey** — an HTML board with an SVG mood curve and mood faces drawn across
-  it. Neither side animates: journey emits no motion roles at all (the table
-  above says the same thing from the other direction).
+The two remaining hybrids are hybrid for structural reasons, not for a stray
+label, and each `renderNote` names its seam:
+
+- **state-chart** — the authored `<ol>` is the measuring harness the browser pass
+  needs before it can route edges; once painted the list is hidden, so a DEFAULT
+  slide ends up SVG in practice. The hybrid verdict comes from the `inline`
+  variant, whose chip row is never painted over.
+- **journey** — an HTML board (a table of text that must wrap and reflow) with an
+  SVG mood curve and mood faces drawn across it. Neither side animates: journey
+  emits no motion roles at all (the table above says the same from the other
+  direction).
 
 ### The radar's asymmetry is deliberate
 

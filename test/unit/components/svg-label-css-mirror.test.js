@@ -130,6 +130,59 @@ describe('radar: kernel font sizes mirror radar.styles.css', () => {
   });
 });
 
+// ── the mini's viewBox ↔ CSS BOX mirror ─────────────────────────────────────
+// A second mirror, same trap, different quantity. The small-multiple caption
+// moved inside the mini's viewBox (2026-07-27), which made the viewBox TALLER —
+// 300 diagram + a fixed caption band. The CSS has to divide by that same total
+// or the diagram silently changes rendered size: divide by too little and the
+// mini letterboxes, by too much and it grows past the four-up row that
+// MINI_LABEL_PAD was tuned for. Nothing else would fail — it would just look
+// slightly wrong, which is the worst kind of drift.
+//
+// This is exactly the failure the SVG-native legend conversion hit and recorded
+// ("audit the component's existing aspect-ratio / max-height FIRST — the kernel
+// is the easy part"), so it gets a gate rather than a comment.
+describe('radar mini viewBox ↔ CSS box mirror', () => {
+  const css = read('lib/components/chart/radar/radar.styles.css');
+
+  // The kernel is the source of truth: load it and read the real viewBox it
+  // emits, rather than re-deriving the arithmetic here (a re-derivation that
+  // duplicates the formula would agree with a broken formula).
+  const rendered = require('../../../lib/engine').render(
+    read('lib/components/chart/radar/radar.gallery.md'), 'indaco', { preview: true },
+  ).html;
+  const vb = /class="radar-svg radar-svg--mini" viewBox="(-?[\d.]+) (-?[\d.]+) ([\d.]+) ([\d.]+)"/.exec(rendered);
+
+  test('the mini renders with a caption band below the 300-unit diagram', () => {
+    assert.ok(vb, 'no .radar-svg--mini in the rendered gallery — the mirror has nothing to check');
+    assert.ok(+vb[4] > 300, `mini viewBox height ${vb[4]} must exceed the 300-unit diagram (the caption band)`);
+  });
+
+  test('the CSS height divides by the kernel viewBox height, not by 300', () => {
+    // `height: calc(var(--radar-mini-size) * <vbH> / 300)` — the numerator MUST
+    // be the emitted viewBox height so the DIAGRAM keeps rendering at exactly
+    // --radar-mini-size and the band adds below it.
+    const m = /\.radar-svg--mini\s*\{[^}]*?height:\s*calc\(var\(--radar-mini-size\)\s*\*\s*([\d.]+)\s*\/\s*300\)/s.exec(css);
+    assert.ok(m, 'could not find the .radar-svg--mini height calc() in radar.styles.css');
+    assert.equal(+m[1], +vb[4], `CSS divides the mini box by ${m[1]} but the kernel emits a viewBox height of ${vb[4]}`);
+  });
+
+  test('the CSS width divides by 300 — the caption must not change the diagram width', () => {
+    const m = /\.radar-svg--mini\s*\{[^}]*?width:\s*calc\(var\(--radar-mini-size\)\s*\*\s*([\d.]+)\s*\/\s*300\)/s.exec(css);
+    assert.ok(m, 'could not find the .radar-svg--mini width calc() in radar.styles.css');
+    assert.equal(+m[1], +vb[3], `CSS width numerator ${m[1]} must equal the viewBox width ${vb[3]}`);
+  });
+
+  test('the caption is SVG — no <figcaption> survives in the small-multiples output', () => {
+    // Gated on RENDERED output, not on kernel source: the source still MENTIONS
+    // `<figcaption>` in the comment explaining why it no longer emits one, and a
+    // text scan cannot tell an emitter from its own epitaph.
+    assert.ok(!/<figcaption/.test(rendered),
+      'the rendered radar gallery still contains a <figcaption>; the mini caption must live in the viewBox');
+    assert.match(rendered, /<text class="radar-mini-label"/, 'no SVG mini caption in the rendered gallery');
+  });
+});
+
 describe('the mirror gate itself', () => {
   test('declaredFontSize resolves a literal px size', () => {
     assert.equal(declaredFontSize('.a { font-size: 8.5px; }', '.a'), 8.5);

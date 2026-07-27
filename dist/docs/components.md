@@ -5966,7 +5966,7 @@ See [quadrant.gallery.light.pdf](../../lib/components/chart/quadrant/quadrant.ga
 
 **Function** evidence · **Form** scatter · **Substance** series
 
-**Drawn with** `hybrid` — The web, spokes, area polygons and axis labels are `<svg>`; the small-multiples variant then labels each mini radar with an HTML `<figcaption>` beneath it, so a `mini` deck is a grid of SVG figures with HTML captions between them. Chart-motion animates the polygons; those captions do not move.
+**Drawn with** `svg` — The web, spokes, area polygons, axis labels, the key and — since the 2026-07-27 conversion — the small-multiples captions are all one `<svg>`. Each mini carries its series name in a fixed caption band inside its own viewBox, so a standalone SVG export of a small-multiples radar names its four shapes instead of shipping them blank, and chart-motion moves a mini's caption with the mini rather than leaving it behind.
 
 **Tags** `spider` · `assessment` · `positioning`
 
@@ -6693,7 +6693,7 @@ See [timeline-list.gallery.light.pdf](../../lib/components/chart/timeline-list/t
 
 **Function** evidence · **Form** canvas · **Substance** series
 
-**Drawn with** `hybrid` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do. The HTML half is small and is NOT the terms: a right-rail `size = frequency` key (`aria-hidden`, so assistive tech reads the SVG words rather than the ramp) explaining the one mapping a reader cannot quantify by looking.
+**Drawn with** `svg` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do — and since the 2026-07-27 conversion the `size = frequency` key and the spine share that same viewBox. Key and cloud used to scale by two different rules (`--fs-*` against the slide, the words against the svg box); now they are locked together at any size, and an export carries the legend that makes the words readable. The key stays `aria-hidden`: a screen reader gets the words themselves, not the A-ramp.
 
 **Tags** `tag-cloud` · `themes` · `proportion`
 
