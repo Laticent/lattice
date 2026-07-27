@@ -4846,6 +4846,8 @@ See [video.gallery.light.pdf](../../lib/components/imagery/video/video.gallery.l
 
 **Function** evidence · **Form** canvas · **Substance** series
 
+**Drawn with** `svg` — Bands, labels, values and the conversion percentages are all one `<svg>`. A funnel is a geometric claim — each band's width IS the conversion rate — so the taper has to be drawn in one coordinate system rather than assembled from boxes that happen to line up.
+
 **Tags** `percentage` · `sequence` · `pitch`
 
 Use for a pipeline that narrows — a sales / conversion funnel, a hiring or grant pipeline, an onboarding flow. Each stage's band width is proportional to its value; the stage-to-stage conversion % is printed in the gaps so the leak is the read.
@@ -4932,6 +4934,8 @@ See [funnel.gallery.light.pdf](../../lib/components/chart/funnel/funnel.gallery.
 > Gantt chart — task bars across a date axis.
 
 **Function** progression · **Form** timeline · **Substance** series
+
+**Drawn with** `svg` — Bars, milestones, the date axis and every caption are one `<svg>`. A bar's start and length are positions on a shared time axis, so axis and bars must be solved together; CSS boxes would re-derive the same scale per row and drift.
 
 **Tags** `swimlane` · `planning` · `milestones` · `agile`
 
@@ -5022,6 +5026,8 @@ See [gantt.gallery.light.pdf](../../lib/components/chart/gantt/gantt.gallery.lig
 > Native user-journey chart — sections of tasks, each tagged with actor(s) and a 1-5 mood. Renders as section bars, task chips, plumb lines, and mood faces.
 
 **Function** progression · **Form** timeline · **Substance** structure
+
+**Drawn with** `hybrid` — The board — stages, lanes, actors and task labels — is an HTML/CSS grid, because a journey map is fundamentally a table of text that must wrap and reflow. Drawn across it in inline `<svg>`: the mood curve and the mood faces, the only parts with real geometry. Neither side animates today — journey emits no motion roles, so chart-motion skips it.
 
 **Tags** `process` · `assessment` · `walkthrough`
 
@@ -5196,6 +5202,8 @@ See [journey.gallery.light.pdf](../../lib/components/chart/journey/journey.galle
 
 **Function** progression · **Form** timeline · **Substance** series
 
+**Drawn with** `html` — Columns and cards are HTML/CSS boxes. A board is a set of text cards in named columns with no geometry to draw, and HTML gives it real text selection, wrapping and reflow that an SVG rewrite would have to reimplement badly.
+
 **Tags** `swimlane` · `workflow` · `status` · `agile` · `ownership`
 
 Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends color only on STATUS, so a flagged card is the focal point; opt into `keyline` (color-code cards by category) or `tinted` (color-code columns by stage) when color coding earns its keep.
@@ -5334,6 +5342,8 @@ See [kanban.gallery.light.pdf](../../lib/components/chart/kanban/kanban.gallery.
 > A world-countries (or US-states) basemap that fills regions by value (choropleth) or category (highlight) so the audience leaves knowing where.
 
 **Function** evidence · **Form** spatial · **Substance** series
+
+**Drawn with** `svg` — The projected basemap, region fills, highlight rings and place labels are one `<svg>`. The geography IS path data — nothing but SVG draws a coastline — and labels have to sit in the same projected space as the regions they name.
 
 **Tags** `metric` · `proportion` · `overview` · `visual`
 
@@ -5502,6 +5512,8 @@ See [map.gallery.light.pdf](../../lib/components/chart/map/map.gallery.light.pdf
 
 **Function** evidence · **Form** canvas · **Substance** series
 
+**Drawn with** `svg` — Wedges, their radial gradients, the percentages and the legend are all one `<svg>`. A wedge is an arc path, and keeping the legend inside the same drawing means a swatch hue can never drift from the slice it names.
+
 **Tags** `donut` · `proportion` · `percentage`
 
 Use for part-to-whole breakdowns with three to six slices. Add the `donut` modifier for a hole in the middle — visually cleaner for executive decks.
@@ -5620,6 +5632,8 @@ See [piechart.gallery.light.pdf](../../lib/components/chart/piechart/piechart.ga
 
 **Function** evidence · **Form** canvas · **Substance** series
 
+**Drawn with** `html` — Each bar is an HTML box whose width is its percentage. One number per row needs no shared coordinate system, and keeping the label as prose lets it wrap and stay selectable — an SVG bar would buy nothing but a text-wrapping problem.
+
 **Tags** `percentage` · `stoplight` · `status`
 
 Use for status-tracking across multiple parallel items (project readiness, OKR progress, capacity utilization). Status colors via the chart-status vocabulary (on-track / done / live, at-risk / warn, blocked / fail, deferred).
@@ -5702,6 +5716,8 @@ See [progress.gallery.light.pdf](../../lib/components/chart/progress/progress.ga
 > Native 2×2 scatter chart — items plotted on two continuous axes.
 
 **Function** evidence · **Form** scatter · **Substance** series
+
+**Drawn with** `svg` — Axes, cell tints, bubbles, trails and every label — including the corner names that sit outside the plot — are one `<svg>`. Points are placed by value on two axes, and the placement engine that keeps labels off each other and off the marks needs all of it in one coordinate system.
 
 **Tags** `two-by-two` · `positioning` · `prioritize` · `risk`
 
@@ -5949,6 +5965,8 @@ See [quadrant.gallery.light.pdf](../../lib/components/chart/quadrant/quadrant.ga
 > Native radar / spider chart — items rated across multiple axes.
 
 **Function** evidence · **Form** scatter · **Substance** series
+
+**Drawn with** `hybrid` — The web, spokes, area polygons and axis labels are `<svg>`; the small-multiples variant then labels each mini radar with an HTML `<figcaption>` beneath it, so a `mini` deck is a grid of SVG figures with HTML captions between them. Chart-motion animates the polygons; those captions do not move.
 
 **Tags** `spider` · `assessment` · `positioning`
 
@@ -6244,6 +6262,8 @@ See [radar.gallery.light.pdf](../../lib/components/chart/radar/radar.gallery.lig
 
 **Function** progression · **Form** matrix · **Substance** structure
 
+**Drawn with** `html` — HTML/CSS all the way down, with no `<svg>` anywhere: a real `<table>` of cells carrying state markers by default, or a transposed `.horizons` grid for that variant. The layout is a grid of text and nothing is positioned by value, so the semantic table is both the right structure for assistive tech and the right layout engine for the cells.
+
 **Tags** `planning` · `swimlane` · `milestones` · `agile`
 
 Use to show what ships in each phase across multiple parallel workstreams. Cells render as state-token discs (pass/warn/fail/skip).
@@ -6416,6 +6436,8 @@ See [roadmap.gallery.light.pdf](../../lib/components/chart/roadmap/roadmap.galle
 
 **Function** progression · **Form** timeline · **Substance** graph
 
+**Drawn with** `hybrid` — States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay — edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over.
+
 **Tags** `flowchart` · `states` · `workflow`
 
 Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the layout: state i renders at row i, so there is no auto-layout problem to solve.
@@ -6584,6 +6606,8 @@ See [state-chart.gallery.light.pdf](../../lib/components/chart/state-chart/state
 
 **Function** evidence · **Form** timeline · **Substance** series
 
+**Drawn with** `html` — Entries stack as HTML rows against a CSS rule. The only geometry is the ordering, and document order already carries it; the bodies are paragraphs that need to wrap, so they stay HTML.
+
 **Tags** `changelog` · `milestones` · `status` · `retrospective`
 
 Use for milestone history or annotated timelines. Each event sits on a left-to-right spine: a dot with its date pill above it, then the title, an optional status pill, and a short body stacked beneath.
@@ -6668,6 +6692,8 @@ See [timeline-list.gallery.light.pdf](../../lib/components/chart/timeline-list/t
 > Spiral-packed word cloud — items sized by weight.
 
 **Function** evidence · **Form** canvas · **Substance** series
+
+**Drawn with** `hybrid` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do. The HTML half is small and is NOT the terms: a right-rail `size = frequency` key (`aria-hidden`, so assistive tech reads the SVG words rather than the ramp) explaining the one mapping a reader cannot quantify by looking.
 
 **Tags** `tag-cloud` · `themes` · `proportion`
 
@@ -6840,6 +6866,8 @@ See [word-cloud.gallery.light.pdf](../../lib/components/chart/word-cloud/word-cl
 > Mermaid diagram as the slide's centerpiece.
 
 **Function** evidence · **Form** canvas · **Substance** graph
+
+**Drawn with** `svg` — Mermaid renders the fenced block to `<svg>` downstream — mmdc at build time, mermaid.js in a live preview — so the engine emits a code fence and the exported artifact carries a real drawing. One caveat worth knowing: node labels ride inside `<foreignObject>`, so they wrap like HTML text and export with the figure, but chart-motion does not move them (it animates `<text>` and marked geometry, and a `<foreignObject><div>` is neither).
 
 **Tags** `flowchart` · `org-chart` · `sequence` · `process`
 

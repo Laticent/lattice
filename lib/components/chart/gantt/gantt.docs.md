@@ -4,6 +4,8 @@
 
 **Function** progression · **Form** timeline · **Substance** series
 
+**Drawn with** `svg` — Bars, milestones, the date axis and every caption are one `<svg>`. A bar's start and length are positions on a shared time axis, so axis and bars must be solved together; CSS boxes would re-derive the same scale per row and drift.
+
 **Tags** `swimlane` · `planning` · `milestones` · `agile`
 
 Use for project plans with overlapping or staggered tasks. Each task is a bar on the time axis; bars can span multiple periods and carry status tints.

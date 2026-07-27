@@ -4,6 +4,8 @@
 
 **Function** evidence · **Form** canvas · **Substance** series
 
+**Drawn with** `html` — Each bar is an HTML box whose width is its percentage. One number per row needs no shared coordinate system, and keeping the label as prose lets it wrap and stay selectable — an SVG bar would buy nothing but a text-wrapping problem.
+
 **Tags** `percentage` · `stoplight` · `status`
 
 Use for status-tracking across multiple parallel items (project readiness, OKR progress, capacity utilization). Status colors via the chart-status vocabulary (on-track / done / live, at-risk / warn, blocked / fail, deferred).

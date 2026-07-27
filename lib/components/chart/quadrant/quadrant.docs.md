@@ -4,6 +4,8 @@
 
 **Function** evidence · **Form** scatter · **Substance** series
 
+**Drawn with** `svg` — Axes, cell tints, bubbles, trails and every label — including the corner names that sit outside the plot — are one `<svg>`. Points are placed by value on two axes, and the placement engine that keeps labels off each other and off the marks needs all of it in one coordinate system.
+
 **Tags** `two-by-two` · `positioning` · `prioritize` · `risk`
 
 Use to position items by two numeric attributes (cost × value, effort × impact). Data-driven; for static categorical 2×2 grids, use matrix-2x2.

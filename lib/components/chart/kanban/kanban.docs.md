@@ -4,6 +4,8 @@
 
 **Function** progression · **Form** timeline · **Substance** series
 
+**Drawn with** `html` — Columns and cards are HTML/CSS boxes. A board is a set of text cards in named columns with no geometry to draw, and HTML gives it real text selection, wrapping and reflow that an SVG rewrite would have to reimplement badly.
+
 **Tags** `swimlane` · `workflow` · `status` · `agile` · `ownership`
 
 Use for status snapshots: what's in each lane (todo/doing/done or similar). Each column is a stage; each card is a work item. By default the board is a calm grid of neutral cards and spends color only on STATUS, so a flagged card is the focal point; opt into `keyline` (color-code cards by category) or `tinted` (color-code columns by stage) when color coding earns its keep.

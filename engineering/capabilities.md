@@ -39,6 +39,8 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `a11y-textures:build` | Bundle the categorical/chart texture-<defs> kernel (lib/core/accessibility-textures.js) into the docs Playground ESM module. |
 | `a11y-textures:check` | Freshness gate for the bundled a11y-textures Playground module. |
+| `anima-player:build` | Bundle the chart-motion (Anima) player as an injectable string constant (it cannot `import`) for the standalone HTML player — the CLI `--player` path via lib/export/player-core.mjs and the Studio share-export. It HYDRATES an already-built scene spec; the scene itself is built by chartToScene in docs/src/lib/chart-anima.ts, which the docs-site preview runs from source through Vite rather than from this bundle. |
+| `anima-player:check` | Freshness gate for the anima-player bundle. |
 | `authoring-core:build` | Bundle the pure authoring engines (lint/review/scorecard) for the browser. |
 | `authoring-core:check` | Freshness gate for the authoring-core bundle. |
 | `axis-dom-catalog:build` | Generate lib/runtime/axis-dom-catalog.generated.js — component name to density.axis/domSelector, scanned from every manifest, bundled into lattice-runtime.js so the Fix-Me overlay drill-down can find a component's rendered collection without shipping the whole manifest catalog to the browser. |
@@ -135,15 +137,19 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `bless` | Re-render the gallery goldens (the regression gate baseline) and overwrite them; commit the refreshed PDFs. `-- --only <name>` for one. |
 | `regress` | Visual regression gate (LOCAL spot-check): render every gallery fresh and pixel-diff it against the committed golden PDF; fails on unblessed drift. |
 | `test` | Full unit suite (node:test). The inner loop. |
+| `test:adaptive` | Unit scope: the box-family adaptivity model (lib/adaptive) and the manifest adapt contract. |
 | `test:all` | Unit + integration umbrella. |
 | `test:authoring` | Unit scope: authoring helpers (speaker notes, …). |
 | `test:cli` | Unit scope: the CLI. |
 | `test:components` | Unit scope: component manifests + per-component logic. |
+| `test:concepts` | Unit scope: the concept ontology (lib/concepts) and its drift gate against the live catalogs. |
 | `test:core` | Unit scope: lib/core/* (token resolver, splits, marp bundle, …). |
 | `test:coverage` | c8 coverage over the unit suite (→ .scratch/coverage/). |
 | `test:coverage:all` | c8 coverage over unit + integration. |
 | `test:engine` | Unit scope: lattice-engine internals. |
+| `test:exemplars` | Unit scope: the exemplar decks and the exemplar-core bundle. |
 | `test:export` | Unit scope: the owned export writers (PPTX, …). |
+| `test:forms` | Unit scope: the Form model — frames, cells, and the composition contract (lib/forms). |
 | `test:integration` | The FULL integration tier (every suite — PR slice + nightly slice). What pre-push runs under LATTICE_FULL_PUSH=1. |
 | `test:integration:exemplars` | Integration scope: the 45 worked exemplars render + committed-PDF freshness (page-count gate). |
 | `test:integration:galleries` | Integration scope: gallery render + page-count regression. |
@@ -160,6 +166,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `test:release` | Unit scope: the release tooling. |
 | `test:tokens` | Unit scope: the universal token system. |
 | `test:tools` | Unit scope: author tools (export-marp, …). |
+| `test:transform-dsl` | Unit scope: the declarative component-transform DSL and its safety validator (lib/core/transform-dsl). |
 | `test:transformers` | Unit scope: transformer registry/adapters. |
 | `test:watch` | Re-run the unit suite on file change. |
 | `torture` | Reusable memory/leak torture profiler (`tools/perf-torture/`): hammer a built site with repeated per-action cycles; verdict per metric (RISING via Mann-Kendall + idle-calibrated Sen slope); `--snapshot`/`--retainers` walk the heap to name the pinning GC root. `-- --scenario studio --cycle …`. On-demand diagnostic; see its README + the Scenario typedef to torture another app. |
@@ -170,6 +177,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `check:ownership` | Collision/ownership guard: hard-fails on accidental duplicate selectors/transformers/names. |
 | `check:render` | Scoped-render black-fill guard: renders the chart gallery (the SVG-painting chart components) through the real playground/Studio composeCss() in headless Chromium (indaco/cuoio × light/dark) and fails on any NEW opaque-black SVG paint — a themed colour that dropped to SVG black (the #956 class). Ratchets against test/viz-render/black-baseline.json. |
+| `check:render-nature` | Truth gate for the manifest `render` field: renders every visualization component's own gallery through the export path (emulator HTML sidecar, mermaid baked) in headless Chromium, derives whether the picture is actually drawn in SVG / HTML / both, and fails when a declaration disagrees. `--report` prints the derived table, `--json` the raw counts. Skips loudly with no Chromium. |
 | `check:render:bless` | Rewrite the scoped-render black-fill baseline (test/viz-render/black-baseline.json) after an intentional change; justify the delta in the PR. |
 | `check:responsive` | Static lint: no fixed-px layout in chart CSS (responsive contract). |
 | `fonts:check` | Font parity gate: the canonical face manifest (lib/fonts/text-faces.js), assets/fonts/, and the web-export supply must agree, with no Google-Fonts CDN URL — the library self-hosts its type (zero network). |
@@ -211,16 +219,9 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 
 | Name | What it does |
 |---|---|
-| `anima-player:build` | **TODO: describe `anima-player:build` in tools/build-capabilities.js (SCRIPT_META).** |
-| `anima-player:check` | **TODO: describe `anima-player:check` in tools/build-capabilities.js (SCRIPT_META).** |
 | `clean:scratch` | Delete .scratch/ entries older than 14 days. |
 | `prepare` | npm lifecycle: wire the lefthook git hooks on install. |
 | `prepublishOnly` | npm lifecycle: guard run before publish. |
-| `test:adaptive` | **TODO: describe `test:adaptive` in tools/build-capabilities.js (SCRIPT_META).** |
-| `test:concepts` | **TODO: describe `test:concepts` in tools/build-capabilities.js (SCRIPT_META).** |
-| `test:exemplars` | **TODO: describe `test:exemplars` in tools/build-capabilities.js (SCRIPT_META).** |
-| `test:forms` | **TODO: describe `test:forms` in tools/build-capabilities.js (SCRIPT_META).** |
-| `test:transform-dsl` | **TODO: describe `test:transform-dsl` in tools/build-capabilities.js (SCRIPT_META).** |
 
 ## Tools — `tools/`
 
@@ -337,6 +338,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/build-vetrina-lib.js` | Build the Vetrina library's consumable dist/ — the ESM + CJS entries + type |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |
+| `tools/check-render-nature.js` | check-render-nature — the DERIVE-AND-GATE half of the `render` manifest field. |
 | `tools/check-viz-render.js` | check-viz-render — the SCOPED-CSS black-fill guard (born from the #956 |
 | `tools/component-gen-eval.mjs` | AI component-generation evaluator — runs the FROZEN, held-out adversarial prompt |
 | `tools/cvd-audit.js` | Colour-vision-deficiency (CVD) collapse audit for Lattice themes. |

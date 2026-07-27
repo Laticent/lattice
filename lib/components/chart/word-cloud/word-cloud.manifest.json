@@ -12,6 +12,8 @@
   "bucket": "chart",
   "form": "canvas",
   "substance": "series",
+  "render": "hybrid",
+  "renderNote": "The words are `<svg>` `<text>` \u2014 the packer places them at arbitrary sizes and angles, which CSS text flow cannot do. The HTML half is small and is NOT the terms: a right-rail `size = frequency` key (`aria-hidden`, so assistive tech reads the SVG words rather than the ramp) explaining the one mapping a reader cannot quantify by looking.",
   "stage": "canvas",
   "tags": [
     "tag-cloud",

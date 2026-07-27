@@ -4,6 +4,8 @@
 
 **Function** evidence · **Form** canvas · **Substance** graph
 
+**Drawn with** `svg` — Mermaid renders the fenced block to `<svg>` downstream — mmdc at build time, mermaid.js in a live preview — so the engine emits a code fence and the exported artifact carries a real drawing. One caveat worth knowing: node labels ride inside `<foreignObject>`, so they wrap like HTML text and export with the figure, but chart-motion does not move them (it animates `<text>` and marked geometry, and a `<foreignObject><div>` is neither).
+
 **Tags** `flowchart` · `org-chart` · `sequence` · `process`
 
 Use for relational or topological visuals — flowcharts, sequence diagrams, state machines, ER diagrams. The diagram should occupy at least half the slide.

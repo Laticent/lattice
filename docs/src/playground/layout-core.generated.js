@@ -113,6 +113,19 @@ var require_manifest_schema = __commonJS({
             "mixed"
           ]
         },
+        render: {
+          enum: [
+            "svg",
+            "hybrid",
+            "html"
+          ],
+          description: "What the picture is DRAWN WITH \u2014 `svg` (every visible part lives inside an `<svg>`), `html` (HTML/CSS boxes; no SVG), or `hybrid` (both). Required for the visualization family (bucket `chart` or `diagram`) and rejected elsewhere, where it would be an ungated assertion. It answers three questions a `bucket` cannot: whether motion is even POSSIBLE (Anima reads the first `<svg>` in a section, so an `html` component gets no scene at all and the HTML half of a `hybrid` never moves), whether a part can carry a mark-detail popover, and what an SVG export captures. NOTE it is necessary, not sufficient, for motion: `svg` says the picture is SVG, not that every part of it animates \u2014 a kernel still has to emit `data-anima-role`/`data-mark`, and HTML inside a `<foreignObject>` is inside the SVG but is not a `<text>` node, so mermaid's node labels stay put. `renderNote` carries that per-component detail. DECLARED FOR INTENT, DERIVED FOR TRUTH: tools/check-render-nature.js renders each component's own gallery through the export path in a real browser and fails when the declaration and the artifact disagree, so the field can be wrong only until the gate runs. Distinct from `substance`, which is what the AUTHOR writes (series / graph / structure), not what the engine draws with. See engineering/decisions/2026-07-27-render-nature-declaration.md."
+        },
+        renderNote: {
+          type: "string",
+          minLength: 40,
+          description: 'Why THIS component is built the way `render` says \u2014 one or two sentences naming what each side is made of and what forced the choice (a shared coordinate system, a measured box, arbitrary rotation, text that must stay selectable). Required alongside `render`. Not a restatement of the enum: "renders as SVG" is not a justification. For `hybrid` it must say which part is which, because that is the boundary an author needs (radar\'s polygons animate; its small-multiple captions do not). Surfaced in the generated <name>.docs.md and in dist/docs/components.json.'
+        },
         stage: {
           enum: [
             "flow",

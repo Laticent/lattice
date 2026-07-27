@@ -4,6 +4,8 @@
 
 **Function** evidence · **Form** canvas · **Substance** series
 
+**Drawn with** `svg` — Wedges, their radial gradients, the percentages and the legend are all one `<svg>`. A wedge is an arc path, and keeping the legend inside the same drawing means a swatch hue can never drift from the slice it names.
+
 **Tags** `donut` · `proportion` · `percentage`
 
 Use for part-to-whole breakdowns with three to six slices. Add the `donut` modifier for a hole in the middle — visually cleaner for executive decks.

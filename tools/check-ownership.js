@@ -1227,6 +1227,81 @@ function checkSolverIntentDeclared(manifests, errors) {
   }
 }
 
+// Every VISUALIZATION declares what its picture is drawn with — the `render`
+// field (`svg` | `hybrid` | `html`) plus a `renderNote` justifying it. This is the
+// COVERAGE half of the declare-derive-gate contract: it is static, so it lives in
+// the browser-free `build:check` and fails the moment a visualization ships
+// without the pair, or ships a note that only restates the enum. The TRUTH half —
+// does the declaration match the rendered export — needs a real browser and lives
+// in tools/check-render-nature.js (`npm run check:render-nature`).
+//
+// Two directions, because both silences are bad. A visualization that declares
+// NOTHING leaves the question the field exists to answer unanswered. A
+// NON-visualization that declares it anyway is worse: check-render-nature only
+// derives the visualization family, so a stray `render` elsewhere would be exactly
+// the ungated assertion this whole mechanism exists to prevent.
+//
+// See engineering/decisions/2026-07-27-render-nature-declaration.md.
+const RENDER_NATURES = new Set(require('../lib/components/manifest.schema.json').properties.render.enum);
+const RENDER_BUCKETS = new Set(['chart', 'diagram']);
+// The substance floor. Read from the schema so the two can never disagree — and
+// enforced HERE because nothing else enforces it: the manifest loader's only
+// schema-derived check is on key NAMES, so `"minLength": 40` was decoration
+// until this line existed. A floor is what actually kills the vacuous note; the
+// pattern below only catches the handful of phrasings that clear it by padding.
+const RENDER_NOTE_MIN = require('../lib/components/manifest.schema.json').properties.renderNote.minLength;
+// A note that only names its own enum value explains nothing.
+const EMPTY_NOTE = /^(it |this )?(component |layout )?(is |renders |renders as |draws |uses )?(pure |plain |all )?(svg|html|hybrid)\b[\s.]*$/i;
+
+function checkRenderNature(manifests, errors) {
+  for (const m of manifests) {
+    const isViz = RENDER_BUCKETS.has(manifestBucket(m));
+    const declared = m.render;
+    const note = typeof m.renderNote === 'string' ? m.renderNote.trim() : '';
+
+    if (!isViz) {
+      if (declared !== undefined || m.renderNote !== undefined) {
+        errors.push(
+          `${m.name}: declares \`render\`/\`renderNote\` but is not a visualization (bucket ` +
+          `"${manifestBucket(m)}", not chart/diagram). check-render-nature.js only derives the ` +
+          `visualization family, so a declaration here would never be checked. Remove it.`,
+        );
+      }
+      continue;
+    }
+    if (!RENDER_NATURES.has(declared)) {
+      errors.push(
+        `${m.name}: missing/invalid \`render\` (got ${JSON.stringify(declared)}). Every visualization ` +
+        `declares what its picture is drawn with: ${[...RENDER_NATURES].join(' | ')}. ` +
+        `Run \`npm run check:render-nature -- --report\` to see what it actually renders.`,
+      );
+    }
+    if (!note) {
+      errors.push(
+        `${m.name}: declares \`render: ${JSON.stringify(declared)}\` with no \`renderNote\` — the field ` +
+        `states the shape, the note states why. Name what each side is made of and what forced it.`,
+      );
+    } else if (note.length < RENDER_NOTE_MIN || EMPTY_NOTE.test(note)) {
+      errors.push(
+        `${m.name}: \`renderNote\` says nothing beyond \`render\` (${JSON.stringify(note)}; ` +
+        `${note.length} chars, floor is ${RENDER_NOTE_MIN}). Say what forced the choice — a shared ` +
+        `coordinate system, a measured box, arbitrary rotation, text that must stay selectable.`,
+      );
+    } else if (declared === 'hybrid' && !(/\bsvg\b/i.test(note) && /\bhtml\b/i.test(note))) {
+      // BOTH words, not either. The seam is the entire value of the hybrid
+      // verdict, and a one-sided note is worse than useless — "every visible part
+      // is drawn as SVG" alongside `render: "hybrid"` is self-contradictory, and
+      // an `||` here would have waved it through.
+      errors.push(
+        `${m.name}: \`render: "hybrid"\` but its \`renderNote\` names only one side ` +
+        `(needs to say what is SVG *and* what is HTML). That boundary is the whole point of the ` +
+        `hybrid value — an author needs to know which half animates and which half an SVG export ` +
+        `leaves behind.`,
+      );
+    }
+  }
+}
+
 // HARD RULE #22 — untrusted slide HTML reaches a preview frame ONLY through
 // `sanitizeSlideHtml`. The docs-site Studio renders untrusted markdown (shared /
 // AI-generated decks + component skeletons) into a SAME-ORIGIN, un-sandboxed
@@ -2712,6 +2787,7 @@ function run() {
   checkUsEnglish(errors);
   checkAdaptDeclarations(manifests, errors);
   checkSolverIntentDeclared(manifests, errors);
+  checkRenderNature(manifests, errors);
   checkDensityCoverage(manifests, errors);
   checkPreviewHtmlSinks(errors);
   checkSnapshotHtmlSinks(errors);
@@ -2770,6 +2846,10 @@ module.exports = {
   checkVariantDeclaration,
   checkAdaptDeclarations,
   checkSolverIntentDeclared,
+  checkRenderNature,
+  RENDER_NATURES,
+  RENDER_BUCKETS,
+  RENDER_NOTE_MIN,
   checkDensityCoverage,
   SANCTIONED_DENSITY_EXEMPT,
   checkTagClustering,

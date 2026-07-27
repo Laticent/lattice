@@ -186,6 +186,15 @@ const CHART_LAYOUTS = ['progress', 'timeline-list', 'piechart',
                        'journey', 'word-cloud', 'roadmap'];
 ```
 
+**Membership is a skeleton, not a claim about content.** Being in `CHART_LAYOUTS`
+means one thing: the dispatcher wraps this layout in `.chart-frame`, so it gets
+the shared eyebrow / subtitle / caption / status chrome. It says nothing about
+what the author writes (`substance` — `state-chart` is a `graph`, `journey` and
+`roadmap` are `structure`) and nothing about what the layout is drawn with
+(`render` — four members draw no SVG at all). Those are three separate readings
+of the word "chart", plus a fourth for the bucket folder; `design/design-system.md`
+§5.5 lays all four side by side.
+
 Adding a new chart member requires updating that array AND either:
 - writing an inline builder in `chart-family.js` (current pattern for
   `progress` / `timeline-list` / `piechart` / `gantt` / `kanban`), OR
@@ -236,6 +245,36 @@ the chart looks right and never moves — so a member that is not SVG-native is 
 | `word-cloud` | `.wc-svg` | no | yes | words fade in; not wired for the popover |
 | `journey` | — | no | no | its inline SVG is decorative |
 | `kanban`, `progress`, `timeline-list`, `roadmap` | — | no | no | HTML layouts, not diagrams |
+
+### What each member is drawn with is a manifest field, not this table
+
+The Motion column above is a consequence, not a cause: a member gets a scene when
+it has an `<svg>`, and gets none when it doesn't. That underlying fact — SVG,
+HTML, or both — is declared per component as `render`, with a `renderNote`
+justifying it, and is **derived from the rendered export and gated**
+(`npm run check:render-nature`; the coverage half runs inside `build:check`). Read
+it there rather than inferring it here: the manifest is checked against reality
+every time the gate runs, and a prose table is not.
+
+Today the family splits five SVG (`funnel`, `gantt`, `map`, `piechart`,
+`quadrant` — plus `diagram`, which is SVG but is not a member of this family),
+four hybrid (`journey`, `radar`, `state-chart`, `word-cloud`), and four HTML
+(`kanban`, `progress`, `roadmap`, `timeline-list`).
+
+The hybrids are the interesting ones, and each `renderNote` names its own seam —
+note that the seam is often smaller than you would guess, and is not always where
+the motion story is:
+
+- **radar** — SVG minis, each captioned by an HTML `<figcaption>` in the
+  small-multiples variant. That one caption is the whole HTML side.
+- **word-cloud** — SVG words; the HTML is the right-rail `size = frequency` key,
+  which is `aria-hidden` and carries no terms.
+- **state-chart** — the authored `<ol>` is measured and then painted over, so a
+  DEFAULT slide ends up SVG in practice; the hybrid verdict comes from the
+  `inline` variant, whose chip row is never painted over.
+- **journey** — an HTML board with an SVG mood curve and mood faces drawn across
+  it. Neither side animates: journey emits no motion roles at all (the table
+  above says the same thing from the other direction).
 
 ### The radar's asymmetry is deliberate
 

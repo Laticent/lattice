@@ -4,6 +4,8 @@
 
 **Function** evidence · **Form** spatial · **Substance** series
 
+**Drawn with** `svg` — The projected basemap, region fills, highlight rings and place labels are one `<svg>`. The geography IS path data — nothing but SVG draws a coastline — and labels have to sit in the same projected space as the regions they name.
+
 **Tags** `metric` · `proportion` · `overview` · `visual`
 
 Use when the story is geographic — program reach, service territories, where the grants landed, the regions you operate in. Author a value per named region (full name, postal/ISO code, or a common alias); choropleth shades each region on a single-hue ramp (low→high), while `highlight` gives each named region its own categorical color. The default basemap is the **world** (Equal Earth projection); add `us` (or `usa`) for the US-states map. On the world map you can also name a continent, a bloc (`European Union`, `ASEAN`), or a stated category (`Global South`, `Global North`, `Global South — Africa`) and the kernel fills every member. Because the term is contested, two sourced views of the Global South ship: `Global South` (G77 + China) and `Global South — Brandt Line` (the 1980 North–South divide) — pick the framing your deck argues. Regions the basemap can't match are reported in the legend, never silently dropped.

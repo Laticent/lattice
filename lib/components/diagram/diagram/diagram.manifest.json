@@ -7,6 +7,8 @@
   "galleryAuthored": true,
   "form": "canvas",
   "substance": "graph",
+  "render": "svg",
+  "renderNote": "Mermaid renders the fenced block to `<svg>` downstream \u2014 mmdc at build time, mermaid.js in a live preview \u2014 so the engine emits a code fence and the exported artifact carries a real drawing. One caveat worth knowing: node labels ride inside `<foreignObject>`, so they wrap like HTML text and export with the figure, but chart-motion does not move them (it animates `<text>` and marked geometry, and a `<foreignObject><div>` is neither).",
   "stage": "canvas",
   "conformance": "strict",
   "tags": ["flowchart", "org-chart", "sequence", "process"],

@@ -4,6 +4,8 @@
 
 **Function** progression · **Form** matrix · **Substance** structure
 
+**Drawn with** `html` — HTML/CSS all the way down, with no `<svg>` anywhere: a real `<table>` of cells carrying state markers by default, or a transposed `.horizons` grid for that variant. The layout is a grid of text and nothing is positioned by value, so the semantic table is both the right structure for assistive tech and the right layout engine for the cells.
+
 **Tags** `planning` · `swimlane` · `milestones` · `agile`
 
 Use to show what ships in each phase across multiple parallel workstreams. Cells render as state-token discs (pass/warn/fail/skip).

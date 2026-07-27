@@ -14,6 +14,8 @@
   "bucket": "chart",
   "form": "scatter",
   "substance": "series",
+  "render": "hybrid",
+  "renderNote": "The web, spokes, area polygons and axis labels are `<svg>`; the small-multiples variant then labels each mini radar with an HTML `<figcaption>` beneath it, so a `mini` deck is a grid of SVG figures with HTML captions between them. Chart-motion animates the polygons; those captions do not move.",
   "stage": "canvas",
   "tags": [
     "spider",

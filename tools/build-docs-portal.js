@@ -542,6 +542,10 @@ function renderPortalJson(manifests) {
     function: m.function,
     form: m.form,
     substance: m.substance,
+    // Visualizations only: what the picture is DRAWN with (svg/hybrid/html) and
+    // why. Consumers use it to know whether chart-motion moves the whole figure
+    // and whether an SVG export captures it. See manifest.schema.json `render`.
+    ...(m.render ? { render: m.render, renderNote: m.renderNote } : {}),
     orientation: Array.isArray(m.orientation) ? m.orientation : ['landscape', 'portrait'],
     families: familiesFor(m),
     ...(m.adapt ? { adapt: m.adapt } : {}),
