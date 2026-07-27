@@ -24,7 +24,7 @@ const {
   chromeOf, footerCell, stripChrome, partitionKeepingNote, injectTrailing, markNote,
 } = require('../../../lib/core/split-envelope');
 const { evenGroups } = require('../../../lib/core/collections');
-const { autoSplitDeck, resplitDoc, applyRails } = require('../../../lib/core/auto-split');
+const { resplitDoc, applyRails } = require('../../../lib/core/auto-split');
 const { splitSections } = require('../../../lib/core/split-sections');
 
 // A rendered `form` slide: the masthead band masthead-lift builds, a `.cell-stage`
@@ -389,20 +389,30 @@ describe('core: splitEnvelope — readers', () => {
   });
 });
 
-describe('core: the envelope through both auto-split passes (HARD RULE #1)', () => {
+// §8 rule 10 made the pre-render pass DEFER-ONLY, so the FIRST CUT is a measured one now: it is
+// the render-time builder, reading the real DOM, that produces every partition and every cover.
+// The tests below pin the envelope's SHAPE, which is unchanged — so they drive the pass that makes
+// it. `ratio: 2` stands in for "this slide measured as overflowing".
+const firstCut = (html, capacity, ratio = 2) => {
+  const slides = splitSections(html).filter((p) => p.type === 'section').length;
+  const r = resplitDoc(html, Array.from({ length: slides }, (_, i) => ({ slide: i + 1, ratio })), capacity);
+  return { html: r.html, splits: r.changed };
+};
+
+describe('core: the envelope through the auto-split passes (HARD RULE #1)', () => {
   const cap = { checklist: { axis: 'item', hard: 5, sweet: 4 } };
   const doc = (inner) => `<section data-lattice-slide="1" data-lattice-pagination="1" data-lattice-pagination-total="1" class="checklist form">${inner}</section>`;
 
-  test('STATIC pass: cover → bodies, note on the last body page, only once', () => {
-    const { html, splits } = autoSplitDeck(doc(formInner({ n: 9, note: 'Note.' })), cap);
+  test('the first cut: cover → bodies, note on the last body page, only once', () => {
+    const { html, splits } = firstCut(doc(formInner({ n: 9, note: 'Note.' })), cap);
     assert.equal(splits, 1);
     assert.equal((html.match(/lat-split-cover/g) || []).length, 1);
     assert.equal((html.match(/lat-split-insight/g) || []).length, 0); // no key insight here
     assert.equal((html.match(/\bbelow-note\b/g) || []).length, 1);
   });
 
-  test('STATIC pass: an insight gets its own page, separate from the note', () => {
-    const { html, splits } = autoSplitDeck(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
+  test('the first cut: an insight gets its own page, separate from the note', () => {
+    const { html, splits } = firstCut(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
     assert.equal(splits, 1);
     assert.equal((html.match(/lat-split-cover/g) || []).length, 1);
     assert.equal((html.match(/lat-split-insight/g) || []).length, 1);
@@ -410,7 +420,7 @@ describe('core: the envelope through both auto-split passes (HARD RULE #1)', () 
     assert.equal((html.match(/<blockquote>/g) || []).length, 1);
   });
 
-  test('MEASURED pass: the same shape from the same builder', () => {
+  test('a SECOND measured pass over the same slide: the same shape from the same builder', () => {
     const { html, changed } = resplitDoc(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), [{ slide: 1, ratio: 3 }], cap);
     assert.equal(changed, 1);
     assert.equal((html.match(/lat-split-cover/g) || []).length, 1);
@@ -419,7 +429,7 @@ describe('core: the envelope through both auto-split passes (HARD RULE #1)', () 
   });
 
   test('both passes re-stamp the page number — attribute AND the real .lat-pagination span', () => {
-    const { html } = autoSplitDeck(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
+    const { html } = firstCut(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
     const attrs = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
     const spans = [...html.matchAll(/class="lat-pagination">(\d+)</g)].map((m) => Number(m[1]));
     assert.deepEqual(attrs, [1, 2, 3, 4, 5]); // cover + 3 bodies + the insight page
@@ -439,23 +449,29 @@ describe('core: the envelope through both auto-split passes (HARD RULE #1)', () 
   test('a hidden (paginate:false) slide keeps its position — the envelope numbers absolutely', () => {
     const hidden = '<section data-lattice-slide="1" class="title"><h1>cover</h1></section>';
     const trailing = '<section data-lattice-slide="3" data-lattice-pagination="3" data-lattice-pagination-total="3" class="content form"><p>after</p></section>';
-    const { html } = autoSplitDeck(hidden + doc(formInner({ n: 9, insight: 'Insight.' })).replace('data-lattice-pagination="1"', 'data-lattice-pagination="2"') + trailing, cap);
+    const { html } = firstCut(hidden + doc(formInner({ n: 9, insight: 'Insight.' })).replace('data-lattice-pagination="1"', 'data-lattice-pagination="2"') + trailing, cap);
     const attrs = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
     assert.deepEqual(attrs, [2, 3, 4, 5, 6, 7]); // hidden holds 1; cover 2, bodies 3-5, insight 6, trailing 7
     assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '7'));
   });
 
   test('a body page that STILL overflows paginates further — it never grows a second cover', () => {
-    const { html } = autoSplitDeck(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
+    const { html } = firstCut(doc(formInner({ n: 9, insight: 'Insight.', note: 'Note.' })), cap);
     // Re-measure: pretend body page 2 overflows. `lat-split-native` must keep it native.
     const tagged = html.replace(/data-lattice-slide="\d+"/g, (() => { let n = 0; return () => `data-lattice-slide="${(n += 1)}"`; })());
     const { html: out } = resplitDoc(tagged, [{ slide: 3, ratio: 2 }], cap);
     assert.equal((out.match(/lat-split-cover/g) || []).length, 1); // still exactly one
   });
 
-  test('a NON-splitting deck is byte-identical through both passes', () => {
+  test('a deck nothing reported as overflowing is byte-identical through both passes', () => {
     const html = doc(formInner({ n: 3, insight: 'Insight.', note: 'Note.' }));
-    assert.equal(autoSplitDeck(html, cap).html, html);
+    // The pre-render pass emits nothing at all now (rule 10) and does not even defer this one —
+    // three items, well under capacity.
+    const { autoSplitDeck } = require('../../../lib/core/auto-split');
+    const staticPass = autoSplitDeck(html, cap);
+    assert.equal(staticPass.html, html);
+    assert.deepEqual(staticPass.deferred, []);
+    // …and the measured pass touches only what it is told measured over.
     assert.equal(resplitDoc(html, [], cap).html, html);
   });
 });
@@ -528,19 +544,19 @@ describe('core: the envelope invariant, per split RUN across a whole deck (rule 
     }
   };
 
-  test('static pass, then rails: every run is a well-formed envelope', () => {
-    const { html, splits } = autoSplitDeck(deck, cap);
+  test('the first cut, then rails: every run is a well-formed envelope', () => {
+    const { html, splits } = firstCut(deck, cap);
     assert.equal(splits, 3); // slides 2, 3, 4 all split
-    assertEnvelope(html, 'static');
-    assertEnvelope(applyRails(html), 'static + rails'); // rails must not disturb the shape
+    assertEnvelope(html, 'first cut');
+    assertEnvelope(applyRails(html), 'first cut + rails'); // rails must not disturb the shape
     // Slide 4 is title-less → bare partition, so the deck carries 2 covers, not 3.
     assert.equal((html.match(/lat-split-cover/g) || []).length, 2);
     assert.equal((html.match(/lat-split-insight/g) || []).length, 1); // only slide 2 has a key insight
     assert.equal((html.match(/\bbelow-note\b/g) || []).length, 1); // only slide 2 has a note
   });
 
-  test('measured pass over the STATIC output converges without a second cover', () => {
-    let html = autoSplitDeck(deck, cap).html;
+  test('further measured passes converge without a second cover', () => {
+    let html = firstCut(deck, cap).html;
     // Re-measure and re-split every page as if it still overflowed, five passes — the
     // measured loop's worst case. The envelope must stay singular per run throughout.
     for (let pass = 0; pass < 5; pass++) {

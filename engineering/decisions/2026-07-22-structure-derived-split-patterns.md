@@ -428,6 +428,22 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    authority; `capacity.axis` is retained only as the pre-render count estimate.
    (This supersedes the first draft's "never read from a slide's DOM" — that
    confused authored markdown with rendered HTML; see §0b.)
+   **☑ BUILT (P-envelope).** `deriveAxis` (lib/core/split-envelope.js) reads the first
+   recognizable container inside the CONTENT CELL (rule 12b) and maps it: `<table>` → row,
+   `<ul>`/`<ol>` → item, `<pre>` → line, a viewBox `<svg>` → figure (no seam — rule 8 judges it
+   instead), nothing → null. An inline `<svg>` without a viewBox is skipped: an icon in a list item
+   is not the slide's collection. Both the count estimate and the cut now read it, so the
+   authoring/render mismatch that needed a SECOND declaration to correct (`glossary` authors a list
+   and renders a table, so `capacity.axis: item` + `split.axis: row`) resolves itself.
+   **Enrollment is untouched** — it stays the manifest's opt-in (rule 3), so a rendered collection
+   still never implies a seam.
+   **One boundary the rule's wording doesn't state, found on a real render:** derivation must NOT
+   override a component that declares a carousel RECIPE. `redline` declares `redline-blocks` and no
+   axis, because its members are two passages and its own record says "never splits a passage
+   mid-sentence"; derived blindly, its body pages resolved `item` from the why-list and the
+   splitter cut the reasoning away from the passage it explains (one extra page, and a clip). So a
+   recipe's declared axis governs its own pages; derivation governs the plain path, which is where
+   the mismatch actually bites.
 2. **`readAcross` alone cannot reconstruct the policy.** Any retirement of
    `split.strategy` must preserve the width-reducing/reshape class (#499/#500); the
    migration is to a small enum, not a boolean. (Accent-cover is NOT a preserved
@@ -532,6 +548,18 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
     real cut + its cover is produced by the render-time builder that reads the real
     DOM, so the estimate axis and the split axis can't disagree in shipped bytes.
     (FM-4.)
+    **☑ BUILT (P-envelope).** `autoSplitDeck` emits no partition at all now: it counts against
+    `capacity.hard` on the DERIVED axis and returns `deferred` — the ordinal positions it judges
+    at risk — which the emulator logs ("N slide(s) over capacity … the measured pass decides") and
+    which changes no bytes. `splits` is always 0, kept in the return shape so callers need no
+    change. `partitionAxis` is no longer imported here.
+    **Verified equivalent on the committed demo decks:** `examples/auto-split.md` and
+    `examples/split-envelope.md` were the only two the static pass still cut (1 and 2 slides); the
+    measured loop now cuts exactly those, and both export with zero overflow. Nothing regressed
+    because the measured loop runs in the same invocation, right after a real render.
+    **What this deliberately gives up:** a slide OVER `capacity.hard` that nevertheless FITS is no
+    longer split. That is the rule's intent — `hard` is an authoring-comfort bound, not a page
+    budget — and the count signal keeps its home in `lint:deck`'s advisory `capacity-autosplit`.
 11. **The oracle records a VERIFIED default, it never mints one.** Adding a component
     to the standing golden (rule 5) requires a committed demo deck exercising its
     overflow path (HARD #9) + reviewer sign-off that the derived (axis, read-across,

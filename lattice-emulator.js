@@ -1467,11 +1467,15 @@ function engineSlides() {
   // byte-unchanged. Default-on is a later decision, once the catalog is audited.
   let html = renderedHtml;
   if (AUTOSPLIT_APPLIES) {
-    // Cheap STATIC first cut (count > capacity.hard); the MEASURED loop in the
-    // export IIFE then catches whatever still overflows once it is really rendered.
+    // The STATIC pass is DEFER-ONLY (§8 rule 10): it counts against `capacity.hard` and names the
+    // slides at risk, but emits no partition — every cut and every cover comes from the MEASURED
+    // loop in the export IIFE, which reads the really-rendered DOM. A cut made here would be on
+    // the AUTHORING-shape axis, and the two can disagree.
     const r = require('./lib/core/auto-split').autoSplitDeck(renderedHtml, SPLIT_CAP);
     html = r.html;
-    if (r.splits) console.log(`  auto-split (static): ${r.splits} over-capacity slide(s) divided`);
+    if (r.deferred?.length && !QUIET) {
+      console.log(`  auto-split (static estimate): ${r.deferred.length} slide(s) over capacity — page${r.deferred.length > 1 ? 's' : ''} ${r.deferred.join(', ')}; the measured pass decides`);
+    }
   }
   const imageScrim = require('./lib/transformers/image-scrim');
   return splitTopLevelSections(html).map((sec, i) => {

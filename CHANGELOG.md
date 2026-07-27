@@ -317,6 +317,23 @@ in patch versions.
   the never-blocking suggestions channel, matching what the Playground's editor diagnostics already
   did with them.
 
+- **The split axis is read from the RENDERED DOM** (§8 rule 1). `capacity.axis` is an
+  authoring-shape claim and the two legitimately disagree — `glossary` authors a list and renders a
+  table, which needed a second declaration (`split.axis`) to correct the first. `deriveAxis` reads
+  the first recognizable container inside the content cell: `<table>` → row, `<ul>`/`<ol>` → item,
+  `<pre>` → line, a viewBox `<svg>` → figure (no seam). Enrollment is untouched — still the
+  manifest's opt-in, so a rendered collection never implies a seam — and a component that declares
+  a carousel recipe keeps its own declared axis, so derivation can't invent a seam `redline`
+  deliberately doesn't have.
+- **Breaking:** **the pre-render static pass now DEFERS instead of cutting** (§8 rule 10).
+  `autoSplitDeck` emits no partition: it counts against `capacity.hard` on the derived axis, names
+  the slides at risk, and hands them to the measured loop, which reads the really-rendered DOM and
+  owns every cut and every cover. A cut made pre-render is on the authoring-shape axis, and that
+  can disagree with the rendered one. Verified equivalent on the two committed demo decks the
+  static pass still cut — the measured loop cuts exactly those, with zero overflow. **What changes
+  for a deck:** a slide over `capacity.hard` that nevertheless FITS is no longer split; `hard` is an
+  authoring-comfort bound, and the count signal keeps its home in `lint:deck`'s advisory
+  `capacity-autosplit`.
 - **A legibility floor for viewBox figures** (§8 rule 8). A container-responsive figure never
   overflows its box — it scales its own labels — so the overflow probe is structurally blind to a
   figure that has shrunk its text to 5px. `probeFigureLegibility` measures the effective on-page

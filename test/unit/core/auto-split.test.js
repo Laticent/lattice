@@ -5,6 +5,11 @@
  * past `capacity.hard` on a splittable axis is re-emitted as several; everything
  * else passes through byte-identical (so a non-overflowing deck's export is
  * unchanged). The Fit Ladder's SPLIT move applied (the-fit-spine.md §3).
+ *
+ * §8 rule 10 moved the CUT: the pre-render static pass is DEFER-ONLY now, and every partition
+ * (and every cover) comes from the MEASURED pass, which reads the really-rendered DOM. The shape
+ * these tests pin is unchanged — so they drive the pass that produces it, through `measuredSplit`
+ * below, and `autoSplitDeck`'s own contract (count, defer, emit nothing) has its own block.
  */
 
 const { describe, test } = require('node:test');
@@ -16,11 +21,22 @@ const docSec = (n, cls, inner) => `<section data-lattice-slide="${n}" class="${c
 const list = (n) => `<ul>${Array.from({ length: n }, (_, i) => `<li>item ${i + 1}</li>`).join('')}</ul>`;
 const cap = { cards: { axis: 'item', hard: 4 }, redline: { axis: 'col', hard: 2 } };
 const nums = (html) => [...html.matchAll(/data-lattice-slide="(\d+)"/g)].map((m) => Number(m[1]));
+// The measured pass, in the static pass's old return shape, so a test that pins the CUT reads the
+// same as it did before rule 10. `ratio: 3` is the measured overflow factor: the cut is
+// `min(authored target, ratio-implied)` balanced, which for these fixtures lands on the same page
+// count the static pass produced from the authored target alone.
+// The fixtures are authored without a slide number (the static pass never needed one); the
+// measured pass keys on `data-lattice-slide`, so stamp it.
+const docify = (html) => html.replace(/^<section /, '<section data-lattice-slide="1" ');
+const measuredSplit = (html, capacity, { slide = 1, ratio = 3 } = {}) => {
+  const r = resplitDoc(html, [{ slide, ratio }], capacity);
+  return { html: r.html, splits: r.changed };
+};
 
-describe('core: autoSplitDeck', () => {
+describe('core: the measured pass makes the cut (rule 10 retired the static one)', () => {
   test('splits an over-capacity slide into the envelope: cover → body pages', () => {
     const html = sec('cards', `<h2>T</h2>${list(9)}`); // hard 4, no sweet → chunk 4 → 3 body pages
-    const { html: out, splits } = autoSplitDeck(html, cap);
+    const { html: out, splits } = measuredSplit(docify(html), cap);
     assert.equal(splits, 1);
     assert.equal((out.match(/<section/g) || []).length, 4); // cover + 3 bodies (§0a)
     assert.equal((out.match(/lat-split-cover/g) || []).length, 1); // exactly ONE cover
@@ -32,7 +48,7 @@ describe('core: autoSplitDeck', () => {
 
   test('a TITLE-LESS slide has no masthead to cover with → bare partition, as before', () => {
     const html = sec('cards', list(9));
-    const { html: out, splits } = autoSplitDeck(html, cap);
+    const { html: out, splits } = measuredSplit(docify(html), cap);
     assert.equal(splits, 1);
     assert.equal((out.match(/<section/g) || []).length, 3); // no cover slide
     assert.equal((out.match(/lat-split-cover/g) || []).length, 0);
@@ -41,31 +57,34 @@ describe('core: autoSplitDeck', () => {
   test('splits into SWEET-sized chunks, not the hard max', () => {
     const capSweet = { wide: { axis: 'item', sweet: 3, soft: 5, hard: 8 } };
     const html = sec('wide', list(10)); // 10 > hard 8 → split, chunk by sweet 3 → 4 slides
-    assert.equal((autoSplitDeck(html, capSweet).html.match(/<section/g) || []).length, 4);
+    // ratio 4 so the measured cut is governed by the authored target (sweet 3), not the ratio.
+    assert.equal((measuredSplit(docify(html), capSweet, { ratio: 4 }).html.match(/<section/g) || []).length, 4);
   });
 
-  test('a slide AT capacity is untouched (byte-identical)', () => {
-    const html = sec('cards', `<h2>T</h2>${list(4)}`);
-    const { html: out, splits } = autoSplitDeck(html, cap);
-    assert.equal(splits, 0);
-    assert.equal(out, html);
+  test('only the slides the caller says OVERFLOWED are cut', () => {
+    // The measured pass keys on MEASUREMENT, not on capacity: "at capacity" is the static pass's
+    // question, and it now answers it by deferring rather than cutting (see the block below).
+    const html = docify(sec('cards', `<h2>T</h2>${list(4)}`));
+    const { html: out, changed } = resplitDoc(html, [], cap);
+    assert.equal(changed, 0);
+    assert.equal(out, html, 'a deck with no measured overflow is byte-identical');
   });
 
   test('a non-splittable axis (col read-across) is left for the ring, never split', () => {
     const html = sec('redline', '<table><tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody></table>');
-    const { html: out, splits } = autoSplitDeck(html, cap); // 3 cols > hard 2, but col → null
+    const { html: out, splits } = measuredSplit(docify(html), cap); // 3 cols > hard 2, but col → null
     assert.equal(splits, 0);
-    assert.equal(out, html);
+    assert.equal(out, docify(html));
   });
 
   test('a slide with no capacity entry passes through', () => {
     const html = sec('quote', '<blockquote>x</blockquote>');
-    assert.equal(autoSplitDeck(html, cap).splits, 0);
+    assert.equal(measuredSplit(docify(html), cap).splits, 0);
   });
 
   test('preserves gaps and the section openTag/attributes across copies', () => {
-    const html = `\n<section class="cards" data-x="1">${list(6)}</section>\n`;
-    const { html: out } = autoSplitDeck(html, cap); // 6/4 → 2 slides
+    const html = `\n<section data-lattice-slide="1" class="cards" data-x="1">${list(6)}</section>\n`;
+    const { html: out } = measuredSplit(html, cap, { ratio: 2 }); // 6 items over 2 pages
     // Assert the ATTRIBUTES survived, not a byte-exact tag: the kernel also stamps
     // `data-split-run` and `data-split-role` (§8 rule 9), so pinning the literal string
     // would make every future kernel attribute a test failure rather than a real signal.
@@ -82,14 +101,14 @@ describe('core: autoSplitDeck', () => {
 
   test('no content lost: every member survives across the split', () => {
     const html = sec('cards', list(10));
-    const { html: out } = autoSplitDeck(html, cap); // 10/4 → 4+4+2
+    const { html: out } = measuredSplit(docify(html), cap); // 10/4 → 4+4+2
     assert.equal((out.match(/<li>/g) || []).length, 10);
     assert.equal((out.match(/<section/g) || []).length, 3);
   });
 
   test('continuation copies drop the engine id — the split never duplicates ids', () => {
-    const html = `<section class="cards" id="2">${list(6)}</section>`; // 6/4 → 2 slides
-    const { html: out } = autoSplitDeck(html, cap);
+    const html = `<section class="cards" id="2">${list(6)}</section>`; // 6 items over 2 pages
+    const { html: out } = measuredSplit(docify(html), cap, { ratio: 2 });
     assert.equal((out.match(/<section/g) || []).length, 2);
     assert.equal((out.match(/id="2"/g) || []).length, 1); // only the first copy keeps it
     const tags = out.match(/<section[^>]*>/g) || [];
@@ -251,5 +270,42 @@ describe('core: applyRails', () => {
     assert.deepEqual([...out.matchAll(/--lat-split-offset:(\d+)/g)].map((m) => Number(m[1])), [2, 3]);
     // the cover (not lat-split-native) is never given an offset
     assert.ok(!/--lat-split-offset/.test(out.match(/<section[^>]*lat-split-cover[^>]*>/)[0]));
+  });
+});
+
+// ── §8 rule 10 — the static pass DEFERS, it never cuts ──────────────────────────
+describe('core: autoSplitDeck — defer-only (§8 rule 10)', () => {
+  test('an over-capacity slide is NAMED, not divided — the bytes are untouched', () => {
+    const html = docify(sec('cards', `<h2>T</h2>${list(9)}`)); // 9 > hard 4
+    const r = autoSplitDeck(html, cap);
+    assert.equal(r.html, html, 'the pre-render pass must emit no partition');
+    assert.equal(r.splits, 0);
+    assert.deepEqual(r.deferred, [1], 'it hands slide 1 to the measured loop');
+  });
+
+  test('a slide AT capacity is not even deferred', () => {
+    const r = autoSplitDeck(docify(sec('cards', `<h2>T</h2>${list(4)}`)), cap);
+    assert.deepEqual(r.deferred, []);
+  });
+
+  test('deferred slides are numbered by ORDINAL position, not `data-lattice-slide`', () => {
+    // This pass runs BEFORE the emulator stamps that attribute (it stamps it from this pass's
+    // output), so reading it here yielded 0 for every slide — caught on a real render.
+    const html = sec('quote', '<blockquote>x</blockquote>') + sec('cards', list(9)) + sec('cards', list(9));
+    assert.deepEqual(autoSplitDeck(html, cap).deferred, [2, 3]);
+  });
+
+  test('a carousel-recipe layout is the measured pass\'s business, never deferred here', () => {
+    const withRecipe = { cards: { axis: 'item', hard: 4, split: { strategy: 'cover-paginate' } } };
+    assert.deepEqual(autoSplitDeck(docify(sec('cards', list(9))), withRecipe).deferred, []);
+  });
+
+  test('the axis is the RENDERED one (rule 1): a table counts rows, whatever the manifest says', () => {
+    // `capacity.axis: 'item'` is an AUTHORING-shape claim — glossary authors a list and renders a
+    // table. The count must follow the DOM, or the estimate counts a collection that isn't there.
+    const asTable = docify(sec('cards', '<table><tbody>' + Array.from({ length: 9 }, (_, i) => `<tr><td>${i}</td></tr>`).join('') + '</tbody></table>'));
+    assert.deepEqual(autoSplitDeck(asTable, cap).deferred, [1], 'nine rows read as nine members');
+    const noCollection = docify(sec('cards', '<p>prose only</p>'));
+    assert.deepEqual(autoSplitDeck(noCollection, cap).deferred, []);
   });
 });
