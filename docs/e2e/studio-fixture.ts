@@ -41,6 +41,14 @@ export const CHROME = {
 	workspaceSettings: 'Workspace settings',
 	/** The version-history sheet trigger. */
 	versionHistory: 'Version history',
+	/**
+	 * The "···" overflow trigger — SAME accessible name and header position at every
+	 * breakpoint, but a DIFFERENT surface underneath (2026-07-26-studio-mobile-eight-
+	 * cell-bar.md): tablet opens the flat DropdownMenu (rows are `role="menuitem"`);
+	 * mobile opens the StudioDrawer, a bottom Sheet (rows are plain `role="button"`).
+	 * A spec asserting a row inside it must pick the role for the tier it's testing.
+	 */
+	moreControls: 'More controls',
 } as const;
 
 // The live compose preview: the engine renders the deck INSIDE this srcdoc
@@ -88,12 +96,23 @@ export function persistedByPrefix(page: Page, prefix: string): Promise<string | 
 	}, `lattice-studio-${prefix}-`);
 }
 
-/** The app toast text — the centered, fixed bottom-of-screen status pill.
- *  Scoped to the fixed toast so it never collides with the Inspector's scope-echo
- *  region (also role=status) or the settings Undo toast (role=status, bottom-left)
- *  when the panel is open. */
+/**
+ * The app toast text — Sonner's bottom-center pill region (`ui/sonner.tsx`).
+ *
+ * Targets the TOASTER (the single `<ol data-sonner-toaster>`), not an individual
+ * `[data-sonner-toast]`: Sonner stacks up to three at once, so a per-toast locator
+ * would trip Playwright strict mode exactly when a spec chains two actions. The
+ * container is always present and always exactly one, and `toContainText` against
+ * it means "some visible toast said this" — which is what every call site wants.
+ *
+ * Do NOT reach for `[role="status"]` here. Sonner's toast carries neither `role`
+ * nor `aria-live` on the `<li>` (its live region is the wrapping
+ * `<section aria-label="Notifications alt+T">`), and the Studio has several
+ * unrelated `role="status"` nodes (Inspector scope echo, Coach "Assessing",
+ * PresentCaption) that a broad match would collide with.
+ */
 export function toastText(page: Page): Locator {
-	return page.locator('[role="status"].fixed.inset-x-0');
+	return page.locator('[data-sonner-toaster]');
 }
 
 /** The app toast pill — the canonical name for the centralized toast accessor.

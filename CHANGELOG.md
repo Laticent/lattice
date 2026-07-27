@@ -5080,6 +5080,17 @@ in patch versions.
   with any `_paginate: false` slide every page after it read one low and the total undercounted.
   A split now leaves the numbering of slides it never touched exactly as the engine set it.
 
+- **The Studio E2E suite's toast oracle had been dead since the Sonner migration, silently
+  failing 22 assertions across 12 spec files.** `toastText()` matched
+  `[role="status"].fixed.inset-x-0` — the hand-rolled pill Sonner replaced. Sonner's toast carries
+  neither `role` nor `aria-live` on the `<li>` (its live region is the wrapping `<section>`), so the
+  locator matched zero elements and every `toContainText` on it timed out. Because the E2E tier is
+  nightly rather than per-PR, nothing surfaced it. It now targets `[data-sonner-toaster]` — the one
+  always-present container, so a spec that chains two actions can't trip strict mode. Fixing it
+  exposed three assertions that had drifted behind the chrome underneath: "Add slide" opens the
+  add-slide gallery (the #1058 one-insert-door) rather than emitting a retired "Slide added." toast,
+  and the Inspector's Header field and Page-numbers toggle moved under the "Marks" tab. Same class
+  of drift as #780, which is why `CHROME` exists — these three predate the map and are now green.
 - **`compare-code`'s manifest `skeleton` used a markdown heading (`### Before`/`### After`) the
   transform never recognized, collapsing both fenced blocks into one lopsided column instead of two
   side-by-side (#1195).** `transformCompareCodeSection` splits columns on `<p><code>` boundaries
@@ -5097,7 +5108,17 @@ in patch versions.
 - **`obligation-matrix`'s `heat` variant gallery caption claimed green cells meant "exempt (relief)",
   but exempt cells render neutral, not green (#1199).** The caption now reads "Exempt cells stay
   neutral — heat marks burden, not relief," matching what the `heat` variant actually renders.
-
+- **Compose's per-slide formatting pill bled through onto the Preview pane on mobile after a
+  Compose → Preview tap.** Found on a real device against the shipped Eight-Cell Bar: switching
+  panes sets the inactive pane's wrapper to `visibility:hidden`, but `.cs-sb-pill` (Compose's
+  insert/table/settings pill on the active slide) carries its own `.cs-slide-active
+  > .cs-slide-bar > .cs-sb-pill{visibility:visible}` rule — a plain CSS descendant override wins
+  over an ancestor's inherited `hidden` regardless of the ancestor's computed value, so the pill
+  kept painting on top of Preview. `ComposeView` now adds a `cs-paused` class to its root when its
+  `visible` prop is false (already threaded from `StudioShell`'s pane-swap state), and a
+  higher-specificity rule forces the pill back to hidden while paused. Reproduces identically in
+  Chromium, so this was a genuine cross-browser bug, not a Safari quirk — just one the toolbar
+  redesign made trivially reachable for the first time. (`docs/src/components/studio/ComposeView.tsx`.)
 - **The radar's shape never animated.** Its series polygons carried no addressable attribute, so
   chart motion saw only the axis labels and animated the text of an otherwise static chart. The
   polygons now declare `data-anima-role` — deliberately *without* a `data-mark`, because the radar's
@@ -8463,6 +8484,100 @@ in patch versions.
 
 ### Changed
 
+- **The Studio's mobile toolbar is now the Eight-Cell Bar — eight equal, captioned, edge-to-edge
+  cells that never reflow between panes, replacing nine icon-only controls with no visible label.**
+  Markdown/Compose/Preview merge into one exclusive 3-way segment (freeing exactly the width eight
+  captioned ≥44×44 cells need); Coach, Chat, Settings, Present, and Share stay exactly where they
+  were — one tap, inline, never behind a menu. The mobile "···" overflow is now the **StudioDrawer**,
+  a bottom sheet, replacing one flat scroll that mixed tour copy, navigation, and an 18-theme
+  catalog with no section a user noticed. Tablet's overflow is unchanged (still the flat dropdown;
+  Version history moves from Preview's pane bar into the drawer, where it is always visible —
+  an earlier cut gated it on the Edit pane, and gating deck-level snapshot recovery on which pane you're looking at had
+  silently removed it from Preview entirely, caught by a post-launch adversarial trio pass). Two real icon collisions are fixed everywhere they occur:
+  `MessageSquareHeart` no longer means both Chat and Send Feedback (Chat moves to a distinct
+  bot-chat glyph, at all four Chat sites, including the command palette), and `Eye` no longer
+  means both Preview and Lenses/reader-views (Lenses moves to a glasses glyph, at all seven Lenses
+  sites plus the screen-reader "Description" label that shared it; Preview's own `Eye` usages now
+  route through the same `icons.ts` registry for consistency). `PaneBtn`'s 32px tap
+  target is retired outright; all eight bar cells are now a real ≥44×44 hit area (the drawer's own
+  rows are a separate, lower-frequency surface and are not held to the same floor). Landed after a
+  two-round design competition and an adversarial review that rejected the
+  round-1 winner (moving Coach/Chat/Settings behind a secondary surface) for reopening a
+  twice-settled product decision and breaking the guided-tour engine; this design keeps those three
+  controls exactly where the prior decisions require. **The active bar cell now swaps
+  `--text-heading`/`--bg` instead of tinting with `--accent-soft`** — reported as too subtle to
+  read at a glance; the swap paints a solid, high-contrast chip in the *other* mode's look (a dark
+  chip in light mode, a light chip in dark mode) using only tokens every palette already carries,
+  no new ones. Scoped to the bar variant only — the desktop/tablet activity rail's accent-soft
+  active state is unchanged. **A post-launch adversarial trio pass (red team + Munger inversion +
+  independent checker, HARD RULE #25) then caught and fixed a real regression that swap
+  introduced**: in every monochrome/accessibility-safe palette (onyx, the four `a11y-*` palettes,
+  atelier, concrete, ardesia) `--accent` resolves to the same value as `--text-heading`, so the
+  active cell and the Share cell (a solid `--accent` fill) rendered as byte-identical blocks in 13
+  of 36 palette×mode combinations — nothing distinguished "this is selected" from "this shares the
+  deck." The bar's active-cell marker (dropped when the contrast swap shipped, on the assumption
+  the fill alone was enough) is back, but now drawn in `--bg` rather than `--accent` — guaranteed
+  to contrast against the cell's own `--text-heading` fill in every palette (checked: 9.65–21:1
+  across all 36 combinations) and shown only on `tone="ghost"` cells, so Share and Present never
+  carry it regardless of what their own fill resolves to. The same pass fixed the drawer's
+  "Fix all issues" badge, which read `var(--chart-2, #9c3f00)` — `--chart-2` is undefined
+  everywhere in this codebase (palettes define `--chart-cat2`), so the badge was bare, palette-blind
+  orange text with no background compensation, measuring 2.55–2.95:1 against the drawer's own
+  background in every dark palette (AA needs 4.5:1); it now uses the real `--warn` token. A
+  defensive effect was added so Compose's floating selection toolbar (a `document.body` portal,
+  invisible to the mobile pane-swap wrapper's `invisible`/`inert`) can never survive its pane going
+  inactive, closing the same class of leak the `cs-paused` fix above closed by a different route.
+  **Workspace settings moves out of the drawer entirely, promoted to the header** (between the
+  mode toggle and "More controls") — reported as buried a drawer-open-plus-a-tap deep; the drawer's
+  own Workspace row drops it in turn, so it isn't a setting with two homes. **Slide settings is
+  dropped from the drawer too** — it duplicated the toolbar's own Settings cell, the sole entry
+  point now (reported: "we shouldn't have deck/slide settings in this drawer"). **Reader views and
+  Version history — both deck-level, neither tied to a specific slide — sit together now** rather
+  than in separate stacked groups. **Closing a sheet the drawer opened (Library, Reader views,
+  Version history, Search, Send feedback, Insert component) now reopens the drawer** instead of
+  dropping back to the bare toolbar — reported as a real navigation bug ("closing the new drawer
+  does not result in going back to the previous drawer"); `closeDrawerAndOpen` in `StudioShell.tsx`
+  arms a one-shot flag when the drawer navigates away, and the drawer returns when the last surface
+  it could have launched is gone, so every other entry point into these same sheets (the activity
+  bar, the command palette, the tablet dropdown, the new header button) is unaffected — none of them
+  ever arm it. **The drawer's title also gains
+  the accent-colored icon every other Studio sheet's title carries** (Settings, Lenses, Version
+  history, Workspace all lead with one) — it was plain, colorless text, the one sheet in the whole
+  app that read as a different kind of surface instead of a peer of the others (reported as
+  confusing); the icon matches the "More controls" trigger that opens it, the same "title icon
+  matches its own toggle" pattern every other sheet already follows.
+
+  **The drawer's own layout was then rebuilt as "Two Doors"** after a third design competition
+  (five independent designs, judged) — the zoned version it replaces had grown a sticky jump strip,
+  five mono-uppercase zone headers, two sideways-scrolling catalogs, and rows stretched to fill,
+  and was reported as a mess. It now follows four rules: **rows are rows** (52px, icon · label ·
+  chevron, never stretched to fill a column); **the only navigation is down**, so there is not one
+  `overflow-x` in the file; **grouping is a card plus a gap**, not a shouted header; and the two
+  big catalogs become **doors** (60px, accent icon, showing their live value — the current theme's
+  name and swatch, "5 tours") that push a second level into the *same* sheet with a "‹ Studio" back
+  affordance. Nothing left the drawer — the full inventory is still reachable from it, and seven of
+  nine rows stay one tap. Escape pops a door before it closes the sheet; the level always resets to
+  the index on reopen; focus moves to Back on the way in and returns to the door you came from on
+  the way out; and a `role="status"` region announces the push and the pop, because retargeting an
+  open dialog's `aria-labelledby` does not re-speak in VoiceOver or NVDA. **The theme grid also
+  fixes a swatch that was literally invisible** — onyx's dot is `#000000` and the onyx-dark sheet is
+  `#000000`, so with a transparent border it was byte-identical to its own background; every tile
+  now carries a `--text-heading`-derived hairline and a real name, and the selected tile is marked
+  in `--text-heading`, never `--accent` (in 13 of 36 palette×mode combinations those two tokens
+  resolve to the same value). A follow-up Munger inversion then caught three more: the drawer's
+  press feedback was `--accent-soft` over a `--bg-alt` card, which measures 1.00–1.17:1 in all
+  twelve light palettes and is byte-identical on `concrete` — an "active" state you cannot see; it
+  is now a translucent `--text-heading` ink wash that composites visibly over any surface in either
+  mode. "Fix all issues" was announcing as bare "Fix all issues" to a screen reader because its
+  count and its "None ✓" zero-state were both `aria-hidden`; they come back as the button's
+  description, so the accessible *name* stays the exact contract string. And the drawer-return flag
+  moved from per-sheet `onOpenChange` wrappers to one effect over the set of surfaces the drawer can
+  launch: the wrapper fired on the *closing* sheet and could not see what opened in the same commit,
+  so drawer → "Search / commands" → "Library" resurfaced the drawer and lost the Library, and the
+  Lenses/Library paths that close via a bare `setActiveAssistant(null)` left the flag armed for good.
+  (`docs/src/components/studio/{StudioShell.tsx,StudioDrawer.tsx,icons.ts,scroll-fade.tsx,
+  ComposeView.tsx,CommandPalette.tsx,LensesPanel.tsx}`;
+  `engineering/decisions/2026-07-26-studio-mobile-eight-cell-bar.md`.)
 - **Quadrant names now sit OUTSIDE the plot, centered on their column, in their own quadrant's color.**
   They used to be inset inside their corner, where they cost twice over: they competed with the data
   for the corner they occupied (item labels had to be routed around them, and still collided when a

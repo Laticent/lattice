@@ -46,11 +46,28 @@ export const SEL = {
 	// The deck-theme control inside the deck-scope Settings panel. (Was
 	// '[aria-label="Choose theme"]', which matched NOTHING — the real label is
 	// "Choose deck theme"; the reskin() cursor pointed at a missing node.)
+	// PRE-EXISTING, OFF-PATH GAP (found during the round-2 mobile-toolbar competition,
+	// logged per HARD RULE #18 rather than pulled into that diff): on mobile the
+	// Settings panel is a Radix Sheet portalled to document.body — a SIBLING of
+	// data-studio-root, not a descendant — so this selector, resolved root-scoped by
+	// vetrina/stage.ts, already matches nothing on a phone. reskin()'s theme step
+	// silently no-ops on 2 of the 5 shipped tours today, independent of anything in
+	// StudioShell.tsx's mobile toolbar. Needs its own fix (a thunk resolver, the
+	// newDeckItem() pattern below, or a Sheet `container` prop scoped to the studio
+	// root) — tracked separately, not touched here.
 	theme: '[aria-label="Choose deck theme"]',
 	architect: '[aria-label="Toggle Coach"]',
 	mode: '[data-demo="mode"]',
+	// PRE-EXISTING, OFF-PATH: no tour builder in this file points at slideSettings today
+	// (grep-confirmed) — Slide settings lives only in the mobile StudioDrawer as of the
+	// Eight-Cell Bar (2026-07-26-studio-mobile-eight-cell-bar.md), a Radix Sheet portalled
+	// to document.body, so this selector would ALSO resolve to nothing on mobile the
+	// moment a tour ever does reference it. Recorded so the next tour author doesn't
+	// trip on it silently; not fixed here because nothing currently depends on it.
 	slideSettings: '[aria-label="Slide settings"]',
-	// Union selectors — desktop carries data-demo, the mobile pane bar carries only aria-label.
+	// Union selectors — every platform now carries BOTH data-demo and aria-label for
+	// Present/Share (the mobile Eight-Cell Bar's cells add data-demo="present"/"share",
+	// closing the "mobile has no data-demo" gap a prior tour pass flagged).
 	present: '[data-demo="present"], [aria-label="Present"]',
 	share: '[data-demo="share"], [aria-label="Share"]',
 } as const;

@@ -12,7 +12,7 @@
 // only OFFERS controls the active layout accepts, and goes read-only on a class shape
 // it can't round-trip. See engineering/decisions/2026-07-03-slide-context-editor.md.
 
-import { Captions, Check, Cloud, Eye, Info, RotateCcw, Sparkles } from 'lucide-react';
+import { Captions, Check, Cloud, Info, RotateCcw, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -25,6 +25,7 @@ import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogS
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
+import { SrDescriptionIcon } from './icons';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
@@ -538,7 +539,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							    alt text (PPTX) / an aria description (HTML). */}
 							<div className="mt-5 border-t border-border pt-4">
 								<div className="flex items-center justify-between gap-2">
-									<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><Eye className="size-3.5 text-[var(--accent)]" />Description <span className="font-normal text-muted-foreground">for screen readers</span></span>
+									<span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground"><SrDescriptionIcon className="size-3.5 text-[var(--accent)]" />Description <span className="font-normal text-muted-foreground">for screen readers</span></span>
 									{cloudReady ? (
 										<Tip label="Draft a text alternative from this slide (you review & confirm before it's used)"><button
 											type="button"

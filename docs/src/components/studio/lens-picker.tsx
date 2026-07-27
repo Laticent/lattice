@@ -1,8 +1,9 @@
-import { ChevronDown, Eye, FileText, Plus } from 'lucide-react';
+import { ChevronDown, FileText, Plus } from 'lucide-react';
 import type * as React from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { LensDef } from '@/lib/lente';
 import { cn } from '@/lib/utils';
+import { LensIcon } from './icons';
 import type { PresentLens } from './lint';
 
 export type LensEntry = { key: PresentLens; label: string; desc: string; icon: React.ReactNode };
@@ -20,7 +21,7 @@ export function lensEntriesFrom(defs: LensDef[]): LensEntry[] {
 	return defs.map((d) =>
 		d.id === 'full'
 			? { key: 'full', label: d.label || 'Full deck', desc: 'The whole source', icon: <FileText className="size-3.5" /> }
-			: { key: d.id, label: d.label, desc: d.single ? 'A single slide' : d.base === 'all' ? 'Everything except opted-out slides' : 'The slides tagged for it', icon: <Eye className="size-3.5" /> },
+			: { key: d.id, label: d.label, desc: d.single ? 'A single slide' : d.base === 'all' ? 'Everything except opted-out slides' : 'The slides tagged for it', icon: <LensIcon className="size-3.5" /> },
 	);
 }
 

@@ -530,10 +530,36 @@ describe('StudioShell — responsive layout', () => {
 		expect(inertWrap('studio-pane-editor')).not.toBeNull(); // editor mounted but inert
 		// Architect is NOT a persistent column on mobile.
 		expect(screen.queryByText('Board readiness')).not.toBeInTheDocument();
-		// Swap to the editor pane — the inert flips, nothing remounts.
-		await user.click(screen.getByRole('button', { name: 'Edit' }));
+		// Swap to the editor pane — the inert flips, nothing remounts. "Markdown source"
+		// is the Eight-Cell Bar's Source cell (2026-07-26-studio-mobile-eight-cell-bar.md);
+		// it replaces the old icon-only "Edit" toggle.
+		await user.click(screen.getByRole('button', { name: 'Markdown source' }));
 		expect(inertWrap('studio-pane-editor')).toBeNull(); // editor now active
 		expect(inertWrap('studio-pane-preview')).not.toBeNull(); // preview now inert (still mounted)
+	});
+
+	it('mobile: tapping the Source cell from a fresh Read boot steps Read→Write (round-1 regression: a prior wiring spec carried this step on only ONE of the two edit-entry handlers)', async () => {
+		localStorage.clear(); // a true fresh visitor — boots on Read, per the posture-dial block above
+		setViewport('mobile');
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('read');
+		await user.click(screen.getByRole('button', { name: 'Markdown source' }));
+		const saved = JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}');
+		expect(saved.posture).toBe('write');
+		expect(saved.readHintSeen).toBe(true);
+	});
+
+	it('mobile: tapping the Compose cell from a fresh Read boot ALSO steps Read→Write — the same posture step, on the OTHER handler', async () => {
+		localStorage.clear();
+		setViewport('mobile');
+		const user = userEvent.setup();
+		render(<StudioShell options={options} />);
+		expect(JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}').posture).toBe('read');
+		await user.click(screen.getByRole('button', { name: 'Compose — rich editor' }));
+		const saved = JSON.parse(localStorage.getItem('lattice-studio-settings') ?? '{}');
+		expect(saved.posture).toBe('write');
+		expect(saved.readHintSeen).toBe(true);
 	});
 
 	it('mobile: the Architect opens as a slide-in sheet', async () => {
@@ -646,19 +672,26 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.queryByRole('menuitem', { name: /Switch to (dark|light) mode/ })).not.toBeInTheDocument();
 	});
 
-	it('mobile: the deck actions stay inline on the pane bar (icon Edit/Preview toggle, no ⋯ hiding)', async () => {
+	it('mobile: the deck actions stay inline on the Eight-Cell Bar (captioned cells, no ⋯ hiding)', async () => {
 		setViewport('mobile');
 		const user = setup();
-		// The deck actions live one-tap on the pane toolbar (row 2), not behind a ⋯ —
-		// an icon-only Edit/Preview toggle reclaims the width to keep them inline.
+		// The six protected controls live one-tap on the pane toolbar, not behind a ⋯ —
+		// the Eight-Cell Bar (2026-07-26-studio-mobile-eight-cell-bar.md) reclaims width by
+		// merging Markdown/Compose/Preview into one segment and dropping all gaps/padding,
+		// not by hiding anything.
 		const paneBar = screen.getByRole('toolbar', { name: 'Deck actions' });
 		expect(within(paneBar).getByRole('button', { name: 'Present' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Share' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Toggle Coach' })).toBeInTheDocument();
 		expect(within(paneBar).getByRole('button', { name: 'Settings' })).toBeInTheDocument();
-		// The icon toggle keeps its accessible names.
+		// The merged pane segment keeps distinct accessible names for all three states.
 		expect(within(paneBar).getByRole('button', { name: 'Preview' })).toBeInTheDocument();
-		expect(within(paneBar).getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+		expect(within(paneBar).getByRole('button', { name: 'Markdown source' })).toBeInTheDocument();
+		expect(within(paneBar).getByRole('button', { name: 'Compose — rich editor' })).toBeInTheDocument();
+		// Every cell carries a persistent visible caption, not just an aria-label.
+		expect(within(paneBar).getByRole('button', { name: 'Markdown source' })).toHaveTextContent('Source');
+		expect(within(paneBar).getByRole('button', { name: 'Toggle Coach' })).toHaveTextContent('Coach');
+		expect(within(paneBar).getByRole('button', { name: 'Settings' })).toHaveTextContent('Settings');
 		// The header keeps the launcher, the deck switcher, the 1-tap mode flip, and ⋯.
 		expect(screen.getByRole('button', { name: 'Workspace launcher' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Q3 Board Review/ })).toBeInTheDocument();
@@ -695,11 +728,133 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(await screen.findByPlaceholderText(/Search|command/i)).toBeInTheDocument();
 	});
 
-	it('compact: opening ⋯ then resizing to desktop and back leaves it closed (H4)', async () => {
+	it('mobile: a drawer row that opens NO sheet must not arm the drawer-reopen flag', async () => {
+		// REGRESSION (shipped CI-green in eb8e734, fixed in 89e914e). The drawer reopens
+		// itself when a sheet IT opened is closed. That flag was armed by EVERY drawer row
+		// — including the two that open no sheet at all ("Fix all issues" runs an editor
+		// method; a tour just starts). With nothing to close, the flag stayed armed
+		// indefinitely, so the NEXT close of ANY wrapped sheet, from ANY entry point,
+		// sprang the drawer open on top of the user.
+		setViewport('mobile');
+		// A FRESH visitor, not the seeded returning user: the shipped welcome deck carries
+		// real lint findings, so "Fix all issues" is ENABLED and its tap actually lands.
+		// The seeded Q3 deck is clean, which leaves that row disabled and the tap a no-op —
+		// the test would then pass for the wrong reason.
+		localStorage.clear();
+		const user = setup();
+		// The Edit block (which hosts Fix all issues) renders only on the edit pane.
+		await user.click(screen.getByRole('button', { name: 'Markdown source' }));
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		const fixAll = await screen.findByRole('button', { name: 'Fix all issues' });
+		expect(fixAll).toBeEnabled(); // the seed did its job; otherwise this proves nothing
+		await user.click(fixAll);
+		await waitFor(() => expect(screen.queryAllByRole('dialog')).toHaveLength(0), { timeout: 3000 });
+		// Drive a wrapped sheet from a path that is NOT the drawer (⌘K), then close it.
+		await user.keyboard('{Meta>}k{/Meta}');
+		expect(await screen.findByPlaceholderText(/Search|command/i)).toBeInTheDocument();
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.queryByPlaceholderText(/Search|command/i)).not.toBeInTheDocument(), { timeout: 3000 });
+		// The drawer must stay shut — it never opened this palette. Pre-fix it reopened here.
+		expect(screen.queryAllByRole('dialog')).toHaveLength(0);
+	});
+
+	it('mobile: the drawer PUSHES a door in place and pops back to the index', async () => {
+		// The Two Doors rewrite added a second level inside the SAME sheet (Themes, Show me)
+		// and had ZERO coverage of it — no test entered a door, returned from one, or checked
+		// that the level resets. That gap is exactly how the rewrite shipped with the phone's
+		// only path to a guided tour silently broken in the e2e tier.
+		setViewport('mobile');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		const sheet = await screen.findByRole('dialog');
+
+		// Push: the door's own row is replaced by the door's contents, IN PLACE — still one
+		// dialog, not a second stacked sheet.
+		await user.click(within(sheet).getByRole('button', { name: 'Show me' }));
+		expect(screen.queryAllByRole('dialog')).toHaveLength(1);
+		await within(sheet).findByRole('button', { name: 'Back to Studio' });
+		// The tour cards live here and ONLY here — the drawer is the phone's sole tour entry.
+		expect(sheet.querySelector('[data-tour]')).not.toBeNull();
+
+		// Pop: back to the index, and the door row is reachable again.
+		await user.click(within(sheet).getByRole('button', { name: 'Back to Studio' }));
+		await within(sheet).findByRole('button', { name: 'Show me' });
+		expect(sheet.querySelector('[data-tour]')).toBeNull();
+
+		// Reopening always lands on the index — nobody returns to a screen they forgot.
+		await user.click(within(sheet).getByRole('button', { name: 'Show me' }));
+		await within(sheet).findByRole('button', { name: 'Back to Studio' });
+		await user.keyboard('{Escape}'); // in a door, Escape pops rather than closing
+		await within(sheet).findByRole('button', { name: 'Show me' });
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.queryAllByRole('dialog')).toHaveLength(0), { timeout: 3000 });
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Show me' });
+	});
+
+	it('mobile: a drawer-opened palette that LAUNCHES another surface does not resurface the drawer under it', async () => {
+		// REGRESSION (Munger inversion, F7). The reopen used to hang off each sheet's own
+		// `onOpenChange`, which fires on the CLOSING sheet and cannot see what opened in the
+		// same commit. CommandPalette's `run` is `onOpenChange(false); fn()` — so drawer →
+		// "Search / commands" → "Library" re-opened the drawer as the palette closed, and the
+		// Library that arrived a beat later lost the race for the mobile assistant slot. What
+		// the user got for picking "Library" was the drawer they started from. Measured, not
+		// theorized: pre-fix this lands on the drawer dialog, post-fix on the Library.
+		setViewport('mobile');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(await screen.findByRole('button', { name: 'Search / commands' }));
+		// The palette's OWN placeholder, not /Search/ — the Library it launches has a search
+		// field too, so a loose match would still be satisfied by the wrong surface.
+		const PALETTE = 'Search or run a command…';
+		await user.type(await screen.findByPlaceholderText(PALETTE), 'Library');
+		await screen.findByRole('option', { name: /Library/i });
+		await user.keyboard('{Enter}'); // cmdk's canonical selection path
+
+		// Exactly one surface is up, and it is the LIBRARY. Assert which one, not how many:
+		// pre-fix there was also exactly one dialog — the drawer, resurfaced, with the
+		// Library the user actually asked for nowhere on screen.
+		await waitFor(() => expect(screen.queryByPlaceholderText(PALETTE)).not.toBeInTheDocument(), { timeout: 3000 });
+		const dialogs = screen.queryAllByRole('dialog');
+		expect(dialogs).toHaveLength(1);
+		expect(dialogs[0]).toHaveTextContent('Saved themes, components');
+	});
+
+	it('mobile: running a command the drawer knows NOTHING about still leaves the drawer shut', async () => {
+		// The companion to the test above, and the harder half. The drawer's return can only
+		// be derived from surfaces it can name; the palette can reach ~31 commands, most of
+		// which land somewhere the drawer has never heard of (Present, Share, Fabricate, a
+		// deck switch, a guided tour). The red team drove four of them and got the drawer
+		// back on top of the result every time — over a LIVE tour in one case, whose "click
+		// anywhere to take over" tap the drawer's own modal overlay then swallowed. So
+		// running a command now disarms the return outright: it is a deliberate departure,
+		// not a dismissal. "Present" stands in for the whole unlistable tail.
+		setViewport('mobile');
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(await screen.findByRole('button', { name: 'Search / commands' }));
+		const PALETTE = 'Search or run a command…';
+		await user.type(await screen.findByPlaceholderText(PALETTE), 'Present');
+		await screen.findByRole('option', { name: /Present/i });
+		await user.keyboard('{Enter}');
+
+		await waitFor(() => expect(screen.queryByPlaceholderText(PALETTE)).not.toBeInTheDocument(), { timeout: 3000 });
+		// Whatever Present put on screen, the drawer is not part of it.
+		expect(screen.queryByRole('button', { name: 'Search / commands' })).not.toBeInTheDocument();
+		expect(screen.queryAllByRole('dialog').some((d) => d.textContent?.includes('Editor actions, guided tours'))).toBe(false);
+	});
+
+	it('mobile: opening the StudioDrawer then resizing to desktop and back leaves it closed (H4)', async () => {
 		// A matchMedia that starts compact and can flip to desktop, firing the hook's
 		// listeners so `compact` actually changes (the shared stub is a no-op on change).
 		// Only the breakpoint media queries feed `listeners` (other consumers — e.g.
 		// CodeMirror's print listener — get a no-op so firing a resize can't crash them).
+		// NOTE: this mock matches BOTH the 699 and the 1099 queries while compact, and
+		// useBreakpoint checks 699 first — so it resolves to MOBILE, not tablet, and this
+		// test exercises the StudioDrawer (Sheet + plain buttons), not the tablet
+		// DropdownMenu. The tablet path gets its own twin test below (round-2 mobile-
+		// toolbar competition, graft from "The Verb Row & the View Row": the prior single
+		// test's regex made it silently exercise only one tier, never the other).
 		const listeners = new Set<(e: { type: string; matches: boolean }) => void>();
 		let isCompact = true;
 		window.matchMedia = ((q: string) => {
@@ -720,7 +875,7 @@ describe('StudioShell — topbar information architecture', () => {
 		}) as unknown as typeof window.matchMedia;
 		const user = setup();
 		await user.click(screen.getByRole('button', { name: 'More controls' }));
-		expect(await screen.findByRole('menuitem', { name: 'Library' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Library' })).toBeInTheDocument();
 		// Resize to desktop → ⋯ unmounts; resize back to compact → ⋯ returns CLOSED
 		// (the breakpoint effect reset its open state, so it doesn't reopen stale).
 		const flip = (compact: boolean) => act(() => { isCompact = compact; for (const cb of listeners) cb({ type: 'change', matches: compact }); });
@@ -728,7 +883,42 @@ describe('StudioShell — topbar information architecture', () => {
 		await waitFor(() => expect(screen.queryByRole('button', { name: 'More controls' })).not.toBeInTheDocument());
 		await flip(true);
 		expect(await screen.findByRole('button', { name: 'More controls' })).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Library' })).not.toBeInTheDocument();
+	});
+
+	it('tablet: opening ⋯ then flipping to mobile and back leaves it closed (H4, tablet twin — the mobile↔tablet reset gap the round-2 competition found: `compact` alone never fires across that flip)', async () => {
+		// Matches ONLY the 1099 query, never 699 — useBreakpoint resolves TABLET here, so
+		// this exercises the real tablet DropdownMenu/menuitem path the previous single
+		// test's regex accidentally never reached.
+		const listeners = new Set<(e: { type: string; matches: boolean }) => void>();
+		let tier: 'tablet' | 'mobile' = 'tablet';
+		window.matchMedia = ((q: string) => {
+			const is699 = q.includes('699');
+			const is1099 = q.includes('1099');
+			return {
+				get matches() { return tier === 'mobile' ? is699 || is1099 : is1099; },
+				media: q,
+				onchange: null,
+				addEventListener: (_: string, cb: (e: { type: string; matches: boolean }) => void) => { if (is699 || is1099) listeners.add(cb); },
+				removeEventListener: (_: string, cb: (e: { type: string; matches: boolean }) => void) => { listeners.delete(cb); },
+				addListener: () => {},
+				removeListener: () => {},
+				dispatchEvent: () => false,
+			};
+		}) as unknown as typeof window.matchMedia;
+		const user = setup();
+		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		expect(await screen.findByRole('menuitem', { name: 'Library' })).toBeInTheDocument();
+		// Flip straight to mobile (both `compact` AND `bp` change: tablet→mobile is exactly
+		// the transition `compact` alone can't see, since it's true on both sides of it) —
+		// the tablet DropdownMenu must not survive as a stale open mobile StudioDrawer.
+		const flip = (next: 'tablet' | 'mobile') => act(() => { tier = next; for (const cb of listeners) cb({ type: 'change', matches: true }); });
+		flip('mobile');
+		await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Library' })).not.toBeInTheDocument());
+		flip('tablet');
+		expect(await screen.findByRole('button', { name: 'More controls' })).toBeInTheDocument();
 		expect(screen.queryByRole('menuitem', { name: 'Library' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Library' })).not.toBeInTheDocument();
 	});
 });
 
