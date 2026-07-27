@@ -57,6 +57,16 @@ in patch versions.
 
 ### Added
 
+- **`npm run check:chart-fit` — a gate for the invariant that broke twice.** Every other chart gate
+  asks whether a chart is right in ISOLATION (does it scale, is its CSS relative, does its paint
+  survive the scoped path). None asked whether the rendered thing fits `.cell-stage`, which is
+  `overflow: clip` — so an overflowing chart is silently CUT, not visibly broken. The new tool renders
+  `test/fixtures/chart-fit.md` through the emulator, loads the sidecar in headless Chromium, and
+  compares each chart's painted extent against its stage box. It discriminates: run against the
+  pre-fix tree it fails at exactly the clipped slides (+38px, +102.7px), and passes on the fix. A
+  36-case sweep also found **12 pre-existing clips** on `main` — every 5–8-series small-multiples deck
+  carrying a below-note, and all 9-series decks, by up to 150px.
+
 - **Every visualization now declares what it is DRAWN with, and the declaration is checked
   against the rendered artifact.** There was no way to tell which charts are real SVG, which
   are HTML/CSS boxes, and which mix the two — a distinction that decides whether chart-motion

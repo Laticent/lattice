@@ -275,6 +275,29 @@ instructive rather than incidental.
   exists to stop passed green. It now scans from each mention of the class to its
   matching close brace, and I verified it fails on the evasion.
 
+## 6.7 The gate for what actually broke
+
+The stage-fit invariant had no gate, which is why it broke twice in one branch
+and why a 36-case sweep found 12 pre-existing clips on `main`. Every other chart
+gate asks whether a chart is right IN ISOLATION — `check-svg-scaling` whether it
+scales, `check-chart-responsiveness` whether its CSS is relative,
+`check-viz-render` whether its paint survives the scoped path. None asked whether
+the rendered thing fits `.cell-stage`, which is `overflow: clip` — so the answer
+to "no" is silent: the chart looks fine and its top row is simply gone.
+
+`tools/check-chart-fit.js` (`npm run check:chart-fit`) renders
+`test/fixtures/chart-fit.md` through the emulator, loads the sidecar in Chromium,
+and compares each chart's PAINTED extent against its stage box — the marks, not
+the container, because a container can sit inside the stage while the children
+overflowing it are cut. The fixture holds the shapes that actually failed: series
+counts around the row-wrap boundary, a name long enough to wrap the caption band,
+and a below-note eating the stage.
+
+**It discriminates.** Run against the pre-fix tree it fails exactly where the
+clipping was — slide 4 at +38px top, slide 5 at +102.7px top and +84px bottom —
+and passes on the tip. A gate that cannot fail on the bug it was written for is
+decoration.
+
 ## 7. Unverified
 
 - **PPTX export** is not measured by the derivation (it reads the HTML sidecar).
