@@ -103,18 +103,18 @@ State markers `[x]/[-]/[ ]/[/]` are universal: ✓ shipped, – in flight, ○ p
 
 <!-- _class: roadmap -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · roadmap — The full grid, twelve cells." -->
+<!-- _footer: "Stress test · roadmap — Five phases — the ceiling, and what portrait paginates." -->
 
 `roadmap · stress`
 
-## Four workstreams by three phases is the full grid.
+## Four workstreams by five phases is the ceiling.
 
-| Workstream | Phase one | Phase two | Phase three |
-| --- | --- | --- | --- |
-| First | [x] Done cell | [-] Active cell | [ ] Planned cell |
-| Second | [x] Every cell filled | [-] No blank promises | [ ] The honest grid |
-| Third | [x] Short cell labels | [-] Four words at most | [ ] Or the grid wraps |
-| Fourth | [x] The last row | [-] Twelve cells total | [ ] The ceiling |
+| Workstream | Phase one | Phase two | Phase three | Phase four | Phase five |
+| --- | --- | --- | --- | --- | --- |
+| First | [x] Done cell | [-] Active cell | [ ] Planned cell | [ ] Later still | [ ] The last one |
+| Second | [x] Every cell filled | [-] No blank promises | [ ] The honest grid | [ ] Four words at most | [ ] Or the grid wraps |
+| Third | [x] Short cell labels | [-] Four words at most | [ ] Or the grid wraps | [ ] Twenty cells total | [ ] The ceiling |
+| Fourth | [x] The last row | [-] Twenty cells total | [ ] The ceiling | [ ] Portrait paginates | [ ] Four pages at most |
 
 
 ---

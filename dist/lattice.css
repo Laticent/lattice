@@ -9289,6 +9289,20 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
   position: absolute;
   inset: 0 auto 0 0;
   width: calc(var(--pct) * 1%);
+  /* BORDER-BOX, or the bar lies about its own value. `width` here IS the datum,
+   * and the fill carries 4px of accent border + a 1px hairline + 0.625cqi of
+   * right padding for the in-bar readout. Under the CSS default (content-box)
+   * every one of those sits OUTSIDE the percentage, so each bar rendered a
+   * constant ~11px too long: measured at portrait, a 551px track drew 92% as
+   * 518.0px (94.0%) and 12% as 77.2px (14.0%). The offset is additive, so
+   * ranking survived and the defect read as cosmetic — but the whole point of
+   * the component is comparing bar LENGTHS, and a fixed overhang overstates
+   * small values ~8x more than large ones (12%→14.0% is +17% relative; 92%→94.0%
+   * is +2%). At --pct:0 it drew 11px of "progress" against zero. border-box
+   * folds the chrome inside the datum: 12% of the track is 12% of the track.
+   * Matches .chart-body / .chart-key (chart-family.css) — the family default;
+   * this rule was the outlier. See #1210. */
+  box-sizing: border-box;
   /* CHART-FAMILY MATERIAL, progress-SPECIALIZED GEOMETRY. Progress shares the
    * family's hue/ink palette (--fill-* below), 1px hue-tint border, and 4px
    * vivid left accent — the same MATERIAL as the kanban card / gantt bar /
@@ -9386,6 +9400,66 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
   }
   :is(section.progress, figure.progress) .progress-track { height: 4cqi; }
   :is(section.progress, figure.progress) .progress-label { font-size: var(--fs-message); }
+}
+
+/* ── Box-local STACK (tall only, ≤0.9): the label gets its own full-width row.
+ *
+ * The three-column row (`18.75cqi 1fr 7.5cqi`) pulls apart at portrait because
+ * its two halves scale in OPPOSITE directions. `cqi` is a share of container
+ * INLINE size, so the label column SHRINKS as the deck narrows (1920→1080 takes
+ * 18.75cqi from ~324px to ~182px), while `--fs-message` above rides
+ * `--canvas-scale` (~1.95 at portrait) and GROWS the label to 50.5px with an
+ * 80.9px line box. A 50px font in a 182px column fits about four characters, so
+ * every two-word label wrapped: measured, rows 1-4 came out 161.8px (two lines)
+ * against row 5 "Adoption" at 80.9px, totalling 870.3px of bars in a 702.2px
+ * stage — 168px cut, silently, because `.cell-stage` is `overflow: clip`.
+ *
+ * Widening the column cannot fix it ("Calibration cadence" at 50.5px wants
+ * ~475px, half the deck). So at portrait the label stops competing for width
+ * and takes its own row above the bar — the same "portrait stacks what
+ * landscape puts side by side" move piechart makes with its key
+ * (`buildPortrait`) and word-cloud with its size key. The bar also gets the FULL
+ * width, which is a straight win: length is the datum this component encodes.
+ *
+ * Scoped ≤0.9, not ≤1.05: square already fits (measured -178.1px of headroom)
+ * and a layout change there would be churn without a defect behind it. See
+ * #1209, #1210 and 2026-06-19-chart-adaptive-sizing.md. */
+@container lattice (aspect-ratio <= 0.9) {
+  :is(section.progress, figure.progress) .progress-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "label label"
+      "track pill";
+    row-gap: var(--sp-2xs);
+    column-gap: var(--sp-sm);
+  }
+  :is(section.progress, figure.progress) .progress-label {
+    grid-area: label;
+    /* Left-aligned now that it heads the row instead of butting against the
+     * bar's origin — right-alignment only reads as a gutter beside the track. */
+    text-align: left;
+    /* Back to the body step. The ≤1.05 block above bumps the label to
+     * `--fs-message` to help a narrow three-column row fill a taller box — but
+     * once the label has its OWN full-width row that bump only buys height, and
+     * five two-line rows plus the gallery's real subtitle put the stack 10.5px
+     * past the stage. Statement scale is for a slide's message, not a row label
+     * (engineering/typography.md). */
+    font-size: var(--fs-body);
+  }
+  :is(section.progress, figure.progress) .progress-track { grid-area: track; }
+  :is(section.progress, figure.progress) .progress-row > .chart-status,
+  :is(section.progress, figure.progress) .progress-row > .chart-status-empty {
+    grid-area: pill;
+  }
+  /* The note follows the bar it annotates; `grid-column: 2/3` above targets the
+   * three-column template and would land it under the pill here. */
+  :is(section.progress, figure.progress) .progress-note {
+    grid-area: track;
+    grid-row: 3;
+  }
+  /* Rows are now two lines tall, so the between-row rhythm tightens to keep the
+   * five of them inside the stage. */
+  :is(section.progress, figure.progress) .progress-bars { row-gap: var(--sp-sm); }
 }
 
 /* === lib/components/inventory/q-and-a/q-and-a.styles.css === */
@@ -11360,7 +11434,9 @@ section.regulatory-update > .cell-stage {
   display:inline-flex; align-items:center; justify-content:center;
   text-align:center; line-height:1;
   font-family:var(--pill-font);
-  font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
+  /* Floored: the tag tracks the cqi-proportional grid cell, but rendered 9.35px
+   * at landscape and 8.35px at square with no bottom at all. See #1213. */
+  font-size:max(var(--chart-text-min), 0.859375cqi);
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
   color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
@@ -11671,7 +11747,9 @@ section.regulatory-update > .cell-stage {
   display:inline-flex; align-items:center; justify-content:center;
   text-align:center; line-height:1;
   font-family:var(--pill-font);
-  font-size:0.859375cqi; /* cqi-ok: corner tag sized to the cqi-proportional roadmap grid cell (awaits chart portrait reflow) */
+  /* Floored: the tag tracks the cqi-proportional grid cell, but rendered 9.35px
+   * at landscape and 8.35px at square with no bottom at all. See #1213. */
+  font-size:max(var(--chart-text-min), 0.859375cqi);
   font-weight:var(--pill-weight);
   letter-spacing:var(--pill-tracking);
   color:var(--cat-on-mark);              /* white on the saturated light-canvas mark, near-black on the pale dark-canvas mark */
@@ -11732,6 +11810,44 @@ section.regulatory-update > .cell-stage {
   font-family:var(--font-mono);
 }
 
+/* ── NON-LANDSCAPE legend, keyed on `data-orientation` NOT a container query ──
+ * The status key's top separation is `--sp-lg + --sp-sm`, which rides
+ * `--canvas-scale` to 60.1px on a square deck — 60px of pure chrome in the box
+ * with the least vertical room to give. That alone put the figure over:
+ * measured at 1080x1080 the table is 625.5px and clears the 728.2px stage by
+ * 128.8px, but table + a 154.8px legend makes a 780.3px figure, 26px outside
+ * the stage clip top and bottom.
+ *
+ * WHY NOT `@container lattice (aspect-ratio <= 1.05)`, which is how every other
+ * box-local rule here is written: on a square deck that query DOES NOT MATCH.
+ * `orientationFor` classifies the DECK box (1080x1080 → 1.00, inside the
+ * 0.9–1.05 square band, and `data-orientation="square"` is emitted correctly),
+ * but a container query evaluates the container's CONTENT box — 972 x 909.23
+ * once the section's asymmetric padding (74.25 top + 96.525 bottom vs 54 + 54)
+ * is removed, an aspect of 1.069. That is outside the same 1.05 boundary, so
+ * the whole `≤1.05` branch is inert at square. Verified against a known-gated
+ * declaration: `.progress-track` renders 2.5cqi (base) at square and 4cqi
+ * (gated) at portrait.
+ *
+ * That mismatch is a pre-existing, library-wide defect — 18 files carry a
+ * `≤1.05` branch that never fires on a square deck — and it is off the path of
+ * #1209, so it is filed rather than fixed here (HARD RULE #18). This rule keys
+ * on the attribute the engine already derives, which is the one source of
+ * truth and agrees with `orientationFor` by construction.
+ *
+ * Landscape keeps the generous separation: it has the height, and the key
+ * should read as detached from the grid. See #1209. */
+:is(section.roadmap, figure.roadmap):is([data-orientation='square'], [data-orientation='portrait']) .roadmap-legend {
+  padding-top: var(--sp-sm);
+  gap: var(--sp-2xs) var(--sp-lg);
+  /* Chrome step, not the content step. At portrait `--fs-body-compact` renders
+   * ~39px, which takes four status chips past the 877px row and WRAPS the key
+   * to two lines — 144.7px of legend under an already-tight grid. A status key
+   * is chrome (`--fs-meta`'s stated role: pills, micro-captions, labels), so
+   * this is the more correct token here as well as the shorter one. */
+  font-size: var(--fs-meta);
+}
+
 /* ── Box-local portrait (placed AFTER the base horizon rules so it wins on
  * source order at equal specificity) ────────────────────────────────────────
  * A wide table letterboxes, so on a tall box the kernel auto-selects horizons
@@ -11742,30 +11858,122 @@ section.regulatory-update > .cell-stage {
  * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md §10. */
 @container lattice (aspect-ratio <= 0.9) {
   :is(section.roadmap, figure.roadmap).horizons .horizons {
+    /* ONE column is right; the TYPE inside it was the problem. Measured, a
+     * 4-workstream card came out 382.4px with its rows already collapsed to one
+     * line (54px each), so three of them made 1194.5px of grid inside an 835.6px
+     * stage — 284px cut, silently, at `.cell-stage`'s `overflow: clip`.
+     *
+     * More columns was tried and is WORSE, not better: `auto-fit`/`minmax` gives
+     * 2 columns of 426.8px at portrait, and the narrower card wraps the
+     * one-line workstream rows, taking cards to 694.6px for a 1424px grid. A
+     * card's height is set by whether its rows wrap, so narrowing the column
+     * fights the very thing that makes it short.
+     *
+     * What actually binds is that card text rides `--canvas-scale` (~1.95 at
+     * portrait) while the card does not: the rows render at 46.98px. Stepping
+     * the card body down the ROLE scale (HARD RULE #4 — `--fs-*`, never a raw
+     * length) buys the height back without touching the column count. See
+     * #1209, and #1213 for the general defect this is one instance of. */
     grid-template-columns: 1fr;
     gap: var(--sp-sm);
     flex: 1 1 auto;
+    min-height: 0;
+  }
+  /* FILL A SPLIT PAGE — without blinding the probe that triggers the split.
+   *
+   * Once `roadmap-horizons` paginates, a page can hold one card and the stage is
+   * mostly empty: measured, a 314.8px card in an 835.6px stage. The height is
+   * held by the `.viz-frame` pin —
+   * `section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) >
+   * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.css).
+   *
+   * The obvious move — flip the body to `flex: 1 1 0` so it fills — is WRONG,
+   * and measuring the frame says why. `.chart-body` is `overflow: hidden`, so
+   * content never spills THROUGH it into the stage. The probe fires because the
+   * pin gives the body its NATURAL height, so an overstuffed chart makes the
+   * BODY itself exceed the stage (`stage.scrollHeight > clientHeight`). Set
+   * `flex: 1 1 0` and the body is exactly stage height, its overflow clipped
+   * inside it, and `overflow-probe.js` goes blind — which would silently
+   * disable this component's own pagination.
+   *
+   * So keep natural growth and add a FLOOR. `min-height: 100%` makes the body at
+   * least the stage's height when content is smaller (the split case → it
+   * fills), while `flex: 0 0 auto` still lets it grow PAST the stage when
+   * content is larger (the overstuffed case → the probe still fires and the
+   * split still triggers). One property, both behaviours, no pin to fight.
+   *
+   * Both directions are covered by tests: `check:chart-fit` renders the split
+   * pages, and the carousel suite asserts an overstuffed roadmap still divides.
+   * See #1209. */
+  section.chart-frame.roadmap.horizons > .cell-stage > .chart-body {
+    min-height: 100%;
+  }
+  /* With the body floored, these can finally hand the height down: `1fr` rows
+   * stretch the cards that remain on the page, and the card's own rows spread
+   * into it instead of bunching under the header. */
+  :is(section.roadmap, figure.roadmap).horizons .horizons {
+    grid-auto-rows: 1fr;
   }
   :is(section.roadmap, figure.roadmap).horizons .horizon-card {
-    padding: var(--sp-sm) var(--sp-md);
-    gap: var(--sp-xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
+    height: 100%;
+    min-height: 0;
+  }
+  /* TWO COLUMNS, not one tall stack. A split page gives one phase the whole
+   * card, and a single column of four short `LABEL · value` rows used barely
+   * half the width while running the card's full height — a lot of empty right
+   * margin next to a lot of vertical travel. Two columns read as the table this
+   * component is, halve the vertical run, and use the width the split just
+   * bought. 4 workstreams lay out 2x2, 3 lay out 2+1; `minmax(0, 1fr)` keeps a
+   * long workstream name from forcing a track wider than its half. */
+  :is(section.roadmap, figure.roadmap).horizons .horizon-rows {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Distributed, not clumped. `center` left the rows as a tight block marooned
+     * in a tall card; space-evenly with TWO-LINE cells spreads them without the
+     * canyon the one-line cells produced. */
+    align-content: space-evenly;
+    height: 100%;
+    gap: var(--sp-lg) var(--sp-lg);
+  }
+  /* The row's height is set by `.row-text`, which carries the glyphs — setting
+   * font-size on the <li> does nothing, because both spans declare their own. */
+  :is(section.roadmap, figure.roadmap).horizons .row-text { font-size: var(--fs-meta); }
+  /* Chrome tightens hard at portrait. Every `--sp-*` rides `--canvas-scale`
+   * (~1.95 here) just like the type does, so card padding, the head rule's
+   * clearance and the inter-row gaps are all ~2x their landscape selves — and
+   * three cards multiply that. Trimming a step off each is where the remaining
+   * height comes from, without pushing any text below the role scale. */
+  :is(section.roadmap, figure.roadmap).horizons .horizon-card {
+    padding: var(--sp-xs) var(--sp-sm);
+    gap: var(--sp-2xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
   }
   :is(section.roadmap, figure.roadmap).horizons .horizon-head {
     flex-direction: row;
     align-items: baseline;
     gap: var(--sp-sm);
-    padding-bottom: var(--sp-xs);
+    padding-bottom: var(--sp-2xs);
   }
   :is(section.roadmap, figure.roadmap).horizons .horizon-title { font-size: var(--fs-body-compact); }
-  :is(section.roadmap, figure.roadmap).horizons .horizon-rows { gap: var(--sp-xs); }
+  /* The phase pill is the least readable thing on a split page. `0.859375cqi`
+   * resolves to ~8.4px at portrait, so the #1213 floor is what is actually
+   * drawing it — at 11px, legible but not readable on a 1080-wide page where the
+   * body text around it is ~33px. Portrait has fewer inline units, so the
+   * coefficient has to grow to hold the same optical size: 1.7cqi lands near
+   * 16.5px here, and the floor still catches anything narrower. */
+  :is(section.roadmap, figure.roadmap).horizons .horizon-meta {
+    font-size: max(var(--chart-text-min), 1.7cqi);
+  }
+  :is(section.roadmap, figure.roadmap).horizons .horizon-rows { gap: var(--sp-2xs); }
   /* Each workstream row collapses to ONE line (LABEL · value) — halves the card
    * body so 4+ phases stack without overflow. */
+  /* Label OVER value, not beside it. The inline `LABEL · value` row was a
+   * one-column compromise; in a half-width track the label eats the line and the
+   * value wraps mid-phrase ("Signal / taxonomy"). Stacked, each cell is two tidy
+   * lines and nothing breaks. This is the base cell shape — the ≤0.9 override
+   * that forced a row is simply gone now that two columns supply the width. */
   :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li {
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--sp-sm);
+    align-items: start;
   }
-  :is(section.roadmap, figure.roadmap).horizons .row-label { flex: 0 0 auto; }
 }
 
 /* ── ROADMAP SWIMLANE — per-workstream track of phase pills ──────────
@@ -12843,7 +13051,27 @@ section.state-chart .state-edge-arrow[data-dir="back"] {
  * the label with a clear gap on each side. */
 section.state-chart .state-edge-label {
   fill: var(--state-node-ink);
-  font-size: 0.859375cqi; /* cqi-ok: edge label on a cqi-sized transition arrow */
+  /* Floored — but the floor is NOT the whole story here, and this rule must not
+   * be read as a legibility guarantee.
+   *
+   * `max()` raises the declared size to `--chart-text-min` on a narrow box.
+   * state-chart, though, is a SELF-SCALING chart (2026-07-16-state-chart-self-
+   * scale.md): `draw()` letterbox-scales `.state-chart-scale` by
+   * k = min(viewH/natH, viewW/natW), and that transform multiplies EVERYTHING
+   * afterwards — including this text. Measured on the gallery machine, with the
+   * floor in place at 11px declared:
+   *
+   *     landscape  k=0.593  →  6.52px effective   ← worst case, NOT portrait
+   *     portrait   k=1.000  → 11.00px effective
+   *     square     k=0.771  →  8.48px effective
+   *
+   * So the floor helps (it lifted landscape from ~5.5px to 6.5px) but cannot
+   * pin an effective minimum: the only lever that would is k, and squeezing to
+   * fit is the whole point of the self-scale decision — which explicitly accepts
+   * that an over-stuffed machine "just gets cramped." A real guarantee has to be
+   * applied in `draw()`, where k is known, or by bounding k. Tracked on #1213;
+   * not silently claimed here. */
+  font-size: max(var(--chart-text-min), 0.859375cqi);
   font-family: var(--font-mono);
   paint-order: stroke;
   stroke: var(--state-label-bg);
@@ -16777,6 +17005,26 @@ section.chart-frame,
    * untouched. */
   --chart-hairline: clamp(1px, 0.078cqi, 2px);   /* 1px borders, rules, separators */
   --chart-accent-lg: clamp(6px, 0.46cqi, 9px);   /* heavy accent stripe (roadmap milestone) */
+
+  /* LEGIBILITY FLOOR for chart-internal text that is sized in raw `cqi` rather
+   * than through the `--fs-*` role scale (HARD RULE #4 / #1213). A few marks
+   * genuinely must track their own geometry — an edge label riding a
+   * cqi-sized transition arrow, a tag pinned to a cqi-proportional grid cell —
+   * and those legitimately sit outside the role system. What they must NOT do
+   * is fall through the bottom of readability, and a bare `cqi` length has no
+   * bottom at all.
+   *
+   * Measured on the chart gallery, these were sub-10px at EVERY deck size, not
+   * just portrait as #1213 assumed: the state-chart edge label rendered 7.7px
+   * at landscape and 6.8px at portrait; the roadmap phase tag 9.35px landscape,
+   * 8.35px square. For scale, `--fs-meta` — the smallest ROLE token, reserved
+   * for chrome — lands near 12.7px in the same render.
+   *
+   * Used as a floor via `max()`, never a cap: growing with the slide is the
+   * whole point of sizing in cqi, so only the small end needs defending.
+   * Deliberately NOT named `--fs-*`: the 12-token role scale is closed
+   * (checkTypographyTokens), and this is a minimum, not a role. */
+  --chart-text-min: 11px;
 }
 
 /* .viz-frame merge (2026-07-15-viz-frame-merge.md): the chart chrome (eyebrow + h2 +

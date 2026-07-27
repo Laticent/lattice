@@ -762,3 +762,75 @@ describe('core: carousel — no strategy drops content (§8 rule 6)', () => {
     );
   });
 });
+
+describe('core: carousel — roadmap-horizons (roadmap portrait, phase cards across 2–4 pages)', () => {
+  // At portrait chart-family auto-selects `horizons`, which transposes the roadmap grid
+  // into one .horizon-card per phase inside a .horizons grid. Each card is already a
+  // self-contained unit (phase head + that phase's workstream rows), so the seam is real
+  // there in a way it is NOT in the table form — which is why this splitter refuses the
+  // table outright. Budget: 2–4 pages, 4 max (#1209).
+  const rmTag = '<section id="r1" class="roadmap horizons" data-lattice-slide="3">';
+  const card = (phase, ...rows) =>
+    `<div class="horizon-card"><div class="horizon-head"><span class="horizon-eyebrow">P</span>` +
+    `<span class="horizon-title">${phase}</span></div><ul class="horizon-rows">` +
+    `${rows.map((r) => `<li><span class="row-label">WS</span><span class="row-text">${r}</span></li>`).join('')}` +
+    '</ul></div>';
+  const innerFor = (...phases) =>
+    '<div class="chart-header"><p class="chart-eyebrow"><code>H2 2026</code></p><h2>The rollout plan.</h2></div>' +
+    '<div class="chart-body"><div class="roadmap-figure"><div class="horizons">' +
+    phases.map((p) => card(p, `${p} work`)).join('') +
+    '</div><ul class="roadmap-legend"><li>shipped</li></ul></div></div>' +
+    '<footer>F</footer>';
+  const split = (...phases) => carouselize(rmTag, innerFor(...phases), { strategy: 'roadmap-horizons' });
+
+  test('one page per phase while inside the budget', () => {
+    const parts = split('Foundation', 'Hardening', 'Scale');
+    assert.equal(parts.length, 3);
+    assert.ok(parts.every((p) => (p.match(/horizon-card"/g) || []).length === 1));
+    assert.match(parts[0], /horizon-title">Foundation</);
+    assert.match(parts[1], /horizon-title">Hardening</);
+    assert.match(parts[2], /horizon-title">Scale</);
+  });
+
+  test('never more than 4 pages, and never fewer than 2 — for every phase count', () => {
+    for (let n = 2; n <= 16; n += 1) {
+      const phases = Array.from({ length: n }, (_, i) => `P${i + 1}`);
+      const parts = split(...phases);
+      assert.ok(parts.length >= 2 && parts.length <= 4,
+        `${n} phases produced ${parts.length} pages — outside the 2–4 budget`);
+      // Conservation: every phase appears exactly once across the run.
+      const seen = parts.flatMap((p) => [...p.matchAll(/horizon-title">([^<]*)</g)].map((m) => m[1]));
+      assert.deepStrictEqual(seen.sort(), phases.slice().sort(),
+        `${n} phases: a phase was dropped or duplicated`);
+    }
+  });
+
+  test('pages are balanced — no page carries 2+ more cards than another', () => {
+    for (let n = 2; n <= 16; n += 1) {
+      const parts = split(...Array.from({ length: n }, (_, i) => `P${i + 1}`));
+      const counts = parts.map((p) => (p.match(/horizon-card"/g) || []).length);
+      assert.ok(Math.max(...counts) - Math.min(...counts) <= 1,
+        `${n} phases split unevenly: ${counts.join('+')}`);
+    }
+  });
+
+  test('the chart-header repeats; the first keeps the id, later pages are (cont.) + id-less', () => {
+    const parts = split('A', 'B', 'C');
+    assert.ok(parts.every((p) => /The rollout plan\./.test(p)));
+    assert.equal(parts.filter((p) => /\sid="r1"/.test(p)).length, 1);
+    assert.doesNotMatch(parts[0], /lat-cont/);
+    assert.ok(parts.slice(1).every((p) => /lat-cont/.test(p) && /lat-split-native/.test(p)));
+  });
+
+  test('the TABLE form is refused — §0c keeps it atomic', () => {
+    const table =
+      '<div class="chart-header"><h2>X</h2></div><div class="chart-body"><div class="roadmap-figure">' +
+      '<table><thead><tr><th>Workstream</th><th>P1</th></tr></thead>' +
+      '<tbody><tr><td>A</td><td>x</td></tr></tbody></table></div></div>';
+    assert.equal(carouselize(rmTag, table, { strategy: 'roadmap-horizons' }), null);
+  });
+
+  test('a single-phase board → null (nothing to split between)', () => {
+    assert.equal(split('Only'), null);
+  });
+});

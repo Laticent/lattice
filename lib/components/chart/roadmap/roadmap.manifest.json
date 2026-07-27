@@ -8,6 +8,21 @@
       "rows"
     ]
   },
+  "capacity": {
+    "axis": "col",
+    "min": 2,
+    "sweet": 4,
+    "soft": 5,
+    "hard": 7,
+    "escalateTo": [
+      "split across slides"
+    ],
+    "note": "columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (max 4 pages)"
+  },
+  "split": {
+    "strategy": "roadmap-horizons",
+    "note": "Portrait only, and CARD FORM only. The roadmap TABLE stays atomic per §0c — paginating a workstream x phase grid destroys the cross-reading. But at portrait chart-family.js auto-selects `horizons`, which transposes the grid into N INDEPENDENT .horizon-card phase units (each a phase header plus that phase's workstream rows), so the seam is real there the way kanban's lanes are. The splitter returns null when there is no .horizons grid, so the table form is untouched. Budget 2-4 pages, 4 max (#1209): perSlide = ceil(N/4) caps the run and evenGroups balances it, so 3 phases -> 3 pages and 6 phases -> 2+2+1+1, never 6. lib/core/carousel.js roadmap-horizons."
+  },
   "families": [
     "state-markers"
   ],
@@ -52,8 +67,8 @@
   "anatomyBlock": "roadmap",
   "sample": "<!-- _class: roadmap -->\n\n`H2 2026 · Rollout plan`\n\n## The roadmap grids workstreams against phases.\n\n| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |\n| ---------- | ---------------------- | ------------------------ | ----------------------- |\n| Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weighting  |\n| Adoption   | [x] Pilot onboarding   | [-] Weekly signal review | [ ] Org-wide rollout    |\n| Governance | [x] Decision log       | [x] Calibration cadence  | [ ] Board reporting     |\n| Tooling    | [x] Intake form        | [/] Dashboards           | [ ] Self-serve exports  |\n",
   "stressDoc": {
-    "summary": "The full grid, twelve cells.",
-    "sample": "<!-- _class: roadmap -->\n\n`roadmap · stress`\n\n## Four workstreams by three phases is the full grid.\n\n| Workstream | Phase one | Phase two | Phase three |\n| --- | --- | --- | --- |\n| First | [x] Done cell | [-] Active cell | [ ] Planned cell |\n| Second | [x] Every cell filled | [-] No blank promises | [ ] The honest grid |\n| Third | [x] Short cell labels | [-] Four words at most | [ ] Or the grid wraps |\n| Fourth | [x] The last row | [-] Twelve cells total | [ ] The ceiling |\n"
+    "summary": "Five phases — the ceiling, and what portrait paginates.",
+    "sample": "<!-- _class: roadmap -->\n\n`roadmap · stress`\n\n## Four workstreams by five phases is the ceiling.\n\n| Workstream | Phase one | Phase two | Phase three | Phase four | Phase five |\n| --- | --- | --- | --- | --- | --- |\n| First | [x] Done cell | [-] Active cell | [ ] Planned cell | [ ] Later still | [ ] The last one |\n| Second | [x] Every cell filled | [-] No blank promises | [ ] The honest grid | [ ] Four words at most | [ ] Or the grid wraps |\n| Third | [x] Short cell labels | [-] Four words at most | [ ] Or the grid wraps | [ ] Twenty cells total | [ ] The ceiling |\n| Fourth | [x] The last row | [-] Twenty cells total | [ ] The ceiling | [ ] Portrait paginates | [ ] Four pages at most |\n"
   },
   "whenToUse": [
     {

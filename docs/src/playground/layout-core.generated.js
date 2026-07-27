@@ -745,6 +745,7 @@ var require_manifest_schema = __commonJS({
                 "cover-code",
                 "redline-blocks",
                 "kanban-lanes",
+                "roadmap-horizons",
                 "cover-cards",
                 "cover-paginate"
               ],
