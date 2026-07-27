@@ -5315,7 +5315,26 @@ in patch versions.
   and Chat also shed the 11px uppercase titles that were the same defect as "LENSES". Three bespoke
   widths snap onto the shared scale (Coach/Chat 320→340, Version history 360→340); tablet and
   desktop framing is otherwise unchanged, measured. Finishes the `PanelSheet`/`PanelHeader`
-  migration deferred in `2026-07-17-panel-drawer-cohesion.md`.
+  migration deferred in `2026-07-17-panel-drawer-cohesion.md`
+  **Two height tiers, and the keyboard is subtracted from both.** A phone panel is either a
+  `full` working surface (Chat, Settings, Library, Workspace, Reader views, the add-slide gallery,
+  Send feedback) or an `auto` pull-out you pick from and leave (the drawer, Themes, Show me,
+  Version history, Coach, Share). The axis is deliberately *not* "does it have a text field" —
+  Reader views takes no typed input and is still a place you expand rows and compare — and not
+  "how much content", which drifts every time a panel gains a row. Chat is the case that made it
+  obvious: it opened at 312px, so its composer sat directly under its own header. And because
+  `dvh` tracks Safari's URL bar but **not** the on-screen keyboard, a sheet capped at 85dvh kept
+  its full height while the keyboard covered the bottom ~55% of it — reported from a real iPhone,
+  where the command palette collapsed to a single row with iOS's own accessory bar drawn over it.
+  A `visualViewport` listener now publishes the keyboard height as `--kb` and every mobile sheet
+  caps against `100dvh - var(--kb)`, so the fix lands once for every panel instead of per surface;
+  the variable is removed on close, because a stale one would silently shrink the next sheet.
+  **`CommandInput` no longer pairs an `h-10` field with an `h-9` wrapper** — a child 4px taller
+  than its own box, so a focused field's ring clipped top and bottom (`CommandDialog` happened to
+  mask it by forcing both to `h-12`, which is why it only showed on a bare `CommandInput`). Its
+  dead `text-sm` is gone too: `.lx-ui input { font: inherit }` outranks it, so every input in the
+  app already renders at the inherited 16px — which is also what stops iOS Safari zooming the
+  viewport on focus, so the inherited value is the one to keep.
   (`docs/src/components/ui/{panel.tsx,dialog.tsx,sheet.tsx}`,
   `docs/src/components/studio/{StudioShell.tsx,Library.tsx,CommandPalette.tsx,LensesPanel.tsx,
   lens-picker.tsx,PresentOverlay.tsx,ShareSheet.tsx,WorkspaceSheet.tsx,SlidePicker.tsx}`,

@@ -146,6 +146,91 @@ What is left on a hand-rolled `SheetContent` is the `StudioDrawer` itself — wh
 panel but the surface that opens them, and legitimately has its own rules — plus two
 non-Studio site sheets (`MetricDetail`, `NavActions`) outside this scope.
 
+## Two tiers, and the keyboard
+
+One edge and one radius made the panels *consistent*; it did not make them the
+right size. Two reports landed on that, one after the other.
+
+**Chat opened at 312px** — a conversation surface whose composer sat directly
+under its own header. **And the command palette, with the keyboard up, collapsed
+to a single row** with iOS's own accessory bar drawn over it. The second is the
+more general bug: `dvh` tracks Safari's URL bar but **not** the on-screen
+keyboard, so `max-h-[85dvh]` keeps its full height while the keyboard covers the
+bottom ~55% of it. Every panel with a search field had it — the palette, Library,
+the add-slide gallery, Workspace, Chat.
+
+### The tier axis
+
+Two tiers, declared per call site:
+
+- **`auto`** — as tall as its contents, capped. You pick once and leave, and the
+  deck stays visible behind you: the drawer, Themes, Show me, Version history,
+  Coach, Share.
+- **`full`** — a fixed tall panel you dwell in: Chat, Settings, Library,
+  Workspace, Reader views, the add-slide gallery, Send feedback.
+
+Two discriminators were tried and rejected before this one.
+
+*"How much content"* fails because it drifts: every panel that gains a row would
+re-open the question, and the answer would be re-litigated per release.
+
+*"Does it take typed input"* was the first proposal here, and it was attractive
+because it is mechanically checkable — a panel either renders an `<input>` or it
+does not. It was **wrong on the merits**, and Reader views is the counter-example
+that killed it: it has no text field anywhere, and it is unambiguously a working
+surface — you expand rows, compare views, approve what each reader sees. Typed
+input turns out to be *sufficient* for the full tier, not *necessary*.
+
+So the axis is **do you work here, or do you pick and go** — a judgment the caller
+makes and declares. Less checkable than the rejected test, and correct, which is
+the better trade. The one mechanical rule that survives: a panel containing a text
+field is always `full`.
+
+### The keyboard, subtracted once
+
+`visualViewport.height` shrinks when the keyboard opens; `innerHeight` does not.
+The difference is the keyboard. A listener publishes it as `--kb` on `<html>`, and
+both tiers cap against `calc(100dvh - var(--kb,0px))` — so this is fixed once in
+the shell rather than per surface. Proven load-bearing rather than asserted: with
+`--kb` forced to `300px`, the Library sheet drops 776px → 544px, exactly
+`100dvh - 300`.
+
+Three details that are easy to get wrong and are covered by unit tests:
+
+- The listener mounts **only while a mobile sheet is open**. A resize listener
+  running for the life of the page is a cost with no payer.
+- The inset is **clamped at zero**. iOS rubber-banding can report a visual
+  viewport taller than `innerHeight`; a negative inset would grow the sheet past
+  its cap.
+- `--kb` is **removed** on close, not zeroed. A stale declaration would shrink
+  every later sheet by a keyboard that had already closed, with nothing on screen
+  to explain it.
+
+`interactive-widget=resizes-content` on the viewport meta would be tidier — it
+makes the layout viewport itself shrink — but Safari support is exactly the open
+question, and this is a Safari bug. The visualViewport API works everywhere.
+
+### The cropped search field
+
+Reported alongside, and worth recording because the obvious explanation was wrong.
+The guess was that the field is 16px to dodge the iOS focus-zoom and that the
+sizing had been bent around it. What is actually there:
+
+| | authored | computes to |
+|---|---|---|
+| wrapper | `h-9` (36px) | 48px |
+| input | `h-10` (40px) | 48px |
+| font | `text-sm` (14px) | 16px |
+
+Three dead declarations. The font is 16px because `.lx-ui input { font: inherit }`
+outranks the utility — so the app does dodge the iOS zoom, but **by accident**, and
+`text-sm` implies a size that never applies. The heights agree at 48px only because
+`CommandDialog` forces both to `h-12`; a bare `CommandInput` (reference-doc-ui) gets
+the raw `h-10`-in-an-`h-9` pairing, a child 4px taller than the box containing it,
+which clips a focused ring top and bottom. The wrapper now sizes to its content and
+the input carries the height, so the two cannot disagree again; the dead `text-sm`
+is deleted rather than corrected, with a note not to "restore" it.
+
 ## The 44px floor, fixed at the base
 
 Four of five destinations closed with a `16 × 16` target and the fifth with `30 × 30`. The

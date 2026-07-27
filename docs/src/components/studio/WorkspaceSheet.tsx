@@ -358,7 +358,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 
 
 	return (
-		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md" tier="full">
 			<PanelHeader
 				icon={<Cloud />}
 				title={<>Workspace <span className="font-mono text-[10px] font-normal uppercase tracking-wider text-[var(--accent)]">your setup</span></>}

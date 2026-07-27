@@ -287,7 +287,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		// bottom sheet at `h-[100dvh]`: a full-screen page with a 16px radius pretending
 		// to be a sheet. 85dvh still leaves ~717px of gallery on a 390×844 phone.
 		return (
-			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg">
+			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg" tier="full">
 				<PanelHeader icon={<Plus />} title="Add a slide" srDescription={description} />
 				{body}
 			</PanelSheet>

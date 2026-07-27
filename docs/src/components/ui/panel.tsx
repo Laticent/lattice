@@ -31,10 +31,10 @@ import {
 // the chevron is retired), so `PanelSheet` turns off SheetContent's own X.
 //
 // ── ON A PHONE, EVERY PANEL IS A BOTTOM SHEET ──────────────────────────────────
-// `side` is honoured at tablet and desktop and IGNORED on mobile, where every
+// `side` is honored at tablet and desktop and IGNORED on mobile, where every
 // panel rises from the bottom edge with the same radius and the same height cap
 // as the StudioDrawer. This is not a stylistic preference; it is the fix for a
-// measured defect (#1211). With `side` honoured everywhere, the drawer's own rows
+// measured defect (#1211). With `side` honored everywhere, the drawer's own rows
 // launched panels from FOUR different edges — "Reader views" slid in from the
 // left and "Version history", its neighbour one row down, from the right — across
 // five heights and three widths, from a drawer that is itself bottom-anchored.
@@ -44,7 +44,67 @@ import {
 // left/right sheets at 343px on a 390px screen, so a sliver of the app showed
 // down one side and the panel read as a drawer over a live surface rather than a
 // place you had gone.
-const MOBILE_SHEET = 'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl border-t';
+//
+// ── TWO TIERS, AND THE KEYBOARD ────────────────────────────────────────────────
+// `auto` is the pull-out: as tall as its contents, capped. You pick once and
+// leave, and the deck stays visible behind you — the drawer, Themes, Show me,
+// Version history, Coach, Share.
+//
+// `full` is the working surface: a fixed tall panel you DWELL in. The axis is not
+// "how much content" (that drifts every time a panel gains a row) and it is not
+// "does it have a text field" — Reader views has no input at all and is still a
+// place you expand rows, compare and approve. It is: do you work here, or do you
+// pick and go. Declared per call site, because only the caller knows.
+//
+// Both tiers subtract the KEYBOARD. `dvh` tracks Safari's URL bar but NOT the
+// on-screen keyboard, so a sheet capped at 85dvh keeps its full height while the
+// keyboard covers the bottom ~55% of it — measured on a real iPhone, the command
+// palette collapsed to one row with iOS's own accessory bar drawn over it. The
+// VisualViewport listener below publishes `--kb`, and every mobile sheet caps
+// against it, so this is fixed once for every panel rather than per surface.
+// (`interactive-widget=resizes-content` would be tidier but Safari support is the
+// open question; the visualViewport API works everywhere that matters.)
+const MOBILE_BASE = 'inset-x-0 bottom-0 rounded-t-2xl border-t';
+export const MOBILE_TIER = {
+	auto: 'max-h-[min(85dvh,calc(100dvh-var(--kb,0px)))]',
+	full: 'h-[min(92dvh,calc(100dvh-var(--kb,0px)))]',
+} as const;
+
+export type PanelTier = keyof typeof MOBILE_TIER;
+
+/**
+ * Publishes the on-screen keyboard's height as `--kb` on <html>.
+ *
+ * `visualViewport.height` shrinks when the keyboard opens; `innerHeight` does not.
+ * The difference IS the keyboard. Mounted only while a mobile sheet is open, and
+ * only on a phone — there is no keyboard to subtract anywhere else, and a resize
+ * listener that runs for the life of the page is a cost with no payer.
+ */
+export function useKeyboardInset(active: boolean): void {
+	React.useEffect(() => {
+		if (!active || typeof window === 'undefined') return;
+		const vv = window.visualViewport;
+		if (!vv) return;
+		const root = document.documentElement;
+		const read = () => {
+			// Clamp at 0: the delta also moves a few px as the URL bar animates, and
+			// iOS rubber-banding can report a viewport TALLER than innerHeight — a
+			// negative inset would GROW the sheet past its cap.
+			const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+			root.style.setProperty('--kb', `${Math.round(kb)}px`);
+		};
+		read();
+		vv.addEventListener('resize', read);
+		vv.addEventListener('scroll', read);
+		return () => {
+			vv.removeEventListener('resize', read);
+			vv.removeEventListener('scroll', read);
+			// REMOVE, not zero: a stale `--kb` would shrink every later sheet by a
+			// keyboard that has closed, with nothing on screen to explain it.
+			root.style.removeProperty('--kb');
+		};
+	}, [active]);
+}
 
 type PanelWidth = 'sm' | 'md' | 'lg';
 
@@ -79,6 +139,7 @@ export function PanelSheet({
 	onOpenChange,
 	side = 'right',
 	width = 'md',
+	tier = 'auto',
 	overlay = true,
 	modal = true,
 	className,
@@ -88,6 +149,9 @@ export function PanelSheet({
 	onOpenChange: (v: boolean) => void;
 	side?: 'left' | 'right';
 	width?: PanelWidth;
+	/** Phone height tier — see MOBILE_TIER above. `full` for a surface you work in
+	 *  (typing, expanding, comparing); `auto` for one you pick from and leave. */
+	tier?: PanelTier;
 	overlay?: boolean;
 	/** Non-modal (page behind stays live + un-scroll-locked) — the Playground /
 	 *  MetricDetail pattern that dodges the iOS Safari scroll-lock lingering bug. */
@@ -96,6 +160,7 @@ export function PanelSheet({
 	children: React.ReactNode;
 }) {
 	const mobile = useIsPhone();
+	useKeyboardInset(mobile && open);
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
 			<SheetContent
@@ -104,7 +169,7 @@ export function PanelSheet({
 				showCloseButton={false}
 				className={cn(
 					'flex w-full flex-col gap-0 p-0',
-					mobile ? MOBILE_SHEET : PANEL_WIDTH[width],
+					mobile ? cn(MOBILE_BASE, MOBILE_TIER[tier]) : PANEL_WIDTH[width],
 					className,
 				)}
 			>

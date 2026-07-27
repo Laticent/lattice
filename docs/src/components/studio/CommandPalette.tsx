@@ -1,5 +1,7 @@
 import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Settings2, Share2, Sparkles } from 'lucide-react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import { useKeyboardInset } from '@/components/ui/panel';
+import { useBreakpoint } from '@/lib/use-breakpoint';
 import type { StudioDeck } from './decks';
 import { FeedbackIcon } from './icons';
 
@@ -50,6 +52,12 @@ export function CommandPalette({
 	onExpandPane?: () => void;
 	onResetSplit?: () => void;
 }) {
+	// The palette is the surface where the keyboard bug was REPORTED: capped at
+	// 85dvh with the keyboard up, its list collapsed to a single row with iOS's own
+	// accessory bar drawn over it. It is a Dialog rather than a PanelSheet, so it
+	// mounts the shared listener itself and reuses the same tier string.
+	const mobile = useBreakpoint() === 'mobile';
+	useKeyboardInset(mobile && open);
 	const run = (fn: () => void) => () => {
 		onRun?.();
 		onOpenChange(false);
@@ -76,7 +84,7 @@ export function CommandPalette({
 			// it becomes a dead zone over the end of the field, where a tap dismisses the
 			// palette instead of placing a caret. Reserving the corner fixes it at every
 			// width, since the overlap was never mobile-only.
-			className="[&_[data-slot=command-input-wrapper]]:pr-12 max-[699px]:top-auto max-[699px]:bottom-0 max-[699px]:left-0 max-[699px]:max-h-[85dvh] max-[699px]:w-full max-[699px]:max-w-none max-[699px]:translate-x-0 max-[699px]:translate-y-0 max-[699px]:rounded-t-2xl max-[699px]:rounded-b-none max-[699px]:[&_[data-slot=command-input-wrapper]]:pr-14 max-[699px]:data-[state=closed]:slide-out-to-bottom max-[699px]:data-[state=closed]:zoom-out-100 max-[699px]:data-[state=open]:slide-in-from-bottom max-[699px]:data-[state=open]:zoom-in-100"
+			className="[&_[data-slot=command-input-wrapper]]:pr-12 max-[699px]:top-auto max-[699px]:bottom-0 max-[699px]:left-0 max-[699px]:max-h-[min(85dvh,calc(100dvh-var(--kb,0px)))] max-[699px]:w-full max-[699px]:max-w-none max-[699px]:translate-x-0 max-[699px]:translate-y-0 max-[699px]:rounded-t-2xl max-[699px]:rounded-b-none max-[699px]:[&_[data-slot=command-input-wrapper]]:pr-14 max-[699px]:data-[state=closed]:slide-out-to-bottom max-[699px]:data-[state=closed]:zoom-out-100 max-[699px]:data-[state=open]:slide-in-from-bottom max-[699px]:data-[state=open]:zoom-in-100"
 		>
 			<CommandInput placeholder="Search or run a command…" />
 			<CommandList>

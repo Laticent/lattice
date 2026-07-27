@@ -73,7 +73,7 @@ function LibraryFrame({ docked, open, onOpenChange, children }: { docked?: boole
 	// on a phone (and keeps the 720px right sheet at tablet) — one framing decision,
 	// made once, for every panel the drawer can open (#1211).
 	return (
-		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="lg">
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="lg" tier="full">
 			{children}
 		</PanelSheet>
 	);

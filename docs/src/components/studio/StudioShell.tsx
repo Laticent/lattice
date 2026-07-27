@@ -3425,7 +3425,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
 					</PanelSheet>
 					{/* Chat — its own compact drawer, a peer of the Coach (they are separate panels). */}
-					<PanelSheet open={chatOpen} onOpenChange={setChatOpen} side="left" width="sm">
+					<PanelSheet open={chatOpen} onOpenChange={setChatOpen} side="left" width="sm" tier="full">
 						<PanelHeader
 							icon={<ChatIcon />}
 							title="Chat"
@@ -3440,7 +3440,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    set in 11px uppercase — the one treatment the drawer's own rules ban.
 					    "Lenses" survives as the internal name (`lensesBody`, `lens-picker`),
 					    which is fine; it just is not what a user is shown (#1211). */}
-					<PanelSheet open={lensesOpen} onOpenChange={setLensesOpen} side="left" width="sm">
+					<PanelSheet open={lensesOpen} onOpenChange={setLensesOpen} side="left" width="sm" tier="full">
 						<PanelHeader
 							icon={<LensIcon />}
 							title="Reader views"
@@ -3452,7 +3452,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    active body as the desktop/tablet column, just wrapped in a Sheet
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
 					{mobile && (
-						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md">
+						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md" tier="full">
 							<PanelHeader
 								icon={<Settings2 />}
 								title="Settings"
