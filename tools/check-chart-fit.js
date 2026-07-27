@@ -1,35 +1,60 @@
 #!/usr/bin/env node
 /**
- * check-chart-fit — does the chart actually FIT the stage it was given?
+ * check-chart-fit — does the chart actually FIT the boxes that crop it?
  *
  * THE GAP THIS CLOSES. Every other chart gate asks whether a chart is correct in
  * isolation: `check-svg-scaling` asks whether it SCALES, `check-chart-responsiveness`
  * whether its CSS uses relative units, `check-viz-render` whether its paint
- * survives the scoped path. None of them asks the question that has now broken
- * twice in one branch — whether the rendered thing fits inside `.cell-stage`,
- * which is `overflow: clip`, so the answer to "no" is silent: the chart looks
- * fine and its top row is simply gone.
+ * survives the scoped path. None of them asks whether the rendered thing fits
+ * inside the box that crops it — and the answer to "no" is always silent: the
+ * chart looks finished and part of it is simply gone.
  *
- * Both breakages were in radar's small-multiples and both were invisible to the
- * suite. A flex row let the LAST row's minis stretch to fill a four-wide track,
- * dragging their height with them (607.8px into a 449.1px stage, 115.8px of
- * chart clipped). Before that, a two-line caption band on every mini pushed a
- * six-series deck 22.7px over. A 36-case sweep also found the BASELINE tree
- * clipping 12 cases, so this is not only a guard against my own changes.
+ * TWO CROPPING BOUNDARIES, TWO ASSERTIONS. They are complementary, not
+ * alternatives, and each is blind to the other's failures:
  *
- * WHAT IT DOES. Renders a fixture deck through `lattice-emulator.js` (the export
- * surface), loads the HTML sidecar in headless Chromium, and for every slide
- * compares each chart's painted extent against its stage cell's box. Anything
- * outside is a clip. It measures the MARKS, not the container: a container can
- * sit inside the stage while its overflowing children are cut.
+ *   clip location                        caught by
+ *   ─────────────────────────────────    ─────────────────────────────────
+ *   content overflows `.cell-stage`      the STAGE check (below), and
+ *                                        lib/core/overflow-probe.js
+ *   content overflows the **viewBox**    the VIEWBOX check (below) — and
+ *                                        nothing else in the repo
+ *
+ * The stage check came first, from two radar small-multiples breakages that the
+ * suite could not see. A flex row let the LAST row's minis stretch to fill a
+ * four-wide track, dragging their height with them (607.8px into a 449.1px
+ * stage, 115.8px of chart clipped). Before that, a two-line caption band on
+ * every mini pushed a six-series deck 22.7px over.
+ *
+ * The viewBox check was added for #1212. `state-chart` at portrait drew two of
+ * its five states past the bottom of its OWN viewBox — `Published`, the terminal
+ * state, absent entirely. Every DOM boundary said the slide was fine
+ * (`stage.scrollHeight === stage.clientHeight`, painted SVG 60px ABOVE the stage
+ * bottom) because the SVG had already cropped the content before anything
+ * measured it. `overflow-probe.js` is structurally blind to this, and so was the
+ * stage check here: it compares each chart's PAINTED extent to the stage, and
+ * the paint has been cropped by the viewBox first.
+ *
+ * An SVG whose computed `overflow` is `visible` does NOT crop — `.wc-svg` sets
+ * exactly that, deliberately, so a glyph's optical bbox can breathe past the
+ * viewBox edge. Asserting on those would be a false positive, so they are
+ * skipped and counted.
+ *
+ * THREE SIZES. A chart that fits at landscape routinely clips at portrait: `cqi`
+ * is a share of container INLINE size, so portrait (1080 inline) shrinks every
+ * cqi-derived length ~44% against landscape (1920) at exactly the moment the box
+ * grows taller. The fixture is therefore rendered at landscape, portrait AND
+ * square, and each fixture slide is really three cases. Rendering the same deck
+ * three times (rather than keeping three fixtures) keeps coverage identical
+ * across sizes by construction.
  *
  * Usage:
  *   node tools/check-chart-fit.js [fixture.md]      # gate: exit 1 on a clip
  *   node tools/check-chart-fit.js --report          # per-slide numbers
+ *   node tools/check-chart-fit.js --size portrait   # one size only
  *
  * Needs a Chromium (CHROME_PATH or the puppeteer cache). With none it SKIPS
  * loudly and exits 0 — never a false green (HARD RULE #23). On-demand, like its
- * siblings: it costs an emulator render, so it is not in the browser-free
+ * siblings: it costs three emulator renders, so it is not in the browser-free
  * `build:check`.
  */
 
@@ -45,8 +70,22 @@ const FIXTURE = process.argv.find((a) => a.endsWith('.md'))
 
 // A pixel of slack. Sub-pixel layout rounding routinely puts a box a few
 // hundredths outside its parent with nothing visibly cut; anything past this is
-// a real clip (the observed failures were 22.7px and 115.8px).
+// a real clip (the observed stage failures were 22.7px and 115.8px).
 const SLACK = 1.5;
+
+// The viewBox check works in USER UNITS, not px, so it needs its own slack: a
+// viewBox is typically a few hundred units wide, and a stroke's bbox legitimately
+// reaches half a stroke-width past a shape's nominal edge. The observed failure
+// was +255.2 units, so this is nowhere near it.
+const VB_SLACK = 1.0;
+
+// The three supported deck shapes. `size:` is the front-matter key the emulator
+// reads; landscape is the default and takes no key.
+const SIZES = [
+  { name: 'landscape', size: null, viewport: [1920, 1080] },
+  { name: 'portrait', size: 'portrait', viewport: [1080, 1350] },
+  { name: 'square', size: 'square', viewport: [1080, 1080] },
+];
 
 /** Best-effort Chromium — mirrors tools/check-viz-render.js + check-svg-scaling.js. */
 function resolveChrome() {
@@ -61,8 +100,115 @@ function resolveChrome() {
   return undefined;
 }
 
+/**
+ * Rewrite the fixture's front matter to pin a deck size. Returns the full source
+ * text. A deck with no front matter gains one; an existing `size:` is replaced
+ * rather than duplicated (a second key would silently win or lose by parser
+ * order, which is exactly the kind of thing a gate must not be vague about).
+ */
+function withSize(src, size) {
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(src);
+  if (!fm) return size ? `---\nsize: ${size}\n---\n\n${src}` : src;
+  const body = fm[1].split(/\r?\n/).filter((l) => !/^\s*size\s*:/.test(l));
+  if (size) body.push(`size: ${size}`);
+  return `---\n${body.join('\n')}\n---\n${src.slice(fm[0].length)}`;
+}
+
+/** Measure one rendered sidecar: stage-fit for every chart, viewBox-fit for every SVG. */
+async function measure(page, slack, vbSlack) {
+  return page.evaluate((SLACK_, VB_SLACK_) => {
+    const stages = [];
+    const boxes = [];
+    let vbSkipped = 0;
+
+    for (const sec of document.querySelectorAll('section[data-class]')) {
+      const component = sec.dataset.class.trim().split(/\s+/)[0];
+      const stage = sec.querySelector('.cell-stage');
+
+      // ── 1. STAGE FIT — painted marks vs the stage clip.
+      if (stage) {
+        // The painted marks, not their container: a container can sit inside the
+        // stage while the children overflowing IT are the ones cut.
+        const marks = [...stage.querySelectorAll('svg, .chart-body > *, [data-mark]')]
+          .filter((el) => el.getClientRects().length > 0);
+        if (marks.length) {
+          const sr = stage.getBoundingClientRect();
+          let top = Infinity; let bottom = -Infinity; let left = Infinity; let right = -Infinity;
+          for (const el of marks) {
+            const r = el.getBoundingClientRect();
+            top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom);
+            left = Math.min(left, r.left); right = Math.max(right, r.right);
+          }
+          stages.push({
+            slide: +sec.id || stages.length + 1,
+            component,
+            overTop: +(sr.top - top).toFixed(1),
+            overBottom: +(bottom - sr.bottom).toFixed(1),
+            overLeft: +(sr.left - left).toFixed(1),
+            overRight: +(right - sr.right).toFixed(1),
+            clipped: (sr.top - top) > SLACK_ || (bottom - sr.bottom) > SLACK_
+              || (sr.left - left) > SLACK_ || (right - sr.right) > SLACK_,
+          });
+        }
+      }
+
+      // ── 2. VIEWBOX FIT — content bbox vs the viewBox, in the SVG's own units.
+      // This is the boundary that actually crops an SVG chart, and it needs no
+      // stage and no layout. Nested SVGs are each their own coordinate space, so
+      // every one with a viewBox is checked (radar's small-multiples are N minis).
+      for (const svg of sec.querySelectorAll('svg')) {
+        const vb = svg.viewBox?.baseVal;
+        if (!vb?.width || !vb.height) continue;
+        // `overflow: visible` means the viewBox does NOT crop — content painted
+        // outside it is still drawn (`.wc-svg` relies on this so a glyph's
+        // optical bbox can breathe past the edge). Asserting here would be a
+        // false positive.
+        if (getComputedStyle(svg).overflow.includes('visible')) { vbSkipped += 1; continue; }
+        let bb;
+        try { bb = svg.getBBox(); } catch { continue; }
+        if (!bb || (!bb.width && !bb.height)) continue;
+        const overTop = vb.y - bb.y;
+        const overBottom = (bb.y + bb.height) - (vb.y + vb.height);
+        const overLeft = vb.x - bb.x;
+        const overRight = (bb.x + bb.width) - (vb.x + vb.width);
+        boxes.push({
+          slide: +sec.id || boxes.length + 1,
+          component,
+          cls: svg.getAttribute('class') || '(no class)',
+          viewBox: `${+vb.x.toFixed(1)} ${+vb.y.toFixed(1)} ${+vb.width.toFixed(1)} ${+vb.height.toFixed(1)}`,
+          overTop: +overTop.toFixed(1),
+          overBottom: +overBottom.toFixed(1),
+          overLeft: +overLeft.toFixed(1),
+          overRight: +overRight.toFixed(1),
+          clipped: overTop > VB_SLACK_ || overBottom > VB_SLACK_
+            || overLeft > VB_SLACK_ || overRight > VB_SLACK_,
+        });
+      }
+    }
+    return { stages, boxes, vbSkipped };
+  }, slack, vbSlack);
+}
+
+/** `over[...]` detail for the failing edges only. */
+function worstEdges(r, slack, unit) {
+  return [['top', r.overTop], ['bottom', r.overBottom], ['left', r.overLeft], ['right', r.overRight]]
+    .filter(([, v]) => v > slack)
+    .map(([k, v]) => `${k} +${v}${unit}`)
+    .join(', ');
+}
+
 async function main() {
   const report = process.argv.includes('--report');
+  const only = (() => {
+    const i = process.argv.indexOf('--size');
+    return i >= 0 ? process.argv[i + 1] : null;
+  })();
+  const sizes = only ? SIZES.filter((s) => s.name === only) : SIZES;
+  if (!sizes.length) {
+    console.error(`check-chart-fit: unknown --size ${only} (want: ${SIZES.map((s) => s.name).join(', ')})`);
+    process.exit(2);
+  }
+
   const chrome = resolveChrome();
   if (!chrome) {
     console.error('check-chart-fit: no Chromium (set CHROME_PATH) — SKIPPED, nothing verified.');
@@ -73,87 +219,101 @@ async function main() {
     process.exit(2);
   }
 
-  const base = path.join(os.tmpdir(), `chart-fit-${process.pid}`);
-  const pdf = `${base}.pdf`;
-  const html = `${base}.html`;
+  const src = fs.readFileSync(FIXTURE, 'utf8');
   const puppeteer = require('puppeteer');
+  const scratch = [];
   let browser;
+  let stageCount = 0;
+  let boxCount = 0;
+  let skipCount = 0;
+  const stageBad = [];
+  const boxBad = [];
+  // Set inside the try, acted on AFTER the finally. `process.exit()` terminates
+  // immediately and does NOT run a pending `finally`, so exiting from inside the
+  // try would strand the per-size scratch decks in test/fixtures/ on every
+  // failing run — the one path that always runs while a gate is being fixed.
+  let failed = false;
+
   try {
-    execFileSync(process.execPath, [EMULATOR, FIXTURE, pdf, 'indaco', '-q'], {
-      cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 10 * 60_000,
-    });
-    if (!fs.existsSync(html)) throw new Error('emulator produced no HTML sidecar');
-
     browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 720 });
-    await page.goto(`file://${html}`, { waitUntil: 'networkidle0', timeout: 120_000 });
 
-    const rows = await page.evaluate((slack) => {
-      const out = [];
-      for (const sec of document.querySelectorAll('section[data-class]')) {
-        const stage = sec.querySelector('.cell-stage');
-        if (!stage) continue;
-        // The painted marks, not their container: a container can sit inside the
-        // stage while the children overflowing IT are the ones cut.
-        const marks = [...stage.querySelectorAll('svg, .chart-body > *, [data-mark]')]
-          .filter((el) => el.getClientRects().length > 0);
-        if (!marks.length) continue;
-        const sr = stage.getBoundingClientRect();
-        let top = Infinity; let bottom = -Infinity; let left = Infinity; let right = -Infinity;
-        for (const el of marks) {
-          const r = el.getBoundingClientRect();
-          top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom);
-          left = Math.min(left, r.left); right = Math.max(right, r.right);
+    for (const s of sizes) {
+      // The emulator reads the deck size from front matter, so each size is its
+      // own source file next to the fixture (same dir → same relative asset paths).
+      const md = path.join(path.dirname(FIXTURE), `.chart-fit-${s.name}-${process.pid}.md`);
+      const base = path.join(os.tmpdir(), `chart-fit-${s.name}-${process.pid}`);
+      scratch.push(md, `${base}.pdf`, `${base}.html`);
+      fs.writeFileSync(md, withSize(src, s.size));
+
+      execFileSync(process.execPath, [EMULATOR, md, `${base}.pdf`, 'indaco', '-q'], {
+        cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 10 * 60_000,
+      });
+      if (!fs.existsSync(`${base}.html`)) throw new Error(`emulator produced no HTML sidecar for ${s.name}`);
+
+      const page = await browser.newPage();
+      await page.setViewport({ width: s.viewport[0], height: s.viewport[1] });
+      await page.goto(`file://${base}.html`, { waitUntil: 'networkidle0', timeout: 120_000 });
+      const { stages, boxes, vbSkipped } = await measure(page, SLACK, VB_SLACK);
+      await page.close();
+
+      stageCount += stages.length;
+      boxCount += boxes.length;
+      skipCount += vbSkipped;
+      for (const r of stages) if (r.clipped) stageBad.push({ ...r, size: s.name });
+      for (const r of boxes) if (r.clipped) boxBad.push({ ...r, size: s.name });
+
+      if (report) {
+        console.log(`\n── ${s.name} (${s.viewport.join('×')}) ──`);
+        for (const r of stages) {
+          console.log(
+            `  stage   slide ${String(r.slide).padStart(2)} ${r.component.padEnd(15)} ` +
+            `over[T ${r.overTop} B ${r.overBottom} L ${r.overLeft} R ${r.overRight}] ` +
+            `${r.clipped ? 'CLIPPED' : 'fits'}`,
+          );
         }
-        out.push({
-          slide: +sec.id || out.length + 1,
-          component: sec.dataset.class.trim().split(/\s+/)[0],
-          overTop: +(sr.top - top).toFixed(1),
-          overBottom: +(bottom - sr.bottom).toFixed(1),
-          overLeft: +(sr.left - left).toFixed(1),
-          overRight: +(right - sr.right).toFixed(1),
-          clipped: (sr.top - top) > slack || (bottom - sr.bottom) > slack
-            || (sr.left - left) > slack || (right - sr.right) > slack,
-        });
-      }
-      return out;
-    }, SLACK);
-
-    if (report) {
-      for (const r of rows) {
-        console.log(
-          `slide ${String(r.slide).padStart(2)} ${r.component.padEnd(16)} ` +
-          `over[T ${r.overTop} B ${r.overBottom} L ${r.overLeft} R ${r.overRight}] ` +
-          `${r.clipped ? 'CLIPPED' : 'fits'}`,
-        );
+        for (const r of boxes) {
+          console.log(
+            `  viewBox slide ${String(r.slide).padStart(2)} ${r.component.padEnd(15)} ` +
+            `${r.cls.padEnd(20)} over[T ${r.overTop} B ${r.overBottom} L ${r.overLeft} R ${r.overRight}] ` +
+            `${r.clipped ? 'CLIPPED' : 'fits'}`,
+          );
+        }
       }
     }
 
-    const bad = rows.filter((r) => r.clipped);
-    if (bad.length) {
-      console.error(`\ncheck-chart-fit: ${bad.length} chart(s) overflow the stage clip:\n`);
-      for (const r of bad) {
-        const worst = [
-          ['top', r.overTop], ['bottom', r.overBottom], ['left', r.overLeft], ['right', r.overRight],
-        ].filter(([, v]) => v > SLACK).map(([k, v]) => `${k} +${v}px`).join(', ');
+    if (stageBad.length || boxBad.length) {
+      console.error(`\ncheck-chart-fit: ${stageBad.length + boxBad.length} clip(s) across ${sizes.length} size(s):\n`);
+      for (const r of stageBad) {
         console.error(
-          `  ✗ slide ${r.slide} (${r.component}): painted outside .cell-stage — ${worst}. ` +
-          'The stage is `overflow: clip`, so this is CUT, silently.',
+          `  ✗ [${r.size}] slide ${r.slide} (${r.component}): painted outside .cell-stage — ` +
+          `${worstEdges(r, SLACK, 'px')}. The stage is \`overflow: clip\`, so this is CUT, silently.`,
+        );
+      }
+      for (const r of boxBad) {
+        console.error(
+          `  ✗ [${r.size}] slide ${r.slide} (${r.component}): <svg class="${r.cls}"> content outside its own ` +
+          `viewBox "${r.viewBox}" — ${worstEdges(r, VB_SLACK, 'u')}. The SVG crops at the viewBox, so this is ` +
+          'CUT before anything in the DOM can measure it.',
         );
       }
       console.error('');
-      process.exit(1);
+      failed = true;
+    } else {
+      console.log(
+        `check-chart-fit: ${stageCount} chart slide(s) fit their stage and ${boxCount} SVG(s) fit their viewBox, ` +
+        `across ${sizes.length} size(s) [${sizes.map((s) => s.name).join(', ')}]` +
+        `${skipCount ? ` — ${skipCount} overflow:visible SVG(s) not viewBox-checked` : ''}.`,
+      );
     }
-    console.log(`check-chart-fit: ${rows.length} chart slide(s) — every chart fits its stage.`);
   } finally {
     if (browser) await browser.close();
-    for (const f of [pdf, html]) { try { fs.unlinkSync(f); } catch { /* best effort */ } }
+    for (const f of scratch) { try { fs.unlinkSync(f); } catch { /* best effort */ } }
   }
+  if (failed) process.exit(1);
 }
 
 if (require.main === module) {
   main().catch((err) => { console.error(`check-chart-fit: ${err?.stack || err}`); process.exit(2); });
 }
 
-module.exports = { SLACK, FIXTURE };
+module.exports = { SLACK, VB_SLACK, FIXTURE, SIZES, withSize };
