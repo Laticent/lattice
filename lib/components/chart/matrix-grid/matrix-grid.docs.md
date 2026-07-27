@@ -17,7 +17,7 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `heading` | `h2` | yes | Slide heading naming the rubric. |
-| `eyebrow` | `p:first-of-type > code` | no | Optional inline-code axis caption. Two parts separated by `·` — the first labels the column (reach) axis and renders above the grid, the second labels the row (depth) axis and renders rotated along the left edge, e.g. `Wider reach → · Deeper cognition ↑`. A single part with no `·` renders as the column-axis label only. |
+| `eyebrow` | `p > code` | no | OPTIONAL axis labels: TWO inline-code spans in one paragraph, placed with the slide's framing text — `` `Wider reach`  `Deeper cognition` ``. The first names the column (reach) axis and renders centered above the grid; the second names the row (depth) axis and renders rotated along its left edge. Direction arrows are GENERATED — write only the names. Omit the paragraph entirely and the grid renders with no axis labels. A paragraph with only ONE code span is an ordinary eyebrow/subtitle and is left alone. |
 | `subtitle` | `h2 + p` | no | One supporting sentence under the heading, framing how to read the grid. |
 | `matrix` | `table` | yes | Markdown table — the header row is the reach/scope axis, the first column of each body row is the category axis. Cells use the positional grammar ([x] / [-] / [ ]); a filled cell's trailing text is its label. |
 | `legend` | `p:last-of-type` | no | Optional single trailing paragraph, doubling as the chart caption — what the three cell states mean, plus any caveat about the placements. A leading `**bold**` run renders as a filled swatch + label, a leading `*italic*` run as an outlined swatch + label; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption). |
@@ -50,11 +50,11 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 ```markdown
 <!-- _class: matrix-grid -->
 
-`Reach → self · team · org`
-
 ## Where each level sits on two axes.
 
 Your position is the diagonal — depth and reach meet at one cell.
+
+`Wider reach`  `Deeper cognition`
 
 | Depth | Self | Team | Org |
 | ---------- | :--: | :--: | :-: |

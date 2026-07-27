@@ -182,11 +182,11 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 <!-- _class: matrix-grid head-center -->
 <!-- _footer: "The matrix · matrix-grid" -->
 
-`Wider reach → · Deeper cognition ↑`
-
 ## Your level is a cell, not a rung.
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
+
+`Wider reach`  `Deeper cognition`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |

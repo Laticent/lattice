@@ -103,11 +103,11 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 <!-- _class: matrix-grid -->
 <!-- _footer: "matrix-grid · data-viz gallery" -->
 
-`Wider reach → · Deeper cognition ↑`
-
 ## Your level is a cell, not a rung.
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
+
+`Wider reach`  `Deeper cognition`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |

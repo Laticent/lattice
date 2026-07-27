@@ -18,11 +18,11 @@ Two ordered axes as an N×M chart-family grid — each cell marks a position (fi
 <!-- _class: matrix-grid -->
 <!-- _footer: "Default · matrix-grid" -->
 
-`Wider reach → · Deeper cognition ↑`
-
 ## Your level is a cell, not a rung.
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
+
+`Wider reach`  `Deeper cognition`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |
@@ -44,6 +44,8 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 
 ## Six categories by five columns is the grid's practical ceiling.
 
+`Wider reach`  `Deeper cognition`
+
 | Discipline | Self | Pair | Team | Org | Field |
 | --- | :--: | :--: | :--: | :--: | :--: |
 | Vision    | [ ] | [ ] | [-] | [-] | [x] Chief |
@@ -59,11 +61,11 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 <!-- _class: matrix-grid dark -->
 <!-- _footer: "Composition: dark · matrix-grid dark" -->
 
-`Wider reach → · Deeper cognition ↑`
-
 ## Your level is a cell, not a rung.
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
+
+`Wider reach`  `Deeper cognition`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |
@@ -82,11 +84,11 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 <!-- _class: matrix-grid compact -->
 <!-- _footer: "Composition: compact · matrix-grid compact" -->
 
-`Wider reach → · Deeper cognition ↑`
-
 ## Your level is a cell, not a rung.
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
+
+`Wider reach`  `Deeper cognition`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |
@@ -105,11 +107,11 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 <!-- _class: matrix-grid accent -->
 <!-- _footer: "Composition: accent · matrix-grid accent" -->
 
-`Wider reach → · Deeper cognition ↑`
-
 ## Your level is a cell, not a rung.
 
 Your title is the diagonal — the same verb at a wider reach is a different level.
+
+`Wider reach`  `Deeper cognition`
 
 | Verb | Self | Team | Org | Field |
 | ---------- | :--: | :--: | :--: | :---: |

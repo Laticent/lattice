@@ -37,12 +37,24 @@ A heading that makes one claim, then a paragraph or a short list that delivers i
 
 Six cognitive verbs map the questions an engineer learns to ask — your level is the highest verb you reliably own, and how far that thinking travels.
 
-- `01` **Remember** Recall facts, syntax, rules. *How is this done?*
-- `02` **Understand** Explain behavior and dependencies. *Why does it work?*
-- `03` **Apply** Use patterns in new contexts. *How do I make it work here?*
-- `04` **Analyze** Decompose across boundaries. *Where does it break?*
-- `05` **Evaluate** Judge options against strategy. *Which option should win?*
-- `06` **Create** Synthesize what isn't there. *What should exist?*
+1. Remember
+   - Recall facts, syntax, rules.
+   - How is this done?
+2. Understand
+   - Explain behavior and dependencies.
+   - Why does it work?
+3. Apply
+   - Use patterns in new contexts.
+   - How do I make it work here?
+4. Analyze
+   - Decompose across boundaries.
+   - Where does it break?
+5. Evaluate
+   - Judge options against strategy.
+   - Which option should win?
+6. Create
+   - Synthesize what isn't there.
+   - What should exist?
 
 ---
 

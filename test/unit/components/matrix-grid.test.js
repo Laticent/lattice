@@ -27,57 +27,41 @@ const { buildMatrixGridSection } = require('../../../lib/components/chart/_chart
 const ctx = { cls: 'matrix-grid', classTokens: ['matrix-grid'], orientation: 'landscape' };
 
 describe('buildMatrixGridSection', () => {
-  test('two-part eyebrow: both halves move to the figure (data-col-axis, data-row-axis), masthead eyebrow removed', () => {
+  test('two inline-code spans in one paragraph become the axis labels, arrows generated', () => {
     const html = [
-      '<p><code>Wider reach → · Deeper cognition ↑</code></p>',
       '<h2>Title</h2>',
+      '<p><code>Wider reach</code> <code>Deeper cognition</code></p>',
       '<table><tbody><tr><td>a</td></tr></tbody></table>',
     ].join('');
     const { html: out } = buildMatrixGridSection(html, ctx);
-    // The masthead eyebrow paragraph is gone entirely — both halves render
-    // beside the grid (column axis centered above it, row axis rotated on
-    // the left), not as a title-adjacent chart-eyebrow.
+    // The axis paragraph is consumed entirely — it is chrome for the grid, not
+    // body copy, so it must not also render as a stray code pill.
     assert.doesNotMatch(out, /<p>\s*<code>/);
-    // The thin arrow glyph is normalized to a solid triangle for both axes
-    // (reads at the label's own bold weight, not a stray thin stroke). The
-    // row axis's glyph is pre-flipped (▼, not ▲) — matrix-grid.styles.css
-    // rotates the whole row-axis label 180°, so ▼ is what displays as ▲.
+    // Arrows are GENERATED: the author wrote only the axis names. The row axis
+    // is pre-flipped (▼ displays as ▲ after the label's 180° rotation).
     assert.match(out, /data-col-axis="Wider reach ▶"/);
     assert.match(out, /data-row-axis="Deeper cognition ▼"/);
     assert.match(out, /<div class="matrix-grid-figure"[^>]*><table>/);
   });
 
-  test('axis arrow normalization: every direction on both axes maps to a solid triangle, pre-flipped only on the rotated row axis', () => {
-    const cases = [
-      ['left ← · up ↑', 'left ◀', 'up ▼'],
-      ['right → · down ↓', 'right ▶', 'down ▲'],
-      // Already a solid triangle: still normalized (col unchanged, row still pre-flipped).
-      ['right ▶ · up ▲', 'right ▶', 'up ▼'],
-    ];
-    for (const [eyebrow, wantCol, wantRow] of cases) {
-      const html = [
-        `<p><code>${eyebrow}</code></p>`,
-        '<h2>Title</h2>',
-        '<table><tbody><tr><td>a</td></tr></tbody></table>',
-      ].join('');
+  test('an arrow the author typed anyway is stripped, never doubled', () => {
+    for (const [c, r] of [['Wider reach →', 'Deeper cognition ↑'], ['Wider reach ▶', 'Deeper cognition ▲']]) {
+      const html = `<h2>Title</h2><p><code>${c}</code> <code>${r}</code></p><table><tbody><tr><td>a</td></tr></tbody></table>`;
       const { html: out } = buildMatrixGridSection(html, ctx);
-      assert.match(out, new RegExp(`data-col-axis="${wantCol}"`), eyebrow);
-      assert.match(out, new RegExp(`data-row-axis="${wantRow}"`), eyebrow);
+      assert.match(out, /data-col-axis="Wider reach ▶"/, c);
+      assert.match(out, /data-row-axis="Deeper cognition ▼"/, r);
     }
   });
 
-  test('axis arrow normalization: no trailing glyph is left untouched, not given an arrow', () => {
-    const html = [
-      '<p><code>Category · Depth</code></p>',
-      '<h2>Title</h2>',
-      '<table><tbody><tr><td>a</td></tr></tbody></table>',
-    ].join('');
+  test('no axis paragraph: the grid renders with no axis labels at all', () => {
+    const html = '<h2>Title</h2><table><tbody><tr><td>a</td></tr></tbody></table>';
     const { html: out } = buildMatrixGridSection(html, ctx);
-    assert.match(out, /data-col-axis="Category"/);
-    assert.match(out, /data-row-axis="Depth"/);
+    assert.doesNotMatch(out, /data-col-axis/);
+    assert.doesNotMatch(out, /data-row-axis/);
+    assert.match(out, /<div class="matrix-grid-figure">\s*<table>/);
   });
 
-  test('single-part eyebrow (no ·): left as a plain eyebrow, no data-row-axis', () => {
+  test('a paragraph with only ONE code is not an axis pair — left as a plain eyebrow', () => {
     const html = [
       '<p><code>Wider reach →</code></p>',
       '<h2>Title</h2>',
@@ -163,8 +147,8 @@ describe('buildMatrixGridSection', () => {
 
   test('regression (finding #4): the row axis is escaped exactly once — a literal "&" round-trips as one entity', () => {
     const html = [
-      '<p><code>Wider reach → · Research &amp; development ↑</code></p>',
       '<h2>Title</h2>',
+      '<p><code>Wider reach</code> <code>Research &amp; development</code></p>',
       '<table><tbody><tr><td>a</td></tr></tbody></table>',
     ].join('');
     const { html: out } = buildMatrixGridSection(html, ctx);

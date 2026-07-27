@@ -22,12 +22,24 @@ A framing claim beside a vertically centered ledger of parallel rows — a numbe
 
 Six cognitive verbs map the questions an engineer learns to ask — your level is the highest verb you reliably own, and how far that thinking travels.
 
-- `01` **Remember** Recall facts, syntax, rules. *How is this done?*
-- `02` **Understand** Explain behavior and dependencies. *Why does it work?*
-- `03` **Apply** Use patterns in new contexts. *How do I make it work here?*
-- `04` **Analyze** Decompose across boundaries. *Where does it break?*
-- `05` **Evaluate** Judge options against strategy. *Which option should win?*
-- `06` **Create** Synthesize what isn't there. *What should exist?*
+1. Remember
+   - Recall facts, syntax, rules.
+   - How is this done?
+2. Understand
+   - Explain behavior and dependencies.
+   - Why does it work?
+3. Apply
+   - Use patterns in new contexts.
+   - How do I make it work here?
+4. Analyze
+   - Decompose across boundaries.
+   - Where does it break?
+5. Evaluate
+   - Judge options against strategy.
+   - Which option should win?
+6. Create
+   - Synthesize what isn't there.
+   - What should exist?
 
 
 ---
@@ -40,14 +52,30 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 Past eight rows the categorical hues repeat, so eight is this layout's practical ceiling.
 
-- `01` **Novice** Follows a script closely. *Can you repeat it?*
-- `02` **Advanced beginner** Recognizes recurring situations. *Have you seen this before?*
-- `03` **Competent** Plans deliberately. *What's the goal here?*
-- `04` **Proficient** Sees the whole, not just rules. *What does the situation call for?*
-- `05` **Expert** Acts on intuition built from experience. *What feels right?*
-- `06` **Master** Refines the craft itself. *What could be better about how we do this?*
-- `07` **Practitioner** Teaches the craft to others. *How do I pass this on?*
-- `08` **Steward** Shapes the field's standards. *What should the craft become?*
+1. Novice
+   - Follows a script closely.
+   - Can you repeat it?
+2. Advanced beginner
+   - Recognizes recurring situations.
+   - Have you seen this before?
+3. Competent
+   - Plans deliberately.
+   - What's the goal here?
+4. Proficient
+   - Sees the whole, not just rules.
+   - What does the situation call for?
+5. Expert
+   - Acts on intuition from experience.
+   - What feels right?
+6. Master
+   - Refines the craft itself.
+   - What could be better?
+7. Practitioner
+   - Teaches the craft to others.
+   - How do I pass this on?
+8. Steward
+   - Shapes the field's standards.
+   - What should the craft become?
 
 
 ---
@@ -59,12 +87,24 @@ Past eight rows the categorical hues repeat, so eight is this layout's practical
 
 Six cognitive verbs map the questions an engineer learns to ask — your level is the highest verb you reliably own, and how far that thinking travels.
 
-- `01` **Remember** Recall facts, syntax, rules. *How is this done?*
-- `02` **Understand** Explain behavior and dependencies. *Why does it work?*
-- `03` **Apply** Use patterns in new contexts. *How do I make it work here?*
-- `04` **Analyze** Decompose across boundaries. *Where does it break?*
-- `05` **Evaluate** Judge options against strategy. *Which option should win?*
-- `06` **Create** Synthesize what isn't there. *What should exist?*
+1. Remember
+   - Recall facts, syntax, rules.
+   - How is this done?
+2. Understand
+   - Explain behavior and dependencies.
+   - Why does it work?
+3. Apply
+   - Use patterns in new contexts.
+   - How do I make it work here?
+4. Analyze
+   - Decompose across boundaries.
+   - Where does it break?
+5. Evaluate
+   - Judge options against strategy.
+   - Which option should win?
+6. Create
+   - Synthesize what isn't there.
+   - What should exist?
 
 
 ---
@@ -76,12 +116,24 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 Six cognitive verbs map the questions an engineer learns to ask — your level is the highest verb you reliably own, and how far that thinking travels.
 
-- `01` **Remember** Recall facts, syntax, rules. *How is this done?*
-- `02` **Understand** Explain behavior and dependencies. *Why does it work?*
-- `03` **Apply** Use patterns in new contexts. *How do I make it work here?*
-- `04` **Analyze** Decompose across boundaries. *Where does it break?*
-- `05` **Evaluate** Judge options against strategy. *Which option should win?*
-- `06` **Create** Synthesize what isn't there. *What should exist?*
+1. Remember
+   - Recall facts, syntax, rules.
+   - How is this done?
+2. Understand
+   - Explain behavior and dependencies.
+   - Why does it work?
+3. Apply
+   - Use patterns in new contexts.
+   - How do I make it work here?
+4. Analyze
+   - Decompose across boundaries.
+   - Where does it break?
+5. Evaluate
+   - Judge options against strategy.
+   - Which option should win?
+6. Create
+   - Synthesize what isn't there.
+   - What should exist?
 
 
 ---
@@ -93,12 +145,24 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 Six cognitive verbs map the questions an engineer learns to ask — your level is the highest verb you reliably own, and how far that thinking travels.
 
-- `01` **Remember** Recall facts, syntax, rules. *How is this done?*
-- `02` **Understand** Explain behavior and dependencies. *Why does it work?*
-- `03` **Apply** Use patterns in new contexts. *How do I make it work here?*
-- `04` **Analyze** Decompose across boundaries. *Where does it break?*
-- `05` **Evaluate** Judge options against strategy. *Which option should win?*
-- `06` **Create** Synthesize what isn't there. *What should exist?*
+1. Remember
+   - Recall facts, syntax, rules.
+   - How is this done?
+2. Understand
+   - Explain behavior and dependencies.
+   - Why does it work?
+3. Apply
+   - Use patterns in new contexts.
+   - How do I make it work here?
+4. Analyze
+   - Decompose across boundaries.
+   - Where does it break?
+5. Evaluate
+   - Judge options against strategy.
+   - Which option should win?
+6. Create
+   - Synthesize what isn't there.
+   - What should exist?
 
 
 ---

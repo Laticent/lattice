@@ -6462,9 +6462,9 @@
           "description": "Slide heading naming the rubric."
         },
         "eyebrow": {
-          "selector": "p:first-of-type > code",
+          "selector": "p > code",
           "required": false,
-          "description": "Optional inline-code axis caption. Two parts separated by `·` — the first labels the column (reach) axis and renders above the grid, the second labels the row (depth) axis and renders rotated along the left edge, e.g. `Wider reach → · Deeper cognition ↑`. A single part with no `·` renders as the column-axis label only."
+          "description": "OPTIONAL axis labels: TWO inline-code spans in one paragraph, placed with the slide's framing text — `` `Wider reach`  `Deeper cognition` ``. The first names the column (reach) axis and renders centered above the grid; the second names the row (depth) axis and renders rotated along its left edge. Direction arrows are GENERATED — write only the names. Omit the paragraph entirely and the grid renders with no axis labels. A paragraph with only ONE code span is an ordinary eyebrow/subtitle and is left alone."
         },
         "subtitle": {
           "selector": "h2 + p",
@@ -6482,7 +6482,7 @@
           "description": "Optional single trailing paragraph, doubling as the chart caption — what the three cell states mean, plus any caveat about the placements. A leading `**bold**` run renders as a filled swatch + label, a leading `*italic*` run as an outlined swatch + label; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption)."
         }
       },
-      "skeleton": "<!-- _class: matrix-grid -->\n\n`Reach → self · team · org`\n\n## Where each level sits on two axes.\n\nYour position is the diagonal — depth and reach meet at one cell.\n\n| Depth | Self | Team | Org |\n| ---------- | :--: | :--: | :-: |\n| Advanced   | [ ]  | [-]  | [x] Lead |\n| Proficient | [-]  | [x] Senior | [-] |\n| Beginner   | [x] Junior | [-]  | [ ]  |\n\n**Your position** · *reachable*\n",
+      "skeleton": "<!-- _class: matrix-grid -->\n\n## Where each level sits on two axes.\n\nYour position is the diagonal — depth and reach meet at one cell.\n\n`Wider reach`  `Deeper cognition`\n\n| Depth | Self | Team | Org |\n| ---------- | :--: | :--: | :-: |\n| Advanced   | [ ]  | [-]  | [x] Lead |\n| Proficient | [-]  | [x] Senior | [-] |\n| Beginner   | [x] Junior | [-]  | [ ]  |\n\n**Your position** · *reachable*\n",
       "whenToUse": [
         {
           "title": "Both axes are ordered categories",

@@ -111,10 +111,8 @@ The left panel anchors a phase; the column numbers its moves.
 
 *How is this done?* You recall syntax, patterns, and standards — the path is known, and the job is to follow it without error.
 
-### You know you're here when
-
-You implement a feature via an existing API. Tests pass, review comes back clean, and rework is rare.
-
+- You know you're here when
+  - You ship on an existing API and rework is rare.
 - Follows examples well
   - Compiles, runs, and tests locally with confidence.
 - Works from brief tickets
@@ -130,12 +128,10 @@ You implement a feature via an existing API. Tests pass, review comes back clean
 
 ## Build what didn't exist before.
 
-*What should exist?* You synthesize new frameworks, platforms, and operating models — the artifact you produce becomes the standard others build on.
+*What should exist?* You synthesize new frameworks, platforms and operating models — what you produce becomes the standard.
 
-### The signal
-
-You design a cross-cloud, policy-aware data platform framework, and teams across the enterprise adopt it as their foundation.
-
+- The signal
+  - Teams across the enterprise adopt your framework as their foundation.
 - Reference architecture
   - The implementation exists and is validated.
 - Organization-wide adoption

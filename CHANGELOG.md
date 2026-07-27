@@ -57,6 +57,28 @@ in patch versions.
 
 ### Changed
 
+- **Breaking (`matrix-grid`, unreleased): axis labels are two inline-code spans placed with the
+  slide's framing text, and the direction arrows are generated.** Was a single `·`-separated eyebrow
+  above the heading (`` `Wider reach → · Deeper cognition ↑` ``) — which asked the author to split two
+  labels on a separator, type each arrow, and get both directions right, on a component that then
+  rotates one of them 180°. Now:
+
+  ```
+  ## Your level is a cell, not a rung.
+
+  Your title is the diagonal — the same verb at a wider reach is a different level.
+
+  `Wider reach`  `Deeper cognition`
+  ```
+
+  The author writes only the axis NAMES; `▶` and the pre-flipped `▼` are the component's own chrome,
+  so the two axes cannot drift apart or be typed backwards. An arrow typed anyway is stripped rather
+  than doubled. **Two code spans in a paragraph is the discriminator** — a ONE-code paragraph is an
+  ordinary eyebrow/subtitle/legend and is left completely alone, which is what keeps a code-only
+  subtitle from being shredded into axis labels. **Omit the paragraph and the grid renders with no
+  axis labels**, where before a single-part eyebrow silently fell through to the generic chart-eyebrow
+  treatment.
+
 - **Breaking (`split-panel.proof` / `compare-prose.axis`, both unreleased): both drop their bespoke
   row grammars for the ordinary nested-list shape.**
 

@@ -592,11 +592,11 @@
     "body": [
       "<!-- _class: matrix-grid -->",
       "",
-      "`Reach → self · team · org`",
-      "",
       "## Where each level sits on two axes.",
       "",
       "Your position is the diagonal — depth and reach meet at one cell.",
+      "",
+      "`Wider reach`  `Deeper cognition`",
       "",
       "| Depth | Self | Team | Org |",
       "| ---------- | :--: | :--: | :-: |",

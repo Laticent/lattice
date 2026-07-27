@@ -126,16 +126,12 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 The verb is one axis — how you think. **Reach** is the other — how far what you make travels.
 
-- 
-  - I
-  - Own the verb
-  - You can do the cognitive work — correct, clear, complete. So far it reaches only you.
-- 
-  - II
-  - Widen the reach
-  - The work travels: team, org, field — the farther it carries, the higher the level.
+1. Own the verb
+   - You can do the cognitive work — correct, clear, complete. It reaches only you.
+2. Widen the reach
+   - The work travels: team, org, field. Documented, adopted, durable.
 
-*Most engineers stall here — not on the thinking, but on making it travel past their own hands.*
+*Most engineers stall on making it travel, not on the thinking.*
 
 
 ---
