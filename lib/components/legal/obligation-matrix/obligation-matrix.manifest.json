@@ -135,8 +135,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Leaving table columns left-aligned instead of center-aligned (`:---:`).",
-      "fix": "Every skeleton and sample center-aligns columns — left-aligned state-marker cells still render, but the glyphs won't sit centered under their header the way the reference examples do."
+      "mistake": "Explicitly left-aligning table columns (`:---`) instead of leaving alignment unspecified or writing `:---:`.",
+      "fix": "The matrix unconditionally centers every cell, so a plain column with no alignment markers still centers state-marker glyphs fine. Only an EXPLICIT `:---` left-align syntax breaks it — that emits an inline left-align style, which (being inline) overrides the component's own centering rule regardless of specificity."
     }
   ],
   "variantDecisionRule": [
@@ -146,7 +146,7 @@
     },
     {
       "variant": "heat",
-      "useWhen": "The matrix should read as exposure — applies means alarm, exempt means relief — not just coverage for reference."
+      "useWhen": "The matrix should read as exposure — applies (`[x]`) reads as alarm — not just coverage for reference. Exempt (`[ ]`) cells resolve to a neutral state that `heat` does NOT re-color; they keep their default neutral ring rather than turning 'relief' green."
     },
     {
       "variant": "asymmetric",
@@ -154,7 +154,7 @@
     },
     {
       "variant": "pills",
-      "useWhen": "The state should read as a word — a status label — rather than an iconographic mark, while keeping neutral, non-alarming chrome."
+      "useWhen": "The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the `[x]`/`[-]`/`[ ]` state-marker grammar — a table still written with bracket markers renders identically to the default under `pills`, since the marker grammar emits an icon-only mark with no text for `pills`' word-styling to catch."
     },
     {
       "variant": "lanes",

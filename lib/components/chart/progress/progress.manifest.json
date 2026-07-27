@@ -103,12 +103,12 @@
   ],
   "commonMistakes": [
     {
-      "mistake": "Writing the fill value without the `%` sign (e.g. `` `80` `` instead of `` `80%` ``).",
-      "fix": "The percent chip must include the `%` sign — a bare number chip isn't recognized as the fill percentage."
+      "mistake": "Writing the fill value without the `%` sign, assuming the bar won't fill correctly.",
+      "fix": "The `%` sign is cosmetic for the bar fill itself — a bare number and a `%`-suffixed one drive the same fill. It DOES matter for the displayed chip text, though: omit it and the chip shows a bare number with no percent sign, which reads wrong even though the bar fills correctly. Always include `%` for a clean label."
     },
     {
       "mistake": "Writing the status pill before the percent chip.",
-      "fix": "Trailing chips are read percent first, status second (`` `68%` `` then `` `at-risk` ``) — reversing the order isn't the documented shape, even where the parser tolerates it."
+      "fix": "Trailing chips are read percent first, status second (`` `68%` `` then `` `at-risk` ``) — reversing the order is a genuine break, not graceful tolerance: the bar renders at 0% fill and the percent/status text swap positions in the row."
     }
   ],
   "specimenVoice": true

@@ -21,14 +21,14 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 ### Variant decision rule
 
 - **default (no modifier).** Neutral, data-first cell chrome with no additional emphasis — reference tone.
-- **`heat`.** The matrix should read as exposure — applies means alarm, exempt means relief — not just coverage for reference.
+- **`heat`.** The matrix should read as exposure — applies (`[x]`) reads as alarm — not just coverage for reference. Exempt (`[ ]`) cells resolve to a neutral state that `heat` does NOT re-color; they keep their default neutral ring rather than turning 'relief' green.
 - **`asymmetric`.** The regimes genuinely differ in kind and each deserves body-level breathing room as its own card rather than a strict grid cell.
-- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark, while keeping neutral, non-alarming chrome.
+- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the `[x]`/`[-]`/`[ ]` state-marker grammar — a table still written with bracket markers renders identically to the default under `pills`, since the marker grammar emits an icon-only mark with no text for `pills`' word-styling to catch.
 - **`lanes`.** Each regime should read as its own horizontal band, emphasizing that it's a distinct regime rather than a rank in a list.
 
 ### Common mistakes
 
-- **Leaving table columns left-aligned instead of center-aligned (`:---:`).** Every skeleton and sample center-aligns columns — left-aligned state-marker cells still render, but the glyphs won't sit centered under their header the way the reference examples do.
+- **Explicitly left-aligning table columns (`:---`) instead of leaving alignment unspecified or writing `:---:`.** The matrix unconditionally centers every cell, so a plain column with no alignment markers still centers state-marker glyphs fine. Only an EXPLICIT `:---` left-align syntax breaks it — that emits an inline left-align style, which (being inline) overrides the component's own centering rule regardless of specificity.
 
 ## When to use
 

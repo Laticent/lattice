@@ -29,7 +29,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ### Common mistakes
 
-- **Placing the citation paragraph after the blockquote instead of before it.** The citation slot matches `p:first-of-type > code` — it must be the section's first paragraph, appearing BEFORE the verbatim blockquote, or it won't render as the citation line.
+- **Placing the citation paragraph immediately after the heading (before the blockquote).** A code-only paragraph immediately after the heading is captured by the shared masthead subtitle rule and rendered as a generic italic subtitle, not the component's dedicated citation styling. Place the citation paragraph AFTER the blockquote instead, where citation-card's own selector gives it the mono, accent-colored citation treatment.
 
 ## When to use
 

@@ -107,7 +107,7 @@
     },
     {
       "mistake": "Nesting the rationale as a numbered sub-list (`1.`) instead of a bullet (`-`).",
-      "fix": "The rationale styling (`.crit-body ul { … }`) is scoped to `ul` only, not `ol` — a numbered sub-list falls back to default list markup instead of the muted, unmarked rationale line."
+      "fix": "The rationale styling only targets a nested `ul` — a numbered sub-list (`1.`) falls back to default list markup instead of the muted, unmarked rationale line."
     }
   ],
   "specimenVoice": true

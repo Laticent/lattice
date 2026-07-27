@@ -29,7 +29,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 - **`steps`.** The panel anchors a numbered phase rather than a heading, and the right column is a numbered sequence rather than loose points.
 - **`watermark`.** You want a decorative accent panel — an oversized letterform behind the heading — plus an optional two-line Audience/Intent metadata footer after the points.
 - **`mirror`.** Same anatomy, but the deck's reading rhythm wants the featured panel to land on the right instead of the left.
-- **`qr`.** The featured payload is a URL to scan, not a heading or number — a bare URL bullet auto-resolves into a QR on the panel.
+- **`qr`.** A URL to scan supplements the panel — a bullet tagged `qr` (or a bare URL) auto-resolves into a QR figure appended to the RIGHT (supporting) column; the left panel keeps its normal required heading/lede, it doesn't become the QR.
 
 ### Common mistakes
 

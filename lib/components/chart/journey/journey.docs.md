@@ -28,7 +28,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 ### Common mistakes
 
 - **Treating the mood scale as if 1 were best instead of worst.** The mood scale runs 1 (worst) to 5 (best) — authoring it inverted flips heatmap tinting and the curve variant's trend direction.
-- **Omitting the `:N` mood token from a task.** Mood is the chart's whole point — a task with no `:N` token has nothing to plot under any of the four variants (heatmap tint, curve point, or otherwise); every task needs a mood score.
+- **Assuming an omitted `:N` mood token leaves the task unplotted.** Omitting `:N` silently defaults the task to a neutral mood of 3 — it still plots normally under every variant, just without a deliberate score. Always give an explicit `:N` so the chart reflects real affect instead of a silent default.
 
 ## When to use
 

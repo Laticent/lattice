@@ -449,7 +449,7 @@ Use to make one metric land. The number should be the headline — supporting te
 
 ##### Common mistakes
 
-- **Caption authored as a second top-level bullet instead of nested under the number's list item.** The caption slot selector is `ul > li:first-child > ul > li` — indent the caption as a sub-bullet of the number, not a sibling `- caption` line.
+- **Caption authored as a second top-level bullet instead of nested under the number's list item.** Indent the caption as a sub-bullet of the number, not a sibling `- caption` line — a sibling bullet doesn't just miss the caption styling, it matches the SAME top-level rule as the number itself and renders as a second giant hero-sized line.
 - **The unit or label baked into the number line itself, e.g. `- 1,248,500,000 users`.** Keep the number list item to the numeral plus its own unit symbol (`%`, `$`, `×`). Put the semantic label — what's being counted — in the eyebrow, not appended prose after the number.
 - **Eyebrow restates the number's value instead of naming its category, e.g. eyebrow `92%` above a number `92%`.** The eyebrow names the metric class ("Audience recall", "Q3 revenue"); the number carries the value. Restating the value in both places wastes the eyebrow's one job.
 
@@ -693,7 +693,7 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 - **`steps`.** The panel anchors a numbered phase rather than a heading, and the right column is a numbered sequence rather than loose points.
 - **`watermark`.** You want a decorative accent panel — an oversized letterform behind the heading — plus an optional two-line Audience/Intent metadata footer after the points.
 - **`mirror`.** Same anatomy, but the deck's reading rhythm wants the featured panel to land on the right instead of the left.
-- **`qr`.** The featured payload is a URL to scan, not a heading or number — a bare URL bullet auto-resolves into a QR on the panel.
+- **`qr`.** A URL to scan supplements the panel — a bullet tagged `qr` (or a bare URL) auto-resolves into a QR figure appended to the RIGHT (supporting) column; the left panel keeps its normal required heading/lede, it doesn't become the QR.
 
 ##### Common mistakes
 
@@ -3234,8 +3234,8 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 ##### Common mistakes
 
-- **Placing the citation paragraph after the blockquote instead of before it.** The citation slot matches `p:first-of-type > code` — it must be the section's first paragraph, appearing BEFORE the redlined blockquote, or it won't render as the citation line.
-- **Using Markdown strikethrough (`~~text~~`) instead of literal `<del>`/`<ins>` HTML tags.** The redline mechanism reads literal `<del>old</del>`/`<ins>new</ins>` inline HTML, not Markdown strikethrough syntax — `~~text~~` doesn't render as a tracked deletion.
+- **Not being deliberate about where the citation paragraph goes relative to the heading and blockquote — each position gets different styling.** The citation paragraph always renders — position just changes which mechanism claims it: before the `## heading` it's captured as the masthead eyebrow (mono-caps kicker); immediately after the heading it's captured as the masthead subtitle (italic, generic); left after the blockquote it stays in the body and gets redline's own accent-mono citation styling. Pick the placement for the look you want.
+- **Assuming Markdown strikethrough (`~~text~~`) doesn't render as a tracked deletion the way literal `<del>` does.** `~~text~~` DOES render as a tracked deletion — Markdown strikethrough produces `<s>`, and redline's CSS styles `del`/`s` identically (line-through, fail-red color and background). Either syntax works for a deletion; `<ins>new</ins>` still needs literal HTML since Markdown has no native insertion syntax.
 
 #### When to use
 
@@ -3397,7 +3397,7 @@ Use when a decision frames a binary choice and the recommendation must be unambi
 ##### Common mistakes
 
 - **Trying to rename the "RECOMMENDATION" tag by editing the blockquote text.** The tag text comes from the `--insight-label` CSS variable, set by an `insight-*` modifier class on the slide (e.g. `insight-verdict`) — not from anything inside the blockquote; editing the blockquote only changes the recommendation sentence, not its tag.
-- **Placing the frame label (e.g. `Decision Required`) after the heading instead of before it, or leaving it unwrapped in backticks.** The frame label matches `p:first-of-type > code` — it must be the section's very first line, wrapped in backticks, or it won't render as the dark panel's kicker label.
+- **Leaving the frame label unwrapped in backticks.** The frame label is reassembled to the top of the dark panel regardless of its source position — placement doesn't matter. It must be backtick-wrapped, though: unwrapped plain text is instead captured as the intro paragraph, not the frame label.
 
 #### When to use
 
@@ -3663,7 +3663,7 @@ Use to enumerate the criteria a decision must meet, in priority order. Numbering
 ##### Common mistakes
 
 - **Manually bolding the criterion title with `**…**`.** The lead text of each `li` is auto-lifted to `<strong>` by the engine's slot-label-lift step — wrapping it in `**…**` yourself just nests a redundant bold marker; write plain text and let the lift handle the weight.
-- **Nesting the rationale as a numbered sub-list (`1.`) instead of a bullet (`-`).** The rationale styling (`.crit-body ul { … }`) is scoped to `ul` only, not `ol` — a numbered sub-list falls back to default list markup instead of the muted, unmarked rationale line.
+- **Nesting the rationale as a numbered sub-list (`1.`) instead of a bullet (`-`).** The rationale styling only targets a nested `ul` — a numbered sub-list (`1.`) falls back to default list markup instead of the muted, unmarked rationale line.
 
 #### When to use
 
@@ -4071,7 +4071,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 ##### Common mistakes
 
-- **A KPI's lead value has no nested bullets beneath it, e.g. a bare `1. $2.4B` with nothing indented under it.** A bare value with no nested bullets won't render as the big display number — every KPI needs at least the metric-name bullet nested beneath its value.
+- **A KPI's lead value has no nested bullets beneath it, e.g. a bare `1. $2.4B` with nothing indented under it.** A bare value still renders as the big display number (slot-label-lift auto-bolds every top-level `li` lead regardless of nested content) — but with no nested bullet there's no metric-name label under it, so the number reads without context. Nest at least the metric-name bullet beneath each value.
 - **Eyebrow paragraph placed after the heading instead of before it, or written as plain/bold text instead of inline code.** The eyebrow is the section's first child — an inline-code-only paragraph before the `## heading` — keep it first and backtick-wrapped, or it won't get the mono/uppercase eyebrow treatment.
 
 #### When to use
@@ -4280,8 +4280,8 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 
 ##### Common mistakes
 
-- **A stat's number has no nested caption bullet beneath it.** A bare number with no nested caption won't render as the big number — every tile needs its label nested directly beneath the number.
-- **Assuming the subtitle/eyebrow line needs inline-code wrapping to render, the way most other components' eyebrows do.** Stats' subtitle is styled by a generic paragraph rule (`> p, > em`), not the dedicated `p:has(> code)` eyebrow rule most components use — it renders as the same italic framing line whether wrapped in backticks or not. Backticks are optional here, unlike title/divider/kpi/math.
+- **A stat's number has no nested caption bullet beneath it.** A bare number still renders as the tile's big display number (the lead auto-bolds and is styled hero-sized regardless of nested content) — but with no nested caption there's no label under it. Nest a bullet directly beneath each number for its caption.
+- **Assuming the subtitle/eyebrow line needs inline-code wrapping to render, the way most other components' eyebrows do.** Stats' subtitle DOES change styling depending on backtick-wrapping and position: a backtick-wrapped, code-only paragraph adjacent to the heading gets lifted into the masthead and picked up by the shared eyebrow/subtitle rule (secondary color, message size); plain unwrapped text instead stays in the body and matches stats' own generic paragraph rule (label color, body size) — a visibly different color and size, not the same line. Wrap it in backticks for the masthead treatment.
 
 #### When to use
 
@@ -4955,7 +4955,7 @@ Use for project plans with overlapping or staggered tasks. Each task is a bar on
 
 - A chart uses dates OR ordinals (quarters/months) consistently — never mix `2026-03-15` spans with `Q1`/`Jan` spans in the same chart.
 - `..` is the only span delimiter — a hyphen or en-dash between two dates isn't recognized as a span.
-- `after: Task name` must reference another task's exact label already defined earlier in the chart, or the dependency is dangling.
+- `after: Task name` must reference another task's exact label somewhere on the same slide — source order doesn't matter (every task is indexed before dependencies are checked), so a forward reference to a task defined later is fine. Only a nonexistent label is flagged as dangling.
 
 #### When to use
 
@@ -5047,7 +5047,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 ##### Common mistakes
 
 - **Treating the mood scale as if 1 were best instead of worst.** The mood scale runs 1 (worst) to 5 (best) — authoring it inverted flips heatmap tinting and the curve variant's trend direction.
-- **Omitting the `:N` mood token from a task.** Mood is the chart's whole point — a task with no `:N` token has nothing to plot under any of the four variants (heatmap tint, curve point, or otherwise); every task needs a mood score.
+- **Assuming an omitted `:N` mood token leaves the task unplotted.** Omitting `:N` silently defaults the task to a neutral mood of 3 — it still plots normally under every variant, just without a deliberate score. Always give an explicit `:N` so the chart reflects real affect instead of a silent default.
 
 #### When to use
 
@@ -5637,8 +5637,8 @@ Use for status-tracking across multiple parallel items (project readiness, OKR p
 
 ##### Common mistakes
 
-- **Writing the fill value without the `%` sign (e.g. `` `80` `` instead of `` `80%` ``).** The percent chip must include the `%` sign — a bare number chip isn't recognized as the fill percentage.
-- **Writing the status pill before the percent chip.** Trailing chips are read percent first, status second (`` `68%` `` then `` `at-risk` ``) — reversing the order isn't the documented shape, even where the parser tolerates it.
+- **Writing the fill value without the `%` sign, assuming the bar won't fill correctly.** The `%` sign is cosmetic for the bar fill itself — a bare number and a `%`-suffixed one drive the same fill. It DOES matter for the displayed chip text, though: omit it and the chip shows a bare number with no percent sign, which reads wrong even though the bar fills correctly. Always include `%` for a clean label.
+- **Writing the status pill before the percent chip.** Trailing chips are read percent first, status second (`` `68%` `` then `` `at-risk` ``) — reversing the order is a genuine break, not graceful tolerance: the bar renders at 0% fill and the percent/status text swap positions in the row.
 
 #### When to use
 
@@ -5722,7 +5722,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 
 - **default (no modifier).** Each item is a single, current position on the two axes — the plain scatter.
 - **`bubble`.** A third numeric dimension (size, cost, headcount) should scale each point's radius, not just its x/y position.
-- **`trail`.** Items have moved — the story is the delta from a prior position to now, shown as an arrow.
+- **`trail`.** Items have moved — the story is the delta from a prior position to now, shown as a dashed connector line between a faded before-dot and a solid after-dot.
 - **`cohort`.** The categorical grouping itself, not the axes, is what the audience should color-scan first.
 - **`threshold`.** Specific numeric cutoffs on each axis are the point — draws the actual threshold lines instead of leaving the quadrant split purely visual.
 - **`magic`.** The four quadrants have established, named archetypes (Leaders/Challengers/Visionaries/Niche Players) worth labeling explicitly, Gartner-style.
@@ -5978,7 +5978,7 @@ Use to compare 2–4 options across the same 4–8 criteria. Each option becomes
 ##### Common mistakes
 
 - **Authoring a detail sublist as a numbered list (`1.`) instead of `-`/`*` bullets.** Detail sublists must use `-`/`*` bullets — a numbered list isn't recognized as the axis's detail content.
-- **Giving a series a different number of values than there are axes.** Each series must supply exactly one number per axis, in the same order every other series uses — a mismatched count desyncs which value maps to which spoke, or leaves an axis unplotted for that series.
+- **Giving a series a different number of values than there are axes.** Each series must supply exactly one number per axis, using the SAME axis labels every other series uses — later series align to the first series's axes by label (case-insensitive), falling back to position only when a label doesn't match, so reordering axes across series is safe as long as the labels agree. A genuinely mismatched count or label desyncs which value maps to which spoke.
 
 #### When to use
 
@@ -6692,7 +6692,7 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 
 ##### Common mistakes
 
-- **Using a weight of zero or a negative number.** Weight must be a positive number — the sizing scale maps the lightest word to small/muted and the heaviest to hero size; a zero or negative weight has no defined position on that scale.
+- **Assuming a weight of zero or a negative number breaks the sizing scale.** Weight is read as a relative magnitude, min-max normalized across the whole cloud — zero and negative numbers work fine and still get a well-defined proportional size. What actually breaks the scale is a non-numeric or non-finite value.
 - **Using ascending rank numbers (1st place, 2nd place, …) as the weight, expecting rank 1 to render biggest.** Weight is a MAGNITUDE where higher means bigger — a rank-style scale where '1' means 'most important' renders as the SMALLEST word, not the biggest. Invert rank into magnitude before authoring (the top-ranked term gets the highest number).
 
 #### When to use
@@ -7580,7 +7580,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ##### Common mistakes
 
-- **Placing the citation paragraph after the blockquote instead of before it.** The citation slot matches `p:first-of-type > code` — it must be the section's first paragraph, appearing BEFORE the verbatim blockquote, or it won't render as the citation line.
+- **Placing the citation paragraph immediately after the heading (before the blockquote).** A code-only paragraph immediately after the heading is captured by the shared masthead subtitle rule and rendered as a generic italic subtitle, not the component's dedicated citation styling. Place the citation paragraph AFTER the blockquote instead, where citation-card's own selector gives it the mono, accent-colored citation treatment.
 
 #### When to use
 
@@ -7737,14 +7737,14 @@ Use when many regimes need comparing across the same obligations. Cells carry th
 ##### Variant decision rule
 
 - **default (no modifier).** Neutral, data-first cell chrome with no additional emphasis — reference tone.
-- **`heat`.** The matrix should read as exposure — applies means alarm, exempt means relief — not just coverage for reference.
+- **`heat`.** The matrix should read as exposure — applies (`[x]`) reads as alarm — not just coverage for reference. Exempt (`[ ]`) cells resolve to a neutral state that `heat` does NOT re-color; they keep their default neutral ring rather than turning 'relief' green.
 - **`asymmetric`.** The regimes genuinely differ in kind and each deserves body-level breathing room as its own card rather than a strict grid cell.
-- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark, while keeping neutral, non-alarming chrome.
+- **`pills`.** The state should read as a word — a status label — rather than an iconographic mark. This requires authoring literal text (inline code or bold) per cell instead of the `[x]`/`[-]`/`[ ]` state-marker grammar — a table still written with bracket markers renders identically to the default under `pills`, since the marker grammar emits an icon-only mark with no text for `pills`' word-styling to catch.
 - **`lanes`.** Each regime should read as its own horizontal band, emphasizing that it's a distinct regime rather than a rank in a list.
 
 ##### Common mistakes
 
-- **Leaving table columns left-aligned instead of center-aligned (`:---:`).** Every skeleton and sample center-aligns columns — left-aligned state-marker cells still render, but the glyphs won't sit centered under their header the way the reference examples do.
+- **Explicitly left-aligning table columns (`:---`) instead of leaving alignment unspecified or writing `:---:`.** The matrix unconditionally centers every cell, so a plain column with no alignment markers still centers state-marker glyphs fine. Only an EXPLICIT `:---` left-align syntax breaks it — that emits an inline left-align style, which (being inline) overrides the component's own centering rule regardless of specificity.
 
 #### When to use
 
@@ -7926,7 +7926,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 ##### Common mistakes
 
 - **Writing a reason's evidence line without a trailing inline-code citation chip.** Without the trailing citation chip, the evidence line reads as unsupported assertion rather than record-grade evidence — the nested evidence bullet should end in an inline-code citation, not just prose.
-- **Placing the bill/docket eyebrow after the heading instead of before it, or leaving it unwrapped in backticks.** The eyebrow matches `p:first-of-type > code` — it must be the section's first line, wrapped in backticks, or it won't render as the kicker above the recommendation.
+- **Placing the bill/docket eyebrow after the heading instead of before it, or leaving it unwrapped in backticks.** A code-only paragraph immediately before the heading is lifted into the masthead and picked up by the shared mono-caps eyebrow rule — it must be the section's first line, wrapped in backticks, or it either stays a plain paragraph (if unwrapped) or becomes an italic subtitle instead (if placed after the heading).
 
 #### When to use
 
@@ -8097,7 +8097,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 ##### Common mistakes
 
-- **Placing the scope label after the heading instead of before it, or leaving it unwrapped in backticks.** The scope label matches `p:first-of-type > code` — it must be the section's first line, wrapped in backticks, or it won't render as the kicker above the ledger.
+- **Leaving the scope label unwrapped in plain text instead of inline code.** The component's own dedicated 'kicker above the ledger' styling is currently unreachable — the shared masthead lift always claims a code-only paragraph adjacent to the heading first (as an italic subtitle if placed after the heading, or a mono eyebrow if placed before). Wrap it in backticks so it's at least recognized as a label; expect the generic mono-caps eyebrow or italic subtitle treatment, not a distinct kicker.
 - **Using `diff-bands` without grouping items under `### ` category subheadings.** `diff-bands` expects the items split into separate ordered lists, each preceded by an `### Added`/`### Amended`/`### Repealed`/`### Enforced` subheading — a single flat list under `diff-bands` has no band to shade into.
 
 #### When to use
@@ -8478,7 +8478,7 @@ Use as the "scan to add me" close or a speaker-intro slide. The QR encodes a vCa
 ##### Common mistakes
 
 - **No field is tagged with the `name` key.** Every contact card needs exactly one field trailing `` `name` `` — without it the vCard has no identity and the hero name area renders empty.
-- **The trailing key doesn't match a supported alias, e.g. `` `position` `` instead of `` `title`/`role` ``.** Only the documented keys are recognized (name, title|role, org|company, email, phone|tel, url|web, caption) — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
+- **The trailing key doesn't match a supported alias, e.g. `` `position` `` instead of `` `title`/`role` ``.** Only the documented keys are recognized (name, title|role, org|company, email, phone|tel|mobile, url|web|site, caption) — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
 
 #### When to use
 
@@ -8539,8 +8539,8 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 
 ##### Common mistakes
 
-- **Eyebrow written as plain or bold text instead of inline code, or not placed as the section's very first line.** The eyebrow matches `p:first-child > code` — it must be the FIRST line of the slide, wrapped in backticks; placed later or unwrapped, it renders as a plain stray paragraph with no kicker styling.
-- **The trailing key doesn't match a supported alias, e.g. `` `pass` `` for the security type instead of `` `security`/`auth` ``.** Only the documented keys are recognized (ssid|network, password|pass, security|auth, caption) — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
+- **Eyebrow written as plain or bold text instead of inline code.** The card is reassembled from its recognized parts, so the eyebrow's SOURCE position doesn't matter — but it must be backtick-wrapped: unwrapped plain or bold text matches nothing and is silently dropped from the rendered card, not shown as a stray paragraph.
+- **The trailing key doesn't match a supported alias, e.g. `` `pass` `` for the security type instead of `` `security`/`auth`/`encryption` ``.** The recognized keys are ssid|network, password|pass, security|auth|encryption, and caption — an unrecognized key isn't mapped to any card field, so that bullet won't appear where you expect.
 
 #### When to use
 

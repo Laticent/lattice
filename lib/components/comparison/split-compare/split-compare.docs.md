@@ -25,7 +25,7 @@ Use when a decision frames a binary choice and the recommendation must be unambi
 ### Common mistakes
 
 - **Trying to rename the "RECOMMENDATION" tag by editing the blockquote text.** The tag text comes from the `--insight-label` CSS variable, set by an `insight-*` modifier class on the slide (e.g. `insight-verdict`) — not from anything inside the blockquote; editing the blockquote only changes the recommendation sentence, not its tag.
-- **Placing the frame label (e.g. `Decision Required`) after the heading instead of before it, or leaving it unwrapped in backticks.** The frame label matches `p:first-of-type > code` — it must be the section's very first line, wrapped in backticks, or it won't render as the dark panel's kicker label.
+- **Leaving the frame label unwrapped in backticks.** The frame label is reassembled to the top of the dark panel regardless of its source position — placement doesn't matter. It must be backtick-wrapped, though: unwrapped plain text is instead captured as the intro paragraph, not the frame label.
 
 ## When to use
 

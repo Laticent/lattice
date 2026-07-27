@@ -119,8 +119,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Using a weight of zero or a negative number.",
-      "fix": "Weight must be a positive number — the sizing scale maps the lightest word to small/muted and the heaviest to hero size; a zero or negative weight has no defined position on that scale."
+      "mistake": "Assuming a weight of zero or a negative number breaks the sizing scale.",
+      "fix": "Weight is read as a relative magnitude, min-max normalized across the whole cloud — zero and negative numbers work fine and still get a well-defined proportional size. What actually breaks the scale is a non-numeric or non-finite value."
     },
     {
       "mistake": "Using ascending rank numbers (1st place, 2nd place, …) as the weight, expecting rank 1 to render biggest.",

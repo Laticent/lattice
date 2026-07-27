@@ -140,8 +140,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Placing the citation paragraph after the blockquote instead of before it.",
-      "fix": "The citation slot matches `p:first-of-type > code` — it must be the section's first paragraph, appearing BEFORE the verbatim blockquote, or it won't render as the citation line."
+      "mistake": "Placing the citation paragraph immediately after the heading (before the blockquote).",
+      "fix": "A code-only paragraph immediately after the heading is captured by the shared masthead subtitle rule and rendered as a generic italic subtitle, not the component's dedicated citation styling. Place the citation paragraph AFTER the blockquote instead, where citation-card's own selector gives it the mono, accent-colored citation treatment."
     }
   ],
   "variantDecisionRule": [

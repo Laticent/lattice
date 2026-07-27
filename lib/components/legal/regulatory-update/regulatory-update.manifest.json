@@ -158,8 +158,8 @@
   },
   "commonMistakes": [
     {
-      "mistake": "Placing the scope label after the heading instead of before it, or leaving it unwrapped in backticks.",
-      "fix": "The scope label matches `p:first-of-type > code` — it must be the section's first line, wrapped in backticks, or it won't render as the kicker above the ledger."
+      "mistake": "Leaving the scope label unwrapped in plain text instead of inline code.",
+      "fix": "The component's own dedicated 'kicker above the ledger' styling is currently unreachable — the shared masthead lift always claims a code-only paragraph adjacent to the heading first (as an italic subtitle if placed after the heading, or a mono eyebrow if placed before). Wrap it in backticks so it's at least recognized as a label; expect the generic mono-caps eyebrow or italic subtitle treatment, not a distinct kicker."
     },
     {
       "mistake": "Using `diff-bands` without grouping items under `### ` category subheadings.",

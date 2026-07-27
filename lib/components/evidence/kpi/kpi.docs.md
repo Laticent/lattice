@@ -31,7 +31,7 @@ Use for KPI dashboards with status framing — current value, target, trend, att
 
 ### Common mistakes
 
-- **A KPI's lead value has no nested bullets beneath it, e.g. a bare `1. $2.4B` with nothing indented under it.** A bare value with no nested bullets won't render as the big display number — every KPI needs at least the metric-name bullet nested beneath its value.
+- **A KPI's lead value has no nested bullets beneath it, e.g. a bare `1. $2.4B` with nothing indented under it.** A bare value still renders as the big display number (slot-label-lift auto-bolds every top-level `li` lead regardless of nested content) — but with no nested bullet there's no metric-name label under it, so the number reads without context. Nest at least the metric-name bullet beneath each value.
 - **Eyebrow paragraph placed after the heading instead of before it, or written as plain/bold text instead of inline code.** The eyebrow is the section's first child — an inline-code-only paragraph before the `## heading` — keep it first and backtick-wrapped, or it won't get the mono/uppercase eyebrow treatment.
 
 ## When to use

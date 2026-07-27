@@ -119,8 +119,8 @@
       "fix": "The mood scale runs 1 (worst) to 5 (best) — authoring it inverted flips heatmap tinting and the curve variant's trend direction."
     },
     {
-      "mistake": "Omitting the `:N` mood token from a task.",
-      "fix": "Mood is the chart's whole point — a task with no `:N` token has nothing to plot under any of the four variants (heatmap tint, curve point, or otherwise); every task needs a mood score."
+      "mistake": "Assuming an omitted `:N` mood token leaves the task unplotted.",
+      "fix": "Omitting `:N` silently defaults the task to a neutral mood of 3 — it still plots normally under every variant, just without a deliberate score. Always give an explicit `:N` so the chart reflects real affect instead of a silent default."
     }
   ],
   "variantDecisionRule": [

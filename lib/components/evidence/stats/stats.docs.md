@@ -24,8 +24,8 @@ Use for at-a-glance metric rows — quarterly results, headline KPIs. Each tile 
 
 ### Common mistakes
 
-- **A stat's number has no nested caption bullet beneath it.** A bare number with no nested caption won't render as the big number — every tile needs its label nested directly beneath the number.
-- **Assuming the subtitle/eyebrow line needs inline-code wrapping to render, the way most other components' eyebrows do.** Stats' subtitle is styled by a generic paragraph rule (`> p, > em`), not the dedicated `p:has(> code)` eyebrow rule most components use — it renders as the same italic framing line whether wrapped in backticks or not. Backticks are optional here, unlike title/divider/kpi/math.
+- **A stat's number has no nested caption bullet beneath it.** A bare number still renders as the tile's big display number (the lead auto-bolds and is styled hero-sized regardless of nested content) — but with no nested caption there's no label under it. Nest a bullet directly beneath each number for its caption.
+- **Assuming the subtitle/eyebrow line needs inline-code wrapping to render, the way most other components' eyebrows do.** Stats' subtitle DOES change styling depending on backtick-wrapping and position: a backtick-wrapped, code-only paragraph adjacent to the heading gets lifted into the masthead and picked up by the shared eyebrow/subtitle rule (secondary color, message size); plain unwrapped text instead stays in the body and matches stats' own generic paragraph rule (label color, body size) — a visibly different color and size, not the same line. Wrap it in backticks for the masthead treatment.
 
 ## When to use
 

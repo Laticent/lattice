@@ -163,7 +163,7 @@
     },
     {
       "variant": "trail",
-      "useWhen": "Items have moved — the story is the delta from a prior position to now, shown as an arrow."
+      "useWhen": "Items have moved — the story is the delta from a prior position to now, shown as a dashed connector line between a faded before-dot and a solid after-dot."
     },
     {
       "variant": "cohort",

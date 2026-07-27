@@ -96,7 +96,7 @@
   "commonMistakes": [
     {
       "mistake": "Caption authored as a second top-level bullet instead of nested under the number's list item.",
-      "fix": "The caption slot selector is `ul > li:first-child > ul > li` — indent the caption as a sub-bullet of the number, not a sibling `- caption` line."
+      "fix": "Indent the caption as a sub-bullet of the number, not a sibling `- caption` line — a sibling bullet doesn't just miss the caption styling, it matches the SAME top-level rule as the number itself and renders as a second giant hero-sized line."
     },
     {
       "mistake": "The unit or label baked into the number line itself, e.g. `- 1,248,500,000 users`.",

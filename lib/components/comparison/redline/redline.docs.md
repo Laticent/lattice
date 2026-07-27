@@ -29,8 +29,8 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 ### Common mistakes
 
-- **Placing the citation paragraph after the blockquote instead of before it.** The citation slot matches `p:first-of-type > code` — it must be the section's first paragraph, appearing BEFORE the redlined blockquote, or it won't render as the citation line.
-- **Using Markdown strikethrough (`~~text~~`) instead of literal `<del>`/`<ins>` HTML tags.** The redline mechanism reads literal `<del>old</del>`/`<ins>new</ins>` inline HTML, not Markdown strikethrough syntax — `~~text~~` doesn't render as a tracked deletion.
+- **Not being deliberate about where the citation paragraph goes relative to the heading and blockquote — each position gets different styling.** The citation paragraph always renders — position just changes which mechanism claims it: before the `## heading` it's captured as the masthead eyebrow (mono-caps kicker); immediately after the heading it's captured as the masthead subtitle (italic, generic); left after the blockquote it stays in the body and gets redline's own accent-mono citation styling. Pick the placement for the look you want.
+- **Assuming Markdown strikethrough (`~~text~~`) doesn't render as a tracked deletion the way literal `<del>` does.** `~~text~~` DOES render as a tracked deletion — Markdown strikethrough produces `<s>`, and redline's CSS styles `del`/`s` identically (line-through, fail-red color and background). Either syntax works for a deletion; `<ins>new</ins>` still needs literal HTML since Markdown has no native insertion syntax.
 
 ## When to use
 

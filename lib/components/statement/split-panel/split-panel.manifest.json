@@ -192,7 +192,7 @@
     },
     {
       "variant": "qr",
-      "useWhen": "The featured payload is a URL to scan, not a heading or number — a bare URL bullet auto-resolves into a QR on the panel."
+      "useWhen": "A URL to scan supplements the panel — a bullet tagged `qr` (or a bare URL) auto-resolves into a QR figure appended to the RIGHT (supporting) column; the left panel keeps its normal required heading/lede, it doesn't become the QR."
     }
   ],
   "specimenVoice": true

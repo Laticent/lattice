@@ -176,7 +176,7 @@
   "commonMistakes": [
     {
       "mistake": "A KPI's lead value has no nested bullets beneath it, e.g. a bare `1. $2.4B` with nothing indented under it.",
-      "fix": "A bare value with no nested bullets won't render as the big display number — every KPI needs at least the metric-name bullet nested beneath its value."
+      "fix": "A bare value still renders as the big display number (slot-label-lift auto-bolds every top-level `li` lead regardless of nested content) — but with no nested bullet there's no metric-name label under it, so the number reads without context. Nest at least the metric-name bullet beneath each value."
     },
     {
       "mistake": "Eyebrow paragraph placed after the heading instead of before it, or written as plain/bold text instead of inline code.",

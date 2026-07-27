@@ -34,7 +34,7 @@ Use to put ONE policy recommendation before lawmakers. The stance variant (`adop
 ### Common mistakes
 
 - **Writing a reason's evidence line without a trailing inline-code citation chip.** Without the trailing citation chip, the evidence line reads as unsupported assertion rather than record-grade evidence — the nested evidence bullet should end in an inline-code citation, not just prose.
-- **Placing the bill/docket eyebrow after the heading instead of before it, or leaving it unwrapped in backticks.** The eyebrow matches `p:first-of-type > code` — it must be the section's first line, wrapped in backticks, or it won't render as the kicker above the recommendation.
+- **Placing the bill/docket eyebrow after the heading instead of before it, or leaving it unwrapped in backticks.** A code-only paragraph immediately before the heading is lifted into the masthead and picked up by the shared mono-caps eyebrow rule — it must be the section's first line, wrapped in backticks, or it either stays a plain paragraph (if unwrapped) or becomes an italic subtitle instead (if placed after the heading).
 
 ## When to use
 

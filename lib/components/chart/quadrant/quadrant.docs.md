@@ -23,7 +23,7 @@ Use to position items by two numeric attributes (cost × value, effort × impact
 
 - **default (no modifier).** Each item is a single, current position on the two axes — the plain scatter.
 - **`bubble`.** A third numeric dimension (size, cost, headcount) should scale each point's radius, not just its x/y position.
-- **`trail`.** Items have moved — the story is the delta from a prior position to now, shown as an arrow.
+- **`trail`.** Items have moved — the story is the delta from a prior position to now, shown as a dashed connector line between a faded before-dot and a solid after-dot.
 - **`cohort`.** The categorical grouping itself, not the axes, is what the audience should color-scan first.
 - **`threshold`.** Specific numeric cutoffs on each axis are the point — draws the actual threshold lines instead of leaving the quadrant split purely visual.
 - **`magic`.** The four quadrants have established, named archetypes (Leaders/Challengers/Visionaries/Niche Players) worth labeling explicitly, Gartner-style.

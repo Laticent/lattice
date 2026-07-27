@@ -27,7 +27,7 @@ Use for qualitative summaries — retrospective themes, survey verbatims. Word s
 
 ### Common mistakes
 
-- **Using a weight of zero or a negative number.** Weight must be a positive number — the sizing scale maps the lightest word to small/muted and the heaviest to hero size; a zero or negative weight has no defined position on that scale.
+- **Assuming a weight of zero or a negative number breaks the sizing scale.** Weight is read as a relative magnitude, min-max normalized across the whole cloud — zero and negative numbers work fine and still get a well-defined proportional size. What actually breaks the scale is a non-numeric or non-finite value.
 - **Using ascending rank numbers (1st place, 2nd place, …) as the weight, expecting rank 1 to render biggest.** Weight is a MAGNITUDE where higher means bigger — a rank-style scale where '1' means 'most important' renders as the SMALLEST word, not the biggest. Invert rank into magnitude before authoring (the top-ranked term gets the highest number).
 
 ## When to use
