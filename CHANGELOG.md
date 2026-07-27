@@ -76,6 +76,7 @@ in patch versions.
   measured passes. `list-steps`, `cycle` and `verdict-grid` also flip to `capacity.perPage: 1`
   in the same change, which is what §0b required: the pacing and the signal land together or
   atomization is unreadable. New kernel `lib/core/relationship.js`.
+
 - **A content-CONSERVATION gate over all nine carousel split strategies** (§8 rule 6). Six of
   the nine re-author the body from a parsed shape, so anything their parser misses never
   reaches a page. The gate asserts every source text leaf survives somewhere across the
@@ -94,6 +95,98 @@ in patch versions.
   like a per-family count estimate while the split registry consumes it as an opt-in switch,
   and a table written in prose cannot fail CI. A silent edit that reverts a component's
   pacing now fails by name (`compare-table.perPage: 1 → 3`) rather than passing quietly.
+
+- **Every auto-split now reads the same way: a cover that carries the masthead, the body pages,
+  then — only when earned — a dedicated key-insight page.** Before this, a split read two ways. A
+  layout with a carousel `split` recipe (`statute-stack`, `glossary`, `q-and-a`, …) opened with an
+  accent cover; a plain layout — one that declares only a `capacity.axis`, so `list`, `checklist`,
+  `cards-grid`, `kpi`, `inventory` and friends — got a bare repeated heading with a `(cont.)` span
+  and no lead-in at all. The universal envelope (`lib/core/split-envelope.js`) replaces both with
+  one shape, **COVER → BODY(1…n) → INSIGHT?**, built by one builder for both paths:
+  - **The cover carries the whole masthead** — eyebrow · title · subtitle · lede — not just the
+    title. On the carousel path this also **fixes two defects**: a code-only paragraph *after* the
+    title is the SUBTITLE, and used to be rendered on the cover as the mono-caps eyebrow (the
+    cover grabbed the first `<code>` anywhere in the head); and a framing lede paragraph was
+    silently **dropped** by `cover-cards`, whose card bodies replace the original head.
+  - **Two kinds of trailing material get two treatments, never one shared page.** A trailing
+    key-insight `<blockquote>` is the run's TAKEAWAY: it always gets its own dedicated page,
+    vertically centered and sized up a rung (`--fs-emphasis` — already documented as "key-insight
+    callout, one block per slide," reused rather than invented). A trailing `.below-note` is a
+    FOOTNOTE of the content immediately above it, not a takeaway: it rides the **last body page**
+    instead, one size down (`--fs-body-compact`, the scale's next rung below default body) — never
+    stamped on every page (`partitionAxis` repeats the collection's surroundings verbatim per page,
+    which used to duplicate it on **every** body page), and never its own page either. The lede
+    hoists to the cover. No insight page is emitted when there is no key insight.
+  - **A title-less slide keeps the bare partition** — there is no masthead to build a cover from, and
+    an empty accent field would be worse.
+  - **Every page of a run is paced the same, and a member looks the same on all of them.** The cut is
+    balanced rather than greedy, so 14 checklist items emit 5/5/4 instead of 6/6/2 — no runt last
+    page (this also fixes the runt page `cover-paginate` has always left). And because collections
+    normally DISTRIBUTE their members to fill the stage, a page holding fewer members used to render
+    each one visibly larger; on a split body page members now keep their natural height and pack from
+    the top, so a row is the same size on page 1 and page 4 and the last page simply carries trailing
+    air. A member **alone** on its page is the exception — it fills the page, and its content centers
+    in it, because a card paced one-per-page *is* that page's content rather than a small box above
+    two-thirds of white.
+  - **Heavy members atomize — one card per page.** New authored `capacity.perPage`, set to 1 for
+    `cards-grid`, `cards-stack`, `actors` and `policy-recommendation`: a card carrying a title AND a
+    body clause is one page's worth. It is a separate field from `sweet` on purpose — `sweet` is how
+    many are comfortable to author on one slide, `perPage` how many are comfortable to read on one
+    page of a split, and for a heavy member those differ (setting `sweet: 1` would wrongly warn the
+    author at two cards). Omit it and a light member packs to `sweet` as before.
+  - Content is conserved by construction: every emitted page is the source slide with spans
+    *removed*, so no leaf text can go missing — including on `compare-table`'s `cover-cards`
+    reshape (a wide table transposed to cards in portrait), which used to DROP a trailing
+    key-insight or below-note outright rather than move it; it now gets the same insight page /
+    last-page note as every other split. That reshape also now paces **one card per page** like
+    every other heavy card (a transposed row is a header plus its labeled fields — a card), and
+    the lone card fills its page instead of floating in it. It had been packing 3 per page: the
+    one-card-per-slide rule was authored as `capacity.perPage`, which only the plain-axis path
+    reads, while the reshape path reads a separate `split.perPage` that still said 3.
+  Deck output changes only for decks that actually split (`autosplit: on` plus real overflow); a
+  non-splitting deck is byte-identical. Rebuilt: `examples/auto-split.pdf`,
+  `examples/cover-paginate.pdf`, `examples/read-across-carousel.pdf`; new demo deck
+  `examples/split-envelope.md` (+ PDF). See
+  `engineering/decisions/2026-07-22-structure-derived-split-patterns.md` §0a and §8 rule 9.
+
+- **The per-component budget speaks again on an `autosplit: on` deck.** `capacity-overflow` was
+  suppressed outright on autosplit portrait decks, so a slide past its budget produced no authoring
+  signal at all — the author had no way to know a slide was about to become several. It is replaced
+  by **`capacity-autosplit`**, which reports what will actually happen: *"'checklist' holds about 6
+  items comfortably; this slide has 14, so auto-split will divide it into 3 pages of 5."* It lands at
+  the advisory tier, not as a warning, because `lint:deck --strict` is a blocking gate and a
+  deliberate split is not a defect — `tools/lint-deck.js` now routes `info`/`suggestion` findings to
+  the never-blocking suggestions channel, matching what the Playground's editor diagnostics already
+  did with them.
+
+- **The split axis is read from the RENDERED DOM** (§8 rule 1). `capacity.axis` is an
+  authoring-shape claim and the two legitimately disagree — `glossary` authors a list and renders a
+  table, which needed a second declaration (`split.axis`) to correct the first. `deriveAxis` reads
+  the first recognizable container inside the content cell: `<table>` → row, `<ul>`/`<ol>` → item,
+  `<pre>` → line, a viewBox `<svg>` → figure (no seam). Enrollment is untouched — still the
+  manifest's opt-in, so a rendered collection never implies a seam — and a component that declares
+  a carousel recipe keeps its own declared axis, so derivation can't invent a seam `redline`
+  deliberately doesn't have.
+
+- **Breaking:** **the pre-render static pass now DEFERS instead of cutting** (§8 rule 10).
+  `autoSplitDeck` emits no partition: it counts against `capacity.hard` on the derived axis, names
+  the slides at risk, and hands them to the measured loop, which reads the really-rendered DOM and
+  owns every cut and every cover. A cut made pre-render is on the authoring-shape axis, and that
+  can disagree with the rendered one. Verified equivalent on the two committed demo decks the
+  static pass still cut — the measured loop cuts exactly those, with zero overflow. **What changes
+  for a deck:** a slide over `capacity.hard` that nevertheless FITS is no longer split; `hard` is an
+  authoring-comfort bound, and the count signal keeps its home in `lint:deck`'s advisory
+  `capacity-autosplit`.
+
+- **A legibility floor for viewBox figures** (§8 rule 8). A container-responsive figure never
+  overflows its box — it scales its own labels — so the overflow probe is structurally blind to a
+  figure that has shrunk its text to 5px. `probeFigureLegibility` measures the effective on-page
+  glyph size (user units × the viewBox→box scale) against an absolute 8px canvas floor, calibrated
+  against all 59 figures in the shipped chart galleries. Below it the slide gets an amber ring in
+  the preview and its own stderr report, and is never handed to the splitter (a figure has no
+  seam). It flags two shipped variants today — `radar small-multiples` at 6.9px and `state-chart`
+  at 5.3–7.9px — which is the finding, not a false positive; re-sizing them is a separate design
+  call.
 
 - **Per-component agent contract: `<name>.docs.md` now front-loads a dense, machine-actionable
   block instead of burying it in narrative prose.** Generated docs previously interleaved the
@@ -254,601 +347,6 @@ in patch versions.
   `backends/vivus.ts`.)
 ### Changed
 
-- **Every auto-split now reads the same way: a cover that carries the masthead, the body pages,
-  then — only when earned — a dedicated key-insight page.** Before this, a split read two ways. A
-  layout with a carousel `split` recipe (`statute-stack`, `glossary`, `q-and-a`, …) opened with an
-  accent cover; a plain layout — one that declares only a `capacity.axis`, so `list`, `checklist`,
-  `cards-grid`, `kpi`, `inventory` and friends — got a bare repeated heading with a `(cont.)` span
-  and no lead-in at all. The universal envelope (`lib/core/split-envelope.js`) replaces both with
-  one shape, **COVER → BODY(1…n) → INSIGHT?**, built by one builder for both paths:
-  - **The cover carries the whole masthead** — eyebrow · title · subtitle · lede — not just the
-    title. On the carousel path this also **fixes two defects**: a code-only paragraph *after* the
-    title is the SUBTITLE, and used to be rendered on the cover as the mono-caps eyebrow (the
-    cover grabbed the first `<code>` anywhere in the head); and a framing lede paragraph was
-    silently **dropped** by `cover-cards`, whose card bodies replace the original head.
-  - **Two kinds of trailing material get two treatments, never one shared page.** A trailing
-    key-insight `<blockquote>` is the run's TAKEAWAY: it always gets its own dedicated page,
-    vertically centered and sized up a rung (`--fs-emphasis` — already documented as "key-insight
-    callout, one block per slide," reused rather than invented). A trailing `.below-note` is a
-    FOOTNOTE of the content immediately above it, not a takeaway: it rides the **last body page**
-    instead, one size down (`--fs-body-compact`, the scale's next rung below default body) — never
-    stamped on every page (`partitionAxis` repeats the collection's surroundings verbatim per page,
-    which used to duplicate it on **every** body page), and never its own page either. The lede
-    hoists to the cover. No insight page is emitted when there is no key insight.
-  - **A title-less slide keeps the bare partition** — there is no masthead to build a cover from, and
-    an empty accent field would be worse.
-  - **Every page of a run is paced the same, and a member looks the same on all of them.** The cut is
-    balanced rather than greedy, so 14 checklist items emit 5/5/4 instead of 6/6/2 — no runt last
-    page (this also fixes the runt page `cover-paginate` has always left). And because collections
-    normally DISTRIBUTE their members to fill the stage, a page holding fewer members used to render
-    each one visibly larger; on a split body page members now keep their natural height and pack from
-    the top, so a row is the same size on page 1 and page 4 and the last page simply carries trailing
-    air. A member **alone** on its page is the exception — it fills the page, and its content centers
-    in it, because a card paced one-per-page *is* that page's content rather than a small box above
-    two-thirds of white.
-  - **Heavy members atomize — one card per page.** New authored `capacity.perPage`, set to 1 for
-    `cards-grid`, `cards-stack`, `actors` and `policy-recommendation`: a card carrying a title AND a
-    body clause is one page's worth. It is a separate field from `sweet` on purpose — `sweet` is how
-    many are comfortable to author on one slide, `perPage` how many are comfortable to read on one
-    page of a split, and for a heavy member those differ (setting `sweet: 1` would wrongly warn the
-    author at two cards). Omit it and a light member packs to `sweet` as before.
-  - Content is conserved by construction: every emitted page is the source slide with spans
-    *removed*, so no leaf text can go missing — including on `compare-table`'s `cover-cards`
-    reshape (a wide table transposed to cards in portrait), which used to DROP a trailing
-    key-insight or below-note outright rather than move it; it now gets the same insight page /
-    last-page note as every other split. That reshape also now paces **one card per page** like
-    every other heavy card (a transposed row is a header plus its labeled fields — a card), and
-    the lone card fills its page instead of floating in it. It had been packing 3 per page: the
-    one-card-per-slide rule was authored as `capacity.perPage`, which only the plain-axis path
-    reads, while the reshape path reads a separate `split.perPage` that still said 3.
-  Deck output changes only for decks that actually split (`autosplit: on` plus real overflow); a
-  non-splitting deck is byte-identical. Rebuilt: `examples/auto-split.pdf`,
-  `examples/cover-paginate.pdf`, `examples/read-across-carousel.pdf`; new demo deck
-  `examples/split-envelope.md` (+ PDF). See
-  `engineering/decisions/2026-07-22-structure-derived-split-patterns.md` §0a and §8 rule 9.
-
-- **The per-component budget speaks again on an `autosplit: on` deck.** `capacity-overflow` was
-  suppressed outright on autosplit portrait decks, so a slide past its budget produced no authoring
-  signal at all — the author had no way to know a slide was about to become several. It is replaced
-  by **`capacity-autosplit`**, which reports what will actually happen: *"'checklist' holds about 6
-  items comfortably; this slide has 14, so auto-split will divide it into 3 pages of 5."* It lands at
-  the advisory tier, not as a warning, because `lint:deck --strict` is a blocking gate and a
-  deliberate split is not a defect — `tools/lint-deck.js` now routes `info`/`suggestion` findings to
-  the never-blocking suggestions channel, matching what the Playground's editor diagnostics already
-  did with them.
-
-- **The split axis is read from the RENDERED DOM** (§8 rule 1). `capacity.axis` is an
-  authoring-shape claim and the two legitimately disagree — `glossary` authors a list and renders a
-  table, which needed a second declaration (`split.axis`) to correct the first. `deriveAxis` reads
-  the first recognizable container inside the content cell: `<table>` → row, `<ul>`/`<ol>` → item,
-  `<pre>` → line, a viewBox `<svg>` → figure (no seam). Enrollment is untouched — still the
-  manifest's opt-in, so a rendered collection never implies a seam — and a component that declares
-  a carousel recipe keeps its own declared axis, so derivation can't invent a seam `redline`
-  deliberately doesn't have.
-- **Breaking:** **the pre-render static pass now DEFERS instead of cutting** (§8 rule 10).
-  `autoSplitDeck` emits no partition: it counts against `capacity.hard` on the derived axis, names
-  the slides at risk, and hands them to the measured loop, which reads the really-rendered DOM and
-  owns every cut and every cover. A cut made pre-render is on the authoring-shape axis, and that
-  can disagree with the rendered one. Verified equivalent on the two committed demo decks the
-  static pass still cut — the measured loop cuts exactly those, with zero overflow. **What changes
-  for a deck:** a slide over `capacity.hard` that nevertheless FITS is no longer split; `hard` is an
-  authoring-comfort bound, and the count signal keeps its home in `lint:deck`'s advisory
-  `capacity-autosplit`.
-- **A legibility floor for viewBox figures** (§8 rule 8). A container-responsive figure never
-  overflows its box — it scales its own labels — so the overflow probe is structurally blind to a
-  figure that has shrunk its text to 5px. `probeFigureLegibility` measures the effective on-page
-  glyph size (user units × the viewBox→box scale) against an absolute 8px canvas floor, calibrated
-  against all 59 figures in the shipped chart galleries. Below it the slide gets an amber ring in
-  the preview and its own stderr report, and is never handed to the splitter (a figure has no
-  seam). It flags two shipped variants today — `radar small-multiples` at 6.9px and `state-chart`
-  at 5.3–7.9px — which is the finding, not a false positive; re-sizing them is a separate design
-  call.
-
-### Fixed
-
-- **The split veto no longer clips a slide it should have split.** Two independent measurement
-  errors, each silent: the collection was measured with `offsetHeight`, which in a bounded flex
-  stage reports the SQUEEZED box (a checklist's `<ul>` measured 0 against a scrollHeight of 312, so
-  the gate concluded the list contributed nothing to the overflow); and the headroom counted the
-  framing lede and the trailing note as immovable, though the envelope hoists both off the body
-  pages. A checklist of 8 items with a long lede and a long below-note clipped, while the identical
-  slide with those two blocks deleted split cleanly.
-- **Split COVER chrome is legible on the accent field.** Measured on a real render, the deck
-  header and footer came out at **1.34:1** on a cover page and the section rail's label at
-  **1.00:1** — `--accent` text on `--accent`, literally invisible — because the chrome kept the
-  colors tuned for the ordinary surface. Cover chrome now derives from `currentColor` like the
-  k-of-N rail always has: **4.75:1** light, 5.00:1 dark, 15.09:1 print. Keyed on the kernel's
-  `data-split-role="cover"`, so it reaches all six cover classes at once.
-- **A cover page builds a real footer Cell.** It used to emit its footer text, section rail and
-  page number as bare section children, each absolutely positioned from its own edge and with no
-  shared width budget — so on a portrait cover the marks overlapped and the section label
-  truncated. The Cell makes the band one flex row, and the page number becomes a real element
-  `repaginate` re-stamps rather than the `::after` pseudo.
-- **`--footer-centre-w` / `--footer-centre-half` renamed to `--footer-center-*`** (HARD RULE
-  #21). Not a rename for its own sake: the split-cover work needed two new references to the
-  token, and adding British spellings is what the ratchet exists to prevent.
-
-- **Five silent content drops in the carousel split strategies**, each found by the new
-  conservation gate and fixed rather than sanctioned: the deck's SECTION RAIL
-  (`nav.tile-progress`) was missing from the split chrome set, so every cover page lost it —
-  including the plain path's, whose own body pages keep it, so a run's chrome flickered off and
-  back on mid-run; `split-panel`'s panel-right `<h3>` subhead was read by nothing; a trailing
-  `.below-note` was dropped outright by `cover-decision`, `cover-code` and `redline-blocks`;
-  trailing material inside `.panel-right` (where `split-panel` puts its body and its footer)
-  was invisible to the top-level trailing scan; and `kanban-lanes` swept anything after the
-  board into its per-lane suffix and repeated it on EVERY lane.
-- **A split run's k-of-N rail no longer strikes through the deck's section rail.** Both marks
-  drew in the same corner of the footer band — pre-existing on plain-path body pages, and the
-  chrome fix above would have spread it to every split page. The k-of-N rail now docks in the
-  footer Cell when the frame has one (the same docking the progress Tile uses) and parks left
-  of the section rail's reserved berth otherwise, so footer text · section rail · k-of-N · page
-  number read as one row; the footer text ellipsises instead of overrunning.
-- **`kanban-lanes` no longer emits a spurious empty final page**, and `redline-blocks` no
-  longer emits two `<header>` elements or leaves `.cell-stage` unclosed. Form docks the footer
-  Cell INSIDE the kanban board, so "every div child of the board" counted it as a lane; both
-  strategies also re-emitted a source slice that already contained the section's own chrome and
-  then prepended it again. `redline-blocks` is now a span-removal over the source inner (the
-  plain envelope's own discipline) rather than a re-author from parsed pieces.
-- **A step or stage ALONE on its page fills the page, and its ordinal keeps counting.** The
-  generic lone-member fill lost on specificity to a component's box-local portrait reflow, so
-  the components §0b had just atomized rendered a content-height card above two-thirds of
-  white; `list-steps` and `authority-chain` also restarted their counters at 1 on every page
-  ("STEP 01" on page two of the run). `cycle` additionally suppresses its drawn return arc on a
-  split page — a bracket around a single card points at nothing, and the loop is carried by the
-  "↻ back to {stage 1}" signal instead.
-- **`capacity.relationship` reaches the split kernel.** `SPLIT_CAP` in `lattice-emulator.js`
-  projects a hand-listed whitelist of capacity fields, so a field absent from it arrives as
-  `undefined` and the feature is a silent no-op — the manifests declared the relationship,
-  every unit test passed, and the real render emitted nothing.
-
-- **`matrix-2x2` and `split-compare` no longer split — they ring, as their own design record says.**
-  Both declared a split axis under `adapt.capacity` only, and the split registry reads that as an
-  opt-in, so both were enrolled against the dated resolutions that place them as *atomic text grid*
-  and *read-across, keep whole*. A portrait render broke a 2×2 into three pages showing two of four
-  quadrants with no axis structure — on a slide headed "how we sort the four tools against our two
-  axes" — behind an accent cover that made it look intentional. Splitting a quadrant grid or a
-  read-across comparison destroys the only thing it says, so overflow now rings (the honest signal
-  to the author) instead of being silently re-authored.
-
-- **`inventory`'s row numbers no longer sit on top of the row titles in a portrait deck.** The
-  ledger variant positions its `01`/`02` ordinal absolutely — it has to, because the row stacks a
-  block title over its body prose — so the row must reserve the gutter itself. The gutter was sized
-  in CONTAINER units (`padding-left: 5cqi`) while the numeral was sized in TYPE units (`--fs-h3`),
-  and those track different things: in a landscape box 5cqi is ~96px and cleared the 34px numeral,
-  but in a portrait box it collapses to 50px while `01` still renders 69px — so the ordinal sat
-  **19px inside the title** on every portrait `inventory` slide. It shipped that way because the
-  component's own demo and gallery are landscape. Both sizes now derive from one custom property, so
-  they scale together on every preset. Pre-existing, unrelated to the split work that surfaced it.
-  (`lib/components/inventory/inventory/inventory.styles.css`; rebuilt `examples/inventory.pdf`.)
-
-- **A split slide's page number is no longer stuck on the first page's.** The engine bakes each
-  page number twice — the `data-lattice-pagination` attribute (which `section.form::after` renders)
-  and the real `<span class="lat-pagination">` element inside `.cell-footer` — and a split copies
-  the section verbatim, so every page of a run repeated the original's number. Nothing renumbered
-  the span (the measured pass renumbered the attribute only, and the static count pass renumbered
-  neither), so the *visible* number on split body pages was wrong: a seven-page `statute-stack` run
-  showed "3" on all six body pages. Both passes now re-stamp the attribute, the span, and the
-  page total from one counter in document order. (`lib/core/auto-split.js` `repaginate`.)
-  The same fix corrects a **second, older divergence** on that path: the measured pass
-  renumbered only the slides that *carry* a page number, where the engine deliberately counts
-  every slide (`lib/engine/slides.js` §3 — absolute position, whole-deck total), so on a deck
-  with any `_paginate: false` slide every page after it read one low and the total undercounted.
-  A split now leaves the numbering of slides it never touched exactly as the engine set it.
-
-- **The Playground and Studio splitters are now the shadcn resizable panel (`react-resizable-panels`),
-  and the Studio's Coach / Chat / Library / Settings side panels are resizable too.** The
-  divider now carries an always-visible grip handle (drag, or arrow keys on the separator) and its
-  collapse-to-rail is unchanged in feel but now rides the proven library instead of the hand-rolled
-  splitter; in the Studio the whole workspace is one resizable group, so you can widen the Coach or
-  Library panel by dragging, not just the editor. **The full split structure persists per surface —
-  every panel width (including the docked Coach / Library / Settings columns) and the collapse state
-  survive a refresh**, remembered per configuration. Under the hood this retires the two
-  custom resize systems (`ui/split.tsx` + `studio/use-panel-width.ts`) and the fr-pair "void" math
-  (#721) — react-resizable-panels v4's native pixel minimums express the same constraint directly.
-  (`ui/resizable.tsx`, `ui/use-resizable-split.ts`, `PlaygroundApp.tsx`, `StudioShell.tsx`;
-  `engineering/decisions/2026-07-19-shadcn-splitter-migration.md`.)
-- **The chart detail reveal is now the real shadcn Popover, and it appears at the cursor.** Hovering
-  or tapping a chart mark (pie wedge, funnel band, state node, …) previously popped a hand-rolled card
-  anchored under the chart's centre. It now (a) renders as the actual shadcn `Popover` in the Playground
-  — Radix positioning, the site's popover tokens, dark/light aware — and (b) anchors to the **cursor
-  point** that opened it, so the detail sits right where you're looking. The parent-hosted
-  `chart-interact` layer stays the geometry/data engine but hands the reveal (content + cursor point) to
-  the React host via a new `onDetail` hook; the frozen Drawing Board keeps its vanilla card (now also
-  cursor-anchored). (`chart-interact.js`, `PlaygroundApp.tsx`.)
-- **State-chart is now a self-scaling chart, like the pie — it always fits, and never clips its
-  caption.** After the `.viz-frame` merge a normal state-chart (even 4 states) with a `_Source: …_`
-  caption overflowed: the pinned node column — tall from its bow-gutter padding — couldn't shrink
-  into the caption-compressed stage, so it spilled and clipped the caption (and pushed the detail
-  popover into that zone). The state-chart now behaves exactly like the SVG charts: its figure fills
-  the container and an inner `.state-chart-scale` box — nodes **and** edges together — letterbox-scales
-  to fit, sized purely by the parent (crisp from ~400px to 8K). It **always fits**: it squeezes down
-  when the machine is tall and fills up when there's room. Over-stuffing just makes it cramped — the
-  author's stress test; the house rule is a simple boardroom chart, not an architect's diagram — so it
-  no longer trips the overflow probe. (`state-chart.transform.js` + `.styles.css`,
-  `_chart-family/chart-family.css`; `engineering/decisions/2026-07-16-state-chart-self-scale.md`.)
-### Fixed
-
-- **Three docs-site preview bugs (#1186): a tablet preview sizing regression, a mobile preview
-  sizing regression, and an app-blanking crash — the crash investigation also surfaced (a) that the
-  docs-site had no React error boundary anywhere, hardened as defense-in-depth, and (b) a genuine,
-  separately confirmed infinite-loop bug in the shared engine runtime, found while chasing the
-  crash's actual cause.**
-  - **A crash on a specific slide could blank the ENTIRE Studio/Playground app.** `client:only`
-    islands were wrapped only in `StrictMode` (a no-op in production, not an error boundary), so any
-    render/effect throw in the live preview unwound the whole island to a white screen. Added a real
-    `ErrorBoundary` (`docs/src/components/ErrorBoundary.tsx`) at the island root (`StudioIsland.tsx`,
-    `PlaygroundIsland.tsx`) AND a tighter one scoped to just the live preview
-    (`StudioShell.tsx`, keyed on deck/slide so a per-slide fault self-clears on navigation) — a
-    preview fault now shows a recoverable card with the editor/toolbar still usable, instead of
-    blanking the app. Hardened a plausible throw source too, as defense-in-depth:
-    `anima-scenes.ts`'s `mount()` now guards its `hydrate()` call and `disposeAll()`/dispose-in-diff
-    now catch per-controller (mirroring the sibling `hydrateScenes` guard), and `DeckPreview.tsx`'s
-    unmount effect wraps its anima/engine teardown so one fault can't skip the other's cleanup.
-  - **A separately confirmed, real bug found investigating the same report — not verified as the
-    crash's actual cause, but a genuine perf/correctness defect in its own right: the overflow
-    watcher's author-only "Fix Me" highlight redrew itself in an INFINITE LOOP on any overflowing
-    slide with an identifiable culprit.** (The blank-screen crash itself was never reproduced against
-    this fix, on real Chromium or real WebKit, with the reported deck — HARD RULE #23. What's
-    confirmed is the loop; the crash's precise cause stays open.) — `lib/runtime/index.js`'s
-    `drawFixMeTags()`, the shared engine runtime that drives the Studio, the Playground, AND the
-    VS Code Marp preview. `check()` (the overflow watcher) is scheduled to re-run on every DOM
-    mutation; `drawFixMeTags()` unconditionally cleared and rebuilt its highlight box + label on
-    every call, and that rebuild is itself a DOM mutation the SAME observer watches — a self-
-    triggering loop with no exit. Measured directly on a real overflowing slide (a dense
-    `list-tabular` ledger): a steady **60fps destroy-and-rebuild of the SAME two DOM nodes, forever**
-    (confirmed via object-identity tracking — 0 of 19 consecutive frames kept the same elements;
-    720 DOM mutations in a 4s at-rest window), for as long as the slide stays in view. Every sibling
-    write in this file was already explicitly change-gated against exactly this risk (a prior
-    investigation, `engineering/decisions/2026-07-17-preview-accumulation-leaks.md`, flagged the
-    general failure mode but reported it "disproven" — its test harness's default viewport
-    (below the Playground's 820px split breakpoint) silently measured a zero-size, not-actually-
-    laid-out preview pane, so an overflowing slide could never trigger it there) — this one function
-    was the omission. Now gated on a painted-signature comparison (same target elements — a real
-    per-element id, not `String(el)`, which an independent checker caught stringifying every
-    element of a given tag to the identical value — same rounded rect, same label, AND the
-    viewport dimensions the tab's own position is computed from, which the checker also caught
-    missing: a resize that left a target's OWN rect unchanged but the viewport different used to
-    incorrectly short-circuit, stranding the tab up to hundreds of px from the box it labels)
-    before touching the DOM; a no-op redraw request is now a true no-op. Sustained unthrottled
-    60fps DOM churn is a very plausible way to eventually crash or freeze a
-    real, thermally/memory-constrained mobile browser tab — invisibly to any JS error handler, since
-    nothing ever threw. `docs/scripts/runtime-settle-check.mjs` gains a new representative slide
-    (`overflowWithCulprit`) and its harness's viewport fix — confirmed via a before/after A/B that
-    this check now genuinely fails on the pre-fix runtime (it also caught two PRE-EXISTING affected
-    slide types, `denseOverflow` and `wideCode`, once the viewport fix let them actually measure) and
-    passes after.
-  - **The Studio's live editor preview could go permanently blank on an iPad/iOS Safari (the "tablet
-    preview is broken" report).** The preview box sized its width from `100cqh` against a
-    `container-type:size` holder — a construct a prior decision doc
-    (`engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md`) had already diagnosed as
-    the keystone root cause: `100cqh` can resolve to 0 against a flex-derived container height,
-    collapsing the box to 0-width — and the shared render kernel gates its reveal on a real pixel
-    width, so a 0-width box left the preview stuck on its loader forever. Replaced it with the same
-    JS-measured technique `PresentOverlay` already ships (a `ResizeObserver` computing
-    `min(paneW, paneH × ratio, cap)` in JS from the holder's CONTENT-box size) — empirically
-    re-verified here that a pure-CSS `aspect-ratio` + `max-width/max-height:100%` letterbox (the doc's
-    original sketch) ALSO collapses in Chromium, so the JS measurement is load-bearing, not
-    incidental. A transient 0-dimension read is ignored, so the box can't collapse mid-layout.
-    An independent checker caught two regressions in the first version of this fix, both fixed in
-    the same change: (1) the `ResizeObserver` was attached via a mount-once `useRef`/`useEffect`
-    pair, but the preview holder unmounts/remounts across the shell's responsive branches (mobile /
-    landscape-phone / desktop-tablet) — crossing one (e.g. rotating a phone) orphaned the observer on
-    the detached node and froze the measured size at the pre-rotation value; now a ref CALLBACK,
-    which re-attaches on every mount. (2) The initial measurement read `clientWidth`/`clientHeight`
-    (the PADDING box), not the CONTENT box `100cqh` actually measured — over-sizing the letterbox by
-    2× the holder's padding and eating into the intended gutter; now reads `ResizeObserverEntry.
-    contentRect` (the content box), matching pre-fix behavior exactly. (`StudioShell.tsx`.)
-  - **The Playground's mobile preview rendered a short 16:9 card at the top of the screen with a large
-    empty gap below it, instead of filling the available height.** Two compounding CSS bugs in
-    `docs/src/styles/playground.css`: (1) the Explore-view `aspect-ratio: 16/9` lock on `#preview` (meant
-    only for the desktop/tablet letterbox) was never scoped to a media query, so it also constrained the
-    iframe's height on phones; (2) the mobile single-pane rule intended to stretch each pane to full
-    height (`.pg-split > .pg-pane { height: 100% }`) targeted the wrong element — react-resizable-panels
-    wraps each `Panel` in an OUTER sizing div (carrying the `id`) around the INNER div that actually
-    holds `.pg-pane`, so the child-combinator selector silently matched nothing (the same shape a
-    sibling Explore rule already worked around by targeting the outer div by id). Fixed both: scoped the
-    aspect-lock to `@media not (max-width: 820px)`, and re-targeted the mobile height rule at the outer
-    `#pg-split-editor`/`#pg-split-preview` divs by id (with the INACTIVE pane's outer div now also
-    hidden via `display:none`, not just its inner content — both outer divs being simultaneously
-    height:100% previously buried the active pane under the empty other).
-- **The contrast audit now covers text on the `--accent-soft` panel — and two themes that failed it are
-  fixed.** The theme-wide gate (`tools/contrast-audit.js`, gated by `theme-surface-aa.test.js`) checked
-  only `--text-heading` on `--accent-soft`, but real components render two more inks on that panel: body
-  prose (`--accent-soft-body` = `--text-body` — split-compare `.verdict`, list-steps `converge`) and the
-  accent ink (`--on-accent-soft` = `--accent` — the verdict-grid / compare-prose winner card, the pricing
-  "most popular" column, the glossary pill). Both roles equal a theme-owned token universally
-  (`base.tokens.css`, no override), so the audit now checks `--text-body` and `--accent` on `--accent-soft`
-  across all 32 themes. That surfaced two genuine sub-AA gaps in the accent-on-accent-soft pair: **mustard**
-  (3.40:1 — its `--accent-soft` was curated too saturated/dark for a "pale tint") and **magnolia** (4.50:1,
-  a hair under). Both are fixed at the theme source by a **hue-preserving lightening** of the light-mode
-  `--accent-soft` fill (mustard `#E8D580`→`#FFF5C5`, magnolia `#F5DDD8`→`#F7DFDA`) — background-only, so no
-  ink/brand token shifts. The hue holds (mustard h≈97°); magnolia's ΔL is a hair (chroma essentially
-  unchanged), while mustard's larger lighten (ΔL +0.10) also **compresses chroma ~0.108→0.063** — an
-  unavoidable desaturation, since yellow runs into the sRGB gamut edge as it approaches white, so the
-  saturated old tint becomes a pale cream. Net: every accent-soft foreground clears AA in both canvas modes
-  (#1167, the last
-  foreground-surface gap alongside the mermaid/chart gap closed in #1165). `text-secondary` on
-  `--accent-soft` was deliberately **not** added: no component renders secondary text on that panel, so
-  gating it would police a surface that doesn't exist. Verified by rendering mustard's verdict / verdict-grid
-  / pricing cards in light mode. (`tools/contrast-audit.js`, `themes/mustard.css`, `themes/magnolia.css`.)
-- **The mermaid parse-error box no longer depends on `--cat-on-mark` clearing `--diagram-critical`.**
-  The #1172 `--cat-on-mark` flip (near-black → white on the light-mode mark) was correct for categorical
-  marks but *inverted* the one non-categorical surface that borrowed the token: the mermaid parse-error
-  box, styled `errorText` on `errorBkg` = `--cat-on-mark` on `--diagram-critical`. In light mode the box
-  is a saturated alarm red with now-white text (fine), but the coupling had been *forced* to AA by a
-  contract pair (`['diagram-critical','cat-on-mark']`) that three themes with **achromatic** diagram ramps
-  (ardesia / concrete / onyx — where `--diagram-critical` is the darkest gray for severity ordering, and
-  cannot flip pale-in-dark) could only satisfy by distorting one token or the other (#1181, a regression
-  #1172 introduced). The error box is now **decoupled** from the categorical tier entirely: it uses the
-  theme's gated **error-chip pair** — `--bg` text on the `--fail` alarm red (`['bg','fail']`, which the
-  slide-surface audit already holds to AA in both canvas modes) — so its legibility rides an
-  independently-gated pair and `--cat-on-mark` is free to serve categorical marks alone. The
-  `['diagram-critical','cat-on-mark']` contract pair (and its mirror unit test) are **retired**; no
-  renderer reads that coupling anymore. The mapping is aligned on **both** render paths — the browser
-  runtime (`lib/runtime/index.js`) AND the default CLI/PDF-export path (`lattice-emulator.js`, which had
-  independently borrowed `--cat-on-fill` on `--diagram-critical`) — so both share one error-box mapping
-  (HARD RULE #1). *Surface note (HARD RULE #23):* on the **export path** a mermaid parse error degrades to
-  a legible source **code block** before mermaid's error SVG is ever drawn — verified by rendering a broken
-  block in ardesia (achromatic, worst case) in both light and dark. The **browser** error SVG (Studio
-  preview) can't be exercised headless here and stays **UNVERIFIED**, but now carries the correct gated
-  mapping. (`lib/runtime/index.js`, `lattice-emulator.js`, `lib/theme/contrast.js`, `lib/theme/derive.js`,
-  `design/theming.md`.)
-- **Animated charts no longer flash the static chart before building in.** A `motion-on` chart used to
-  paint the static poster, then — once the async animation host loaded — hide the poster and draw the
-  animated clone at time-zero (everything at opacity 0), so the viewer saw *static chart → blank →
-  build*. The live preview now HIDES a motion-eligible chart figure the instant its slide parses (a
-  preview-only `.anima-prehide` class the parent host stamps — never engine output, so exports are
-  byte-identical) and reveals it only when the animated clone's first frame draws: **hidden → build →
-  settle**, no flash. Fallbacks reveal the chart if the host declines (author `still` / no backend) or
-  never loads (import failure/hang), so a chart can never strand hidden. (Preview-only; PDF/HTML export
-  untouched — verified.) (`docs/src/playground/anima-host-sel.ts`, `docs/src/lib/anima/hydrate.ts`,
-  `docs/src/lib/single-slide-render.ts`, `anima-scenes.ts`, `DeckPreview.tsx`.)
-- **The chart-detail popover no longer flickers when the pointer sweeps across a mark edge.** A 70ms
-  close-hysteresis on the hover path holds the popover through a momentary off-mark frame (a mark
-  boundary or the gap between two marks); a re-reveal cancels it, leaving the chart dismisses at once.
-  (`docs/src/playground/chart-interact.js`.)
-- **Categorical corner tags (decision / roadmap / compare-prose) are now legible in every theme.** The
-  tag ink `--cat-on-mark` was set to `var(--text-heading)` in 11 themes — which puts near-black on the
-  saturated light-mode mark and white on the pale dark-mode mark, i.e. **inverted** — so tags like the
-  `decision` "THE PICK" pill or the `roadmap` quarter pills rendered at ~1.3–2.5:1, far under AA (#1172,
-  found while closing #1165). `--cat-on-mark` is now `light-dark(#FFFFFF, <near-black>)` everywhere (white
-  on the saturated light mark, near-black on the pale dark mark), matching the three themes that were
-  already correct. Because 8 chromatic themes' light-mode marks were too light for white to clear 4.5:1
-  even corrected, their too-light marks were **darkened minimally at the theme source** (hue+chroma-locked
-  OKLCH, max ΔL ~6.5%, ≤0.7° hue drift) so white clears AA — which also *raises* their mark-vs-canvas edge
-  contrast. carbone (flat-dark, vivid marks) instead takes a near-black tag ink, preserving its vivid
-  marks. All 14 hue themes now clear AA 4.5:1 for tag-on-mark on both canvases, locked by a new arm of
-  `checkCatContrast` (`build:check`). Trade-off: the mark darkening adds ~33 categorical-mark CVD collapses
-  (`cvd-audit` 1470→1503). Those land in the 8 darkened *brand* themes, whose categorical marks are
-  **hue-only and already CVD-collapse by design** — brand palettes encode category in hue and are known to
-  collapse under dichromacy; the colorblind-safe path is the dedicated `a11y-*` palettes (which use the
-  `--cat-N-texture` channel and were **not** darkened). So +33 is a ~2% densification of an already-failing,
-  **non-gating** (`--strict`-opt-in) diagnostic on themes that were never CVD-distinct by mark hue — not a new
-  regression on a colorblind-safe surface. The semantic pass/warn/fail signals are byte-identical.
-  (`themes/*.css`, `tools/check-ownership.js`, `lib/components/comparison/compare-prose/compare-prose.styles.css`.)
-- **Live previews no longer leak memory on every palette / mode change.** A theme, palette, or
-  dark/light-mode change used to re-render each live preview by rewriting the iframe's whole `srcdoc`,
-  which keeps the same `<iframe>` but mints a fresh document + JS realm each time; the detached realms
-  accumulated (~1.3 MB per toggle across the previews — the peak-memory driver of iOS PWA tab-discard).
-  A new **restyle** render regime (`docs/src/lib/single-slide-render.ts`) swaps the resident
-  `<style id="lattice-theme">` in place and patches the body instead — same iframe, same realm,
-  restyled — when only the theme/mode/palette changed. Measured on landing: per-toggle heap growth
-  dropped from +1.32 MB/cyc to +0.17 MB/cyc (~88%), with the palette and dark mode both still re-coloring
-  correctly. Preview-only; exported PDF/PPTX/HTML bytes are unchanged.
-  (`engineering/decisions/2026-07-20-preview-theme-restyle-in-place.md`.)
-- **State-charts with more than 9 states no longer silently lose the tail.** A machine authored
-  with ascending numbers (`1. 2. … 10. 11.`) and the house 3-space nested-transition indent was
-  split by Markdown at item 10 — `10. ` is one character wider than `1. `, so the transition no
-  longer nested and every state past 9 leaked off the machine as loose bullets. The engine now
-  reassembles that split back into one list before parsing (`extractStateList`), so any number of
-  states renders, each identified by its position and targeted by number exactly as written — no
-  indentation counting required. (`state-chart.transform.js`, `_chart-family/chart-family.js`;
-  `engineering/decisions/2026-07-16-state-chart-self-scale.md` §Follow-ups.)
-- **Read-aloud no longer says "arrow", and expands "mo" to "months".** A `→` in prose was voiced
-  as the literal word "arrow" ("Q1 arrow Q2"); it now reads as the transition it means — rightward
-  `→`/`⇒` → "to" ("Q1 to Q2", "auto to clean"), bidirectional `↔` → "and" ("red and green"),
-  leftward `←` → a plain word gap — for both standalone and embedded arrows. And the duration
-  shorthand `mo`/`mos` ("11 mo") now narrates as "months" instead of "mo". Spoken-form only: the
-  caption glyphs and the exported `.vtt` are unchanged. Exact-lowercase `mo` so the name "Mo" and
-  the state "MO" never fire. (`normalize.ts` arrow rule + `lexicon.ts` `BASE_CASED`.)
-- **Read-aloud no longer clicks/pops between sentences.** Each TTS clip now eases in and out of
-  silence through a short (~8 ms) head/tail gain ramp, instead of a hard `start(0)`/stop that steps
-  from silence to a mid-waveform sample — the step was an audible click at every sentence boundary,
-  worst on slides that narrate many short fragments (e.g. a stat row). On-device report; fixed in
-  `voice-model.js` `playBlob`.
-- **The exported `.html` player is now a flex-column shell — Present centers
-  reliably on mobile and dark mode reaches the slides, not just the page.** Two
-  on-device follow-ups after the previous round: (1) **dark mode flipped the page
-  but not the slides** — an older engine repainted `:root` when a custom property
-  changed but didn't re-propagate the new value down to the already-laid-out slide
-  section subtrees. The dark-token overrides are now set on `:root` **and directly
-  on every `section[data-lattice-slide]`**, so a slide's `background:var(--bg)`
-  reads its own dark value with no reliance on `:root` inheritance re-propagating.
-  (2) **Present still wasn't centered** — the stage used `position:fixed` against a
-  layout viewport that a mobile in-app browser reports taller than the visible
-  area. The whole player is now a **flex column at `100svh`** (the visible
-  viewport): the bar is a flex child (no longer `position:fixed`), and the Present
-  stage is the growing child (`flex:1`) that `place-items:center` centers in real
-  visible space — no `position:fixed`, no JS-measured height, nothing to misreport.
-  Read·Slides and Read·Article are the column's scrolling children. The **prev/next
-  arrows moved into a bottom control row** below the slide, so they never overlay
-  content and the centering box stays symmetric. The **active Present frame now
-  sizes to the SCALED footprint** (via a `--lp-fit-present` CSS var), not the raw
-  1280×720 — a fixed 720px frame overflowed a phone stage shorter than 720px, and
-  grid can't center an oversized item (it top-aligns it), which pushed the slide
-  down; a footprint-sized frame centers cleanly at ANY stage height. Verified in
-  Chromium: symmetric, unclipped centering at 390×700, 390×560, 740×360 (short
-  landscape), 820×1180, and 1440×900, plus page+slide colour flip. *The svh flex column + the
-  direct-on-section tokens are the robust replacement for the fixed-position +
-  :root-only-inheritance approaches; still pending confirmation on the exact in-app
-  browser.* In Read·Slides, each frame is now `flex:none` so it keeps its full
-  height and the view SCROLLS — without it the flex column shrank every fixed-height
-  frame to fit the stage, squishing the cards while the scaled slide inside stayed
-  full height and overflowed (clipped).
-- **The exported `.html` player's dark mode now works on older mobile WebKit —
-  the real on-device fix, after the first attempt still shipped a white deck.**
-  The dark-override block emitted each surface token's dark value as
-  `--bg: var(--scheme-dark-bg)` — a custom property pointing at *another* custom
-  property (the literal `#001D33`) defined in a **different** `<style>` block. An
-  older in-app-browser WebKit couldn't resolve that cross-block indirection, so
-  `--bg` went guaranteed-invalid and `background: var(--bg,#fff)` fell back to
-  white — a white page and white slides that no tap could fix, even though the
-  accent colours (whose dark value is a literal) came through. The export now
-  **flattens** every dark value to a literal at build time (`--bg:#001D33`, zero
-  indirection); a `var()` that points at a token redefined *within* the dark block
-  (e.g. `var(--accent)`) is deliberately kept. The dark/light toggle also now
-  **stamps the `data-lp-scheme` attribute at load** (from `matchMedia`) so the
-  deck's colours ride only on a plain attribute selector + literals — never the
-  CSS `light-dark()` function, a `var()` chain, or a `prefers-color-scheme` media
-  query (kept only as a no-JS fallback). Every feature this now needs predates
-  2016 WebKit. Proven by stripping every `--scheme-dark-*` definition from a real
-  export and confirming dark mode still renders dark (the literal block survives
-  exactly the cross-block-var failure that broke the device). *Still not run on
-  the exact in-app browser that surfaced it, but the fix removes the failing
-  mechanism rather than tuning around it.*
-- **The exported `.html` player's Read·Slides view now frames each slide with a
-  visible border + drop shadow.** They sat on the `transform:scale(~.28)`
-  `<section>`, so the 1px border shrank to a sub-pixel hairline and the outward
-  shadow was clipped away by the frame's `overflow:hidden` — a white slide on the
-  white page had no visible boundary at all. Moved onto the unscaled `.lp-frame`,
-  where the border is a true 1px and the shadow paints outside the frame's box, so
-  every slide reads as a distinct card.
-- **The exported `.html` player's Present prev/next arrows no longer overlay the
-  slide.** The fit now reserves a horizontal gutter sized to the arrow width, so
-  the circular controls sit beside the slide instead of over its left/right edges
-  (verified clear of the slide at mobile/tablet/desktop).
-- **The exported `.html` player now centers Present and switches dark/light on
-  older mobile browsers — two failures that only showed on a real device, never
-  in headless Chromium.** Both traced to the player leaning on modern features an
-  older in-app-browser WebKit doesn't have: (1) **Not centered** — the Present
-  stage computed its height in JavaScript from `innerHeight`/`visualViewport`. A
-  third-party iOS in-app browser (the GitHub app's viewer, etc.) reports a *layout*
-  height taller than the actually-visible area between its address bar and bottom
-  toolbar, so the stage overshot and the centered slide was pushed down with a big
-  gap above it. The stage is now pinned on all four edges (`top:48px … bottom:0`)
-  and the browser computes the height natively — no JS measurement to misreport;
-  the `--lp-vh` variable and its `setStageHeight` machinery are gone. (2) **Dark/
-  light toggle did nothing** — every theme token is authored as `--t: light-dark(L,
-  D)`, and the CSS `light-dark()` function only shipped in Safari/WebKit 17.5
-  (mid-2024). On an older engine it's an invalid value, so every color token went
-  unset (the deck fell back to a white page with wrong slide fills) *and* the toggle
-  — which only flipped `color-scheme`, a thing nothing but `light-dark()` reads —
-  was inert. There was no `@media(prefers-color-scheme)` fallback anywhere. The
-  export now resolves each `light-dark(L, D)` pair at build time into a plain light
-  base plus an explicit dark override, gated by a `data-lp-scheme` attribute (the
-  manual toggle) and a `prefers-color-scheme` media query (the system default,
-  overridable) — plain CSS supported for a decade, so the deck themes correctly and
-  the toggle works on every engine. The resolved colors are byte-identical to what
-  `light-dark()` produced on a modern browser (same L/D values, different plumbing),
-  verified in Chromium in light and dark at 390/820/1440. *Not verified on the exact
-  in-app browser that surfaced this (no access to it from CI); the fix removes the
-  unsupported features entirely rather than tuning within them, so the mechanism a
-  modern browser exercises is now the same one the old browser gets.*
-  the top bar's height. The original design (`engineering/decisions/
-  2026-07-07-html-lattice-player.md`'s verification bar) specified icon-only
-  controls on mobile from the start; an intermediate round instead compacted
-  the bar to keep icon+text everywhere, which crowded the notes/fullscreen/
-  mode controls toward the edge on a real "Welcome to Lattice" export at phone
-  width. The tabs are now icon-only below 560px — the text label is never
-  removed from the DOM (still the accessible name via `aria-label`, still
-  real content behind a standard sr-only clip), only visually hidden — and
-  every icon control's tap target grew (~26–33px → ~36–38px) to reduce the
-  crowded feel the compact-but-labeled bar had. Icon+text is unchanged at
-  tablet/desktop, where there's room. (3) The speaker-notes,
-- **A Studio-exported `.html` player with a `describe:` (accessible-description)
-  comment no longer shows that description as extra, duplicated visible text.**
-  Reported as "the title/subtitle/intro block appears twice" in Read · Article on
-  a real deck. Root cause: the CLI's own `docHtml` bakes in a small Marp-equivalent
-  CSS block (`lattice-emulator.js`'s `marpSystemCss` — page-number `content:attr()`,
-  `aside.lattice-notes{display:none}`, and a `.lattice-description{…}` sr-only
-  rule), but the Studio's browser-built `docHtml`
-  (`share-export.ts`'s `buildSelfContainedDoc`) never included it — so the
-  accessible-description `<p>` it injects (same element both paths inject) had no
-  CSS to hide it, rendering as a plain visible paragraph restating the slide's own
-  heading/body, in Present *and* Read · Article, and every deck's page-number span
-  had no `content:attr()` binding to read from. That CSS now lives in the ONE
-  assembler both paths share (`lib/export/player-core.mjs`'s `playerCss()`), so the
-  gap closes for both hosts instead of leaving it CLI-only. Read · Article's prose
-  projection also now skips `.lattice-description` explicitly (`SKIP_SELECTOR`) —
-  it's a screen-reader synonym for content the article already renders as real
-  prose, not a second copy to show sighted readers.
-- **`autosplit: on` now works in the packaged CLI.** The npm-shipped bundle
-  looked for component manifests in its own `dist/` directory (which ships
-  none), so the Fit Ladder's measured auto-split silently never ran for
-  `npx lattice` users — decks rendered with overflowing slides instead of
-  splitting. The CLI now resolves manifests from the package root, and
-  warns if the registry ever comes up empty under `autosplit: on`.
-- **iOS: editing a slide no longer silently forces every later edit onto the slow render path.** The
-  live preview's content-driven reveal poll — which clears the "load in flight" flag and re-enables
-  the cheap patch/restyle render fast paths once a slide paints — was armed only on the FIRST render
-  of a preview. iOS Safari fires the srcdoc `load` event unreliably, so on a SUBSEQUENT edit the flag
-  stayed stuck "in flight" forever, disabling the fast paths and forcing every keystroke thereafter to
-  rewrite the whole iframe document (a fresh JS realm each time — the realm-churn leak the restyle path
-  exists to prevent). The poll now arms on EVERY full write, keyed on the frame holding a NEW painted
-  document (an identity guard, so a still-loading write can't false-clear against the outgoing slide),
-  and supersedes a prior still-pending poll on a fast re-edit. Preview-only; export bytes unchanged.
-  Real iOS-Safari behavior is UNVERIFIED from the sandbox (the poll's paint detection is device
-  behavior jsdom can't exercise); the arming + supersession + stop logic is unit-tested. (#1163,
-  `docs/src/lib/single-slide-render.ts`.)
-- **A preview that fails to render now shows a Retry instead of a permanently blank box.** A
-  non-loader preview host (landing / showcase / specimen) had no failure surface: a render that errored,
-  or a frame whose slide never painted, left the iframe hidden forever with no signal. It now surfaces a
-  minimal "This preview couldn't render." message + a **Retry** — driven by a deterministic render-error
-  signal, plus a generous, reveal-verifying never-paint ceiling (set past the renderer's own ~30s reveal
-  budget) for the "renders OK but never paints" case. If the slide reveals **late** (a slow cold load,
-  a width change after the ceiling fired), the card **yields** rather than occluding the now-good slide.
-  The Studio's own loader hosts are unchanged (they keep their Nacre skeleton). (#1164,
-  `docs/src/components/DeckPreview.tsx`, `docs/src/styles/nacre-loader.css`.)
-- **Removed the misleading placeholder mermaid/chart pairs from the contrast-audit tool.**
-  `tools/contrast-audit.js`'s `PAIRS` matrix carried placeholder token names — `chart-1..6`,
-  `mermaid-primary-color`, `mermaid-secondary-color` — that no theme declares, so those pairs never resolved and
-  were silently skipped, making the tool *look* like it audited mermaid/chart contrast when it didn't (#1165). The
-  contrast they stood for was **never actually unguarded**, though: the mermaid label-on-fill AA (`--cat-on-fill`
-  on `--cat-1..12-fill`, both modes) is already enforced by `checkCatContrast` in `tools/check-ownership.js` (run in
-  `build:check`, fails-closed, with mark-vs-canvas + fill≠mark checks and a coverage backstop), and the native SVG
-  chart-family's *derived* fills (`--chart-cat-N-fill`, color-mix in oklab) + slot-distinctness by
-  `test/unit/palette/chart-contrast.test.js`. So this change deletes the dead placeholders (and the now-unused
-  `EXTERNAL_BG` allowlist + the inert `chart-1..6` OKLab distinctness advisory + its dead helpers) rather than adding
-  a second, drifting gate for an already-gated invariant (HARD RULE #15); the tool's docstring now points at the real
-  gates. No theme values changed; no coverage lost. (`tools/contrast-audit.js`,
-  `test/unit/palette/theme-surface-aa.test.js`.)
-- **The Studio's pre-hydration shell title bar is now on-brand and theme-aware, not a grey placeholder.**
-  The shell topbar showed a generic gradient-chip logo on a hardcoded grey bar. It now renders the real
-  Lattice **"Spectrum Cell"** mark (inline SVG, bonds keyed to light/dark) and tints the bar with the
-  visitor's own theme — `background: color-mix(var(--bg) 92%)`, `var(--border)`, `var(--text-heading)`
-  title — matching the hydrated app's topbar, so there's no grey flash or logo swap at hand-off. The shell
-  already seeds the visitor's persisted **palette + mode** before first paint, so the whole pre-paint
-  surface (topbar + nacre) reflects their chosen theme, not a default. (`docs/src/pages/studio.astro`.)
-- **The Studio live preview no longer uses a hoisted `position:fixed` host that drifted on iOS.** Real-device
-  testing showed the shared preview iframe mis-tracking its slot on iPhone/iPad during viewport changes
-  (software keyboard, pinch-zoom, URL-bar): the slide bled over the editor or overflowed behind the keyboard.
-  Root cause was structural — a `position:fixed` element positioned from a `getBoundingClientRect` (which
-  returns *visual*-viewport coords while `fixed` lays out against the *layout* viewport), so any visual/layout
-  viewport divergence moved it off its slot. The preview is now **decoupled and in-flow**: the editor preview
-  is a normal layout child of its box (the browser keeps it glued through keyboard/zoom/URL-bar/split-drag for
-  free — no fixed element, nothing to mis-measure), and Present renders its **own** in-flow preview. The
-  hoisted host, the measure-and-track controller (`use-shared-preview-slot.ts`), and the empty anchor slots are
-  deleted. Assessment + design: `engineering/decisions/2026-07-21-studio-preview-reframe-in-place.md`.
-  (`docs/src/components/studio/StudioShell.tsx`, `docs/src/components/studio/PresentOverlay.tsx`.) *(iOS
-  freedom-from-drift is structural but UNVERIFIED on real hardware per the verification bar. Warmth
-  tradeoffs, all loader-covered and pending the keep-warm follow-up: opening Present shows a brief loader
-  (its iframe mounts on open), the editor preview cold-remounts when entering/leaving Fabricate and across a
-  breakpoint/orientation change (the old hoisted host stayed warm through those), and while Present is open
-  two engine iframes coexist briefly (editor parked + Present's own).)*
-
-### Security
-
-- **Fabricate's component preview no longer renders CSS that carries a blocked remote reference.** The
-  Component tab previews your draft in a same-origin `srcdoc` iframe; it sanitizes the slide HTML
-  (HARD RULE #22) but used to concatenate the component CSS in **raw**, so an AI-generated (or pasted)
-  stylesheet with a remote `@import` / `url()` / CSS binding — the exact exfiltration channel the
-  sanitizer exists to close (#616 §5.1) — reached the live frame and fired. The gate already flags these
-  as `css-*` findings; the preview now **withholds** the CSS whenever such a finding is present (the
-  skeleton still previews) and shows a "Preview paused: the CSS has a blocked remote reference" note
-  until you fix it. (`docs/src/components/studio/LayoutStudio.tsx`;
-  `engineering/decisions/2026-07-20-component-gen-hardening.md`.)
-
-### Added
 
 - **Chart motion is a first-class SETTING — a Motion tab with Play, Style, and Speed.** The in-place
   chart animation gets a dedicated **Motion** tab in the Studio's Deck AND Slide inspectors, with three
@@ -5357,6 +4855,109 @@ in patch versions.
   by #1119 (`anima-player:build`/`:check`, `test:adaptive`, `test:concepts`, `test:exemplars`,
   `test:forms`, `test:transform-dsl`) were never described in `SCRIPT_META`, so the freshness gate
   failed on every branch. All seven are described now, alongside the new `check:render-nature`.
+
+- **A SQUEEZED child no longer hides its overflow from the probe.** Neither the cell's own
+  `scrollHeight - clientHeight` nor the rect walk can see it: the flex layout shrank the child to
+  make it fit, so there is no geometric spill anywhere — the content is simply drawn on top of
+  itself. Seen on a real render: a `checklist` with a lede, eight items, a note and a key insight
+  drew its rows over each other with no overflow warning and no split, because every level of the
+  measurement said it fit. The hidden amount is now summed across the content cell's children.
+
+- **The split veto no longer clips a slide it should have split.** Two independent measurement
+  errors, each silent: the collection was measured with `offsetHeight`, which in a bounded flex
+  stage reports the SQUEEZED box (a checklist's `<ul>` measured 0 against a scrollHeight of 312, so
+  the gate concluded the list contributed nothing to the overflow); and the headroom counted the
+  framing lede and the trailing note as immovable, though the envelope hoists both off the body
+  pages. A checklist of 8 items with a long lede and a long below-note clipped, while the identical
+  slide with those two blocks deleted split cleanly.
+
+- **Split COVER chrome is legible on the accent field.** Measured on a real render, the deck
+  header and footer came out at **1.34:1** on a cover page and the section rail's label at
+  **1.00:1** — `--accent` text on `--accent`, literally invisible — because the chrome kept the
+  colors tuned for the ordinary surface. Cover chrome now derives from `currentColor` like the
+  k-of-N rail always has: **4.75:1** light, 5.00:1 dark, 15.09:1 print. Keyed on the kernel's
+  `data-split-role="cover"`, so it reaches all six cover classes at once.
+
+- **A cover page builds a real footer Cell.** It used to emit its footer text, section rail and
+  page number as bare section children, each absolutely positioned from its own edge and with no
+  shared width budget — so on a portrait cover the marks overlapped and the section label
+  truncated. The Cell makes the band one flex row, and the page number becomes a real element
+  `repaginate` re-stamps rather than the `::after` pseudo.
+
+- **`--footer-centre-w` / `--footer-centre-half` renamed to `--footer-center-*`** (HARD RULE
+  #21). Not a rename for its own sake: the split-cover work needed two new references to the
+  token, and adding British spellings is what the ratchet exists to prevent.
+
+- **Five silent content drops in the carousel split strategies**, each found by the new
+  conservation gate and fixed rather than sanctioned: the deck's SECTION RAIL
+  (`nav.tile-progress`) was missing from the split chrome set, so every cover page lost it —
+  including the plain path's, whose own body pages keep it, so a run's chrome flickered off and
+  back on mid-run; `split-panel`'s panel-right `<h3>` subhead was read by nothing; a trailing
+  `.below-note` was dropped outright by `cover-decision`, `cover-code` and `redline-blocks`;
+  trailing material inside `.panel-right` (where `split-panel` puts its body and its footer)
+  was invisible to the top-level trailing scan; and `kanban-lanes` swept anything after the
+  board into its per-lane suffix and repeated it on EVERY lane.
+
+- **A split run's k-of-N rail no longer strikes through the deck's section rail.** Both marks
+  drew in the same corner of the footer band — pre-existing on plain-path body pages, and the
+  chrome fix above would have spread it to every split page. The k-of-N rail now docks in the
+  footer Cell when the frame has one (the same docking the progress Tile uses) and parks left
+  of the section rail's reserved berth otherwise, so footer text · section rail · k-of-N · page
+  number read as one row; the footer text ellipsises instead of overrunning.
+
+- **`kanban-lanes` no longer emits a spurious empty final page**, and `redline-blocks` no
+  longer emits two `<header>` elements or leaves `.cell-stage` unclosed. Form docks the footer
+  Cell INSIDE the kanban board, so "every div child of the board" counted it as a lane; both
+  strategies also re-emitted a source slice that already contained the section's own chrome and
+  then prepended it again. `redline-blocks` is now a span-removal over the source inner (the
+  plain envelope's own discipline) rather than a re-author from parsed pieces.
+
+- **A step or stage ALONE on its page fills the page, and its ordinal keeps counting.** The
+  generic lone-member fill lost on specificity to a component's box-local portrait reflow, so
+  the components §0b had just atomized rendered a content-height card above two-thirds of
+  white; `list-steps` and `authority-chain` also restarted their counters at 1 on every page
+  ("STEP 01" on page two of the run). `cycle` additionally suppresses its drawn return arc on a
+  split page — a bracket around a single card points at nothing, and the loop is carried by the
+  "↻ back to {stage 1}" signal instead.
+
+- **`capacity.relationship` reaches the split kernel.** `SPLIT_CAP` in `lattice-emulator.js`
+  projects a hand-listed whitelist of capacity fields, so a field absent from it arrives as
+  `undefined` and the feature is a silent no-op — the manifests declared the relationship,
+  every unit test passed, and the real render emitted nothing.
+
+- **`matrix-2x2` and `split-compare` no longer split — they ring, as their own design record says.**
+  Both declared a split axis under `adapt.capacity` only, and the split registry reads that as an
+  opt-in, so both were enrolled against the dated resolutions that place them as *atomic text grid*
+  and *read-across, keep whole*. A portrait render broke a 2×2 into three pages showing two of four
+  quadrants with no axis structure — on a slide headed "how we sort the four tools against our two
+  axes" — behind an accent cover that made it look intentional. Splitting a quadrant grid or a
+  read-across comparison destroys the only thing it says, so overflow now rings (the honest signal
+  to the author) instead of being silently re-authored.
+
+- **`inventory`'s row numbers no longer sit on top of the row titles in a portrait deck.** The
+  ledger variant positions its `01`/`02` ordinal absolutely — it has to, because the row stacks a
+  block title over its body prose — so the row must reserve the gutter itself. The gutter was sized
+  in CONTAINER units (`padding-left: 5cqi`) while the numeral was sized in TYPE units (`--fs-h3`),
+  and those track different things: in a landscape box 5cqi is ~96px and cleared the 34px numeral,
+  but in a portrait box it collapses to 50px while `01` still renders 69px — so the ordinal sat
+  **19px inside the title** on every portrait `inventory` slide. It shipped that way because the
+  component's own demo and gallery are landscape. Both sizes now derive from one custom property, so
+  they scale together on every preset. Pre-existing, unrelated to the split work that surfaced it.
+  (`lib/components/inventory/inventory/inventory.styles.css`; rebuilt `examples/inventory.pdf`.)
+
+- **A split slide's page number is no longer stuck on the first page's.** The engine bakes each
+  page number twice — the `data-lattice-pagination` attribute (which `section.form::after` renders)
+  and the real `<span class="lat-pagination">` element inside `.cell-footer` — and a split copies
+  the section verbatim, so every page of a run repeated the original's number. Nothing renumbered
+  the span (the measured pass renumbered the attribute only, and the static count pass renumbered
+  neither), so the *visible* number on split body pages was wrong: a seven-page `statute-stack` run
+  showed "3" on all six body pages. Both passes now re-stamp the attribute, the span, and the
+  page total from one counter in document order. (`lib/core/auto-split.js` `repaginate`.)
+  The same fix corrects a **second, older divergence** on that path: the measured pass
+  renumbered only the slides that *carry* a page number, where the engine deliberately counts
+  every slide (`lib/engine/slides.js` §3 — absolute position, whole-deck total), so on a deck
+  with any `_paginate: false` slide every page after it read one low and the total undercounted.
+  A split now leaves the numbering of slides it never touched exactly as the engine set it.
 
 - **`compare-code`'s manifest `skeleton` used a markdown heading (`### Before`/`### After`) the
   transform never recognized, collapsing both fenced blocks into one lopsided column instead of two

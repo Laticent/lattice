@@ -553,6 +553,15 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
     at risk — which the emulator logs ("N slide(s) over capacity … the measured pass decides") and
     which changes no bytes. `splits` is always 0, kept in the return shape so callers need no
     change. `partitionAxis` is no longer imported here.
+    **A third measurement blind spot, found by LOOKING at the demo deck:** a SQUEEZED child hides
+    its overflow from `probeSectionOverflow` entirely. The cell's own `scrollHeight - clientHeight`
+    is zero (flex shrank the child so the cell fits), and the rect walk finds no spill (a squeezed
+    middle child's folded bottom sits above a later sibling's) — so a `checklist` with a lede, eight
+    items, a note and a key insight rendered its rows ON TOP OF EACH OTHER, with no warning and no
+    split, because every level of the geometry said it fit. `lib/core/overflow-probe.js` now sums the
+    hidden amount across the content cell's children. This is the same failure family as the veto's
+    `offsetHeight` above: in a bounded flex stage, a box that FITS is not evidence that its content
+    does.
     **Verified equivalent on the committed demo decks:** `examples/auto-split.md` and
     `examples/split-envelope.md` were the only two the static pass still cut (1 and 2 slides); the
     measured loop now cuts exactly those, and both export with zero overflow. Nothing regressed
