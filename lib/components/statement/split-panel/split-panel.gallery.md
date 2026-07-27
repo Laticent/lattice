@@ -121,7 +121,7 @@ The left panel anchors a phase; the column numbers its moves.
 
 ---
 
-<!-- _class: split-panel proof capstone cat-6 -->
+<!-- _class: split-panel capstone -->
 <!-- _footer: "capstone · split-panel capstone — Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry." -->
 
 `Level 6 · Creating`
@@ -173,7 +173,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-1 -->
-<!-- _footer: "cat-1 · split-panel cat-1 — Panel tints with the theme's first categorical fill instead of the dark surface — the opening step of a sequence." -->
+<!-- _footer: "cat-1 · split-panel cat-1 — Override: pins this slide to the theme's categorical fill #1. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
 
 `Stage 1 of 8`
 
@@ -188,7 +188,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-2 -->
-<!-- _footer: "cat-2 · split-panel cat-2 — The sequence's second step, in the theme's second categorical fill." -->
+<!-- _footer: "cat-2 · split-panel cat-2 — Override: pins this slide to the theme's categorical fill #2. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
 
 `Stage 2 of 8`
 
@@ -203,7 +203,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-3 -->
-<!-- _footer: "cat-3 · split-panel cat-3 — The sequence's third step, in the theme's third categorical fill." -->
+<!-- _footer: "cat-3 · split-panel cat-3 — Override: pins this slide to the theme's categorical fill #3. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
 
 `Stage 3 of 8`
 
@@ -218,7 +218,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-4 -->
-<!-- _footer: "cat-4 · split-panel cat-4 — The sequence's fourth step, in the theme's fourth categorical fill." -->
+<!-- _footer: "cat-4 · split-panel cat-4 — Override: pins this slide to the theme's categorical fill #4. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
 
 `Stage 4 of 8`
 
@@ -233,7 +233,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-5 -->
-<!-- _footer: "cat-5 · split-panel cat-5 — The sequence's fifth step, in the theme's fifth categorical fill." -->
+<!-- _footer: "cat-5 · split-panel cat-5 — Override: pins this slide to the theme's categorical fill #5. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
 
 `Stage 5 of 8`
 
@@ -248,7 +248,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-6 -->
-<!-- _footer: "cat-6 · split-panel cat-6 — The sequence's sixth step, in the theme's sixth categorical fill." -->
+<!-- _footer: "cat-6 · split-panel cat-6 — Override: pins this slide to the theme's categorical fill #6. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
 
 `Stage 6 of 8`
 
@@ -263,7 +263,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-7 -->
-<!-- _footer: "cat-7 · split-panel cat-7 — The sequence's seventh step, in the theme's seventh categorical fill." -->
+<!-- _footer: "cat-7 · split-panel cat-7 — Override: pins this slide to the theme's categorical fill #7. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
 
 `Stage 7 of 8`
 
@@ -278,7 +278,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 ---
 
 <!-- _class: split-panel cat-8 -->
-<!-- _footer: "cat-8 · split-panel cat-8 — The sequence's eighth and final step, in the theme's eighth categorical fill." -->
+<!-- _footer: "cat-8 · split-panel cat-8 — Override: pins this slide to the theme's categorical fill #8. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
 
 `Stage 8 of 8`
 

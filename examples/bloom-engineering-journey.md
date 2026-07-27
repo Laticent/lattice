@@ -55,8 +55,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof cat-1 -->
-<!-- _footer: "Level 1 · split-panel proof cat-1" -->
+<!-- _class: split-panel proof -->
+<!-- _footer: "Level 1 · split-panel proof" -->
 
 `Level 1 · Remembering`
 
@@ -73,8 +73,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof cat-2 -->
-<!-- _footer: "Level 2 · split-panel proof cat-2" -->
+<!-- _class: split-panel proof -->
+<!-- _footer: "Level 2 · split-panel proof" -->
 
 `Level 2 · Understanding`
 
@@ -91,8 +91,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof cat-3 -->
-<!-- _footer: "Level 3 · split-panel proof cat-3" -->
+<!-- _class: split-panel proof -->
+<!-- _footer: "Level 3 · split-panel proof" -->
 
 `Level 3 · Applying`
 
@@ -109,8 +109,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof cat-4 -->
-<!-- _footer: "Level 4 · split-panel proof cat-4" -->
+<!-- _class: split-panel proof -->
+<!-- _footer: "Level 4 · split-panel proof" -->
 
 `Level 4 · Analyzing`
 
@@ -127,8 +127,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof cat-5 -->
-<!-- _footer: "Level 5 · split-panel proof cat-5" -->
+<!-- _class: split-panel proof -->
+<!-- _footer: "Level 5 · split-panel proof" -->
 
 `Level 5 · Evaluating`
 
@@ -145,8 +145,8 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 
 ---
 
-<!-- _class: split-panel proof capstone cat-6 -->
-<!-- _footer: "Level 6 · split-panel proof capstone cat-6" -->
+<!-- _class: split-panel capstone -->
+<!-- _footer: "Level 6 · split-panel capstone" -->
 
 `Level 6 · Creating`
 

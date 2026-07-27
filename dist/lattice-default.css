@@ -13490,21 +13490,22 @@ section.split-panel > .cell-stage {
   padding-block: var(--elevation-berth);
 }
 
-/* ── cat-1…cat-8 — categorical tint, composes with any variant ─────────────
- * Recolors `.panel-left` from the universal dark surface to one of the
- * theme's own eight categorical fills (`--cat-N-fill`, the same family
- * `decision`'s per-item accent and `statement/premise`'s row color draw
- * from) — for a SEQUENCE of split-panel slides that should read as a set
- * (a leveled progression, a staged rollout), each with its own hue, rather
- * than one repeated dark accent. There's no way to derive "which of six" a
- * standalone slide is from its own content, so the class is author-picked,
- * one per slide (`split-panel proof cat-3`) — the same explicit convention
- * `list-steps`'s prefix-word variants (`phase`, `stage`, …) already use.
+/* ── cat-1…cat-8 — categorical tint, ASSIGNED BY THE ENGINE ───────────────
+ * Recolors `.panel-left` from the universal dark surface to one of the theme's
+ * own eight categorical fills (`--cat-N-fill`, the same family `decision`'s
+ * per-item accent and `statement/premise`'s row color draw from) — for a
+ * SEQUENCE of `proof` slides that should read as a set (a leveled progression,
+ * a staged rollout), each with its own hue.
+ *
+ * Authors do NOT type these. `lib/core/split-panels.js` (mirrored in
+ * lib/transformers/split-panels.js) walks the deck in order and stamps
+ * `cat-N` on every `proof` slide, cycling at eight — the slide's position in
+ * the sequence is what picks the hue, and the deck already states that
+ * position. An explicitly authored `cat-N` is still honored as an override.
+ *
  * `--cat-N-fill` is a pale tint in light mode and a deep saturated fill in
- * dark mode (themes/*.css) — both pair correctly with the ordinary
- * `--text-*` tokens (not `--on-dark-*`, which assumes an ALWAYS-dark
- * surface); the fill's own light/dark flip and the text tokens' flip move
- * together by design, the same pairing `--bg`/`--text-*` already relies on. */
+ * dark mode (themes/*.css). Text on it uses `--cat-on-fill`, the one ink the
+ * categorical contract guarantees against any fill — see the text rules below. */
 section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); }
 section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); }
 section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); }

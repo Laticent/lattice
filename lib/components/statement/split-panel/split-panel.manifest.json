@@ -39,7 +39,7 @@
     "takeaway"
   ],
   "description": "Featured left panel + supporting right zone — one prominent claim beside the points that substantiate it.",
-  "purpose": "Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer), `proof` (a scenario signal + two paired proof cards, for a claim that must be demonstrated, not just supported). Add `capstone` on top of `proof` for that sequence's climactic entry: the signal becomes a quoted card, the checkpoints become plain top-rule pillars. For a binary decision with a verdict, reach for `split-compare`. Add `cat-1`…`cat-8` (composes with any variant) to recolor the panel from the universal dark surface to one of the theme's own categorical fills — for a SEQUENCE of slides (a leveled progression, staged rollout) that should each carry their own hue, one class per slide.",
+  "purpose": "Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer), `proof` (a scenario signal + two paired proof cards, for a claim that must be demonstrated, not just supported). Add `capstone` on top of `proof` for that sequence's climactic entry: the signal becomes a quoted card, the checkpoints become plain top-rule pillars. For a binary decision with a verdict, reach for `split-compare`. A run of `proof` slides is a SEQUENCE, so the engine tints each one from the theme's categorical palette by its position in the deck — authors write `split-panel proof` and nothing else. `capstone` implies `proof`, so the sequence's final slide is just `split-panel capstone`. An explicit `cat-1`…`cat-8` overrides the assignment for one slide.",
   "variants": [
     "metric",
     "pullquote",
@@ -172,46 +172,46 @@
     "capstone": {
       "label": "capstone",
       "summary": "Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry.",
-      "sample": "<!-- _class: split-panel proof capstone cat-6 -->\n\n`Level 6 · Creating`\n\n## Build what didn't exist before.\n\n*What should exist?* You synthesize new frameworks, platforms and operating models — what you produce becomes the standard.\n\n- The signal\n  - Teams across the enterprise adopt your framework as their foundation.\n- Reference architecture\n  - The implementation exists and is validated.\n- Organization-wide adoption\n  - Measurable outcomes follow.\n"
+      "sample": "<!-- _class: split-panel capstone -->\n\n`Level 6 · Creating`\n\n## Build what didn't exist before.\n\n*What should exist?* You synthesize new frameworks, platforms and operating models — what you produce becomes the standard.\n\n- The signal\n  - Teams across the enterprise adopt your framework as their foundation.\n- Reference architecture\n  - The implementation exists and is validated.\n- Organization-wide adoption\n  - Measurable outcomes follow.\n"
     },
     "cat-1": {
       "label": "cat-1",
-      "summary": "Panel tints with the theme's first categorical fill instead of the dark surface — the opening step of a sequence.",
+      "summary": "Override: pins this slide to the theme's categorical fill #1. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-1 -->\n\n`Stage 1 of 8`\n\n## Discover the real problem.\n\n- Talk to the people living with it\n  - Five conversations beat one survey.\n- Write down what surprised you\n  - The surprise is usually the actual problem.\n"
     },
     "cat-2": {
       "label": "cat-2",
-      "summary": "The sequence's second step, in the theme's second categorical fill.",
+      "summary": "Override: pins this slide to the theme's categorical fill #2. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-2 -->\n\n`Stage 2 of 8`\n\n## Define what \"done\" means.\n\n- One sentence, not a document\n  - If it needs a meeting to explain, it isn't defined yet.\n- Name what's explicitly out of scope\n  - The edges matter more than the center.\n"
     },
     "cat-3": {
       "label": "cat-3",
-      "summary": "The sequence's third step, in the theme's third categorical fill.",
+      "summary": "Override: pins this slide to the theme's categorical fill #3. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-3 -->\n\n`Stage 3 of 8`\n\n## Design the smallest real version.\n\n- Cut until it's uncomfortable\n  - Comfortable scope is usually still too big.\n- Sketch before you spec\n  - A rough picture surfaces disagreement a document hides.\n"
     },
     "cat-4": {
       "label": "cat-4",
-      "summary": "The sequence's fourth step, in the theme's fourth categorical fill.",
+      "summary": "Override: pins this slide to the theme's categorical fill #4. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-4 -->\n\n`Stage 4 of 8`\n\n## Build the thing you designed.\n\n- Ship the ugly path first\n  - It finds the real risk; the happy path is easy.\n- Keep a running list of shortcuts taken\n  - Nothing is forgotten faster than a deliberate shortcut.\n"
     },
     "cat-5": {
       "label": "cat-5",
-      "summary": "The sequence's fifth step, in the theme's fifth categorical fill.",
+      "summary": "Override: pins this slide to the theme's categorical fill #5. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-5 -->\n\n`Stage 5 of 8`\n\n## Validate with the people it's for.\n\n- Watch, don't narrate\n  - What they do matters more than what they say they'd do.\n- One real user beats five imagined ones\n  - A single honest session outweighs a week of speculation.\n"
     },
     "cat-6": {
       "label": "cat-6",
-      "summary": "The sequence's sixth step, in the theme's sixth categorical fill.",
+      "summary": "Override: pins this slide to the theme's categorical fill #6. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-6 -->\n\n`Stage 6 of 8`\n\n## Launch to a small, real audience.\n\n- Small enough to fix fast\n  - A limited launch turns mistakes into hours, not weeks.\n- Tell people it's early\n  - Set the expectation and the feedback gets more honest.\n"
     },
     "cat-7": {
       "label": "cat-7",
-      "summary": "The sequence's seventh step, in the theme's seventh categorical fill.",
+      "summary": "Override: pins this slide to the theme's categorical fill #7. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-7 -->\n\n`Stage 7 of 8`\n\n## Scale what actually worked.\n\n- Scale the mechanism, not the guess\n  - Confirm why it worked before you multiply it.\n- Expect the edges to break first\n  - Scale finds every assumption that only held at small size.\n"
     },
     "cat-8": {
       "label": "cat-8",
-      "summary": "The sequence's eighth and final step, in the theme's eighth categorical fill.",
+      "summary": "Override: pins this slide to the theme's categorical fill #8. Normally unnecessary — `proof` slides are tinted automatically by deck order.",
       "sample": "<!-- _class: split-panel cat-8 -->\n\n`Stage 8 of 8`\n\n## Sustain it without you in the loop.\n\n- Write down what only you know\n  - If it lives in your head, it isn't sustained yet.\n- Hand off the decision, not just the task\n  - Ownership transfers when someone else can say no.\n"
     }
   },
@@ -272,11 +272,11 @@
     },
     {
       "variant": "cat-1",
-      "useWhen": "The slide is one of a SEQUENCE (a leveled progression, a staged rollout) where each step should carry its own hue — composes with any other variant (`proof cat-1`, `metric cat-4`, …). Pick the matching number, `cat-1` through `cat-8`, one per slide in order. A one-off slide has no set to distinguish itself within, so it keeps the default dark panel."
+      "useWhen": "Rarely — the tint is ASSIGNED automatically from the slide's position in the run of `proof` slides, so you normally write nothing. Reach for an explicit `cat-N` only to pin one slide to a specific hue (or to repeat a hue deliberately). A pinned slide still counts in the sequence, so it does not shift the slides after it."
     },
     {
       "variant": "capstone",
-      "useWhen": "This `proof` slide is the SEQUENCE's last, most-earned entry — the claim is proven, not just illustrated. Composes with `proof` (same DOM: `### signal` heading + `p` + two-item `ul`); swaps the signal callout for a quoted card and the two checkpoint cards for plain top-rule pillars. Pair with the matching `cat-N` for a leveled sequence's final slide (`proof capstone cat-6`)."
+      "useWhen": "This is the SEQUENCE's last, most-earned entry — the claim is proven, not just illustrated. Write `split-panel capstone`: it implies `proof` (same three-item shape) and joins the same automatic tint sequence. Swaps the signal callout for a quoted card and the checkpoint cards for top-rule pillars."
     }
   ],
   "specimenVoice": true

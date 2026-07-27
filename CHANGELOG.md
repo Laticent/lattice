@@ -57,6 +57,23 @@ in patch versions.
 
 ### Changed
 
+- **Breaking (`split-panel`, unreleased): a `proof` slide's categorical tint is assigned by the
+  engine from its position in the deck; `capstone` implies `proof`.** Authors write
+  `split-panel proof` and, for the sequence's last entry, `split-panel capstone` — nothing else.
+
+  `cat-6` was position-derived information the author had to type, which is the same defect as a
+  hand-typed list ordinal: redundant, and silently wrong the moment a slide is reordered or one is
+  inserted ahead of it. `sequenceProofPanels` (`lib/core/split-panels.js`, mirrored in
+  `lib/transformers/split-panels.js` for the two-renderer rule) walks the deck in order and stamps
+  `cat-N` on each `proof` slide, cycling at eight. `capstone` only re-skins `proof`'s three-item
+  shape and has no DOM of its own, so it now adds `proof` itself.
+
+  Three behaviors worth knowing: a plain `split-panel` is neither tinted nor counted (the base dark
+  panel belongs to no sequence); an explicit `cat-1`…`cat-8` still wins as a per-slide override; and
+  an overridden slide **still counts**, so pinning one hue does not renumber the slides after it.
+  The pass is idempotent — re-running it over already-transformed HTML does not append a second
+  `cat-N`, which the split paths depend on.
+
 - **Breaking (`matrix-grid`, unreleased): axis labels are two inline-code spans placed with the
   slide's framing text, and the direction arrows are generated.** Was a single `·`-separated eyebrow
   above the heading (`` `Wider reach → · Deeper cognition ↑` ``) — which asked the author to split two

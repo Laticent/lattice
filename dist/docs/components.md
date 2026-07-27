@@ -808,7 +808,7 @@ See [quote.gallery.light.pdf](../../lib/components/statement/quote/quote.gallery
 
 **Tags** `summary` · `board-deck` · `hero-number` · `pull-quote` · `takeaway`
 
-Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer), `proof` (a scenario signal + two paired proof cards, for a claim that must be demonstrated, not just supported). Add `capstone` on top of `proof` for that sequence's climactic entry: the signal becomes a quoted card, the checkpoints become plain top-rule pillars. For a binary decision with a verdict, reach for `split-compare`. Add `cat-1`…`cat-8` (composes with any variant) to recolor the panel from the universal dark surface to one of the theme's own categorical fills — for a SEQUENCE of slides (a leveled progression, staged rollout) that should each carry their own hue, one class per slide.
+Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer), `proof` (a scenario signal + two paired proof cards, for a claim that must be demonstrated, not just supported). Add `capstone` on top of `proof` for that sequence's climactic entry: the signal becomes a quoted card, the checkpoints become plain top-rule pillars. For a binary decision with a verdict, reach for `split-compare`. A run of `proof` slides is a SEQUENCE, so the engine tints each one from the theme's categorical palette by its position in the deck — authors write `split-panel proof` and nothing else. `capstone` implies `proof`, so the sequence's final slide is just `split-panel capstone`. An explicit `cat-1`…`cat-8` overrides the assignment for one slide.
 
 #### Agent contract
 
@@ -832,8 +832,8 @@ Use when one prominent element (a heading, a hero number, a pull-quote, a phase)
 - **`watermark`.** You want a decorative accent panel — an oversized letterform behind the heading — plus an optional two-line Audience/Intent metadata footer after the points.
 - **`mirror`.** Same anatomy, but the deck's reading rhythm wants the featured panel to land on the right instead of the left.
 - **`qr`.** A URL to scan supplements the panel — a bullet tagged `qr` (or a bare URL) auto-resolves into a QR figure appended to the RIGHT (supporting) column; the left panel keeps its normal required heading/lede, it doesn't become the QR.
-- **`cat-1`.** The slide is one of a SEQUENCE (a leveled progression, a staged rollout) where each step should carry its own hue — composes with any other variant (`proof cat-1`, `metric cat-4`, …). Pick the matching number, `cat-1` through `cat-8`, one per slide in order. A one-off slide has no set to distinguish itself within, so it keeps the default dark panel.
-- **`capstone`.** This `proof` slide is the SEQUENCE's last, most-earned entry — the claim is proven, not just illustrated. Composes with `proof` (same DOM: `### signal` heading + `p` + two-item `ul`); swaps the signal callout for a quoted card and the two checkpoint cards for plain top-rule pillars. Pair with the matching `cat-N` for a leveled sequence's final slide (`proof capstone cat-6`).
+- **`cat-1`.** Rarely — the tint is ASSIGNED automatically from the slide's position in the run of `proof` slides, so you normally write nothing. Reach for an explicit `cat-N` only to pin one slide to a specific hue (or to repeat a hue deliberately). A pinned slide still counts in the sequence, so it does not shift the slides after it.
+- **`capstone`.** This is the SEQUENCE's last, most-earned entry — the claim is proven, not just illustrated. Write `split-panel capstone`: it implies `proof` (same three-item shape) and joins the same automatic tint sequence. Swaps the signal callout for a quoted card and the checkpoint cards for top-rule pillars.
 
 ##### Common mistakes
 
@@ -994,7 +994,7 @@ Scenario signal + two paired proof cards, filling the column top to bottom. Narr
 Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry.
 
 ```markdown
-<!-- _class: split-panel proof capstone cat-6 -->
+<!-- _class: split-panel capstone -->
 
 `Level 6 · Creating`
 
@@ -1048,7 +1048,7 @@ A bare URL auto-resolves; the caption line labels the scan.
 
 ##### `cat-1` — cat-1
 
-Panel tints with the theme's first categorical fill instead of the dark surface — the opening step of a sequence.
+Override: pins this slide to the theme's categorical fill #1. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-1 -->
@@ -1065,7 +1065,7 @@ Panel tints with the theme's first categorical fill instead of the dark surface 
 
 ##### `cat-2` — cat-2
 
-The sequence's second step, in the theme's second categorical fill.
+Override: pins this slide to the theme's categorical fill #2. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-2 -->
@@ -1082,7 +1082,7 @@ The sequence's second step, in the theme's second categorical fill.
 
 ##### `cat-3` — cat-3
 
-The sequence's third step, in the theme's third categorical fill.
+Override: pins this slide to the theme's categorical fill #3. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-3 -->
@@ -1099,7 +1099,7 @@ The sequence's third step, in the theme's third categorical fill.
 
 ##### `cat-4` — cat-4
 
-The sequence's fourth step, in the theme's fourth categorical fill.
+Override: pins this slide to the theme's categorical fill #4. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-4 -->
@@ -1116,7 +1116,7 @@ The sequence's fourth step, in the theme's fourth categorical fill.
 
 ##### `cat-5` — cat-5
 
-The sequence's fifth step, in the theme's fifth categorical fill.
+Override: pins this slide to the theme's categorical fill #5. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-5 -->
@@ -1133,7 +1133,7 @@ The sequence's fifth step, in the theme's fifth categorical fill.
 
 ##### `cat-6` — cat-6
 
-The sequence's sixth step, in the theme's sixth categorical fill.
+Override: pins this slide to the theme's categorical fill #6. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-6 -->
@@ -1150,7 +1150,7 @@ The sequence's sixth step, in the theme's sixth categorical fill.
 
 ##### `cat-7` — cat-7
 
-The sequence's seventh step, in the theme's seventh categorical fill.
+Override: pins this slide to the theme's categorical fill #7. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-7 -->
@@ -1167,7 +1167,7 @@ The sequence's seventh step, in the theme's seventh categorical fill.
 
 ##### `cat-8` — cat-8
 
-The sequence's eighth and final step, in the theme's eighth categorical fill.
+Override: pins this slide to the theme's categorical fill #8. Normally unnecessary — `proof` slides are tinted automatically by deck order.
 
 ```markdown
 <!-- _class: split-panel cat-8 -->
