@@ -63,7 +63,7 @@
  * the slide at any render resolution (≈3× at 4K) instead of pinning small.
  * Explicit cqi dimensions (not width:100% + aspect-ratio) because every child
  * is absolutely positioned, leaving the flex item no in-flow content to size
- * from. The positioning context for the cloud SVG + key rail + spine overlay.
+ * from. The box the chart-frame body matcher keys on (display:contents under the container-fill rule).
  * `max-width`/`max-height: 100%` are the responsive safety nets: the canvas
  * targets its 85.9×25cqi design size but never exceeds the flexed `.chart-body`
  * box, so a masthead band / tall caption shrinks it to fit instead of

@@ -217,11 +217,22 @@
 /* ── small-multiples: one mini radar per series ───────────────────────── */
 :is(section.radar, figure.chart-frame) .radar-figure[data-variant="small-multiples"] {
   gap: 0;
-  /* A DEFINITE height, so the grid's `1fr` rows have something to divide. The
-   * chart-body is the size container (chart-family.css); without this the figure
-   * is content-sized, `1fr` collapses to max-content, and the minis stay at their
-   * basis while the body keeps the leftover — the 5% fill this set out to fix. */
+  /* A DEFINITE height, so the grid's `1fr` rows have something to divide. Without
+   * it the figure is content-sized, `1fr` collapses to max-content, and the minis
+   * stay at their basis while the body keeps the leftover.
+   *
+   * SCOPED to the same condition that makes `.chart-body` a size container
+   * (chart-family.css excludes claim-hero/claim-bleed). `100cqh` with no query
+   * container resolves against the VIEWPORT, and at claim-hero the pre-existing
+   * `section.radar:is(.claim-hero,.claim-bleed) .radar-figure { height: auto }
+/* The definite height, scoped to exactly where `.chart-body` is a size container
+   (chart-family.css). See the note in the rule above. */
+section.form.radar:not(.claim-hero):not(.claim-bleed) .radar-figure[data-variant="small-multiples"] {
   height: 100cqh;
+}`
+   * ties this rule on specificity — so leaving it unscoped would hand the
+   * outcome to source order. Logged separately: small-multiples at claim-hero is
+   * already broken in both trees (1-column, overflowing). */
   min-height: 0;
 }
 :is(section.radar, figure.chart-frame) .radar-multiples {
@@ -295,8 +306,8 @@
  * there is no mirror to keep in sync. */
 :is(section.radar, figure.chart-frame) .radar-svg--mini {
   /* Fill the grid cell on both axes; `preserveAspectRatio: meet` (the default)
-   * fits the diagram+caption unit inside without distortion. No divisor, no
-   * mirror: the caption band's share comes from the viewBox itself. */
+   * fits the diagram+caption unit inside without distortion. No divisor in CSS
+   * at all — the caption band's share of the drawing comes from the viewBox. */
   width: 100%;
   height: 100%;
 }

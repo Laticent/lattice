@@ -122,12 +122,12 @@
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "86733b3a10c5551da093c414684453fe42df4a66425ca59b5ea28a6251235883"
+		"srcSha256": "8d248b6f7bad68725e4ad048a125fe49a7121cffb8247376885f3b5bacec9314"
 	},
 	"radar.dark": {
 		"src": "lib/components/chart/radar/radar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "fca61ca5c3e7c93e7fb97ad1a6a1be0dfb526c8732b0eb13986ef457812f13c4"
+		"srcSha256": "67c8c298411d31bc0b4f35fdd6d0646d379708c8d7362215f703d065304a4a53"
 	},
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",

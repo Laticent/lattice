@@ -184,16 +184,44 @@ is why the old HTML key overflowed its rail there. The portrait cloud also packs
 the FULL width against a taller canvas (1100×760), because the landscape canvas
 is 3.4:1 and `meet` fits that by width, stranding the height.
 
-**Fill the container.** word-cloud joins the chart-family container-fill rule
-and now fills **88%** of its chart body — the same number the piechart posts.
+**Fill the container.** word-cloud joins the chart-family container-fill rule.
 It could not join before: the absolutely-positioned HTML key needed
 `.word-cloud-canvas` as a sized positioning context, so the canvas was pinned at
 `85.9375cqi × 25cqi`. One viewBox means one box to fill.
 
+Stated precisely, because a first draft of this note overstated it: the svg BOX
+now fills 88.9% × 87.2% of the chart body, matching the piechart — but the box
+was *already* 88.9% wide, so only the HEIGHT fill changed (64.1% → 87.2%), and in
+LANDSCAPE the drawing inside is the same size as before, shifted about a pixel.
+The real gain is portrait, where the cloud's word ink goes from **5% to 25%** of
+the chart body and the biggest word from 89px to 134px — and that took scaling
+the word sizes with the taller canvas, not just enlarging the canvas. Enlarging
+alone (the first cut) bought emptier canvas: `meet` scaled the whole thing back
+down and left 83–95% of the drawing white.
+
 radar's small-multiples became a **grid** rather than a wrapping flex row.
-Portrait fill goes from **5% to 43%** and the minis lay out 2-up instead of 3+1.
-Landscape is unchanged on purpose: four minis already fill the row width, and
-square tiles in a 2.4:1 body cannot exceed ~40% whatever you do.
+Portrait fill of the chart body goes **23% → 43%** at six series (a first draft
+of this note claimed 5% → 43%; the 5% was measured on the wrong slide, and the
+real baselines are 8% at two series, 15% at four, 23% at six). It also claimed
+the minis go 2-up instead of 3+1 — **they do not**: at four series it is 3 + 1 in
+both trees, and only a two-series chart is 2-up. Landscape is unchanged on
+purpose: four minis already fill the row width, and square tiles in a 2.4:1 body
+cannot exceed ~40% whatever you do.
+
+**The grid also repairs something that was already broken.** Across a 36-case
+sweep (1–9 series × long-name × below-note), the BASELINE tree clips in 12 cases
+— every 5–8-series deck carrying a below-note, and all four 9-series decks, by up
+to 150px. The tip clips in none. That was a pre-existing defect on `main`, not
+one this branch introduced.
+
+**Two consequences of the grid, stated because they are trades, not wins.** The
+mini's diagram is no longer a stable physical size: it is 351.6px at 1–2 series,
+188.1px at four (the old constant), and 106.9px at nine — 78.6px with a
+below-note. And there is no legibility FLOOR: at nine series plus a note the rim
+labels compute to ~2.9px, which is unreadable. The old failure was clipping at
+11px; the new one is complete-but-tiny. Better, but a deck with that many series
+wants `capacity`/autosplit guidance rather than a grid cell, and nothing enforces
+that today.
 
 **Why a grid and not `flex: 1 1 basis`.** The flex form shipped here briefly and
 was wrong: six series wrap 4+2, the two survivors stretch to fill a four-wide

@@ -26,11 +26,19 @@ in patch versions.
   portrait canvas. (b) **Fill the container.** word-cloud joins the chart-family container-fill rule
   (`.chart-body{container-type:size}` + canvas `display:contents` + svg `100%/100%`) — it could not
   before, because the absolutely-positioned HTML key needed the canvas as a sized positioning
-  context, pinning it to `85.9375cqi × 25cqi`. It now fills **88%** of its chart body, exactly matching
-  the piechart. radar's small-multiples became a **grid** (`auto-fit` + `minmax` + `grid-auto-rows:1fr`)
-  that divides the body on both axes: in portrait the minis go from **5% → 43%** of the body and lay
-  out 2-up instead of an awkward 3+1. Landscape is deliberately unchanged — four minis already fill
-  the row width, and square tiles in a 2.4:1 body cannot do better.
+  context, pinning it to `85.9375cqi × 25cqi`. The svg box now fills 88.9% × 87.2% of its chart
+  body, matching the piechart — though the box was already 88.9% wide, so only the height fill
+  changed and the LANDSCAPE drawing is the same size as before. The real gain is portrait, where the
+  cloud's word ink goes **5% → 25%** of the body (biggest word 89px → 134px), which needed the word
+  sizes scaled with the taller canvas — enlarging the canvas alone bought emptier canvas.
+  radar's small-multiples became a **grid** (`auto-fit` + `minmax` + `grid-auto-rows:1fr`) that
+  divides the body on both axes: portrait fill goes **23% → 43%** at six series. Landscape is
+  deliberately unchanged — four minis already fill the row width, and square tiles in a 2.4:1 body
+  cannot do better. The grid also repairs a **pre-existing** defect: across a 36-case sweep the
+  baseline tree clipped 12 (every 5–8-series deck with a below-note, and all 9-series decks, by up to
+  150px); the tip clips none. Trade to know about: the mini's diagram is no longer a fixed physical
+  size (351.6px at 1–2 series, 188.1px at four, 78.6px at nine with a note) and nothing enforces a
+  legibility floor at the top of that range.
 
   A wrapping flex row was the wrong tool and briefly shipped here: with `flex:1 1 basis` a six-series
   chart wraps 4+2 and the two survivors stretch to fill a four-wide row, growing their height with
