@@ -2179,11 +2179,13 @@ async function renderBody(browser, g, closeBrowser) {
       // …AND the headroom must be measured against the slide the split will actually EMIT, not
       // the one on screen. The envelope HOISTS the framing lede to the cover and the trailing
       // note/key-insight off every page but the last, so counting them as immovable
-      // non-collection content under-reports the room a body page will have. Measured: a
-      // checklist of 8 items with a long lede and a long below-note reported 288px of headroom
-      // against a 270px floor and was VETOED — it clipped, silently — while the identical slide
-      // with those two blocks deleted split cleanly. The author's fix would have been to cut the
-      // lede, which is exactly the content the envelope was built to relocate.
+      // non-collection content under-reports the room a body page will have. Measured in the
+      // emulator on a portrait `checklist` of 8 items with a long lede and a long below-note: the
+      // collection read 0 (`offsetHeight` and its rect both 0 against a scrollHeight of 312 — the
+      // squeeze above), so the headroom came out at −114 against a 269px floor and the slide was
+      // VETOED. It clipped, silently, while the identical slide with the lede and note deleted
+      // split cleanly — so the author's fix would have been to cut the lede, which is exactly the
+      // content the envelope was built to relocate.
       //
       // Mirrors split-envelope.js's own `ledeSpansIn` / `trailingSpansIn` (HARD RULE #1 — same
       // two regions, read here from the DOM instead of the HTML string): the LEDE is the

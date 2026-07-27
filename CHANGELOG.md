@@ -182,11 +182,11 @@ in patch versions.
   overflows its box — it scales its own labels — so the overflow probe is structurally blind to a
   figure that has shrunk its text to 5px. `probeFigureLegibility` measures the effective on-page
   glyph size (user units × the viewBox→box scale) against an absolute 8px canvas floor, calibrated
-  against all 59 figures in the shipped chart galleries. Below it the slide gets an amber ring in
-  the preview and its own stderr report, and is never handed to the splitter (a figure has no
-  seam). It flags two shipped variants today — `radar small-multiples` at 6.9px and `state-chart`
-  at 5.3–7.9px — which is the finding, not a false positive; re-sizing them is a separate design
-  call.
+  by rendering every shipped chart gallery through the emulator (the surface the gate runs on).
+  Below the floor the slide gets an amber ring in the preview and its own stderr report, and is
+  never handed to the splitter (a figure has no seam). It flags two galleries today — `radar` page
+  7, the `small-multiples` variant, at 6.8px, and `state-chart` at 5.3–7.9px across five slides —
+  which is the finding, not a false positive; re-sizing them is a separate design call.
 
 - **Per-component agent contract: `<name>.docs.md` now front-loads a dense, machine-actionable
   block instead of burying it in narrative prose.** Generated docs previously interleaved the
