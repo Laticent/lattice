@@ -591,6 +591,22 @@
     flex: 1 1 auto;
     min-height: 0;
   }
+  /* KNOWN, deliberate: a split page UNDER-FILLS. Measured, a one-card page puts a
+   * 314.8px card in an 835.6px stage. The cause is the `.viz-frame` pin —
+   * `section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) >
+   * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.css) — which
+   * holds the body at natural height, so nothing inside it can claim the freed
+   * space. `grid-auto-rows: 1fr` and a `height: 100%` card were tried here and
+   * are INERT against it (the pin is (0,4,1); they lost), so they are not left
+   * in place pretending to work.
+   *
+   * Out-specifying the pin is the obvious next move and is deliberately NOT
+   * taken: the pin exists so an overstuffed chart SPILLS the stage clip where
+   * `overflow-probe.js` can see it, and that probe is what TRIGGERS this
+   * component's own split. Unpinning to win back whitespace risks silently
+   * disabling the pagination — trading a real mechanism for cosmetics. Filling a
+   * split page properly means giving roadmap a fill posture that survives the
+   * probe, which is a frame-level change, not a roadmap tweak. Tracked on #1209. */
   /* The row's height is set by `.row-text`, which carries the glyphs — setting
    * font-size on the <li> does nothing, because both spans declare their own. */
   :is(section.roadmap, figure.roadmap).horizons .row-text { font-size: var(--fs-meta); }
