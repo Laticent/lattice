@@ -124,8 +124,14 @@ async function main() {
         if (!sec || !stage) return null;
         const r = sec.getBoundingClientRect();
         const cs = getComputedStyle(sec);
-        const cw = r.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-        const ch = r.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+        // CONTENT box = border box - padding - BORDER. The border matters: the
+        // section carries a `border-top` (the spectrum strip), and omitting it
+        // understates the aspect enough to misreport which side of a boundary a
+        // deck sits on — the reported number would contradict the CSS's verdict.
+        const cw = r.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+          - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
+        const ch = r.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+          - parseFloat(cs.borderTopWidth) - parseFloat(cs.borderBottomWidth);
         return {
           deckAspect: r.width / r.height,
           contentAspect: cw / ch,

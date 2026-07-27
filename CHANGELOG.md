@@ -436,10 +436,10 @@ in patch versions.
   DECK geometry in JS, and a container query on the container's CONTENT box in CSS. `section` is
   `container-type: size` with asymmetric padding (more vertical than horizontal), so its content box
   runs proportionally wider than the deck — a 1080×1080 deck classified `square` in JS while the CSS
-  saw **1.049** and matched `wide`. Both halves were internally consistent, so nothing rendered
+  saw **1.051** — missing the 1.05 boundary by a thousandth — and matched `wide`. Both halves were internally consistent, so nothing rendered
   visibly wrong and no test could see it: the square tier simply never ran. Only `square` was
-  affected — its band is 0.15 wide and the drift there is ~+0.05, while `tall`'s 0.4-wide band
-  absorbs its +0.019, which is why portrait always worked.
+  affected — its band is 0.15 wide against a +0.051 drift, while `tall`'s 0.4-wide band absorbs
+  its +0.021, which is why portrait always worked.
   The two lists are now separate (`BOUNDARIES` for the deck, `CSS_BOUNDARIES` for the CSS literals),
   each CSS boundary placed at the MIDPOINT of its measured gap: `0.9 → 0.93`, `1.05 → 1.25`
   (`0.5` unchanged). Not a formula — the drift is not a clean function of deck aspect (padding is
