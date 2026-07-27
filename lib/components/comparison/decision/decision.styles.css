@@ -86,14 +86,20 @@ section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    justification card takes the full width, and `flex:1` distributes them down the
    frame so the set still fills the canvas. Keyed on the deck's `data-family` stamp (any tall or strip deck). The doubled class
    `.decision.decision` reaches (0,2,1) — clearing the base `> :is(ul,ol)` (0,1,1). */
-section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) { flex-direction: column; }
+/* SQUARE KEEPS THE SIDE-BY-SIDE SET. The comment above is right that FOUR
+ * panels are slivers in a square box — but the alternative it reached for was
+ * one column, not two. Square is the `balanced` family (2-up), and collapsing
+ * it halves the slide (measured ceiling 6 → 3, tools/calibrate-capacity.js).
+ * This read `<= 1.05` because it was written when the only question was
+ * landscape-or-portrait and square rode the portrait side, unseen (#1218). */
+section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) { flex-direction: column; }
 /* Each card fills a share of the tall frame; centre the justification so it sits
    in the card's optical middle (the corner tag stays pinned top-left) instead of
    orphaning at the top over empty space. */
 section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: center; }
 /* One option per full-width card — the justification is the card's hero, so it
    carries statement weight (--fs-message), not body weight. */
-section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
+section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
   font-size:var(--fs-message);
   line-height: var(--lh-snug);
 }

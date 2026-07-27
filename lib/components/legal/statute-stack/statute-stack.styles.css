@@ -330,6 +330,11 @@ section.statute-stack.lane td:last-child {
    lane), which already author their own single-column / table portrait shape.
    Doubled class reaches (0,2,N) to beat the base grid on specificity — the role
    the old [data-orientation] stamp played; keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. */
+/* SQUARE COLLAPSES TOO, and that is measured. Holding the THREE rails at square
+ * makes each one narrow enough that the text wraps taller than it gains: the
+ * ceiling drops 2 → 1, below this component's own three-jurisdiction skeleton.
+ * Three-across is simply not a square layout; a 2-up square form would beat
+ * both this and the rails, and is the real follow-up. */
 section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
 section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
   /* portrait → single column of content-height cards, evenly distributed (flex mirror

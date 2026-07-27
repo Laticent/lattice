@@ -176,6 +176,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | Name | What it does |
 |---|---|
 | `check:chart-fit` | Stage-FIT gate: renders test/fixtures/chart-fit.md through the emulator, loads the sidecar in headless Chromium, and fails when a chart paints outside its `.cell-stage` box. The stage is `overflow: clip`, so an overflowing chart is silently CUT rather than visibly broken — no other gate asks this (scaling, responsiveness and scoped-paint all check the chart in isolation). Born from two clips in one branch plus 12 pre-existing ones found in a 36-case sweep. `--report` prints per-slide numbers; skips loudly with no Chromium. |
+| `check:family-tiers` | Adaptive-family BEHAVIOR gate: renders one deck per family (wide/square/tall/strip) through the emulator and asserts each component actually reflows the way it intends — reading the COMPUTED style of a property only that family's rule can produce, plus the `data-family` stamp. Replaces the retired check-adaptive-families, which compared two CLASSIFIERS and so could only catch them disagreeing, never catch a whole tier being INERT — the square tier was dead for that gate's entire life (#1218). Asserting behavior catches a lost stamp, a bad selector, or a cascade change alike. Skips loudly with no Chromium. |
 | `check:ownership` | Collision/ownership guard: hard-fails on accidental duplicate selectors/transformers/names. |
 | `check:render` | Scoped-render black-fill guard: renders the chart gallery (the SVG-painting chart components) through the real playground/Studio composeCss() in headless Chromium (indaco/cuoio × light/dark) and fails on any NEW opaque-black SVG paint — a themed colour that dropped to SVG black (the #956 class). Ratchets against test/viz-render/black-baseline.json. |
 | `check:render-nature` | Truth gate for the manifest `render` field: renders every visualization component's own gallery through the export path (emulator HTML sidecar, mermaid baked) in headless Chromium, derives whether the picture is actually drawn in SVG / HTML / both, and fails when a declaration disagrees. `--report` prints the derived table, `--json` the raw counts. Skips loudly with no Chromium. |
@@ -343,6 +344,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 | `tools/calibrate-capacity.js` | calibrate-capacity — find the ELEMENT COUNT a layout overflows at, per box |
 | `tools/calibrate-density.js` | calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a |
 | `tools/check-chart-fit.js` | check-chart-fit — does the chart actually FIT the boxes that crop it? |
+| `tools/check-family-tiers.js` | check-family-tiers — does each adaptive family tier actually FIRE at each deck |
 | `tools/check-fonts.js` | Font parity gate — keep the engine's self-hosted faces in sync across every |
 | `tools/check-render-nature.js` | check-render-nature — the DERIVE-AND-GATE half of the `render` manifest field. |
 | `tools/check-viz-render.js` | check-viz-render — the SCOPED-CSS black-fill guard (born from the #956 |
