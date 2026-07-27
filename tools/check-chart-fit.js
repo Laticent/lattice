@@ -79,6 +79,31 @@ const SLACK = 1.5;
 // was +255.2 units, so this is nowhere near it.
 const VB_SLACK = 1.0;
 
+// KNOWN, JUSTIFIED CLIPS — the SANCTIONED_* idiom (cf. SANCTIONED_MARGINS in
+// tools/check-ownership.js). A clip listed here does not fail the gate, but the
+// gate DOES fail if a sanction goes stale (the clip no longer happens, so the
+// entry should be deleted) or if it grows past `maxOver` (the defect got worse).
+// So the debt stays visible and cannot rot into a silent pass.
+//
+// Adding an entry needs a PR justification, never a silent edit — and it is only
+// ever for a PRE-EXISTING clip that is genuinely blocked, never for one this
+// change introduced (HARD RULE #18).
+const SANCTIONED_CLIPS = [
+  {
+    size: 'portrait',
+    component: 'roadmap',
+    maxOver: 90,
+    issue: '#1209',
+    why: 'Portrait roadmap is over-capacity, not mis-tuned. Reduced 284.3px → 80.4px per '
+       + 'side by stepping card body/chrome down the role scale and un-wrapping the status '
+       + 'key. What is left needs card text BELOW the role scale, which contradicts the '
+       + 'legibility floor #1213 asks for in the same breath. Closing it properly is a '
+       + 'design call between self-scale (reverses the pinned-group decision in '
+       + '2026-07-16-state-chart-self-scale.md), a capacity + split recipe, or a denser '
+       + 'portrait form — so #1209 stays open for this half.',
+  },
+];
+
 // The three supported deck shapes. `size:` is the front-matter key the emulator
 // reads; landscape is the default and takes no key.
 const SIZES = [
@@ -233,6 +258,7 @@ async function main() {
   // try would strand the per-size scratch decks in test/fixtures/ on every
   // failing run — the one path that always runs while a gate is being fixed.
   let failed = false;
+  const allSizesRun = [];
 
   try {
     browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
@@ -261,6 +287,7 @@ async function main() {
       skipCount += vbSkipped;
       for (const r of stages) if (r.clipped) stageBad.push({ ...r, size: s.name });
       for (const r of boxes) if (r.clipped) boxBad.push({ ...r, size: s.name });
+      allSizesRun.push(s.name);
 
       if (report) {
         console.log(`\n── ${s.name} (${s.viewport.join('×')}) ──`);
@@ -279,6 +306,42 @@ async function main() {
           );
         }
       }
+    }
+
+    // ── Apply the sanctions. Each entry absorbs at most one matching stage clip,
+    // and only while it stays within `maxOver`; anything past that is reported.
+    const sanctionHits = new Map();
+    const unsanctioned = [];
+    for (const r of stageBad) {
+      const worst = Math.max(r.overTop, r.overBottom, r.overLeft, r.overRight);
+      const s = SANCTIONED_CLIPS.find((c) => c.size === r.size && c.component === r.component
+        && !sanctionHits.has(c) && worst <= c.maxOver);
+      if (s) { sanctionHits.set(s, { ...r, worst }); continue; }
+      unsanctioned.push(r);
+    }
+    stageBad.length = 0;
+    stageBad.push(...unsanctioned);
+
+    // A sanction that matched nothing is STALE — the clip it documents is gone (or
+    // moved), so the entry is now a lie the gate would otherwise keep telling.
+    // Only judge sanctions for sizes this run actually covered (`--size` narrows it).
+    const stale = SANCTIONED_CLIPS.filter((c) => !sanctionHits.has(c) && allSizesRun.includes(c.size));
+    if (stale.length) {
+      console.error(`\ncheck-chart-fit: ${stale.length} STALE sanction(s) — the clip no longer occurs:\n`);
+      for (const c of stale) {
+        console.error(
+          `  ✗ [${c.size}] ${c.component} (${c.issue}): sanctioned for up to ${c.maxOver}px, but it now ` +
+          'fits (or clips differently). Delete the SANCTIONED_CLIPS entry — the debt is paid.',
+        );
+      }
+      console.error('');
+      failed = true;
+    }
+    for (const [c, r] of sanctionHits) {
+      console.log(
+        `check-chart-fit: SANCTIONED clip — [${c.size}] ${c.component} ${r.worst}px ` +
+        `(cap ${c.maxOver}px, ${c.issue}). Known and tracked, not fixed.`,
+      );
     }
 
     if (stageBad.length || boxBad.length) {
