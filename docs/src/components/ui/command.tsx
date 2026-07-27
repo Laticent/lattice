@@ -32,6 +32,7 @@ function CommandDialog({
   description = "Search for a command to run...",
   children,
   className,
+  style,
   showCloseButton = true,
   open,
   onOpenChange,
@@ -42,6 +43,10 @@ function CommandDialog({
   title?: string
   description?: string
   className?: string
+  /** DEVIATION from the shadcn base: forwarded to `DialogContent`. The Studio's
+   *  palette needs a keyboard offset that cannot silently fail to generate as a
+   *  Tailwind arbitrary value — see CommandPalette. */
+  style?: React.CSSProperties
   showCloseButton?: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -52,6 +57,7 @@ function CommandDialog({
     <Dialog open={open} onOpenChange={onOpenChange} defaultOpen={defaultOpen} modal={modal}>
       <DialogContent
         className={cn("overflow-hidden p-0", className)}
+        style={style}
         showCloseButton={showCloseButton}
       >
         {/* Inside DialogContent so Radix resolves aria-labelledby/-describedby. */}

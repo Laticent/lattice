@@ -239,6 +239,43 @@ which clips a focused ring top and bottom. The wrapper now sizes to its content 
 the input carries the height, so the two cannot disagree again; the dead `text-sm`
 is deleted rather than corrected, with a note not to "restore" it.
 
+### The keyboard fix was wrong, and only a phone could say so
+
+The first cut shrank the sheet's HEIGHT to `100dvh - kb` and left it pinned
+`bottom-0`. That is half a fix, and the missing half is the one that matters:
+iOS does not move the layout viewport when the keyboard opens, so `bottom: 0` is
+still the bottom of the full-height viewport — underneath the keyboard. A shorter
+sheet pinned there just moves its TOP edge down and buries the content exactly as
+before. Reported from a real iPhone as the Library sheet appearing as a crushed
+strip behind the keyboard.
+
+**In Chromium `--kb` is always 0, so no measurement in this sandbox could have
+caught it** — every number in the previous section was real and the surface was
+not (HARD RULE #23). The sheet has to be LIFTED (`bottom: var(--kb)`) as well as
+shortened. That is now verifiable here by forcing `--kb` and asserting the
+sheet's BOTTOM edge moves, which is a genuine oracle even without a keyboard.
+
+### …and the palette had to leave `DialogContent` to get it
+
+Applying that offset to the command palette failed in a way worth recording,
+because three plausible explanations were all wrong. The class was on the element.
+The utility was in the built CSS. `--kb` resolved to `336px` on the element
+itself. And `bottom` still computed to `0px` — including when set to a **literal
+`336px` inline**, which rules out Tailwind, arbitrary-value escaping, `var()`
+substitution and merge order together.
+
+`DialogContent` simply will not take a bottom offset. Rather than keep fighting
+it, the palette became a `PanelSheet` on mobile — the primitive every other
+overlay already uses. It was the last surface in the app on a different one,
+which is precisely why it kept behaving differently: it was also the only panel
+whose accessible name disagreed with its own drawer row ("Studio commands" vs
+"Search / commands"), and the conversion fixed that for free by giving it the
+shared `PanelHeader`. The desktop path keeps `CommandDialog`, where a centred
+⌘K dialog is the right idiom and there is no keyboard to clear.
+
+The general lesson is the one this whole PR keeps re-learning: **a surface that
+keeps needing its own exception is usually on the wrong primitive.**
+
 ## The 44px floor, fixed at the base
 
 Four of five destinations closed with a `16 × 16` target and the fifth with `30 × 30`. The

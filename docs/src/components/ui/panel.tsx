@@ -67,10 +67,26 @@ import {
 // against it, so this is fixed once for every panel rather than per surface.
 // (`interactive-widget=resizes-content` would be tidier but Safari support is the
 // open question; the visualViewport API works everywhere that matters.)
-const MOBILE_BASE = 'inset-x-0 bottom-0 rounded-t-2xl border-t';
+//
+// `bottom-[--kb]` is the half a first cut got WRONG, and it is worth stating why,
+// because the mistake is invisible to every test that can run here. Shrinking the
+// HEIGHT to `100dvh - kb` is not enough: iOS does not move the layout viewport when
+// the keyboard opens, so `bottom: 0` is still the bottom of the full-height viewport
+// — i.e. underneath the keyboard. A shorter sheet pinned there just moves its TOP
+// edge down and leaves the content buried exactly as before. Reported from a real
+// iPhone: the Library sheet appeared as a crushed strip behind the keyboard. The
+// sheet has to be LIFTED as well as shortened. In Chromium `--kb` is always 0, so
+// the offset bug cannot be reproduced in this sandbox at all (HARD RULE #23 — the
+// measurement was real, the surface was not).
+export const MOBILE_OFFSET = 'bottom-[var(--kb)]';
+const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t`;
 export const MOBILE_TIER = {
-	auto: 'h-[min(88dvh,calc(100dvh-var(--kb,0px)))]',
-	full: 'h-[min(92dvh,calc(100dvh-var(--kb,0px)))]',
+	auto: 'h-[min(88dvh,calc(100dvh-var(--kb)))]',
+	// 96, not 92. At 92 the two tiers were 33px apart on an 844px screen — a `tier`
+	// prop that cost a decision at every call site and bought a difference nobody
+	// could see. 96 leaves ~34px of app above a full panel against ~101px above a
+	// pull-out, which is a distinction you can actually read.
+	full: 'h-[min(96dvh,calc(100dvh-var(--kb)))]',
 } as const;
 
 export type PanelTier = keyof typeof MOBILE_TIER;

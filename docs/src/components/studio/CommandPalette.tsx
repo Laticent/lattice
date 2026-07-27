@@ -1,6 +1,6 @@
-import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Settings2, Share2, Sparkles } from 'lucide-react';
-import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
-import { useKeyboardInset } from '@/components/ui/panel';
+import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Search, Settings2, Share2, Sparkles } from 'lucide-react';
+import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
+import { PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import type { StudioDeck } from './decks';
 import { FeedbackIcon } from './icons';
@@ -52,40 +52,19 @@ export function CommandPalette({
 	onExpandPane?: () => void;
 	onResetSplit?: () => void;
 }) {
-	// The palette is the surface where the keyboard bug was REPORTED: capped at
-	// 85dvh with the keyboard up, its list collapsed to a single row with iOS's own
-	// accessory bar drawn over it. It is a Dialog rather than a PanelSheet, so it
-	// mounts the shared listener itself and reuses the same tier string.
+	// The palette is the surface where the keyboard bug was REPORTED: with the keyboard
+	// up its list collapsed to a single row, with iOS's own accessory bar drawn over it.
+	// On mobile it is now a PanelSheet, which owns the keyboard listener — so there is
+	// nothing to mount here.
 	const mobile = useBreakpoint() === 'mobile';
-	useKeyboardInset(mobile && open);
 	const run = (fn: () => void) => () => {
 		onRun?.();
 		onOpenChange(false);
 		fn();
 	};
-	return (
-		<CommandDialog
-			open={open}
-			onOpenChange={onOpenChange}
-			title="Studio commands"
-			description="Run a command or jump somewhere"
-			// On a phone this becomes a bottom sheet like every other panel. The base
-			// `DialogContent` is centre-floating (`top-1/2 left-1/2 -translate-1/2`), which
-			// made this the ONE surface in the app touching no edge — arriving, from a
-			// drawer pinned to the bottom, as a card in the middle of the screen (#1211).
-			// The overrides undo the centring, square the bottom corners, and swap the
-			// zoom-in for the same slide-up every sheet uses. `max-[699px]` is the app's own
-			// mobile breakpoint (`use-breakpoint.ts`), not Tailwind's `sm`, so the two agree.
-			// Kept here rather than in the vendored `command.tsx`: only the Studio's palette
-			// wants this, and the base stays mergeable.
-			// The trailing padding is not cosmetic. `DialogContent`'s close is absolutely
-			// positioned in the top-right corner, which on this dialog lands ON the search
-			// input — the first row. At 16px that was merely odd; at the 44px touch target
-			// it becomes a dead zone over the end of the field, where a tap dismisses the
-			// palette instead of placing a caret. Reserving the corner fixes it at every
-			// width, since the overlap was never mobile-only.
-			className="[&_[data-slot=command-input-wrapper]]:pr-12 max-[699px]:top-auto max-[699px]:bottom-0 max-[699px]:left-0 max-[699px]:h-[min(88dvh,calc(100dvh-var(--kb,0px)))] max-[699px]:w-full max-[699px]:max-w-none max-[699px]:translate-x-0 max-[699px]:translate-y-0 max-[699px]:rounded-t-2xl max-[699px]:rounded-b-none max-[699px]:[&_[data-slot=command-input-wrapper]]:pr-14 max-[699px]:data-[state=closed]:slide-out-to-bottom max-[699px]:data-[state=closed]:zoom-out-100 max-[699px]:data-[state=open]:slide-in-from-bottom max-[699px]:data-[state=open]:zoom-in-100"
-		>
+	// The palette body is identical on both transports — only the frame differs.
+	const body = (
+		<>
 			<CommandInput placeholder="Search or run a command…" />
 			<CommandList>
 				<CommandEmpty>No matches.</CommandEmpty>
@@ -126,6 +105,39 @@ export function CommandPalette({
 					))}
 				</CommandGroup>
 			</CommandList>
+		</>
+	);
+
+	// MOBILE: a PanelSheet, like every other overlay. This was a `CommandDialog` with
+	// mobile overrides, and it was the last surface in the app on a different primitive
+	// — which is precisely why it kept behaving differently. `DialogContent` will not
+	// take a bottom offset at all: an inline `bottom: 336px` on it still computes to
+	// `0px`, so with the keyboard up this sheet alone stayed pinned underneath while
+	// every PanelSheet lifted clear (reported from a real iPhone). Rather than keep
+	// fighting the primitive, it now uses the one that already works.
+	if (mobile) {
+		return (
+			<PanelSheet open={open} onOpenChange={onOpenChange} tier="full">
+				<PanelHeader icon={<Search />} title="Search / commands" srDescription="Run a command or jump somewhere in the Studio." />
+				<Command className="flex min-h-0 flex-1 flex-col **:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+					{body}
+				</Command>
+			</PanelSheet>
+		);
+	}
+
+	return (
+		<CommandDialog
+			open={open}
+			onOpenChange={onOpenChange}
+			title="Studio commands"
+			description="Run a command or jump somewhere"
+			// `DialogContent`'s close is absolutely positioned in the top-right corner,
+			// which on this dialog lands ON the search input — the first row. Reserving
+			// the corner keeps a click on the end of the field from dismissing the palette.
+			className="[&_[data-slot=command-input-wrapper]]:pr-12"
+		>
+			{body}
 		</CommandDialog>
 	);
 }

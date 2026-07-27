@@ -793,7 +793,10 @@ describe('StudioShell — topbar information architecture', () => {
 	});
 
 	it.each([
-		['Search / commands', 'Studio commands'],
+		// Was ['Search / commands', 'Studio commands'] — the one pair in this table that
+		// encoded the very mismatch the test is named for. The palette is a PanelSheet on
+		// mobile now and answers to its row's own words, so the exception is gone.
+		['Search / commands', 'Search / commands'],
 		['Library', 'Library'],
 		['Reader views', 'Reader views'],
 		['Version history', 'Version history'],

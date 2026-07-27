@@ -5339,6 +5339,20 @@ in patch versions.
   dead `text-sm` is gone too: `.lx-ui input { font: inherit }` outranks it, so every input in the
   app already renders at the inherited 16px — which is also what stops iOS Safari zooming the
   viewport on focus, so the inherited value is the one to keep.
+  **A real iPhone then showed the keyboard fix was half a fix.** Shrinking a sheet's height is
+  not enough — iOS does not move the layout viewport when the keyboard opens, so a shorter sheet
+  still pinned to `bottom: 0` just moves its top edge down and stays buried. Sheets are now
+  LIFTED by `var(--kb)` as well as shortened, which no measurement in a headless browser could
+  have caught (`--kb` is always 0 there). **The command palette became a `PanelSheet` on mobile**
+  to get it: `DialogContent` will not take a bottom offset at all — a literal inline
+  `bottom: 336px` on it still computes to `0px` — and it was the last overlay in the app on a
+  different primitive, which is why it kept needing its own exceptions. It also stops being the
+  one panel whose accessible name disagreed with its own drawer row ("Studio commands" vs
+  "Search / commands"). Desktop keeps the centred ⌘K dialog. **The `auto` tier is now one fixed
+  height (88dvh) rather than content height** — 224px for Version history against 717px for Coach
+  was variation a user could not tell from a rule — and `full` moved 92 → 96dvh so the two tiers
+  differ by more than the 33px nobody could see. **The StudioDrawer joins the same scale**, so
+  its index, Themes and Show me are all one height instead of three.
   (`docs/src/components/ui/{panel.tsx,dialog.tsx,sheet.tsx}`,
   `docs/src/components/studio/{StudioShell.tsx,Library.tsx,CommandPalette.tsx,LensesPanel.tsx,
   lens-picker.tsx,PresentOverlay.tsx,ShareSheet.tsx,WorkspaceSheet.tsx,SlidePicker.tsx}`,
