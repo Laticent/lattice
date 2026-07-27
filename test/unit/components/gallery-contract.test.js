@@ -91,6 +91,7 @@ const VOICE_EXEMPT = {
   'compare-code': { rules: ['density'], reason: 'source lines; no prose axis' },
   'citation-card': { rules: ['density'], reason: 'verbatim quotation; no item axis' },
   'obligation-matrix': { rules: ['density'], reason: 'check-cell grid; no prose axis' },
+  'matrix-grid': { rules: ['density'], reason: 'check-cell grid; no prose axis' },
   // Diagram: galleryAuthored — the hand-curated deck is its own contract.
   diagram: { rules: ['stressDoc', 'density', 'voice'], reason: 'galleryAuthored hand-curated deck' },
 };

@@ -1,0 +1,10 @@
+{
+  "$schema": "../../schema/frame.schema.json",
+  "id": "premise",
+  "form": "split",
+  "kind": "sovereign",
+  "exemptFromChrome": true,
+  "description": "Sovereign framing-claim-beside-a-ledger split — a featured heading + lede on one side, a vertically centered ledger of parallel rows on the other, both on one continuous canvas (no colored panel divide, unlike split-panel). Suppresses the masthead and footer.",
+  "cells": ["stage"],
+  "suppresses": ["masthead", "masthead-lede", "masthead-bay", "footer", "footer-left", "progress-centre", "pagination-right"]
+}

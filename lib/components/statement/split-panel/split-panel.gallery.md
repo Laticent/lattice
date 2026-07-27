@@ -102,6 +102,44 @@ The left panel anchors a phase; the column numbers its moves.
 
 ---
 
+<!-- _class: split-panel proof -->
+<!-- _footer: "proof · split-panel proof — Scenario signal + two paired proof cards, filling the column top to bottom. Narrows the claim panel to 31% and steps the claim heading to the h2 tier — the evidence side carries three stacked regions where the base carries one list." -->
+
+`Level 1 · Remembering`
+
+## Execute with accuracy.
+
+*How is this done?* You recall syntax, patterns, and standards — the path is known, and the job is to follow it without error.
+
+- You know you're here when
+  - You ship on an existing API and rework is rare.
+- Follows examples well
+  - Compiles, runs, and tests locally with confidence.
+- Works from brief tickets
+  - Consistent quality without hand-holding.
+
+
+---
+
+<!-- _class: split-panel capstone -->
+<!-- _footer: "capstone · split-panel capstone — Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry." -->
+
+`Level 6 · Creating`
+
+## Build what didn't exist before.
+
+*What should exist?* You synthesize new frameworks, platforms and operating models — what you produce becomes the standard.
+
+- The signal
+  - Teams across the enterprise adopt your framework as their foundation.
+- Reference architecture
+  - The implementation exists and is validated.
+- Organization-wide adoption
+  - Measurable outcomes follow.
+
+
+---
+
 <!-- _class: split-panel mirror -->
 <!-- _footer: "mirror · split-panel mirror — Featured panel moves right." -->
 
@@ -130,6 +168,126 @@ A bare URL auto-resolves; the caption line labels the scan.
 
 - https://slidewright.dev/components/split-panel `qr`
 - Scan for this layout's docs `caption`
+
+
+---
+
+<!-- _class: split-panel cat-1 -->
+<!-- _footer: "cat-1 · split-panel cat-1 — Override: pins this slide to the theme's categorical fill #1. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+
+`Stage 1 of 8`
+
+## Discover the real problem.
+
+- Talk to the people living with it
+  - Five conversations beat one survey.
+- Write down what surprised you
+  - The surprise is usually the actual problem.
+
+
+---
+
+<!-- _class: split-panel cat-2 -->
+<!-- _footer: "cat-2 · split-panel cat-2 — Override: pins this slide to the theme's categorical fill #2. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+
+`Stage 2 of 8`
+
+## Define what "done" means.
+
+- One sentence, not a document
+  - If it needs a meeting to explain, it isn't defined yet.
+- Name what's explicitly out of scope
+  - The edges matter more than the center.
+
+
+---
+
+<!-- _class: split-panel cat-3 -->
+<!-- _footer: "cat-3 · split-panel cat-3 — Override: pins this slide to the theme's categorical fill #3. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+
+`Stage 3 of 8`
+
+## Design the smallest real version.
+
+- Cut until it's uncomfortable
+  - Comfortable scope is usually still too big.
+- Sketch before you spec
+  - A rough picture surfaces disagreement a document hides.
+
+
+---
+
+<!-- _class: split-panel cat-4 -->
+<!-- _footer: "cat-4 · split-panel cat-4 — Override: pins this slide to the theme's categorical fill #4. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+
+`Stage 4 of 8`
+
+## Build the thing you designed.
+
+- Ship the ugly path first
+  - It finds the real risk; the happy path is easy.
+- Keep a running list of shortcuts taken
+  - Nothing is forgotten faster than a deliberate shortcut.
+
+
+---
+
+<!-- _class: split-panel cat-5 -->
+<!-- _footer: "cat-5 · split-panel cat-5 — Override: pins this slide to the theme's categorical fill #5. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+
+`Stage 5 of 8`
+
+## Validate with the people it's for.
+
+- Watch, don't narrate
+  - What they do matters more than what they say they'd do.
+- One real user beats five imagined ones
+  - A single honest session outweighs a week of speculation.
+
+
+---
+
+<!-- _class: split-panel cat-6 -->
+<!-- _footer: "cat-6 · split-panel cat-6 — Override: pins this slide to the theme's categorical fill #6. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+
+`Stage 6 of 8`
+
+## Launch to a small, real audience.
+
+- Small enough to fix fast
+  - A limited launch turns mistakes into hours, not weeks.
+- Tell people it's early
+  - Set the expectation and the feedback gets more honest.
+
+
+---
+
+<!-- _class: split-panel cat-7 -->
+<!-- _footer: "cat-7 · split-panel cat-7 — Override: pins this slide to the theme's categorical fill #7. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+
+`Stage 7 of 8`
+
+## Scale what actually worked.
+
+- Scale the mechanism, not the guess
+  - Confirm why it worked before you multiply it.
+- Expect the edges to break first
+  - Scale finds every assumption that only held at small size.
+
+
+---
+
+<!-- _class: split-panel cat-8 -->
+<!-- _footer: "cat-8 · split-panel cat-8 — Override: pins this slide to the theme's categorical fill #8. Normally unnecessary — `proof` slides are tinted automatically by deck order." -->
+
+`Stage 8 of 8`
+
+## Sustain it without you in the loop.
+
+- Write down what only you know
+  - If it lives in your head, it isn't sustained yet.
+- Hand off the decision, not just the task
+  - Ownership transfers when someone else can say no.
 
 
 ---

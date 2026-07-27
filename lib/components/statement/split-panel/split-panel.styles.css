@@ -71,6 +71,107 @@ section.split-panel.steps .panel-right > :is(ul,ol) > li > strong { grid-column:
 section.split-panel.steps .panel-right > :is(ul,ol) > li > :is(ul,ol) { grid-column:2; grid-row:2; list-style:none; padding:2px 0 0; margin:0; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li > :is(ul,ol) > li { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
+/* ── .proof — scenario signal + two paired proof cards (a claim demonstrated,
+ * not just supported: a scenario grounds it, two cards prove it holds up
+ * doing the work AND scaling past one pair of hands). */
+/* A narrower claim panel than the base 38%: `proof`'s right zone carries THREE
+ * stacked regions (scenario label, signal card, two proof cards) where the base
+ * carries one list, so the evidence side needs the room. Variant-scoped width is
+ * the established split-panel pattern — `.metric` 44%, `.steps` 30%, `.pullquote`
+ * 50%. */
+section.split-panel.proof .panel-left { width:31%; }
+/* Role-token step-down (HARD RULE #4 — a different token, never a multiplier).
+ * The base panel is a one-line thesis at --fs-h1; a `proof` claim is a full
+ * sentence sitting above a lede, so it reads at the h2 tier and the lede drops
+ * to the body tier to match. */
+section.split-panel.proof .panel-left h2 { font-size:var(--fs-h2); }
+section.split-panel.proof .panel-left p { font-size:var(--fs-body); }
+section.split-panel.proof .panel-left p em:first-child { display:block; font-family:var(--font-display); font-style:italic; font-size:var(--fs-message); color:var(--on-dark-secondary); padding-bottom:var(--sp-xs); }
+section.split-panel.proof .panel-right { gap:var(--sp-md); }
+/* ── The evidence stack is ONE list ───────────────────────────────────────
+ * Item 1 is the scenario signal (its lead is the label, e.g. "You know you're
+ * here when"); items 2-3 are the paired proof cards. Authoring is therefore
+ * uniform — three items of `- Title` + `  - body`, no separate `### heading`
+ * + paragraph shape to remember — and it matches the reference deck, where the
+ * label sits INSIDE the signal card rather than floating above it.
+ *
+ * `grid-auto-rows: 1fr` is what makes the stack FILL the column: the signal row
+ * and the card row split the available height evenly instead of collapsing to
+ * content and stranding the bottom of the slide. `min-height: 0` lets a long
+ * scenario shrink to fit rather than overflow. Proportional, so it holds at any
+ * slide size or --fs-scale. */
+section.split-panel.proof .panel-right > :is(ul,ol) {
+  display:grid; grid-template-columns:1fr 1fr; grid-auto-rows:1fr;
+  align-items:stretch; gap:var(--sp-md); flex:1 1 auto; min-height:0;
+  justify-content:initial; list-style:none; padding:0; margin:0;
+}
+section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child { grid-column:1 / -1; }
+section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); min-height:0; display:flex; flex-direction:column; justify-content:center; }
+section.split-panel.proof .panel-right > :is(ul,ol) > li > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--accent); font-weight:600; padding-bottom:var(--sp-xs); }
+section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) { list-style:none; padding:0; margin:0; }
+section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) > li { font-size:var(--fs-body-compact); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-base); }
+/* The signal row carries the slide's scenario — it reads at body scale, not the
+ * compact card scale the two proof cards use. */
+section.split-panel.proof .panel-right > :is(ul,ol) > li:first-child > :is(ul,ol) > li { font-size:var(--fs-body); color:var(--text-heading); line-height:var(--lh-relaxed); }
+
+/* ── .capstone — proof's climactic entry: the signal reads as a literal
+ * quotation (italic display face, left-accent card) instead of a described
+ * scenario, and the two proof points read as plain top-rule pillars instead
+ * of boxed cards — the sequence's final, most-earned slide reads as
+ * evidence delivered, not one more checkpoint. Composes with `.proof`; the
+ * SAME three-item list — only the chrome differs.
+ * `var(--panel-mark, var(--accent))` so it still works stacked on `.proof`
+ * alone, without a `cat-N` companion class. */
+/* The claim panel spreads instead of bottom-clustering: the eyebrow rides the
+ * top, the question settles at the bottom, and the heading holds the middle —
+ * the summit slide gets air the checkpoint slides don't. */
+section.split-panel.proof.capstone .panel-left {
+  justify-content: space-between;
+}
+/* The closing question is the panel's display element here, not a caption —
+ * it steps up a role tier (message → h2) to carry that weight. */
+section.split-panel.proof.capstone .panel-left p em:first-child {
+  font-size: var(--fs-h2);
+  line-height: var(--lh-tight);
+}
+/* Capstone re-skins the same three items: the signal row becomes a quotation
+ * card, the two proof rows become plain top-rule pillars with their content
+ * settled to the bottom so the evidence reads as a footing under the quote. */
+/* Capstone rows are CONTENT height, spread to the column's ends — not the equal
+ * halves `.proof` uses. `.proof` stretches both rows so the evidence fills the
+ * slide; a capstone pillar is a rule with a caption under it, and stretching it
+ * left the border pinned to the top of its cell with the text stranded at the
+ * bottom, the rule visibly divorced from the label it belongs to. `auto` rows +
+ * `align-content: space-between` reproduces the reference exactly: the quotation
+ * sits below the panel top, the pillars sit on the baseline, each sized to its
+ * own content. */
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) {
+  grid-template-rows: 1fr auto;
+  grid-auto-rows: auto;
+}
+/* The quotation is content-height and CENTERED in the space above the pillars.
+ * The reference puts a lead paragraph in this column above the signal card,
+ * which is what holds its top third; we keep that sentence in the claim panel so
+ * all six level slides author identically, so centering is what fills the space
+ * the lead would have occupied. Pinning it to the top instead left an obvious
+ * void between the quote and the pillars. */
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child {
+  align-self: center;
+}
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child {
+  background: var(--bg); border: 1px solid var(--border);
+  border-left: 4px solid var(--panel-mark, var(--accent));
+  border-radius: var(--radius-md); padding: var(--sp-md) var(--sp-lg);
+}
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child > :is(ul,ol) > li {
+  font-family: var(--font-display); font-style: italic; color: var(--text-heading);
+}
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child > strong { color: var(--accent); }
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2) {
+  background: none; border: none; border-top: 2px solid var(--panel-mark, var(--accent)); border-radius: 0;
+  padding: var(--sp-sm) 0 0;
+}
+
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */
 section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:flex-end; }
 section.split-panel.watermark .panel-left::before { background:var(--on-accent-watermark); height:4px; }
@@ -180,4 +281,56 @@ section.split-panel.watermark .panel-right > :is(ul,ol) > li {
 }
 section.split-panel > .cell-stage {
   padding-block: var(--elevation-berth);
+}
+
+/* ── cat-1…cat-8 — categorical tint, ASSIGNED BY THE ENGINE ───────────────
+ * Recolors `.panel-left` from the universal dark surface to one of the theme's
+ * own eight categorical fills (`--cat-N-fill`, the same family `decision`'s
+ * per-item accent and `statement/premise`'s row color draw from) — for a
+ * SEQUENCE of `proof` slides that should read as a set (a leveled progression,
+ * a staged rollout), each with its own hue.
+ *
+ * Authors do NOT type these. `lib/core/split-panels.js` (mirrored in
+ * lib/transformers/split-panels.js) walks the deck in order and stamps
+ * `cat-N` on every `proof` slide, cycling at eight — the slide's position in
+ * the sequence is what picks the hue, and the deck already states that
+ * position. An explicitly authored `cat-N` is still honored as an override.
+ *
+ * `--cat-N-fill` is a pale tint in light mode and a deep saturated fill in
+ * dark mode (themes/*.css). Text on it uses `--cat-on-fill`, the one ink the
+ * categorical contract guarantees against any fill — see the text rules below. */
+section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); }
+section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); }
+section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); }
+section.split-panel.cat-4 { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); }
+section.split-panel.cat-5 { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); }
+section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); }
+section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); }
+section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); }
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
+  background: var(--panel-fill);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left::before {
+  background: var(--panel-mark);
+}
+/* EVERY text run on the tinted panel takes `--cat-on-fill` — the one ink the
+ * categorical token contract guarantees against any `--cat-N-fill` (>=4.5:1,
+ * gated by checkCatContrast; see the themes/*.css header and
+ * engineering/decisions/2026-07-15-categorical-token-contract.md).
+ *
+ * This replaced a set of hand-picked tokens that MEASURED as AA failures on the
+ * real render: `--text-secondary` on the lede is 4.08:1 on cat-3 and 2.54–2.91:1
+ * across every cat in dark mode, and `--panel-mark` on the eyebrow and the
+ * italic question bottomed out at 2.76:1. `--cat-N-mark` is a STROKE token — the
+ * contract only guarantees it 3:1 against the BACKGROUND, never as text on the
+ * fill — so it is used below for borders and rules only, never for type.
+ *
+ * One ink means hierarchy is carried by size, weight, case and face rather than
+ * color: the eyebrow stays mono/uppercase/tracked, the question stays display
+ * italic, the lede stays a tier down. That is the trade the contract asks for. */
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left h2,
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left p,
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-eyebrow,
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-left p em:first-child {
+  color: var(--cat-on-fill);
 }

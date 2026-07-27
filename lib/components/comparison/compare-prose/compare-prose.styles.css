@@ -314,6 +314,135 @@ section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage >
   border-color: var(--on-accent-soft); background: var(--accent-soft);
 }
 
+/* ── axis variant — bloom's "cpx" axis-explainer: a lede above two
+ * numeral-led facet cards, a closing note below. The pair reads as two
+ * facets of one idea, not a before/after state change — so it gets its own
+ * plain arrow rather than composing with `.transition`'s accent-tinted
+ * second card. Each card's outer <li> lead is left BLANK by the author (the
+ * corner-tag lift no-ops on an empty lead — see slot-label-lift.js); the
+ * nested sub-list's first three items become the numeral, title, and
+ * description via nth-child, not a transform. */
+/* The whole framing cluster centers, masthead included — this variant is a
+ * centered explainer, not a left-ruled reference slide. Uses the headline
+ * seam (base.accent-finish.css `headline:` register), the same mechanism
+ * `list-steps.timeline` uses to center its own masthead. */
+section.form.compare-prose.axis .cell-masthead .masthead-lede {
+  text-align: var(--headline-align, center);
+  align-items: var(--headline-justify, center);
+}
+section.compare-prose.axis > .cell-stage {
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+}
+/* Measures in cqi, not em: the lede and the card pair are SLIDE-proportional
+ * columns (they must hold their share of the canvas at any size), where an
+ * em-measure would re-flow with the font tier instead. */
+/* --fs-body, not --fs-message: this lede is a three-clause EXPLAINER carrying
+ * the slide's argument, not the single-statement line --fs-message is for. At
+ * the message tier a 60cqi measure ran it to five lines and the centered stage
+ * clipped at both ends; at the body tier it settles to three or four and the
+ * group has room to breathe. */
+section.compare-prose.axis > .cell-stage > p:first-child {
+  font-size: var(--fs-body);
+  line-height: var(--lh-relaxed);
+  color: var(--text-secondary);
+  max-width: 60cqi;
+  align-self: center;
+  padding-bottom: var(--sp-md);
+}
+/* 72cqi, not the source's 64: our card body sits at --fs-body (1.67cqi) where
+ * the reference set 17px (1.33cqi), so the same three-line body needs more
+ * column or it grows a fourth line and clips the stage. The cap still does its
+ * job — it holds the pair as a centered group instead of letting it span the
+ * full frame — it's just set for OUR type tier. */
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) {
+  max-width: 72cqi;
+  align-self: center;
+  width: 100%;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
+  content: '\2192';
+  color: var(--text-secondary);
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li {
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+/* Numerals are GENERATED from the ordered list, not authored. The previous
+ * contract asked the author to leave the outer item's lead BLANK and then write
+ * the numeral as the first nested bullet — an empty `- ` in the markdown, which
+ * is indefensible authoring and silently produced a numeral-less card if anyone
+ * "tidied" it. Now the shape is the ordinary numbered one used everywhere else:
+ *   1. Own the verb
+ *      - the body
+ * upper-roman because this variant pairs two FACETS of one idea (I / II), where
+ * arabic would read as sequence. */
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol {
+  counter-reset: axis-facet;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > ol > li {
+  counter-increment: axis-facet;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li::before {
+  content: counter(axis-facet, upper-roman);
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  padding-bottom: var(--sp-sm);
+}
+/* `axis` opts OUT of the family's corner-tag recipe. That recipe lifts a card's
+ * leading <strong> into a flush top-left chip and reserves top padding for it —
+ * right for a labeled comparison card, wrong here, where the facet title belongs
+ * UNDER the numeral as part of the centered stack. This is the rule the old
+ * blank-lead contract was dodging; opting out explicitly is what lets the item
+ * be authored as an ordinary `1. Title` + nested body. */
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
+  padding-top: var(--sp-lg);
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
+  position: static;
+  background: none;
+  padding: 0 0 var(--sp-xs);
+  border-radius: 0;
+  min-width: 0;
+  letter-spacing: normal;
+  text-transform: none;
+  /* The chip recipe also set chip INK (--on-accent) and a mono label face; both
+   * have to come back to card-title values or the title renders near-white on
+   * the light card. */
+  color: var(--text-heading);
+  font-family: var(--font-body);
+  font-size: var(--fs-h3);
+  font-weight: 700;
+  text-align: center;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > strong {
+  display: block;
+  font-size: var(--fs-h3);
+  font-weight: 700;
+  color: var(--text-heading);
+  padding-bottom: var(--sp-xs);
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
+  font-size: var(--fs-body);
+  font-weight: 400;
+  color: var(--text-body);
+  line-height: var(--lh-relaxed);
+}
+/* The closing note is the universal trailing-italic-paragraph "annotation"
+ * (base.modifiers.css) — CLI-wrapped in `.below-note`, ✦ glyph + muted
+ * italic body. No axis-specific CSS needed; centering comes from the
+ * `.cell-stage { align-items: center }` rule above. */
+
 /* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    Two side-by-side cards with a chevron between them become unreadable slivers in a
    tall box. Apply the existing `vertical` treatment automatically — stack the cards

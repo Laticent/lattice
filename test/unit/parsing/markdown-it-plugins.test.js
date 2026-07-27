@@ -780,6 +780,58 @@ describe('markdown-it-plugins', () => {
     assert.match(html, /<span class="state skip state-slashed">/);
   });
 
+  // ── matrixGridCells ────────────────────────────────────────────────────
+
+  test('matrixGridCells: [x] / [-] / [ ] markers in <td> become shape spans; only [x] keeps its label', () => {
+    const m = makeHost(plugins.matrixGridCells);
+    const md = [
+      '<!-- _class: matrix-grid -->',
+      '## Title',
+      '',
+      '| Verb | Self | Team | Org |',
+      '| --- | :-: | :-: | :-: |',
+      '| Create | [ ] | [-] | [x] Distinguished |',
+    ].join('\n');
+    const { html } = m.render(md);
+    assert.match(html, /<span class="cell cell-empty">/);
+    assert.match(html, /<span class="cell cell-outlined">/);
+    assert.match(html, /<span class="cell cell-filled">Distinguished<\/span>/);
+    // Outlined/empty carry no VISIBLE label, but do carry a screen-reader-only
+    // state name — the a11y gap a maker-checker review found (#5): the shape +
+    // hue alone name nothing for anything reading DOM text, not the render.
+    assert.match(html, /cell-empty">\s*<span class="cell-sr-label">not applicable<\/span>/);
+    assert.match(html, /cell-outlined">\s*<span class="cell-sr-label">reachable<\/span>/);
+  });
+
+  test('matrixGridCells: does NOT fire outside the matrix-grid class', () => {
+    const m = makeHost(plugins.matrixGridCells);
+    const md = [
+      '## Title',
+      '',
+      '| A | B |',
+      '| --- | :-: |',
+      '| row | [x] would-be-cell |',
+    ].join('\n');
+    const { html } = m.render(md);
+    assert.doesNotMatch(html, /class="cell /);
+    assert.match(html, /\[x\] would-be-cell/, 'literal marker preserved when plugin does not fire');
+  });
+
+  test('matrixGridCells: a cell with no marker passes through unchanged', () => {
+    const m = makeHost(plugins.matrixGridCells);
+    const md = [
+      '<!-- _class: matrix-grid -->',
+      '## Title',
+      '',
+      '| Verb | Self |',
+      '| --- | :-: |',
+      '| Create | plain text |',
+    ].join('\n');
+    const { html } = m.render(md);
+    assert.doesNotMatch(html, /class="cell /);
+    assert.match(html, />plain text<\/td>/);
+  });
+
   // ── checklistItemStates ──────────────────────────────────────────────
 
   test('checklistItemStates: top-level [x]/[-]/[ ]/[/] items get state + shape classes on <li>', () => {

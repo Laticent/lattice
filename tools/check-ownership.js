@@ -2086,6 +2086,7 @@ const SANCTIONED_DENSITY_EXEMPT = {
   contact: 'connect — vCard identity fields, not prose',
   // data grids — [x]/checkmark cells / feature matrices; word-counting mis-fires.
   'obligation-matrix': 'data grid — [x] cells, not prose',
+  'matrix-grid': 'data grid — [x] cells, not prose',
   pricing: 'data grid — feature checklist, terse labels',
   // verbatim — a quoted statute is intentionally long; trimming would falsify it.
   'citation-card': 'verbatim — a cited statute, not authorable prose',

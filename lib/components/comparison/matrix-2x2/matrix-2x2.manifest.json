@@ -119,6 +119,10 @@
       "when": "many rows × many columns of state-marker cells"
     },
     {
+      "name": "matrix-grid",
+      "when": "both axes are ordered categories and cells mark one position, not four free quadrants"
+    },
+    {
       "name": "cards-grid",
       "when": "the items don't divide along two axes"
     }

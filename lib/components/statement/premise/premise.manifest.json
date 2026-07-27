@@ -1,0 +1,115 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "premise",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "heading",
+      "lede",
+      "rows"
+    ]
+  },
+  "function": "statement",
+  "form": "split",
+  "substance": "series",
+  "bucket": "statement",
+  "density": {
+    "axis": "item",
+    "soft": 14,
+    "hard": 18,
+    "note": "the description clause plus the trailing question, combined — not a sentence each"
+  },
+  "tags": [
+    "onboarding",
+    "ranking",
+    "definition",
+    "overview"
+  ],
+  "description": "A framing claim beside a vertically centered ledger of parallel rows — a number, a term, a description, and a right-aligned note, each row colored by its own categorical hue.",
+  "purpose": "Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, a set of named stages, a ranked taxonomy — and wants one framing claim to sit beside the whole list at a glance, not one slide per term. The claim doesn't summarize the rows; it states why the ordering matters. Each row is a fixed four-part record: an index, the term, one description clause, and a short framing question or note, right-aligned. Both zones share the page's own background — unlike `split-panel`, there's no colored panel divide.",
+  "slots": {
+    "heading": {
+      "selector": "h2",
+      "required": true,
+      "description": "The claim — why the ordering in the ledger matters, not a summary of it."
+    },
+    "lede": {
+      "selector": "h2 + p",
+      "required": true,
+      "description": "One-to-two sentence framing paragraph under the claim, naming the two axes or dimensions the ledger's rows walk."
+    },
+    "rows": {
+      "selector": "ol > li",
+      "required": true,
+      "description": "Each row is a NUMBERED item: the term on the item's own line, then exactly two nested bullets — the description clause, then a short framing question. The ordinal is a CSS counter (never author-typed, so rows renumber on reorder) and the term bolds automatically. 3-8 rows; each is colored by its own slot in the theme's categorical palette."
+    }
+  },
+  "skeleton": "<!-- _class: premise -->\n\n## The claim the ledger exists to support.\n\nOne or two sentences naming the axes the rows below walk.\n\n1. First term\n   - A short clause describing it.\n   - A question it answers?\n2. Second term\n   - A short clause describing it.\n   - A question it answers?\n3. Third term\n   - A short clause describing it.\n   - A question it answers?\n",
+  "anatomyBlock": "premise",
+  "sample": "<!-- _class: premise -->\n\n## Growth is a change in thinking, not title.\n\nSix cognitive verbs map the questions an engineer learns to ask — your level is the highest verb you reliably own, and how far that thinking travels.\n\n1. Remember\n   - Recall facts, syntax, rules.\n   - How is this done?\n2. Understand\n   - Explain behavior and dependencies.\n   - Why does it work?\n3. Apply\n   - Use patterns in new contexts.\n   - How do I make it work here?\n4. Analyze\n   - Decompose across boundaries.\n   - Where does it break?\n5. Evaluate\n   - Judge options against strategy.\n   - Which option should win?\n6. Create\n   - Synthesize what isn't there.\n   - What should exist?\n",
+  "whenToUse": [
+    {
+      "title": "An ordered vocabulary needs one overview slide",
+      "body": "A maturity ladder, a named set of stages, a ranked taxonomy — anything with 3-8 ordered terms that deserves a single at-a-glance slide before the deck dives into each one individually."
+    },
+    {
+      "title": "The claim explains the ORDER, not the list",
+      "body": "The heading + lede earn their place by saying why the ranking matters (\"growth is a change in thinking, not title\") — if there's nothing to claim about the ordering, a plain `list` serves better."
+    },
+    {
+      "title": "Every row shares the exact same four-part shape",
+      "body": "Index, term, one clause, one right-aligned note. A row that needs more than that (a nested sub-list, a multi-sentence description) has outgrown `premise` — reach for `cards-stack` or a per-term `split-panel proof` slide instead."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Rows with unequal structure",
+      "body": "Every row must carry all four segments in the same order. A row missing its trailing note, or with a two-clause description, breaks the ledger's scan rhythm — trim or pad it to match its siblings."
+    },
+    {
+      "title": "More than eight rows",
+      "body": "The categorical palette cycles at eight; past that, split into two premise slides by group rather than repeating hues."
+    },
+    {
+      "title": "The heading summarizes the rows instead of claiming something",
+      "body": "\"Six cognitive verbs\" restates the list; \"growth is a change in thinking, not title\" claims why the list matters. If the heading can't be argued with, it's a caption, not a premise."
+    }
+  ],
+  "related": [
+    {
+      "name": "split-panel",
+      "when": "the featured element deserves its own colored panel, not a shared background"
+    },
+    {
+      "name": "list-tabular",
+      "when": "the rows need MORE than four fields, or a header row naming the columns"
+    },
+    {
+      "name": "cards-stack",
+      "when": "each term needs its own multi-sentence body, not a one-clause row"
+    },
+    {
+      "name": "glossary",
+      "when": "the terms are unordered and there's no claim to make about their sequence"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing the row as a nested `- Title` / `  - body` pair instead of one inline line.",
+      "fix": "`premise` rows are ONE line with four inline segments (code, bold, plain text, italic) — the nested title+body pattern other card-style layouts use doesn't apply here; the row parser looks for a `<strong>…</strong>` immediately followed by descriptive text and a trailing `<em>`."
+    },
+    {
+      "mistake": "Omitting the trailing italic note, expecting the row to still align.",
+      "fix": "The note's column is reserved whether or not it's authored — an empty note leaves a blank cell rather than collapsing the row, so pad it or the row reads unfinished."
+    }
+  ],
+  "dataShapeGuidance": [
+    "Rows should be authored in the ranking's natural order (lowest to highest, or first to last) — the row order IS the categorical color order.",
+    "Up to eight rows are colored from the categorical palette before hues repeat; past eight, split into two slides."
+  ],
+  "stressDoc": {
+    "summary": "Eight rows — the categorical palette's ceiling.",
+    "sample": "<!-- _class: premise -->\n\n## Eight is where one palette cycle ends.\n\nPast eight rows the categorical hues repeat, so eight is this layout's practical ceiling.\n\n1. Novice\n   - Follows a script closely.\n   - Can you repeat it?\n2. Advanced beginner\n   - Recognizes recurring situations.\n   - Have you seen this before?\n3. Competent\n   - Plans deliberately.\n   - What's the goal here?\n4. Proficient\n   - Sees the whole, not just rules.\n   - What does the situation call for?\n5. Expert\n   - Acts on intuition from experience.\n   - What feels right?\n6. Master\n   - Refines the craft itself.\n   - What could be better?\n7. Practitioner\n   - Teaches the craft to others.\n   - How do I pass this on?\n8. Steward\n   - Shapes the field's standards.\n   - What should the craft become?\n"
+  },
+  "specimenVoice": true
+}

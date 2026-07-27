@@ -148,4 +148,5 @@ Static 2×2 quadrant grid with author-placed items per cell.
 - `quadrant` — items have continuous x/y coordinates rather than discrete quadrant labels
 - `verdict-grid` — options scored across more than two dimensions
 - `obligation-matrix` — many rows × many columns of state-marker cells
+- `matrix-grid` — both axes are ordered categories and cells mark one position, not four free quadrants
 - `cards-grid` — the items don't divide along two axes

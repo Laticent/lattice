@@ -23,6 +23,7 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ### Variant decision rule
 
+- **`capsule`.** The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit). One class carries the whole look: centered masthead and cards, a pill badge per step in its own categorical hue, a serif title, no connector arrows, and no masthead hairline. Add `rule-full` if you want the hairline back.
 - **`vertical`.** The frame is narrow or portrait, or the step bodies need more vertical room — stacks steps down the page instead of across a row.
 - **`chevron`.** The story argues through cascading stages (problem → vision → approach → plan) — down-chevron tabs read as a persuasive cascade rather than a neutral sequence.
 - **`converge`.** The process narrows toward one outcome — a qualitative funnel shape without literal conversion percentages (use `funnel` when you have numbers).
@@ -288,6 +289,23 @@ Numerals count the phases.
    - The look changes; the grammar holds.
 3. Third
    - Body budgets do not move.
+```
+
+### `capsule` — capsule
+
+Centered editorial group: pill badge per step in its own categorical hue, serif title, no connector arrows, no masthead hairline.
+
+```markdown
+<!-- _class: list-steps capsule -->
+
+## Turn the framework into a habit.
+
+1. Name it
+   - Say the verb and the reach you operate at today.
+2. Pick the next move
+   - One deeper verb, or the same verb carried wider.
+3. Keep the evidence
+   - A doc, a metric, a postmortem — proof the shift happened.
 ```
 
 ## Universal modifiers

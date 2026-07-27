@@ -206,3 +206,4 @@ Filled = applies, half = partial, empty = exempt. Neutral ink — data first.
 - `verdict-grid` — options scored against criteria with a per-card layout instead of a table
 - `matrix-2x2` — two axes, four cells, qualitative placement
 - `checklist` — one set of obligations against one regime, not many
+- `matrix-grid` — the grid marks one position on two ordered axes, not a pass/partial/exempt status per cell

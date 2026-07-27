@@ -2,7 +2,7 @@
 
 # chart
 
-`13 components`
+`14 components`
 
 Chart — series-substance data visualizations (SVG kernel).
 
@@ -97,6 +97,28 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 - Ethiopia `14.1`
 - Bangladesh `11.8`
 - Peru `9.6`
+
+---
+
+<!-- _class: matrix-grid -->
+<!-- _footer: "matrix-grid · chart survey" -->
+
+## Your level is a cell, not a rung.
+
+Your title is the diagonal — the same verb at a wider reach is a different level.
+
+`Wider reach`  `Deeper cognition`
+
+| Verb | Self | Team | Org | Field |
+| ---------- | :--: | :--: | :--: | :---: |
+| Create     | [ ]  | [-]  | [-]  | [x] Distinguished |
+| Evaluate   | [ ]  | [-]  | [x] Principal | [-] |
+| Analyze    | [ ]  | [-]  | [x] Staff | [-] |
+| Apply      | [-]  | [x] Senior | [-] | [ ] |
+| Understand | [x] Mid | [-] | [ ] | [ ] |
+| Remember   | [x] Junior | [-] | [ ] | [ ] |
+
+**Your level** · *where you can operate when called for* — illustrative, placements vary by company.
 
 ---
 

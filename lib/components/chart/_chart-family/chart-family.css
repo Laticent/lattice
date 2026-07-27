@@ -373,7 +373,7 @@ section.chart-frame .chart-body {
  * stage). It self-scales instead — a flex viewport that fills the stage (caption keeps its
  * space) with a JS-fitted `.state-chart-scale` box, FLOORED so an overstuffed machine still
  * spills + the probe catches it. See 2026-07-16-state-chart-self-scale.md + state-chart.styles.css. */
-section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) > .cell-stage > .chart-body {
+section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-grid) > .cell-stage > .chart-body {
   flex: 0 0 auto;
 }
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural
