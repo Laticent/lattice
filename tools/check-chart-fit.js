@@ -89,27 +89,23 @@ const VB_SLACK = 1.0;
 // ever for a PRE-EXISTING clip that is genuinely blocked, never for one this
 // change introduced (HARD RULE #18).
 const SANCTIONED_CLIPS = [
-  {
-    size: 'portrait',
-    component: 'roadmap',
-    maxOver: 90,
-    issue: '#1209',
-    why: 'Portrait roadmap is over-capacity, not mis-tuned. Reduced 284.3px → 80.4px per '
-       + 'side by stepping card body/chrome down the role scale and un-wrapping the status '
-       + 'key. What is left needs card text BELOW the role scale, which contradicts the '
-       + 'legibility floor #1213 asks for in the same breath. Closing it properly is a '
-       + 'design call between self-scale (reverses the pinned-group decision in '
-       + '2026-07-16-state-chart-self-scale.md), a capacity + split recipe, or a denser '
-       + 'portrait form — so #1209 stays open for this half.',
-  },
+  // EMPTY, and that is the point. Portrait roadmap was sanctioned here at 80.4px while
+  // it was genuinely blocked; #1209's split recipe (`roadmap-horizons`) closed it, so
+  // the entry was DELETED rather than left to rot. The stale check below would have
+  // failed the gate if it had not been — which is exactly the behaviour the list is for.
 ];
 
 // The three supported deck shapes. `size:` is the front-matter key the emulator
 // reads; landscape is the default and takes no key.
+// `autosplit` is ON for portrait/square and omitted for landscape, mirroring the
+// engine: `AUTOSPLIT_APPLIES` (lattice-emulator.js) makes it a no-op on a landscape
+// deck, and it is the supported answer for a portrait slide that cannot fit — a
+// roadmap paginates its phase cards rather than clipping (#1209). Measuring portrait
+// WITHOUT it would gate a configuration the engine does not intend anyone to ship.
 const SIZES = [
-  { name: 'landscape', size: null, viewport: [1920, 1080] },
-  { name: 'portrait', size: 'portrait', viewport: [1080, 1350] },
-  { name: 'square', size: 'square', viewport: [1080, 1080] },
+  { name: 'landscape', size: null, autosplit: false, viewport: [1920, 1080] },
+  { name: 'portrait', size: 'portrait', autosplit: true, viewport: [1080, 1350] },
+  { name: 'square', size: 'square', autosplit: true, viewport: [1080, 1080] },
 ];
 
 /** Best-effort Chromium — mirrors tools/check-viz-render.js + check-svg-scaling.js. */
@@ -131,11 +127,15 @@ function resolveChrome() {
  * rather than duplicated (a second key would silently win or lose by parser
  * order, which is exactly the kind of thing a gate must not be vague about).
  */
-function withSize(src, size) {
+function withSize(src, size, autosplit) {
+  const extra = [];
+  if (size) extra.push(`size: ${size}`);
+  if (autosplit) extra.push('autosplit: on');
   const fm = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(src);
-  if (!fm) return size ? `---\nsize: ${size}\n---\n\n${src}` : src;
-  const body = fm[1].split(/\r?\n/).filter((l) => !/^\s*size\s*:/.test(l));
-  if (size) body.push(`size: ${size}`);
+  if (!fm) return extra.length ? `---\n${extra.join('\n')}\n---\n\n${src}` : src;
+  const body = fm[1].split(/\r?\n/)
+    .filter((l) => !/^\s*(?:size|autosplit)\s*:/.test(l))
+    .concat(extra);
   return `---\n${body.join('\n')}\n---\n${src.slice(fm[0].length)}`;
 }
 
@@ -269,7 +269,7 @@ async function main() {
       const md = path.join(path.dirname(FIXTURE), `.chart-fit-${s.name}-${process.pid}.md`);
       const base = path.join(os.tmpdir(), `chart-fit-${s.name}-${process.pid}`);
       scratch.push(md, `${base}.pdf`, `${base}.html`);
-      fs.writeFileSync(md, withSize(src, s.size));
+      fs.writeFileSync(md, withSize(src, s.size, s.autosplit));
 
       execFileSync(process.execPath, [EMULATOR, md, `${base}.pdf`, 'indaco', '-q'], {
         cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 10 * 60_000,

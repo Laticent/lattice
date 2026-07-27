@@ -508,13 +508,13 @@
       "relationship": null
     },
     "roadmap": {
-      "treatment": "atomic",
-      "axis": null,
-      "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
+      "treatment": "read-across",
+      "axis": "col",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "roadmap-horizons",
+      "reshape": "paginator",
+      "coverClass": "roadmap-cover",
       "perPage": null,
       "relationship": null
     },

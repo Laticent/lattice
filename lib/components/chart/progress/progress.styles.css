@@ -204,6 +204,13 @@
     /* Left-aligned now that it heads the row instead of butting against the
      * bar's origin — right-alignment only reads as a gutter beside the track. */
     text-align: left;
+    /* Back to the body step. The ≤1.05 block above bumps the label to
+     * `--fs-message` to help a narrow three-column row fill a taller box — but
+     * once the label has its OWN full-width row that bump only buys height, and
+     * five two-line rows plus the gallery's real subtitle put the stack 10.5px
+     * past the stage. Statement scale is for a slide's message, not a row label
+     * (engineering/typography.md). */
+    font-size: var(--fs-body);
   }
   :is(section.progress, figure.progress) .progress-track { grid-area: track; }
   :is(section.progress, figure.progress) .progress-row > .chart-status,

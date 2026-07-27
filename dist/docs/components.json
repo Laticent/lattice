@@ -8360,6 +8360,17 @@
         "heat",
         "canvas"
       ],
+      "capacity": {
+        "axis": "col",
+        "min": 2,
+        "sweet": 4,
+        "soft": 5,
+        "hard": 7,
+        "escalateTo": [
+          "split across slides"
+        ],
+        "note": "columns INCLUDING the leading workstream label column, so 4 = three phases. Past four phases the landscape grid crushes; at portrait the horizons cards paginate instead (max 4 pages)"
+      },
       "slots": {
         "title": {
           "selector": "h2",

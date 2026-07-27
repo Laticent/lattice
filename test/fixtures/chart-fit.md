@@ -265,7 +265,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ## Progress bars race toward their targets.
 
-Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading.
+Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.
 
 - Signal Intake `92%` `on-track`
 - Scoring policy `68%` `at-risk`

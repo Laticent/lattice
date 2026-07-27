@@ -12,6 +12,8 @@ Use to show what ships in each phase across multiple parallel workstreams. Cells
 
 ## Agent contract
 
+**Capacity** ~4 columns (crowds past 5, overflows past 7) — past that, split across slides.
+
 ### Slots
 
 | Slot | Selector | Required | Description |

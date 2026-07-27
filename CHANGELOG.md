@@ -436,6 +436,20 @@ in patch versions.
   cut silently. At portrait the label now takes its own full-width row above the bar (the same
   stack-what-landscape-puts-side-by-side move piechart makes with its key), which also gives the bar
   the full width — a straight win for a component whose datum is length. Square is unchanged.
+- **`roadmap` at portrait now paginates its phase cards instead of clipping (2–4 pages, 4 max).**
+  A portrait roadmap was over-capacity, not mis-tuned: with the card body already collapsed to
+  one line per workstream, three phase cards made 1194.5px of grid in an 835.6px stage, and no
+  amount of tuning closed it without pushing card text below the role scale. It now has a split
+  recipe. §0c placed the roadmap TABLE as atomic — paginating a workstream × phase grid destroys
+  the cross-reading — and that still holds: the new `roadmap-horizons` strategy refuses the table
+  outright. But at portrait the engine auto-selects `horizons`, which transposes the grid into N
+  INDEPENDENT phase cards, each already self-contained; that seam is real exactly as kanban's
+  lanes are, so roadmap moves `atomic` → `read-across` (the treatment that REQUIRES a strategy
+  rather than permitting a bare axis, so it can never paginate by a plain axis). Budget is 2–4
+  pages: `perSlide = ceil(N/4)` caps the run and `evenGroups` balances it, so 3 phases → 3 pages,
+  5 phases → 2+2+1, and 16 phases still → 4 pages. Verified for every phase count 2–16, with
+  conservation (no phase dropped or duplicated) and balance (no page 2+ cards heavier) asserted.
+  **Autosplit is opt-in per deck** (`autosplit: on`), and applies to portrait/square only.
 - **`roadmap` clipped its status key on a square deck.** The key's top separation rides
   `--canvas-scale` to 60.1px; the table clears the stage by 128.8px but table + key made a 780.3px
   figure in a 728.2px stage. The key now tightens on non-landscape decks and drops to the chrome
