@@ -5287,6 +5287,31 @@ in patch versions.
   with any `_paginate: false` slide every page after it read one low and the total undercounted.
   A split now leaves the numbering of slides it never touched exactly as the engine set it.
 
+- **Every panel the Studio's mobile drawer opened had its own framing — four entry edges, five
+  heights, three widths, and a 16px close target (#1211).** The drawer is bottom-anchored, but
+  tapping a row could send you to a panel that slid in from the left ("Reader views"), the right
+  ("Version history" — its neighbour one row down), a full-screen takeover (Library, Send feedback),
+  or a card floating in the middle of the screen touching no edge at all (Search / commands). Two
+  rows in the same card opened in opposite directions. **On a phone every panel is now a bottom
+  sheet** with the drawer's own radius and height cap: `PanelSheet` honours its `side` at tablet and
+  desktop and ignores it on mobile, so tablet keeps the left/right rail grammar it has room for and
+  the phone gets the one edge it has room for. The command palette is not exempt — it was the only
+  surface in the app touching no edge. **The 44px touch floor now holds outside the drawer too.**
+  That floor is why the mobile toolbar was redesigned in the first place, and every destination
+  broke it: four closed with a `16 × 16` target, the fifth with `30 × 30`. The close is 44×44 on any
+  coarse pointer — fixed in the vendored `dialog.tsx`/`sheet.tsx` so it lands on every dialog in the
+  app, with the glyph left exactly where it was. **"Reader views" no longer arrives as "LENSES"** —
+  a different word from the row that opened it, set in the 11px uppercase the drawer's own rules
+  ban. The panel, the activity-bar launcher, and the drawer row now all say "Reader views";
+  "Lenses" survives as the internal name only. Also fixed while measuring: Library's filter strip
+  clipped "Docs" mid-word against the "0 total" counter at 390px, and its header search truncated to
+  "Search th" — the count hides on a phone and the search wraps to its own row. `PanelHeader` gained
+  `srDescription` for a panel with more to say than its title but no room to say it. Finishes the
+  `PanelSheet`/`PanelHeader` migration deferred in `2026-07-17-panel-drawer-cohesion.md`.
+  (`docs/src/components/ui/{panel.tsx,dialog.tsx,sheet.tsx}`,
+  `docs/src/components/studio/{StudioShell.tsx,Library.tsx,CommandPalette.tsx,LensesPanel.tsx,
+  lens-picker.tsx,PresentOverlay.tsx}`, `docs/src/lib/use-breakpoint.ts`.)
+
 - **The Studio E2E suite's toast oracle had been dead since the Sonner migration, silently
   failing 22 assertions across 12 spec files.** `toastText()` matched
   `[role="status"].fixed.inset-x-0` — the hand-rolled pill Sonner replaced. Sonner's toast carries

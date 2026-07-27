@@ -56,7 +56,28 @@ export function CommandPalette({
 		fn();
 	};
 	return (
-		<CommandDialog open={open} onOpenChange={onOpenChange} title="Studio commands" description="Run a command or jump somewhere">
+		<CommandDialog
+			open={open}
+			onOpenChange={onOpenChange}
+			title="Studio commands"
+			description="Run a command or jump somewhere"
+			// On a phone this becomes a bottom sheet like every other panel. The base
+			// `DialogContent` is centre-floating (`top-1/2 left-1/2 -translate-1/2`), which
+			// made this the ONE surface in the app touching no edge — arriving, from a
+			// drawer pinned to the bottom, as a card in the middle of the screen (#1211).
+			// The overrides undo the centring, square the bottom corners, and swap the
+			// zoom-in for the same slide-up every sheet uses. `max-[699px]` is the app's own
+			// mobile breakpoint (`use-breakpoint.ts`), not Tailwind's `sm`, so the two agree.
+			// Kept here rather than in the vendored `command.tsx`: only the Studio's palette
+			// wants this, and the base stays mergeable.
+			// The trailing padding is not cosmetic. `DialogContent`'s close is absolutely
+			// positioned in the top-right corner, which on this dialog lands ON the search
+			// input — the first row. At 16px that was merely odd; at the 44px touch target
+			// it becomes a dead zone over the end of the field, where a tap dismisses the
+			// palette instead of placing a caret. Reserving the corner fixes it at every
+			// width, since the overlap was never mobile-only.
+			className="[&_[data-slot=command-input-wrapper]]:pr-12 max-[699px]:top-auto max-[699px]:bottom-0 max-[699px]:left-0 max-[699px]:max-h-[85dvh] max-[699px]:w-full max-[699px]:max-w-none max-[699px]:translate-x-0 max-[699px]:translate-y-0 max-[699px]:rounded-t-2xl max-[699px]:rounded-b-none max-[699px]:[&_[data-slot=command-input-wrapper]]:pr-14 max-[699px]:data-[state=closed]:slide-out-to-bottom max-[699px]:data-[state=closed]:zoom-out-100 max-[699px]:data-[state=open]:slide-in-from-bottom max-[699px]:data-[state=open]:zoom-in-100"
+		>
 			<CommandInput placeholder="Search or run a command…" />
 			<CommandList>
 				<CommandEmpty>No matches.</CommandEmpty>

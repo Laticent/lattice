@@ -31,8 +31,11 @@ export const CHROME = {
 	coach: 'Toggle Coach',
 	/** Activity-bar toggle for the Chat (AI conversation) panel — a separate peer of the Coach. */
 	chat: 'Toggle Chat',
-	/** Activity-bar toggle for the Lenses (reader-views) panel — a first-class peer of the Architect. */
-	lenses: 'Toggle Lenses',
+	/** Activity-bar toggle for the Reader views panel — a first-class peer of the Architect.
+	 *  Renamed from "Toggle Reader views" in #1211: the panel it opens is titled "Reader views",
+	 *  as is the drawer row, so the launcher agreed with neither. "Lenses" survives only as
+	 *  the internal name (lensesBody, lens-picker, /lib/lente). */
+	lenses: 'Toggle Reader views',
 	/** Activity-bar toggle for the Library (saved themes / components / finishes) panel. */
 	library: 'Open Library',
 	/** The deck-switcher / workspace launcher in the top bar. */

@@ -4,11 +4,11 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { NEW_SLIDE } from './deck-ops';
 import { SlideThumbFace, useInView } from './slide-thumb';
 import { componentLooks, variantSample } from './slide-variants';
-import { useBreakpoint } from './use-breakpoint';
 
 // The add-slide GALLERY — the canonical "insert a slide" surface, replacing the
 // old cmdk text list (InsertComponent.tsx). Every tile is the REAL engine render

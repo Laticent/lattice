@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
+import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -26,6 +27,7 @@ import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensI
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
 import { type SingleSlideOptions, suspendScaleObservers } from '@/lib/single-slide-render';
 import { toggleMode as toggleDocMode } from '@/lib/site-chrome';
+import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { sliceSlide } from '@/playground/architect-edits.js';
 import { AcronymEditor } from './AcronymEditor';
@@ -82,7 +84,6 @@ import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deleteDeck as deleteD
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { TOURS } from './tours';
-import { useBreakpoint, useLandscapePhone } from './use-breakpoint';
 import { useStudioDemo } from './use-studio-demo';
 import { WorkspaceSheet } from './WorkspaceSheet';
 import { isEvictionProneBrowser } from './workspace-backup';
@@ -2914,7 +2915,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			<BarIcon label="Toggle Coach" hint="Coach — deterministic deck assessment &amp; fixes" caption="Coach" active={coachOpen} onClick={() => setActiveAssistant((p) => (p === 'coach' ? null : 'coach'))}><Gauge className="size-[18px]" /></BarIcon>
 			<BarIcon label="Toggle Chat" hint="Chat — AI conversation about your deck" caption="Chat" active={chatOpen} onClick={() => setActiveAssistant((p) => (p === 'chat' ? null : 'chat'))}><ChatIcon className="size-[18px]" /></BarIcon>
 			<BarIcon label="Open Library" hint="Library — saved themes, components &amp; finishes" caption="Library" active={libraryOpen} onClick={() => setActiveAssistant((p) => (p === 'library' ? null : 'library'))}><FileBox className="size-[18px]" /></BarIcon>
-			<BarIcon label="Toggle Lenses" hint="Lenses — reader views" caption="Lenses" active={lensesOpen} onClick={() => setActiveAssistant((p) => (p === 'lenses' ? null : 'lenses'))}><LensIcon className="size-[18px]" /></BarIcon>
+			<BarIcon label="Toggle Reader views" hint="Reader views — a subset of the deck for one kind of reader" caption="Views" active={lensesOpen} onClick={() => setActiveAssistant((p) => (p === 'lenses' ? null : 'lenses'))}><LensIcon className="size-[18px]" /></BarIcon>
 			<Separator className="my-1 w-6" />
 			<span className="font-mono text-[8px] font-bold uppercase tracking-widest text-muted-foreground/70">Set</span>
 			<BarIcon label="Slide settings" hint="Slide settings — this slide only" caption="Slide" active={activeSettings === 'slide'} onClick={() => setActiveSettings((p) => (p === 'slide' ? null : 'slide'))}><FileSliders className="size-[18px]" /></BarIcon>
@@ -3347,7 +3348,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 									)}
 									{lensesOpen && (
 										<>
-											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Lenses</div>
+											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
 											{lensesBody}
 										</>
 									)}
@@ -3435,16 +3436,21 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBody}</div>
 						</SheetContent>
 					</Sheet>
-					{/* Lenses (reader views) — its own compact sheet, a peer of the Architect. */}
-					<Sheet open={lensesOpen} onOpenChange={setLensesOpen}>
-						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[340px]">
-							<SheetHeader className="border-b border-border">
-								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><LensIcon className="size-4 text-[var(--accent)]" />Lenses</SheetTitle>
-								<SheetDescription className="sr-only">Reader views of this deck — build a subset for one kind of reader, preview it, and approve it.</SheetDescription>
-							</SheetHeader>
-							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{lensesBody}</div>
-						</SheetContent>
-					</Sheet>
+					{/* Reader views — its own compact sheet, a peer of the Architect.
+					    Titled "Reader views", NOT "Lenses": every entry point into this panel
+					    says "Reader views" (the drawer row, the activity-bar toggle, the
+					    command palette), and the panel used to answer with a different word
+					    set in 11px uppercase — the one treatment the drawer's own rules ban.
+					    "Lenses" survives as the internal name (`lensesBody`, `lens-picker`),
+					    which is fine; it just is not what a user is shown (#1211). */}
+					<PanelSheet open={lensesOpen} onOpenChange={setLensesOpen} side="left" width="sm">
+						<PanelHeader
+							icon={<LensIcon />}
+							title="Reader views"
+							description="A subset of this deck for one kind of reader."
+						/>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{lensesBody}</div>
+					</PanelSheet>
 					{/* Settings Sheet — MOBILE only. Same Slide-first segment + scope echo +
 					    active body as the desktop/tablet column, just wrapped in a Sheet
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
@@ -3472,13 +3478,13 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			    so it lives in its own sheet off the top bar rather than in the inspector
 			    (which is now settings-only). Restore stays always-visible (not hover-only)
 			    so it works on touch. */}
-			<Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
-				<SheetContent side="right" className="flex w-[88vw] flex-col gap-0 p-0 sm:max-w-[360px]">
-					<SheetHeader className="border-b border-border">
-						<SheetTitle className="flex items-center gap-2 text-[15px]"><History className="size-4 text-[var(--accent)]" />Version history</SheetTitle>
-						<SheetDescription className="text-[11px] leading-snug text-muted-foreground">Snapshots of the deck you can restore. One is saved automatically before each AI edit.</SheetDescription>
-					</SheetHeader>
-					<div className="flex-1 overflow-y-auto px-4 py-3 min-w-0 overscroll-contain [touch-action:pan-y]">
+			<PanelSheet open={historyOpen} onOpenChange={setHistoryOpen} side="right" width="sm">
+				<PanelHeader
+					icon={<History />}
+					title="Version history"
+					description="Snapshots you can restore. One is saved before each AI edit."
+				/>
+				<PanelBody padded={false} className="px-4 py-3">
 						<button type="button" onClick={saveVersion} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"><Save className="size-3.5" />Save a version</button>
 						{checkpoints.length === 0 ? (
 							<p className="px-0.5 py-1 text-[11.5px] leading-relaxed text-muted-foreground">No saved versions yet. Versions are also captured automatically before each AI edit.</p>
@@ -3492,9 +3498,8 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 								))}
 							</ul>
 						)}
-					</div>
-				</SheetContent>
-			</Sheet>
+				</PanelBody>
+			</PanelSheet>
 			{/* Compact (tablet/mobile): Library is the right Sheet. Desktop-Build renders it
 			    docked in the assistant slot instead (above), so the sheet is compact-only.
 			    Gated on the compose view like its Architect/Lenses sheet peers, so it never

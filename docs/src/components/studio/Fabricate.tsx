@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { readComponentEffort, writeComponentEffort } from '@/playground/drawing-board-settings.js';
 // The REAL layout gate — the deterministic core the engine uses for components
@@ -26,7 +27,6 @@ import { MotionStudio } from './MotionStudio';
 import { manifestJsonCompletion } from './manifest-complete';
 import { useReferenceDoc } from './reference-doc-ui';
 import { saveStudioTheme } from './theme-library';
-import { useBreakpoint } from './use-breakpoint';
 
 // You pick ALL TEN essentials — the same set the engine derivation + the
 // Workbench Theme Studio take (theme-core ESSENTIAL_KEYS). The derivation

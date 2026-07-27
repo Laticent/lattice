@@ -76,7 +76,7 @@ test('an untagged deck is not a dead end — the preview header opens the Lenses
 	// Discoverability: with the exec/onepager heuristics retired, an untagged deck's picker is a static
 	// "Full deck". It must still point the way to reader views. Close the Lenses panel to start from the
 	// bare deck surface, then the header's "New reader view" affordance re-opens the Lenses panel.
-	await page.getByRole('button', { name: 'Toggle Lenses' }).click();
+	await page.getByRole('button', { name: 'Toggle Reader views' }).click();
 	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeHidden();
 	await page.getByRole('button', { name: 'New reader view' }).click();
 	await expect(page.getByRole('button', { name: /Add a reader view/ })).toBeVisible(); // the Lenses panel is up

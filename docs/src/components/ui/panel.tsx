@@ -2,6 +2,7 @@ import * as React from 'react';
 import { XIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import {
 	Sheet,
 	SheetClose,
@@ -28,6 +29,22 @@ import {
 //
 // The header owns the close (a single X, same corner, drawer and dock alike —
 // the chevron is retired), so `PanelSheet` turns off SheetContent's own X.
+//
+// ── ON A PHONE, EVERY PANEL IS A BOTTOM SHEET ──────────────────────────────────
+// `side` is honoured at tablet and desktop and IGNORED on mobile, where every
+// panel rises from the bottom edge with the same radius and the same height cap
+// as the StudioDrawer. This is not a stylistic preference; it is the fix for a
+// measured defect (#1211). With `side` honoured everywhere, the drawer's own rows
+// launched panels from FOUR different edges — "Reader views" slid in from the
+// left and "Version history", its neighbour one row down, from the right — across
+// five heights and three widths, from a drawer that is itself bottom-anchored.
+// A phone has one comfortable edge and it is the bottom one.
+//
+// The width cap is dropped on mobile for the same reason: `sm:max-w-*` left the
+// left/right sheets at 343px on a 390px screen, so a sliver of the app showed
+// down one side and the panel read as a drawer over a live surface rather than a
+// place you had gone.
+const MOBILE_SHEET = 'inset-x-0 bottom-0 max-h-[85dvh] rounded-t-2xl border-t';
 
 type PanelWidth = 'sm' | 'md' | 'lg';
 
@@ -44,6 +61,18 @@ const PANEL_WIDTH: Record<PanelWidth, string> = {
 // through Radix `SheetTitle`/`SheetDescription` so the dialog keeps its
 // accessible name + description) or in a plain docked column (→ a bare heading).
 const PanelSheetCtx = React.createContext(false);
+
+// Separate from the above ON PURPOSE. A tablet panel is in a Sheet but is not on a
+// phone; folding the two into one flag renders the title as a bare `h2` at tablet
+// and strips the dialog's accessible name. They answer different questions.
+const PanelPhoneCtx = React.createContext(false);
+
+/** True on a phone — narrow, or a landscape phone (wide but ~400px tall). */
+function useIsPhone(): boolean {
+	const bp = useBreakpoint();
+	const landscape = useLandscapePhone();
+	return bp === 'mobile' || landscape;
+}
 
 export function PanelSheet({
 	open,
@@ -66,15 +95,22 @@ export function PanelSheet({
 	className?: string;
 	children: React.ReactNode;
 }) {
+	const mobile = useIsPhone();
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
 			<SheetContent
-				side={side}
+				side={mobile ? 'bottom' : side}
 				overlay={overlay}
 				showCloseButton={false}
-				className={cn('flex w-full flex-col gap-0 p-0', PANEL_WIDTH[width], className)}
+				className={cn(
+					'flex w-full flex-col gap-0 p-0',
+					mobile ? MOBILE_SHEET : PANEL_WIDTH[width],
+					className,
+				)}
 			>
-				<PanelSheetCtx.Provider value={true}>{children}</PanelSheetCtx.Provider>
+				<PanelSheetCtx.Provider value={true}>
+					<PanelPhoneCtx.Provider value={mobile}>{children}</PanelPhoneCtx.Provider>
+				</PanelSheetCtx.Provider>
 			</SheetContent>
 		</Sheet>
 	);
@@ -82,12 +118,22 @@ export function PanelSheet({
 
 function PanelCloseButton({ label, onClose }: { label: string; onClose?: () => void }) {
 	const inSheet = React.useContext(PanelSheetCtx);
+	const phone = React.useContext(PanelPhoneCtx);
 	const btn = (
 		<button
 			type="button"
 			aria-label={label}
 			onClick={inSheet ? undefined : onClose}
-			className="grid size-[30px] shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[color-mix(in_srgb,var(--text-heading)_8%,transparent)] hover:text-[var(--text-heading)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]"
+			className={cn(
+				// 44×44 on a phone — the SAME floor the Eight-Cell Bar and the StudioDrawer
+				// hold, and the floor whose breach started that whole redesign. A 30px
+				// target is fine under a mouse and is the one every panel shipped with on
+				// touch; the drawer's own close is 44 and its destinations' were 16–30
+				// (#1211). Pointer surfaces keep 30 — a mouse does not need the padding and
+				// the header is denser without it.
+				'grid shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[color-mix(in_srgb,var(--text-heading)_8%,transparent)] hover:text-[var(--text-heading)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]',
+				phone ? 'size-11' : 'size-[30px]',
+			)}
 		>
 			<XIcon className="size-[18px]" />
 		</button>
@@ -102,6 +148,7 @@ export function PanelHeader({
 	eyebrow,
 	title,
 	description,
+	srDescription,
 	actions,
 	onClose,
 	showClose = true,
@@ -117,6 +164,13 @@ export function PanelHeader({
 	/** Visible sub-label. Omit → an sr-only description echoing the title keeps
 	 *  Radix Dialog happy without visual noise. Pass a node to show it. */
 	description?: React.ReactNode;
+	/** A description for screen readers ONLY — when the panel has more to say than
+	 *  its title but no room to say it. Without this the sr-only fallback just
+	 *  echoes the title, so AT hears the same word twice and learns nothing; the
+	 *  Library ("Saved themes, components, and finishes — search, filter, apply, or
+	 *  import a .zip") is the case that surfaced it. Ignored when `description` is
+	 *  given, since that is already announced. */
+	srDescription?: string;
 	/** Trailing controls placed before the close (search, add, …). */
 	actions?: React.ReactNode;
 	/** Docked-column close handler (ignored inside a Sheet — SheetClose owns it). */
