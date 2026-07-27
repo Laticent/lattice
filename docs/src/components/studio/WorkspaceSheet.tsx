@@ -2,9 +2,9 @@ import { Cloud, Cpu, Database, Download, ExternalLink, FileBox, FolderTree, KeyR
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { readDedupEnabled, writeDedupEnabled } from '@/playground/drawing-board-settings.js';
@@ -358,13 +358,13 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 
 
 	return (
-		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent side="right" className="w-full gap-0 sm:max-w-[440px]">
-				<SheetHeader className="border-b border-border">
-					<SheetTitle className="flex items-center gap-2 text-[15px]"><Cloud className="size-[18px] text-[var(--accent)]" />Workspace <span className="font-mono text-[10px] font-normal uppercase tracking-wider text-[var(--accent)]">your setup</span></SheetTitle>
-					<SheetDescription className="sr-only">Your workspace setup — preferences and app install under General; the AI model, spend, and standing instructions under AI; where decks live, backup, storage, and deletion under Data.</SheetDescription>
-				</SheetHeader>
-				<div className="overflow-y-auto p-5 overscroll-contain [touch-action:pan-y] min-w-0">
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
+			<PanelHeader
+				icon={<Cloud />}
+				title={<>Workspace <span className="font-mono text-[10px] font-normal uppercase tracking-wider text-[var(--accent)]">your setup</span></>}
+				srDescription="Your workspace setup — preferences and app install under General; the AI model, spend, and standing instructions under AI; where decks live, backup, storage, and deletion under Data."
+			/>
+			<PanelBody padded={false} className="p-5">
 					<PillTabs
 						className="mb-4"
 						ariaLabel="Workspace settings"
@@ -861,8 +861,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 						</div>
 					)}
 
-				</div>
-			</SheetContent>
-		</Sheet>
+			</PanelBody>
+		</PanelSheet>
 	);
 }

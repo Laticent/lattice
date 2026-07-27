@@ -5306,11 +5306,20 @@ in patch versions.
   "Lenses" survives as the internal name only. Also fixed while measuring: Library's filter strip
   clipped "Docs" mid-word against the "0 total" counter at 390px, and its header search truncated to
   "Search th" — the count hides on a phone and the search wraps to its own row. `PanelHeader` gained
-  `srDescription` for a panel with more to say than its title but no room to say it. Finishes the
-  `PanelSheet`/`PanelHeader` migration deferred in `2026-07-17-panel-drawer-cohesion.md`.
+  `srDescription` for a panel with more to say than its title but no room to say it.
+  **Every Studio overlay is on the one shell, not just the five the drawer opens.** Fixing only
+  those left the phone with two grammars — tapping Coach on the toolbar still slid in from the left
+  while tapping Reader views in the drawer rose from the bottom — so Coach, Chat, the mobile
+  Settings sheet, Share, Workspace, and the add-slide gallery moved onto `PanelSheet` too. Measured
+  across all ten phone-reachable overlays: one edge, one width, one radius, one close size. Coach
+  and Chat also shed the 11px uppercase titles that were the same defect as "LENSES". Three bespoke
+  widths snap onto the shared scale (Coach/Chat 320→340, Version history 360→340); tablet and
+  desktop framing is otherwise unchanged, measured. Finishes the `PanelSheet`/`PanelHeader`
+  migration deferred in `2026-07-17-panel-drawer-cohesion.md`.
   (`docs/src/components/ui/{panel.tsx,dialog.tsx,sheet.tsx}`,
   `docs/src/components/studio/{StudioShell.tsx,Library.tsx,CommandPalette.tsx,LensesPanel.tsx,
-  lens-picker.tsx,PresentOverlay.tsx}`, `docs/src/lib/use-breakpoint.ts`.)
+  lens-picker.tsx,PresentOverlay.tsx,ShareSheet.tsx,WorkspaceSheet.tsx,SlidePicker.tsx}`,
+  `docs/src/lib/use-breakpoint.ts`.)
 
 - **The Studio E2E suite's toast oracle had been dead since the Sonner migration, silently
   failing 22 assertions across 12 spec files.** `toastText()` matched

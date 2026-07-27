@@ -17,7 +17,6 @@ import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Toaster } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -3417,25 +3416,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{/* ── Compact panels as sheets (tablet + mobile) ───────────── */}
 			{compact && view === 'compose' && (
 				<>
-					<Sheet open={coachOpen} onOpenChange={setCoachOpen}>
-						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[320px]">
-							<SheetHeader className="border-b border-border">
-								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><Gauge className="size-4 text-[var(--accent)]" />Coach</SheetTitle>
-								<SheetDescription className="sr-only">Board-readiness scorecard, deterministic quick reads, and per-finding fixes for this deck.</SheetDescription>
-							</SheetHeader>
-							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
-						</SheetContent>
-					</Sheet>
+					<PanelSheet open={coachOpen} onOpenChange={setCoachOpen} side="left" width="sm">
+						<PanelHeader
+							icon={<Gauge />}
+							title="Coach"
+							srDescription="Board-readiness scorecard, deterministic quick reads, and per-finding fixes for this deck."
+						/>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
+					</PanelSheet>
 					{/* Chat — its own compact drawer, a peer of the Coach (they are separate panels). */}
-					<Sheet open={chatOpen} onOpenChange={setChatOpen}>
-						<SheetContent side="left" className="w-[88vw] gap-0 p-0 sm:max-w-[320px]">
-							<SheetHeader className="border-b border-border">
-								<SheetTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest text-muted-foreground"><ChatIcon className="size-4 text-[var(--accent)]" />Chat</SheetTitle>
-								<SheetDescription className="sr-only">A conversation with the AI Architect about this deck, with reviewable edits.</SheetDescription>
-							</SheetHeader>
-							<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBody}</div>
-						</SheetContent>
-					</Sheet>
+					<PanelSheet open={chatOpen} onOpenChange={setChatOpen} side="left" width="sm">
+						<PanelHeader
+							icon={<ChatIcon />}
+							title="Chat"
+							srDescription="A conversation with the AI Architect about this deck, with reviewable edits."
+						/>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBody}</div>
+					</PanelSheet>
 					{/* Reader views — its own compact sheet, a peer of the Architect.
 					    Titled "Reader views", NOT "Lenses": every entry point into this panel
 					    says "Reader views" (the drawer row, the activity-bar toggle, the
@@ -3455,17 +3452,16 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    active body as the desktop/tablet column, just wrapped in a Sheet
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
 					{mobile && (
-						<Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
-							<SheetContent side="bottom" className="h-[80vh] gap-0 rounded-t-2xl p-0">
-								<SheetHeader className="border-b border-border">
-									<SheetTitle className="flex items-center gap-2 text-[15px]"><Settings2 className="size-4 text-[var(--accent)]" />Settings</SheetTitle>
-									<SheetDescription className="sr-only">Slide-first settings: switch between this slide's overrides and deck-wide defaults.</SheetDescription>
-								</SheetHeader>
-								{/* No outer overflow: the scope body owns its own scroll region (like the
+						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md">
+							<PanelHeader
+								icon={<Settings2 />}
+								title="Settings"
+								srDescription="Slide-first settings: switch between this slide's overrides and deck-wide defaults."
+							/>
+							{/* No outer overflow: the scope body owns its own scroll region (like the
 							    desktop column), so the sheet never nests two scrollbars. */}
 							<div className="flex min-h-0 flex-1 flex-col">{inspectorScopeContent}</div>
-							</SheetContent>
-						</Sheet>
+						</PanelSheet>
 					)}
 				</>
 			)}

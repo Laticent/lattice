@@ -109,6 +109,43 @@ the sprawl. It is bottom-anchored on a phone and unchanged everywhere else. It k
 visible header: its input is its label, and it says "Search or run a command…" in the first
 row. That is a deliberate, stated exception to the header grammar, not an oversight.
 
+## Every overlay, not just the drawer's five
+
+The first cut of this change migrated only the five panels the drawer opens, and that was
+wrong in a way worth recording: **it left the phone with two grammars instead of one.**
+
+The drawer is not the only way to open an overlay on a phone. The Eight-Cell Bar opens
+Coach, Chat, Settings and Share; the header opens Workspace settings. Measured after that
+first cut:
+
+| Opens | Reached from | Edge | Radius |
+|---|---|---|---|
+| Coach | toolbar | **LEFT** | 0 |
+| Chat | toolbar | **LEFT** | 0 |
+| Settings | toolbar | **FULL** | 0 |
+| Share | toolbar | **FULL** | 0 |
+| Workspace settings | header | **FULL** | 0 |
+| *(the drawer's five)* | drawer | BOTTOM | 16px |
+
+Tap Coach on the bar and it enters from the left; tap Reader views in the drawer and it
+rises from the bottom. Same app, same phone, one tap apart. Fixing half a surface does not
+halve the problem — it relocates it, and makes the unfixed half read as broken by contrast.
+That is the same dynamic the drawer itself created for these panels one PR earlier.
+
+So the migration covers **every** Studio overlay: Coach, Chat, the mobile Settings sheet,
+Share, Workspace, and the add-slide gallery join the drawer's five. Ten phone-reachable
+overlays, one edge, one width, one radius, one close size. Two bonuses fell out: Coach and
+Chat shed the 11px uppercase titles that were the same defect as "LENSES", and the
+add-slide gallery stopped being an `h-[100dvh]` full-screen page wearing a 16px radius.
+
+Three bespoke widths snap onto the shared scale — Coach/Chat `sm:max-w-[320px]` → `sm` (340),
+Version history `sm:max-w-[360px]` → `sm` (340). That is the point of having a scale, and it
+is the whole visible cost at tablet and desktop, both measured unchanged otherwise.
+
+What is left on a hand-rolled `SheetContent` is the `StudioDrawer` itself — which is not a
+panel but the surface that opens them, and legitimately has its own rules — plus two
+non-Studio site sheets (`MetricDetail`, `NavActions`) outside this scope.
+
 ## The 44px floor, fixed at the base
 
 Four of five destinations closed with a `16 × 16` target and the fifth with `30 × 30`. The
@@ -149,7 +186,9 @@ Per this branch's do-not-regress rule, the selector-of-record moved in the same 
 | Version history | BOTTOM | 390×224 | 16px top | Version history | 44×44 |
 | Send feedback | BOTTOM | 390×573 | 16px top | Send feedback | 44×44 |
 
-One edge, one width, one radius, one close size, and every title matches its row.
+One edge, one width, one radius, one close size, and every title matches its row — and the
+same holds for the five reached from the toolbar rather than the drawer (Coach 717, Chat 312,
+Settings 717, Share 717, Workspace 717, all BOTTOM/390/16px/44×44).
 
 Heights still differ — 224 to 573 — and that is correct: the sheets are `h-auto` under a
 single `max-h-[85dvh]` cap, so each sizes to its own contents exactly as the drawer's two
