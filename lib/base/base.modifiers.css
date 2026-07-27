@@ -1377,58 +1377,40 @@ section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):has(.tile-progress)
 section.form > .cell-footer > .lat-split-rail {
   position: static; inset: auto;
 }
-/* …and the band needs a real width budget once a FOURTH mark joins it. The running footer text
-   is an absolute pinned to the band's left edge with a fixed `--footerleft-w` (52cqi) budget,
-   so nothing stops it meeting the wayfinding group — it only ever LOOKED safe because a short
-   footer string never reached that far. Add the k-of-N rail and the group grows left into it
-   (seen on a real render: "conservation" struck through "SECTION"). So on a docked-rail page
-   the footer text becomes a real flex item that ABSORBS the free space and ellipsises instead
-   of overrunning — `flex-grow`, not `margin-right:auto` (HARD RULE #20 — a margin is invisible
-   to the height math the Fit Spine measures).
-   SCOPED BY `:has(> .lat-split-rail)` TO SPLIT-RUN PAGES, and an attempt to widen it to every band
-   carrying a docked mark was REVERTED — see
-   `engineering/decisions/2026-07-27-footer-band-allocation.md`. The short version, because the
-   temptation to widen it again is obvious: promotion makes the footer BID for the row's width
-   (`flex-basis: auto` = its full single-line intrinsic width), and `nowrap` forbids the wrap it was
-   previously using. On an un-split band that trades a visible overprint for text DELETED FROM THE
-   EXPORTED PDF's TEXT LAYER — measured on an ordinary board deck, a confidentiality footer lost
-   "any person not named on the distribution schedule" and the section label lost "ING LEVERAGE",
-   where `main` renders both in full across a wrapped footer. On a SPLIT band the trade is right: a
-   fourth mark makes the row genuinely over-subscribed, and the band is already the tightest it gets,
-   so there is no wrap to preserve.
-   So the un-split band keeps its geometry byte for byte, and still overprints when both strings are
-   long. That is a real defect, logged as a design fork rather than fixed here.
-   The row resolves because the rail can give ground: `min-width: 0` on the docked `.tile-progress`
-   in stage.css, where it is also the shrink-PRIORITY dial (removing it moves 113px from the footer
-   to the label). The footer's own `min-width: 0` below is NOT doing that work — css-flexbox-1 §4.5
-   already suppresses the automatic minimum size for a box whose main-axis overflow is not `visible`,
-   which `overflow: hidden` below makes true. Measured identical widths with and without it; kept as
-   the paired idiom, not as load-bearing. */
-section.form > .cell-footer:has(> .lat-split-rail) > footer,
+/* RANK 3 of the band's allocation policy (stage.css states the whole order): the author's
+   own words take everything the wayfinding marks don't need, and ellipsise past that.
+
+   The footer was an absolute pinned to the band's left edge with a fixed `--footerleft-w`
+   (52cqi) budget. A budget is not a negotiation — it bounds the footer without telling it
+   what else is in the row — so when both strings were long the marks simply overprinted
+   ("conservation" struck through "SECTION" on a real render; 105.2px of ink on gallery p78).
+   As a flex ITEM the footer cannot overlap anything, by construction: flex items don't.
+
+   THIS WAS TRIED ONCE AND REVERTED, and the difference is worth stating because the
+   selector looks identical. The first attempt promoted the footer while the rail still
+   carried its `white-space: nowrap` section label. Two unshrinkable strings bidding for one
+   row means flexbox shrinks BOTH: an ordinary board deck lost "any person not named on the
+   distribution schedule" from the exported PDF's text layer, and the rail — a mark the
+   change was not meant to touch — truncated to "SECTION 02 · OPERAT…". The label is now
+   gone from the markup entirely (rank 4, progress.transform.js), and the dots are bounded
+   by count, so there is exactly ONE flexible item in the row. That is what makes this safe
+   now and unsafe then. Do not re-introduce a growable mark into this band without
+   re-deciding the order. engineering/decisions/2026-07-27-footer-band-allocation.md
+
+   Rank 3 itself lives on `section.form > .cell-footer > footer` in stage.css, beside the rest
+   of the order, with the full rationale. This rule only extends it to a split COVER, which is
+   not a `.form` frame and so is not reached by that selector. Same declarations, deliberately
+   duplicated rather than merged into one selector list across two files — the cover's chrome
+   is assembled here, and a cross-file selector list is the kind of thing that gets half-edited. */
 section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
   inset: auto;
-  /* `block`, not the band's default `flex`: `text-overflow: ellipsis` never applies to a flex
-     CONTAINER, so the text was clipped mid-word with no ellipsis. Vertical centering is the
-     footer Cell's `align-items: center` now that this is a real flex ITEM. */
   display: block;
   flex: 1 1 auto;
   min-width: 0;
   max-width: none;
   white-space: nowrap;
-  /* `overflow: hidden` is what makes the ellipsis possible — and it is also a HORIZONTAL clip
-     that arrives with a VERTICAL one attached, because the base footer sets `line-height: 1`
-     (above, `section footer`). At `hd` that is a 12.73px padding box around a 17px em box: the
-     half-leading goes NEGATIVE and ~3px of the ink zone sits above the box top. An absolute
-     footer never noticed (it was `overflow: visible` inside a 20.4px `inset-block: 0` box), but a
-     clipping one shaves off everything above cap height — measured: `ÜBERPRÜFUNG` printed as
-     `UBERPRUFUNG` and `ÅÉÀÖ` as `ĀEAO`, in the running footer of every railed page. Lowercase
-     accents survived, which is exactly why it could have shipped unnoticed on an English deck.
-     So the promoted footer sets its own leading, big enough to contain the ink it now clips.
-     1.45 restores every diacritic and changes NO geometry: the band stays 20.4px tall at the
-     same top, so no other mark in the row moves. (HARD RULE #25 inversion pass, on a raster —
-     no box or ink measurement can see this, since the loss is sub-box paint.) */
-  line-height: 1.45;
+  line-height: 1.45;   /* contains the ink `overflow: hidden` would otherwise shave — see stage.css */
   overflow: hidden;
   text-overflow: ellipsis;
 }

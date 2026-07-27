@@ -51,12 +51,28 @@ const CACHE_DIR  = path.join(ROOT, '.scratch', 'test-cache');
 const USE_CACHE =
   process.env.CI !== 'true' && process.env.LATTICE_TEST_NO_CACHE !== '1';
 
+/**
+ * Every `ext` file under `dir`, RECURSIVELY.
+ *
+ * This walked one level deep for a long time, and `lib/` has almost nothing at its top level —
+ * the engine lives in `lib/core`, `lib/components/<bucket>/<name>`, `lib/forms/…`. So the
+ * emulator's render cache did not invalidate on a change to essentially any engine source: a
+ * local integration run could load a PDF rendered before your edit and report it as a pass.
+ * It surfaced while mutation-testing the footer band — removing the section label from
+ * `lib/forms/tile/progress/progress.transform.js` left the suite green, not because the
+ * assertion was weak but because the render it measured predated the change. CI sets
+ * `CI=true`, which disables the cache entirely, so this only ever misled locally — which is
+ * worse, since local is where you decide whether an assertion works.
+ */
 function listFiles(dir, ext) {
   if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir)
-    .filter((f) => f.endsWith(ext))
-    .map((f) => path.join(dir, f))
-    .sort();
+  const out = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...listFiles(full, ext));
+    else if (e.name.endsWith(ext)) out.push(full);
+  }
+  return out.sort();
 }
 
 function hashFiles(h, files) {
@@ -78,6 +94,11 @@ function emulatorCacheKey(mdPath, palette) {
     MERMAID_JS,
     LOCKFILE,
     ...listFiles(path.join(ROOT, 'lib'), '.js'),
+    // …and the CSS beside it. A layout rule decides what the render looks like every bit as much
+    // as a transform does; `dist/lattice.css` (THEME, above) is the built bundle and does cover it
+    // in practice, but only while the bundle is up to date, which is exactly the state a test run
+    // cannot assume.
+    ...listFiles(path.join(ROOT, 'lib'), '.css'),
     ...listFiles(path.join(ROOT, 'themes'), '.css'),
   ].sort());
   h.update(palette);

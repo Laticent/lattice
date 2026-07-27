@@ -1,6 +1,6 @@
 /* ── PROGRESS-CENTRE Cell — the section dot-rail's slot ──────────────────────
  * Real Form Cell (was css:false). The Cell owns the rail's POSITION; the progress
- * Tile (lib/forms/tile/progress) owns its appearance (dots, label, font). Default:
+ * Tile (lib/forms/tile/progress) owns its appearance (the dots). Default:
  * bottom-right, just left of the pagination — so the two wayfinding marks (rail +
  * page number) read as ONE group at the same baseline and the same --fs-meta size.
  * A single `--progress-inset` var() hook lets a Frame relocate the rail
@@ -15,8 +15,10 @@ section.form .tile-progress {
    * drop the rail to the right-middle (independent movability, forms.md §7.3). */
   inset: var(--progress-inset, auto var(--footer-pag-reserve) var(--frame-inset-y) auto);
   z-index: 3;
-  /* Reserved width (the manifest geometry token) — a long section label truncates
-   * inside it rather than crowding the page number. */
+  /* Reserved width (the manifest geometry token). This used to be a truncation cap for a
+   * section label of unbounded length; the rail is dots only now and its width is bounded by
+   * MAX_DOTS (progress.transform.js) at 18.69cqi, under the 20cqi token. So the cap no longer
+   * binds — it stays as the Cell's declared geometry, which a Frame's slicing reads. */
   max-width: var(--footer-center-w);
   pointer-events: none;
 }

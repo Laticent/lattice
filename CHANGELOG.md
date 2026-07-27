@@ -5035,6 +5035,35 @@ in patch versions.
   swatch·label·value row model `buildSvgLegend` builds), but the stated reason was false. Corrected in
   place with a dated note rather than a rewrite. It was surfaced by the `render` derivation reporting
   `hybrid`, which is the argument for deriving rather than asserting, made against a decision record.
+- **Breaking: the footer band now has a stated priority order, and the section rail no longer
+  prints the section name.** Up to four marks share the band — your `footer:` text, the section
+  dots, the split k-of-N rail, the page number — and nothing said who yields, so on a deck where
+  the footer string and the section label were both long they simply overprinted (105.2px of ink
+  on one gallery page). The order is now: **the page number never yields; the dots never yield;
+  your footer text takes everything left and ellipsises past it; the section name is gone.**
+  Removing the name is what makes the rest work — it was a `white-space: nowrap` string that could
+  not give ground, and every attempt to arbitrate around it either overprinted or truncated *both*
+  marks. With it gone the band has exactly one flexible item, so nothing has to be measured and
+  overlap is structurally impossible. The divider slide still names the section, and the dots still
+  say where you are. **Two visible changes to existing decks:** the section name disappears from
+  the footer of every railed page, and a footer longer than the band ellipsises on one line instead
+  of wrapping onto a second — so a very long footer's tail is now absent from the exported PDF's
+  text layer, not merely off-screen. A 199-character confidentiality line keeps 132 characters.
+- **The section dots are budgeted, so a long deck no longer draws a dot per section.** A
+  24-section deck drew 24 dots on every page, in a band shared with your own footer text. Past ten,
+  sections are bucketed into ten dots — the one you are in stays elongated and accented, the first
+  section lights the first dot and the last lights the last. Ten is a width budget expressed as a
+  count: the dots are sized in `cqi`, so they occupy the same ~19cqi fraction of the band at every
+  canvas size, and nothing is measured at render time. Decks with ten or fewer sections are
+  unchanged.
+- **Fixed: the local test render cache never invalidated on an engine change.** `runEmulator`'s
+  cache key listed `lib/*.js` one level deep, and almost nothing lives at the top of `lib/` — so a
+  change to a transform, a component, or a Form Cell left the key identical and an integration test
+  could load a PDF rendered *before* the change and pass. Found while mutation-testing the footer
+  band: deleting the section rail's label left the suite green because the render it measured
+  predated the deletion. CI sets `CI=true` and skips the cache entirely, so this only ever misled
+  locally — which is where you decide whether an assertion works. Now recursive, and `lib/**/*.css`
+  is hashed too.
 - **A clipping footer no longer shaves the diacritics off accented capitals.** #1191 gave the
   promoted split-band footer `overflow: hidden` so it could ellipsise — and on the base footer's
   `line-height: 1` that is a *vertical* clip too: a 12.7px box around 17px of ink, so everything

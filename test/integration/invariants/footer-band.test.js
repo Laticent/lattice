@@ -1,48 +1,40 @@
 /**
- * THE FOOTER BAND under contention (real cascade, real Chromium).
+ * THE FOOTER BAND's ALLOCATION POLICY, in the real cascade and real Chromium.
  *
- * The footer Cell exists to retire "three absolutes at the same baseline with no shared budget"
- * (design/forms.md §6). One mark never finished that migration: the running `footer:` text stayed
- * `position: absolute` with a fixed `--footerleft-w` (52cqi) budget, while the docked section rail
- * is an in-flow flex item with a `white-space: nowrap` label. Neither side can yield to the other,
- * so on a deck whose footer string AND section label are both long they simply collide — on the
- * shipped 117-page gallery, p78 painted "…tint-edge at-right" through "THE ANNEXES · APPROVED
- * DECORATION", 105.2px of real ink overlap.
+ * The band is a shared, finite width with up to four marks in it, and for a long time nothing
+ * said who yields. Three attempts to arbitrate it at layout time failed, each by re-deriving a
+ * plausible number that was not the truth. The policy is now an ORDER
+ * (engineering/decisions/2026-07-27-footer-band-allocation.md):
  *
- * Promoting the footer to a flex item on EVERY docked band was tried and reverted: it deletes text
- * from the exported PDF (engineering/decisions/2026-07-27-footer-band-allocation.md). So this suite
- * guards the scope that ships — split bands and split covers — and the un-split band's allocation
- * policy is an open question, deliberately NOT asserted here.
+ *   1. the page number   — never yields
+ *   2. the dots          — never yield; bucketed to MAX_DOTS in progress.transform.js, so the
+ *                          rail's width is bounded by CONSTRUCTION rather than by a cap
+ *   3. the author's text — takes everything left, `…` past that
+ *   4. the section name  — gone. Not hidden: not emitted.
  *
- * Measuring this went wrong three times, which is why the assertions are shaped as they are:
+ * Rank 4 is the load-bearing one, and the reason this suite's central assertion is about
+ * FLEXIBILITY rather than geometry. The rail used to carry the divider's eyebrow, one
+ * `white-space: nowrap` string that could not yield. Promoting the footer to a flex item while
+ * that string was still there put TWO unshrinkable strings in one row, so flexbox shrank both: an
+ * ordinary board deck lost "any person not named on the distribution schedule" from the exported
+ * PDF's text layer, and the rail truncated to "SECTION 02 · OPERAT…". That shipped as far as a
+ * green PR before the trio caught it. With exactly one flexible item in the row it cannot recur —
+ * so "exactly one flexible item" is what gets pinned, not the pixel positions it produces.
+ *
+ * Measuring this went wrong four times, which is why the assertions are shaped as they are:
  *   · footer BOX vs rail box said 42 pages were broken — an absolute footer's box is its 52cqi
  *     budget, not its text, so most had no ink near the rail;
  *   · the text via a `Range` said the fix made things WORSE — `getClientRects()` returns laid-out
  *     text and `overflow: hidden` clips paint without moving layout, so a correctly-ellipsised run
  *     still measures full width;
+ *   · `flex-shrink: 8` on the rail, to make it yield first, drove it to 0px wide, dots and all;
  *   · and the fix itself then clipped every diacritic off accented CAPITALS, which neither box nor
  *     ink geometry can see at all, because the loss is sub-box PAINT.
  * So this suite asserts the properties that GUARANTEE the rendering — flex items cannot overlap,
- * `overflow: hidden` confines ink to the box, and the box must be tall enough to contain that ink —
- * and it verifies the band is genuinely contended first, because every shrink assertion below is
- * vacuous on a band with slack. The first version of this file asserted only that both boxes had
- * width > 0 and let SEVEN of nine mutations through.
- *
- * MUTATION SCORE, measured, not asserted (`.scratch/mutate-footer.sh` in the authoring session —
- * remove one declaration from the promoted-footer rule, rebuild the CSS, re-run):
- *   died      · position: static, display: block, white-space: nowrap, line-height: 1.45,
- *              overflow: hidden, text-overflow: ellipsis, max-width: none  (7 of 10)
- *   SURVIVES  · inset: auto      — inert beside `position: static` in the same block, and that one
- *                                  IS pinned, so nothing reachable changes when it goes.
- *   SURVIVES  · min-width: 0     — inert beside `overflow: hidden`: css-flexbox-1 §4.5 suppresses
- *                                  the automatic minimum size when main-axis overflow is not
- *                                  `visible`. Measured identical widths (491.8/291.6) either way.
- *                                  Kept as the paired idiom, not because this suite guards it.
- *   SURVIVES  · flex: 1 1 auto   — only `flex-grow` differs from the initial `0 1 auto`, and this
- *                                  footer always overflows its share, so growth never applies.
- * Two of the three survivors are provably unreachable; the third is cosmetic. Stated here rather
- * than rounded up, because a mutation score is exactly the kind of number this file exists to
- * distrust.
+ * only one item can flex, `overflow: hidden` confines ink to the box, and the box must be tall
+ * enough to contain that ink — and it verifies the band is genuinely contended first, because
+ * every shrink assertion below is vacuous on a band with slack. The first version of this file
+ * asserted only that both boxes had width > 0 and let SEVEN of nine mutations through.
  */
 
 const { test, describe, before, after } = require('node:test');
@@ -66,7 +58,7 @@ function resolveChrome() {
   return undefined;
 }
 
-describe('footer band — a contended band keeps both marks legible', () => {
+describe('footer band — a contended band keeps every mark legible', () => {
   const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'footer-band-contended.md');
   let browser;
   let bands;
@@ -100,14 +92,8 @@ describe('footer band — a contended band keeps both marks legible', () => {
         if (!footer) return;
         const cs = getComputedStyle(footer);
         if (cs.display === 'none') { suppressed.push({ page: i + 1, cls: s.className }); return; }
-        if (cs.position !== 'static') return; // an un-promoted (absolute) footer is out of scope
-        // Only the SPLIT band promotes the footer (plus a split cover) — that is the scope the
-        // engine ships, after widening it to every docked band was reverted for deleting text from
-        // the exported PDF. So require the k-of-N rail, not merely a section rail.
-        if (!s.querySelector('.lat-split-rail')) return;
-        const rail = s.querySelector('.tile-progress');
-        const seg = s.querySelector('.tile-progress .seg');
-        if (!rail || !seg) return;
+        const rail = cell.querySelector(':scope > .tile-progress');
+        if (!rail) return;
         const box = (el) => { const b = el.getBoundingClientRect(); return { left: b.left, right: b.right, height: b.height, width: b.width }; };
         promoted.push({
           page: i + 1,
@@ -117,6 +103,7 @@ describe('footer band — a contended band keeps both marks legible', () => {
           textOverflow: cs.textOverflow,
           whiteSpace: cs.whiteSpace,
           maxWidth: cs.maxWidth,
+          flexGrow: cs.flexGrow,
           lineHeight: parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2,
           footer: box(footer),
           footerClientW: footer.clientWidth,
@@ -124,8 +111,20 @@ describe('footer band — a contended band keeps both marks legible', () => {
           footerClientH: footer.clientHeight,
           footerInkH: inkHeight(footer),
           rail: box(rail),
-          segClientW: seg.clientWidth,
-          segScrollW: seg.scrollWidth,
+          railHasLabel: !!rail.querySelector('.seg'),
+          // Every OTHER item in the row, with the two properties that decide whether it can take
+          // width from the footer. This is the assertion that makes the export regression
+          // structurally impossible rather than merely absent today.
+          others: [...cell.children].filter((k) => k !== footer).map((k) => {
+            const kcs = getComputedStyle(k);
+            return { cls: k.className || k.tagName, grow: kcs.flexGrow, shrink: kcs.flexShrink, width: k.getBoundingClientRect().width };
+          }),
+          // The dots' own shape — an `on` dot is a pill, an off dot a circle, and a squeezed
+          // row used to flatten both into indistinguishable slivers.
+          dots: [...rail.querySelectorAll('.dot')].map((d) => {
+            const b = d.getBoundingClientRect();
+            return { on: d.classList.contains('on'), w: b.width, h: b.height };
+          }),
           band: box(cell),
         });
       });
@@ -138,15 +137,45 @@ describe('footer band — a contended band keeps both marks legible', () => {
   after(async () => { if (browser) await browser.close(); });
 
   test('the fixture is GENUINELY contended — every assertion below depends on it', () => {
-    assert.ok(bands.length >= 2, `expected slides with a promoted footer band, got ${bands.length}`);
-    // The load-bearing precondition. Without over-subscription nothing shrinks, so `min-width: 0`,
-    // `flex`, `white-space`, `text-overflow` and the shrink priority are all exercised by nothing —
-    // which is precisely how seven of nine mutations to those declarations survived this suite's
-    // first version. Demand that SOMETHING is actually clipped on the page.
-    const clipped = bands.filter((b) => b.footerScrollW > b.footerClientW || b.segScrollW > b.segClientW);
+    assert.ok(bands.length >= 2, `expected slides with a footer band, got ${bands.length}`);
+    // The load-bearing precondition. Without over-subscription nothing shrinks, so `flex`,
+    // `white-space`, `text-overflow` and `min-width` are all exercised by nothing — which is
+    // precisely how seven of nine mutations to those declarations survived this suite's first
+    // version. Demand that the footer is actually clipped on the page.
+    const clipped = bands.filter((b) => b.footerScrollW > b.footerClientW);
     assert.ok(clipped.length > 0,
       'the band has slack — nothing is clipped, so the shrink assertions would pass vacuously. '
-      + `Lengthen the footer string or the divider eyebrow. Measured: ${JSON.stringify(bands.map((b) => ({ p: b.page, f: `${b.footerScrollW}/${b.footerClientW}`, s: `${b.segScrollW}/${b.segClientW}` })))}`);
+      + `Lengthen the footer string. Measured: ${JSON.stringify(bands.map((b) => ({ p: b.page, f: `${b.footerScrollW}/${b.footerClientW}` })))}`);
+  });
+
+  test('the footer is the row\'s ONLY flexible item', () => {
+    // THE central invariant, and the one that would have caught the reverted attempt. A second
+    // item that can grow or shrink turns the row into a negotiation between two strings, and
+    // flexbox resolves that by shrinking BOTH — which is how a confidentiality footer lost
+    // "any person not named on the distribution schedule" from the exported PDF while the
+    // section label it was competing with truncated too. Every wayfinding mark is `flex: 0 0 auto`
+    // and bounded by construction; the author's words take the remainder.
+    for (const b of bands) {
+      assert.equal(b.flexGrow, '1', `p${b.page}: the footer must absorb the row's free space`);
+      for (const o of b.others) {
+        assert.equal(o.grow, '0',
+          `p${b.page}: \`${o.cls}\` can GROW (flex-grow: ${o.grow}) — it will take width the author's footer needs`);
+        assert.equal(o.shrink, '0',
+          `p${b.page}: \`${o.cls}\` can SHRINK (flex-shrink: ${o.shrink}) — so it is negotiating for width, `
+          + 'and flexbox resolves a two-string negotiation by truncating both');
+      }
+    }
+  });
+
+  test('the section rail carries NO label — rank 4 of the order', () => {
+    // The rail's eyebrow is not hidden, it is not emitted (progress.transform.js). Hiding it in
+    // CSS would leave a node that can still contribute width, and the whole policy rests on the
+    // row having exactly one string in it.
+    for (const b of bands) {
+      assert.equal(b.railHasLabel, false,
+        `p${b.page}: the section rail is carrying a label again — that is the unshrinkable string `
+        + 'whose removal is what makes promoting the footer safe.');
+    }
   });
 
   test('the footer is a real flex ITEM that ellipsises rather than clipping mid-word', () => {
@@ -162,32 +191,21 @@ describe('footer band — a contended band keeps both marks legible', () => {
   });
 
   test('the ROW decides the footer\'s width — no budget is re-imposed on top of it', () => {
-    // What `max-width: none` is for, and why it has to be pinned as a PROPERTY rather than caught
-    // by geometry. The un-promoted footer carries `max-width: var(--footerleft-w, 52cqi)`
-    // (stage.css) and the promotion overrides it, because a cap and a flex share are two answers to
-    // the same question. Restore the cap and the footer truncates 106px earlier than the row would
-    // have made it — but NOTHING moves: the section rail simply grows into the slack (measured
-    // 171.5px → 277.9px, still under its own cap), so the footer stays flush to the left margin and
-    // every box stays where it was. The loss is only the author's words, and only in the ellipsis.
+    // A cap and a flex share are two answers to the same question, and the cap wins silently.
+    // The footer carried `max-width: var(--footerleft-w, 52cqi)` before the band had an order;
+    // restoring it truncates the footer earlier than the row would have, and NOTHING moves to
+    // show for it, because the wayfinding marks simply sit further left. The loss is only the
+    // author's words, and only inside the ellipsis — so it has to be pinned as a property.
     for (const b of bands) {
       assert.equal(b.maxWidth, 'none',
         `p${b.page}: the footer is capped at ${b.maxWidth} on top of its flex share — the row can no `
         + 'longer allocate the band, and the cap silently wins.');
-      // The other direction: a cap that the rail could NOT absorb would leave dead space, and the
-      // band packs `flex-end`, so the footer's text would detach from the page's left margin — out
-      // of line with the header and the body. Cheap to assert, and it is the visible symptom.
+      // The band packs `flex-end`, so a footer that stops short detaches from the page's left
+      // margin — out of line with the header and the body. Cheap, and it is the visible symptom.
       assert.ok(Math.abs(b.footer.left - b.band.left) < 1,
         `p${b.page}: the footer starts at ${b.footer.left.toFixed(1)} but the band's left margin is `
         + `${b.band.left.toFixed(1)} — it no longer lines up with the header and the body.`);
     }
-    // NOT asserted here, deliberately: the docked rail's own `min-width: 0` (stage.css) is a
-    // shrink-PRIORITY lever, not a correctness one. Remove it and the rail's automatic minimum
-    // becomes max-content — it has no `overflow: hidden` to suppress that the way the footer does —
-    // and 113px moves from the author's footer (611.9 → 491.8) to the generated rail (141 → 254 of
-    // label). Both marks are clipped either way and nothing overlaps, so the difference is purely
-    // who yields first, which is the open question this branch refuses to settle by accident
-    // (engineering/decisions/2026-07-27-footer-band-allocation.md). `footer.width > rail.width`
-    // below is the one priority claim the engine actually makes, and it holds in both states.
   });
 
   test('the footer and the section rail never overlap', () => {
@@ -209,19 +227,35 @@ describe('footer band — a contended band keeps both marks legible', () => {
     }
   });
 
-  test('neither mark is crushed out of existence', () => {
-    // NOT a shrink-priority assertion — that is an open design question, and the obvious lever is
-    // wrong: `flex-shrink: 8` on the rail drove it to 0px wide (dots and all) rather than making it
-    // yield gracefully. What must hold is weaker and more important: both marks survive with a
-    // usable share of the band, and the footer — the author's own words — keeps the larger one.
+  test('a dot keeps its shape — the "you are here" pill stays a pill', () => {
+    // `.dot` carried the default `flex-shrink: 1`, so on a contended band the current-section pill
+    // collapsed from 39×13 to an 11×13 circle and the off dots to 3×13 slivers — losing the one
+    // difference that says where you are. Found by the trio's inversion pass, on a raster.
+    for (const b of bands) {
+      assert.ok(b.dots.length > 0, `p${b.page}: the rail lost its dots entirely`);
+      for (const d of b.dots) {
+        assert.ok(d.w > 0.5 && d.h > 0.5, `p${b.page}: a dot measured ${d.w.toFixed(1)}×${d.h.toFixed(1)} — crushed`);
+        if (d.on) {
+          assert.ok(d.w > d.h * 1.5,
+            `p${b.page}: the current-section dot is ${d.w.toFixed(1)}×${d.h.toFixed(1)} — it has lost the `
+            + 'elongated pill shape that distinguishes it from the others');
+        } else {
+          assert.ok(Math.abs(d.w - d.h) < 1,
+            `p${b.page}: an off dot is ${d.w.toFixed(1)}×${d.h.toFixed(1)} — no longer round`);
+        }
+      }
+    }
+  });
+
+  test('the author\'s words keep the larger share of the band', () => {
     for (const b of bands) {
       assert.ok(b.footer.width > b.rail.width,
         `p${b.page}: the generated rail (${b.rail.width.toFixed(1)}px) is wider than the author's footer `
-        + `(${b.footer.width.toFixed(1)}px) — wayfinding should yield first`);
+        + `(${b.footer.width.toFixed(1)}px) — wayfinding must not outrank the author`);
       assert.ok(b.footer.width >= b.band.width * 0.25,
         `p${b.page}: the footer collapsed to ${b.footer.width.toFixed(1)}px of a ${b.band.width.toFixed(1)}px band`);
       assert.ok(b.rail.width > 0,
-        `p${b.page}: the section rail was crushed to ${b.rail.width.toFixed(1)}px — the label and its dots are gone`);
+        `p${b.page}: the section rail was crushed to ${b.rail.width.toFixed(1)}px — the dots are gone`);
     }
   });
 
@@ -239,9 +273,9 @@ describe('footer band — a contended band keeps both marks legible', () => {
   });
 
   test('`silent` and `no-footer` still suppress the footer text', () => {
-    // The promote rule ties with all four hide rules on specificity (both (0,3,2) — `:has()`
-    // contributes its most specific argument), so which wins is decided by bundle file order
-    // alone. Widening the promote selector made that tie live on far more pages.
+    // The promote rule ties with all four hide rules on specificity, so which wins is decided by
+    // bundle file order alone — and the promotion now applies to EVERY band, so that tie is live
+    // on every railed page rather than only on split ones.
     assert.equal(hidden.length, 2, `expected the silent + no-footer slides to hide their footer, got ${hidden.length}`);
     assert.ok(hidden.some((h) => /\bsilent\b/.test(h.cls)), 'the `silent` slide still shows its footer');
     assert.ok(hidden.some((h) => /\bno-footer\b/.test(h.cls)), 'the `no-footer` slide still shows its footer');

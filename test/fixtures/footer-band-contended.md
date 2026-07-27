@@ -12,15 +12,14 @@ footer: "CONFIDENTIEL · Société Générale — ÜBERPRÜFUNG Q3 · do not dis
 <!-- _header: '' -->
 <!-- _paginate: false -->
 
-`Section 01 · The annexes`
+`Section 01 · The annexes and their approved decoration, at length`
 
-## The section label is sized on purpose.
+## The divider eyebrow is long on purpose.
 
-Long enough that the rail claims a real share of the band, short enough that the footer's
-remaining share EXCEEDS its 52cqi budget — which is the only condition under which
-`max-width: none` on the promoted footer does any work. At the label's first length the rail
-sat on its own cap and the footer's share came out 13.7px UNDER 52cqi, so removing the
-override changed nothing and the mutation survived.
+Not because the rail prints it — it does not, and `footer-band.test.js` asserts that. Because
+a long one is what the rail USED to print, and it is the string that made the band
+unresolvable. Keeping it long here means that if anyone puts the label back, this fixture
+reproduces the original defect rather than a mild version of it.
 
 ---
 
@@ -28,10 +27,10 @@ override changed nothing and the mutation survived.
 
 ## A list long enough to split, so the band gets a fourth mark.
 
-The promoted footer only exists on a SPLIT band (and on a split cover), because that is
-where a fourth mark makes the row genuinely over-subscribed. So this fixture must actually
-split — a fixture that renders one page exercises none of the shrink policy, which is how
-the first version of this file let seven of nine mutations through.
+This fixture must actually SPLIT, so the band carries all four marks — footer text, section
+dots, the k-of-N split rail, page number — and the allocation policy is exercised rather than
+merely present. A fixture that renders one page exercises none of it, which is how the first
+version of this file let seven of nine mutations through.
 
 The footer carries accented CAPITALS on purpose: `overflow: hidden` on a `line-height: 1`
 box clips everything above cap height, so `ÜBERPRÜFUNG` printed as `UBERPRUFUNG` and no box
