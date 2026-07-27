@@ -65,8 +65,12 @@ type GenView = 'cloud' | 'ondevice';
 
 const ON_DEVICE_TIERS = new Set(['prompt-api', 'webllm', 'universal']);
 
+// Was a hand-rolled mono-11px-uppercase row — one of four near-identical subhead
+// treatments across the drawers. Now a thin shim over `PanelSection`'s head so this
+// surface shares the one grammar; kept as a named component because ~20 call sites
+// pass `{icon}` + children rather than a `label` string.
 function GroupLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-	return <div className="mb-2 flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{icon}{children}</div>;
+	return <h3 className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold leading-normal text-[var(--text-heading)] [&_svg]:size-3.5">{icon}{children}</h3>;
 }
 
 // A secondary section inside the AI tab (Spend, Instructions) — each sits below the Model
@@ -362,7 +366,7 @@ export function WorkspaceSheet({ open, onOpenChange, notify }: { open: boolean; 
 			{/* A plain title. This carried an inline `your setup` in 10px mono uppercase —
 			    the app's only eyebrow, hand-rolled TRAILING the title, in the one position
 			    `PanelHeader`'s own (never-used) `eyebrow` slot did not support. The panel is
-			    launched from a control labelled "Workspace settings"; the title does not need
+			    launched from a control labeled "Workspace settings"; the title does not need
 			    to re-explain itself in a treatment no other header uses. */}
 			<PanelHeader
 				icon={<Cloud />}

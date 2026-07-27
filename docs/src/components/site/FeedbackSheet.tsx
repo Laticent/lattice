@@ -99,7 +99,7 @@ export function FeedbackSheet({
 			<PanelBody className="space-y-5">
 					{/* The lede the header used to carry. It belongs above the form it describes,
 					    not in a header where it wrapped to two lines and gave this panel a
-					    different height from its neighbours. */}
+					    different height from its neighbors. */}
 					<p className="text-[13px] leading-snug text-[var(--text-muted)]">
 						You'll finish this on GitHub — we'll have it filled in for you, and you can look it over before it posts.
 					</p>

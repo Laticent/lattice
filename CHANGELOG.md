@@ -72,6 +72,12 @@ in patch versions.
   `PanelBody` reserves `env(safe-area-inset-bottom)` for every panel rather than just the drawer;
   Add a slide's filter chips wrap instead of scrolling sideways inside the vertical scroller; and
   that panel is titled "Insert a component", matching both controls that open it.
+  And one subhead voice: `PanelSection` — which called itself "the one subhead grammar" while
+  having a single consumer — now renders 13px semibold sentence case, the StudioDrawer's own
+  rule-4 voice, and Share, Workspace, Add a slide and the read-aloud settings adopt it in place
+  of four near-identical mono-uppercase treatments. The Library's segmented filter track and Add
+  a slide's `FilterChip` row both fold into the existing `PillTabs` primitive, gaining its
+  tablist semantics (roving tabindex, arrow keys) and losing their horizontal scrollers.
   See `engineering/decisions/2026-07-28-one-panel-height.md`.
 
 - **Breaking (`list-steps`, unreleased): `capsule` absorbs the `cat` variant and the masthead-rule

@@ -2,6 +2,7 @@ import { ChevronDown, Layers, Plus, Search, X } from 'lucide-react';
 import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { PanelDock, PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
@@ -239,18 +240,26 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 			{/* Desktop/tablet: search on top. A phone gets it in the dock instead. */}
 			{!compact && <div className="flex items-center gap-2 px-4 pt-3 sm:px-5">{searchField}</div>}
 			{functions.length > 0 && (
-				/* The chips WRAP on a phone instead of scrolling sideways. A horizontal
-				   scroller nested inside the panel's vertical one is exactly what the
-				   StudioDrawer's rule 1 bans ("one scroll direction, always down") — and this
-				   surface is two taps from that drawer. At 390px the strip also clipped
+				/* `PillTabs`, not the bespoke `FilterChip` this used to render. Calling these
+				   "filters" made them look like a different KIND of control from the tabs in
+				   Settings, Workspace and the Library — but the behavior is single-select with
+				   an explicit All, which is exactly a tablist over a filtered view. So they get
+				   the tablist's semantics (role, roving tabindex, arrow keys) and its one pill
+				   shape, instead of a third size and fill.
+				   They also WRAP rather than scrolling sideways: a horizontal scroller nested in
+				   the panel's vertical one is what the StudioDrawer's rule 1 bans, and this
+				   surface is two taps from that drawer. At 390px the strip additionally clipped
 				   "Comparison" against the panel edge, so the sideways scroll was not just a
-				   drag-direction lottery, it was hiding the filters. */
-				<div className={cn('flex items-center gap-1.5 px-4 py-2.5 sm:px-5', compact ? 'flex-wrap' : 'overflow-x-auto [scrollbar-width:none]')}>
-					<FilterChip label="All" active={!facet} onClick={() => setFacet(null)} />
-					{functions.map((f) => (
-						<FilterChip key={f} label={cap(f)} active={facet === f} onClick={() => setFacet(facet === f ? null : f)} />
-					))}
-					<span className={cn('shrink-0 pl-2 font-mono text-[11px] text-muted-foreground', compact ? 'ml-0' : 'ml-auto')}>{count} slides</span>
+				   drag-direction lottery — it was hiding the facets. */
+				<div className="flex items-center gap-2 px-4 py-2.5 sm:px-5">
+					<PillTabs
+						className="min-w-0 flex-1"
+						ariaLabel="Slide categories"
+						value={facet ?? 'all'}
+						onValueChange={(v) => setFacet(v === 'all' ? null : v)}
+						tabs={[{ value: 'all', label: 'All' }, ...functions.map((f) => ({ value: f, label: cap(f) }))]}
+					/>
+					<span className="shrink-0 self-start pt-1.5 text-[12px] text-muted-foreground">{count} slides</span>
 				</div>
 			)}
 
@@ -267,7 +276,7 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 						{searching
 							? flat.flatMap((it) => renderTile(it, it.name, matchedLooks(it)))
 							: (bands ?? []).flatMap((band) => {
-									const header = band.label ? [<h3 key={`h:${band.key}`} className={cn('col-span-full px-0.5 pb-1 pt-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.16em]', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{band.label}</h3>] : [];
+									const header = band.label ? [<h3 key={`h:${band.key}`} className={cn('col-span-full px-0.5 pb-1 pt-2 text-[13px] font-semibold leading-normal', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-[var(--text-heading)]')}>{band.label}</h3>] : [];
 									return [...header, ...band.items.flatMap((it) => renderTile(it, tileKey(band.key, it.name)))];
 								})}
 					</div>
@@ -316,29 +325,16 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="flex h-[min(84vh,760px)] max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
-				<DialogTitle className="px-4 pt-4 text-[15px] sm:px-5">Add a slide</DialogTitle>
+				{/* `title` — "Insert a component" — on BOTH transports. The phone sheet was
+				    renamed to agree with its two launchers and the desktop dialog was left
+				    saying "Add a slide", so the defect being fixed survived on the surface most
+				    people use, and the old sr-only span then announced the OTHER name as stray
+				    content after it. One name, one place. Found by the independent checker. */}
+				<DialogTitle className="px-4 pt-4 text-[15px] sm:px-5">{title}</DialogTitle>
 				<DialogDescription className="sr-only">{description}</DialogDescription>
-				{/* An accessible name the tests + AT reach; visually the DialogTitle carries it. */}
-				<span className="sr-only">{title}</span>
 				{body}
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			aria-pressed={active}
-			className={cn(
-				'shrink-0 rounded-full border px-3 py-1 text-[12px] font-semibold transition-colors',
-				active ? 'border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground',
-			)}
-		>
-			{label}
-		</button>
 	);
 }
 

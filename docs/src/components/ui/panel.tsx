@@ -1,8 +1,5 @@
-import * as React from 'react';
 import { XIcon } from 'lucide-react';
-
-import { cn } from '@/lib/utils';
-import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
+import * as React from 'react';
 import {
 	Sheet,
 	SheetClose,
@@ -10,6 +7,8 @@ import {
 	SheetDescription,
 	SheetTitle,
 } from '@/components/ui/sheet';
+import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
+import { cn } from '@/lib/utils';
 
 // panel.tsx — the shared drawer/panel grammar the Studio is migrating onto.
 //
@@ -106,7 +105,20 @@ import {
 // the offset bug cannot be reproduced in this sandbox at all (HARD RULE #23 — the
 // measurement was real, the surface was not).
 export const MOBILE_OFFSET = 'bottom-[var(--kb)]';
-const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t`;
+// The sheet itself reserves the home indicator. This belongs HERE, not on `PanelBody`:
+// four of the twelve drawers (Coach, Chat, Settings, Reader views) do not use
+// `PanelBody` at all — they wrap their own scroll container — so a body-level fix
+// silently skipped exactly the panel with a bottom-anchored composer. The sheet is
+// the one element every drawer shares, and its bottom edge IS the viewport bottom.
+//
+// A first cut put `pb-[env(safe-area-inset-bottom)]` on `PanelBody` and it never
+// reached the DOM at all: `cn` is `twMerge(clsx(…))`, every call site supplies a
+// later bottom padding (`p-4`, `p-5`, `px-4 py-3`), and tailwind-merge drops the
+// earlier `pb-`. The comment, the CHANGELOG and the commit message all claimed the
+// inset was reserved while not one element carried the class. Headless Chromium
+// reports the inset as 0, so the geometry looked identical either way — only
+// asserting on the CLASS could catch it (HARD RULE #23). Found by the checker.
+const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]`;
 
 /**
  * THE height for every mobile panel — see the block above for why there is one.
@@ -119,11 +131,14 @@ const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t`;
  * content height. Caught only by measuring the built site (HARD RULE #23): twelve
  * drawers came back at twelve different heights, from 274px to 5133px.
  *
- * `var(--kb,0px)`, with the fallback, for the same class of reason: `useKeyboardInset`
- * REMOVES the property on cleanup, so between panels `--kb` is unset, and a bare
- * `var(--kb)` inside `max()` makes the whole declaration invalid rather than zero.
+ * `var(--kb)` with NO fallback, matching `MOBILE_OFFSET` above and the rest of the
+ * codebase. `--kb: 0px` is declared on `:root` in `styles/tailwind.css` precisely so
+ * consumers never need one — the comma in `var(--kb,0px)` has to be escaped inside a
+ * Tailwind arbitrary-value class selector, and that is where it once silently failed
+ * to generate for a single surface (the command palette stayed pinned under the
+ * keyboard while every other sheet lifted clear). See that declaration's comment.
  */
-export const MOBILE_HEIGHT = 'h-[calc(100dvh-max(3.375rem,var(--kb,0px)))]';
+export const MOBILE_HEIGHT = 'h-[calc(100dvh-max(3.375rem,var(--kb)))]';
 
 /**
  * Publishes the on-screen keyboard's height as `--kb` on <html>.
@@ -346,11 +361,6 @@ export function PanelBody({
 				// panel. Intentional horizontal scrollers re-opt-in with [touch-action:pan-x]
 				// on the strip itself (e.g. the slide filmstrip).
 				'min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [touch-action:pan-y]',
-				// The home indicator. This was the StudioDrawer's padding and NOWHERE else:
-				// one of nineteen drawers reserved it, and the panel bottom sits at the
-				// viewport bottom, so every list's last row and every composer sat under it.
-				// Fixed once here instead of per surface.
-				'pb-[env(safe-area-inset-bottom)]',
 				padded && 'p-4',
 				center && 'grid place-items-center',
 				className,
@@ -374,16 +384,15 @@ export function PanelBody({
  * the win; renumbering a ranked result list bottom-up would be a novel mechanic, and
  * a novel mechanic is what this whole pass is removing.
  *
- * `PanelBody` owns the safe-area inset when it is the last child; when a dock follows
- * it, the dock owns it instead — hence `pb-[max(...)]` here and why a panel should
- * pass `padded={false}`-style bottom control to whichever element actually ends it.
+ * The dock does NOT reserve the home indicator — `PanelSheet` does, once, for every
+ * drawer (see MOBILE_BASE). Reserving it here too would double the gap on a notched
+ * phone.
  */
 export function PanelDock({ className, children }: { className?: string; children: React.ReactNode }) {
 	return (
 		<div
 			className={cn(
-				'shrink-0 border-t border-border bg-[var(--bg)] px-3.5 pt-3',
-				'pb-[max(0.875rem,env(safe-area-inset-bottom))]',
+				'shrink-0 border-t border-border bg-[var(--bg)] px-3.5 py-3',
 				className,
 			)}
 		>
@@ -436,7 +445,7 @@ export function PanelSection({
 	className,
 	children,
 }: {
-	/** Mono uppercase group head — the one subhead grammar (replaces ad-hoc <h3>). */
+	/** Group head — the one subhead grammar (replaces ad-hoc <h3>). */
 	label?: string;
 	icon?: React.ReactNode;
 	tone?: 'muted' | 'primary';
@@ -448,8 +457,25 @@ export function PanelSection({
 			{label ? (
 				<h3
 					className={cn(
-						'flex items-center gap-1.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.11em] [&_svg]:size-3.5',
-						tone === 'primary' ? 'text-[var(--accent)]' : 'text-muted-foreground',
+						// 13px SEMIBOLD SENTENCE CASE, not 10.5px mono uppercase.
+						//
+						// This component's docblock called itself "the one subhead grammar" while
+						// having exactly ONE consumer; the other drawers hand-rolled their own, and
+						// the results were four near-misses — Share and Workspace at mono 11px bold
+						// tracking-wider, Add a slide at mono 10.5px semibold tracking-[0.16em], this
+						// at mono 10.5px bold tracking-[0.11em]. Near-identical is worse than plainly
+						// different: nothing distinguishes them, so every difference reads as an
+						// accident rather than a signal.
+						//
+						// The voice picked is the StudioDrawer's, because the drawer is right and it
+						// already wrote down why (its rule 4): "No mono, no uppercase, nothing under
+						// 11.5px. That eyebrow voice belongs to the ARTIFACT — it earns its formality
+						// on a projected slide. At 10px on a phone it is the least legible combination
+						// available." The drawer's own Themes door is the only subhead in the app that
+						// obeyed that, at 13px semibold sentence case. The rule was right; it just
+						// stopped at the drawer's edge, and this primitive contradicted it.
+						'flex items-center gap-1.5 text-[13px] font-semibold leading-normal [&_svg]:size-3.5',
+						tone === 'primary' ? 'text-[var(--accent)]' : 'text-[var(--text-heading)]',
 					)}
 				>
 					{icon}

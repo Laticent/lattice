@@ -96,7 +96,10 @@ describe('Studio — every top-bar control responds', () => {
 		// Add slide opens the unified add-slide gallery (the #1058 "one insert door"); its
 		// Blank tile inserts a blank slide, so the rail grows by one.
 		await user.click(screen.getByRole('button', { name: 'Add slide' }));
-		const addDialog = await screen.findByRole('dialog', { name: /Add a slide/i });
+		// "Insert a component" — the dialog agrees with BOTH controls that open it (this
+		// "Add slide" button and the palette's "Insert a component…"). It was titled "Add a
+		// slide" on desktop while the phone sheet said the other thing.
+		const addDialog = await screen.findByRole('dialog', { name: /Insert a component/i });
 		await user.click(within(addDialog).getByRole('button', { name: /Insert Blank/i }));
 		expect(railCount()).toBe(start + 1);
 		// Duplicate → grows again.
@@ -116,7 +119,7 @@ describe('Studio — every top-bar control responds', () => {
 		const start = railCount();
 		// Open the add-slide gallery from the editor header.
 		await user.click(screen.getByRole('button', { name: /Insert/ }));
-		const dialog = await screen.findByRole('dialog', { name: /Add a slide/i });
+		const dialog = await screen.findByRole('dialog', { name: /Insert a component/i });
 		// Search narrows to the quote component; clicking its tile adds a slide.
 		await user.type(within(dialog).getByPlaceholderText(/Search/i), 'quote');
 		await user.click(await within(dialog).findByText('quote'));

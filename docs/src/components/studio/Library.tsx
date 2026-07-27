@@ -2,6 +2,7 @@ import { Check, Download, FileBox, FileText, Package, Plus, Search, Share2, Tras
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
@@ -278,7 +279,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// the BOTTOM on a phone (above the keyboard, beside the thumb that types it) and
 	// stays in the header on the docked column and the tablet sheet, which have room.
 	const searchField = (
-		<div className={cn('flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-muted-foreground', phone ? 'h-10' : 'ml-1 flex-1 py-1.5')}>
+		<div className={cn('flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-muted-foreground', phone ? 'h-11' : 'ml-1 flex-1 py-1.5')}>
 			<Search className="size-3.5 shrink-0" />
 			<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search themes, components, finishes & docs…" aria-label="Search library" className="min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground" />
 		</div>
@@ -320,16 +321,23 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			{header}
 
 				<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
-					{/* The pill segment scrolls horizontally inside a min-w-0 track, so a narrow
-					    pane never clips a filter (All / Themes / Components / Finishes / Docs) —
-					    swipe/scroll to reach the rest instead. */}
-					<div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							{(['all', 'theme', 'component', 'finish', 'refdoc'] as Filter[]).map((f) => (
-								<button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f} className={cn('whitespace-nowrap rounded-md px-3 py-1 text-[12px] font-semibold capitalize', filter === f ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{f === 'all' ? 'All' : f === 'refdoc' ? 'Docs' : f === 'finish' ? 'Finishes' : `${f}s`}</button>
-							))}
-						</div>
-					</div>
+					{/* `PillTabs`, not a hand-rolled segmented track. This forked the shared
+					    primitive: same job (pick one section of the panel), different shape, and
+					    — because it was `aria-pressed` buttons rather than a `role="tablist"` —
+					    no roving tabindex and no arrow-key movement, which Settings, Workspace and
+					    the slide drawer all have. It also WRAPS now instead of scrolling sideways,
+					    so a narrow pane no longer hides filters behind a horizontal scroller
+					    nested in the panel's vertical one. (HARD RULE #15 — reuse.) */}
+					<PillTabs
+						className="min-w-0 flex-1"
+						ariaLabel="Library sections"
+						value={filter}
+						onValueChange={(v) => setFilter(v as Filter)}
+						tabs={(['all', 'theme', 'component', 'finish', 'refdoc'] as Filter[]).map((f) => ({
+							value: f,
+							label: f === 'all' ? 'All' : f === 'refdoc' ? 'Docs' : f === 'finish' ? 'Finishes' : `${f[0].toUpperCase()}${f.slice(1)}s`,
+						}))}
+					/>
 					{/* The count hides on a narrow docked pane (container query) AND on a phone
 					    (media query). Five pills need ~340px; at 390px the count stole just
 					    enough that "Docs" clipped mid-word to "Doc" and sat flush against

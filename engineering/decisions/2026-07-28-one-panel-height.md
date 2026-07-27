@@ -102,7 +102,7 @@ line of work.
 
 ## The decision
 
-**One height: `calc(100dvh - max(3.375rem, var(--kb,0px)))`** — an inset of exactly the
+**One height: `calc(100dvh - max(3.375rem, var(--kb)))`** — an inset of exactly the
 app header (`h-[54px]`).
 
 - The app header stays whole and visible, so you always know which deck you are in.
@@ -150,7 +150,44 @@ scrim    [54]        ← one value, above the 44px floor
 xScroll  [0]         ← no horizontal scroller nested in a vertical one
 ```
 
-## Two things this pass got wrong first
+## One subhead, and one tablist
+
+The same pass closed the other two open items, because both turned out to have the
+identical root cause as the height: **a shared primitive existed and was not adopted.**
+
+**Subheads.** `PanelSection`'s own docblock called it "the one subhead grammar" while
+it had exactly ONE consumer (`FeedbackSheet`). Everything else hand-rolled, and the
+results were four near-misses: Share and Workspace's `GroupLabel` at mono 11px bold
+tracking-wider, Add a slide's band heads at mono 10.5px semibold tracking-[0.16em],
+`PanelSection` itself at mono 10.5px bold tracking-[0.11em], and `TtsSettings` at mono
+11px in three more places. Near-identical is worse than plainly different — nothing
+distinguishes them, so every difference reads as an accident.
+
+The voice chosen is **13px semibold sentence case**, and it is the StudioDrawer's,
+because the drawer already wrote down why (its rule 4): *"No mono, no uppercase,
+nothing under 11.5px. That eyebrow voice belongs to the ARTIFACT — it earns its
+formality on a projected slide."* The drawer's own Themes door was the only subhead in
+the app obeying that. The rule was right; it just stopped at the drawer's edge, and the
+shared primitive contradicted it.
+
+**Tablists.** The audit that opened this claimed "five sub-navigation idioms". That was
+an over-count, and the correction matters: `PillTabs` was ALREADY the primitive, with a
+real `role="tablist"` and roving tabindex, in Settings-deck, Settings-slide and
+Workspace. Two surfaces forked it — the Library hand-rolled a segmented track of
+`aria-pressed` buttons (no tablist role, no arrow keys), and `SlidePicker` hand-rolled
+`FilterChip` at a third size and fill. Calling the latter "filters" hid that they are
+single-select with an explicit All, which is exactly a tablist over a filtered view.
+Both now use `PillTabs`, which also retires their horizontal scrollers — `PillTabs`
+wraps.
+
+What is NOT unified, deliberately: **doors** (the overflow drawer's push navigation is
+a menu, not a sectioned panel) and **cmdk group headings** (list group labels, not
+navigation). And micro-labels that are not subheads — status badges (`Deck-wide`,
+`Empty`, `ready`), counts (`0 total`, `7 slides`) and identifiers (component names,
+lint finding codes like `no-ask`) keep mono, because mono is meaningful for an
+identifier and a badge is a different thing from a section head.
+
+## Three things this pass got wrong first
 
 **A Tailwind class built by interpolation ships no rule.** The height was first written
 as ``h-[calc(100dvh-max(${APP_HEADER},var(--kb)))]``. That type-checks, lints, and
@@ -159,21 +196,33 @@ literals — so every panel silently fell back to content height. It was caught 
 measuring the built site (HARD RULE #23): twelve drawers came back at twelve different
 heights, 274px to 5133px. The constant is now spelled literally, with a note saying why.
 
-**`var(--kb)` with no fallback invalidates the whole declaration.** `useKeyboardInset`
-REMOVES the property on cleanup, so between panels `--kb` is unset and a bare `var(--kb)`
-inside `max()` makes the height invalid rather than zero. Now `var(--kb,0px)`.
+**A safe-area padding utility on `PanelBody` never reached the DOM.** `cn` is
+`twMerge(clsx(…))`, and every call site supplies a later bottom padding (`p-4`, `p-5`,
+`px-4 py-3`), so tailwind-merge deleted the earlier `pb-`. The code comment, the
+CHANGELOG and the commit message all claimed the inset was reserved while not one
+element carried the class. Headless Chromium reports `env(safe-area-inset-bottom)` as
+0, so the geometry looked identical either way — only asserting on the CLASS could
+catch it. It now sits on `PanelSheet` itself, which is also the only place that reaches
+all twelve: four drawers (Coach, Chat, Settings, Reader views) do not use `PanelBody`
+at all, so the body-level fix had skipped exactly the panel with a bottom composer.
+
+**A `var(--kb,0px)` fallback, added on a rationale that was false.** The claim was that
+`useKeyboardInset` removes the property on cleanup so a bare `var(--kb)` would
+invalidate the declaration. `--kb: 0px` is in fact declared on `:root` in
+`styles/tailwind.css`, with a comment saying consumers should write the bare form
+*because* the comma in `var(--kb,0px)` needs escaping inside a Tailwind arbitrary-value
+selector — and that is where it once silently failed to generate for the command
+palette. Reverted to the bare form, matching `MOBILE_OFFSET` and the house convention.
 
 ## What is deliberately still open
 
-- **Subhead voices.** `PanelSection`'s mono-uppercase-10.5, Share's display-serif
-  small-caps, and the Themes door's sentence-case 13px are still three treatments for
-  one job. `PanelSection` also renders at 10.5px uppercase, which contradicts the
-  StudioDrawer's own rule 4 ("no mono, no uppercase, nothing under 11.5px") — the
-  primitive disagrees with the drawer that launches everything it styles.
-- **Sub-navigation.** Five idioms remain: doors/push (the drawer), pill tabs (Library),
-  a 2-up segment (Settings), pill chips (Workspace), filter chips (Add a slide). The
-  drawer — the shallowest surface — is still the only one with a push model, while
-  Settings, Workspace and Library have real depth and are flat.
+- **`panel.tsx` is not covered by `npm run lint`.** `biome.json` excludes
+  `docs/src/components/ui` because the 30 vendored shadcn files there fail the house
+  rules; Biome's `includes` cannot re-admit a single file from an excluded folder
+  without tripping `useBiomeIgnoreFolder`, and dropping the exclusion surfaces findings
+  in 20 vendored files. The file is verified clean by running Biome on it directly
+  (byte-identical to its formatted output), but that is a manual step, not a gate.
+- **The close destination**, still two outcomes decided by which launcher you used.
 - **Where the close button lands.** Six drawers return to the deck and six re-open the
   overflow, decided by which launcher you used. Reader views has both entry points, so
   its X does two different things. Left alone here on purpose: it is a navigation-model

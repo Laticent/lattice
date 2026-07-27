@@ -66,7 +66,7 @@ function SpeedSection({ modelId, value, onChange, disabled }: { modelId: string;
 	const ok = speedSupported(modelId);
 	return (
 		<div>
-			<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Speed</div>
+			<div className="mb-1.5 text-[13px] font-semibold leading-normal text-[var(--text-heading)]">Speed</div>
 			{ok ? <SpeedControl value={value} onChange={onChange} disabled={disabled} /> : <p className="text-[12px] text-muted-foreground">{NO_SPEED_HINT}</p>}
 		</div>
 	);
@@ -174,7 +174,7 @@ function VoicePicker({
 	if (!voices.length) {
 		return (
 			<div>
-				<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+				<div className="mb-1.5 text-[13px] font-semibold leading-normal text-[var(--text-heading)]">{label}</div>
 				<input
 					type="text"
 					value=""
@@ -231,7 +231,7 @@ function VoicePicker({
 
 	return (
 		<div>
-			<div className="mb-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+			<div className="mb-1.5 text-[13px] font-semibold leading-normal text-[var(--text-heading)]">{label}</div>
 			<div className={cn('rounded-lg border', open ? 'border-[var(--accent)]' : 'border-border')}>
 				<button
 					type="button"
@@ -268,13 +268,13 @@ function VoicePicker({
 								<>
 									{fFeatured.length > 0 && (
 										<div>
-											<div className="px-2 pb-1 pt-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">★ Featured</div>
+											<div className="px-2 pb-1 pt-1.5 text-[12.5px] font-semibold text-[var(--text-muted)]">★ Featured</div>
 											{fFeatured.map(Row)}
 										</div>
 									)}
 									{fGroups.map((g) => (
 										<div key={g.key}>
-											<div className="px-2 pb-1 pt-2 font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">{g.label}</div>
+											<div className="px-2 pb-1 pt-2 text-[12.5px] font-semibold text-[var(--text-muted)]">{g.label}</div>
 											{g.voices.map(Row)}
 										</div>
 									))}
@@ -501,7 +501,7 @@ export function TtsSettings({ tier, notify }: { tier: 'cloud' | 'ondevice'; noti
 	if (tier === 'cloud') {
 		return (
 			<div>
-				<div className="mb-2 font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Voice model</div>
+				<div className="mb-2 text-[13px] font-semibold leading-normal text-[var(--text-heading)]">Voice model</div>
 				<TtsModelPicker
 					models={models}
 					selectedId={orModel}

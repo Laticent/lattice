@@ -2355,6 +2355,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// approval workflow, so it doesn't belong under a Sparkles/AI-branded panel.
 	const lensesBody = (
 		<div className="min-h-0 flex-1 overflow-y-auto p-2.5 min-w-0 overscroll-contain [touch-action:pan-y]">
+			{/* The lede, in the body. It used to be the header's `description`, which is
+			    what made this one of four header heights; moving it OUT of the header was
+			    right, but the first cut moved it only into `srDescription` — so a sighted
+			    user lost the explanation entirely while the sentence lived on for screen
+			    readers alone. Found by the independent checker. */}
+			<p className="px-1.5 pb-2.5 text-[13px] leading-snug text-[var(--text-muted)]">
+				A subset of this deck for one reader — you approve exactly what they see.
+			</p>
 			<LensesPanel
 				slides={slides}
 				registry={lensReg}
@@ -3482,7 +3490,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				<PanelHeader
 					icon={<History />}
 					title="Version history"
-					srDescription="Snapshots you can restore. One is saved before each AI edit."
+					srDescription="Snapshots you can restore. One is captured automatically before each AI edit."
 				/>
 				{/* The zero state OWNS the empty panel rather than floating at the top of it,
 				    and it carries the lede the header used to. Measured before this change:

@@ -265,7 +265,7 @@ export function StudioDrawer({
 				showCloseButton={false}
 				onEscapeKeyDown={(e) => { if (inDoor) { e.preventDefault(); back(); } }}
 				style={{ WebkitTapHighlightColor: 'color-mix(in srgb, var(--accent) 16%, transparent)' }}
-				className={cn('flex flex-col gap-0 rounded-t-2xl p-0', MOBILE_OFFSET, MOBILE_HEIGHT)}
+				className={cn('flex flex-col gap-0 rounded-t-2xl p-0 pb-[env(safe-area-inset-bottom)]', MOBILE_OFFSET, MOBILE_HEIGHT)}
 			>
 				{/* Nav bar: the SAME three-slot left-aligned strip at both levels, fixed 56px,
 				    never centers. The back affordance is a chevron plus the literal name of
@@ -318,7 +318,7 @@ export function StudioDrawer({
 				    of bug as the original wrapperClassName miss, and invisible unless you
 				    measure scrollHeight vs clientHeight. Sheet(flex col, max-h) → wrapper
 				    (flex-1, min-h-0, flex col) → scroller(flex-1, min-h-0, overflow-y-auto). */}
-				<ScrollFade scrollRef={scrollRef} wrapperClassName="flex min-h-0 flex-1 flex-col" className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+				<ScrollFade scrollRef={scrollRef} wrapperClassName="flex min-h-0 flex-1 flex-col" className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
 					{level === 'index' && (
 						<div className="flex flex-col gap-3">
 							{effPane === 'edit' && (
