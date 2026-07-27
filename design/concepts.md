@@ -139,11 +139,20 @@ them the way a Tile fills a Cell. It **has-a** Frame and binds Substance into th
 Cells that Frame produces; it also carries a Function and receives Finish — the
 four axes and the three nouns meeting on one slide.
 
-A **Bucket** is the orthogonal, purely-organisational concept: the grouping
+A **Bucket** is the orthogonal, purely-organizational concept: the grouping
 components are filed under. Most buckets match the Function families one-to-one; a
 few (chart, diagram, math, code, legal) diverge to keep related components
 together. A component's Function is unchanged by its bucket — the bucket just says
 where it is filed.
+
+**Watch the word "chart."** Two buckets are named after kinds of visualization,
+so their names read like classifications when they are only folders. What
+actually separates a chart from a diagram is **Substance** — `series` (a table of
+numbers) versus `graph` (a network) — and neither of those tells you what the
+thing is *drawn with*. That last fact is its own per-component field, `render`
+(`svg` · `hybrid` · `html`), which exists because motion, mark detail, and SVG
+export all depend on it. Four readings of one word, separated once and for all in
+`design/design-system.md` §5.5–5.6.
 
 ---
 

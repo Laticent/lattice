@@ -160,6 +160,15 @@ function emitDocsHeader(m, lines) {
   lines.push('');
   lines.push(`**Function** ${m.function} · **Form** ${m.form} · **Substance** ${m.substance}`);
   lines.push('');
+  // Visualizations only (bucket chart/diagram). `substance` says what the AUTHOR
+  // writes; this says what the ENGINE draws with — whether the whole picture
+  // animates, whether every part can carry a mark-detail popover, and what an SVG
+  // export actually captures. Gated both ways: checkRenderNature (build:check)
+  // requires the pair, check-render-nature.js proves it against the real export.
+  if (m.render) {
+    lines.push(`**Drawn with** \`${m.render}\` — ${m.renderNote}`);
+    lines.push('');
+  }
   if (Array.isArray(m.tags) && m.tags.length) {
     lines.push(`**Tags** ${m.tags.map((t) => `\`${t}\``).join(' · ')}`);
     lines.push('');

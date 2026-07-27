@@ -4,6 +4,8 @@
 
 **Function** evidence · **Form** scatter · **Substance** series
 
+**Drawn with** `hybrid` — The web, spokes, area polygons and axis labels are `<svg>`; the small-multiples variant then labels each mini radar with an HTML `<figcaption>` beneath it, so a `mini` deck is a grid of SVG figures with HTML captions between them. Chart-motion animates the polygons; those captions do not move.
+
 **Tags** `spider` · `assessment` · `positioning`
 
 Use to compare 2–4 options across the same 4–8 criteria. Each option becomes a polygon; overlap shows where strengths align.

@@ -15,6 +15,8 @@
   "bucket": "chart",
   "form": "timeline",
   "substance": "graph",
+  "render": "hybrid",
+  "renderNote": "States are authored as an HTML `<ol>`; the browser pass measures those boxes and paints the nodes, edges and edge labels into the `<svg>` overlay, hiding the list. Edge routing depends on each state's measured box, so the HTML has to exist first — and the legend and the chip variant stay HTML.",
   "stage": "canvas",
   "orientation": [
     "landscape",

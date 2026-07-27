@@ -3158,6 +3158,8 @@
       "function": "evidence",
       "form": "canvas",
       "substance": "graph",
+      "render": "svg",
+      "renderNote": "Mermaid renders the fenced block to `<svg>` downstream — mmdc at build time, mermaid.js in a live preview — so the engine emits a code fence and the exported artifact carries a real drawing. Node labels ride inside `<foreignObject>`, i.e. HTML markup living inside the SVG, which is why they wrap like text but export with the figure.",
       "orientation": [
         "landscape",
         "portrait"
@@ -3460,6 +3462,8 @@
       "function": "evidence",
       "form": "canvas",
       "substance": "series",
+      "render": "svg",
+      "renderNote": "Bands, labels, values and the conversion percentages are all one `<svg>`. A funnel is a geometric claim — each band's width IS the conversion rate — so the taper has to be drawn in one coordinate system rather than assembled from boxes that happen to line up.",
       "orientation": [
         "landscape",
         "portrait"
@@ -3617,6 +3621,8 @@
       "function": "progression",
       "form": "timeline",
       "substance": "series",
+      "render": "svg",
+      "renderNote": "Bars, milestones, the date axis and every caption are one `<svg>`. A bar's start and length are positions on a shared time axis, so axis and bars must be solved together; CSS boxes would re-derive the same scale per row and drift.",
       "orientation": [
         "landscape",
         "portrait"
@@ -4317,6 +4323,8 @@
       "function": "progression",
       "form": "timeline",
       "substance": "structure",
+      "render": "hybrid",
+      "renderNote": "The board — stages, lanes, actors and task labels — is an HTML/CSS grid, because a journey map is fundamentally a table of text that must wrap and reflow. The mood curve and the actor faces drawn across it are inline `<svg>`: those are the only parts with real geometry, and the only parts that animate.",
       "orientation": [
         "landscape",
         "portrait"
@@ -4469,6 +4477,8 @@
       "function": "progression",
       "form": "timeline",
       "substance": "series",
+      "render": "html",
+      "renderNote": "Columns and cards are HTML/CSS boxes. A board is a set of text cards in named columns with no geometry to draw, and HTML gives it real text selection, wrapping and reflow that an SVG rewrite would have to reimplement badly.",
       "orientation": [
         "landscape",
         "portrait"
@@ -5773,6 +5783,8 @@
       "function": "evidence",
       "form": "spatial",
       "substance": "series",
+      "render": "svg",
+      "renderNote": "The projected basemap, region fills, highlight rings and place labels are one `<svg>`. The geography IS path data — nothing but SVG draws a coastline — and labels have to sit in the same projected space as the regions they name.",
       "orientation": [
         "landscape",
         "portrait"
@@ -6497,6 +6509,8 @@
       "function": "evidence",
       "form": "canvas",
       "substance": "series",
+      "render": "svg",
+      "renderNote": "Wedges, their radial gradients, the percentages and the legend are all one `<svg>`. A wedge is an arc path, and keeping the legend inside the same drawing means a swatch hue can never drift from the slice it names.",
       "orientation": [
         "landscape",
         "portrait"
@@ -7023,6 +7037,8 @@
       "function": "evidence",
       "form": "canvas",
       "substance": "series",
+      "render": "html",
+      "renderNote": "Each bar is an HTML box whose width is its percentage. One number per row needs no shared coordinate system, and keeping the label as prose lets it wrap and stay selectable — an SVG bar would buy nothing but a text-wrapping problem.",
       "orientation": [
         "landscape",
         "portrait"
@@ -7384,6 +7400,8 @@
       "function": "evidence",
       "form": "scatter",
       "substance": "series",
+      "render": "svg",
+      "renderNote": "Axes, cell tints, bubbles, trails and every label — including the corner names that sit outside the plot — are one `<svg>`. Points are placed by value on two axes, and the placement engine that keeps labels off each other and off the marks needs all of it in one coordinate system.",
       "orientation": [
         "landscape",
         "portrait"
@@ -7705,6 +7723,8 @@
       "function": "evidence",
       "form": "scatter",
       "substance": "series",
+      "render": "hybrid",
+      "renderNote": "The web, spokes, area polygons and axis labels are `<svg>`; the small-multiples variant then labels each mini radar with an HTML `<figcaption>` beneath it, so a `mini` deck is a grid of SVG figures with HTML captions between them. Chart-motion animates the polygons; those captions do not move.",
       "orientation": [
         "landscape",
         "portrait"
@@ -8234,6 +8254,8 @@
       "function": "progression",
       "form": "matrix",
       "substance": "structure",
+      "render": "html",
+      "renderNote": "A real `<table>` of cells carrying state markers. The layout is a grid of text — nothing is positioned by value — so the semantic table is both the right structure for assistive tech and the right layout engine for the cells.",
       "orientation": [
         "landscape",
         "portrait"
@@ -8939,6 +8961,8 @@
       "function": "progression",
       "form": "timeline",
       "substance": "graph",
+      "render": "hybrid",
+      "renderNote": "States are authored as an HTML `<ol>`; the browser pass measures those boxes and paints the nodes, edges and edge labels into the `<svg>` overlay, hiding the list. Edge routing depends on each state's measured box, so the HTML has to exist first — and the legend and the chip variant stay HTML.",
       "orientation": [
         "landscape",
         "portrait"
@@ -9480,6 +9504,8 @@
       "function": "evidence",
       "form": "timeline",
       "substance": "series",
+      "render": "html",
+      "renderNote": "Entries stack as HTML rows against a CSS rule. The only geometry is the ordering, and document order already carries it; the bodies are paragraphs that need to wrap, so they stay HTML.",
       "orientation": [
         "landscape",
         "portrait"
@@ -10266,6 +10292,8 @@
       "function": "evidence",
       "form": "canvas",
       "substance": "series",
+      "render": "hybrid",
+      "renderNote": "The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do — while the key beneath the cloud is an HTML list, so the terms stay selectable, findable and readable in order by a screen reader.",
       "orientation": [
         "landscape",
         "portrait"

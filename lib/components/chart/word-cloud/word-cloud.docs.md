@@ -4,6 +4,8 @@
 
 **Function** evidence · **Form** canvas · **Substance** series
 
+**Drawn with** `hybrid` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do — while the key beneath the cloud is an HTML list, so the terms stay selectable, findable and readable in order by a screen reader.
+
 **Tags** `tag-cloud` · `themes` · `proportion`
 
 Use for qualitative summaries — retrospective themes, survey verbatims. Word size encodes frequency or weight; not a precise data viz.

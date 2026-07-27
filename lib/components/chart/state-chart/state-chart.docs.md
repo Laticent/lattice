@@ -4,6 +4,8 @@
 
 **Function** progression · **Form** timeline · **Substance** graph
 
+**Drawn with** `hybrid` — States are authored as an HTML `<ol>`; the browser pass measures those boxes and paints the nodes, edges and edge labels into the `<svg>` overlay, hiding the list. Edge routing depends on each state's measured box, so the HTML has to exist first — and the legend and the chip variant stay HTML.
+
 **Tags** `flowchart` · `states` · `workflow`
 
 Use to show a finite-state machine — the discrete states a system can be in and the events that move between them. Authors write a numbered list; each state's index becomes its stable ref so transitions cite numbers, not names. The numbering is the layout: state i renders at row i, so there is no auto-layout problem to solve.

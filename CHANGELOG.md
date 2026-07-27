@@ -27,6 +27,39 @@ in patch versions.
 
 ### Added
 
+- **Every visualization now declares what it is DRAWN with, and the declaration is checked
+  against the rendered artifact.** There was no way to tell which charts are real SVG, which
+  are HTML/CSS boxes, and which mix the two — a distinction that decides whether chart-motion
+  animates the whole picture, whether every part can carry a mark-detail popover, and what an
+  SVG export actually captures. Two new manifest fields answer it: `render` (`svg` | `hybrid` |
+  `html`) and `renderNote`, a per-component justification naming what each side is made of and
+  what forced the choice. Required for the visualization family (bucket `chart` or `diagram`)
+  and rejected everywhere else, where it would be an ungated assertion. Today: **svg** —
+  `diagram`, `funnel`, `gantt`, `map`, `piechart`, `quadrant`; **hybrid** — `journey`, `radar`,
+  `state-chart`, `word-cloud`; **html** — `kanban`, `progress`, `roadmap`, `timeline-list`.
+  Surfaced as a **Drawn with** line in every generated `<name>.docs.md` and as `render` /
+  `renderNote` in `dist/docs/components.json`.
+
+  The field is declared for INTENT and derived for TRUTH, because hand-maintained assertions
+  rot (the SVG-chart branch that preceded this one found four separate prose claims that had
+  gone false). `npm run check:render-nature` renders each component's own gallery through the
+  export path — the emulator's HTML sidecar, with mermaid baked — loads it in headless Chromium
+  so the runtime paint runs, and asks one question of every visible text node and shape inside
+  the picture: is it inside an `<svg>`? Both sides present means `hybrid`, with no threshold and
+  no allowlist, so radar is hybrid on the strength of one 22-character HTML caption under its
+  small-multiples. A mismatch fails the gate. The static half — every visualization declares the
+  pair, nothing else does, and a note may not merely restate the enum — is `checkRenderNature` in
+  `tools/check-ownership.js` and runs inside `build:check`.
+  See `engineering/decisions/2026-07-27-render-nature-declaration.md`.
+
+- **The four things "chart" means are now written down side by side** (`design/design-system.md`
+  §5.5, `design/concepts.md` §5, `chart-family.docs.md` § Membership). `substance` is what the
+  author writes and is the real chart-vs-diagram distinction (`series` = a table of numbers,
+  `graph` = a network, `structure` = a hierarchy); `bucket` is a folder on disk and nothing more;
+  chart-family membership is a shared `.chart-frame` skeleton; `render` is construction material.
+  Knowing one tells you nothing about the others — `state-chart` is a graph, in the chart folder,
+  wrapped in the chart frame, drawn hybrid. Documentation only: no renames, no manifest churn.
+
 - **Per-component agent contract: `<name>.docs.md` now front-loads a dense, machine-actionable
   block instead of burying it in narrative prose.** Generated docs previously interleaved the
   ~30% of content an authoring agent actually needs (slots, capacity/density) with human-narrative

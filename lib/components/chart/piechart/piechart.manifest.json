@@ -13,6 +13,8 @@
   "bucket": "chart",
   "form": "canvas",
   "substance": "series",
+  "render": "svg",
+  "renderNote": "Wedges, their radial gradients, the percentages and the legend are all one `<svg>`. A wedge is an arc path, and keeping the legend inside the same drawing means a swatch hue can never drift from the slice it names.",
   "stage": "canvas",
   "tags": [
     "donut",

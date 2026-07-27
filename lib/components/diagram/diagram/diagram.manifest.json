@@ -7,6 +7,8 @@
   "galleryAuthored": true,
   "form": "canvas",
   "substance": "graph",
+  "render": "svg",
+  "renderNote": "Mermaid renders the fenced block to `<svg>` downstream — mmdc at build time, mermaid.js in a live preview — so the engine emits a code fence and the exported artifact carries a real drawing. Node labels ride inside `<foreignObject>`, i.e. HTML markup living inside the SVG, which is why they wrap like text but export with the figure.",
   "stage": "canvas",
   "conformance": "strict",
   "tags": ["flowchart", "org-chart", "sequence", "process"],

@@ -4,6 +4,8 @@
 
 **Function** evidence · **Form** timeline · **Substance** series
 
+**Drawn with** `html` — Entries stack as HTML rows against a CSS rule. The only geometry is the ordering, and document order already carries it; the bodies are paragraphs that need to wrap, so they stay HTML.
+
 **Tags** `changelog` · `milestones` · `status` · `retrospective`
 
 Use for milestone history or annotated timelines. Each event sits on a left-to-right spine: a dot with its date pill above it, then the title, an optional status pill, and a short body stacked beneath.

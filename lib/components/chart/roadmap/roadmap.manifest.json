@@ -15,6 +15,8 @@
   "bucket": "chart",
   "form": "matrix",
   "substance": "structure",
+  "render": "html",
+  "renderNote": "A real `<table>` of cells carrying state markers. The layout is a grid of text — nothing is positioned by value — so the semantic table is both the right structure for assistive tech and the right layout engine for the cells.",
   "stage": "canvas",
   "orientation": [
     "landscape",

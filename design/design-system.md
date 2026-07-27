@@ -228,18 +228,25 @@ four substance sources today, and a new chart library, diagram
 language, or data format must plug in as one of these four — this is
 the engine's only plugin point.
 
-| Substance     | Author writes…                              | Renderer                                            | Output    |
-|---------------|---------------------------------------------|-----------------------------------------------------|-----------|
-| **prose**     | Headings, paragraphs, inline emphasis       | Marp markdown → semantic HTML; CSS does everything  | DOM       |
-| **structure** | Headings + nested lists with conventions    | `lib/*.js` post-processor rewrites lists into purpose-built DOM | DOM       |
-| **series**    | Tabular DSL (axes + datapoints as bullets)  | `lib/components/chart/_chart-family/chart-family.js` + per-chart kernel            | SVG       |
-| **graph**     | External graph language (Mermaid today)     | External tool (mmdc) → SVG, palette injected        | SVG       |
+| Substance     | Author writes…                              | Renderer                                            |
+|---------------|---------------------------------------------|-----------------------------------------------------|
+| **prose**     | Headings, paragraphs, inline emphasis       | Marp markdown → semantic HTML; CSS does everything  |
+| **structure** | Headings + nested lists with conventions    | `lib/*.js` post-processor rewrites lists into purpose-built DOM |
+| **series**    | Tabular DSL (axes + datapoints as bullets)  | `lib/components/chart/_chart-family/chart-family.js` + per-chart kernel |
+| **graph**     | External graph language (Mermaid today)     | External tool (mmdc) → SVG, palette injected        |
+
+**Substance is about the AUTHOR, not about SVG.** The table used to carry an
+"Output" column reading DOM · DOM · SVG · SVG. That was false, and it was the
+seed of a long-running confusion: four of the thirteen chart components draw no
+SVG at all (kanban, progress, roadmap, timeline-list are HTML/CSS boxes), and
+three more mix the two. What a component is *drawn with* is a separate,
+orthogonal fact, declared per component as `render` — see §5.5.
 
 **The unification this gives us.** "Chart" and "diagram" are no longer
-separate concepts. They're both Evidence-function slides with SVG
-substance. The split is by **data shape**: series is tabular,
-graph is topological. Authors learn one question — "is your data a
-table or a network?" — instead of memorizing engines.
+separate concepts. Both are visualizations; the split is by **data shape**:
+series is tabular, graph is topological, structure is hierarchical. Authors
+learn one question — "is your data a table, a network, or a hierarchy?" —
+instead of memorizing engines.
 
 A new graph language (D2, PlantUML) plugs into the **graph** contract;
 a new chart library (Vega-Lite, Observable Plot) plugs into the
@@ -257,6 +264,68 @@ structure). `mixed` is not a fifth plugin contract; it's a declaration
 that the component composes two existing contracts. The four-substance
 plugin point is unchanged. (No component declares `mixed` today — the
 hatch stays dormant but remains a general capability.)
+
+### 5.5 "Chart" means four different things — here they are, separated
+
+The word *chart* does four jobs in this codebase, and reading any one of them as
+the others is the single most common source of confusion. They are independent;
+knowing one tells you nothing about the others.
+
+| The thing | Where it lives | What it answers |
+|---|---|---|
+| **`substance`** | manifest, §5 above | What the AUTHOR writes — a table of numbers (`series`), a network (`graph`), a hierarchy (`structure`), prose |
+| **`bucket`** | manifest + the folder path | Which directory the files sit in. **Nothing else.** |
+| **chart-family membership** | `CHART_LAYOUTS` in `chart-family.js` | Whether the dispatcher wraps it in `.chart-frame` — the shared eyebrow / subtitle / caption / status skeleton |
+| **`render`** | manifest, gated | What the picture is DRAWN with — `svg`, `html`, or `hybrid` |
+
+Read out loud, for the components where they disagree:
+
+- **`state-chart` is a diagram by substance** (`graph` — states and transitions
+  are a network) that **lives in the chart bucket** (it shares the chart frame's
+  chrome) and **renders hybrid** (an HTML `<ol>` the browser pass measures, then
+  paints into an SVG overlay).
+- **`journey` and `roadmap` are neither** by substance: both are `structure`.
+  They sit in the chart bucket for the same frame-sharing reason; journey renders
+  hybrid, roadmap renders pure HTML.
+- **`diagram` is the only member of the diagram bucket**, is `graph` by
+  substance, and is **not** a chart-family member — Mermaid brings its own frame.
+
+So: **substance is what separates a chart from a diagram.** Series versus graph.
+That is the real distinction, and it is the one authors should learn. The bucket
+is a folder. Chart-family membership is a shared skeleton. `render` is
+construction material.
+
+### 5.6 `render` — what the picture is drawn with
+
+Every component in the visualization family (bucket `chart` or `diagram`)
+declares `render: svg | hybrid | html` plus a `renderNote` justifying it. The
+field exists because three things a deck author cares about depend on it and on
+nothing else in the manifest:
+
+- **Motion.** Chart-motion (Anima) animates the first `<svg>` in a section.
+  A `html` component does not animate; the HTML half of a `hybrid` one stays
+  still while its SVG half moves.
+- **Mark detail.** The tap-a-mark popover addresses `[data-mark]` elements; which
+  parts can carry one follows from what they are made of.
+- **Export.** An SVG export of the figure captures the SVG side and nothing else.
+
+`renderNote` is the justification, written per component — what each side is made
+of and what forced it (a shared coordinate system, a measured box, arbitrary
+rotation, text that must stay selectable). It is what the generated docs show
+under **Drawn with**.
+
+**Declared for intent, derived for truth.** `render` says what the component is
+*meant* to be; `tools/check-render-nature.js` renders each component's own
+gallery through the export path in a real browser, derives what it *actually*
+is, and fails when the two disagree. The static half — every visualization
+declares the pair, nothing else does — is `checkRenderNature` in
+`tools/check-ownership.js`, so it runs inside `build:check`. See
+`engineering/decisions/2026-07-27-render-nature-declaration.md`.
+
+`render` is deliberately **not** a fifth design axis. The four axes decide what
+a slide *is* and how it is composed; `render` records how one family of them is
+built. It changes nothing about how an author picks a component — only what they
+can expect it to do once picked.
 
 ---
 
@@ -670,6 +739,13 @@ divergence:
 The audience-facing taxonomy in §3 is what authors use to pick a
 component; the disk bucket is what maintainers use to navigate the
 shared-context code.
+
+**A bucket is a folder — that is the whole of it.** `chart` and `diagram` are
+bucket names AND substance-adjacent words, and that coincidence misleads: a
+component's bucket does not tell you what the author writes (`substance`), what
+skeleton it gets (chart-family membership), or what it is drawn with (`render`).
+`state-chart` is a graph in the chart folder; `roadmap` is a structure in the
+chart folder that draws no SVG. §5.5 separates the four readings.
 
 The bucket layout is reflected in three places only:
 - the manifest's optional `bucket` field

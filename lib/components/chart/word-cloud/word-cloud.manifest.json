@@ -12,6 +12,8 @@
   "bucket": "chart",
   "form": "canvas",
   "substance": "series",
+  "render": "hybrid",
+  "renderNote": "The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do — while the key beneath the cloud is an HTML list, so the terms stay selectable, findable and readable in order by a screen reader.",
   "stage": "canvas",
   "tags": [
     "tag-cloud",

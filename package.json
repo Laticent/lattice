@@ -154,6 +154,7 @@
     "check:ownership": "node tools/check-ownership.js",
     "check:responsive": "node tools/check-chart-responsiveness.js",
     "check:render": "node tools/check-viz-render.js",
+    "check:render-nature": "node tools/check-render-nature.js",
     "check:render:bless": "node tools/check-viz-render.js --bless",
     "fonts:check": "node tools/check-fonts.js",
     "fonts:emoji": "node tools/fetch-emoji-font.js",
