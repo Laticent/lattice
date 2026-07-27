@@ -11,7 +11,7 @@
  * pseudo-element, so the footer Cell is a TOKEN COORDINATE CONTRACT, not a DOM
  * grid: footer-left yields the reserved centre zone so it can never run through
  * the rail, and the centre zone ends before the pagination zone. The reserved
- * widths are the --footer-centre-w/-half tokens defined on the root in
+ * widths are the --footer-center-w/-half tokens defined on the root in
  * lib/forms/cell/stage/stage.css. (Non-form decks keep the full-width footer —
  * this is scoped to section.form.) */
 /* The footer band's three zones are now INDEPENDENTLY-positioned Cells

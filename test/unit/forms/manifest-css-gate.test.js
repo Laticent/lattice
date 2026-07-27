@@ -29,7 +29,7 @@ describe('Form manifest↔CSS gate — pure helpers', () => {
   test('collectGeometryTokenRefs pulls every geometry/gap token name', () => {
     const cells = [
       { id: 'masthead', gap: '--frame-y', geometry: { size: '--masthead-h', inset: '--frame-x' } },
-      { id: 'token-only', gap: '--footer-centre-half' },
+      { id: 'token-only', gap: '--footer-center-half' },
       { id: 'bare' },
     ];
     const refs = collectGeometryTokenRefs(cells);
@@ -37,7 +37,7 @@ describe('Form manifest↔CSS gate — pure helpers', () => {
       refs.sort((a, b) => (a.token + a.cell).localeCompare(b.token + b.cell)),
       [
         { cell: 'masthead', field: 'geometry.size', token: '--masthead-h' },
-        { cell: 'token-only', field: 'gap', token: '--footer-centre-half' },
+        { cell: 'token-only', field: 'gap', token: '--footer-center-half' },
         { cell: 'masthead', field: 'geometry.inset', token: '--frame-x' },
         { cell: 'masthead', field: 'gap', token: '--frame-y' },
       ].sort((a, b) => (a.token + a.cell).localeCompare(b.token + b.cell)),

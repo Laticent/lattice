@@ -25,7 +25,7 @@
  * Because
  * `section.form` is the root chrome Frame, this file is also where the shared,
  * resolution-blind frame tokens are defined (--frame-x/-y, --masthead-h,
- * --footer-h/-reserve, --footer-centre-w/-half); the masthead and footer Cells
+ * --footer-h/-reserve, --footer-center-w/-half); the masthead and footer Cells
  * consume them by name (they cascade from this root). Canonical model:
  * design/forms.md.
  *
@@ -65,8 +65,8 @@ section.form {
    * rules) — footer-left yields it so the two can never collide. */
   --footer-h: calc(var(--_sec-1cqi, 1cqi) * 5);
   --footer-reserve: calc(var(--frame-inset-y) + var(--footer-h) + var(--sp-sm));
-  --footer-centre-w: calc(var(--_sec-1cqi, 1cqi) * 30);
-  --footer-centre-half: calc(var(--footer-centre-w) / 2);
+  --footer-center-w: calc(var(--_sec-1cqi, 1cqi) * 30);
+  --footer-center-half: calc(var(--footer-center-w) / 2);
   /* The progress rail's default right offset — it parks just left of the page
    * number so the two wayfinding marks read as one group. Sized for the page
    * number's own width (≈ up to two digits) plus a hair of gap, tighter than the

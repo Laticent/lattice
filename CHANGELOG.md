@@ -319,6 +319,21 @@ in patch versions.
 
 ### Fixed
 
+- **Split COVER chrome is legible on the accent field.** Measured on a real render, the deck
+  header and footer came out at **1.34:1** on a cover page and the section rail's label at
+  **1.00:1** — `--accent` text on `--accent`, literally invisible — because the chrome kept the
+  colors tuned for the ordinary surface. Cover chrome now derives from `currentColor` like the
+  k-of-N rail always has: **4.75:1** light, 5.00:1 dark, 15.09:1 print. Keyed on the kernel's
+  `data-split-role="cover"`, so it reaches all six cover classes at once.
+- **A cover page builds a real footer Cell.** It used to emit its footer text, section rail and
+  page number as bare section children, each absolutely positioned from its own edge and with no
+  shared width budget — so on a portrait cover the marks overlapped and the section label
+  truncated. The Cell makes the band one flex row, and the page number becomes a real element
+  `repaginate` re-stamps rather than the `::after` pseudo.
+- **`--footer-centre-w` / `--footer-centre-half` renamed to `--footer-center-*`** (HARD RULE
+  #21). Not a rename for its own sake: the split-cover work needed two new references to the
+  token, and adding British spellings is what the ratchet exists to prevent.
+
 - **Five silent content drops in the carousel split strategies**, each found by the new
   conservation gate and fixed rather than sanctioned: the deck's SECTION RAIL
   (`nav.tile-progress`) was missing from the split chrome set, so every cover page lost it —

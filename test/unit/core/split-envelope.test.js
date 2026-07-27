@@ -420,7 +420,14 @@ describe('core: the envelope through both auto-split passes (HARD RULE #1)', () 
     const attrs = [...html.matchAll(/data-lattice-pagination="(\d+)"/g)].map((m) => Number(m[1]));
     const spans = [...html.matchAll(/class="lat-pagination">(\d+)</g)].map((m) => Number(m[1]));
     assert.deepEqual(attrs, [1, 2, 3, 4, 5]); // cover + 3 bodies + the insight page
-    assert.deepEqual(spans, [2, 3, 4, 5]);    // the cover has no footer cell (the pseudo renders it)
+    // Every page — the COVER included. The cover used to emit its footer text, section rail and
+    // page number as BARE section children, so it had no `.cell-footer` and fell back to the
+    // `section.form::after` pagination pseudo. Those four marks are each absolutely positioned
+    // from their own edge, which on a portrait cover made them overlap (the k-of-N rail struck
+    // through the footer text, the section label truncated). The cover now builds the same footer
+    // CELL an ordinary slide has, so the band is one flex row with a shared width budget — and
+    // the number is a real element `repaginate` re-stamps, exactly like the body pages'.
+    assert.deepEqual(spans, [1, 2, 3, 4, 5]);
     assert.ok([...html.matchAll(/data-lattice-pagination-total="(\d+)"/g)].every((m) => m[1] === '5'));
   });
 

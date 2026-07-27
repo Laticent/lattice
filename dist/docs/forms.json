@@ -277,7 +277,7 @@
       ],
       "capacity": "one",
       "fill": "start",
-      "gap": "--footer-centre-half",
+      "gap": "--footer-center-half",
       "clip": true,
       "css": true
     },
@@ -357,7 +357,7 @@
       ],
       "capacity": "one",
       "fill": "end",
-      "gap": "--footer-centre-half",
+      "gap": "--footer-center-half",
       "clip": true,
       "css": true
     },
@@ -371,9 +371,9 @@
       ],
       "capacity": "one",
       "fill": "center",
-      "gap": "--footer-centre-half",
+      "gap": "--footer-center-half",
       "geometry": {
-        "size": "--footer-centre-w"
+        "size": "--footer-center-w"
       },
       "clip": true,
       "css": true

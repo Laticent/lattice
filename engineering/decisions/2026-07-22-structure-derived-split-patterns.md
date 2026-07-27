@@ -553,6 +553,13 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
     their ordinals at 1 on every page, and `cycle` drew its return arc — a bracket around one
     card, pointing at nothing — on every split page. All three fixed here; the loop is carried by
     the signal instead.
+    **Cover chrome, found while verifying the above.** Every cover is a full-bleed accent field,
+    but its chrome kept the ordinary surface's colors: measured 1.34:1 for the deck header and
+    footer, and 1.00:1 for the section rail's label — `--accent` on `--accent`. It derives from
+    `currentColor` now (4.75 light / 5.00 dark / 15.09 print), keyed on `data-split-role="cover"`
+    so it reaches all six cover classes. The cover also builds a real footer CELL rather than
+    bare chrome children, because four independently-positioned absolutes in one band have no
+    shared budget and overlapped once they became visible.
 
 ## 9. Phasing (corrected; each one branch → one PR, HARD #17; green + demo each step)
 

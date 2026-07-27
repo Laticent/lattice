@@ -15915,7 +15915,7 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
 .lat-split-rail .seg.on { opacity: 0.8; }
 /* …UNLESS the deck's SECTION rail is in the same band. `12cqi` clears the page number, but
    it lands squarely inside the berth the section rail (`.tile-progress`, the progress-centre
-   Cell) reserves — right of `--footer-pag-reserve`, up to `--footer-centre-w` wide — so on
+   Cell) reserves — right of `--footer-pag-reserve`, up to `--footer-center-w` wide — so on
    any deck WITH dividers the k-of-N segments were drawn on top of the section label's last
    characters. Seen on a real portrait render, and pre-existing on the plain path (a body page
    carries the source's rail verbatim); the conservation fix that carries the section rail onto
@@ -15925,7 +15925,7 @@ section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='p
    Frames that HIDE the section rail are excluded — a hidden rail reserves nothing, and the
    split rail must not drift left to dodge a mark that isn't drawn. */
 section:not(.claim-quiet):not(.claim-hero):not(.claim-bleed):has(.tile-progress) > .lat-split-rail {
-  right: calc(var(--footer-pag-reserve, 4cqi) + var(--footer-centre-w, 30cqi) + var(--_sec-1cqi, 1cqi) * 1.5);
+  right: calc(var(--footer-pag-reserve, 4cqi) + var(--footer-center-w, 30cqi) + var(--_sec-1cqi, 1cqi) * 1.5);
 }
 /* Docked in the footer Cell (auto-split.js `applyRails`, mirroring how the progress Tile docks
    the section rail): de-absolute so the footer row lays the marks out in flow —
@@ -15943,7 +15943,8 @@ section.form > .cell-footer > .lat-split-rail {
    of overrunning — `flex-grow`, not `margin-right:auto` (HARD RULE #20 — a margin is invisible
    to the height math the Fit Spine measures). Scoped by `:has(> .lat-split-rail)` to split-run
    pages only: the un-split band keeps its current geometry byte for byte. */
-section.form > .cell-footer:has(> .lat-split-rail) > footer {
+section.form > .cell-footer:has(> .lat-split-rail) > footer,
+section[data-split-role="cover"] > .cell-footer > footer {
   position: static;
   inset: auto;
   /* `block`, not the band's default `flex`: `text-overflow: ellipsis` never applies to a flex
@@ -16087,6 +16088,52 @@ section.form.lat-split-native.lat-split-native.lat-split-native.lat-split-native
      at their tops) into line with it rather than inventing a treatment. Only ever applies
      to a card that is alone on its page. */
   align-content: center;
+}
+
+/* ── Split COVER chrome — readable on the accent field ─────────────────────────────
+   Every cover page is a full-bleed ACCENT field with `color: var(--on-accent)`, but the slide
+   chrome kept the colors tuned for the ordinary surface, where the field is behind it:
+   measured on a real render, the deck header and footer came out at 1.34:1 and the section
+   rail's label at 1.00:1 — `--accent` text ON `--accent`, literally invisible. (The k-of-N
+   rail and the cover heading were always fine: they already use `currentColor` / `--on-accent`,
+   and measure 5.47:1.)
+
+   So cover chrome derives from `currentColor` too, muted by opacity rather than by a second
+   color token — the field's own contrast then carries every palette, dark and light, with no
+   per-theme value to keep in sync (HARD RULE #3: no literal, and no new token where one is not
+   needed).
+
+   Keyed on `data-split-role="cover"`, the kernel-owned stamp (split-envelope.js `withRole`),
+   because the SIX cover classes are not one class: the plain path and cover-paginate/cover-cards
+   emit `lat-split-cover`, and the read-across strategies each emit their own
+   (`compare-split-cover`, `split-panel-cover`, `list-tabular-cover`, `decision-cover`,
+   `compare-code-cover`). The role is what they share — the same reason the rule-9 gate had to
+   be re-keyed on it. Doubled for weight: `section.form > .cell-footer > footer` sits at (0,2,2)
+   and the Marp footer tier colors a bare `<footer>` from `--marp-slide-footer-color`. */
+section[data-split-role="cover"][data-split-role="cover"] > header,
+section[data-split-role="cover"][data-split-role="cover"] > footer,
+section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > footer,
+section[data-split-role="cover"][data-split-role="cover"] > .lat-pagination,
+section[data-split-role="cover"][data-split-role="cover"] > .cell-footer > .lat-pagination,
+section[data-split-role="cover"][data-split-role="cover"] .tile-progress .seg {
+  color: currentColor;
+  opacity: 0.9;
+}
+/* The pagination PSEUDO — what a cover uses, since it has no footer Cell to hold the real
+   element (`section.form:has(> .cell-footer)::after { content: none }`, stage Cell). */
+section[data-split-role="cover"][data-split-role="cover"]::after {
+  color: currentColor;
+  opacity: 0.9;
+}
+/* The section rail's dots: `--text-muted` and `--accent` (the lit one) — the second of which is
+   the field's own color, so the current section's dot vanished on the very page that names it. */
+section[data-split-role="cover"][data-split-role="cover"] .tile-progress .dot {
+  background: currentColor;
+  opacity: 0.34;
+}
+section[data-split-role="cover"][data-split-role="cover"] .tile-progress .dot.on {
+  background: currentColor;
+  opacity: 0.9;
 }
 
 /* ── Shared split INSIGHT page (lib/core/split-envelope.js) ────────────────────────
@@ -19870,7 +19917,7 @@ section.form > footer {
  * pseudo-element, so the footer Cell is a TOKEN COORDINATE CONTRACT, not a DOM
  * grid: footer-left yields the reserved centre zone so it can never run through
  * the rail, and the centre zone ends before the pagination zone. The reserved
- * widths are the --footer-centre-w/-half tokens defined on the root in
+ * widths are the --footer-center-w/-half tokens defined on the root in
  * lib/forms/cell/stage/stage.css. (Non-form decks keep the full-width footer —
  * this is scoped to section.form.) */
 /* The footer band's three zones are now INDEPENDENTLY-positioned Cells
@@ -20034,7 +20081,7 @@ section.form .tile-progress {
   z-index: 3;
   /* Reserved width (the manifest geometry token) — a long section label truncates
    * inside it rather than crowding the page number. */
-  max-width: var(--footer-centre-w);
+  max-width: var(--footer-center-w);
   pointer-events: none;
 }
 
@@ -20066,7 +20113,7 @@ section.form .tile-progress {
  * Because
  * `section.form` is the root chrome Frame, this file is also where the shared,
  * resolution-blind frame tokens are defined (--frame-x/-y, --masthead-h,
- * --footer-h/-reserve, --footer-centre-w/-half); the masthead and footer Cells
+ * --footer-h/-reserve, --footer-center-w/-half); the masthead and footer Cells
  * consume them by name (they cascade from this root). Canonical model:
  * design/forms.md.
  *
@@ -20106,8 +20153,8 @@ section.form {
    * rules) — footer-left yields it so the two can never collide. */
   --footer-h: calc(var(--_sec-1cqi, 1cqi) * 5);
   --footer-reserve: calc(var(--frame-inset-y) + var(--footer-h) + var(--sp-sm));
-  --footer-centre-w: calc(var(--_sec-1cqi, 1cqi) * 30);
-  --footer-centre-half: calc(var(--footer-centre-w) / 2);
+  --footer-center-w: calc(var(--_sec-1cqi, 1cqi) * 30);
+  --footer-center-half: calc(var(--footer-center-w) / 2);
   /* The progress rail's default right offset — it parks just left of the page
    * number so the two wayfinding marks read as one group. Sized for the page
    * number's own width (≈ up to two digits) plus a hair of gap, tighter than the

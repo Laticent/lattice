@@ -17,6 +17,6 @@ section.form .tile-progress {
   z-index: 3;
   /* Reserved width (the manifest geometry token) — a long section label truncates
    * inside it rather than crowding the page number. */
-  max-width: var(--footer-centre-w);
+  max-width: var(--footer-center-w);
   pointer-events: none;
 }
