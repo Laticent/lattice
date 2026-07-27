@@ -8534,7 +8534,12 @@ in patch versions.
   drawer"); a `closeDrawerAndOpen`/`withDrawerReturn` pair in `StudioShell.tsx` arms a one-shot flag
   when the drawer navigates away and reopens it exactly when that flag is armed, so every other
   entry point into these same sheets (the activity bar, the command palette, the tablet dropdown,
-  the new header button) is unaffected — none of them ever arm it.
+  the new header button) is unaffected — none of them ever arm it. **The drawer's title also gains
+  the accent-colored icon every other Studio sheet's title carries** (Settings, Lenses, Version
+  history, Workspace all lead with one) — it was plain, colorless text, the one sheet in the whole
+  app that read as a different kind of surface instead of a peer of the others (reported as
+  confusing); the icon matches the "More controls" trigger that opens it, the same "title icon
+  matches its own toggle" pattern every other sheet already follows.
   (`docs/src/components/studio/{StudioShell.tsx,StudioDrawer.tsx,icons.ts,scroll-fade.tsx,
   ComposeView.tsx,CommandPalette.tsx,LensesPanel.tsx}`;
   `engineering/decisions/2026-07-26-studio-mobile-eight-cell-bar.md`.)

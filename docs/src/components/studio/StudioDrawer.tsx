@@ -19,7 +19,7 @@
 // stacking vertically — the structural fix for the old "···"'s real failure mode: an
 // 18-theme, 4-tier catalog dominating one undifferentiated vertical scroll with no
 // section header a user actually notices.
-import { FileBox, History as HistoryIcon, ListChecks, MonitorPlay, Plus, Search } from 'lucide-react';
+import { FileBox, History as HistoryIcon, ListChecks, MonitorPlay, MoreHorizontal, Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -122,7 +122,13 @@ export function StudioDrawer({
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent side="bottom" className="flex h-[85dvh] flex-col gap-0 rounded-t-2xl p-0">
 				<SheetHeader className="border-b border-border pb-2">
-					<SheetTitle className="text-[15px]">Studio</SheetTitle>
+					{/* Every other Studio sheet (Settings, Lenses, Version history, Workspace) leads
+					    with an accent-colored icon before its title; this one was plain text with no
+					    icon at all, the one surface in the whole app that read as "a different kind
+					    of thing" instead of a peer of the others (reported: confusing). The icon
+					    matches the trigger that opens it ("More controls"), the same pattern every
+					    other sheet's title icon follows (it matches its own toggle's icon). */}
+					<SheetTitle className="flex items-center gap-2 text-[15px]"><MoreHorizontal className="size-4 text-[var(--accent)]" />Studio</SheetTitle>
 					<SheetDescription className="sr-only">Editor actions, guided tours, reader views, themes, and workspace settings.</SheetDescription>
 				</SheetHeader>
 				<div className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border px-3.5 py-2">

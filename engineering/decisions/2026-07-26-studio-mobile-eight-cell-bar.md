@@ -363,6 +363,28 @@ Lenses sheet, DOES reopen the drawer (the actual bug, now fixed). Full
 Studio suite (862/862), `responsive.spec.ts` + `ios-zoom.spec.ts` (8/8),
 `build:check`, typecheck, and lint all re-run clean.
 
+## Sixth round: the drawer read as a different kind of surface
+
+One more piece of feedback, terse: "drawer should not be treated
+differently from other drawer by giving it a different color. it
+confuses people." Rather than guess at scope from the words alone (the
+earlier "workspace icons at the forefront" round showed what that costs),
+this one was cheap enough to check directly: a live screenshot comparison
+of the StudioDrawer against the Workspace settings sheet. Their surface
+color is identical (both `rgb(255,255,255)`, the shared `bg-background`
+every Sheet in this codebase inherits) — but every OTHER Studio sheet's
+title (Settings, Lenses, Version history, Workspace) leads with an
+accent-colored icon, and the drawer's title was bare text, no icon, no
+color at all. In the user's own vocabulary — "drawer" for any sheet/
+overlay, evident from the prior round's "closing the new drawer does not
+result in going back to the previous drawer" — this reads exactly as
+stated: the StudioDrawer was the one surface that didn't look like a peer
+of the others. Fixed by giving its title the same `MoreHorizontal`
+accent-colored icon as the trigger that opens it, matching the
+"title icon mirrors its own toggle" pattern every other sheet already
+follows. Confirmed via a fresh screenshot; no gate reruns needed beyond
+the standard typecheck/lint/build:check/unit sweep (all clean).
+
 ## Pre-existing gaps found, not fixed (HARD RULE #18 — off-path)
 
 - `SEL.theme` (`tour-kit.ts`) was already unresolvable on mobile before this
