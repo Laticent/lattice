@@ -85,6 +85,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 - [`quadrant`](../../chart/quadrant/quadrant.docs.md) — items have continuous x/y coordinates rather than discrete quadrant labels
 - [`verdict-grid`](../../comparison/verdict-grid/verdict-grid.docs.md) — options scored across more than two dimensions
 - [`obligation-matrix`](../../legal/obligation-matrix/obligation-matrix.docs.md) — many rows × many columns of state-marker cells
+- [`matrix-grid`](../../chart/matrix-grid/matrix-grid.docs.md) — both axes are ordered categories and cells mark one position, not four free quadrants
 - [`cards-grid`](../../inventory/cards-grid/cards-grid.docs.md) — the items don't divide along two axes
 
 ## Demo deck

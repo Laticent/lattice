@@ -27,6 +27,18 @@ One heading, an eyebrow, one line of context — centered, chrome-free, quickly 
 
 ---
 
+<!-- _class: title silent spectrum -->
+<!-- _footer: "spectrum · title spectrum — A generated gradient bar below the subtitle, in the theme's own six-step palette." -->
+
+# A deck built on a color-coded spectrum.
+
+`Six stages, six colors`
+
+The title echoes the same six-step story the deck's own components carry.
+
+
+---
+
 <!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · title" -->
 

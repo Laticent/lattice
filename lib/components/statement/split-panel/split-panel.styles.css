@@ -71,6 +71,81 @@ section.split-panel.steps .panel-right > :is(ul,ol) > li > strong { grid-column:
 section.split-panel.steps .panel-right > :is(ul,ol) > li > :is(ul,ol) { grid-column:2; grid-row:2; list-style:none; padding:2px 0 0; margin:0; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li > :is(ul,ol) > li { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
+/* ── .proof — scenario signal + two paired proof cards (a claim demonstrated,
+ * not just supported: a scenario grounds it, two cards prove it holds up
+ * doing the work AND scaling past one pair of hands). */
+/* A narrower claim panel than the base 38%: `proof`'s right zone carries THREE
+ * stacked regions (scenario label, signal card, two proof cards) where the base
+ * carries one list, so the evidence side needs the room. Variant-scoped width is
+ * the established split-panel pattern — `.metric` 44%, `.steps` 30%, `.pullquote`
+ * 50%. */
+section.split-panel.proof .panel-left { width:31%; }
+/* Role-token step-down (HARD RULE #4 — a different token, never a multiplier).
+ * The base panel is a one-line thesis at --fs-h1; a `proof` claim is a full
+ * sentence sitting above a lede, so it reads at the h2 tier and the lede drops
+ * to the body tier to match. */
+section.split-panel.proof .panel-left h2 { font-size:var(--fs-h2); }
+section.split-panel.proof .panel-left p { font-size:var(--fs-body); }
+section.split-panel.proof .panel-left p em:first-child { display:block; font-family:var(--font-display); font-style:italic; font-size:var(--fs-message); color:var(--on-dark-secondary); padding-bottom:var(--sp-xs); }
+section.split-panel.proof .panel-right { gap:var(--sp-md); }
+section.split-panel.proof .panel-right > h3 { border-bottom:none; margin:0; padding:0 0 var(--sp-2xs); flex:0 0 auto; }
+/* ── The evidence stack FILLS the column ──────────────────────────────────
+ * `.panel-right` is already a flex column (base rule above), so the signal card
+ * and the proof-card grid each take `flex:1 1 0` — an equal share of whatever
+ * height is left under the label — instead of collapsing to content height and
+ * stranding the bottom half of the slide empty. `min-height:0` keeps the flex
+ * default (`min-height:auto`, which refuses to shrink) from overflowing a
+ * long scenario instead of fitting it. Proportional, not a fixed height: the
+ * stack holds at any slide size or `--fs-scale`, which a pixel height would not. */
+section.split-panel.proof .panel-right > p { background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md) var(--sp-lg); margin:0; font-size:var(--fs-body); color:var(--text-heading); line-height:var(--lh-relaxed); flex:1 1 0; min-height:0; display:flex; flex-direction:column; justify-content:center; }
+section.split-panel.proof .panel-right > :is(ul,ol) { display:grid; grid-template-columns:1fr 1fr; align-items:stretch; gap:var(--sp-md); flex:1 1 0; min-height:0; justify-content:initial; list-style:none; padding:0; margin:0; }
+/* `align-items:stretch` on the grid (above) makes both cards match the row's
+ * tallest card; `display:flex` + `justify-content:center` here centers each
+ * card's own content block vertically within that shared height — a short
+ * card and a long card read as two symmetric peers, not a tall card next to
+ * a top-anchored short one floating in leftover space. */
+section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; justify-content:center; }
+section.split-panel.proof .panel-right > :is(ul,ol) > li > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--accent); font-weight:600; padding-bottom:var(--sp-xs); }
+section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) > li { font-size:var(--fs-body-compact); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-base); }
+
+/* ── .capstone — proof's climactic entry: the signal reads as a literal
+ * quotation (italic display face, left-accent card) instead of a described
+ * scenario, and the two proof points read as plain top-rule pillars instead
+ * of boxed cards — the sequence's final, most-earned slide reads as
+ * evidence delivered, not one more checkpoint. Composes with `.proof`; same
+ * DOM (h3 label, p signal, ul checkpoints) — only the chrome differs.
+ * `var(--panel-mark, var(--accent))` so it still works stacked on `.proof`
+ * alone, without a `cat-N` companion class. */
+/* The claim panel spreads instead of bottom-clustering: the eyebrow rides the
+ * top, the question settles at the bottom, and the heading holds the middle —
+ * the summit slide gets air the checkpoint slides don't. */
+section.split-panel.proof.capstone .panel-left {
+  justify-content: space-between;
+}
+/* The closing question is the panel's display element here, not a caption —
+ * it steps up a role tier (message → h2) to carry that weight. */
+section.split-panel.proof.capstone .panel-left p em:first-child {
+  font-size: var(--fs-h2);
+  line-height: var(--lh-tight);
+}
+/* Capstone keeps `proof`'s equal split (both regions still fill the column) but
+ * settles the proof pillars to the BOTTOM of their half — the evidence reads as
+ * a footing under the quotation rather than floating directly beneath it with
+ * dead space below. */
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) { align-content: end; }
+section.split-panel.proof.capstone .panel-right > h3 {
+  color: var(--panel-mark, var(--accent));
+}
+section.split-panel.proof.capstone .panel-right > p {
+  background: var(--bg); border: 1px solid var(--border); border-left: 4px solid var(--panel-mark, var(--accent));
+  border-radius: var(--radius-md); padding: var(--sp-md) var(--sp-lg);
+  font-family: var(--font-display); font-style: italic; color: var(--text-heading);
+}
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li {
+  background: none; border: none; border-top: 2px solid var(--panel-mark, var(--accent)); border-radius: 0;
+  padding: var(--sp-sm) 0 0;
+}
+
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */
 section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:flex-end; }
 section.split-panel.watermark .panel-left::before { background:var(--on-accent-watermark); height:4px; }
@@ -180,4 +255,51 @@ section.split-panel.watermark .panel-right > :is(ul,ol) > li {
 }
 section.split-panel > .cell-stage {
   padding-block: var(--elevation-berth);
+}
+
+/* ── cat-1…cat-8 — categorical tint, composes with any variant ─────────────
+ * Recolors `.panel-left` from the universal dark surface to one of the
+ * theme's own eight categorical fills (`--cat-N-fill`, the same family
+ * `decision`'s per-item accent and `statement/premise`'s row color draw
+ * from) — for a SEQUENCE of split-panel slides that should read as a set
+ * (a leveled progression, a staged rollout), each with its own hue, rather
+ * than one repeated dark accent. There's no way to derive "which of six" a
+ * standalone slide is from its own content, so the class is author-picked,
+ * one per slide (`split-panel proof cat-3`) — the same explicit convention
+ * `list-steps`'s prefix-word variants (`phase`, `stage`, …) already use.
+ * `--cat-N-fill` is a pale tint in light mode and a deep saturated fill in
+ * dark mode (themes/*.css) — both pair correctly with the ordinary
+ * `--text-*` tokens (not `--on-dark-*`, which assumes an ALWAYS-dark
+ * surface); the fill's own light/dark flip and the text tokens' flip move
+ * together by design, the same pairing `--bg`/`--text-*` already relies on. */
+section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); }
+section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); }
+section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); }
+section.split-panel.cat-4 { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); }
+section.split-panel.cat-5 { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); }
+section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); }
+section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); }
+section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); }
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
+  background: var(--panel-fill);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left::before {
+  background: var(--panel-mark);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left h2 {
+  color: var(--text-heading);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left p {
+  color: var(--text-secondary);
+}
+/* The eyebrow label and the proof checkpoints' own labels are MARKS, not body
+ * copy — tinted with the category color (not left neutral like the panel's
+ * prose) so the category identity carries through every labeled element on
+ * the slide, not just the fill. */
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-eyebrow {
+  color: var(--panel-mark);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-left p em:first-child,
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-right > :is(ul,ol) > li > strong {
+  color: var(--panel-mark);
 }

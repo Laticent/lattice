@@ -2637,7 +2637,8 @@ section.citation-card > .cell-stage {
 /* === lib/components/anchor/closing/closing.styles.css === */
 /* closing — anchor.bookend.closing
  *
- * Mirror of title. Dark canvas, centered, no spectrum bar.
+ * Mirror of title. Dark canvas, centered; the `spectrum` variant below adds
+ * the generated gradient bar (title carries the same one).
  *
  * See lib/components/closing/closing.manifest.json for the component contract.
  */
@@ -2650,8 +2651,13 @@ section.citation-card > .cell-stage {
 section.closing { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.closing { border-top: none; }
 section.closing hr { margin:0; }
-section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:54.6875cqi; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
-section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:42.1875cqi; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
+/* Measures widened so a normal closing line holds together: at --fs-h1 the old
+ * 54.7cqi cap broke a six-word sign-off onto a second line with one orphan word,
+ * and the 42.2cqi body cap ran a three-clause sentence to five short lines. Both
+ * are still measures (they cap, they don't stretch) — just set where the type
+ * tier actually sits rather than where a smaller tier once did. */
+section.closing h2 { font-size:var(--fs-h1); color:var(--text-display); max-width:62cqi; margin:0; padding-bottom:var(--sp-sm); text-align:var(--headline-align, center); }
+section.closing p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-style:italic; max-width:48.4cqi; margin:0; padding-top:var(--sp-md); text-align:var(--headline-align, center); }
 
 /* Mirror of title: the inline-code paragraph after the heading is the
  * eyebrow, rendered visually ABOVE the heading via flex order (overriding
@@ -2674,6 +2680,38 @@ section.closing h2 + p:has(> code:only-child) > code {
   border: none;
   padding: 0;
   border-radius: 0;
+}
+
+/* ── spectrum — mirrors title.spectrum: a generated gradient bar reading
+ * the theme's own `--chart-catN` input tokens directly (not the scoped
+ * `--chart-cat-N-hue`, which resolves to nothing outside `.chart-frame`;
+ * not `--cat-N-mark`, which collapses to washed-out near-white on a dark
+ * bookend canvas — see title.styles.css for both, empirically confirmed).
+ * See title.styles.css for why this must be CSS-generated (no authoring
+ * hook exists for a real closing-body <hr>) and why it's a `::before` +
+ * `order` pair, not `::after` (the universal `silent` modifier claims
+ * `section::after` for its own pagination suppression). */
+section.closing.spectrum::before {
+  content: '';
+  display: block;
+  order: 1;
+  width: 200px;
+  height: 4px;
+  /* padding-top (not margin-top — HARD RULE #20) reserves the gap above the
+   * bar; background-clip keeps the gradient painted only in the content
+   * box, so the padding area stays blank instead of tinting the gap. */
+  padding-top: var(--sp-lg);
+  background: linear-gradient(
+    90deg,
+    var(--chart-cat1, light-dark(#0A6CE0, #2E8BFF)),
+    var(--chart-cat2, light-dark(#C2670A, #FFA630)),
+    var(--chart-cat3, light-dark(#1E9E48, #34D058)),
+    var(--chart-cat4, light-dark(#9333D6, #BE5AF2)),
+    var(--chart-cat5, light-dark(#0E96AE, #3FC8E0)),
+    var(--chart-cat6, light-dark(#E11D48, #FF4D6A))
+  );
+  background-clip: content-box;
+  border-radius: 2px;
 }
 
 /* ── Trailing list (base safety-net) ──────────────────────────────────────
@@ -3178,6 +3216,96 @@ section.compare-prose.transition .compare-prose-inner .card:nth-child(3),
 section.compare-prose.transition:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:last-child {
   border-color: var(--on-accent-soft); background: var(--accent-soft);
 }
+
+/* ── axis variant — bloom's "cpx" axis-explainer: a lede above two
+ * numeral-led facet cards, a closing note below. The pair reads as two
+ * facets of one idea, not a before/after state change — so it gets its own
+ * plain arrow rather than composing with `.transition`'s accent-tinted
+ * second card. Each card's outer <li> lead is left BLANK by the author (the
+ * corner-tag lift no-ops on an empty lead — see slot-label-lift.js); the
+ * nested sub-list's first three items become the numeral, title, and
+ * description via nth-child, not a transform. */
+/* The whole framing cluster centers, masthead included — this variant is a
+ * centered explainer, not a left-ruled reference slide. Uses the headline
+ * seam (base.accent-finish.css `headline:` register), the same mechanism
+ * `list-steps.timeline` uses to center its own masthead. */
+section.form.compare-prose.axis .cell-masthead .masthead-lede {
+  text-align: var(--headline-align, center);
+  align-items: var(--headline-justify, center);
+}
+section.compare-prose.axis > .cell-stage {
+  align-items: center;
+  text-align: center;
+  justify-content: center;
+}
+/* Measures in cqi, not em: the lede and the card pair are SLIDE-proportional
+ * columns (they must hold their share of the canvas at any size), where an
+ * em-measure would re-flow with the font tier instead. */
+/* --fs-body, not --fs-message: this lede is a three-clause EXPLAINER carrying
+ * the slide's argument, not the single-statement line --fs-message is for. At
+ * the message tier a 60cqi measure ran it to five lines and the centered stage
+ * clipped at both ends; at the body tier it settles to three or four and the
+ * group has room to breathe. */
+section.compare-prose.axis > .cell-stage > p:first-child {
+  font-size: var(--fs-body);
+  line-height: var(--lh-relaxed);
+  color: var(--text-secondary);
+  max-width: 60cqi;
+  align-self: center;
+  padding-bottom: var(--sp-md);
+}
+/* 72cqi, not the source's 64: our card body sits at --fs-body (1.67cqi) where
+ * the reference set 17px (1.33cqi), so the same three-line body needs more
+ * column or it grows a fourth line and clips the stage. The cap still does its
+ * job — it holds the pair as a centered group instead of letting it span the
+ * full frame — it's just set for OUR type tier. */
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) {
+  max-width: 72cqi;
+  align-self: center;
+  width: 100%;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
+  content: '\2192';
+  color: var(--text-secondary);
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li {
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li:nth-child(1) {
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  padding-bottom: var(--sp-sm);
+}
+/* The numeral's own text picks up an auto-bold lift (slot-label-lift on a
+ * single-word lead), landing it inside a <strong> — which carries its OWN
+ * explicit `section strong { color:var(--text-heading) }` rule (base.elements.css).
+ * An explicit same-element rule always wins over an inherited value
+ * regardless of the inherited rule's specificity, so without this the
+ * numeral silently reverts to ink instead of the accent set above. */
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li:nth-child(1) strong {
+  color: inherit;
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li:nth-child(2) {
+  font-size: var(--fs-h3);
+  font-weight: 700;
+  color: var(--text-heading);
+  padding-bottom: var(--sp-xs);
+}
+section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li:nth-child(3) {
+  font-size: var(--fs-body);
+  font-weight: 400;
+  color: var(--text-body);
+  line-height: var(--lh-relaxed);
+}
+/* The closing note is the universal trailing-italic-paragraph "annotation"
+ * (base.modifiers.css) — CLI-wrapped in `.below-note`, ✦ glyph + muted
+ * italic body. No axis-specific CSS needed; centering comes from the
+ * `.cell-stage { align-items: center }` rule above. */
 
 /* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    Two side-by-side cards with a chevron between them become unreadable slivers in a
@@ -6896,6 +7024,70 @@ section.list-steps.vertical ol > li:not(:last-child)::after {
 }
 
 
+/* ── capsule variant — centered cards, a pill-shaped step badge, a serif
+ * title. Same DOM and STEP-counter mechanism as the default cards (the
+ * badge text is unchanged — CSS-generated, not authored); only the badge's
+ * chrome, the text alignment, and the title's font change. One consistent
+ * accent tint across every step (not a per-step hue): this is a sequence,
+ * not a set of categorical options, so one token reads as "the same kind of
+ * thing repeated," matching the reasoning behind `compare-prose axis`'s and
+ * `matrix-grid`'s theme-only color choices. */
+/* Centered masthead to match the centered cards below it — the whole slide
+ * reads as one centered editorial group. Same headline-seam mechanism the
+ * `timeline` variant uses (see the rule near the end of this file). */
+section.form.list-steps.capsule .cell-masthead .masthead-lede {
+  text-align: var(--headline-align, center);
+  align-items: var(--headline-justify, center);
+}
+section.list-steps.capsule > .cell-stage { justify-content: center; }
+/* A slide-proportional cap so three cards stay a readable centered group
+ * rather than stretching the full frame width. */
+section.list-steps.capsule ol { flex: 0 1 auto; max-width: 80cqi; align-self: center; width: 100%; }
+/* `capsule` is the editorial register — a reflective practice, not a pipeline —
+ * so it drops the base variant's step-to-step connector arrows. The badges
+ * already carry the sequence. */
+section.list-steps.capsule ol > li:not(:last-child)::after { content: none; }
+section.list-steps.capsule ol > li {
+  align-items: center;
+  text-align: center;
+}
+section.list-steps.capsule ol > li::before {
+  display: inline-block;
+  align-self: center;
+  padding: var(--sp-3xs) var(--sp-sm);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--fs-meta);
+}
+section.list-steps.capsule ol > li strong {
+  font-family: var(--font-display);
+  font-size: var(--fs-h4);
+  font-weight: 600;
+  color: var(--text-heading);
+}
+section.list-steps.capsule ol > li > p,
+section.list-steps.capsule ol > li > ul > li {
+  text-align: center;
+}
+
+/* ── .cat — per-item categorical color, composes with `.capsule`. Opt-in:
+ * `.capsule` alone deliberately stays one repeated accent (a sequence, not a
+ * set — see above). Some step sequences ARE a categorical set wearing a
+ * sequence's clothing (three steps sampled across a wider leveled
+ * progression, each meant to read as its own thing) and want each badge
+ * tinted on its own — the same reasoning `statement/premise`'s per-row
+ * color already established. Mirrors premise's exact 8-slot
+ * nth-child(8n+N) mechanism and its --cat-N-fill/--cat-N-mark pairing. */
+section.list-steps.capsule.cat ol > li:nth-child(8n+1)::before { background: var(--cat-1-fill); color: var(--cat-1-mark); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+2)::before { background: var(--cat-2-fill); color: var(--cat-2-mark); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+3)::before { background: var(--cat-3-fill); color: var(--cat-3-mark); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+4)::before { background: var(--cat-4-fill); color: var(--cat-4-mark); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+5)::before { background: var(--cat-5-fill); color: var(--cat-5-mark); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+6)::before { background: var(--cat-6-fill); color: var(--cat-6-mark); }
+section.list-steps.capsule.cat ol > li:nth-child(8n+7)::before { background: var(--cat-7-fill); color: var(--cat-7-mark); }
+section.list-steps.capsule.cat ol > li:nth-child(8n)::before   { background: var(--cat-8-fill); color: var(--cat-8-mark); }
+
 /* ── timeline variant — former `timeline` component (progression.list-steps.timeline) ──
  * Dots-on-a-spine: ordered stages as labelled nodes along one horizontal axis.
  * ol → numbered discs; ul → plain dots. Resets the list-steps card + STEP-badge
@@ -8639,6 +8831,248 @@ section.matrix-2x2 > .cell-stage {
   padding-block: var(--elevation-berth);
 }
 
+/* === lib/components/chart/matrix-grid/matrix-grid.styles.css === */
+/* matrix-grid — comparison.matrix.structure, a chart-family member
+ *
+ * Two ORDERED axes as an N×M grid. Markdown table: header row = the
+ * reach/scope axis, first column of each body row = the category axis.
+ * Cells carry a POSITIONAL grammar — [x] this row's position, [-] reachable
+ * from here, [ ] not applicable — colored by the ROW's own hue from the
+ * chart family's categorical palette (--chart-cat-N-hue, the same set radar/
+ * piechart/quadrant draw from), not a pass/warn/fail status palette: there's
+ * no universal "good" cell here, only which row and how far it reaches.
+ *
+ * <!-- _class: matrix-grid -->
+ * `Reach → self · team · org · Depth axis label`
+ * ## heading
+ * One-sentence subtitle.
+ * | Depth | Self | Team | Org |
+ * | ----- | :--: | :--: | :-: |
+ * | Advanced | [ ] | [-] | [x] Lead |
+ * **Your level** · *reachable* — caveat.
+ *
+ * Cell-marker decoding happens EARLIER, at markdown-parse time (the
+ * matrixGridCells plugin, lib/integrations/markdown-it/plugins.js) — by the
+ * time this file's selectors see the DOM, `<td>` content is already
+ * `<span class="cell cell-filled|cell-outlined|cell-empty">`. The chart-
+ * family builder (buildMatrixGridSection, chart-family.js) only wraps the
+ * table in `.matrix-grid-figure` and splits the two-part eyebrow so the row-
+ * axis half can render as the rotated side label below.
+ *
+ * See lib/components/chart/matrix-grid/matrix-grid.manifest.json for the
+ * component contract.
+ */
+
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure {
+  position: relative;
+  width: 100%;
+}
+/* The rotated-label gutter is reserved ONLY when a row axis was authored —
+ * a single-part eyebrow (or none) has no ::before to fill it, so the
+ * unconditional padding used to leave dead space on the left of every such
+ * grid. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-row-axis] {
+  padding-left: var(--sp-lg);
+}
+
+/* Row-axis label — the second half of the two-part eyebrow, stashed on the
+ * figure as a data attribute by buildMatrixGridSection so it can render
+ * rotated along the left edge instead of running through the generic
+ * single-line chart-eyebrow lift. `writing-mode: vertical-rl` (+ a 180°
+ * flip to read bottom-to-top) sizes the label to the reserved gutter
+ * itself, unlike `transform: rotate()` around a shrink-to-fit box, whose
+ * pivot point drifts wider than the gutter as the label text gets longer
+ * and starts overlapping the row-label column. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-row-axis]::before {
+  content: attr(data-row-axis);
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: var(--sp-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+/* Column-axis label — the FIRST half of the two-part eyebrow, stashed on
+ * the figure the same way the row-axis half is: centered above the grid,
+ * beside the rotated row-axis label, matching where the source deck this
+ * was modeled on places it (not as a masthead eyebrow next to the title —
+ * that reads as belonging to the SLIDE, when it belongs to the GRID). The
+ * reserved height is a custom property so the row-axis `::before` can
+ * start below it instead of running underneath the column-axis text when
+ * both halves are present. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-col-axis] {
+  --matrix-col-axis-h: calc(var(--sp-2xs) + var(--fs-meta));
+  padding-top: var(--matrix-col-axis-h);
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-col-axis]::after {
+  content: attr(data-col-axis);
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: var(--matrix-col-axis-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-row-axis][data-col-axis]::before {
+  top: var(--matrix-col-axis-h);
+}
+
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 var(--sp-3xs);
+  font-size: var(--fs-body-compact);
+  table-layout: auto;
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure thead tr {
+  background: var(--spectrum-structure) bottom / 100% 2px no-repeat;
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure thead th {
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  padding: 0.46875cqi var(--sp-sm) 0.625cqi;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+/* The corner cell stays EMPTY: both axes are named by their own generated
+ * labels (data-col-axis above the grid, data-row-axis rotated beside it), so a
+ * literal "Verb" heading in the corner is a third, redundant axis name that
+ * competes with them. `font-size:0` blanks the text while the cell keeps its
+ * column width — the row-label column must still reserve its track. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure thead th:first-child { text-align: left; font-size: 0; }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td {
+  padding: 0.15625cqi var(--sp-xs);
+  text-align: center;
+  vertical-align: middle;
+}
+/* Row labels read RIGHT-aligned, tight against the cells they name — a left
+ * rag leaves a ragged gutter between the longest label and the grid edge. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td:first-child {
+  text-align: right;
+  font-weight: 700;
+  font-size: var(--fs-body);
+  color: color-mix(in oklab, var(--row-ink, var(--text-heading)) 65%, var(--text-heading));
+  padding-left: 0;
+}
+
+/* ── Row hue — the chart family's own 8-slot categorical palette (the same
+ * tokens radar/piechart/quadrant draw from), one before the cycle repeats
+ * (dataShapeGuidance). `--row-hue` is the RAW saturated tone — fine for a
+ * border/stroke (WCAG 1.4.11 non-text, 3:1), never for text. `--row-ink` is
+ * the chart family's own text-tier token for the same category (still only
+ * gated at 3:1 on its own — see the 65% mix below). `--row-fill` is the
+ * pre-blended tint the filled cell's background reads, so its ink only ever
+ * has to clear contrast against a tint, never a raw saturated hue. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+1) { --row-hue: var(--chart-cat-1-hue); --row-ink: var(--chart-cat-1-ink); --row-fill: var(--chart-cat-1-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+2) { --row-hue: var(--chart-cat-2-hue); --row-ink: var(--chart-cat-2-ink); --row-fill: var(--chart-cat-2-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+3) { --row-hue: var(--chart-cat-3-hue); --row-ink: var(--chart-cat-3-ink); --row-fill: var(--chart-cat-3-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+4) { --row-hue: var(--chart-cat-4-hue); --row-ink: var(--chart-cat-4-ink); --row-fill: var(--chart-cat-4-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+5) { --row-hue: var(--chart-cat-5-hue); --row-ink: var(--chart-cat-5-ink); --row-fill: var(--chart-cat-5-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+6) { --row-hue: var(--chart-cat-6-hue); --row-ink: var(--chart-cat-6-ink); --row-fill: var(--chart-cat-6-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+7) { --row-hue: var(--chart-cat-7-hue); --row-ink: var(--chart-cat-7-ink); --row-fill: var(--chart-cat-7-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n)   { --row-hue: var(--chart-cat-8-hue); --row-ink: var(--chart-cat-8-ink); --row-fill: var(--chart-cat-8-fill); }
+
+/* ── Cell states — the box IS the cell (not a disc + separate label):
+ * a filled cell carries its title text, so the shape has to hold a word,
+ * not just a mark. Outlined/empty cells carry no VISIBLE label (the plugin
+ * strips one if authored — border weight + hue carry the sighted read), but
+ * the plugin adds a visually-hidden `.cell-sr-label` naming the state
+ * ("reachable" / "not applicable") for anything reading DOM text rather
+ * than the rendered shape. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure .cell-sr-label {
+  position: absolute;
+  width: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
+  height: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 2.65625cqi;
+  border-radius: var(--radius-sm);
+  padding: 0.390625cqi var(--sp-xs);
+  font-family: var(--font-body);
+  font-size: var(--fs-body-compact);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  box-sizing: border-box;
+}
+/* The fill is the pre-blended `--row-fill` tint, never the raw `--row-hue` —
+ * `--chart-cat-N-hue` is a GRAPHICAL tone with no text-contrast guarantee at
+ * all (radar/piechart/quadrant only ever use it for strokes/dots/thin
+ * lines), and `--cat-on-mark` is the UNIVERSAL categorical tier's ink, gated
+ * only against `--cat-N-mark` — pairing it with a raw chart hue measured
+ * below AA in 21 of 240 theme × mode × slot combinations (down to 3.30:1 on
+ * `laguna` dark, `onyx` light at 3.57:1). The 65% mix mirrors quadrant's own
+ * `.quadrant-label` fix for the identical problem ("first place it carries
+ * text, needs 4.5, not 3") — same tokens, same floor, verified the same way. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-filled {
+  background: var(--row-fill, var(--accent));
+  border: 2px solid var(--row-hue, var(--accent));
+  color: color-mix(in oklab, var(--row-ink, var(--accent)) 65%, var(--text-heading));
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-outlined {
+  background: none;
+  border: 2px solid var(--row-hue, var(--accent));
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-empty {
+  background: none;
+  border: 1px solid var(--border);
+}
+
+/* ── Legend + caption, one paragraph (chart-family lifts only the single
+ * trailing <p> into .chart-caption — see the manifest's legend slot note).
+ * A leading bold/italic run becomes a filled/outlined swatch + label. */
+:is(section.matrix-grid, figure.matrix-grid) .chart-caption strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  color: var(--text-heading);
+  font-weight: 700;
+}
+:is(section.matrix-grid, figure.matrix-grid) .chart-caption strong::before {
+  content: '';
+  width: 0.8em; height: 0.8em;
+  border-radius: var(--radius-sm);
+  background: var(--text-heading);
+}
+:is(section.matrix-grid, figure.matrix-grid) .chart-caption em {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding-left: 0.9em;
+  font-style: italic;
+  color: var(--text-muted);
+}
+:is(section.matrix-grid, figure.matrix-grid) .chart-caption em::before {
+  content: '';
+  width: 0.8em; height: 0.8em;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--text-muted);
+}
+
 /* === lib/components/legal/obligation-matrix/obligation-matrix.styles.css === */
 /* obligation-matrix — comparison.matrix.structure
  *
@@ -9092,6 +9526,119 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
       justify-content: flex-start;
     }
   }
+
+/* === lib/components/statement/premise/premise.styles.css === */
+/* premise — statement.split.series, a sovereign frame
+ * (lib/forms/frame/premise/premise.manifest.json)
+ *
+ * A framing claim beside a vertically centered ledger of parallel rows.
+ * Unlike split-panel, there is NO colored panel divide — both zones share
+ * the page's own background, matching the source deck this component was
+ * modeled on (engineering/decisions/2026-07-27-bloom-engineering-journey-
+ * components.md).
+ *
+ * <!-- _class: premise -->
+ * ## The claim.
+ * One-sentence lede naming the axes.
+ * - `01` **Term** A short clause. *A framing question?*
+ *
+ * The section-level restructure (grouping <h2> + lede into one
+ * .premise-claim wrapper) happens in lib/core/premise.js; the per-row inline
+ * markup (<code>/<strong>/<span class="premise-desc">/<em>) is tagged at
+ * markdown-parse time by the premiseRows plugin
+ * (lib/integrations/markdown-it/plugins.js).
+ *
+ * See lib/components/statement/premise/premise.manifest.json for the
+ * component contract.
+ */
+
+section.premise {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-2xl);
+  height: 100%;
+  padding: 0 var(--sp-2xl);
+  box-sizing: border-box;
+}
+
+section.premise .premise-claim {
+  width: 34%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-md);
+}
+section.premise .premise-claim > p {
+  font-size: var(--fs-message);
+  line-height: var(--lh-relaxed);
+  color: var(--text-secondary);
+}
+
+section.premise > ul {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3xs);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+section.premise > ul > li {
+  display: grid;
+  grid-template-columns: 3.28125cqi 10.9375cqi 1fr auto;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-sm) var(--sp-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--row-mark, var(--border));
+  background: var(--bg-alt);
+  font-size: var(--fs-body-compact);
+  color: var(--text-heading);
+  white-space: nowrap;
+}
+section.premise > ul > li code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+section.premise > ul > li strong {
+  font-size: var(--fs-body);
+  color: var(--row-mark, var(--text-heading));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+section.premise > ul > li .premise-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+section.premise > ul > li em {
+  font-style: normal;
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* ── Row color — the UNIVERSAL 8-slot categorical palette (--cat-N-mark),
+ * NOT the chart family's own tokens: this is a structure-substance HTML
+ * list, not an SVG/chart-frame member (design/theming.md's two-system
+ * split). Precedent: math.theorem's blockquote border-left + strong color
+ * pairing (lib/components/math/math/math.styles.css) uses the exact same
+ * --cat-N-mark-as-text-on-a-neutral-background pattern. */
+section.premise > ul > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); }
+section.premise > ul > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); }
+section.premise > ul > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); }
+section.premise > ul > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); }
+section.premise > ul > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); }
+section.premise > ul > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); }
+section.premise > ul > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); }
+section.premise > ul > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }
 
 /* === lib/components/comparison/pricing/pricing.styles.css === */
 /* pricing — plan tiers with prices, feature checklists, and one recommended
@@ -10249,6 +10796,33 @@ section.quote blockquote::before { content:'\201C'; font-family:var(--font-displ
 section.quote blockquote::after  { content:'\201D'; font-family:var(--font-display); font-size:var(--fs-h1); color:var(--text-muted); line-height:0.8; display:block; text-align:right; padding-top:var(--sp-xs); }
 section.quote blockquote p { font-family:var(--font-display); font-size:var(--fs-message); font-style:italic; color:var(--text-heading); line-height:var(--lh-snug); margin:0; text-align:center; }
 section.quote > .cell-stage > p { padding-top:var(--sp-xl); font-size:var(--fs-meta); line-height:var(--lh-snug); color:var(--text-secondary); text-align:center; }
+
+/* ── bare — no card, no quotation-mark glyphs: a plain display-scale
+ * statement (a hook / cold-open line), not a sourced quotation. Keeps the
+ * same italic serif voice as the default quote — only the chrome and the
+ * scale change. */
+section.quote.bare blockquote {
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  max-width: 84.375cqi;
+}
+section.quote.bare blockquote::before,
+section.quote.bare blockquote::after { content: none; }
+section.quote.bare blockquote p {
+  font-size: var(--fs-emphasis);
+  line-height: var(--lh-snug);
+}
+section.quote.bare > .cell-stage > p {
+  padding-top: var(--sp-xl);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+section.quote.bare > .cell-stage > p em { font-style: normal; }
 
 /* === lib/components/chart/radar/radar.styles.css === */
 /* radar — extracted from lib/_legacy.css (batch 8).
@@ -12614,6 +13188,81 @@ section.split-panel.steps .panel-right > :is(ul,ol) > li > strong { grid-column:
 section.split-panel.steps .panel-right > :is(ul,ol) > li > :is(ul,ol) { grid-column:2; grid-row:2; list-style:none; padding:2px 0 0; margin:0; }
 section.split-panel.steps .panel-right > :is(ul,ol) > li > :is(ul,ol) > li { font-size:var(--fs-body); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-relaxed); }
 
+/* ── .proof — scenario signal + two paired proof cards (a claim demonstrated,
+ * not just supported: a scenario grounds it, two cards prove it holds up
+ * doing the work AND scaling past one pair of hands). */
+/* A narrower claim panel than the base 38%: `proof`'s right zone carries THREE
+ * stacked regions (scenario label, signal card, two proof cards) where the base
+ * carries one list, so the evidence side needs the room. Variant-scoped width is
+ * the established split-panel pattern — `.metric` 44%, `.steps` 30%, `.pullquote`
+ * 50%. */
+section.split-panel.proof .panel-left { width:31%; }
+/* Role-token step-down (HARD RULE #4 — a different token, never a multiplier).
+ * The base panel is a one-line thesis at --fs-h1; a `proof` claim is a full
+ * sentence sitting above a lede, so it reads at the h2 tier and the lede drops
+ * to the body tier to match. */
+section.split-panel.proof .panel-left h2 { font-size:var(--fs-h2); }
+section.split-panel.proof .panel-left p { font-size:var(--fs-body); }
+section.split-panel.proof .panel-left p em:first-child { display:block; font-family:var(--font-display); font-style:italic; font-size:var(--fs-message); color:var(--on-dark-secondary); padding-bottom:var(--sp-xs); }
+section.split-panel.proof .panel-right { gap:var(--sp-md); }
+section.split-panel.proof .panel-right > h3 { border-bottom:none; margin:0; padding:0 0 var(--sp-2xs); flex:0 0 auto; }
+/* ── The evidence stack FILLS the column ──────────────────────────────────
+ * `.panel-right` is already a flex column (base rule above), so the signal card
+ * and the proof-card grid each take `flex:1 1 0` — an equal share of whatever
+ * height is left under the label — instead of collapsing to content height and
+ * stranding the bottom half of the slide empty. `min-height:0` keeps the flex
+ * default (`min-height:auto`, which refuses to shrink) from overflowing a
+ * long scenario instead of fitting it. Proportional, not a fixed height: the
+ * stack holds at any slide size or `--fs-scale`, which a pixel height would not. */
+section.split-panel.proof .panel-right > p { background:var(--bg-alt); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md) var(--sp-lg); margin:0; font-size:var(--fs-body); color:var(--text-heading); line-height:var(--lh-relaxed); flex:1 1 0; min-height:0; display:flex; flex-direction:column; justify-content:center; }
+section.split-panel.proof .panel-right > :is(ul,ol) { display:grid; grid-template-columns:1fr 1fr; align-items:stretch; gap:var(--sp-md); flex:1 1 0; min-height:0; justify-content:initial; list-style:none; padding:0; margin:0; }
+/* `align-items:stretch` on the grid (above) makes both cards match the row's
+ * tallest card; `display:flex` + `justify-content:center` here centers each
+ * card's own content block vertically within that shared height — a short
+ * card and a long card read as two symmetric peers, not a tall card next to
+ * a top-anchored short one floating in leftover space. */
+section.split-panel.proof .panel-right > :is(ul,ol) > li { background:var(--bg-alt); border:1px solid var(--border); border-left:1px solid var(--border); border-radius:var(--radius-md); padding:var(--sp-md); display:flex; flex-direction:column; justify-content:center; }
+section.split-panel.proof .panel-right > :is(ul,ol) > li > strong { display:block; font-size:var(--fs-meta); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--accent); font-weight:600; padding-bottom:var(--sp-xs); }
+section.split-panel.proof .panel-right > :is(ul,ol) > li > :is(ul,ol) > li { font-size:var(--fs-body-compact); font-family:var(--font-body); color:var(--text-body); line-height:var(--lh-base); }
+
+/* ── .capstone — proof's climactic entry: the signal reads as a literal
+ * quotation (italic display face, left-accent card) instead of a described
+ * scenario, and the two proof points read as plain top-rule pillars instead
+ * of boxed cards — the sequence's final, most-earned slide reads as
+ * evidence delivered, not one more checkpoint. Composes with `.proof`; same
+ * DOM (h3 label, p signal, ul checkpoints) — only the chrome differs.
+ * `var(--panel-mark, var(--accent))` so it still works stacked on `.proof`
+ * alone, without a `cat-N` companion class. */
+/* The claim panel spreads instead of bottom-clustering: the eyebrow rides the
+ * top, the question settles at the bottom, and the heading holds the middle —
+ * the summit slide gets air the checkpoint slides don't. */
+section.split-panel.proof.capstone .panel-left {
+  justify-content: space-between;
+}
+/* The closing question is the panel's display element here, not a caption —
+ * it steps up a role tier (message → h2) to carry that weight. */
+section.split-panel.proof.capstone .panel-left p em:first-child {
+  font-size: var(--fs-h2);
+  line-height: var(--lh-tight);
+}
+/* Capstone keeps `proof`'s equal split (both regions still fill the column) but
+ * settles the proof pillars to the BOTTOM of their half — the evidence reads as
+ * a footing under the quotation rather than floating directly beneath it with
+ * dead space below. */
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) { align-content: end; }
+section.split-panel.proof.capstone .panel-right > h3 {
+  color: var(--panel-mark, var(--accent));
+}
+section.split-panel.proof.capstone .panel-right > p {
+  background: var(--bg); border: 1px solid var(--border); border-left: 4px solid var(--panel-mark, var(--accent));
+  border-radius: var(--radius-md); padding: var(--sp-md) var(--sp-lg);
+  font-family: var(--font-display); font-style: italic; color: var(--text-heading);
+}
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li {
+  background: none; border: none; border-top: 2px solid var(--panel-mark, var(--accent)); border-radius: 0;
+  padding: var(--sp-sm) 0 0;
+}
+
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */
 section.split-panel.watermark .panel-left { width:34%; background:var(--accent); justify-content:flex-end; }
 section.split-panel.watermark .panel-left::before { background:var(--on-accent-watermark); height:4px; }
@@ -12723,6 +13372,53 @@ section.split-panel.watermark .panel-right > :is(ul,ol) > li {
 }
 section.split-panel > .cell-stage {
   padding-block: var(--elevation-berth);
+}
+
+/* ── cat-1…cat-8 — categorical tint, composes with any variant ─────────────
+ * Recolors `.panel-left` from the universal dark surface to one of the
+ * theme's own eight categorical fills (`--cat-N-fill`, the same family
+ * `decision`'s per-item accent and `statement/premise`'s row color draw
+ * from) — for a SEQUENCE of split-panel slides that should read as a set
+ * (a leveled progression, a staged rollout), each with its own hue, rather
+ * than one repeated dark accent. There's no way to derive "which of six" a
+ * standalone slide is from its own content, so the class is author-picked,
+ * one per slide (`split-panel proof cat-3`) — the same explicit convention
+ * `list-steps`'s prefix-word variants (`phase`, `stage`, …) already use.
+ * `--cat-N-fill` is a pale tint in light mode and a deep saturated fill in
+ * dark mode (themes/*.css) — both pair correctly with the ordinary
+ * `--text-*` tokens (not `--on-dark-*`, which assumes an ALWAYS-dark
+ * surface); the fill's own light/dark flip and the text tokens' flip move
+ * together by design, the same pairing `--bg`/`--text-*` already relies on. */
+section.split-panel.cat-1 { --panel-fill: var(--cat-1-fill); --panel-mark: var(--cat-1-mark); }
+section.split-panel.cat-2 { --panel-fill: var(--cat-2-fill); --panel-mark: var(--cat-2-mark); }
+section.split-panel.cat-3 { --panel-fill: var(--cat-3-fill); --panel-mark: var(--cat-3-mark); }
+section.split-panel.cat-4 { --panel-fill: var(--cat-4-fill); --panel-mark: var(--cat-4-mark); }
+section.split-panel.cat-5 { --panel-fill: var(--cat-5-fill); --panel-mark: var(--cat-5-mark); }
+section.split-panel.cat-6 { --panel-fill: var(--cat-6-fill); --panel-mark: var(--cat-6-mark); }
+section.split-panel.cat-7 { --panel-fill: var(--cat-7-fill); --panel-mark: var(--cat-7-mark); }
+section.split-panel.cat-8 { --panel-fill: var(--cat-8-fill); --panel-mark: var(--cat-8-mark); }
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left {
+  background: var(--panel-fill);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left::before {
+  background: var(--panel-mark);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left h2 {
+  color: var(--text-heading);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-left p {
+  color: var(--text-secondary);
+}
+/* The eyebrow label and the proof checkpoints' own labels are MARKS, not body
+ * copy — tinted with the category color (not left neutral like the panel's
+ * prose) so the category identity carries through every labeled element on
+ * the slide, not just the fill. */
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8) .panel-eyebrow {
+  color: var(--panel-mark);
+}
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-left p em:first-child,
+section.split-panel:is(.cat-1, .cat-2, .cat-3, .cat-4, .cat-5, .cat-6, .cat-7, .cat-8).proof .panel-right > :is(ul,ol) > li > strong {
+  color: var(--panel-mark);
 }
 
 /* === lib/components/chart/state-chart/state-chart.styles.css === */
@@ -14081,7 +14777,11 @@ section.statute-stack > .cell-stage {
  * cluster (heading, eyebrow, hr, dek) as one. */
 section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.title { border-top: none; }
-section.title h1 { font-size:var(--fs-h1); color:var(--text-display); padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
+/* A measure on the deck title: uncapped, a long title runs the full frame width
+ * as one thin line that reads as a banner rather than a title block. Capped, it
+ * breaks into a centered two-line stack with the subtitle beneath — the bookend
+ * proportion. Closing carries the matching cap. */
+section.title h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:59.4cqi; padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
 section.title hr { background:var(--accent); height:1px; width:64px; margin:0; }
 section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-weight:300; margin:0; padding-top:0; text-align:var(--headline-align, center); }
 /* Title layout: inline-code after h1 = eyebrow, rendered visually above h1 via flex order.
@@ -14099,6 +14799,59 @@ section.title h1 + p:has(> code:only-child) > code {
   border: none;
   padding: 0;
   border-radius: 0;
+}
+
+/* ── spectrum — a generated gradient bar below the subtitle, stitched from
+ * the theme's own chart-family categorical palette, never a deck's own
+ * literal hex ramp. Two things ruled out --chart-cat-N-hue directly:
+ *   1. Deliberately NOT --cat-N-mark: that family is contrast-tuned for
+ *      TEXT on the theme's natural surface, so on a dark bookend canvas
+ *      its dark-mode branch collapses to near-white pastel swatches
+ *      (indaco: #D4DFE8, #E7D5D6, …) — a washed-out bar, empirically
+ *      confirmed by rendering it.
+ *   2. --chart-cat-N-hue itself is scoped to `.chart-frame` (chart-
+ *      family.css) — reading it from `section.title` resolves to nothing,
+ *      not a fallback (empirically confirmed: the bar vanished entirely).
+ *      `--chart-catN` (the theme's OWN input to that scoped var, indaco:
+ *      themes/indaco.css) is what's actually declared at `:root`, so this
+ *      reads that directly with the SAME literal fallback chart-family.css
+ *      itself falls back to for a theme that sets no chart palette at all
+ *      — `var(--token, #fallback)` is the documented hex-literal-gate
+ *      exemption (HARD RULE #3), not a hand-rolled color.
+ * No authoring hook exists for a REAL <hr> here — every top-level `hr`
+ * token in a slide body is the Marp-style slide separator
+ * (lib/engine/slides.js splitOnHr), so a generated element is the only way
+ * to render this; a plain markdown `hr` here would ship the wrong shape
+ * entirely (a slide break, not a rule). Opt-in: most decks using `title`
+ * have no six-part color story to reference.
+ *
+ * `::before` + `order`, not `::after`: the universal `silent`/`no-paginate`
+ * modifiers suppress `section::after` at matched specificity to hide the
+ * engine's own pagination pseudo (base.variants.css) — reusing `::after`
+ * here would collide and silently vanish under `silent` (title/closing's
+ * own recommended pairing). `::before` is unclaimed; `order` moves it past
+ * every real child in visual flow despite being first in the DOM. */
+section.title.spectrum::before {
+  content: '';
+  display: block;
+  order: 1;
+  width: 200px;
+  height: 4px;
+  /* padding-top (not margin-top — HARD RULE #20) reserves the gap above the
+   * bar; background-clip keeps the gradient painted only in the content
+   * box, so the padding area stays blank instead of tinting the gap. */
+  padding-top: var(--sp-lg);
+  background: linear-gradient(
+    90deg,
+    var(--chart-cat1, light-dark(#0A6CE0, #2E8BFF)),
+    var(--chart-cat2, light-dark(#C2670A, #FFA630)),
+    var(--chart-cat3, light-dark(#1E9E48, #34D058)),
+    var(--chart-cat4, light-dark(#9333D6, #BE5AF2)),
+    var(--chart-cat5, light-dark(#0E96AE, #3FC8E0)),
+    var(--chart-cat6, light-dark(#E11D48, #FF4D6A))
+  );
+  background-clip: content-box;
+  border-radius: 2px;
 }
 
 /* === lib/components/comparison/verdict-grid/verdict-grid.styles.css === */
@@ -17146,7 +17899,7 @@ section.chart-frame .chart-body {
  * stage). It self-scales instead — a flex viewport that fills the stage (caption keeps its
  * space) with a JS-fitted `.state-chart-scale` box, FLOORED so an overstuffed machine still
  * spills + the probe catches it. See 2026-07-16-state-chart-self-scale.md + state-chart.styles.css. */
-section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) > .cell-stage > .chart-body {
+section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap, .matrix-grid) > .cell-stage > .chart-body {
   flex: 0 0 auto;
 }
 /* Centre the chart body in the stage cell. A pinned list body (flex:0 0 auto, natural

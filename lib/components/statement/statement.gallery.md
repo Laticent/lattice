@@ -2,7 +2,7 @@
 
 # statement
 
-`4 components`
+`5 components`
 
 Statement — one declarative claim per slide.
 
@@ -27,6 +27,22 @@ Statement — one declarative claim per slide.
 ## The content slide is the plainest tool in the box.
 
 A heading that makes one claim, then a paragraph or a short list that delivers it. When no specialized layout fits — no metrics, no comparison, no sequence — this is the honest default, and restraint is its whole craft.
+
+---
+
+<!-- _class: premise -->
+<!-- _footer: "premise · statement survey" -->
+
+## Growth is a change in thinking, not title.
+
+Six cognitive verbs map the questions an engineer learns to ask — your level is the highest verb you reliably own, and how far that thinking travels.
+
+- `01` **Remember** Recall facts, syntax, rules. *How is this done?*
+- `02` **Understand** Explain behavior and dependencies. *Why does it work?*
+- `03` **Apply** Use patterns in new contexts. *How do I make it work here?*
+- `04` **Analyze** Decompose across boundaries. *Where does it break?*
+- `05` **Evaluate** Judge options against strategy. *Which option should win?*
+- `06` **Create** Synthesize what isn't there. *What should exist?*
 
 ---
 

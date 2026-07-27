@@ -723,6 +723,29 @@ def demo_blocks() -> dict[str, str]:
         ('split', 'footer', '1/19'),
     ])
 
+    blocks['matrix-grid'] = frame([
+        ('left', 'header'),
+        ('left', 'Verb × reach heading.'),
+        ('blank',),
+        ('raw', table_top()),
+        table_row('', 'Self', 'Team'),
+        ('raw', table_sep()),
+        table_row('Create', '·', '◇'),
+        table_row('Apply', '◇', '■'),
+        table_row('Remember', '■', '◇'),
+        ('raw', table_bot()),
+        ('split', 'footer', '1/19'),
+    ])
+
+    blocks['premise'] = frame([
+        panel_right('The claim,    ', '01 Term  clause  note'),
+        panel_right('why the       ', '02 Term  clause  note'),
+        panel_right('order matters.', '03 Term  clause  note'),
+        panel_right('              ', '04 Term  clause  note'),
+        panel_right('              ', '05 Term  clause  note'),
+        panel_right('              ', '06 Term  clause  note'),
+    ])
+
     blocks['redline'] = frame([
         ('left', 'header'),
         ('left', 'Clause diff heading.'),

@@ -6,7 +6,7 @@
 
 **Tags** `process` · `walkthrough` · `planning`
 
-Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.
+Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list. Add `cat` on top of `capsule` when the steps are a categorical set in a sequence's clothing and each badge should carry its own hue instead of one repeated accent.
 
 ## Agent contract
 
@@ -23,6 +23,8 @@ Use for richer sequential processes where each step needs a paragraph rather tha
 
 ### Variant decision rule
 
+- **`capsule`.** The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit) reads better centered under a quiet pill badge than left-aligned under a mono caption. Centers the masthead with the cards and drops the connector arrows between steps: the badges carry the sequence, and a reflective practice is not a pipeline.
+- **`cat`.** Composes with `capsule` only. The steps are secretly a categorical set (each one a distinct sample point, not an ordered march) and should read as visually distinct, not as one repeated accent stepping forward. Default `capsule` stays one tint on purpose for a genuine sequence — reach for `cat` only when that reasoning doesn't hold.
 - **`vertical`.** The frame is narrow or portrait, or the step bodies need more vertical room — stacks steps down the page instead of across a row.
 - **`chevron`.** The story argues through cascading stages (problem → vision → approach → plan) — down-chevron tabs read as a persuasive cascade rather than a neutral sequence.
 - **`converge`.** The process narrows toward one outcome — a qualitative funnel shape without literal conversion percentages (use `funnel` when you have numbers).
@@ -288,6 +290,40 @@ Numerals count the phases.
    - The look changes; the grammar holds.
 3. Third
    - Body budgets do not move.
+```
+
+### `capsule` — capsule
+
+Centered cards, a pill-shaped step badge, a serif title.
+
+```markdown
+<!-- _class: list-steps capsule -->
+
+## Turn the framework into a habit.
+
+1. Name it
+   - Say the verb and the reach you operate at today.
+2. Pick the next move
+   - One deeper verb, or the same verb carried wider.
+3. Keep the evidence
+   - A doc, a metric, a postmortem — proof the shift happened.
+```
+
+### `cat` — cat
+
+Composes with `capsule`: each badge tints with its own categorical color instead of one repeated accent.
+
+```markdown
+<!-- _class: list-steps capsule cat -->
+
+## Three samples across the ladder, not three steps in a row.
+
+1. Place yourself
+   - Name the verb you own and how far it reaches today.
+2. Pick your next move
+   - A deeper verb, or the same verb carried wider.
+3. Collect the evidence
+   - Artifacts that prove the shift happened.
 ```
 
 ## Universal modifiers

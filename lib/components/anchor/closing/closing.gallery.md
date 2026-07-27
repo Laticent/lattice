@@ -64,6 +64,16 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
+<!-- _class: closing silent spectrum -->
+<!-- _footer: "spectrum · closing spectrum — Mirrors title's generated gradient bar — the deck's color story, one last time." -->
+
+## The closing echoes the same six-step spectrum.
+
+`Closing · spectrum`
+
+
+---
+
 <!-- _class: cards-stack compact -->
 <!-- _footer: "Anti-patterns · closing" -->
 

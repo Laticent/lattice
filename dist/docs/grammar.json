@@ -55,7 +55,7 @@
       "degradesTo": "code-block"
     }
   },
-  "count": 59,
+  "count": 61,
   "components": [
     {
       "name": "actors",
@@ -781,6 +781,7 @@
         "scale-l",
         "scale-xl",
         "silent",
+        "spectrum",
         "tbd",
         "tint-corner at-tl",
         "tint-edge at-right",
@@ -969,7 +970,17 @@
         "options": {
           "selector": "ul > li",
           "required": true,
-          "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences."
+          "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, leave the lead blank and nest a 3-item sub-list instead: the facet numeral (`I` / `II`), a bold title, and a description sentence."
+        },
+        "lede": {
+          "selector": "h2 + p",
+          "required": false,
+          "description": "`axis` only. A framing sentence between the heading and the two facet cards."
+        },
+        "note": {
+          "selector": ":is(ul, ol) + p",
+          "required": false,
+          "description": "A closing line after the two cards. Plain prose in the base layout; `axis` renders it centered and italic."
         }
       },
       "requiredSlots": [
@@ -979,6 +990,7 @@
       "modifiers": [
         "accent",
         "archived",
+        "axis",
         "banner-tag",
         "chosen",
         "claim-bleed",
@@ -2428,6 +2440,8 @@
       "modifiers": [
         "accent",
         "archived",
+        "capsule",
+        "cat",
         "chevron",
         "claim-bleed",
         "claim-framed",
@@ -2919,6 +2933,98 @@
       "readsStateMarkers": false
     },
     {
+      "name": "matrix-grid",
+      "classToken": "matrix-grid",
+      "bucket": "chart",
+      "substance": "structure",
+      "skeleton": "<!-- _class: matrix-grid -->\n\n`Reach → self · team · org`\n\n## Where each level sits on two axes.\n\nYour position is the diagonal — depth and reach meet at one cell.\n\n| Depth | Self | Team | Org |\n| ---------- | :--: | :--: | :-: |\n| Advanced   | [ ]  | [-]  | [x] Lead |\n| Proficient | [-]  | [x] Senior | [-] |\n| Beginner   | [x] Junior | [-]  | [ ]  |\n\n**Your position** · *reachable*\n",
+      "slots": {
+        "heading": {
+          "selector": "h2",
+          "required": true,
+          "description": "Slide heading naming the rubric."
+        },
+        "eyebrow": {
+          "selector": "p:first-of-type > code",
+          "required": false,
+          "description": "Optional inline-code axis caption. Two parts separated by `·` — the first labels the column (reach) axis and renders above the grid, the second labels the row (depth) axis and renders rotated along the left edge, e.g. `Wider reach → · Deeper cognition ↑`. A single part with no `·` renders as the column-axis label only."
+        },
+        "subtitle": {
+          "selector": "h2 + p",
+          "required": false,
+          "description": "One supporting sentence under the heading, framing how to read the grid."
+        },
+        "matrix": {
+          "selector": "table",
+          "required": true,
+          "description": "Markdown table — the header row is the reach/scope axis, the first column of each body row is the category axis. Cells use the positional grammar ([x] / [-] / [ ]); a filled cell's trailing text is its label."
+        },
+        "legend": {
+          "selector": "p:last-of-type",
+          "required": false,
+          "description": "Optional single trailing paragraph, doubling as the chart caption — what the three cell states mean, plus any caveat about the placements. A leading `**bold**` run renders as a filled swatch + label, a leading `*italic*` run as an outlined swatch + label; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption)."
+        }
+      },
+      "requiredSlots": [
+        "heading",
+        "matrix"
+      ],
+      "modifiers": [
+        "accent",
+        "archived",
+        "claim-framed",
+        "claim-hero",
+        "claim-quiet",
+        "compact",
+        "confidential",
+        "dark",
+        "draft",
+        "form",
+        "insight-bottom-line",
+        "insight-implication",
+        "insight-key",
+        "insight-next-step",
+        "insight-our-view",
+        "insight-recommendation",
+        "insight-so-what",
+        "insight-takeaway",
+        "insight-the-ask",
+        "insight-verdict",
+        "insight-why",
+        "mark-orbit",
+        "mark-threads",
+        "no-footer",
+        "no-form",
+        "no-header",
+        "no-paginate",
+        "no-period",
+        "no-progress",
+        "pinned",
+        "redacted",
+        "revised",
+        "safe",
+        "scale-2xl",
+        "scale-l",
+        "scale-xl",
+        "silent",
+        "tbd",
+        "tint-corner at-tl",
+        "tint-edge at-right",
+        "tint-vignette",
+        "tone-fail",
+        "tone-pass",
+        "tone-skip",
+        "tone-warn",
+        "treatment-none",
+        "wip",
+        "with-period"
+      ],
+      "familyModifiers": [
+        "canvas"
+      ],
+      "readsStateMarkers": false
+    },
+    {
       "name": "obligation-matrix",
       "classToken": "obligation-matrix",
       "bucket": "legal",
@@ -3165,6 +3271,88 @@
         "no-period",
         "no-progress",
         "oppose",
+        "pinned",
+        "redacted",
+        "revised",
+        "safe",
+        "scale-2xl",
+        "scale-l",
+        "scale-xl",
+        "silent",
+        "tbd",
+        "tint-corner at-tl",
+        "tint-edge at-right",
+        "tint-vignette",
+        "tone-fail",
+        "tone-pass",
+        "tone-skip",
+        "tone-warn",
+        "treatment-none",
+        "wip",
+        "with-period"
+      ],
+      "familyModifiers": [],
+      "readsStateMarkers": false
+    },
+    {
+      "name": "premise",
+      "classToken": "premise",
+      "bucket": "statement",
+      "substance": "series",
+      "skeleton": "<!-- _class: premise -->\n\n## The claim the ledger exists to support.\n\nOne or two sentences naming the axes the rows below walk.\n\n- `01` **First term** A short clause describing it. *A question it answers?*\n- `02` **Second term** A short clause describing it. *A question it answers?*\n- `03` **Third term** A short clause describing it. *A question it answers?*\n",
+      "slots": {
+        "heading": {
+          "selector": "h2",
+          "required": true,
+          "description": "The claim — why the ordering in the ledger matters, not a summary of it."
+        },
+        "lede": {
+          "selector": "h2 + p",
+          "required": true,
+          "description": "One-to-two sentence framing paragraph under the claim, naming the two axes or dimensions the ledger's rows walk."
+        },
+        "rows": {
+          "selector": "ul > li",
+          "required": true,
+          "description": "Each row is ONE line with four inline segments in order: `` `NN` `` (index, inline code), `**Term**` (bold), a bare description clause, and `*a short question or note*` (italic, right-aligned). 3-8 rows; each is colored by its own slot in the theme's categorical palette."
+        }
+      },
+      "requiredSlots": [
+        "heading",
+        "lede",
+        "rows"
+      ],
+      "modifiers": [
+        "accent",
+        "archived",
+        "claim-bleed",
+        "claim-framed",
+        "claim-hero",
+        "claim-quiet",
+        "compact",
+        "confidential",
+        "dark",
+        "draft",
+        "form",
+        "insight-bottom-line",
+        "insight-implication",
+        "insight-key",
+        "insight-next-step",
+        "insight-our-view",
+        "insight-recommendation",
+        "insight-so-what",
+        "insight-takeaway",
+        "insight-the-ask",
+        "insight-verdict",
+        "insight-why",
+        "mark-orbit",
+        "mark-threads",
+        "no-footer",
+        "no-form",
+        "no-header",
+        "no-paginate",
+        "no-period",
+        "no-progress",
         "pinned",
         "redacted",
         "revised",
@@ -3567,6 +3755,7 @@
       "modifiers": [
         "accent",
         "archived",
+        "bare",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
@@ -4179,7 +4368,12 @@
         "points": {
           "selector": "ul > li",
           "required": true,
-          "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line."
+          "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof`, exactly two items render as paired proof cards instead of a vertical list."
+        },
+        "signal": {
+          "selector": "h3 + p",
+          "required": false,
+          "description": "`proof` only. An h3 naming the scenario (e.g. \"You know you're here when\") followed by one paragraph — rendered as a bordered callout above the two proof cards."
         }
       },
       "requiredSlots": [
@@ -4189,6 +4383,15 @@
       "modifiers": [
         "accent",
         "archived",
+        "capstone",
+        "cat-1",
+        "cat-2",
+        "cat-3",
+        "cat-4",
+        "cat-5",
+        "cat-6",
+        "cat-7",
+        "cat-8",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
@@ -4220,6 +4423,7 @@
         "no-period",
         "no-progress",
         "pinned",
+        "proof",
         "pullquote",
         "qr",
         "redacted",
@@ -4643,6 +4847,7 @@
         "scale-l",
         "scale-xl",
         "silent",
+        "spectrum",
         "tbd",
         "tint-corner at-tl",
         "tint-edge at-right",

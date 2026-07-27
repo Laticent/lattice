@@ -46,7 +46,7 @@
     "retrospective"
   ],
   "description": "Two prose options side-by-side with a labeled corner tag on each.",
-  "purpose": "Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side.",
+  "purpose": "Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side. `axis` reframes the pair as two facets of one idea — a lede above, a numeral-led card per facet, a closing note below.",
   "variants": [
     "transition",
     "mirror",
@@ -54,7 +54,8 @@
     "decision",
     "vertical",
     "banner-tag",
-    "rejected"
+    "rejected",
+    "axis"
   ],
   "slots": {
     "title": {
@@ -65,7 +66,17 @@
     "options": {
       "selector": "ul > li",
       "required": true,
-      "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences."
+      "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, leave the lead blank and nest a 3-item sub-list instead: the facet numeral (`I` / `II`), a bold title, and a description sentence."
+    },
+    "lede": {
+      "selector": "h2 + p",
+      "required": false,
+      "description": "`axis` only. A framing sentence between the heading and the two facet cards."
+    },
+    "note": {
+      "selector": ":is(ul, ol) + p",
+      "required": false,
+      "description": "A closing line after the two cards. Plain prose in the base layout; `axis` renders it centered and italic."
     }
   },
   "skeleton": "<!-- _class: compare-prose -->\n\n## Heading framing the comparison.\n\n- First option\n  - Two-sentence description of the first option, including the strongest argument for it.\n- Second option\n  - Two-sentence description of the second option, including the strongest argument for it.\n",
@@ -122,6 +133,11 @@
     }
   ],
   "variantDocs": {
+    "axis": {
+      "label": "axis",
+      "summary": "A lede above, numeral-led facet cards, a closing note below.",
+      "sample": "<!-- _class: compare-prose axis -->\n\n## The second axis: how far it reaches.\n\nThe verb is one axis — how you think. **Reach** is the other — how far what you make travels.\n\n- \n  - I\n  - Own the verb\n  - You can do the cognitive work — correct, clear, complete. So far it reaches only you.\n- \n  - II\n  - Widen the reach\n  - The work travels: team, org, field — the farther it carries, the higher the level.\n\n*Most engineers stall here — not on the thinking, but on making it travel past their own hands.*\n"
+    },
     "transition": {
       "label": "transition",
       "summary": "Left reads as before, right as after.",
@@ -166,9 +182,17 @@
     {
       "mistake": "Combining `mirror` with `chosen`/`rejected`/`decision`, expecting the marked card to move with the visual swap.",
       "fix": "`mirror` only reverses the VISUAL row (`flex-direction: row-reverse`) — the chosen/rejected treatment still targets the second option in markdown SOURCE order, so mirroring changes where it appears on screen, not which option gets the accent."
+    },
+    {
+      "mistake": "Writing a label before the nested sub-list in an `axis` card (`- Own the verb` then the numeral/title/description sub-list), the way the base layout's option lead works.",
+      "fix": "`axis` cards read the FIRST three items of the nested sub-list as numeral, title, and description — leave the outer bullet's own lead blank (`- ` with nothing after it) so nothing is left over to become a stray corner tag."
     }
   ],
   "variantDecisionRule": [
+    {
+      "variant": "axis",
+      "useWhen": "The pair are two facets of one idea (not before/after, not a verdict) — frame them with a lede above and land the takeaway in a closing note below."
+    },
     {
       "variant": "transition",
       "useWhen": "The comparison is a state change over time — left is before, right is after; implies causation, not two co-equal preferences."

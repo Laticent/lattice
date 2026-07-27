@@ -39,14 +39,24 @@
     "takeaway"
   ],
   "description": "Featured left panel + supporting right zone — one prominent claim beside the points that substantiate it.",
-  "purpose": "Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer). For a binary decision with a verdict, reach for `split-compare`.",
+  "purpose": "Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer), `proof` (a scenario signal + two paired proof cards, for a claim that must be demonstrated, not just supported). Add `capstone` on top of `proof` for that sequence's climactic entry: the signal becomes a quoted card, the checkpoints become plain top-rule pillars. For a binary decision with a verdict, reach for `split-compare`. Add `cat-1`…`cat-8` (composes with any variant) to recolor the panel from the universal dark surface to one of the theme's own categorical fills — for a SEQUENCE of slides (a leveled progression, staged rollout) that should each carry their own hue, one class per slide.",
   "variants": [
     "metric",
     "pullquote",
     "steps",
     "watermark",
+    "proof",
+    "capstone",
     "mirror",
-    "qr"
+    "qr",
+    "cat-1",
+    "cat-2",
+    "cat-3",
+    "cat-4",
+    "cat-5",
+    "cat-6",
+    "cat-7",
+    "cat-8"
   ],
   "slots": {
     "eyebrow": {
@@ -67,7 +77,12 @@
     "points": {
       "selector": "ul > li",
       "required": true,
-      "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line."
+      "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof`, exactly two items render as paired proof cards instead of a vertical list."
+    },
+    "signal": {
+      "selector": "h3 + p",
+      "required": false,
+      "description": "`proof` only. An h3 naming the scenario (e.g. \"You know you're here when\") followed by one paragraph — rendered as a bordered callout above the two proof cards."
     }
   },
   "skeleton": "<!-- _class: split-panel -->\n\n`Eyebrow context`\n\n## Headline that anchors the panel.\n\nOne-sentence framing paragraph explaining what the points cover.\n\n- First point\n  - Supporting detail explaining the first point.\n- Second point\n  - Supporting detail explaining the second point.\n- Third point\n  - Supporting detail explaining the third point.\n",
@@ -80,7 +95,11 @@
     },
     {
       "title": "Pick the variant by what the panel features",
-      "body": "Heading (default), hero number (`metric`), pull-quote (`pullquote`), phase + numbered steps (`steps`), or an accent panel with a letterform watermark and a metadata footer (`watermark`)."
+      "body": "Heading (default), hero number (`metric`), pull-quote (`pullquote`), phase + numbered steps (`steps`), an accent panel with a letterform watermark and a metadata footer (`watermark`), or a scenario + two proof cards (`proof`)."
+    },
+    {
+      "title": "A claim that must be demonstrated, not just supported",
+      "body": "`proof` pairs the panel's claim with one scenario paragraph (\"you know you're here when…\") and two named proof cards. Use it when the audience needs evidence the claim actually holds, not just a list of reasons to believe it."
     },
     {
       "title": "Points carry a title + body",
@@ -149,11 +168,57 @@
       "label": "qr",
       "summary": "Payload bullet becomes a code.",
       "sample": "<!-- _class: split-panel qr -->\n\n`split-panel qr`\n\n## The payload bullet becomes a code on the panel.\n\nA bare URL auto-resolves; the caption line labels the scan.\n\n- https://slidewright.dev/components/split-panel `qr`\n- Scan for this layout's docs `caption`\n"
+    },
+    "proof": {
+      "label": "proof",
+      "summary": "Scenario signal + two paired proof cards, filling the column top to bottom. Narrows the claim panel to 31% and steps the claim heading to the h2 tier — the evidence side carries three stacked regions where the base carries one list.",
+      "sample": "<!-- _class: split-panel proof -->\n\n`Level 1 · Remembering`\n\n## Execute with accuracy.\n\n*How is this done?* You recall syntax, patterns, and standards — the path is known, and the job is to follow it without error.\n\n### You know you're here when\n\nYou implement a feature via an existing API. Tests pass, review comes back clean, and rework is rare.\n\n- Follows examples well\n  - Compiles, runs, and tests locally with confidence.\n- Works from brief tickets\n  - Consistent quality without hand-holding.\n"
+    },
+    "capstone": {
+      "label": "capstone",
+      "summary": "Composes with `proof`: the signal reads as a quoted card, the two proof points read as plain top-rule pillars — the sequence's climactic, most-earned entry.",
+      "sample": "<!-- _class: split-panel proof capstone cat-6 -->\n\n`Level 6 · Creating`\n\n## Build what didn't exist before.\n\n*What should exist?* You synthesize new frameworks, platforms, and operating models — the artifact you produce becomes the standard others build on.\n\n### The signal\n\nYou design a cross-cloud, policy-aware data platform framework, and teams across the enterprise adopt it as their foundation.\n\n- Reference architecture\n  - The implementation exists and is validated.\n- Organization-wide adoption\n  - Measurable outcomes follow.\n"
+    },
+    "cat-1": {
+      "label": "cat-1",
+      "summary": "Panel tints with the theme's first categorical fill instead of the dark surface — the opening step of a sequence.",
+      "sample": "<!-- _class: split-panel cat-1 -->\n\n`Stage 1 of 8`\n\n## Discover the real problem.\n\n- Talk to the people living with it\n  - Five conversations beat one survey.\n- Write down what surprised you\n  - The surprise is usually the actual problem.\n"
+    },
+    "cat-2": {
+      "label": "cat-2",
+      "summary": "The sequence's second step, in the theme's second categorical fill.",
+      "sample": "<!-- _class: split-panel cat-2 -->\n\n`Stage 2 of 8`\n\n## Define what \"done\" means.\n\n- One sentence, not a document\n  - If it needs a meeting to explain, it isn't defined yet.\n- Name what's explicitly out of scope\n  - The edges matter more than the center.\n"
+    },
+    "cat-3": {
+      "label": "cat-3",
+      "summary": "The sequence's third step, in the theme's third categorical fill.",
+      "sample": "<!-- _class: split-panel cat-3 -->\n\n`Stage 3 of 8`\n\n## Design the smallest real version.\n\n- Cut until it's uncomfortable\n  - Comfortable scope is usually still too big.\n- Sketch before you spec\n  - A rough picture surfaces disagreement a document hides.\n"
+    },
+    "cat-4": {
+      "label": "cat-4",
+      "summary": "The sequence's fourth step, in the theme's fourth categorical fill.",
+      "sample": "<!-- _class: split-panel cat-4 -->\n\n`Stage 4 of 8`\n\n## Build the thing you designed.\n\n- Ship the ugly path first\n  - It finds the real risk; the happy path is easy.\n- Keep a running list of shortcuts taken\n  - Nothing is forgotten faster than a deliberate shortcut.\n"
+    },
+    "cat-5": {
+      "label": "cat-5",
+      "summary": "The sequence's fifth step, in the theme's fifth categorical fill.",
+      "sample": "<!-- _class: split-panel cat-5 -->\n\n`Stage 5 of 8`\n\n## Validate with the people it's for.\n\n- Watch, don't narrate\n  - What they do matters more than what they say they'd do.\n- One real user beats five imagined ones\n  - A single honest session outweighs a week of speculation.\n"
+    },
+    "cat-6": {
+      "label": "cat-6",
+      "summary": "The sequence's sixth step, in the theme's sixth categorical fill.",
+      "sample": "<!-- _class: split-panel cat-6 -->\n\n`Stage 6 of 8`\n\n## Launch to a small, real audience.\n\n- Small enough to fix fast\n  - A limited launch turns mistakes into hours, not weeks.\n- Tell people it's early\n  - Set the expectation and the feedback gets more honest.\n"
+    },
+    "cat-7": {
+      "label": "cat-7",
+      "summary": "The sequence's seventh step, in the theme's seventh categorical fill.",
+      "sample": "<!-- _class: split-panel cat-7 -->\n\n`Stage 7 of 8`\n\n## Scale what actually worked.\n\n- Scale the mechanism, not the guess\n  - Confirm why it worked before you multiply it.\n- Expect the edges to break first\n  - Scale finds every assumption that only held at small size.\n"
+    },
+    "cat-8": {
+      "label": "cat-8",
+      "summary": "The sequence's eighth and final step, in the theme's eighth categorical fill.",
+      "sample": "<!-- _class: split-panel cat-8 -->\n\n`Stage 8 of 8`\n\n## Sustain it without you in the loop.\n\n- Write down what only you know\n  - If it lives in your head, it isn't sustained yet.\n- Hand off the decision, not just the task\n  - Ownership transfers when someone else can say no.\n"
     }
-  },
-  "stressDoc": {
-    "summary": "Three items at full budget.",
-    "sample": "<!-- _class: split-panel -->\n\n`split-panel · stress`\n\n## Three full items is this column's ceiling.\n\nThe framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.\n\n- First item at full width\n  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.\n- Second item, same weight\n  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.\n- Third item closes the set\n  - A fourth would push past the footer — split the slide instead.\n"
   },
   "commonMistakes": [
     {
@@ -163,8 +228,24 @@
     {
       "mistake": "Adding a third line to `watermark`'s trailing metadata footer, expecting a third labeled row.",
       "fix": "The footer's \"Audience ·\" / \"Intent ·\" prefixes are hard-coded to the first two list items only — a third item renders with no label prefix at all."
+    },
+    {
+      "mistake": "Under `proof`, omitting the lede paragraph between the heading and the `### signal` label.",
+      "fix": "Always write a lede under `proof` — omitting it lets the extractor mistake the signal paragraph for the lede, hoisting it into the left panel and leaving the right zone's label empty."
+    },
+    {
+      "mistake": "Under `proof`, authoring more or fewer than exactly two checkpoint items.",
+      "fix": "The two-column card grid assumes a pair. One item leaves an empty column; three crowds a third card half-width."
+    },
+    {
+      "mistake": "Applying the same `cat-N` to every slide in a sequence, or picking numbers out of order (`cat-1`, `cat-4`, `cat-2`).",
+      "fix": "The point of `cat-1`…`cat-8` is that each slide in the SET reads as its own step — assign them in order, one number per slide, not the same number repeated or shuffled."
     }
   ],
+  "stressDoc": {
+    "summary": "Three items at full budget.",
+    "sample": "<!-- _class: split-panel -->\n\n`split-panel · stress`\n\n## Three full items is this column's ceiling.\n\nThe framing paragraph can run two lines when every item below uses its whole budget, but nothing here may run longer.\n\n- First item at full width\n  - Sixteen words of support is the budget, and this line is written to land exactly on it, deliberately.\n- Second item, same weight\n  - Parallel structure keeps a maxed column readable; vary the openings and the scan collapses.\n- Third item closes the set\n  - A fourth would push past the footer — split the slide instead.\n"
+  },
   "variantDecisionRule": [
     {
       "variant": "default",
@@ -193,6 +274,14 @@
     {
       "variant": "qr",
       "useWhen": "A URL to scan supplements the panel — a bullet tagged `qr` (or a bare URL) auto-resolves into a QR figure appended to the RIGHT (supporting) column; the left panel keeps its normal required heading/lede, it doesn't become the QR."
+    },
+    {
+      "variant": "cat-1",
+      "useWhen": "The slide is one of a SEQUENCE (a leveled progression, a staged rollout) where each step should carry its own hue — composes with any other variant (`proof cat-1`, `metric cat-4`, …). Pick the matching number, `cat-1` through `cat-8`, one per slide in order. A one-off slide has no set to distinguish itself within, so it keeps the default dark panel."
+    },
+    {
+      "variant": "capstone",
+      "useWhen": "This `proof` slide is the SEQUENCE's last, most-earned entry — the claim is proven, not just illustrated. Composes with `proof` (same DOM: `### signal` heading + `p` + two-item `ul`); swaps the signal callout for a quoted card and the two checkpoint cards for plain top-rule pillars. Pair with the matching `cat-N` for a leveled sequence's final slide (`proof capstone cat-6`)."
     }
   ],
   "specimenVoice": true

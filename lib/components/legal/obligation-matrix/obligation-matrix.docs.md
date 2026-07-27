@@ -169,6 +169,7 @@ This component accepts all universal variants (`dark`, `compact`, `accent`, stat
 - [`verdict-grid`](../../comparison/verdict-grid/verdict-grid.docs.md) — options scored against criteria with a per-card layout instead of a table
 - [`matrix-2x2`](../../comparison/matrix-2x2/matrix-2x2.docs.md) — two axes, four cells, qualitative placement
 - [`checklist`](../../inventory/checklist/checklist.docs.md) — one set of obligations against one regime, not many
+- [`matrix-grid`](../../chart/matrix-grid/matrix-grid.docs.md) — the grid marks one position on two ordered axes, not a pass/partial/exempt status per cell
 
 ## Demo deck
 

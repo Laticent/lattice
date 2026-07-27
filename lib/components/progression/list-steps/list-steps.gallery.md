@@ -218,6 +218,36 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 
 ---
 
+<!-- _class: list-steps capsule -->
+<!-- _footer: "capsule · list-steps capsule — Centered cards, a pill-shaped step badge, a serif title." -->
+
+## Turn the framework into a habit.
+
+1. Name it
+   - Say the verb and the reach you operate at today.
+2. Pick the next move
+   - One deeper verb, or the same verb carried wider.
+3. Keep the evidence
+   - A doc, a metric, a postmortem — proof the shift happened.
+
+
+---
+
+<!-- _class: list-steps capsule cat -->
+<!-- _footer: "cat · list-steps cat — Composes with `capsule`: each badge tints with its own categorical color instead of one repeated accent." -->
+
+## Three samples across the ladder, not three steps in a row.
+
+1. Place yourself
+   - Name the verb you own and how far it reaches today.
+2. Pick your next move
+   - A deeper verb, or the same verb carried wider.
+3. Collect the evidence
+   - Artifacts that prove the shift happened.
+
+
+---
+
 <!-- _class: list-steps -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · list-steps — Six steps — the last honest sequence." -->

@@ -21,7 +21,10 @@
     "showcase"
   ],
   "description": "A pulled quotation, centered, with attribution.",
-  "purpose": "Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit.",
+  "purpose": "Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit. `bare` drops the card, border, and quotation-mark glyphs for a plain, display-scale statement — a hook or cold-open line, not a sourced quotation.",
+  "variants": [
+    "bare"
+  ],
   "slots": {
     "quotation": {
       "selector": "blockquote > p",
@@ -95,6 +98,13 @@
   ],
   "showcase": {
     "featured": true
+  },
+  "variantDocs": {
+    "bare": {
+      "label": "bare",
+      "summary": "No card, no quotation marks — a plain display-scale line.",
+      "sample": "<!-- _class: quote bare -->\n\n> The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.\n\n*The question this framework answers*\n"
+    }
   },
   "specimenVoice": true
 }

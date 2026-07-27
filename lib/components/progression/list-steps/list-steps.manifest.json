@@ -49,7 +49,7 @@
     "planning"
   ],
   "description": "Horizontal row of ordered step cards, each with a full description body (the `vertical` variant stacks them instead).",
-  "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.",
+  "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list. Add `cat` on top of `capsule` when the steps are a categorical set in a sequence's clothing and each badge should carry its own hue instead of one repeated accent.",
   "variants": [
     "vertical",
     "chevron",
@@ -62,7 +62,9 @@
     "stage",
     "rank",
     "tier",
-    "roman"
+    "roman",
+    "capsule",
+    "cat"
   ],
   "slots": {
     "title": {
@@ -134,6 +136,16 @@
     }
   ],
   "variantDocs": {
+    "capsule": {
+      "label": "capsule",
+      "summary": "Centered cards, a pill-shaped step badge, a serif title.",
+      "sample": "<!-- _class: list-steps capsule -->\n\n## Turn the framework into a habit.\n\n1. Name it\n   - Say the verb and the reach you operate at today.\n2. Pick the next move\n   - One deeper verb, or the same verb carried wider.\n3. Keep the evidence\n   - A doc, a metric, a postmortem — proof the shift happened.\n"
+    },
+    "cat": {
+      "label": "cat",
+      "summary": "Composes with `capsule`: each badge tints with its own categorical color instead of one repeated accent.",
+      "sample": "<!-- _class: list-steps capsule cat -->\n\n## Three samples across the ladder, not three steps in a row.\n\n1. Place yourself\n   - Name the verb you own and how far it reaches today.\n2. Pick your next move\n   - A deeper verb, or the same verb carried wider.\n3. Collect the evidence\n   - Artifacts that prove the shift happened.\n"
+    },
     "chevron": {
       "label": "chevron",
       "summary": "Down-chevron tabs cascade into keyed description cards.",
@@ -206,6 +218,14 @@
     }
   ],
   "variantDecisionRule": [
+    {
+      "variant": "capsule",
+      "useWhen": "The tone is warmer and more editorial than an ops checklist — a personal or reflective process (a practice, a ritual, a habit) reads better centered under a quiet pill badge than left-aligned under a mono caption. Centers the masthead with the cards and drops the connector arrows between steps: the badges carry the sequence, and a reflective practice is not a pipeline."
+    },
+    {
+      "variant": "cat",
+      "useWhen": "Composes with `capsule` only. The steps are secretly a categorical set (each one a distinct sample point, not an ordered march) and should read as visually distinct, not as one repeated accent stepping forward. Default `capsule` stays one tint on purpose for a genuine sequence — reach for `cat` only when that reasoning doesn't hold."
+    },
     {
       "variant": "vertical",
       "useWhen": "The frame is narrow or portrait, or the step bodies need more vertical room — stacks steps down the page instead of across a row."

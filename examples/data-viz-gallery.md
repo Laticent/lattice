@@ -2,7 +2,7 @@
 
 # Data visualization
 
-`14 components`
+`15 components`
 
 Every chart and math component in one deck — the full data-visualization surface.
 
@@ -97,6 +97,28 @@ Three workstreams across four quarters; the one at-risk bar quietly gates the ro
 - Ethiopia `14.1`
 - Bangladesh `11.8`
 - Peru `9.6`
+
+---
+
+<!-- _class: matrix-grid -->
+<!-- _footer: "matrix-grid · data-viz gallery" -->
+
+`Wider reach → · Deeper cognition ↑`
+
+## Your level is a cell, not a rung.
+
+Your title is the diagonal — the same verb at a wider reach is a different level.
+
+| Verb | Self | Team | Org | Field |
+| ---------- | :--: | :--: | :--: | :---: |
+| Create     | [ ]  | [-]  | [-]  | [x] Distinguished |
+| Evaluate   | [ ]  | [-]  | [x] Principal | [-] |
+| Analyze    | [ ]  | [-]  | [x] Staff | [-] |
+| Apply      | [-]  | [x] Senior | [-] | [ ] |
+| Understand | [x] Mid | [-] | [ ] | [ ] |
+| Remember   | [x] Junior | [-] | [ ] | [ ] |
+
+**Your level** · *where you can operate when called for* — illustrative, placements vary by company.
 
 ---
 

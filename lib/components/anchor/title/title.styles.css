@@ -12,7 +12,11 @@
  * cluster (heading, eyebrow, hr, dek) as one. */
 section.title { justify-content:center; align-items:var(--headline-justify, center); background:var(--surface-inverse); }
 section.title { border-top: none; }
-section.title h1 { font-size:var(--fs-h1); color:var(--text-display); padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
+/* A measure on the deck title: uncapped, a long title runs the full frame width
+ * as one thin line that reads as a banner rather than a title block. Capped, it
+ * breaks into a centered two-line stack with the subtitle beneath — the bookend
+ * proportion. Closing carries the matching cap. */
+section.title h1 { font-size:var(--fs-h1); color:var(--text-display); max-width:59.4cqi; padding-bottom:var(--sp-xs); text-align:var(--headline-align, center); }
 section.title hr { background:var(--accent); height:1px; width:64px; margin:0; }
 section.title p  { color:var(--on-dark-secondary); font-size:var(--fs-message); font-weight:300; margin:0; padding-top:0; text-align:var(--headline-align, center); }
 /* Title layout: inline-code after h1 = eyebrow, rendered visually above h1 via flex order.
@@ -30,4 +34,57 @@ section.title h1 + p:has(> code:only-child) > code {
   border: none;
   padding: 0;
   border-radius: 0;
+}
+
+/* ── spectrum — a generated gradient bar below the subtitle, stitched from
+ * the theme's own chart-family categorical palette, never a deck's own
+ * literal hex ramp. Two things ruled out --chart-cat-N-hue directly:
+ *   1. Deliberately NOT --cat-N-mark: that family is contrast-tuned for
+ *      TEXT on the theme's natural surface, so on a dark bookend canvas
+ *      its dark-mode branch collapses to near-white pastel swatches
+ *      (indaco: #D4DFE8, #E7D5D6, …) — a washed-out bar, empirically
+ *      confirmed by rendering it.
+ *   2. --chart-cat-N-hue itself is scoped to `.chart-frame` (chart-
+ *      family.css) — reading it from `section.title` resolves to nothing,
+ *      not a fallback (empirically confirmed: the bar vanished entirely).
+ *      `--chart-catN` (the theme's OWN input to that scoped var, indaco:
+ *      themes/indaco.css) is what's actually declared at `:root`, so this
+ *      reads that directly with the SAME literal fallback chart-family.css
+ *      itself falls back to for a theme that sets no chart palette at all
+ *      — `var(--token, #fallback)` is the documented hex-literal-gate
+ *      exemption (HARD RULE #3), not a hand-rolled color.
+ * No authoring hook exists for a REAL <hr> here — every top-level `hr`
+ * token in a slide body is the Marp-style slide separator
+ * (lib/engine/slides.js splitOnHr), so a generated element is the only way
+ * to render this; a plain markdown `hr` here would ship the wrong shape
+ * entirely (a slide break, not a rule). Opt-in: most decks using `title`
+ * have no six-part color story to reference.
+ *
+ * `::before` + `order`, not `::after`: the universal `silent`/`no-paginate`
+ * modifiers suppress `section::after` at matched specificity to hide the
+ * engine's own pagination pseudo (base.variants.css) — reusing `::after`
+ * here would collide and silently vanish under `silent` (title/closing's
+ * own recommended pairing). `::before` is unclaimed; `order` moves it past
+ * every real child in visual flow despite being first in the DOM. */
+section.title.spectrum::before {
+  content: '';
+  display: block;
+  order: 1;
+  width: 200px;
+  height: 4px;
+  /* padding-top (not margin-top — HARD RULE #20) reserves the gap above the
+   * bar; background-clip keeps the gradient painted only in the content
+   * box, so the padding area stays blank instead of tinting the gap. */
+  padding-top: var(--sp-lg);
+  background: linear-gradient(
+    90deg,
+    var(--chart-cat1, light-dark(#0A6CE0, #2E8BFF)),
+    var(--chart-cat2, light-dark(#C2670A, #FFA630)),
+    var(--chart-cat3, light-dark(#1E9E48, #34D058)),
+    var(--chart-cat4, light-dark(#9333D6, #BE5AF2)),
+    var(--chart-cat5, light-dark(#0E96AE, #3FC8E0)),
+    var(--chart-cat6, light-dark(#E11D48, #FF4D6A))
+  );
+  background-clip: content-box;
+  border-radius: 2px;
 }

@@ -1215,7 +1215,7 @@ of how many rows are here.
 
 | Transform | Symptom in VS Code preview | Added |
 |---|---|---|
-| — none logged yet — | | |
+| `matrixGridCells` (`lib/integrations/markdown-it/plugins.js`) | Cells render as raw `[x]`/`[-]`/`[ ]` text inside table cells instead of the filled/outlined/empty swatch shapes — unlike its siblings `obligation-matrix`/`verdict-grid`, which mirror the same bracket-marker parse in `lib/runtime/index.js` for exactly this reason, matrix-grid has no such mirror yet. The rotated row-axis label and combined chart caption, by contrast, DO appear correctly — `buildMatrixGridSection` is registered in the shared `CHART_LAYOUTS` dispatch (`chart-family.js`), which `lib/transformers/chart-family.js`'s `applyToDom` also runs, so that half of the transform is NOT engine-only. | 2026-07-27 |
 
 - **Removable when:** never fully — it's a living list, not a one-time
   migration. Individual rows retire if the underlying transform is dropped

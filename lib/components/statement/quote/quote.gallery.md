@@ -25,6 +25,16 @@ A pulled quotation, centered, with attribution.
 
 ---
 
+<!-- _class: quote bare -->
+<!-- _footer: "bare · quote bare — No card, no quotation marks — a plain display-scale line." -->
+
+> The difference between a senior engineer and a staff engineer isn't what they ship — it's how they think about what to ship.
+
+*The question this framework answers*
+
+
+---
+
 <!-- _class: quote -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · quote — Forty words; the type steps down once." -->

@@ -1,0 +1,240 @@
+/* matrix-grid — comparison.matrix.structure, a chart-family member
+ *
+ * Two ORDERED axes as an N×M grid. Markdown table: header row = the
+ * reach/scope axis, first column of each body row = the category axis.
+ * Cells carry a POSITIONAL grammar — [x] this row's position, [-] reachable
+ * from here, [ ] not applicable — colored by the ROW's own hue from the
+ * chart family's categorical palette (--chart-cat-N-hue, the same set radar/
+ * piechart/quadrant draw from), not a pass/warn/fail status palette: there's
+ * no universal "good" cell here, only which row and how far it reaches.
+ *
+ * <!-- _class: matrix-grid -->
+ * `Reach → self · team · org · Depth axis label`
+ * ## heading
+ * One-sentence subtitle.
+ * | Depth | Self | Team | Org |
+ * | ----- | :--: | :--: | :-: |
+ * | Advanced | [ ] | [-] | [x] Lead |
+ * **Your level** · *reachable* — caveat.
+ *
+ * Cell-marker decoding happens EARLIER, at markdown-parse time (the
+ * matrixGridCells plugin, lib/integrations/markdown-it/plugins.js) — by the
+ * time this file's selectors see the DOM, `<td>` content is already
+ * `<span class="cell cell-filled|cell-outlined|cell-empty">`. The chart-
+ * family builder (buildMatrixGridSection, chart-family.js) only wraps the
+ * table in `.matrix-grid-figure` and splits the two-part eyebrow so the row-
+ * axis half can render as the rotated side label below.
+ *
+ * See lib/components/chart/matrix-grid/matrix-grid.manifest.json for the
+ * component contract.
+ */
+
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure {
+  position: relative;
+  width: 100%;
+}
+/* The rotated-label gutter is reserved ONLY when a row axis was authored —
+ * a single-part eyebrow (or none) has no ::before to fill it, so the
+ * unconditional padding used to leave dead space on the left of every such
+ * grid. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-row-axis] {
+  padding-left: var(--sp-lg);
+}
+
+/* Row-axis label — the second half of the two-part eyebrow, stashed on the
+ * figure as a data attribute by buildMatrixGridSection so it can render
+ * rotated along the left edge instead of running through the generic
+ * single-line chart-eyebrow lift. `writing-mode: vertical-rl` (+ a 180°
+ * flip to read bottom-to-top) sizes the label to the reserved gutter
+ * itself, unlike `transform: rotate()` around a shrink-to-fit box, whose
+ * pivot point drifts wider than the gutter as the label text gets longer
+ * and starts overlapping the row-label column. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-row-axis]::before {
+  content: attr(data-row-axis);
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: var(--sp-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+
+/* Column-axis label — the FIRST half of the two-part eyebrow, stashed on
+ * the figure the same way the row-axis half is: centered above the grid,
+ * beside the rotated row-axis label, matching where the source deck this
+ * was modeled on places it (not as a masthead eyebrow next to the title —
+ * that reads as belonging to the SLIDE, when it belongs to the GRID). The
+ * reserved height is a custom property so the row-axis `::before` can
+ * start below it instead of running underneath the column-axis text when
+ * both halves are present. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-col-axis] {
+  --matrix-col-axis-h: calc(var(--sp-2xs) + var(--fs-meta));
+  padding-top: var(--matrix-col-axis-h);
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-col-axis]::after {
+  content: attr(data-col-axis);
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: var(--matrix-col-axis-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-label);
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-row-axis][data-col-axis]::before {
+  top: var(--matrix-col-axis-h);
+}
+
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 var(--sp-3xs);
+  font-size: var(--fs-body-compact);
+  table-layout: auto;
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure thead tr {
+  background: var(--spectrum-structure) bottom / 100% 2px no-repeat;
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure thead th {
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-label);
+  padding: 0.46875cqi var(--sp-sm) 0.625cqi;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+/* The corner cell stays EMPTY: both axes are named by their own generated
+ * labels (data-col-axis above the grid, data-row-axis rotated beside it), so a
+ * literal "Verb" heading in the corner is a third, redundant axis name that
+ * competes with them. `font-size:0` blanks the text while the cell keeps its
+ * column width — the row-label column must still reserve its track. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure thead th:first-child { text-align: left; font-size: 0; }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td {
+  padding: 0.15625cqi var(--sp-xs);
+  text-align: center;
+  vertical-align: middle;
+}
+/* Row labels read RIGHT-aligned, tight against the cells they name — a left
+ * rag leaves a ragged gutter between the longest label and the grid edge. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td:first-child {
+  text-align: right;
+  font-weight: 700;
+  font-size: var(--fs-body);
+  color: color-mix(in oklab, var(--row-ink, var(--text-heading)) 65%, var(--text-heading));
+  padding-left: 0;
+}
+
+/* ── Row hue — the chart family's own 8-slot categorical palette (the same
+ * tokens radar/piechart/quadrant draw from), one before the cycle repeats
+ * (dataShapeGuidance). `--row-hue` is the RAW saturated tone — fine for a
+ * border/stroke (WCAG 1.4.11 non-text, 3:1), never for text. `--row-ink` is
+ * the chart family's own text-tier token for the same category (still only
+ * gated at 3:1 on its own — see the 65% mix below). `--row-fill` is the
+ * pre-blended tint the filled cell's background reads, so its ink only ever
+ * has to clear contrast against a tint, never a raw saturated hue. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+1) { --row-hue: var(--chart-cat-1-hue); --row-ink: var(--chart-cat-1-ink); --row-fill: var(--chart-cat-1-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+2) { --row-hue: var(--chart-cat-2-hue); --row-ink: var(--chart-cat-2-ink); --row-fill: var(--chart-cat-2-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+3) { --row-hue: var(--chart-cat-3-hue); --row-ink: var(--chart-cat-3-ink); --row-fill: var(--chart-cat-3-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+4) { --row-hue: var(--chart-cat-4-hue); --row-ink: var(--chart-cat-4-ink); --row-fill: var(--chart-cat-4-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+5) { --row-hue: var(--chart-cat-5-hue); --row-ink: var(--chart-cat-5-ink); --row-fill: var(--chart-cat-5-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+6) { --row-hue: var(--chart-cat-6-hue); --row-ink: var(--chart-cat-6-ink); --row-fill: var(--chart-cat-6-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n+7) { --row-hue: var(--chart-cat-7-hue); --row-ink: var(--chart-cat-7-ink); --row-fill: var(--chart-cat-7-fill); }
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:nth-child(8n)   { --row-hue: var(--chart-cat-8-hue); --row-ink: var(--chart-cat-8-ink); --row-fill: var(--chart-cat-8-fill); }
+
+/* ── Cell states — the box IS the cell (not a disc + separate label):
+ * a filled cell carries its title text, so the shape has to hold a word,
+ * not just a mark. Outlined/empty cells carry no VISIBLE label (the plugin
+ * strips one if authored — border weight + hue carry the sighted read), but
+ * the plugin adds a visually-hidden `.cell-sr-label` naming the state
+ * ("reachable" / "not applicable") for anything reading DOM text rather
+ * than the rendered shape. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure .cell-sr-label {
+  position: absolute;
+  width: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
+  height: 1px; /* sanctioned: screen-reader-only clip target, not a visible layout length */
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 2.65625cqi;
+  border-radius: var(--radius-sm);
+  padding: 0.390625cqi var(--sp-xs);
+  font-family: var(--font-body);
+  font-size: var(--fs-body-compact);
+  font-weight: 700;
+  line-height: var(--lh-tight);
+  box-sizing: border-box;
+}
+/* The fill is the pre-blended `--row-fill` tint, never the raw `--row-hue` —
+ * `--chart-cat-N-hue` is a GRAPHICAL tone with no text-contrast guarantee at
+ * all (radar/piechart/quadrant only ever use it for strokes/dots/thin
+ * lines), and `--cat-on-mark` is the UNIVERSAL categorical tier's ink, gated
+ * only against `--cat-N-mark` — pairing it with a raw chart hue measured
+ * below AA in 21 of 240 theme × mode × slot combinations (down to 3.30:1 on
+ * `laguna` dark, `onyx` light at 3.57:1). The 65% mix mirrors quadrant's own
+ * `.quadrant-label` fix for the identical problem ("first place it carries
+ * text, needs 4.5, not 3") — same tokens, same floor, verified the same way. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-filled {
+  background: var(--row-fill, var(--accent));
+  border: 2px solid var(--row-hue, var(--accent));
+  color: color-mix(in oklab, var(--row-ink, var(--accent)) 65%, var(--text-heading));
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-outlined {
+  background: none;
+  border: 2px solid var(--row-hue, var(--accent));
+}
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-empty {
+  background: none;
+  border: 1px solid var(--border);
+}
+
+/* ── Legend + caption, one paragraph (chart-family lifts only the single
+ * trailing <p> into .chart-caption — see the manifest's legend slot note).
+ * A leading bold/italic run becomes a filled/outlined swatch + label. */
+:is(section.matrix-grid, figure.matrix-grid) .chart-caption strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  color: var(--text-heading);
+  font-weight: 700;
+}
+:is(section.matrix-grid, figure.matrix-grid) .chart-caption strong::before {
+  content: '';
+  width: 0.8em; height: 0.8em;
+  border-radius: var(--radius-sm);
+  background: var(--text-heading);
+}
+:is(section.matrix-grid, figure.matrix-grid) .chart-caption em {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding-left: 0.9em;
+  font-style: italic;
+  color: var(--text-muted);
+}
+:is(section.matrix-grid, figure.matrix-grid) .chart-caption em::before {
+  content: '';
+  width: 0.8em; height: 0.8em;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--text-muted);
+}

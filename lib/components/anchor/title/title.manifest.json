@@ -19,7 +19,10 @@
     "kickoff"
   ],
   "description": "Opening slide. Dark canvas, centered, no chrome.",
-  "purpose": "First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token).",
+  "purpose": "First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token). Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here.",
+  "variants": [
+    "spectrum"
+  ],
   "slots": {
     "heading": {
       "selector": "h1",
@@ -90,8 +93,19 @@
     {
       "mistake": "Inline emphasis (`**bold**`, `_italic_`) inside the h1 itself.",
       "fix": "Keep the h1 to plain text. The centered, oversized type already carries full weight — nested emphasis at that scale reads as noise, not emphasis."
+    },
+    {
+      "mistake": "Trying to author the spectrum bar as a markdown `---`/`***` rule instead of the `spectrum` class.",
+      "fix": "Every top-level `hr` token in a slide body is Marp's slide separator (it splits the deck into a new slide) — there is no way to hand-author a literal rule element here. Add the `spectrum` class instead; the bar is CSS-generated."
     }
   ],
+  "variantDocs": {
+    "spectrum": {
+      "label": "spectrum",
+      "summary": "A generated gradient bar below the subtitle, in the theme's own six-step palette.",
+      "sample": "<!-- _class: title silent spectrum -->\n\n# A deck built on a color-coded spectrum.\n\n`Six stages, six colors`\n\nThe title echoes the same six-step story the deck's own components carry.\n"
+    }
+  },
   "specimenVoice": true,
   "excludes": [
     "accent",

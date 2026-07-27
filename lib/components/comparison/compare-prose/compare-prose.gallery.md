@@ -119,6 +119,27 @@ Two prose options side-by-side with a labeled corner tag on each.
 
 ---
 
+<!-- _class: compare-prose axis -->
+<!-- _footer: "axis · compare-prose axis — A lede above, numeral-led facet cards, a closing note below." -->
+
+## The second axis: how far it reaches.
+
+The verb is one axis — how you think. **Reach** is the other — how far what you make travels.
+
+- 
+  - I
+  - Own the verb
+  - You can do the cognitive work — correct, clear, complete. So far it reaches only you.
+- 
+  - II
+  - Widen the reach
+  - The work travels: team, org, field — the farther it carries, the higher the level.
+
+*Most engineers stall here — not on the thinking, but on making it travel past their own hands.*
+
+
+---
+
 <!-- _class: compare-prose vertical -->
 <!-- stress-slide -->
 <!-- _footer: "Stress test · compare-prose — Both panes at the ceiling." -->

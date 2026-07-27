@@ -284,7 +284,7 @@
       ]
     }
   },
-  "count": 59,
+  "count": 61,
   "components": [
     {
       "name": "actors",
@@ -1765,11 +1765,12 @@
         "board-deck"
       ],
       "description": "Final slide. Dark canvas mirror of title.",
-      "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals \"we're done.\"",
+      "purpose": "Last slide of every deck. Restates the takeaway or call-to-action. Like title, suppresses header/footer/pagination — the dark canvas signals \"we're done.\" Add `spectrum` (mirrors `title`'s) when the deck itself is built on a multi-step color story worth echoing on the way out.",
       "variants": [
         "numbered",
         "qr",
-        "index"
+        "index",
+        "spectrum"
       ],
       "effectiveVariants": [
         "archived",
@@ -1811,6 +1812,7 @@
         "scale-l",
         "scale-xl",
         "silent",
+        "spectrum",
         "tbd",
         "tint-corner at-tl",
         "tint-edge at-right",
@@ -2232,7 +2234,7 @@
         "retrospective"
       ],
       "description": "Two prose options side-by-side with a labeled corner tag on each.",
-      "purpose": "Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side.",
+      "purpose": "Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side. `axis` reframes the pair as two facets of one idea — a lede above, a numeral-led card per facet, a closing note below.",
       "variants": [
         "transition",
         "mirror",
@@ -2240,11 +2242,13 @@
         "decision",
         "vertical",
         "banner-tag",
-        "rejected"
+        "rejected",
+        "axis"
       ],
       "effectiveVariants": [
         "accent",
         "archived",
+        "axis",
         "banner-tag",
         "chosen",
         "claim-bleed",
@@ -2316,7 +2320,17 @@
         "options": {
           "selector": "ul > li",
           "required": true,
-          "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences."
+          "description": "Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, leave the lead blank and nest a 3-item sub-list instead: the facet numeral (`I` / `II`), a bold title, and a description sentence."
+        },
+        "lede": {
+          "selector": "h2 + p",
+          "required": false,
+          "description": "`axis` only. A framing sentence between the heading and the two facet cards."
+        },
+        "note": {
+          "selector": ":is(ul, ol) + p",
+          "required": false,
+          "description": "A closing line after the two cards. Plain prose in the base layout; `axis` renders it centered and italic."
         }
       },
       "skeleton": "<!-- _class: compare-prose -->\n\n## Heading framing the comparison.\n\n- First option\n  - Two-sentence description of the first option, including the strongest argument for it.\n- Second option\n  - Two-sentence description of the second option, including the strongest argument for it.\n",
@@ -5269,7 +5283,7 @@
         "planning"
       ],
       "description": "Horizontal row of ordered step cards, each with a full description body (the `vertical` variant stacks them instead).",
-      "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list.",
+      "purpose": "Use for richer sequential processes where each step needs a paragraph rather than a label. More verbose than timeline; more structured than a plain ordered list. Add `cat` on top of `capsule` when the steps are a categorical set in a sequence's clothing and each badge should carry its own hue instead of one repeated accent.",
       "variants": [
         "vertical",
         "chevron",
@@ -5282,11 +5296,15 @@
         "stage",
         "rank",
         "tier",
-        "roman"
+        "roman",
+        "capsule",
+        "cat"
       ],
       "effectiveVariants": [
         "accent",
         "archived",
+        "capsule",
+        "cat",
         "chevron",
         "claim-bleed",
         "claim-framed",
@@ -6330,12 +6348,189 @@
           "when": "many rows × many columns of state-marker cells"
         },
         {
+          "name": "matrix-grid",
+          "when": "both axes are ordered categories and cells mark one position, not four free quadrants"
+        },
+        {
           "name": "cards-grid",
           "when": "the items don't divide along two axes"
         }
       ],
       "headlineDefault": "left",
       "galleryHref": "../../lib/components/comparison/matrix-2x2/matrix-2x2.gallery.light.pdf"
+    },
+    {
+      "name": "matrix-grid",
+      "bucket": "chart",
+      "function": "comparison",
+      "form": "matrix",
+      "substance": "structure",
+      "render": "html",
+      "renderNote": "HTML/CSS all the way down, no `<svg>` anywhere: a real `<table>` whose cells carry the positional grammar (filled/outlined/empty spans), colored via CSS custom properties per row. Nothing is positioned by numeric value — the grid is text and color in a semantic table, same reasoning as roadmap.",
+      "orientation": [
+        "landscape",
+        "portrait"
+      ],
+      "families": [
+        "wide",
+        "square",
+        "tall",
+        "strip"
+      ],
+      "adapt": {
+        "mode": "reflow",
+        "priority": [
+          "heading",
+          "matrix",
+          "legend"
+        ],
+        "keepTogether": [
+          "row"
+        ]
+      },
+      "tags": [
+        "stoplight",
+        "assessment",
+        "positioning",
+        "okr"
+      ],
+      "description": "Two ordered axes as an N×M chart-family grid — each cell marks a position (filled / reachable / not applicable), colored by its row's category from the theme's chart palette.",
+      "purpose": "Use for a rubric where BOTH axes are ordered categories (a depth ladder × a reach ladder, a maturity level × a scope) and a reader needs to see one position at a glance — not a status report. A chart-family member: renders inside the shared chart-frame skeleton and colors rows from the theme's chart categorical palette (--chart-cat1..8), never a hardcoded palette of its own. Cells carry a positional grammar ([x] this row's position, [-] reachable from here, [ ] not applicable). For regulation × obligation status tracking, use `obligation-matrix`; for phases × workstreams delivery status, use `roadmap`; for two free axes and four cells, use `matrix-2x2`.",
+      "variants": [],
+      "effectiveVariants": [
+        "accent",
+        "archived",
+        "claim-framed",
+        "claim-hero",
+        "claim-quiet",
+        "compact",
+        "confidential",
+        "dark",
+        "draft",
+        "form",
+        "insight-bottom-line",
+        "insight-implication",
+        "insight-key",
+        "insight-next-step",
+        "insight-our-view",
+        "insight-recommendation",
+        "insight-so-what",
+        "insight-takeaway",
+        "insight-the-ask",
+        "insight-verdict",
+        "insight-why",
+        "mark-orbit",
+        "mark-threads",
+        "no-footer",
+        "no-form",
+        "no-header",
+        "no-paginate",
+        "no-period",
+        "no-progress",
+        "pinned",
+        "redacted",
+        "revised",
+        "safe",
+        "scale-2xl",
+        "scale-l",
+        "scale-xl",
+        "silent",
+        "tbd",
+        "tint-corner at-tl",
+        "tint-edge at-right",
+        "tint-vignette",
+        "tone-fail",
+        "tone-pass",
+        "tone-skip",
+        "tone-warn",
+        "treatment-none",
+        "wip",
+        "with-period"
+      ],
+      "familyModifiers": [
+        "canvas"
+      ],
+      "focusAxes": [
+        "row",
+        "col",
+        "cell"
+      ],
+      "slots": {
+        "heading": {
+          "selector": "h2",
+          "required": true,
+          "description": "Slide heading naming the rubric."
+        },
+        "eyebrow": {
+          "selector": "p:first-of-type > code",
+          "required": false,
+          "description": "Optional inline-code axis caption. Two parts separated by `·` — the first labels the column (reach) axis and renders above the grid, the second labels the row (depth) axis and renders rotated along the left edge, e.g. `Wider reach → · Deeper cognition ↑`. A single part with no `·` renders as the column-axis label only."
+        },
+        "subtitle": {
+          "selector": "h2 + p",
+          "required": false,
+          "description": "One supporting sentence under the heading, framing how to read the grid."
+        },
+        "matrix": {
+          "selector": "table",
+          "required": true,
+          "description": "Markdown table — the header row is the reach/scope axis, the first column of each body row is the category axis. Cells use the positional grammar ([x] / [-] / [ ]); a filled cell's trailing text is its label."
+        },
+        "legend": {
+          "selector": "p:last-of-type",
+          "required": false,
+          "description": "Optional single trailing paragraph, doubling as the chart caption — what the three cell states mean, plus any caveat about the placements. A leading `**bold**` run renders as a filled swatch + label, a leading `*italic*` run as an outlined swatch + label; keep both in this ONE paragraph (a second trailing paragraph is not lifted into the caption)."
+        }
+      },
+      "skeleton": "<!-- _class: matrix-grid -->\n\n`Reach → self · team · org`\n\n## Where each level sits on two axes.\n\nYour position is the diagonal — depth and reach meet at one cell.\n\n| Depth | Self | Team | Org |\n| ---------- | :--: | :--: | :-: |\n| Advanced   | [ ]  | [-]  | [x] Lead |\n| Proficient | [-]  | [x] Senior | [-] |\n| Beginner   | [x] Junior | [-]  | [ ]  |\n\n**Your position** · *reachable*\n",
+      "whenToUse": [
+        {
+          "title": "Both axes are ordered categories",
+          "body": "A depth ladder (skill, seniority, maturity) crossed with a reach or scope ladder (self, team, org, field). If either axis is a free, unordered label, reach for `matrix-2x2` (two axes, four cells) instead."
+        },
+        {
+          "title": "One position, not a status report",
+          "body": "The grid exists to show where a single subject sits — a role, a maturity level, a capability — not to track many items' pass/fail state. For that, `obligation-matrix` (regulation × obligation) or `roadmap` (phase × workstream) fit better."
+        },
+        {
+          "title": "Row category carries the color",
+          "body": "Each row is colored by its own hue from the chart family's categorical palette, not a status palette — there's no universal 'good' or 'bad' cell here, only which row and how far it reaches."
+        }
+      ],
+      "antiPatterns": [
+        {
+          "title": "Pass/fail or delivery status",
+          "body": "If cells mean shipped/at-risk/blocked, use `obligation-matrix` or `roadmap` — their semantic state palette (pass/warn/fail) is built for exactly that read, and matrix-grid's categorical row colors would mislead."
+        },
+        {
+          "title": "More than one filled cell per row",
+          "body": "Each row names one position — one `[x]`. Multiple filled cells in a row breaks the \"this is where you are\" read; use `[-]` for the cells the row can still reach."
+        },
+        {
+          "title": "Unordered axes",
+          "body": "The grid earns its shape when both axes have a real order (shallow → deep, narrow → wide). Two free categorical labels belong in `matrix-2x2`."
+        }
+      ],
+      "related": [
+        {
+          "name": "obligation-matrix",
+          "when": "rows × columns of pass/partial/exempt status, not a single position"
+        },
+        {
+          "name": "roadmap",
+          "when": "phases × workstreams delivery status"
+        },
+        {
+          "name": "matrix-2x2",
+          "when": "two free axes, four cells, qualitative placement"
+        },
+        {
+          "name": "verdict-grid",
+          "when": "options scored against shared criteria, one card per option"
+        }
+      ],
+      "headlineDefault": "left",
+      "galleryHref": "../../lib/components/chart/matrix-grid/matrix-grid.gallery.light.pdf"
     },
     {
       "name": "obligation-matrix",
@@ -6506,6 +6701,10 @@
         {
           "name": "checklist",
           "when": "one set of obligations against one regime, not many"
+        },
+        {
+          "name": "matrix-grid",
+          "when": "the grid marks one position on two ordered axes, not a pass/partial/exempt status per cell"
         }
       ],
       "headlineDefault": "left",
@@ -6864,6 +7063,164 @@
       ],
       "headlineDefault": "left",
       "galleryHref": "../../lib/components/legal/policy-recommendation/policy-recommendation.gallery.light.pdf"
+    },
+    {
+      "name": "premise",
+      "bucket": "statement",
+      "function": "statement",
+      "form": "split",
+      "substance": "series",
+      "orientation": [
+        "landscape",
+        "portrait"
+      ],
+      "families": [
+        "wide",
+        "square",
+        "tall",
+        "strip"
+      ],
+      "adapt": {
+        "mode": "reflow",
+        "priority": [
+          "heading",
+          "lede",
+          "rows"
+        ]
+      },
+      "tags": [
+        "onboarding",
+        "ranking",
+        "definition",
+        "overview"
+      ],
+      "description": "A framing claim beside a vertically centered ledger of parallel rows — a number, a term, a description, and a right-aligned note, each row colored by its own categorical hue.",
+      "purpose": "Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, a set of named stages, a ranked taxonomy — and wants one framing claim to sit beside the whole list at a glance, not one slide per term. The claim doesn't summarize the rows; it states why the ordering matters. Each row is a fixed four-part record: an index, the term, one description clause, and a short framing question or note, right-aligned. Both zones share the page's own background — unlike `split-panel`, there's no colored panel divide.",
+      "variants": [],
+      "effectiveVariants": [
+        "accent",
+        "archived",
+        "claim-bleed",
+        "claim-framed",
+        "claim-hero",
+        "claim-quiet",
+        "compact",
+        "confidential",
+        "dark",
+        "draft",
+        "form",
+        "insight-bottom-line",
+        "insight-implication",
+        "insight-key",
+        "insight-next-step",
+        "insight-our-view",
+        "insight-recommendation",
+        "insight-so-what",
+        "insight-takeaway",
+        "insight-the-ask",
+        "insight-verdict",
+        "insight-why",
+        "mark-orbit",
+        "mark-threads",
+        "no-footer",
+        "no-form",
+        "no-header",
+        "no-paginate",
+        "no-period",
+        "no-progress",
+        "pinned",
+        "redacted",
+        "revised",
+        "safe",
+        "scale-2xl",
+        "scale-l",
+        "scale-xl",
+        "silent",
+        "tbd",
+        "tint-corner at-tl",
+        "tint-edge at-right",
+        "tint-vignette",
+        "tone-fail",
+        "tone-pass",
+        "tone-skip",
+        "tone-warn",
+        "treatment-none",
+        "wip",
+        "with-period"
+      ],
+      "familyModifiers": [],
+      "density": {
+        "axis": "item",
+        "soft": 14,
+        "hard": 18,
+        "note": "the description clause plus the trailing question, combined — not a sentence each"
+      },
+      "slots": {
+        "heading": {
+          "selector": "h2",
+          "required": true,
+          "description": "The claim — why the ordering in the ledger matters, not a summary of it."
+        },
+        "lede": {
+          "selector": "h2 + p",
+          "required": true,
+          "description": "One-to-two sentence framing paragraph under the claim, naming the two axes or dimensions the ledger's rows walk."
+        },
+        "rows": {
+          "selector": "ul > li",
+          "required": true,
+          "description": "Each row is ONE line with four inline segments in order: `` `NN` `` (index, inline code), `**Term**` (bold), a bare description clause, and `*a short question or note*` (italic, right-aligned). 3-8 rows; each is colored by its own slot in the theme's categorical palette."
+        }
+      },
+      "skeleton": "<!-- _class: premise -->\n\n## The claim the ledger exists to support.\n\nOne or two sentences naming the axes the rows below walk.\n\n- `01` **First term** A short clause describing it. *A question it answers?*\n- `02` **Second term** A short clause describing it. *A question it answers?*\n- `03` **Third term** A short clause describing it. *A question it answers?*\n",
+      "whenToUse": [
+        {
+          "title": "An ordered vocabulary needs one overview slide",
+          "body": "A maturity ladder, a named set of stages, a ranked taxonomy — anything with 3-8 ordered terms that deserves a single at-a-glance slide before the deck dives into each one individually."
+        },
+        {
+          "title": "The claim explains the ORDER, not the list",
+          "body": "The heading + lede earn their place by saying why the ranking matters (\"growth is a change in thinking, not title\") — if there's nothing to claim about the ordering, a plain `list` serves better."
+        },
+        {
+          "title": "Every row shares the exact same four-part shape",
+          "body": "Index, term, one clause, one right-aligned note. A row that needs more than that (a nested sub-list, a multi-sentence description) has outgrown `premise` — reach for `cards-stack` or a per-term `split-panel proof` slide instead."
+        }
+      ],
+      "antiPatterns": [
+        {
+          "title": "Rows with unequal structure",
+          "body": "Every row must carry all four segments in the same order. A row missing its trailing note, or with a two-clause description, breaks the ledger's scan rhythm — trim or pad it to match its siblings."
+        },
+        {
+          "title": "More than eight rows",
+          "body": "The categorical palette cycles at eight; past that, split into two premise slides by group rather than repeating hues."
+        },
+        {
+          "title": "The heading summarizes the rows instead of claiming something",
+          "body": "\"Six cognitive verbs\" restates the list; \"growth is a change in thinking, not title\" claims why the list matters. If the heading can't be argued with, it's a caption, not a premise."
+        }
+      ],
+      "related": [
+        {
+          "name": "split-panel",
+          "when": "the featured element deserves its own colored panel, not a shared background"
+        },
+        {
+          "name": "list-tabular",
+          "when": "the rows need MORE than four fields, or a header row naming the columns"
+        },
+        {
+          "name": "cards-stack",
+          "when": "each term needs its own multi-sentence body, not a one-clause row"
+        },
+        {
+          "name": "glossary",
+          "when": "the terms are unordered and there's no claim to make about their sequence"
+        }
+      ],
+      "headlineDefault": "left",
+      "galleryHref": "../../lib/components/statement/premise/premise.gallery.light.pdf"
     },
     {
       "name": "pricing",
@@ -7614,11 +7971,14 @@
         "showcase"
       ],
       "description": "A pulled quotation, centered, with attribution.",
-      "purpose": "Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit.",
-      "variants": [],
+      "purpose": "Use to land a phrase verbatim — customer voice, expert claim, mission statement. Keep under ~25 words. The quote IS the slide; the attribution is the supporting credit. `bare` drops the card, border, and quotation-mark glyphs for a plain, display-scale statement — a hook or cold-open line, not a sourced quotation.",
+      "variants": [
+        "bare"
+      ],
       "effectiveVariants": [
         "accent",
         "archived",
+        "bare",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
@@ -8830,18 +9190,37 @@
         "takeaway"
       ],
       "description": "Featured left panel + supporting right zone — one prominent claim beside the points that substantiate it.",
-      "purpose": "Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer). For a binary decision with a verdict, reach for `split-compare`.",
+      "purpose": "Use when one prominent element (a heading, a hero number, a pull-quote, a phase) deserves a dedicated panel and the right side carries the supporting points. The default anchors a heading; variants reshape what the panel features: `metric` (hero number, light-left), `pullquote` (pull-quote), `steps` (numbered step-timeline), `watermark` (accent panel + letterform + meta footer), `proof` (a scenario signal + two paired proof cards, for a claim that must be demonstrated, not just supported). Add `capstone` on top of `proof` for that sequence's climactic entry: the signal becomes a quoted card, the checkpoints become plain top-rule pillars. For a binary decision with a verdict, reach for `split-compare`. Add `cat-1`…`cat-8` (composes with any variant) to recolor the panel from the universal dark surface to one of the theme's own categorical fills — for a SEQUENCE of slides (a leveled progression, staged rollout) that should each carry their own hue, one class per slide.",
       "variants": [
         "metric",
         "pullquote",
         "steps",
         "watermark",
+        "proof",
+        "capstone",
         "mirror",
-        "qr"
+        "qr",
+        "cat-1",
+        "cat-2",
+        "cat-3",
+        "cat-4",
+        "cat-5",
+        "cat-6",
+        "cat-7",
+        "cat-8"
       ],
       "effectiveVariants": [
         "accent",
         "archived",
+        "capstone",
+        "cat-1",
+        "cat-2",
+        "cat-3",
+        "cat-4",
+        "cat-5",
+        "cat-6",
+        "cat-7",
+        "cat-8",
         "claim-bleed",
         "claim-framed",
         "claim-hero",
@@ -8873,6 +9252,7 @@
         "no-period",
         "no-progress",
         "pinned",
+        "proof",
         "pullquote",
         "qr",
         "redacted",
@@ -8922,7 +9302,12 @@
         "points": {
           "selector": "ul > li",
           "required": true,
-          "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line."
+          "description": "Right-side supporting points. Each li's lead is the point title — it renders bold automatically (no `**…**`); follow it with a nested `- body` line. Under `proof`, exactly two items render as paired proof cards instead of a vertical list."
+        },
+        "signal": {
+          "selector": "h3 + p",
+          "required": false,
+          "description": "`proof` only. An h3 naming the scenario (e.g. \"You know you're here when\") followed by one paragraph — rendered as a bordered callout above the two proof cards."
         }
       },
       "skeleton": "<!-- _class: split-panel -->\n\n`Eyebrow context`\n\n## Headline that anchors the panel.\n\nOne-sentence framing paragraph explaining what the points cover.\n\n- First point\n  - Supporting detail explaining the first point.\n- Second point\n  - Supporting detail explaining the second point.\n- Third point\n  - Supporting detail explaining the third point.\n",
@@ -8933,7 +9318,11 @@
         },
         {
           "title": "Pick the variant by what the panel features",
-          "body": "Heading (default), hero number (`metric`), pull-quote (`pullquote`), phase + numbered steps (`steps`), or an accent panel with a letterform watermark and a metadata footer (`watermark`)."
+          "body": "Heading (default), hero number (`metric`), pull-quote (`pullquote`), phase + numbered steps (`steps`), an accent panel with a letterform watermark and a metadata footer (`watermark`), or a scenario + two proof cards (`proof`)."
+        },
+        {
+          "title": "A claim that must be demonstrated, not just supported",
+          "body": "`proof` pairs the panel's claim with one scenario paragraph (\"you know you're here when…\") and two named proof cards. Use it when the audience needs evidence the claim actually holds, not just a list of reasons to believe it."
         },
         {
           "title": "Points carry a title + body",
@@ -9710,8 +10099,10 @@
         "kickoff"
       ],
       "description": "Opening slide. Dark canvas, centered, no chrome.",
-      "purpose": "First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token).",
-      "variants": [],
+      "purpose": "First slide of every deck. Sets the topic and the visual tone. Suppresses header, footer, and pagination (or use the universal `silent` modifier for the same effect in one token). Add `spectrum` when the deck itself is built on a multi-step color story (a level system, a spectrum of stages) worth echoing here.",
+      "variants": [
+        "spectrum"
+      ],
       "effectiveVariants": [
         "archived",
         "claim-bleed",
@@ -9749,6 +10140,7 @@
         "scale-l",
         "scale-xl",
         "silent",
+        "spectrum",
         "tbd",
         "tint-corner at-tl",
         "tint-edge at-right",

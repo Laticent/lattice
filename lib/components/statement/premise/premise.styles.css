@@ -1,0 +1,111 @@
+/* premise — statement.split.series, a sovereign frame
+ * (lib/forms/frame/premise/premise.manifest.json)
+ *
+ * A framing claim beside a vertically centered ledger of parallel rows.
+ * Unlike split-panel, there is NO colored panel divide — both zones share
+ * the page's own background, matching the source deck this component was
+ * modeled on (engineering/decisions/2026-07-27-bloom-engineering-journey-
+ * components.md).
+ *
+ * <!-- _class: premise -->
+ * ## The claim.
+ * One-sentence lede naming the axes.
+ * - `01` **Term** A short clause. *A framing question?*
+ *
+ * The section-level restructure (grouping <h2> + lede into one
+ * .premise-claim wrapper) happens in lib/core/premise.js; the per-row inline
+ * markup (<code>/<strong>/<span class="premise-desc">/<em>) is tagged at
+ * markdown-parse time by the premiseRows plugin
+ * (lib/integrations/markdown-it/plugins.js).
+ *
+ * See lib/components/statement/premise/premise.manifest.json for the
+ * component contract.
+ */
+
+section.premise {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-2xl);
+  height: 100%;
+  padding: 0 var(--sp-2xl);
+  box-sizing: border-box;
+}
+
+section.premise .premise-claim {
+  width: 34%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-md);
+}
+section.premise .premise-claim > p {
+  font-size: var(--fs-message);
+  line-height: var(--lh-relaxed);
+  color: var(--text-secondary);
+}
+
+section.premise > ul {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3xs);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+section.premise > ul > li {
+  display: grid;
+  grid-template-columns: 3.28125cqi 10.9375cqi 1fr auto;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: var(--sp-sm) var(--sp-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--row-mark, var(--border));
+  background: var(--bg-alt);
+  font-size: var(--fs-body-compact);
+  color: var(--text-heading);
+  white-space: nowrap;
+}
+section.premise > ul > li code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+section.premise > ul > li strong {
+  font-size: var(--fs-body);
+  color: var(--row-mark, var(--text-heading));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+section.premise > ul > li .premise-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+section.premise > ul > li em {
+  font-style: normal;
+  font-size: var(--fs-meta);
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* ── Row color — the UNIVERSAL 8-slot categorical palette (--cat-N-mark),
+ * NOT the chart family's own tokens: this is a structure-substance HTML
+ * list, not an SVG/chart-frame member (design/theming.md's two-system
+ * split). Precedent: math.theorem's blockquote border-left + strong color
+ * pairing (lib/components/math/math/math.styles.css) uses the exact same
+ * --cat-N-mark-as-text-on-a-neutral-background pattern. */
+section.premise > ul > li:nth-child(8n+1) { --row-mark: var(--cat-1-mark); }
+section.premise > ul > li:nth-child(8n+2) { --row-mark: var(--cat-2-mark); }
+section.premise > ul > li:nth-child(8n+3) { --row-mark: var(--cat-3-mark); }
+section.premise > ul > li:nth-child(8n+4) { --row-mark: var(--cat-4-mark); }
+section.premise > ul > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); }
+section.premise > ul > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); }
+section.premise > ul > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); }
+section.premise > ul > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }

@@ -55,6 +55,42 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **`split-panel.proof` fills its evidence column instead of collapsing to content height.**
+  `.panel-right` was already a flex column, but the signal card and the proof-card grid both sat at
+  content height — so on a 16:9 slide the bottom ~45% of the column was empty and the evidence read
+  as a cluster floating under the label rather than a full-height stack. Both regions now take
+  `flex:1 1 0` (an equal share of the height left under the scenario label) with `min-height:0` so a
+  long scenario shrinks to fit rather than overflowing. Proportional, not a fixed pixel height: the
+  stack holds at any slide size or `--fs-scale`. `.proof` also narrows its claim panel to 31%
+  (variant-scoped, the same lever `.metric`/`.steps`/`.pullquote` already use — the evidence side
+  carries three stacked regions where the base carries one list) and steps its claim heading down a
+  role tier (`--fs-h1` → `--fs-h2`) with the lede to `--fs-body`, since a `proof` claim is a full
+  sentence above a lede rather than the base's one-line thesis. `.capstone` keeps the equal split
+  and settles its proof pillars to the bottom of their half (`align-content:end`) so the evidence
+  reads as a footing under the quotation.
+- **`compare-prose.axis` and `list-steps.capsule` center their mastheads.** Both are centered
+  compositions whose heading was left-ruled, so the title read as belonging to a different slide than
+  the content under it. Both now follow the `headline:` seam (`--headline-align`/`--headline-justify`),
+  the same mechanism `list-steps.timeline` already used. `axis` also caps its lede at 60cqi and its
+  card pair at 72cqi, and drops the lede from `--fs-message` to `--fs-body` — it is a three-clause
+  explainer carrying the slide's argument, not the single statement `--fs-message` is for, and at the
+  message tier it ran to five lines and clipped the centered stage. `capsule` caps its card row at
+  80cqi and **drops the base variant's step-to-step connector arrows**: it is the editorial register
+  (a reflective practice, not a pipeline), and the badges already carry the sequence.
+- **`matrix-grid` hides its corner cell and right-aligns row labels.** Both axes are already named by
+  their own generated labels (`data-col-axis` above the grid, `data-row-axis` rotated beside it), so a
+  literal heading in the corner was a third, redundant axis name competing with them; it is now
+  blanked with `font-size:0` while the cell keeps its column track. Row labels right-align so they sit
+  tight against the cells they name instead of leaving a ragged gutter.
+- **`anchor/title` and `anchor/closing` measures set for the type tier they actually use.** `title`'s
+  `h1` had no measure at all, so a long deck title ran the full frame as one thin banner line; it now
+  caps at 59.4cqi and breaks into the centered two-line stack the bookend proportion expects.
+  `closing`'s caps were set for a smaller tier than `--fs-h1`: at 54.7cqi a six-word sign-off broke
+  with an orphan word (now 62cqi) and at 42.2cqi a three-clause body ran to five short lines (now
+  48.4cqi).
+
 ### Added
 
 - **`check:chart-fit` now sweeps three deck sizes and asserts the viewBox crop too.** The fixture
@@ -73,6 +109,35 @@ in patch versions.
   per-file allowlist with counts and justifications, and a floored cqi
   (`max(var(--chart-text-min), …)`) is a first-class way to satisfy the rule alongside a `--fs-*`
   token. A second test fails any entry that over-counts, so the list shrinks as sites are fixed.
+- **`split-panel` — new `cat-1`…`cat-8` categorical-tint variant, plus a new `capstone` variant.**
+  `cat-N` composes with any existing variant (including `proof`) to tint the left panel with the
+  theme's `--cat-N-fill` / `--cat-N-mark` tokens instead of the dark surface — a light pastel in
+  light mode, a deep saturated fill in dark mode, each slide of a themed sequence getting its own
+  on-brand color instead of one repeated dark accent. Pulled from the SAME universal `--cat-N-*`
+  family charts already use (not `--chart-cat-N-hue`, which is `.chart-frame`-scoped). The panel's
+  eyebrow label and (under `proof`) the checkpoint cards' own labels are marks — tinted with
+  `--panel-mark` so the category identity carries every labeled element, not just the fill; heading
+  and body prose stay on the ordinary `--text-heading` / `--text-secondary` tokens, which flip
+  light/dark in step with the fill. `capstone` composes with `proof` for that sequence's climactic,
+  most-earned entry: the signal callout becomes a quoted card with a left accent border, and the two
+  checkpoint cards become plain top-rule pillars instead of boxed cards. Its left panel also carries
+  a second, right-column lead paragraph: `lib/core/split-panels.js`'s `extractFirstP` only lifts the
+  FIRST paragraph before the `### signal` heading into the panel, so a second paragraph authored
+  before that heading falls through to the right column instead — `capstone` styles it as a plain
+  lead sentence above the signal card, and switches the panel's own `justify-content` from `flex-end`
+  to `space-between` so its now-shorter contents (eyebrow, heading, one-line question) spread across
+  the panel's full height instead of clustering in a tight bottom group with a dead zone above.
+  `examples/bloom-engineering-journey.md`'s six level slides now each carry their own `cat-1`…`cat-6`
+  tint (the sixth also `capstone`), matching the source deck's per-level pastel-panel treatment and
+  its distinct capstone signal-card/proof-pillar finish, while staying on Lattice's own palette
+  rather than the source's literal hex values.
+
+- **`list-steps` — new `cat` variant.** Composes with `capsule` only: each step badge tints with its
+  own categorical fill/mark instead of `capsule`'s one repeated accent, for a step sequence that's
+  secretly a categorical set (three samples across a wider progression, not a straight march).
+  Mirrors `statement/premise`'s per-row `nth-child(8n+N)` mechanism. `examples/bloom-engineering-journey.md`'s
+  practice slide uses it for its three distinctly-colored step badges, matching the source.
+
 - **`npm run check:chart-fit` — a gate for the invariant that broke twice.** Every other chart gate
   asks whether a chart is right in ISOLATION (does it scale, is its CSS relative, does its paint
   survive the scoped path). None asked whether the rendered thing fits `.cell-stage`, which is
@@ -94,6 +159,67 @@ in patch versions.
   empty set), so it is designed out. A *check*, not a gate: it runs in `studio-smoke`, which is
   advisory — outside the aggregate `ci` job — so it goes red without blocking a merge.
 
+- **`anchor/title` and `anchor/closing` — new `spectrum` variant.** A
+  generated gradient bar below the subtitle, stitched from the theme's own
+  chart-family categorical palette (indaco: blue → orange → green → purple
+  → teal → rose) — for a deck built on a multi-step color story worth
+  echoing on its bookends. There is no way to hand-author a real `<hr>`
+  inside a slide body: every top-level `hr` token is Marp's slide
+  separator (`lib/engine/slides.js` `splitOnHr`), so the bar is
+  CSS-generated (`::before` + `order`, sized via `padding-top` +
+  `background-clip: content-box` — never `margin`, HARD RULE #20). It's a
+  `::before`, not `::after`: the universal `silent`/`no-paginate`
+  modifiers already claim `section::after` at matching specificity to hide
+  the engine's own pagination pseudo, and title/closing are almost always
+  paired with `silent`. Two token choices were tried and rejected before
+  landing on the theme's `--chart-catN` input tokens directly: the
+  universal `--cat-N-mark` family is contrast-tuned for text and collapses
+  to washed-out near-white pastels on a dark canvas in dark mode (rendered
+  and confirmed), and the derived `--chart-cat-N-hue` is scoped to
+  `.chart-frame` and resolves to nothing outside it (also rendered and
+  confirmed — the bar vanished entirely).
+- **`progression/list-steps` — new `capsule` variant.** Centers each step
+  card and turns the CSS-generated `STEP NN` badge into a pill (rounded,
+  tinted with `--accent-soft`/`--accent`) instead of a plain mono caption;
+  the title switches to the display serif font. Same DOM and `counter()`
+  mechanism as the default cards — no markup change, no new transform.
+  Modeled on the bloom-deck source's "practice" slide (three step cards);
+  its badges are literally `Step 01`/`Step 02`/`Step 03`, which the default
+  layout already generates from list position, so no custom badge text was
+  needed. One real fix found rendering the actual PDF: the default cards
+  stretch to fill the stage's full height (right for variants whose body
+  copy can run long), which left a large dead zone below `capsule`'s short,
+  fixed-height content — fixed by sizing the `ol` to its content
+  (`flex: 0 1 auto`) and centering it in the stage, the same pattern
+  `vertical`/`chevron` already use for their own compact layouts.
+- **`comparison/compare-prose` — new `axis` variant.** Reframes the existing
+  two-card comparison as two facets of one idea (a growth framework's second
+  axis, in the bloom-deck source this was modeled on) rather than a verdict
+  or a before/after change: a lede paragraph between the heading and the
+  cards, and a closing note below. Pure CSS/manifest — no new transform or
+  plugin. The lede and closing note reuse mechanisms that already existed
+  for other reasons (a plain paragraph before the list flows as the stage's
+  first child; the trailing paragraph after the list already gets the
+  universal trailing-italic-paragraph "annotation" treatment from
+  `base.modifiers.css`). Each card's nested sub-list — normally one bullet
+  of free prose — instead reads its first three items positionally as a
+  facet numeral (`I` / `II`), a bold title, and a description, styled via
+  `nth-child` with no markup change to the nested-list mechanism itself.
+  The corner-tag label lift (`slot-label-lift.js`) already no-ops on an
+  empty lead, so leaving each card's own bullet blank (`- ` with nothing
+  after it) avoids the base layout's corner-tag treatment for free. The
+  facet numerals draw from the theme's `--accent` (not the source deck's
+  own two-hue level palette) — a plain two-sided comparison, not a
+  categorical chart, so one theme token for both sides is the faithful
+  choice, matching the reasoning behind `premise`'s and `matrix-grid`'s
+  color decisions above.
+- **`statement/quote` — new `bare` variant.** No card, border, shadow, or
+  quotation-mark glyphs — a plain display-scale statement (a hook / cold-open
+  line), not a sourced quotation. Pure CSS: the default quote's DOM
+  extraction (`blockquote > p` + a trailing attribution `p`) already produces
+  the exact shape this needed, so no transform work at all — the fastest of
+  the bloom-deck faithful components, precisely because it fit an existing
+  slot contract instead of needing one bent to it.
 - **Every visualization now declares what it is DRAWN with, and the declaration is checked
   against the rendered artifact.** There was no way to tell which charts are real SVG, which
   are HTML/CSS boxes, and which mix the two — a distinction that decides whether chart-motion
@@ -273,6 +399,53 @@ in patch versions.
   which the probe cannot size, so `diagram` p16/p22/p24 (39/6/25 such labels, no `<text>`) get their
   own `ⓘ TYPE FLOOR NOT MEASURED` line.
 
+- **`statement/premise` — a new sovereign component: a framing claim beside a
+  vertically centered ledger of parallel rows.** A new Frame
+  (`lib/forms/frame/premise/premise.manifest.json`, `exemptFromChrome:true`)
+  claims the whole canvas — like `split-panel`, but with NO colored panel
+  divide; both zones share the page's own background, matching the source
+  deck this was modeled on. Each row is one authored line with four inline
+  segments (`` `01` **Term** description *note* ``) — a number (code), a
+  term (bold), a description clause (bare text), and a right-aligned framing
+  note (italic). The bare description text has no element of its own to
+  grid-position, so a new markdown-it plugin (`premiseRows`, alongside
+  `matrixGridCells` in `lib/integrations/markdown-it/plugins.js`) wraps just
+  that span in `<span class="premise-desc">` at parse time — scoped to
+  `list_item_open`/`list_item_close` so it never touches the heading/lede's
+  own prose. The section-level restructure (grouping `<h2>` + lede into one
+  `.premise-claim` flex zone) is a new registry transformer
+  (`lib/core/premise.js` + `lib/transformers/premise.js`, mirroring
+  `split-panels`'s two-file shape). Rows are colored from the UNIVERSAL
+  categorical palette (`--cat-N-mark`, `math.theorem`'s blockquote already
+  uses the same mark-as-text-on-neutral-background pattern) — a plain
+  structure-substance HTML list, not a chart-family member.
+- **`chart/matrix-grid` — a new chart-family component for two ORDERED axes as
+  an N×M grid.** Fills a real gap: Lattice already had the state-marker cell
+  mechanism (`obligation-matrix`, `roadmap`, `verdict-grid`), but nothing
+  generalized to an arbitrary grid where both axes are ordered categories and
+  each ROW carries its own hue (a capability/maturity rubric, not a pass/fail
+  status report). Cells use a positional grammar (`[x]` this row's position,
+  `[-]` reachable, `[ ]` not applicable) colored via the chart family's own
+  categorical palette (`--chart-cat-N-hue` — the same tokens radar/piechart/
+  quadrant draw from), never a hand-rolled palette. Dispatches through
+  `lib/components/chart/_chart-family/chart-family.js` (`buildMatrixGridSection`)
+  like `roadmap` — a table-based chart-family member, following that precedent
+  exactly (chart-family membership doesn't require SVG). The eyebrow supports a
+  two-part axis caption (`Wider reach → · Deeper cognition ↑`) — the second part
+  renders as a `writing-mode: vertical-rl` label down the grid's left edge. New
+  markdown-it plugin `matrixGridCells` in `lib/integrations/markdown-it/plugins.js`,
+  registered in `lib/engine/index.js`'s shared `LATTICE_PLUGINS`.
+- **`statement/split-panel` — new `proof` modifier.** A scenario/signal card plus
+  two paired proof cards in the right zone, for a claim that must be demonstrated
+  ("you know you're here when…"), not just supported by a list of points. Mostly
+  CSS — the existing left/right DOM extraction already produces the right shape —
+  but it also surfaced a real `lib/core/split-panels.js` bug; see `### Fixed` below.
+- **`examples/bloom-engineering-journey.md`** — a 13-slide showcase gallery
+  ("From Remembering to Creating," Bloom's Taxonomy applied to the software
+  engineering career arc), registered in the Playground's showcase picker
+  (`docs/src/playground/galleries.mjs`). See
+  `engineering/decisions/2026-07-27-bloom-engineering-journey-components.md`
+  for the full component-mapping rationale.
 - **Per-component agent contract: `<name>.docs.md` now front-loads a dense, machine-actionable
   block instead of burying it in narrative prose.** Generated docs previously interleaved the
   ~30% of content an authoring agent actually needs (slots, capacity/density) with human-narrative
@@ -5029,6 +5202,25 @@ in patch versions.
   `lib/base/base.docs.md § Custom logo` and `examples/custom-logo.md`.
 
 ### Fixed
+- **`split-panel`'s `proof` checkpoint cards never matched height or centered their content.** The
+  two-card grid used `align-items:start`, so a shorter card sat top-anchored at its own content
+  height next to a taller one instead of matching it, and neither card's text was vertically centered
+  within its box — both real deltas from the source deck's cards, which stretch to a shared height and
+  center their content. Changed to `align-items:stretch` on the grid (so both cards match the row's
+  tallest card) plus `display:flex; flex-direction:column; justify-content:center` on each card (so
+  its content block centers within that shared height). Caught by the author looking at a rendered
+  side-by-side, not by the delta audit.
+- **`chart/matrix-grid`'s column-axis label rendered as a masthead eyebrow next to the title, contradicting its own manifest doc** ("the first labels the column (reach) axis and renders above the grid" — `matrix-grid.manifest.json`'s `eyebrow` slot description). Caught comparing the bloom-deck showcase against its source PDF: the source centers the column-axis caption above the grid itself, beside the rotated row-axis label, not up by the heading. `buildMatrixGridSection` now moves BOTH halves of the two-part eyebrow out of the masthead — the column axis renders centered above the figure via a new `data-col-axis` attribute + generated `::after` (mirroring the existing row-axis `data-row-axis` + `::before` pattern), reserving its own height so the rotated row-axis label starts below it instead of running underneath the text when both are present. A single-part eyebrow (no `·`) is unaffected. Also restored a caveat sentence the bloom deck's matrix slide's legend had dropped ("placements are illustrative and company-specific"), trimmed to fit the frame without triggering the export's overflow check.
+- **The row-axis arrow pointed the wrong way, and both axis arrows read thin next to their bold tracked labels.** `writing-mode: vertical-rl` (matrix-grid's row-axis label) rotates a directional arrow glyph an EXTRA 90° beyond the `transform: rotate(180deg)` already applied — an authored "↑" rendered pointing left, confirmed by rendering it, not by reasoning about the Unicode spec. `buildMatrixGridSection` now normalizes any trailing arrow on either axis to a solid triangle (▶▲◀▼) instead of a thin stroke arrow (→↑←↓) — a filled shape reads at the label's own bold weight regardless of font, where a stroke glyph doesn't. The row axis's glyph is emitted pre-flipped (author "up" → emit ▼) so the existing 180° transform lands it right-side up; geometric shape characters are Unicode "upright" class, so unlike arrows they pick up only that 180°, not vertical-rl's extra 90°. The column axis (never rotated) emits its glyph directly. New unit tests lock both the direction mapping and the arrow-upgrade behavior in `test/unit/components/matrix-grid.test.js`.
+- **`comparison/compare-prose`'s `axis` variant never actually colored its numeral.** The rule
+  (`li:nth-child(1) { color: var(--accent) }`) targets the list item, but the numeral's own text gets
+  auto-wrapped in `<strong>` by a slot lift — and `<strong>` carries its OWN explicit
+  `section strong { color: var(--text-heading) }` rule (`base.elements.css`). An explicit same-element
+  rule always wins over an inherited value regardless of the inherited rule's specificity, so the
+  numeral silently rendered in plain ink instead of the intended accent. Added
+  `li:nth-child(1) strong { color: inherit }` to close the gap. Caught auditing
+  `examples/bloom-engineering-journey.md`'s "the second axis" slide against its source PDF, where the
+  two numerals ARE colored.
 - **`engineering/decisions/2026-06-13-svg-native-legend.md` §7 claimed "word-cloud never had a key."**
   It had one — an `aria-hidden` `size = frequency` A-ramp in the right rail — and the claim stood for
   six weeks. The scoping decision it justified was still right (a size ramp is not the
@@ -5411,6 +5603,17 @@ in patch versions.
   higher-specificity rule forces the pill back to hidden while paused. Reproduces identically in
   Chromium, so this was a genuine cross-browser bug, not a Safari quirk — just one the toolbar
   redesign made trivially reachable for the first time. (`docs/src/components/studio/ComposeView.tsx`.)
+- **`lib/core/split-panels.js` — `split-panel`'s left/right extraction could mistake a
+  right-zone paragraph for an omitted lede.** `extractFirstP` searched the WHOLE remaining
+  HTML for the first `<p>`, with no boundary — under the new `proof` modifier, omitting the
+  lede let the extractor grab `proof`'s `### signal` scenario paragraph instead, hoisting it
+  into the left panel and leaving the right zone's label empty. Now bounded to before the
+  next `h3`–`h6` heading, so a lede is only ever pulled from the LEFT panel's own text.
+  Verified output-identical against every other `split-panel`/`split-compare` variant across
+  all 65 decks that use them (`metric`, `pullquote`, `steps`, `watermark`, default,
+  `split-compare` — none call `extractFirstP` past an early heading, so none regress). This
+  corrects the "CSS-only addition" claim on `proof`'s `### Added` entry above — the fix
+  landed in the shared kernel, not just CSS.
 - **The radar's shape never animated.** Its series polygons carried no addressable attribute, so
   chart motion saw only the axis labels and animated the text of an otherwise static chart. The
   polygons now declare `data-anima-role` — deliberately *without* a `data-mark`, because the radar's

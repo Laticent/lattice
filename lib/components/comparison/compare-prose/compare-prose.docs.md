@@ -6,7 +6,7 @@
 
 **Tags** `tradeoff` · `contrast` · `recommendation` · `transformation` · `retrospective`
 
-Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side.
+Use to weigh two approaches against each other in body text. Add the `chosen` or `decision` modifier to mark the verdict; add `vertical` to stack top/bottom instead of side-by-side. `axis` reframes the pair as two facets of one idea — a lede above, a numeral-led card per facet, a closing note below.
 
 ## Agent contract
 
@@ -17,10 +17,13 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `title` | `h2` | yes | Slide heading framing the comparison. |
-| `options` | `ul > li` | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. |
+| `options` | `ul > li` | yes | Exactly two list items, each one option. The lead text is the option label — it renders bold automatically (no `**…**` needed); follow it with a nested bullet carrying 1–3 sentences. In `axis`, leave the lead blank and nest a 3-item sub-list instead: the facet numeral (`I` / `II`), a bold title, and a description sentence. |
+| `lede` | `h2 + p` | no | `axis` only. A framing sentence between the heading and the two facet cards. |
+| `note` | `:is(ul, ol) + p` | no | A closing line after the two cards. Plain prose in the base layout; `axis` renders it centered and italic. |
 
 ### Variant decision rule
 
+- **`axis`.** The pair are two facets of one idea (not before/after, not a verdict) — frame them with a lede above and land the takeaway in a closing note below.
 - **`transition`.** The comparison is a state change over time — left is before, right is after; implies causation, not two co-equal preferences.
 - **`mirror`.** Same anatomy, but the deck's rhythm wants the accented (second) option to land visually on the left instead of the right.
 - **`chosen`.** One option is the winner and the other keeps its full, undiminished case — crowns the second option without dimming the first.
@@ -33,6 +36,7 @@ Use to weigh two approaches against each other in body text. Add the `chosen` or
 
 - **Assuming `chosen`/`rejected`/`decision` mark whichever option is authored first.** All three target the SECOND card (`li:last-child`) in the markdown — the option to crown (`chosen`) or strike (`rejected`) must be written second, not first.
 - **Combining `mirror` with `chosen`/`rejected`/`decision`, expecting the marked card to move with the visual swap.** `mirror` only reverses the VISUAL row (`flex-direction: row-reverse`) — the chosen/rejected treatment still targets the second option in markdown SOURCE order, so mirroring changes where it appears on screen, not which option gets the accent.
+- **Writing a label before the nested sub-list in an `axis` card (`- Own the verb` then the numeral/title/description sub-list), the way the base layout's option lead works.** `axis` cards read the FIRST three items of the nested sub-list as numeral, title, and description — leave the outer bullet's own lead blank (`- ` with nothing after it) so nothing is left over to become a stray corner tag.
 
 ## When to use
 
@@ -182,6 +186,29 @@ Strikes the losing pane.
   - The surviving option reads at full strength.
 - The rejected pane
   - Dimmed and struck — the record of what was considered and declined.
+```
+
+### `axis` — axis
+
+A lede above, numeral-led facet cards, a closing note below.
+
+```markdown
+<!-- _class: compare-prose axis -->
+
+## The second axis: how far it reaches.
+
+The verb is one axis — how you think. **Reach** is the other — how far what you make travels.
+
+- 
+  - I
+  - Own the verb
+  - You can do the cognitive work — correct, clear, complete. So far it reaches only you.
+- 
+  - II
+  - Widen the reach
+  - The work travels: team, org, field — the farther it carries, the higher the level.
+
+*Most engineers stall here — not on the thinking, but on making it travel past their own hands.*
 ```
 
 ## Universal modifiers
