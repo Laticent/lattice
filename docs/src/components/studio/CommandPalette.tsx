@@ -84,7 +84,7 @@ export function CommandPalette({
 			// it becomes a dead zone over the end of the field, where a tap dismisses the
 			// palette instead of placing a caret. Reserving the corner fixes it at every
 			// width, since the overlap was never mobile-only.
-			className="[&_[data-slot=command-input-wrapper]]:pr-12 max-[699px]:top-auto max-[699px]:bottom-0 max-[699px]:left-0 max-[699px]:max-h-[min(85dvh,calc(100dvh-var(--kb,0px)))] max-[699px]:w-full max-[699px]:max-w-none max-[699px]:translate-x-0 max-[699px]:translate-y-0 max-[699px]:rounded-t-2xl max-[699px]:rounded-b-none max-[699px]:[&_[data-slot=command-input-wrapper]]:pr-14 max-[699px]:data-[state=closed]:slide-out-to-bottom max-[699px]:data-[state=closed]:zoom-out-100 max-[699px]:data-[state=open]:slide-in-from-bottom max-[699px]:data-[state=open]:zoom-in-100"
+			className="[&_[data-slot=command-input-wrapper]]:pr-12 max-[699px]:top-auto max-[699px]:bottom-0 max-[699px]:left-0 max-[699px]:h-[min(88dvh,calc(100dvh-var(--kb,0px)))] max-[699px]:w-full max-[699px]:max-w-none max-[699px]:translate-x-0 max-[699px]:translate-y-0 max-[699px]:rounded-t-2xl max-[699px]:rounded-b-none max-[699px]:[&_[data-slot=command-input-wrapper]]:pr-14 max-[699px]:data-[state=closed]:slide-out-to-bottom max-[699px]:data-[state=closed]:zoom-out-100 max-[699px]:data-[state=open]:slide-in-from-bottom max-[699px]:data-[state=open]:zoom-in-100"
 		>
 			<CommandInput placeholder="Search or run a command…" />
 			<CommandList>

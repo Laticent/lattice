@@ -46,9 +46,12 @@ import {
 // place you had gone.
 //
 // ── TWO TIERS, AND THE KEYBOARD ────────────────────────────────────────────────
-// `auto` is the pull-out: as tall as its contents, capped. You pick once and
-// leave, and the deck stays visible behind you — the drawer, Themes, Show me,
-// Version history, Coach, Share.
+// `auto` is the pull-out: ONE height for every panel in the tier, not content
+// height. Content-sized looked principled and read as noise — Version history
+// came up at 224px, the palette at 350, Coach and Share at 717, and a user
+// cannot tell which of those is a rule and which is an accident. A sheet's
+// height is part of its frame, and this PR's whole claim is that the frame is
+// the same everywhere. So: one number, and the deck still shows above it.
 //
 // `full` is the working surface: a fixed tall panel you DWELL in. The axis is not
 // "how much content" (that drifts every time a panel gains a row) and it is not
@@ -66,7 +69,7 @@ import {
 // open question; the visualViewport API works everywhere that matters.)
 const MOBILE_BASE = 'inset-x-0 bottom-0 rounded-t-2xl border-t';
 export const MOBILE_TIER = {
-	auto: 'max-h-[min(85dvh,calc(100dvh-var(--kb,0px)))]',
+	auto: 'h-[min(88dvh,calc(100dvh-var(--kb,0px)))]',
 	full: 'h-[min(92dvh,calc(100dvh-var(--kb,0px)))]',
 } as const;
 

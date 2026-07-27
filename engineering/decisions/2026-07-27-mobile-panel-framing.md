@@ -163,9 +163,17 @@ the add-slide gallery, Workspace, Chat.
 
 Two tiers, declared per call site:
 
-- **`auto`** — as tall as its contents, capped. You pick once and leave, and the
-  deck stays visible behind you: the drawer, Themes, Show me, Version history,
-  Coach, Share.
+- **`auto`** — ONE height, 88dvh, for every panel in the tier. You pick once and
+  leave: the drawer, Themes, Show me, Version history, Coach, Share.
+
+  This started as content height under a cap, and that was wrong for the same
+  reason the four entry edges were wrong. Measured, "content height" produced
+  Version history at 224px, the palette at 350 and Coach at 717 — and a user
+  cannot tell which of those is a rule and which is an accident. A sheet's height
+  is part of its frame, and the claim this whole change makes is that the frame is
+  the same everywhere. The cost is real and accepted: Version history now shows
+  one button over ~600px of space. Consistency of the frame beats snugness of any
+  one panel.
 - **`full`** — a fixed tall panel you dwell in: Chat, Settings, Library,
   Workspace, Reader views, the add-slide gallery, Send feedback.
 
@@ -272,8 +280,8 @@ Per this branch's do-not-regress rule, the selector-of-record moved in the same 
 | Send feedback | BOTTOM | 390×573 | 16px top | Send feedback | 44×44 |
 
 One edge, one width, one radius, one close size, and every title matches its row — and the
-same holds for the five reached from the toolbar rather than the drawer (Coach 717, Chat 312,
-Settings 717, Share 717, Workspace 717, all BOTTOM/390/16px/44×44).
+same holds for the five reached from the toolbar rather than the drawer. Final heights are two
+numbers, not ten: `auto` 743px (88dvh) and `full` 776px (92dvh).
 
 Heights still differ — 224 to 573 — and that is correct: the sheets are `h-auto` under a
 single `max-h-[85dvh]` cap, so each sizes to its own contents exactly as the drawer's two

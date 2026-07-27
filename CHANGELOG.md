@@ -5317,9 +5317,13 @@ in patch versions.
   desktop framing is otherwise unchanged, measured. Finishes the `PanelSheet`/`PanelHeader`
   migration deferred in `2026-07-17-panel-drawer-cohesion.md`
   **Two height tiers, and the keyboard is subtracted from both.** A phone panel is either a
-  `full` working surface (Chat, Settings, Library, Workspace, Reader views, the add-slide gallery,
-  Send feedback) or an `auto` pull-out you pick from and leave (the drawer, Themes, Show me,
-  Version history, Coach, Share). The axis is deliberately *not* "does it have a text field" —
+  `full` working surface at 92dvh (Chat, Settings, Library, Workspace, Reader views, the add-slide
+  gallery, Send feedback) or an `auto` pull-out at 88dvh you pick from and leave (the drawer,
+  Themes, Show me, Version history, Coach, Share). **`auto` is one fixed height, not content
+  height** — content-sized looked principled and measured as noise (Version history 224px, the
+  palette 350, Coach 717), and a reader cannot tell which of those is a rule and which is an
+  accident. Version history now shows one button over ~600px of space; that is the accepted cost
+  of the frame being the same everywhere. The axis is deliberately *not* "does it have a text field" —
   Reader views takes no typed input and is still a place you expand rows and compare — and not
   "how much content", which drifts every time a panel gains a row. Chat is the case that made it
   obvious: it opened at 312px, so its composer sat directly under its own header. And because
