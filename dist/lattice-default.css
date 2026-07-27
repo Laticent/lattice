@@ -13344,6 +13344,27 @@ section.split-panel.proof.capstone .panel-left p em:first-child {
 /* Capstone re-skins the same three items: the signal row becomes a quotation
  * card, the two proof rows become plain top-rule pillars with their content
  * settled to the bottom so the evidence reads as a footing under the quote. */
+/* Capstone rows are CONTENT height, spread to the column's ends — not the equal
+ * halves `.proof` uses. `.proof` stretches both rows so the evidence fills the
+ * slide; a capstone pillar is a rule with a caption under it, and stretching it
+ * left the border pinned to the top of its cell with the text stranded at the
+ * bottom, the rule visibly divorced from the label it belongs to. `auto` rows +
+ * `align-content: space-between` reproduces the reference exactly: the quotation
+ * sits below the panel top, the pillars sit on the baseline, each sized to its
+ * own content. */
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) {
+  grid-template-rows: 1fr auto;
+  grid-auto-rows: auto;
+}
+/* The quotation is content-height and CENTERED in the space above the pillars.
+ * The reference puts a lead paragraph in this column above the signal card,
+ * which is what holds its top third; we keep that sentence in the claim panel so
+ * all six level slides author identically, so centering is what fills the space
+ * the lead would have occupied. Pinning it to the top instead left an obvious
+ * void between the quote and the pillars. */
+section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child {
+  align-self: center;
+}
 section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child {
   background: var(--bg); border: 1px solid var(--border);
   border-left: 4px solid var(--panel-mark, var(--accent));
@@ -13356,7 +13377,6 @@ section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:first-child > 
 section.split-panel.proof.capstone .panel-right > :is(ul,ol) > li:nth-child(n+2) {
   background: none; border: none; border-top: 2px solid var(--panel-mark, var(--accent)); border-radius: 0;
   padding: var(--sp-sm) 0 0;
-  justify-content: flex-end;
 }
 
 /* ── .watermark — accent panel + letterform + points + meta footer (former split-list) ── */
