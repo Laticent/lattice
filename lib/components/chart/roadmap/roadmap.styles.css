@@ -630,9 +630,22 @@
     height: 100%;
     min-height: 0;
   }
+  /* TWO COLUMNS, not one tall stack. A split page gives one phase the whole
+   * card, and a single column of four short `LABEL · value` rows used barely
+   * half the width while running the card's full height — a lot of empty right
+   * margin next to a lot of vertical travel. Two columns read as the table this
+   * component is, halve the vertical run, and use the width the split just
+   * bought. 4 workstreams lay out 2x2, 3 lay out 2+1; `minmax(0, 1fr)` keeps a
+   * long workstream name from forcing a track wider than its half. */
   :is(section.roadmap, figure.roadmap).horizons .horizon-rows {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Distributed, not clumped. `center` left the rows as a tight block marooned
+     * in a tall card; space-evenly with TWO-LINE cells spreads them without the
+     * canyon the one-line cells produced. */
+    align-content: space-evenly;
     height: 100%;
-    justify-content: space-evenly;
+    gap: var(--sp-lg) var(--sp-lg);
   }
   /* The row's height is set by `.row-text`, which carries the glyphs — setting
    * font-size on the <li> does nothing, because both spans declare their own. */
@@ -653,15 +666,26 @@
     padding-bottom: var(--sp-2xs);
   }
   :is(section.roadmap, figure.roadmap).horizons .horizon-title { font-size: var(--fs-body-compact); }
+  /* The phase pill is the least readable thing on a split page. `0.859375cqi`
+   * resolves to ~8.4px at portrait, so the #1213 floor is what is actually
+   * drawing it — at 11px, legible but not readable on a 1080-wide page where the
+   * body text around it is ~33px. Portrait has fewer inline units, so the
+   * coefficient has to grow to hold the same optical size: 1.7cqi lands near
+   * 16.5px here, and the floor still catches anything narrower. */
+  :is(section.roadmap, figure.roadmap).horizons .horizon-meta {
+    font-size: max(var(--chart-text-min), 1.7cqi);
+  }
   :is(section.roadmap, figure.roadmap).horizons .horizon-rows { gap: var(--sp-2xs); }
   /* Each workstream row collapses to ONE line (LABEL · value) — halves the card
    * body so 4+ phases stack without overflow. */
+  /* Label OVER value, not beside it. The inline `LABEL · value` row was a
+   * one-column compromise; in a half-width track the label eats the line and the
+   * value wraps mid-phrase ("Signal / taxonomy"). Stacked, each cell is two tidy
+   * lines and nothing breaks. This is the base cell shape — the ≤0.9 override
+   * that forced a row is simply gone now that two columns supply the width. */
   :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li {
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--sp-sm);
+    align-items: start;
   }
-  :is(section.roadmap, figure.roadmap).horizons .row-label { flex: 0 0 auto; }
 }
 
 /* ── ROADMAP SWIMLANE — per-workstream track of phase pills ──────────
