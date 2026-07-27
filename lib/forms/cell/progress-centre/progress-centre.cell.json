@@ -6,8 +6,8 @@
   "accepts": ["chrome"],
   "capacity": "one",
   "fill": "center",
-  "gap": "--footer-centre-half",
-  "geometry": { "size": "--footer-centre-w" },
+  "gap": "--footer-center-half",
+  "geometry": { "size": "--footer-center-w" },
   "clip": true,
   "css": true
 }

@@ -557,7 +557,26 @@ ${indent}   - ${body.trim()}`;
             if (!n) break;
             const comfort = cap.sweet != null ? cap.sweet : cap.soft;
             if (cap.hard != null && n > cap.hard) {
-              if (autosplitOn && orientation === "portrait") continue;
+              if (autosplitOn && orientation === "portrait") {
+                const target = cap.perPage ?? cap.sweet ?? cap.soft ?? cap.hard;
+                const pages = Math.max(1, Math.ceil(n / target));
+                const base = Math.floor(n / pages);
+                const extra = n % pages;
+                const paced = extra ? `${base + 1}\u2013${base}` : `${base}`;
+                const evenness = extra ? "every page is within one of the others" : "every page is paced the same";
+                const hasHeadline = /^##\s/m.test(slide);
+                const trim = `To keep it on ONE slide, trim to ${cap.hard} or fewer ${axisNoun(cap.axis, cap.hard)}.`;
+                findings.push({
+                  slide: idx - fm + 1,
+                  rule: "capacity-autosplit",
+                  severity: "info",
+                  classToken: t,
+                  line: m[0],
+                  message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably; this slide has ${n}, so auto-split will divide it into ${pages} pages of ${paced}` + (cap.perPage != null ? ` (${t} paces ${cap.perPage} per page when split)` : ""),
+                  fix: hasHeadline ? `Intended? Nothing to do \u2014 the split leads with a cover and ${evenness}. ${trim}` : `Intended? ${evenness.charAt(0).toUpperCase()}${evenness.slice(1)}, but this slide has no \`## \` headline, so the run gets no cover page to open on \u2014 add one. ${trim}`
+                });
+                continue;
+              }
               findings.push({
                 slide: idx - fm + 1,
                 rule: "capacity-overflow",

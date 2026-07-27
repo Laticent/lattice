@@ -145,3 +145,26 @@ section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
     transform: translate(-35%, 50%);
   }
 }
+
+/* ── Split run (§0b connected members, `capacity.perPage: 1`) ────────────────────────
+ * A cycle that overflows is atomized to ONE stage per page, and the drawn ring cannot
+ * survive that: the return arc and its ↻ glyph join the LAST stage back to the FIRST, so
+ * on a page holding one stage they render as a bracket wrapping a single card, pointing at
+ * nothing (seen on a real portrait render). The loop is not lost — it moves to the derived
+ * relationship signal, which puts "↻ back to {stage 1}" on the run's last page
+ * (lib/core/relationship.js, §8 rule 12a). So the arc is suppressed on split pages and the
+ * chevron between stages goes with it (there is no next stage on the page to point at).
+ * The unsplit ring is untouched. */
+section.cycle.lat-split-native > .cell-stage > ul::after,
+section.cycle.lat-split-native > .cell-stage > ul::before,
+section.cycle.lat-split-native > .cell-stage > ul > li:not(:last-child)::after {
+  content: none;
+}
+section.cycle.lat-split-native > .cell-stage > ul { padding-bottom: 0; }
+
+/* A stage ALONE on its page fills the stage cell, so center its content in the now page-tall
+ * card — same reasoning as list-steps' rule (the generic lone-member rule sets
+ * `align-content`, which answers a wrap-row card; a stage node is a flex column). */
+section.cycle.lat-split-native > .cell-stage > ul > li:only-child {
+  justify-content: center;
+}

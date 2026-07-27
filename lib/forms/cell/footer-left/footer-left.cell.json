@@ -6,7 +6,7 @@
   "accepts": ["chrome"],
   "capacity": "one",
   "fill": "start",
-  "gap": "--footer-centre-half",
+  "gap": "--footer-center-half",
   "clip": true,
   "css": true
 }

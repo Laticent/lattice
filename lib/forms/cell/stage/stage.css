@@ -25,7 +25,7 @@
  * Because
  * `section.form` is the root chrome Frame, this file is also where the shared,
  * resolution-blind frame tokens are defined (--frame-x/-y, --masthead-h,
- * --footer-h/-reserve, --footer-centre-w/-half); the masthead and footer Cells
+ * --footer-h/-reserve, --footer-center-w/-half); the masthead and footer Cells
  * consume them by name (they cascade from this root). Canonical model:
  * design/forms.md.
  *
@@ -65,8 +65,8 @@ section.form {
    * rules) — footer-left yields it so the two can never collide. */
   --footer-h: calc(var(--_sec-1cqi, 1cqi) * 5);
   --footer-reserve: calc(var(--frame-inset-y) + var(--footer-h) + var(--sp-sm));
-  --footer-centre-w: calc(var(--_sec-1cqi, 1cqi) * 30);
-  --footer-centre-half: calc(var(--footer-centre-w) / 2);
+  --footer-center-w: calc(var(--_sec-1cqi, 1cqi) * 30);
+  --footer-center-half: calc(var(--footer-center-w) / 2);
   /* The progress rail's default right offset — it parks just left of the page
    * number so the two wayfinding marks read as one group. Sized for the page
    * number's own width (≈ up to two digits) plus a hair of gap, tighter than the
@@ -202,11 +202,35 @@ section.form > .cell-footer > .lat-pagination {
   pointer-events: none;
 }
 /* The progress rail docks in-flow in the footer row (de-absolute-positioned) when
- * the frame has a footer Cell — grouped just left of the page number. */
+ * the frame has a footer Cell — grouped just left of the page number.
+ *
+ * `min-width: 0` is the load-bearing part. The rail's label is `white-space: nowrap`, so
+ * its min-content CONTRIBUTION is the full label width (`.seg`'s own `min-width: 0` lowers
+ * its automatic minimum, not its contribution). With `min-width: auto` the rail was an
+ * unshrinkable 730px flex item, and the running footer — the band's only other shrinkable
+ * item — absorbed the entire deficit: 38px of a 431px string, one clipped glyph, measured
+ * on examples/split-relationship.pdf. Letting the rail take its share fixes that.
+ *
+ * The width RESERVE below is scoped to a band that actually contends (one carrying the
+ * split k-of-N rail), NOT applied unconditionally. `max-width` does not know whether the
+ * band is under pressure, so an unconditional cap truncated the section label on pages with
+ * ~470px of slack — 84 of the 117 gallery pages, none of them split, each rendering the
+ * full label on `main`. That was a regression on surfaces nowhere near this feature
+ * (HARD RULE #18), caught by the trio's red team. A fourth mark in the band is what makes
+ * the reserve necessary; without one, `min-width: 0` alone already keeps the band honest. */
 section.form > .cell-footer > .tile-progress {
   position: static;
   inset: auto;
+  /* Still `none` here — the progress-centre Cell caps the rail at --footer-center-w for its
+   * ABSOLUTE placement, where the reserve is the only thing keeping it off the page number.
+   * In flow the row already spaces it, so the cap would truncate a label with hundreds of
+   * pixels of slack beside it. (Dropping this override was how the scoped cap below leaked
+   * onto all 84 railed gallery pages on the first attempt.) */
   max-width: none;
+  min-width: 0;
+}
+section.form > .cell-footer:has(> .lat-split-rail) > .tile-progress {
+  max-width: var(--footer-center-w);
 }
 /* Retire the pagination PSEUDO wherever the real element exists (the decorative
  * numbered-divider numeral, a different `::after`, is untouched). */

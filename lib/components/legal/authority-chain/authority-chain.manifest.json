@@ -24,6 +24,7 @@
   "stage": "flow",
   "capacity": {
     "axis": "item",
+    "relationship": "hierarchy",
     "min": 2,
     "sweet": 4,
     "soft": 5,
@@ -32,7 +33,7 @@
       "split across slides (auto with autosplit: on)",
       "statute-stack"
     ],
-    "note": "past six tiers the chain overflows a portrait box"
+    "note": "past six tiers the chain overflows a portrait box; a split run carries a derived \u201cgoverns \u2193 / under \u2191\u201d signal \u2014 a hierarchy, never a temporal \u201cnext\u201d (\u00a70b connected members). Pacing stays the authored split.perPage: the signal reads across pages whatever the pacing"
   },
   "density": {
     "axis": "item",

@@ -148,6 +148,16 @@ async function main(argv) {
     const source = fs.readFileSync(file, 'utf8');
     const findings = lintText(source, { vocab });
     for (const f of findings) {
+      // `info` / `suggestion` are the ADVISORY tier — they report something true about a
+      // deliberate choice (a deck that opts into autosplit WILL have over-budget slides),
+      // not a defect. Route them to the never-blocking suggestions channel, so `--strict`
+      // stays a real gate for warnings instead of reddening on every intentional split.
+      // Mirrors what the Playground already does (editor-diagnostics.js maps anything
+      // below `warning` to the lowest tier).
+      if (f.severity === 'info' || f.severity === 'suggestion') {
+        suggestions.push({ file, ...f });
+        continue;
+      }
       if (f.severity === 'error') errors += 1;
       else warnings += 1;
       report.push({ file, ...f });

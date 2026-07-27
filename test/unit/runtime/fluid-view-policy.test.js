@@ -12,6 +12,10 @@ const assert = require('node:assert/strict');
 const {
   overflowTabText,
   overflowTabAction,
+  legibilityTabText,
+  legibilityTabAction,
+  LEGIBILITY_TAB_TEXT_SRC,
+  LEGIBILITY_TAB_ACTION_SRC,
 } = require('../../../lib/runtime/fluid-view-policy');
 
 // NB: P1's fill-vs-fixed band (fluidDefaultFills) was retired in P2 — the viewer
@@ -40,5 +44,45 @@ describe('overflowTabAction — tab tracks overflow, NOT the class flip', () => 
   test('does nothing when already in the right state (idempotent → the watcher settles)', () => {
     assert.equal(overflowTabAction({ over: true, hasTab: true }), 'none', 'overflowing, tab present');
     assert.equal(overflowTabAction({ over: false, hasTab: false }), 'none', 'fits, no tab');
+  });
+});
+
+describe('legibilityTabAction — same shape as the overflow tab, plus a live re-read', () => {
+  // The type-floor tab carries NUMBERS ("Type 4px · floor 5.4px"), so unlike the overflow tab it
+  // has a fourth state: present, still under the floor, but showing a stale measurement. Without
+  // 'update' the reading freezes at whatever it was when the tab was created — which on a live
+  // preview is exactly when the author is resizing the figure to fix it.
+  test('adds when under the floor with no tab', () => {
+    assert.equal(legibilityTabAction({ under: true, hasTab: false }), 'add');
+  });
+  test('UPDATES an existing tab so its px reading never goes stale', () => {
+    assert.equal(legibilityTabAction({ under: true, hasTab: true }), 'update');
+  });
+  test('removes a stale tab once the figure clears the floor', () => {
+    assert.equal(legibilityTabAction({ under: false, hasTab: true }), 'remove');
+  });
+  test('does nothing when already in the right state (the watcher settles)', () => {
+    assert.equal(legibilityTabAction({ under: false, hasTab: false }), 'none');
+  });
+});
+
+describe('legibilityTabText — one label for two watchers', () => {
+  // This string is a CONTRACT, not a detail: the live runtime imports the function and the
+  // emulator's inline export watcher injects its SOURCE verbatim, so the preview and the export
+  // must name the same measurement the same way (HARD RULE #15). Both are asserted, because a
+  // change to the function that forgot the injected copy would otherwise pass.
+  test('names the measured size against the floor it missed', () => {
+    assert.equal(legibilityTabText({ minPx: 4, floorPx: 5.4 }), 'Type 4px · floor 5.4px');
+  });
+  test('the injected SOURCE is the same function, not a re-typed copy', () => {
+    const injected = new Function(`return (${LEGIBILITY_TAB_TEXT_SRC})`)();
+    assert.equal(injected({ minPx: 4, floorPx: 5.4 }), legibilityTabText({ minPx: 4, floorPx: 5.4 }));
+    const injectedAction = new Function(`return (${LEGIBILITY_TAB_ACTION_SRC})`)();
+    for (const under of [true, false]) {
+      for (const hasTab of [true, false]) {
+        assert.equal(injectedAction({ under, hasTab }), legibilityTabAction({ under, hasTab }),
+          `under=${under} hasTab=${hasTab}`);
+      }
+    }
   });
 });

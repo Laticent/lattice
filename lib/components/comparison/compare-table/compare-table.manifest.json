@@ -36,9 +36,9 @@
   "split": {
     "strategy": "cover-cards",
     "axis": "row",
-    "perPage": 3,
+    "perPage": 1,
     "intro": "The full comparison",
-    "note": "In a PORTRAIT box a wide read-across table can't paginate out of HORIZONTAL overflow, so it RESHAPES: each row becomes a card (column headers → in-card labels), then the cards cover-paginate (accent cover → card pages). Landscape renders the native table. lib/core/carousel.js cover-cards; engineering/decisions/2026-06-25-retire-landscape-locks-portrait-everything.md."
+    "note": "In a PORTRAIT box a wide read-across table can't paginate out of HORIZONTAL overflow, so it RESHAPES: each row becomes a card (column headers -> in-card labels), then the cards cover-paginate (accent cover -> card pages). ONE card per page: a transposed row is a card (a header plus its labeled fields), and a card is one page's worth -- the same heavy-member rule capacity.perPage:1 applies on the plain-axis path (cards-grid, cards-stack, actors, policy-recommendation). Landscape renders the native table. lib/core/carousel.js cover-cards; engineering/decisions/2026-06-25-retire-landscape-locks-portrait-everything.md."
   },
   "function": "comparison",
   "form": "ledger",

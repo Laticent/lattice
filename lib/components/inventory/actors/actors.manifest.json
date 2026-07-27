@@ -28,6 +28,7 @@
     "axis": "item",
     "min": 3,
     "sweet": 4,
+    "perPage": 1,
     "soft": 6,
     "hard": 7,
     "escalateTo": [

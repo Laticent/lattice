@@ -6,6 +6,8 @@
   ],
   "capacity": {
     "axis": "item",
+    "perPage": 1,
+    "relationship": "sequence",
     "min": 3,
     "sweet": 4,
     "soft": 5,
@@ -14,7 +16,7 @@
       "timeline-list",
       "split across slides"
     ],
-    "note": "past five steps the row begins to crowd"
+    "note": "past five steps the row begins to crowd; a split run paces ONE step per page and carries a derived \u201c\u2192 next: \u2026\u201d signal (\u00a70b connected members)"
   },
   "density": {
     "axis": "item",

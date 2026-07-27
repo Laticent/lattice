@@ -407,9 +407,17 @@ describe('deck linter', () => {
     // Locks in the fixes for the baseline gallery (cards-stack inline-title),
     // gallery-jargon (image-full), and legal.gallery.md (obligation-matrix
     // pills/lanes now declared) and guards against any regression.
+    //
+    // The ADVISORY tier (`info` / `suggestion`) is excluded, mirroring how
+    // tools/lint-deck.js routes it: those findings report something true about a
+    // DELIBERATE choice, not a defect — `capacity-autosplit` fires on every deck that
+    // opts into autosplit and authors a slide past its budget ON PURPOSE, which is the
+    // whole point of those decks. Counting them here would make `--strict` unpassable
+    // for any autosplit deck, i.e. it would gate against the feature working.
     const offenders = [];
     for (const deck of discoverDecks()) {
-      const findings = lintText(fs.readFileSync(deck, 'utf8'), { vocab });
+      const findings = lintText(fs.readFileSync(deck, 'utf8'), { vocab })
+        .filter((f) => f.severity !== 'info' && f.severity !== 'suggestion');
       if (findings.length) {
         offenders.push(`${deck}: ${findings.map((f) => `${f.severity}:${f.rule}[${f.classToken}]@${f.slide}`).join(', ')}`);
       }

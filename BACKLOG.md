@@ -60,7 +60,26 @@ only *status*. **45 open** items.
 - [#577](https://github.com/SlideWright/lattice/issues/577) US English sweep: convert British spellings in prose (docs, comments, manifest text) — medium · docs
 - [#501](https://github.com/SlideWright/lattice/issues/501) fix(inventory): glossary range pill is stale on cover-paginate split pages — low · inventory
 - [#519](https://github.com/SlideWright/lattice/issues/519) examples: ship the four portrait demo decks + PDFs for the retired landscape locks — low · docs
-- [#578](https://github.com/SlideWright/lattice/issues/578) US English: rename internal UK-spelled identifiers (progress-centre, --footer-centre-*) — low · engine
+- [#578](https://github.com/SlideWright/lattice/issues/578) US English: rename internal UK-spelled identifiers (progress-centre cell id; `--footer-centre-*` is DONE) — low · engine
+- (unfiled) docs(site): the docs site's live component-preview frames run the runtime watcher with
+  `authorTags: true`, so BOTH authoring alarms — the red `.overflow` ring and the amber `.illegible`
+  type-floor ring — can appear to someone merely browsing the docs. Verified on a local build of the
+  deployed bundle: injecting a 4px-label viewBox figure into a live frame stamps `illegible` and the
+  tab `Type 3.8px · floor 7.2px`, so the surface is genuinely watched. Nothing trips it as shipped
+  (the shared frame set includes `radar` and `diagram`, two components whose galleries DO ring at
+  gallery size, and both are clean at docs size). Pre-existing for the overflow ring; the type floor
+  joins it on the same terms rather than inventing a new exposure. Worth a decision anyway: a
+  prospective user seeing a QA alarm on a marketing surface reads it as a product defect. Changing it
+  means choosing `authorTags` for the docs previews, which affects the overflow ring too — a
+  docs-site call, not a split-engine one. — low · docs
+- (unfiled) fix(forms): on an UN-SPLIT Form page the running footer and the docked section rail
+  can overlap — the footer is `position: absolute` with a fixed `--footerleft-w` budget while the
+  rail is an in-flow flex item, so neither yields. Measured on `examples/split-relationship.md`
+  p2: footer occupies 22–511px, rail starts at 278px — 233px of overprint, byte-identical on
+  `origin/main`. Pre-existing and NOT touched by the P-envelope branch (which only reworks the
+  band on split pages, where a fourth mark forces the issue). The fix is to make the footer a real
+  flex item wherever the band carries a docked rail, which changes geometry on ~84 gallery pages
+  and needs its own visual review — hence its own change, per HARD RULE #17. — low · engine
 
 ## In progress (0)
 

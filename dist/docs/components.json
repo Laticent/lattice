@@ -385,6 +385,7 @@
         "axis": "item",
         "min": 3,
         "sweet": 4,
+        "perPage": 1,
         "soft": 6,
         "hard": 7,
         "escalateTo": [
@@ -758,6 +759,7 @@
       "familyModifiers": [],
       "capacity": {
         "axis": "item",
+        "relationship": "hierarchy",
         "min": 2,
         "sweet": 4,
         "soft": 5,
@@ -766,7 +768,7 @@
           "split across slides (auto with autosplit: on)",
           "statute-stack"
         ],
-        "note": "past six tiers the chain overflows a portrait box"
+        "note": "past six tiers the chain overflows a portrait box; a split run carries a derived “governs ↓ / under ↑” signal — a hierarchy, never a temporal “next” (§0b connected members). Pacing stays the authored split.perPage: the signal reads across pages whatever the pacing"
       },
       "density": {
         "axis": "item",
@@ -1115,6 +1117,7 @@
         "axis": "item",
         "min": 2,
         "sweet": 3,
+        "perPage": 1,
         "soft": 4,
         "hard": 4,
         "escalateTo": [
@@ -1308,6 +1311,7 @@
         "axis": "item",
         "min": 2,
         "sweet": 3,
+        "perPage": 1,
         "soft": 4,
         "hard": 4,
         "escalateTo": [
@@ -2913,6 +2917,8 @@
       ],
       "capacity": {
         "axis": "item",
+        "perPage": 1,
+        "relationship": "cycle",
         "min": 3,
         "sweet": 4,
         "soft": 5,
@@ -2921,7 +2927,7 @@
           "list-steps",
           "split across slides"
         ],
-        "note": "under three there is no loop to read; past six the ring crowds"
+        "note": "under three there is no loop to read; past six the ring crowds; a split run paces ONE stage per page and closes with a derived “↻ back to {stage 1}” signal (§0b connected members)"
       },
       "density": {
         "axis": "item",
@@ -5347,6 +5353,8 @@
       ],
       "capacity": {
         "axis": "item",
+        "perPage": 1,
+        "relationship": "sequence",
         "min": 3,
         "sweet": 4,
         "soft": 5,
@@ -5355,7 +5363,7 @@
           "timeline-list",
           "split across slides"
         ],
-        "note": "past five steps the row begins to crowd"
+        "note": "past five steps the row begins to crowd; a split run paces ONE step per page and carries a derived “→ next: …” signal (§0b connected members)"
       },
       "density": {
         "axis": "item",
@@ -6177,7 +6185,6 @@
           "quadrant"
         ],
         "capacity": {
-          "axis": "item",
           "wide": {
             "sweet": 4,
             "soft": 4,
@@ -6197,7 +6204,8 @@
             "sweet": 4,
             "soft": 4,
             "hard": 4
-          }
+          },
+          "axisRetired": "ATOMIC text grid — a 2x2 quadrant read is destroyed by splitting BETWEEN quadrants (you would see 2 of 4 cells with no axis structure), and it has no viewBox to scale, so it RINGS on overflow. §0c owner resolution 2026-07-22 + its named follow-on (\"stale capacity.axis - remove it from matrix-2x2\"). The axis was retained here only as a per-family COUNT estimate, but the split registry reads it as an opt-in, which enrolled the component against its own resolution."
         }
       },
       "tags": [
@@ -6761,6 +6769,7 @@
         "axis": "item",
         "min": 2,
         "sweet": 3,
+        "perPage": 1,
         "soft": 3,
         "hard": 4,
         "escalateTo": [
@@ -8610,7 +8619,6 @@
           "option"
         ],
         "capacity": {
-          "axis": "item",
           "wide": {
             "sweet": 2,
             "soft": 2,
@@ -8630,7 +8638,8 @@
             "sweet": 2,
             "soft": 2,
             "hard": 2
-          }
+          },
+          "axisRetired": "READ-ACROSS — keep whole / carousel (§0c). Its meaning lives in the cross-reading between the two sides, so an item-axis split destroys it. Same stale-axis defect as matrix-2x2, which the follow-on list named while missing this one."
         }
       },
       "tags": [
@@ -9903,6 +9912,8 @@
       ],
       "capacity": {
         "axis": "item",
+        "perPage": 1,
+        "relationship": "comparison",
         "min": 2,
         "sweet": 3,
         "soft": 4,
@@ -9911,7 +9922,7 @@
           "compare-table",
           "split across slides"
         ],
-        "note": "the cards crowd and badges lose legibility past four"
+        "note": "the cards crowd and badges lose legibility past four; a split run spotlights ONE option per page and carries a derived “Option N of M · comparing …” signal so the atomized tiers still read as a compared set (§0b connected members)"
       },
       "density": {
         "axis": "item",
