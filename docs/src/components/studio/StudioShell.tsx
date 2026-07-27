@@ -3444,7 +3444,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<PanelHeader
 							icon={<LensIcon />}
 							title="Reader views"
-							description="A subset of this deck for one kind of reader."
+							// One lede, in the header. The panel body used to carry a second one 40px
+							// below ("You approve exactly what each reader sees…"), so the surface
+							// introduced itself twice before showing a single view.
+							description="A subset of this deck for one reader — you approve exactly what they see."
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{lensesBody}</div>
 					</PanelSheet>

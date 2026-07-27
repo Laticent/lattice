@@ -5352,7 +5352,17 @@ in patch versions.
   same dress as the Library's** — an inset rounded box with the magnifier inside it. cmdk's
   default is edge-to-edge with the icon out at the screen edge and a `border-b` rather than a
   border, so the app shipped two search fields that looked nothing alike, and this one's focus
-  ring was clipped by the header divider above it. **The `auto` tier is now one fixed
+  ring was clipped by the header divider above it.
+  **Sheet heights are an inset from the top, not a percentage.** A percentage lands wherever it
+  lands: 96dvh put a sheet's top edge 34px down, straight through the middle of the Studio's own
+  header, and 88dvh cut the Eight-Cell Bar's captions off under their icons. Both read as broken
+  for the same reason — the chrome is a fixed pixel height and the viewport is not. A pull-out now
+  stops exactly beneath that chrome (`100dvh - 7rem`) so the bar stays whole above it, and a full
+  panel keeps a 1rem sliver so its top radius still reads as a sheet edge. Identical at 390, 375
+  and 360px. **Reader views also stops introducing itself twice** (a header lede and a body lede,
+  40px apart, saying nearly the same thing), and the Themes door's group headings no longer collide
+  with the selected tile's ring — the heading's own `mb-2` measured **zero**, so the ring's 4px
+  overhang painted a white band through "Curated"; a flex `gap`, which cannot collapse, replaces it. **The `auto` tier is now one fixed
   height (88dvh) rather than content height** — 224px for Version history against 717px for Coach
   was variation a user could not tell from a rule — and `full` moved 92 → 96dvh so the two tiers
   differ by more than the 33px nobody could see. **The StudioDrawer joins the same scale**, so

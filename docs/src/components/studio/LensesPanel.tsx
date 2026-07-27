@@ -159,7 +159,6 @@ export function LensesPanel({
 			    #1211, where every panel now states its purpose. Keeping both put the same
 			    sentence on screen twice, 40px apart. What is left is the part the header
 			    has no room for and that a user cannot infer: who decides. */}
-			<p className="text-xs leading-relaxed text-muted-foreground">You approve exactly what each reader sees — a machine only suggests.</p>
 
 			{lenses.length > 0 && (
 				<ul className="mt-2.5 list-none space-y-2 pl-0">

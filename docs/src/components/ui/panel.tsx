@@ -80,13 +80,22 @@ import {
 // measurement was real, the surface was not).
 export const MOBILE_OFFSET = 'bottom-[var(--kb)]';
 const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t`;
+//
+// The heights are expressed as an inset from the TOP, not as a percentage, because
+// a percentage lands wherever it lands — and on a 390×844 phone 96dvh put the sheet's
+// top edge 34px down, i.e. straight through the middle of the Studio's own header,
+// slicing "Welcome to Lattice" in half. 88dvh was no better: 101px down cuts the
+// Eight-Cell Bar's captions off under their icons. Both looked broken for the same
+// reason, and no percentage fixes it, because the chrome is a fixed pixel height and
+// the viewport is not.
+//
+// `7rem` is that chrome: the app header (56px) plus the Eight-Cell Bar (56px). An
+// `auto` sheet stops exactly beneath it, so the bar stays whole and legible above the
+// panel at every phone height. `full` keeps a 1rem sliver so the top radius still
+// reads as a sheet edge rather than a page.
 export const MOBILE_TIER = {
-	auto: 'h-[min(88dvh,calc(100dvh-var(--kb)))]',
-	// 96, not 92. At 92 the two tiers were 33px apart on an 844px screen — a `tier`
-	// prop that cost a decision at every call site and bought a difference nobody
-	// could see. 96 leaves ~34px of app above a full panel against ~101px above a
-	// pull-out, which is a distinction you can actually read.
-	full: 'h-[min(96dvh,calc(100dvh-var(--kb)))]',
+	auto: 'h-[calc(100dvh-max(7rem,var(--kb)))]',
+	full: 'h-[calc(100dvh-max(1rem,var(--kb)))]',
 } as const;
 
 export type PanelTier = keyof typeof MOBILE_TIER;

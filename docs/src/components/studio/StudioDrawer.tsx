@@ -361,8 +361,13 @@ export function StudioDrawer({
 					{level === 'themes' && (
 						<div className="flex flex-col gap-4">
 							{themeGroups.map((g) => (
-								<section key={g.label ?? 'themes'}>
-									{g.label && <h3 className="mb-2 text-[13px] font-semibold text-[var(--text-heading)]">{g.label}</h3>}
+								/* `gap`, not the heading's own `mb-2` — that margin measured ZERO between the
+								   heading box and the grid, so the selected tile's `ring-offset-2` (which paints
+								   4px OUTSIDE the tile) drew its white band straight through "Curated". It read
+								   as a sheared heading and was actually a collision. A flex gap cannot collapse
+								   the way that margin did. */
+								<section key={g.label ?? 'themes'} className="flex flex-col gap-2.5">
+									{g.label && <h3 className="text-[13px] font-semibold leading-normal text-[var(--text-heading)]">{g.label}</h3>}
 									<div className="grid grid-cols-3 gap-2.5">
 										{g.options.map((opt) => {
 											const on = opt.value === palette;
