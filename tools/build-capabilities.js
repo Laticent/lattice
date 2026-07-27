@@ -117,7 +117,7 @@ const SCRIPT_META = {
   'player-core:check':        ['Build & bundle', 'Freshness gate for the player-core Playground bundle.'],
   'player-prune:build':       ['Build & bundle', 'Bundle the CSS/font PRUNE kernel (lib/export/player-prune.js + css-tree) for the browser — the Studio webpage export prunes to the used selectors/faces.'],
   'player-prune:check':       ['Build & bundle', 'Freshness gate for the player-prune Playground bundle.'],
-  'anima-player:build':       ['Build & bundle', 'Bundle the chart-motion (Anima) player for the browser — the runtime that turns a chart\'s SVG into an animated scene in the docs-site preview and the HTML export.'],
+  'anima-player:build':       ['Build & bundle', 'Bundle the chart-motion (Anima) player as an injectable string constant (it cannot `import`) for the standalone HTML player — the CLI `--player` path via lib/export/player-core.mjs and the Studio share-export. It HYDRATES an already-built scene spec; the scene itself is built by chartToScene in docs/src/lib/chart-anima.ts, which the docs-site preview runs from source through Vite rather than from this bundle.'],
   'anima-player:check':       ['Build & bundle', 'Freshness gate for the anima-player bundle.'],
   'read-along-core:build':    ['Build & bundle', 'Bundle the read-along captions producer (lib/core/read-along-build.js + read-along-vtt.js) for the browser — the Studio Share sheet\'s "Captions (.vtt)" export.'],
   'read-along-core:check':    ['Build & bundle', 'Freshness gate for the read-along-core Playground bundle.'],

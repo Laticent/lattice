@@ -39,7 +39,7 @@ harness the index can't infer, add it to `FRAMEWORKS` in the generator.
 |---|---|
 | `a11y-textures:build` | Bundle the categorical/chart texture-<defs> kernel (lib/core/accessibility-textures.js) into the docs Playground ESM module. |
 | `a11y-textures:check` | Freshness gate for the bundled a11y-textures Playground module. |
-| `anima-player:build` | Bundle the chart-motion (Anima) player for the browser — the runtime that turns a chart's SVG into an animated scene in the docs-site preview and the HTML export. |
+| `anima-player:build` | Bundle the chart-motion (Anima) player as an injectable string constant (it cannot `import`) for the standalone HTML player — the CLI `--player` path via lib/export/player-core.mjs and the Studio share-export. It HYDRATES an already-built scene spec; the scene itself is built by chartToScene in docs/src/lib/chart-anima.ts, which the docs-site preview runs from source through Vite rather than from this bundle. |
 | `anima-player:check` | Freshness gate for the anima-player bundle. |
 | `authoring-core:build` | Bundle the pure authoring engines (lint/review/scorecard) for the browser. |
 | `authoring-core:check` | Freshness gate for the authoring-core bundle. |

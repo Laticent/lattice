@@ -104,11 +104,27 @@ is attributed by one question: is it inside an `<svg>`? An HTML element carrying
 `[data-mark]` counts as HTML content even with no text. Both sides present →
 `hybrid`; one side → that side; neither → `empty`, which is always an error.
 
-Three things are deliberately subtracted, and only three: the masthead / header /
-footer (outside the stage cell), the read-as caption `.chart-caption` (a sentence
-ABOUT the picture — counting its prose would make every captioned SVG chart read
-as hybrid), and anything not visible (`getClientRects().length === 0`, which is how
-state-chart's hidden `<ol>` correctly stops counting after the paint).
+Two things are subtracted, and slide chrome is not one of them: the masthead,
+header, footer and the read-as caption are all outside the picture already
+(`chart-family.js` emits `.chart-caption` as a SIBLING of `.chart-body`), so no
+exclusion rule is needed and none is written — an early draft carried a
+`.chart-caption` filter that could never match, which is the kind of unexercised
+safeguard §3 indicts. What IS subtracted: content occupying no layout
+(`display:none`, or `visibility:hidden` — the latter is how state-chart's `<ol>`
+stops counting once the paint covers it, deliberately not `display:none` so the
+boxes stay measurable for the next re-measure), and content inside SVG's
+non-rendering containers (`<defs>`, `<pattern>`, `<marker>`, `<clipPath>`, …),
+which lay out but never paint. That second exclusion is not hypothetical: an
+inert two-shape sprite in a `<defs>` is enough to flip a pure-HTML picture to
+`hybrid`, and Lattice already ships `<defs>` full of `<path>`s for the
+categorical textures — at page level today, which is the only reason it has not
+bitten.
+
+The predicate is geometric, so it does not catch an element that is laid out but
+invisible for a reason geometry cannot see: `opacity: 0`, `fill: none`, a clip
+that hides everything, `font-size: 0`, a shape parked off-canvas. None of those
+occurs in the catalog today. Stated here rather than glossed, because a kernel
+that starts doing one of them needs a case in the predicate, not a shrug.
 
 **No threshold.** Radar is `hybrid` on the strength of one 22-character HTML
 `<figcaption>` under each small-multiple. A threshold would have rounded that to
@@ -149,8 +165,8 @@ Ground truth at the time of writing, from the real export:
 | `quadrant` | svg | points placed by value on two axes; label placement needs them together |
 | `journey` | hybrid | HTML board (a table of text) with an SVG mood curve drawn across it |
 | `radar` | hybrid | SVG polygons; the small-multiples variant captions each mini in HTML |
-| `state-chart` | hybrid | authored `<ol>` measured, then painted into the SVG overlay |
-| `word-cloud` | hybrid | SVG words (arbitrary size and angle); HTML key for reading order |
+| `state-chart` | hybrid | the `inline` variant's chip row stays HTML; the default's `<ol>` is painted over |
+| `word-cloud` | hybrid | SVG words (arbitrary size and angle); an `aria-hidden` HTML size key beside them |
 | `kanban` | html | text cards in named columns — no geometry to draw |
 | `progress` | html | one number per row; a `<div>` width needs no coordinate system |
 | `roadmap` | html | a real `<table>`; nothing is positioned by value |
@@ -159,6 +175,22 @@ Ground truth at the time of writing, from the real export:
 Six SVG, four hybrid, four HTML. The four HTML members are not a backlog — each
 `renderNote` argues that HTML is the right answer for that layout, and rewriting
 them in SVG would trade real text selection, wrapping and reflow for nothing.
+
+**Two hybrids are hybrid by a thread, and the notes have to say so.** `radar`'s
+entire HTML side is one 22-character `<figcaption>` per small-multiple, and
+`state-chart`'s is one gallery slide — the `inline` variant's chip row — because
+on every default slide the authored `<ol>` is painted over and correctly stops
+counting. Delete that one slide and the gate flips `state-chart` to `svg`. That
+is the derivation working, not a flaw in it; what it demands is that each note
+name the seam it actually has rather than the seam that sounds most
+architectural.
+
+**`render` is necessary but not sufficient for motion.** `svg` says the picture
+is SVG, not that all of it animates. `journey` draws real SVG geometry and emits
+no motion roles, so chart-motion skips it entirely; `diagram` is SVG but its node
+labels live in `<foreignObject>` — inside the `<svg>`, yet not `<text>` — so they
+stay put while the nodes move. The schema and §5.6 state the limit; each
+`renderNote` carries its own case.
 
 ## 8. The taxonomy half — documentation only
 

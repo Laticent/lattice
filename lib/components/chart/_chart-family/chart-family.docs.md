@@ -256,14 +256,25 @@ justifying it, and is **derived from the rendered export and gated**
 it there rather than inferring it here: the manifest is checked against reality
 every time the gate runs, and a prose table is not.
 
-Today the family splits six SVG (`funnel`, `gantt`, `map`, `piechart`, `quadrant`,
-plus `diagram` outside this family), four hybrid (`journey`, `radar`,
-`state-chart`, `word-cloud`), and four HTML (`kanban`, `progress`, `roadmap`,
-`timeline-list`). The hybrids are the interesting ones, and each `renderNote`
-names its own seam: radar's small-multiple captions are HTML beneath SVG minis;
-word-cloud's accessibility key is an HTML list beneath the SVG words;
-state-chart's authored `<ol>` is measured, then painted into the SVG overlay;
-journey's board is an HTML grid with an SVG mood curve drawn across it.
+Today the family splits five SVG (`funnel`, `gantt`, `map`, `piechart`,
+`quadrant` — plus `diagram`, which is SVG but is not a member of this family),
+four hybrid (`journey`, `radar`, `state-chart`, `word-cloud`), and four HTML
+(`kanban`, `progress`, `roadmap`, `timeline-list`).
+
+The hybrids are the interesting ones, and each `renderNote` names its own seam —
+note that the seam is often smaller than you would guess, and is not always where
+the motion story is:
+
+- **radar** — SVG minis, each captioned by an HTML `<figcaption>` in the
+  small-multiples variant. That one caption is the whole HTML side.
+- **word-cloud** — SVG words; the HTML is the right-rail `size = frequency` key,
+  which is `aria-hidden` and carries no terms.
+- **state-chart** — the authored `<ol>` is measured and then painted over, so a
+  DEFAULT slide ends up SVG in practice; the hybrid verdict comes from the
+  `inline` variant, whose chip row is never painted over.
+- **journey** — an HTML board with an SVG mood curve and mood faces drawn across
+  it. Neither side animates: journey emits no motion roles at all (the table
+  above says the same thing from the other direction).
 
 ### The radar's asymmetry is deliberate
 

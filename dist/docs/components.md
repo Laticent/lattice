@@ -5027,7 +5027,7 @@ See [gantt.gallery.light.pdf](../../lib/components/chart/gantt/gantt.gallery.lig
 
 **Function** progression · **Form** timeline · **Substance** structure
 
-**Drawn with** `hybrid` — The board — stages, lanes, actors and task labels — is an HTML/CSS grid, because a journey map is fundamentally a table of text that must wrap and reflow. The mood curve and the actor faces drawn across it are inline `<svg>`: those are the only parts with real geometry, and the only parts that animate.
+**Drawn with** `hybrid` — The board — stages, lanes, actors and task labels — is an HTML/CSS grid, because a journey map is fundamentally a table of text that must wrap and reflow. Drawn across it in inline `<svg>`: the mood curve and the mood faces, the only parts with real geometry. Neither side animates today — journey emits no motion roles, so chart-motion skips it.
 
 **Tags** `process` · `assessment` · `walkthrough`
 
@@ -6262,7 +6262,7 @@ See [radar.gallery.light.pdf](../../lib/components/chart/radar/radar.gallery.lig
 
 **Function** progression · **Form** matrix · **Substance** structure
 
-**Drawn with** `html` — A real `<table>` of cells carrying state markers. The layout is a grid of text — nothing is positioned by value — so the semantic table is both the right structure for assistive tech and the right layout engine for the cells.
+**Drawn with** `html` — HTML/CSS all the way down, with no `<svg>` anywhere: a real `<table>` of cells carrying state markers by default, or a transposed `.horizons` grid for that variant. The layout is a grid of text and nothing is positioned by value, so the semantic table is both the right structure for assistive tech and the right layout engine for the cells.
 
 **Tags** `planning` · `swimlane` · `milestones` · `agile`
 
@@ -6436,7 +6436,7 @@ See [roadmap.gallery.light.pdf](../../lib/components/chart/roadmap/roadmap.galle
 
 **Function** progression · **Form** timeline · **Substance** graph
 
-**Drawn with** `hybrid` — States are authored as an HTML `<ol>`; the browser pass measures those boxes and paints the nodes, edges and edge labels into the `<svg>` overlay, hiding the list. Edge routing depends on each state's measured box, so the HTML has to exist first — and the legend and the chip variant stay HTML.
+**Drawn with** `hybrid` — States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay — edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over.
 
 **Tags** `flowchart` · `states` · `workflow`
 
@@ -6693,7 +6693,7 @@ See [timeline-list.gallery.light.pdf](../../lib/components/chart/timeline-list/t
 
 **Function** evidence · **Form** canvas · **Substance** series
 
-**Drawn with** `hybrid` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do — while the key beneath the cloud is an HTML list, so the terms stay selectable, findable and readable in order by a screen reader.
+**Drawn with** `hybrid` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do. The HTML half is small and is NOT the terms: a right-rail `size = frequency` key (`aria-hidden`, so assistive tech reads the SVG words rather than the ramp) explaining the one mapping a reader cannot quantify by looking.
 
 **Tags** `tag-cloud` · `themes` · `proportion`
 
@@ -6867,7 +6867,7 @@ See [word-cloud.gallery.light.pdf](../../lib/components/chart/word-cloud/word-cl
 
 **Function** evidence · **Form** canvas · **Substance** graph
 
-**Drawn with** `svg` — Mermaid renders the fenced block to `<svg>` downstream — mmdc at build time, mermaid.js in a live preview — so the engine emits a code fence and the exported artifact carries a real drawing. Node labels ride inside `<foreignObject>`, i.e. HTML markup living inside the SVG, which is why they wrap like text but export with the figure.
+**Drawn with** `svg` — Mermaid renders the fenced block to `<svg>` downstream — mmdc at build time, mermaid.js in a live preview — so the engine emits a code fence and the exported artifact carries a real drawing. One caveat worth knowing: node labels ride inside `<foreignObject>`, so they wrap like HTML text and export with the figure, but chart-motion does not move them (it animates `<text>` and marked geometry, and a `<foreignObject><div>` is neither).
 
 **Tags** `flowchart` · `org-chart` · `sequence` · `process`
 

@@ -1244,8 +1244,13 @@ function checkSolverIntentDeclared(manifests, errors) {
 // See engineering/decisions/2026-07-27-render-nature-declaration.md.
 const RENDER_NATURES = new Set(require('../lib/components/manifest.schema.json').properties.render.enum);
 const RENDER_BUCKETS = new Set(['chart', 'diagram']);
-// A note that only names its own enum value explains nothing. These are the
-// phrasings that pass the length check while saying "it is what it is".
+// The substance floor. Read from the schema so the two can never disagree — and
+// enforced HERE because nothing else enforces it: the manifest loader's only
+// schema-derived check is on key NAMES, so `"minLength": 40` was decoration
+// until this line existed. A floor is what actually kills the vacuous note; the
+// pattern below only catches the handful of phrasings that clear it by padding.
+const RENDER_NOTE_MIN = require('../lib/components/manifest.schema.json').properties.renderNote.minLength;
+// A note that only names its own enum value explains nothing.
 const EMPTY_NOTE = /^(it |this )?(component |layout )?(is |renders |renders as |draws |uses )?(pure |plain |all )?(svg|html|hybrid)\b[\s.]*$/i;
 
 function checkRenderNature(manifests, errors) {
@@ -1276,16 +1281,22 @@ function checkRenderNature(manifests, errors) {
         `${m.name}: declares \`render: ${JSON.stringify(declared)}\` with no \`renderNote\` — the field ` +
         `states the shape, the note states why. Name what each side is made of and what forced it.`,
       );
-    } else if (EMPTY_NOTE.test(note)) {
+    } else if (note.length < RENDER_NOTE_MIN || EMPTY_NOTE.test(note)) {
       errors.push(
-        `${m.name}: \`renderNote\` only restates \`render\` (${JSON.stringify(note)}). Say what forced ` +
-        `the choice — a shared coordinate system, a measured box, arbitrary rotation, text that must stay selectable.`,
+        `${m.name}: \`renderNote\` says nothing beyond \`render\` (${JSON.stringify(note)}; ` +
+        `${note.length} chars, floor is ${RENDER_NOTE_MIN}). Say what forced the choice — a shared ` +
+        `coordinate system, a measured box, arbitrary rotation, text that must stay selectable.`,
       );
-    } else if (declared === 'hybrid' && !/\bsvg\b/i.test(note) && !/\bhtml\b/i.test(note)) {
+    } else if (declared === 'hybrid' && !(/\bsvg\b/i.test(note) && /\bhtml\b/i.test(note))) {
+      // BOTH words, not either. The seam is the entire value of the hybrid
+      // verdict, and a one-sided note is worse than useless — "every visible part
+      // is drawn as SVG" alongside `render: "hybrid"` is self-contradictory, and
+      // an `||` here would have waved it through.
       errors.push(
-        `${m.name}: \`render: "hybrid"\` but its \`renderNote\` never says which part is SVG and which ` +
-        `is HTML. That boundary is the whole point of the hybrid value — an author needs to know which ` +
-        `half animates and which half an SVG export leaves behind.`,
+        `${m.name}: \`render: "hybrid"\` but its \`renderNote\` names only one side ` +
+        `(needs to say what is SVG *and* what is HTML). That boundary is the whole point of the ` +
+        `hybrid value — an author needs to know which half animates and which half an SVG export ` +
+        `leaves behind.`,
       );
     }
   }
@@ -2838,6 +2849,7 @@ module.exports = {
   checkRenderNature,
   RENDER_NATURES,
   RENDER_BUCKETS,
+  RENDER_NOTE_MIN,
   checkDensityCoverage,
   SANCTIONED_DENSITY_EXEMPT,
   checkTagClustering,

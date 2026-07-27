@@ -4,7 +4,7 @@
 
 **Function** evidence · **Form** canvas · **Substance** series
 
-**Drawn with** `hybrid` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do — while the key beneath the cloud is an HTML list, so the terms stay selectable, findable and readable in order by a screen reader.
+**Drawn with** `hybrid` — The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do. The HTML half is small and is NOT the terms: a right-rail `size = frequency` key (`aria-hidden`, so assistive tech reads the SVG words rather than the ramp) explaining the one mapping a reader cannot quantify by looking.
 
 **Tags** `tag-cloud` · `themes` · `proportion`
 

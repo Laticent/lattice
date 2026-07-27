@@ -4,7 +4,7 @@
 
 **Function** progression · **Form** timeline · **Substance** graph
 
-**Drawn with** `hybrid` — States are authored as an HTML `<ol>`; the browser pass measures those boxes and paints the nodes, edges and edge labels into the `<svg>` overlay, hiding the list. Edge routing depends on each state's measured box, so the HTML has to exist first — and the legend and the chip variant stay HTML.
+**Drawn with** `hybrid` — States are authored as an HTML `<ol>`, which the browser pass measures and then paints as nodes, edges and edge labels into the `<svg>` overlay — edge routing needs each state's measured box, so the HTML has to exist first. Once painted the list is hidden, so a default slide is SVG in practice; what keeps the component hybrid is the `inline` variant, whose chip row stays HTML and is never painted over.
 
 **Tags** `flowchart` · `states` · `workflow`
 

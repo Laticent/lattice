@@ -30,7 +30,7 @@
  * runtime pass runs), and the measurement reads the resulting live DOM.
  *
  * THE MEASUREMENT is deliberately dumb, so it cannot be argued with. Inside each
- * slide's stage cell (`.cell-stage`), every VISIBLE text node and every visible
+ * slide's PICTURE (see PICTURE_SEL), every laid-out text node and every laid-out
  * geometry element is attributed to one side by a single question: is it inside
  * an `<svg>`? Addressable HTML marks (`[data-mark]` on an HTML element) count as
  * HTML content even without text. Then:
@@ -39,12 +39,22 @@
  *     html side only  → html
  *     both sides      → hybrid
  *
- * There is no threshold. The only thing subtracted is CHROME — the masthead,
- * header and footer (already outside the stage cell) and the read-as caption
- * (`.chart-caption`), which is a sentence ABOUT the picture rather than part of
- * it. Everything the picture is made of counts, so a word cloud whose words are
- * SVG but whose accessibility key is an HTML list is `hybrid`, and its
+ * There is no threshold, and only two things are subtracted. Slide CHROME — the
+ * masthead, header, footer and the read-as caption — is outside the picture by
+ * construction (chart-family emits `.chart-caption` as a SIBLING of `.chart-body`),
+ * so nothing has to exclude it. What IS excluded is content that occupies no
+ * layout at all (`display:none`, `visibility:hidden` — how state-chart's `<ol>`
+ * stops counting once the browser pass paints over it) and content inside SVG's
+ * non-rendering containers (`<defs>`, `<pattern>`, `<marker>`, …), which lay out
+ * but never paint. Everything else the picture is made of counts, so a word cloud
+ * whose words are SVG but whose size key beside them is HTML is `hybrid`, and its
  * `renderNote` says so — more useful than a rounded-off `svg` would be.
+ *
+ * WHAT THE PREDICATE DOES NOT CATCH, stated rather than papered over: an element
+ * that is laid out but invisible for a reason CSS geometry cannot see —
+ * `opacity: 0`, `fill: none`, a clip that hides everything, type at `font-size: 0`,
+ * a shape parked off-canvas. Each would be counted as content. None occurs in the
+ * catalog today; a kernel that starts doing it needs a case here, not a shrug.
  *
  * COVERAGE. It measures each component's OWN gallery, so every variant is in
  * scope, not just the default: radar's small-multiples label each mini with an
@@ -93,11 +103,15 @@ const GEOMETRY = ['path', 'rect', 'circle', 'ellipse', 'polygon', 'polyline', 'l
 const PICTURE_SEL = '.chart-body, .mermaid-svg, .mermaid-fallback';
 
 /**
- * Chrome that sits INSIDE the picture but is not part of it. The read-as caption
- * is a sentence about the chart (chart-family.js `captionEl`); counting its prose
- * would make every captioned SVG chart read as hybrid.
+ * SVG containers whose contents lay out but NEVER paint. A `<text>` in `<defs>`
+ * or a `<path>` in a `<pattern>` has client rects, so the visibility predicate
+ * alone counts them as content — enough to flip a pure-HTML picture to `hybrid`
+ * on the strength of an inert sprite. Lattice already ships `<defs>` full of
+ * `<path>`s for the categorical textures (lib/core/accessibility-textures.js);
+ * they sit at page level today, outside any section, which is the only reason
+ * this has not bitten yet.
  */
-const CHROME_SEL = '.chart-caption';
+const NON_RENDERING_SEL = 'defs, pattern, marker, clipPath, mask, symbol, linearGradient, radialGradient';
 
 /** The visualization components that must declare `render`, each with its own gallery. */
 function vizComponents() {
@@ -125,20 +139,23 @@ function resolveChrome() {
   return undefined;
 }
 
+/** Where a deck's emulator artifacts land. Derived BEFORE the render, so a render
+ *  that throws part-way still leaves its half-written files registered for cleanup. */
+function sidecarPaths(deckFile) {
+  const base = path.join(os.tmpdir(), `render-nature-${path.basename(deckFile, '.md')}-${process.pid}`);
+  return { pdf: `${base}.pdf`, html: `${base}.html` };
+}
+
 /**
- * Render a deck through the emulator and return the path of its HTML sidecar —
- * the export surface, with mermaid already baked to SVG.
+ * Render a deck through the emulator, leaving its HTML sidecar on disk — the
+ * export surface, with mermaid already baked to SVG.
  * (Same idiom as tools/check-svg-scaling.js, which measures the same sidecar.)
  */
-function renderSidecar(deckFile) {
-  const base = path.join(os.tmpdir(), `render-nature-${path.basename(deckFile, '.md')}-${process.pid}`);
-  const pdf = `${base}.pdf`;
+function renderSidecar(deckFile, { pdf, html }) {
   execFileSync(process.execPath, [EMULATOR, deckFile, pdf, 'indaco', '-q'], {
     cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], timeout: 10 * 60_000,
   });
-  const html = `${base}.html`;
   if (!fs.existsSync(html)) throw new Error(`emulator produced no HTML sidecar for ${deckFile}`);
-  return { html, pdf };
 }
 
 /**
@@ -183,32 +200,42 @@ async function derive(components = vizComponents()) {
   try {
     for (const comp of components) {
       if (!fs.existsSync(comp.deck)) throw new Error(`missing gallery for ${comp.name}: ${comp.deck}`);
-      const { html, pdf } = renderSidecar(comp.deck);
+      const { html, pdf } = sidecarPaths(comp.deck);
       temps.push(html, pdf);
+      renderSidecar(comp.deck, { html, pdf });
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 720 });
       await page.goto(`file://${html}`, { waitUntil: 'networkidle0', timeout: 120_000 });
-      const records = await page.evaluate((GEOM, CHROME, PICTURE) => {
+      const records = await page.evaluate((GEOM, INERT, PICTURE, NAME) => {
         const geom = new Set(GEOM);
-        // Zero client rects means an ancestor is `display:none` (the state-chart
-        // `<ol>` after the browser pass hides it) — invisible content is not part
-        // of the picture, whatever the markup says.
+        // Laid out at all? Zero client rects covers `display:none`; the second
+        // clause covers `visibility:hidden`, which is what state-chart uses to
+        // retire its `<ol>` once the browser pass has painted the SVG over it
+        // (deliberately NOT display:none — the boxes must keep occupying space
+        // so the next re-measure still works). Content occupying no layout is
+        // not part of the picture, whatever the markup says.
         const shown = (el) => !!el && el.getClientRects().length > 0
-          && getComputedStyle(el).visibility !== 'hidden';
+          && getComputedStyle(el).visibility !== 'hidden'
+          // …and inside a non-rendering SVG container it lays out but never
+          // paints, so it is not part of the picture either.
+          && !el.closest(INERT);
         const out = [];
         for (const sec of document.querySelectorAll('section[data-class]')) {
-          // `_class: state-chart lr` renders as `data-class="state-chart lr"` —
-          // the component name is the FIRST token; the rest are modifiers.
-          const name = sec.dataset.class.trim().split(/\s+/)[0];
+          // `_class: state-chart lr` renders as `data-class="state-chart lr"`.
+          // Match on MEMBERSHIP, not on position: a slide authored `_class: dark
+          // roadmap` puts a modifier first, and keying off token[0] would drop
+          // that slide silently — the failure mode that could quietly turn a
+          // hybrid verdict into `svg`.
+          if (!sec.dataset.class.trim().split(/\s+/).includes(NAME)) continue;
           const pictures = [...sec.querySelectorAll(PICTURE)];
-          const rec = { name, svgChars: 0, svgGeom: 0, htmlChars: 0, htmlMarks: 0, sections: 1, pictures: pictures.length, hosts: {} };
+          const rec = { name: NAME, svgChars: 0, svgGeom: 0, htmlChars: 0, htmlMarks: 0, sections: 1, pictures: pictures.length, hosts: {} };
           for (const picture of pictures) {
             const walker = document.createTreeWalker(picture, NodeFilter.SHOW_TEXT);
             for (let n = walker.nextNode(); n; n = walker.nextNode()) {
               const text = (n.nodeValue || '').trim();
               if (!text) continue;
               const host = n.parentElement;
-              if (!shown(host) || host.closest(CHROME)) continue;
+              if (!shown(host)) continue;
               const inSvg = !!host.closest('svg');
               const key = host.tagName.toLowerCase()
                 + (host.getAttribute('class') ? `.${host.getAttribute('class').split(/\s+/)[0]}` : '');
@@ -216,7 +243,6 @@ async function derive(components = vizComponents()) {
               if (inSvg) rec.svgChars += text.length; else rec.htmlChars += text.length;
             }
             for (const el of picture.querySelectorAll('*')) {
-              if (el.closest(CHROME)) continue;
               const tag = el.tagName.toLowerCase();
               const inSvg = !!el.closest('svg');
               if (inSvg && geom.has(tag) && shown(el)) rec.svgGeom += 1;
@@ -226,12 +252,9 @@ async function derive(components = vizComponents()) {
           out.push(rec);
         }
         return out;
-      }, GEOMETRY, CHROME_SEL, PICTURE_SEL);
+      }, GEOMETRY, NON_RENDERING_SEL, PICTURE_SEL, comp.name);
       await page.close();
-      // A component's own gallery also carries prose meta-slides and, for a few,
-      // sibling components — attribute only the sections that ARE this component.
       for (const rec of records) {
-        if (rec.name !== comp.name) continue;
         const { name, ...counts } = rec;
         derived[name] = mergeCounts(derived[name] || EMPTY, counts);
       }
@@ -316,4 +339,4 @@ if (require.main === module) {
   main().catch((err) => { console.error(`check-render-nature: ${err?.stack || err}`); process.exit(2); });
 }
 
-module.exports = { classify, mergeCounts, derive, vizComponents, VIZ_BUCKETS, GEOMETRY, CHROME_SEL, PICTURE_SEL };
+module.exports = { classify, mergeCounts, derive, vizComponents, VIZ_BUCKETS, GEOMETRY, NON_RENDERING_SEL, PICTURE_SEL };

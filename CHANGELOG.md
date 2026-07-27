@@ -59,6 +59,9 @@ in patch versions.
   chart-family membership is a shared `.chart-frame` skeleton; `render` is construction material.
   Knowing one tells you nothing about the others — `state-chart` is a graph, in the chart folder,
   wrapped in the chart frame, drawn hybrid. Documentation only: no renames, no manifest churn.
+  One false claim went with it: the substance table's **"Output" column** read DOM · DOM · SVG · SVG,
+  but four of the thirteen chart components draw no SVG at all — and teaching that `series` means SVG
+  was plausibly the seed of the confusion. The column is gone; nothing referenced it.
 
 - **Per-component agent contract: `<name>.docs.md` now front-loads a dense, machine-actionable
   block instead of burying it in narrative prose.** Generated docs previously interleaved the
@@ -4723,6 +4726,10 @@ in patch versions.
   `lib/base/base.docs.md § Custom logo` and `examples/custom-logo.md`.
 
 ### Fixed
+- **`capabilities:check` — and therefore `build:check` — was red on `main`.** Seven npm scripts added
+  by #1119 (`anima-player:build`/`:check`, `test:adaptive`, `test:concepts`, `test:exemplars`,
+  `test:forms`, `test:transform-dsl`) were never described in `SCRIPT_META`, so the freshness gate
+  failed on every branch. All seven are described now, alongside the new `check:render-nature`.
 
 - **`compare-code`'s manifest `skeleton` used a markdown heading (`### Before`/`### After`) the
   transform never recognized, collapsing both fenced blocks into one lopsided column instead of two

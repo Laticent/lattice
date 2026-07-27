@@ -4,7 +4,7 @@
 
 **Function** progression · **Form** timeline · **Substance** structure
 
-**Drawn with** `hybrid` — The board — stages, lanes, actors and task labels — is an HTML/CSS grid, because a journey map is fundamentally a table of text that must wrap and reflow. The mood curve and the actor faces drawn across it are inline `<svg>`: those are the only parts with real geometry, and the only parts that animate.
+**Drawn with** `hybrid` — The board — stages, lanes, actors and task labels — is an HTML/CSS grid, because a journey map is fundamentally a table of text that must wrap and reflow. Drawn across it in inline `<svg>`: the mood curve and the mood faces, the only parts with real geometry. Neither side animates today — journey emits no motion roles, so chart-motion skips it.
 
 **Tags** `process` · `assessment` · `walkthrough`
 

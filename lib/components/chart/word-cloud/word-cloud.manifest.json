@@ -13,7 +13,7 @@
   "form": "canvas",
   "substance": "series",
   "render": "hybrid",
-  "renderNote": "The words are `<svg>` `<text>` — the packer places them at arbitrary sizes and angles, which CSS text flow cannot do — while the key beneath the cloud is an HTML list, so the terms stay selectable, findable and readable in order by a screen reader.",
+  "renderNote": "The words are `<svg>` `<text>` \u2014 the packer places them at arbitrary sizes and angles, which CSS text flow cannot do. The HTML half is small and is NOT the terms: a right-rail `size = frequency` key (`aria-hidden`, so assistive tech reads the SVG words rather than the ramp) explaining the one mapping a reader cannot quantify by looking.",
   "stage": "canvas",
   "tags": [
     "tag-cloud",

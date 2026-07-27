@@ -302,9 +302,14 @@ declares `render: svg | hybrid | html` plus a `renderNote` justifying it. The
 field exists because three things a deck author cares about depend on it and on
 nothing else in the manifest:
 
-- **Motion.** Chart-motion (Anima) animates the first `<svg>` in a section.
-  A `html` component does not animate; the HTML half of a `hybrid` one stays
-  still while its SVG half moves.
+- **Motion.** Chart-motion (Anima) reads the first `<svg>` in a section, so an
+  `html` component gets no scene at all and the HTML half of a `hybrid` one
+  stays still while its SVG half moves. The field is **necessary, not
+  sufficient**: `svg` says the picture is SVG, not that every part of it
+  animates — a kernel still has to emit the motion roles (`journey` is SVG in
+  places and animates nothing), and HTML inside a `<foreignObject>` is inside
+  the SVG but is not a `<text>` node, so a mermaid node label stays put while
+  its node moves. Each `renderNote` carries that detail for its component.
 - **Mark detail.** The tap-a-mark popover addresses `[data-mark]` elements; which
   parts can carry one follows from what they are made of.
 - **Export.** An SVG export of the figure captures the SVG side and nothing else.
