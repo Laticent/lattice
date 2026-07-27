@@ -408,7 +408,10 @@ in patch versions.
   word-cloud's key reproduces the token scale it replaces (13.48px label, 36/25.2/19.24px ramp —
   verified via `getScreenCTM`, not an assumed scale: `preserveAspectRatio: meet` makes that canvas
   WIDTH-bound at 0.83783, and converting through the 0.9 height ratio shipped the whole key 6.9%
-  small in a first cut). radar's caption band is
+  small in a first cut). The SPINE is the deliberate exception: thickness 2.00px → 2.40px because it
+  now uses the family ratio rather than word-cloud's bespoke 2px hairline floor (the piechart's is
+  2.73px on the same surface), and length 224.6px → 209.1px because 78% now means 78% of the drawing
+  rather than of the letterboxed CSS box. radar's caption band is
   sized per chart from the longest name (one line or two) and its height travels to the CSS on
   `--radar-mini-vb`, so a chart of one-line names stays height-neutral (206.7px → 206.2px) instead of
   reserving a wrap it does not have — height the Fit Spine would otherwise have to find, which can

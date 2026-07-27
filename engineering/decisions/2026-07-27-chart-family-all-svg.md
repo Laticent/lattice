@@ -120,10 +120,21 @@ the ramp, with gaps derived from the CSS line boxes they replace (the ramp's
 measured px divided by **0.83783**, the canvas's true uniform scale; see §6.5 for
 the 6.9% error that came of dividing by the height ratio instead.
 
-**Both conversions are size-neutral at the landscape default** — the before/after
-crops there are indistinguishable, which is the bar for a construction change. The
-portrait and retuned cases above are the exception, and deliberately so: matching
-the old numbers there would have meant reproducing the defect.
+**Both conversions are size-neutral at the landscape default for TYPE** — the
+before/after crops there are indistinguishable, which is the bar for a
+construction change. Three deliberate exceptions, stated rather than glossed:
+
+- **Portrait and retuned cases** (§1) — matching the old numbers there would have
+  meant reproducing the defect.
+- **The spine THICKNESS** moves 2.00px → 2.40px. The old value was a bespoke
+  `clamp(2px, 0.156cqi, 4px)` hairline that bottomed out at its 2px floor; the new
+  one is the family ratio `KEY_FS × SPINE_W_R`, which puts it beside the
+  piechart's **2.73px** on the same surface. Joining the family is the point of
+  the shared builder, so this is alignment, not drift.
+- **The spine LENGTH** moves 224.6px → 209.1px, because 78% now means 78% of the
+  DRAWING rather than 78% of the letterboxed CSS box. Once the spine lives in the
+  viewBox with the cloud it should scale with the cloud; measuring it against
+  leftover box height is what the conversion set out to stop.
 
 ## 4. The gates
 
