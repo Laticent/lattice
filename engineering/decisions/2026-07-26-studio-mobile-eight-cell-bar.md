@@ -72,7 +72,7 @@ unchanged one-tap panel toggles, just relabeled with persistent captions.
 
 **Overflow** — `StudioDrawer.tsx`, a new component: the "···" trigger now
 opens a `Sheet side="bottom" h-[85dvh]` with a sticky jump-strip over 5 fixed
-zones (Edit, Views, Show me, Look, Workspace) instead of one flat scroll.
+zones (Workspace, Edit, Views, Show me, Look) instead of one flat scroll.
 Rows that open a further surface (Version history, Slide settings, Lenses,
 Library, Workspace settings, Feedback) close the drawer first
 (`onOpenChange(false)` then the action) to avoid overlay focus races. Theme
@@ -80,6 +80,25 @@ switching is inline in the drawer's Look zone via `themeSelectGroups()` (data
 only — not the `ThemeMenuItems` component, which emits Radix
 `DropdownMenu` primitives that can't render inside a `Sheet`, a trap every
 prior round hit).
+
+**Post-open refinement, from direct user feedback on the shipped design**:
+Workspace (Library, Workspace settings, Search, Send Feedback) moved from
+the LAST zone to the FIRST, and its four rows changed from a vertical `Row`
+list to a horizontal icon-button row (`IconAction` — icon on top, a short
+caption below, same visual idiom as the toolbar's `BarIcon`). The user's
+ask, read literally against a screenshot of the shipped drawer: "move them
+from the bottom to the top of this component and turn them into icon
+button row with labels below them." An earlier draft of this response
+mis-scoped the ask as promoting Library/Workspace settings into the main
+toolbar itself (a much bigger, riskier change reopening how many cells the
+Eight-Cell Bar holds) — a mockup was built and shown before any code
+changed, the user corrected the scope, and the actual (much smaller, purely
+intra-drawer) change shipped instead. `IconAction` keeps `label` (the full
+accessible name — "Workspace settings", "Search / commands", "Send
+feedback" — unchanged from the prior `Row` markup, so no existing test or
+e2e assertion targeting those names broke) separate from `caption` (the
+short visual text the icon-row layout has room for), the same label/caption
+split `BarIcon` already uses.
 
 **Icon collisions fixed structurally** — a new `docs/src/components/studio/
 icons.ts` re-exports each shared icon under its semantic name

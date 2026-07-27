@@ -8468,11 +8468,14 @@ in patch versions.
   Markdown/Compose/Preview merge into one exclusive 3-way segment (freeing exactly the width eight
   captioned ≥44×44 cells need); Coach, Chat, Settings, Present, and Share stay exactly where they
   were — one tap, inline, never behind a menu. The mobile "···" overflow is now the **StudioDrawer**,
-  a bottom sheet with five fixed, named zones (Edit · Views · Show me · Look · Workspace) and a
+  a bottom sheet with five fixed, named zones (Workspace · Edit · Views · Show me · Look) and a
   sticky jump strip, replacing one flat scroll that mixed tour copy, navigation, and an 18-theme
   catalog with no section a user noticed; long catalogs (tours, themes) now scroll sideways inside
-  their own zone instead of stacking vertically. Tablet's overflow is unchanged (still the flat
-  dropdown; Version history moves from Preview's pane bar into the drawer's Edit zone). Two real
+  their own zone instead of stacking vertically. **Workspace leads the drawer, not the foot of it**
+  — Library, Workspace settings, Search, and Send Feedback render as a scannable icon-button row
+  (icon + caption, like the toolbar) at the very top, not a vertical list buried under Views/Show
+  me/Look. Tablet's overflow is unchanged (still the flat dropdown; Version history moves from
+  Preview's pane bar into the drawer's Edit zone). Two real
   icon collisions are fixed everywhere they occur: `MessageSquareHeart` no longer means both Chat
   and Send Feedback (Chat moves to a distinct bot-chat glyph, at all four Chat sites), and `Eye` no
   longer means both Preview and Lenses/reader-views (Lenses moves to a glasses glyph, at all six

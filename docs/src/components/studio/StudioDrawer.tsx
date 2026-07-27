@@ -6,6 +6,11 @@
 // genuinely secondary stuff: low-frequency editor actions, guided tours, reader
 // views, the theme catalog, and workspace-level settings.
 //
+// Workspace leads (Library, Workspace settings, Search, Feedback) — post-launch
+// feedback moved it from last zone to first, and from a vertical Row list to a
+// scannable icon-button row (IconAction below), because these get reached for
+// far more often than "buried behind Look" implied.
+//
 // Long catalogs (tours, themes) scroll SIDEWAYS inside their own zone rather than
 // stacking vertically — the structural fix for the old "···"'s real failure mode: an
 // 18-theme, 4-tier catalog dominating one undifferentiated vertical scroll with no
@@ -35,6 +40,20 @@ function Row({ icon, label, badge, disabled, onClick }: { icon: React.ReactNode;
 			{icon}
 			<span className="flex-1">{label}</span>
 			{typeof badge === 'number' && badge > 0 && <span className="font-mono text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]">{badge}</span>}
+		</button>
+	);
+}
+
+/** An icon-topped, captioned button — the Workspace zone's row, one per action, laid out
+ *  as a scannable row instead of a vertical list (each `flex-1` so four actions split the
+ *  width evenly; ≥44px tall keeps the touch floor). `label` is the full accessible name
+ *  (matches the tablet dropdown's row name, so the two surfaces agree for a11y tooling);
+ *  `caption` is the short visual text the icon-row layout has room for. */
+function IconAction({ icon, label, caption, onClick }: { icon: React.ReactNode; label: string; caption: string; onClick: () => void }) {
+	return (
+		<button type="button" aria-label={label} onClick={onClick} className="flex min-h-11 flex-1 flex-col items-center justify-center gap-1 rounded-xl py-2 text-[10.5px] font-semibold text-[var(--text-heading)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]">
+			{icon}
+			<span aria-hidden="true">{caption}</span>
 		</button>
 	);
 }
@@ -97,11 +116,25 @@ export function StudioDrawer({
 					<SheetDescription className="sr-only">Editor actions, guided tours, reader views, themes, and workspace settings.</SheetDescription>
 				</SheetHeader>
 				<div className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border px-3.5 py-2">
-					{(effPane === 'edit' ? [['edit', 'Edit']] : ([] as [string, string][])).concat([['views', 'Views'], ['show-me', 'Show me'], ['look', 'Look'], ['workspace', 'Workspace']]).map(([key, label]) => (
+					{([['workspace', 'Workspace']] as [string, string][]).concat(effPane === 'edit' ? [['edit', 'Edit']] : []).concat([['views', 'Views'], ['show-me', 'Show me'], ['look', 'Look']]).map(([key, label]) => (
 						<button key={key} type="button" onClick={() => jumpTo(key)} className="shrink-0 rounded-full border border-border px-3 py-1 font-mono text-[10.5px] font-semibold text-muted-foreground hover:text-[var(--text-heading)]">{label}</button>
 					))}
 				</div>
 				<ScrollFade wrapperClassName="min-h-0 flex-1" className="h-full overflow-y-auto px-3.5 pb-[max(1rem,env(safe-area-inset-bottom))]">
+					{/* Workspace leads — the four lowest-frequency-per-slide, highest-frequency-
+					    per-session actions (jump to a saved component, tune the workspace, jump
+					    anywhere, ping us), read at a glance as an icon row rather than buried at
+					    the foot of a vertical list. */}
+					<div ref={(el) => { zoneRefs.current.workspace = el; }}>
+						<Zone label="Workspace">
+							<div className="flex gap-1">
+								<IconAction icon={<FileBox className="size-5" />} label="Library" caption="Library" onClick={go(onLibrary)} />
+								<IconAction icon={<Settings2 className="size-5" />} label="Workspace settings" caption="Workspace" onClick={go(onWorkspace)} />
+								<IconAction icon={<Search className="size-5" />} label="Search / commands" caption="Search" onClick={go(onSearch)} />
+								<IconAction icon={<FeedbackIcon className="size-5" />} label="Send feedback" caption="Feedback" onClick={go(onFeedback)} />
+							</div>
+						</Zone>
+					</div>
 					{/* This slide's editor actions — only while EDITING, so the Preview pane
 					    reader doesn't see controls that act on a surface they aren't looking at. */}
 					{effPane === 'edit' && (
@@ -150,14 +183,6 @@ export function StudioDrawer({
 									</ScrollFade>
 								</div>
 							))}
-						</Zone>
-					</div>
-					<div ref={(el) => { zoneRefs.current.workspace = el; }}>
-						<Zone label="Workspace">
-							<Row icon={<FileBox className="size-4 text-muted-foreground" />} label="Library" onClick={go(onLibrary)} />
-							<Row icon={<Settings2 className="size-4 text-muted-foreground" />} label="Workspace settings" onClick={go(onWorkspace)} />
-							<Row icon={<Search className="size-4 text-muted-foreground" />} label="Search / commands" onClick={go(onSearch)} />
-							<Row icon={<FeedbackIcon className="size-4 text-muted-foreground" />} label="Send feedback" onClick={go(onFeedback)} />
 						</Zone>
 					</div>
 				</ScrollFade>
