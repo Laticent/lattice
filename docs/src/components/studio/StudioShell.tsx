@@ -3604,11 +3604,21 @@ function BarIcon({ label, hint, caption, active, onClick, children, variant = 'r
 			)}
 		>
 			{/* Active marker: the rail variant gets a left-edge rule (VSCode-style, on a
-			    vertical bar's inner edge). The bar variant has no separate marker — its
-			    inverted-chip fill above IS the marker, so a second accent rule under a
-			    solid block would just be visual noise. */}
-			{active && tone === 'ghost' && !bar && (
-				<span aria-hidden="true" className="absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]" />
+			    vertical bar's inner edge, in --accent). The bar variant gets a bottom rule
+			    too, but in --bg, not --accent: in every monochrome/accessibility-safe
+			    palette (onyx, the four a11y-* palettes, atelier, concrete, ardesia)
+			    --accent resolves to the SAME value as --text-heading, which is this cell's
+			    OWN fill — an --accent rule would be invisible on it, AND (found by the
+			    adversarial trio, 2026-07-26-studio-mobile-eight-cell-bar.md) Share's solid
+			    tone (`bg-[var(--accent)] text-[var(--on-accent)]`) then renders as a
+			    byte-identical block to this cell, so nothing distinguished "selected" from
+			    "share" in 13 of 36 palette×mode combinations. --bg is guaranteed high
+			    contrast against --text-heading in every palette (checked: 9.65–21:1), so
+			    the rule is always visible on the fill it sits on — and only a `tone==='ghost'`
+			    cell ever gets it, so Share (tone="solid") and Present (tone="outline") never
+			    do, regardless of what their own fill happens to resolve to. */}
+			{active && tone === 'ghost' && (
+				<span aria-hidden="true" className={bar ? 'absolute inset-x-2 -bottom-[1px] h-[2px] rounded-full bg-[var(--bg)]' : 'absolute -left-[7px] inset-y-2 w-[3px] rounded-full bg-[var(--accent)]'} />
 			)}
 			{children}
 			<span className="tracking-tight">{caption}</span>

@@ -39,7 +39,12 @@ function Row({ icon, label, badge, disabled, onClick }: { icon: React.ReactNode;
 		<button type="button" disabled={disabled} onClick={onClick} className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2.5 text-left text-[13.5px] font-medium text-[var(--text-heading)] disabled:opacity-40 enabled:hover:bg-[var(--accent-soft)]">
 			{icon}
 			<span className="flex-1">{label}</span>
-			{typeof badge === 'number' && badge > 0 && <span className="font-mono text-[11px] font-semibold text-[var(--chart-2,#9c3f00)]">{badge}</span>}
+			{/* --warn, not --chart-2: --chart-2 is undefined everywhere in this codebase (palettes
+			    define --chart-cat2, a different name), so `var(--chart-2, #9c3f00)` always fell back
+			    to a hardcoded, palette-blind orange — bare text with no background compensation, it
+			    measured 2.55–2.95:1 against the drawer's own --bg in every dark palette (found by the
+			    adversarial trio; AA needs 4.5:1). --warn is a real per-palette/mode token. */}
+			{typeof badge === 'number' && badge > 0 && <span className="font-mono text-[11px] font-semibold text-[var(--warn)]">{badge}</span>}
 		</button>
 	);
 }
@@ -136,13 +141,18 @@ export function StudioDrawer({
 						</Zone>
 					</div>
 					{/* This slide's editor actions — only while EDITING, so the Preview pane
-					    reader doesn't see controls that act on a surface they aren't looking at. */}
+					    reader doesn't see controls that act on a surface they aren't looking at.
+					    Version history is a DECK-level recovery action, not a slide-editing one —
+					    it lives in Views (below, always rendered) so it stays one drawer-open away
+					    on the Preview pane too. Losing it there was a real regression the trio
+					    caught (2026-07-26-studio-mobile-eight-cell-bar.md): the pre-redesign mobile
+					    Preview pane carried a one-tap Version history button this drawer replaced,
+					    and gating it on Edit silently removed it from Preview entirely. */}
 					{effPane === 'edit' && (
 						<div ref={(el) => { zoneRefs.current.edit = el; }}>
 							<Zone label="Edit">
 								{insertComponents.length > 0 && <Row icon={<Plus className="size-4 text-muted-foreground" />} label="Insert component" onClick={go(onInsert)} />}
 								<Row icon={<ListChecks className="size-4 text-muted-foreground" />} label="Fix all issues" badge={issues} disabled={!issues} onClick={go(onFixAll)} />
-								<Row icon={<HistoryIcon className="size-4 text-muted-foreground" />} label="Version history" onClick={go(onVersionHistory)} />
 							</Zone>
 						</div>
 					)}
@@ -150,6 +160,7 @@ export function StudioDrawer({
 						<Zone label="Views">
 							<Row icon={<SlidersHorizontal className="size-4 text-muted-foreground" />} label="Slide settings" onClick={go(onSlideSettings)} />
 							<Row icon={<LensIcon className="size-4 text-muted-foreground" />} label="Reader views" onClick={go(onLenses)} />
+							<Row icon={<HistoryIcon className="size-4 text-muted-foreground" />} label="Version history" onClick={go(onVersionHistory)} />
 						</Zone>
 					</div>
 					{/* Hidden while a guided demo is live — same gate the old "···" tour list

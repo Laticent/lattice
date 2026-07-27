@@ -654,6 +654,14 @@ export function ComposeView({ source, onChange, resetKey = '', className, visibl
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
 	const [selBar, setSelBar] = React.useState<SelBar | null>(null);
+	// `.cs-selbar` portals to <body> (below), escaping the mobile pane-swap wrapper's
+	// `invisible`/`inert` entirely — the same class of leak `cs-paused` closes for `.cs-sb-pill`,
+	// just via a different escape route (portal vs. CSS override). In practice `blur()` already
+	// clears it before a pane swap can complete (canFloatBar() requires a fine pointer, mutually
+	// exclusive with the touch-only paths that swap panes without a click), so this is a
+	// structural belt-and-suspenders rather than a reproduced bug: if this pane goes inactive,
+	// the bar can never legitimately still apply to a live selection.
+	React.useEffect(() => { if (!visible) setSelBar(null); }, [visible]);
 	// The pill slot (a DOM node owned by the ACTIVE table slide's divider bar) into which the React
 	// `TableControls` island is portaled. null = the caret isn't in an editable table. The mount is
 	// owner-keyed (tableHostRef) so a late unmount from the previous host can't clobber the new one.

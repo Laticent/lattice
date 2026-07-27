@@ -49,7 +49,7 @@ test('@mobile Compose is a peer of Source in the merged pane segment — tapping
 // ninth cell, a longer locale, a font substitution) breaks the fit, this fails loudly instead
 // of shipping a silently clipped or sub-floor control.
 for (const width of [390, 375, 360]) {
-	test(`@mobile all six protected controls stay ≥44×44 and fully on-screen at ${width}px`, async ({ page }) => {
+	test(`@mobile all eight bar cells stay ≥44×44 and fully on-screen at ${width}px`, async ({ page }) => {
 		await page.setViewportSize({ width, height: 844 });
 		await gotoStudio(page);
 		const names = ['Markdown source', 'Compose — rich editor', 'Preview', 'Toggle Coach', 'Toggle Chat', 'Settings', 'Present', 'Share'];

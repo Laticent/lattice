@@ -8485,11 +8485,15 @@ in patch versions.
   — Library, Workspace settings, Search, and Send Feedback render as a scannable icon-button row
   (icon + caption, like the toolbar) at the very top, not a vertical list buried under Views/Show
   me/Look. Tablet's overflow is unchanged (still the flat dropdown; Version history moves from
-  Preview's pane bar into the drawer's Edit zone). Two real
-  icon collisions are fixed everywhere they occur: `MessageSquareHeart` no longer means both Chat
-  and Send Feedback (Chat moves to a distinct bot-chat glyph, at all four Chat sites), and `Eye` no
-  longer means both Preview and Lenses/reader-views (Lenses moves to a glasses glyph, at all six
-  Lenses sites plus the screen-reader "Description" label that shared it). `PaneBtn`'s 32px tap
+  Preview's pane bar into the drawer's always-visible Views zone, alongside Slide settings and
+  Reader views — not the Edit zone, which only renders on the Edit pane; gating deck-level
+  snapshot recovery on which pane you're looking at had silently removed it from Preview entirely,
+  caught by a post-launch adversarial trio pass). Two real icon collisions are fixed everywhere they occur:
+  `MessageSquareHeart` no longer means both Chat and Send Feedback (Chat moves to a distinct
+  bot-chat glyph, at all four Chat sites, including the command palette), and `Eye` no longer
+  means both Preview and Lenses/reader-views (Lenses moves to a glasses glyph, at all seven Lenses
+  sites plus the screen-reader "Description" label that shared it; Preview's own `Eye` usages now
+  route through the same `icons.ts` registry for consistency). `PaneBtn`'s 32px tap
   target is retired outright; all eight bar cells are now a real ≥44×44 hit area (the drawer's own
   rows are a separate, lower-frequency surface and are not held to the same floor). Landed after a
   two-round design competition and an adversarial review that rejected the
@@ -8500,8 +8504,26 @@ in patch versions.
   read at a glance; the swap paints a solid, high-contrast chip in the *other* mode's look (a dark
   chip in light mode, a light chip in dark mode) using only tokens every palette already carries,
   no new ones. Scoped to the bar variant only — the desktop/tablet activity rail's accent-soft
-  active state is unchanged.
-  (`docs/src/components/studio/{StudioShell.tsx,StudioDrawer.tsx,icons.ts,scroll-fade.tsx}`;
+  active state is unchanged. **A post-launch adversarial trio pass (red team + Munger inversion +
+  independent checker, HARD RULE #25) then caught and fixed a real regression that swap
+  introduced**: in every monochrome/accessibility-safe palette (onyx, the four `a11y-*` palettes,
+  atelier, concrete, ardesia) `--accent` resolves to the same value as `--text-heading`, so the
+  active cell and the Share cell (a solid `--accent` fill) rendered as byte-identical blocks in 13
+  of 36 palette×mode combinations — nothing distinguished "this is selected" from "this shares the
+  deck." The bar's active-cell marker (dropped when the contrast swap shipped, on the assumption
+  the fill alone was enough) is back, but now drawn in `--bg` rather than `--accent` — guaranteed
+  to contrast against the cell's own `--text-heading` fill in every palette (checked: 9.65–21:1
+  across all 36 combinations) and shown only on `tone="ghost"` cells, so Share and Present never
+  carry it regardless of what their own fill resolves to. The same pass fixed the drawer's
+  "Fix all issues" badge, which read `var(--chart-2, #9c3f00)` — `--chart-2` is undefined
+  everywhere in this codebase (palettes define `--chart-cat2`), so the badge was bare, palette-blind
+  orange text with no background compensation, measuring 2.55–2.95:1 against the drawer's own
+  background in every dark palette (AA needs 4.5:1); it now uses the real `--warn` token. A
+  defensive effect was added so Compose's floating selection toolbar (a `document.body` portal,
+  invisible to the mobile pane-swap wrapper's `invisible`/`inert`) can never survive its pane going
+  inactive, closing the same class of leak the `cs-paused` fix above closed by a different route.
+  (`docs/src/components/studio/{StudioShell.tsx,StudioDrawer.tsx,icons.ts,scroll-fade.tsx,
+  ComposeView.tsx,CommandPalette.tsx,LensesPanel.tsx}`;
   `engineering/decisions/2026-07-26-studio-mobile-eight-cell-bar.md`.)
 - **Quadrant names now sit OUTSIDE the plot, centered on their column, in their own quadrant's color.**
   They used to be inset inside their corner, where they cost twice over: they competed with the data

@@ -8,8 +8,15 @@ summary: >
   modes encoded as constraints, produced "The Eight-Cell Bar": 8 edge-to-edge labeled-icon cells
   replacing the old 9 icon-only controls, and a new `StudioDrawer` (a 5-zone bottom Sheet) replacing
   the flat scrolling "···" menu. Ships with two structural icon-collision fixes (a semantic
-  `icons.ts` registry) and the retirement of the sub-44px `PaneBtn`.
-last-updated: 2026-07-26
+  `icons.ts` registry) and the retirement of the sub-44px `PaneBtn`. Post-launch feedback drove
+  three more rounds: the drawer's Workspace zone promoted to the top as an icon row, a real
+  cross-browser CSS bug (Compose's per-slide pill bleeding onto Preview) found on a live iPhone and
+  fixed at the source, and the active cell's contrast swapped for legibility. A full adversarial
+  trio run explicitly on the cumulative diff then caught two convergent, independently-confirmed
+  regressions the reactive fixes introduced — the active cell and Share rendering identically in
+  13 of 36 palette/mode combinations, and Version history becoming unreachable from the mobile
+  Preview pane — plus a real AA contrast failure in a new badge; all fixed before merge.
+last-updated: 2026-07-27
 companion:
   - ../../docs/src/components/studio/StudioShell.tsx
   - ../../docs/src/components/studio/StudioDrawer.tsx
@@ -146,10 +153,10 @@ The same pass also caught two documentation overclaims, corrected in place:
 the CHANGELOG's "every mobile control is now ≥44×44" scoped to the eight bar
 cells (the drawer's own rows are a separate, lower-frequency surface, not
 held to that floor); and the demo-completion toast issue below re-described
-as a deterministic pre-existing failure rather than a timing flake (the
-toast was confirmed to never fire at all on the untouched desktop
-`demo.spec.ts` path either — see below). A stray unconditional
-screen-reader-only span (rendered even at zero issues) was also removed.
+as a deterministic pre-existing failure rather than a timing flake (see
+below for the fully corrected root cause, reached two passes later). A
+stray unconditional screen-reader-only span (rendered even at zero issues)
+was also removed.
 
 ## Selected-state contrast — swap the mode pair, don't tint
 
@@ -165,10 +172,16 @@ mode's look" for free — a dark, high-contrast chip in light mode, a light
 one in dark mode — with zero new tokens, zero palette-specific casing, and
 guaranteed-legible contrast by construction. Verified with real screenshots
 in both modes on `indaco` and on `onyx` (the palette's monochrome edge
-case, where the swap becomes a literal solid-black/solid-white chip). The
-bar's redundant bottom-accent-rule marker is dropped for this state (the
-fill itself is now the marker); the rail's left-edge rule marker is
-unchanged.
+case, where the swap becomes a literal solid-black/solid-white chip).
+
+At this point the bar's bottom-accent-rule marker was dropped on the
+assumption the fill itself was now marker enough — **wrong**, per the
+adversarial trio pass below: on `onyx` specifically (the very palette just
+used to verify legibility) the active cell's fill is byte-identical to the
+Share cell's, so "verified legible" and "verified distinguishable from
+Share" were silently conflated. The marker is restored, recolored, and
+scoped more precisely — see that section for the fix. The rail's left-edge
+rule marker was never touched and remains unchanged throughout.
 
 ## A real-device report found a second, cross-browser bug
 
@@ -201,9 +214,103 @@ false, and a higher-specificity selector
 (`.cs-surface.cs-paused .cs-slide-active > .cs-slide-bar >
 .cs-sb-pill{visibility:hidden;opacity:0}` — 5 classes vs. the original
 rule's 3) forces the pill hidden while its pane is inactive, deterministically,
-regardless of source order. Verified via a Playwright repro script that
-reproduced the leak pre-fix and confirmed it gone post-fix, plus the full
-862-test Studio suite and `build:check`/lint clean.
+regardless of source order. Verified live against a running build (Compose
+→ tap Preview → measure the pill's computed style) at the time, plus the
+full 862-test Studio suite and `build:check`/lint clean — but the repro
+script itself wasn't kept, so there was no artifact anyone else could point
+to afterward. An independent checker re-verified the fix from scratch,
+reconstructing the pre-fix behavior by stripping `cs-paused` from the live
+DOM on the same page and confirming the pill re-leaks (screenshot:
+`chk-C-preview-prefix.png` in that pass) then re-appears fixed with the
+class restored (`chk-B-preview-fixed.png`) — the fix holds, but the
+original "verified" claim should have named a surviving artifact per HARD
+RULE #23 and didn't.
+
+## Adversarial trio, run explicitly on the cumulative diff (HARD RULE #25)
+
+By this point four commits had shipped reactively, one user report at a
+time — the process that hardened the original design (two competition
+rounds, two trios, a maker-checker pass) had not touched anything after
+`4f0bb4d`. On explicit request, the full trio (red team + Munger inversion
++ independent checker, all Opus) ran in parallel against the entire
+`origin/main..HEAD` diff — "what will actually ship," not just the newest
+commit. Two of three lenses independently found the same two high-severity
+defects with concrete, measured evidence; a third finding came from the
+checker alone. All were fixed before merge:
+
+- **The active bar cell and the Share cell rendered as byte-identical
+  blocks in 13 of 36 palette×mode combinations** (red team + inversion,
+  independently, both with live `getComputedStyle` measurements). The
+  contrast swap (above) assumed `--text-heading`/`--bg` would always read
+  as visually distinct from Share's `--accent`/`--on-accent` fill — true
+  for contrast *within* each pair, never checked *between* them. In every
+  monochrome/accessibility palette (onyx, all four `a11y-*`, atelier,
+  concrete, ardesia) `--accent` equals `--text-heading`, so "this is
+  selected" and "this shares the deck" painted identically — worst on the
+  a11y-safe palettes specifically, the population least able to resolve
+  the ambiguity by hue. The onyx screenshot taken for the original swap
+  had the collision in it; the question asked of that screenshot
+  ("legible?") couldn't see it. Fixed: the bar's active-cell marker
+  (dropped when the swap shipped, on the assumption the fill alone was
+  enough) is restored, redrawn in `--bg` instead of `--accent` so it always
+  contrasts against the cell's own fill (checked: 9.65–21:1 in all 36
+  combos) and shown only on `tone="ghost"` cells, so Share/Present never
+  carry it no matter what their own fill resolves to.
+- **Version history became unreachable from the mobile Preview pane**
+  (inversion + red team + checker — all three, independently). `main`'s
+  mobile Preview pane carried a one-tap Version history button; `4f0bb4d`
+  deleted it and re-homed the action only in the drawer's Edit zone, gated
+  `effPane === 'edit'` — so from Preview, deck-level snapshot recovery had
+  no entry point at all, and the CHANGELOG's "moves into the drawer's Edit
+  zone" read as a relocation when it was a removal-from-Preview. This is
+  the sharpest HARD RULE #18 case in the whole pass: a surface that worked
+  before this change didn't after, self-inflicted, and described as a move
+  rather than disclosed as a loss. Fixed: Version history moved out of the
+  pane-gated Edit zone into the always-rendered Views zone (it's a
+  deck-level action, not a slide-editing one — the same distinction the
+  Edit zone's own comment already draws).
+- **The drawer's "Fix all issues" badge failed AA in every dark palette**
+  (red team, with live measurements; inversion flagged the same undefined
+  token as a minor note). `var(--chart-2, #9c3f00)` always fell back to the
+  literal hex — `--chart-2` is defined nowhere in this codebase (palettes
+  define `--chart-cat2`, a different name) — as bare text with no
+  background compensation, measuring 2.55–2.95:1 against the drawer's own
+  background in every dark palette (AA needs 4.5:1). This pattern is
+  repo-wide and pre-existing elsewhere (seven other instances, all
+  `color-mix`'d against a background rather than bare text, which is
+  probably why none of those were flagged) — but this specific instance is
+  new, in the new `StudioDrawer.tsx`, so it's on-path. Fixed: swapped to the
+  real `--warn` token.
+
+Also folded in, lower severity: `icons.ts`'s "structural" framing overclaimed
+— `CommandPalette.tsx` still imported raw `MessageSquareHeart` for Send
+Feedback, and `LensesPanel.tsx` still imported raw `Eye` for its
+Preview/Previewing chip (not itself a collision, since Eye there already
+meant "preview," but inconsistent with the registry that exists to make
+that meaning explicit); both now import from `icons.ts`. There is still no
+lint gate enforcing the registry — logged as a follow-up, not fixed here,
+since building one is a larger tooling investment than this PR's scope. A
+defensive one-line effect (`if (!visible) setSelBar(null)`) was added so
+Compose's floating selection toolbar — a `document.body` portal, invisible
+to the mobile pane-swap wrapper the same way `.cs-sb-pill` was — can never
+survive its pane going inactive; red team tried hard to reproduce a live
+leak through this path and could not (it's gated behind `hover:hover` +
+`pointer:fine`, mutually exclusive with every touch-only pane-swap path),
+so this closes the *class* of bug structurally without there being a
+demonstrated instance of it. The e2e test titled "all six protected
+controls" (it asserts eight) was renamed to match. The CHANGELOG's Lenses
+site count was corrected from six to seven (the actual count).
+
+All three lenses also independently re-ran the real gates and confirmed
+green: `npm run lint`, `docs` `npm run typecheck`, `npm run build:check`,
+the full 862-test Studio suite, and the mobile `responsive.spec.ts` +
+`ios-zoom.spec.ts` e2e specs (production `astro preview` build, not a dev
+server). Findings NOT acted on, with reasoning: iOS Safari and real touch
+remain UNVERIFIED from this sandbox (unchanged from before); the drawer's
+own touch targets (jump-strip chips, theme swatches) are a known, disclosed
+exception to the 44px floor, not revisited; 320px-and-below degrades
+(cells drop under 44px) but is outside this repo's stated ~390px mobile
+target, so left as a documented boundary rather than a bug.
 
 ## Pre-existing gaps found, not fixed (HARD RULE #18 — off-path)
 
@@ -216,12 +323,20 @@ reproduced the leak pre-fix and confirmed it gone post-fix, plus the full
 - `SEL.slideSettings` would hit the same gap once Slide settings lives only in
   the drawer, but no tour references it today; same disposition.
 - `demo-mobile.spec.ts`'s 4-slide completion test fails a `toastText`
-  assertion — **deterministically, not a timing flake**: the checker
-  instrumented a full run with a `MutationObserver` on every `role="status"`
-  node and the "Demo complete" toast never appeared at all. It reproduces
-  identically on the untouched **desktop** `demo.spec.ts` path (5/5), which
-  this change does not touch, confirming it predates this change even though
-  the original "timing flake" characterization was wrong.
+  assertion — **deterministically, not a timing flake, and not a missing
+  toast**: a second-pass independent checker corrected the root cause once
+  more. `docs/e2e/studio-fixture.ts`'s `toastText()` locator
+  (`[role="status"].fixed.inset-x-0`) is stale for the sonner-based toast
+  system Studio actually uses (`docs/src/components/ui/sonner.tsx`) — sonner
+  renders `aria-live="polite"`, never `role="status"`, and no element in
+  `docs/src` carries `fixed inset-x-0` with `role="status"`. The locator
+  cannot match ANY toast, on any spec. Confirmed on the untouched **desktop**
+  `demo.spec.ts` (this change does not touch it) and on `decks.spec.ts` (also
+  untouched) — both fail the identical way. Grep counted **24 assertions
+  across 13 e2e files** using this dead locator; fixing the fixture itself is
+  a separate, repo-wide e2e-tier fix, well outside this PR's scope (#17) —
+  logged here as the follow-up this finding actually calls for, rather than
+  the narrower "one flaky toast" framing an earlier pass gave it.
 
 ## Verification (HARD RULE #23)
 
@@ -242,6 +357,10 @@ reproduced the leak pre-fix and confirmed it gone post-fix, plus the full
   covers the fixed drawer; a fresh drawer screenshot at 390px post-fix is in
   the PR.
 - **Not verified from this sandbox**: real touch/gesture behavior and iOS
-  Safari specifically, and no dark-mode pass was run on the new drawer —
-  only Chromium/Playwright light-mode emulation was exercised. Marked
+  Safari specifically, and — at this point in the timeline — no dark-mode
+  pass had been run on the new drawer; only Chromium/Playwright light-mode
+  emulation was exercised. (The later contrast-swap and trio passes did
+  cover dark mode for the bar and the drawer's badge specifically — see
+  those sections — but a full dark-mode sweep of the whole drawer still
+  hasn't happened.) Marked
   **UNVERIFIED** per HARD RULE #23 rather than claimed.

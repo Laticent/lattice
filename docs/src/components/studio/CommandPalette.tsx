@@ -1,6 +1,7 @@
-import { Columns2, FileBox, FileText, Focus, MessageSquareHeart, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Settings2, Share2, Sparkles } from 'lucide-react';
+import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Settings2, Share2, Sparkles } from 'lucide-react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import type { StudioDeck } from './decks';
+import { FeedbackIcon } from './icons';
 
 // The "type what you want" spine (plan §2.2). Every bar action is also a command.
 export function CommandPalette({
@@ -58,7 +59,7 @@ export function CommandPalette({
 					{onLibrary && <CommandItem onSelect={run(onLibrary)}><FileBox />Library — saved themes &amp; components</CommandItem>}
 					{onWorkspace && <CommandItem onSelect={run(onWorkspace)}><Settings2 />Workspace settings</CommandItem>}
 					{onWatchDemo && <CommandItem onSelect={run(onWatchDemo)}><MonitorPlay />Watch demo — the Studio drives itself</CommandItem>}
-					{onFeedback && <CommandItem onSelect={run(onFeedback)}><MessageSquareHeart />Send feedback</CommandItem>}
+					{onFeedback && <CommandItem onSelect={run(onFeedback)}><FeedbackIcon />Send feedback</CommandItem>}
 				</CommandGroup>
 				{(onCollapseEditor || onCollapsePreview || onExpandPane || onResetSplit) && (
 					<>

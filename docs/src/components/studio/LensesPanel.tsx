@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Eye, EyeOff, Plus, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { Check, ChevronDown, EyeOff, Plus, ShieldCheck, Sparkles, X } from 'lucide-react';
 import * as React from 'react';
 import {
 	approvalHash,
@@ -14,7 +14,7 @@ import {
 	type WorkspaceLensConfig,
 } from '@/lib/lente';
 import { cn } from '@/lib/utils';
-import { LensIcon } from './icons';
+import { LensIcon, PreviewIcon } from './icons';
 // The reader archetypes (the "Add a reader view" menu) — the SHARED source of truth, also used by the
 // workspace default reader views (workspace-lenses.ts), so the panel and the defaults can't drift.
 import { ARCHETYPES } from './lens-archetypes';
@@ -283,7 +283,7 @@ function LensRow({
 					<div className="flex flex-wrap items-center gap-1.5">
 						{/* Preview is disabled with 0 members: there's nothing to show, and previewing an empty view
 						    would flash a blank rail then snap back to the full deck (the compose picker also hides it). */}
-						<button type="button" onClick={onPreview} disabled={members === 0} title={members === 0 ? 'Tag at least one slide into this view to preview it.' : undefined} className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45', isActive ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><Eye className="size-3" />{isActive ? 'Previewing' : 'Preview'}</button>
+						<button type="button" onClick={onPreview} disabled={members === 0} title={members === 0 ? 'Tag at least one slide into this view to preview it.' : undefined} className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45', isActive ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-foreground')}><PreviewIcon className="size-3" />{isActive ? 'Previewing' : 'Preview'}</button>
 						{(status === 'draft' || status === 'drifted') &&
 							(previewedOk ? (
 								<button type="button" onClick={onApprove} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--chart-3,#2e6f00)_45%,transparent)] bg-[color-mix(in_srgb,var(--chart-3,#2e6f00)_10%,transparent)] px-2.5 py-1 text-[11px] font-semibold text-[var(--chart-3,#2e6f00)]"><ShieldCheck className="size-3" />{status === 'drifted' ? 'Re-approve' : 'Approve for readers'}</button>
