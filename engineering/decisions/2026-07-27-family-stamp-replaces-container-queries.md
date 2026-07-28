@@ -469,6 +469,26 @@ next step, and it is a derivation, not another number to hand-maintain. Shipping
 the current values would have replaced one set of unverified numbers with
 another, which is the exact failure this whole note is about.
 
+> **⚠ SUPERSEDED — the skeleton prescription above was checked, and it does not
+> hold (2026-07-28, #1234).** The *diagnosis* stands: `density.soft` is more
+> generous than real authoring on **23 of the 25** measurable components, and
+> tighter on none. The *prescription* is backwards. A skeleton is a shape template
+> with placeholder filler ("One-sentence description"), not a length specimen — it
+> runs more than 30% terser than real authoring on **8 of 25**, and a terser basis
+> measures a **higher** ceiling. For `inventory`, the very component the paragraph
+> below is about, the skeleton basis moves the measured `tall` ceiling from **3 to
+> 5** — away from the truth, and in the direction that makes the linter quieter
+> about slides that clip.
+>
+> Measured deeper, the count ceiling is not a well-defined quantity at all: holding
+> `inventory` at 4 members and ~10 words, the same slide fits or clips depending on
+> its look modifier and whether it carries a trailing insight. See
+> `2026-07-28-capacity-basis.md`; re-derive with `node tools/audit-capacity-basis.js`.
+>
+> This paragraph is itself an instance of what this note is about. "The right basis
+> is the skeleton" was written down once — in the section arguing that assertions
+> nobody re-derives drift from what ships — and never checked against the skeletons.
+
 **`inventory` is the sharpest live instance, and it is deliberately left alone.**
 It declares `adapt.capacity.tall.hard: 8`; the measured tall ceiling is **3**
 (`node tools/calibrate-capacity.js inventory --family tall` → overflows at 4).

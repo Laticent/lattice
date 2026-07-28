@@ -118,6 +118,22 @@ in patch versions.
 
 ### Changed
 
+- **The planned capacity-basis fix was checked and does not hold; a decision note records
+  what does.** The reflow note prescribed each component's own `skeleton` as the honest
+  basis for measuring count ceilings, and #1234 group D asked for it. The diagnosis is
+  right — `density.soft` is more generous than real authoring on **23 of the 25** measurable
+  components and tighter on none — but the prescription is backwards: a skeleton is a shape
+  template with placeholder filler, not a length specimen, so it runs >30% terser than real
+  authoring on **8 of 25**, and a terser basis measures a **higher** ceiling. For `inventory`
+  it moves the measured `tall` ceiling from **3 to 5**, away from the truth. Deeper still,
+  the count ceiling is not a well-defined quantity: holding `inventory` at 4 members and ~10
+  words, the same slide fits or clips depending on its look modifier and whether it carries
+  a trailing insight — the member count is not the variable. New
+  `tools/audit-capacity-basis.js` measures all three candidate bases so no figure in the
+  note is a constant anyone has to trust. See
+  `engineering/decisions/2026-07-28-capacity-basis.md`; the reflow note's paragraph is
+  marked superseded in place. No capacity number changed.
+
 - **The `--row-mark` hue restart across a split stays open, and the decision note now says
   why in a way the next reader can act on.** The note's own diagnosis pointed at "a
   transform in `premise`"; the absolute index actually lives in `partitionAxis`'s `offset`,
