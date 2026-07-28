@@ -163,7 +163,9 @@ var require_lint_core = __commonJS({
       mobile: "strip"
     });
     function deckSizeName(source) {
-      return source.match(/^\s*size:\s*["']?([\w:/.-]+)/m)?.[1];
+      const fm = source.match(/^---\r?\n[\s\S]*?\r?\n---/)?.[0];
+      if (!fm) return void 0;
+      return fm.match(/^\s*size:\s*["']?([\w:/.-]+)/m)?.[1];
     }
     function deckFamily(source, vocab) {
       const name = deckSizeName(source);
@@ -574,6 +576,11 @@ ${indent}   - ${body.trim()}`;
             if (!declared) continue;
             const perFamily = declared.families?.[family];
             const cap = perFamily ? { ...declared, ...perFamily } : declared;
+            if (perFamily) {
+              for (const k of ["sweet", "soft", "hard"]) {
+                if (declared[k] != null && cap[k] != null) cap[k] = Math.min(cap[k], declared[k]);
+              }
+            }
             const n = countPrimaryCollection(slide, cap.axis);
             if (!n) break;
             const comfort = cap.sweet != null ? cap.sweet : cap.soft;

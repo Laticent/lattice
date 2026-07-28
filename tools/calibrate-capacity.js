@@ -33,7 +33,7 @@
  */
 
 const {
-  SIZE_ALIAS, FAMILIES, BUILDERS, findManifest, gradedDeck, renderProbe,
+  SIZE_ALIAS, FAMILIES, BUILDERS, NOT_COUNT_CALIBRATABLE, findManifest, gradedDeck, renderProbe,
 } = require('./lib/calibrate-core.js');
 
 const argv = process.argv.slice(2);
@@ -69,6 +69,16 @@ if (!has('all') && !named) {
   die('Usage: node tools/calibrate-capacity.js <component> [--family square] [--all]');
 }
 const components = has('all') ? calibratable() : [named];
+
+// No silent caps: an `--all` run that quietly omits four components reads as
+// "everything is covered". Say what was dropped and why, before the numbers.
+if (has('all') && !JSON_OUT) {
+  const skipped = Object.entries(NOT_COUNT_CALIBRATABLE).filter(([n]) => findManifest(n));
+  if (skipped.length) {
+    console.log(`\n  NOT calibrated (${skipped.length}) — a count ceiling would be a fiction here:`);
+    for (const [n, why] of skipped) console.log(`    ${n.padEnd(15)} ${why}`);
+  }
+}
 
 /**
  * The declared per-family capacity, falling back to the component-level block.

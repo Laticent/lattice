@@ -104,6 +104,74 @@ test('component family selectors name only canonical families', () => {
   assert.ok(checked > 0, 'expected at least one [data-family] reflow selector across the component CSS');
 });
 
+// ── The leading-prefix trap. `data-family` is stamped ON the section, and
+// sections are direct children of <body>, so a LEADING family filter followed by
+// a `section` compound is a descendant combinator hunting an ancestor that cannot
+// exist: valid CSS, lint-clean, matches nothing. That is the #1218 failure shape
+// (a reflow rule that silently never fires), relocated from one global boundary to
+// ~30 per-file selectors — so it needs a gate, not review. The leading form IS
+// legitimate when the subject is a real descendant (`… figure.kanban .board`),
+// which is why this rejects the `section`-compound case specifically rather than
+// banning the shape.
+// The three carriers a family filter can be written in — `:where(…)`, `:is(…)`,
+// and the bare attribute — are equally broken in the leading position, so the
+// gate matches on the FILTER, not on one wrapper. (An earlier cut keyed on
+// `:where(` alone; the checker pointed out `:is([data-family="tall"]) section.foo`
+// and `[data-family="tall"] section.foo` slipped straight through it.)
+const LEADING_FAMILY_RE = /(?::where|:is)?\(?\s*\[data-family\s*=[^)\]]*\]\s*\)?(\s+)(section\b[^\s,{>+~]*)/g;
+
+// Files that TEACH the idiom are gated too. `lib/adaptive/families.js` shipped
+// the broken form in its own header doc — the one module the README calls "the
+// single source of truth" — and a CSS-only walk cannot see a JS comment. A canon
+// that teaches the trap is worse than one stylesheet that falls into it.
+function familyDocFiles() {
+  return [
+    'lib/adaptive/families.js',
+    'lib/adaptive/README.md',
+    'lib/layout/ai.js',
+    'lib/layout/gate.js',
+    'design/skills/component.md',
+    'engineering/decisions/2026-07-27-family-stamp-replaces-container-queries.md',
+  ].map((p) => path.join(ROOT, p)).filter((p) => fs.existsSync(p));
+}
+
+test('no family selector uses the leading form against a section compound', () => {
+  const offenders = [];
+  for (const file of libCss()) {
+    const css = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of css.matchAll(LEADING_FAMILY_RE)) {
+      offenders.push(`${path.relative(ROOT, file)}: … ${m[2]}`);
+    }
+  }
+  assert.deepStrictEqual(
+    offenders, [],
+    'a leading family filter cannot reach a `section` — the stamp is ON the section. '
+    + 'Attach it to the compound instead: `section.foo:where([data-family="tall"]) > …`.',
+  );
+});
+
+test('no doc or canon file teaches the leading form', () => {
+  const offenders = [];
+  for (const file of familyDocFiles()) {
+    const text = fs.readFileSync(file, 'utf8');
+    text.split('\n').forEach((line, i) => {
+      // The docs QUOTE the broken form to warn about it. A warning line names the
+      // trap; an EXAMPLE line does not — so skip lines that carry the warning
+      // vocabulary and flag the rest.
+      if (/descendant combinator|matches nothing|does not exist|never matches|trap|broken|WRONG|✗/i.test(line)) return;
+      LEADING_FAMILY_RE.lastIndex = 0;
+      if (LEADING_FAMILY_RE.test(line)) {
+        offenders.push(`${path.relative(ROOT, file)}:${i + 1}: ${line.trim()}`);
+      }
+    });
+  }
+  assert.deepStrictEqual(
+    offenders, [],
+    'a doc/canon file presents the leading family filter as the pattern to copy. '
+    + 'Show `section.foo:where([data-family="tall"]) > …`, or mark the line as the trap it is.',
+  );
+});
+
 // ── The retired mechanism must stay retired (#1218). A container query evaluates
 // the container's CONTENT box; the section's asymmetric padding makes that
 // proportionally wider than the deck, so a 1080×1080 deck — `square` to

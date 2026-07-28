@@ -67,7 +67,10 @@ npx @marp-team/marp-cli ${e}.md --theme-set lattice.css themes \\
 
 Marp applies the palette + the CSS layouts (card grids, split panels, typography).
 It does **not** run the Mermaid/component runtime \u2014 those render in the browser
-route below.
+route below. On a non-landscape deck (\`size: portrait\`/\`story\`/\`square\`/\`mobile\`)
+it also renders the LANDSCAPE composition: the adaptive per-shape reflow keys off a
+\`data-family\` attribute the Lattice runtime stamps, and this route never runs it.
+Use the browser route for those.
 
 ## Full fidelity \u2014 open the HTML in a browser
 

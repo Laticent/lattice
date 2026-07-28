@@ -2848,9 +2848,49 @@ function checkSplitOracle(manifests, errors) {
   }
 }
 
+/**
+ * Every engine/theme stylesheet must PARSE cleanly.
+ *
+ * esbuild's CSS parser is deliberately forgiving: it warns about a construct it
+ * cannot read, drops it, and emits the rest — so `npm run build` succeeded on a
+ * bundle carrying literal garbage, and nothing downstream ever said so. The
+ * warnings were there the whole time; the minifier just discarded them
+ * (`tools/minify-css.js` destructured `{ code }`).
+ *
+ * That is not cosmetic. A stray `` ` `` in radar.styles.css — a fenced example
+ * inside a comment that a bad edit spliced a real rule into — made Marp's
+ * stricter postcss reject the WHOLE bundle: `Cannot register theme CSS:
+ * lattice.css`, i.e. every Export-to-Marp deck rendering with no palette at all.
+ * One unreadable character 265KB into a minified file cost the entire theme.
+ *
+ * So the signal is promoted to a gate, per FILE (the bundle's line numbers point
+ * nowhere useful). Budget 0 — a CSS parse warning is a defect, never a ratchet.
+ */
+function checkCssSyntax(errors) {
+  const esbuild = require('esbuild');
+  for (const file of [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)]) {
+    const rel = path.relative(ROOT, file);
+    let warnings = [];
+    try {
+      ({ warnings } = esbuild.transformSync(fs.readFileSync(file, 'utf8'), { loader: 'css' }));
+    } catch (err) {
+      errors.push(`${rel}: CSS does not parse — ${err.message.split('\n')[0]}`);
+      continue;
+    }
+    for (const w of warnings) {
+      errors.push(
+        `${rel}:${w.location?.line ?? '?'}: CSS parse warning — ${w.text}. esbuild drops what ` +
+        `it cannot read and builds anyway, but Marp's postcss rejects the whole bundle, so a ` +
+        `single unreadable token costs the entire theme registration. Budget is 0.`,
+      );
+    }
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
+  checkCssSyntax(errors);
   checkTransformerNames(errors);
   checkLayoutOwnership(errors);
   checkComponentNames(manifests, errors);

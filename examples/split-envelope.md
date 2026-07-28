@@ -89,8 +89,6 @@ Four programs carried the quarter; the rest were holding patterns.
   - Two of five signed; three await our security review.
 - Audit readiness
   - Evidence pack drafted, gaps listed, none signed yet.
-- Pricing review
-  - Three tiers modelled; the enterprise floor is still open.
 
 The three unfunded programs are listed in the appendix, not here.
 

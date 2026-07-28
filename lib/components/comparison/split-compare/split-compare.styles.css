@@ -47,7 +47,12 @@ section.split-compare .verdict blockquote p { font-size:var(--fs-body); font-fam
  *    be querying the very box it's trying to restyle, and silently no-ops. For a
  *    FULL-SLIDE layout the deck orientation IS the component's box, so the stack
  *    stays on the deck-wide data-orientation stamp. Correct, not a fallback.
- *  · The DESCENDANTS (rail width, the options grid) reflow box-locally against the deck's `data-family` stamp (the slide), so they're future-proof for nesting.
+ *  · The DESCENDANTS (rail width, the options grid) reflow against the SLIDE's
+ *    `data-family` stamp, same as the stack — the selectors are anchored at
+ *    `section.split-compare:where([data-family=…])`. This is deck-wide, NOT
+ *    box-local: a nested cell stamping its own family would not reach them. The
+ *    box-local reading was an aspiration in these comments and never shipped
+ *    behavior (#1218; see lib/adaptive/families.js "WHAT IT COST").
  *
  * NOTE: the option CELLS are deliberately NOT made `container-type: size` here. A
  * nested size container re-bases every `cqi`-based token inside it to the cell

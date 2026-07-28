@@ -6,9 +6,11 @@ across as the deck's shape changes: `wide` · `square` · `tall` · `strip`.
 - `families.js` — `FAMILIES` and their aspect boundaries, plus `familyFor()`,
   `familySelector()` and `orientationFor()`.
 
-Consumed by `lib/engine/slides.js` + `lib/engine/index.js` (the export path),
-`lib/runtime/index.js` (bundled into `dist/lattice-runtime.js`),
-`lib/authoring/lint.js`, and `tools/build-docs-portal.js`.
+Consumed by `lib/engine/index.js` and `lib/engine/css.js` (the export path —
+`lib/engine/slides.js` does the stamping but receives the verdict as `opts.family`
+rather than importing this module), `lib/runtime/index.js` (bundled into
+`dist/lattice-runtime.js`), `lib/authoring/lint.js`, and
+`tools/build-docs-portal.js`.
 
 **One classifier, one measurement.** `familyFor()` runs in JS over the DECK
 geometry, and both render paths stamp the verdict on the `<section>` as

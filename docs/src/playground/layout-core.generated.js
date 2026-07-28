@@ -959,16 +959,29 @@ var require_gate = __commonJS({
       const parts = [];
       let depth = 0;
       let quote = "";
+      let escaped = false;
       let cur = "";
       for (const ch of selector) {
         if (quote) {
           cur += ch;
-          if (ch === quote) quote = "";
+          if (escaped) escaped = false;
+          else if (ch === "\\") escaped = true;
+          else if (ch === quote) quote = "";
+          continue;
+        }
+        if (ch === "\\") {
+          cur += ch;
+          escaped = true;
+          continue;
+        }
+        if (escaped) {
+          cur += ch;
+          escaped = false;
           continue;
         }
         if (ch === '"' || ch === "'") quote = ch;
         else if (ch === "(" || ch === "[") depth++;
-        else if (ch === ")" || ch === "]") depth--;
+        else if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
         else if (ch === "," && depth === 0) {
           parts.push(cur);
           cur = "";

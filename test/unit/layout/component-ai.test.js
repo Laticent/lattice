@@ -520,6 +520,33 @@ describe('component-ai — scope-prefix safe fix (§6, self-verifying)', () => {
     // The gate's rule walker must also survive the same input without throwing.
     assert.doesNotThrow(() => findUnscopedSelectors(deep, 'x'));
   });
+  // The nesting-aware comma splitter has two ways to lose its place, and BOTH
+  // fail open — every part merges into one, the merged part contains `.foo`, so
+  // the gate calls a leaking selector scoped and reports nothing. A gate that
+  // silently stops reporting is worse than no gate, and this input is
+  // AI/Studio-authored CSS, i.e. adversarial by construction.
+  test('an escaped quote inside an attribute value cannot blind the gate', () => {
+    // `section.foo[title="a\", b"], li` is VALID CSS: the `\"` is part of the
+    // attribute value, so the string does not close there. The `li` part leaks
+    // onto every slide and must be reported.
+    const css = 'section.foo[title="a\\", b"], li { color: red }';
+    assert.deepStrictEqual(
+      findUnscopedSelectors(css, 'foo').map((f) => f.selector), ['li'],
+    );
+  });
+  test('an unbalanced close-paren cannot blind the gate', () => {
+    // Malformed, but it must degrade to over-reporting, never to silence: without
+    // a floor at 0 the stray `)` drives depth negative and no later comma is ever
+    // top-level again.
+    const css = 'section.foo:not(.a)) , * { color: red }';
+    assert.deepStrictEqual(
+      findUnscopedSelectors(css, 'foo').map((f) => f.selector), ['*'],
+    );
+  });
+  test('the family-reflow idiom is still ONE scoped part', () => {
+    const css = 'section.foo:where([data-family="tall"], [data-family="strip"]) > .x { color: red }';
+    assert.deepStrictEqual(findUnscopedSelectors(css, 'foo'), []);
+  });
 });
 
 describe('component-ai — design audit (§6 adapt/capacity + §7 size cap)', () => {

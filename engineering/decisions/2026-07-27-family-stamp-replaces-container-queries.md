@@ -90,13 +90,14 @@ Three properties make this a safe mechanical conversion of 34 blocks:
    The stamp is *on* the section and sections are direct children of `<body>`, so
    a leading `:where([data-family=…]) section.foo` is a descendant combinator
    looking for an ancestor that does not exist. This is the one real trap in the
-   conversion. It is covered for the AI canon (`component-ai.test.js` matches each
-   taught selector against a stamped slide in jsdom) and spot-checked for three
-   components by `check-family-tiers` — but there is NO gate that reads the ~30
-   converted stylesheets and rejects the leading form, so a regression in one of
-   them would ship green. The current conversion was verified clean by an
-   independent paren-aware parse of all 187 comma-parts; the standing guard is
-   the gap.
+   conversion, and it is now gated three ways: `component-ai.test.js` matches each
+   taught selector against a stamped slide in jsdom; `check-family-tiers` probes
+   three components at four sizes; and `families.test.js` scans every stylesheet
+   under `lib/` **and** the six files that document the idiom, rejecting a leading
+   family filter in front of a `section` compound in any of the three carriers
+   (`:where(…)`, `:is(…)`, bare attribute). The doc half is not belt-and-braces —
+   `lib/adaptive/families.js` shipped the broken form in its own header, i.e. the
+   canon taught the trap.
 
 The chart components write `:is(section.x, figure.x) …`, where one branch **is**
 the section and the other is a `figure` inside it. No single filter covers both,
@@ -139,7 +140,10 @@ rule silently.
 
 ## Gates
 
-Three, replacing the one that was deleted:
+Seven, replacing the one that was deleted. The count grew twice during review —
+the adversarial trio kept finding a failure the existing set could not see, and
+each one is listed here with the failure that motivated it rather than as a
+feature:
 
 - **`no engine CSS reintroduces an @container aspect-ratio query`**
   (`test/unit/adaptive/families.test.js`) — the retired mechanism stays retired.
@@ -151,6 +155,29 @@ Three, replacing the one that was deleted:
   `[data-family=…]` instead of `@container … aspect-ratio`. Left unchanged it
   would have matched nothing and let every `reflow` component silently
   reclassify — the gate would have gone green by going blind.
+- **`no family selector uses the leading form against a section compound`** and
+  **`no doc or canon file teaches the leading form`** (both in
+  `families.test.js`) — the trap in rule 3 above, in engine CSS and in the six
+  files that document it. Added after the canon itself was found teaching it.
+- **The overflow oracle** in `check-family-tiers.js`
+  (`test/oracle/family-overflow.json`) — renders one gallery slide per
+  family-reflowing component at all four family sizes and freezes which
+  components clip. This is the one that mattered most: a red-team pass found
+  `cycle`, `authority-chain` and `regulatory-update` rendering clean on `main`
+  and CLIPPED on this branch, with every other gate green, because turning the
+  square tier on for the first time applied a *portrait* layout to a square box
+  that nobody had ever seen render. The probe half of `check-family-tiers` proves
+  the mechanism fires; it cannot see a clip, and it only ever looked at three of
+  the thirty components. The oracle looks at all of them and reads the real
+  export. It runs in the nightly render tier, not per-PR CI — four full emulator
+  sweeps are too slow for the fast lane.
+- **`checkCssSyntax`** (`tools/check-ownership.js`) — every stylesheet under
+  `lib/` and `themes/` must parse without an esbuild warning. Not strictly a
+  family gate, but found the same way: driving the real Marp export surfaced
+  `Cannot register theme CSS: lattice.css`, traced to a mangled comment in
+  `radar.styles.css` that had swallowed a rule. esbuild warned about it, and the
+  minifier destructured `{ code }` and threw the warning away, so `npm run build`
+  had been green over a bundle Marp's stricter parser rejected outright.
 
 Plus one in the AI tier. The canon in `lib/layout/ai.js` teaches this idiom, and
 the existing tests only proved the taught CSS was gate-*clean* — a leading
@@ -221,6 +248,35 @@ direction: since stats went 2-up, square and wide are both `row`, and only squar
 `wrap`s. Mutation-tested — repointing the square rule at another family fails the
 gate.
 
+### Five more layouts had to LOSE their square tier
+
+The two above were rules that should have run and didn't. The opposite case is
+larger, and a red-team pass is what surfaced it: **~25 blocks were converted
+verbatim from `<= 1.05`, which had never matched a square deck.** So for every
+component except the three re-measured above, "the square layout" being switched
+on for the first time was a *portrait* layout in a square box that nobody had
+ever seen. Five of them were wrong, three of those badly enough to clip:
+
+| component | at square, before the fix | why square keeps the wide layout |
+|---|---|---|
+| `cycle` | 4-stage stack, last card + return arc off the frame | its own `cycle.manifest.json` declares `adapt.families: [wide, tall, strip]` — there IS no square tier; the CSS had four square rules anyway |
+| `authority-chain` | rail collapsed, body text sliced mid-word, last card clipped | a square box is 1080px wide; the `14cqi` rail is ~151px there against ~179px at `hd`, which is not a crush |
+| `regulatory-update` | third card + its "Effective" pill off the frame | stacking four fields per row roughly triples row height |
+| `statute-stack` | whole third jurisdiction card lost | measured the other way from the shipped comment: rails at square hold **3** (`calibrate-capacity` ceiling 3, overflows at 4), the stack holds **2**. Three is this component's own skeleton |
+| `kpi` | hero flattened to a uniform ledger, `94%` barely larger than its supports | no clip, but square is the SOCIAL family, where one big number is most of the point. Rendered side by side: the hero card + rail fits with room to spare |
+
+The `statute-stack` entry is the sharpest instance of this note's own theme. A
+comment claimed, in the word "measured", that holding the rails at square drops
+the ceiling 2 → 1. Re-run against the real probe it is 3 versus 2 — the reverse.
+Nobody re-derived it, so it drifted, exactly like the `1.05` boundary did.
+
+Where the square tier IS right, it is a clear win: `progress` at square goes from
+a cramped band in the middle of the frame to full-width bars with readable
+labels. Whole-library check — one gallery slide per family-reflowing component at
+`size: square`, pixel-diffed against `main` — leaves six pages differing, all of
+them either these deliberate decisions or sub-pixel text shifts, and the clipped
+set is now a strict subset of `main`'s.
+
 ## What is NOT fixed: the capacity numbers, and why
 
 `tools/calibrate-capacity.js` measures a real ceiling, and the per-family lint
@@ -271,6 +327,33 @@ the intended `citation-card` fix. Landscape output is unchanged and pixel-verifi
 It reads as an improvement, but it alters exported bytes library-wide, so it goes
 through the export sign-off gate rather than riding along with the reflow work.
 
+### Known limitation: the Export-to-Marp CSS-only route
+
+Family reflow moved from renderer-agnostic CSS to a JS-stamped attribute, so it
+now needs something to do the stamping. Both Lattice render paths do (the engine
+server-side, the runtime in the browser). An **Export-to-Marp bundle rendered by
+marp-cli** does not: the bundle ships the deck as plain markdown, marp-cli renders
+it with marp-core, and marp-core knows nothing about `data-family`.
+
+Verified on the real surface rather than reasoned about — exported
+`examples/adaptive-sweep.md` (`size: story`) to a bundle and rendered it with
+marp-cli 4.3.1: the bundled `lattice.css` carries **414** `data-family` selectors
+and the deck markdown carries **0** stamps. Under the retired `@container` form
+these rules were pure CSS and did fire there, so this is a real narrowing of that
+route.
+
+Its practical reach is small. The same route already renders none of Lattice's
+transformer-built structure (no `.cell-stage`, no chart figures), which most
+family rules select through — so most of them had nothing to match on anyway.
+The bundle's browser route is unaffected: `lattice-runtime.min.js` survives into
+marp-cli's HTML output and stamps on load. And Marp is a retired render path
+(HARD RULE #1); export-to-Marp is the one surface left.
+
+Recorded rather than fixed, because every fix is worse than the limitation: a
+class carrier would reintroduce the second mechanism this note exists to delete,
+and rewriting the bundled CSS per deck would break `lattice.min.css`'s
+byte-identical static-asset contract across both bundle producers.
+
 ## Corrections this note carries
 
 An independent checker found five load-bearing claims here and in the CHANGELOG
@@ -284,10 +367,13 @@ buried:
    `DECK_TO_CSS_BOUNDARY`, `--lat-family`, `check:families`) that this branch both
    created and removed, so no consumer could observe them.
 4. `split-envelope` "had stopped demonstrating the split" — **false**; the split
-   fires at six cards too. The real effect was lint-only (`capacity-autosplit` →
-   `capacity-crowd`), which is still a fair reason to edit the deck.
-5. The leading-prefix trap was described as gated; it is gated for the AI canon
-   only.
+   fires at six cards too. The deck edit that rested on it is **reverted**: the
+   committed deck is main's, six cards, still splitting to 24 pages, linting clean.
+5. The leading-prefix trap was described as gated; it was gated for the AI canon
+   only. It is **now gated for engine CSS too** — `test/unit/adaptive/families.test.js`
+   scans `lib/**/*.css` for `:where([data-family…]) section…` and fails on it,
+   while still permitting the legitimate leading form against a `figure.`
+   descendant.
 
 The common thread: each was written at the moment the work was *intended*, and
 none was re-checked after the implementation changed under it. The lesson is the

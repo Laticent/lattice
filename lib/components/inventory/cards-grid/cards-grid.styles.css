@@ -211,9 +211,11 @@ section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"]
 }
 /* SQUARE KEEPS THE 2-UP GRID — only tall/strip go single-column. A square box is
  * the `balanced` family (lib/adaptive/families.js: "2×2 grids, 2-up"), and it has
- * the width for two cards; collapsing it to one column costs a third of the
- * slide's capacity (measured ceiling 6 → 4, tools/calibrate-capacity.js) and
- * fights the family's own definition. This rule read `<= 1.05` because it was
+ * the width for two cards, and one column fights the family's own definition.
+ * As shipped it holds six cards at square: `node tools/calibrate-capacity.js
+ * cards-grid --family square` → ceiling 6, at this component's own
+ * `density.soft` (15 words per card) — the basis is part of the number, since a
+ * count ceiling is a function of element size. This rule read `<= 1.05` because it was
  * written when the only question was landscape-or-portrait, and square rode along
  * on the portrait side — nobody could see the result, since the whole square tier
  * was inert until #1218. matrix-2x2 always got this right ("a square box reads the

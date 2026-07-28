@@ -1,0 +1,69 @@
+{
+  "components": [
+    "_chart-family",
+    "actors",
+    "authority-chain",
+    "cards-grid",
+    "cards-stack",
+    "compare-prose",
+    "content",
+    "cycle",
+    "decision",
+    "glossary",
+    "kanban",
+    "kpi",
+    "list",
+    "list-steps",
+    "list-tabular",
+    "logo-wall",
+    "math",
+    "matrix-2x2",
+    "policy-recommendation",
+    "pricing",
+    "progress",
+    "q-and-a",
+    "regulatory-update",
+    "roadmap",
+    "split-compare",
+    "state-chart",
+    "stats",
+    "statute-stack",
+    "timeline-list",
+    "verdict-grid"
+  ],
+  "clipped": {
+    "hd": [],
+    "square": [
+      "policy-recommendation",
+      "roadmap",
+      "split-compare",
+      "statute-stack"
+    ],
+    "portrait": [
+      "authority-chain",
+      "cards-grid",
+      "compare-prose",
+      "cycle",
+      "decision",
+      "glossary",
+      "kpi",
+      "list",
+      "list-tabular",
+      "logo-wall",
+      "matrix-2x2",
+      "policy-recommendation",
+      "pricing",
+      "q-and-a",
+      "regulatory-update",
+      "roadmap",
+      "split-compare",
+      "stats",
+      "statute-stack",
+      "verdict-grid"
+    ],
+    "mobile": [
+      "pricing",
+      "roadmap"
+    ]
+  }
+}

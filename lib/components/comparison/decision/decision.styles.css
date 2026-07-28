@@ -88,9 +88,12 @@ section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    `.decision.decision` reaches (0,2,1) — clearing the base `> :is(ul,ol)` (0,1,1). */
 /* SQUARE KEEPS THE SIDE-BY-SIDE SET. The comment above is right that FOUR
  * panels are slivers in a square box — but the alternative it reached for was
- * one column, not two. Square is the `balanced` family (2-up), and collapsing
- * it halves the slide (measured ceiling 6 → 3, tools/calibrate-capacity.js).
- * This read `<= 1.05` because it was written when the only question was
+ * one column, not two. Square is the `balanced` family (2-up), and a decision
+ * slide read side by side is the point of the layout. As shipped it holds four
+ * options at square: `node tools/calibrate-capacity.js decision --family square`
+ * → ceiling 4 (at this component's own `density.soft`, 20 words per option).
+ * State the basis with any capacity number — the count depends on it. This rule
+ * read `<= 1.05` because it was written when the only question was
  * landscape-or-portrait and square rode the portrait side, unseen (#1218). */
 section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) { flex-direction: column; }
 /* Each card fills a share of the tall frame; centre the justification so it sits

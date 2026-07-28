@@ -230,14 +230,10 @@ section.citation-card :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    VARIANTS — .split (quote | gloss), .triptych (three panels), .margin (annotated
    margins) — collapsing each to one stacked column on a portrait/square frame.
 
-   These variants put `display:grid` on the SECTION element itself. Under the
-   retired `@container lattice` form that was unreachable — a container query
-   styles a descendant against its ANCESTOR container, never the container
-   element itself (§11) — so this rule was written against the deck-level
-   `[data-orientation]` stamp instead. #1218 removed that constraint (family
-   rules now select `[data-family]` ON the section), but portrait + square is
-   exactly the square ∪ tall ∪ strip set, so the rule is already correct and
-   stays as-is rather than churning a verified layout. Landscape is untouched. */
+   This rule was written against the deck-level `[data-orientation]` stamp rather
+   than a container query, and it stays there: portrait + square is exactly the
+   square ∪ tall ∪ strip set, so the two spellings select the same slides and
+   #1218 gives no reason to churn a verified layout. Landscape is untouched. */
 /* All THREE parts must reach `> .cell-stage`. They did not: only `.margin`
  * carried the child combinator, so `.split` and `.triptych` applied this collapse
  * to the SECTION — where it does nothing, since the section is already a flex

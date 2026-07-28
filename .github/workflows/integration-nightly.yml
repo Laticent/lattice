@@ -68,6 +68,28 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # The adaptive-family tier check + its overflow oracle: renders one gallery
+      # slide per family-reflowing component at all four family sizes and compares
+      # the clipped set against test/oracle/family-overflow.json. Too slow for
+      # per-PR CI (four full emulator sweeps), and it needs the Chromium this job
+      # already has — so it belongs in the nightly render tier, not the fast lane.
+      # It is the gate that catches a reflow rule silently starting to clip; #1218
+      # shipped three such regressions with every other gate green.
+      - name: Adaptive family tiers + overflow oracle
+        id: families
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- check:family-tiers ---'
+          } >> "$REPORT"
+          if npm run --silent check:family-tiers 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Job summary
         if: always()
         run: |
@@ -91,7 +113,7 @@ jobs:
       # title marker). Self-labelled at creation with the four-axis taxonomy (a
       # GITHUB_TOKEN-opened issue can't trigger the triage gate). Skipped when green.
       - name: Open / append regression issue
-        if: steps.run.outputs.failed == 'true'
+        if: steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

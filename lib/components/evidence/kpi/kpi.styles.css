@@ -476,17 +476,27 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
 /* ── Family reflow (2026-06-18-component-adaptive-sizing.md) ──────
  * Every kpi variant (briefing, ops, spotlight, trajectory) places metric <li>s
  * on an explicit grid — a hero spanning rows + supports in a side column, or a
- * 2×2 matrix. In a square-or-narrower box that side-by-side composition is
+ * 2×2 matrix. In a TALL-or-narrower box that side-by-side composition is
  * cramped. Switching the metric list to a single flex COLUMN linearises every
  * variant at once: flex ignores the children's grid-column / grid-row, so the
  * hero stacks on top and the supports follow, full width — no per-variant
  * override. Keyed on the deck's `data-family` stamp, so it fires on any tall or strip
  * deck, replacing the data-orientation
- * stamp. `.kpi.kpi` (class doubled) lifts the selector to (0,2,2) so it matches
+ * stamp.
+ *
+ * TALL AND STRIP ONLY — square keeps the hero grid. The rule was authored to
+ * include square, but square never matched (#1218) so nobody saw the result:
+ * linearising flattens `kpi target` into a uniform ledger where the hero number
+ * is barely larger than its supports, which is the one thing the layout exists
+ * to do. Square is 1080px wide — the same inline size as portrait — but it does
+ * not need the space: the hero card + rail fits with room to spare (rendered and
+ * compared side by side). Square is the SOCIAL family, where a single big number
+ * is most of the point, so flattening it there is the worst place to do it.
+ * `.kpi.kpi` (class doubled) lifts the selector to (0,2,2) so it matches
  * the per-variant grid rules' specificity (`section.kpi.spotlight > .cell-stage > ol`) and wins
  * on source order — the role the old `[data-orientation]` attribute played. */
-section.kpi.kpi:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol,
-section.kpi.kpi:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol,
+section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   display: flex;
   flex-direction: column;
   /* The list keeps `flex: 1` (fills the slide below the title), so centre the
@@ -502,20 +512,20 @@ section.kpi.kpi:where([data-family="square"], [data-family="tall"], [data-family
  * hairline lead row (bigger number, no box) all four metrics read as one ledger
  * and fit. Scoped away from ops/compliance/trajectory, which are already uniform
  * grids/cards. (0,3,3) ties the briefing hero rules and wins on source order. */
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) {
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) {
   background: none;
   border-left: none;
   border-top: 1.5px solid var(--text-heading);
   padding: var(--sp-sm) 0;
 }
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1)::after {
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1)::after {
   content: none;
 }
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > strong {
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > strong {
   font-size: var(--fs-h1);
   line-height: 1;
 }
-section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > ul > li:first-child {
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > ul > li:first-child {
   font-family: var(--font-body);
   font-size: var(--fs-body);
   padding-top: var(--sp-3xs);

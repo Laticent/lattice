@@ -113,12 +113,20 @@ section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
 
 /* ── Reflow: a narrow / portrait frame stacks the ring vertically. The forward
  *    connector becomes a down-chevron between rows; the return arc runs up the
- *    left side back to the top. ── */
-section.cycle:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+ *    left side back to the top.
+ *
+ *    TALL AND STRIP ONLY — square keeps the horizontal ring. `cycle.manifest.json`
+ *    declares `adapt.families: [wide, tall, strip]`: there IS no square tier here,
+ *    and a square box has the width to hold the ring. The `<= 1.05` this replaced
+ *    read as "square too", but it never matched a square deck (#1218), so nobody
+ *    saw the result — which is a 4-stage stack whose last card and return arc fall
+ *    off the frame. Verified: gallery `cycle` at `size: square` overflows with
+ *    square in this set and fits without it. ── */
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
   flex-direction: column;
   padding: 0 0 0 var(--sp-xl);
 }
-section.cycle:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li:not(:last-child)::after {
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li:not(:last-child)::after {
   content: "\2304"; /* ⌄ */
   top: auto;
   right: auto;
@@ -127,7 +135,7 @@ section.cycle:where([data-family="square"], [data-family="tall"], [data-family="
   width: auto;
   transform: translateX(-50%);
 }
-section.cycle:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul::after {
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul::after {
   left: 0;
   right: auto;
   top: var(--sp-md);
@@ -138,7 +146,7 @@ section.cycle:where([data-family="square"], [data-family="tall"], [data-family="
   border-right: none;
   border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
-section.cycle:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul::before {
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul::before {
   left: 0;
   bottom: 50%;
   transform: translate(-35%, 50%);

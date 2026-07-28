@@ -99,7 +99,15 @@ const BUILDERS = {
 //   math           — the equation is fixed chrome that dominates the box; a deck
 //                    of bare legend lines measures the wrong thing.
 //   content        — same: the lead paragraph is the slide, the bullets optional.
-const NOT_COUNT_CALIBRATABLE = Object.freeze(['citation-card', 'logo-wall', 'math', 'content']);
+// Shape: { name → why }. Printed by `calibrate-capacity --all` so the dropped
+// coverage is stated, not implied by an absence — the list existed as an inert
+// export for a while, reading like a decision while enforcing nothing.
+const NOT_COUNT_CALIBRATABLE = Object.freeze({
+  'citation-card': 'atomic — one citation per slide, so there is no count axis',
+  'logo-wall': 'elements are image assets; a synthetic deck measures broken-image boxes, not logos',
+  math: 'the equation is fixed chrome that dominates the box; a deck of bare legend lines measures the wrong thing',
+  content: 'the lead paragraph IS the slide and the bullets are optional — same problem',
+});
 
 /** The component's manifest, found across the bucket directories. */
 function findManifest(name) {
