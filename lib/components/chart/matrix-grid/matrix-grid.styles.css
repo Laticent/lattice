@@ -115,7 +115,10 @@
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure table {
   width: 100%;
   border-collapse: separate;
-  border-spacing: 0 var(--sp-3xs);
+  /* 0, not --sp-3xs: each cell already draws its own outline, so the inter-row
+   * gap was redundant separation costing ~12px across six rows — height this
+   * stage does not have at design size, and better spent on the header band. */
+  border-spacing: 0;
   font-size: var(--fs-body-compact);
   table-layout: auto;
 }
@@ -129,10 +132,28 @@
   letter-spacing: 0.10em;
   text-transform: uppercase;
   color: var(--text-label);
-  padding: 0.46875cqi var(--sp-sm) 0.625cqi;
+  /* Routed through --sp-* rather than raw sub-cqi. The old
+   * `0.46875cqi … 0.625cqi` resolved to ~6px above and ~8px below at design
+   * size, and the first body row added only ~2px on top of that — under half a
+   * --sp-sm between the header rule and the first cell, which read as the
+   * header jammed into the grid. The label row is the one place in this table
+   * that needs its separation legible. */
+  padding: var(--sp-3xs) var(--sp-sm) var(--sp-xs);
   text-align: center;
   border-bottom: 1px solid var(--border);
 }
+/* The gap under the header rule is HALF the header's own trailing padding and
+ * half the first row's leading padding, so it reads as one band. Together they
+ * give 16px where the old raw-cqi values gave ~10px. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:first-child td {
+  padding-top: var(--sp-xs);
+}
+/* Rows KEEP their own vertical padding. An earlier cut of this fix zeroed it to
+ * buy height for one dense slide, and the golden diff showed the cost: four of
+ * the five gallery samples have no overflow to solve, and every one of them
+ * came back with its pills nearly touching. The row rhythm is the component's
+ * legibility; the inter-row `border-spacing` above was the redundant half of
+ * it, and dropping that alone is enough. */
 /* The corner cell stays EMPTY: both axes are named by their own generated
  * labels (data-col-axis above the grid, data-row-axis rotated beside it), so a
  * literal "Verb" heading in the corner is a third, redundant axis name that
@@ -223,6 +244,26 @@
 /* ── Legend + caption, one paragraph (chart-family lifts only the single
  * trailing <p> into .chart-caption — see the manifest's legend slot note).
  * A leading bold/italic run becomes a filled/outlined swatch + label. */
+/* The grid above is the slide; this legend is its footnote. The family's
+ * symmetric padding gave it ~32px of vertical reserve on a stage that overran
+ * by 59px at design size — the caption sits directly above the footer band, so
+ * its trailing space is already provided. Keep the space that separates it from
+ * the grid, drop the space below it. */
+/* `section.matrix-grid.chart-frame` (0,3,1), not `:is(section.matrix-grid, …)`
+ * (0,2,1) — the family rule it overrides is `section.chart-frame .chart-caption`
+ * at the SAME 0,2,1, and source order put the family last, so the lower-
+ * specificity form silently lost. matrix-grid always carries `chart-frame`
+ * (the family transformer stamps it). */
+section.matrix-grid.chart-frame .chart-caption {
+  /* Keep the space that SEPARATES the legend from the grid — an earlier cut of
+   * this fix zeroed it for height, and the legend stopped reading as a legend:
+   * it sat flush under the table like a stray line of body text. Only the
+   * trailing space goes, because the caption sits directly above the footer
+   * band, which already provides it. */
+  padding-top: var(--sp-xs);
+  padding-bottom: 0;
+  gap: var(--sp-3xs);
+}
 :is(section.matrix-grid, figure.matrix-grid) .chart-caption strong {
   display: inline-flex;
   align-items: center;

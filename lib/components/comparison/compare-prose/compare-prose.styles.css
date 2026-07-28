@@ -343,13 +343,22 @@ section.compare-prose.axis > .cell-stage {
  * the message tier a 60cqi measure ran it to five lines and the centered stage
  * clipped at both ends; at the body tier it settles to three or four and the
  * group has room to breathe. */
+/* Measured at DESIGN size (--_sec-1cqi stamped, as the live preview does): the
+ * stage is 438px and this group ran 477px — 39px over, so the lede clipped at
+ * the top of a centered stage. The export hid it because nothing stamps
+ * --_sec-1cqi there, so `1cqi` fell back to the narrower stage box and every
+ * token computed ~11% small (engineering/gotchas.md). Widening the measure is
+ * NOT the lever — the lede only drops to two lines at 92cqi, which is nearly
+ * full-bleed and destroys the centered group. So: 72cqi to share one measure
+ * column with the card pair below, --lh-base rather than --lh-relaxed (this is
+ * a three-clause explainer, not a pull quote), and one step less trailing space. */
 section.compare-prose.axis > .cell-stage > p:first-child {
   font-size: var(--fs-body);
-  line-height: var(--lh-relaxed);
+  line-height: var(--lh-base);
   color: var(--text-secondary);
-  max-width: 60cqi;
+  max-width: 72cqi;
   align-self: center;
-  padding-bottom: var(--sp-md);
+  padding-bottom: var(--sp-xs);
 }
 /* 72cqi, not the source's 64: our card body sits at --fs-body (1.67cqi) where
  * the reference set 17px (1.33cqi), so the same three-line body needs more
@@ -392,7 +401,7 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   font-weight: 700;
   line-height: 1;
   color: var(--accent);
-  padding-bottom: var(--sp-sm);
+  padding-bottom: var(--sp-3xs);
 }
 /* `axis` opts OUT of the family's corner-tag recipe. That recipe lifts a card's
  * leading <strong> into a flush top-left chip and reserves top padding for it —
@@ -400,8 +409,12 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
  * UNDER the numeral as part of the centered stack. This is the rule the old
  * blank-lead contract was dodging; opting out explicitly is what lets the item
  * be authored as an ordinary `1. Title` + nested body. */
+/* --sp-sm, matching the card's own base padding: the chip recipe reserved
+ * --sp-lg of top space for a flush corner tag this variant does not render, so
+ * on an opted-out card that reserve is dead space — and it was 16px of the 39px
+ * this stage overran at design size. */
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
-  padding-top: var(--sp-lg);
+  padding-top: var(--sp-xs);
 }
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
   position: static;

@@ -3231,13 +3231,22 @@ section.compare-prose.axis > .cell-stage {
  * the message tier a 60cqi measure ran it to five lines and the centered stage
  * clipped at both ends; at the body tier it settles to three or four and the
  * group has room to breathe. */
+/* Measured at DESIGN size (--_sec-1cqi stamped, as the live preview does): the
+ * stage is 438px and this group ran 477px — 39px over, so the lede clipped at
+ * the top of a centered stage. The export hid it because nothing stamps
+ * --_sec-1cqi there, so `1cqi` fell back to the narrower stage box and every
+ * token computed ~11% small (engineering/gotchas.md). Widening the measure is
+ * NOT the lever — the lede only drops to two lines at 92cqi, which is nearly
+ * full-bleed and destroys the centered group. So: 72cqi to share one measure
+ * column with the card pair below, --lh-base rather than --lh-relaxed (this is
+ * a three-clause explainer, not a pull quote), and one step less trailing space. */
 section.compare-prose.axis > .cell-stage > p:first-child {
   font-size: var(--fs-body);
-  line-height: var(--lh-relaxed);
+  line-height: var(--lh-base);
   color: var(--text-secondary);
-  max-width: 60cqi;
+  max-width: 72cqi;
   align-self: center;
-  padding-bottom: var(--sp-md);
+  padding-bottom: var(--sp-xs);
 }
 /* 72cqi, not the source's 64: our card body sits at --fs-body (1.67cqi) where
  * the reference set 17px (1.33cqi), so the same three-line body needs more
@@ -3280,7 +3289,7 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
   font-weight: 700;
   line-height: 1;
   color: var(--accent);
-  padding-bottom: var(--sp-sm);
+  padding-bottom: var(--sp-3xs);
 }
 /* `axis` opts OUT of the family's corner-tag recipe. That recipe lifts a card's
  * leading <strong> into a flush top-left chip and reserves top padding for it —
@@ -3288,8 +3297,12 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
  * UNDER the numeral as part of the centered stack. This is the rule the old
  * blank-lead contract was dodging; opting out explicitly is what lets the item
  * be authored as an ordinary `1. Title` + nested body. */
+/* --sp-sm, matching the card's own base padding: the chip recipe reserved
+ * --sp-lg of top space for a flush corner tag this variant does not render, so
+ * on an opted-out card that reserve is dead space — and it was 16px of the 39px
+ * this stage overran at design size. */
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
-  padding-top: var(--sp-lg);
+  padding-top: var(--sp-xs);
 }
 section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
   position: static;
@@ -8988,7 +9001,10 @@ section.matrix-2x2 > .cell-stage {
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure table {
   width: 100%;
   border-collapse: separate;
-  border-spacing: 0 var(--sp-3xs);
+  /* 0, not --sp-3xs: each cell already draws its own outline, so the inter-row
+   * gap was redundant separation costing ~12px across six rows — height this
+   * stage does not have at design size, and better spent on the header band. */
+  border-spacing: 0;
   font-size: var(--fs-body-compact);
   table-layout: auto;
 }
@@ -9002,10 +9018,28 @@ section.matrix-2x2 > .cell-stage {
   letter-spacing: 0.10em;
   text-transform: uppercase;
   color: var(--text-label);
-  padding: 0.46875cqi var(--sp-sm) 0.625cqi;
+  /* Routed through --sp-* rather than raw sub-cqi. The old
+   * `0.46875cqi … 0.625cqi` resolved to ~6px above and ~8px below at design
+   * size, and the first body row added only ~2px on top of that — under half a
+   * --sp-sm between the header rule and the first cell, which read as the
+   * header jammed into the grid. The label row is the one place in this table
+   * that needs its separation legible. */
+  padding: var(--sp-3xs) var(--sp-sm) var(--sp-xs);
   text-align: center;
   border-bottom: 1px solid var(--border);
 }
+/* The gap under the header rule is HALF the header's own trailing padding and
+ * half the first row's leading padding, so it reads as one band. Together they
+ * give 16px where the old raw-cqi values gave ~10px. */
+:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:first-child td {
+  padding-top: var(--sp-xs);
+}
+/* Rows KEEP their own vertical padding. An earlier cut of this fix zeroed it to
+ * buy height for one dense slide, and the golden diff showed the cost: four of
+ * the five gallery samples have no overflow to solve, and every one of them
+ * came back with its pills nearly touching. The row rhythm is the component's
+ * legibility; the inter-row `border-spacing` above was the redundant half of
+ * it, and dropping that alone is enough. */
 /* The corner cell stays EMPTY: both axes are named by their own generated
  * labels (data-col-axis above the grid, data-row-axis rotated beside it), so a
  * literal "Verb" heading in the corner is a third, redundant axis name that
@@ -9096,6 +9130,26 @@ section.matrix-2x2 > .cell-stage {
 /* ── Legend + caption, one paragraph (chart-family lifts only the single
  * trailing <p> into .chart-caption — see the manifest's legend slot note).
  * A leading bold/italic run becomes a filled/outlined swatch + label. */
+/* The grid above is the slide; this legend is its footnote. The family's
+ * symmetric padding gave it ~32px of vertical reserve on a stage that overran
+ * by 59px at design size — the caption sits directly above the footer band, so
+ * its trailing space is already provided. Keep the space that separates it from
+ * the grid, drop the space below it. */
+/* `section.matrix-grid.chart-frame` (0,3,1), not `:is(section.matrix-grid, …)`
+ * (0,2,1) — the family rule it overrides is `section.chart-frame .chart-caption`
+ * at the SAME 0,2,1, and source order put the family last, so the lower-
+ * specificity form silently lost. matrix-grid always carries `chart-frame`
+ * (the family transformer stamps it). */
+section.matrix-grid.chart-frame .chart-caption {
+  /* Keep the space that SEPARATES the legend from the grid — an earlier cut of
+   * this fix zeroed it for height, and the legend stopped reading as a legend:
+   * it sat flush under the table like a stray line of body text. Only the
+   * trailing space goes, because the caption sits directly above the footer
+   * band, which already provides it. */
+  padding-top: var(--sp-xs);
+  padding-bottom: 0;
+  gap: var(--sp-3xs);
+}
 :is(section.matrix-grid, figure.matrix-grid) .chart-caption strong {
   display: inline-flex;
   align-items: center;
@@ -9612,12 +9666,34 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
  * component contract.
  */
 
+/* NO box dimension here — the DECK owns the slide box, and each render path
+ * pins it onto the section itself.
+ *
+ * `height: 100%` shipped here in #1207 and broke every live preview while
+ * leaving the PDF perfect. The export was unharmed only because
+ * lattice-emulator.js emits `section[data-lattice-slide] { width/height:
+ * !important }` — importance, not specificity, is what kept it out. In the
+ * Playground the percentage resolved against `div.lattice`, whose inline
+ * height the preview's fit() routine sets to the height of the WHOLE
+ * FILMSTRIP: measured on the real Playground at 390px, the section became
+ * 2517px — exactly `.lattice`'s 2517px — against ~667px of actual content.
+ * lib/runtime/index.js stampOrientation() then read that 1280x2517 box
+ * (aspect 0.51) as portrait and applied the portrait type scale (--fs-h1
+ * 9.05x vs landscape 5x) to a landscape slide.
+ *
+ * Note the percentage did NOT fall back to content height — it resolved
+ * against a perfectly definite containing block that simply was not the
+ * slide. "It looked right in the export" proves nothing about this class.
+ *
+ * PDF-only gates cannot see it: golden-diff was green throughout.
+ * `align-items: center` already does the vertical centering the height was
+ * reaching for. Gated by checkSectionBoxOwnership (tools/check-ownership.js).
+ */
 section.premise {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: var(--sp-2xl);
-  height: 100%;
   padding: 0 var(--sp-2xl);
   box-sizing: border-box;
 }
