@@ -260,7 +260,25 @@ function overflowOracle() {
 
   if (BLESS) {
     fs.mkdirSync(path.dirname(ORACLE), { recursive: true });
-    fs.writeFileSync(ORACLE, `${JSON.stringify({ components: comps, clipped: fresh }, null, 2)}\n`);
+    // The record carries its own semantics. Without this the `clipped` lists read
+    // as "these components are broken at this size", and they do not mean that: the
+    // sweep deliberately sets NO `autosplit`, so a clip here is "overflows when the
+    // author has not opted into splitting". An audit found 16 of the 22 portrait
+    // entries are components `split-oracle.json` records as enrolled and
+    // splittable — i.e. two blessed records appearing to disagree, reconciled only
+    // by a comment in this file. A record that needs an out-of-band comment to read
+    // correctly is a trap for whoever inherits it.
+    const note = [
+      'Components whose GALLERY SLIDE overflows at each @size, with NO `autosplit`.',
+      'A name here means "clips when the author has not opted into splitting" — NOT',
+      '"broken". Many of these are enrolled in test/oracle/split-oracle.json and fit',
+      'once `autosplit: on` is set. The two records measure different terminals of',
+      'the Fit Ladder and do not contradict each other.',
+      'One entry per registered @size, not per family: `portrait` and `story` are both',
+      '`tall`, but a clip is a function of the BOX — story is 570px taller at the same',
+      'width, and the two clip sets differ substantially.',
+    ].join(' ');
+    fs.writeFileSync(ORACLE, `${JSON.stringify({ note, components: comps, clipped: fresh }, null, 2)}\n`);
     console.log(`\nblessed ${path.relative(ROOT, ORACLE)} — ${comps.length} components across ${SIZES.length} families.`);
     return 0;
   }

@@ -1,4 +1,5 @@
 {
+  "note": "Components whose GALLERY SLIDE overflows at each @size, with NO `autosplit`. A name here means \"clips when the author has not opted into splitting\" — NOT \"broken\". Many of these are enrolled in test/oracle/split-oracle.json and fit once `autosplit: on` is set. The two records measure different terminals of the Fit Ladder and do not contradict each other. One entry per registered @size, not per family: `portrait` and `story` are both `tall`, but a clip is a function of the BOX — story is 570px taller at the same width, and the two clip sets differ substantially.",
   "components": [
     "actors",
     "authority-chain",
