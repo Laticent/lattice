@@ -65,6 +65,12 @@ const BUILDERS = {
   inventory: (w) => `- **${cap(words(2))}.** ${cap(words(w - 2))}.`,
   actors: (w) => `- ${cap(words(w - 2))} \`Head of Product\`\n  - ${cap(words(2))}.`,
   'list-steps': (w) => `1. ${cap(words(2))}\n   - ${cap(words(w - 2))}.`,
+  // A premise row is term / clause / framing question — three parts, matching its
+  // skeleton. Added in #1220: premise's capacity was first set from an ad-hoc
+  // render, which is the "measured by a script nobody can re-run" shape this repo
+  // keeps getting bitten by. With a builder here the number is re-derivable:
+  // `node tools/calibrate-capacity.js premise --family tall`.
+  premise: (w) => `1. ${cap(words(2))}\n   - ${cap(words(Math.max(1, w - 5)))}.\n   - ${cap(words(3))}?`,
   'q-and-a': (w) => `- ${cap(words(2))}?\n  - ${cap(words(w - 2))}.`,
   agenda: (w) => `1. ${cap(words(w))} \`p.3\``,
   checklist: (w) => `- [x] ${cap(words(w))}`,

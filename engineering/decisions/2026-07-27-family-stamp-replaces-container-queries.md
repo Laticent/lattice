@@ -326,6 +326,44 @@ Two of the six were therefore correct all along. The other four got real reflows
   beside a squeezed lead. Stacked at tall/strip; square keeps the row (972px
   leaves ~500px for the copy beside a ~447px poster).
 
+**What the inversion pass caught in that work, and what it cost.** Three of the
+four fixes above shipped a defect of their own; they are listed because the shape
+repeats:
+
+- **`premise`'s reflow dropped the slide's claim off the top of the frame.** The
+  new family block set `flex-direction: column` while the section kept
+  `justify-content: center`, and a centered flex column that overflows spills off
+  BOTH ends — measured, the `<h2>` sat at **−145px** at portrait while the rows it
+  frames stayed visible. That is strictly worse than the truncation it replaced:
+  "R…" is a damaged term, a missing claim is a missing argument. Fixed with
+  `justify-content: safe center`, which falls back to `start` exactly when
+  overflow would occur, so the spill goes one way — off the bottom, where the
+  overflow probe and the split recipe can both see it.
+- **`compare-code`'s stacking only halved its horizontal clip.** A bare `1fr`
+  track floors at min-content, and a `<pre>` reports its longest unwrapped line as
+  min-content — so the single column computed **1173px inside a 1080px section**
+  and every descendant hung 147px off the right edge. `minmax(0, 1fr)` plus
+  `pre-wrap` at these families closes it (measured: 972px track, zero elements
+  overflowing right). The vertical probe reads horizontal overflow as zero, so
+  nothing would have reported this.
+- **The overflow oracle claimed coverage it did not have.** Its roster listed 34
+  components and rendered **31**: `_chart-family` is a shared stylesheet directory
+  with no manifest and no slide, and `premise` and `video` — the two components
+  this change gave new reflows — have no slide in the baseline gallery. So the two
+  most-changed components were the two never measured, which is precisely why the
+  `premise` regression above passed every gate. The sweep now falls back to a
+  component's OWN gallery deck (rather than adding slides to a long-running
+  gallery, which HARD RULE #8 forbids in feature work) and **hard-fails** when a
+  rostered component has no slide at all. Roster is 33, all rendered.
+
+**Still open, and cosmetic:** the `--row-mark` hue cycles on `nth-child(8n+k)`
+*within each `<ol>`*, so across a split run page two restarts at the first hue —
+04/05/06 render in the same blue/red/olive as 01/02/03. The ordinal was fixed by
+moving to the `list-item` counter; its visual twin was not, because CSS cannot
+select on the `start` offset without a rule per start value. The robust fix is a
+transform that stamps each row's absolute index; `premise` has no transform today,
+so that is a separate slice rather than brittle CSS bolted on here.
+
 **A split surfaced a counter bug in `premise`.** Once it could paginate, page two
 restarted the ordinals at `01` — on a Bloom ladder, "Analyze is the first verb".
 The splitter was already emitting `<ol start="4">`; `premise` was using a private
@@ -375,9 +413,18 @@ number for another and call it progress. The honest move is to wait for the
 skeleton-derived basis above — which is why this is written down instead.
 
 `premise` is the counter-example, and the contrast is the point: its numbers ARE
-shipped here, because they were measured against ITS OWN skeleton shape (a graded
-3→9-row render at all four family sizes), not against a declared density nobody
-writes to. Same tool, trustworthy basis, so the number ships.
+shipped here, because they are **re-derivable**. A `premise` element builder was
+added to `tools/lib/calibrate-core.js`, so `node tools/calibrate-capacity.js
+premise --family tall` reproduces them on demand.
+
+That was not true of the first cut, and the inversion pass caught it: the numbers
+came from an ad-hoc script, the manifest note said "measured", and this very
+paragraph claimed "same tool" for a component the tool refused to run
+(`No element builder for 'premise'`). The ad-hoc rows were also shorter than the
+tool's basis, so the ceilings came out one too high — declaring `tall.hard: 5`
+against a real 4, which would have kept the linter silent on a slide that clips.
+An assertion nobody can re-derive drifts from what ships; writing that sentence
+twice in this note did not exempt the note from it.
 
 ## The export change this note did not originally mention
 

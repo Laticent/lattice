@@ -135,7 +135,22 @@ section.compare-code-block pre > code {
  * them off-screen. Square stacks too — code lines are long, and 486px of column
  * wraps almost any real line. */
 section.compare-code:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .code-cols {
-  grid-template-columns: 1fr;
+  /* `minmax(0, 1fr)`, NOT `1fr`. A grid track's implicit floor is min-content, and
+   * a `<pre>` with `white-space: pre` reports its LONGEST UNWRAPPED LINE as
+   * min-content — so a bare `1fr` computed 1173px inside a 1080px section and
+   * every descendant hung 147px off the right edge. Stacking alone therefore did
+   * not fix the horizontal clip it was written to fix; it only halved it. The
+   * vertical overflow probe cannot see this, so nothing would have said so. */
+  grid-template-columns: minmax(0, 1fr);
+}
+/* Long lines WRAP rather than disappear. The pair is `overflow: hidden`, so
+ * without this a line past the column width is silently cut mid-token — and in a
+ * PDF there is no scrollbar to recover it. A wrapped line is still readable code;
+ * a clipped one is a lie about what the source says. Landscape keeps `pre`, where
+ * the two columns have the width the author wrote for. */
+section.compare-code:where([data-family="square"], [data-family="tall"], [data-family="strip"]) pre > code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 /* The un-transformed fallback pins each block to an explicit grid column, so
  * collapsing the track is not enough — the assignments have to fold to one

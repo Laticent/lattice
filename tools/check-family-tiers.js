@@ -129,7 +129,11 @@ function familyReflowingComponents() {
     }
   };
   walk(path.join(ROOT, 'lib', 'components'));
-  return [...out].sort();
+  // Real components only. `_chart-family` is a SHARED stylesheet directory, not a
+  // component — it has no manifest and no slide, so rostering it was a phantom
+  // entry the record then claimed coverage for.
+  const real = new Set(require('../lib/components').loadAll().map((m) => m.name));
+  return [...out].filter((c) => real.has(c)).sort();
 }
 
 /**
@@ -155,9 +159,40 @@ function sweepDeck(size, comps) {
     return out;
   };
   const tokenised = slides.map((s) => ({ s, tokens: classTokens(s) }));
+  // FALL BACK to the component's OWN gallery deck when the shared baseline has no
+  // slide for it, and hard-fail if neither does. Silently skipping is how the
+  // record came to claim 34 components while rendering 31: `premise` and `video`
+  // have no baseline slide, so the two components this change gave new reflows
+  // were the two it never measured — which is exactly why a regression that put
+  // premise's own `<h2>` off the top of the frame passed every gate.
+  // Falling back rather than adding slides to the baseline deck is deliberate:
+  // HARD RULE #8 keeps feature work out of the six long-running galleries.
+  const { loadAll, manifestBucket } = require('../lib/components');
+  const byName = new Map(loadAll().map((m) => [m.name, m]));
+  const ownGallerySlide = (c) => {
+    const m = byName.get(c);
+    if (!m) return null;
+    const p = path.join(ROOT, 'lib', 'components', manifestBucket(m), c, `${c}.gallery.md`);
+    if (!fs.existsSync(p)) return null;
+    const own = fs.readFileSync(p, 'utf8').split(/^---\s*$/m);
+    const hit = own.map((s) => ({ s, tokens: classTokens(s) }))
+      .find((x) => x.tokens.has(c) && !x.tokens.has('title'));
+    return hit ? hit.s.trim() : null;
+  };
+  const unrenderable = [];
   for (const c of comps) {
     const hit = tokenised.find((x) => x.tokens.has(c));
-    if (hit) picked.push({ comp: c, body: hit.s.trim() });
+    if (hit) { picked.push({ comp: c, body: hit.s.trim() }); continue; }
+    const own = ownGallerySlide(c);
+    if (own) { picked.push({ comp: c, body: own }); continue; }
+    unrenderable.push(c);
+  }
+  if (unrenderable.length) {
+    throw new Error(
+      `family-overflow oracle: no slide to render for ${unrenderable.join(', ')} — neither the `
+      + 'baseline gallery nor the component\'s own gallery deck has one. The record must not claim '
+      + 'coverage it does not have; give the component a gallery slide or remove it from the roster.',
+    );
   }
   const src = `---\nmarp: true\ntheme: indaco\nsize: ${size}\npaginate: true\n---\n\n`
     + picked.map((p) => p.body).join('\n\n---\n\n') + '\n';

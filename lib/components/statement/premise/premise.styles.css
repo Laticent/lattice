@@ -183,7 +183,15 @@ section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) {
   flex-direction: column;
   align-items: stretch;
-  justify-content: center;
+  /* SAFE center, not bare `center`. A centered flex column that overflows spills
+   * off BOTH ends, so an over-long ledger pushed the slide's own `<h2>` 145px
+   * above the top of the frame — the claim the layout exists to state, gone,
+   * while the rows it frames stayed visible. `safe` falls back to `start` exactly
+   * when overflow would occur, so the spill goes one way, off the bottom, where
+   * the overflow probe and the split recipe can both see it. (Caught by the
+   * inversion pass: the first cut of this reflow turned "term truncated to R…"
+   * into "the claim is missing".) */
+  justify-content: safe center;
   gap: var(--sp-lg);
 }
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .premise-claim {

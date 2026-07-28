@@ -861,13 +861,32 @@ in patch versions.
   and the gate agree.
 - **`premise` gained a measured capacity block and a read-across-safe split.** It shipped with no
   `capacity` at all, so an over-long ledger could neither warn nor auto-split — it just clipped.
-  Measured by graded render at every family: landscape and mobile hold 9+, **square 6** (7 overflows
-  by 18px), **portrait 5** (6 by 71px) — portrait is the binding family because its type scale is
-  the largest. §0c places `premise` as READ-ACROSS, so a bare item axis would paginate between rows
+  Re-derivable, not an ad-hoc render: a `premise` element builder was added to
+  `tools/lib/calibrate-core.js`, so `node tools/calibrate-capacity.js premise --family <f>`
+  reproduces the numbers. At the tool's basis (this component's `density.soft`, 14 words a row)
+  landscape and mobile hold 9+, **square 7**, **portrait 4** — portrait binds because its type
+  scale is the largest of the four. §0c places `premise` as READ-ACROSS, so a bare item axis would paginate between rows
   and destroy the ladder; it takes `cover-paginate` (`perPage: 4`), leading every run with the claim
   as an accent cover. Its ordinals also restarted at `01` on page two once it could split — the
   splitter was already emitting `<ol start="4">`, but a private `counter-reset` ignored it. Now on
   the built-in `list-item` counter; all 8 landscape pages stay pixel-identical.
+- **Three defects in that work, caught by the adversarial pass and fixed here.** (1) `premise`'s new
+  reflow set `flex-direction: column` while the section kept `justify-content: center`, and a
+  centered flex column that overflows spills off **both** ends — the slide's own `<h2>` measured
+  **−145px**, entirely above the frame, while the rows it frames stayed visible. A missing claim is
+  worse than the truncated term it replaced. Now `justify-content: safe center`, which falls back to
+  `start` exactly when overflow would occur, so the spill goes one way — off the bottom, where the
+  probe and the split can see it. (2) `compare-code`'s stacking only halved its horizontal clip: a
+  bare `1fr` track floors at min-content, and a `<pre>` reports its longest unwrapped line as
+  min-content, so the column computed **1173px inside a 1080px section**. `minmax(0, 1fr)` plus
+  `pre-wrap` closes it (972px track, zero elements overflowing right). (3) The overflow oracle
+  claimed a 34-component roster while rendering **31** — `_chart-family` is a shared stylesheet with
+  no manifest, and `premise` and `video` have no baseline gallery slide, so the two components this
+  change altered most were the two it never measured. That is exactly why (1) passed every gate. The
+  sweep now falls back to a component's own gallery deck and **hard-fails** when a rostered
+  component has no slide; roster 33, all rendered. **Known and cosmetic:** `--row-mark` cycles on
+  `nth-child` within each `<ol>`, so a split run restarts the hue at page two even though the
+  ordinals now continue.
 - **New: an overflow oracle over the whole family-reflowing library** (`check:family-tiers`,
   `test/oracle/family-overflow.json`). It renders one gallery slide per family-reflowing component
   at all four family sizes and freezes which components clip; a new clip fails, and a clip that

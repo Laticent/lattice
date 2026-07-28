@@ -1391,8 +1391,16 @@ function checkAdaptDeclarations(manifests, errors) {
       continue;
     }
     const cssPath = componentStylesPath(m);
-    let css = cssPath ? fs.readFileSync(cssPath, 'utf8') : '';
-    if (manifestBucket(m) === 'chart') css += `\n${chartFamilyCss}`;
+    // COMMENT-STRIPPED. Every one of these tests asks "does this stylesheet carry a
+    // reflow RULE", and a `[data-family="tall"]` quoted in prose is not one — these
+    // files are heavily commented, and several comments quote the idiom precisely
+    // because it is the thing being explained. Raw text would let a component keep
+    // its `reflow` promise on the strength of a code sample in a comment.
+    // `familyReflowingComponents` in check-family-tiers.js already did this; the two
+    // gates were answering the same question different ways.
+    const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
+    let css = cssPath ? stripComments(fs.readFileSync(cssPath, 'utf8')) : '';
+    if (manifestBucket(m) === 'chart') css += `\n${stripComments(chartFamilyCss)}`;
     const hasContainerReflow = FAMILY_REFLOW.test(css);
     // orientation defaults to BOTH when omitted (the manifest's documented default).
     const orientation = Array.isArray(m.orientation) ? m.orientation : ['landscape', 'portrait'];
@@ -1429,9 +1437,15 @@ function checkAdaptDeclarations(manifests, errors) {
     // A sibling transform that branches on the box (`*.transform.js` next to the
     // manifest), or a mermaid-bearing component, which the shared reorient covers.
     const dir = cssPath ? path.dirname(cssPath) : null;
+    // Comment-stripped for the same reason as the CSS above — and note this arm
+    // currently admits NO component that the CSS test would not already admit. It
+    // is here because the schema names it as a mechanism, so a future transform
+    // that branches geometry on the box must not be rejected; but it is untested
+    // surface, and it is the loosest of the four. Tighten it before relying on it.
+    const jsComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     const transformReflow = dir && fs.existsSync(dir)
       && fs.readdirSync(dir).filter((f) => f.endsWith('.transform.js')).some((f) => (
-        /orientation|data-family|familyFor|portrait|reorient/.test(fs.readFileSync(path.join(dir, f), 'utf8'))
+        /orientation|data-family|familyFor|portrait|reorient/.test(jsComments(fs.readFileSync(path.join(dir, f), 'utf8')))
       ));
     // STRUCTURAL, not a substring of the manifest. A first cut tested the whole
     // manifest JSON for /mermaid/i and quietly excused `video`, `image`, `scene`,

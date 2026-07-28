@@ -1,6 +1,5 @@
 {
   "components": [
-    "_chart-family",
     "actors",
     "authority-chain",
     "cards-grid",
@@ -58,6 +57,7 @@
       "logo-wall",
       "matrix-2x2",
       "policy-recommendation",
+      "premise",
       "pricing",
       "q-and-a",
       "regulatory-update",
@@ -68,7 +68,6 @@
       "verdict-grid"
     ],
     "mobile": [
-      "compare-code",
       "pricing",
       "roadmap"
     ]
