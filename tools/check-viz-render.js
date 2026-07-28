@@ -7,7 +7,7 @@
  * UNSCOPED emulator/PDF path (each `section` IS the page, tokens land directly).
  * The docs-site hosts a human actually taps — playground / Studio / Player —
  * render WITHOUT Marp's `<foreignObject>`, so the engine re-scopes every selector
- * under `div.lattice > section` via `packTheme` (lib/engine/css.js) and composes
+ * under `article.lattice > section` via `packTheme` (lib/engine/css.js) and composes
  * with `composeCss`. #956 was a bug in THAT scoper: a chart rule led by
  * `:is(section.map, figure.chart-frame)` was mis-scoped as a slide descendant,
  * so a component-local token it defined (`--map-base`, quadrant's `--cell-*`,
@@ -156,7 +156,7 @@ async function collectBlacks() {
           const doc =
             `<!doctype html><html><head><style>:root{color-scheme:${scheme}}` +
             `${css}\n.lattice>section{width:1280px;height:720px}</style></head>` +
-            `<body><div class="lattice" data-scheme="${scheme}">${out.html}</div></body></html>`;
+            `<body><article class="lattice" data-scheme="${scheme}">${out.html}</article></body></html>`;
           await page.setContent(doc, { waitUntil: 'networkidle0' });
           const found = await page.evaluate((TRANSPARENT_ARR, PAINTABLE_ARR, scheme) => {
             const transparent = new Set(TRANSPARENT_ARR);

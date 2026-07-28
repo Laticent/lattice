@@ -30,7 +30,7 @@ export const DEFAULT_H = 720;
 // The intrinsic slide box, SIZED to the deck's `@size` geometry. Required by
 // EVERY `inlineSVG:false` host — this is the line whose absence collapses
 // `container-type:size`. It must AGREE with the engine scaffold's
-// `div.lattice > section { width;height }`: a `size: 4K` deck is a 3840×2160 box,
+// `article.lattice > section { width;height }`: a `size: 4K` deck is a 3840×2160 box,
 // and a host that pinned 1280 here while scaling by `w/3840` (or vice-versa)
 // renders the slide at the wrong size. Pass the geometry from the render result
 // (PG.render → { width, height }); the no-arg call is the HD default.

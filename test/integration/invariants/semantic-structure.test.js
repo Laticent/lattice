@@ -49,6 +49,7 @@ const GALLERY = path.join(__dirname, '..', 'baseline-decks', 'gallery.md');
  * decision recorded here with its justification — never a silent emission.
  */
 const SANCTIONED_ARTICLE_CLASSES = [
+  { cls: 'lattice', why: 'the DECK container (ADR §4A "article #1") — a deck is the textbook self-contained composition. The <main> landmark is the document shell\'s, not the deck\'s: <main> says WHERE the primary content is, <article> says WHAT it is. Emitted by lib/engine/slides.js in lockstep with css.js\'s article.lattice > section packing.' },
   { cls: 'ct-card', why: 'carousel card — a self-contained card that stands alone (ADR §4A "article #2"); predates the ADR and is its reference instance.' },
 ];
 

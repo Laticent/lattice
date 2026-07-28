@@ -5,7 +5,7 @@
  * had to beat Marpit's own scaffold defaults — but Marp is now fully retired as
  * a render path (see engineering/marp-independence.md), so no marp-core scaffold
  * loads after the theme in any Lattice-controlled path. The only competitor is
- * the OWNED engine scaffold (`div.lattice > section::after`, lib/engine/css.js)
+ * the OWNED engine scaffold (`article.lattice > section::after`, lib/engine/css.js)
  * at HIGHER specificity (0,1,2 vs 0,0,1) — and where both set a property the
  * values already MATCH (padding:0, position:absolute); for the properties only
  * this file sets (bottom/right/font/colour) it is the sole declaration. So the

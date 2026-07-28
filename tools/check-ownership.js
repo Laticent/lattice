@@ -715,7 +715,7 @@ const SANCTIONED_MARGINS = [
 // The slide box belongs to the DECK, not to a component. The geometry has one
 // source: the `size:` front-matter directive resolves through resolveSize() to
 // a named `@size` (hd 1280x720, square 1080x1080, …), which every render path
-// then pins onto the section — the engine scaffold as `div.lattice > section`
+// then pins onto the section — the engine scaffold as `article.lattice > section`
 // (lib/engine/css.js), the PDF/HTML export as
 // `section[data-lattice-slide] { width/height !important }`
 // (lattice-emulator.js), the live preview via its own frame CSS. A component
@@ -724,7 +724,7 @@ const SANCTIONED_MARGINS = [
 //
 // That is not a theoretical hazard. `section.premise { height: 100% }` shipped
 // in #1207. The export was unharmed only because the emulator's rule carries
-// `!important`. In the live Playground it resolved against `div.lattice`, whose
+// `!important`. In the live Playground it resolved against `article.lattice`, whose
 // inline height the preview's fit() routine sets to the height of the WHOLE
 // FILMSTRIP — so the section became as tall as every slide stacked together.
 // Measured on the real Playground at 390px: section 2517px === .lattice 2517px,
@@ -814,7 +814,7 @@ function sectionBoxOffences(css) {
  * (`section.foo .card`, `section.foo > *`, `section.foo::before`).
  *
  * A bare `section` counts, and is the WORST case rather than an edge case: a
- * theme is packTheme-scoped to `div.lattice > section`, exactly the scaffold's
+ * theme is packTheme-scoped to `article.lattice > section`, exactly the scaffold's
  * own specificity but emitted after it, so it would silently re-box every slide
  * in every deck.
  */
@@ -897,7 +897,7 @@ function checkSectionBoxOwnership(errors) {
       `to the deck — the \`size:\` directive resolves to a named \`@size\` and each render path pins ` +
       `it onto the section itself. A component-level box is a competing source of truth, and the paths ` +
       `disagree on who wins: the export survives only because lattice-emulator.js uses \`!important\`, ` +
-      `while in the live Playground a percentage resolves against \`div.lattice\` — whose height is the ` +
+      `while in the live Playground a percentage resolves against \`article.lattice\` — whose height is the ` +
       `whole FILMSTRIP — so the slide silently stops clipping and the runtime then mis-stamps ` +
       `data-orientation from the wrong aspect (#1207). Invisible to golden-diff, which only compares ` +
       `PDFs. Place content with align-items/justify-content/padding, or scope the size to a descendant.`,

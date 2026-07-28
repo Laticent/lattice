@@ -984,7 +984,7 @@ section blockquote { margin:0; padding:0; border:none; }
  * had to beat Marpit's own scaffold defaults — but Marp is now fully retired as
  * a render path (see engineering/marp-independence.md), so no marp-core scaffold
  * loads after the theme in any Lattice-controlled path. The only competitor is
- * the OWNED engine scaffold (`div.lattice > section::after`, lib/engine/css.js)
+ * the OWNED engine scaffold (`article.lattice > section::after`, lib/engine/css.js)
  * at HIGHER specificity (0,1,2 vs 0,0,1) — and where both set a property the
  * values already MATCH (padding:0, position:absolute); for the properties only
  * this file sets (bottom/right/font/colour) it is the sole declaration. So the
@@ -9768,7 +9768,7 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
  * leaving the PDF perfect. The export was unharmed only because
  * lattice-emulator.js emits `section[data-lattice-slide] { width/height:
  * !important }` — importance, not specificity, is what kept it out. In the
- * Playground the percentage resolved against `div.lattice`, whose inline
+ * Playground the percentage resolved against `article.lattice`, whose inline
  * height the preview's fit() routine sets to the height of the WHOLE
  * FILMSTRIP: measured on the real Playground at 390px, the section became
  * 2517px — exactly `.lattice`'s 2517px — against ~667px of actual content.
@@ -19537,7 +19537,7 @@ section.finish > .backdrop {
 }
 /* --fin-frame paints an inset keyline FRAME (the `frame` edge type) as stacked
  * SOLID inset box-shadows on the SECTION itself — NOT the ::after pseudo, which the
- * engine reserves for the pagination marker (`div.lattice > section::after`), so a
+ * engine reserves for the pagination marker (`article.lattice > section::after`), so a
  * finish ::after edge is clobbered in the real render. A box-shadow on the real
  * section paints reliably in the vector PDF. The shadows are OPAQUE (a bg-colored
  * mat ring + an accent-into-bg keyline ring) and BLUR-FREE, so they carry no alpha —
@@ -21033,12 +21033,12 @@ section.silent.silent::after,
 section.no-paginate.no-paginate::after {
   /* Suppress the pagination pseudo. The class is DOUBLED (`.silent.silent`)
      purely to reach specificity (0,2,2), which beats the engine pagination
-     pseudo `div.lattice > section::after` (0,1,3) on class-count (2 > 1) — so no
+     pseudo `article.lattice > section::after` (0,1,3) on class-count (2 > 1) — so no
      !important is needed. Doubling (rather than a `.lattice >` ancestor) keeps it
      PATH-AGNOSTIC — it depends on no ancestor structure, which differs across the
      engine and emulator render paths (a `.lattice >` form was caught dropping the
      marker in the emulator by pixel-diff: that bundle carries no
-     `div.lattice > section::after` rule). Verified pixel-identical to the prior
+     `article.lattice > section::after` rule). Verified pixel-identical to the prior
      !important form across light + dark. */
   content: none;
 }

@@ -1252,3 +1252,75 @@ user can navigate.
 **Byte impact:** the rendered PDF/PNG is visually identical (neither `<title>` nor
 `<desc>` paints — verified on a real funnel + quadrant render), but the exported HTML and
 therefore the PDF bytes do change. It rides the step-5 sign-off with the rest.
+
+### 17.10 Step 3, part 1 — the container is an `<article>`; the Cell retags are NOT worth it
+
+**Done: `div.lattice` → `article.lattice`** (§4A "article #1", Fork D). `slides.js`
+emits the new tag and `css.js` moves in lockstep — `scaffold()` (7 rules) and
+`packSelector` step 3 both emit `article.lattice > section`, preserving the (0,1,2)
+specificity that has to beat the preview frame's `.lattice > section` sizing rule
+(`article` is a type selector exactly like `div`, so the specificity cost is nil).
+Verified: gallery container renders as `ARTICLE`, one per document, 117 slides;
+`packTheme('section.title')` → `article.lattice > section.title`; **PDF pages
+pixel-identical to `origin/main`.**
+
+Four live consumers needed the lockstep edit — and one of them would have been an
+expensive silent failure:
+
+| Consumer | Why it mattered |
+|---|---|
+| `share-export.ts` — strips the `div.lattice > ` prefix when un-scoping deck CSS for the player | A miss here ships the **full stylesheet with none of it matching** → the .html export renders as raw unstyled Markdown |
+| `PrintOptionsPanel.tsx` — builds its own container per slide | Print path would lose every themed rule |
+| `check-viz-render.js` — composes its own document | The viz gate would silently stop matching |
+| `perf-torture/scenarios/studio.mjs` — heap-retainer string match | Would stop finding the container |
+
+That is a **fourth** instance of the tag-anchored-coupling pattern (§17.8), and the
+first where the consumer lives in the docs site rather than the engine.
+
+**The gate did its job.** `semantic-structure.test.js` failed on the new
+`<article class="lattice">` until it was added to `SANCTIONED_ARTICLE_CLASSES` with a
+justification — which is exactly the "a new `<article>` is a deliberate decision, never
+a silent emission" contract §4A asks for. Landing the gates first paid for itself here.
+
+### 17.10a The masthead/footer Cell retags — recommend DROPPING them
+
+§4A calls for `.cell-masthead` → `<header>` and `.cell-footer` → `<footer>`. **On
+investigation these should not ship**, and the reason is in the ADR's own text:
+
+**They buy nothing.** §3 states that `<header>`/`<footer>` **degrade to generic inside
+a sectioning element** — and the slide IS a `<section>`. The ADR calls this "a feature"
+because it stops 40 banners flooding the landmark map. But the corollary it never draws
+is that the retag therefore adds **no landmark, no role, and nothing an assistive
+technology can perceive.** The benefit is aesthetic: the DOM reads more honestly.
+
+**They cost a lot, and the footer one risks a regression:**
+
+- The running `footer:` directive nests *inside* the cell, so
+  `.cell-footer` → `<footer>` yields `<footer class="cell-footer"><footer>…</footer></footer>`
+  — which the §8-#8 gate correctly fails. The ADR's fix is to demote the inner
+  `<footer>`, but **six live CSS rules key on that element**:
+  `section.form > .cell-footer > footer`,
+  `section[data-split-role="cover"] > .cell-footer > footer` (×2, deliberately doubled
+  for weight), `section.silent > footer`, `section.no-footer > footer`, plus
+  component overrides in `scene`, `image` and `chart-family`. Demoting it breaks
+  **chrome suppression** — the `silent`/`no-footer` behavior that already shipped
+  broken once for a full release and now has a dedicated real-browser test.
+- `footer-dock.js` finds the cell's close via a depth-aware `</div>` matcher
+  (`matchingDivClose`), which would need to become tag-aware.
+- `carousel.js:61,195` match `<div class="cell-masthead">…</div>\s*</div>` — regexes
+  that depend on both the tag AND the div-nesting depth.
+- `split-envelope.js` builds its own `.cell-footer`, and ~12 test fixtures assert the
+  literal open tags.
+
+**So: high blast radius across the cascade, four more tag-anchored consumers, a real
+chance of reintroducing a shipped-broken chrome bug — in exchange for zero perceivable
+accessibility gain.** That fails the QUALITY BAR's own cost test and HARD RULE #18's
+"never ship a regression you created". The container retag (real semantic value, the
+deck genuinely IS a self-contained composition) is kept; the Cell retags are
+**recommended for removal from §4A** rather than deferred, because deferring implies
+they are still owed.
+
+If they are ever revisited, the honest design is: the Cell **is** the footer, so the
+running directive's text becomes `<div class="footer-text">` inside
+`<footer class="cell-footer">`, and all six `> footer` rules re-key to it — one
+coordinated cascade change with the chrome-suppression test as its gate, not a tag swap.

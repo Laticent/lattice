@@ -55,6 +55,21 @@ in patch versions.
 
 ## Unreleased
 
+### Changed
+
+- **The deck container is an `<article class="lattice">`, not a `<div>`.** A deck is a
+  self-contained composition, which is what `<article>` means; the `<main>` landmark
+  stays the document shell's job, because `<main>` says *where* the primary content is
+  and `<article>` says *what it is*. `lib/engine/css.js` moves in lockstep — the
+  scaffold's 7 geometry rules and `packSelector` both emit `article.lattice > section`,
+  preserving the `(0,1,2)` specificity that has to beat the preview frame's
+  `.lattice > section` sizing rule (`article` is a type selector exactly like `div`, so
+  the specificity is unchanged). Exported PDF pages are pixel-identical to before.
+  Four consumers outside the engine needed the same edit in lockstep, one of which
+  would have failed silently and expensively: the Studio's player export strips the
+  `div.lattice > ` prefix to un-scope deck CSS, and a missed edit there ships the full
+  stylesheet with **none** of it matching — a `.html` export of raw unstyled Markdown.
+
 ### Fixed
 
 - **Funnel and quadrant charts were completely invisible to screen readers; word clouds

@@ -48,12 +48,12 @@ section.silent.silent::after,
 section.no-paginate.no-paginate::after {
   /* Suppress the pagination pseudo. The class is DOUBLED (`.silent.silent`)
      purely to reach specificity (0,2,2), which beats the engine pagination
-     pseudo `div.lattice > section::after` (0,1,3) on class-count (2 > 1) — so no
+     pseudo `article.lattice > section::after` (0,1,3) on class-count (2 > 1) — so no
      !important is needed. Doubling (rather than a `.lattice >` ancestor) keeps it
      PATH-AGNOSTIC — it depends on no ancestor structure, which differs across the
      engine and emulator render paths (a `.lattice >` form was caught dropping the
      marker in the emulator by pixel-diff: that bundle carries no
-     `div.lattice > section::after` rule). Verified pixel-identical to the prior
+     `article.lattice > section::after` rule). Verified pixel-identical to the prior
      !important form across light + dark. */
   content: none;
 }

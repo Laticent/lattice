@@ -198,5 +198,5 @@ export default {
 	probeFloors: { liveIframes: 0.1, cmEditors: 0.1, themeCount: 0.4 },
 	// What a leaked object looks like for the `--retainers` walk: the big (~560KB) retained theme-CSS
 	// / engine-scaffold strings. (Detached-realm targeting via `--realm` is generic, in the engine.)
-	retainerTarget: (name, self) => self >= 200000 && /lattice\.min\.css|lattice-engine scaffold|<div class="lattice">/.test(name),
+	retainerTarget: (name, self) => self >= 200000 && /lattice\.min\.css|lattice-engine scaffold|<article class="lattice">/.test(name),
 };

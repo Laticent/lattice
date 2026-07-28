@@ -37,7 +37,7 @@
  * leaving the PDF perfect. The export was unharmed only because
  * lattice-emulator.js emits `section[data-lattice-slide] { width/height:
  * !important }` — importance, not specificity, is what kept it out. In the
- * Playground the percentage resolved against `div.lattice`, whose inline
+ * Playground the percentage resolved against `article.lattice`, whose inline
  * height the preview's fit() routine sets to the height of the WHOLE
  * FILMSTRIP: measured on the real Playground at 390px, the section became
  * 2517px — exactly `.lattice`'s 2517px — against ~667px of actual content.

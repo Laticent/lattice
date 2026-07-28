@@ -1421,7 +1421,7 @@ const imageDimensions    = require('./lib/core/image-dimensions');
 // Depth-counted scan over <section>…</section> so nested split-panel sections
 // stay inside their parent. Produces the "one <section> string per slide" array
 // shape the emulator's downstream (highlight, deck-logo, page template) expects,
-// from the engine's assembled <div class="lattice"> document.
+// from the engine's assembled <article class="lattice"> document.
 function splitTopLevelSections(latticeHtml) {
   const out = [];
   const re = /<section\b[^>]*>|<\/section>/gi;
