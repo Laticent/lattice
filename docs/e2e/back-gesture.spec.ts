@@ -30,7 +30,7 @@ async function openStudio(page: Page) {
 	await page.waitForTimeout(1200);
 }
 
-test.describe('@webkit the back gesture never leaves the Studio (#1226)', () => {
+test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', () => {
 	test('pops one level at a time: door → index → closed → actually leaves', async ({ page }) => {
 		await openStudio(page);
 		await page.getByRole('button', { name: 'Menu' }).click();

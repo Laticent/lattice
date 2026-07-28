@@ -36,6 +36,38 @@ test('an untagged deck has no reader-view switcher in Present (heuristics retire
 	await expect(dialog.getByText(`1 / ${total}`, { exact: true })).toBeVisible(); // full deck, not trimmed
 });
 
+test('the presented slide card stays a 16:9 box inside its row (#1227) @webkit-tablet', async ({ page }) => {
+	// The measured geometry oracle for the slide box: 16:9, clear of the header, inside
+	// the row — the outcome that must hold on every engine.
+	//
+	// The `@webkit-tablet` tag is what makes this a GUARD rather than a formality. #1227 is
+	// an engine divergence, and re-measuring the reverted fix showed it needs wide AND short:
+	// WebKit at 1180x703 fails all three assertions below (ratio 1.685, covers the header,
+	// +16px past the row) while WebKit at 1440x900 / 820x1180 / 390x844 — and Chromium at
+	// every viewport — passes. So ONLY the `webkit-tablet` project (playwright.config.ts) can
+	// catch a reintroduction; `desktop` deliberately doesn't run this (its `grepInvert`
+	// excludes every `@webkit*` spec), because a Chromium pass here proves nothing about the
+	// defect. The class-level invariant is gated separately and PR-side in
+	// studio.present-layout.test.tsx, since this whole tier is nightly.
+	const box = await page.evaluate(() => {
+		const host = document.querySelector('[aria-label="Presented slide"]');
+		const card = host?.closest('.aspect-video');
+		const row = card?.parentElement?.parentElement;
+		const header = document.querySelector('[role="dialog"][aria-label="Present"]')?.firstElementChild;
+		if (!card || !row || !header) return null;
+		const c = card.getBoundingClientRect();
+		return {
+			ratio: c.width / c.height,
+			coversHeader: c.top < header.getBoundingClientRect().bottom - 0.5,
+			overflowsRow: c.height - row.getBoundingClientRect().height,
+		};
+	});
+	expect(box).not.toBeNull();
+	expect(box?.ratio).toBeCloseTo(16 / 9, 2);
+	expect(box?.coversHeader).toBe(false);
+	expect(box?.overflowsRow).toBeLessThanOrEqual(0);
+});
+
 test('the slide overview opens with the G key and lists every slide', async ({ page }) => {
 	await page.keyboard.press('g');
 	const overview = page.getByRole('dialog', { name: 'Slide overview' });
