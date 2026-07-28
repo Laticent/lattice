@@ -153,6 +153,28 @@ in patch versions.
 
 ### Fixed
 
+- **`compare-prose axis` and `matrix-grid` clipped their own content in every live preview.** At
+  design size the axis stage overran by 39px and the matrix by 59px, cutting the axis lede's first
+  line and the matrix's column-header row and `WIDER REACH` axis label. Both now fit with zero
+  clipping, verified on the real Playground at 390px and 1440px. Widening the axis lede's measure was
+  **not** the lever — it only drops to two lines at 92cqi, which is near full-bleed and destroys the
+  centered group; the height came instead from a `--sp-lg` top reserve the corner-tag recipe kept for
+  a chip this variant does not render, `--lh-base` for a three-clause explainer, and one step less
+  trailing space. `matrix-grid` drops the redundant inter-row `border-spacing` (each cell already
+  draws its own outline) and the caption's symmetric padding, which sat directly above the footer
+  band. **`matrix-grid`'s header row now has legible separation** — `--sp-*` instead of raw sub-`cqi`
+  values that resolved to ~10px between the header rule and the first cell; the band is now 16px,
+  split evenly between the header's trailing padding and the first row's leading padding.
+- **Corrected in `engineering/gotchas.md`: the preview-vs-export size delta is a `--_sec-1cqi`
+  mismatch, not differing slide widths.** The slide is 1280px in both paths. The live preview stamps
+  `--_sec-1cqi: 12.800px`; the export leaves it unset, so the `1cqi` fallback resolves against the
+  nearest query container — the stage inside the section's `5cqi` padding, 1152px. Measured: the same
+  lede computes 21.376px in preview and 19.2384px in export, exactly 1280/1152. Since `--_sec-1cqi`
+  exists to anchor sizing to the slide, the **preview** is correct and the export renders stage
+  content ~11% small — so a slide that "fits in the PDF but clips in the Playground" is genuinely
+  over-subscribed. The earlier note claimed 1152-vs-1280 slide widths and a fixed `--sp-*` baseline;
+  both were wrong (`--sp-*` is `cqi`-based).
+
 - **`premise` slides rendered at roughly double type size and overflowed their frame in every live
   preview (Playground, Studio).** `section.premise` set `height: 100%`, making a component a second
   source of truth for a value the deck owns — the `size:` directive resolves to a named `@size`, which

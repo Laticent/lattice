@@ -572,23 +572,39 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   complete. Distinct from the font-race false positive above: fonts are fully
   loaded (`document.fonts.status === 'loaded'`, same family, same measure) and
   the clipping is stable, not transient.
-- **Cause:** the two paths render the slide at different absolute widths. The
-  export lays out at **1152px** (`--_sec-1cqi` = 11.52px); the live preview
-  lays out at **1280px** (`--_sec-1cqi` = 12.8px) and scales down with a
-  transform. That is a 11.1% difference, and it is not uniform: `--fs-*` is
-  `cqi`-proportional so type grows with the container, while the `--sp-*`
-  spacing scale is pinned to a fixed 1280px baseline. The type-to-spacing
-  ratio therefore differs between the paths, and any slide whose content is
-  near its stage height crosses over in preview but not in export.
-- **Scope:** systemic and long-standing — it is not specific to any one
-  component. Measured in unscaled slide px on the same surface:
-  `list-tabular` 72px, `roadmap` 45px, `matrix-grid` 40px, `compare-prose
-  axis` 29px, `cards-stack` 14px.
-- **Status: OPEN, not fixed.** Recorded here rather than patched per-component:
-  trimming a deck's copy to fit the preview would degrade the export, which is
-  the correct rendering. The real fix is to make the two paths agree on a slide
-  width (or make `--sp-*` proportional), which is engine-wide and needs its own
-  change.
+- **Cause: only one path stamps `--_sec-1cqi`.** The slide is **1280px wide in
+  both** paths — an earlier version of this note claimed 1152 vs 1280 and that
+  `--sp-*` was pinned to a fixed baseline; both were wrong. `--sp-*` is
+  `cqi`-based like `--fs-*`, and *both* read the same token:
+
+  ```css
+  --fs-body: calc(1.67  * var(--_sec-1cqi, 1cqi) * var(--fs-scale));
+  --sp-md:   calc(1.875 * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
+  ```
+
+  The live preview **stamps** `--_sec-1cqi: 12.800px` (slide width / 100) on the
+  section. The export leaves it **unset**, so the `1cqi` fallback resolves against
+  the nearest query container — which for stage content is the stage box inside
+  the section's `5cqi` side padding: 1280 − 2x64 = **1152px**. Measured: the same
+  lede computes 21.376px in preview and 19.2384px in export, a ratio of exactly
+  1280/1152 = **1.1111**.
+- **Which path is right: the PREVIEW.** `--_sec-1cqi` exists precisely to anchor
+  sizing to the SLIDE rather than to whatever nested container an element sits in
+  (`lib/adaptive/families.js`: "anchored to the slide via `--_sec-1cqi`"). So the
+  export is rendering stage content ~11% smaller than designed, and a slide that
+  "fits in the PDF but clips in the Playground" is genuinely over-subscribed at
+  design size. **Do not trim to the preview and assume the export is the truth —
+  it is the flattering one.**
+- **Scope:** systemic and long-standing, not specific to any one component.
+  Measured in unscaled slide px on the same surface: `list-tabular` 72px,
+  `roadmap` 45px, `matrix-grid` 59px, `compare-prose axis` 39px, `cards-stack`
+  14px.
+- **Status: the token mismatch is OPEN** (tracked separately — whether the export
+  should stamp `--_sec-1cqi` or the preview should stop is an engine-wide call).
+  Individual components can and should be fixed in the meantime by making the
+  slide fit at DESIGN size — measure with `--_sec-1cqi` stamped, not in the
+  export. `matrix-grid` and `compare-prose axis` were fixed that way; the others
+  above remain.
 
 ### Exported fluid viewer: an overflowing slide shows NO marker tab, or the red author ring leaks to a reader
 
