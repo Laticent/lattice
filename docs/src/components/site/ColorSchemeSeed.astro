@@ -1,5 +1,6 @@
 ---
-// Kills the first-paint WHITE canvas on a cold load.
+// Kills the first-paint WHITE canvas on a cold load, and tints the browser's own
+// chrome to match the app.
 //
 // The browser shows a blank canvas while the render-blocking stylesheets download, and a
 // blank canvas defaults to WHITE unless the page declares `color-scheme`. Since #962 the
@@ -13,8 +14,23 @@
 // `content="light dark"` tracks the OS, so a dark-OS visitor gets a dark canvas from frame one.
 // The inline script then refines it to the *app* mode (localStorage) so a dark-app visitor on a
 // light-OS device is corrected too, as early as script can run.
+//
+// ── theme-color: the browser toolbar, tinted to the app ────────────────────────────
+// iOS Safari paints its URL bar and bottom bar with `<meta name="theme-color">`. Without
+// one it picks its own gray, which is why the Studio read as a page sitting inside a
+// browser rather than as an app: the chrome above the deck was a different color from
+// everything below it. A web page cannot HIDE Safari's toolbars — only "Add to Home
+// Screen" does that, and the manifest already declares `display: standalone` for it —
+// but it can make them disappear into the app, which is most of the win.
+//
+// The value has to be the RESOLVED `--bg`, not a `prefers-color-scheme` pair: the app's
+// mode is its own (localStorage, not the OS), and `--bg` differs per palette — onyx-dark
+// is #000000 where indaco-dark is not. A hardcoded pair would be wrong for eleven of the
+// twelve palettes. So: a static value for the cold-load window, then read the computed
+// token once CSS has landed, and re-read whenever `data-palette` / `data-mode` change.
 ---
 <meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#FFFFFF" />
 <script is:inline>
 	(function () {
 		try {
@@ -24,6 +40,33 @@
 			document.documentElement.style.colorScheme = scheme;
 			var mt = document.querySelector('meta[name="color-scheme"]');
 			if (mt) mt.setAttribute('content', scheme);
+
+			var tc = document.querySelector('meta[name="theme-color"]');
+			if (!tc) return;
+			// Cold-load guess, before any palette CSS exists: mode-appropriate, so the
+			// toolbar never flashes white on a dark app.
+			tc.setAttribute('content', dark ? '#0B0F14' : '#FFFFFF');
+
+			// Then the truth: whatever `--bg` actually resolves to for this palette+mode.
+			var sync = function () {
+				try {
+					var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+					// `--bg` is `light-dark(...)` in source but computes to a single color;
+					// only accept something that reads as one, so a half-loaded stylesheet
+					// cannot write garbage into the toolbar.
+					if (/^(#|rgb|oklch|oklab|color\()/i.test(bg)) tc.setAttribute('content', bg);
+				} catch (e) {}
+			};
+			if (document.readyState === 'loading') addEventListener('DOMContentLoaded', sync);
+			else sync();
+			addEventListener('load', sync);
+			// The palette and mode are attributes on <html>; the site chrome and the Studio
+			// both drive them, so observing the element covers every path without either
+			// needing to know this exists.
+			new MutationObserver(sync).observe(document.documentElement, {
+				attributes: true,
+				attributeFilter: ['data-palette', 'data-mode', 'style'],
+			});
 		} catch (e) {}
 	})();
 </script>

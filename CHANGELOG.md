@@ -84,6 +84,14 @@ in patch versions.
   `[data-focus-ring="container"]` opt-out so a field whose wrapper paints the ring no longer
   draws a second one inside it. Reader views' "add" moves into the panel header beside the close,
   the slot the Library's import already used.
+  Mobile sheets are now sized from the VISUAL viewport (`--vvh`) rather than `dvh`: with the
+  keyboard up, iOS reports a `dvh` that still spans the area behind the URL bar, so a sheet
+  pinned above the keyboard put its own header underneath that bar — measured on an iPhone 15
+  Pro, where the Library's title and the palette's both vanished while typing. The 54px app-header
+  inset also yields to the keyboard, so a typing surface gets the whole visible height. Every page
+  gains `viewport-fit=cover` (without it iOS reports every `env(safe-area-inset-*)` as 0, which
+  made the home-indicator reservation inert on device), and a `theme-color` meta tracks the
+  resolved `--bg` per palette and mode so Safari's chrome matches the app instead of framing it.
   See `engineering/decisions/2026-07-28-one-panel-height.md`.
 
 - **Breaking (`list-steps`, unreleased): `capsule` absorbs the `cat` variant and the masthead-rule

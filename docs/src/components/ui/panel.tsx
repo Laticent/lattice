@@ -131,6 +131,13 @@ const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t pb-[env(s
  * content height. Caught only by measuring the built site (HARD RULE #23): twelve
  * drawers came back at twelve different heights, from 274px to 5133px.
  *
+ * The inset YIELDS to the keyboard. `clamp(0px, 3.375rem - var(--kb), 3.375rem)` is
+ * 3.375rem when `--kb` is 0 and 0 once the keyboard is taller than the inset. The inset
+ * exists to keep the app header visible above the sheet — but with a keyboard up there
+ * are only ~269px left on an iPhone 15 Pro, and spending a fifth of that on a header the
+ * user is not looking at while they type is the wrong trade. Every drawer is still ONE
+ * height in both states; it is one RULE, evaluated against what is actually on screen.
+ *
  * `var(--kb)` with NO fallback, matching `MOBILE_OFFSET` above and the rest of the
  * codebase. `--kb: 0px` is declared on `:root` in `styles/tailwind.css` precisely so
  * consumers never need one — the comma in `var(--kb,0px)` has to be escaped inside a
@@ -138,7 +145,7 @@ const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t pb-[env(s
  * to generate for a single surface (the command palette stayed pinned under the
  * keyboard while every other sheet lifted clear). See that declaration's comment.
  */
-export const MOBILE_HEIGHT = 'h-[calc(100dvh-max(3.375rem,var(--kb)))]';
+export const MOBILE_HEIGHT = 'h-[calc(var(--vvh)-clamp(0px,3.375rem-var(--kb),3.375rem))]';
 
 /**
  * Publishes the on-screen keyboard's height as `--kb` on <html>.
@@ -160,6 +167,14 @@ export function useKeyboardInset(active: boolean): void {
 			// negative inset would GROW the sheet past its cap.
 			const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
 			root.style.setProperty('--kb', `${Math.round(kb)}px`);
+			// The VISIBLE height. `dvh` is not a substitute: with the keyboard up iOS still
+			// reports a dvh spanning the area behind the URL bar, so a sheet sized from it
+			// and pinned to `bottom: var(--kb)` puts its own TOP underneath that bar —
+			// measured on a real iPhone 15 Pro, where the Library's header and the command
+			// palette's title were both invisible while typing. Sizing from the visual
+			// viewport puts the top at `offsetTop + inset`: the top of what is actually
+			// visible, whatever chrome is showing.
+			root.style.setProperty('--vvh', `${Math.round(vv.height)}px`);
 		};
 		read();
 		vv.addEventListener('resize', read);
@@ -168,8 +183,11 @@ export function useKeyboardInset(active: boolean): void {
 			vv.removeEventListener('resize', read);
 			vv.removeEventListener('scroll', read);
 			// REMOVE, not zero: a stale `--kb` would shrink every later sheet by a
-			// keyboard that has closed, with nothing on screen to explain it.
+			// keyboard that has closed, with nothing on screen to explain it. Same for
+			// `--vvh`, whose :root fallback (100dvh) is the right answer once no sheet is
+			// open and nothing is publishing a measured value.
 			root.style.removeProperty('--kb');
+			root.style.removeProperty('--vvh');
 		};
 	}, [active]);
 }
