@@ -1237,7 +1237,7 @@ ${styles}
 <style>${minifyCss(playerCss())}</style>
 ${darkStyle}
 </head><body>
-<div id="lp-bar">
+<header id="lp-bar">
  <span class="lp-brand">${escapeText(title)}</span>
  <div class="lp-seg">
   <button data-lp-btn="present" aria-pressed="true" aria-label="Present"><svg aria-hidden="true" focusable="false" class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span class="lp-tab-text">Present</span></button>
@@ -1248,7 +1248,7 @@ ${darkStyle}
  <button id="lp-notes-btn" title="Speaker notes (n)" aria-pressed="false" aria-label="Speaker notes"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="17" y2="12"/><line x1="3" y1="18" x2="13" y2="18"/></svg></button>
  <button id="lp-full" title="Toggle fullscreen" aria-pressed="false" aria-label="Toggle fullscreen"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
  <button id="lp-mode" title="Toggle dark / light" aria-label="Toggle dark / light theme"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
-</div>
+</header>
 <main id="lp-app" data-lp-view="present">
  <div id="lp-stage">
 ${a11yDefs}

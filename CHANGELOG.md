@@ -352,6 +352,30 @@ in patch versions.
     `glossary` run is a real `<table>` at portrait/story/square and a header-less
     `display: block` stack at `mobile`.
 
+- **An automated accessibility gate now runs `axe-core` over both shipped shells.**
+  The WCAG 2.0/2.1 A + AA rule set (plus best-practice) against the export shell and the
+  HTML player, in real Chromium, in the per-PR tier. The existing structural gates check
+  invariants *we thought of*; axe checks the rules someone else thought of — which is
+  the class of defect a bespoke assertion cannot catch, because a bespoke assertion only
+  encodes a defect you already understand. It found one on its first run: the player's
+  top bar was a `<div>`, so the deck **title sat outside every landmark** and a screen
+  reader navigating by landmark skipped the one string naming the deck. It is a
+  `<header>` now. Both shells are at **zero** violations and the budget is zero, not a
+  seeded ratchet. The suite also plants an alt-less `<img>` and asserts axe reports it —
+  a green a11y gate is otherwise indistinguishable from one that never loaded.
+
+- **Every chart graphic is now named in the form assistive technology actually
+  resolves.** Charts were named with a bare child `<title>`, which VoiceOver/Safari and
+  older JAWS drop — so a named chart could still announce as an unnamed image. Each
+  `role="img"` chart SVG now references its own `<title>`/`<desc>` by id
+  (`aria-labelledby` / `aria-describedby`). This runs once over the assembled document
+  rather than in the eight chart kernels, because an id must be unique per *document*
+  and a per-slide kernel cannot guarantee that.
+
+- **An authored chart caption is now announced as its graphic's description.** Where a
+  chart carries a caption, the caption is appended to the graphic's `aria-describedby`,
+  so a reader gets the data summary and then the author's point.
+
 ### Fixed
 
 - **The `--fluid` viewer was completely broken by the export shell's new `main`

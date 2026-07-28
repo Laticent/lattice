@@ -627,9 +627,16 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// the icons never corrupted an accessible NAME — but an un-hidden inline SVG can still
 	// surface in an AT graphics rotor as noise, and `focusable="false"` keeps legacy
 	// engines from tabbing into them. Attribute-only: no CSS, no layout, no script.
+	// Re-blessed AGAIN for the G10 follow-up: `#lp-bar` is now a `<header>` (axe's `region`
+	// rule caught the deck TITLE sitting outside every landmark, so a screen reader
+	// navigating by landmark skipped the one string naming the deck), and every
+	// `role="img"` chart svg now references its own `<title>`/`<desc>` by id
+	// (`aria-labelledby`/`aria-describedby`) instead of relying on a bare child `<title>`,
+	// which VoiceOver/Safari and older JAWS drop. Tag + attribute only — `#lp-bar` is
+	// styled by id, so the retag costs no CSS, no layout and no script.
 	// A pure-attribute + tag change: no CSS, no layout, no script behaviour. Deliberate.
 	// (Prior bless: the `.lp-chart` width-container rules for flow-height chart re-hosts.)
-	assert.equal(sha, 'dacf85b1f413b854646689aaca8bb588566a3481cd9b576b3566ef1861afe80e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '51d8c9b6dc5041f7fb151f0b98a1608d783c7782eef240e94bdb2e5691fb2479', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

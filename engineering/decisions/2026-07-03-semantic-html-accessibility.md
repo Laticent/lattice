@@ -1720,3 +1720,99 @@ individual bug:** every gate on this branch measures DOM shape, and the two wors
 defects were a *layout* break and a *pixel* break that DOM-shape gates cannot see. An
 `axe-core` gate over the three shells (G10) plus real geometry assertions on the fluid
 viewer are worth more than the six structural invariants. One of those two now exists.
+
+---
+
+## 18. The three follow-ups — G10 lands, and §16's `<figure>` plan is retired
+
+The three items §17 left open, done in one change. Two landed as designed. The third —
+the `<figure>` conversion §16 specified in detail — **should not ship, and this section
+retires it** on the evidence of a render.
+
+### 18.1 G10 — the axe gate, over all three shells
+
+`test/integration/invariants/axe-a11y.test.js` runs `axe-core` (WCAG 2.0/2.1 A + AA,
+plus best-practice) against the **export shell** and the **HTML player** in real
+Chromium, in the per-PR tier.
+
+This is the gate all three adversarial lenses independently said was worth more than
+the six hand-written invariants, and the reason is structural: those invariants encode
+defects *we already understood*. Axe checks the rules someone else thought of. The
+ADR's own history is the argument — three categories of content sat outside the
+accessibility tree for months with every gate green.
+
+**It found a real defect on its first run.** The player's `#lp-bar` was a `<div>`, so
+the deck TITLE sat outside every landmark (`region`) — a screen reader navigating by
+landmark skipped the one string that says which deck this is. Now a `<header>`; the CSS
+is id-keyed, so the retag is free. **Both shells are now at zero violations**, and the
+budget is zero, not a seeded ratchet — a budget above zero here would be a scoreboard.
+
+The suite includes a **self-check**: it plants an alt-less `<img>` and asserts axe
+reports it. A green a11y gate is otherwise indistinguishable from one that never
+loaded — and the player's CSP does block a normal `<script src>` injection, which is
+why the bundle is evaluated as source.
+
+**Color-contrast is excluded, deliberately and with the finding recorded.** The repo
+already owns contrast (`tools/check-slide-contrast.js`), and axe's background
+resolution is demonstrably wrong on this layered canvas — it reported `#fcfaf3` as the
+foreground for a running header whose computed color is `#80704a`. But what it surfaced
+is real and is logged below as **G13**, not discarded.
+
+### 18.2 The id-referenced naming — `lib/core/svg-a11y-names.js`
+
+§17.9 named the charts that had none, using a **bare child `<title>`** — the mechanism
+§14 flags as unreliable (VoiceOver/Safari and older JAWS drop it). So the fix shipped
+four new instances of the known-weak form. Closed now: every `role="img"` chart SVG
+references its own `<title>`/`<desc>` via `aria-labelledby`/`aria-describedby`.
+
+**Why a document-level pass and not eight kernel edits.** `aria-labelledby` takes an
+*id*, and an id must be unique in the DOCUMENT. The chart kernels are per-slide,
+stateless and shared across three render paths, so none can mint a document-unique id:
+a per-kernel counter collides the moment two chart types share a deck, and renumbers
+differently per path. Running once over the assembled document is the only place the
+uniqueness invariant holds — and it keeps all eight kernels ignorant of the id space
+(HARD RULE #1). Measured: 8 of 8 eligible graphics converted, 16 ids, all unique. The
+two skipped both already carry an author `aria-label`, which always wins.
+
+### 18.3 §16's `<figure>` plan is RETIRED — the render refutes it
+
+§16 specified converting 7 `*-figure` wrappers to `<figure>` with the `.chart-caption`
+retagged to `<figcaption>`. **Re-derived from a render, that plan does not survive two
+facts:**
+
+1. **The caption is a SIBLING of the wrapper, not a child.** Both sit directly in
+   `.cell-stage`: `<div class="…-figure">…</div><p class="chart-caption">…</p>`. Making
+   that a `<figure>` therefore requires **inserting a wrapper around two siblings**,
+   inside a flex cell whose height is measured — a new box, which is what
+   "retag, don't wrap" (§2) and HARD RULE #20 exist to prevent. §16 assumed a retag was
+   available. It is not.
+2. **Only 2 of 7 charts carry a caption at all.** A blanket conversion would wrap five
+   graphics that have nothing to associate in an announced "figure … figure end"
+   boundary — the rotor noise §3 forbids, for zero information.
+
+Two of the seven were also mis-specified: `roadmap-figure` contains a `<table>` and
+`state-chart-figure` a nested `<div>`, so neither is the "single self-contained
+graphic" `<figure>` means.
+
+**What ships instead achieves the actual goal.** The stated purpose of `<figure>` here
+was to associate the caption with the graphic. `aria-describedby` does exactly that —
+with no new boxes, no layout risk, and only where a caption exists. Since it takes an
+id LIST, the caption is *appended* to the `<desc>` reference: a reader gets the data
+summary, then the author's so-what. Verified: both captions bound, zero dangling refs.
+
+**`<figure>` is not deferred, it is withdrawn.** Deferring implies it is still owed; on
+this structure it is a net negative. If the stage tree is ever restructured so a chart
+and its caption share a real parent, revisit it then — and the ADR should carry that
+condition rather than the plan.
+
+### 18.4 Gap-register updates
+
+| Gap | Move |
+|---|---|
+| **G10** (no automated a11y gate) | **CLOSED** — axe over both shipped shells, per-PR, at zero, with a self-check |
+| **G5** (chart data equivalence) | **partially closed** — every chart's `<desc>` is now reliably referenced, and funnel carries its conversion rates. Still not a *navigable* table; a description is read, not explored |
+| **(new) G13** | **Running header/footer muted ink is 4.20:1 (light) / 4.07:1 (dark).** That passes AA as LARGE text at export scale and **fails** as normal text in the player, which renders it around 10pt. Surfaced by axe, confirmed by computing the ratio from computed styles. A `--text-muted` change is theme-wide and off this branch's path — logged, not fixed (HARD RULE #18's off-path rule) |
+
+**Unchanged and still the ceiling:** no screen reader has been run against any of this.
+Axe checks rule conformance, not comprehension — it cannot tell you whether "Quadrant
+chart. Axes — Effort horizontal, Reach vertical…" is *useful*, only that it exists.
