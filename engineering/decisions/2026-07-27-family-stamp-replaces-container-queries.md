@@ -396,13 +396,44 @@ repeats:
   gallery, which HARD RULE #8 forbids in feature work) and **hard-fails** when a
   rostered component has no slide at all. Roster is 33, all rendered.
 
-**Still open, and cosmetic:** the `--row-mark` hue cycles on `nth-child(8n+k)`
-*within each `<ol>`*, so across a split run page two restarts at the first hue —
-04/05/06 render in the same blue/red/olive as 01/02/03. The ordinal was fixed by
-moving to the `list-item` counter; its visual twin was not, because CSS cannot
-select on the `start` offset without a rule per start value. The robust fix is a
-transform that stamps each row's absolute index; `premise` has no transform today,
-so that is a separate slice rather than brittle CSS bolted on here.
+**Still open, and cosmetic — but the note below sent the next reader to the wrong place,
+so here is what an attempt found (2026-07-28, #1234).** The `--row-mark` hue cycles on
+`nth-child(8n+k)` *within each `<ol>`*, so across a split run page two restarts at the
+first hue. Confirmed by computed style on a real portrait render: page three's four rows
+read `rgb(46,96,138) · rgb(134,50,54) · rgb(123,119,45) · rgb(50,54,134)` — byte-identical
+to page two's. The ordinal was fixed here by moving to the `list-item` counter; its visual
+twin cannot follow, because CSS cannot select on the `start` offset without a rule per
+start value.
+
+**Correction to this paragraph's own diagnosis.** It proposed "a transform that stamps each
+row's absolute index" and deferred on the grounds that "`premise` has no transform today".
+Both halves are misleading. `premise` *does* have one (`lib/core/premise.js`), and more
+importantly the absolute index is **not premise's to know** — it is the SPLIT's, and
+`partitionAxis` (`lib/core/collections.js`) already holds it exactly, as the `offset` it
+uses to write `<ol start="N">`. Anyone starting from this paragraph will go looking for a
+component transform and find the wrong problem.
+
+**Why the obvious fix was built, measured, and then reverted.** Stamping the palette slot
+on every member at that `offset` works — verified end to end, page three continuing
+`rgb(48,130,126) · rgb(134,88,50) · rgb(88,56,128) · rgb(128,56,95)` for slots 5–8. It was
+still the wrong change to ship: `partitionAxis` is component-agnostic, so an unconditional
+stamp alters the emitted HTML of **every** item-axis split across 15+ components to serve
+one, and eleven byte-exact tests said so. A kernel may legitimately own a *structural* fact
+(`data-split-role` is stamped everywhere for exactly that reason), but "which of eight
+palette slots" is a presentation concern, and the modulo cannot move to CSS — there is no
+attribute-modulo selector, which is the same wall the `start` offset hits.
+
+So the honest shape is **opt-in through the manifest**, the way `capacity.relationship` was
+added (§8 rule 12a): the component declares it wants a continuous categorical cycle, the
+kernel stamps only for those, and the split oracle records it so dropping it fails CI. That
+is a real slice — schema, oracle, plumbing — for a cosmetic defect, so it is written down
+rather than smuggled in. Shipping the broad version to avoid the slice would be the same
+trade this note exists to argue against.
+
+One trap worth keeping, found on the way: the first cut named the attribute `data-cat`,
+which the chart family already owns on `.chart-key-swatch` — and owns **0-based**. Same
+name, inverted indexing, different subtree; it would have read as correct right up until
+someone generalized one of the two.
 
 **A split surfaced a counter bug in `premise`.** Once it could paginate, page two
 restarted the ordinals at `01` — on a Bloom ladder, "Analyze is the first verb".

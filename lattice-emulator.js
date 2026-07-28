@@ -2368,8 +2368,48 @@ async function renderBody(browser, g, closeBrowser) {
         }
       }
       const headroom = C - (probe.scrollH - collH - hoistH); // room a BODY page will have
-      const canSplit = vOver && collH > 0 && headroom > C * 0.2;
-      const splitRatio = canSplit ? Math.max(2, collH / headroom) : ratio;
+      // ── The HORIZONTAL half, which this gate did not have (#1234 group C).
+      //
+      // `canSplit` keyed on `vOver` alone, so a collection that overflows ONLY sideways
+      // was never handed to the measured loop. `list-steps` at `size: square` is the
+      // reproduction: its `<ol>` is `display:flex; flex-direction:row`, and six steps want
+      // **1291px in a 972px track** (eight want 1852) with `scrollH === clientH` — zero
+      // vertical spill. Step 06 rendered entirely off the frame and step 05 sliced
+      // mid-word, on a component that declares `capacity.perPage: 1` and would have been
+      // completely fixed by pagination. Worse, the slide was over `capacity.hard` and the
+      // static pass DID defer it — but a deferred candidate is dropped when the slide is
+      // already in the measured list, and it was, with `canSplit: false`. So it fell
+      // between the two passes and shipped clipped, while `lint:deck`'s
+      // `capacity-autosplit` advisory told the author it would be divided. That is §8
+      // rule 10's lie-to-the-author defect, through a different door.
+      //
+      // The `vOver` gate was RIGHT about its own case and too broad. Its stated reason (at
+      // the paginator branch above) is that "a too-wide table overflows HORIZONTALLY —
+      // row-splitting it is futile and balloons the deck". True of a `<table>`: its width
+      // comes from its COLUMNS and its rows stack vertically, so cutting rows narrows
+      // nothing. False of a collection whose MEMBERS run along the inline axis — there,
+      // fewer members per page IS a narrower row, and pagination fixes the overflow
+      // directly. So the test is not "which direction did it overflow" but "does splitting
+      // this collection reduce its width", which is a property of its layout.
+      const hOver = collEl ? collEl.scrollWidth - collEl.clientWidth > TOL : false;
+      const inlineFlow = (() => {
+        if (!collEl || collEl.tagName === 'TABLE') return false; // the counter-case, excluded by construction
+        const cs = getComputedStyle(collEl);
+        if (cs.display.includes('flex')) return cs.flexDirection.startsWith('row');
+        // A multi-COLUMN grid lays members out inline too; a single-column one does not.
+        if (cs.display.includes('grid')) return cs.gridTemplateColumns.split(/\s+/).filter(Boolean).length > 1;
+        return false;
+      })();
+      const vSplit = vOver && headroom > C * 0.2;
+      const hSplit = hOver && inlineFlow;
+      const canSplit = collH > 0 && (vSplit || hSplit);
+      // Size the cut from whichever axis is actually binding. For the horizontal case that
+      // is how many times too wide the collection is — and the authored `perPage` still
+      // wins where it is tighter (`resplitDoc` takes the tighter of the two), so a
+      // `perPage: 1` component still atomizes rather than merely halving.
+      const splitRatio = vSplit
+        ? Math.max(2, collH / headroom)
+        : (hSplit ? Math.max(2, collEl.scrollWidth / Math.max(1, collEl.clientWidth)) : ratio);
       out.push({ slide: i + 1, ratio, canSplit, splitRatio, illegible, unmeasured });
     });
     return out;

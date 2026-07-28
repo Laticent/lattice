@@ -59,6 +59,60 @@ describe('split veto — a hoistable lede + note must not veto the split', () =>
 });
 
 /**
+ * The same veto, on the OTHER axis — the half it did not have (#1234 group C).
+ *
+ * `canSplit` keyed on `vOver` alone, so a collection that overflowed only SIDEWAYS was
+ * never handed to the measured loop. `list-steps` at `size: square` reproduces it: the
+ * `<ol>` is `display:flex; flex-direction:row`, and six steps want 1291px in a 972px
+ * track with `scrollH === clientH` — zero vertical spill. Step 06 rendered entirely off
+ * the frame and step 05 was sliced mid-word, on a component declaring `capacity.perPage:
+ * 1`, in a deck with `autosplit: on`, which pagination fixes completely.
+ *
+ * The failure was doubly silent. Over `capacity.hard` the static pass DID defer the
+ * slide — but a deferred candidate is dropped when the slide already appears in the
+ * measured list, and it did, with `canSplit: false`. So it fell between the two passes
+ * while `lint:deck`'s `capacity-autosplit` advisory promised the author a split. That is
+ * §8 rule 10's lie-to-the-author defect through a different door.
+ *
+ * The old gate was right about its own case and too broad: a too-wide `<table>` gains
+ * nothing from row-splitting, because its width comes from its COLUMNS. The test is
+ * therefore not "which direction did it overflow" but "does splitting narrow it", which
+ * is a property of the collection's layout — hence `inlineFlow`.
+ *
+ * Real emulator, for the same reason as the suite above: the gate measures real layout
+ * inside a `page.evaluate` and has no honest unit-level stand-in (HARD RULE #23).
+ */
+describe('split veto — a HORIZONTALLY overflowing collection must not be vetoed', () => {
+  const FIXTURE = path.join(ROOT, 'test', 'fixtures', 'split-veto-horizontal.md');
+
+  test('a flex-row collection paginates instead of running off the frame', { timeout: 180000 }, () => {
+    const pdf = runEmulator(FIXTURE, { timeout: 120000 });
+    const html = fs.readFileSync(pdf.replace(/\.pdf$/, '.html'), 'utf8');
+    const at = html.search(/<section\b[^>]*\bdata-lattice-slide=/);
+    const sections = splitSections(html.slice(at)).filter((p) => p.type === 'section');
+
+    assert.ok(sections.length >= 3, `the slide must split, got ${sections.length} section(s)`);
+    const roles = sections.map((p) => (p.openTag.match(/\sdata-split-role="([^"]*)"/) || [])[1] || null);
+    assert.equal(roles[0], 'cover', `the run opens with a cover — roles were ${JSON.stringify(roles)}`);
+
+    // The point of the fix: NO member is lost off the right edge. Before it, step 06 was
+    // absent from the export entirely and step 05 was cut mid-word.
+    const text = sections.map((p) => p.inner).join(' ');
+    for (const step of ['Freeze the schema', 'Backfill the shadow table', 'Dual-write both paths',
+      'Flip the readers', 'Retire the old path', 'Archive the runbook']) {
+      assert.ok(text.includes(step), `"${step}" was lost off the frame`);
+    }
+
+    // `capacity.perPage: 1` — a connected member atomizes, so each body page holds one
+    // step and there is no horizontal row left to overflow.
+    for (const body of sections.slice(1).filter((p) => /data-split-role="body"/.test(p.openTag))) {
+      const li = (body.inner.match(/<ol\b[\s\S]*?<\/ol>/) || [''])[0].match(/<li\b/g) || [];
+      assert.equal(li.length, 1, 'one step per page, per capacity.perPage');
+    }
+  });
+});
+
+/**
  * §8 rule 8's legibility floor and the overflow probe answer two ORTHOGONAL questions, and a
  * slide can fail both. When the legibility branch was written it `return`ed early on `under`,
  * so a single small viewBox figure anywhere on a slide took that slide off the overflow list

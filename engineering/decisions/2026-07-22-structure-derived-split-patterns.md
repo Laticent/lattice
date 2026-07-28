@@ -777,6 +777,37 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
     pages.* Whether `hard` SHOULD force a cut on a slide that fits is a real question — two of
     those three pages are mostly white — but it is a change to what `capacity.hard` means, and
     that is the owner's call, not this rule's.
+    **A FOURTH blind spot, and it defeated the defer→measure handoff this rule is about
+    (2026-07-28, #1234).** `canSplit` keyed on `vOver` — vertical spill — so a collection that
+    overflowed only SIDEWAYS was never handed to the measured loop. `list-steps` at `size:
+    square` is the reproduction: its `<ol>` is `display:flex; flex-direction:row`, and six
+    steps want **1291px in a 972px track** (eight want 1852) with `scrollH === clientH`, i.e.
+    **zero** vertical spill. Step 06 rendered entirely off the frame and step 05 was sliced
+    mid-word — on a component declaring `capacity.perPage: 1`, in a deck with `autosplit: on`,
+    where pagination fixes it completely.
+    The second half is this rule's own machinery failing. Over `capacity.hard` the static pass
+    DID defer the slide — but `DEFERRED_BY_COUNT` is filtered by `!measured.has(n)`, and the
+    slide WAS in the measured list, carrying `canSplit: false`. So the deferral was silently
+    swallowed by a measurement that said "cannot split", the slide fell between the two passes,
+    and `capacity-autosplit` promised the author a split that never came. That is precisely the
+    lie-to-the-author defect this entry says was fixed, reached through a different door — and
+    it is why "the count signal must survive to the measured pass" is not enough on its own:
+    the measured pass has to be able to ACT on it.
+    The `vOver` gate was right about its own case and too broad. Its stated reason (at the
+    paginator branch) is that a too-wide `<table>` gains nothing from row-splitting, and that
+    holds: a table's width comes from its COLUMNS and its rows stack vertically. It does not
+    hold for a collection whose MEMBERS run along the inline axis, where fewer members per page
+    IS a narrower row. So the test is no longer "which direction did it overflow" but **"does
+    splitting this collection reduce its width"** — a property of its layout (`inlineFlow`: a
+    flex row, or a grid with more than one column; a `<table>` excluded by construction).
+    **Swept before/after over every enrolled component's whole gallery, at both boxes.** At
+    `portrait` (452 → 455 pages) and `square` (281 → 290), clip counts fell 16 → 15 and 13 → 11,
+    and a word-multiset check found **no content lost at either size** — the only tokens that
+    disappear are `Sedime` and `takeawa`, truncation fragments that vanish because the
+    truncation is fixed. Two real content losses were recovered: `cards-stack horizontal` was
+    dropping two of its three cards off the right edge at portrait, and `list-steps`' carbon-cycle
+    slide was rendering as interleaved column fragments at square. Gated by
+    `test/integration/invariants/split-veto.test.js`, beside the vertical case it belongs with.
 11. **The oracle records a VERIFIED default, it never mints one.** Adding a component
     to the standing golden (rule 5) requires a committed demo deck exercising its
     overflow path (HARD #9) + reviewer sign-off that the derived (axis, read-across,
@@ -894,6 +925,25 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
   3. **The lede hoists too.** `partitionAxis` repeats the collection's `pre` as well as
      its `post`, so a framing paragraph was duplicated per page by the same mechanism as
      the below-note. It moves to the cover (§0a names it as cover material anyway).
+     **…but only from the depth it was looking at (fixed 2026-07-28, #1234).** `ledeSpansIn`
+     scanned depth-0 siblings while `readMasthead` finds the `<h2>` by regex at ANY depth, so
+     the two readers disagreed about where the masthead lives. A component whose transform
+     groups the title and its lede into ONE wrapper therefore got a cover with a heading and
+     no lede, while the lede stayed in the body and repeated on every page — the exact defect
+     this note says it fixed. `premise` is that shape (`lib/core/premise.js` wraps `<h2>` +
+     lede in `.premise-claim`), reproduced on a real portrait render: "Past eight rows the
+     categorical hues repeat…" printed on both body pages and on neither cover.
+     The rule is now "the lede lives in the TITLE'S OWN container", at any of three depths —
+     absent (the common banded case, where masthead-lift put the title outside the content
+     cell), depth-0 (a bandless slide), or one level in (a masthead group). It descends
+     exactly one level: deeper than that is a component's own structure, not a masthead, and
+     the envelope must not reach into it.
+     Worth recording because the first cut of the fix broke the COMMON case: guarding on "no
+     `<h2>` in the scanned region → no lede" looks obviously right and silently dropped every
+     ordinary cover's lede, because a banded title is not in that region at all. Four tests
+     caught it. Swept after: across 452 pages of every enrolled component's gallery at
+     portrait, the only diff is `premise`'s lede moving to its cover — same page count, same
+     clip set.
   4. **Conservation is structural, not audited.** Every page is the source `inner` with
      SPANS REMOVED (bodies drop lede + trailing; the closing drops lede + collection),
      so §5's conservation requirement holds by construction rather than by a gate.

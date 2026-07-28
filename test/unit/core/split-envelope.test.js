@@ -355,6 +355,46 @@ describe('core: splitEnvelope — readers', () => {
     assert.equal(inner.slice(r.coll.start, r.coll.end).startsWith('<ul>'), true);
   });
 
+  // The `premise` defect (#1234 group C): a component whose transform groups the title
+  // and its lede into ONE wrapper. `readMasthead` finds the `<h2>` by regex at any
+  // depth, but the lede scan only looked at depth 0 — so the cover got a heading with
+  // no lede, and the lede stayed in the body and `partitionAxis` repeated it on EVERY
+  // page. Reproduced on a real portrait render before the fix: "Past eight rows the
+  // categorical hues repeat…" printed on both body pages and on neither cover.
+  //
+  // The three shapes are asserted together, because the first fix of this broke the
+  // common one: when the title lives in the `.cell-masthead` BAND it is outside the
+  // content cell entirely, so `<h2>` is legitimately absent from the scanned region and
+  // guarding on "no h2 → no lede" silently dropped every ordinary cover's lede.
+  test('ledeSpansIn: the lede lives in the TITLE\'S OWN container, at any of three depths', () => {
+    // 1. banded — the <h2> is outside the cell; every stage <p> before the collection is a lede.
+    const banded = formInner({ lede: 'Framing.', n: 3 });
+    assert.deepEqual(splitRegions(banded, 'item').lede.map((s) => s.outer), ['<p>Framing.</p>']);
+
+    // 2. bandless — the <h2> is a depth-0 sibling; only what FOLLOWS it is a lede.
+    const bandless = '<div class="cell-stage"><p>Pre-title chrome.</p><h2>T</h2><p>Framing.</p>'
+      + `${items(3)}</div>`;
+    assert.deepEqual(splitRegions(bandless, 'item').lede.map((s) => s.outer), ['<p>Framing.</p>']);
+
+    // 3. NESTED — premise's shape (lib/core/premise.js wraps <h2> + lede in .premise-claim).
+    const nested = `<div class="premise-claim"><h2>T</h2>\n<p>Framing.</p></div>\n${items(3)}`;
+    const r = splitRegions(nested, 'item');
+    assert.deepEqual(r.lede.map((s) => s.outer), ['<p>Framing.</p>']);
+    assert.equal(readCover(nested, 'item').lede, 'Framing.');
+    // ...and removing it leaves the wrapper intact, so `.premise-claim > h2` still styles.
+    const body = nested.slice(0, r.lede[0].start) + nested.slice(r.lede[0].end);
+    assert.match(body, /<div class="premise-claim"><h2>T<\/h2>\s*<\/div>/);
+  });
+
+  test('ledeSpansIn: descends exactly ONE level — deeper is component structure, not a masthead', () => {
+    // A title buried two levels down is not a "title + lede" group; treating it as one
+    // would let the envelope reach into a component's own DOM and lift a paragraph that
+    // belongs to it. Nothing is hoisted, so nothing is lost — it just repeats, which is
+    // the pre-existing behavior for a shape the envelope does not understand.
+    const deep = `<div class="outer"><div class="inner"><h2>T</h2><p>Not a lede.</p></div></div>${items(3)}`;
+    assert.deepEqual(splitRegions(deep, 'item').lede, []);
+  });
+
   test('trailingSpansIn: only the TRAILING run — a lead-in before another block is not trailing', () => {
     // `…</ul><p>lead-in</p><table>` — the <p> introduces the table, so nothing trails.
     const lead = `${band()}<div class="cell-stage">${items(9)}<p>What the table shows.</p><table><tbody><tr><td>a</td></tr></tbody></table></div>`;

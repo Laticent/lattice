@@ -78,7 +78,56 @@ in patch versions.
   test against a real Biome in a real git repo. What it deliberately does not catch is
   enumerated under RESIDUALS in the tool's header.
 
+### Fixed
+
+- **Auto-split ignored a collection that overflowed SIDEWAYS, so members ran off the right
+  edge and were lost from the export.** `canSplit` (the measured pass's veto,
+  `lattice-emulator.js`) keyed on vertical spill alone. `list-steps` at `size: square` is the
+  reproduction: its `<ol>` is `display:flex; flex-direction:row`, and six steps want **1291px
+  in a 972px track** with `scrollHeight === clientHeight` — zero vertical overflow. Step 06
+  rendered entirely off the frame and step 05 was sliced mid-word, on a component declaring
+  `capacity.perPage: 1` in a deck with `autosplit: on`, which pagination fixes completely.
+  Doubly silent: over `capacity.hard` the static pass *did* defer the slide, but a deferred
+  candidate is dropped when the slide is already in the measured list — and it was, carrying
+  `canSplit: false` — so it fell between the two passes while `lint:deck`'s
+  `capacity-autosplit` advisory promised the author a split.
+  The old gate was right about its own case (a too-wide `<table>` gains nothing from
+  row-splitting: its width comes from its columns) and too broad. The test is now **"does
+  splitting this collection reduce its width"** — a flex row, or a grid with more than one
+  column; a `<table>` is excluded by construction. Swept before/after across every enrolled
+  component's whole gallery at both boxes: `portrait` 452 → 455 pages (clips 16 → 15),
+  `square` 281 → 290 (clips 13 → 11), **no content lost at either size** by word-multiset
+  check. Two real losses recovered — `cards-stack horizontal` was dropping two of three cards
+  at portrait, and `list-steps`' carbon-cycle slide was rendering as interleaved column
+  fragments at square. This confirms an audit finding that had been recorded as
+  non-reproducing (#1234 group C): the reporter's synthetic deck was right, and the
+  component's own gallery simply has no slide that triggers it.
+
+- **A split run repeated its lede on every body page when the component grouped title and
+  lede in one wrapper.** `ledeSpansIn` (`lib/core/split-envelope.js`) scanned depth-0 siblings
+  while `readMasthead` finds the `<h2>` at any depth, so the two readers disagreed about where
+  the masthead lives: the cover got a heading with no lede, and the lede stayed in the body and
+  repeated. `premise` is that shape (`lib/core/premise.js` wraps `<h2>` + lede in
+  `.premise-claim`) — reproduced at portrait, story and mobile. The rule is now "the lede lives
+  in the title's own container", handling all three depths (absent, because a banded title sits
+  outside the content cell; depth-0 on a bandless slide; one level in for a masthead group), and
+  it descends exactly one level — deeper is a component's own structure, not a masthead. Fix is
+  in the shared envelope rather than in `premise`, because "the lede hoists to the cover" is the
+  envelope's §0a promise. Swept: across 452 pages of every enrolled component's gallery at
+  portrait, the only diff is `premise`'s lede moving to its cover.
+
 ### Changed
+
+- **The `--row-mark` hue restart across a split stays open, and the decision note now says
+  why in a way the next reader can act on.** The note's own diagnosis pointed at "a
+  transform in `premise`"; the absolute index actually lives in `partitionAxis`'s `offset`,
+  beside the `<ol start="N">` it already writes. The obvious fix was built and measured
+  (page three continuing at palette slots 5–8, confirmed by computed style) and then
+  reverted: `partitionAxis` is component-agnostic, so stamping unconditionally changes the
+  emitted HTML of every item-axis split across 15+ components to serve one — eleven
+  byte-exact tests said so. The honest shape is a manifest opt-in like
+  `capacity.relationship`, which is a real slice for a cosmetic defect. Recorded rather
+  than shipped broad.
 
 - **§0c's split-treatment table is now GENERATED, and the split oracle can no longer mint
   a default it was supposed to record.** Two decision notes — the REFLOW rung
