@@ -255,7 +255,12 @@
  * specificity form silently lost. matrix-grid always carries `chart-frame`
  * (the family transformer stamps it). */
 section.matrix-grid.chart-frame .chart-caption {
-  padding-top: 0;
+  /* Keep the space that SEPARATES the legend from the grid — an earlier cut of
+   * this fix zeroed it for height, and the legend stopped reading as a legend:
+   * it sat flush under the table like a stray line of body text. Only the
+   * trailing space goes, because the caption sits directly above the footer
+   * band, which already provides it. */
+  padding-top: var(--sp-xs);
   padding-bottom: 0;
   gap: var(--sp-3xs);
 }
