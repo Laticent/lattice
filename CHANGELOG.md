@@ -245,13 +245,13 @@ in patch versions.
   convention, deliberately not a gate: an enforcing gate was written and **removed before
   merge** when an adversarial pass showed it validated the *spelling* of `!` entries while
   lint coverage does not live there — deleting one positive include line drops coverage
-  1249 → 888 files, and one `.gitignore` line un-lints tracked source with no config edit
+  1253 → 892 files, and one `.gitignore` line un-lints tracked source with no config edit
   at all, both silent. The replacement gates effect rather than syntax and is filed
   separately. Two
   exclusions are gone: `docs/src/components/ui` (**32** files of house source, not vendor —
   shadcn is copy-in-and-own, and several of those files carry in-tree `DEVIATION` blocks)
-  and `examples/**/*.json`, which matched nothing at all. Lint now covers **1249** files,
-  up from **1217**. Closes #1223.
+  and `examples/**/*.json`, which matched nothing at all. Lint now covers **1253** files
+  on a clean tracked tree, up from **1221** — a delta of exactly the 32 files above. Closes #1223.
 
 - **Back closes off-Studio sheets too, instead of leaving the page.** The site nav, the
   Playground's Deck-setup and Galleries sheets, the site search dialog, and `MetricDetail`

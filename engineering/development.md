@@ -133,7 +133,7 @@ includes the unsafe auto-fixes). Source of truth: `biome.jsonc` — `.jsonc`
 because every exclusion carries a written reason naming its class (#1223). That
 is a **convention, not a gate**: an enforcing gate was written and removed before
 merge because it validated the spelling of `!` entries while lint coverage does
-not live there — deleting one *positive* include line drops coverage 1249 → 888
+not live there — deleting one *positive* include line drops coverage 1253 → 892
 files, and one `.gitignore` line un-lints tracked source with no config edit at
 all. See the header of `biome.jsonc` for the measurements.
 

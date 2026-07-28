@@ -58,12 +58,26 @@
 // `adopt()` then fails after the next reload, and the module falls back to the
 // orphan-accumulating behavior described above.
 //
-// Four call sites already do this: `PlaygroundApp.tsx` (twice, from an effect keyed on
-// [view, walk], i.e. repeatedly during normal use, on the surface whose sheets are now
-// registered), `StudioShell.tsx`, and `architect.ts`. They are boot/URL-tidying calls,
-// so today they run before any sheet opens — but nothing enforces that ordering. If you
-// are adding a `replaceState`, PRESERVE the existing state object rather than passing
-// null. Flagged by the Munger inversion; ungated, so it rides on this comment.
+// SIX call sites already do this — four pass `null`, two pass `{}`, and `{}` wipes the
+// marker just as thoroughly:
+//
+//   PlaygroundApp.tsx:1139,1141   null   effect keyed on [view, walk]
+//   StudioShell.tsx:1271          null   boot URL tidy
+//   architect.ts:1548             null   boot URL tidy
+//   playground/theme-studio.js:535  {}   URL tidy
+//   pages/drawing-board.astro:796   {}   URL tidy
+//
+// An earlier draft of this paragraph said the PlaygroundApp calls run "repeatedly during
+// normal use" AND, three lines later, that they "run before any sheet opens". Both cannot
+// be true, and the checker was right to call it. The accurate statement: they are all
+// URL-tidying calls that in practice run at boot, but the PlaygroundApp pair is in an
+// effect keyed on [view, walk], and the Playground's sheets are `modal={false}` with the
+// page behind live — so nothing structurally prevents a `walk` change while a registered
+// sheet is open. It has not been driven to happen; it is also not excluded.
+//
+// If you are adding a `replaceState`, PRESERVE the existing state object rather than
+// passing `null` or `{}`. Flagged by the Munger inversion, corrected by the checker;
+// ungated, so it rides on this comment.
 import * as React from 'react';
 
 type Entry = { onBack: () => void };
@@ -113,9 +127,6 @@ function adopt(): void {
 
 function reconcile(): void {
 	dirty = false;
-	// Cheap and idempotent, so it runs here rather than once at init: `listen()` fires
-	// only when something registers, and a reconcile is the first moment the answer to
-	// "do we already own an entry?" is actually consulted.
 	// A traversal WE started has not landed yet. Touching history now is the latent
 	// re-entry of the bug that got the first implementation reverted: `history.back()` is
 	// asynchronous, so between firing it and its `popstate` the stack is un-owned, and a
@@ -180,34 +191,30 @@ function onPopState(): void {
 	schedule();
 }
 
-/**
- * A cross-document traversal can leave `pendingPops` stuck above zero forever: this
- * document unloads (or is bfcached) before its `popstate` arrives, and nothing ever
- * decrements it. Before the deferral guard that only swallowed one stray `popstate`;
- * with the guard it wedges `reconcile` PERMANENTLY — no sheet would ever push a
- * sentinel again, and back would leave the site with a panel open.
- *
- * `pageshow` is the recovery point: it fires on a fresh load and on a bfcache restore
- * (`persisted`), and in both cases any traversal we were waiting on is over — its result
- * is whatever the current entry now is. Reset and let `adopt()` re-derive ownership from
- * `history.state`, which is the one source that survives the round trip.
- *
- * Reasoned from the module's own measurement (traversing to the previous entry is a FULL
- * document load) and flagged by the independent checker; a bfcache restore is not
- * reachable from the sandbox, so this specific path is UNVERIFIED on a real browser.
- */
-function onPageShow(): void {
-	pendingPops = 0;
-	deferred = false;
-	sentinel = false;
-	schedule();
-}
-
+// NO `pageshow` HANDLER, and that is a decision, not an omission.
+//
+// One was added to recover from a traversal whose `popstate` never arrives — a
+// cross-document back, then a bfcache restore — on the reasoning that `pendingPops` would
+// stay stuck above zero and wedge `reconcile` PERMANENTLY. Both halves of that were wrong,
+// and the handler was strictly worse than the problem:
+//
+//   • THE WEDGE SELF-HEALS. `pendingPops` is decremented by ANY `popstate`, not only the
+//     one we were waiting for, so the next back gesture clears it. Measured: with a
+//     traversal stuck in flight, one later `popstate` re-arms the sentinel (`push` goes
+//     0 → 1). The real cost is a single dead gesture, not a permanent wedge.
+//   • THE HANDLER FIRED A SECOND `history.back()` FOR ONE OWNED ENTRY. It reset
+//     `pendingPops` to 0, which is the ONLY thing keeping `adopt()` off an entry that is
+//     already on its way out — so the deferred reconcile re-adopted the still-marked
+//     entry, saw nothing open, and traversed again. Measured: `back()` called twice for a
+//     single push. The second traversal consumes a real user history entry, i.e. back
+//     leaves the app — precisely the class of bug this module exists to prevent.
+//
+// Trading a self-healing dead gesture for a spurious navigation is a bad trade. Found by
+// the independent checker; both measurements reproduced before the handler was removed.
 function listen(): void {
 	if (listening || typeof window === 'undefined') return;
 	listening = true;
 	window.addEventListener('popstate', onPopState);
-	window.addEventListener('pageshow', onPageShow);
 }
 
 /**

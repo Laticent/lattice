@@ -258,11 +258,42 @@ describe('useOverlayBack', () => {
 	});
 
 	it('ignores a popstate when nothing is open', async () => {
+		// Opens once FIRST so the module's listener is definitely attached. Without that
+		// this passed vacuously in isolation: `__resetOverlayBack` does not clear
+		// `listening`, and if nothing ever registers, `listen()` is never called — so the
+		// case asserted against a module with no `popstate` handler at all, and only meant
+		// anything because earlier cases in the file happened to attach one. Found by the
+		// independent checker.
 		const onOuter = vi.fn();
-		render(<Harness outer={false} inner={false} onOuter={onOuter} onInner={() => {}} />);
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={onOuter} onInner={() => {}} />);
 		await settle();
-		await userBack();
+		await userBack();                       // consumes our entry, fires onOuter once
+		rerender(<Harness outer={false} inner={false} onOuter={onOuter} onInner={() => {}} />);
+		await settle();
+		onOuter.mockClear();
+		push.mockClear();
+
+		await userBack();                       // nothing open — must be ignored entirely
 		expect(onOuter).not.toHaveBeenCalled();
 		expect(push).not.toHaveBeenCalled();
+	});
+
+	it('does NOT install a pageshow handler — it fired a second traversal for one entry', async () => {
+		// A `pageshow` handler was added to recover a traversal whose `popstate` never
+		// arrives, then removed: it reset `pendingPops` to 0, which is the only thing
+		// keeping `adopt()` off an entry already on its way out. The deferred reconcile
+		// re-adopted the still-marked entry, saw nothing open, and traversed AGAIN — two
+		// `back()` calls for one push, the second consuming a real user entry. Measured
+		// before removal; this pins it so the same reasoning cannot re-introduce it.
+		const noop = () => {};
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		rerender(<Harness outer={false} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(back).toHaveBeenCalledTimes(1);
+
+		window.dispatchEvent(new PageTransitionEvent('pageshow'));
+		await settle();
+		expect(back, 'a pageshow must not spend a second traversal').toHaveBeenCalledTimes(1);
 	});
 });

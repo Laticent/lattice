@@ -2,10 +2,10 @@
 status: shipped
 summary: >
   Three follow-ups from the back-gesture work, landed together. (1) The lint config
-  becomes `biome.jsonc` and every exclusion names its class in prose, gated by
-  `checkLintExclusions` against unreasoned entries, missing generators, and STALE entries
-  matching zero files; two exclusions are deleted, including 31 files of house source that
-  had never been linted. (2) Off-Studio sheets join the back guard, ending a mixed stack
+  becomes `biome.jsonc` and every exclusion names its class in prose. An enforcing gate was
+  written and then REMOVED before merge — an adversarial pass showed it validated the
+  spelling of exclusions while lint coverage does not live there. Two exclusions are
+  deleted, including 32 files of house source that had never been linted. (2) Off-Studio sheets join the back guard, ending a mixed stack
   where back closed the feedback sheet but left the site from the nav sheet underneath it.
   (3) The guard defers reconciliation while its own `history.back()` is in flight, closing
   a latent re-entry of the race that got the first implementation reverted. Panel
@@ -66,12 +66,12 @@ against real Biome, with a planted tracked victim file:
 
 | attack | Biome | gate |
 |---|---|---|
-| one line in `.gitignore` — **no config edit at all** | 1249 → 1231, still tracked | silent |
-| delete one **positive** line (`"**/*.ts"`) | **1249 → 888** | silent |
-| `// dependency` + `"!docs/src"` — two lines | **1249 → 705** | silent |
+| one line in `.gitignore` — **no config edit at all** | un-lints tracked source | silent |
+| delete one **positive** line (`"**/*.ts"`) | **1253 → 892** | silent |
+| `// dependency` + `"!docs/src"` — two lines | **1253 → 709** | silent |
 | `overrides[].linter.enabled: false` | count flat, **0 errors** | silent |
-| `files.maxSize: 60` | **"Checked 1 file"**, exit 0 | silent |
-| `"!docs/src/lib/victim"` (JSON escape) | 1249 → 1248 | silent |
+| `files.maxSize: 60` | **"Checked 1 file"** + 1252 warnings, exit 0 | silent |
+| `"!…"` (JSON escape for `!`) | un-lints the named path | silent |
 | quoting a pattern in a comment | — | **false positive, blocks the build** |
 
 Two need no intent at all. And the origin incident walks straight back in: re-adding
@@ -106,7 +106,7 @@ The a11y pair is the payoff: a keyboard-unreachable `role="link"` had been sitti
 shipped component, invisible because the folder was excluded.
 
 **Verified** by planting a violation in `panel.tsx` and watching `npm run lint` fail — it
-would have passed silently before. Coverage went 1217 → **1249** files (base measured by
+would have passed silently before. Coverage went 1221 → **1253** files (base measured by
 extracting `origin/main` and linting it with its own config, not inferred).
 
 ---
@@ -155,11 +155,27 @@ no-op, so `history.state` was never marked and `adopt()` could not fire in any c
 suite. `pushState` now calls through, a traversal helper clears the marker the way a real
 one does, and both deferral tests were confirmed to fail against the old ordering.
 
-A traversal whose `popstate` never arrives (a cross-document back, then a bfcache restore)
-would have left `pendingPops` stuck above zero and wedged `reconcile` **permanently** —
-strictly worse than the pre-guard behavior, which only swallowed one stray event. A
-`pageshow` handler resets the counters and lets `adopt()` re-derive ownership from
-`history.state`. That path is **UNVERIFIED** — bfcache is not reachable from this sandbox.
+**A `pageshow` handler was added alongside it, and then removed.** Worth recording,
+because the reasoning that produced it was wrong in both directions. It was written to
+recover from a traversal whose `popstate` never arrives — a cross-document back, then a
+bfcache restore — on the claim that `pendingPops` would otherwise wedge `reconcile`
+*permanently*. Measured, both ways:
+
+- **The wedge self-heals.** `pendingPops` is decremented by ANY `popstate`, not only the
+  one we were waiting for. With a traversal stuck in flight, one later `popstate` re-arms
+  the sentinel (`push` goes 0 → 1). The real cost is a single dead gesture, not a permanent
+  wedge — so the justification was overstated.
+- **The handler spent a SECOND traversal for one owned entry.** It reset `pendingPops` to
+  0, which is the only thing keeping `adopt()` off an entry already on its way out — so the
+  deferred reconcile re-adopted the still-marked entry, saw nothing open, and traversed
+  again. `back()` called **twice** for one push. The second consumes a real user history
+  entry, i.e. back leaves the app: exactly the class of bug this module exists to prevent.
+
+Trading a self-healing dead gesture for a spurious navigation is a bad trade. Removed, with
+a test pinning it so the same reasoning cannot re-introduce it, and the module now carries a
+comment saying why it has no `pageshow` handler. Found by the independent checker — which
+also established the handler had **zero** coverage: deleting its listener left all nine
+tests green, while every other mutation it tried turned the suite red.
 
 ---
 
@@ -185,11 +201,22 @@ Filed as **#1231**, framed as URL-addressable panels rather than state restorati
 
 ---
 
+## A note on the numbers
+
+Coverage figures are from a **clean tracked tree** — `git archive HEAD | tar -x -C tmp`,
+then `biome check` there. A bare `npm run lint` in a working directory also scans untracked
+build output (playwright reports, `test-results/`) and reports a larger number. An earlier
+draft of this doc cited absolutes taken in a working tree and then went stale again when
+`main` moved underneath; the deltas were right throughout. Prefer the delta.
+
 ## Verification
 
-`npm run lint` (1249 files) · engine unit **4446** · docs vitest **2101** ·
+`npm run lint` (**1253** files on a clean tracked tree, from **1221**) · engine unit **4460** · docs vitest **2102** ·
 `npm run build:check` · `webkit-phone` in WebKit at `devices['iPhone 15 Pro']`, including
 the off-Studio cases, which fail against the mixed stack.
 
-Each of the four `checkLintExclusions` failure modes was demonstrated to fire before
-being kept, and the deferral test was confirmed to fail without the guard.
+All four of the removed gate's failure modes were demonstrated to fire before it was
+pulled — the audit that produced them is what makes the nine bypasses above credible. The
+deferral test was confirmed to fail without its guard, and the `pageshow` removal was
+confirmed in both directions: the handler spent a second traversal for one owned entry,
+and the wedge it was written for self-heals after a single later `popstate`.

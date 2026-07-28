@@ -20,17 +20,23 @@
     // of `!` entries in this array; lint coverage does not live there. Measured against
     // the real Biome:
     //
-    //   • deleting one POSITIVE line above (`"**/*.ts"`) drops coverage 1249 → 888
+    //   • deleting one POSITIVE line above (`"**/*.ts"`) drops coverage 1253 → 892
     //     files. The gate read only `!` entries, so it saw nothing.
     //   • one line in `.gitignore` un-lints tracked source (`vcs.useIgnoreFile` is on,
-    //     line 3) with no edit to this file at all. 1249 → 1231, still tracked.
-    //   • `overrides[].linter.enabled: false`, `linter.includes`, and `files.maxSize`
-    //     each silence lint while the file COUNT stays flat or rises — so even a
-    //     coverage ratchet would not see them. `"maxSize": 60` yields "Checked 1 file",
-    //     zero errors, exit 0.
+    //     line 3) with no edit to this file at all — and the files stay tracked.
+    //   • `overrides[].linter.enabled: false` and `linter.includes` each silence lint
+    //     while the file COUNT stays flat — so even a coverage ratchet would not see
+    //     them. `files.maxSize: 60` is the loud one, and worth stating precisely: it
+    //     yields "Checked 1 file" with 1252 WARNINGS and zero errors, so `npm run lint`
+    //     exits 0 and every automated check is green while lint does nothing.
     //   • and the origin incident itself walks straight back in: re-adding
     //     `"!docs/src/components/ui"` under the one word `vendor` passes every check a
     //     syntax gate can make. The comment is unverifiable prose.
+    //
+    // Counts above are from a CLEAN TRACKED TREE — `git archive HEAD | tar -x -C tmp`
+    // then `biome check` there. Running `biome check` in a working directory also scans
+    // untracked build output (playwright reports, test-results), which is why a bare
+    // `npm run lint` may report a different, larger number.
     //
     // A gate that misses the failure it was born from, while blocking every push in the
     // repo when it false-positives (it did, on its first legitimate edit), is worse than
