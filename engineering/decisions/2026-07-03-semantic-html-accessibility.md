@@ -1324,3 +1324,110 @@ If they are ever revisited, the honest design is: the Cell **is** the footer, so
 running directive's text becomes `<div class="footer-text">` inside
 `<footer class="cell-footer">`, and all six `> footer` rules re-key to it — one
 coordinated cascade change with the chrome-suppression test as its gate, not a tag swap.
+
+### 17.11 A new gap, found and FIXED — all math was invisible to screen readers (G12)
+
+Investigating the third-party renderers before the `<figure>` work turned up something
+the register never had: **every formula in an exported deck was absent from the
+accessibility tree.**
+
+KaTeX renders two halves — a visual one it marks `aria-hidden="true"`, and a MathML
+alternative meant to be what AT actually reads. The emulator created its engine with
+`mathOutput:'html'`, which emits the visual half and **drops the MathML**. The result:
+the hidden half hidden, and nothing in its place. Display math and inline math alike.
+
+The reasoning in the code was that MathML "can't be read in a PDF and its unclipped
+layout trips the slide overflow watcher (a stale ring)". **Both halves were re-tested on
+real renders and neither reproduces:**
+
+| Check | `html` | `htmlAndMathml` |
+|---|---|---|
+| overflow-flagged slides, 4-formula dense deck | 0 | **0** |
+| rasterized PDF pages | — | **pixel-identical** |
+| `<annotation>` alternatives emitted | 0 | **2 of 2** |
+
+`katex.min.css` — linked into this very shell — clips `.katex-mathml` out of the flow, so
+the accessible alternative costs no layout and no pixels. The PDF half of the claim is
+true but harmless.
+
+**The worst part was WHICH path had it.** `lib/engine` never overrode the default, so the
+preview was fine; only the **export** dropped MathML — the artifact people ship, and the
+one G1/G6 designate as the accessible route for users the fixed canvas fails. Fixed: the
+emulator now uses `htmlAndMathml`.
+
+This is worth generalizing: two of the three worst accessibility holes found on this
+branch (funnel/quadrant, and this) were **regressions created by a reasonable-sounding
+local optimization**, invisible because nothing watched the accessibility tree. That is
+the argument for G10's axe gate, which still does not exist.
+
+### 17.12 Third-party renderers — the policy for `<figure>` and naming
+
+Mermaid, KaTeX and function-plot emit markup **we do not author**, and each already has
+(or lacks) its own accessibility model. The rule:
+
+- **KaTeX — do NOT wrap in `<figure>`, do not touch its internals.** It ships a complete
+  model (`aria-hidden` visual half + MathML alternative). Our only job is not to break
+  it, which is exactly what §17.11 fixes. A `<figure>` around a formula would add an
+  announced "figure" boundary around something that is inline prose content.
+- **Mermaid — name it, don't restructure it.** mmdc emits `role="graphics-document
+  document"` with **no accessible name** unless the author wrote `accTitle:`/`accDescr:`
+  in the diagram source. Added a conservative floor: when the SVG carries no
+  `aria-label`/`aria-labelledby` and no `<title>` of its own, label it with the diagram's
+  TYPE ("Flowchart", "Sequence diagram", …) read from the source. An authored name is
+  never overwritten. A type is a floor, not a description — `accTitle:`/`accDescr:`
+  remain the right way to say what a diagram *means*, and that belongs in the authoring
+  docs. **Verified on a real mmdc render** — `<svg aria-label="Flowchart"
+  id="lattice-mmd-1" …>` — after the regression in §17.13 was fixed. (An earlier draft of
+  this section marked it UNVERIFIED because mermaid appeared to be broken in the sandbox;
+  it was broken BY this change, which §17.13 records.)
+- **function-plot — the JS selectors must be de-tagged BEFORE any `<figure>` retag.**
+  `runtime/index.js` and `lattice-emulator.js` both select
+  `div.functionplot[data-fp-config]` **by tag**; retagging without changing them stops
+  plots rendering silently. This is the same tag-anchored-coupling pattern as §17.8 and
+  §17.10, now at five confirmed instances.
+
+**Consequence for 4b:** the `<figure>` conversion applies to **our own single-graphic
+chart wrappers only**. Mermaid keeps its own root (naming, not wrapping); KaTeX is out of
+scope entirely; function-plot is gated behind the selector fix.
+
+### 17.13 A regression I caused, and the trap that hid it
+
+The mermaid naming change (§17.12) **broke mermaid rendering outright** — every diagram
+in every export fell back to a `<pre>`. Caught by `export-formats` (21/27 vs main's
+27/27, same sandbox, quiet machine), fixed before push. Worth recording because the
+*diagnosis* was the hard part, not the fix.
+
+**The bug:** the injection called the module's `escapeHtml`, declared far below as a
+`const`. The mermaid pre-pass runs during module evaluation, so reaching forward to it
+threw `Cannot access 'escapeHtml' before initialization` — a temporal-dead-zone error in
+a file whose top-to-bottom reading order gives no hint that this function runs that
+early.
+
+**The trap — why it looked like something else entirely.** `renderMermaidOne` wraps the
+mmdc call AND the post-processing in one `try`, with a 3-attempt retry. But
+`fs.rmSync(tmpDir)` runs BEFORE the post-processing. So:
+
+1. attempt 1 — mmdc succeeds, my code throws, temp dir is already deleted;
+2. attempts 2–3 — mmdc re-runs against a **deleted input file** and fails for real;
+3. the loop reports the LAST error: `Command failed: … mmdc …`.
+
+The surfaced message therefore blamed mmdc, and mmdc was innocent — it ran fine
+standalone, which sent me looking for an environment problem for several minutes. **A
+post-processing error was laundered into a renderer error by cleanup-before-use plus
+retry.** I only found it by temporarily printing the caught error inside the loop.
+
+Three things this is worth remembering for:
+
+- **"Failed after N attempts" hides the first failure**, which is usually the real one.
+  A retry loop should distinguish "the operation failed" from "the operation succeeded
+  and what we did next failed" — the second must not be retried at all.
+- **Cleanup that precedes post-processing makes a retry unsound.** The retry can never
+  succeed after the first pass consumed the inputs.
+- **A worktree baseline settles authorship fast.** main 27/27 vs HEAD 21/27 in the same
+  sandbox took one command and turned "probably the flaky sandbox" into "definitely
+  mine" — HARD RULE #18's who-caused-it test, applied literally.
+
+The fix escapes locally instead of reaching forward, and the label table is ours and
+fixed, so escaping is belt-and-braces rather than a security boundary. The `<svg
+aria-label="Flowchart" id="lattice-mmd-1" …>` output is now verified on a REAL mmdc
+render, which upgrades §17.12's UNVERIFIED note.

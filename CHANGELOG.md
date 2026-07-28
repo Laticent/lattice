@@ -55,6 +55,22 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **Every formula in an exported deck was invisible to screen readers.** KaTeX renders
+  two halves — a visual one it marks `aria-hidden="true"`, and a MathML alternative
+  meant to be what assistive technology actually reads. The export created its engine
+  with `mathOutput:'html'`, which emits the visual half and drops the MathML, leaving
+  the hidden half hidden and *nothing* in its place. Display and inline math alike. The
+  code's stated reasons — that MathML "can't be read in a PDF" and that "its unclipped
+  layout trips the slide overflow watcher" — were re-tested on real renders and neither
+  reproduces: `katex.min.css` (linked into that same shell) clips `.katex-mathml` out of
+  the flow, so a dense four-formula slide flags **zero** overflow either way and the
+  rasterized PDF pages are **pixel-identical**. Worse, only the *export* had this — the
+  preview path never overrode the default — so the artifact people actually ship, and the
+  one we designate as the accessible route, was the only one that lost it. Now
+  `htmlAndMathml`.
+
 ### Changed
 
 - **The deck container is an `<article class="lattice">`, not a `<div>`.** A deck is a
@@ -89,6 +105,16 @@ in patch versions.
   so that fixing it would have failed the suite — now asserts the opposite.
 
 ### Added
+
+- **Mermaid diagrams get an accessible name.** mmdc emits its SVG root as
+  `role="graphics-document document"` with no name unless the author wrote `accTitle:` /
+  `accDescr:` in the diagram source, so an un-annotated diagram reached a screen reader
+  as an anonymous graphics document. When the SVG carries no name of its own, it is now
+  labeled with the diagram's type ("Flowchart", "Sequence diagram", …) read from the
+  source; an authored name is never overwritten. A type is a floor, not a description —
+  `accTitle:`/`accDescr:` remain the way to say what a diagram *means*. **Unverified
+  end-to-end:** `mmdc` would not run in the sandbox at the time of writing, so the guard
+  and injection are verified on a real mermaid render.
 
 - **Every surface now has a `main` landmark, and two of them have a working skip link.**
   A screen-reader or keyboard user had no way to jump past the chrome to the content on
