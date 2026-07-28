@@ -95,6 +95,8 @@ export function LensesPanel({
 	onWriteRegistry,
 	onTag,
 	onRemoveLens,
+	adding: addingProp,
+	onAddingChange,
 }: {
 	slides: string[];
 	registry: LensRegistry;
@@ -108,6 +110,12 @@ export function LensesPanel({
 	onWriteRegistry: (label: string, reg: LensRegistry) => void;
 	onTag: (label: string, changes: TagChange[]) => void;
 	onRemoveLens: (lens: LensDef) => void;
+	/** Optionally hoist the "add a reader view" trigger to the HOST, so it can sit in the
+	 *  panel header beside the close — where every other panel's actions live (the Library's
+	 *  import is the pattern). Uncontrolled when omitted: the docked column keeps its own
+	 *  inline dashed button. */
+	adding?: boolean;
+	onAddingChange?: (v: boolean) => void;
 }) {
 	const wsDefs = React.useMemo(() => new Map((workspace?.lenses ?? []).map((l) => [l.id, l])), [workspace]);
 	// Ids the deck has tagged — a view that's been tagged is no longer an untouched "Starter" (it's been
@@ -115,7 +123,15 @@ export function LensesPanel({
 	const taggedIds = React.useMemo(() => taggedLensIds(slides), [slides]);
 	const lenses = registry.lenses.filter((l) => l.id !== 'full');
 	const [expanded, setExpanded] = React.useState<string | null>(null);
-	const [adding, setAdding] = React.useState(false);
+	// Controlled when the host passes `adding` (the sheet, whose header owns the trigger);
+	// uncontrolled otherwise (the docked column, which keeps its inline button).
+	const [addingUncontrolled, setAddingUncontrolled] = React.useState(false);
+	const hostOwnsAdd = onAddingChange !== undefined;
+	const adding = hostOwnsAdd ? !!addingProp : addingUncontrolled;
+	const setAdding = React.useCallback((v: boolean) => {
+		if (onAddingChange) onAddingChange(v);
+		else setAddingUncontrolled(v);
+	}, [onAddingChange]);
 	// Which lenses the author has PREVIEWED, keyed to the content hash they saw. Approve stays locked
 	// until the previewed hash matches the CURRENT membership — so an edit after previewing re-arms the
 	// gate automatically (the hash moves), and nothing is ever approved unseen (§9.4).
@@ -193,7 +209,7 @@ export function LensesPanel({
 				(adding ? (
 					<div className="mt-2.5 rounded-lg border border-border bg-background p-2">
 						<div className="mb-1.5 flex items-center justify-between">
-							<span className="font-mono text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">Add a reader view</span>
+							<span className="text-[13px] font-semibold leading-normal text-[var(--text-heading)]">Add a reader view</span>
 							<button type="button" onClick={() => setAdding(false)} aria-label="Cancel" className="grid size-6 place-items-center rounded text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button>
 						</div>
 						<div className="space-y-1.5">
@@ -206,7 +222,7 @@ export function LensesPanel({
 							))}
 						</div>
 					</div>
-				) : (
+				) : hostOwnsAdd ? null : (
 					<button type="button" onClick={() => setAdding(true)} className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:border-[var(--accent)] hover:text-[var(--accent)]"><Plus className="size-3.5" />Add a reader view</button>
 				))}
 		</div>

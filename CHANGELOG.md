@@ -57,6 +57,47 @@ in patch versions.
 
 ### Changed
 
+- **Studio mobile drawers: one height, one header, and the search field above the keyboard.**
+  The two-tier phone panel height (`auto` / `full`) is retired for a single height — an inset of
+  exactly the app header — so all twelve Studio drawers now open at the same size, with the same
+  56px header and the same 54px tap-to-dismiss band. Measured on the built site at 390×844: the
+  tiers already collapsed to byte-identical geometry whenever the keyboard was up, the assignment
+  was uncorrelated with what any panel's content wanted (the short tier held the two tallest
+  panels), and the bar the short tier existed to preserve was `aria-hidden` and untappable.
+
+  Also in this pass: `PanelHeader` drops its visible `description` and its (unused) `eyebrow`, so
+  four header heights become one — the header is identity, the body is explanation; the three
+  filter panels (Search / commands, Library, Add a slide) dock their search field at the bottom
+  above the keyboard, matching Chat's composer; empty states are centered via a new `PanelEmpty`;
+  `PanelBody` reserves `env(safe-area-inset-bottom)` for every panel rather than just the drawer;
+  Add a slide's filter chips wrap instead of scrolling sideways inside the vertical scroller; and
+  that panel is titled "Insert a component", matching both controls that open it.
+  And one subhead voice: `PanelSection` — which called itself "the one subhead grammar" while
+  having a single consumer — now renders 13px semibold sentence case, the StudioDrawer's own
+  rule-4 voice, and Share, Workspace, Add a slide and the read-aloud settings adopt it in place
+  of four near-identical mono-uppercase treatments. The Library's segmented filter track and Add
+  a slide's `FilterChip` row both fold into the existing `PillTabs` primitive, gaining its
+  tablist semantics (roving tabindex, arrow keys) and losing their horizontal scrollers.
+  Reported from a real Android phone after the first cut: the three filter drawers now share
+  ONE search field (`PanelSearch`), and the app's global `:focus-visible` ring — which is
+  unlayered, and therefore beat every `outline-none` utility regardless of specificity — gains a
+  `[data-focus-ring="container"]` opt-out so a field whose wrapper paints the ring no longer
+  draws a second one inside it. Reader views' "add" moves into the panel header beside the close,
+  the slot the Library's import already used.
+  Mobile sheets are now sized from the VISUAL viewport (`--vvh`) rather than `dvh`: with the
+  keyboard up, iOS reports a `dvh` that still spans the area behind the URL bar, so a sheet
+  pinned above the keyboard put its own header underneath that bar — measured on an iPhone 15
+  Pro, where the Library's title and the palette's both vanished while typing. The 54px app-header
+  inset also yields to the keyboard, so a typing surface gets the whole visible height. Every page
+  gains `viewport-fit=cover` (without it iOS reports every `env(safe-area-inset-*)` as 0, which
+  made the home-indicator reservation inert on device), and a `theme-color` meta tracks the
+  resolved `--bg` per palette and mode so Safari's chrome matches the app instead of framing it.
+  The app-header inset collapses WHILE YOU TYPE, keyed on `:has(input:focus, textarea:focus)`
+  rather than on keyboard arithmetic — the arithmetic measured perfectly in simulation and did
+  nothing on a real iPhone, where `--kb` is not reliably non-zero. Focus asks the question
+  directly, cannot disagree with the device, and is verifiable headlessly.
+  See `engineering/decisions/2026-07-28-one-panel-height.md`.
+
 - **Breaking (`list-steps`, unreleased): `capsule` absorbs the `cat` variant and the masthead-rule
   choice — the whole editorial look is one class.** Was `list-steps capsule cat rule-none`; now
   `list-steps capsule`.

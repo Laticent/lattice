@@ -1,6 +1,6 @@
 import { Captions, ChevronRight, Download, FileArchive, FileText, Globe, Images, Link2, Loader2, Monitor, Package, Printer } from 'lucide-react';
 import * as React from 'react';
-import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelBody, PanelHeader, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { deckColorMode } from '@/lib/deck-theme';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
@@ -121,8 +121,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 						<ImageSetOptionsPanel busy={busy === 'images'} status={progress} onBack={() => setView('menu')} onExport={exportImages} />
 					) : (
 						<>
-							<section className="space-y-2">
-								<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hand off the deck</h3>
+							<PanelSection label="Hand off the deck">
 								<p className="text-xs text-muted-foreground">The rendered, paginated deck — for your audience.</p>
 								<Row icon={<Link2 className="size-4" />} title="Present link" desc="A live, themed link that opens in Present" onClick={() => { close(); onPresent(); }} />
 								<Row busy={busy === 'pdf'} status={progress} icon={<Download className="size-4" />} title="PDF" desc="One slide per page — choose what rides along" onClick={() => setView('pdf')} />
@@ -131,15 +130,14 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 								<Row icon={<Printer className="size-4" />} title="Print deck" desc="Pick paper &amp; colour, preview, then print or save" onClick={() => setView('print')} />
 								<Row busy={busy === 'html'} status={progress} icon={<Globe className="size-4" />} title="Webpage (.html)" desc="One self-contained file — opens in any browser, offline" onClick={() => setView('html')} />
 								<Row busy={busy === 'captions'} status={progress} icon={<Captions className="size-4" />} title="Captions (.vtt)" desc="Read-along WebVTT from your speaker notes — no audio, no key" onClick={() => run('captions', 'Captions', (onStatus) => shareCaptions(options, artifactSource, name, palette, mode, extraTheme, onStatus))} />
-							</section>
-							<section className="space-y-2">
-								<h3 className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Hand off the source</h3>
+							</PanelSection>
+							<PanelSection label="Hand off the source">
 								<p className="text-xs text-muted-foreground">The Markdown — for editing, review, or portability.</p>
 								<Row busy={busy === 'lattice'} icon={<FileArchive className="size-4" />} title="Lattice project (.lattice)" desc="Deck + comments in one file — re-opens here" onClick={() => run('lattice', 'Lattice project', () => shareLattice(source, name, deckTitle, deckId, Date.now()))} />
 								<Row dev busy={busy === 'md'} icon={<FileText className="size-4" />} title="Markdown" desc="Source with the theme embedded" onClick={() => run('md', 'Markdown', () => shareMarkdown(options, source, name, palette, extraTheme, finishClass, finishExtraCss))} />
 								<Row dev busy={busy === 'marp'} icon={<Package className="size-4" />} title="Marp bundle" desc="Self-contained ZIP — renders anywhere" onClick={() => run('marp', 'Marp bundle', () => shareMarp(options, source, name, palette, finishClass, finishExtraCss))} />
 								<Row dev icon={<Printer className="size-4" />} title="Print source" desc="The Markdown, monospace — for markup &amp; review" onClick={() => run('printsrc', 'Print source', () => sharePrintSource(source, name))} />
-							</section>
+							</PanelSection>
 						</>
 					)}
 			</PanelBody>

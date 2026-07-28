@@ -232,6 +232,7 @@ it is load-bearing.
 
 ### Shipped — pending teardown (absorb into canon, then delete)
 
+- ☑ [2026-07-28-one-panel-height.md](2026-07-28-one-panel-height.md) — >
 - ☑ [2026-07-27-bloom-engineering-journey-components.md](2026-07-27-bloom-engineering-journey-components.md) — >
 - ☑ [2026-07-27-chart-family-all-svg.md](2026-07-27-chart-family-all-svg.md) — The last two HTML labels in the chart family moved into their viewBoxes — word-cloud's size key and radar's small-multiple captions — so every chart that draws SVG at all now draws all of it. Both flip from `render: hybrid` to `svg`, proven by the derivation rather than asserted. Also corrects a six-week-old false claim in the SVG-legend decision that the derivation is what surfaced.
 - ☑ [2026-07-27-family-stamp-replaces-container-queries.md](2026-07-27-family-stamp-replaces-container-queries.md) — Retire `@container lattice (aspect-ratio …)` as the family-reflow mechanism. A container query measures the section's CONTENT box, which the section's asymmetric padding makes proportionally wider than the deck — so a 1080×1080 deck classified `square` in JS while every `<= 1.05` rule in the library measured 1.051 and did not match, leaving the whole square tier inert across 34 blocks in 30 files. Components now select the `data-family` stamp the engine derives from the deck geometry: one classifier, one measurement, no numeric boundary in any stylesheet.

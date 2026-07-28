@@ -46,6 +46,12 @@
 	   generate for one surface (the command palette stayed pinned under the keyboard
 	   while every other sheet lifted clear). One declaration, no commas, no escaping. */
 	--kb: 0px;
+	/* The VISUAL viewport height — what the user can actually see — published by
+	   useKeyboardInset (ui/panel.tsx) while a mobile sheet is open. `100dvh` is the
+	   fallback and is right whenever no browser chrome is overlaying: they differ only
+	   when iOS Safari has the keyboard up, which is exactly the case a sheet has to get
+	   right. Same no-comma discipline as --kb above. */
+	--vvh: 100dvh;
 	/* Danger is hue-universal; themes/ defines no destructive token, so this is
 	 * a palette-blind ramp (one light value, one dark — WCAG-checked). */
 	--lx-ui-destructive: #c0362c;
