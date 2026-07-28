@@ -31,10 +31,11 @@
 // None of the six protected controls (Present, Share, Coach, Chat, Settings, the pane
 // toggle) are here — they stay one tap on the Eight-Cell Bar. Neither is Slide settings
 // (the toolbar's Settings cell owns it) nor Workspace settings (promoted to the header).
-import { Check, ChevronLeft, ChevronRight, FileBox, History as HistoryIcon, ListChecks, MonitorPlay, MoreHorizontal, Palette, Plus, Search, X } from 'lucide-react';
+import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Plus, Search } from 'lucide-react';
 import * as React from 'react';
-import { MOBILE_HEIGHT, MOBILE_OFFSET, useKeyboardInset } from '@/components/ui/panel';
-import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { MOBILE_HEIGHT, MOBILE_OFFSET, PanelBack, useKeyboardInset } from '@/components/ui/panel';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useOverlayBack } from '@/lib/overlay-back';
 import { cn } from '@/lib/utils';
 import { FeedbackIcon, LensIcon } from './icons';
 import type { ComponentEntry } from './SlidePicker';
@@ -142,9 +143,37 @@ Door.displayName = 'Door';
  *  `ThemePicker`'s own `Dot` already ships; reuse, not reinvention. */
 const SWATCH_EDGE = 'border border-[color-mix(in_srgb,var(--text-heading)_20%,transparent)]';
 
+/**
+ * What this panel is CALLED — its own title, and the destination its eleven
+ * destinations' back chevrons name. Exported so `StudioShell` publishes the identical
+ * string rather than a second literal that can drift from this one.
+ *
+ * "Menu", after scoring eight candidate pairs against: does the word name a PLACE, is
+ * it TRUTHFUL, is it instantly understood, is it distinct in-app, and what does it cost.
+ * The two it replaces both lost on the first two criteria:
+ *
+ *   "Studio" — the original — names the WHOLE APP, so the panel and the thing behind it
+ *   were both called the Studio. That is the collision that surfaced the moment this
+ *   grew a back chevron: a panel titled "Studio" above a control reading "‹ Studio".
+ *
+ *   "More" — the first fix — names a RELATIONSHIP to the Eight-Cell Bar ("the rest of
+ *   them"), not a destination. It was the one chevron in the app that answered "where
+ *   does this go?" with "elsewhere".
+ *
+ * The objection to "Menu" is that it names a widget class rather than a place — true on
+ * a desktop, false on a phone, where a menu IS a screen you travel to and back from, and
+ * where it is the word users already have for exactly this object. The app's three real
+ * dropdowns (workspace launcher, deck switcher, the tablet twin of this panel) are never
+ * LABELED "menu" to a user, so nothing collides on screen.
+ *
+ * See `engineering/decisions/2026-07-28-back-not-close.md` for the scored table.
+ */
+export const DRAWER_LABEL = 'Menu';
+
 export function StudioDrawer({
 	open,
 	onOpenChange,
+	hostLabel,
 	onNavigate,
 	effPane,
 	insertComponents,
@@ -165,6 +194,12 @@ export function StudioDrawer({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	/** What lies BEHIND this panel, named — the index's back chevron points there.
+	 *  "Deck" normally, "Fabricate" in that view (the header and this drawer render in
+	 *  both). Passed rather than read from `PanelBackCtx` because this is a raw `Sheet`,
+	 *  and because the context resolves to THIS panel's name while it is the thing a
+	 *  child would return to. */
+	hostLabel: string;
 	/** A row that opens a further surface calls this INSTEAD of closing the drawer
 	 *  itself — the host closes the drawer, opens the target, and reopens the drawer
 	 *  once that target closes, so dismissing a child sheet returns here rather than
@@ -239,13 +274,19 @@ export function StudioDrawer({
 	const back = () => {
 		const from = level;
 		setLevel('index');
-		setAnnounce('Studio');
+		setAnnounce(DRAWER_LABEL);
 		toTop();
 		requestAnimationFrame(() => doorRefs.current[from]?.focus());
 	};
 
 	const inDoor = level !== 'index';
-	const title = level === 'index' ? 'Studio' : level === 'themes' ? 'Themes' : 'Show me';
+	const title = level === 'index' ? DRAWER_LABEL : level === 'themes' ? 'Themes' : 'Show me';
+
+	// TWO levels, TWO registrations, innermost last — a door pops before the drawer
+	// closes. Registered in hook order, which is also stack order, so nothing has to
+	// track depth (see lib/overlay-back.ts for why depth-keying is what broke first).
+	useOverlayBack(open, () => onOpenChange(false));
+	useOverlayBack(open && inDoor, back);
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
@@ -267,35 +308,36 @@ export function StudioDrawer({
 				style={{ WebkitTapHighlightColor: 'color-mix(in srgb, var(--accent) 16%, transparent)' }}
 				className={cn('flex flex-col gap-0 rounded-t-2xl p-0 pb-[env(safe-area-inset-bottom)]', MOBILE_OFFSET, MOBILE_HEIGHT)}
 			>
-				{/* Nav bar: the SAME three-slot left-aligned strip at both levels, fixed 56px,
-				    never centers. The back affordance is a chevron plus the literal name of
-				    where it goes — not an icon you have to interpret. */}
+				{/* Nav bar: the SAME left-aligned strip at both levels, fixed 56px, never
+				    centers. The back affordance is a chevron plus the literal name of where it
+				    goes — not an icon you have to interpret. It is now present at BOTH levels
+				    (the index's X is gone), which is what lets the trailing slot belong to
+				    actions alone across every panel. */}
 				{/* Push/pop announcement — see `announce` above. */}
 				<div role="status" aria-live="polite" className="sr-only">{announce}</div>
 				<SheetHeader className="h-14 shrink-0 flex-row items-center gap-2 border-b border-border px-2 py-0">
-					{inDoor ? (
-						<>
-							<button ref={backRef} type="button" onClick={back} aria-label="Back to Studio" className={cn('flex h-11 shrink-0 items-center gap-0.5 rounded-lg pr-2 pl-1 text-[13px] font-semibold text-[var(--text-muted)]', PRESS)}>
-								<ChevronLeft aria-hidden="true" className="size-4" />Studio
-							</button>
-							<span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
-						</>
-					) : (
-						<span aria-hidden="true" className="w-1.5 shrink-0" />
-					)}
+					{/* The SAME control the eleven destinations now wear (`PanelBack`), at both
+					    levels — this file hand-rolled it, and that fork is how the app came to
+					    show a chevron here and an X everywhere the rows here lead. A door pops
+					    to the index; the index dismisses the drawer, which is what `SheetClose`
+					    inside `PanelBack` does when no `onBack` is given. */}
+					{/* `onBack` is explicit at BOTH levels: this is a raw `Sheet`, not a
+					    `PanelSheet`, so `PanelBack`'s `SheetClose` path is not available to it
+					    and a bare index-level chevron would render with no handler at all. */}
+					<PanelBack ref={backRef} label={inDoor ? DRAWER_LABEL : hostLabel} onBack={inDoor ? back : () => onOpenChange(false)} />
 					{/* The dialog's accessible name tracks the level. That is correct, but it is
 					    NOT an announcement: retargeting an OPEN dialog's label does not re-speak
 					    in VoiceOver or NVDA, so on its own a blind user tapped "Themes", heard
-					    "Back to Studio, button", and was never told they had arrived. The live
+					    "Back to Menu, button", and was never told they had arrived. The live
 					    region above is the announcement; this is the label. (Munger inversion.)
-					    The back button says "Back to Studio", not "Studio", so the two never
+					    The back button says "Back to Menu", not "Menu", so the two never
 					    announce as the same string. */}
 					{/* The SAME 30px accent chip `PanelHeader` gives the other eleven drawers.
 					    This was a bare inline glyph — the one header idiom in the app that did
 					    not match, on the surface every other drawer is launched from, so it was
 					    the one setting the expectation the rest then broke. */}
 					<span aria-hidden="true" className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] [&_svg]:size-[17px]">
-						{level === 'index' && <MoreHorizontal />}
+						{level === 'index' && <MenuIcon />}
 						{level === 'themes' && <Palette />}
 						{level === 'show-me' && <MonitorPlay />}
 					</span>
@@ -303,10 +345,6 @@ export function StudioDrawer({
 						{title}
 					</SheetTitle>
 					<SheetDescription className="sr-only">Editor actions, guided tours, reader views, and themes.</SheetDescription>
-					{/* The primitive's own close is a 16px target with no padding. */}
-					<SheetClose aria-label="Close" className={cn('flex size-11 shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)]', PRESS)}>
-						<X aria-hidden="true" className="size-[18px]" />
-					</SheetClose>
 				</SheetHeader>
 
 				{/* ONE vertical scroller, at every level. wrapperClassName carries the flex

@@ -40,7 +40,7 @@ async function firstDeckSource(page: import('@playwright/test').Page): Promise<s
 /** The `_class` slide count in a source string (one per slide). */
 const slideClasses = (src: string) => (src.match(/<!--\s*_class:/g) ?? []).length;
 
-/** Launch a tour from the persistent phone entry — "More controls" opens the StudioDrawer
+/** Launch a tour from the persistent phone entry — "Menu" opens the StudioDrawer
  *  (2026-07-26-studio-mobile-eight-cell-bar.md; a bottom Sheet, replacing the old inlined "···"
  *  DropdownMenu). As of the "Two Doors" rebuild the tour cards no longer sit on the drawer's
  *  index: they live one level in, behind the "Show me" DOOR, which pushes a second level into
@@ -50,7 +50,7 @@ const slideClasses = (src: string) => (src.match(/<!--\s*_class:/g) ?? []).lengt
  *  banner any more (the posture dial replaced it). Defaults to the full walkthrough (4 slides:
  *  title · big-number · radar · close). */
 async function startMobileDemo(page: import('@playwright/test').Page, tourId = 'walkthrough'): Promise<void> {
-	await page.getByRole('button', { name: 'More controls' }).click();
+	await page.getByRole('button', { name: 'Menu' }).click();
 	await page.getByRole('button', { name: 'Show me' }).click();
 	await page.locator(`[data-tour="${tourId}"]`).first().click();
 }
@@ -119,5 +119,5 @@ test('@mobile a real tap mid-run takes over — stage detaches, the deck is kept
 	expect(await firstDeckSource(page)).toContain('Q4 Board Update');
 	// The launch affordance is back.
 	await page.keyboard.press('Escape'); // close the deck menu the tap opened
-	await expect(page.getByRole('button', { name: 'More controls' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
 });

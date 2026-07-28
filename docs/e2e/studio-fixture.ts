@@ -51,7 +51,7 @@ export const CHROME = {
 	 * mobile opens the StudioDrawer, a bottom Sheet (rows are plain `role="button"`).
 	 * A spec asserting a row inside it must pick the role for the tier it's testing.
 	 */
-	moreControls: 'More controls',
+	moreControls: 'Menu',
 } as const;
 
 // The live compose preview: the engine renders the deck INSIDE this srcdoc

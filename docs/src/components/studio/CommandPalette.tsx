@@ -1,4 +1,4 @@
-import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Search, Settings2, Share2, Sparkles } from 'lucide-react';
+import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Search, Settings as SettingsCog, Share2, Sparkles } from 'lucide-react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { PanelDock, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { useBreakpoint } from '@/lib/use-breakpoint';
@@ -84,7 +84,7 @@ export function CommandPalette({
 					{onFocus && <CommandItem onSelect={run(onFocus)}><Focus />Focus mode — just editor &amp; preview</CommandItem>}
 					<CommandItem onSelect={run(onFabricate)}><PencilRuler />Fabricate — Theme &amp; Component Studio</CommandItem>
 					{onLibrary && <CommandItem onSelect={run(onLibrary)}><FileBox />Library — saved themes &amp; components</CommandItem>}
-					{onWorkspace && <CommandItem onSelect={run(onWorkspace)}><Settings2 />Workspace settings</CommandItem>}
+					{onWorkspace && <CommandItem onSelect={run(onWorkspace)}><SettingsCog />Workspace settings</CommandItem>}
 					{onWatchDemo && <CommandItem onSelect={run(onWatchDemo)}><MonitorPlay />Watch demo — the Studio drives itself</CommandItem>}
 					{onFeedback && <CommandItem onSelect={run(onFeedback)}><FeedbackIcon />Send feedback</CommandItem>}
 				</CommandGroup>

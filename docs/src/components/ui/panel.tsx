@@ -1,4 +1,4 @@
-import { SearchIcon, XIcon } from 'lucide-react';
+import { ChevronLeft, SearchIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import {
 	Sheet,
@@ -7,6 +7,7 @@ import {
 	SheetDescription,
 	SheetTitle,
 } from '@/components/ui/sheet';
+import { useOverlayBack } from '@/lib/overlay-back';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 
@@ -26,8 +27,23 @@ import { cn } from '@/lib/utils';
 // identically — one header/body/section grammar for both transports. Only
 // `PanelSheet` binds to Sheet; the pieces do not. (HARD RULE #15 — reuse.)
 //
-// The header owns the close (a single X, same corner, drawer and dock alike —
-// the chevron is retired), so `PanelSheet` turns off SheetContent's own X.
+// The header owns the dismissal, so `PanelSheet` turns off SheetContent's own X.
+// WHICH dismissal depends on the transport, and the split is deliberate:
+//
+//   phone   → a LEADING back chevron naming where it goes ("‹ Studio"), no X.
+//   pointer → a TRAILING X, as before.
+//
+// On a phone the back gesture is the primary way out (there is no system back
+// button to avoid), so the header affordance and the gesture had better agree —
+// see `lib/overlay-back.ts`. An X pointing at a gesture that does something else
+// is the disagreement #1226 is about. The trailing slot then belongs to `actions`
+// alone, which is the second thing this fixes: an "add" button next to a close
+// button reads as a pair of equals, and the two are not equals.
+//
+// A note on the phrasing this replaces — it used to read "a single X, same corner,
+// drawer and dock alike — the chevron is retired". The chevron was never retired:
+// the StudioDrawer's own doors kept one the whole time, so the app shipped both
+// idioms and called one of them gone.
 //
 // ── ON A PHONE, EVERY PANEL IS A BOTTOM SHEET ──────────────────────────────────
 // `side` is honored at tablet and desktop and IGNORED on mobile, where every
@@ -228,6 +244,89 @@ const PanelSheetCtx = React.createContext(false);
 // and strips the dialog's accessible name. They answer different questions.
 const PanelPhoneCtx = React.createContext(false);
 
+// WHERE the phone's back chevron says it goes. A destination, not a direction: the
+// StudioDrawer already argued this and was right — "a chevron plus the literal name
+// of where it goes, not an icon you have to interpret".
+//
+// It is a context because the honest answer is a property of the LAUNCH PATH, not of
+// the panel. The Library reached from the drawer returns to the drawer; the same
+// Library reached from the Eight-Cell Bar returns to the editor. StudioShell already
+// tracks which happened (`drawerPendingReturn`, the flag that decides whether the
+// drawer re-opens), so it publishes the label once for its whole subtree rather than
+// eleven call sites each passing a prop they cannot individually get right.
+//
+// The default is "Back" — correct off the Studio, where FeedbackSheet is the sitewide
+// header's and there is no named place to return to.
+type PanelNavValue = {
+	/** Where the back chevron says it goes. */
+	back: string;
+	/**
+	 * The user dismissed to the HOST rather than stepping back one level — they tapped
+	 * the scrim, which on a phone is the deck itself showing above the sheet.
+	 *
+	 * These are two different intents and the app was serving them with one close. A
+	 * panel opened from the ⋯ menu re-opens the menu when it closes, which is right for
+	 * `‹ Menu` and for the back gesture — that is what "back" means. It is wrong for a
+	 * tap on the deck: you touched the deck, so you should land on the deck, and instead
+	 * a drawer came back (reported). Whatever a call site needs to forget in order to
+	 * leave cleanly goes here.
+	 */
+	onLeave?: () => void;
+};
+
+const PanelNavCtx = React.createContext<PanelNavValue>({ back: 'Back' });
+
+/** Declares, for every panel inside, where back goes and what "leave" means. */
+export function PanelNav({ back, onLeave, children }: PanelNavValue & { children: React.ReactNode }) {
+	const value = React.useMemo(() => ({ back, onLeave }), [back, onLeave]);
+	return <PanelNavCtx.Provider value={value}>{children}</PanelNavCtx.Provider>;
+}
+
+/**
+ * The phone back control — chevron plus destination, with the hairline that separates
+ * it from the panel's own identity chip.
+ *
+ * Exported because `StudioDrawer` is a raw `Sheet` (it owns two levels inside one
+ * sheet, which `PanelSheet` does not model) and must render the identical control
+ * rather than a look-alike. It hand-rolled this markup before; that is how the app
+ * ended up with a chevron on the drawer's doors and an X on the drawer's eleven
+ * destinations (HARD RULE #15 — reuse).
+ */
+export const PanelBack = React.forwardRef<HTMLButtonElement, { label: string; onBack?: () => void }>(function PanelBack({ label, onBack }, ref) {
+	const inSheet = React.useContext(PanelSheetCtx);
+	const btn = (
+		<button
+			ref={ref}
+			type="button"
+			onClick={onBack}
+			// "Back to Back" is what the naive template produced off the Studio, where the
+			// context falls back to the generic "Back" — a screen-reader user heard the word
+			// twice and learned nothing. When the label IS the direction, the direction is
+			// the whole accessible name. Found by the independent checker.
+			aria-label={label === 'Back' ? 'Back' : `Back to ${label}`}
+			className={cn(
+				// 44px tall, the touch floor every phone control in this app holds.
+				'flex h-11 shrink-0 items-center gap-0.5 rounded-lg pr-2 pl-1 text-[13px] font-semibold text-[var(--text-muted)] transition-colors',
+				'hover:bg-[color-mix(in_srgb,var(--text-heading)_8%,transparent)] active:bg-[color-mix(in_srgb,var(--text-heading)_14%,transparent)]',
+				'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]',
+			)}
+		>
+			<ChevronLeft aria-hidden="true" className="size-4" />
+			{label}
+		</button>
+	);
+	return (
+		<>
+			{/* `SheetClose` only when this control DISMISSES the sheet. A caller that passes
+			    `onBack` is popping a level INSIDE the sheet (the StudioDrawer's doors), and
+			    wrapping that in a close would dismiss the whole drawer instead of returning
+			    to its index. */}
+			{inSheet && !onBack ? <SheetClose asChild>{btn}</SheetClose> : btn}
+			<span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
+		</>
+	);
+});
+
 /** True on a phone — narrow, or a landscape phone (wide but ~400px tall). */
 function useIsPhone(): boolean {
 	const bp = useBreakpoint();
@@ -257,13 +356,28 @@ export function PanelSheet({
 	children: React.ReactNode;
 }) {
 	const mobile = useIsPhone();
+	const nav = React.useContext(PanelNavCtx);
 	useKeyboardInset(mobile && open);
+	// The back gesture closes this sheet instead of leaving the page (#1226). Phone
+	// only — a pointer surface has no back gesture, and binding history there would be
+	// a regression, not a fix. Registering HERE rather than per call site is what makes
+	// this true for all eleven drawers at once, including the four that never adopted
+	// `PanelBody` and would have been missed by a body-level fix (the same trap the
+	// safe-area reservation fell into one PR ago).
+	const close = React.useCallback(() => onOpenChange(false), [onOpenChange]);
+	useOverlayBack(mobile && open, close);
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange} modal={modal}>
 			<SheetContent
 				side={mobile ? 'bottom' : side}
 				overlay={overlay}
 				showCloseButton={false}
+				// Tapping the scrim is "take me to what I can see", not "go back a level".
+				// On a phone the scrim IS the deck (the 54px band this sheet leaves above
+				// itself), so anything the host needs to forget in order to land there —
+				// notably the ⋯ menu's pending re-open — is dropped here. Radix fires this
+				// BEFORE the close, so the host's own state settles in the same commit.
+				onInteractOutside={() => nav.onLeave?.()}
 				className={cn(
 					'flex w-full flex-col gap-0 p-0',
 					mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width],
@@ -278,23 +392,21 @@ export function PanelSheet({
 	);
 }
 
+/** The POINTER dismissal. A phone gets `PanelBack` instead — see PanelHeader. */
 function PanelCloseButton({ label, onClose }: { label: string; onClose?: () => void }) {
 	const inSheet = React.useContext(PanelSheetCtx);
-	const phone = React.useContext(PanelPhoneCtx);
 	const btn = (
 		<button
 			type="button"
 			aria-label={label}
 			onClick={inSheet ? undefined : onClose}
 			className={cn(
-				// 44×44 on a phone — the SAME floor the Eight-Cell Bar and the StudioDrawer
-				// hold, and the floor whose breach started that whole redesign. A 30px
-				// target is fine under a mouse and is the one every panel shipped with on
-				// touch; the drawer's own close is 44 and its destinations' were 16–30
-				// (#1211). Pointer surfaces keep 30 — a mouse does not need the padding and
-				// the header is denser without it.
-				'grid shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[color-mix(in_srgb,var(--text-heading)_8%,transparent)] hover:text-[var(--text-heading)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]',
-				phone ? 'size-11' : 'size-[30px]',
+				// 30px. This used to branch to 44 on a phone — the touch floor the Eight-Cell
+				// Bar and the StudioDrawer hold, and the floor whose breach started that
+				// redesign (#1211). The branch is gone because the phone case is: the back
+				// control carries the 44 now. A mouse does not need the padding and the
+				// header is denser without it.
+				'grid size-[30px] shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-[color-mix(in_srgb,var(--text-heading)_8%,transparent)] hover:text-[var(--text-heading)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]',
 			)}
 		>
 			<XIcon className="size-[18px]" />
@@ -353,11 +465,22 @@ export function PanelHeader({
 	className?: string;
 }) {
 	const inSheet = React.useContext(PanelSheetCtx);
+	const phone = React.useContext(PanelPhoneCtx);
+	const backLabel = React.useContext(PanelNavCtx).back;
 	const Title = inSheet ? SheetTitle : 'h2';
+	// On a phone the way out is a LEADING back chevron and there is no X; on a pointer
+	// surface it stays a trailing X. See the transport split at the top of this file.
+	// Inside a Sheet the control is a `SheetClose`, so Radix still owns the dismiss —
+	// focus return and Escape parity are unchanged, only the affordance moved.
+	const back = showClose && phone ? <PanelBack label={backLabel} onBack={inSheet ? undefined : onClose} /> : null;
+	// Tighter gap and less left padding when the back control is present — it draws its
+	// own hairline separator, so the default `gap-3` either side of that reads as a gap
+	// twice as wide as anywhere else in the header.
 	// `h-14` — the SAME 56px the StudioDrawer's own nav bar uses, so the two agree
 	// rather than sitting 17px apart as they did.
 	return (
-		<div className={cn('flex h-14 shrink-0 items-center gap-3 px-3.5', border && 'border-b border-border', className)}>
+		<div className={cn('flex h-14 shrink-0 items-center gap-3 px-3.5', back && 'gap-2 pl-2', border && 'border-b border-border', className)}>
+			{back}
 			{icon ? (
 				<span className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] [&_svg]:size-[17px]">
 					{icon}
@@ -367,8 +490,27 @@ export function PanelHeader({
 				<Title className="truncate text-[15px] font-semibold leading-tight text-[var(--text-heading)]">{title}</Title>
 				{inSheet ? <SheetDescription className="sr-only">{srDescription ?? title}</SheetDescription> : null}
 			</div>
-			{actions}
-			{showClose ? <PanelCloseButton label={closeLabel} onClose={onClose} /> : null}
+			{/* 44×44 on a phone, and this is a consequence of moving the close out of the
+			    trailing slot rather than a free-standing polish item. These actions are
+			    `size="icon-sm"` — 30px — which was survivable while they sat NEXT TO a 44px
+			    close: the close set the row's touch expectation and the action borrowed it.
+			    Alone in the corner, a 30px target is the app's own floor breached on the
+			    control a panel most wants tapped (Reader views' add, the Library's import).
+			    The Eight-Cell Bar, the StudioDrawer and `PanelBack` all hold 44 (#1211).
+			    Spelled literally — an interpolated variant generates no CSS at all.
+
+			    `min-h`/`min-w`, NOT `size-11`. `size-11` sets width AND height, and
+			    `useIsPhone()` is true for a LANDSCAPE phone (844×390) — where Tailwind's
+			    `sm:` breakpoint (≥640px) REVEALS these buttons' text labels. So the Library's
+			    "Import .zip" got clamped into a 44px box and overflowed the panel edge
+			    (measured 85×32 before, 44×44 after, scrollWidth 54 into a 44 box). A floor is
+			    a minimum; expressing it as a fixed size made it a ceiling too. Found by the
+			    independent checker. */}
+			{actions ? (
+				<span className={cn('flex shrink-0 items-center gap-1', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
+			) : null}
+			{/* The X is the POINTER affordance now; on a phone `back` above replaced it. */}
+			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} /> : null}
 		</div>
 	);
 }
