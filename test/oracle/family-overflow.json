@@ -66,6 +66,17 @@
       "statute-stack",
       "verdict-grid"
     ],
+    "story": [
+      "cards-grid",
+      "decision",
+      "list",
+      "policy-recommendation",
+      "pricing",
+      "roadmap",
+      "split-compare",
+      "stats",
+      "statute-stack"
+    ],
     "mobile": [
       "pricing",
       "roadmap"

@@ -142,6 +142,6 @@
     "axis": "item",
     "perPage": 4,
     "intro": "The claim the ledger supports",
-    "note": "§0c places premise as READ-ACROSS — the rows are read against each other (a ladder), so paginating between them bare would destroy the cross-reading the layout exists for. cover-paginate leads every run with the claim as an accent cover, so each page still carries the frame the rows are read inside. perPage 4 sits under the measured tall ceiling of 5 (tools/calibrate-capacity-style graded render; portrait is the binding family because its type scale is the largest). Same recipe as its peers authority-chain, regulatory-update and statute-stack."
+    "note": "§0c places premise as READ-ACROSS — the rows are read against each other (a ladder), so paginating between them bare would destroy the cross-reading the layout exists for. cover-paginate leads every run with the claim as an accent cover, so each page still carries the frame the rows are read inside. perPage 4 sits under the measured tall ceiling (run tools/calibrate-capacity.js premise --family tall; currently 6) — the note names the command rather than a constant, because this number moved three times during review and three different values ended up published at once. Same recipe as its peers authority-chain, regulatory-update and statute-stack."
   }
 }

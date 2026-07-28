@@ -103,10 +103,19 @@ theme: indaco
    - pipeline lift
 `;
 
+// One entry per registered non-landscape @size, not one per FAMILY — `portrait`
+// and `story` are both `tall`, and covering only one of them was a real hole.
+// A clip is a function of the BOX, not the family: `story` is 570px taller than
+// `portrait` at the same width, so the same component can clip in one and not the
+// other. Measured while auditing this note — `kpi` clips 7 gallery slides at
+// portrait and 0 at story. Family-KEYED behavior must be identical across the two
+// (that is the model's whole claim, and the probe below asserts it); OVERFLOW must
+// be measured separately in each.
 const SIZES = [
   { size: 'hd', vp: [1920, 1080], family: 'wide' },
   { size: 'square', vp: [1080, 1080], family: 'square' },
   { size: 'portrait', vp: [1080, 1350], family: 'tall' },
+  { size: 'story', vp: [1080, 1920], family: 'tall' },
   { size: 'mobile', vp: [1080, 2340], family: 'strip' },
 ];
 

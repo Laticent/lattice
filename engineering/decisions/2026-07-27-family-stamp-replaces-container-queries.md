@@ -248,21 +248,24 @@ direction: since stats went 2-up, square and wide are both `row`, and only squar
 `wrap`s. Mutation-tested — repointing the square rule at another family fails the
 gate.
 
-### Five more layouts had to LOSE their square tier
+### Four more layouts had to LOSE their square tier (a fifth was tried and reverted)
 
 The two above were rules that should have run and didn't. The opposite case is
 larger, and a red-team pass is what surfaced it: **~25 blocks were converted
 verbatim from `<= 1.05`, which had never matched a square deck.** So for every
 component except the three re-measured above, "the square layout" being switched
 on for the first time was a *portrait* layout in a square box that nobody had
-ever seen. Five of them were wrong, three of those badly enough to clip:
+ever seen. Five were changed; **four of those stuck**, three badly enough to clip.
+The fifth — `statute-stack` — was reverted, and that reversal is the most
+instructive thing in this section, so it is kept in the table rather than quietly
+deleted:
 
 | component | at square, before the fix | why square keeps the wide layout |
 |---|---|---|
 | `cycle` | 4-stage stack, last card + return arc off the frame | its own `cycle.manifest.json` declares `adapt.families: [wide, tall, strip]` — there IS no square tier; the CSS had four square rules anyway |
 | `authority-chain` | rail collapsed, body text sliced mid-word, last card clipped | a square box is 1080px wide; the `14cqi` rail is ~151px there against ~179px at `hd`, which is not a crush |
 | `regulatory-update` | third card + its "Effective" pill off the frame | stacking four fields per row roughly triples row height |
-| `statute-stack` | whole third jurisdiction card lost | measured the other way from the shipped comment: rails at square hold **3** (`calibrate-capacity` ceiling 3, overflows at 4), the stack holds **2**. Three is this component's own skeleton |
+| `statute-stack` | **REVERTED — square still stacks today.** | The removal was made on `calibrate-capacity` (rails 3, stack 2) and it was wrong. Both readings hold words at this component's declared `density.soft` of **16** while its real cards carry 6–8, and at that size the ordering inverts. Rendering its OWN gallery at square: removing the tier took it from **1 clipped slide to 5**, including the default three-jurisdiction slide (`GDPR Art. 8` cut to `GDP`). The render beats the harness (HARD RULE #23). Verify with `grep -c 'data-family=\"square\"' lib/components/legal/statute-stack/statute-stack.styles.css` → 5. |
 | `kpi` | hero flattened to a uniform ledger, `94%` barely larger than its supports — and clipping 11px, so this was a fit fix as well as a taste one | square is the SOCIAL family, where one big number is most of the point. Rendered side by side: the hero card + rail fits with room to spare, and the clip goes to 0 |
 
 The `statute-stack` entry is the sharpest instance of this note's own theme. A
@@ -303,7 +306,7 @@ because a CSS-only check is a false-positive machine:
 | mechanism | the component that proves it is needed |
 |---|---|
 | `[data-family=…]` / `[data-orientation=…]` CSS | most reflowing components |
-| an orientation-branching `*.transform.js` | the transform tier |
+| an orientation-branching `*.transform.js` | **nothing today** — it is in the list because the schema names it, and it admits no component the CSS test would not already admit. Untested surface; tighten it before relying on it |
 | the mermaid reorient | **`diagram`** — no layout CSS at all; `reorient.js` rewrites a flowchart's direction token LR→TB on a tall box. A CSS-only gate would have forced this TRUE declaration into a false one |
 | a carousel `split.strategy` reshape | **`compare-table`** — a wide read-across table cannot paginate out of HORIZONTAL overflow, so `cover-cards` transposes each row into a card. Box-conditional by construction: auto-split is skipped outright on a landscape `@size` |
 
@@ -404,10 +407,12 @@ another, which is the exact failure this whole note is about.
 **`inventory` is the sharpest live instance, and it is deliberately left alone.**
 It declares `adapt.capacity.tall.hard: 8`; the measured tall ceiling is **3**
 (`node tools/calibrate-capacity.js inventory --family tall` → overflows at 4).
-The gallery's four-item slide clips by 200px at portrait, which is exactly what a
-declared-8 / measured-3 gap predicts. Two things make this a LOG rather than a
+The gallery's four-item slide clips at portrait by **594.6px** measured with the
+engine's own overflow probe — an earlier draft said 200px, which was a
+stage-level reading rather than the probe's. The direction is the point and it is
+unchanged: a declared-8 / measured-3 gap predicts exactly this. Two things make this a LOG rather than a
 fix. First, it is pre-existing and untouched by this change — 200px over before
-the reflow landed and 200px after, so nothing here worsened it. Second, and more
+the reflow landed and 200px after, so nothing here worsened it (the probe reports the same 594.6px on `main`). Second, and more
 important, correcting it would mean shipping a new hand-set number on the same
 untrustworthy basis: the tool held `density.soft` at 14 words while inventory's
 own skeleton writes "a name and one clause of body", so a measured 3 is probably
@@ -424,10 +429,15 @@ That was not true of the first cut, and the inversion pass caught it: the number
 came from an ad-hoc script, the manifest note said "measured", and this very
 paragraph claimed "same tool" for a component the tool refused to run
 (`No element builder for 'premise'`). The ad-hoc rows were also shorter than the
-tool's basis, so the ceilings came out one too high — declaring `tall.hard: 5`
-against a real 4, which would have kept the linter silent on a slide that clips.
-An assertion nobody can re-derive drifts from what ships; writing that sentence
-twice in this note did not exempt the note from it.
+tool's basis, so the ceilings came out too high — declaring a `tall.hard` the tool
+did not support, which would have kept the linter silent on a slide that clips.
+The value moved twice more as the reflow changed shape, so this note deliberately
+does NOT quote it: run `node tools/calibrate-capacity.js premise --family tall`
+(currently 6). An audit found three different published figures for this one
+number across the manifest, its split note and this paragraph — which is the
+sharpest possible demonstration that an assertion nobody re-derives drifts from
+what ships. Writing that sentence twice in this note did not exempt the note
+from it; naming the command instead of the constant is the actual fix.
 
 ## The export change this note did not originally mention
 
