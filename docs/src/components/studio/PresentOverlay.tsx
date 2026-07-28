@@ -651,8 +651,20 @@ export function PresentOverlay({ open, onClose, options, slides, frontMatter = '
 				    HEIGHT allows at 16:9 (`rowH × 16/9`), so it shrinks to reserve the caption /
 				    controls / rail space instead of creeping into the chrome or getting clipped.
 				    DeckPreview fits the slide to its box WIDTH, so the box must stay 16:9 — hence a
-				    measured width cap on this sizer, not `max-height` (which would clip). */}
-				<div className="flex w-full min-w-0 justify-center" style={{ maxWidth: slideMaxW }}>
+				    measured width cap on this sizer, not `max-height` (which would clip).
+				    `items-center` is LOAD-BEARING, not cosmetic (#1227). Default `stretch` makes the card
+				    a stretch target, and a stretched item's cross size is DEFINITE — which beats
+				    `aspect-ratio` per spec, so `aspect-video` stops applying. That is engine-agnostic:
+				    given a definite-height parent, Chromium flattens the ratio exactly as WebKit does.
+				    What differs is WHEN the stretched height is resolved. WebKit resolved it against the
+				    FIRST-layout `max-width` — the initial `slideMaxW` of 960, before the ResizeObserver
+				    measured the row — and never re-resolved it, so on an iPad in landscape the card was
+				    stuck at 960x9/16 = 540px tall at every width (910x540, then 775x540 with the caption
+				    band open), riding over the header and under the caption crawl. The in-flow
+				    `height:100%` child (DeckPreview's `figure.size-full`) is a co-factor: remove it and
+				    the stale stretch disappears. Centering the item removes the stretch — and with it the
+				    whole class — for BOTH branches below. */}
+				<div className="flex w-full min-w-0 items-center justify-center" style={{ maxWidth: slideMaxW }}>
 					{unavailable ? (
 						// Fail-closed: a withheld lens NEVER renders deck content — it renders why it's withheld.
 						<div role="status" className="relative flex aspect-video w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-2xl border border-border bg-card px-8 text-center shadow-[0_24px_60px_rgba(10,22,40,.18)]">

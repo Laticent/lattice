@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, Monitor, MonitorPlay, Moon, MoreHorizontal, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileSliders, FileText, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Search, Settings2, Settings as SettingsCog, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, Volume2, Wand2, X,
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
-import { PanelBody, PanelEmpty, PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelBody, PanelEmpty, PanelHeader, PanelNav, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -67,7 +67,7 @@ import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
-import { StudioDrawer } from './StudioDrawer';
+import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
 import { ScrollFade } from './scroll-fade';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
@@ -426,6 +426,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// SET of child surfaces makes both correct by construction: whatever closed, the drawer
 	// comes back exactly when nothing it could have launched is on screen any more.
 	const [drawerPendingReturn, setDrawerPendingReturn] = React.useState(false);
+	const disarmDrawerReturn = React.useCallback(() => setDrawerPendingReturn(false), []);
 	const closeDrawerAndOpen = React.useCallback((openChild: () => void, opts?: { returns?: boolean }) => {
 		setMoreOpen(false);
 		setDrawerPendingReturn(opts?.returns !== false);
@@ -862,7 +863,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 		setMoreOpen(false);
 	}, [compact]);
 	// `compact` is true on BOTH tablet and mobile, so the effect above never fires on
-	// a tablet↔mobile flip — and "More controls" switches from the tablet DropdownMenu
+	// a tablet↔mobile flip — and the ⋯/hamburger Menu switches from the tablet DropdownMenu
 	// to the mobile StudioDrawer (different component, different trigger identity) at
 	// exactly that transition. A menu left open on one side would otherwise reopen as
 	// the WRONG surface on the other. Kept as its OWN effect, deliberately separate from
@@ -1477,6 +1478,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// mobile the Edit/Preview pane swap owns visibility, and in Fabricate the
 	// Compose grid isn't rendered; state is retained across both.
 	const splitUsable = !mobile && view === 'compose';
+	// What lies BEHIND every phone panel, named for its back chevron. Two answers, because
+	// the header and the ⋯ menu render in BOTH views — a flat "Deck" would be a lie inside
+	// Fabricate, which is the same class of mistake as the "‹ Studio" this replaces.
+	const hostLabel = view === 'fabricate' ? 'Fabricate' : 'Deck';
 	// react-resizable-panels split state via the shared hook (2026-07-19 migration).
 	// Same surface the hand-rolled useSplit had ({ collapsed, dragging, expand,
 	// collapse, reset }) so the ~20 downstream call sites are unchanged. The single-
@@ -2947,7 +2952,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			<BarIcon label="Deck scope" hint="Deck settings — the whole deck" caption="Deck" active={activeSettings === 'deck'} onClick={() => setActiveSettings((p) => (p === 'deck' ? null : 'deck'))}><SlidersHorizontal className="size-[18px]" /></BarIcon>
 			<span className="flex-1" />
 			<Separator className="my-1 w-6" />
-			<BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={() => setWorkspaceOpen(true)}><Settings2 className="size-[18px]" /></BarIcon>
+			<BarIcon label="Workspace settings" hint="Workspace settings" caption="Setup" onClick={() => setWorkspaceOpen(true)}><SettingsCog className="size-[18px]" /></BarIcon>
 			<span className="mt-1 grid size-7 shrink-0 place-items-center rounded-full bg-[var(--surface-inverse)] text-[12px] font-bold text-white">SA</span>
 		</nav>
 	);
@@ -2997,6 +3002,27 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	);
 
 	return (
+		// Where the phone's back chevron says it goes, published once for every panel
+		// below. The answer is a property of the LAUNCH PATH, not of the panel: the
+		// Library reached from the ⋯ menu returns there ("‹ Menu"), the same Library
+		// reached from the Eight-Cell Bar returns to what was behind it ("‹ Deck").
+		// `drawerPendingReturn` is already exactly that signal — it is the flag that
+		// decides whether the drawer re-opens when this panel closes — so the chevron
+		// and the actual destination cannot disagree.
+		//
+		// NOT "‹ Studio", which is what this shipped as for one commit and was wrong in a
+		// way worth naming: it says you are LEAVING the Studio, and you never do. Every
+		// one of these panels is inside it. The three real destinations are the deck, the
+		// Fabricate view, and this menu — and `hostLabel` is the first two.
+		<PanelNav
+			back={drawerPendingReturn ? DRAWER_LABEL : hostLabel}
+			// Tapping the deck means "put me on the deck". Without this it meant "go back
+			// one level", because the pending re-open does not care HOW the child closed —
+			// so dismissing a menu-launched panel by tapping the visible deck sprang the ⋯
+			// menu up instead of landing on the deck (reported). The back gesture and the
+			// "‹ Menu" chevron still step back one level; that is what back means.
+			onLeave={disarmDrawerReturn}
+		>
 		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
 			{/* Announce a stop change to assistive tech — the surface can change from a
 			    keystroke (⌘.) or the "Edit this slide" reveal, which would otherwise be
@@ -3152,7 +3178,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{bp === 'tablet' && <Tip label="Settings — deck & slide, in the side panel"><Button variant="ghost" size="icon-sm" aria-pressed={inspectorOpen} onClick={() => setActiveSettings((p) => (p ? null : 'deck'))} aria-label="Settings" className={cn(inspectorOpen && 'text-[var(--accent)]')}><SlidersHorizontal className="size-[18px]" /></Button></Tip>}
 				{!compact && <Separator orientation="vertical" className="h-5" />}
 
-				{/* Compact (≤1099): the mode toggle stands alone (1-tap). The "More controls"
+				{/* Compact (≤1099): the mode toggle stands alone (1-tap). The Menu
 				    trigger below it is SHARED by tablet and mobile (same position, same
 				    accessible name, exactly one exists per breakpoint) but opens a different
 				    surface per tier: tablet keeps the flat DropdownMenu; mobile gets the
@@ -3163,7 +3189,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{bp === 'tablet' && (
 					<DropdownMenu open={moreOpen} onOpenChange={setMoreOpen}>
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon-sm" aria-label="More controls"><MoreHorizontal className="size-[18px]" /></Button>
+							<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 						</DropdownMenuTrigger>
 						{/* Inline, scrollable content — NOT a side-opening submenu. A nested
 						    Radix submenu flies out to the side, which on a phone overflows the
@@ -3175,7 +3201,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 							<ScrollFade className="max-h-[70vh] overflow-y-auto p-1">
 								<DropdownMenuItem onSelect={() => setLibraryOpen(true)}><FileBox className="size-4" />Library</DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setLensesOpen(true)}><LensIcon className="size-4" />Lenses — reader views</DropdownMenuItem>
-								<DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><Settings2 className="size-4" />Workspace settings</DropdownMenuItem>
+								<DropdownMenuItem onSelect={() => setWorkspaceOpen(true)}><SettingsCog className="size-4" />Workspace settings</DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setCmdOpen(true)}><Search className="size-4" />Search / commands<Kbd className="ml-auto text-[10px]">⌘K</Kbd></DropdownMenuItem>
 								<DropdownMenuItem onSelect={() => setFeedbackOpen(true)}><FeedbackIcon className="size-4" />Send feedback</DropdownMenuItem>
 								<DropdownMenuSeparator />
@@ -3184,21 +3210,22 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{/* Workspace settings promoted to the header, between mode and "More controls" —
+				{/* Workspace settings promoted to the header, between mode and the Menu —
 				    it was buried a drawer-open + one more tap deep and shouldn't have been
 				    (reported). Opened directly here, it never arms `drawerPendingReturn`, so
 				    closing it doesn't spuriously reopen the drawer; it's dropped from the
 				    drawer's own Workspace row below to avoid the exact "same setting, two
 				    homes" problem just fixed for Slide settings. */}
 				{mobile && (
-					<Tip label="Workspace settings"><Button variant="ghost" size="icon-sm" aria-label="Workspace settings" onClick={() => setWorkspaceOpen(true)}><Settings2 className="size-[18px]" /></Button></Tip>
+					<Tip label="Workspace settings"><Button variant="ghost" size="icon-sm" aria-label="Workspace settings" onClick={() => setWorkspaceOpen(true)}><SettingsCog className="size-[18px]" /></Button></Tip>
 				)}
 				{mobile && (
-					<Button variant="ghost" size="icon-sm" aria-label="More controls" onClick={() => setMoreOpen(true)}><MoreHorizontal className="size-[18px]" /></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="Menu" onClick={() => setMoreOpen(true)}><MenuIcon className="size-[18px]" /></Button>
 				)}
 				{mobile && (
 					<StudioDrawer
 						open={moreOpen}
+						hostLabel={hostLabel}
 						onOpenChange={setMoreOpen}
 						onNavigate={closeDrawerAndOpen}
 						effPane={effPane}
@@ -3266,7 +3293,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				   392px of gap-1/p-1.5 chrome for 9 uncaptioned controls, 2px over budget at
 				   390px); merging Markdown/Compose/Preview into one 3-way segment is what makes
 				   eight cells fit instead of nine. History, Slide settings and the "···" menu's
-				   old contents move into the StudioDrawer (below the header's "More controls"
+				   old contents move into the StudioDrawer (below the header's Menu
 				   trigger, unchanged in position) — ten compliant 44px cells would compute to
 				   38.8px each, under the touch floor, so eight is the largest bar this width
 				   can hold. Present/Share/Coach/Chat/Settings/the pane toggle are never in the
@@ -3600,6 +3627,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{/* The one toast surface — messages (notify) + the Undo action below. */}
 			<Toaster />
 		</div>
+		</PanelNav>
 	);
 }
 

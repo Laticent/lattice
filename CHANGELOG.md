@@ -57,6 +57,36 @@ in patch versions.
 
 ### Changed
 
+- **On a phone, every Studio drawer closes with a back chevron instead of an X — and the
+  iOS back gesture now agrees with it.** The header's dismissal moves from a trailing
+  `X` to a leading `‹ <destination>`, naming where it goes rather than asking you to
+  interpret a glyph. The destination is a property of the *launch path*, not the panel:
+  a drawer reached from the `···` overflow returns there (`‹ More`), the same drawer
+  reached from the Eight-Cell Bar returns to the editor (`‹ Studio`). This frees the
+  trailing slot for the panel's own actions — Reader views' add and the Library's
+  import no longer sit beside a close button as though the two were equals, and they
+  move up to the app's 44px touch floor now that they are the only target in the
+  corner.
+
+  Two names changed with it, chosen by scoring eight candidate pairs on whether each
+  word names a **place**, is **truthful**, is instantly understood, is distinct in-app,
+  and what it costs. The `···` overflow is retitled **Menu** — it was "Studio", the
+  name of the whole app, so the panel and the thing behind it were both called the same
+  thing. And what lies behind a panel is now **Deck** (or **Fabricate** in that view),
+  not "Studio": every one of these panels is *inside* the Studio, so a chevron claiming
+  to take you back to it was describing a departure that never happens. Pointer
+  surfaces — tablet and desktop side-sheets, docked columns — keep the trailing `X` and
+  are untouched.
+
+  Three cleanups ride along. The `···` trigger is now a **hamburger** and answers to
+  **Menu** rather than "More controls", so the trigger, the panel's own title and its
+  destinations' chevrons finally say one word. **Workspace settings** takes the settings
+  **cog**; it wore the sliders glyph that the slide/deck inspector also wears, so two
+  different destinations were sharing an icon. And **tapping the deck above a sheet now
+  leaves** instead of stepping back a level — the scrim *is* the deck, so touching it
+  should land you there. A panel opened from the menu still returns to the menu on the
+  back gesture or the `‹ Menu` chevron; that is what back means, and it is unchanged.
+
 - **Studio mobile drawers: one height, one header, and the search field above the keyboard.**
   The two-tier phone panel height (`auto` / `full`) is retired for a single height — an inset of
   exactly the app header — so all twelve Studio drawers now open at the same size, with the same
@@ -194,6 +224,40 @@ in patch versions.
 
 ### Fixed
 
+- **The iOS back gesture no longer leaves the Studio from inside a drawer (#1226).** Edge-swipe
+  is the primary back affordance on iOS — there is no system back button to avoid — and with any
+  drawer open it navigated page history straight out of the app. Back now dismisses the top layer:
+  inside one of the menu's doors it pops to the index, at the index it closes the drawer, from
+  any other panel it closes that panel, and only with nothing open does it actually leave.
+  Dismissing by the chevron or the scrim consumes the entry too, so a later back is not eaten by a
+  drawer that is no longer on screen. The mechanism owns **one** history entry for the whole
+  overlay stack and reconciles it after the commit rather than one entry per level from a
+  depth-keyed effect — the first attempt did the latter, and its per-level teardown raced a
+  sibling's push (`docs/src/lib/overlay-back.ts`). A reload with a panel open leaves that entry
+  behind, so the module adopts it rather than stacking a second one on top. Guarded by a
+  committed `webkit-phone` Playwright project at `devices['iPhone 15 Pro']`
+  (`e2e/back-gesture.spec.ts`) — one of the repo's two non-Chromium projects, because history-traversal
+  timing is engine behavior and this mechanism was already reverted once for a device-only
+  failure. Desktop history is untouched.
+- **Present's slide card grew past 16:9 on iOS Safari, riding over the header and under the caption
+  crawl (#1227).** The card sits in a width sizer that caps it to `rowH × 16/9`; that sizer was a
+  plain flex container, so its default `align-items: stretch` made the card a stretch target — and a
+  stretched item's cross size is DEFINITE, which beats `aspect-ratio` per spec, so `aspect-video`
+  stopped applying. That much is engine-agnostic (given a definite-height parent, Chromium flattens
+  the ratio exactly as WebKit does). What diverged is WHEN the height was resolved: WebKit resolved
+  it against the FIRST-layout `max-width` — the initial 960px cap, before the ResizeObserver measured
+  the row — and never re-resolved, pinning the card at `960 × 9/16` = 540px tall at every width. On
+  an iPad in landscape that meant 910×540 where 16:9 wanted 910×512, and 775×540 once the caption
+  band opened — the same height at two widths, the signature of a stretched item. It overflowed its
+  row by up to 92px, covering the lens pill in the header and leaving a bare `bg-card` band under the
+  slide that the read-aloud crawl painted across. `items-center` on the sizer removes the stretch —
+  and with it the whole class — for the slide card and the fail-closed "unavailable" card alike.
+  Reproduced and verified on WebKit at 1180×703 (iPad landscape), caption folded and playing;
+  portrait was measured UNAFFECTED both before and after, not reproduced. The defect needs a wide AND
+  short viewport (≳1130 × ≲730), which is why no configured Chromium project saw it — a
+  `webkit-tablet` Playwright project at that box now runs the geometry oracle in the nightly tier,
+  alongside #1226's `webkit-phone`. The two carry disjoint tags (`@webkit-tablet` / `@webkit-phone`)
+  so neither spec cross-runs on the other's surface.
 - **`compare-prose axis` and `matrix-grid` clipped their own content in every live preview.** At
   design size the axis stage overran by 39px and the matrix by 59px, cutting the axis lede's first
   line and the matrix's column-header row and `WIDER REACH` axis label. Both now fit with zero
