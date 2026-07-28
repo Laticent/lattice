@@ -76,7 +76,22 @@ describe('funnel kernel', () => {
       const html = buildFunnel(parseFunnel(ul([['A', '100'], ['B', '50'], ['C', '25']])));
       assert.match(html, /<div class="funnel-figure" style="--funnel-stages:3">/);
       assert.match(html, new RegExp(`viewBox="${GEOM.viewBox}"`));
-      assert.match(html, /aria-hidden="true"/);
+    });
+
+    test('the SVG is NAMED and reachable — never aria-hidden', () => {
+      // This assertion used to be `assert.match(html, /aria-hidden="true"/)` — it
+      // pinned the defect in place. Every stage label and conversion percentage is
+      // an SVG <text> inside this root, and `.funnel-figure` wraps nothing else but
+      // an inert <template>, so hiding the root made the entire chart absent from
+      // the accessibility tree: a screen reader found an empty box. Semantic-html
+      // ADR §17.5.
+      const html = buildFunnel(parseFunnel(ul([['Visitors', '10000'], ['Signups', '2300'], ['Paid', '410']])));
+      assert.doesNotMatch(html, /aria-hidden="true"/, 'the chart must stay in the accessibility tree');
+      assert.match(html, /<svg[^>]*role="img"[^>]*>/, 'it is a graphic, and says so');
+      assert.match(html, /<title>Funnel chart<\/title>/, 'and it has an accessible name');
+      // The <desc> carries the DATA a sighted reader gets from the labels — the
+      // title alone names the chart type without saying anything about it.
+      assert.match(html, /<desc>Stages — Visitors 10000, Signups 2300, Paid 410<\/desc>/);
     });
 
     test('emits one band per stage, each tagged with its palette index', () => {

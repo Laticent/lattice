@@ -55,6 +55,24 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **Funnel and quadrant charts were completely invisible to screen readers; word clouds
+  were unnamed.** Their root `<svg>` carried `aria-hidden="true"` with no accessible
+  name, and since every stage label, item name and conversion percentage is drawn as SVG
+  `<text>` *inside* that root — with `.funnel-figure` / `.quadrant-figure` wrapping
+  nothing else — an assistive-technology user reached one of those slides and found an
+  empty box. Not a name, not the data, not even "image". They now carry `role="img"`, a
+  `<title>` (per-variant for quadrant's four variants), and for funnel and word-cloud a
+  `<desc>` enumerating the data a sighted reader gets from the labels. **This was a
+  regression, not an original oversight:** the roots were hidden back when their labels
+  lived in HTML alongside the SVG where AT could still read them, and the all-SVG
+  migration moved those labels *behind* the existing `aria-hidden` without anyone
+  noticing — no gate watched the accessibility tree. Reachable-but-unnamed chart SVGs
+  in a gallery render: **4 → 0**. Visually identical (neither element paints), verified
+  on a real render. A unit test that asserted `aria-hidden="true"` — pinning the defect,
+  so that fixing it would have failed the suite — now asserts the opposite.
+
 ### Added
 
 - **Every surface now has a `main` landmark, and two of them have a working skip link.**

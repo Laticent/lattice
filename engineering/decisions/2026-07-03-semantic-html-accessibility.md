@@ -1210,3 +1210,45 @@ the fix is always the same — key on the class, which is the stable identity.
 
 **Budget update:** `HIDDEN_NAV_BUDGET` seeded at 84 in step 1 and is now **0**, enforced
 as a flat invariant rather than a ratchet. The gallery renders zero `<nav>` elements.
+
+### 17.9 Step 4a landed — every chart SVG is now named
+
+The `<figure>` prerequisite from §17.5, done. Measured on a gallery render before and
+after:
+
+| Root SVG | Before | After |
+|---|---|---|
+| `funnel-svg` | `aria-hidden`, no name | `role="img"` + `<title>` + `<desc>` listing the stages |
+| `quadrant-svg` (4 variant roots) | `aria-hidden`, no name | `role="img"` + a per-variant `<title>` |
+| `wc-svg` | no `role`, no name | `role="img"` + `<title>` + `<desc>` in weight order |
+| the other 7 | `role="img"` + `<title>` | unchanged |
+
+**Reachable-but-unnamed SVGs: 4 → 0.**
+
+**Root cause, worth recording.** These were not oversights that predate the design —
+`funnel` and `quadrant` got *worse* over time. Their roots were `aria-hidden` back when
+the labels lived in HTML beside the SVG, where AT could still read them. The all-SVG
+migration (`2026-07-27-chart-family-all-svg.md`) moved the last HTML labels into the
+viewBox for layout reasons, which silently moved them **behind the existing
+`aria-hidden`**. Nothing in that change was wrong on its own terms; the interaction was
+invisible because no gate watched the accessibility tree. That is the §18 "a shared
+change tips a latent fragility into failure" pattern, and it is the argument for the
+§17.7 gates existing at all.
+
+**A test was pinning the defect.** `funnel.test.js` asserted
+`assert.match(html, /aria-hidden="true"/)` — the suite would have failed if anyone
+*fixed* it. Replaced with the inverse assertion plus the reasoning, so the fix is now
+what's locked in.
+
+**Still open, deliberately.** Seven charts remain named by a **bare child `<title>`** —
+the pattern §14 flags as unreliable on VoiceOver/Safari and older JAWS. Moving all ten to
+the `aria-labelledby`/`aria-describedby` id-referenced form is a uniform, mechanical pass
+that needs document-unique ids, and it is cleaner as its own commit than smuggled into
+this one. So charts are now named **in the DOM**; "reliably announced" is a further step,
+and this note does not claim it. Nor does any of this close **G5**: a title plus a stage
+list is not the same as a data table, and a `<desc>` is a description, not a structure a
+user can navigate.
+
+**Byte impact:** the rendered PDF/PNG is visually identical (neither `<title>` nor
+`<desc>` paints — verified on a real funnel + quadrant render), but the exported HTML and
+therefore the PDF bytes do change. It rides the step-5 sign-off with the rest.
