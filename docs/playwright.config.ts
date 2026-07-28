@@ -76,8 +76,10 @@ export default defineConfig({
 	//                the two-pane layout applies at ≥ tablet, so these can't run there
 	//   @crosswidth  same assertion worth running at desktop AND mobile (the paint check)
 	//   @visual      screenshot evidence — all three widths
-	//   @webkit      real-WebKit-only, at devices['iPhone 15 Pro'] — engine behavior a
-	//                Chromium project cannot stand in for (history traversal, #1226)
+	//   @webkit-phone   real WebKit at devices['iPhone 15 Pro'] — engine behavior a Chromium
+	//                   project cannot stand in for (history traversal, #1226)
+	//   @webkit-tablet  real WebKit at a wide+short box — engine DIVERGENCE in layout, where
+	//                   the viewport is as load-bearing as the engine (#1227)
 	projects: [
 		{
 			name: 'desktop',
@@ -94,17 +96,35 @@ export default defineConfig({
 			use: { viewport: { width: 390, height: 844 } },
 			grep: /@mobile|@crosswidth|@visual/,
 		},
-		// The ONLY non-Chromium project, and it exists for one reason: the back-gesture
-		// guard (#1226) is a navigation mechanism whose first implementation passed every
-		// Chromium check here and still failed on a real iPhone. History traversal timing
-		// is engine behavior, so a Chromium project cannot stand in for it — and without a
-		// committed WebKit run the "verified on iPhone 15 Pro" claim lives only in a
-		// scratch file nobody can re-run (HARD RULE #23). Scoped by tag so it stays one
-		// fast spec rather than a second full matrix.
+		// TWO non-Chromium projects, each deliberately narrow. They exist for DIFFERENT
+		// reasons and must not share a tag — hence `@webkit-phone` / `@webkit-tablet` and the
+		// exact greps below. A single `@webkit` would cross-run each spec on the other's
+		// surface, where it is meaningless or simply wrong (a phone drawer-gesture spec at an
+		// iPad-landscape box drives the two-pane layout, not the drawer). `grepInvert` on
+		// `desktop` still matches both by prefix, so neither runs there.
+		//
+		// PHONE (#1226): the back-gesture guard is a navigation mechanism whose first
+		// implementation passed every Chromium check here and still failed on a real iPhone.
+		// History-traversal timing is engine behavior, so a Chromium project cannot stand in
+		// for it — and without a committed WebKit run the "verified on iPhone 15 Pro" claim
+		// lives only in a scratch file nobody can re-run (HARD RULE #23).
 		{
 			name: 'webkit-phone',
 			use: { ...devices['iPhone 15 Pro'] },
-			grep: /@webkit/,
+			grep: /@webkit-phone/,
+		},
+		// TABLET (#1227): layout bugs that exist because two engines resolve the same box
+		// differently — a stretched flex item's cross size, which WebKit pinned to the
+		// first-layout `max-width` and never re-resolved. Chromium cannot express that class
+		// at all, so a Chromium-only suite reported green on a slide visibly broken on an iPad.
+		// The VIEWPORT is the oracle as much as the engine: #1227 needs wide AND short
+		// (≳1130 x ≲730 — an iPad in landscape under Safari's chrome). Re-measured on the
+		// reverted fix, WebKit at 1440x900 / 820x1180 / 390x844 is CLEAN — every viewport the
+		// other projects run. 1180x703 is the box where it bites.
+		{
+			name: 'webkit-tablet',
+			use: { browserName: 'webkit', viewport: { width: 1180, height: 703 } },
+			grep: /@webkit-tablet/,
 		},
 	],
 	webServer: {

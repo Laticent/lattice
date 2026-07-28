@@ -41,8 +41,15 @@ jobs:
         run: npm ci
         working-directory: docs
 
-      - name: Install Playwright browser (pinned to @playwright/test)
-        run: npx playwright install --with-deps chromium
+      # WebKit is REQUIRED, not optional: the `webkit-phone` (#1226) and `webkit-tablet`
+      # (#1227) projects in playwright.config.ts both need it, and without it here they
+      # error out instead of guarding anything. Both cover behavior Chromium cannot express
+      # — history-traversal timing, and a stretched flex item's cross size — which is
+      # exactly how each defect passed a Chromium-only suite and still shipped broken to a
+      # device. Both are grep-scoped to their own tag, so this buys a second engine for a
+      # handful of oracles, not a second full suite.
+      - name: Install Playwright browsers (pinned to @playwright/test)
+        run: npx playwright install --with-deps chromium webkit
         working-directory: docs
 
       # playwright.config.ts's webServer builds (without the slow showcase:check)

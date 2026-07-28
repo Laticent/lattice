@@ -236,9 +236,28 @@ in patch versions.
   sibling's push (`docs/src/lib/overlay-back.ts`). A reload with a panel open leaves that entry
   behind, so the module adopts it rather than stacking a second one on top. Guarded by a
   committed `webkit-phone` Playwright project at `devices['iPhone 15 Pro']`
-  (`e2e/back-gesture.spec.ts`) — the repo's only non-Chromium project, because history-traversal
+  (`e2e/back-gesture.spec.ts`) — one of the repo's two non-Chromium projects, because history-traversal
   timing is engine behavior and this mechanism was already reverted once for a device-only
   failure. Desktop history is untouched.
+- **Present's slide card grew past 16:9 on iOS Safari, riding over the header and under the caption
+  crawl (#1227).** The card sits in a width sizer that caps it to `rowH × 16/9`; that sizer was a
+  plain flex container, so its default `align-items: stretch` made the card a stretch target — and a
+  stretched item's cross size is DEFINITE, which beats `aspect-ratio` per spec, so `aspect-video`
+  stopped applying. That much is engine-agnostic (given a definite-height parent, Chromium flattens
+  the ratio exactly as WebKit does). What diverged is WHEN the height was resolved: WebKit resolved
+  it against the FIRST-layout `max-width` — the initial 960px cap, before the ResizeObserver measured
+  the row — and never re-resolved, pinning the card at `960 × 9/16` = 540px tall at every width. On
+  an iPad in landscape that meant 910×540 where 16:9 wanted 910×512, and 775×540 once the caption
+  band opened — the same height at two widths, the signature of a stretched item. It overflowed its
+  row by up to 92px, covering the lens pill in the header and leaving a bare `bg-card` band under the
+  slide that the read-aloud crawl painted across. `items-center` on the sizer removes the stretch —
+  and with it the whole class — for the slide card and the fail-closed "unavailable" card alike.
+  Reproduced and verified on WebKit at 1180×703 (iPad landscape), caption folded and playing;
+  portrait was measured UNAFFECTED both before and after, not reproduced. The defect needs a wide AND
+  short viewport (≳1130 × ≲730), which is why no configured Chromium project saw it — a
+  `webkit-tablet` Playwright project at that box now runs the geometry oracle in the nightly tier,
+  alongside #1226's `webkit-phone`. The two carry disjoint tags (`@webkit-tablet` / `@webkit-phone`)
+  so neither spec cross-runs on the other's surface.
 - **`compare-prose axis` and `matrix-grid` clipped their own content in every live preview.** At
   design size the axis stage overran by 39px and the matrix by 59px, cutting the axis lede's first
   line and the matrix's column-header row and `WIDER REACH` axis label. Both now fit with zero
