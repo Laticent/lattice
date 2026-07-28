@@ -197,7 +197,7 @@ Your title is the diagonal — the same verb at a wider reach is a different lev
 | Understand | [x] Mid | [-] | [ ] | [ ] |
 | Remember   | [x] Junior | [-] | [ ] | [ ] |
 
-**Your level** · *where you can operate when called for* — illustrative and company-specific; still cumulative.
+**Your level** · *where you can reach when called on* — illustrative; still cumulative.
 
 ---
 

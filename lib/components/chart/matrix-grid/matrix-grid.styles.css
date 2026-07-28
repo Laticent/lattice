@@ -148,14 +148,12 @@
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody tr:first-child td {
   padding-top: var(--sp-xs);
 }
-/* Rows carry no vertical padding of their own — each `.cell` pill already has
- * its own, and with `border-spacing: 0` the pills' outlines are the row rhythm.
- * The doubled gap was height this stage does not have at design size, and it
- * is better spent on the header band above. */
-:is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure tbody td {
-  padding-top: 0;
-  padding-bottom: 0;
-}
+/* Rows KEEP their own vertical padding. An earlier cut of this fix zeroed it to
+ * buy height for one dense slide, and the golden diff showed the cost: four of
+ * the five gallery samples have no overflow to solve, and every one of them
+ * came back with its pills nearly touching. The row rhythm is the component's
+ * legibility; the inter-row `border-spacing` above was the redundant half of
+ * it, and dropping that alone is enough. */
 /* The corner cell stays EMPTY: both axes are named by their own generated
  * labels (data-col-axis above the grid, data-row-axis rotated beside it), so a
  * literal "Verb" heading in the corner is a third, redundant axis name that
