@@ -1,5 +1,6 @@
 {
-  "$comment": "BLESSED RECORD — §8 rule 5 of engineering/decisions/2026-07-22-structure-derived-split-patterns.md. Recomputed from the component manifests by tools/bless-split-oracle.js and gated by checkSplitOracle in tools/check-ownership.js (build:check). A diff here is a SPLIT-BEHAVIOUR CHANGE to review, not noise: run `npm run oracle:bless` only when you intend it, and justify each moved entry in the PR (rule 11 — the record documents a verified default, it never mints one).",
+  "$comment": "BLESSED RECORD — §8 rule 5 of engineering/decisions/2026-07-22-structure-derived-split-patterns.md. The `components` map is RECOMPUTED from the component manifests by tools/bless-split-oracle.js and gated by checkSplitOracle in tools/check-ownership.js (build:check). A diff there is a SPLIT-BEHAVIOR CHANGE to review, not noise: run `npm run oracle:bless` only when you intend it, and justify each moved entry in the PR. The `verified` map is AUTHORED, never recomputed — it is rule 11's precondition (the record documents a verified default, it never mints one), so an ENROLLED component must name the committed deck that exercises its split and who signed the derived facts off. Blessing REFUSES to write an entry for a newly-enrolled component that has neither. The components enrolled before that precondition landed are frozen in GRANDFATHERED (tools/bless-split-oracle.js), a shrink-only backlog, not an exemption.",
+  "verified": {},
   "components": {
     "actors": {
       "treatment": "list-heavy",

@@ -129,6 +129,10 @@ const SCRIPT_META = {
   'lente-lib:check':          ['Build & bundle', 'Freshness gate for the Lente library dist/ (stale vs docs/src/lib/lente/*.ts).'],
   'suono-lib:build':          ['Build & bundle', 'Build the Suono library dist/ (ESM + CJS + .d.ts, esbuild + tsc) so import/require(\'@slidewright/suono\') and npm publish resolve — the audio engine\'s consumable artifact.'],
   'suono-lib:check':          ['Build & bundle', 'Freshness gate for the Suono library dist/ (stale vs docs/src/lib/suono/*.ts).'],
+  'split:treatments':         ['Build & bundle', 'Render §0c\'s split-treatment table (which of the 11 treatments each component gets) into the split decision note from TREATMENTS in lib/core/split-facts.js — the prose used to be a second, unchecked copy of that map.'],
+  'split:treatments:check':   ['Build & bundle', 'Freshness gate for §0c\'s generated split-treatment table (stale vs lib/core/split-facts.js).'],
+  'oracle:bless':             ['Test & verify', 'Write the committed split oracle (test/oracle/split-oracle.json) from the manifests — the standing golden of each component\'s derived split facts (§8 rule 5). Refuses to mint an entry for a newly-enrolled component with no verification record (rule 11).'],
+  'oracle:check':             ['Test & verify', 'Verify the committed split oracle against freshly recomputed manifest facts; exit 1 on drift.'],
   'decisions:index':          ['Build & bundle', 'Regenerate the "Current notes" index in engineering/decisions/README.md from each note\'s YAML front-matter.'],
   'decisions:index:check':    ['Build & bundle', 'Freshness gate for the decisions-index (stale vs the notes\' front-matter).'],
 

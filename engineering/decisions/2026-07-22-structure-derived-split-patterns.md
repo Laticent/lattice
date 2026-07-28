@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Make auto-split less component-centric — hardened by TWO HARD RULE #25 trio passes (§12) + owner design review. The split kernel is generic. The rendered structure supplies a CANDIDATE axis (list→item, table→row, svg→container-responsive), realized only for opted-in seams; one per-component discriminator (connected/read-across) plus a small retained vector (opt-in gate, heavy/light, reshape, pacing) decides treatment. Graphics are container-responsive (not "scaled"); a viewBox graphic still needs a legibility floor→ring; atomic text-grid tables (roadmap/obligation-matrix, no viewBox) can't scale or split — ring on overflow — unlike glossary, which pivots its table. Every split rides a universal envelope (COVER → BODY → optional CLOSING, §0a); heavy members atomize deterministically (1 per slide) and connected/related members carry a relationship signal (→next / ↻loop / compare N-of-M). All 59 components placed (§0c). The mechanism win is collapsing the 9 carousel DOM-parsers into content-conservation-gated slot re-authors.
+summary: Make auto-split less component-centric — hardened by TWO HARD RULE #25 trio passes (§12) + owner design review. The split kernel is generic. The rendered structure supplies a CANDIDATE axis (list→item, table→row, svg→container-responsive), realized only for opted-in seams; one per-component discriminator (connected/read-across) plus a small retained vector (opt-in gate, heavy/light, reshape, pacing) decides treatment. Graphics are container-responsive (not "scaled"); a viewBox graphic still needs a legibility floor→ring; atomic text-grid tables (roadmap/obligation-matrix, no viewBox) can't scale or split — ring on overflow — unlike glossary, which pivots its table. Every split rides a universal envelope (COVER → BODY → optional CLOSING, §0a); heavy members atomize deterministically (1 per slide) and connected/related members carry a relationship signal (→next / ↻loop / compare N-of-M). Every component in the catalog is placed (§0c — that table is GENERATED from lib/core/split-facts.js, so it cannot drift from the code again). The mechanism win is collapsing the 9 carousel DOM-parsers into content-conservation-gated slot re-authors.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-06-21-reflow-as-form-capability.md, 2026-06-23-read-across-carousel.md, 2026-06-25-retire-landscape-locks-portrait-everything.md
 ---
 
@@ -8,6 +8,51 @@ builds-on: 2026-06-22-the-fit-spine.md, 2026-06-21-reflow-as-form-capability.md,
 
 **Date:** 2026-07-22 · **Status:** Proposed (design model; no code) — **hardened
 by two HARD RULE #25 adversarial trio passes, §12** · **Decision owner:** Sharmarke
+
+## ★ Read this with its sibling — the two rungs of the Fit Ladder
+
+*Added 2026-07-28 (#1234). Until then these two notes did not reference each other
+at all, and that omission is the root of most of what the #1234 audit found.*
+
+A slide that does not fit its box has two answers, and they are consecutive rungs of
+one ladder. This note owns the second; a sibling owns the first:
+
+| | rung | the note that owns it | status |
+|---|---|---|---|
+| **REFLOW** | the slide changes SHAPE for its box | [`2026-07-27-family-stamp-replaces-container-queries.md`](2026-07-27-family-stamp-replaces-container-queries.md) | shipped |
+| **SPLIT** | the slide becomes SEVERAL slides | this note | proposed |
+
+They hand off constantly, so a claim made in one is routinely conditional on the
+other. **Three things to carry across the boundary:**
+
+1. **Four families, not "portrait presets".** The sibling's classifier derives one of
+   `wide` · `square` · `tall` · `strip` from the deck geometry
+   (`lib/adaptive/families.js`), and components select that stamp. Where this note
+   says "portrait preset", read `tall` + `strip` — `square` is a different family with
+   a different type category, and lumping it in is what made §0b's budget paragraph
+   wrong (corrected in place, below).
+
+2. **A family is not a box.** `portrait` (1080×1350) and `story` (1080×1920) are the
+   SAME family and behave identically under every family-keyed rule — but a *clip* is
+   a property of the BOX, and story is 570px taller at the same width. The reflow
+   note's own gate tested one @size per family and so never tested `story` at all.
+   Un-split, 22 components clip at `portrait` and 9 at `story`.
+
+3. **"Never a truncation" is conditional on `autosplit: on`.** §0b promises that
+   overflow is always more slides, never "…". That promise is real, and it is also
+   **opt-in**: `autosplit` is per-deck and is skipped outright on landscape @sizes, so
+   a deck that does not set it gets the ring instead. This is why the two blessed
+   oracles look like they contradict each other and do not —
+   `test/oracle/family-overflow.json` records what clips with `autosplit` OFF, while
+   `test/oracle/split-oracle.json` records what is enrolled to paginate once it is ON,
+   and most of the first list is in the second. **Run
+   `node tools/check-family-tiers.js --ladder`** for the overlap per @size, and for
+   the set that still rings because no split is available to it at all. That figure
+   was quoted in a code comment as "16 of the 22 portrait entries"; re-derived it is
+   18, having drifted the moment `roadmap` gained a carousel recipe. Hence a command
+   rather than a number — which is the sibling note's central lesson, applied here.
+
+---
 
 The prompt behind this doc: *the auto-splitter and the fluid work are excellent,
 but they still feel component-centric — we hand-craft split behavior per
@@ -55,12 +100,33 @@ envelope**, not a per-component variable:
 
 > **COVER (always) → BODY (1…n) → CLOSING (only if earned).**
 
-- **Cover — always.** Every split opens with a dedicated cover slide carrying the
+- **Cover — whenever there is a masthead to put on one, which is every split that
+  carries a title.** A split opens with a dedicated cover slide carrying the
   **masthead** (eyebrow · title · subtitle · lede). Rationale: a slide substantial
   enough to split has masthead material worth a consistent lead-in, and every split
   then reads identically. This **overrides today's split** between bare-partition
   (repeat the heading with `(cont.)`) and accent-cover (`cover-paginate`): bare
-  partition is retired as a split *look*; the cover becomes universal.
+  partition is retired as a split *look* wherever a cover can be built.
+
+  **The one exception, and why the wording above changed (2026-07-28, #1234).** This
+  clause read "Cover — **always**" and rule 9 restated it as an absolute. The shipped
+  code has never done that, deliberately: a **title-less** slide has no masthead to
+  build a cover from, `readMasthead` returns null, `splitEnvelope` returns null, and
+  the run keeps the bare partition. §9's P-envelope note 1 says so explicitly, and a
+  unit test pins it. So the doc contradicted itself across two sections — an absolute
+  in §0a and rule 9, sanctioned as an exception in §9 — and the audit behind #1234
+  read that as the code violating the design.
+
+  It is not. An empty accent field is worse than a repeated heading, and #1191 already
+  had to make `capacity-autosplit`'s advisory copy conditional on the same
+  `/^##\s/m` probe, because promising the author a cover page the run would not get is
+  a lie to the author. **The code is authoritative here; the absolute wording was
+  wrong.** Verified rather than reasoned about: a title-less enrolled `list` slide at
+  `size: portrait` with `autosplit: on` renders two sections, both
+  `data-split-role="body"`, zero covers.
+
+  The gate is therefore "every split run **with a masthead** begins with exactly one
+  cover", not "every run" — which is what it has always asserted.
 - **Body — the split content**, one item/row/card per page, built per the
   per-component body policy (§3 a/b/c/e).
 - **Closing — conditional.** A final slide carries the universal trailing material
@@ -179,33 +245,94 @@ All of it rides the **§0a envelope**: Cover → Body (these units) → optional
 
 **The vertical "budget" is real but not scarce where splitting happens.** Chrome
 (footer / rail / pagination) is width-relative, so it costs a fixed ~162px on every
-portrait preset — ~7% of a `mobile` slide's height, ~15% of a `square`'s. Body
-budget = slide height − chrome − (masthead, cover only). Every portrait preset is
-1080 wide, so body type is one size across them; a taller preset simply holds more
-units. **"Budget" is the internal fill line that decides *where to break to the next
+non-landscape preset — ~7% of a `mobile` slide's height, ~15% of a `square`'s. Body
+budget = slide height − chrome − (masthead, cover only).
+
+**Corrected 2026-07-28 (#1234) — "one body type size across every portrait preset"
+was two claims, one true and one false, and the false one is load-bearing.** This
+paragraph used to end: *"Every portrait preset is 1080 wide, so body type is one size
+across them; a taller preset simply holds more units."*
+
+- **True, within `tall` + `strip`.** Type is `coefficient × cqi` selected per
+  *orientation category* (`lib/typography/scale.js`), and `portrait` · `story` ·
+  `mobile` share the `portrait` category and are all 1080 wide. Measured through the
+  emulator, a `content` body paragraph is **50.544px at all three**. The
+  `--canvas-scale` token does still ramp by aspect (1.95 / 2.19 / 2.29) but no longer
+  multiplies type — the 2026-06-20 typography-categories work replaced that uniform
+  stretch with three curated coefficient sets, and it now drives spacing only.
+- **False, once `square` is in the bucket** — and this paragraph puts it there two
+  sentences earlier ("~15% of a `square`'s"). `square` is its **own** type category:
+  the same paragraph measures **34.02px**. Calling all four "portrait presets" and
+  then reasoning about one budget across them is the §0b/reflow-ADR disagreement in
+  miniature.
+- **False in general: a taller preset does NOT simply hold more units.** It can be a
+  different *family*, and a different family reflows. The same `glossary` run renders
+  a real `<table>` at `square`, `portrait` and `story`, and at `mobile` (`strip`)
+  becomes `display: block` with its `<thead>` at `display: none` — a stacked,
+  header-less form. Nothing about that is "the same layout, more of it".
+
+Reproduce all of the above with `node tools/check-family-tiers.js --presets`, which
+prints the family, orientation, `--canvas-scale` and measured body/`h2` px per
+registered @size. The figures are quoted here for the argument; the command is the
+record.
+
+The sibling reflow note (`2026-07-27-family-stamp-replaces-container-queries.md`)
+carries the model this correction defers to: **four families** — `wide`, `square`,
+`tall`, `strip` — derived by one classifier from the deck geometry. "Portrait
+presets" is not a bucket. Where this section says it, read it as `tall` + `strip`.
+
+**"Budget" is the internal fill line that decides *where to break to the next
 slide* — never shown to a reader, never a truncation** (overflow is always more
 slides, or the honest ring for an un-splittable figure that hits the legibility
-floor — never "…").
+floor — never "…"). **That guarantee is conditional, and the condition was never
+written down here:** it holds only once the author sets `autosplit: on`. See the
+Fit Ladder note at the top of this file.
 
-## 0c. Completeness — every one of the 59 components has a treatment (2026-07-22)
+## 0c. Completeness — every component in the catalog has a treatment (2026-07-22)
 
-Run of the whole catalog against the model. Every component has a treatment; the
-three marked † are *proposed* placements that need a new authored opt-in (they carry
-`capacity=null, split=null` today, so under the retained gate they currently ring).
+Run of the whole catalog against the model.
+
+**This table is GENERATED (2026-07-28).** It used to be hand-maintained, and it
+rotted in three directions at once: it claimed "every one of the **59** components"
+against a catalog of **61**; `matrix-grid` and `premise` appeared nowhere in it, so
+their placement lived only in `lib/core/split-facts.js`; and `roadmap` was still
+recorded *atomic* a release after #1209 moved the code to *read-across*. That is the
+same defect the sibling reflow note is entirely about — a claim written once,
+believed thereafter, never re-derived — reproduced inside the prose that was
+supposed to be the record.
+
+`split-facts.js` already had to carry a machine-readable copy of these placements,
+because a prose table cannot fail CI (that is what `checkSplitOracle` is for). So
+there were two copies of one decision and only one of them was checked. There is now
+one: the map in `split-facts.js` is the source, and
+`npm run split:treatments` renders this table from it plus the live manifests.
+`build:check` fails if the two drift. **Edit the map, not the table.**
+
+<!-- split-treatments:begin -->
 
 | Treatment | Components |
 |---|---|
-| **Anchor — never splits** | title, closing, divider |
-| **viewBox graphic — container-responsive + legibility-floor→ring** | piechart, quadrant, radar, word-cloud, funnel, map, diagram, scene, state-chart (JS-scaled; no-JS UNVERIFIED) |
-| **Bitmap asset — responsive, no split** | image, video |
-| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | big-number, quote, math, citation-card, contact, wifi, matrix-2x2, obligation-matrix, roadmap, gantt |
-| **List → item · light** (pack a fixed uniform count) | list, checklist, content, agenda, list-criteria, inventory, logo-wall (by image) |
-| **List → item · heavy** (1/slide, deterministic) | cards-grid, cards-stack, actors, kpi, stats *(tile — watch)*, q-and-a, policy-recommendation |
-| **Record-shaped → 1 per slide** (glossary pivots via its table transform; the rest are `ol/ul>li` → list-item split) | glossary, list-tabular, regulatory-update, statute-stack |
-| **Connected / related → 1/slide + relationship signal** | list-steps (→next), cycle (↻loop), authority-chain (governs↓), journey† (→next), timeline-list† (→next), verdict-grid (compare N/M), pricing (compare N/M) |
-| **Read-across → keep whole / carousel** | compare-prose, compare-table, decision, redline, split-compare, split-panel, compare-code, kanban (per-lane — note: loses the cross-lane read; a keep-whole is arguably better) |
-| **Code → code-cards** (by line / block — PROPOSED) | code |
-| **Needs an opt-in call** | progress† (CSS bars, not a viewBox graphic — so *not* "scale like a graphic"; it's list-heavy if enrolled, else whole-slide) |
+| **Anchor — never splits** | `closing` · `divider` · `title` |
+| **viewBox graphic — container-responsive + legibility-floor→ring** | `diagram` · `funnel` · `map` · `piechart` · `quadrant` · `radar` · `scene` · `state-chart` *(JS-scaled; no-JS UNVERIFIED)* · `word-cloud` |
+| **Bitmap asset — responsive, no split** | `image` · `video` |
+| **Atomic — whole slide, overflow→ring** (single text units + shared-geometry grids that can't scale or split) | `big-number` · `citation-card` · `contact` · `gantt` · `math` · `matrix-2x2` · `matrix-grid` *(a positional grid — a row means nothing without every other row)* · `obligation-matrix` · `quote` · `wifi` |
+| **List → item · light** (pack a fixed uniform count) | `agenda` · `checklist` · `content`° · `inventory` · `list` · `list-criteria`° · `logo-wall`° *(by image)* |
+| **List → item · heavy** (1/slide, deterministic) | `actors` · `cards-grid` · `cards-stack` · `kpi` · `policy-recommendation` · `q-and-a` · `stats` *(tile — watch)* |
+| **Record-shaped → 1 per slide** (glossary pivots via its table transform; the rest are `ol/ul>li` → list-item split) | `glossary` · `list-tabular` · `regulatory-update` · `statute-stack` |
+| **Connected / related → 1/slide + relationship signal** | `authority-chain` *(governs↓)* · `cycle` *(↻loop)* · `journey`° *(→next)* · `list-steps` *(→next)* · `pricing`° *(compare N/M)* · `timeline-list`° *(→next)* · `verdict-grid` *(compare N/M)* |
+| **Read-across → keep whole / carousel** | `compare-code` · `compare-prose` · `compare-table` · `decision` · `kanban` *(per-lane — loses the cross-lane read; a keep-whole is arguably better)* · `premise` *(one claim beside the points that substantiate it — same shape as split-panel)* · `redline` · `roadmap` *(the TABLE rings; only the transposed `horizons` card form has a seam (#1209))* · `split-compare` · `split-panel` |
+| **Code → code-cards** (by line / block — PROPOSED) | `code` |
+| **Needs an opt-in call** | `progress` *(CSS bars, not a viewBox graphic — so NOT "scale like a graphic"; list-heavy if enrolled, else whole-slide)* |
+
+_61 components, all placed. **Generated** by `npm run split:treatments` from `TREATMENTS` in `lib/core/split-facts.js` — edit that map, not this table; `build:check` fails on drift. A `°` marks a component whose treatment describes a split it has **not opted into** — no `capacity` axis and no `split` recipe, so it rings on overflow today (the "opt-in backfill" follow-on below). 6 carry it now._
+
+<!-- split-treatments:end -->
+
+The `°` marker replaces the hand-set `†`, and the difference matters: `†` was a
+static note about three components someone had to remember to clear, while `°` is
+derived from each manifest's enrollment on every build. If a backfill lands, the
+marker disappears on its own; if a new component ships a placement it never opted
+into, the marker appears without anyone noticing it should.
 
 **Owner resolutions (2026-07-22):** `quadrant` stays whole (viewBox graphic);
 `matrix-2x2` is **kept** (a prioritization matrix — SWOT/Eisenhower/BCG — not a
@@ -218,8 +345,15 @@ a compared set; heavy members are **1/slide deterministic** (not content-aware
 packing — rejected as jarring); `code` splits into multiple code-cards.
 
 **Follow-on build items (not gaps — named work):**
-- **opt-in backfill** — `journey`, `timeline-list`, `progress` need an authored
-  `capacity`/`split` to receive their proposed treatment (they ring today).
+- **opt-in backfill** — every component carrying `°` in the table above needs an
+  authored `capacity`/`split` to receive its placement; until then it rings. This
+  list used to be spelled out here as three names (`journey`, `timeline-list`,
+  `progress`) and was wrong in both directions: the derived marker finds **six**
+  (`content`, `list-criteria`, `logo-wall`, `journey`, `pricing`, `timeline-list`),
+  and `progress` is not one of them — it is `needs-call`, i.e. its treatment is
+  undecided, which is a different piece of work from a decided treatment that has
+  not been wired up. `split-facts.js`'s own comment had already noticed `pricing`;
+  the prose had not. Don't re-spell the list here — the table derives it.
 - **`progress`** — decide: enroll as list-heavy (split by row) or keep whole. It is
   **not** a scalable graphic (CSS bars, no viewBox).
 - **`code`** — a line/block code-card splitter (`partitionAxis` refuses `line` today).
@@ -233,9 +367,19 @@ packing — rejected as jarring); `code` splits into multiple code-cards.
   quadrants with no axis structure, behind an accent cover that made the damage look deliberate
   — on a slide whose heading is "How we sort the four tools against our two axes". It now RINGS
   (the §0c terminal): one page, clipped, with the export's overflow warning naming it. NOTE the
-  ring does not restore the 2×2 in portrait — the component's own box-local reflow collapses the
-  quadrants to a single column at `aspect-ratio <= 0.9` regardless, which is a separate question
-  about whether an atomic text grid should reflow at all. Still open: verify `cycle`'s axis.
+  ring does not restore the 2×2 in portrait — the component's own reflow collapses the quadrants
+  to a single column regardless, which is a separate question about whether an atomic text grid
+  should reflow at all. Still open: verify `cycle`'s axis.
+  **Mechanism corrected 2026-07-28.** This entry used to cite that collapse as an
+  `@container (aspect-ratio <= 0.9)` rule. That mechanism was **deleted** by the sibling reflow
+  note (`2026-07-27-family-stamp-replaces-container-queries.md`), which also added a gate to keep
+  it deleted — `no engine CSS reintroduces an @container aspect-ratio query`,
+  `test/unit/adaptive/families.test.js`. The rule today is
+  `section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"])`
+  (`matrix-2x2.styles.css:82`), keyed on the family stamp the engine derives from the deck
+  geometry. The collapse itself is unchanged; only the selector is. Citing a retired mechanism
+  is how a reader ends up looking for a rule that no longer exists — and it is the same drift
+  this table's generator now prevents one section up.
 
 **SVG container-responsiveness audit (2026-07-22) — the "graphics fill their box"
 contract holds, with one logged defect.** All SVG components (funnel, map, quadrant,
@@ -400,7 +544,8 @@ consolidating the mechanism, not by deleting the per-component vector.
 
 Two corrections to older docs, folded in: the **landscape-lock quarantine** for
 read-across was **retired 2026-06-25** (read-across is now re-authored into a
-portrait carousel, not orientation-locked); the catalog is ~59 components.
+portrait carousel, not orientation-locked); the catalog size is not quoted here —
+it moves, and §0c derives it.
 
 ## 7. Red team — the surviving refutations (folded from §12)
 
@@ -571,13 +716,17 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
    The ring is **author-only**: the emulator strips it before printing, so no committed PDF changes,
    and the live watcher runs it only under `authorTags` — a reader cannot resize a figure, so an
    amber alarm in front of a boardroom would be a diagnostic with no action attached.
-9. **"Cover always" (§0a) is a MECHANISM phase, not a free consequence.** No split
-   path may emit a bare `(cont.)` partition once §0a lands: `autoSplitDeck` and
+9. **The universal cover (§0a) is a MECHANISM phase, not a free consequence.** No
+   split path may emit a bare `(cont.)` partition **for a slide that has a masthead**
+   once §0a lands — a title-less slide keeps it, since there is nothing to put on a
+   cover (§0a's exception, §9's P-envelope note 1; this rule said "Cover always" and
+   was corrected to match the code and the gate on 2026-07-28, #1234).
+   `autoSplitDeck` and
    `resplitDoc`'s plain branch must route through the same cover→body→closing
    builder as `cover-paginate`, and `partitionAxis`'s repeated `post` must hoist any
    `.below-note`/key-insight into ONE closing slide — never stamped per body page (it
-   duplicates today). A gate asserts every split run begins with exactly one cover
-   and carries ≤1 closing. (FM-2.)
+   duplicates today). A gate asserts every split run **with a masthead** begins with
+   exactly one cover and carries ≤1 closing. (FM-2.)
    **☑ GATE MADE REAL (P-envelope).** The mechanism shipped, but the gate this rule
    demands was HOLLOW: it keyed on the CLASS `lat-split-cover`, which only the plain path
    and `cover-paginate`/`cover-cards` emit. The per-layout strategies emit their own
@@ -633,6 +782,33 @@ Each is a failure mode the first draft left open; stated as a rule so it stays s
     overflow path (HARD #9) + reviewer sign-off that the derived (axis, read-across,
     reshape) matches intent — the entry is the *record* of a verified default, not
     the *source*. Drift-detection ≠ initial-correctness. (FM-5.)
+    **☑ BUILT (2026-07-28, #1234) — and it was NOT built when this rule was first
+    marked as satisfied.** The rule shipped as a sentence, and the tooling underneath
+    it did only the drift half: `bless-split-oracle.js` recomputed manifest facts and
+    diffed them, with no precondition of any kind. So for a component that had never
+    been in the record, the first `--bless` wrote whatever the manifest happened to
+    say and `checkSplitOracle` defended it from then on. That is minting, exactly —
+    drift-detection standing in for initial-correctness, the one substitution this
+    rule exists to forbid. The rule was true about the *intent* and false about the
+    *mechanism*, which is the same failure the sibling reflow note catalogs: an
+    assertion nobody re-derived.
+    Enrollment now needs an **attestation**. A component that opts into splitting must
+    name, in the record's `verified` map, the committed deck that exercises its split
+    and who signed the derived facts off; blessing REFUSES to write an entry for a
+    newly-enrolled component that has neither an attestation nor a grandfather entry,
+    and `checkSplitOracle` shares that check so the writer and the gate cannot
+    disagree about what "verified" means. A `verified` entry pointing at a deck that
+    is not in the tree fails too — an attestation naming a file nobody committed
+    verifies nothing.
+    **The grandfathered set is the honest part.** 28 components were already enrolled
+    when the precondition landed. Back-filling 28 sign-offs nobody witnessed would
+    have fabricated precisely the verification this rule asks for, so they are frozen
+    in a named, dated, **shrink-only** list (`GRANDFATHERED`,
+    `tools/bless-split-oracle.js`) — the `US_ENGLISH_BUDGET` ratchet idiom. Blessing
+    cannot add to it and the gate fails on a stale entry, so it can neither grow nor
+    rot. Each name clears by someone actually rendering that component's split and
+    moving it into `verified`. Read the number as a backlog: 28 components whose split
+    behavior the oracle defends without anyone having confirmed it was right.
 12. **Relationship signal is derived + the kernel operates on the content cell.**
     (a) The adornment (→next / ↻loop / compare N-of-M / governs↓) is synthesized from
     the neighbor member at build time, **never authored**, so it can't stale (a test

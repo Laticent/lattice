@@ -78,6 +78,51 @@ in patch versions.
   test against a real Biome in a real git repo. What it deliberately does not catch is
   enumerated under RESIDUALS in the tool's header.
 
+### Changed
+
+- **§0c's split-treatment table is now GENERATED, and the split oracle can no longer mint
+  a default it was supposed to record.** Two decision notes — the REFLOW rung
+  (`2026-07-27-family-stamp-replaces-container-queries.md`) and the SPLIT rung
+  (`2026-07-22-structure-derived-split-patterns.md`) — are consecutive steps of one Fit
+  Ladder and did not reference each other at all, which is the root of most of what the
+  #1234 audit found. Each now opens with the ladder, and the claims that crossed the
+  boundary are stated on both sides.
+  - **`npm run split:treatments`** renders §0c's "every component has a treatment" table
+    from `TREATMENTS` in `lib/core/split-facts.js` plus the live manifests; `build:check`
+    fails on drift. Hand-maintained, it had rotted three ways at once: it claimed "every
+    one of the **59** components" against a catalog of **61**; `matrix-grid` and `premise`
+    appeared nowhere in it, so their placement existed only in code; and `roadmap` was
+    still recorded *atomic* a release after #1209 moved it to *read-across*. The `†`
+    marker for "placed but not opted in" is now a derived `°` and finds **six**
+    components where the hand-set list named three — `content`, `list-criteria`,
+    `logo-wall` and `pricing` were unlisted backfill candidates.
+  - **§8 rule 11 is now enforced, having previously been satisfied only on paper.**
+    `bless-split-oracle.js` diffed recomputed manifest facts and nothing else, so the
+    first `--bless` on a newly enrolled component *minted* its split behavior and
+    `checkSplitOracle` then defended it — drift-detection doing duty as
+    initial-correctness, the one substitution the rule exists to forbid. Enrollment now
+    requires an attestation naming the committed deck that exercises the split and who
+    signed the derived facts off; blessing refuses to write an entry without one, and an
+    attestation pointing at a deck that is not in the tree fails too. The 28 components
+    enrolled before the precondition landed are frozen in a **shrink-only** `GRANDFATHERED`
+    backlog rather than given sign-offs nobody witnessed.
+  - **Two constants replaced by commands.** `node tools/check-family-tiers.js --ladder`
+    reconciles the two blessed oracles per @size (a code comment had frozen the overlap
+    at "16 of the 22 portrait entries"; re-derived it is 18, and it drifted the moment
+    `roadmap` gained a carousel recipe). `node tools/check-family-tiers.js --presets`
+    prints the per-@size family, orientation, `--canvas-scale` and measured body/`h2` px.
+  - **Three ADR claims corrected against the shipped code, not the other way round.**
+    §0a/rule 9's absolute "cover **always**" contradicted §9's own sanctioned exception:
+    a title-less slide has no masthead to build a cover from and keeps the bare
+    partition (verified — a title-less enrolled `list` at `size: portrait` renders two
+    body sections, zero covers). §0c cited an `@container (aspect-ratio <= 0.9)`
+    mechanism the sibling note **deleted** and gated against reintroducing. §0b's "one
+    body type size across every portrait preset" held for `tall`+`strip` (50.544px at
+    all three) and not for `square` (34.02px, its own type category), and its "a taller
+    preset simply holds more units" is false wherever the family changes — the same
+    `glossary` run is a real `<table>` at portrait/story/square and a header-less
+    `display: block` stack at `mobile`.
+
 ### Fixed
 
 - **The `--fluid` viewer was completely broken by the export shell's new `main`

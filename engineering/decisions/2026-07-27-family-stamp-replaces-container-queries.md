@@ -10,6 +10,40 @@ builds-on: 2026-06-18-component-adaptive-sizing.md, 2026-06-19-chart-adaptive-si
 
 Fixes #1218.
 
+## ★ Read this with its sibling — the two rungs of the Fit Ladder
+
+*Added 2026-07-28 (#1234). Until then these two notes did not reference each other
+at all, and that omission is the root of most of what the #1234 audit found.*
+
+A slide that does not fit its box has two answers, and they are consecutive rungs of
+one ladder. This note owns the first; a sibling owns the second:
+
+| | rung | the note that owns it | status |
+|---|---|---|---|
+| **REFLOW** | the slide changes SHAPE for its box | this note | shipped |
+| **SPLIT** | the slide becomes SEVERAL slides | [`2026-07-22-structure-derived-split-patterns.md`](2026-07-22-structure-derived-split-patterns.md) | proposed |
+
+Reflow is the cheaper rung and runs first: a component restructures in place for its
+family. When no reflow fits, the split rung paginates. When neither is available, the
+export rings the slide — the honest terminal.
+
+**Two things to carry across the boundary:**
+
+1. **A clip recorded here is a clip with `autosplit` OFF.** The overflow oracle
+   (`test/oracle/family-overflow.json`) deliberately sets no `autosplit`, so a name in
+   it means "overflows when the author has not opted into splitting" — *not* "broken".
+   Most of that set is enrolled to paginate under the sibling note's rung and fits
+   once `autosplit: on` is set. The two records measure different terminals of the
+   same ladder; they do not disagree. `node tools/check-family-tiers.js --ladder`
+   prints the overlap per @size, and the residue that still rings because no split is
+   available to it at all — which is the set actually worth shrinking.
+
+2. **The sibling's §0b talks about "portrait presets" as one bucket.** It is four
+   families, and `square` is not `tall`. That section is corrected in place there and
+   defers to the model in this note; `node tools/check-family-tiers.js --presets`
+   prints the per-@size facts (family, orientation, `--canvas-scale`, measured body
+   and `h2` px) so neither note has to quote a constant.
+
 ## The bug, in one line
 
 A deck declared `size: square` (1080×1080) is `square` to `familyFor()` in JS and
