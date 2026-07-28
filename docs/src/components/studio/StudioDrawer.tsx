@@ -143,9 +143,37 @@ Door.displayName = 'Door';
  *  `ThemePicker`'s own `Dot` already ships; reuse, not reinvention. */
 const SWATCH_EDGE = 'border border-[color-mix(in_srgb,var(--text-heading)_20%,transparent)]';
 
+/**
+ * What this panel is CALLED — its own title, and the destination its eleven
+ * destinations' back chevrons name. Exported so `StudioShell` publishes the identical
+ * string rather than a second literal that can drift from this one.
+ *
+ * "Menu", after scoring eight candidate pairs against: does the word name a PLACE, is
+ * it TRUTHFUL, is it instantly understood, is it distinct in-app, and what does it cost.
+ * The two it replaces both lost on the first two criteria:
+ *
+ *   "Studio" — the original — names the WHOLE APP, so the panel and the thing behind it
+ *   were both called the Studio. That is the collision that surfaced the moment this
+ *   grew a back chevron: a panel titled "Studio" above a control reading "‹ Studio".
+ *
+ *   "More" — the first fix — names a RELATIONSHIP to the Eight-Cell Bar ("the rest of
+ *   them"), not a destination. It was the one chevron in the app that answered "where
+ *   does this go?" with "elsewhere".
+ *
+ * The objection to "Menu" is that it names a widget class rather than a place — true on
+ * a desktop, false on a phone, where a menu IS a screen you travel to and back from, and
+ * where it is the word users already have for exactly this object. The app's three real
+ * dropdowns (workspace launcher, deck switcher, the tablet twin of this panel) are never
+ * LABELED "menu" to a user, so nothing collides on screen.
+ *
+ * See `engineering/decisions/2026-07-28-back-not-close.md` for the scored table.
+ */
+export const DRAWER_LABEL = 'Menu';
+
 export function StudioDrawer({
 	open,
 	onOpenChange,
+	hostLabel,
 	onNavigate,
 	effPane,
 	insertComponents,
@@ -166,6 +194,12 @@ export function StudioDrawer({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
+	/** What lies BEHIND this panel, named — the index's back chevron points there.
+	 *  "Deck" normally, "Fabricate" in that view (the header and this drawer render in
+	 *  both). Passed rather than read from `PanelBackCtx` because this is a raw `Sheet`,
+	 *  and because the context resolves to THIS panel's name while it is the thing a
+	 *  child would return to. */
+	hostLabel: string;
 	/** A row that opens a further surface calls this INSTEAD of closing the drawer
 	 *  itself — the host closes the drawer, opens the target, and reopens the drawer
 	 *  once that target closes, so dismissing a child sheet returns here rather than
@@ -240,19 +274,13 @@ export function StudioDrawer({
 	const back = () => {
 		const from = level;
 		setLevel('index');
-		setAnnounce('More');
+		setAnnounce(DRAWER_LABEL);
 		toTop();
 		requestAnimationFrame(() => doorRefs.current[from]?.focus());
 	};
 
 	const inDoor = level !== 'index';
-	// "More", not "Studio". The index used to borrow the APP's name, which was survivable
-	// while its only affordance was an X — and stopped being once it grew a back chevron
-	// naming where that chevron goes. A panel titled "Studio" above a control reading
-	// "‹ Studio" says the place you are and the place you would return to are the same
-	// place. The drawer's trigger has always been "More controls"; this is the panel
-	// finally answering to it, which also makes its destinations' "‹ More" true.
-	const title = level === 'index' ? 'More' : level === 'themes' ? 'Themes' : 'Show me';
+	const title = level === 'index' ? DRAWER_LABEL : level === 'themes' ? 'Themes' : 'Show me';
 
 	// TWO levels, TWO registrations, innermost last — a door pops before the drawer
 	// closes. Registered in hook order, which is also stack order, so nothing has to
@@ -296,13 +324,13 @@ export function StudioDrawer({
 					{/* `onBack` is explicit at BOTH levels: this is a raw `Sheet`, not a
 					    `PanelSheet`, so `PanelBack`'s `SheetClose` path is not available to it
 					    and a bare index-level chevron would render with no handler at all. */}
-					<PanelBack ref={backRef} label={inDoor ? 'More' : 'Studio'} onBack={inDoor ? back : () => onOpenChange(false)} />
+					<PanelBack ref={backRef} label={inDoor ? DRAWER_LABEL : hostLabel} onBack={inDoor ? back : () => onOpenChange(false)} />
 					{/* The dialog's accessible name tracks the level. That is correct, but it is
 					    NOT an announcement: retargeting an OPEN dialog's label does not re-speak
 					    in VoiceOver or NVDA, so on its own a blind user tapped "Themes", heard
-					    "Back to More, button", and was never told they had arrived. The live
+					    "Back to Menu, button", and was never told they had arrived. The live
 					    region above is the announcement; this is the label. (Munger inversion.)
-					    The back button says "Back to More", not "More", so the two never
+					    The back button says "Back to Menu", not "Menu", so the two never
 					    announce as the same string. */}
 					{/* The SAME 30px accent chip `PanelHeader` gives the other eleven drawers.
 					    This was a bare inline glyph — the one header idiom in the app that did

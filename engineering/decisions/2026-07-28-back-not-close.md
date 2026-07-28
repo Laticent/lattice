@@ -5,8 +5,8 @@ summary: >
   it goes, not a trailing X — and the iOS edge-swipe back gesture is bound to the same
   action, which is the fix for #1226 (the gesture used to navigate straight out of the
   Studio). The label is a property of the launch path, not the panel: a drawer reached
-  from the overflow returns there, the same drawer reached from the Eight-Cell Bar
-  returns to the editor. Freeing the trailing slot gives the panel's own actions the
+  from the menu returns there, the same drawer reached from the Eight-Cell Bar
+  returns to the deck. Freeing the trailing slot gives the panel's own actions the
   corner to themselves, at the app's 44px touch floor. The mechanism owns ONE history
   entry for the whole overlay stack and reconciles it after the commit — the reverted
   first attempt owned one per level from a depth-keyed effect, whose per-level teardown
@@ -55,7 +55,7 @@ navigation model. Fixing the affordance without the gesture leaves the bug.
 
 ```
 before  [chip] Title ………………………………… [actions] [X]
-after   ‹ Studio │ [chip] Title ……………………………… [actions]
+after   ‹ Deck │ [chip] Title ………………………………… [actions]
 ```
 
 Tablet and desktop keep the trailing `X`. That is not an oversight — a pointer surface has
@@ -71,10 +71,11 @@ the literal name of where it goes, not an icon you have to interpret.*
 
 | you opened it from | back goes to | reads |
 |---|---|---|
-| the `···` overflow | the overflow's index | `‹ More` |
-| the Eight-Cell Bar / header / ⌘K | the editor | `‹ Studio` |
-| a door inside the overflow | the overflow's index | `‹ More` |
-| the overflow's index | the editor | `‹ Studio` |
+| the `···` menu | the menu's index | `‹ Menu` |
+| a door inside the menu | the menu's index | `‹ Menu` |
+| the Eight-Cell Bar / header / ⌘K | the deck | `‹ Deck` |
+| the menu's index | the deck | `‹ Deck` |
+| anywhere, while in Fabricate | the Fabricate view | `‹ Fabricate` |
 
 This is not new state. `StudioShell` already tracks exactly this distinction as
 `drawerPendingReturn` — the flag deciding whether the drawer re-opens when a panel closes —
@@ -82,14 +83,53 @@ so the chevron and the actual destination **cannot** disagree. It is published o
 whole subtree via `PanelBackLabel` rather than passed as a prop to eleven call sites that
 could each get it wrong.
 
-### 3. The overflow is retitled "More"
+### 3. Both names were scored, not picked
 
-Forced by the above, and an improvement on its own. The index was titled **Studio** — the
-*app's* name, on the overflow menu. Survivable while its only affordance was an `X`; not
-survivable once it grew a chevron reading `‹ Studio`, which would have said *the place you
-are and the place you would return to are the same place*. Its trigger has always been
-"More controls". The panel now answers to it, and that is also what makes its destinations'
-`‹ More` true.
+The first cut of this change renamed the index to **More** and left the host as
+**Studio**. Both were wrong, and a scored comparison is what showed it. Criteria, weighted:
+does the word name a **place** (×2) — not a relationship, a widget class, or the whole app;
+is it **truthful** (×2); instantly **understood** (×1.5); **distinct** in-app (×1.5); and
+**cheap** (×1). Two candidates were eliminated before scoring — *Actions* collides with the
+command palette's own group heading, and the deck's own title truncates at 393px.
+
+| index + host | P | T | U | D | C | /40 |
+|---|---|---|---|---|---|---|
+| **Menu + Deck** | 4.5 | 5 | 5 | 5 | 3 | **37.0** |
+| More + Deck | 3 | 4.5 | 5 | 4.5 | 4 | 33.25 |
+| Tools + Deck | 4.5 | 2.5 | 4 | 5 | 3 | 30.5 |
+| Menu + Editor | 4 | 3 | 4.5 | 4.5 | 3 | 30.5 |
+| Menu + Studio | 3 | 3 | 5 | 4 | 4 | 29.5 |
+| Studio + Deck | 3.5 | 3.5 | 4 | 2 | 5 | 28.0 |
+| All + Deck | 2.5 | 2.5 | 3.5 | 4 | 3 | 24.25 |
+| More + Studio *(first cut)* | 1 | 2 | 5 | 3 | 5 | 23.0 |
+
+Why the losing marks:
+
+- **"More"** names a RELATIONSHIP to the Eight-Cell Bar — "the rest of them" — not a
+  destination. It was the one chevron in the app answering *where does this go?* with
+  *elsewhere*.
+- **"Studio"** as the index names the WHOLE APP, so the panel and the thing behind it were
+  both called the Studio. That is the collision that surfaced the instant this grew a
+  chevron: a panel titled "Studio" above a control reading `‹ Studio`.
+- **"Studio"** as the HOST is worse than it looks — it says you are *leaving* the Studio,
+  and you never do. Every one of these panels is inside it.
+- **"Tools"** (2.5 truth) — Send feedback, Show me and Version history are not tools.
+- **"All"** (2.5 truth) — it is not all; six verbs live on the bar and never appear here.
+- **"Editor"** (3 truth) — wrong whenever you are on the Preview pane, and this app has a
+  deliberate Read posture where that is the default.
+
+**The finding that decided it:** fixing the HOST name buys more than fixing the index name.
+From the first cut, changing only More→Menu gains **+6.5**; changing only Studio→Deck gains
+**+10.25**. The weaker label was the one added by this change, not the one the product owner
+flagged.
+
+The objection to **"Menu"** — that it names a widget class rather than a place — is true on
+a desktop and false on a phone, where a menu IS a screen you travel to and back from, and
+where it is the word users already have for this object. The app's three real dropdowns
+(workspace launcher, deck switcher, and the tablet twin of this very panel) are never
+*labeled* "menu" on screen, so nothing collides. The `···` glyph is kept: iOS opens menus
+from `···` routinely, and it does not pull toward "More" hard enough to justify churning the
+trigger's accessible name across ~15 assertions.
 
 ### 4. Actions get the touch floor
 

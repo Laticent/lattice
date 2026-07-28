@@ -67,7 +67,7 @@ import { activeRule, RULES } from './rule-catalog';
 import { ShareSheet } from './ShareSheet';
 import { SlideContextBody } from './SlideContext';
 import { type ComponentEntry, SlidePicker } from './SlidePicker';
-import { StudioDrawer } from './StudioDrawer';
+import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
 import { ScrollFade } from './scroll-fade';
 import { importComments } from './slide-comments';
 import { getClassTokens } from './slide-directives';
@@ -1477,6 +1477,10 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// mobile the Edit/Preview pane swap owns visibility, and in Fabricate the
 	// Compose grid isn't rendered; state is retained across both.
 	const splitUsable = !mobile && view === 'compose';
+	// What lies BEHIND every phone panel, named for its back chevron. Two answers, because
+	// the header and the ⋯ menu render in BOTH views — a flat "Deck" would be a lie inside
+	// Fabricate, which is the same class of mistake as the "‹ Studio" this replaces.
+	const hostLabel = view === 'fabricate' ? 'Fabricate' : 'Deck';
 	// react-resizable-panels split state via the shared hook (2026-07-19 migration).
 	// Same surface the hand-rolled useSplit had ({ collapsed, dragging, expand,
 	// collapse, reset }) so the ~20 downstream call sites are unchanged. The single-
@@ -2999,12 +3003,17 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	return (
 		// Where the phone's back chevron says it goes, published once for every panel
 		// below. The answer is a property of the LAUNCH PATH, not of the panel: the
-		// Library reached from the drawer returns to the drawer ("‹ More"), the same
-		// Library reached from the Eight-Cell Bar returns to the editor ("‹ Studio").
+		// Library reached from the ⋯ menu returns there ("‹ Menu"), the same Library
+		// reached from the Eight-Cell Bar returns to what was behind it ("‹ Deck").
 		// `drawerPendingReturn` is already exactly that signal — it is the flag that
 		// decides whether the drawer re-opens when this panel closes — so the chevron
 		// and the actual destination cannot disagree.
-		<PanelBackLabel value={drawerPendingReturn ? 'More' : 'Studio'}>
+		//
+		// NOT "‹ Studio", which is what this shipped as for one commit and was wrong in a
+		// way worth naming: it says you are LEAVING the Studio, and you never do. Every
+		// one of these panels is inside it. The three real destinations are the deck, the
+		// Fabricate view, and this menu — and `hostLabel` is the first two.
+		<PanelBackLabel value={drawerPendingReturn ? DRAWER_LABEL : hostLabel}>
 		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
 			{/* Announce a stop change to assistive tech — the surface can change from a
 			    keystroke (⌘.) or the "Edit this slide" reveal, which would otherwise be
@@ -3207,6 +3216,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				{mobile && (
 					<StudioDrawer
 						open={moreOpen}
+						hostLabel={hostLabel}
 						onOpenChange={setMoreOpen}
 						onNavigate={closeDrawerAndOpen}
 						effPane={effPane}

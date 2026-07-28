@@ -66,10 +66,17 @@ in patch versions.
   trailing slot for the panel's own actions — Reader views' add and the Library's
   import no longer sit beside a close button as though the two were equals, and they
   move up to the app's 44px touch floor now that they are the only target in the
-  corner. The `···` overflow itself is retitled **More** (matching its "More controls"
-  trigger); it borrowed the app's name, which stopped working once it grew a chevron
-  pointing at the Studio. Pointer surfaces — tablet and desktop side-sheets, docked
-  columns — keep the trailing `X` and are untouched.
+  corner.
+
+  Two names changed with it, chosen by scoring eight candidate pairs on whether each
+  word names a **place**, is **truthful**, is instantly understood, is distinct in-app,
+  and what it costs. The `···` overflow is retitled **Menu** — it was "Studio", the
+  name of the whole app, so the panel and the thing behind it were both called the same
+  thing. And what lies behind a panel is now **Deck** (or **Fabricate** in that view),
+  not "Studio": every one of these panels is *inside* the Studio, so a chevron claiming
+  to take you back to it was describing a departure that never happens. Pointer
+  surfaces — tablet and desktop side-sheets, docked columns — keep the trailing `X` and
+  are untouched.
 
 - **Studio mobile drawers: one height, one header, and the search field above the keyboard.**
   The two-tier phone panel height (`auto` / `full`) is retired for a single height — an inset of
@@ -211,7 +218,7 @@ in patch versions.
 - **The iOS back gesture no longer leaves the Studio from inside a drawer (#1226).** Edge-swipe
   is the primary back affordance on iOS — there is no system back button to avoid — and with any
   drawer open it navigated page history straight out of the app. Back now dismisses the top layer:
-  inside one of the overflow's doors it pops to the index, at the index it closes the drawer, from
+  inside one of the menu's doors it pops to the index, at the index it closes the drawer, from
   any other panel it closes that panel, and only with nothing open does it actually leave.
   Dismissing by the chevron or the scrim consumes the entry too, so a later back is not eaten by a
   drawer that is no longer on screen. The mechanism owns **one** history entry for the whole
