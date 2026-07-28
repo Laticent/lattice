@@ -298,21 +298,20 @@ section.state-chart .state-edge {
  * distribute the states down it; the browser edge-pass re-measures the laid-out
  * positions, so the arrows follow. (An `lr` machine is already flipped back to
  * this vertical default at build time — see state-chart.transform.js.) Keyed on
- * the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
+ * the deck's `data-family` stamp; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md §10. */
-@container lattice (aspect-ratio <= 0.9) {
-  /* The figure viewport already fills the stage (flex:1). The SCALE BOX must also
-   * take the full height so `.state-nodes { height:100% }` below resolves against a
-   * DEFINITE height and `space-evenly` has room to distribute — otherwise the box's
-   * default auto height collapses the fill (the node column strands in the middle).
-   * At full height the natural column ≈ the viewport, so the landscape self-scale is
-   * a no-op here (raw ≈ 1); portrait fills by distribution, landscape by letterbox. */
-  section.state-chart .state-chart-scale { height: 100%; }
-  section.state-chart .state-nodes {
-    height: 100%;
-    justify-content: space-evenly;
-  }
+/* The figure viewport already fills the stage (flex:1). The SCALE BOX must also
+ * take the full height so `.state-nodes { height:100% }` below resolves against a
+ * DEFINITE height and `space-evenly` has room to distribute — otherwise the box's
+ * default auto height collapses the fill (the node column strands in the middle).
+ * At full height the natural column ≈ the viewport, so the landscape self-scale is
+ * a no-op here (raw ≈ 1); portrait fills by distribution, landscape by letterbox. */
+section.state-chart:where([data-family="tall"], [data-family="strip"]) .state-chart-scale { height: 100%; }
+section.state-chart:where([data-family="tall"], [data-family="strip"]) .state-nodes {
+  height: 100%;
+  justify-content: space-evenly;
 }
+
 
 section.state-chart .state-edge[data-dir="back"] {
   stroke: var(--state-edge-back);

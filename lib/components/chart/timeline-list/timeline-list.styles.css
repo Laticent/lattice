@@ -140,77 +140,86 @@
   padding-top: var(--sp-xs);
 }
 
-/* ── Box-local RESTRUCTURE (tall + strip, ≤0.9): the left-to-right spine becomes
+/* ── Family RESTRUCTURE (tall + strip, ≤0.9): the left-to-right spine becomes
  * a real vertical timeline — items stack down the page, each dot rides a left
- * rail, the date/title/body fill the width beside it. Keyed on the nearest
- * `lattice` container (the section), so it fires on a portrait deck AND inside a
- * narrow nested cell. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
-  :is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
-    align-items: stretch;
-    justify-content: center;
-    padding: var(--sp-lg) var(--sp-xl);
-  }
-  :is(section.timeline-list, figure.timeline-list) .timeline-spine {
-    grid-auto-flow: row;
-    grid-template-columns: 1fr;
-    grid-auto-columns: auto;
-    max-width: none;
-    width: 100%;
-    height: 100%;
-    row-gap: var(--sp-md);
-    padding: var(--sp-xs) 0;
-    align-content: space-evenly;
-  }
-  /* The spine line runs vertically through the dots on the left rail. */
-  :is(section.timeline-list, figure.timeline-list) .timeline-spine::before {
-    top: 1.5cqi;
-    bottom: 1.5cqi;
-    left: 0.546875cqi;
-    right: auto;
-    width: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
-    height: auto;
-    background: linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--accent) 12%, transparent) 0%,
-      color-mix(in oklab, var(--accent) 55%, transparent) 8%,
-      color-mix(in oklab, var(--accent) 55%, transparent) 92%,
-      color-mix(in oklab, var(--accent) 12%, transparent) 100%
-    );
-    transform: translateX(-1px);
-  }
-  :is(section.timeline-list, figure.timeline-list) .timeline-item {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    column-gap: var(--sp-md);
-    align-items: start;
-    padding: 0;
-  }
-  /* Dot anchors the left rail; everything else fills the right column. */
-  :is(section.timeline-list, figure.timeline-list) .timeline-item > * {
-    grid-column: 2;
-    text-align: left;
-    align-self: start;
-  }
-  :is(section.timeline-list, figure.timeline-list) .timeline-dot {
-    grid-column: 1;
-    grid-row: 1;
-    /* Portrait: the dot rides its own left-rail grid cell, so it needs no
-     * dot→pill padding-bottom (override the base) — just a top nudge to align
-     * with the row (was margin: 0.234375cqi 0 0 0; padding shifts the ::before
-     * ring down by the same amount). */
-    padding: 0.234375cqi 0 0 0;
-  }
-  /* Chips hug their content; the title/body keep the default stretch so prose
-   * fills the column and wraps. */
-  :is(section.timeline-list, figure.timeline-list) .timeline-dot,
-  :is(section.timeline-list, figure.timeline-list) .timeline-pill,
-  :is(section.timeline-list, figure.timeline-list) .timeline-item .chart-status { justify-self: start; }
-  /* Portrait pill→title gap tightens to var(--sp-2xs) (was the pill's
-   * margin-bottom: var(--sp-2xs)); it rides the title's padding-top, overriding
-   * the landscape var(--sp-sm). The pill is filled, so the spacing can't sit on
-   * the pill itself. */
-  :is(section.timeline-list, figure.timeline-list) .timeline-title { padding-top: var(--sp-2xs); }
-  :is(section.timeline-list, figure.timeline-list) .timeline-title,
-  :is(section.timeline-list, figure.timeline-list) .timeline-body { max-width: none; }
+ * rail, the date/title/body fill the width beside it. Keyed on the deck's `data-family` stamp (the section), so it fires on any tall or strip deck. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
+section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-body,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list.chart-frame .chart-body {
+  align-items: stretch;
+  justify-content: center;
+  padding: var(--sp-lg) var(--sp-xl);
 }
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-spine {
+  grid-auto-flow: row;
+  grid-template-columns: 1fr;
+  grid-auto-columns: auto;
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  row-gap: var(--sp-md);
+  padding: var(--sp-xs) 0;
+  align-content: space-evenly;
+}
+/* The spine line runs vertically through the dots on the left rail. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine::before,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-spine::before {
+  top: 1.5cqi;
+  bottom: 1.5cqi;
+  left: 0.546875cqi;
+  right: auto;
+  width: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
+  height: auto;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--accent) 12%, transparent) 0%,
+    color-mix(in oklab, var(--accent) 55%, transparent) 8%,
+    color-mix(in oklab, var(--accent) 55%, transparent) 92%,
+    color-mix(in oklab, var(--accent) 12%, transparent) 100%
+  );
+  transform: translateX(-1px);
+}
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--sp-md);
+  align-items: start;
+  padding: 0;
+}
+/* Dot anchors the left rail; everything else fills the right column. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > *,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-item > * {
+  grid-column: 2;
+  text-align: left;
+  align-self: start;
+}
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-dot,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-dot {
+  grid-column: 1;
+  grid-row: 1;
+  /* Portrait: the dot rides its own left-rail grid cell, so it needs no
+   * dot→pill padding-bottom (override the base) — just a top nudge to align
+   * with the row (was margin: 0.234375cqi 0 0 0; padding shifts the ::before
+   * ring down by the same amount). */
+  padding: 0.234375cqi 0 0 0;
+}
+/* Chips hug their content; the title/body keep the default stretch so prose
+ * fills the column and wraps. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-dot,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-dot,
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-pill,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-pill,
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item .chart-status,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-item .chart-status { justify-self: start; }
+/* Portrait pill→title gap tightens to var(--sp-2xs) (was the pill's
+ * margin-bottom: var(--sp-2xs)); it rides the title's padding-top, overriding
+ * the landscape var(--sp-sm). The pill is filled, so the spacing can't sit on
+ * the pill itself. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-title { padding-top: var(--sp-2xs); }
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-title,
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-body,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-body { max-width: none; }
+

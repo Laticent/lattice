@@ -2,8 +2,7 @@
 /**
  * calibrate-density — find the WORDS-PER-ELEMENT a layout overflows at, so a
  * `density` manifest block's `hard` ceiling is set from rendered evidence, not a
- * guess (phase 2 of the content-capacity contract; the density counterpart of
- * the capacity doc's deferred calibrate-capacity).
+ * guess (phase 2 of the content-capacity contract).
  *
  * It builds a graded calibration deck — one slide per word-density step, each
  * carrying the component's `capacity.sweet` elements filled to N body words —
@@ -14,113 +13,56 @@
  * sampling supplies the ceiling, expertise supplies the aim. See
  * engineering/decisions/2026-06-30-prose-density-budget.md §4.
  *
+ * The rig (element builders, deck synthesis, probe parsing) is shared with
+ * `calibrate-capacity`, which runs the same experiment with the other variable
+ * moving — see tools/lib/calibrate-core.js.
+ *
  * Usage:
  *   node tools/calibrate-density.js <component> [--count N] [--size landscape|portrait]
- *                                   [--steps 6,9,12,15,18,21,24,27,30] [--keep]
+ *                                   [--steps 6,9,12,15,18,21,24,27,30]
  *
  * Exit 0 always (advisory); prints a table + the recommended `hard`.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const { spawnSync } = require('node:child_process');
-
-const ROOT = path.join(__dirname, '..');
-const EMULATOR = path.join(ROOT, 'lattice-emulator.js');
+const { SIZE_ALIAS, BUILDERS, findManifest, gradedDeck, renderProbe } = require('./lib/calibrate-core.js');
 
 function die(msg) { console.error(msg); process.exit(1); }
 
 // ── args ──
 const argv = process.argv.slice(2);
 const comp = argv.find((a) => !a.startsWith('--'));
-if (!comp) die('Usage: node tools/calibrate-density.js <component> [--count N] [--size landscape|portrait] [--steps a,b,c] [--keep]');
+if (!comp) die('Usage: node tools/calibrate-density.js <component> [--count N] [--size landscape|portrait] [--steps a,b,c]');
 const flag = (name, def) => {
   const i = argv.indexOf(`--${name}`);
   return i >= 0 && argv[i + 1] ? argv[i + 1] : def;
 };
-const KEEP = argv.includes('--keep');
-// Accept friendly orientation words and map to engine @size tokens.
-const SIZE_ALIAS = { landscape: '16:9', portrait: '9:16', wide: '16:9', tall: '9:16' };
 const SIZE = (() => { const s = flag('size', '16:9'); return SIZE_ALIAS[s] || s; })();
 const STEPS = flag('steps', '6,9,12,15,18,21,24,27,30').split(',').map((s) => parseInt(s, 10)).filter(Boolean);
 
-// ── find the manifest (capacity.sweet → element count; default axis) ──
-function findManifest(name) {
-  const buckets = fs.readdirSync(path.join(ROOT, 'lib', 'components'));
-  for (const b of buckets) {
-    const p = path.join(ROOT, 'lib', 'components', b, name, `${name}.manifest.json`);
-    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
-  }
-  return null;
-}
-const manifest = findManifest(comp) || die(`No manifest for '${comp}' under lib/components/*/${comp}/`);
+const manifest = findManifest(comp);
+if (!manifest) die(`No manifest for '${comp}' under lib/components/*/${comp}/`);
 const COUNT = parseInt(flag('count', String(manifest.capacity?.sweet || 3)), 10);
 
-// ── per-element builders: author the component's real shape, body filled to W
-//    PROSE words (matching lib/authoring/prose-budgets.js elementWordCounts). ──
-const FILLER = ('clear concise board ready signal scored weekly across teams before review normalized into one schema then ranked by confidence recency and strategic weight adjusted each quarter against measured outcomes')
-  .split(' ');
-const words = (n) => Array.from({ length: Math.max(1, n) }, (_, i) => FILLER[i % FILLER.length]).join(' ');
-const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-
-const BUILDERS = {
-  'cards-grid': (w) => `- ${cap(words(2))}\n  - ${cap(words(w - 2))}.`,
-  'cards-stack': (w) => `- ${cap(words(2))}\n  - ${cap(words(w - 2))}.`,
-  'verdict-grid': (w) => `- **${cap(words(2))}.**\n  - ${cap(words(w - 2))}.`,
-  inventory: (w) => `- **${cap(words(2))}.** ${cap(words(w - 2))}.`,
-  actors: (w) => `- ${cap(words(w - 2))} \`Head of Product\`\n  - ${cap(words(2))}.`,
-  'list-steps': (w) => `1. ${cap(words(2))}\n   - ${cap(words(w - 2))}.`,
-  'q-and-a': (w) => `- ${cap(words(2))}?\n  - ${cap(words(w - 2))}.`,
-  agenda: (w) => `1. ${cap(words(w))} \`p.3\``,
-  checklist: (w) => `- [x] ${cap(words(w))}`,
-  stats: (w) => `1. 73%\n   - ${cap(words(w))}`,
-  kpi: (w) => `1. 42%\n   - ${cap(words(w))}`,
-  // Backfill of the remaining text-bearing layouts (2026-06-30 phase-2 §10).
-  // NOTE: a few layouts (split-panel, timeline-list) carry a lead/subtitle
-  // paragraph in their real sample that these builders omit — so a re-calibration
-  // reads a slightly MORE generous ceiling than reality. Harmless for the shipped
-  // numbers (hard is set editorially well below the measured ceiling, §2/§4), but
-  // add the lead line here if you ever tighten the clamp toward the geometry.
-  list: (w) => `- ${cap(words(w))}.`,
-  glossary: (w) => `- ${cap(words(1))}\n  - ${cap(words(w - 1))}.`,
-  'list-criteria': (w) => `1. ${cap(words(2))}\n   - ${cap(words(w - 2))}.`,
-  'list-tabular': (w) => `1. ${cap(words(2))}\n   - ${cap(words(w - 2))}.`,
-  'timeline-list': (w) => `1. \`2025 Q1\` ${cap(words(2))}\n   - ${cap(words(w - 2))}.`,
-  'compare-prose': (w) => `- ${cap(words(2))}\n  - ${cap(words(w - 2))}.`,
-  decision: (w) => `- ${cap(words(2))}\n  - ${cap(words(w - 2))}.`,
-  'matrix-2x2': (w) => `- **${cap(words(2))}.**\n  - ${cap(words(w - 2))}`,
-  'split-panel': (w) => `- ${cap(words(2))}\n  - ${cap(words(w - 2))}.`,
-  'split-compare': (w) => `- ${cap(words(2))}\n  - ${cap(words(w - 2))}.`,
-};
 const build = BUILDERS[comp];
-if (!build) die(`No element builder for '${comp}'. Add one to tools/calibrate-density.js BUILDERS (pilot covers: ${Object.keys(BUILDERS).join(', ')}).`);
+if (!build) die(`No element builder for '${comp}'. Add one to tools/lib/calibrate-core.js BUILDERS (covers: ${Object.keys(BUILDERS).sort().join(', ')}).`);
 
-// ── synthesize the graded deck (one slide per step) ──
-const slides = STEPS.map((w) => {
-  const elems = Array.from({ length: COUNT }, () => build(w)).join('\n');
-  return `<!-- _class: ${comp} -->\n\n## Calibration step — ${w} words per element.\n\n${elems}`;
+// ── synthesize the graded deck (one slide per step) + read the probe ──
+const deck = gradedDeck({
+  comp,
+  size: SIZE,
+  steps: STEPS,
+  slideFor: (w) => ({
+    label: `${w} words per element`,
+    body: Array.from({ length: COUNT }, () => build(w)).join('\n'),
+  }),
 });
-// No `autosplit: on` — the deck must NOT re-paginate, or page N would no longer
-// map 1:1 to step N. Each content slide = one step; front matter emits no
-// section[data-lattice-slide], so the emulator's `slide: i+1` aligns to STEPS[i].
-const deck = `---\nsize: ${SIZE}\n---\n\n${slides.join('\n\n---\n\n')}\n`;
 
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'calibrate-density-'));
-const src = path.join(tmpDir, `${comp}.md`);
-const out = path.join(tmpDir, `${comp}.pdf`);
-fs.writeFileSync(src, deck);
-
-// ── render + read the overflow probe (stderr "⚠ OVERFLOW … pages X, Y, Z") ──
-const r = spawnSync('node', [EMULATOR, src, out, '-q'], { cwd: ROOT, encoding: 'utf8', timeout: 180000 });
-const log = `${r.stdout || ''}\n${r.stderr || ''}`;
-if (r.status !== 0 && !/OVERFLOW/.test(log)) {
-  console.error(log.trim().split('\n').slice(-8).join('\n'));
-  die(`Render failed for '${comp}' (exit ${r.status}).`);
+let overflowed;
+try {
+  ({ overflowed } = renderProbe(deck, comp));
+} catch (err) {
+  die(err.message);
 }
-const m = log.match(/OVERFLOW[\s\S]*?pages?\s+([\d,\s]+)/i);
-const overflowPages = m ? m[1].split(',').map((s) => parseInt(s.trim(), 10)).filter(Boolean) : [];
-const overflowed = new Set(overflowPages);
 
 // ── report ──
 console.log(`\ncalibrate-density · ${comp} · ${COUNT} elements · @size ${SIZE}\n`);
@@ -146,5 +88,3 @@ if (firstOver == null) {
   console.log(`    Set density.hard at the EDITORIAL maximum (where it reads as a wall) — well under ${ceiling}, not at it.`);
   console.log('    Set density.soft at the brevity target (a label + short clause), below hard.');
 }
-if (KEEP) console.log(`\n  deck kept: ${src}`);
-else fs.rmSync(tmpDir, { recursive: true, force: true });

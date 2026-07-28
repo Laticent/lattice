@@ -230,15 +230,22 @@ section.citation-card :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    VARIANTS — .split (quote | gloss), .triptych (three panels), .margin (annotated
    margins) — collapsing each to one stacked column on a portrait/square frame.
 
-   These variants put `display:grid` on the SECTION element itself, so the
-   box-local `@container lattice` recipe cannot reach them — a container query
-   styles a descendant against its ANCESTOR container, never the container
-   element itself (§11). This is the same section-element boundary split-panel
-   rides, so we use the same gate-sanctioned signal: the deck-level
-   `[data-orientation]` stamp (lib/engine/slides.js), which CAN restyle the
-   section. Landscape is untouched. */
-section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]),
-section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]),
+   This rule was written against the deck-level `[data-orientation]` stamp rather
+   than a container query, and it stays there: portrait + square is exactly the
+   square ∪ tall ∪ strip set, so the two spellings select the same slides and
+   #1218 gives no reason to churn a verified layout. Landscape is untouched. */
+/* All THREE parts must reach `> .cell-stage`. They did not: only `.margin`
+ * carried the child combinator, so `.split` and `.triptych` applied this collapse
+ * to the SECTION — where it does nothing, since the section is already a flex
+ * column — and their stage stayed `flex-direction: row`. The variants therefore
+ * never reflowed at all, and at `story` the un-collapsed row clipped by 293px
+ * (content 1797 against a 1504 stage — both on the FIXED tree; on the pre-fix tree
+ * the stage measured 1421.77, since the family stamp also widens the masthead, so
+ * the pair is not a before/after. The clip is real either way.
+ * examples/adaptive-sweep.md pages 14-15). A selector
+ * list distributes nothing: each comma-part needs its own combinator. */
+section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage,
+section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage,
 section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage { display:flex; flex-direction:column;
   grid-template-columns: 1fr;
   grid-template-rows: none;

@@ -323,32 +323,47 @@ section.statute-stack.lane td:last-child {
   white-space:nowrap;
 }
 
-/* ── Box-local family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
+/* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
    A1). Wide keeps the three-rail grid; square/tall/strip collapse the DEFAULT
    layout to a single full-width column of jurisdiction cards, content-height rows
    distributed to fill. Scoped off the named variants (hierarchy/bands/preemption/
    lane), which already author their own single-column / table portrait shape.
    Doubled class reaches (0,2,N) to beat the base grid on specificity — the role
-   the old [data-orientation] stamp played; keyed on the nearest `lattice`
-   container's aspect so it fires on a portrait deck AND a narrow nested cell. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul,
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol {
-    /* portrait → single column of content-height cards, evenly distributed (flex mirror
-       of `grid-auto-rows:auto; align-content:space-evenly`). */
-    flex-direction: column;
-    justify-content: space-evenly;
-  }
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul > li,
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol > li {
-    flex: 0 0 auto;
-  }
-  /* Header-pill authoring already carries the citation + status on the label row, so the
-     portrait card needs no pill-lift — just breathing room between that row and the gloss. */
-  section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
-    padding-top:var(--sp-md);
-  }
+   the old [data-orientation] stamp played; keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. */
+/* SQUARE COLLAPSES TOO — and this is the second time that call has been made on
+ * a number that measured the wrong thing, so here is the whole ledger.
+ *
+ * The original comment said holding the rails at square "drops the ceiling 2 → 1".
+ * A pass in #1220 re-ran `calibrate-capacity` and got the reverse — rails 3,
+ * stacked 2 — and removed square on that basis. A red-team pass then rendered the
+ * component's OWN gallery and found the removal took it from 1 clipped slide at
+ * square to 5, including the default three-jurisdiction slide (`GDPR Art. 8` cut
+ * to `GDP`, 94px of horizontal overflow) and three composition variants.
+ *
+ * Both calibrations are real; both measured a slide nobody writes. The tool holds
+ * words-per-element at this component's declared `density.soft` of 16, while the
+ * real cards carry 6–8 — and at THAT size the ordering inverts: stacked holds
+ * three cleanly, rails do not. A synthetic harness disagreeing with the real
+ * surface loses (HARD RULE #23), so square stays stacked and the number stays
+ * out of the argument until `density` is honest (see the capacity section of
+ * 2026-07-27-family-stamp-replaces-container-queries.md). */
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  /* portrait → single column of content-height cards, evenly distributed (flex mirror
+     of `grid-auto-rows:auto; align-content:space-evenly`). */
+  flex-direction: column;
+  justify-content: space-evenly;
 }
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
+  flex: 0 0 auto;
+}
+/* Header-pill authoring already carries the citation + status on the label row, so the
+   portrait card needs no pill-lift — just breathing room between that row and the gloss. */
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+  padding-top:var(--sp-md);
+}
+
 
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical

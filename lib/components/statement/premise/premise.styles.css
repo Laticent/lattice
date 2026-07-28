@@ -16,7 +16,9 @@
  *
  * The ledger is an ORDERED list — the same shape every other numbered layout
  * in Lattice uses (LEDGER_OL_LAYOUTS, lib/authoring/lint-core.js). The ordinal
- * is a CSS counter, never author-typed, so rows renumber on reorder. Each row's
+ * is a CSS counter (the built-in `list-item`), so rows renumber on reorder — but
+ * an explicit `<ol start="N">` DOES flow through as a presentational hint, which
+ * is exactly what lets a split run continue 05/06 instead of restarting. Each row's
  * two nested items are, in order, the description and the framing question.
  *
  * The section-level restructure (grouping <h2> + lede into one .premise-claim
@@ -82,10 +84,16 @@ section.premise > ol {
   list-style: none;
   padding: 0;
   margin: 0;
-  counter-reset: premise-row;
 }
 section.premise > ol > li {
-  counter-increment: premise-row;
+  /* The BUILT-IN `list-item` counter, not a private one. `<ol start="4">` maps to
+   * `counter-reset: list-item 3` as a presentational hint, so the ordinals continue
+   * across a split run; a private `premise-row` counter is reset by every fresh
+   * `<ol>` and restarted the ladder at 01 on page two — which on a Bloom ladder
+   * reads as "Analyze is the first verb". The increment has to be explicit because
+   * `display: grid` below removes the element's list-item-ness, and with it the
+   * UA's automatic increment. */
+  counter-increment: list-item;
   display: grid;
   grid-template-columns: 3.28125cqi 10.9375cqi 1fr;
   align-items: center;
@@ -99,12 +107,13 @@ section.premise > ol > li {
   color: var(--text-heading);
   white-space: nowrap;
 }
-/* The ordinal is generated, not authored — rows renumber themselves on reorder,
- * which a hand-typed `01` cannot. --text-secondary, not --text-muted: this is
+/* The ordinal is generated, not hand-typed per row — rows renumber themselves on
+ * reorder, which a typed `01` cannot. The list's own `start` is honoured though
+ * (see the counter note above): that is the mechanism, not a leak. --text-secondary, not --text-muted: this is
  * row CONTENT, not the "muted chrome" the palette contract exempts from AA
  * (--text-muted is 3.75:1 on --bg-alt; --text-secondary is 6.27:1). */
 section.premise > ol > li::before {
-  content: counter(premise-row, decimal-leading-zero);
+  content: counter(list-item, decimal-leading-zero);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
   color: var(--text-secondary);
@@ -160,3 +169,79 @@ section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); }
 section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); }
 section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); }
 section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }
+
+/* ── Family reflow (#1220). `premise` declared `adapt.mode: "reflow"` and shipped
+ * NONE — its landscape row (a 34% claim rail beside the ledger) was the only
+ * composition it had, so a narrow box painted it anyway. At 980px the rail is
+ * ~333px against `--fs-message`, which wraps the claim one word per line, and
+ * each row's fixed `10.9375cqi` term track (107px, `nowrap` + ellipsis) cut
+ * "Remember" to "R…". Reported from a phone; reproduced identically on main.
+ *
+ * SQUARE STACKS TOO, unlike stats/decision/cards-grid. Those keep their wide
+ * composition at square because it is a 2-up of PEER items and a square box has
+ * the width for two. This is not that: it is a narrow prose RAIL beside a table,
+ * and a 330px rail is unreadable whatever the height. Square's abundant vertical
+ * room (801px of stage vs landscape's 445) is exactly what makes stacking cheap
+ * here. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) {
+  flex-direction: column;
+  align-items: stretch;
+  /* SAFE center, not bare `center`. A centered flex column that overflows spills
+   * off BOTH ends, so an over-long ledger pushed the slide's own `<h2>` 145px
+   * above the top of the frame — the claim the layout exists to state, gone,
+   * while the rows it frames stayed visible. `safe` falls back to `start` exactly
+   * when overflow would occur, so the spill goes one way, off the bottom, where
+   * the overflow probe and the split recipe can both see it. (Caught by the
+   * inversion pass: the first cut of this reflow turned "term truncated to R…"
+   * into "the claim is missing".) */
+  justify-content: safe center;
+  gap: var(--sp-lg);
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .premise-claim {
+  width: auto;
+}
+/* The row becomes a hanging-ordinal card: the generated `01` keeps its gutter,
+ * and the term stacks OVER its description instead of competing for a fixed
+ * track. `white-space: normal` is the load-bearing one — the landscape row is
+ * `nowrap` (correct when every track is wide enough), which is what forced the
+ * ellipsis rather than a wrap. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li {
+  /* The row STAYS A ROW — ordinal, term, rest — it just stops pinning the term to
+   * a fixed `10.9375cqi` track and stops forbidding a wrap. That is the whole
+   * truncation bug: a 107px track with `nowrap` + ellipsis cut "Remember" to "R…".
+   * `auto` sizes the track to the longest term instead.
+   *
+   * An earlier cut of this reflow stacked term OVER description into a card. It
+   * fixed the truncation and cost more than it bought: three lines where there was
+   * one, so the ledger grew ~3x and FOUR MORE gallery slides clipped at portrait
+   * than before the reflow existed (6 vs 2) — trading a damaged word for a missing
+   * row. Shedding the framing question was measured too and changed nothing. */
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  white-space: normal;
+  /* A stacked card is TALLER than the single-line row it replaces (three lines
+   * where there was one), so it has to give the vertical padding back or six rows
+   * cannot fit a frame that held them side by side. `--sp-xs` keeps the card
+   * reading as a card; `--sp-sm` was inherited from the one-line landscape row,
+   * where it was the whole row height. */
+  padding: var(--sp-xs) var(--sp-md);
+  gap: var(--sp-2xs) var(--sp-sm);
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > strong {
+  overflow: visible;
+  text-overflow: clip;
+}
+/* The description + framing question share track 3. Stack them rather than
+ * competing for one line at this width, and let the question sit under the clause
+ * it belongs to instead of right-aligning into its lap. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul {
+  grid-template-columns: 1fr;
+  gap: var(--sp-3xs);
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(1) {
+  overflow: visible;
+  text-overflow: clip;
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(2) {
+  text-align: left;
+}

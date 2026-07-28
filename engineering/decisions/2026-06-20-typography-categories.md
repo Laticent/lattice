@@ -139,6 +139,16 @@ font-sizes; legitimately decorative or shape-fitted ones carry a `cqi-ok:` marke
 
 ## Phase 2 — true nested box-local typography
 
+> **`CATEGORY_QUERY` was deleted on 2026-07-27** (#1218). The `@container` form
+> this section reserves measures the container's CONTENT box, which the section's
+> asymmetric padding makes proportionally wider than the deck — the defect that
+> left the whole `square` structural tier inert. It was never emitted, so nothing
+> broke, but keeping a reserved twin of a retired mechanism would have re-seeded
+> it. **The Phase 2 GOAL below still stands**; its trigger would now be the
+> `data-family` stamp (a nested cell stamping its own), not a container query.
+> The `--_box-1cqi` problem this section identifies is unchanged and is still the
+> real blocker. See `2026-07-27-family-stamp-replaces-container-queries.md`.
+
 `CATEGORY_QUERY` in the manifest is the `@container` form of the same boundaries
 (canonical `lib/adaptive/families.js` thresholds), reserved for when a component
 shadows `container-name: lattice` on a cell. Doing it correctly needs a per-box

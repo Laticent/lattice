@@ -12,12 +12,17 @@
 
 section {
   container-type:size;
-  /* Name the slide query-container `lattice` so components reflow box-locally via
-   * `@container lattice (aspect-ratio …)`. A split/grid Cell can name ITSELF
-   * `lattice` to shadow this, so a nested component resolves against its cell.
-   * Geometry-independent, so it lives here (every render path loads dist) rather
-   * than the per-geometry engine emitter. See engineering/decisions/
-   * 2026-06-18-component-adaptive-sizing.md. */
+  /* The slide is a size container so every `cq*` unit in the token system resolves
+   * against it — that is what `container-type` is here for, and it is load-bearing.
+   *
+   * The `lattice` NAME is now queried by NO engine rule. Structural family reflow
+   * used to key off `@container lattice (aspect-ratio …)`; #1218 replaced that with
+   * the `data-family` stamp the engine derives from the deck geometry, because a
+   * container query measures the container's CONTENT box, which drifts off the deck
+   * aspect (see the header of lib/adaptive/families.js). The name is kept as a
+   * stable handle for theme and deck CSS that wants to size-query the slide box —
+   * it costs nothing and removing it would break any such rule silently. Do NOT
+   * reintroduce an aspect-ratio query on it. */
   container-name:lattice;
   box-sizing:border-box; overflow:hidden; position:relative;
   display:flex; flex-direction:column;

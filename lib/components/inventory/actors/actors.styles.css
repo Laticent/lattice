@@ -112,28 +112,26 @@ section.actors > .cell-stage > ol > li > ol > li {
   line-height:var(--lh-base);
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    Each row pairs a responsibility (left) with the actor chip (right) on one line.
    In a tall box a long responsibility and the right-anchored chip collide, so drop
    the chip onto its own line beneath the responsibility and let the body follow.
-   Keyed on the nearest `lattice` container's aspect (portrait deck OR narrow nested
-   cell). The doubled class `.actors.actors` clears the base `> :is(ul,ol) > li`
+   Keyed on the deck's `data-family` stamp (any tall or strip deck). The doubled class `.actors.actors` clears the base `> :is(ul,ol) > li`
    grid placement. */
-@container lattice (aspect-ratio <= 0.9) {
-  /* Collapse to a single column: the responsibility fills row 1 (flex-basis:100%), so the
-     chip and body each wrap onto their own line below it. */
-  /* the strong's padding-bottom (not a chip margin-top) supplies the sp-2xs gap above
-     the wrapped chip — measurable, and strong carries no background so the inset is
-     invisible. */
-  section.actors.actors > .cell-stage > :is(ul, ol) > li > strong { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
-  /* Drop the chip onto its own line, hanging at the LEFT under the responsibility. The
-     universal pill rule (base.modifiers) auto-starts the chip's inline edge to right-anchor
-     it; cancel that (zero reset) so the chip sits left on its own wrapped line. */
-  section.actors.actors > .cell-stage > ul > li > code,
-  section.actors.actors > .cell-stage > ol > li > code {
-    margin-left: 0;
-  }
+/* Collapse to a single column: the responsibility fills row 1 (flex-basis:100%), so the
+   chip and body each wrap onto their own line below it. */
+/* the strong's padding-bottom (not a chip margin-top) supplies the sp-2xs gap above
+   the wrapped chip — measurable, and strong carries no background so the inset is
+   invisible. */
+section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
+/* Drop the chip onto its own line, hanging at the LEFT under the responsibility. The
+   universal pill rule (base.modifiers) auto-starts the chip's inline edge to right-anchor
+   it; cancel that (zero reset) so the chip sits left on its own wrapped line. */
+section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li > code,
+section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > code {
+  margin-left: 0;
 }
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

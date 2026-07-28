@@ -883,6 +883,164 @@ in patch versions.
   `draw`/`trace` is unchanged. (`docs/src/lib/anima/{vocabulary,types,schema,compile}.ts`,
   `backends/vivus.ts`.)
 ### Fixed
+- **`stats` at square is now a 2-up grid, and four stats stopped clipping.** Square is the
+  `balanced` family — `lib/adaptive/families.js` defines its intent as "2×2 grids, 2-up" — but
+  `stats` stacked into a single column there, wasting the width a square box has. Four stats
+  needed 825px of a 750px stage: `examples/social-square.md` lost the top of its first number and
+  the whole label of its fourth. A 2×2 wrap uses both axes: as shipped, `node
+  tools/calibrate-capacity.js stats --family square --words 6` measures a ceiling of **6**. The
+  basis is part of that number — at `stats`'s *declared* `density.soft` of 8 words the same tool
+  measures 4 and exits 1, which is a live example of why the capacity numbers are not yet grounded
+  (the declared density is not honest: `stats`'s own skeleton writes 2-word labels). Landscape,
+  portrait and mobile are unchanged.
+- **Five layouts LOSE their square tier — three of them were clipping.** The mirror image of the
+  square fixes above, and the larger half: ~25 blocks were converted verbatim from `<= 1.05`, which
+  had never matched a square deck, so "the square layout" switching on for the first time was a
+  *portrait* layout in a square box nobody had ever seen render. `cycle` dropped its last stage card
+  and return arc; `authority-chain` sliced body text mid-word out of its last card;
+  `regulatory-update` pushed its third change and its "Effective" pill off the frame;
+  `statute-stack` lost an entire jurisdiction card; `kpi` flattened its hero into a uniform ledger
+  where `94%` reads barely larger than its supports. All five now keep the wide composition at
+  square. `cycle` is the clearest: its own manifest declares `adapt.families: [wide, tall, strip]`
+  — it has no square tier — while its CSS carried four square rules. `statute-stack` is the
+  sharpest: a comment claimed, in the word "measured", that holding the rails at square drops the
+  ceiling 2 → 1; re-run against the real overflow probe it is **3 versus 2**, the reverse, and 3 is
+  this component's own three-jurisdiction skeleton.
+- **Six components declared `adapt.mode: "reflow"` and shipped none — four now have one.** Reported
+  from a phone: `premise` wrapping its lede one word per line, each ladder row's verb cut to "R…".
+  It reproduced byte-identically on `main`, so it was never a regression — it was a component with
+  a single landscape composition (a 34% claim rail, ≈333px on a phone, beside a ledger whose term
+  track is a fixed `10.9375cqi` with `nowrap` + ellipsis) painting it in every box.
+  `checkAdaptDeclarations` was **one-directional**: it asserted "family CSS ⇒ manifest says reflow"
+  and never the converse, so a promise with nothing behind it stayed green. The manifest is the
+  contract the docs and authoring agents read, so it was actively telling consumers these adapt.
+  `premise`, `compare-code`, `inventory` and `video` got real reflows; `diagram` and
+  `compare-table` were correct all along — see the gate entry below.
+- **The adapt gate runs both ways, and knows all FOUR reflow mechanisms.** A CSS-only check is a
+  false-positive machine: `diagram` carries no layout CSS and reflows through the mermaid reorient
+  (`reorient.js` rewrites a flowchart's direction LR→TB on a tall box), and `compare-table` reflows
+  through its `cover-cards` carousel reshape — box-conditional by construction, since auto-split is
+  skipped outright on a landscape `@size`. Checking only for `[data-family=…]` would have driven
+  both TRUE declarations into false ones. `manifest.schema.json` now names all four, so the schema
+  and the gate agree.
+- **`premise` gained a measured capacity block and a read-across-safe split.** It shipped with no
+  `capacity` at all, so an over-long ledger could neither warn nor auto-split — it just clipped.
+  Re-derivable, not an ad-hoc render: a `premise` element builder was added to
+  `tools/lib/calibrate-core.js`, so `node tools/calibrate-capacity.js premise --family <f>`
+  reproduces the numbers. At the tool's basis (this component's `density.soft`, 14 words a row)
+  landscape and mobile hold 9+, **square 7**, **portrait 4** — portrait binds because its type
+  scale is the largest of the four. §0c places `premise` as READ-ACROSS, so a bare item axis would paginate between rows
+  and destroy the ladder; it takes `cover-paginate` (`perPage: 4`), leading every run with the claim
+  as an accent cover. Its ordinals also restarted at `01` on page two once it could split — the
+  splitter was already emitting `<ol start="4">`, but a private `counter-reset` ignored it. Now on
+  the built-in `list-item` counter; all 8 landscape pages stay pixel-identical.
+- **Three defects in that work, caught by the adversarial pass and fixed here.** (1) `premise`'s new
+  reflow set `flex-direction: column` while the section kept `justify-content: center`, and a
+  centered flex column that overflows spills off **both** ends — the slide's own `<h2>` measured
+  **−145px**, entirely above the frame, while the rows it frames stayed visible. A missing claim is
+  worse than the truncated term it replaced. Now `justify-content: safe center`, which falls back to
+  `start` exactly when overflow would occur, so the spill goes one way — off the bottom, where the
+  probe and the split can see it. (2) `compare-code`'s stacking only halved its horizontal clip: a
+  bare `1fr` track floors at min-content, and a `<pre>` reports its longest unwrapped line as
+  min-content, so the column computed **1173px inside a 1080px section**. `minmax(0, 1fr)` plus
+  `pre-wrap` closes the HORIZONTAL half (972px track, zero elements overflowing right) and
+  clears its mobile clip entirely. **It still clips vertically at portrait** — two code blocks that
+  each want real height do not both fit one portrait frame, which is what the `cover-code` split
+  recipe exists for; the oracle records that clip rather than pretending it is gone. (3) The overflow oracle
+  claimed a 34-component roster while rendering **31** — `_chart-family` is a shared stylesheet with
+  no manifest, and `premise` and `video` have no baseline gallery slide, so the two components this
+  change altered most were the two it never measured. That is exactly why (1) passed every gate. The
+  sweep now falls back to a component's own gallery deck and **hard-fails** when a rostered
+  component has no slide; roster 33, all rendered. **Known and cosmetic:** `--row-mark` cycles on
+  `nth-child` within each `<ol>`, so a split run restarts the hue at page two even though the
+  ordinals now continue.
+- **New: an overflow oracle over the whole family-reflowing library** (`check:family-tiers`,
+  `test/oracle/family-overflow.json`). It renders one gallery slide per family-reflowing component
+  at all four family sizes and freezes which components clip; a new clip fails, and a clip that
+  disappears fails too so the record can't rot. The three regressions above shipped with
+  `check:family-tiers`, `build:check`, `npm test` and `lint:deck` all green — the tier probe proves
+  the mechanism fires but cannot see a clip, and only ever looked at three of the thirty components.
+  Runs in the nightly render tier (four full emulator sweeps is too slow for per-PR CI).
+- **New: every stylesheet must PARSE** (`checkCssSyntax` in `tools/check-ownership.js`, budget 0).
+  esbuild's CSS parser warns about a construct it can't read, drops it, and emits the rest — and
+  `tools/minify-css.js` destructured `{ code }`, throwing the warnings away. So `npm run build` was
+  green over a bundle carrying literal garbage: a mangled comment in `radar.styles.css` had
+  swallowed a rule and left a stray backtick, which made Marp's stricter postcss reject the ENTIRE
+  stylesheet — `Cannot register theme CSS: lattice.css`, i.e. every Export-to-Marp deck rendering
+  with no palette at all. Found by driving the real surface (marp-cli 4.3.1 on an exported bundle),
+  not by review. Two files fixed; the gate keeps the signal from being discarded again.
+- **`lint:deck` read `size:` from the whole deck body, so a code fence retuned every budget.** A
+  ```` ```yaml / size: mobile ```` sample on any slide reclassified the deck's adaptive family — and
+  since that family now drives capacity budgets rather than one autosplit warning, every threshold
+  moved with it. Now scoped to the leading `---` block, as `lattice-emulator.js` already scoped its
+  own extraction.
+- **The component gate's selector splitter could be blinded into silence.** `findUnscopedSelectors`
+  tracked `(`/`[` depth but treated an escaped `\"` inside a CSS string as a closing quote, and let
+  an unbalanced `)` drive depth negative. Either way every comma-part merged into one, the merged
+  part contained the component class, and a genuinely leaking selector went unreported.
+  `section.foo[title="a\", b"], li { … }` is valid CSS whose `li` half leaks onto every slide.
+  Fixed and mutation-tested in both directions; malformed input now degrades to over-reporting,
+  never to silence.
+- **`citation-card`'s `split` and `triptych` variants never reflowed at all.** Their portrait/square
+  collapse listed three comma-parts, but only the third carried `> .cell-stage` — so the first two
+  applied it to the SECTION, where it does nothing, and the stage stayed a row. At `story` that
+  clipped by 293px on two slides of `examples/adaptive-sweep.md` whose own titles read "collapsed
+  to bands" and "collapsed to a stream". A CSS selector list distributes nothing: each comma-part
+  needs its own combinator.
+- **Every `@container lattice (aspect-ratio …)` rule was INERT on a square deck — 34 blocks in 30 files.**
+  The adaptive family model was classified twice against two different boxes: `familyFor()` on the
+  DECK geometry in JS, and a container query on the container's CONTENT box in CSS. `section` is
+  `container-type: size` with asymmetric padding (more vertical than horizontal), so its content box
+  runs proportionally wider than the deck — a 1080×1080 deck classified `square` in JS while the CSS
+  saw **1.051**, missing the 1.05 boundary by a thousandth, and matched `wide`. Both halves were
+  internally consistent, so nothing rendered visibly wrong and no test could see it: the square tier
+  simply never ran. Only `square` was affected — its band is 0.15 wide against a +0.051 drift, while
+  `tall`'s 0.4-wide band absorbs its +0.021, which is why portrait always worked.
+  Fixed by removing the second measurement rather than calibrating around it. The engine now stamps
+  `data-family` on each `section` from the deck geometry (the same convention as `data-orientation`,
+  and what the runtime already did for Frames), and component CSS selects that stamp:
+  `section.foo:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > …`.
+  `:where()` contributes zero specificity, so all 34 blocks converted without changing a single
+  cascade winner, and `wide` stays unstamped so landscape output is byte-identical. **Verified by
+  render** (`tools/check-family-tiers.js`): at `size: square` `stats` now wraps 2-up where it was
+  inert, while `decision` and `matrix-2x2` deliberately KEEP their side-by-side set there — square
+  is the balanced family, and a decision read side by side is the point of the layout. See the
+  square entry.
+  The container form's advertised box-local reach — a nested Cell naming itself `lattice` so a
+  component resolved against its cell — was never implemented (`container-name: lattice` appeared
+  exactly once in the library, on `section`), so nothing real was given up.
+  **Breaking:** `familyQuery()` is replaced by `familySelector()` on `lib/adaptive/families.js`, and
+  the reserved `CATEGORY_QUERY` export is gone from `lib/typography/scale.js`. Those two shipped;
+  `CSS_BOUNDARIES`, `DECK_TO_CSS_BOUNDARY`, `--lat-family` and `check:families` were introduced AND
+  removed inside this same change, so they are not removals a consumer can observe. A CSS-authoring
+  component that wrote its own `@container … aspect-ratio` rule must switch to the stamp; a new unit
+  test fails the build if one reappears anywhere in `lib/`.
+- **Every deck is now linted against its OWN family's capacity budget.** `adapt.capacity.{wide,
+  square,tall,strip}` has existed since the adaptive model landed and **nothing read it** — the
+  linter took the flat `capacity` block and applied one number to every deck, so a mobile deck was
+  checked against a landscape budget. The deck's family is now derived by resolving `size:` through
+  the engine's own `parseSizes`, rather than matching size NAMES against a hand-kept list.
+  **Per-family may only TIGHTEN, never loosen.** The flat block is the budget that has actually
+  shipped; the per-family numbers were hand-declared and never oracle-validated, so honouring one
+  that RAISES a cap would enforce an unverified number in the permissive direction — the linter
+  would go quiet on slides that really clip. `cards-grid` is the worked case: flat `hard: 4`,
+  declared `tall.hard: 6`, and `tools/calibrate-capacity.js cards-grid --family tall` measures a
+  ceiling of **3**. Taking the min keeps the finer model wherever it is stricter (the whole point
+  for `tall`/`strip`) and can never silence a warning that fires today.
+- **Portrait, story, square and mobile EXPORTS change beyond the component reflow.** The engine now
+  stamps `data-family` on every section, and the Frame's own generated rules
+  (`section.form[data-family="tall"|"strip"] { --masthead-cols: … }`) key off it. Those rules only
+  ever fired under the runtime, which the export path strips — so in PDF/HTML export they were
+  inert. The masthead bay goes from a 0px column to a full-width row on every tall/strip slide.
+  Swept across all 19 non-landscape example decks: **no overflow regressions**, three decks
+  improved. Landscape is untouched. **Known limitation:** the Export-to-Marp bundle's marp-cli
+  route renders a non-landscape deck in its LANDSCAPE composition. Family reflow now needs a
+  `data-family` stamp, and that route runs marp-core over plain markdown with no Lattice runtime to
+  stamp it — verified against marp-cli 4.3.1 on a real exported bundle (414 family selectors in the
+  bundled CSS, 0 stamps in the deck). The bundle's browser route is unaffected. Every fix is worse
+  than the limitation: a class carrier reintroduces the second mechanism this change deletes, and a
+  per-deck CSS rewrite breaks `lattice.min.css`'s byte-identical static-asset contract. Noted in
+  the bundle README.
 - **`progress` drew every bar ~11px too long, so the bars lied about their own values.**
   `.progress-fill` was `box-sizing: content-box` (the CSS default), so its 4px accent border, 1px
   hairline and 0.625cqi of readout padding all sat OUTSIDE `width: calc(var(--pct) * 1%)` — a fixed

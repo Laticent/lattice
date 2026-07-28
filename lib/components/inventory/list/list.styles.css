@@ -106,24 +106,22 @@ section.list.principles.lettered > .cell-stage > ol > li::before { content:count
 section.list.principles.roman > .cell-stage > ol > li::before { content:counter(list-principle-counter, upper-roman); }
 section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
-   Keyed on the nearest `lattice` container's aspect, so it fires on a portrait deck
-   (the section is tall) AND inside a narrow nested cell — replacing the deck-wide
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+   Keyed on the deck's `data-family` stamp, so it fires on any square, tall or strip
+   deck — replacing the deck-wide
    data-orientation stamp. Square and narrower de-balloon: keep each row CONTENT-height
    and distribute the set by rhythm, instead of flex:1 1 0 inflating one line of text
    into a ~640px band on a tall frame. Fill comes from space-evenly + the social type. */
 /* `.list.list` (class doubled) reaches (0,2,2) to match the original
    `[data-orientation]` reflow's specificity, so the takeaway/principles registers
    (whose variant rules are (0,2,N)) still de-balloon — the role the attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.list.list > .cell-stage > :is(ul,ol) { justify-content: space-evenly; }
-  section.list.list > .cell-stage > :is(ul,ol) > li { flex: 0 0 auto; }
-}
+section.list.list:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) { justify-content: space-evenly; }
+section.list.list:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) > li { flex: 0 0 auto; }
+
 /* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): open the
    rhythm so the de-ballooned rows breathe down the long frame instead of clustering. */
-@container lattice (aspect-ratio <= 0.5) {
-  section.list.list > .cell-stage > :is(ul,ol) { gap: var(--sp-md); }
-}
+section.list.list:where([data-family="strip"]) > .cell-stage > :is(ul,ol) { gap: var(--sp-md); }
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

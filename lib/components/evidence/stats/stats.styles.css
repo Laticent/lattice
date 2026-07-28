@@ -89,19 +89,43 @@ section.stats[data-orientation='portrait'] > .cell-stage > ol > li > ul > li,
 section.stats[data-orientation='square'] > .cell-stage > ol > li > ul > li {
   font-size: var(--fs-body); /* label legible under the big number (was --fs-meta) */
 }
-/* Box-local family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
- * strip (≤1.05) stack the numbers into a tall column and enlarge them, keyed on the
- * nearest `lattice` container so it fires on a portrait/square deck AND inside a
- * narrow nested cell. Doubled class matches the [data-orientation] reflow's
- * specificity. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.stats.stats > .cell-stage > ol { display:flex; flex-direction:column;
-    flex-direction: column; gap: var(--sp-sm); width: 100%; justify-content: space-evenly; flex: 1;
-  }
-  section.stats.stats > .cell-stage > ol > li > strong {
-    font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
-  }
-  section.stats.stats > .cell-stage > ol > li > ul > li {
-    font-size: var(--fs-body);
-  }
+/* Family reflow (2026-06-18-component-adaptive-sizing.md): square, tall and strip
+ * stack the numbers into a column and enlarge them. Keyed on the deck's
+ * `data-family` stamp; the doubled class matches the [data-orientation] reflow's
+ * specificity.
+ *
+ * TALL AND STRIP stack; SQUARE goes 2-UP, and both are measured rather than
+ * assumed. Two wrong answers were tried first: keeping the WIDE N-across row at
+ * square crowds every number (a square box is not wide — each label wraps taller
+ * than the stack it replaced, ceiling 3 either way), and stacking square into ONE
+ * column wastes the width it does have (ceiling 3, and four stats clipped
+ * examples/social-square.md by 75px — stage 750, content 825). A 2-up wrap uses
+ * both axes, which is exactly what `square` means in lib/adaptive/families.js:
+ * "balanced — 2x2 grids, 2-up". Measured with tools/calibrate-capacity.js. */
+section.stats.stats:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  display: flex; flex-direction: column; gap: var(--sp-sm); width: 100%;
+  justify-content: space-evenly; flex: 1;
 }
+/* Square — two tiles per row, rows sharing the height. `flex-basis` is the 2-up
+ * split minus its share of the gap (the same calc idiom cards-grid uses); wrap
+ * puts the overflow on the next row, and `align-content: space-evenly` spreads
+ * the rows down the frame instead of stretching each tile to fill it. */
+section.stats.stats:where([data-family="square"]) > .cell-stage > ol {
+  display: flex; flex-wrap: wrap; width: 100%; flex: 1;
+  /* `row` is stated, not inherited: the older `[data-orientation="square"]` rule
+   * above sets `column` at the same specificity, and without this the 50%
+   * flex-basis would divide the HEIGHT (main axis) instead of the width. */
+  flex-direction: row;
+  gap: var(--sp-sm); justify-content: center; align-content: space-evenly;
+}
+section.stats.stats:where([data-family="square"]) > .cell-stage > ol > li {
+  flex: 0 1 calc(50% - var(--sp-sm) / 2);
+  box-sizing: border-box;
+}
+section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > strong {
+  font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
+}
+section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > ul > li {
+  font-size: var(--fs-body);
+}
+

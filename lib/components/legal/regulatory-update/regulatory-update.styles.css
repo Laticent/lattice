@@ -254,33 +254,39 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3) { border-left-color:var(--pass); }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3)::before { background:var(--pass); }
 
-/* ── Box-local family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
+/* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
    A1). The DEFAULT changelog row is a five-column `auto auto auto 1fr auto` grid
-   (counter · name · cite · prose · pill) — five tracks crush in a square/tall/
-   strip box. Collapse each row to a hanging counter + a single stacked content
+   (counter · name · cite · prose · pill) — five tracks crush in a tall/strip
+   box. Collapse each row to a hanging counter + a single stacked content
    column (name → cite → prose → pill), keeping the leading-zero number in the
-   gutter. Scoped off the named variants — the excluded variants (timeline is the
+   gutter.
+
+   TALL AND STRIP ONLY — square keeps the five-track row. This block was authored
+   to include square, but square never matched (#1218), so the result was never
+   seen: stacking four fields per row roughly triples each row's height, and the
+   gallery's three changes then push the third card and its "Effective" pill off
+   the frame. Verified by render: gallery `regulatory-update` at `size: square`
+   overflows with square in this set, fits without it. Scoped off the named variants — the excluded variants (timeline is the
    horizontal spine; cards/diff-bands/priority) keep their landscape shape for
    now; portrait handling for the variants is out of Batch A1 scope (tracked
    follow-up). The nested list uses `display:contents`, so its <li> children are
    direct grid items — re-anchor each to column 2 and let them auto-flow down the
    rows. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li {
-    grid-template-columns: auto 1fr;
-    grid-template-rows: none;
-    grid-auto-flow: row;
-    row-gap: var(--sp-xs);
-    align-items: baseline;
-  }
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child),
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child) {
-    grid-column: 2;
-    grid-row: auto;
-    justify-self: start;
-  }
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
+  grid-template-columns: auto 1fr;
+  grid-template-rows: none;
+  grid-auto-flow: row;
+  row-gap: var(--sp-xs);
+  align-items: baseline;
 }
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child),
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child) {
+  grid-column: 2;
+  grid-row: auto;
+  justify-self: start;
+}
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

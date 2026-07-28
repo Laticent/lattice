@@ -43,20 +43,18 @@ section.glossary h2 .range-pill {
   vertical-align:middle;
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The term | definition table holds up as a narrow two-column read down to a tall
-   box, but on the tightest strip (mobile 9:19.5, a narrow nested cell) the term
+   box, but on the tightest strip (the mobile @size) the term
    column starves the definition. There, stack each entry — term as an accent label
-   above its definition — and drop the now-redundant header row. Keyed on the
-   nearest `lattice` container's aspect; the doubled class `.glossary.glossary`
+   above its definition — and drop the now-redundant header row. Keyed on the deck's `data-family` stamp; the doubled class `.glossary.glossary`
    clears the base table rules. */
-@container lattice (aspect-ratio <= 0.5) {
-  section.glossary.glossary thead { display: none; }
-  section.glossary.glossary table,
-  section.glossary.glossary tbody,
-  section.glossary.glossary tr,
-  section.glossary.glossary td { display: block; }
-  section.glossary.glossary tbody tr { padding: var(--sp-2xs) var(--sp-sm); }
-  section.glossary.glossary td { padding: 0; }
-  section.glossary.glossary td:first-child { white-space: normal; padding: 0 0 0.15em; }
-}
+section.glossary.glossary:where([data-family="strip"]) thead { display: none; }
+section.glossary.glossary:where([data-family="strip"]) table,
+section.glossary.glossary:where([data-family="strip"]) tbody,
+section.glossary.glossary:where([data-family="strip"]) tr,
+section.glossary.glossary:where([data-family="strip"]) td { display: block; }
+section.glossary.glossary:where([data-family="strip"]) tbody tr { padding: var(--sp-2xs) var(--sp-sm); }
+section.glossary.glossary:where([data-family="strip"]) td { padding: 0; }
+section.glossary.glossary:where([data-family="strip"]) td:first-child { white-space: normal; padding: 0 0 0.15em; }
+

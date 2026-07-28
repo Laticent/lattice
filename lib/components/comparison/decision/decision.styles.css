@@ -80,26 +80,33 @@ section.decision > .cell-stage > ol > li > ul {
  * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
 section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The cards are a horizontal strip; in a square-or-narrower box four side-by-side
    panels become unreadable slivers. Stack them into a single column so each
    justification card takes the full width, and `flex:1` distributes them down the
-   frame so the set still fills the canvas. Keyed on the nearest `lattice` container's
-   aspect (a portrait deck OR a narrow nested cell). The doubled class
+   frame so the set still fills the canvas. Keyed on the deck's `data-family` stamp (any tall or strip deck). The doubled class
    `.decision.decision` reaches (0,2,1) — clearing the base `> :is(ul,ol)` (0,1,1). */
-@container lattice (aspect-ratio <= 1.05) {
-  section.decision.decision > .cell-stage > :is(ul, ol) { flex-direction: column; }
-  /* Each card fills a share of the tall frame; centre the justification so it sits
-     in the card's optical middle (the corner tag stays pinned top-left) instead of
-     orphaning at the top over empty space. */
-  section.decision.decision > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: center; }
-  /* One option per full-width card — the justification is the card's hero, so it
-     carries statement weight (--fs-message), not body weight. */
-  section.decision.decision > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
-    font-size:var(--fs-message);
-    line-height: var(--lh-snug);
-  }
+/* SQUARE KEEPS THE SIDE-BY-SIDE SET. The comment above is right that FOUR
+ * panels are slivers in a square box — but the alternative it reached for was
+ * one column, not two. Square is the `balanced` family (2-up), and a decision
+ * slide read side by side is the point of the layout. As shipped it holds four
+ * options at square: `node tools/calibrate-capacity.js decision --family square`
+ * → ceiling 4 (at this component's own `density.soft`, 20 words per option).
+ * State the basis with any capacity number — the count depends on it. This rule
+ * read `<= 1.05` because it was written when the only question was
+ * landscape-or-portrait and square rode the portrait side, unseen (#1218). */
+section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) { flex-direction: column; }
+/* Each card fills a share of the tall frame; centre the justification so it sits
+   in the card's optical middle (the corner tag stays pinned top-left) instead of
+   orphaning at the top over empty space. */
+section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: center; }
+/* One option per full-width card — the justification is the card's hero, so it
+   carries statement weight (--fs-message), not body weight. */
+section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
+  font-size:var(--fs-message);
+  line-height: var(--lh-snug);
 }
+
 
 /* ── Cover-decision carousel — decision's owned SPLIT forms ────────────────────
    An overflowing decision (verdict + justifications) re-authors into the verdict on an

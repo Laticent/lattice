@@ -62,13 +62,28 @@ test('checkAdaptDeclarations accepts valid declarations', () => {
     { name: '__x', bucket: 'evidence', adapt: { mode: 'native' }, orientation: ['landscape', 'portrait'] },
     { name: '__x', bucket: 'evidence', adapt: { mode: 'native' } },                               // omitted orientation = both
     { name: '__x', bucket: 'evidence', adapt: { mode: 'single-orientation' }, orientation: ['landscape'] },
-    { name: '__x', bucket: 'evidence', adapt: { mode: 'reflow' }, orientation: ['landscape'] },   // reflow may be single-orientation
+    // `reflow` may be single-orientation — but since #1220 it must also SHIP one of
+    // the four mechanisms, so this case carries the cheapest of them (a carousel
+    // reshape recipe) rather than claiming reflow with nothing behind it.
+    { name: '__x', bucket: 'evidence', adapt: { mode: 'reflow' }, orientation: ['landscape'], split: { strategy: 'cover-cards' } },
   ];
   for (const m of cases) {
     const errors = [];
     checkAdaptDeclarations([m], errors);
     assert.deepStrictEqual(errors, [], `expected no error for ${JSON.stringify(m)}`);
   }
+});
+
+// The OTHER direction of the anti-drift invariant, added in #1220: a manifest may
+// not claim `reflow` while shipping none of the four mechanisms. The check was
+// one-directional for a long time, and six components sat in exactly that state —
+// `premise` painted its landscape 34% claim rail in a 980px phone box, wrapping the
+// claim one word per line, while its manifest told authoring agents it adapted.
+test('checkAdaptDeclarations rejects a reflow declaration with no mechanism', () => {
+  const errors = [];
+  checkAdaptDeclarations([{ name: '__x', bucket: 'evidence', adapt: { mode: 'reflow' } }], errors);
+  assert.strictEqual(errors.length, 1, 'expected exactly one error for a bare reflow claim');
+  assert.match(errors[0], /ships NONE of the four mechanisms/);
 });
 
 // The solver-intent gate is COMPLETE across the real tree: every component

@@ -159,19 +159,18 @@ section.cards-stack[data-orientation='portrait'] > .cell-stage > :is(ul,ol) > li
 section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
   flex: 0 0 auto;
 }
-/* Box-local family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
+/* Family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
  * strip (≤1.05) de-balloon the cards to content height and distribute them, keyed
- * on the nearest `lattice` container so it fires on a portrait/square deck AND
- * inside a narrow nested cell. Doubled class matches the [data-orientation]
+ * on the deck's `data-family` stamp so it fires on any square, tall or strip deck.
+ * Doubled class matches the [data-orientation]
  * reflow's specificity. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.cards-stack.cards-stack > .cell-stage > :is(ul,ol) {
-    justify-content: space-evenly;
-  }
-  section.cards-stack.cards-stack > .cell-stage > :is(ul,ol) > li {
-    flex: 0 0 auto;
-  }
+section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) {
+  justify-content: space-evenly;
 }
+section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) > li {
+  flex: 0 0 auto;
+}
+
 
 /* ── Struck elevation ── lift each card off the stage (see cards-grid). Zero-blur,
  * light-dark()-flipping `var(--elevation-card)` (base.tokens.css); PDF-safe. */

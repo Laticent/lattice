@@ -1345,6 +1345,32 @@ function checkThemeTokenParity(errors) {
 const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').properties.adapt.properties.mode.enum);
 
 /**
+ * Carousel strategies that RESHAPE a member for the box, and therefore count as
+ * `adapt.mode: "reflow"` on their own. Deliberately a short allowlist, not
+ * "any `split.strategy`".
+ *
+ * The first cut accepted any strategy at all, and an independent checker showed
+ * what that bought: 15 of 49 reflow-declaring components carry SOME strategy, so
+ * all 15 auto-passed regardless of what they shipped — including `premise`, which
+ * gained `cover-paginate` in the same change. Delete `premise`'s entire family
+ * reflow block, the exact state this gate exists to make impossible, and the gate
+ * stayed green. A gate that cannot catch the defect that motivated it is worse
+ * than no gate, because it is also a claim.
+ *
+ * The line is whether the recipe changes a member's STRUCTURE for the box or
+ * merely distributes members across pages:
+ *   · cover-cards TRANSPOSES a table row into a card with the column headers as
+ *     labelled fields — a wide read-across table cannot paginate out of
+ *     HORIZONTAL overflow, so the shape itself has to change. That is a reflow.
+ *   · cover-paginate (premise, glossary, q-and-a, authority-chain,
+ *     regulatory-update, statute-stack) puts a cover in front and splits the run.
+ *     Every page renders the SAME composition as the unsplit slide. Useful, not a
+ *     reflow — those components must show a real mechanism of their own.
+ * Add a strategy here only with the transposition it performs written down.
+ */
+const RESHAPE_STRATEGIES = new Set(['cover-cards']);
+
+/**
  * Cross-check the adaptivity DECLARATION (manifest `adapt.mode`) against reality,
  * so the manifest can never silently drift from the code (the jank this replaces —
  * 7 charts that reflowed but declared nothing, with no gate to catch it). See
@@ -1361,17 +1387,22 @@ const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').pr
  *   3. CONSISTENT — `single-orientation` ⟺ the `orientation` field lists exactly
  *      one orientation; `native` must support BOTH (it adapts by scaling, so it
  *      can't be orientation-restricted).
- *   4. SANE       — `native` must NOT carry `@container … aspect-ratio` (the
+ *   4. SANE       — `native` must NOT carry a `[data-family=…]` reflow rule (the
  *      contrapositive of rule 2, stated for a clear message).
  */
 function checkAdaptDeclarations(manifests, errors) {
-  const CONTAINER_ASPECT = /@container[^{]*aspect-ratio/;
-  // The shared chart-frame CSS carries a box-local `@container … aspect-ratio`
-  // rule that restructures `.chart-body` on tall boxes for EVERY chart-frame
-  // member — so a chart's reflow can live there, not in its own styles.css. The
-  // anti-drift rule must see it, or a chart could declare `native` while inheriting
-  // box-local reflow (the false-negative the maker-checker caught). Union it in for
-  // chart-bucket components, the way checkVariantDeclaration unions base.modifiers.
+  // The family stamp the engine writes from the deck geometry (lib/adaptive/
+  // families.js). This REPLACED `@container … aspect-ratio` in #1218 — a container
+  // query measures the section's content box, which drifts off the deck aspect, so
+  // the whole square tier was silently inert. Matching the attribute (not the
+  // at-rule) is what keeps this gate seeing real reflow.
+  const FAMILY_REFLOW = /\[data-family\s*=/;
+  // The shared chart-frame CSS carries a family reflow rule that restructures
+  // `.chart-body` on tall boxes for EVERY chart-frame member — so a chart's reflow
+  // can live there, not in its own styles.css. The anti-drift rule must see it, or a
+  // chart could declare `native` while inheriting reflow (the false-negative the
+  // maker-checker caught). Union it in for chart-bucket components, the way
+  // checkVariantDeclaration unions base.modifiers.
   const chartFamilyCss = (() => {
     const p = path.join(COMPONENTS_DIR, 'chart', '_chart-family', 'chart-family.css');
     return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
@@ -1386,16 +1417,88 @@ function checkAdaptDeclarations(manifests, errors) {
       continue;
     }
     const cssPath = componentStylesPath(m);
-    let css = cssPath ? fs.readFileSync(cssPath, 'utf8') : '';
-    if (manifestBucket(m) === 'chart') css += `\n${chartFamilyCss}`;
-    const hasContainerReflow = CONTAINER_ASPECT.test(css);
+    // COMMENT-STRIPPED. Every one of these tests asks "does this stylesheet carry a
+    // reflow RULE", and a `[data-family="tall"]` quoted in prose is not one — these
+    // files are heavily commented, and several comments quote the idiom precisely
+    // because it is the thing being explained. Raw text would let a component keep
+    // its `reflow` promise on the strength of a code sample in a comment.
+    // `familyReflowingComponents` in check-family-tiers.js already did this; the two
+    // gates were answering the same question different ways.
+    const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
+    let css = cssPath ? stripComments(fs.readFileSync(cssPath, 'utf8')) : '';
+    if (manifestBucket(m) === 'chart') css += `\n${stripComments(chartFamilyCss)}`;
+    const hasContainerReflow = FAMILY_REFLOW.test(css);
     // orientation defaults to BOTH when omitted (the manifest's documented default).
     const orientation = Array.isArray(m.orientation) ? m.orientation : ['landscape', 'portrait'];
 
     if (hasContainerReflow && mode !== 'reflow') {
       errors.push(
-        `${m.name}: declares adapt.mode "${mode}" but its CSS uses \`@container … aspect-ratio\` ` +
-        `(box-local reflow) — must be "reflow". Fix the manifest or remove the @container rule.`,
+        `${m.name}: declares adapt.mode "${mode}" but its CSS uses \`[data-family=…]\` ` +
+        `(family reflow) — must be "reflow". Fix the manifest or remove the family rule.`,
+      );
+    }
+    // …AND THE OTHER DIRECTION. The check above only ever caught CSS-without-a-
+    // declaration; a manifest could claim `reflow` and ship NO reflow rule at all and
+    // this gate stayed silent. Six components were in exactly that state — `premise`
+    // rendered its landscape `1fr auto` split in a 980px-wide fluid box, so the lede
+    // column wrapped one word per line and each ladder row's `10.9375cqi` name column
+    // truncated "Remember" to "R…". The manifest is the machine-readable contract the
+    // docs and authoring agents read, so an unkept promise there is worse than an
+    // undeclared behavior: it actively tells a consumer the component adapts.
+    //
+    // ALL THREE mechanisms the schema recognizes, not just the CSS one. `reflow` is
+    // defined as "ships DISTINCT per-family structural layouts (via `[data-family=…]`
+    // CSS, a `*.transform.js` that branches geometry on orientation, or the mermaid
+    // reorient)". A CSS-only check is a FALSE POSITIVE machine: `diagram` carries no
+    // layout CSS at all and reflows through `lib/integrations/mermaid/reorient.js`,
+    // which rewrites a flowchart's direction token LR→TB on a portrait box. Checking
+    // only for `[data-family=]` would have demanded it re-declare itself `native`,
+    // i.e. the gate would have driven a TRUE declaration into a false one.
+    //
+    // `[data-orientation]` counts as CSS reflow too — it is the older deck-wide stamp
+    // and several components legitimately still use it (portrait ∪ square is exactly
+    // the square ∪ tall ∪ strip set, so the two spellings select the same slides).
+    const ORIENTATION_REFLOW = /\[data-orientation\s*=/;
+    const cssReflow = hasContainerReflow || ORIENTATION_REFLOW.test(css);
+    // A sibling transform that branches on the box (`*.transform.js` next to the
+    // manifest), or a mermaid-bearing component, which the shared reorient covers.
+    const dir = cssPath ? path.dirname(cssPath) : null;
+    // Comment-stripped for the same reason as the CSS above — and note this arm
+    // currently admits NO component that the CSS test would not already admit. It
+    // is here because the schema names it as a mechanism, so a future transform
+    // that branches geometry on the box must not be rejected; but it is untested
+    // surface, and it is the loosest of the four. Tighten it before relying on it.
+    const jsComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const transformReflow = dir && fs.existsSync(dir)
+      && fs.readdirSync(dir).filter((f) => f.endsWith('.transform.js')).some((f) => (
+        /orientation|data-family|familyFor|portrait|reorient/.test(jsComments(fs.readFileSync(path.join(dir, f), 'utf8')))
+      ));
+    // STRUCTURAL, not a substring of the manifest. A first cut tested the whole
+    // manifest JSON for /mermaid/i and quietly excused `video`, `image`, `scene`,
+    // `journey` and `state-chart` — every one of which mentions Mermaid only in
+    // PROSE ("reach for a Mermaid graph instead when…"). What actually makes the
+    // reorient apply is the component authoring a mermaid FENCE, so test that.
+    const mermaidReflow = /```\s*mermaid/i.test(`${m.skeleton || ''}\n${m.sample || ''}`);
+    // A carousel RESHAPE recipe is the fourth mechanism, and it is box-conditional by
+    // construction: auto-split is skipped outright on a landscape @size
+    // (lattice-emulator.js `AUTOSPLIT_APPLIES`), so a `split.strategy` fires only on
+    // square/tall/strip. `compare-table` is the case — a wide read-across table cannot
+    // paginate out of HORIZONTAL overflow, so `cover-cards` transposes each row into a
+    // card with the column headers as labelled fields. That is "the box is
+    // restructured, not just scaled" as squarely as any CSS rule; it simply keys on the
+    // class carousel.js adds rather than on `[data-family]`. Verified it needs no CSS
+    // tier as well: all five variants render at `size: mobile` with zero overflow, so
+    // the native table degrades gracefully when the reshape does not run.
+    const splitReflow = RESHAPE_STRATEGIES.has(m.split?.strategy);
+    if (mode === 'reflow' && !cssReflow && !transformReflow && !mermaidReflow && !splitReflow) {
+      errors.push(
+        `${m.name}: declares adapt.mode "reflow" but ships NONE of the four mechanisms — ` +
+        `no \`[data-family=…]\`/\`[data-orientation=…]\` CSS, no orientation-branching ` +
+        `*.transform.js, no mermaid reorient, no carousel \`split.strategy\` reshape. ` +
+        `It has one composition and paints it in every ` +
+        `box, while the manifest tells authoring agents it adapts. Either ship the reflow, or ` +
+        `declare the mode it actually has ("native" / "single-orientation"). See ` +
+        `engineering/decisions/2026-06-20-adaptive-manifest-contract.md.`,
       );
     }
     if (mode === 'single-orientation' && orientation.length !== 1) {
@@ -3043,9 +3146,49 @@ function checkSplitOracle(manifests, errors) {
   }
 }
 
+/**
+ * Every engine/theme stylesheet must PARSE cleanly.
+ *
+ * esbuild's CSS parser is deliberately forgiving: it warns about a construct it
+ * cannot read, drops it, and emits the rest — so `npm run build` succeeded on a
+ * bundle carrying literal garbage, and nothing downstream ever said so. The
+ * warnings were there the whole time; the minifier just discarded them
+ * (`tools/minify-css.js` destructured `{ code }`).
+ *
+ * That is not cosmetic. A stray `` ` `` in radar.styles.css — a fenced example
+ * inside a comment that a bad edit spliced a real rule into — made Marp's
+ * stricter postcss reject the WHOLE bundle: `Cannot register theme CSS:
+ * lattice.css`, i.e. every Export-to-Marp deck rendering with no palette at all.
+ * One unreadable character 265KB into a minified file cost the entire theme.
+ *
+ * So the signal is promoted to a gate, per FILE (the bundle's line numbers point
+ * nowhere useful). Budget 0 — a CSS parse warning is a defect, never a ratchet.
+ */
+function checkCssSyntax(errors) {
+  const esbuild = require('esbuild');
+  for (const file of [...listCssFiles(LIB_DIR), ...listCssFiles(THEMES_DIR)]) {
+    const rel = path.relative(ROOT, file);
+    let warnings = [];
+    try {
+      ({ warnings } = esbuild.transformSync(fs.readFileSync(file, 'utf8'), { loader: 'css' }));
+    } catch (err) {
+      errors.push(`${rel}: CSS does not parse — ${err.message.split('\n')[0]}`);
+      continue;
+    }
+    for (const w of warnings) {
+      errors.push(
+        `${rel}:${w.location?.line ?? '?'}: CSS parse warning — ${w.text}. esbuild drops what ` +
+        `it cannot read and builds anyway, but Marp's postcss rejects the whole bundle, so a ` +
+        `single unreadable token costs the entire theme registration. Budget is 0.`,
+      );
+    }
+  }
+}
+
 function run() {
   const manifests = loadAll();
   const errors = [];
+  checkCssSyntax(errors);
   checkTransformerNames(errors);
   checkLayoutOwnership(errors);
   checkComponentNames(manifests, errors);

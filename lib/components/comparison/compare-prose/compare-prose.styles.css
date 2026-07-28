@@ -214,7 +214,7 @@ section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > st
   color: var(--cat-on-mark);
 }
 
-/* ── Box-local corner-tag legibility (2026-06-20).
+/* ── Family corner-tag legibility (2026-06-20).
    The corner tag's font already rides --fs-meta (scale-aware), but its padding is
    raw `cqi` (see the base rule above), so the PADDING bypasses the --canvas-scale
    magnitude the --sp-* / --fs-* tokens carry — in a tall/portrait box the badge's
@@ -222,16 +222,15 @@ section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > st
    --sp-* and reserve matching top space on the card so the badge scales with the
    frame. Keyed on `<= 1.05` (square + tall + strip); landscape keeps the raw value,
    so its export stays byte-identical. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-  section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
-    padding-top: calc(var(--sp-md) + var(--fs-meta));
-  }
-  section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-  section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
-    padding: var(--sp-2xs) var(--sp-sm);
-  }
+section.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.compare-prose:not(:has(.compare-prose-inner)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
+  padding-top: calc(var(--sp-md) + var(--fs-meta));
 }
+section.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.compare-prose:not(:has(.compare-prose-inner)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
+  padding: var(--sp-2xs) var(--sp-sm);
+}
+
 
 /* ── corner tag, banner variant (.banner-tag modifier) ────────────────────
  * Opt-in modifier on decision / compare-prose (incl. transition). Converts the
@@ -456,43 +455,40 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
  * italic body. No axis-specific CSS needed; centering comes from the
  * `.cell-stage { align-items: center }` rule above. */
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    Two side-by-side cards with a chevron between them become unreadable slivers in a
    tall box. Apply the existing `vertical` treatment automatically — stack the cards
-   and rotate the chevron to point down — so a portrait deck (or a narrow nested
-   cell) reads the pair top-to-bottom. Keyed on the nearest `lattice` container's
-   aspect. Targets the live DOM (`:not(:has(.compare-prose-inner))`), matching the
+   and rotate the chevron to point down — so a tall or strip deck reads the pair top-to-bottom. Keyed on the deck's `data-family` stamp. Targets the live DOM (`:not(:has(.compare-prose-inner))`), matching the
    base layout; the doubled class `.compare-prose.compare-prose` holds specificity
    over the base flex-row rule. */
-@container lattice (aspect-ratio <= 0.9) {
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) {
-    /* mirror `.vertical` — flex column, the connector slot is the divider row (cards
-       order:1/3 + connector order:2 carry from the base). */
-    flex-direction: column;
-    /* a generous gap gives the centred chevron room in the divide, clear of the
-       second card's (now larger) top-left corner tag. */
-    gap: var(--sp-2xl);
-  }
-  /* Keep the cards filling (base `li { flex: 1 }`) so the two split the frame and
-     the chevron — anchored at the list's 50% — lands on the divide. Centre each
-     card's statement vertically (the corner tag is an absolute top-left badge, so it
-     stays put) so the body owns the card's optical middle instead of a short line
-     stranded at the top over empty space. */
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li {
-    align-content: center;
-  }
-  /* one side per full-width card — its statement carries message weight, not body. */
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
-    /* This portrait @container override (--fs-message, statement weight) WINS over the
-     * base body rule, so the dense-prose de-boost must live here too — the base de-boost
-     * is inert in portrait. (Parallels decision.styles.css line 100.) */
-    font-size: var(--fs-message);
-    line-height: var(--lh-snug);
-  }
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
-    transform: rotate(90deg);
-  }
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
+  /* mirror `.vertical` — flex column, the connector slot is the divider row (cards
+     order:1/3 + connector order:2 carry from the base). */
+  flex-direction: column;
+  /* a generous gap gives the centred chevron room in the divide, clear of the
+     second card's (now larger) top-left corner tag. */
+  gap: var(--sp-2xl);
 }
+/* Keep the cards filling (base `li { flex: 1 }`) so the two split the frame and
+   the chevron — anchored at the list's 50% — lands on the divide. Centre each
+   card's statement vertically (the corner tag is an absolute top-left badge, so it
+   stays put) so the body owns the card's optical middle instead of a short line
+   stranded at the top over empty space. */
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
+  align-content: center;
+}
+/* one side per full-width card — its statement carries message weight, not body. */
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
+  /* This portrait @container override (--fs-message, statement weight) WINS over the
+   * base body rule, so the dense-prose de-boost must live here too — the base de-boost
+   * is inert in portrait. (Parallels decision.styles.css line 100.) */
+  font-size: var(--fs-message);
+  line-height: var(--lh-snug);
+}
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before {
+  transform: rotate(90deg);
+}
+
 
 /* ── Cover-sides carousel — compare-prose's owned SPLIT forms ──────────────────
    FIDELITY revision (2026-06-23-read-across-carousel.md): the earlier editorial finish

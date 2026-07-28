@@ -159,3 +159,22 @@ section.inventory.cards > .cell-stage > ul > li {
 section.inventory.cards > .cell-stage {
   padding-block: var(--elevation-berth);
 }
+
+/* ── Family reflow (#1220). `inventory` declared `adapt.mode: "reflow"` — and a
+ * full per-family `adapt.capacity` table — while shipping no family CSS at all.
+ * Its DEFAULT ledger is a single column and was always fine; the two-column
+ * VARIANTS are what needed the tier. Both collapse to one column on a tall or
+ * strip box, where a half-width cell cannot hold a name plus its clause.
+ * Square keeps both grids: two columns is what a balanced box is for, and the
+ * declared `adapt.capacity.square` (sweet 4 / hard 6) assumes it. */
+section.inventory:where([data-family="tall"], [data-family="strip"]) .inv-pairs,
+section.inventory:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:not(.inv-rows),
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  grid-template-columns: 1fr;
+}
+/* The editorial split is insight ∥ items with a `--sp-2xl` column gap; stacked,
+ * that gap has to become a ROW gap or the two blocks collide. */
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  row-gap: var(--sp-lg);
+  align-content: start;
+}

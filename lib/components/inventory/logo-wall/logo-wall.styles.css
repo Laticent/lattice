@@ -189,24 +189,24 @@ section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 12) > .logo-mark
  * caption tokens (--text-muted, --pill-*) all resolve through `light-dark()`, so
  * the whole wall re-tones for the dark ground automatically. */
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    A wide wall of marks letterboxes into a short band in a tall box — every mark
    shrinks and the canvas reads empty. Halve the column count so each mark keeps
-   presence and the rows fill down the frame. Keyed on the nearest `lattice`
-   container's aspect, so it fires on a portrait deck AND inside a narrow nested
-   cell. NOTE: the column count must be set on the `> ul` GRID (a descendant) —
-   a `@container` rule cannot restyle its own container element (the section), so
-   overriding `--logo-cols` on the section is a silent no-op (the §11 constraint). */
-@container lattice (aspect-ratio <= 0.9) {
-  section.logo-wall.logo-wall > .cell-stage > ul {
-    --logo-cols: 2;
-    --logo-col-gap: var(--sp-xl);
-    /* Cohesive centred cluster — the marks read as one wall held in the slide's
-       middle, rather than scattered the full height of the frame. */
-    align-content: center;
-    row-gap: var(--sp-2xl);
-    column-gap: var(--sp-xl);
-  }
-  /* dense carries twice the roster — keep it denser than the default wall. */
-  section.logo-wall.dense > .cell-stage > ul { --logo-cols: 3; }
+   presence and the rows fill down the frame. Keyed on the deck's `data-family` stamp,
+   so it fires on any tall or strip deck. NOTE: the column count is set on the
+   `> ul` GRID (a descendant) rather than by overriding `--logo-cols` on the section.
+   That was forced under the retired `@container` form (§11 — a query cannot style
+   its own container); #1218 lifted the constraint, but the descendant form is
+   correct and stays. */
+section.logo-wall.logo-wall:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  --logo-cols: 2;
+  --logo-col-gap: var(--sp-xl);
+  /* Cohesive centred cluster — the marks read as one wall held in the slide's
+     middle, rather than scattered the full height of the frame. */
+  align-content: center;
+  row-gap: var(--sp-2xl);
+  column-gap: var(--sp-xl);
 }
+/* dense carries twice the roster — keep it denser than the default wall. */
+section.logo-wall.dense:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul { --logo-cols: 3; }
+

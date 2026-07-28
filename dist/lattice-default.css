@@ -923,12 +923,17 @@ section[data-orientation="portrait"] {
 
 section {
   container-type:size;
-  /* Name the slide query-container `lattice` so components reflow box-locally via
-   * `@container lattice (aspect-ratio …)`. A split/grid Cell can name ITSELF
-   * `lattice` to shadow this, so a nested component resolves against its cell.
-   * Geometry-independent, so it lives here (every render path loads dist) rather
-   * than the per-geometry engine emitter. See engineering/decisions/
-   * 2026-06-18-component-adaptive-sizing.md. */
+  /* The slide is a size container so every `cq*` unit in the token system resolves
+   * against it — that is what `container-type` is here for, and it is load-bearing.
+   *
+   * The `lattice` NAME is now queried by NO engine rule. Structural family reflow
+   * used to key off `@container lattice (aspect-ratio …)`; #1218 replaced that with
+   * the `data-family` stamp the engine derives from the deck geometry, because a
+   * container query measures the container's CONTENT box, which drifts off the deck
+   * aspect (see the header of lib/adaptive/families.js). The name is kept as a
+   * stable handle for theme and deck CSS that wants to size-query the slide box —
+   * it costs nothing and removing it would break any such rule silently. Do NOT
+   * reintroduce an aspect-ratio query on it. */
   container-name:lattice;
   box-sizing:border-box; overflow:hidden; position:relative;
   display:flex; flex-direction:column;
@@ -1169,28 +1174,26 @@ section.actors > .cell-stage > ol > li > ol > li {
   line-height:var(--lh-base);
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    Each row pairs a responsibility (left) with the actor chip (right) on one line.
    In a tall box a long responsibility and the right-anchored chip collide, so drop
    the chip onto its own line beneath the responsibility and let the body follow.
-   Keyed on the nearest `lattice` container's aspect (portrait deck OR narrow nested
-   cell). The doubled class `.actors.actors` clears the base `> :is(ul,ol) > li`
+   Keyed on the deck's `data-family` stamp (any tall or strip deck). The doubled class `.actors.actors` clears the base `> :is(ul,ol) > li`
    grid placement. */
-@container lattice (aspect-ratio <= 0.9) {
-  /* Collapse to a single column: the responsibility fills row 1 (flex-basis:100%), so the
-     chip and body each wrap onto their own line below it. */
-  /* the strong's padding-bottom (not a chip margin-top) supplies the sp-2xs gap above
-     the wrapped chip — measurable, and strong carries no background so the inset is
-     invisible. */
-  section.actors.actors > .cell-stage > :is(ul, ol) > li > strong { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
-  /* Drop the chip onto its own line, hanging at the LEFT under the responsibility. The
-     universal pill rule (base.modifiers) auto-starts the chip's inline edge to right-anchor
-     it; cancel that (zero reset) so the chip sits left on its own wrapped line. */
-  section.actors.actors > .cell-stage > ul > li > code,
-  section.actors.actors > .cell-stage > ol > li > code {
-    margin-left: 0;
-  }
+/* Collapse to a single column: the responsibility fills row 1 (flex-basis:100%), so the
+   chip and body each wrap onto their own line below it. */
+/* the strong's padding-bottom (not a chip margin-top) supplies the sp-2xs gap above
+   the wrapped chip — measurable, and strong carries no background so the inset is
+   invisible. */
+section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
+/* Drop the chip onto its own line, hanging at the LEFT under the responsibility. The
+   universal pill rule (base.modifiers) auto-starts the chip's inline edge to right-anchor
+   it; cancel that (zero reset) so the chip sits left on its own wrapped line. */
+section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li > code,
+section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > code {
+  margin-left: 0;
 }
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
@@ -1691,27 +1694,35 @@ section.authority-chain.trail > .cell-stage > :is(ol, ul) > li::before {
   padding-bottom:var(--sp-xs);
 }
 
-/* ── Box-local family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
+/* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
    A1). The DEFAULT chain row is a `14cqi 1fr` tier-label | body grid; in a
-   square/tall/strip box the 14cqi rail squeezes the label, so collapse each row
-   to a single column — tier label over body. Scoped off the named variants
+   tall/strip box the 14cqi rail squeezes the label, so collapse each row
+   to a single column — tier label over body.
+
+   TALL AND STRIP ONLY — square keeps the rail. This block was authored to
+   include square, on the reasoning above, but square never matched (#1218) so
+   the result was never seen: collapsing the rail makes every row taller, and the
+   gallery's four-tier chain then spills its body text out of the last card and
+   off the frame. A square box is 1080px wide — the 14cqi rail is ~151px there
+   against ~179px at `hd`, which is not a crush. Verified by render: gallery
+   `authority-chain` at `size: square` overflows with square in this set, fits
+   without it. Scoped off the named variants
    (pyramid/branching/bracket also use the base row grid; trail is the horizontal
    one). The excluded variants keep their landscape shape for now — portrait
    handling for the variants is out of Batch A1 scope (tracked follow-up). Doubled
    class + the variant guards win on specificity. */
-@container lattice (aspect-ratio <= 1.05) {
-  /* Collapse the tier-label rail: the label fills row 1 (flex-basis:100%) so the body wraps
-     onto its own line below — tier label over body. */
-  section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket) > .cell-stage > :is(ol, ul) > li {
-    row-gap: var(--sp-xs);
-    align-items: start;
-    align-content: start;
-  }
-  section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket) > .cell-stage > :is(ol, ul) > li > strong:first-child,
-  section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
-    flex: 0 0 100%;
-  }
+/* Collapse the tier-label rail: the label fills row 1 (flex-basis:100%) so the body wraps
+   onto its own line below — tier label over body. */
+section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
+  row-gap: var(--sp-xs);
+  align-items: start;
+  align-content: start;
 }
+section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > strong:first-child,
+section.authority-chain.authority-chain:not(.trail):not(.pyramid):not(.branching):not(.bracket):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) {
+  flex: 0 0 100%;
+}
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
@@ -1943,24 +1954,33 @@ section.cards-grid.four .cards-grid-inner--ordered > .card:last-child:nth-child(
  * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
 section.cards-grid :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
-/* ── Box-local family reflow (2026-06-18-component-adaptive-sizing.md). Wide keeps
+/* ── Family reflow (2026-06-18-component-adaptive-sizing.md). Wide keeps
    the 2-col grid; square and narrower go single-column, content-height rows
    distributed to fill (instead of grid-auto-rows:1fr ballooning each card on a tall
-   frame). Keyed on the nearest `lattice` container's aspect — fires on a portrait
-   deck AND inside a narrow nested cell, replacing the data-orientation stamp. */
+   frame). Keyed on the deck's `data-family` stamp — fires on any tall or strip deck, replacing the data-orientation stamp. */
 /* `.cards-grid.cards-grid` (class doubled) reaches (0,2,2) so it matches the
  * `:not(:has(.cards-grid-inner))` base grid rule and wins on source order — the
  * role the old `[data-orientation]` attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.cards-grid.cards-grid > .cell-stage > ul,
-  section.cards-grid.cards-grid > .cell-stage > ol {
-    align-content: space-evenly;   /* content-height rows distributed, not stretched-to-fill */
-  }
-  section.cards-grid.cards-grid > .cell-stage > ul > li,
-  section.cards-grid.cards-grid > .cell-stage > ol > li {
-    width: 100%; min-height: 0;     /* single column */
-  }
+section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.cards-grid.cards-grid:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  align-content: space-evenly;   /* content-height rows distributed, not stretched-to-fill */
 }
+/* SQUARE KEEPS THE 2-UP GRID — only tall/strip go single-column. A square box is
+ * the `balanced` family (lib/adaptive/families.js: "2×2 grids, 2-up"), and it has
+ * the width for two cards, and one column fights the family's own definition.
+ * As shipped it holds six cards at square: `node tools/calibrate-capacity.js
+ * cards-grid --family square` → ceiling 6, at this component's own
+ * `density.soft` (15 words per card) — the basis is part of the number, since a
+ * count ceiling is a function of element size. This rule read `<= 1.05` because it was
+ * written when the only question was landscape-or-portrait, and square rode along
+ * on the portrait side — nobody could see the result, since the whole square tier
+ * was inert until #1218. matrix-2x2 always got this right ("a square box reads the
+ * quadrants fine"); this is the same call. */
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.cards-grid.cards-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
+  width: 100%; min-height: 0;     /* single column */
+}
+
 
 /* ── Struck elevation ── lift each card off the stage. One rule covers all three
  * emit paths (marp-cli ul/ol>li · lattice.js .card · VS Code :not(:has) fallback).
@@ -2147,19 +2167,18 @@ section.cards-stack[data-orientation='portrait'] > .cell-stage > :is(ul,ol) > li
 section.cards-stack[data-orientation='square'] > .cell-stage > :is(ul,ol) > li {
   flex: 0 0 auto;
 }
-/* Box-local family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
+/* Family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
  * strip (≤1.05) de-balloon the cards to content height and distribute them, keyed
- * on the nearest `lattice` container so it fires on a portrait/square deck AND
- * inside a narrow nested cell. Doubled class matches the [data-orientation]
+ * on the deck's `data-family` stamp so it fires on any square, tall or strip deck.
+ * Doubled class matches the [data-orientation]
  * reflow's specificity. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.cards-stack.cards-stack > .cell-stage > :is(ul,ol) {
-    justify-content: space-evenly;
-  }
-  section.cards-stack.cards-stack > .cell-stage > :is(ul,ol) > li {
-    flex: 0 0 auto;
-  }
+section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) {
+  justify-content: space-evenly;
 }
+section.cards-stack.cards-stack:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) > li {
+  flex: 0 0 auto;
+}
+
 
 /* ── Struck elevation ── lift each card off the stage (see cards-grid). Zero-blur,
  * light-dark()-flipping `var(--elevation-card)` (base.tokens.css); PDF-safe. */
@@ -2565,15 +2584,22 @@ section.citation-card :is(ul,ol) > li > strong ~ * { font-weight: 400; }
    VARIANTS — .split (quote | gloss), .triptych (three panels), .margin (annotated
    margins) — collapsing each to one stacked column on a portrait/square frame.
 
-   These variants put `display:grid` on the SECTION element itself, so the
-   box-local `@container lattice` recipe cannot reach them — a container query
-   styles a descendant against its ANCESTOR container, never the container
-   element itself (§11). This is the same section-element boundary split-panel
-   rides, so we use the same gate-sanctioned signal: the deck-level
-   `[data-orientation]` stamp (lib/engine/slides.js), which CAN restyle the
-   section. Landscape is untouched. */
-section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]),
-section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]),
+   This rule was written against the deck-level `[data-orientation]` stamp rather
+   than a container query, and it stays there: portrait + square is exactly the
+   square ∪ tall ∪ strip set, so the two spellings select the same slides and
+   #1218 gives no reason to churn a verified layout. Landscape is untouched. */
+/* All THREE parts must reach `> .cell-stage`. They did not: only `.margin`
+ * carried the child combinator, so `.split` and `.triptych` applied this collapse
+ * to the SECTION — where it does nothing, since the section is already a flex
+ * column — and their stage stayed `flex-direction: row`. The variants therefore
+ * never reflowed at all, and at `story` the un-collapsed row clipped by 293px
+ * (content 1797 against a 1504 stage — both on the FIXED tree; on the pre-fix tree
+ * the stage measured 1421.77, since the family stamp also widens the masthead, so
+ * the pair is not a before/after. The clip is real either way.
+ * examples/adaptive-sweep.md pages 14-15). A selector
+ * list distributes nothing: each comma-part needs its own combinator. */
+section.citation-card.split:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage,
+section.citation-card.triptych:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage,
 section.citation-card.margin:is([data-orientation="portrait"], [data-orientation="square"]) > .cell-stage { display:flex; flex-direction:column;
   grid-template-columns: 1fr;
   grid-template-rows: none;
@@ -2900,6 +2926,48 @@ section.compare-code-block pre > code {
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
 
+/* ── Family reflow (#1220). `compare-code` declared `adapt.mode: "reflow"` and
+ * shipped none, so a tall box kept the `1fr 1fr` read-across and the RIGHT
+ * block ran clean off the frame — horizontal overflow, which the vertical
+ * overflow probe cannot even see.
+ *
+ * Stacking is not a replacement for the carousel split recipe below (one block
+ * per page at full width, which is still the right answer for an over-long
+ * pair once `autosplit: on`). It is what the slide does when it is NOT split:
+ * two full-width blocks at half height beat two half-width blocks with one of
+ * them off-screen. Square stacks too — code lines are long, and 486px of column
+ * wraps almost any real line. */
+section.compare-code:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .code-cols {
+  /* `minmax(0, 1fr)`, NOT `1fr`. A grid track's implicit floor is min-content, and
+   * a `<pre>` with `white-space: pre` reports its LONGEST UNWRAPPED LINE as
+   * min-content — so a bare `1fr` computed 1173px inside a 1080px section and
+   * every descendant hung 147px off the right edge. Stacking alone therefore did
+   * not fix the horizontal clip it was written to fix; it only halved it. The
+   * vertical overflow probe cannot see this, so nothing would have said so. */
+  grid-template-columns: minmax(0, 1fr);
+}
+/* Long lines WRAP rather than disappear. The pair is `overflow: hidden`, so
+ * without this a line past the column width is silently cut mid-token — and in a
+ * PDF there is no scrollbar to recover it. A wrapped line is still readable code;
+ * a clipped one is a lie about what the source says. Landscape keeps `pre`, where
+ * the two columns have the width the author wrote for. */
+section.compare-code:where([data-family="square"], [data-family="tall"], [data-family="strip"]) pre > code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* The un-transformed fallback pins each block to an explicit grid column, so
+ * collapsing the track is not enough — the assignments have to fold to one
+ * column and the rows have to grow from four/five to six/seven. */
+section.compare-code:not(:has(.code-cols)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) {
+  grid-template-columns: 1fr;
+  grid-template-rows: none;
+  grid-auto-flow: row;
+}
+section.compare-code:not(:has(.code-cols)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > :is(h2, p, pre, blockquote) {
+  grid-column: 1;
+  grid-row: auto;
+}
+
 /* === lib/components/comparison/compare-prose/compare-prose.styles.css === */
 /* compare-prose — extracted from lib/_legacy.css (batch 5).
  * See lib/components/compare-prose/compare-prose.manifest.json for the component contract.
@@ -3117,7 +3185,7 @@ section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > st
   color: var(--cat-on-mark);
 }
 
-/* ── Box-local corner-tag legibility (2026-06-20).
+/* ── Family corner-tag legibility (2026-06-20).
    The corner tag's font already rides --fs-meta (scale-aware), but its padding is
    raw `cqi` (see the base rule above), so the PADDING bypasses the --canvas-scale
    magnitude the --sp-* / --fs-* tokens carry — in a tall/portrait box the badge's
@@ -3125,16 +3193,15 @@ section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > st
    --sp-* and reserve matching top space on the card so the badge scales with the
    frame. Keyed on `<= 1.05` (square + tall + strip); landscape keeps the raw value,
    so its export stays byte-identical. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
-  section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
-    padding-top: calc(var(--sp-md) + var(--fs-meta));
-  }
-  section.decision > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
-  section.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
-    padding: var(--sp-2xs) var(--sp-sm);
-  }
+section.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child),
+section.compare-prose:not(:has(.compare-prose-inner)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) {
+  padding-top: calc(var(--sp-md) + var(--fs-meta));
 }
+section.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child,
+section.compare-prose:not(:has(.compare-prose-inner)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li:has(> strong:first-child) > strong:first-child {
+  padding: var(--sp-2xs) var(--sp-sm);
+}
+
 
 /* ── corner tag, banner variant (.banner-tag modifier) ────────────────────
  * Opt-in modifier on decision / compare-prose (incl. transition). Converts the
@@ -3359,43 +3426,40 @@ section.compare-prose.axis:not(:has(.compare-prose-inner)) > .cell-stage > :is(u
  * italic body. No axis-specific CSS needed; centering comes from the
  * `.cell-stage { align-items: center }` rule above. */
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    Two side-by-side cards with a chevron between them become unreadable slivers in a
    tall box. Apply the existing `vertical` treatment automatically — stack the cards
-   and rotate the chevron to point down — so a portrait deck (or a narrow nested
-   cell) reads the pair top-to-bottom. Keyed on the nearest `lattice` container's
-   aspect. Targets the live DOM (`:not(:has(.compare-prose-inner))`), matching the
+   and rotate the chevron to point down — so a tall or strip deck reads the pair top-to-bottom. Keyed on the deck's `data-family` stamp. Targets the live DOM (`:not(:has(.compare-prose-inner))`), matching the
    base layout; the doubled class `.compare-prose.compare-prose` holds specificity
    over the base flex-row rule. */
-@container lattice (aspect-ratio <= 0.9) {
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) {
-    /* mirror `.vertical` — flex column, the connector slot is the divider row (cards
-       order:1/3 + connector order:2 carry from the base). */
-    flex-direction: column;
-    /* a generous gap gives the centred chevron room in the divide, clear of the
-       second card's (now larger) top-left corner tag. */
-    gap: var(--sp-2xl);
-  }
-  /* Keep the cards filling (base `li { flex: 1 }`) so the two split the frame and
-     the chevron — anchored at the list's 50% — lands on the divide. Centre each
-     card's statement vertically (the corner tag is an absolute top-left badge, so it
-     stays put) so the body owns the card's optical middle instead of a short line
-     stranded at the top over empty space. */
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li {
-    align-content: center;
-  }
-  /* one side per full-width card — its statement carries message weight, not body. */
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
-    /* This portrait @container override (--fs-message, statement weight) WINS over the
-     * base body rule, so the dense-prose de-boost must live here too — the base de-boost
-     * is inert in portrait. (Parallels decision.styles.css line 100.) */
-    font-size: var(--fs-message);
-    line-height: var(--lh-snug);
-  }
-  section.compare-prose.compare-prose:not(:has(.compare-prose-inner)) > .cell-stage > :is(ul, ol)::before {
-    transform: rotate(90deg);
-  }
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
+  /* mirror `.vertical` — flex column, the connector slot is the divider row (cards
+     order:1/3 + connector order:2 carry from the base). */
+  flex-direction: column;
+  /* a generous gap gives the centred chevron room in the divide, clear of the
+     second card's (now larger) top-left corner tag. */
+  gap: var(--sp-2xl);
 }
+/* Keep the cards filling (base `li { flex: 1 }`) so the two split the frame and
+   the chevron — anchored at the list's 50% — lands on the divide. Centre each
+   card's statement vertically (the corner tag is an absolute top-left badge, so it
+   stays put) so the body owns the card's optical middle instead of a short line
+   stranded at the top over empty space. */
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
+  align-content: center;
+}
+/* one side per full-width card — its statement carries message weight, not body. */
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
+  /* This portrait @container override (--fs-message, statement weight) WINS over the
+   * base body rule, so the dense-prose de-boost must live here too — the base de-boost
+   * is inert in portrait. (Parallels decision.styles.css line 100.) */
+  font-size: var(--fs-message);
+  line-height: var(--lh-snug);
+}
+section.compare-prose.compare-prose:not(:has(.compare-prose-inner)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before {
+  transform: rotate(90deg);
+}
+
 
 /* ── Cover-sides carousel — compare-prose's owned SPLIT forms ──────────────────
    FIDELITY revision (2026-06-23-read-across-carousel.md): the earlier editorial finish
@@ -3665,17 +3729,13 @@ section.content[data-orientation='portrait'] > .cell-stage > :is(p,ul,ol),
 section.content[data-orientation='square'] > .cell-stage > :is(p,ul,ol) {
   max-width: 46ch; align-self: center;
 }
-/* Box-local family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
- * strip (≤1.05) cap the prose measure and centre the block, keyed on the nearest
- * `lattice` container so it fires on a portrait/square deck AND inside a narrow
- * nested cell. Doubled class matches the [data-orientation] reflow's specificity. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.content.content > .cell-stage {
-    display: flex; flex-direction: column;
-  }
-  section.content.content > .cell-stage > :is(p,ul,ol) {
-    max-width: 46ch; align-self: center;
-  }
+/* Family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
+ * strip (≤1.05) cap the prose measure and centre the block, keyed on the deck's `data-family` stamp so it fires on any square, tall or strip deck. Doubled class matches the [data-orientation] reflow's specificity. */
+section.content.content:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage {
+  display: flex; flex-direction: column;
+}
+section.content.content:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(p,ul,ol) {
+  max-width: 46ch; align-self: center;
 }
 
 /* === lib/components/progression/cycle/cycle.styles.css === */
@@ -3794,38 +3854,45 @@ section.cycle > .cell-stage > ul > li > strong ~ * { font-weight: 400; }
 
 /* ── Reflow: a narrow / portrait frame stacks the ring vertically. The forward
  *    connector becomes a down-chevron between rows; the return arc runs up the
- *    left side back to the top. ── */
-@container lattice (aspect-ratio <= 1.05) {
-  section.cycle > .cell-stage > ul {
-    flex-direction: column;
-    padding: 0 0 0 var(--sp-xl);
-  }
-  section.cycle > .cell-stage > ul > li:not(:last-child)::after {
-    content: "\2304"; /* ⌄ */
-    top: auto;
-    right: auto;
-    bottom: calc(-1 * var(--sp-lg));
-    left: 50%;
-    width: auto;
-    transform: translateX(-50%);
-  }
-  section.cycle > .cell-stage > ul::after {
-    left: 0;
-    right: auto;
-    top: var(--sp-md);
-    bottom: var(--sp-md);
-    width: var(--sp-lg);
-    height: auto;
-    border: 2px solid var(--accent);
-    border-right: none;
-    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
-  }
-  section.cycle > .cell-stage > ul::before {
-    left: 0;
-    bottom: 50%;
-    transform: translate(-35%, 50%);
-  }
+ *    left side back to the top.
+ *
+ *    TALL AND STRIP ONLY — square keeps the horizontal ring. `cycle.manifest.json`
+ *    declares `adapt.families: [wide, tall, strip]`: there IS no square tier here,
+ *    and a square box has the width to hold the ring. The `<= 1.05` this replaced
+ *    read as "square too", but it never matched a square deck (#1218), so nobody
+ *    saw the result — which is a 4-stage stack whose last card and return arc fall
+ *    off the frame. Verified: gallery `cycle` at `size: square` overflows with
+ *    square in this set and fits without it. ── */
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  flex-direction: column;
+  padding: 0 0 0 var(--sp-xl);
 }
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li:not(:last-child)::after {
+  content: "\2304"; /* ⌄ */
+  top: auto;
+  right: auto;
+  bottom: calc(-1 * var(--sp-lg));
+  left: 50%;
+  width: auto;
+  transform: translateX(-50%);
+}
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul::after {
+  left: 0;
+  right: auto;
+  top: var(--sp-md);
+  bottom: var(--sp-md);
+  width: var(--sp-lg);
+  height: auto;
+  border: 2px solid var(--accent);
+  border-right: none;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+section.cycle:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul::before {
+  left: 0;
+  bottom: 50%;
+  transform: translate(-35%, 50%);
+}
+
 
 /* ── Split run (§0b connected members, `capacity.perPage: 1`) ────────────────────────
  * A cycle that overflows is atomized to ONE stage per page, and the drawn ring cannot
@@ -3933,26 +4000,33 @@ section.decision > .cell-stage > ol > li > ul {
  * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
 section.decision :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The cards are a horizontal strip; in a square-or-narrower box four side-by-side
    panels become unreadable slivers. Stack them into a single column so each
    justification card takes the full width, and `flex:1` distributes them down the
-   frame so the set still fills the canvas. Keyed on the nearest `lattice` container's
-   aspect (a portrait deck OR a narrow nested cell). The doubled class
+   frame so the set still fills the canvas. Keyed on the deck's `data-family` stamp (any tall or strip deck). The doubled class
    `.decision.decision` reaches (0,2,1) — clearing the base `> :is(ul,ol)` (0,1,1). */
-@container lattice (aspect-ratio <= 1.05) {
-  section.decision.decision > .cell-stage > :is(ul, ol) { flex-direction: column; }
-  /* Each card fills a share of the tall frame; centre the justification so it sits
-     in the card's optical middle (the corner tag stays pinned top-left) instead of
-     orphaning at the top over empty space. */
-  section.decision.decision > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: center; }
-  /* One option per full-width card — the justification is the card's hero, so it
-     carries statement weight (--fs-message), not body weight. */
-  section.decision.decision > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
-    font-size:var(--fs-message);
-    line-height: var(--lh-snug);
-  }
+/* SQUARE KEEPS THE SIDE-BY-SIDE SET. The comment above is right that FOUR
+ * panels are slivers in a square box — but the alternative it reached for was
+ * one column, not two. Square is the `balanced` family (2-up), and a decision
+ * slide read side by side is the point of the layout. As shipped it holds four
+ * options at square: `node tools/calibrate-capacity.js decision --family square`
+ * → ceiling 4 (at this component's own `density.soft`, 20 words per option).
+ * State the basis with any capacity number — the count depends on it. This rule
+ * read `<= 1.05` because it was written when the only question was
+ * landscape-or-portrait and square rode the portrait side, unseen (#1218). */
+section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) { flex-direction: column; }
+/* Each card fills a share of the tall frame; centre the justification so it sits
+   in the card's optical middle (the corner tag stays pinned top-left) instead of
+   orphaning at the top over empty space. */
+section.decision.decision:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { display:flex; flex-direction:column; justify-content: center; }
+/* One option per full-width card — the justification is the card's hero, so it
+   carries statement weight (--fs-message), not body weight. */
+section.decision.decision:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(p, ul, ol) {
+  font-size:var(--fs-message);
+  line-height: var(--lh-snug);
 }
+
 
 /* ── Cover-decision carousel — decision's owned SPLIT forms ────────────────────
    An overflowing decision (verdict + justifications) re-authors into the verdict on an
@@ -4438,23 +4512,20 @@ section.glossary h2 .range-pill {
   vertical-align:middle;
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The term | definition table holds up as a narrow two-column read down to a tall
-   box, but on the tightest strip (mobile 9:19.5, a narrow nested cell) the term
+   box, but on the tightest strip (the mobile @size) the term
    column starves the definition. There, stack each entry — term as an accent label
-   above its definition — and drop the now-redundant header row. Keyed on the
-   nearest `lattice` container's aspect; the doubled class `.glossary.glossary`
+   above its definition — and drop the now-redundant header row. Keyed on the deck's `data-family` stamp; the doubled class `.glossary.glossary`
    clears the base table rules. */
-@container lattice (aspect-ratio <= 0.5) {
-  section.glossary.glossary thead { display: none; }
-  section.glossary.glossary table,
-  section.glossary.glossary tbody,
-  section.glossary.glossary tr,
-  section.glossary.glossary td { display: block; }
-  section.glossary.glossary tbody tr { padding: var(--sp-2xs) var(--sp-sm); }
-  section.glossary.glossary td { padding: 0; }
-  section.glossary.glossary td:first-child { white-space: normal; padding: 0 0 0.15em; }
-}
+section.glossary.glossary:where([data-family="strip"]) thead { display: none; }
+section.glossary.glossary:where([data-family="strip"]) table,
+section.glossary.glossary:where([data-family="strip"]) tbody,
+section.glossary.glossary:where([data-family="strip"]) tr,
+section.glossary.glossary:where([data-family="strip"]) td { display: block; }
+section.glossary.glossary:where([data-family="strip"]) tbody tr { padding: var(--sp-2xs) var(--sp-sm); }
+section.glossary.glossary:where([data-family="strip"]) td { padding: 0; }
+section.glossary.glossary:where([data-family="strip"]) td:first-child { white-space: normal; padding: 0 0 0.15em; }
 
 /* === lib/components/imagery/image/image.styles.css === */
 /* image — the adaptive image layout.
@@ -5020,6 +5091,25 @@ section.inventory.cards > .cell-stage > ul > li {
 }
 section.inventory.cards > .cell-stage {
   padding-block: var(--elevation-berth);
+}
+
+/* ── Family reflow (#1220). `inventory` declared `adapt.mode: "reflow"` — and a
+ * full per-family `adapt.capacity` table — while shipping no family CSS at all.
+ * Its DEFAULT ledger is a single column and was always fine; the two-column
+ * VARIANTS are what needed the tier. Both collapse to one column on a tall or
+ * strip box, where a half-width cell cannot hold a name plus its clause.
+ * Square keeps both grids: two columns is what a balanced box is for, and the
+ * declared `adapt.capacity.square` (sweet 4 / hard 6) assumes it. */
+section.inventory:where([data-family="tall"], [data-family="strip"]) .inv-pairs,
+section.inventory:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:not(.inv-rows),
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  grid-template-columns: 1fr;
+}
+/* The editorial split is insight ∥ items with a `--sp-2xl` column gap; stacked,
+ * that gap has to become a ROW gap or the two blocks collide. */
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  row-gap: var(--sp-lg);
+  align-content: start;
 }
 
 /* === lib/components/chart/journey/journey.styles.css === */
@@ -6207,28 +6297,33 @@ section.journey .journey-vmood .journey-face {
 :is(section.kanban, figure.kanban).tinted .kanban-lane { color: var(--text-muted); }
 :is(section.kanban, figure.kanban).tinted .kanban-lane::before { display: none; }
 
-/* ── Box-local RESTRUCTURE (tall + strip, ≤0.9): the side-by-side board becomes
+/* ── Family RESTRUCTURE (tall + strip, ≤0.9): the side-by-side board becomes
  * a vertical stack — each lane is now a full-width band, and its cards flow as a
  * wrapping row so the width is used instead of running off the bottom. Keyed on
- * the nearest `lattice` container; landscape (side-by-side board) untouched. See
+ * the deck's `data-family` stamp; landscape (side-by-side board) untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
-  :is(section.kanban, figure.kanban) .kanban-board {
-    flex-direction: column;
-    height: 100%;
-    justify-content: space-evenly;
-  }
-  :is(section.kanban, figure.kanban) .kanban-cards { flex-direction: row; flex-wrap: wrap; }
-  :is(section.kanban, figure.kanban) .kanban-card { flex: 1 1 14cqi; min-width: 0; }
-
-  /* Auto-split lane slides (carousel.js kanban-lanes): one lane has the WHOLE slide, so its
-   * cards stack as a full-width column instead of wrapping into a cramped row (which clipped
-   * the titles). More specific than the all-lanes reflow above, so it wins for split bodies. */
-  :is(section.kanban, figure.kanban).lat-split-native .kanban-board { justify-content: flex-start; }
-  :is(section.kanban, figure.kanban).lat-split-native .kanban-column { width: 100%; }
-  :is(section.kanban, figure.kanban).lat-split-native .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
-  :is(section.kanban, figure.kanban).lat-split-native .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
+section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-board,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban .kanban-board {
+  flex-direction: column;
+  height: 100%;
+  justify-content: space-evenly;
 }
+section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-cards,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban .kanban-cards { flex-direction: row; flex-wrap: wrap; }
+section.kanban:where([data-family="tall"], [data-family="strip"]) .kanban-card,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban .kanban-card { flex: 1 1 14cqi; min-width: 0; }
+
+/* Auto-split lane slides (carousel.js kanban-lanes): one lane has the WHOLE slide, so its
+ * cards stack as a full-width column instead of wrapping into a cramped row (which clipped
+ * the titles). More specific than the all-lanes reflow above, so it wins for split bodies. */
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-board,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-board { justify-content: flex-start; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-column,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-column { width: 100%; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-cards,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-cards { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+section.kanban.lat-split-native:where([data-family="tall"], [data-family="strip"]) .kanban-card,
+:where([data-family="tall"], [data-family="strip"]) figure.kanban.lat-split-native .kanban-card { flex: 0 0 auto; width: 100%; max-width: none; }
 
 /* === lib/components/evidence/kpi/kpi.styles.css === */
 /* kpi — extracted from lib/_legacy.css (batch 7).
@@ -6706,61 +6801,68 @@ section.kpi.spotlight > .cell-stage > ol > li:not(:first-child) code {
 
 
 
-/* ── Box-local family reflow (2026-06-18-component-adaptive-sizing.md) ──────
+/* ── Family reflow (2026-06-18-component-adaptive-sizing.md) ──────
  * Every kpi variant (briefing, ops, spotlight, trajectory) places metric <li>s
  * on an explicit grid — a hero spanning rows + supports in a side column, or a
- * 2×2 matrix. In a square-or-narrower box that side-by-side composition is
+ * 2×2 matrix. In a TALL-or-narrower box that side-by-side composition is
  * cramped. Switching the metric list to a single flex COLUMN linearises every
  * variant at once: flex ignores the children's grid-column / grid-row, so the
  * hero stacks on top and the supports follow, full width — no per-variant
- * override. Keyed on the nearest `lattice` container's aspect, so it fires on a
- * portrait deck AND inside a narrow nested cell, replacing the data-orientation
- * stamp. `.kpi.kpi` (class doubled) lifts the selector to (0,2,2) so it matches
+ * override. Keyed on the deck's `data-family` stamp, so it fires on any tall or strip
+ * deck, replacing the data-orientation
+ * stamp.
+ *
+ * TALL AND STRIP ONLY — square keeps the hero grid. The rule was authored to
+ * include square, but square never matched (#1218) so nobody saw the result:
+ * linearising flattens `kpi target` into a uniform ledger where the hero number
+ * is barely larger than its supports, which is the one thing the layout exists
+ * to do. Square is 1080px wide — the same inline size as portrait — but it does
+ * not need the space: the hero card + rail fits with room to spare (rendered and
+ * compared side by side). Square is the SOCIAL family, where a single big number
+ * is most of the point, so flattening it there is the worst place to do it.
+ * `.kpi.kpi` (class doubled) lifts the selector to (0,2,2) so it matches
  * the per-variant grid rules' specificity (`section.kpi.spotlight > .cell-stage > ol`) and wins
  * on source order — the role the old `[data-orientation]` attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.kpi.kpi > .cell-stage > ol,
-  section.kpi.kpi > .cell-stage > ul {
-    display: flex;
-    flex-direction: column;
-    /* The list keeps `flex: 1` (fills the slide below the title), so centre the
-     * metrics WITHIN it — centring the section can't, the list absorbs the slack. */
-    justify-content: center;
-    gap: var(--sp-md);
-    align-content: normal;
-  }
-  /* Demote the hero CARD to the lead row of a uniform ledger. The wide-grid
-   * briefing hero is a full-width accent box with the supports in its right
-   * column; linearised, that box keeps a dead right half AND eats the vertical
-   * room a short square/portrait frame needs — so the 4th metric clipped. As a
-   * hairline lead row (bigger number, no box) all four metrics read as one ledger
-   * and fit. Scoped away from ops/compliance/trajectory, which are already uniform
-   * grids/cards. (0,3,3) ties the briefing hero rules and wins on source order. */
-  section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol > li:nth-child(1) {
-    background: none;
-    border-left: none;
-    border-top: 1.5px solid var(--text-heading);
-    padding: var(--sp-sm) 0;
-  }
-  section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol > li:nth-child(1)::after {
-    content: none;
-  }
-  section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol > li:nth-child(1) > strong {
-    font-size: var(--fs-h1);
-    line-height: 1;
-  }
-  section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)) > .cell-stage > ol > li:nth-child(1) > ul > li:first-child {
-    font-family: var(--font-body);
-    font-size: var(--fs-body);
-    padding-top: var(--sp-3xs);
-  }
+section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol,
+section.kpi.kpi:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  display: flex;
+  flex-direction: column;
+  /* The list keeps `flex: 1` (fills the slide below the title), so centre the
+   * metrics WITHIN it — centring the section can't, the list absorbs the slack. */
+  justify-content: center;
+  gap: var(--sp-md);
+  align-content: normal;
 }
+/* Demote the hero CARD to the lead row of a uniform ledger. The wide-grid
+ * briefing hero is a full-width accent box with the supports in its right
+ * column; linearised, that box keeps a dead right half AND eats the vertical
+ * room a short square/portrait frame needs — so the 4th metric clipped. As a
+ * hairline lead row (bigger number, no box) all four metrics read as one ledger
+ * and fit. Scoped away from ops/compliance/trajectory, which are already uniform
+ * grids/cards. (0,3,3) ties the briefing hero rules and wins on source order. */
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) {
+  background: none;
+  border-left: none;
+  border-top: 1.5px solid var(--text-heading);
+  padding: var(--sp-sm) 0;
+}
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1)::after {
+  content: none;
+}
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > strong {
+  font-size: var(--fs-h1);
+  line-height: 1;
+}
+section.kpi.kpi:where(:not(.ops):not(.compliance):not(.trajectory)):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li:nth-child(1) > ul > li:first-child {
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  padding-top: var(--sp-3xs);
+}
+
 /* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): shed the
  * status pills, the lowest-priority unit (manifest `adapt.droppable`), so the
  * numbers and their labels own the narrow frame instead of crowding it. */
-@container lattice (aspect-ratio <= 0.5) {
-  section.kpi.kpi > .cell-stage > :is(ol,ul) li code { display: none; }
-}
+section.kpi.kpi:where([data-family="strip"]) > .cell-stage > :is(ol,ul) li code { display: none; }
 
 /* === lib/components/inventory/list/list.styles.css === */
 /* list — inventory.stack.bullets
@@ -6871,24 +6973,22 @@ section.list.principles.lettered > .cell-stage > ol > li::before { content:count
 section.list.principles.roman > .cell-stage > ol > li::before { content:counter(list-principle-counter, upper-roman); }
 section.list.principles.bullet > .cell-stage > ol > li::before { content:'·'; }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
-   Keyed on the nearest `lattice` container's aspect, so it fires on a portrait deck
-   (the section is tall) AND inside a narrow nested cell — replacing the deck-wide
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+   Keyed on the deck's `data-family` stamp, so it fires on any square, tall or strip
+   deck — replacing the deck-wide
    data-orientation stamp. Square and narrower de-balloon: keep each row CONTENT-height
    and distribute the set by rhythm, instead of flex:1 1 0 inflating one line of text
    into a ~640px band on a tall frame. Fill comes from space-evenly + the social type. */
 /* `.list.list` (class doubled) reaches (0,2,2) to match the original
    `[data-orientation]` reflow's specificity, so the takeaway/principles registers
    (whose variant rules are (0,2,N)) still de-balloon — the role the attribute played. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.list.list > .cell-stage > :is(ul,ol) { justify-content: space-evenly; }
-  section.list.list > .cell-stage > :is(ul,ol) > li { flex: 0 0 auto; }
-}
+section.list.list:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) { justify-content: space-evenly; }
+section.list.list:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul,ol) > li { flex: 0 0 auto; }
+
 /* Strip — the tallest/narrowest box (mobile @size; a nested strip cell): open the
    rhythm so the de-ballooned rows breathe down the long frame instead of clustering. */
-@container lattice (aspect-ratio <= 0.5) {
-  section.list.list > .cell-stage > :is(ul,ol) { gap: var(--sp-md); }
-}
+section.list.list:where([data-family="strip"]) > .cell-stage > :is(ul,ol) { gap: var(--sp-md); }
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
@@ -7306,29 +7406,27 @@ section.list-steps.ghost ol > li > ul > li {
   font-size:var(--fs-h4); color:var(--text-heading); font-weight:400; line-height:var(--lh-snug);
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The default strip is a horizontal flex row of step cards with right-pointing
    connectors; in a tall box those columns crush. Apply the existing `vertical`
    treatment automatically — stack the cards down the frame, content-height, with a
-   down-pointing connector on the bottom edge. Keyed on the nearest `lattice`
-   container's aspect (a portrait deck OR a narrow nested cell). `:not(.timeline)`
+   down-pointing connector on the bottom edge. Keyed on the deck's `data-family` stamp (any tall or strip deck). `:not(.timeline)`
    spares the dots-on-a-spine variant (its own layout); the `:not()` also lifts the
    selector to (0,3,2) so it clears the equal-weight variant rules cleanly. Boundary
    is `≤ 0.9` (tall + strip): a square box fits neither the horizontal row (it
    overflows) nor 3–4 full cards stacked (also overflows), so `square` is left out of
    `adapt.families` and the vertical stack fires only on the taller frames. */
-@container lattice (aspect-ratio <= 0.9) {
-  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol {
-    flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
-  }
-  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol > li { flex: 0 0 auto; }
-  section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost) ol > li:not(:last-child)::after {
-    right: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
-    transform: translate(50%, 50%);
-    border-top: 10px solid var(--border); border-bottom: none;
-    border-left: 10px solid transparent; border-right: 10px solid transparent;
-  }
+section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol {
+  flex-direction: column; gap: var(--sp-md); align-items: stretch; flex: 0 1 auto;
 }
+section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol > li { flex: 0 0 auto; }
+section.list-steps.list-steps:not(.timeline):not(.chevron):not(.converge):not(.ghost):where([data-family="tall"], [data-family="strip"]) ol > li:not(:last-child)::after {
+  right: 50%; top: auto; bottom: calc(-1 * var(--sp-md) / 2);
+  transform: translate(50%, 50%);
+  border-top: 10px solid var(--border); border-bottom: none;
+  border-left: 10px solid transparent; border-right: 10px solid transparent;
+}
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
@@ -7664,44 +7762,43 @@ section.list-tabular.register.outline ol > li > code {
 /* ── Universal modifier: compact ──────────────────────────────────────── */
 section.list-tabular.compact ol > li { padding:var(--sp-xs) 0; }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The row is a four-track grid (counter · name · description · meta); in a tall box
    those tracks crush to slivers and the meta wraps badly. Collapse the row to a
    block flow — the counter and name lead the line, the meta sits inline after the
    name, and the description drops to its own line beneath. (Block flow, not a grid
    re-track, because the name is a bare text node the grid can place only by source
    order — a block flow lays them out in that order without fighting it.) Keyed on
-   the nearest `lattice` container's aspect; the doubled class `.list-tabular.list-
+   the deck's `data-family` stamp; the doubled class `.list-tabular.list-
    tabular` reaches the variants' (0,2,N) weight and source order keeps it last. */
-@container lattice (aspect-ratio <= 0.9) {
-  section.list-tabular.list-tabular ol > li {
-    display: block;
-    grid-template-columns: none;
-  }
-  section.list-tabular.list-tabular ol > li::before {
-    padding-right: var(--sp-sm);
-  }
-  /* meta code → inline after the name (no longer a right-aligned column). */
-  section.list-tabular.list-tabular ol > li > code {
-    display: inline-block;
-    padding-left: var(--sp-sm);
-    text-align: left;
-  }
-  /* description (nested list) → its own line below the name. */
-  section.list-tabular.list-tabular ol > li > ul { display: block; }
-  section.list-tabular.list-tabular ol > li > ul > li:first-child {
-    display: block;
-    padding-top: var(--sp-2xs);
-  }
-  /* the 3-line authoring contract carries meta as a second nested li (not inline
-     `<code>`); in block flow its base `grid-column:4; text-align:right` would orphan
-     it right-aligned, so left-align it onto its own line like the inline-code meta. */
-  section.list-tabular.list-tabular ol > li > ul > li:nth-child(2) {
-    display: block;
-    text-align: left;
-    padding-top: var(--sp-2xs);
-  }
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li {
+  display: block;
+  grid-template-columns: none;
 }
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li::before {
+  padding-right: var(--sp-sm);
+}
+/* meta code → inline after the name (no longer a right-aligned column). */
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > code {
+  display: inline-block;
+  padding-left: var(--sp-sm);
+  text-align: left;
+}
+/* description (nested list) → its own line below the name. */
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul { display: block; }
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:first-child {
+  display: block;
+  padding-top: var(--sp-2xs);
+}
+/* the 3-line authoring contract carries meta as a second nested li (not inline
+   `<code>`); in block flow its base `grid-column:4; text-align:right` would orphan
+   it right-aligned, so left-align it onto its own line like the inline-code meta. */
+section.list-tabular.list-tabular:where([data-family="tall"], [data-family="strip"]) ol > li > ul > li:nth-child(2) {
+  display: block;
+  text-align: left;
+  padding-top: var(--sp-2xs);
+}
+
 
 /* ── Cover-rows carousel — list-tabular's owned SPLIT forms ────────────────────
    An overflowing tabular list re-authors at export into a title COVER + the rows
@@ -7940,27 +8037,26 @@ section.logo-wall.color > .cell-stage > ul > li:nth-child(12n + 12) > .logo-mark
  * caption tokens (--text-muted, --pill-*) all resolve through `light-dark()`, so
  * the whole wall re-tones for the dark ground automatically. */
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    A wide wall of marks letterboxes into a short band in a tall box — every mark
    shrinks and the canvas reads empty. Halve the column count so each mark keeps
-   presence and the rows fill down the frame. Keyed on the nearest `lattice`
-   container's aspect, so it fires on a portrait deck AND inside a narrow nested
-   cell. NOTE: the column count must be set on the `> ul` GRID (a descendant) —
-   a `@container` rule cannot restyle its own container element (the section), so
-   overriding `--logo-cols` on the section is a silent no-op (the §11 constraint). */
-@container lattice (aspect-ratio <= 0.9) {
-  section.logo-wall.logo-wall > .cell-stage > ul {
-    --logo-cols: 2;
-    --logo-col-gap: var(--sp-xl);
-    /* Cohesive centred cluster — the marks read as one wall held in the slide's
-       middle, rather than scattered the full height of the frame. */
-    align-content: center;
-    row-gap: var(--sp-2xl);
-    column-gap: var(--sp-xl);
-  }
-  /* dense carries twice the roster — keep it denser than the default wall. */
-  section.logo-wall.dense > .cell-stage > ul { --logo-cols: 3; }
+   presence and the rows fill down the frame. Keyed on the deck's `data-family` stamp,
+   so it fires on any tall or strip deck. NOTE: the column count is set on the
+   `> ul` GRID (a descendant) rather than by overriding `--logo-cols` on the section.
+   That was forced under the retired `@container` form (§11 — a query cannot style
+   its own container); #1218 lifted the constraint, but the descendant form is
+   correct and stays. */
+section.logo-wall.logo-wall:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  --logo-cols: 2;
+  --logo-col-gap: var(--sp-xl);
+  /* Cohesive centred cluster — the marks read as one wall held in the slide's
+     middle, rather than scattered the full height of the frame. */
+  align-content: center;
+  row-gap: var(--sp-2xl);
+  column-gap: var(--sp-xl);
 }
+/* dense carries twice the roster — keep it denser than the default wall. */
+section.logo-wall.dense:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul { --logo-cols: 3; }
 
 /* === lib/components/chart/map/map.styles.css === */
 /* map — spatial choropleth / highlight chart (chart-family series member).
@@ -8675,7 +8771,7 @@ section.math.stats > p:not(:has(> .katex-display)):not(:first-of-type) {
   line-height: var(--lh-base);
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The hero+legend (`feature`/bare) and matrix+properties (`matrix`) layouts put the
    equation and its annotations in two columns; in a tall box those crush. Collapse
    each by spanning BOTH children full-width (`grid-column: 1 / -1`) and stacking the
@@ -8686,42 +8782,42 @@ section.math.stats > p:not(:has(> .katex-display)):not(:first-of-type) {
    `derivation`/`theorem`/`stats` are already single-column. (`compare` uses CSS
    multi-`column-count` and `canvas` uses `grid-template-areas` — both are section-
    element properties a container query can't reach, so they stay landscape; see the
-   manifest `adapt.families` note.) Keyed on the nearest `lattice` container's aspect;
+   manifest `adapt.families` note.) Keyed on the deck's `data-family` stamp;
    the doubled class `.math.math` matches the variant rules' weight (and beats the
    zero-specificity `:where()` bare-math selector). */
-@container lattice (aspect-ratio <= 0.9) {
-  /* feature (+ bare): equation full-width, legend full-width beneath it. */
-  section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> .katex-display),
-  section.math.math.feature > p:has(> .katex-display) {
-    grid-column: 1 / -1; grid-row: 3;
-    align-self: start; padding-top: var(--sp-xl);
-    border-right: none; padding-right: 0; padding-bottom: var(--sp-md);
-  }
-  section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > :is(ul, ol),
-  section.math.math.feature > :is(ul, ol) {
-    grid-column: 1 / -1; grid-row: 4; align-self: start;
-  }
-  /* Tall frame = room for a monumental hero equation; scale it up so it owns the
-     canvas instead of floating small in a void. */
-  section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)) > p:has(> .katex-display) .katex-display > .katex,
-  section.math.math.feature > p:has(> .katex-display) .katex-display > .katex {
-    font-size: 2.7em;
-  }
-  /* matrix: equation full-width over properties; left rule → top rule. */
-  section.math.math.matrix > p:has(> .katex-display) { grid-column: 1 / -1; grid-row: 3; align-self: start; padding-top: var(--sp-xl); }
-  section.math.math.matrix > p:has(> .katex-display) .katex-display > .katex { font-size: 2.4em; }
-  section.math.math.matrix > :is(ul, ol) {
-    grid-column: 1 / -1; grid-row: 4; align-self: start;
-    padding-left: 0; border-left: none;
-    padding-top: var(--sp-md); border-top: 1px solid var(--border);
-  }
+/* feature (+ bare): equation full-width, legend full-width beneath it. */
+section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display),
+section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) {
+  grid-column: 1 / -1; grid-row: 3;
+  align-self: start; padding-top: var(--sp-xl);
+  border-right: none; padding-right: 0; padding-bottom: var(--sp-md);
+}
+section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > :is(ul, ol),
+section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > :is(ul, ol) {
+  grid-column: 1 / -1; grid-row: 4; align-self: start;
+}
+/* Tall frame = room for a monumental hero equation; scale it up so it owns the
+   canvas instead of floating small in a void. */
+section.math.math:where(:not(.derivation):not(.theorem):not(.compare):not(.canvas):not(.matrix):not(.stats)):where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) .katex-display > .katex,
+section.math.math.feature:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) .katex-display > .katex {
+  font-size: 2.7em;
+}
+/* matrix: equation full-width over properties; left rule → top rule. */
+section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) { grid-column: 1 / -1; grid-row: 3; align-self: start; padding-top: var(--sp-xl); }
+section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > p:has(> .katex-display) .katex-display > .katex { font-size: 2.4em; }
+section.math.math.matrix:where([data-family="tall"], [data-family="strip"]) > :is(ul, ol) {
+  grid-column: 1 / -1; grid-row: 4; align-self: start;
+  padding-left: 0; border-left: none;
+  padding-top: var(--sp-md); border-top: 1px solid var(--border);
 }
 
+
 /* `compare` (CSS multi-`column-count`) and `canvas` (`grid-template-areas`) put their
-   layout on the SECTION — section-element properties a `@container` query can't reach
-   (§11). They key on the deck-wide `data-orientation` stamp instead (the sanctioned
-   path; cf. split-compare): on a portrait deck `compare` reads as one column and
-   `canvas` stacks the equation over the plot. */
+   layout on the SECTION. Under the retired `@container` form those were unreachable
+   (§11 — a query can't style its own container), so both key on the deck-wide
+   `data-orientation` stamp; cf. split-compare. #1218 lifted that constraint, but
+   these rules are correct as written and stay: on a portrait deck `compare` reads as
+   one column and `canvas` stacks the equation over the plot. */
 section.math.compare[data-orientation="portrait"] { column-count: 1; }
 section.math.compare[data-orientation="portrait"] > h3 { break-before: avoid; }
 section.math.canvas[data-orientation="portrait"] {
@@ -8863,30 +8959,29 @@ section.matrix-2x2 li > ol > li {
  * lint time. See CARD_STYLE_LAYOUTS in lib/components/index.js. */
 section.matrix-2x2 :is(ul,ol) > li > strong ~ * { font-weight: 400; }
 
-/* ── Box-local family reflow (2026-06-18-component-adaptive-sizing.md). Wide and
+/* ── Family reflow (2026-06-18-component-adaptive-sizing.md). Wide and
  * square keep the 2×2 (a square box reads the quadrants fine); tall and strip
- * collapse to a single column. Keyed on the nearest `lattice` container's aspect,
- * so it fires on a portrait deck AND inside a narrow nested cell — replacing the
+ * collapse to a single column. Keyed on the deck's `data-family` stamp,
+ * so it fires on any tall or strip deck — replacing the
  * deck-wide data-orientation stamp. */
 /* `.matrix-2x2.matrix-2x2` (class doubled) reaches (0,2,2) to match the original
  * `[data-orientation]` reflow's specificity and stay robust to future variant
  * grid rules — the role the attribute played. */
-@container lattice (aspect-ratio <= 0.9) {
-  /* Tall/strip → single column: flex-column, each card flex:1 to split the height
-   * (the flex mirror of the grid's `grid-auto-rows:minmax(0,1fr)`). */
-  section.matrix-2x2.matrix-2x2 > .cell-stage > ul,
-  section.matrix-2x2.matrix-2x2 > .cell-stage > ol {
-    flex-direction: column;
-    flex-wrap: nowrap;
-  }
-  section.matrix-2x2.matrix-2x2 > .cell-stage > ul > li,
-  section.matrix-2x2.matrix-2x2 > .cell-stage > ol > li {
-    width: 100%;
-    height: auto;
-    flex: 1;
-    min-height: 0;
-  }
+/* Tall/strip → single column: flex-column, each card flex:1 to split the height
+ * (the flex mirror of the grid's `grid-auto-rows:minmax(0,1fr)`). */
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  flex-direction: column;
+  flex-wrap: nowrap;
 }
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.matrix-2x2.matrix-2x2:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
+  width: 100%;
+  height: auto;
+  flex: 1;
+  min-height: 0;
+}
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
@@ -9642,12 +9737,10 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
 
   /* ── Portrait / square reflow (adapt.mode: reflow). Tighten the rhythm and let
    *    the reasons pack from the top instead of centering in a tall box. ─────── */
-  @container lattice (aspect-ratio <= 1.05) {
-    section.policy-recommendation > .cell-stage { gap: var(--sp-sm); }
-    section.policy-recommendation > .cell-stage > ul {
-      flex: 0 0 auto;
-      justify-content: flex-start;
-    }
+  section.policy-recommendation:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage { gap: var(--sp-sm); }
+  section.policy-recommendation:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+    flex: 0 0 auto;
+    justify-content: flex-start;
   }
 
 /* === lib/components/statement/premise/premise.styles.css === */
@@ -9669,7 +9762,9 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
  *
  * The ledger is an ORDERED list — the same shape every other numbered layout
  * in Lattice uses (LEDGER_OL_LAYOUTS, lib/authoring/lint-core.js). The ordinal
- * is a CSS counter, never author-typed, so rows renumber on reorder. Each row's
+ * is a CSS counter (the built-in `list-item`), so rows renumber on reorder — but
+ * an explicit `<ol start="N">` DOES flow through as a presentational hint, which
+ * is exactly what lets a split run continue 05/06 instead of restarting. Each row's
  * two nested items are, in order, the description and the framing question.
  *
  * The section-level restructure (grouping <h2> + lede into one .premise-claim
@@ -9735,10 +9830,16 @@ section.premise > ol {
   list-style: none;
   padding: 0;
   margin: 0;
-  counter-reset: premise-row;
 }
 section.premise > ol > li {
-  counter-increment: premise-row;
+  /* The BUILT-IN `list-item` counter, not a private one. `<ol start="4">` maps to
+   * `counter-reset: list-item 3` as a presentational hint, so the ordinals continue
+   * across a split run; a private `premise-row` counter is reset by every fresh
+   * `<ol>` and restarted the ladder at 01 on page two — which on a Bloom ladder
+   * reads as "Analyze is the first verb". The increment has to be explicit because
+   * `display: grid` below removes the element's list-item-ness, and with it the
+   * UA's automatic increment. */
+  counter-increment: list-item;
   display: grid;
   grid-template-columns: 3.28125cqi 10.9375cqi 1fr;
   align-items: center;
@@ -9752,12 +9853,13 @@ section.premise > ol > li {
   color: var(--text-heading);
   white-space: nowrap;
 }
-/* The ordinal is generated, not authored — rows renumber themselves on reorder,
- * which a hand-typed `01` cannot. --text-secondary, not --text-muted: this is
+/* The ordinal is generated, not hand-typed per row — rows renumber themselves on
+ * reorder, which a typed `01` cannot. The list's own `start` is honoured though
+ * (see the counter note above): that is the mechanism, not a leak. --text-secondary, not --text-muted: this is
  * row CONTENT, not the "muted chrome" the palette contract exempts from AA
  * (--text-muted is 3.75:1 on --bg-alt; --text-secondary is 6.27:1). */
 section.premise > ol > li::before {
-  content: counter(premise-row, decimal-leading-zero);
+  content: counter(list-item, decimal-leading-zero);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
   color: var(--text-secondary);
@@ -9813,6 +9915,82 @@ section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); }
 section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); }
 section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); }
 section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }
+
+/* ── Family reflow (#1220). `premise` declared `adapt.mode: "reflow"` and shipped
+ * NONE — its landscape row (a 34% claim rail beside the ledger) was the only
+ * composition it had, so a narrow box painted it anyway. At 980px the rail is
+ * ~333px against `--fs-message`, which wraps the claim one word per line, and
+ * each row's fixed `10.9375cqi` term track (107px, `nowrap` + ellipsis) cut
+ * "Remember" to "R…". Reported from a phone; reproduced identically on main.
+ *
+ * SQUARE STACKS TOO, unlike stats/decision/cards-grid. Those keep their wide
+ * composition at square because it is a 2-up of PEER items and a square box has
+ * the width for two. This is not that: it is a narrow prose RAIL beside a table,
+ * and a 330px rail is unreadable whatever the height. Square's abundant vertical
+ * room (801px of stage vs landscape's 445) is exactly what makes stacking cheap
+ * here. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) {
+  flex-direction: column;
+  align-items: stretch;
+  /* SAFE center, not bare `center`. A centered flex column that overflows spills
+   * off BOTH ends, so an over-long ledger pushed the slide's own `<h2>` 145px
+   * above the top of the frame — the claim the layout exists to state, gone,
+   * while the rows it frames stayed visible. `safe` falls back to `start` exactly
+   * when overflow would occur, so the spill goes one way, off the bottom, where
+   * the overflow probe and the split recipe can both see it. (Caught by the
+   * inversion pass: the first cut of this reflow turned "term truncated to R…"
+   * into "the claim is missing".) */
+  justify-content: safe center;
+  gap: var(--sp-lg);
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .premise-claim {
+  width: auto;
+}
+/* The row becomes a hanging-ordinal card: the generated `01` keeps its gutter,
+ * and the term stacks OVER its description instead of competing for a fixed
+ * track. `white-space: normal` is the load-bearing one — the landscape row is
+ * `nowrap` (correct when every track is wide enough), which is what forced the
+ * ellipsis rather than a wrap. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li {
+  /* The row STAYS A ROW — ordinal, term, rest — it just stops pinning the term to
+   * a fixed `10.9375cqi` track and stops forbidding a wrap. That is the whole
+   * truncation bug: a 107px track with `nowrap` + ellipsis cut "Remember" to "R…".
+   * `auto` sizes the track to the longest term instead.
+   *
+   * An earlier cut of this reflow stacked term OVER description into a card. It
+   * fixed the truncation and cost more than it bought: three lines where there was
+   * one, so the ledger grew ~3x and FOUR MORE gallery slides clipped at portrait
+   * than before the reflow existed (6 vs 2) — trading a damaged word for a missing
+   * row. Shedding the framing question was measured too and changed nothing. */
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  white-space: normal;
+  /* A stacked card is TALLER than the single-line row it replaces (three lines
+   * where there was one), so it has to give the vertical padding back or six rows
+   * cannot fit a frame that held them side by side. `--sp-xs` keeps the card
+   * reading as a card; `--sp-sm` was inherited from the one-line landscape row,
+   * where it was the whole row height. */
+  padding: var(--sp-xs) var(--sp-md);
+  gap: var(--sp-2xs) var(--sp-sm);
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > strong {
+  overflow: visible;
+  text-overflow: clip;
+}
+/* The description + framing question share track 3. Stack them rather than
+ * competing for one line at this width, and let the question sit under the clause
+ * it belongs to instead of right-aligning into its lap. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul {
+  grid-template-columns: 1fr;
+  gap: var(--sp-3xs);
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(1) {
+  overflow: visible;
+  text-overflow: clip;
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(2) {
+  text-align: left;
+}
 
 /* === lib/components/comparison/pricing/pricing.styles.css === */
 /* pricing — plan tiers with prices, feature checklists, and one recommended
@@ -9946,25 +10124,24 @@ section.pricing > .cell-stage > ul > li:has(> em) > ul > li:last-child { color: 
 
 /* ── Portrait / square reflow (social/mobile @sizes). Keyed on the deck-wide
  * data-orientation stamp (lib/engine/slides.js); landscape untouched. See
- * 2026-06-16-social-mobile-portrait-sizes.md (phase 3). */  Tiers stack to one column (the standard mobile pricing pattern).
+ * 2026-06-16-social-mobile-portrait-sizes.md (phase 3). Tiers stack to one
+ * column — the standard mobile pricing pattern. */
 section.pricing[data-orientation="portrait"] > .cell-stage > ul {
   flex-direction: column;
 }
 section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
   flex: 0 0 auto;
 }
-/* Box-local family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
- * (≤0.9) stack the tiers to one column, keyed on the nearest `lattice` container
- * so it fires on a portrait deck AND inside a narrow nested cell — replacing the
+/* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
+ * (≤0.9) stack the tiers to one column, keyed on the deck's `data-family` stamp
+ * so it fires on any tall or strip deck — replacing the
  * deck-wide data-orientation stamp. Doubled class reaches (0,2,2) to match the
  * [data-orientation] reflow it mirrors. */
-@container lattice (aspect-ratio <= 0.9) {
-  section.pricing.pricing > .cell-stage > ul {
-    flex-direction: column;
-  }
-  section.pricing.pricing > .cell-stage > ul > li {
-    flex: 0 0 auto;
-  }
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  flex-direction: column;
+}
+section.pricing.pricing:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li {
+  flex: 0 0 auto;
 }
 
 /* === lib/components/chart/progress/progress.styles.css === */
@@ -10123,22 +10300,24 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
   font-style: italic;
 }
 
-/* ── Box-local FILL (square + tall + strip, ≤1.05): the bars already stack, but
+/* ── Family FILL (square + tall + strip, ≤1.05): the bars already stack, but
  * on a tall/square box they crowd the top and leave the canvas empty. Distribute
  * the rows down the full height and thicken the tracks so the bars read big.
- * Keyed on the nearest `lattice` container; landscape untouched. See
+ * Keyed on the deck's `data-family` stamp; landscape untouched. See
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 1.05) {
-  :is(section.progress, figure.progress) .progress-bars {
-    height: 100%;
-    justify-content: space-evenly;
-    row-gap: var(--sp-md);
-  }
-  :is(section.progress, figure.progress) .progress-track { height: 4cqi; }
-  :is(section.progress, figure.progress) .progress-label { font-size: var(--fs-message); }
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-bars,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-bars {
+  height: 100%;
+  justify-content: space-evenly;
+  row-gap: var(--sp-md);
 }
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-track,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-track { height: 4cqi; }
+section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-label,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.progress .progress-label { font-size: var(--fs-message); }
 
-/* ── Box-local STACK (tall only, ≤0.9): the label gets its own full-width row.
+
+/* ── Family STACK (tall only, ≤0.9): the label gets its own full-width row.
  *
  * The three-column row (`18.75cqi 1fr 7.5cqi`) pulls apart at portrait because
  * its two halves scale in OPPOSITE directions. `cqi` is a share of container
@@ -10160,43 +10339,48 @@ section.pricing[data-orientation="portrait"] > .cell-stage > ul > li {
  * Scoped ≤0.9, not ≤1.05: square already fits (measured -178.1px of headroom)
  * and a layout change there would be churn without a defect behind it. See
  * #1209, #1210 and 2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
-  :is(section.progress, figure.progress) .progress-row {
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "label label"
-      "track pill";
-    row-gap: var(--sp-2xs);
-    column-gap: var(--sp-sm);
-  }
-  :is(section.progress, figure.progress) .progress-label {
-    grid-area: label;
-    /* Left-aligned now that it heads the row instead of butting against the
-     * bar's origin — right-alignment only reads as a gutter beside the track. */
-    text-align: left;
-    /* Back to the body step. The ≤1.05 block above bumps the label to
-     * `--fs-message` to help a narrow three-column row fill a taller box — but
-     * once the label has its OWN full-width row that bump only buys height, and
-     * five two-line rows plus the gallery's real subtitle put the stack 10.5px
-     * past the stage. Statement scale is for a slide's message, not a row label
-     * (engineering/typography.md). */
-    font-size: var(--fs-body);
-  }
-  :is(section.progress, figure.progress) .progress-track { grid-area: track; }
-  :is(section.progress, figure.progress) .progress-row > .chart-status,
-  :is(section.progress, figure.progress) .progress-row > .chart-status-empty {
-    grid-area: pill;
-  }
-  /* The note follows the bar it annotates; `grid-column: 2/3` above targets the
-   * three-column template and would land it under the pill here. */
-  :is(section.progress, figure.progress) .progress-note {
-    grid-area: track;
-    grid-row: 3;
-  }
-  /* Rows are now two lines tall, so the between-row rhythm tightens to keep the
-   * five of them inside the stage. */
-  :is(section.progress, figure.progress) .progress-bars { row-gap: var(--sp-sm); }
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row {
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "label label"
+    "track pill";
+  row-gap: var(--sp-2xs);
+  column-gap: var(--sp-sm);
 }
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-label,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-label {
+  grid-area: label;
+  /* Left-aligned now that it heads the row instead of butting against the
+   * bar's origin — right-alignment only reads as a gutter beside the track. */
+  text-align: left;
+  /* Back to the body step. The ≤1.05 block above bumps the label to
+   * `--fs-message` to help a narrow three-column row fill a taller box — but
+   * once the label has its OWN full-width row that bump only buys height, and
+   * five two-line rows plus the gallery's real subtitle put the stack 10.5px
+   * past the stage. Statement scale is for a slide's message, not a row label
+   * (engineering/typography.md). */
+  font-size: var(--fs-body);
+}
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-track,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-track { grid-area: track; }
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row > .chart-status,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row > .chart-status,
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-row > .chart-status-empty,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-row > .chart-status-empty {
+  grid-area: pill;
+}
+/* The note follows the bar it annotates; `grid-column: 2/3` above targets the
+ * three-column template and would land it under the pill here. */
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-note,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-note {
+  grid-area: track;
+  grid-row: 3;
+}
+/* Rows are now two lines tall, so the between-row rhythm tightens to keep the
+ * five of them inside the stage. */
+section.progress:where([data-family="tall"], [data-family="strip"]) .progress-bars,
+:where([data-family="tall"], [data-family="strip"]) figure.progress .progress-bars { row-gap: var(--sp-sm); }
 
 /* === lib/components/inventory/q-and-a/q-and-a.styles.css === */
 /* q-and-a — anticipated questions paired with prepared answers. The
@@ -10542,46 +10726,44 @@ section.q-and-a.solo > .cell-stage > :is(ul, ol) > li > :is(ul, ol) > li {
   line-height: var(--lh-snug);
 }
 
-/* ── Box-local family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
+/* ── Family reflow (engineering/decisions/2026-06-18-component-adaptive-sizing.md).
    The default ledger, spine, and tab looks are already single-column streams and
    need no reflow. Two looks pack horizontally and crush in a tall box: `grid`
    (2×2 quadrant) and `rail` (number | question | answer columns). Collapse both to
    a single vertical column — grid drops its cross rules, rail falls back to the
-   ledger's hanging-index form — so a portrait deck (or a narrow nested cell) reads
-   one pair per band. Keyed on the nearest `lattice` container's aspect. */
-@container lattice (aspect-ratio <= 0.9) {
-  /* grid 2×2 → one column; retire the dividing cross. The container is a flex/grid
-     descendant (`> ul`) so the container query CAN restyle it: drop to a flex column
-     so the pairs pack by content height + gap (the grid's stretched auto-rows left
-     huge gaps), and reset each pair's reserved two-line header to natural height. */
-  section.q-and-a.grid > .cell-stage > :is(ul, ol) {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: stretch;
-    gap: var(--sp-lg);
-  }
-  /* release the quadrant cell sizing — natural-height pairs in the single column. */
-  section.q-and-a.grid > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; justify-content: flex-start; }
-  section.q-and-a.grid > .cell-stage > :is(ul, ol) > li > strong { min-height: 0; }
-  section.q-and-a.grid > .cell-stage > :is(ul, ol)::before,
-  section.q-and-a.grid > .cell-stage > :is(ul, ol)::after { display: none; }
-  /* rail columns → the ledger's hanging-index block so Q and A stack legibly. */
-  section.q-and-a.rail > .cell-stage > :is(ul, ol) > li {
-    display: block;
-    position: relative; /* self-contained context for the absolute index ::before */
-    padding-left: var(--qa-gutter);
-    padding-bottom: var(--sp-lg);
-    border-left: 2px solid var(--accent);
-  }
-  section.q-and-a.rail > .cell-stage > :is(ul, ol) > li::before {
-    content: "0" counter(qa);
-    position: absolute;
-    left: var(--sp-md);
-    top: 0;
-  }
-  section.q-and-a.rail > .cell-stage > :is(ul, ol) > li > :is(ul, ol) { padding-top: var(--sp-xs); }
+   ledger's hanging-index form — so a tall or strip deck reads
+   one pair per band. Keyed on the deck's `data-family` stamp. */
+/* grid 2×2 → one column; retire the dividing cross. The container is a flex/grid
+   descendant (`> ul`) so the container query CAN restyle it: drop to a flex column
+   so the pairs pack by content height + gap (the grid's stretched auto-rows left
+   huge gaps), and reset each pair's reserved two-line header to natural height. */
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: var(--sp-lg);
 }
+/* release the quadrant cell sizing — natural-height pairs in the single column. */
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li { width: auto; height: auto; justify-content: flex-start; }
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong { min-height: 0; }
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::before,
+section.q-and-a.grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol)::after { display: none; }
+/* rail columns → the ledger's hanging-index block so Q and A stack legibly. */
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li {
+  display: block;
+  position: relative; /* self-contained context for the absolute index ::before */
+  padding-left: var(--qa-gutter);
+  padding-bottom: var(--sp-lg);
+  border-left: 2px solid var(--accent);
+}
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li::before {
+  content: "0" counter(qa);
+  position: absolute;
+  left: var(--sp-md);
+  top: 0;
+}
+section.q-and-a.rail:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) { padding-top: var(--sp-xs); }
 
 /* === lib/components/chart/quadrant/quadrant.styles.css === */
 /* quadrant — extracted from lib/_legacy.css (batch 8).
@@ -11221,23 +11403,21 @@ section.quote.bare > .cell-stage > p em { font-style: normal; }
 /* ── small-multiples: one mini radar per series ───────────────────────── */
 :is(section.radar, figure.chart-frame) .radar-figure[data-variant="small-multiples"] {
   gap: 0;
-  /* A DEFINITE height, so the grid's `1fr` rows have something to divide. Without
-   * it the figure is content-sized, `1fr` collapses to max-content, and the minis
-   * stay at their basis while the body keeps the leftover.
-   *
-   * SCOPED to the same condition that makes `.chart-body` a size container
-   * (chart-family.css excludes claim-hero/claim-bleed). `100cqh` with no query
-   * container resolves against the VIEWPORT, and at claim-hero the pre-existing
-   * `section.radar:is(.claim-hero,.claim-bleed) .radar-figure { height: auto }
-/* The definite height, scoped to exactly where `.chart-body` is a size container
-   (chart-family.css). See the note in the rule above. */
+  min-height: 0;
+}
+/* A DEFINITE height, so the grid's `1fr` rows have something to divide. Without
+ * it the figure is content-sized, `1fr` collapses to max-content, and the minis
+ * stay at their basis while the body keeps the leftover.
+ *
+ * SCOPED to the same condition that makes `.chart-body` a size container
+ * (chart-family.css excludes claim-hero/claim-bleed). `100cqh` with no query
+ * container resolves against the VIEWPORT, and at claim-hero the pre-existing
+ * `section.radar:is(.claim-hero,.claim-bleed) .radar-figure { height: auto }`
+ * ties this rule on specificity — so leaving it unscoped would hand the
+ * outcome to source order. Logged separately: small-multiples at claim-hero is
+ * already broken in both trees (1-column, overflowing). */
 section.form.radar:not(.claim-hero):not(.claim-bleed) .radar-figure[data-variant="small-multiples"] {
   height: 100cqh;
-}`
-   * ties this rule on specificity — so leaving it unscoped would hand the
-   * outcome to source order. Logged separately: small-multiples at claim-hero is
-   * already broken in both trees (1-column, overflowing). */
-  min-height: 0;
 }
 :is(section.radar, figure.chart-frame) .radar-multiples {
   /* A GRID, not a wrapping flex row.
@@ -12013,33 +12193,39 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3) { border-left-color:var(--pass); }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3)::before { background:var(--pass); }
 
-/* ── Box-local family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
+/* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
    A1). The DEFAULT changelog row is a five-column `auto auto auto 1fr auto` grid
-   (counter · name · cite · prose · pill) — five tracks crush in a square/tall/
-   strip box. Collapse each row to a hanging counter + a single stacked content
+   (counter · name · cite · prose · pill) — five tracks crush in a tall/strip
+   box. Collapse each row to a hanging counter + a single stacked content
    column (name → cite → prose → pill), keeping the leading-zero number in the
-   gutter. Scoped off the named variants — the excluded variants (timeline is the
+   gutter.
+
+   TALL AND STRIP ONLY — square keeps the five-track row. This block was authored
+   to include square, but square never matched (#1218), so the result was never
+   seen: stacking four fields per row roughly triples each row's height, and the
+   gallery's three changes then push the third card and its "Effective" pill off
+   the frame. Verified by render: gallery `regulatory-update` at `size: square`
+   overflows with square in this set, fits without it. Scoped off the named variants — the excluded variants (timeline is the
    horizontal spine; cards/diff-bands/priority) keep their landscape shape for
    now; portrait handling for the variants is out of Batch A1 scope (tracked
    follow-up). The nested list uses `display:contents`, so its <li> children are
    direct grid items — re-anchor each to column 2 and let them auto-flow down the
    rows. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li {
-    grid-template-columns: auto 1fr;
-    grid-template-rows: none;
-    grid-auto-flow: row;
-    row-gap: var(--sp-xs);
-    align-items: baseline;
-  }
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child),
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
-  section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child) {
-    grid-column: 2;
-    grid-row: auto;
-    justify-self: start;
-  }
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li {
+  grid-template-columns: auto 1fr;
+  grid-template-rows: none;
+  grid-auto-flow: row;
+  row-gap: var(--sp-xs);
+  align-items: baseline;
 }
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:first-child:has(> code:only-child),
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:not(:first-child):not(:last-child),
+section.regulatory-update.regulatory-update:not(.cards):not(.timeline):not(.diff-bands):not(.priority):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ol, ul) > li > :is(ul, ol) > li:last-child:has(> code:only-child) {
+  grid-column: 2;
+  grid-row: auto;
+  justify-self: start;
+}
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
@@ -12576,7 +12762,7 @@ section.regulatory-update > .cell-stage {
   font-family:var(--font-mono);
 }
 
-/* ── NON-LANDSCAPE legend, keyed on `data-orientation` NOT a container query ──
+/* ── NON-LANDSCAPE legend ─────────────────────────────────────────────────────
  * The status key's top separation is `--sp-lg + --sp-sm`, which rides
  * `--canvas-scale` to 60.1px on a square deck — 60px of pure chrome in the box
  * with the least vertical room to give. That alone put the figure over:
@@ -12584,26 +12770,24 @@ section.regulatory-update > .cell-stage {
  * 128.8px, but table + a 154.8px legend makes a 780.3px figure, 26px outside
  * the stage clip top and bottom.
  *
- * WHY NOT `@container lattice (aspect-ratio <= 1.05)`, which is how every other
- * box-local rule here is written: on a square deck that query DOES NOT MATCH.
- * `orientationFor` classifies the DECK box (1080x1080 → 1.00, inside the
- * 0.9–1.05 square band, and `data-orientation="square"` is emitted correctly),
- * but a container query evaluates the container's CONTENT box — 972 x 909.23
- * once the section's asymmetric padding (74.25 top + 96.525 bottom vs 54 + 54)
- * is removed, an aspect of 1.069. That is outside the same 1.05 boundary, so
- * the whole `≤1.05` branch is inert at square. Verified against a known-gated
- * declaration: `.progress-track` renders 2.5cqi (base) at square and 4cqi
- * (gated) at portrait.
+ * This rule was written against `data-orientation` because the `@container
+ * lattice (aspect-ratio <= 1.25)` form every other family rule then used DID
+ * NOT MATCH on a square deck — the query measures the section's CONTENT box
+ * (972 x 909.23 once the asymmetric padding is removed, aspect 1.069), not the
+ * 1.00 deck box, so the whole square branch was inert. That was #1218, and it
+ * is now fixed at the root: family rules select the `data-family` stamp the
+ * engine derives from the deck geometry, so this rule uses the same mechanism
+ * as every other one in the file.
  *
- * That mismatch is a pre-existing, library-wide defect — 18 files carry a
- * `≤1.05` branch that never fires on a square deck — and it is off the path of
- * #1209, so it is filed rather than fixed here (HARD RULE #18). This rule keys
- * on the attribute the engine already derives, which is the one source of
- * truth and agrees with `orientationFor` by construction.
+ * The class is DOUBLED to hold (0,3,1) — the weight the retired
+ * `:is([data-orientation=…])` form carried. `:where()` is zero-specificity, so
+ * without the doubling this would drop to (0,2,1) and lose to the `.horizons`
+ * legend rule above it (also (0,3,1), and earlier in source order).
  *
  * Landscape keeps the generous separation: it has the height, and the key
  * should read as detached from the grid. See #1209. */
-:is(section.roadmap, figure.roadmap):is([data-orientation='square'], [data-orientation='portrait']) .roadmap-legend {
+section.roadmap.roadmap:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .roadmap-legend,
+:where([data-family="square"], [data-family="tall"], [data-family="strip"]) figure.roadmap.roadmap .roadmap-legend {
   padding-top: var(--sp-sm);
   gap: var(--sp-2xs) var(--sp-lg);
   /* Chrome step, not the content step. At portrait `--fs-body-compact` renders
@@ -12620,127 +12804,137 @@ section.regulatory-update > .cell-stage {
  * (chart-family.js) and the phase cards STACK into a single column down the
  * page, filling the height. The header collapses to one row (eyebrow · title)
  * and the workstream rows tighten so a 3–4 phase roadmap fits without overflow.
- * Keyed on the nearest `lattice` container; landscape (N-across) untouched.
+ * Keyed on the deck's `data-family` stamp; landscape (N-across) untouched.
  * ≤0.9 = tall+strip. 2026-06-19-chart-adaptive-sizing.md §10. */
-@container lattice (aspect-ratio <= 0.9) {
-  :is(section.roadmap, figure.roadmap).horizons .horizons {
-    /* ONE column is right; the TYPE inside it was the problem. Measured, a
-     * 4-workstream card came out 382.4px with its rows already collapsed to one
-     * line (54px each), so three of them made 1194.5px of grid inside an 835.6px
-     * stage — 284px cut, silently, at `.cell-stage`'s `overflow: clip`.
-     *
-     * More columns was tried and is WORSE, not better: `auto-fit`/`minmax` gives
-     * 2 columns of 426.8px at portrait, and the narrower card wraps the
-     * one-line workstream rows, taking cards to 694.6px for a 1424px grid. A
-     * card's height is set by whether its rows wrap, so narrowing the column
-     * fights the very thing that makes it short.
-     *
-     * What actually binds is that card text rides `--canvas-scale` (~1.95 at
-     * portrait) while the card does not: the rows render at 46.98px. Stepping
-     * the card body down the ROLE scale (HARD RULE #4 — `--fs-*`, never a raw
-     * length) buys the height back without touching the column count. See
-     * #1209, and #1213 for the general defect this is one instance of. */
-    grid-template-columns: 1fr;
-    gap: var(--sp-sm);
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-  /* FILL A SPLIT PAGE — without blinding the probe that triggers the split.
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizons,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizons {
+  /* ONE column is right; the TYPE inside it was the problem. Measured, a
+   * 4-workstream card came out 382.4px with its rows already collapsed to one
+   * line (54px each), so three of them made 1194.5px of grid inside an 835.6px
+   * stage — 284px cut, silently, at `.cell-stage`'s `overflow: clip`.
    *
-   * Once `roadmap-horizons` paginates, a page can hold one card and the stage is
-   * mostly empty: measured, a 314.8px card in an 835.6px stage. The height is
-   * held by the `.viz-frame` pin —
-   * `section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) >
-   * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.css).
+   * More columns was tried and is WORSE, not better: `auto-fit`/`minmax` gives
+   * 2 columns of 426.8px at portrait, and the narrower card wraps the
+   * one-line workstream rows, taking cards to 694.6px for a 1424px grid. A
+   * card's height is set by whether its rows wrap, so narrowing the column
+   * fights the very thing that makes it short.
    *
-   * The obvious move — flip the body to `flex: 1 1 0` so it fills — is WRONG,
-   * and measuring the frame says why. `.chart-body` is `overflow: hidden`, so
-   * content never spills THROUGH it into the stage. The probe fires because the
-   * pin gives the body its NATURAL height, so an overstuffed chart makes the
-   * BODY itself exceed the stage (`stage.scrollHeight > clientHeight`). Set
-   * `flex: 1 1 0` and the body is exactly stage height, its overflow clipped
-   * inside it, and `overflow-probe.js` goes blind — which would silently
-   * disable this component's own pagination.
-   *
-   * So keep natural growth and add a FLOOR. `min-height: 100%` makes the body at
-   * least the stage's height when content is smaller (the split case → it
-   * fills), while `flex: 0 0 auto` still lets it grow PAST the stage when
-   * content is larger (the overstuffed case → the probe still fires and the
-   * split still triggers). One property, both behaviours, no pin to fight.
-   *
-   * Both directions are covered by tests: `check:chart-fit` renders the split
-   * pages, and the carousel suite asserts an overstuffed roadmap still divides.
-   * See #1209. */
-  section.chart-frame.roadmap.horizons > .cell-stage > .chart-body {
-    min-height: 100%;
-  }
-  /* With the body floored, these can finally hand the height down: `1fr` rows
-   * stretch the cards that remain on the page, and the card's own rows spread
-   * into it instead of bunching under the header. */
-  :is(section.roadmap, figure.roadmap).horizons .horizons {
-    grid-auto-rows: 1fr;
-  }
-  :is(section.roadmap, figure.roadmap).horizons .horizon-card {
-    height: 100%;
-    min-height: 0;
-  }
-  /* TWO COLUMNS, not one tall stack. A split page gives one phase the whole
-   * card, and a single column of four short `LABEL · value` rows used barely
-   * half the width while running the card's full height — a lot of empty right
-   * margin next to a lot of vertical travel. Two columns read as the table this
-   * component is, halve the vertical run, and use the width the split just
-   * bought. 4 workstreams lay out 2x2, 3 lay out 2+1; `minmax(0, 1fr)` keeps a
-   * long workstream name from forcing a track wider than its half. */
-  :is(section.roadmap, figure.roadmap).horizons .horizon-rows {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    /* Distributed, not clumped. `center` left the rows as a tight block marooned
-     * in a tall card; space-evenly with TWO-LINE cells spreads them without the
-     * canyon the one-line cells produced. */
-    align-content: space-evenly;
-    height: 100%;
-    gap: var(--sp-lg) var(--sp-lg);
-  }
-  /* The row's height is set by `.row-text`, which carries the glyphs — setting
-   * font-size on the <li> does nothing, because both spans declare their own. */
-  :is(section.roadmap, figure.roadmap).horizons .row-text { font-size: var(--fs-meta); }
-  /* Chrome tightens hard at portrait. Every `--sp-*` rides `--canvas-scale`
-   * (~1.95 here) just like the type does, so card padding, the head rule's
-   * clearance and the inter-row gaps are all ~2x their landscape selves — and
-   * three cards multiply that. Trimming a step off each is where the remaining
-   * height comes from, without pushing any text below the role scale. */
-  :is(section.roadmap, figure.roadmap).horizons .horizon-card {
-    padding: var(--sp-xs) var(--sp-sm);
-    gap: var(--sp-2xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
-  }
-  :is(section.roadmap, figure.roadmap).horizons .horizon-head {
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--sp-sm);
-    padding-bottom: var(--sp-2xs);
-  }
-  :is(section.roadmap, figure.roadmap).horizons .horizon-title { font-size: var(--fs-body-compact); }
-  /* The phase pill is the least readable thing on a split page. `0.859375cqi`
-   * resolves to ~8.4px at portrait, so the #1213 floor is what is actually
-   * drawing it — at 11px, legible but not readable on a 1080-wide page where the
-   * body text around it is ~33px. Portrait has fewer inline units, so the
-   * coefficient has to grow to hold the same optical size: 1.7cqi lands near
-   * 16.5px here, and the floor still catches anything narrower. */
-  :is(section.roadmap, figure.roadmap).horizons .horizon-meta {
-    font-size: max(var(--chart-text-min), 1.7cqi);
-  }
-  :is(section.roadmap, figure.roadmap).horizons .horizon-rows { gap: var(--sp-2xs); }
-  /* Each workstream row collapses to ONE line (LABEL · value) — halves the card
-   * body so 4+ phases stack without overflow. */
-  /* Label OVER value, not beside it. The inline `LABEL · value` row was a
-   * one-column compromise; in a half-width track the label eats the line and the
-   * value wraps mid-phrase ("Signal / taxonomy"). Stacked, each cell is two tidy
-   * lines and nothing breaks. This is the base cell shape — the ≤0.9 override
-   * that forced a row is simply gone now that two columns supply the width. */
-  :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li {
-    align-items: start;
-  }
+   * What actually binds is that card text rides `--canvas-scale` (~1.95 at
+   * portrait) while the card does not: the rows render at 46.98px. Stepping
+   * the card body down the ROLE scale (HARD RULE #4 — `--fs-*`, never a raw
+   * length) buys the height back without touching the column count. See
+   * #1209, and #1213 for the general defect this is one instance of. */
+  grid-template-columns: 1fr;
+  gap: var(--sp-sm);
+  flex: 1 1 auto;
+  min-height: 0;
 }
+/* FILL A SPLIT PAGE — without blinding the probe that triggers the split.
+ *
+ * Once `roadmap-horizons` paginates, a page can hold one card and the stage is
+ * mostly empty: measured, a 314.8px card in an 835.6px stage. The height is
+ * held by the `.viz-frame` pin —
+ * `section.chart-frame:is(.progress, .kanban, .timeline-list, .roadmap) >
+ * .cell-stage > .chart-body { flex: 0 0 auto }` (chart-family.css).
+ *
+ * The obvious move — flip the body to `flex: 1 1 0` so it fills — is WRONG,
+ * and measuring the frame says why. `.chart-body` is `overflow: hidden`, so
+ * content never spills THROUGH it into the stage. The probe fires because the
+ * pin gives the body its NATURAL height, so an overstuffed chart makes the
+ * BODY itself exceed the stage (`stage.scrollHeight > clientHeight`). Set
+ * `flex: 1 1 0` and the body is exactly stage height, its overflow clipped
+ * inside it, and `overflow-probe.js` goes blind — which would silently
+ * disable this component's own pagination.
+ *
+ * So keep natural growth and add a FLOOR. `min-height: 100%` makes the body at
+ * least the stage's height when content is smaller (the split case → it
+ * fills), while `flex: 0 0 auto` still lets it grow PAST the stage when
+ * content is larger (the overstuffed case → the probe still fires and the
+ * split still triggers). One property, both behaviours, no pin to fight.
+ *
+ * Both directions are covered by tests: `check:chart-fit` renders the split
+ * pages, and the carousel suite asserts an overstuffed roadmap still divides.
+ * See #1209. */
+section.chart-frame.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) > .cell-stage > .chart-body {
+  min-height: 100%;
+}
+/* With the body floored, these can finally hand the height down: `1fr` rows
+ * stretch the cards that remain on the page, and the card's own rows spread
+ * into it instead of bunching under the header. */
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizons,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizons {
+  grid-auto-rows: 1fr;
+}
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-card,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-card {
+  height: 100%;
+  min-height: 0;
+}
+/* TWO COLUMNS, not one tall stack. A split page gives one phase the whole
+ * card, and a single column of four short `LABEL · value` rows used barely
+ * half the width while running the card's full height — a lot of empty right
+ * margin next to a lot of vertical travel. Two columns read as the table this
+ * component is, halve the vertical run, and use the width the split just
+ * bought. 4 workstreams lay out 2x2, 3 lay out 2+1; `minmax(0, 1fr)` keeps a
+ * long workstream name from forcing a track wider than its half. */
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Distributed, not clumped. `center` left the rows as a tight block marooned
+   * in a tall card; space-evenly with TWO-LINE cells spreads them without the
+   * canyon the one-line cells produced. */
+  align-content: space-evenly;
+  height: 100%;
+  gap: var(--sp-lg) var(--sp-lg);
+}
+/* The row's height is set by `.row-text`, which carries the glyphs — setting
+ * font-size on the <li> does nothing, because both spans declare their own. */
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .row-text,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .row-text { font-size: var(--fs-meta); }
+/* Chrome tightens hard at portrait. Every `--sp-*` rides `--canvas-scale`
+ * (~1.95 here) just like the type does, so card padding, the head rule's
+ * clearance and the inter-row gaps are all ~2x their landscape selves — and
+ * three cards multiply that. Trimming a step off each is where the remaining
+ * height comes from, without pushing any text below the role scale. */
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-card,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-card {
+  padding: var(--sp-xs) var(--sp-sm);
+  gap: var(--sp-2xs); /* portrait head→rows spacing (was head margin-bottom:var(--sp-xs)) */
+}
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-head,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-head {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--sp-sm);
+  padding-bottom: var(--sp-2xs);
+}
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-title,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-title { font-size: var(--fs-body-compact); }
+/* The phase pill is the least readable thing on a split page. `0.859375cqi`
+ * resolves to ~8.4px at portrait, so the #1213 floor is what is actually
+ * drawing it — at 11px, legible but not readable on a 1080-wide page where the
+ * body text around it is ~33px. Portrait has fewer inline units, so the
+ * coefficient has to grow to hold the same optical size: 1.7cqi lands near
+ * 16.5px here, and the floor still catches anything narrower. */
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-meta,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-meta {
+  font-size: max(var(--chart-text-min), 1.7cqi);
+}
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-rows { gap: var(--sp-2xs); }
+/* Each workstream row collapses to ONE line (LABEL · value) — halves the card
+ * body so 4+ phases stack without overflow. */
+/* Label OVER value, not beside it. The inline `LABEL · value` row was a
+ * one-column compromise; in a half-width track the label eats the line and the
+ * value wraps mid-phrase ("Signal / taxonomy"). Stacked, each cell is two tidy
+ * lines and nothing breaks. This is the base cell shape — the ≤0.9 override
+ * that forced a row is simply gone now that two columns supply the width. */
+section.roadmap.horizons:where([data-family="tall"], [data-family="strip"]) .horizon-rows > li,
+:where([data-family="tall"], [data-family="strip"]) figure.roadmap.horizons .horizon-rows > li {
+  align-items: start;
+}
+
 
 /* ── ROADMAP SWIMLANE — per-workstream track of phase pills ──────────
  * Same source as the default; visual shifts so each row reads as a
@@ -13263,8 +13457,12 @@ section.split-compare .verdict blockquote p { font-size:var(--fs-body); font-fam
  *    be querying the very box it's trying to restyle, and silently no-ops. For a
  *    FULL-SLIDE layout the deck orientation IS the component's box, so the stack
  *    stays on the deck-wide data-orientation stamp. Correct, not a fallback.
- *  · The DESCENDANTS (rail width, the options grid) reflow box-locally against the
- *    nearest `lattice` container (the slide), so they're future-proof for nesting.
+ *  · The DESCENDANTS (rail width, the options grid) reflow against the SLIDE's
+ *    `data-family` stamp, same as the stack — the selectors are anchored at
+ *    `section.split-compare:where([data-family=…])`. This is deck-wide, NOT
+ *    box-local: a nested cell stamping its own family would not reach them. The
+ *    box-local reading was an aspiration in these comments and never shipped
+ *    behavior (#1218; see lib/adaptive/families.js "WHAT IT COST").
  *
  * NOTE: the option CELLS are deliberately NOT made `container-type: size` here. A
  * nested size container re-bases every `cqi`-based token inside it to the cell
@@ -13276,10 +13474,9 @@ section.split-compare .verdict blockquote p { font-size:var(--fs-body); font-fam
  * a real component; the foundation enables it. */
 section.split-compare[data-orientation="portrait"],
 section.split-compare[data-orientation="square"] { flex-direction: column; }
-@container lattice (aspect-ratio <= 1.05) {
-  section.split-compare .compare-left { width: auto; }
-  section.split-compare .options { grid-template-columns: 1fr; }
-}
+section.split-compare:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .compare-left { width: auto; }
+section.split-compare:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .options { grid-template-columns: 1fr; }
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
@@ -13930,21 +14127,20 @@ section.state-chart .state-edge {
  * distribute the states down it; the browser edge-pass re-measures the laid-out
  * positions, so the arrows follow. (An `lr` machine is already flipped back to
  * this vertical default at build time — see state-chart.transform.js.) Keyed on
- * the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
+ * the deck's `data-family` stamp; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md §10. */
-@container lattice (aspect-ratio <= 0.9) {
-  /* The figure viewport already fills the stage (flex:1). The SCALE BOX must also
-   * take the full height so `.state-nodes { height:100% }` below resolves against a
-   * DEFINITE height and `space-evenly` has room to distribute — otherwise the box's
-   * default auto height collapses the fill (the node column strands in the middle).
-   * At full height the natural column ≈ the viewport, so the landscape self-scale is
-   * a no-op here (raw ≈ 1); portrait fills by distribution, landscape by letterbox. */
-  section.state-chart .state-chart-scale { height: 100%; }
-  section.state-chart .state-nodes {
-    height: 100%;
-    justify-content: space-evenly;
-  }
+/* The figure viewport already fills the stage (flex:1). The SCALE BOX must also
+ * take the full height so `.state-nodes { height:100% }` below resolves against a
+ * DEFINITE height and `space-evenly` has room to distribute — otherwise the box's
+ * default auto height collapses the fill (the node column strands in the middle).
+ * At full height the natural column ≈ the viewport, so the landscape self-scale is
+ * a no-op here (raw ≈ 1); portrait fills by distribution, landscape by letterbox. */
+section.state-chart:where([data-family="tall"], [data-family="strip"]) .state-chart-scale { height: 100%; }
+section.state-chart:where([data-family="tall"], [data-family="strip"]) .state-nodes {
+  height: 100%;
+  justify-content: space-evenly;
 }
+
 
 section.state-chart .state-edge[data-dir="back"] {
   stroke: var(--state-edge-back);
@@ -14371,21 +14567,44 @@ section.stats[data-orientation='portrait'] > .cell-stage > ol > li > ul > li,
 section.stats[data-orientation='square'] > .cell-stage > ol > li > ul > li {
   font-size: var(--fs-body); /* label legible under the big number (was --fs-meta) */
 }
-/* Box-local family reflow (2026-06-18-component-adaptive-sizing.md): square+tall+
- * strip (≤1.05) stack the numbers into a tall column and enlarge them, keyed on the
- * nearest `lattice` container so it fires on a portrait/square deck AND inside a
- * narrow nested cell. Doubled class matches the [data-orientation] reflow's
- * specificity. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.stats.stats > .cell-stage > ol { display:flex; flex-direction:column;
-    flex-direction: column; gap: var(--sp-sm); width: 100%; justify-content: space-evenly; flex: 1;
-  }
-  section.stats.stats > .cell-stage > ol > li > strong {
-    font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
-  }
-  section.stats.stats > .cell-stage > ol > li > ul > li {
-    font-size: var(--fs-body);
-  }
+/* Family reflow (2026-06-18-component-adaptive-sizing.md): square, tall and strip
+ * stack the numbers into a column and enlarge them. Keyed on the deck's
+ * `data-family` stamp; the doubled class matches the [data-orientation] reflow's
+ * specificity.
+ *
+ * TALL AND STRIP stack; SQUARE goes 2-UP, and both are measured rather than
+ * assumed. Two wrong answers were tried first: keeping the WIDE N-across row at
+ * square crowds every number (a square box is not wide — each label wraps taller
+ * than the stack it replaced, ceiling 3 either way), and stacking square into ONE
+ * column wastes the width it does have (ceiling 3, and four stats clipped
+ * examples/social-square.md by 75px — stage 750, content 825). A 2-up wrap uses
+ * both axes, which is exactly what `square` means in lib/adaptive/families.js:
+ * "balanced — 2x2 grids, 2-up". Measured with tools/calibrate-capacity.js. */
+section.stats.stats:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  display: flex; flex-direction: column; gap: var(--sp-sm); width: 100%;
+  justify-content: space-evenly; flex: 1;
+}
+/* Square — two tiles per row, rows sharing the height. `flex-basis` is the 2-up
+ * split minus its share of the gap (the same calc idiom cards-grid uses); wrap
+ * puts the overflow on the next row, and `align-content: space-evenly` spreads
+ * the rows down the frame instead of stretching each tile to fill it. */
+section.stats.stats:where([data-family="square"]) > .cell-stage > ol {
+  display: flex; flex-wrap: wrap; width: 100%; flex: 1;
+  /* `row` is stated, not inherited: the older `[data-orientation="square"]` rule
+   * above sets `column` at the same specificity, and without this the 50%
+   * flex-basis would divide the HEIGHT (main axis) instead of the width. */
+  flex-direction: row;
+  gap: var(--sp-sm); justify-content: center; align-content: space-evenly;
+}
+section.stats.stats:where([data-family="square"]) > .cell-stage > ol > li {
+  flex: 0 1 calc(50% - var(--sp-sm) / 2);
+  box-sizing: border-box;
+}
+section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > strong {
+  font-size: calc(var(--fs-h1) * var(--stat-emphasis, 1));
+}
+section.stats.stats:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > ul > li {
+  font-size: var(--fs-body);
 }
 
 /* === lib/components/legal/statute-stack/statute-stack.styles.css === */
@@ -14714,32 +14933,47 @@ section.statute-stack.lane td:last-child {
   white-space:nowrap;
 }
 
-/* ── Box-local family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
+/* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
    A1). Wide keeps the three-rail grid; square/tall/strip collapse the DEFAULT
    layout to a single full-width column of jurisdiction cards, content-height rows
    distributed to fill. Scoped off the named variants (hierarchy/bands/preemption/
    lane), which already author their own single-column / table portrait shape.
    Doubled class reaches (0,2,N) to beat the base grid on specificity — the role
-   the old [data-orientation] stamp played; keyed on the nearest `lattice`
-   container's aspect so it fires on a portrait deck AND a narrow nested cell. */
-@container lattice (aspect-ratio <= 1.05) {
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul,
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol {
-    /* portrait → single column of content-height cards, evenly distributed (flex mirror
-       of `grid-auto-rows:auto; align-content:space-evenly`). */
-    flex-direction: column;
-    justify-content: space-evenly;
-  }
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ul > li,
-  section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > ol > li {
-    flex: 0 0 auto;
-  }
-  /* Header-pill authoring already carries the citation + status on the label row, so the
-     portrait card needs no pill-lift — just breathing room between that row and the gloss. */
-  section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
-    padding-top:var(--sp-md);
-  }
+   the old [data-orientation] stamp played; keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. */
+/* SQUARE COLLAPSES TOO — and this is the second time that call has been made on
+ * a number that measured the wrong thing, so here is the whole ledger.
+ *
+ * The original comment said holding the rails at square "drops the ceiling 2 → 1".
+ * A pass in #1220 re-ran `calibrate-capacity` and got the reverse — rails 3,
+ * stacked 2 — and removed square on that basis. A red-team pass then rendered the
+ * component's OWN gallery and found the removal took it from 1 clipped slide at
+ * square to 5, including the default three-jurisdiction slide (`GDPR Art. 8` cut
+ * to `GDP`, 94px of horizontal overflow) and three composition variants.
+ *
+ * Both calibrations are real; both measured a slide nobody writes. The tool holds
+ * words-per-element at this component's declared `density.soft` of 16, while the
+ * real cards carry 6–8 — and at THAT size the ordering inverts: stacked holds
+ * three cleanly, rails do not. A synthetic harness disagreeing with the real
+ * surface loses (HARD RULE #23), so square stays stacked and the number stays
+ * out of the argument until `density` is honest (see the capacity section of
+ * 2026-07-27-family-stamp-replaces-container-queries.md). */
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+  /* portrait → single column of content-height cards, evenly distributed (flex mirror
+     of `grid-auto-rows:auto; align-content:space-evenly`). */
+  flex-direction: column;
+  justify-content: space-evenly;
 }
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
+  flex: 0 0 auto;
+}
+/* Header-pill authoring already carries the citation + status on the label row, so the
+   portrait card needs no pill-lift — just breathing room between that row and the gloss. */
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+  padding-top:var(--sp-md);
+}
+
 
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
@@ -14895,80 +15129,88 @@ section.statute-stack > .cell-stage {
   padding-top: var(--sp-xs);
 }
 
-/* ── Box-local RESTRUCTURE (tall + strip, ≤0.9): the left-to-right spine becomes
+/* ── Family RESTRUCTURE (tall + strip, ≤0.9): the left-to-right spine becomes
  * a real vertical timeline — items stack down the page, each dot rides a left
- * rail, the date/title/body fill the width beside it. Keyed on the nearest
- * `lattice` container (the section), so it fires on a portrait deck AND inside a
- * narrow nested cell. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
-  :is(section.timeline-list, figure.timeline-list).chart-frame .chart-body {
-    align-items: stretch;
-    justify-content: center;
-    padding: var(--sp-lg) var(--sp-xl);
-  }
-  :is(section.timeline-list, figure.timeline-list) .timeline-spine {
-    grid-auto-flow: row;
-    grid-template-columns: 1fr;
-    grid-auto-columns: auto;
-    max-width: none;
-    width: 100%;
-    height: 100%;
-    row-gap: var(--sp-md);
-    padding: var(--sp-xs) 0;
-    align-content: space-evenly;
-  }
-  /* The spine line runs vertically through the dots on the left rail. */
-  :is(section.timeline-list, figure.timeline-list) .timeline-spine::before {
-    top: 1.5cqi;
-    bottom: 1.5cqi;
-    left: 0.546875cqi;
-    right: auto;
-    width: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
-    height: auto;
-    background: linear-gradient(
-      to bottom,
-      color-mix(in oklab, var(--accent) 12%, transparent) 0%,
-      color-mix(in oklab, var(--accent) 55%, transparent) 8%,
-      color-mix(in oklab, var(--accent) 55%, transparent) 92%,
-      color-mix(in oklab, var(--accent) 12%, transparent) 100%
-    );
-    transform: translateX(-1px);
-  }
-  :is(section.timeline-list, figure.timeline-list) .timeline-item {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    column-gap: var(--sp-md);
-    align-items: start;
-    padding: 0;
-  }
-  /* Dot anchors the left rail; everything else fills the right column. */
-  :is(section.timeline-list, figure.timeline-list) .timeline-item > * {
-    grid-column: 2;
-    text-align: left;
-    align-self: start;
-  }
-  :is(section.timeline-list, figure.timeline-list) .timeline-dot {
-    grid-column: 1;
-    grid-row: 1;
-    /* Portrait: the dot rides its own left-rail grid cell, so it needs no
-     * dot→pill padding-bottom (override the base) — just a top nudge to align
-     * with the row (was margin: 0.234375cqi 0 0 0; padding shifts the ::before
-     * ring down by the same amount). */
-    padding: 0.234375cqi 0 0 0;
-  }
-  /* Chips hug their content; the title/body keep the default stretch so prose
-   * fills the column and wraps. */
-  :is(section.timeline-list, figure.timeline-list) .timeline-dot,
-  :is(section.timeline-list, figure.timeline-list) .timeline-pill,
-  :is(section.timeline-list, figure.timeline-list) .timeline-item .chart-status { justify-self: start; }
-  /* Portrait pill→title gap tightens to var(--sp-2xs) (was the pill's
-   * margin-bottom: var(--sp-2xs)); it rides the title's padding-top, overriding
-   * the landscape var(--sp-sm). The pill is filled, so the spacing can't sit on
-   * the pill itself. */
-  :is(section.timeline-list, figure.timeline-list) .timeline-title { padding-top: var(--sp-2xs); }
-  :is(section.timeline-list, figure.timeline-list) .timeline-title,
-  :is(section.timeline-list, figure.timeline-list) .timeline-body { max-width: none; }
+ * rail, the date/title/body fill the width beside it. Keyed on the deck's `data-family` stamp (the section), so it fires on any tall or strip deck. See engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
+section.timeline-list.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-body,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list.chart-frame .chart-body {
+  align-items: stretch;
+  justify-content: center;
+  padding: var(--sp-lg) var(--sp-xl);
 }
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-spine {
+  grid-auto-flow: row;
+  grid-template-columns: 1fr;
+  grid-auto-columns: auto;
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  row-gap: var(--sp-md);
+  padding: var(--sp-xs) 0;
+  align-content: space-evenly;
+}
+/* The spine line runs vertically through the dots on the left rail. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-spine::before,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-spine::before {
+  top: 1.5cqi;
+  bottom: 1.5cqi;
+  left: 0.546875cqi;
+  right: auto;
+  width: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
+  height: auto;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--accent) 12%, transparent) 0%,
+    color-mix(in oklab, var(--accent) 55%, transparent) 8%,
+    color-mix(in oklab, var(--accent) 55%, transparent) 92%,
+    color-mix(in oklab, var(--accent) 12%, transparent) 100%
+  );
+  transform: translateX(-1px);
+}
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--sp-md);
+  align-items: start;
+  padding: 0;
+}
+/* Dot anchors the left rail; everything else fills the right column. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item > *,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-item > * {
+  grid-column: 2;
+  text-align: left;
+  align-self: start;
+}
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-dot,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-dot {
+  grid-column: 1;
+  grid-row: 1;
+  /* Portrait: the dot rides its own left-rail grid cell, so it needs no
+   * dot→pill padding-bottom (override the base) — just a top nudge to align
+   * with the row (was margin: 0.234375cqi 0 0 0; padding shifts the ::before
+   * ring down by the same amount). */
+  padding: 0.234375cqi 0 0 0;
+}
+/* Chips hug their content; the title/body keep the default stretch so prose
+ * fills the column and wraps. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-dot,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-dot,
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-pill,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-pill,
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item .chart-status,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-item .chart-status { justify-self: start; }
+/* Portrait pill→title gap tightens to var(--sp-2xs) (was the pill's
+ * margin-bottom: var(--sp-2xs)); it rides the title's padding-top, overriding
+ * the landscape var(--sp-sm). The pill is filled, so the spacing can't sit on
+ * the pill itself. */
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-title { padding-top: var(--sp-2xs); }
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-title,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-title,
+section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-body,
+:where([data-family="tall"], [data-family="strip"]) figure.timeline-list .timeline-body { max-width: none; }
 
 /* === lib/components/anchor/title/title.styles.css === */
 /* title — anchor.bookend.title
@@ -15175,16 +15417,14 @@ section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li {
  * the content block so the full-height cards read as a board deck. Portrait only;
  * the wide 2×2 is untouched. */
 section.verdict-grid[data-orientation="portrait"] > .cell-stage > ul > li { justify-content: center; }
-/* Box-local family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
- * (≤0.9) collapse the verdict grid to one column, keyed on the nearest `lattice`
- * container so it fires on a portrait deck AND inside a narrow nested cell. Doubled
+/* Family reflow (2026-06-18-component-adaptive-sizing.md): tall+strip
+ * (≤0.9) collapse the verdict grid to one column, keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. Doubled
  * class reaches (0,2,2) to match the [data-orientation] reflow it mirrors. */
-@container lattice (aspect-ratio <= 0.9) {
-  section.verdict-grid.verdict-grid > .cell-stage > ul {
-    flex-direction: column;
-  }
-  section.verdict-grid.verdict-grid > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: center; }
+section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul {
+  flex-direction: column;
 }
+section.verdict-grid.verdict-grid:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li { width: auto; flex: 1; min-height: 0; justify-content: center; }
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
@@ -15462,6 +15702,29 @@ section.video.gallery.qr .video-qr {
 }
 section.video.gallery.qr .video-qr .qr-tile { width: 11cqi; padding: 0.5em; }
 section.video.gallery.qr .video-qr-hint { font-size: var(--fs-meta); }
+
+/* ── Family reflow (#1220). `video` declared `adapt.mode: "reflow"` and shipped
+ * none — `.video-embed` is a flex ROW, so on a tall box the poster held its
+ * `46cqi` cap beside a squeezed text column and the lead wrapped one or two
+ * words per line. Stack them: the poster takes the full inline size (it is the
+ * hero — `adapt.priority` lists `video` above `body`) and the copy runs beneath
+ * it at full width. Square keeps the row: at 972px the poster is ~447px with
+ * ~500px left for the copy, which reads fine and uses the width a square box
+ * has. */
+section.video:where([data-family="tall"], [data-family="strip"]) .video-embed {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-md);
+}
+section.video:where([data-family="tall"], [data-family="strip"]) .video-poster {
+  max-width: 100%;
+}
+/* The companion variant splits claim LEFT / poster RIGHT via its own row, so it
+ * needs the same stack — and the lead loses its side-column width cap. */
+section.video.companion:where([data-family="tall"], [data-family="strip"]) {
+  flex-direction: column;
+  align-items: stretch;
+}
 
 /* === lib/components/connect/wifi/wifi.styles.css === */
 /* wifi — a network join card: readable credentials beside a scannable QR.
@@ -18120,14 +18383,13 @@ section.chart-frame > .cell-stage { justify-content: center; }
  * padding (≈4× --sp-2xl total) — right for a wide slide, but in portrait that eats
  * precious width and shrinks every chart and its labels/numbers. Pull the side
  * inset right in so the figure (and its text) reads as large as possible. Keyed on
- * the nearest `lattice` container; landscape untouched. ≤0.9 = tall+strip.
+ * the deck's `data-family` stamp; landscape untouched. ≤0.9 = tall+strip.
  * 2026-06-19-chart-adaptive-sizing.md. */
-@container lattice (aspect-ratio <= 0.9) {
-  section.chart-frame .chart-body {
-    width: calc(100cqi - 2 * var(--sp-sm));
-    padding: var(--sp-md) var(--sp-sm);
-  }
+section.chart-frame:where([data-family="tall"], [data-family="strip"]) .chart-body {
+  width: calc(100cqi - 2 * var(--sp-sm));
+  padding: var(--sp-md) var(--sp-sm);
 }
+
 
 /* Chart surface panel — every chart sits on its own quiet glass surface,
  * Apple "Liquid Glass" inspired at editorial-whisper intensity: a faint

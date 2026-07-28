@@ -47,8 +47,12 @@ section.split-compare .verdict blockquote p { font-size:var(--fs-body); font-fam
  *    be querying the very box it's trying to restyle, and silently no-ops. For a
  *    FULL-SLIDE layout the deck orientation IS the component's box, so the stack
  *    stays on the deck-wide data-orientation stamp. Correct, not a fallback.
- *  · The DESCENDANTS (rail width, the options grid) reflow box-locally against the
- *    nearest `lattice` container (the slide), so they're future-proof for nesting.
+ *  · The DESCENDANTS (rail width, the options grid) reflow against the SLIDE's
+ *    `data-family` stamp, same as the stack — the selectors are anchored at
+ *    `section.split-compare:where([data-family=…])`. This is deck-wide, NOT
+ *    box-local: a nested cell stamping its own family would not reach them. The
+ *    box-local reading was an aspiration in these comments and never shipped
+ *    behavior (#1218; see lib/adaptive/families.js "WHAT IT COST").
  *
  * NOTE: the option CELLS are deliberately NOT made `container-type: size` here. A
  * nested size container re-bases every `cqi`-based token inside it to the cell
@@ -60,10 +64,9 @@ section.split-compare .verdict blockquote p { font-size:var(--fs-body); font-fam
  * a real component; the foundation enables it. */
 section.split-compare[data-orientation="portrait"],
 section.split-compare[data-orientation="square"] { flex-direction: column; }
-@container lattice (aspect-ratio <= 1.05) {
-  section.split-compare .compare-left { width: auto; }
-  section.split-compare .options { grid-template-columns: 1fr; }
-}
+section.split-compare:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .compare-left { width: auto; }
+section.split-compare:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .options { grid-template-columns: 1fr; }
+
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

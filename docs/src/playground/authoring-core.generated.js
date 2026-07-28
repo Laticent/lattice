@@ -152,28 +152,48 @@ var require_lint_core = __commonJS({
       "split-compare"
     ]);
     var NUMBER_SLOT_LAYOUTS = Object.freeze(["kpi", "stats"]);
-    var PORTRAIT_SIZES = Object.freeze([
-      "square",
-      "portrait",
-      "story",
-      "mobile",
-      "reel",
-      "1:1",
-      "4:5",
-      "9:16"
-    ]);
-    function deckOrientation(source) {
-      const m = source.match(/^\s*size:\s*["']?([\w:/.-]+)/m);
-      const size = m?.[1];
-      return size && PORTRAIT_SIZES.includes(size) ? "portrait" : "landscape";
+    var SIZE_FAMILY_FALLBACK = Object.freeze({
+      square: "square",
+      "1:1": "square",
+      portrait: "tall",
+      "4:5": "tall",
+      story: "tall",
+      reel: "tall",
+      "9:16": "tall",
+      mobile: "strip"
+    });
+    function deckSizeName(source) {
+      const fm = source.match(/^---\r?\n[\s\S]*?\r?\n---/)?.[0];
+      if (!fm) return void 0;
+      return fm.match(/^\s*size:\s*["']?([\w:/.-]+)/m)?.[1];
     }
-    function findAutosplitOrientationMismatch(source) {
+    function deckFamily(source, vocab) {
+      const name = deckSizeName(source);
+      if (!name) return "wide";
+      const geom = vocab?.sizes?.[name];
+      if (geom) {
+        const w = parseFloat(geom.width);
+        const h = parseFloat(geom.height);
+        if (Number.isFinite(w) && Number.isFinite(h) && h > 0) {
+          const a = w / h;
+          if (a > 1.05) return "wide";
+          if (a > 0.9) return "square";
+          if (a > 0.5) return "tall";
+          return "strip";
+        }
+      }
+      return SIZE_FAMILY_FALLBACK[name] || "wide";
+    }
+    function deckOrientation(source, vocab) {
+      return deckFamily(source, vocab) === "wide" ? "landscape" : "portrait";
+    }
+    function findAutosplitOrientationMismatch(source, vocab) {
       const fmMatch = String(source || "").match(/^---\n[\s\S]*?\n---/);
       if (!fmMatch) return [];
       const fm = fmMatch[0];
       const flag = fm.match(/^\s*autosplit:\s*(?:on|true|yes)\s*$/im);
       if (!flag) return [];
-      if (deckOrientation(fm) !== "landscape") return [];
+      if (deckOrientation(fm, vocab) !== "landscape") return [];
       return [{
         slide: 1,
         rule: "autosplit-landscape-noop",
@@ -426,7 +446,8 @@ ${indent}   - ${body.trim()}`;
       const isH2AnchoredSplit = (tokens) => tokens.includes("split-panel") && !tokens.includes("pullquote") || tokens.includes("split-compare");
       const slides = splitTopLevel(source);
       const fm = fmChunks(source);
-      const orientation = deckOrientation(source);
+      const orientation = deckOrientation(source, vocab);
+      const family = deckFamily(source, vocab);
       const fmClaimBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
       const deckClaimRaw = fmClaimBlock && (fmClaimBlock[1].match(/^\s*claim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1];
       const deckClaimName = deckClaimRaw ? deckClaimRaw.trim().toLowerCase() : "";
@@ -551,8 +572,15 @@ ${indent}   - ${body.trim()}`;
         if (vocab.capacity) {
           const isStressSlide = /<!--\s*stress-slide\s*-->/.test(slide);
           for (const t of tokens) {
-            const cap = vocab.capacity[t];
-            if (!cap) continue;
+            const declared = vocab.capacity[t];
+            if (!declared) continue;
+            const perFamily = declared.families?.[family];
+            const cap = perFamily ? { ...declared, ...perFamily } : declared;
+            if (perFamily) {
+              for (const k of ["sweet", "soft", "hard"]) {
+                if (declared[k] != null && cap[k] != null) cap[k] = Math.min(cap[k], declared[k]);
+              }
+            }
             const n = countPrimaryCollection(slide, cap.axis);
             if (!n) break;
             const comfort = cap.sweet != null ? cap.sweet : cap.soft;
@@ -803,7 +831,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
       findings.push(...findGanttIssues(source));
-      findings.push(...findAutosplitOrientationMismatch(source));
+      findings.push(...findAutosplitOrientationMismatch(source, vocab));
       return findings;
     }
     var GANTT_STATUS = Object.freeze(/* @__PURE__ */ new Set([
