@@ -38,11 +38,32 @@
 // Playground sheets, `MetricDetail`). Desktop and tablet never register, so history stays
 // untouched there, which is what the issue's acceptance check #5 requires.
 //
-// This paragraph used to end "Present, the guided tour, `MetricDetail` and the Playground
-// sheets are deliberately NOT wired" — true for one commit, and left standing when they
-// WERE wired. Still genuinely unwired: Present, the guided tour, and dialogs NESTED inside
-// an already-registered sheet (WorkspaceSheet's confirm, SlidePicker) — where back closes
-// the sheet underneath rather than the dialog on top.
+// Still genuinely unwired: Present, the guided tour, and dialogs NESTED inside an
+// already-registered sheet (WorkspaceSheet's confirm) — where back closes the sheet
+// underneath rather than the dialog on top.
+//
+// THIS PARAGRAPH HAS BEEN WRONG IN THREE CONSECUTIVE COMMITS. It said `MetricDetail` and
+// the Playground sheets were "deliberately NOT wired" in the commit that wired them, and
+// then listed `SlidePicker` as unwired when `SlidePicker` renders a `PanelSheet` and is
+// therefore registered by construction. That is not three comment bugs; it is what a
+// hand-maintained roster does when registration is one opt-in line and invisible from
+// here. Compare `SANCTIONED_PREVIEW_BUILDERS`, which fails on an unlisted builder AND on
+// a stale entry. Until this has that, treat the list as a hint and grep
+// `useOverlayBack` for the truth.
+//
+// ── AN INVARIANT THIS MODULE IMPOSES ON THE WHOLE DOCS CODEBASE ────────────────
+// `history.state` is where ownership is recorded (`STATE_KEY`), and it is the ONLY
+// record that survives a reload. Anything that calls `history.replaceState(null, …)`
+// wipes it. Nothing breaks immediately — the in-memory `sentinel` carries on — but
+// `adopt()` then fails after the next reload, and the module falls back to the
+// orphan-accumulating behavior described above.
+//
+// Four call sites already do this: `PlaygroundApp.tsx` (twice, from an effect keyed on
+// [view, walk], i.e. repeatedly during normal use, on the surface whose sheets are now
+// registered), `StudioShell.tsx`, and `architect.ts`. They are boot/URL-tidying calls,
+// so today they run before any sheet opens — but nothing enforces that ordering. If you
+// are adding a `replaceState`, PRESERVE the existing state object rather than passing
+// null. Flagged by the Munger inversion; ungated, so it rides on this comment.
 import * as React from 'react';
 
 type Entry = { onBack: () => void };
