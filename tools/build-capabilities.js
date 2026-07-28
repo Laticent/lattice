@@ -189,6 +189,8 @@ const SCRIPT_META = {
   // Lint & audit
   'lint':                     ['Lint & audit', 'Biome over the JS tree (read-only). NEVER `npx biome`.'],
   'lint:fix':                 ['Lint & audit', 'Biome check --write (includes import sorting + unsafe fixes).'],
+  'lint:coverage':            ['Lint & audit', 'Gate what Biome ACTUALLY checks: coverage baseline + scanned-vs-checked + a teeth probe per directory. Also a build:check preflight.'],
+  'lint:coverage:bless':      ['Lint & audit', 'Re-record the lint-coverage baseline after a deliberate exclusion. The diff is the record.'],
   'lint:deck':                ['Lint & audit', 'Author-facing footgun checks on one deck (card-style title, ordered-list bold, unknown _class).'],
   'lint:deck:all':            ['Lint & audit', 'Repo-wide strict deck lint (always-on CI gate).'],
   'export:marp':              ['Build & bundle', 'Export a deck as a portable, Marp-native bundle: splits baked to ---, themes, assets, marp-cli config, a README, and (by default) an AI-agent kit (AGENTS.md + component catalog). `<deck.md> <out-dir-or-zip> [palette] [--no-agent]`.'],

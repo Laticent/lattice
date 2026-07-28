@@ -62,8 +62,12 @@ const GUARD = { label: 'ownership guard', script: 'check-ownership.js' };
 // Read-only preflight gates that run after the ownership guard and before any
 // artifact is (re)generated — a desynced font set should fail the build, not
 // bake a fallback PDF. Each only reads, so it is invoked plain (no --check).
+// (`check-lint-coverage.js` writes and removes probe files inside its own run, so it is
+// read-only from the build's point of view; it is here rather than in the ownership guard
+// because it shells out to Biome and git, which that pure-ish file does not.)
 const PREFLIGHT = [
   { label: 'font-embedding parity', script: 'check-fonts.js' },
+  { label: 'lint coverage', script: 'check-lint-coverage.js' },
 ];
 
 const STEPS = [

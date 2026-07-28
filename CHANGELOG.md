@@ -55,6 +55,25 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **Lint coverage is gated by effect, not by config syntax** — `npm run lint:coverage`
+  (`tools/check-lint-coverage.js`, also a `build:check` preflight). It replaces a gate that
+  was written and then removed before merge in #1232: that one validated how exclusions are
+  *spelled* in `biome.jsonc`, and nine measured attacks un-linted real source without it
+  noticing — two of them needing no config edit at all. One of those nine then shipped: a
+  single `.gitignore` line dropped 14 tracked source files out of lint and took a merge
+  cycle to spot. Three arms now answer what Biome actually checks — a committed baseline of
+  the tracked files it does *not* process (`test/lint-coverage/baseline.json`, exceed-only,
+  refreshed with `npm run lint:coverage:bless`), a comparison of Biome's own
+  scanned-vs-checked tallies (which is what catches `files.maxSize`, where an oversized file
+  stays in the processed list while nothing reads it), and a violation-carrying probe written
+  into all 245 checked directory-and-language targets to prove the linter still has teeth
+  there. A `biome-ignore-all` comment folds into the same ratchet. Each of the nine attacks —
+  and the edits that must stay *silent*, including an ordinary `rm` before `git rm` — is a
+  test against a real Biome in a real git repo. What it deliberately does not catch is
+  enumerated under RESIDUALS in the tool's header.
+
 ### Fixed
 
 - **The `--fluid` viewer was completely broken by the export shell's new `main`
