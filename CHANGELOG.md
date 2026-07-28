@@ -760,6 +760,32 @@ in patch versions.
   sharpest: a comment claimed, in the word "measured", that holding the rails at square drops the
   ceiling 2 → 1; re-run against the real overflow probe it is **3 versus 2**, the reverse, and 3 is
   this component's own three-jurisdiction skeleton.
+- **Six components declared `adapt.mode: "reflow"` and shipped none — four now have one.** Reported
+  from a phone: `premise` wrapping its lede one word per line, each ladder row's verb cut to "R…".
+  It reproduced byte-identically on `main`, so it was never a regression — it was a component with
+  a single landscape composition (a 34% claim rail, ≈333px on a phone, beside a ledger whose term
+  track is a fixed `10.9375cqi` with `nowrap` + ellipsis) painting it in every box.
+  `checkAdaptDeclarations` was **one-directional**: it asserted "family CSS ⇒ manifest says reflow"
+  and never the converse, so a promise with nothing behind it stayed green. The manifest is the
+  contract the docs and authoring agents read, so it was actively telling consumers these adapt.
+  `premise`, `compare-code`, `inventory` and `video` got real reflows; `diagram` and
+  `compare-table` were correct all along — see the gate entry below.
+- **The adapt gate runs both ways, and knows all FOUR reflow mechanisms.** A CSS-only check is a
+  false-positive machine: `diagram` carries no layout CSS and reflows through the mermaid reorient
+  (`reorient.js` rewrites a flowchart's direction LR→TB on a tall box), and `compare-table` reflows
+  through its `cover-cards` carousel reshape — box-conditional by construction, since auto-split is
+  skipped outright on a landscape `@size`. Checking only for `[data-family=…]` would have driven
+  both TRUE declarations into false ones. `manifest.schema.json` now names all four, so the schema
+  and the gate agree.
+- **`premise` gained a measured capacity block and a read-across-safe split.** It shipped with no
+  `capacity` at all, so an over-long ledger could neither warn nor auto-split — it just clipped.
+  Measured by graded render at every family: landscape and mobile hold 9+, **square 6** (7 overflows
+  by 18px), **portrait 5** (6 by 71px) — portrait is the binding family because its type scale is
+  the largest. §0c places `premise` as READ-ACROSS, so a bare item axis would paginate between rows
+  and destroy the ladder; it takes `cover-paginate` (`perPage: 4`), leading every run with the claim
+  as an accent cover. Its ordinals also restarted at `01` on page two once it could split — the
+  splitter was already emitting `<ol start="4">`, but a private `counter-reset` ignored it. Now on
+  the built-in `list-item` counter; all 8 landscape pages stay pixel-identical.
 - **New: an overflow oracle over the whole family-reflowing library** (`check:family-tiers`,
   `test/oracle/family-overflow.json`). It renders one gallery slide per family-reflowing component
   at all four family sizes and freezes which components clip; a new clip fails, and a clip that

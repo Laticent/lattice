@@ -1203,6 +1203,64 @@ function checkAdaptDeclarations(manifests, errors) {
         `(family reflow) — must be "reflow". Fix the manifest or remove the family rule.`,
       );
     }
+    // …AND THE OTHER DIRECTION. The check above only ever caught CSS-without-a-
+    // declaration; a manifest could claim `reflow` and ship NO reflow rule at all and
+    // this gate stayed silent. Six components were in exactly that state — `premise`
+    // rendered its landscape `1fr auto` split in a 980px-wide fluid box, so the lede
+    // column wrapped one word per line and each ladder row's `10.9375cqi` name column
+    // truncated "Remember" to "R…". The manifest is the machine-readable contract the
+    // docs and authoring agents read, so an unkept promise there is worse than an
+    // undeclared behavior: it actively tells a consumer the component adapts.
+    //
+    // ALL THREE mechanisms the schema recognizes, not just the CSS one. `reflow` is
+    // defined as "ships DISTINCT per-family structural layouts (via `[data-family=…]`
+    // CSS, a `*.transform.js` that branches geometry on orientation, or the mermaid
+    // reorient)". A CSS-only check is a FALSE POSITIVE machine: `diagram` carries no
+    // layout CSS at all and reflows through `lib/integrations/mermaid/reorient.js`,
+    // which rewrites a flowchart's direction token LR→TB on a portrait box. Checking
+    // only for `[data-family=]` would have demanded it re-declare itself `native`,
+    // i.e. the gate would have driven a TRUE declaration into a false one.
+    //
+    // `[data-orientation]` counts as CSS reflow too — it is the older deck-wide stamp
+    // and several components legitimately still use it (portrait ∪ square is exactly
+    // the square ∪ tall ∪ strip set, so the two spellings select the same slides).
+    const ORIENTATION_REFLOW = /\[data-orientation\s*=/;
+    const cssReflow = hasContainerReflow || ORIENTATION_REFLOW.test(css);
+    // A sibling transform that branches on the box (`*.transform.js` next to the
+    // manifest), or a mermaid-bearing component, which the shared reorient covers.
+    const dir = cssPath ? path.dirname(cssPath) : null;
+    const transformReflow = dir && fs.existsSync(dir)
+      && fs.readdirSync(dir).filter((f) => f.endsWith('.transform.js')).some((f) => (
+        /orientation|data-family|familyFor|portrait|reorient/.test(fs.readFileSync(path.join(dir, f), 'utf8'))
+      ));
+    // STRUCTURAL, not a substring of the manifest. A first cut tested the whole
+    // manifest JSON for /mermaid/i and quietly excused `video`, `image`, `scene`,
+    // `journey` and `state-chart` — every one of which mentions Mermaid only in
+    // PROSE ("reach for a Mermaid graph instead when…"). What actually makes the
+    // reorient apply is the component authoring a mermaid FENCE, so test that.
+    const mermaidReflow = /```\s*mermaid/i.test(`${m.skeleton || ''}\n${m.sample || ''}`);
+    // A carousel RESHAPE recipe is the fourth mechanism, and it is box-conditional by
+    // construction: auto-split is skipped outright on a landscape @size
+    // (lattice-emulator.js `AUTOSPLIT_APPLIES`), so a `split.strategy` fires only on
+    // square/tall/strip. `compare-table` is the case — a wide read-across table cannot
+    // paginate out of HORIZONTAL overflow, so `cover-cards` transposes each row into a
+    // card with the column headers as labelled fields. That is "the box is
+    // restructured, not just scaled" as squarely as any CSS rule; it simply keys on the
+    // class carousel.js adds rather than on `[data-family]`. Verified it needs no CSS
+    // tier as well: all five variants render at `size: mobile` with zero overflow, so
+    // the native table degrades gracefully when the reshape does not run.
+    const splitReflow = typeof m.split?.strategy === 'string' && m.split.strategy.length > 0;
+    if (mode === 'reflow' && !cssReflow && !transformReflow && !mermaidReflow && !splitReflow) {
+      errors.push(
+        `${m.name}: declares adapt.mode "reflow" but ships NONE of the four mechanisms — ` +
+        `no \`[data-family=…]\`/\`[data-orientation=…]\` CSS, no orientation-branching ` +
+        `*.transform.js, no mermaid reorient, no carousel \`split.strategy\` reshape. ` +
+        `It has one composition and paints it in every ` +
+        `box, while the manifest tells authoring agents it adapts. Either ship the reflow, or ` +
+        `declare the mode it actually has ("native" / "single-orientation"). See ` +
+        `engineering/decisions/2026-06-20-adaptive-manifest-contract.md.`,
+      );
+    }
     if (mode === 'single-orientation' && orientation.length !== 1) {
       errors.push(
         `${m.name}: adapt.mode "single-orientation" requires the \`orientation\` field to list ` +

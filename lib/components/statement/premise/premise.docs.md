@@ -10,6 +10,8 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 
 ## Agent contract
 
+**Capacity** ~4 items (crowds past 6, overflows past 8) — past that, split across slides (auto with autosplit: on) / list-tabular.
+
 **Density** aim ~14 words per item; past ~18 it reads as a wall of text — the description clause plus the trailing question, combined — not a sentence each.
 
 ### Slots

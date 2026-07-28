@@ -2911,6 +2911,33 @@ section.compare-code-block pre > code {
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
 
+/* ── Family reflow (#1220). `compare-code` declared `adapt.mode: "reflow"` and
+ * shipped none, so a tall box kept the `1fr 1fr` read-across and the RIGHT
+ * block ran clean off the frame — horizontal overflow, which the vertical
+ * overflow probe cannot even see.
+ *
+ * Stacking is not a replacement for the carousel split recipe below (one block
+ * per page at full width, which is still the right answer for an over-long
+ * pair once `autosplit: on`). It is what the slide does when it is NOT split:
+ * two full-width blocks at half height beat two half-width blocks with one of
+ * them off-screen. Square stacks too — code lines are long, and 486px of column
+ * wraps almost any real line. */
+section.compare-code:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .code-cols {
+  grid-template-columns: 1fr;
+}
+/* The un-transformed fallback pins each block to an explicit grid column, so
+ * collapsing the track is not enough — the assignments have to fold to one
+ * column and the rows have to grow from four/five to six/seven. */
+section.compare-code:not(:has(.code-cols)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) {
+  grid-template-columns: 1fr;
+  grid-template-rows: none;
+  grid-auto-flow: row;
+}
+section.compare-code:not(:has(.code-cols)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > :is(h2, p, pre, blockquote) {
+  grid-column: 1;
+  grid-row: auto;
+}
+
 /* === lib/components/comparison/compare-prose/compare-prose.styles.css === */
 /* compare-prose — extracted from lib/_legacy.css (batch 5).
  * See lib/components/compare-prose/compare-prose.manifest.json for the component contract.
@@ -5021,6 +5048,25 @@ section.inventory.cards > .cell-stage > ul > li {
 }
 section.inventory.cards > .cell-stage {
   padding-block: var(--elevation-berth);
+}
+
+/* ── Family reflow (#1220). `inventory` declared `adapt.mode: "reflow"` — and a
+ * full per-family `adapt.capacity` table — while shipping no family CSS at all.
+ * Its DEFAULT ledger is a single column and was always fine; the two-column
+ * VARIANTS are what needed the tier. Both collapse to one column on a tall or
+ * strip box, where a half-width cell cannot hold a name plus its clause.
+ * Square keeps both grids: two columns is what a balanced box is for, and the
+ * declared `adapt.capacity.square` (sweet 4 / hard 6) assumes it. */
+section.inventory:where([data-family="tall"], [data-family="strip"]) .inv-pairs,
+section.inventory:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul:not(.inv-rows),
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  grid-template-columns: 1fr;
+}
+/* The editorial split is insight ∥ items with a `--sp-2xl` column gap; stacked,
+ * that gap has to become a ROW gap or the two blocks collide. */
+section.inventory.editorial:where([data-family="tall"], [data-family="strip"]) > .cell-stage {
+  row-gap: var(--sp-lg);
+  align-content: start;
 }
 
 /* === lib/components/chart/journey/journey.styles.css === */
@@ -9676,10 +9722,16 @@ section.premise > ol {
   list-style: none;
   padding: 0;
   margin: 0;
-  counter-reset: premise-row;
 }
 section.premise > ol > li {
-  counter-increment: premise-row;
+  /* The BUILT-IN `list-item` counter, not a private one. `<ol start="4">` maps to
+   * `counter-reset: list-item 3` as a presentational hint, so the ordinals continue
+   * across a split run; a private `premise-row` counter is reset by every fresh
+   * `<ol>` and restarted the ladder at 01 on page two — which on a Bloom ladder
+   * reads as "Analyze is the first verb". The increment has to be explicit because
+   * `display: grid` below removes the element's list-item-ness, and with it the
+   * UA's automatic increment. */
+  counter-increment: list-item;
   display: grid;
   grid-template-columns: 3.28125cqi 10.9375cqi 1fr;
   align-items: center;
@@ -9698,7 +9750,7 @@ section.premise > ol > li {
  * row CONTENT, not the "muted chrome" the palette contract exempts from AA
  * (--text-muted is 3.75:1 on --bg-alt; --text-secondary is 6.27:1). */
 section.premise > ol > li::before {
-  content: counter(premise-row, decimal-leading-zero);
+  content: counter(list-item, decimal-leading-zero);
   font-family: var(--font-mono);
   font-size: var(--fs-meta);
   color: var(--text-secondary);
@@ -9754,6 +9806,65 @@ section.premise > ol > li:nth-child(8n+5) { --row-mark: var(--cat-5-mark); }
 section.premise > ol > li:nth-child(8n+6) { --row-mark: var(--cat-6-mark); }
 section.premise > ol > li:nth-child(8n+7) { --row-mark: var(--cat-7-mark); }
 section.premise > ol > li:nth-child(8n)   { --row-mark: var(--cat-8-mark); }
+
+/* ── Family reflow (#1220). `premise` declared `adapt.mode: "reflow"` and shipped
+ * NONE — its landscape row (a 34% claim rail beside the ledger) was the only
+ * composition it had, so a narrow box painted it anyway. At 980px the rail is
+ * ~333px against `--fs-message`, which wraps the claim one word per line, and
+ * each row's fixed `10.9375cqi` term track (107px, `nowrap` + ellipsis) cut
+ * "Remember" to "R…". Reported from a phone; reproduced identically on main.
+ *
+ * SQUARE STACKS TOO, unlike stats/decision/cards-grid. Those keep their wide
+ * composition at square because it is a 2-up of PEER items and a square box has
+ * the width for two. This is not that: it is a narrow prose RAIL beside a table,
+ * and a 330px rail is unreadable whatever the height. Square's abundant vertical
+ * room (801px of stage vs landscape's 445) is exactly what makes stacking cheap
+ * here. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--sp-lg);
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .premise-claim {
+  width: auto;
+}
+/* The row becomes a hanging-ordinal card: the generated `01` keeps its gutter,
+ * and the term stacks OVER its description instead of competing for a fixed
+ * track. `white-space: normal` is the load-bearing one — the landscape row is
+ * `nowrap` (correct when every track is wide enough), which is what forced the
+ * ellipsis rather than a wrap. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li {
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  white-space: normal;
+  /* A stacked card is TALLER than the single-line row it replaces (three lines
+   * where there was one), so it has to give the vertical padding back or six rows
+   * cannot fit a frame that held them side by side. `--sp-xs` keeps the card
+   * reading as a card; `--sp-sm` was inherited from the one-line landscape row,
+   * where it was the whole row height. */
+  padding: var(--sp-xs) var(--sp-md);
+  gap: var(--sp-2xs) var(--sp-sm);
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > strong {
+  overflow: visible;
+  text-overflow: clip;
+}
+/* Pin the nested pair under the TERM (column 2), not back under the ordinal, and
+ * give the framing question its own line — right-aligning it against a narrow
+ * row put it in the description's lap. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul {
+  grid-column: 2;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3xs);
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(1) {
+  overflow: visible;
+  text-overflow: clip;
+}
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul > li:nth-child(2) {
+  text-align: left;
+}
 
 /* === lib/components/comparison/pricing/pricing.styles.css === */
 /* pricing — plan tiers with prices, feature checklists, and one recommended
@@ -15464,6 +15575,29 @@ section.video.gallery.qr .video-qr {
 }
 section.video.gallery.qr .video-qr .qr-tile { width: 11cqi; padding: 0.5em; }
 section.video.gallery.qr .video-qr-hint { font-size: var(--fs-meta); }
+
+/* ── Family reflow (#1220). `video` declared `adapt.mode: "reflow"` and shipped
+ * none — `.video-embed` is a flex ROW, so on a tall box the poster held its
+ * `46cqi` cap beside a squeezed text column and the lead wrapped one or two
+ * words per line. Stack them: the poster takes the full inline size (it is the
+ * hero — `adapt.priority` lists `video` above `body`) and the copy runs beneath
+ * it at full width. Square keeps the row: at 972px the poster is ~447px with
+ * ~500px left for the copy, which reads fine and uses the width a square box
+ * has. */
+section.video:where([data-family="tall"], [data-family="strip"]) .video-embed {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-md);
+}
+section.video:where([data-family="tall"], [data-family="strip"]) .video-poster {
+  max-width: 100%;
+}
+/* The companion variant splits claim LEFT / poster RIGHT via its own row, so it
+ * needs the same stack — and the lead loses its side-column width cap. */
+section.video.companion:where([data-family="tall"], [data-family="strip"]) {
+  flex-direction: column;
+  align-items: stretch;
+}
 
 /* === lib/components/connect/wifi/wifi.styles.css === */
 /* wifi — a network join card: readable credentials beside a scannable QR.

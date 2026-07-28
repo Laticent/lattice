@@ -5,11 +5,13 @@
     "authority-chain",
     "cards-grid",
     "cards-stack",
+    "compare-code",
     "compare-prose",
     "content",
     "cycle",
     "decision",
     "glossary",
+    "inventory",
     "kanban",
     "kpi",
     "list",
@@ -19,6 +21,7 @@
     "math",
     "matrix-2x2",
     "policy-recommendation",
+    "premise",
     "pricing",
     "progress",
     "q-and-a",
@@ -29,7 +32,8 @@
     "stats",
     "statute-stack",
     "timeline-list",
-    "verdict-grid"
+    "verdict-grid",
+    "video"
   ],
   "clipped": {
     "hd": [],
@@ -42,10 +46,12 @@
     "portrait": [
       "authority-chain",
       "cards-grid",
+      "compare-code",
       "compare-prose",
       "cycle",
       "decision",
       "glossary",
+      "inventory",
       "kpi",
       "list",
       "list-tabular",
@@ -62,6 +68,7 @@
       "verdict-grid"
     ],
     "mobile": [
+      "compare-code",
       "pricing",
       "roadmap"
     ]

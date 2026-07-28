@@ -277,6 +277,64 @@ labels. Whole-library check — one gallery slide per family-reflowing component
 them either these deliberate decisions or sub-pixel text shifts, and the clipped
 set is now a strict subset of `main`'s.
 
+## Six components promised `reflow` and shipped none
+
+Reported from a phone, on the deployed docs preview: `premise` rendering its lede
+one word per line, each ladder row's verb cut to "R…", the slide ringed
+OVERFLOWS. It reproduced byte-identically on `main` — same stamps, same 2151 vs
+2121 — so it was never a regression from this branch. It was a component
+declaring `adapt.mode: "reflow"` while shipping a single landscape composition
+and painting it in every box: a 34% claim rail (≈333px on a phone) beside a
+ledger whose term track is a fixed `10.9375cqi` with `nowrap` + ellipsis.
+
+Nothing caught it, because `checkAdaptDeclarations` was **one-directional**. It
+asserted "CSS with a family rule ⇒ manifest says reflow" and never the converse,
+so a manifest could claim `reflow` with nothing behind it and stay green. Six
+did: `premise`, `compare-code`, `compare-table`, `inventory`, `video`, `diagram`.
+
+That is this note's own theme one level up. #1218 was a *boundary* that drifted
+from what it measured; this is a *promise* that was never checked against what
+shipped — and worse, the manifest is the machine-readable contract the docs and
+authoring agents read, so it was actively telling consumers the component adapts.
+
+The gate now runs both ways, and enumerates **four** mechanisms rather than one,
+because a CSS-only check is a false-positive machine:
+
+| mechanism | the component that proves it is needed |
+|---|---|
+| `[data-family=…]` / `[data-orientation=…]` CSS | most reflowing components |
+| an orientation-branching `*.transform.js` | the transform tier |
+| the mermaid reorient | **`diagram`** — no layout CSS at all; `reorient.js` rewrites a flowchart's direction token LR→TB on a tall box. A CSS-only gate would have forced this TRUE declaration into a false one |
+| a carousel `split.strategy` reshape | **`compare-table`** — a wide read-across table cannot paginate out of HORIZONTAL overflow, so `cover-cards` transposes each row into a card. Box-conditional by construction: auto-split is skipped outright on a landscape `@size` |
+
+Two of the six were therefore correct all along. The other four got real reflows:
+
+- **`premise`** — claim above ledger; each row becomes a hanging-ordinal card with
+  the term stacked over its description. `white-space: normal` is the
+  load-bearing line: the landscape row is `nowrap`, which is what forced the
+  ellipsis instead of a wrap. Square stacks too, unlike `stats`/`decision`/
+  `cards-grid` — those keep their wide form because it is a 2-up of PEER items and
+  a square box has the width for two; this is a narrow prose RAIL beside a table,
+  unreadable at any height.
+- **`compare-code`** — the `1fr 1fr` read-across stacks. Its clip was HORIZONTAL,
+  which the vertical overflow probe cannot see at all, so the right block ran
+  clean off the frame in silence. Stacking does not replace the `cover-code`
+  split recipe; it is what the slide does when it is *not* split.
+- **`inventory`** — the two-column variant grids collapse; the default ledger was
+  always a single column and needed nothing.
+- **`video`** — `.video-embed` is a flex row, so the poster held its `46cqi` cap
+  beside a squeezed lead. Stacked at tall/strip; square keeps the row (972px
+  leaves ~500px for the copy beside a ~447px poster).
+
+**A split surfaced a counter bug in `premise`.** Once it could paginate, page two
+restarted the ordinals at `01` — on a Bloom ladder, "Analyze is the first verb".
+The splitter was already emitting `<ol start="4">`; `premise` was using a private
+`counter-reset: premise-row`, which ignores it. Switched to the built-in
+`list-item` counter, which `start` maps onto — with an explicit
+`counter-increment`, since `display: grid` removes the element's list-item-ness
+and with it the UA's automatic increment. All 8 landscape pages stay
+pixel-identical (`compare -metric AE` → 0).
+
 ## What is NOT fixed: the capacity numbers, and why
 
 `tools/calibrate-capacity.js` measures a real ceiling, and the per-family lint
@@ -301,6 +359,25 @@ the canonical authored element already sitting in every manifest. That is the
 next step, and it is a derivation, not another number to hand-maintain. Shipping
 the current values would have replaced one set of unverified numbers with
 another, which is the exact failure this whole note is about.
+
+**`inventory` is the sharpest live instance, and it is deliberately left alone.**
+It declares `adapt.capacity.tall.hard: 8`; the measured tall ceiling is **3**
+(`node tools/calibrate-capacity.js inventory --family tall` → overflows at 4).
+The gallery's four-item slide clips by 200px at portrait, which is exactly what a
+declared-8 / measured-3 gap predicts. Two things make this a LOG rather than a
+fix. First, it is pre-existing and untouched by this change — 200px over before
+the reflow landed and 200px after, so nothing here worsened it. Second, and more
+important, correcting it would mean shipping a new hand-set number on the same
+untrustworthy basis: the tool held `density.soft` at 14 words while inventory's
+own skeleton writes "a name and one clause of body", so a measured 3 is probably
+as pessimistic as `stats`'s was. Replacing 8 with 3 would swap one unverified
+number for another and call it progress. The honest move is to wait for the
+skeleton-derived basis above — which is why this is written down instead.
+
+`premise` is the counter-example, and the contrast is the point: its numbers ARE
+shipped here, because they were measured against ITS OWN skeleton shape (a graded
+3→9-row render at all four family sizes), not against a declared density nobody
+writes to. Same tool, trustworthy basis, so the number ships.
 
 ## The export change this note did not originally mention
 

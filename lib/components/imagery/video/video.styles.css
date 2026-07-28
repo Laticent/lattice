@@ -263,3 +263,26 @@ section.video.gallery.qr .video-qr {
 }
 section.video.gallery.qr .video-qr .qr-tile { width: 11cqi; padding: 0.5em; }
 section.video.gallery.qr .video-qr-hint { font-size: var(--fs-meta); }
+
+/* ── Family reflow (#1220). `video` declared `adapt.mode: "reflow"` and shipped
+ * none — `.video-embed` is a flex ROW, so on a tall box the poster held its
+ * `46cqi` cap beside a squeezed text column and the lead wrapped one or two
+ * words per line. Stack them: the poster takes the full inline size (it is the
+ * hero — `adapt.priority` lists `video` above `body`) and the copy runs beneath
+ * it at full width. Square keeps the row: at 972px the poster is ~447px with
+ * ~500px left for the copy, which reads fine and uses the width a square box
+ * has. */
+section.video:where([data-family="tall"], [data-family="strip"]) .video-embed {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-md);
+}
+section.video:where([data-family="tall"], [data-family="strip"]) .video-poster {
+  max-width: 100%;
+}
+/* The companion variant splits claim LEFT / poster RIGHT via its own row, so it
+ * needs the same stack — and the lead loses its side-column width cap. */
+section.video.companion:where([data-family="tall"], [data-family="strip"]) {
+  flex-direction: column;
+  align-items: stretch;
+}

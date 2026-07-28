@@ -432,13 +432,13 @@
     },
     "premise": {
       "treatment": "read-across",
-      "axis": null,
-      "declaredIn": null,
-      "enrolled": false,
-      "strategy": null,
-      "reshape": null,
-      "coverClass": null,
-      "perPage": null,
+      "axis": "item",
+      "declaredIn": "capacity",
+      "enrolled": true,
+      "strategy": "cover-paginate",
+      "reshape": "paginator",
+      "coverClass": "lat-split-cover",
+      "perPage": 4,
       "relationship": null
     },
     "pricing": {

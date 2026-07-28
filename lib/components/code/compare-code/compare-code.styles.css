@@ -122,3 +122,30 @@ section.compare-code-block pre > code {
   color: var(--code-text); background: none; padding: 0; display: block;
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
+
+/* ── Family reflow (#1220). `compare-code` declared `adapt.mode: "reflow"` and
+ * shipped none, so a tall box kept the `1fr 1fr` read-across and the RIGHT
+ * block ran clean off the frame — horizontal overflow, which the vertical
+ * overflow probe cannot even see.
+ *
+ * Stacking is not a replacement for the carousel split recipe below (one block
+ * per page at full width, which is still the right answer for an over-long
+ * pair once `autosplit: on`). It is what the slide does when it is NOT split:
+ * two full-width blocks at half height beat two half-width blocks with one of
+ * them off-screen. Square stacks too — code lines are long, and 486px of column
+ * wraps almost any real line. */
+section.compare-code:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .code-cols {
+  grid-template-columns: 1fr;
+}
+/* The un-transformed fallback pins each block to an explicit grid column, so
+ * collapsing the track is not enough — the assignments have to fold to one
+ * column and the rows have to grow from four/five to six/seven. */
+section.compare-code:not(:has(.code-cols)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) {
+  grid-template-columns: 1fr;
+  grid-template-rows: none;
+  grid-auto-flow: row;
+}
+section.compare-code:not(:has(.code-cols)):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > :is(h2, p, pre, blockquote) {
+  grid-column: 1;
+  grid-row: auto;
+}

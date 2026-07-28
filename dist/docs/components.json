@@ -7084,7 +7084,19 @@
           "heading",
           "lede",
           "rows"
-        ]
+        ],
+        "capacity": {
+          "tall": {
+            "sweet": 4,
+            "soft": 5,
+            "hard": 5
+          },
+          "square": {
+            "sweet": 4,
+            "soft": 5,
+            "hard": 6
+          }
+        }
       },
       "tags": [
         "onboarding",
@@ -7147,6 +7159,18 @@
         "with-period"
       ],
       "familyModifiers": [],
+      "capacity": {
+        "axis": "item",
+        "min": 2,
+        "sweet": 4,
+        "soft": 6,
+        "hard": 8,
+        "escalateTo": [
+          "split across slides (auto with autosplit: on)",
+          "list-tabular"
+        ],
+        "note": "Measured on the reflowed stack, not estimated — a graded 3..7-row render at each family size. Landscape and mobile hold 9+; SQUARE holds 6 (7 overflows by 18px) and PORTRAIT only 5 (6 by 71px), because portrait carries the largest type scale of the four. The flat block is the landscape budget; adapt.capacity tightens square and tall to what they measured. premise shipped with no capacity block at all, so an over-long ledger could neither warn nor split — it just clipped."
+      },
       "density": {
         "axis": "item",
         "soft": 14,
