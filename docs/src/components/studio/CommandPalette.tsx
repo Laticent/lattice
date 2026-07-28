@@ -68,7 +68,10 @@ export function CommandPalette({
 	// field at the BOTTOM, above the keyboard (see the mobile branch below). cmdk does
 	// not care about DOM order — filtering is by context, not by sibling position — so
 	// this costs nothing but the split.
-	const field = <CommandInput placeholder="Search or run a command…" />;
+	// `data-focus-ring="container"` — the box paints the focus ring, so the input must
+	// not paint a second one inside it. See native-widgets.css for why a class cannot do
+	// this job.
+	const field = <CommandInput data-focus-ring="container" placeholder="Search or run a command…" />;
 	const list = (
 		<>
 			<CommandList>
@@ -129,18 +132,29 @@ export function CommandPalette({
 				    from the thumb that is typing, with the results running away from the
 				    keyboard filtering them. Chat's composer already had this right, so this
 				    is that one idiom shared rather than a second arrangement.
-				    The field keeps its inset/rounded/bordered dress: the cmdk default is
-				    edge-to-edge with the magnifier out at the screen edge, so the app had two
-				    search fields that looked nothing alike. One search field, one look. */}
+				    The field wears `PANEL_SEARCH_BOX` — byte-identical to `PanelSearch`, which
+				    the Library and Add a slide use. cmdk owns its own input element so it
+				    cannot use the component, but it CAN use the box, and the three parts that
+				    made it look different are all neutralized here: cmdk's wrapper `border-b`,
+				    the input's own `rounded-md`, and the input's own focus outline. Left alone,
+				    a focused palette field drew a second rounded box INSIDE the first — 44px
+				    inside 46px — visible only while focused, i.e. only with the keyboard up.
+				    Reported from a real Android phone. */}
 				<Command
 					className={cn(
 						'flex min-h-0 flex-1 flex-col',
-						// the field: inset, rounded, bordered — Library's treatment exactly
-						'[&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border',
-						'[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:bg-background [&_[data-slot=command-input-wrapper]]:px-2.5',
+						// Spelled out, NOT built from PANEL_SEARCH_BOX by interpolation. Tailwind's
+						// scanner reads source text, so an interpolated class name generates no rule
+						// at all — the same trap that shipped every panel at content height earlier
+						// in this branch. `panel-search.test.tsx` asserts these stay in step.
+						'[&_[data-slot=command-input-wrapper]]:flex [&_[data-slot=command-input-wrapper]]:min-w-0 [&_[data-slot=command-input-wrapper]]:items-center [&_[data-slot=command-input-wrapper]]:gap-2',
+						'[&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border [&_[data-slot=command-input-wrapper]]:bg-background',
+						'[&_[data-slot=command-input-wrapper]]:px-3 [&_[data-slot=command-input-wrapper]]:py-2',
+						'[&_[data-slot=command-input-wrapper]]:focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] [&_[data-slot=command-input-wrapper]]:focus-within:ring-2 [&_[data-slot=command-input-wrapper]]:focus-within:ring-[var(--accent-soft)]',
+						'[&_[data-slot=command-input]]:h-auto [&_[data-slot=command-input]]:rounded-none [&_[data-slot=command-input]]:text-[13.5px] [&_[data-slot=command-input]]:outline-none',
+						'[&_[data-slot=command-input-wrapper]>svg]:size-4 [&_[data-slot=command-input-wrapper]>svg]:opacity-100 [&_[data-slot=command-input-wrapper]>svg]:text-muted-foreground',
 						'[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground',
 						'[&_[cmdk-group]]:px-2 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5',
-						// the list owns the space above the dock
 						'[&_[data-slot=command-list]]:min-h-0 [&_[data-slot=command-list]]:flex-1 [&_[data-slot=command-list]]:max-h-none',
 					)}
 				>

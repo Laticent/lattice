@@ -78,6 +78,12 @@ in patch versions.
   of four near-identical mono-uppercase treatments. The Library's segmented filter track and Add
   a slide's `FilterChip` row both fold into the existing `PillTabs` primitive, gaining its
   tablist semantics (roving tabindex, arrow keys) and losing their horizontal scrollers.
+  Reported from a real Android phone after the first cut: the three filter drawers now share
+  ONE search field (`PanelSearch`), and the app's global `:focus-visible` ring — which is
+  unlayered, and therefore beat every `outline-none` utility regardless of specificity — gains a
+  `[data-focus-ring="container"]` opt-out so a field whose wrapper paints the ring no longer
+  draws a second one inside it. Reader views' "add" moves into the panel header beside the close,
+  the slot the Library's import already used.
   See `engineering/decisions/2026-07-28-one-panel-height.md`.
 
 - **Breaking (`list-steps`, unreleased): `capsule` absorbs the `cat` variant and the masthead-rule

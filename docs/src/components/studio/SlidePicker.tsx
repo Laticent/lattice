@@ -1,7 +1,7 @@
-import { ChevronDown, Layers, Plus, Search, X } from 'lucide-react';
+import { ChevronDown, Layers, Plus } from 'lucide-react';
 import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { PanelDock, PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
@@ -217,22 +217,15 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 	// differently: the desktop dialog keeps it on top; a phone docks it at the BOTTOM,
 	// above the keyboard, beside the thumb that is doing the typing.
 	const searchField = (
-		<div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus-within:ring-2 focus-within:ring-[var(--accent-soft)]">
-			<Search className="size-4 shrink-0 text-muted-foreground" />
-			<input
-				ref={searchRef}
-				value={query}
-				onChange={(e) => setQuery(e.target.value)}
-				placeholder={compact ? 'Search slides…' : `Search ${items.length} slides — name, bucket, or what it's for…`}
-				aria-label="Search slides"
-				className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground"
-			/>
-			{query && (
-				<button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="shrink-0 text-muted-foreground hover:text-foreground">
-					<X className="size-4" />
-				</button>
-			)}
-		</div>
+		<PanelSearch
+			inputRef={searchRef}
+			value={query}
+			onChange={setQuery}
+			onClear={() => setQuery('')}
+			placeholder={compact ? 'Search slides…' : `Search ${items.length} slides — name, bucket, or what it's for…`}
+			label="Search slides"
+			className="flex-1"
+		/>
 	);
 
 	const body = (

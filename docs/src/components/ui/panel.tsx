@@ -1,4 +1,4 @@
-import { XIcon } from 'lucide-react';
+import { SearchIcon, XIcon } from 'lucide-react';
 import * as React from 'react';
 import {
 	Sheet,
@@ -370,6 +370,81 @@ export function PanelBody({
 		</div>
 	);
 }
+
+/**
+ * THE search field — one shell, every drawer that filters.
+ *
+ * There were three, and they diverged in the way that matters most on a phone: the
+ * Library's and Add a slide's put the focus ring on the WRAPPER (`focus-within`),
+ * while the command palette let cmdk's own input keep its `rounded-md` and its own
+ * focus outline INSIDE the bordered wrapper — so a focused palette field drew two
+ * concentric rounded boxes, one 46px and one 44px. Reported from a real Android
+ * phone, which is also the only place it is obvious: the inner box only appears while
+ * the field has focus, i.e. exactly when the keyboard is up and a screenshot is least
+ * likely to be taken.
+ *
+ * The rule this encodes: the BORDER and the FOCUS RING belong to the box, and the
+ * input inside it is chromeless.
+ *
+ * `focus-visible:outline-none` — not plain `outline-none` — is the load-bearing part.
+ * tailwind.css ships a global app focus ring:
+ *
+ *   :where(a, button, input, …):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+ *
+ * `:where()` zeroes its arguments, but the `:focus-visible` outside it still scores
+ * (0,1,0) — exactly what `.outline-none` scores — so the tie breaks on source order and
+ * the global wins. The result is a 2px accent rectangle at 2px offset drawn INSIDE the
+ * box that is already showing a focus-within ring: two rings, one inside the other.
+ * The `focus-visible:` variant scores (0,2,0) and takes it back.
+ *
+ * This does not cost a focus indicator — the BOX shows one (`focus-within:ring-2` plus
+ * an accent border). It moves the indicator from the input to its container, which is
+ * the thing a user actually sees as "the field".
+ */
+export function PanelSearch({
+	inputRef,
+	value,
+	onChange,
+	placeholder,
+	label,
+	onClear,
+	className,
+}: {
+	inputRef?: React.Ref<HTMLInputElement>;
+	value: string;
+	onChange: (v: string) => void;
+	placeholder: string;
+	/** Accessible name — the field has no visible label. */
+	label: string;
+	/** Render a clear affordance when there is something to clear. */
+	onClear?: () => void;
+	className?: string;
+}) {
+	return (
+		<div className={cn(PANEL_SEARCH_BOX, className)}>
+			<SearchIcon className="size-4 shrink-0 text-muted-foreground" />
+			<input
+				ref={inputRef}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				placeholder={placeholder}
+				aria-label={label}
+				data-focus-ring="container"
+				className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground"
+			/>
+			{onClear && value ? (
+				<button type="button" onClick={onClear} aria-label="Clear search" className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground">
+					<XIcon className="size-4" />
+				</button>
+			) : null}
+		</div>
+	);
+}
+
+/** The box, exported so the command palette can dress cmdk's own wrapper identically
+ *  — cmdk owns its input element, so it cannot use `PanelSearch` itself. */
+export const PANEL_SEARCH_BOX =
+	'flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus-within:ring-2 focus-within:ring-[var(--accent-soft)]';
 
 /**
  * The bottom input dock — the panel's primary text field, pinned above the keyboard.

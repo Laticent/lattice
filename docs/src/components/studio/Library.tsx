@@ -1,7 +1,7 @@
-import { Check, Download, FileBox, FileText, Package, Plus, Search, Share2, Trash2, Upload } from 'lucide-react';
+import { Check, Download, FileBox, FileText, Package, Plus,  Share2, Trash2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { PanelDock, PanelEmpty, PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
@@ -279,10 +279,14 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// the BOTTOM on a phone (above the keyboard, beside the thumb that types it) and
 	// stays in the header on the docked column and the tablet sheet, which have room.
 	const searchField = (
-		<div className={cn('flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-2.5 text-muted-foreground', phone ? 'h-11' : 'ml-1 flex-1 py-1.5')}>
-			<Search className="size-3.5 shrink-0" />
-			<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search themes, components, finishes & docs…" aria-label="Search library" className="min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground" />
-		</div>
+		<PanelSearch
+			value={query}
+			onChange={setQuery}
+			onClear={() => setQuery('')}
+			placeholder="Search themes, components, finishes & docs…"
+			label="Search library"
+			className={phone ? undefined : 'ml-1 flex-1'}
+		/>
 	);
 
 	const headerControls = (

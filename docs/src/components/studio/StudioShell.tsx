@@ -56,6 +56,7 @@ import { LatticeMark } from './LatticeMark';
 import { LensesPanel, type TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
+import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
@@ -2353,7 +2354,23 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Lenses (reader views) is its OWN first-class panel now — a launcher peer of the
 	// Architect, not a tab inside the AI coach. It's a deterministic membership +
 	// approval workflow, so it doesn't belong under a Sparkles/AI-branded panel.
-	const lensesBody = (
+	// The "add a reader view" trigger lives in the SHEET HEADER, beside the close — the
+	// slot every other panel's actions use (the Library's import is the pattern; this
+	// panel was the one with its action buried at the bottom of the body). The state is
+	// hoisted so the header can own the trigger while `LensesPanel` still renders the
+	// archetype picker; the docked column keeps its own inline button (uncontrolled).
+	const [lensAdding, setLensAdding] = React.useState(false);
+	const lensCanAdd = React.useMemo(
+		() => LENS_ARCHETYPES.some((a) => !lensReg.lenses.some((l) => l.id === a.id)),
+		[lensReg],
+	);
+	React.useEffect(() => { if (!lensesOpen) setLensAdding(false); }, [lensesOpen]);
+
+	// `hosted` = the sheet, whose HEADER owns the add trigger. The docked column is NOT
+	// hosted and keeps its own inline dashed button — this body is shared by both, so
+	// passing the controlled props unconditionally silently removed the docked column's
+	// only way to add a reader view. Caught by the unit suite, which drives the docked one.
+	const renderLensesBody = (hosted: boolean) => (
 		<div className="min-h-0 flex-1 overflow-y-auto p-2.5 min-w-0 overscroll-contain [touch-action:pan-y]">
 			{/* The lede, in the body. It used to be the header's `description`, which is
 			    what made this one of four header heights; moving it OUT of the header was
@@ -2373,6 +2390,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				onWriteRegistry={writeRegistry}
 				onTag={writeTags}
 				onRemoveLens={removeLensWrite}
+				{...(hosted ? { adding: lensAdding, onAddingChange: setLensAdding } : {})}
 			/>
 		</div>
 	);
@@ -3356,7 +3374,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 									{lensesOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
-											{lensesBody}
+											{renderLensesBody(false)}
 										</>
 									)}
 									{libraryOpen && (
@@ -3452,13 +3470,20 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<PanelHeader
 							icon={<LensIcon />}
 							title="Reader views"
+							actions={lensCanAdd ? (
+								<Tip label="Add a reader view">
+									<Button type="button" variant="outline" size="icon-sm" aria-label="Add a reader view" onClick={() => setLensAdding(true)}>
+										<Plus className="size-4" />
+									</Button>
+								</Tip>
+							) : undefined}
 							// The lede moved OUT of the header and into the zero state, where it has
 							// room and where it is actually needed. As a header `description` it
 							// wrapped to two lines and made this one of four different header
 							// heights in a set of surfaces that claim to share a frame.
 							srDescription="A subset of this deck for one reader — you approve exactly what they see."
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{lensesBody}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{renderLensesBody(true)}</div>
 					</PanelSheet>
 					{/* Settings Sheet — MOBILE only. Same Slide-first segment + scope echo +
 					    active body as the desktop/tablet column, just wrapped in a Sheet
