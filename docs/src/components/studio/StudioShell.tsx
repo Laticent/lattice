@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
-import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelBody, PanelEmpty, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -56,6 +56,7 @@ import { LatticeMark } from './LatticeMark';
 import { LensesPanel, type TagChange } from './LensesPanel';
 import { LexiconEditor } from './LexiconEditor';
 import { Library } from './Library';
+import { ARCHETYPES as LENS_ARCHETYPES } from './lens-archetypes';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationSet, slideClass, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { activeMode, MODES } from './mode-catalog';
@@ -2353,8 +2354,32 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	// Lenses (reader views) is its OWN first-class panel now — a launcher peer of the
 	// Architect, not a tab inside the AI coach. It's a deterministic membership +
 	// approval workflow, so it doesn't belong under a Sparkles/AI-branded panel.
-	const lensesBody = (
+	// The "add a reader view" trigger lives in the SHEET HEADER, beside the close — the
+	// slot every other panel's actions use (the Library's import is the pattern; this
+	// panel was the one with its action buried at the bottom of the body). The state is
+	// hoisted so the header can own the trigger while `LensesPanel` still renders the
+	// archetype picker; the docked column keeps its own inline button (uncontrolled).
+	const [lensAdding, setLensAdding] = React.useState(false);
+	const lensCanAdd = React.useMemo(
+		() => LENS_ARCHETYPES.some((a) => !lensReg.lenses.some((l) => l.id === a.id)),
+		[lensReg],
+	);
+	React.useEffect(() => { if (!lensesOpen) setLensAdding(false); }, [lensesOpen]);
+
+	// `hosted` = the sheet, whose HEADER owns the add trigger. The docked column is NOT
+	// hosted and keeps its own inline dashed button — this body is shared by both, so
+	// passing the controlled props unconditionally silently removed the docked column's
+	// only way to add a reader view. Caught by the unit suite, which drives the docked one.
+	const renderLensesBody = (hosted: boolean) => (
 		<div className="min-h-0 flex-1 overflow-y-auto p-2.5 min-w-0 overscroll-contain [touch-action:pan-y]">
+			{/* The lede, in the body. It used to be the header's `description`, which is
+			    what made this one of four header heights; moving it OUT of the header was
+			    right, but the first cut moved it only into `srDescription` — so a sighted
+			    user lost the explanation entirely while the sentence lived on for screen
+			    readers alone. Found by the independent checker. */}
+			<p className="px-1.5 pb-2.5 text-[13px] leading-snug text-[var(--text-muted)]">
+				A subset of this deck for one reader — you approve exactly what they see.
+			</p>
 			<LensesPanel
 				slides={slides}
 				registry={lensReg}
@@ -2365,6 +2390,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				onWriteRegistry={writeRegistry}
 				onTag={writeTags}
 				onRemoveLens={removeLensWrite}
+				{...(hosted ? { adding: lensAdding, onAddingChange: setLensAdding } : {})}
 			/>
 		</div>
 	);
@@ -3348,7 +3374,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 									{lensesOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Reader views</div>
-											{lensesBody}
+											{renderLensesBody(false)}
 										</>
 									)}
 									{libraryOpen && (
@@ -3425,7 +3451,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{coachBody}</div>
 					</PanelSheet>
 					{/* Chat — its own compact drawer, a peer of the Coach (they are separate panels). */}
-					<PanelSheet open={chatOpen} onOpenChange={setChatOpen} side="left" width="sm" tier="full">
+					<PanelSheet open={chatOpen} onOpenChange={setChatOpen} side="left" width="sm">
 						<PanelHeader
 							icon={<ChatIcon />}
 							title="Chat"
@@ -3440,22 +3466,30 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 					    set in 11px uppercase — the one treatment the drawer's own rules ban.
 					    "Lenses" survives as the internal name (`lensesBody`, `lens-picker`),
 					    which is fine; it just is not what a user is shown (#1211). */}
-					<PanelSheet open={lensesOpen} onOpenChange={setLensesOpen} side="left" width="sm" tier="full">
+					<PanelSheet open={lensesOpen} onOpenChange={setLensesOpen} side="left" width="sm">
 						<PanelHeader
 							icon={<LensIcon />}
 							title="Reader views"
-							// One lede, in the header. The panel body used to carry a second one 40px
-							// below ("You approve exactly what each reader sees…"), so the surface
-							// introduced itself twice before showing a single view.
-							description="A subset of this deck for one reader — you approve exactly what they see."
+							actions={lensCanAdd ? (
+								<Tip label="Add a reader view">
+									<Button type="button" variant="outline" size="icon-sm" aria-label="Add a reader view" onClick={() => setLensAdding(true)}>
+										<Plus className="size-4" />
+									</Button>
+								</Tip>
+							) : undefined}
+							// The lede moved OUT of the header and into the zero state, where it has
+							// room and where it is actually needed. As a header `description` it
+							// wrapped to two lines and made this one of four different header
+							// heights in a set of surfaces that claim to share a frame.
+							srDescription="A subset of this deck for one reader — you approve exactly what they see."
 						/>
-						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{lensesBody}</div>
+						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{renderLensesBody(true)}</div>
 					</PanelSheet>
 					{/* Settings Sheet — MOBILE only. Same Slide-first segment + scope echo +
 					    active body as the desktop/tablet column, just wrapped in a Sheet
 					    (no room for a docked column). One source of truth: inspectorScopeContent. */}
 					{mobile && (
-						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md" tier="full">
+						<PanelSheet open={inspectorOpen} onOpenChange={setInspectorOpen} width="md">
 							<PanelHeader
 								icon={<Settings2 />}
 								title="Settings"
@@ -3481,23 +3515,36 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				<PanelHeader
 					icon={<History />}
 					title="Version history"
-					description="Snapshots you can restore. One is saved before each AI edit."
+					srDescription="Snapshots you can restore. One is captured automatically before each AI edit."
 				/>
-				<PanelBody padded={false} className="px-4 py-3">
+				{/* The zero state OWNS the empty panel rather than floating at the top of it,
+				    and it carries the lede the header used to. Measured before this change:
+				    73% of the sheet was blank under a single 12px line — the worst dead air in
+				    the app, and exactly the kind that argues for a shorter sheet when the real
+				    gap is a blank slate. */}
+				{checkpoints.length === 0 ? (
+					<PanelBody center>
+						<PanelEmpty
+							icon={<History />}
+							title="No saved versions yet"
+							action={<button type="button" onClick={saveVersion} className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"><Save className="size-3.5" />Save a version</button>}
+						>
+							Snapshots you can restore. One is captured automatically before each AI edit.
+						</PanelEmpty>
+					</PanelBody>
+				) : (
+					<PanelBody padded={false} className="px-4 py-3">
 						<button type="button" onClick={saveVersion} className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-[12.5px] font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)]"><Save className="size-3.5" />Save a version</button>
-						{checkpoints.length === 0 ? (
-							<p className="px-0.5 py-1 text-[11.5px] leading-relaxed text-muted-foreground">No saved versions yet. Versions are also captured automatically before each AI edit.</p>
-						) : (
-							<ul className="space-y-0.5">
-								{checkpoints.map((cp) => (
-									<li key={cp.id} className="flex items-center gap-2 rounded-md px-1.5 py-1.5 hover:bg-[var(--accent-soft)]">
-										<span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{cp.label}</span><span className="block font-mono text-[10.5px] text-muted-foreground">{timeAgo(cp.ts)} · {metaFor(cp.source)}</span></span>
-										<button type="button" onClick={() => restoreCheckpoint(cp)} className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-[var(--accent)] hover:bg-background">Restore</button>
-									</li>
-								))}
-							</ul>
-						)}
-				</PanelBody>
+						<ul className="space-y-0.5">
+							{checkpoints.map((cp) => (
+								<li key={cp.id} className="flex items-center gap-2 rounded-md px-1.5 py-1.5 hover:bg-[var(--accent-soft)]">
+									<span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-semibold text-[var(--text-heading)]">{cp.label}</span><span className="block font-mono text-[10.5px] text-muted-foreground">{timeAgo(cp.ts)} · {metaFor(cp.source)}</span></span>
+									<button type="button" onClick={() => restoreCheckpoint(cp)} className="shrink-0 rounded-md border border-border px-2 py-0.5 text-[11px] font-semibold text-[var(--accent)] hover:bg-background">Restore</button>
+								</li>
+							))}
+						</ul>
+					</PanelBody>
+				)}
 			</PanelSheet>
 			{/* Compact (tablet/mobile): Library is the right Sheet. Desktop-Build renders it
 			    docked in the assistant slot instead (above), so the sheet is compact-only.

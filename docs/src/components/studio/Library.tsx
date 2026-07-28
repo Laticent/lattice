@@ -1,9 +1,11 @@
-import { Check, Download, FileBox, FileText, Package, Plus, Search, Share2, Trash2, Upload } from 'lucide-react';
+import { Check, Download, FileBox, FileText, Package, Plus,  Share2, Trash2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
+import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
 import { deleteStudioComponent, listStudioComponents, type StudioComponent, saveStudioComponent } from './component-library';
@@ -73,7 +75,7 @@ function LibraryFrame({ docked, open, onOpenChange, children }: { docked?: boole
 	// on a phone (and keeps the 720px right sheet at tablet) — one framing decision,
 	// made once, for every panel the drawer can open (#1211).
 	return (
-		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="lg" tier="full">
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="lg">
 			{children}
 		</PanelSheet>
 	);
@@ -95,6 +97,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	onChanged: () => void;
 	notify: (msg: string) => void;
 }) {
+	// A phone docks the search field at the bottom; the docked column and the tablet
+	// sheet keep it in the header. Same predicate `PanelSheet` uses to pick its edge.
+	const bp = useBreakpoint();
+	const landscape = useLandscapePhone();
+	const phone = !docked && (bp === 'mobile' || landscape);
 	const [themes, setThemes] = React.useState<StudioTheme[]>([]);
 	const [components, setComponents] = React.useState<StudioComponent[]>([]);
 	const [finishes, setFinishes] = React.useState<StudioFinish[]>([]);
@@ -265,15 +272,26 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const selCount = sel.size;
 
 	// The header controls (search + contextual add) — shared by both transports; only
+	// The search field, hoisted OUT of the header. On a phone it used to wrap to its own
+	// row inside the header (`basis-full` + the header's `flex-wrap`), and that is what
+	// made this panel's header 125px against every other panel's 56px — the largest
+	// single deviation in a set of surfaces that claim to share a frame. It now docks at
+	// the BOTTOM on a phone (above the keyboard, beside the thumb that types it) and
+	// stays in the header on the docked column and the tablet sheet, which have room.
+	const searchField = (
+		<PanelSearch
+			value={query}
+			onChange={setQuery}
+			onClear={() => setQuery('')}
+			placeholder="Search themes, components, finishes & docs…"
+			label="Search library"
+			className={phone ? undefined : 'ml-1 flex-1'}
+		/>
+	);
+
 	const headerControls = (
 		<>
-			{/* On a phone this wraps to its OWN row (`basis-full` + the header's
-			    `flex-wrap`): icon + title + import + close already fill 390px, and
-			    squeezing a fifth item in truncated the placeholder to "Search th". */}
-			<div className="ml-1 flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-muted-foreground max-[699px]:order-last max-[699px]:ml-0 max-[699px]:basis-full">
-						<Search className="size-3.5 shrink-0" />
-						<input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search themes, components, finishes & docs…" aria-label="Search library" className="min-w-0 flex-1 bg-transparent text-[12.5px] text-foreground outline-none placeholder:text-muted-foreground" />
-					</div>
+			{phone ? null : searchField}
 					{/* Contextual add: the Docs tab attaches .txt/.md/.pdf reference docs; every
 					    other tab imports a lattice-asset .zip — one button, meaning by tab. */}
 					{filter === 'refdoc' ? (
@@ -297,7 +315,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			title="Library"
 			srDescription="Saved themes, components, and finishes — search, filter, apply, or import a .zip."
 			actions={headerControls}
-			className="max-[699px]:flex-wrap"
 			onClose={docked ? () => onOpenChange(false) : undefined}
 			showClose={!docked}
 		/>
@@ -308,16 +325,23 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			{header}
 
 				<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
-					{/* The pill segment scrolls horizontally inside a min-w-0 track, so a narrow
-					    pane never clips a filter (All / Themes / Components / Finishes / Docs) —
-					    swipe/scroll to reach the rest instead. */}
-					<div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-						<div className="inline-flex rounded-lg border border-border bg-background p-[3px]">
-							{(['all', 'theme', 'component', 'finish', 'refdoc'] as Filter[]).map((f) => (
-								<button key={f} type="button" onClick={() => setFilter(f)} aria-pressed={filter === f} className={cn('whitespace-nowrap rounded-md px-3 py-1 text-[12px] font-semibold capitalize', filter === f ? 'bg-card text-[var(--accent)] shadow-sm' : 'text-muted-foreground')}>{f === 'all' ? 'All' : f === 'refdoc' ? 'Docs' : f === 'finish' ? 'Finishes' : `${f}s`}</button>
-							))}
-						</div>
-					</div>
+					{/* `PillTabs`, not a hand-rolled segmented track. This forked the shared
+					    primitive: same job (pick one section of the panel), different shape, and
+					    — because it was `aria-pressed` buttons rather than a `role="tablist"` —
+					    no roving tabindex and no arrow-key movement, which Settings, Workspace and
+					    the slide drawer all have. It also WRAPS now instead of scrolling sideways,
+					    so a narrow pane no longer hides filters behind a horizontal scroller
+					    nested in the panel's vertical one. (HARD RULE #15 — reuse.) */}
+					<PillTabs
+						className="min-w-0 flex-1"
+						ariaLabel="Library sections"
+						value={filter}
+						onValueChange={(v) => setFilter(v as Filter)}
+						tabs={(['all', 'theme', 'component', 'finish', 'refdoc'] as Filter[]).map((f) => ({
+							value: f,
+							label: f === 'all' ? 'All' : f === 'refdoc' ? 'Docs' : f === 'finish' ? 'Finishes' : `${f[0].toUpperCase()}${f.slice(1)}s`,
+						}))}
+					/>
 					{/* The count hides on a narrow docked pane (container query) AND on a phone
 					    (media query). Five pills need ~340px; at 390px the count stole just
 					    enough that "Docs" clipped mid-word to "Doc" and sat flush against
@@ -328,10 +352,12 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">
 					{total === 0 ? (
-						<div className="grid h-full place-content-center gap-2 text-center text-muted-foreground">
-							<FileBox className="mx-auto size-7 opacity-40" />
-							<p className="text-[13px]">No saved assets yet.</p>
-							<p className="text-[11.5px]">Fabricate a theme or a component, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => fileRef.current?.click()}>import a .zip</button>.</p>
+						/* `PanelEmpty`, not a hand-rolled centered block — one zero-state grammar
+						   across every drawer, the same way there is one header. */
+						<div className="grid h-full place-items-center">
+							<PanelEmpty icon={<FileBox />} title="No saved assets yet">
+								Fabricate a theme or a component, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => fileRef.current?.click()}>import a .zip</button>.
+							</PanelEmpty>
 						</div>
 					) : (
 						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -420,6 +446,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						<button type="button" className="ml-auto text-[12px] font-semibold text-[var(--accent)]" onClick={() => setSel(new Set())}>Clear selection</button>
 					</div>
 				)}
+			{/* Phone: the search field docks here, above the keyboard. */}
+			{phone && <PanelDock>{searchField}</PanelDock>}
 		</LibraryFrame>
 	);
 }

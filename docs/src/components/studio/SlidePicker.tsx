@@ -1,7 +1,8 @@
-import { ChevronDown, Layers, Plus, Search, X } from 'lucide-react';
+import { ChevronDown, Layers, Plus } from 'lucide-react';
 import * as React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import { PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
+import { PillTabs } from '@/components/ui/pill-tabs';
 import { type CatalogItem, groupBy, type Lens, makeFuse, rankedFor } from '@/lib/component-search';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint } from '@/lib/use-breakpoint';
@@ -212,34 +213,46 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		return nodes;
 	};
 
+	// The search field, hoisted out of `body` so the two transports can order it
+	// differently: the desktop dialog keeps it on top; a phone docks it at the BOTTOM,
+	// above the keyboard, beside the thumb that is doing the typing.
+	const searchField = (
+		<PanelSearch
+			inputRef={searchRef}
+			value={query}
+			onChange={setQuery}
+			onClear={() => setQuery('')}
+			placeholder={compact ? 'Search slides…' : `Search ${items.length} slides — name, bucket, or what it's for…`}
+			label="Search slides"
+			className="flex-1"
+		/>
+	);
+
 	const body = (
 		<>
-			{/* Chrome: search (co-equal to the grid) + single-select function filter + count. */}
-			<div className="flex items-center gap-2 px-4 pt-3 sm:px-5">
-				<div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] focus-within:ring-2 focus-within:ring-[var(--accent-soft)]">
-					<Search className="size-4 shrink-0 text-muted-foreground" />
-					<input
-						ref={searchRef}
-						value={query}
-						onChange={(e) => setQuery(e.target.value)}
-						placeholder={`Search ${items.length} slides — name, bucket, or what it's for…`}
-						aria-label="Search slides"
-						className="min-w-0 flex-1 bg-transparent text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground"
-					/>
-					{query && (
-						<button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="shrink-0 text-muted-foreground hover:text-foreground">
-							<X className="size-4" />
-						</button>
-					)}
-				</div>
-			</div>
+			{/* Desktop/tablet: search on top. A phone gets it in the dock instead. */}
+			{!compact && <div className="flex items-center gap-2 px-4 pt-3 sm:px-5">{searchField}</div>}
 			{functions.length > 0 && (
-				<div className="flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 sm:px-5 [scrollbar-width:none]">
-					<FilterChip label="All" active={!facet} onClick={() => setFacet(null)} />
-					{functions.map((f) => (
-						<FilterChip key={f} label={cap(f)} active={facet === f} onClick={() => setFacet(facet === f ? null : f)} />
-					))}
-					<span className="ml-auto shrink-0 pl-2 font-mono text-[11px] text-muted-foreground">{count} slides</span>
+				/* `PillTabs`, not the bespoke `FilterChip` this used to render. Calling these
+				   "filters" made them look like a different KIND of control from the tabs in
+				   Settings, Workspace and the Library — but the behavior is single-select with
+				   an explicit All, which is exactly a tablist over a filtered view. So they get
+				   the tablist's semantics (role, roving tabindex, arrow keys) and its one pill
+				   shape, instead of a third size and fill.
+				   They also WRAP rather than scrolling sideways: a horizontal scroller nested in
+				   the panel's vertical one is what the StudioDrawer's rule 1 bans, and this
+				   surface is two taps from that drawer. At 390px the strip additionally clipped
+				   "Comparison" against the panel edge, so the sideways scroll was not just a
+				   drag-direction lottery — it was hiding the facets. */
+				<div className="flex items-center gap-2 px-4 py-2.5 sm:px-5">
+					<PillTabs
+						className="min-w-0 flex-1"
+						ariaLabel="Slide categories"
+						value={facet ?? 'all'}
+						onValueChange={(v) => setFacet(v === 'all' ? null : v)}
+						tabs={[{ value: 'all', label: 'All' }, ...functions.map((f) => ({ value: f, label: cap(f) }))]}
+					/>
+					<span className="shrink-0 self-start pt-1.5 text-[12px] text-muted-foreground">{count} slides</span>
 				</div>
 			)}
 
@@ -256,15 +269,18 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 						{searching
 							? flat.flatMap((it) => renderTile(it, it.name, matchedLooks(it)))
 							: (bands ?? []).flatMap((band) => {
-									const header = band.label ? [<h3 key={`h:${band.key}`} className={cn('col-span-full px-0.5 pb-1 pt-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.16em]', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{band.label}</h3>] : [];
+									const header = band.label ? [<h3 key={`h:${band.key}`} className={cn('col-span-full px-0.5 pb-1 pt-2 text-[13px] font-semibold leading-normal', band.key === 'recent' ? 'text-[var(--accent)]' : 'text-[var(--text-heading)]')}>{band.label}</h3>] : [];
 									return [...header, ...band.items.flatMap((it) => renderTile(it, tileKey(band.key, it.name)))];
 								})}
 					</div>
 				)}
 			</div>
 
-			{/* Detail rail — prose on demand (the highlighted slide's purpose). */}
-			<div className="flex min-h-[46px] items-center gap-3 border-t border-border bg-card px-4 py-2.5 sm:px-5">
+			{/* Detail rail — prose on demand (the highlighted slide's purpose). Hidden on a
+			    phone: `detail` is set by hover/focus, and a touch screen has no hover, so it
+			    sat there showing its static placeholder hint as a permanent 46px band —
+			    directly above the search dock, i.e. two stacked bars, one of them inert. */}
+			<div className={cn('min-h-[46px] items-center gap-3 border-t border-border bg-card px-4 py-2.5 sm:px-5', compact ? 'hidden' : 'flex')}>
 				{detail ? (
 					<>
 						<span className="shrink-0 font-mono text-[12.5px] font-semibold text-[var(--text-heading)]">{detail.name}</span>
@@ -287,38 +303,31 @@ export function SlidePicker({ open, onOpenChange, items, options, frontMatter, p
 		// bottom sheet at `h-[100dvh]`: a full-screen page with a 16px radius pretending
 		// to be a sheet. 85dvh still leaves ~717px of gallery on a 390×844 phone.
 		return (
-			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg" tier="full">
-				<PanelHeader icon={<Plus />} title="Add a slide" srDescription={description} />
+			<PanelSheet open={open} onOpenChange={onOpenChange} width="lg">
+				{/* "Insert a component", not "Add a slide". Both launchers — the drawer row and
+				    the command palette's "Insert a component…" — say insert-a-component, and the
+				    panel they opened was titled something else. Same class of defect as the
+				    "Reader views" row landing on a panel headed LENSES, one card over (#1211). */}
+				<PanelHeader icon={<Plus />} title={title} srDescription={description} />
 				{body}
+				{/* Phone: search docks above the keyboard. */}
+				<PanelDock>{searchField}</PanelDock>
 			</PanelSheet>
 		);
 	}
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="flex h-[min(84vh,760px)] max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
-				<DialogTitle className="px-4 pt-4 text-[15px] sm:px-5">Add a slide</DialogTitle>
+				{/* `title` — "Insert a component" — on BOTH transports. The phone sheet was
+				    renamed to agree with its two launchers and the desktop dialog was left
+				    saying "Add a slide", so the defect being fixed survived on the surface most
+				    people use, and the old sr-only span then announced the OTHER name as stray
+				    content after it. One name, one place. Found by the independent checker. */}
+				<DialogTitle className="px-4 pt-4 text-[15px] sm:px-5">{title}</DialogTitle>
 				<DialogDescription className="sr-only">{description}</DialogDescription>
-				{/* An accessible name the tests + AT reach; visually the DialogTitle carries it. */}
-				<span className="sr-only">{title}</span>
 				{body}
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			aria-pressed={active}
-			className={cn(
-				'shrink-0 rounded-full border px-3 py-1 text-[12px] font-semibold transition-colors',
-				active ? 'border-[color-mix(in_srgb,var(--accent)_45%,transparent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground',
-			)}
-		>
-			{label}
-		</button>
 	);
 }
 

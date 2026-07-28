@@ -58,11 +58,26 @@
 
 /* Keyboard focus ring — the palette accent, for EVERY focusable the site hasn't
  * given its own :focus-visible ring (prose links, native inputs, markdown
- * content, summary/details). `:where(...)` keeps this at zero-ish specificity so
- * a component's own focus style always wins; it only fills the gap where the
- * browser would otherwise paint its default blue/black ring. Outline (not
- * box-shadow) so it never enters the height math a measuring layout depends on. */
-:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+ * content, summary/details). Outline (not box-shadow) so it never enters the
+ * height math a measuring layout depends on.
+ *
+ * `:where(...)` was meant to keep this at zero-ish specificity "so a component's
+ * own focus style always wins". THAT IS NOT TRUE, and the reason is the cascade,
+ * not the selector: this file is UNLAYERED, Tailwind's utilities live in
+ * `@layer utilities`, and unlayered wins over layered at ANY specificity
+ * (engineering/cascade.md; the same trap HARD RULE #26 exists for). So a
+ * component writing `outline-none` — even `focus-visible:outline-none`, which
+ * outscores this selector 2:1 — could not turn it off. Measured: a focused
+ * search field drew this 2px accent rectangle INSIDE the box that was already
+ * showing its own focus-within ring, in both the Library and the command
+ * palette. Reported from a real phone.
+ *
+ * `[data-focus-ring='container']` is the opt-out the old comment believed
+ * specificity already provided: set it on an input whose WRAPPER paints the
+ * focus affordance (see `PanelSearch` in ui/panel.tsx). It is deliberately an
+ * attribute, not a utility class — the opt-out has to live in the same
+ * unlayered breath as the rule it opts out of. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible:not([data-focus-ring='container']) {
 	outline: 2px solid var(--accent);
 	outline-offset: 2px;
 }

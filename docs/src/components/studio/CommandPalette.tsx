@@ -1,6 +1,6 @@
 import { Columns2, FileBox, FileText, Focus, MonitorPlay, Palette, PanelLeftClose, PanelLeftOpen, PanelRightClose, PencilRuler, Play, Plus, Search, Settings2, Share2, Sparkles } from 'lucide-react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
-import { PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelDock, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { useBreakpoint } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import type { StudioDeck } from './decks';
@@ -63,10 +63,17 @@ export function CommandPalette({
 		onOpenChange(false);
 		fn();
 	};
-	// The palette body is identical on both transports — only the frame differs.
-	const body = (
+	// The FIELD and the LIST are separate, because the two transports order them
+	// differently: desktop keeps the classic field-on-top palette; mobile docks the
+	// field at the BOTTOM, above the keyboard (see the mobile branch below). cmdk does
+	// not care about DOM order — filtering is by context, not by sibling position — so
+	// this costs nothing but the split.
+	// `data-focus-ring="container"` — the box paints the focus ring, so the input must
+	// not paint a second one inside it. See native-widgets.css for why a class cannot do
+	// this job.
+	const field = <CommandInput data-focus-ring="container" placeholder="Search or run a command…" />;
+	const list = (
 		<>
-			<CommandInput placeholder="Search or run a command…" />
 			<CommandList>
 				<CommandEmpty>No matches.</CommandEmpty>
 				<CommandGroup heading="Actions">
@@ -118,26 +125,41 @@ export function CommandPalette({
 	// fighting the primitive, it now uses the one that already works.
 	if (mobile) {
 		return (
-			<PanelSheet open={open} onOpenChange={onOpenChange} tier="full">
+			<PanelSheet open={open} onOpenChange={onOpenChange}>
 				<PanelHeader icon={<Search />} title="Search / commands" srDescription="Run a command or jump somewhere in the Studio." />
-				{/* The field wears the SAME dress as the Library's search: an inset rounded
-				    box with the magnifier inside it, on its own row under the header. The
-				    cmdk default is edge-to-edge with the icon out at the screen edge and a
-				    `border-b` instead of a border — so the app had two search fields that
-				    looked nothing alike, and this one's focus ring was clipped by the
-				    header divider. One search field, one look. */}
+				{/* The field is DOCKED AT THE BOTTOM, directly above the keyboard, with the
+				    list above it. It used to sit under the header — the far end of the screen
+				    from the thumb that is typing, with the results running away from the
+				    keyboard filtering them. Chat's composer already had this right, so this
+				    is that one idiom shared rather than a second arrangement.
+				    The field wears `PANEL_SEARCH_BOX` — byte-identical to `PanelSearch`, which
+				    the Library and Add a slide use. cmdk owns its own input element so it
+				    cannot use the component, but it CAN use the box, and the three parts that
+				    made it look different are all neutralized here: cmdk's wrapper `border-b`,
+				    the input's own `rounded-md`, and the input's own focus outline. Left alone,
+				    a focused palette field drew a second rounded box INSIDE the first — 44px
+				    inside 46px — visible only while focused, i.e. only with the keyboard up.
+				    Reported from a real Android phone. */}
 				<Command
 					className={cn(
 						'flex min-h-0 flex-1 flex-col',
-						// the field: inset, rounded, bordered — Library's treatment exactly
-						'[&_[data-slot=command-input-wrapper]]:mx-3.5 [&_[data-slot=command-input-wrapper]]:mt-3 [&_[data-slot=command-input-wrapper]]:mb-1',
-						'[&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border',
-						'[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:bg-background [&_[data-slot=command-input-wrapper]]:px-2.5',
+						// Spelled out, NOT built from PANEL_SEARCH_BOX by interpolation. Tailwind's
+						// scanner reads source text, so an interpolated class name generates no rule
+						// at all — the same trap that shipped every panel at content height earlier
+						// in this branch. `panel-search.test.tsx` asserts these stay in step.
+						'[&_[data-slot=command-input-wrapper]]:flex [&_[data-slot=command-input-wrapper]]:min-w-0 [&_[data-slot=command-input-wrapper]]:items-center [&_[data-slot=command-input-wrapper]]:gap-2',
+						'[&_[data-slot=command-input-wrapper]]:rounded-lg [&_[data-slot=command-input-wrapper]]:border [&_[data-slot=command-input-wrapper]]:border-border [&_[data-slot=command-input-wrapper]]:bg-background',
+						'[&_[data-slot=command-input-wrapper]]:px-3 [&_[data-slot=command-input-wrapper]]:py-2',
+						'[&_[data-slot=command-input-wrapper]]:focus-within:border-[color-mix(in_srgb,var(--accent)_55%,var(--border))] [&_[data-slot=command-input-wrapper]]:focus-within:ring-2 [&_[data-slot=command-input-wrapper]]:focus-within:ring-[var(--accent-soft)]',
+						'[&_[data-slot=command-input]]:h-auto [&_[data-slot=command-input]]:rounded-none [&_[data-slot=command-input]]:text-[13.5px] [&_[data-slot=command-input]]:outline-none',
+						'[&_[data-slot=command-input-wrapper]>svg]:size-4 [&_[data-slot=command-input-wrapper]>svg]:opacity-100 [&_[data-slot=command-input-wrapper]>svg]:text-muted-foreground',
 						'[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground',
 						'[&_[cmdk-group]]:px-2 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5',
+						'[&_[data-slot=command-list]]:min-h-0 [&_[data-slot=command-list]]:flex-1 [&_[data-slot=command-list]]:max-h-none',
 					)}
 				>
-					{body}
+					{list}
+					<PanelDock>{field}</PanelDock>
 				</Command>
 			</PanelSheet>
 		);
@@ -154,7 +176,8 @@ export function CommandPalette({
 			// the corner keeps a click on the end of the field from dismissing the palette.
 			className="[&_[data-slot=command-input-wrapper]]:pr-12"
 		>
-			{body}
+			{field}
+			{list}
 		</CommandDialog>
 	);
 }

@@ -90,13 +90,19 @@ export function FeedbackSheet({
 	};
 
 	return (
-		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md" tier="full">
+		<PanelSheet open={open} onOpenChange={onOpenChange} side="right" width="md">
 			<PanelHeader
 				icon={<MessageSquareHeart />}
 				title="Send feedback"
-				description="You'll finish this on GitHub — we'll have it filled in for you, and you can look it over before it posts."
+				srDescription="You'll finish this on GitHub — we'll have it filled in for you, and you can look it over before it posts."
 			/>
 			<PanelBody className="space-y-5">
+					{/* The lede the header used to carry. It belongs above the form it describes,
+					    not in a header where it wrapped to two lines and gave this panel a
+					    different height from its neighbors. */}
+					<p className="text-[13px] leading-snug text-[var(--text-muted)]">
+						You'll finish this on GitHub — we'll have it filled in for you, and you can look it over before it posts.
+					</p>
 					<PanelSection label="Category">
 						<div className="grid grid-cols-2 gap-2">
 							{FEEDBACK_CATEGORIES.map((c) => {
