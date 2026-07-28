@@ -330,36 +330,37 @@ section.statute-stack.lane td:last-child {
    lane), which already author their own single-column / table portrait shape.
    Doubled class reaches (0,2,N) to beat the base grid on specificity — the role
    the old [data-orientation] stamp played; keyed on the deck's `data-family` stamp so it fires on any tall or strip deck. */
-/* TALL AND STRIP ONLY — square keeps the three rails, and THAT is what measures
- * better. An earlier pass collapsed square too, on the claim that holding the
- * rails "drops the ceiling 2 → 1". Re-run against the real overflow probe, the
- * numbers come out the other way round:
+/* SQUARE COLLAPSES TOO — and this is the second time that call has been made on
+ * a number that measured the wrong thing, so here is the whole ledger.
  *
- *   node tools/calibrate-capacity.js statute-stack --family square
- *     rails at square (this rule excluding square) → ceiling 3 · overflows at 4
- *     stacked at square (square included)         → ceiling 2 · overflows at 3
+ * The original comment said holding the rails at square "drops the ceiling 2 → 1".
+ * A pass in #1220 re-ran `calibrate-capacity` and got the reverse — rails 3,
+ * stacked 2 — and removed square on that basis. A red-team pass then rendered the
+ * component's OWN gallery and found the removal took it from 1 clipped slide at
+ * square to 5, including the default three-jurisdiction slide (`GDPR Art. 8` cut
+ * to `GDP`, 94px of horizontal overflow) and three composition variants.
  *
- * Three is exactly this component's own three-jurisdiction skeleton, so the
- * stack cannot hold the shape the docs tell an author to write — and the render
- * shows it: at `size: square` the gallery slide loses its entire third card,
- * where the rails lose only the right edge of one citation pill. (Both clip at
- * three; the rails clip far less. A 2-up square form would beat both and is
- * still the real follow-up.) The old claim was never reproducible — it is the
- * same drift #1218 is about, in a comment instead of a boundary. */
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
+ * Both calibrations are real; both measured a slide nobody writes. The tool holds
+ * words-per-element at this component's declared `density.soft` of 16, while the
+ * real cards carry 6–8 — and at THAT size the ordering inverts: stacked holds
+ * three cleanly, rails do not. A synthetic harness disagreeing with the real
+ * surface loses (HARD RULE #23), so square stays stacked and the number stays
+ * out of the argument until `density` is honest (see the capacity section of
+ * 2026-07-27-family-stamp-replaces-container-queries.md). */
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul,
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol {
   /* portrait → single column of content-height cards, evenly distributed (flex mirror
      of `grid-auto-rows:auto; align-content:space-evenly`). */
   flex-direction: column;
   justify-content: space-evenly;
 }
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
-section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li,
+section.statute-stack.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li {
   flex: 0 0 auto;
 }
 /* Header-pill authoring already carries the citation + status on the label row, so the
    portrait card needs no pill-lift — just breathing room between that row and the gloss. */
-section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
+section.statute-stack:not(.hierarchy):not(.bands):not(.preemption):not(.lane):where([data-family="square"], [data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > :is(ul, ol) {
   padding-top:var(--sp-md);
 }
 

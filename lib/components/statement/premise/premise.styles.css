@@ -16,7 +16,9 @@
  *
  * The ledger is an ORDERED list — the same shape every other numbered layout
  * in Lattice uses (LEDGER_OL_LAYOUTS, lib/authoring/lint-core.js). The ordinal
- * is a CSS counter, never author-typed, so rows renumber on reorder. Each row's
+ * is a CSS counter (the built-in `list-item`), so rows renumber on reorder — but
+ * an explicit `<ol start="N">` DOES flow through as a presentational hint, which
+ * is exactly what lets a split run continue 05/06 instead of restarting. Each row's
  * two nested items are, in order, the description and the framing question.
  *
  * The section-level restructure (grouping <h2> + lede into one .premise-claim
@@ -105,8 +107,9 @@ section.premise > ol > li {
   color: var(--text-heading);
   white-space: nowrap;
 }
-/* The ordinal is generated, not authored — rows renumber themselves on reorder,
- * which a hand-typed `01` cannot. --text-secondary, not --text-muted: this is
+/* The ordinal is generated, not hand-typed per row — rows renumber themselves on
+ * reorder, which a typed `01` cannot. The list's own `start` is honoured though
+ * (see the counter note above): that is the mechanism, not a leak. --text-secondary, not --text-muted: this is
  * row CONTENT, not the "muted chrome" the palette contract exempts from AA
  * (--text-muted is 3.75:1 on --bg-alt; --text-secondary is 6.27:1). */
 section.premise > ol > li::before {
@@ -203,7 +206,17 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
  * `nowrap` (correct when every track is wide enough), which is what forced the
  * ellipsis rather than a wrap. */
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li {
-  grid-template-columns: auto 1fr;
+  /* The row STAYS A ROW — ordinal, term, rest — it just stops pinning the term to
+   * a fixed `10.9375cqi` track and stops forbidding a wrap. That is the whole
+   * truncation bug: a 107px track with `nowrap` + ellipsis cut "Remember" to "R…".
+   * `auto` sizes the track to the longest term instead.
+   *
+   * An earlier cut of this reflow stacked term OVER description into a card. It
+   * fixed the truncation and cost more than it bought: three lines where there was
+   * one, so the ledger grew ~3x and FOUR MORE gallery slides clipped at portrait
+   * than before the reflow existed (6 vs 2) — trading a damaged word for a missing
+   * row. Shedding the framing question was measured too and changed nothing. */
+  grid-template-columns: auto auto 1fr;
   align-items: baseline;
   white-space: normal;
   /* A stacked card is TALLER than the single-line row it replaces (three lines
@@ -218,11 +231,10 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
   overflow: visible;
   text-overflow: clip;
 }
-/* Pin the nested pair under the TERM (column 2), not back under the ordinal, and
- * give the framing question its own line — right-aligning it against a narrow
- * row put it in the description's lap. */
+/* The description + framing question share track 3. Stack them rather than
+ * competing for one line at this width, and let the question sit under the clause
+ * it belongs to instead of right-aligning into its lap. */
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol > li > ul {
-  grid-column: 2;
   grid-template-columns: 1fr;
   gap: var(--sp-3xs);
 }

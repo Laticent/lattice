@@ -879,7 +879,10 @@ in patch versions.
   probe and the split can see it. (2) `compare-code`'s stacking only halved its horizontal clip: a
   bare `1fr` track floors at min-content, and a `<pre>` reports its longest unwrapped line as
   min-content, so the column computed **1173px inside a 1080px section**. `minmax(0, 1fr)` plus
-  `pre-wrap` closes it (972px track, zero elements overflowing right). (3) The overflow oracle
+  `pre-wrap` closes the HORIZONTAL half (972px track, zero elements overflowing right) and
+  clears its mobile clip entirely. **It still clips vertically at portrait** — two code blocks that
+  each want real height do not both fit one portrait frame, which is what the `cover-code` split
+  recipe exists for; the oracle records that clip rather than pretending it is gone. (3) The overflow oracle
   claimed a 34-component roster while rendering **31** — `_chart-family` is a shared stylesheet with
   no manifest, and `premise` and `video` have no baseline gallery slide, so the two components this
   change altered most were the two it never measured. That is exactly why (1) passed every gate. The

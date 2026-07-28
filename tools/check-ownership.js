@@ -1345,6 +1345,32 @@ function checkThemeTokenParity(errors) {
 const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').properties.adapt.properties.mode.enum);
 
 /**
+ * Carousel strategies that RESHAPE a member for the box, and therefore count as
+ * `adapt.mode: "reflow"` on their own. Deliberately a short allowlist, not
+ * "any `split.strategy`".
+ *
+ * The first cut accepted any strategy at all, and an independent checker showed
+ * what that bought: 15 of 49 reflow-declaring components carry SOME strategy, so
+ * all 15 auto-passed regardless of what they shipped — including `premise`, which
+ * gained `cover-paginate` in the same change. Delete `premise`'s entire family
+ * reflow block, the exact state this gate exists to make impossible, and the gate
+ * stayed green. A gate that cannot catch the defect that motivated it is worse
+ * than no gate, because it is also a claim.
+ *
+ * The line is whether the recipe changes a member's STRUCTURE for the box or
+ * merely distributes members across pages:
+ *   · cover-cards TRANSPOSES a table row into a card with the column headers as
+ *     labelled fields — a wide read-across table cannot paginate out of
+ *     HORIZONTAL overflow, so the shape itself has to change. That is a reflow.
+ *   · cover-paginate (premise, glossary, q-and-a, authority-chain,
+ *     regulatory-update, statute-stack) puts a cover in front and splits the run.
+ *     Every page renders the SAME composition as the unsplit slide. Useful, not a
+ *     reflow — those components must show a real mechanism of their own.
+ * Add a strategy here only with the transposition it performs written down.
+ */
+const RESHAPE_STRATEGIES = new Set(['cover-cards']);
+
+/**
  * Cross-check the adaptivity DECLARATION (manifest `adapt.mode`) against reality,
  * so the manifest can never silently drift from the code (the jank this replaces —
  * 7 charts that reflowed but declared nothing, with no gate to catch it). See
@@ -1463,7 +1489,7 @@ function checkAdaptDeclarations(manifests, errors) {
     // class carousel.js adds rather than on `[data-family]`. Verified it needs no CSS
     // tier as well: all five variants render at `size: mobile` with zero overflow, so
     // the native table degrades gracefully when the reshape does not run.
-    const splitReflow = typeof m.split?.strategy === 'string' && m.split.strategy.length > 0;
+    const splitReflow = RESHAPE_STRATEGIES.has(m.split?.strategy);
     if (mode === 'reflow' && !cssReflow && !transformReflow && !mermaidReflow && !splitReflow) {
       errors.push(
         `${m.name}: declares adapt.mode "reflow" but ships NONE of the four mechanisms — ` +

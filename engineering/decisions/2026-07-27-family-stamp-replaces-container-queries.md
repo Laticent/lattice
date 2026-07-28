@@ -168,7 +168,7 @@ feature:
   square tier on for the first time applied a *portrait* layout to a square box
   that nobody had ever seen render. The probe half of `check-family-tiers` proves
   the mechanism fires; it cannot see a clip, and it only ever looked at three of
-  the thirty components. The oracle looks at all of them and reads the real
+  the thirty-three. The oracle looks at all of them and reads the real
   export. It runs in the nightly render tier, not per-PR CI — four full emulator
   sweeps are too slow for the fast lane.
 - **`checkCssSyntax`** (`tools/check-ownership.js`) — every stylesheet under
@@ -263,7 +263,7 @@ ever seen. Five of them were wrong, three of those badly enough to clip:
 | `authority-chain` | rail collapsed, body text sliced mid-word, last card clipped | a square box is 1080px wide; the `14cqi` rail is ~151px there against ~179px at `hd`, which is not a crush |
 | `regulatory-update` | third card + its "Effective" pill off the frame | stacking four fields per row roughly triples row height |
 | `statute-stack` | whole third jurisdiction card lost | measured the other way from the shipped comment: rails at square hold **3** (`calibrate-capacity` ceiling 3, overflows at 4), the stack holds **2**. Three is this component's own skeleton |
-| `kpi` | hero flattened to a uniform ledger, `94%` barely larger than its supports | no clip, but square is the SOCIAL family, where one big number is most of the point. Rendered side by side: the hero card + rail fits with room to spare |
+| `kpi` | hero flattened to a uniform ledger, `94%` barely larger than its supports — and clipping 11px, so this was a fit fix as well as a taste one | square is the SOCIAL family, where one big number is most of the point. Rendered side by side: the hero card + rail fits with room to spare, and the clip goes to 0 |
 
 The `statute-stack` entry is the sharpest instance of this note's own theme. A
 comment claimed, in the word "measured", that holding the rails at square drops
@@ -343,9 +343,12 @@ repeats:
   track floors at min-content, and a `<pre>` reports its longest unwrapped line as
   min-content — so the single column computed **1173px inside a 1080px section**
   and every descendant hung 147px off the right edge. `minmax(0, 1fr)` plus
-  `pre-wrap` at these families closes it (measured: 972px track, zero elements
-  overflowing right). The vertical probe reads horizontal overflow as zero, so
-  nothing would have reported this.
+  `pre-wrap` at these families closes the horizontal half (measured: 972px track,
+  zero elements overflowing right) and clears the mobile clip. It does NOT make the
+  slide fit at portrait — two code blocks that each want real height never will,
+  which is precisely what `cover-code` is for — and the oracle records that clip
+  rather than the prose implying it is gone. The vertical probe reads horizontal
+  overflow as zero, so nothing would have reported the original at all.
 - **The overflow oracle claimed coverage it did not have.** Its roster listed 34
   components and rendered **31**: `_chart-family` is a shared stylesheet directory
   with no manifest and no slide, and `premise` and `video` — the two components
@@ -461,8 +464,11 @@ it with marp-core, and marp-core knows nothing about `data-family`.
 
 Verified on the real surface rather than reasoned about — exported
 `examples/adaptive-sweep.md` (`size: story`) to a bundle and rendered it with
-marp-cli 4.3.1: the bundled `lattice.css` carries **414** `data-family` selectors
-and the deck markdown carries **0** stamps. Under the retired `@container` form
+marp-cli 4.3.1: the bundled `lattice.css` carries **hundreds** of `data-family`
+selectors and the deck markdown carries **0** stamps. (The load-bearing half is
+the zero. An earlier draft quoted "414" — that was a point-in-time count of a
+bundle that keeps growing, and it did not reproduce on re-export; a number that
+drifts every time the CSS changes should not have been written as a constant.) Under the retired `@container` form
 these rules were pure CSS and did fire there, so this is a real narrowing of that
 route.
 

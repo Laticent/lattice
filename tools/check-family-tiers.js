@@ -295,6 +295,12 @@ function overflowOracle() {
   const rows = [];
   for (const s of SIZES) {
     const src = path.join(ROOT, '.scratch', `vf-${s.size}.md`);
+    // `.scratch/` is gitignored, so on a fresh checkout it does not exist and this
+    // write threw ENOENT before the oracle half (which does mkdir) ever ran. It
+    // only worked because something earlier in the session had created it — an
+    // undeclared ordering dependency that the new nightly workflow step would
+    // have inherited.
+    fs.mkdirSync(path.dirname(src), { recursive: true });
     fs.writeFileSync(src, `---\nsize: ${s.size}\ntheme: indaco\n---\n\n` + DECK.split('---\ntheme: indaco\n---\n\n')[1]);
     const base = path.join(os.tmpdir(), `vf-${s.size}-${process.pid}`);
     execFileSync(process.execPath, [path.join(ROOT, 'lattice-emulator.js'), src, `${base}.pdf`, 'indaco', '-q'],

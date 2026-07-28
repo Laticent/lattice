@@ -118,7 +118,13 @@ test('component family selectors name only canonical families', () => {
 // gate matches on the FILTER, not on one wrapper. (An earlier cut keyed on
 // `:where(` alone; the checker pointed out `:is([data-family="tall"]) section.foo`
 // and `[data-family="tall"] section.foo` slipped straight through it.)
-const LEADING_FAMILY_RE = /(?::where|:is)?\(?\s*\[data-family\s*=[^)\]]*\]\s*\)?(\s+)(section\b[^\s,{>+~]*)/g;
+// Every COMBINATOR, not just the descendant space. `data-family` is written onto
+// the `section` and nowhere else (lib/engine/slides.js, lib/runtime/index.js), so
+// no ancestor, parent or sibling can carry it — `>`, `~` and `+` are as inert as
+// a bare space, and `>` is the MORE natural thing to write once you wrongly
+// believe the stamp sits on a wrapper. (A red-team pass caught the first cut
+// covering the three carriers but only one combinator.)
+const LEADING_FAMILY_RE = /(?::where|:is)?\(?\s*\[data-family\s*=[^)\]]*\]\s*\)?\s*([>+~]|\s)\s*(section\b[^\s,{>+~]*)/g;
 
 // Files that TEACH the idiom are gated too. `lib/adaptive/families.js` shipped
 // the broken form in its own header doc — the one module the README calls "the
