@@ -224,8 +224,12 @@ in patch versions.
   drawer that is no longer on screen. The mechanism owns **one** history entry for the whole
   overlay stack and reconciles it after the commit rather than one entry per level from a
   depth-keyed effect — the first attempt did the latter, and its per-level teardown raced a
-  sibling's push (`docs/src/lib/overlay-back.ts`). Verified in WebKit at `devices['iPhone 15 Pro']`;
-  desktop history is untouched.
+  sibling's push (`docs/src/lib/overlay-back.ts`). A reload with a panel open leaves that entry
+  behind, so the module adopts it rather than stacking a second one on top. Guarded by a
+  committed `webkit-phone` Playwright project at `devices['iPhone 15 Pro']`
+  (`e2e/back-gesture.spec.ts`) — the repo's only non-Chromium project, because history-traversal
+  timing is engine behavior and this mechanism was already reverted once for a device-only
+  failure. Desktop history is untouched.
 - **`compare-prose axis` and `matrix-grid` clipped their own content in every live preview.** At
   design size the axis stage overran by 39px and the matrix by 59px, cutting the axis lede's first
   line and the matrix's column-header row and `WIDER REACH` axis label. Both now fit with zero

@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 // Playwright E2E for the Studio (route `/studio/`). Governed by
 // engineering/decisions/2026-06-28-experience-gating-playwright.md.
@@ -76,11 +76,13 @@ export default defineConfig({
 	//                the two-pane layout applies at ≥ tablet, so these can't run there
 	//   @crosswidth  same assertion worth running at desktop AND mobile (the paint check)
 	//   @visual      screenshot evidence — all three widths
+	//   @webkit      real-WebKit-only, at devices['iPhone 15 Pro'] — engine behavior a
+	//                Chromium project cannot stand in for (history traversal, #1226)
 	projects: [
 		{
 			name: 'desktop',
 			use: { viewport: { width: 1440, height: 900 } },
-			grepInvert: /@mobile/,
+			grepInvert: /@mobile|@webkit/,
 		},
 		{
 			name: 'tablet',
@@ -91,6 +93,18 @@ export default defineConfig({
 			name: 'mobile',
 			use: { viewport: { width: 390, height: 844 } },
 			grep: /@mobile|@crosswidth|@visual/,
+		},
+		// The ONLY non-Chromium project, and it exists for one reason: the back-gesture
+		// guard (#1226) is a navigation mechanism whose first implementation passed every
+		// Chromium check here and still failed on a real iPhone. History traversal timing
+		// is engine behavior, so a Chromium project cannot stand in for it — and without a
+		// committed WebKit run the "verified on iPhone 15 Pro" claim lives only in a
+		// scratch file nobody can re-run (HARD RULE #23). Scoped by tag so it stays one
+		// fast spec rather than a second full matrix.
+		{
+			name: 'webkit-phone',
+			use: { ...devices['iPhone 15 Pro'] },
+			grep: /@webkit/,
 		},
 	],
 	webServer: {

@@ -51,11 +51,44 @@ let pendingPops = 0;
 let listening = false;
 let dirty = false;
 
-/** Marks our entry so a `popstate` can be attributed even after a reload. */
+/** Marks our entry so it can be attributed after a reload — see `adopt()`. */
 const STATE_KEY = '__latticeOverlayBack';
+
+/**
+ * A page can RELOAD while a panel is open — a pull-to-refresh, a tab discard, or the
+ * Studio's own `location.reload()` after Privacy & Data clears a workspace
+ * (`WorkspaceSheet` fires that with the sheet still up). The document is new, so this
+ * module's state is empty — but the history entry we pushed SURVIVES, marked, and is
+ * still the current entry.
+ *
+ * Adopt it instead of pushing a second one. Without this the module treats a marked,
+ * demonstrably-ours entry as "a genuine page navigation" (`sentinel` is false, so
+ * `onPopState` returns early), and the counts then drift: the next panel to open pushes
+ * a SECOND entry on top of the orphan, and every open/close cycle after the reload
+ * leaves one more behind.
+ *
+ * KNOWN RESIDUAL, stated because it is a real cost and not a hypothetical: adopting
+ * does not remove the orphan, so if the user presses back with nothing open, that press
+ * is spent closing a panel that is no longer there. Consuming it eagerly here is the
+ * obvious alternative and it is worse — measured in WebKit at iPhone 15 Pro, traversing
+ * to the previous entry is a FULL document load (3 loads across reload → back → back),
+ * so eager consumption would reload the whole Studio a second time every time this
+ * happens, to save a gesture the user may never make. The honest fix is to restore the
+ * panel that was open rather than the history around it, which needs a per-surface id
+ * this module does not have; that is panel deep-linking, not a back guard.
+ */
+function adopt(): void {
+	if (typeof window === 'undefined' || sentinel) return;
+	if (history.state?.[STATE_KEY]) sentinel = true;
+}
+
 
 function reconcile(): void {
 	dirty = false;
+	// Cheap and idempotent, so it runs here rather than once at init: `listen()` fires
+	// only when something registers, and a reconcile is the first moment the answer to
+	// "do we already own an entry?" is actually consulted.
+	adopt();
 	const want = stack.length > 0;
 	if (want && !sentinel) {
 		// No URL argument: the address bar must not change. This only adds an entry.

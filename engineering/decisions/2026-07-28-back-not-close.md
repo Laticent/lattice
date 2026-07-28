@@ -202,7 +202,8 @@ ambiguous, since #1226 flagged it as "worth deciding once".
 
 Per HARD RULE #23, the surface is named and the artifact comes from it.
 
-**WebKit 26 at `devices['iPhone 15 Pro']`, against the built site — 25/25.** All twelve
+**WebKit 26 at `devices['iPhone 15 Pro']`, against the built site — 29/29 ad hoc, and 8/8
+as the committed `@webkit` spec.** All twelve
 drawers open → back → closed and still on `/studio/`; the door pops to the index before the
 index closes the drawer; a subsequent back genuinely leaves; chevron-close and scrim-close
 each leave no residue; the drawer's return-to-drawer behavior survives dismissal by back;
@@ -219,12 +220,25 @@ entries we push and pop), not merely whether `onBack` fired — the traffic is w
 corrupted last time and is invisible to a callback-only test. The same-commit case was
 confirmed to **fail** against a synchronous reconciler before being kept.
 
-One check in the first acceptance run passed **vacuously**: "Insert a component" reported
-its `before` title as `More`, because that panel renders live previews and the drawer was
-still mounted at the 650ms settle, so the assertion read the outgoing drawer. Reading
-`.last()` rather than `.first()` and asserting the panel actually opened turned it into a
-real check. Worth recording — a green count with a vacuous member is the exact failure
-HARD RULE #23 exists to catch, and it was in the *test*, not the code.
+**Two vacuous assertions were caught, and both are worth recording** — a green count with a
+hollow member is the exact failure HARD RULE #23 exists to catch, and both were in the
+*tests*, not the code.
+
+1. In the first acceptance run, "Insert a component" reported its `before` title as the
+   drawer's, because that panel renders live previews and the drawer was still mounted at the
+   650ms settle, so the assertion read the surface that was leaving. Fixed by reading
+   `.last()` and asserting the panel actually opened.
+2. The unit suite asserted `expect(after).not.toHaveBeenCalled()` on a `vi.fn()` **never
+   registered with anything** — it could not have been called under any implementation. Found
+   by the independent checker, in the file whose own comment congratulates itself for catching
+   the first one. Fixed by making the handler live.
+
+The checker also established that **the verification had no committed artifact**: the WebKit
+run lived in a scratch file, `playwright.config.ts` declared only Chromium projects, and no
+e2e spec touched `goBack`. For a mechanism already reverted once for a device-only failure,
+that is the guard missing exactly where it is most needed. There is now a `webkit-phone`
+project at `devices['iPhone 15 Pro']` and `e2e/back-gesture.spec.ts` (8 cases, `@webkit`), so
+the claim is re-runnable from the repo rather than asserted.
 
 ---
 
@@ -232,6 +246,35 @@ HARD RULE #23 exists to catch, and it was in the *test*, not the code.
 
 - The **close destination** is still two outcomes decided by which launcher you used. That
   is now *legible* (the chevron names it) rather than fixed.
-- Off-Studio drawers — Playground ×2, the site nav, the components-reference nav,
-  `MetricDetail` — keep an `X` on a phone and do not trap back. In scope to revisit; out of
-  scope here by decision.
+- Off-Studio drawers are a **mixed** stack, and the first draft of this doc got it wrong.
+  The Playground's two sheets, the site nav, the components-reference nav and `MetricDetail`
+  are raw `Sheet`s, so they are untouched — but **`FeedbackSheet` is a `PanelSheet`**, mounted
+  sitewide by `NavActions`, so off the Studio it *does* register and *does* render the
+  chevron. That is an improvement in isolation (back closes the sheet instead of leaving the
+  page) but it is inconsistent with the site nav *underneath* it, which does not register: back
+  closes feedback, and the next back leaves the site with the nav still open. Making the
+  off-Studio surfaces agree is the follow-up. Found by the independent checker, which also
+  caught that off-Studio the chevron announced **"Back to Back"** — the generic fallback label
+  run through a `Back to ${label}` template. Fixed: when the label IS the direction, the
+  direction is the whole accessible name.
+
+- **A stale entry survives a reload.** If the page reloads with a panel open (pull-to-refresh,
+  a tab discard, or the Studio's own `location.reload()` after Privacy & Data clears a
+  workspace — which fires with `WorkspaceSheet` still up), the entry we pushed outlives the
+  document. The module now **adopts** it, so the counts do not drift; it does not consume it,
+  so one back press with nothing open is spent on a panel that is gone. Consuming eagerly is
+  worse and was measured, not assumed: in WebKit at iPhone 15 Pro the traversal to the previous
+  entry is a FULL document load, so it would reload the whole Studio a second time on every
+  such refresh to save a gesture the user may never make. The real fix is restoring the *panel*
+  rather than the history around it — panel deep-linking, not a back guard.
+
+- **A latent re-entry of the original race**, filed rather than fixed because no path reaches
+  it. `reconcile`'s `history.back()` is asynchronous; if a registered overlay opened one
+  macrotask after the last one closed, the pending traversal would resolve against the
+  pre-push position and leave the controller believing it owns an entry it does not — verbatim
+  the failure this design calls unrepresentable, triggered across two commits instead of
+  within one. The checker could not reach it through the UI (the drawer→child→reopen path
+  coalesces into a single reconcile, and there are no deferred panel opens), so today the
+  safety margin is React's scheduling, not anything this module enforces. There is no
+  "absorb the in-flight traversal" guard; adding one is the obvious hardening if a deferred
+  open ever appears.

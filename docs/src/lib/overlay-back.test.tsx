@@ -102,11 +102,19 @@ describe('useOverlayBack', () => {
 
 		// And the popstate that pop generates is bookkeeping, not a user gesture: it must
 		// NOT be forwarded to a handler or counted as a new level.
+		//
+		// The handler has to be LIVE for this to mean anything. A first cut asserted on a
+		// `vi.fn()` that was never registered with anything — it could not have been called
+		// under any implementation, so it passed vacuously. Found by the independent
+		// checker, in the same file whose own docblock congratulates itself for catching a
+		// vacuous assertion elsewhere.
 		const after = vi.fn();
+		rerender(<Harness outer={true} inner={false} onOuter={after} onInner={noop} />);
+		await settle();
+		push.mockClear();
 		window.dispatchEvent(new PopStateEvent('popstate'));
 		await settle();
 		expect(after).not.toHaveBeenCalled();
-		expect(push).toHaveBeenCalledTimes(1);
 	});
 
 	it('nets out a close and an open that land in the SAME commit', async () => {
@@ -144,6 +152,32 @@ describe('useOverlayBack', () => {
 		await settle();
 		expect(push).toHaveBeenCalledTimes(1);
 		expect(back).not.toHaveBeenCalled();
+	});
+
+	it('ADOPTS an entry left behind by a reload instead of pushing a second one', async () => {
+		// A page can reload with a panel open — pull-to-refresh, a tab discard, or
+		// `WorkspaceSheet`'s own `location.reload()` after Privacy & Data clears a
+		// workspace, which fires with the sheet still up. The document is new (module
+		// state empty) but the entry we pushed survives, marked, as the current entry.
+		//
+		// Simulated by marking the current entry and resetting module state, which is
+		// exactly the post-reload condition. Before this, the module read that marked
+		// entry as "a genuine page navigation" and pushed a SECOND one on top, so every
+		// open/close cycle after a reload orphaned one more. Found by the checker.
+		history.replaceState({ __latticeOverlayBack: true }, '');
+		__resetOverlayBack();
+		const noop = () => {};
+
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(push).not.toHaveBeenCalled();
+
+		// And the adopted entry is spent on close, exactly like one we pushed ourselves —
+		// so the stack does not drift.
+		rerender(<Harness outer={false} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(back).toHaveBeenCalledTimes(1);
+		history.replaceState(null, '');
 	});
 
 	it('ignores a popstate when nothing is open', async () => {

@@ -281,7 +281,11 @@ export const PanelBack = React.forwardRef<HTMLButtonElement, { label: string; on
 			ref={ref}
 			type="button"
 			onClick={onBack}
-			aria-label={`Back to ${label}`}
+			// "Back to Back" is what the naive template produced off the Studio, where the
+			// context falls back to the generic "Back" — a screen-reader user heard the word
+			// twice and learned nothing. When the label IS the direction, the direction is
+			// the whole accessible name. Found by the independent checker.
+			aria-label={label === 'Back' ? 'Back' : `Back to ${label}`}
 			className={cn(
 				// 44px tall, the touch floor every phone control in this app holds.
 				'flex h-11 shrink-0 items-center gap-0.5 rounded-lg pr-2 pl-1 text-[13px] font-semibold text-[var(--text-muted)] transition-colors',
@@ -468,9 +472,17 @@ export function PanelHeader({
 			    Alone in the corner, a 30px target is the app's own floor breached on the
 			    control a panel most wants tapped (Reader views' add, the Library's import).
 			    The Eight-Cell Bar, the StudioDrawer and `PanelBack` all hold 44 (#1211).
-			    Spelled literally — an interpolated variant generates no CSS at all. */}
+			    Spelled literally — an interpolated variant generates no CSS at all.
+
+			    `min-h`/`min-w`, NOT `size-11`. `size-11` sets width AND height, and
+			    `useIsPhone()` is true for a LANDSCAPE phone (844×390) — where Tailwind's
+			    `sm:` breakpoint (≥640px) REVEALS these buttons' text labels. So the Library's
+			    "Import .zip" got clamped into a 44px box and overflowed the panel edge
+			    (measured 85×32 before, 44×44 after, scrollWidth 54 into a 44 box). A floor is
+			    a minimum; expressing it as a fixed size made it a ceiling too. Found by the
+			    independent checker. */}
 			{actions ? (
-				<span className={cn('flex shrink-0 items-center gap-1', phone && '[&_button]:size-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
+				<span className={cn('flex shrink-0 items-center gap-1', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
 			) : null}
 			{/* The X is the POINTER affordance now; on a phone `back` above replaced it. */}
 			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} /> : null}
