@@ -57,6 +57,39 @@ in patch versions.
 
 ### Added
 
+- **Every surface now has a `main` landmark, and two of them have a working skip link.**
+  A screen-reader or keyboard user had no way to jump past the chrome to the content on
+  any Lattice surface: the Studio had **zero** `<main>` since it was built, and an
+  exported deck was a flat pile of `<section>`s with no bypass. Now: the **Studio** puts
+  exactly one `<main id="main-content" tabindex="-1">` on each of its four view branches
+  (Fabricate, landscape-phone cinema, mobile, and the unified compose spine), with the
+  activity-bar `<nav>` deliberately left OUTSIDE it as a sibling — a `<nav>` keeps its
+  landmark role inside `<main>`, so the panel launcher belongs beside the work region.
+  The **HTML export shell** wraps its slides in `<main id="deck" tabindex="-1">`. The
+  **HTML player** promotes `#lp-app` to `<main>` — it discards the deck container, so the
+  deck's own landmark can't survive into it. A new shared `SkipLink.astro` (one
+  component, not a copy per page) is the first tabbable element on the Studio, and the
+  export shell carries the same bypass inline. Verified on the real running Studio at
+  1440/820/390px: one `<main>` at every width, the skip link first in the tab order, and
+  Enter actually **moves focus** to `<main>` rather than only scrolling to it — the
+  classic skip-link half-fix.
+- **The player's slide counter announces "Slide 2 of 7" instead of a bare "2 / 7"**, and
+  its table of contents is no longer a nameless landmark (`<nav id="lp-toc">` gains
+  `aria-label="Slides"`). The visible counter text is unchanged.
+
+### Changed
+
+- **Both progress rails are `<div>`s, not `<nav>`s.** The section rail
+  (`.tile-progress`) and the k-of-N split rail (`.lat-split-rail`) were `<nav
+  aria-hidden="true">` — claiming the navigation role and then leaving the
+  accessibility tree in the same breath, which is the over-tagging the promotion rubric
+  forbids. They are decorative echoes of the pagination and now carry no role at all.
+  84 contradictory landmarks removed from a gallery render. **The retag was not a tag
+  swap**: `split-envelope.js` recognized chrome by tag name, so demoting the rails
+  silently stopped it finding them and pushed a split run's below-note *after* the
+  section's footer. Chrome detection is now role-based (tag **or** rail marker class),
+  so the next tag change can't reopen it.
+
 - **The semantic-HTML retag now has gates, and they landed before the retag.** Six
   structural invariants over the rendered gallery
   (`test/integration/invariants/semantic-structure.test.js`, per-PR tier, jsdom, ~2s,

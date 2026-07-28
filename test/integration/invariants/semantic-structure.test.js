@@ -53,19 +53,18 @@ const SANCTIONED_ARTICLE_CLASSES = [
 ];
 
 /**
- * The progress rail is emitted as `<nav class="tile-progress" aria-hidden="true">`
- * — a contradiction the ADR did not catch: it claims the `navigation` role, then
- * removes itself from the accessibility tree. The honest element for a decorative
- * duplicate of the pagination is a `<div>`.
+ * An `aria-hidden` `<nav>` is a contradiction: it claims the `navigation` role, then
+ * removes itself from the accessibility tree in the same breath. Both rails did this
+ * — the section rail (`.tile-progress`) and the k-of-N split rail
+ * (`.lat-split-rail`) — 84 of them in the gallery. Both are now `<div>`s: they are
+ * decorative echoes of the pagination and carry no role at all, which is exactly
+ * what a `<div>` means.
  *
- * Retagging it is byte-neutral and class-keyed, but NOT a pure tag-swap: a
- * string-literal consumer matches the exact opening tag
- * (`lib/core/split-envelope.js:129`), so the retag needs a lockstep edit there or
- * the split envelope silently stops finding the rail. That makes it landmark work,
- * not gate work — so this budget SEEDS at today's count and is exceed-only. It
- * cannot grow; it drops to 0 when the retag lands.
+ * The budget is 0 and stays 0. This is a real invariant now, not a ratchet — if a
+ * node is worth a landmark it should be reachable, and if it is decoration it should
+ * not claim one.
  */
-const HIDDEN_NAV_BUDGET = 84;
+const HIDDEN_NAV_BUDGET = 0;
 
 /**
  * A landmark a screen reader can reach but cannot NAME is a menu entry reading
@@ -215,14 +214,17 @@ describe('semantic structure — no nameless landmarks (ADR §8-#3)', () => {
     );
   });
 
-  test('the hidden-<nav> count does not grow', () => {
-    // Exceed-only ratchet, seeded at today's rail count. See HIDDEN_NAV_BUDGET.
-    const hiddenNavs = [...doc.querySelectorAll('nav')].filter((n) => n.closest('[aria-hidden="true"]'));
+  test('no <nav> is aria-hidden', () => {
+    // See HIDDEN_NAV_BUDGET: a landmark that hides itself is over-tagging, and both
+    // rails that used to do this are now <div>s.
+    const hiddenNavs = [...doc.querySelectorAll('nav')]
+      .filter((n) => n.closest('[aria-hidden="true"]'))
+      .map((n) => `<nav class="${n.className}">`);
     assert.ok(
       hiddenNavs.length <= HIDDEN_NAV_BUDGET,
-      `${hiddenNavs.length} aria-hidden <nav> elements exceeds the ${HIDDEN_NAV_BUDGET} budget — ` +
-      'an element that claims the navigation role and then hides itself should be a <div>. ' +
-      'Do not add more; lower the budget as the rail retag lands.',
+      `${hiddenNavs.length} aria-hidden <nav> element(s): ${[...new Set(hiddenNavs)].slice(0, 3).join(', ')}\n` +
+      'An element that claims the navigation role and then leaves the accessibility tree ' +
+      'should be a <div> — decoration carries no role.',
     );
   });
 });

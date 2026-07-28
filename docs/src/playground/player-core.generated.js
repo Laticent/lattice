@@ -981,7 +981,12 @@ function fitRead(){var st=document.getElementById('lp-stage');if(!st)return;
  // not just sits at the exact edge. Width stays the constraint on a narrow/portrait screen.
  root.style.setProperty('--lp-fit',fitScale({stageW:st.clientWidth,stageH:st.clientHeight*0.86,slideW:1280,slideH:720,insetX:40,insetY:0}));}
 function render(){var i=t.index;frames.forEach(function(f,n){f.classList.toggle('lp-active',n===i);});
- if(count)count.textContent=(i+1)+' / '+slides.length;
+ // The VISIBLE text stays the compact "2 / 7" the design wants; the accessible
+ // name spells it out, because a screen reader announcing a bare "2 / 7" gives a
+ // braille or eyes-free user no idea what the two numbers are (gap G3). aria-label
+ // wins over text content for the name, so the two can differ deliberately.
+ if(count){count.textContent=(i+1)+' / '+slides.length;
+  count.setAttribute('aria-label','Slide '+(i+1)+' of '+slides.length);}
  if(prevBtn)prevBtn.disabled=i===0;
  if(nextBtn)nextBtn.disabled=i===slides.length-1;
  fit();syncNotes();}
@@ -1239,12 +1244,12 @@ ${darkStyle}
   <button data-lp-btn="read-slides" aria-pressed="false" aria-label="Read \xB7 Slides"><svg class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="5" rx="1"/><rect x="3" y="10.5" width="18" height="5" rx="1"/><rect x="3" y="18" width="18" height="3" rx="1"/></svg><span class="lp-tab-text">Read \xB7 Slides</span></button>
   <button data-lp-btn="read-article" aria-pressed="false" aria-label="Read \xB7 Article"><svg class="lp-tab-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="lp-tab-text">Read \xB7 Article</span></button>
  </div>
- <span id="lp-count"></span>
+ <span id="lp-count" aria-live="polite"></span>
  <button id="lp-notes-btn" title="Speaker notes (n)" aria-pressed="false" aria-label="Speaker notes"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="17" y2="12"/><line x1="3" y1="18" x2="13" y2="18"/></svg></button>
  <button id="lp-full" title="Toggle fullscreen" aria-pressed="false" aria-label="Toggle fullscreen"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
  <button id="lp-mode" title="Toggle dark / light" aria-label="Toggle dark / light theme"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
 </div>
-<div id="lp-app" data-lp-view="present">
+<main id="lp-app" data-lp-view="present">
  <div id="lp-stage">
 ${a11yDefs}
 ${slidesHtml}
@@ -1259,14 +1264,14 @@ ${slidesHtml}
  </div>
  <div id="lp-notes" data-empty="true"><div id="lp-notes-body"></div></div>
  <div id="lp-doc">
-  <nav id="lp-toc">
+  <nav id="lp-toc" aria-label="Slides">
 ${toc}
   </nav>
   <article id="lp-article">
 ${article}
   </article>
  </div>
-</div>
+</main>
 <script>${js}<\/script>
 ${envelope}
 </body></html>`;

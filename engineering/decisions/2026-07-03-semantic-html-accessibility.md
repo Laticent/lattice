@@ -1166,3 +1166,47 @@ bytes and merge only after human sign-off (QUALITY BAR).
 **Still unverified, and named as such** (HARD RULE #23): no screen reader has been
 run against any of this. jsdom proves DOM shape, nothing more. The G10 axe gate is
 still absent, and NVDA/JAWS/VoiceOver remain unreachable from this sandbox.
+
+### 17.8 Step 2 landed — the landmarks, and what the retag actually cost
+
+**Shipped:** a `<main>` on all three shells, a shared skip link, the player's TOC name
+and "Slide N of M" counter, and both progress rails demoted from `<nav>` to `<div>`.
+
+**Verified on the real running Studio** (HARD RULE #23 — the build, driven in Chromium
+at 1440/820/390px, not a harness): exactly one `<main id="main-content" tabindex="-1">`
+at every width and on every view branch; the skip link is the FIRST tabbable element;
+pressing Enter **moves focus** to `<main>`, not merely the viewport — the classic
+skip-link half-fix §8-#7 warns about does not apply here; zero nameless landmarks.
+Screenshots at all three widths show no layout change.
+
+Three corrections to what this note predicted:
+
+- **§5's "four view branches" is right in shape, wrong in membership.** The branches are
+  now Fabricate · landscape-phone cinema · mobile · the unified compose spine. The
+  desktop/focus/mobile split §5 lists was consolidated by the spine hoist.
+- **The Studio has NO `<aside>` elements**, so §10-R3's constraint (an `<aside>` keeps
+  its landmark role inside `<main>`, so it must be a sibling) is currently moot — the
+  docked panels are `ResizablePanel` divs. The `<main>` is still scoped to leave the
+  activity-bar `<nav>` outside, because that constraint DOES bind for `<nav>`, and it
+  keeps the shape correct if a panel is ever promoted.
+- **`ResizablePanelGroup` cannot be retagged** — react-resizable-panels' `Group` renders
+  its own `div` and exposes no tag prop — so the compose spine uses the wrapper §5
+  sanctions for the app surface. Retag was available on the other three branches.
+
+**The rail demotion cost more than a tag swap, exactly as §15.3 warned for the Cells.**
+`split-envelope.js` recognized chrome by TAG NAME (`header`/`footer`/`nav`), so demoting
+the rails made `injectTrailing` stop seeing the trailing chrome run — and a split run's
+below-note landed AFTER the section's own footer and rail. A unit test caught it; nothing
+would have failed to compile. Chrome detection is now **role-based** — tag, or the marker
+class each rail owns (`CHROME_CLASS_RE`) — so the identity a future retag changes is no
+longer the identity the parser depends on. Three more string-literal consumers needed the
+same lockstep treatment (`auto-split.js`'s rail-stripping regex, and two test fixtures).
+
+**This is the third confirmed instance of one pattern**, and it is now the main risk to
+step 3: *this codebase parses its own rendered HTML with tag-anchored regexes.*
+`carousel.js:61,195` (masthead), `split-envelope.js` (rails, chrome run),
+`auto-split.js:171` (rails). Every retag in §4A has to be treated as a parser change, and
+the fix is always the same — key on the class, which is the stable identity.
+
+**Budget update:** `HIDDEN_NAV_BUDGET` seeded at 84 in step 1 and is now **0**, enforced
+as a flat invariant rather than a ratchet. The gallery renders zero `<nav>` elements.

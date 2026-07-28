@@ -95,7 +95,7 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
       sec('content form'),
     ]);
     const out = progress.applyToHtml(html);
-    const rail = out.match(/<nav class="tile-progress"[\s\S]*?<\/nav>/)[0];
+    const rail = out.match(/<div class="tile-progress"[\s\S]*?<\/div>/)[0];
     assert.doesNotMatch(rail, /class="seg"/);
     // Scoped to the RAIL, not the whole deck — the divider slide itself still carries its own
     // eyebrow and heading, which is the point: the section is named where the reader is looking.
@@ -136,7 +136,7 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
     ]);
     const out = progress.applyToHtml(html);
     // rail is inside the footer cell, between footer text and the page number
-    assert.match(out, /<div class="cell-footer"><footer>F<\/footer><nav class="tile-progress"[\s\S]*?<\/nav><span class="lat-pagination">2<\/span><\/div>/);
+    assert.match(out, /<div class="cell-footer"><footer>F<\/footer><div class="tile-progress"[\s\S]*?<\/div><span class="lat-pagination">2<\/span><\/div>/);
     // the stage cell is untouched
     assert.doesNotMatch(out, /cell-stage"><p>B<\/p><nav/);
   });
@@ -147,7 +147,7 @@ describe('progress Tile — applyToHtml (HTML-string path)', () => {
       sec('content form', '<div class="cell-stage"><p>B</p></div><div class="cell-footer"><footer>F</footer></div>'),
     ]);
     const out = progress.applyToHtml(html);
-    assert.match(out, /<div class="cell-footer"><footer>F<\/footer><nav class="tile-progress"[\s\S]*?<\/nav><\/div>/);
+    assert.match(out, /<div class="cell-footer"><footer>F<\/footer><div class="tile-progress"[\s\S]*?<\/div><\/div>/);
   });
 });
 

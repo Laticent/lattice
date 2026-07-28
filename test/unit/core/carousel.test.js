@@ -647,7 +647,7 @@ describe('core: carousel — every strategy emits a role-stamped envelope (§8 r
 // a hypothetical: building this gate found five separate silent drops on real committed
 // fixtures, each fixed in the same change —
 //
-//   · the deck's SECTION RAIL (`nav.tile-progress`) was not in `chromeOf`, so every cover
+//   · the deck's SECTION RAIL (`div.tile-progress`) was not in `chromeOf`, so every cover
 //     page lost it — including the PLAIN path's, whose own body pages keep it (a run whose
 //     chrome flickered off and back on mid-run);
 //   · `split-panel`'s panel-right `<h3>` SUBHEAD was read by nothing → dropped;

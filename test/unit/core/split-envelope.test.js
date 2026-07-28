@@ -622,10 +622,10 @@ describe('core: split-envelope — injectTrailing places the note before the TRA
 
   test('with NO stage, it lands before the footer AND the section rail that follows it', () => {
     // The earlier rule was "right before the last `<footer>`, but only if nothing but whitespace
-    // follows its close". A rendered Form slide ends `…</footer><nav class="tile-progress">…</nav>`,
+    // follows its close". A rendered Form slide ends `…</footer><div class="tile-progress">…</div>`,
     // so something DID follow, the check failed, and the note was appended AFTER the section's own
     // chrome. Keyed on the trailing chrome RUN now.
-    const inner = '<header>H</header><ul><li>a</li></ul><footer>F</footer><nav class="tile-progress"><span class="seg">S</span></nav>';
+    const inner = '<header>H</header><ul><li>a</li></ul><footer>F</footer><div class="tile-progress"><span class="seg">S</span></div>';
     const out = injectTrailing(inner, '<p class="lat-split-note">N</p>');
     assert.match(out, /<\/ul><p class="lat-split-note">N<\/p><footer>/);
     assert.ok(out.indexOf('lat-split-note') < out.indexOf('<footer>'));
@@ -647,7 +647,7 @@ describe('core: split-envelope — injectTrailing places the note before the TRA
 });
 
 describe('core: split-envelope — footerCell / stripChrome', () => {
-  const chrome = { header: '<header>H</header>', footer: '<footer>F</footer>', rail: '<nav class="tile-progress"><span class="seg">S</span></nav>' };
+  const chrome = { header: '<header>H</header>', footer: '<footer>F</footer>', rail: '<div class="tile-progress"><span class="seg">S</span></div>' };
 
   test('a paginated slide gets footer + rail + a page-number element to re-stamp', () => {
     const cellHtml = footerCell('<section data-lattice-pagination="3" class="x">', chrome);
@@ -717,7 +717,7 @@ describe('core: deriveAxis — the DOM is the authority, within the manifest\'s 
 });
 
 describe('core: dockInFooterCell — ONE docking rule for both footer marks (HARD RULE #15)', () => {
-  const mark = '<nav class="lat-split-rail"></nav>';
+  const mark = '<div class="lat-split-rail"></div>';
 
   test('docks just LEFT of the page number when the band has one', () => {
     const inner = '<div class="cell-footer"><footer>F</footer><span class="lat-pagination">3</span></div>';

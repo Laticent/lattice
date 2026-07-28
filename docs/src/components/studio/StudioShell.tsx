@@ -3255,9 +3255,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 
 			{/* ── Body ─────────────────────────────────────────────────── */}
 			{view === 'fabricate' ? (
-				<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-					<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
-				</React.Suspense>
+				/* Fabricate is a full view branch, so it needs its OWN `main` — the ADR's first
+				   draft missed exactly this branch (§10-R-M1). `React.Suspense` renders no DOM
+				   node, so the landmark goes inside it, around the view. */
+				<main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
+					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
+						<Fabricate options={options} catalog={components} onClose={() => setView('compose')} notify={notify} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); }} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+					</React.Suspense>
+				</main>
 			) : landscapePhone ? (
 				/* iPhone LANDSCAPE — the "cinema" morph. The editor's in-flow preview fills the
 				   frame full-bleed here: the slide is the whole surface, swipe
@@ -3275,7 +3280,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				   visible area); it was the slide fitting by WIDTH. The fix is forcing fit-by-height
 				   for the landscape phone (see the previewBox className above). Note: `svh` is NOT a
 				   reliable "always-visible" height here — some mobile browsers report `svh > dvh`. */
-				<div data-cinema-stage onTouchEnd={() => setWhisperReveal((n) => n + 1)} className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted">
+				<main id="main-content" tabIndex={-1} data-cinema-stage onTouchEnd={() => setWhisperReveal((n) => n + 1)} className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-muted">
 					{previewPane}
 					<LandscapeWhisper current={slideNo} total={viewSlides.length} revealKey={whisperReveal} />
 						{/* Screen-reader nav + live position. Cinema is swipe-only for sighted users, but VoiceOver/TalkBack intercept one-finger swipes, so these give AT users an intro, real controls, and an announced position (the visible counter is aria-hidden). */}
@@ -3283,7 +3288,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 						<button type="button" className="sr-only" onClick={() => goToSlide(slideNo - 2)} disabled={slideNo <= 1}>Previous slide</button>
 						<button type="button" className="sr-only" onClick={() => goToSlide(slideNo)} disabled={slideNo >= viewSlides.length}>Next slide</button>
 						<div className="sr-only" aria-live="polite">Slide {slideNo} of {viewSlides.length}</div>
-				</div>
+				</main>
 			) : mobile ? (
 				/* Mobile: one swappable Edit/Preview pane; panels live in sheets. THE EIGHT-CELL
 				   BAR (2026-07-26-studio-mobile-eight-cell-bar.md, round 2 of the mobile-toolbar
@@ -3299,7 +3304,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				   can hold. Present/Share/Coach/Chat/Settings/the pane toggle are never in the
 				   drawer — HARD RULE per the round-1 postmortem: those six stay one tap, inline,
 				   always, full stop. */
-				<div className="flex min-h-0 flex-1 flex-col">
+				<main id="main-content" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
 					<div role="toolbar" aria-label="Deck actions" className={cn('flex shrink-0 items-stretch border-b border-border bg-card transition-[max-height,opacity,transform,padding] duration-200 ease-out', chromeCollapsed && 'pointer-events-none max-h-0 -translate-y-1 overflow-hidden border-b-0 opacity-0')}>
 						<BarIcon variant="bar" label="Markdown source" hint="Markdown source" caption="Source" active={effPane === 'edit' && editMode === 'markdown'} demo={editMode === 'markdown' ? 'pane-edit' : undefined} badge={issues} describedBy={issues > 0 ? 'mobile-issue-count' : undefined} onClick={() => { setMobilePane('edit'); setEditMode('markdown'); if (postureRef.current === 'read') { dismissReadHint(); changePosture('write'); } }}><FileText className="size-[17px]" /></BarIcon>
 						{issues > 0 && <span id="mobile-issue-count" className="sr-only">{issues} unresolved {issues === 1 ? 'issue' : 'issues'}</span>}
@@ -3339,7 +3344,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 							</div>
 						)}
 					</div>
-				</div>
+				</main>
 			) : (
 				/* Unified compose spine (M2 spine hoist + M3 Read, 2026-07-17-studio-persona-dial.md).
 				   Read, Write and Build share ONE structure so editor + preview mount ONCE and
@@ -3354,6 +3359,19 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 				   drift (#721 zero-void invariant). */
 				<div className={cn('relative flex min-h-0 flex-1', desktop && 'flex-row')}>
 					{desktop && effectiveStop === 'build' && activityBar}
+					{/* The skip-link target and the ONE `main` landmark of this document (ADR
+					    §5). It wraps the split rather than retagging it — `ResizablePanelGroup`
+					    renders react-resizable-panels' own `div` and exposes no tag prop, so a
+					    retag isn't available here; §5 sanctions a wrapper on the app surface
+					    (the deck's never-wrap rule is about the measuring probe and export
+					    bytes, neither of which exists in the Studio). It carries the split's
+					    flex sizing so the group still fills the spine.
+					    The activity bar stays OUTSIDE as a sibling: it is a `nav`, and a `nav`
+					    keeps its landmark role inside `main` — the panel launcher belongs
+					    beside the work region, not within it. Same reasoning would apply to any
+					    future `aside` (§10-R3): there are none today, so nothing here nests a
+					    landmark inside `main`. */}
+					<main id="main-content" tabIndex={-1} className="flex min-h-0 min-w-0 flex-1">
 					<ResizablePanelGroup
 						className="group/split min-h-0 flex-1"
 						data-studio-split=""
@@ -3439,6 +3457,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 							</>
 						)}
 					</ResizablePanelGroup>
+					</main>
 
 					{/* READ overlay — the one primary verb over the full-bleed preview. Absolutely
 					    positioned in the (relative) spine wrapper, so it is NOT a grid item and

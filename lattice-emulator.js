@@ -1845,10 +1845,24 @@ ${css}
 section[data-lattice-slide] { width: ${slideW}px !important; height: ${slideH}px !important; }
 ${orientationStyle}
 ${marpSystemCss}
+/* Skip link — the keyboard bypass for a deck that is otherwise a flat pile of
+   slides (WCAG 2.4.1). Off-screen rather than hidden, so it stays in the tab
+   order; revealed on focus because a sighted keyboard user has to SEE it. The
+   rules live HERE, inline, so a missing stylesheet can never leave it rendering
+   visibly. Hidden in print: the exported PDF has no tab order, and an
+   off-screen absolute box must not influence pagination. */
+.lat-skip-link{position:absolute;left:-9999px;top:0;z-index:9999;padding:10px 16px;background:var(--accent,#4338ca);color:var(--on-accent,#fff);font:600 14px/1.2 system-ui,sans-serif;text-decoration:none}
+.lat-skip-link:focus{left:0}
+@media print{.lat-skip-link{display:none}}
+/* The deck landmark adds no box of its own — the slides keep their own geometry. */
+main#deck{margin:0;padding:0;display:block}
 ${globalStyle ? `\n/* Front-matter style: directive */\n${globalStyle}\n` : ''}
 </style></head><body>
+<a class="lat-skip-link" href="#deck">Skip to the slides</a>
 ${a11yTextureDefs}
+<main id="deck" tabindex="-1">
 ${slidesWithMeta2}
+</main>
 ${functionPlotScript}
 ${stateChartScript}
 <script>

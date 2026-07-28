@@ -612,12 +612,18 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	const { html } = await buildPlayerHtml({ docHtml: goldenDoc, source: goldenSource, title: 'Golden', now: 0, build: 'GOLDEN', playerVersion: 'GOLDEN' });
 	const sha = crypto.createHash('sha256').update(html, 'utf8').digest('hex');
 	// Re-blessed for the live FLOW-HEIGHT charts in Read·Article: the article CSS gained the
-	// `.lp-chart` width-container rules (container-type:inline-size + generic-table neutralizers)
-	// that let a re-hosted roadmap/progress/kanban/gantt/timeline-list `.chart-body` render in a
-	// width box instead of a raw table / placeholder. Always-on player bytes; this fixture has no
-	// chart figure, so no behaviour change here. Deliberate. (Prior bless: the `.lp-spatial`
-	// bounded-container rules for the live word-cloud, #935.)
-	assert.equal(sha, '16f2f30b81e845d4eee595ba1c75cd09bd11cc51051b6d7ba38cf6bed7953edb', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for the player's LANDMARK skeleton (semantic-html ADR §15.1, §17.3). Four
+	// deliberate edits, and nothing else moved — verified by diffing the assembled output:
+	//   · `div#lp-app` → `main#lp-app` — the player discards the deck container, so §4A's
+	//     deck-level landmark does not survive into it; the shell has to supply its own. It
+	//     wraps all three views, so the `main` is stable as the view switches.
+	//   · `nav#lp-toc` gains `aria-label="Slides"` — it was a NAMELESS landmark, which §8-#3
+	//     bars: a screen reader could reach it but not say what it was.
+	//   · `#lp-count` gains `aria-live="polite"` and a spelled-out `aria-label` ("Slide 2 of
+	//     7") set alongside the visible "2 / 7" — gap G3. The visible text is unchanged.
+	// A pure-attribute + tag change: no CSS, no layout, no script behaviour. Deliberate.
+	// (Prior bless: the `.lp-chart` width-container rules for flow-height chart re-hosts.)
+	assert.equal(sha, 'c669af1c76726387757265778150e6075080d42537ef6569d952df9671b27095', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
