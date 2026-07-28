@@ -4,7 +4,6 @@ theme: indaco
 size: portrait
 autosplit: on
 paginate: true
-header: "Lattice · split — the horizontal axis"
 footer: "Fit Ladder · reflow, then split"
 ---
 

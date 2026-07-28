@@ -116,6 +116,17 @@ in patch versions.
   envelope's §0a promise. Swept: across 452 pages of every enrolled component's gallery at
   portrait, the only diff is `premise`'s lede moving to its cover.
 
+### Fixed
+
+- **`premise`'s stacked ledger stopped stretching, so a portrait page centres instead of
+  packing to the top over half a page of void.** `section.premise > ol` takes `flex: 1` so
+  it claims the row's remaining WIDTH beside the 34% claim rail — right in landscape, wrong
+  once the composition stacks, where it claims the remaining HEIGHT instead. The rows then
+  packed at the top of a full-height box and the section's `safe center` had nothing left to
+  centre. Most visible on a split body page, where the hoisted lede is no longer there to
+  fill the gap. Clip-neutral: premise's own gallery at portrait clips the same one slide
+  before and after, and the overflow oracle is unchanged at every size.
+
 ### Changed
 
 - **The planned capacity-basis fix was checked and does not hold; a decision note records
@@ -133,6 +144,17 @@ in patch versions.
   note is a constant anyone has to trust. See
   `engineering/decisions/2026-07-28-capacity-basis.md`; the reflow note's paragraph is
   marked superseded in place. No capacity number changed.
+
+- **`premise` collides with the deck header at portrait — found, reproduced, and logged
+  rather than fixed.** `section.premise` sets `padding: 0 var(--sp-2xl)`, zero on the block
+  axis, so the stacked claim lands under the absolutely-positioned `<header>` and both
+  render unreadable on every premise slide in any deck that sets `header:`. No split
+  involved; it shipped with the reflow. Not fixed because a full box has no slack: measured
+  against premise's own gallery at portrait (5 slides, 1 clipping today), reserving the
+  berth top and bottom takes it to **5 of 5 clipped**, and the top alone still takes it to
+  **2**. The honest statement is "premise holds fewer rows at portrait than it claims" — a
+  density decision that wants the capacity work behind it. The overflow oracle caught the
+  attempt and refused it.
 
 - **The `--row-mark` hue restart across a split stays open, and the decision note now says
   why in a way the next reader can act on.** The note's own diagnosis pointed at "a

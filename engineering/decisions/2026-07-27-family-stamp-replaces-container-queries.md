@@ -396,8 +396,30 @@ repeats:
   gallery, which HARD RULE #8 forbids in feature work) and **hard-fails** when a
   rostered component has no slide at all. Roster is 33, all rendered.
 
-**Still open, and cosmetic — but the note below sent the next reader to the wrong place,
-so here is what an attempt found (2026-07-28, #1234).** The `--row-mark` hue cycles on
+**Open, and NOT cosmetic: `premise`'s stacked composition collides with the deck header
+(found 2026-07-28, #1234, by looking at a render on a phone).** `section.premise` sets
+`padding: 0 var(--sp-2xl)` — zero on the block axis. Correct for the landscape
+composition, where the claim rail and the ledger sit side by side and nothing reaches the
+top edge. Stacked, the claim IS the top edge, and it lands straight under the deck
+`<header>`, which is `position: absolute; top: var(--frame-inset-y)` and reserves no space
+of its own. The running header prints THROUGH the `<h2>` and both are unreadable, on every
+premise slide in any deck that sets `header:`. A Form layout never hits this because
+`.cell-masthead` occupies the band; a sovereign frame has to reserve it itself.
+
+Reproduce: any premise slide, `size: portrait`, `header:` set. No split involved — this
+shipped with the reflow in this note, not with the split work.
+
+**Not fixed, because it is a density decision rather than a padding one.** Reserving the
+berth is two lines and a full box has no slack to give. Measured against premise's own
+gallery at portrait — 5 slides, 1 clipping today — reserving top *and* bottom takes it to
+**5 of 5 clipped**; reserving the top alone, sized to exactly one `--fs-meta` line, still
+takes it to **2**. So the honest statement is "premise holds fewer rows at portrait than
+it claims", which is the owner's call and wants the capacity work
+(`2026-07-28-capacity-basis.md`) behind it. The overflow oracle caught the attempt and
+refused it, which is the gate working.
+
+**~~Still open, and cosmetic~~ — the `--row-mark` hue restart. The note below sent the
+next reader to the wrong place, so here is what an attempt found (2026-07-28, #1234).** The `--row-mark` hue cycles on
 `nth-child(8n+k)` *within each `<ol>`*, so across a split run page two restarts at the
 first hue. Confirmed by computed style on a real portrait render: page three's four rows
 read `rgb(46,96,138) · rgb(134,50,54) · rgb(123,119,45) · rgb(50,54,134)` — byte-identical

@@ -9950,9 +9950,45 @@ section.premise:where([data-family="square"], [data-family="tall"], [data-family
    * into "the claim is missing".) */
   justify-content: safe center;
   gap: var(--sp-lg);
+  /* ── KNOWN DEFECT, NOT FIXED HERE: this composition collides with the deck header.
+   *
+   * `section.premise` sets `padding: 0 var(--sp-2xl)` — zero on the block axis. That
+   * is right for the landscape composition, where the claim rail and the ledger sit
+   * side by side in the middle of the box and nothing reaches the top edge. Stacked,
+   * the claim IS the top edge, and it lands straight under the deck `<header>`, which
+   * is `position: absolute; top: var(--frame-inset-y)` and reserves no space of its
+   * own. Rendered at portrait, the running header prints THROUGH the `<h2>` and both
+   * are unreadable — on every premise slide in any deck that sets `header:`. A Form
+   * layout never hits this because `.cell-masthead` occupies the band; a sovereign
+   * frame has to reserve it itself.
+   *
+   * Reproduce: any premise slide, `size: portrait`, `header:` set. No split involved
+   * — this predates the split work and is not caused by it.
+   *
+   * WHY IT IS NOT FIXED HERE. Reserving the berth is a two-line change and it costs
+   * real capacity, because a full box has no slack to give. Measured against premise's
+   * own gallery at portrait (5 slides, 1 clipping today): reserving top AND bottom
+   * takes it to 5 of 5 clipped; reserving the top alone, sized to exactly one
+   * `--fs-meta` line, still takes it to 2. So the fix is not "add padding", it is
+   * "premise holds fewer rows at portrait than it claims" — a density decision on the
+   * component, which is the owner's call and wants the capacity work (#1234 group D)
+   * behind it. Adding the padding unilaterally would trade a collision for a clip and
+   * fail the overflow oracle, which is exactly what it caught when this was tried. */
 }
 section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .premise-claim {
   width: auto;
+}
+/* The ledger stops STRETCHING once it is stacked. `section.premise > ol` takes
+ * `flex: 1` so it claims the row's remaining width beside the 34% claim rail — right
+ * in landscape, wrong in a column, where `flex: 1` claims the remaining HEIGHT instead.
+ * The rows then pack at the top of a full-height box and the section's `safe center`
+ * has nothing left to centre, so a four-row page rendered as content in the top third
+ * over half a page of void. Natural height instead, and the centring works as written.
+ *
+ * This is most visible on a SPLIT body page, where the hoisted lede is no longer there
+ * to fill the gap — so the fix belongs with that work even though the rule predates it. */
+section.premise:where([data-family="square"], [data-family="tall"], [data-family="strip"]) > ol {
+  flex: 0 1 auto;
 }
 /* The row becomes a hanging-ordinal card: the generated `01` keeps its gutter,
  * and the term stacks OVER its description instead of competing for a fixed
