@@ -112,7 +112,7 @@ section.finish > .backdrop {
 }
 /* --fin-frame paints an inset keyline FRAME (the `frame` edge type) as stacked
  * SOLID inset box-shadows on the SECTION itself — NOT the ::after pseudo, which the
- * engine reserves for the pagination marker (`div.lattice > section::after`), so a
+ * engine reserves for the pagination marker (`article.lattice > section::after`), so a
  * finish ::after edge is clobbered in the real render. A box-shadow on the real
  * section paints reliably in the vector PDF. The shadows are OPAQUE (a bg-colored
  * mat ring + an accent-into-bg keyline ring) and BLUR-FREE, so they carry no alpha —

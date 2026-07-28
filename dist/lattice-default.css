@@ -999,7 +999,7 @@ section blockquote { margin:0; padding:0; border:none; }
  * had to beat Marpit's own scaffold defaults — but Marp is now fully retired as
  * a render path (see engineering/marp-independence.md), so no marp-core scaffold
  * loads after the theme in any Lattice-controlled path. The only competitor is
- * the OWNED engine scaffold (`div.lattice > section::after`, lib/engine/css.js)
+ * the OWNED engine scaffold (`article.lattice > section::after`, lib/engine/css.js)
  * at HIGHER specificity (0,1,2 vs 0,0,1) — and where both set a property the
  * values already MATCH (padding:0, position:absolute); for the properties only
  * this file sets (bottom/right/font/colour) it is the sole declaration. So the
@@ -8517,6 +8517,29 @@ section.math.compare {
 section.math.compare:has(h3:nth-of-type(3)) {
   column-count: 3;
 }
+
+/* KaTeX's MathML half must not fragment into a column of its own.
+ *
+ * `.katex-mathml` is the accessible alternative KaTeX pairs with its `aria-hidden`
+ * visual rendering — clipped to 1px and painting nothing. It is `position:absolute`,
+ * and inside a MULTI-COLUMN container Chrome still counts an absolutely-positioned
+ * descendant as fragmentable content: with several formulas the block gains an extra,
+ * EMPTY column, which paints a spurious `column-rule` hairline at the slide's right
+ * edge and inflates `scrollWidth` (1280 → 1872 on the gallery's compare slide).
+ *
+ * This is the one place enabling MathML is NOT pixel-free — it is invisible everywhere
+ * that isn't a multicol, which is why the first measurement missed it (the baseline
+ * gallery has a `math` slide but no `math compare`). Found by the red team.
+ *
+ * `position:fixed` takes the node out of the multicol's fragmentation flow entirely
+ * while leaving it clipped, invisible and fully present in the accessibility tree.
+ * Nothing else worked: `contain` (strict / size / layout / paint), `overflow:hidden`
+ * and `column-fill:auto` all left the phantom column in place — verified in Chromium.
+ * Under the slide's fit-scale `transform` the transformed ancestor is the containing
+ * block, so this stays local rather than escaping to the viewport. */
+section.math.compare .katex .katex-mathml {
+  position: fixed;
+}
 section.math.compare > h2 {
   column-span: all;
   padding: 0 0 var(--sp-md) 0;
@@ -9783,7 +9806,7 @@ section.form.piechart:not(.claim-hero):not(.claim-bleed) .piechart-svg {
  * leaving the PDF perfect. The export was unharmed only because
  * lattice-emulator.js emits `section[data-lattice-slide] { width/height:
  * !important }` — importance, not specificity, is what kept it out. In the
- * Playground the percentage resolved against `div.lattice`, whose inline
+ * Playground the percentage resolved against `article.lattice`, whose inline
  * height the preview's fit() routine sets to the height of the WHOLE
  * FILMSTRIP: measured on the real Playground at 390px, the section became
  * 2517px — exactly `.lattice`'s 2517px — against ~667px of actual content.
@@ -19552,7 +19575,7 @@ section.finish > .backdrop {
 }
 /* --fin-frame paints an inset keyline FRAME (the `frame` edge type) as stacked
  * SOLID inset box-shadows on the SECTION itself — NOT the ::after pseudo, which the
- * engine reserves for the pagination marker (`div.lattice > section::after`), so a
+ * engine reserves for the pagination marker (`article.lattice > section::after`), so a
  * finish ::after edge is clobbered in the real render. A box-shadow on the real
  * section paints reliably in the vector PDF. The shadows are OPAQUE (a bg-colored
  * mat ring + an accent-into-bg keyline ring) and BLUR-FREE, so they carry no alpha —
@@ -21048,12 +21071,12 @@ section.silent.silent::after,
 section.no-paginate.no-paginate::after {
   /* Suppress the pagination pseudo. The class is DOUBLED (`.silent.silent`)
      purely to reach specificity (0,2,2), which beats the engine pagination
-     pseudo `div.lattice > section::after` (0,1,3) on class-count (2 > 1) — so no
+     pseudo `article.lattice > section::after` (0,1,3) on class-count (2 > 1) — so no
      !important is needed. Doubling (rather than a `.lattice >` ancestor) keeps it
      PATH-AGNOSTIC — it depends on no ancestor structure, which differs across the
      engine and emulator render paths (a `.lattice >` form was caught dropping the
      marker in the emulator by pixel-diff: that bundle carries no
-     `div.lattice > section::after` rule). Verified pixel-identical to the prior
+     `article.lattice > section::after` rule). Verified pixel-identical to the prior
      !important form across light + dark. */
   content: none;
 }

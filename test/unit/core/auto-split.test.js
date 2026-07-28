@@ -246,7 +246,7 @@ describe('core: resplitDoc (measured pass)', () => {
 
 describe('core: applyRails', () => {
   const railOf = (sectionHtml) => {
-    const m = sectionHtml.match(/<nav class="lat-split-rail"[\s\S]*?<\/nav>/);
+    const m = sectionHtml.match(/<div class="lat-split-rail"[\s\S]*?<\/div>/);
     if (!m) return null;
     return { total: (m[0].match(/<span/g) || []).length, on: (m[0].match(/seg on/g) || []).length };
   };

@@ -336,12 +336,12 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   section nested inside another section (which never exists).
 - **FIXED in the owned engine (2026-07-13).** Our browser render path
   (playground / Studio / Player) does NOT use Marp's `<foreignObject>`, so it
-  re-scopes every selector under `div.lattice > section` via `packTheme` in
+  re-scopes every selector under `article.lattice > section` via `packTheme` in
   [lib/engine/css.js](../lib/engine/css.js) — a *mirrored port* of Marpit's
   prefixer, which inherited the **same** leading-`:is()` bug. `packSelector` now
   **distributes** a leading `:is(a, b, …)` before scoping, so each arm scopes by
-  its own leftmost combinator (`section.X` → `div.lattice > section.X …`;
-  `figure.Y` → `div.lattice > section figure.Y …`). A leading `:is()` is
+  its own leftmost combinator (`section.X` → `article.lattice > section.X …`;
+  `figure.Y` → `article.lattice > section figure.Y …`). A leading `:is()` is
   therefore SAFE on our engine now; the chart family relies on it (every
   component leads with `:is(section.<comp>, figure.chart-frame)`, the Read·Article
   re-host broadening). Guard: [test/unit/engine/css-scope.test.js](../test/unit/engine/css-scope.test.js).
@@ -352,7 +352,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   (`--map-base`, quadrant's `--cell-*`, radar's base) stayed undefined, and every
   SVG fill reading it fell to SVG's **black** initial value — the map/quadrant/
   radar "black tiles." (PDF/emulator was genuinely fine: there each `section` IS
-  the page, so no `div.lattice > section` re-scoping happens.)
+  the page, so no `article.lattice > section` re-scoping happens.)
 - **Mitigation (only for decks EXPORTED to real marp-cli / VS Code Marp**, which
   still use Marpit's own unpatched prefixer): expand to a comma-separated union
   with the leading `section.X` repeated for each branch —
@@ -538,7 +538,7 @@ spin out a `engineering/decisions/YYYY-MM-DD-topic.md` and link to it from here.
   survives only because `lattice-emulator.js` emits `section[data-lattice-slide]
   { width/height: !important }` — *importance*, not specificity, keeps the
   component declaration out, so the PDF looks correct. In a live DOM preview the
-  percentage resolves against `div.lattice`, whose inline height the preview's
+  percentage resolves against `article.lattice`, whose inline height the preview's
   `fit()` routine sets to the height of the **whole filmstrip**. Measured on the
   real Playground at 390px: the section became 2517px — exactly `.lattice`'s
   2517px — against ~667px of actual content.
@@ -925,7 +925,7 @@ never turn "passed in headless" into "works on iOS."
   `lattice-playground.js`) is the tell that it's a render-context bug, not
   staleness.
 - **Mitigation:** The playground engine (`lib/playground/index.js`) renders
-  with `inlineSVG: false`, so slides are plain `<div class="lattice"><section>`
+  with `inlineSVG: false`, so slides are plain `<article class="lattice"><section>`
   HTML with no foreignObject; `writeFrame` in `docs/src/pages/playground.astro`
   scales each fixed-size `<section>` to the iframe width with a CSS `transform`
   (a negative `margin-bottom` collapses the gap the un-scaled box would leave),
@@ -1598,7 +1598,7 @@ of how many rows are here.
   The wash/texture (section background) and the mark (`::before`) all paint normally;
   only the `::after` edge vanishes.
 - **Cause:** `section.finish::after` (specificity 0,1,1) is the SAME pseudo-element as
-  the engine's pagination marker, `div.lattice > section::after` (0,1,2), which sets
+  the engine's pagination marker, `article.lattice > section::after` (0,1,2), which sets
   `position:absolute; bottom/right: …` for the page number. The higher-specificity
   scaffold rule wins, so the finish edge pseudo collapses to the page-number box
   (top/left resolve to `auto`, width/height to `auto`) and its background never fills.
@@ -2302,10 +2302,10 @@ of how many rows are here.
   overflowed the pane; the Drawing Board's PDF/PPTX export captured only the
   top-left ninth of each slide. HD looked fine.
 - **Cause:** The owned engine resolves `@size` correctly and emits a real
-  `div.lattice > section { width: 3840px; height: 2160px }`, but every browser
+  `article.lattice > section { width: 3840px; height: 2160px }`, but every browser
   host that fit-scales and exports the slide **hardcoded 1280×720**: the Drawing
   Board FIT used `sc = w / 1280`, `frame-css.js` pinned `.lattice>section{width:
-  1280px}` (which silently LOST to the engine scaffold's `div.lattice > section`
+  1280px}` (which silently LOST to the engine scaffold's `article.lattice > section`
   at 0,1,2 vs 0,1,1 — so the box was really 3840 but scaled as if 1280), and the
   exporter rasterized a 1280×720 crop onto a 1280×720 jsPDF page. At HD every
   hardcoded 1280/720 happened to be correct, hiding the bug.

@@ -456,7 +456,7 @@ describe('buildStateChart (default)', () => {
   });
 
   test('status folds into the top-right index badge (no pill, no inline dot)', () => {
-    assert.match(html, /class="state-index" data-s="on-track" aria-label="on-track">\d+</);
+    assert.match(html, /class="state-index" data-s="on-track" role="img" aria-label="State \d+, on-track">\d+</);
     assert.match(html, /class="state-index" data-s="done"/);
     assert.match(html, /class="state-index" data-s="live"/);
     assert.doesNotMatch(html, /class="chart-status"/);
@@ -464,6 +464,24 @@ describe('buildStateChart (default)', () => {
     const dots = (html.match(/class="state-dot"/g) || []).length;
     const legendItems = (html.match(/class="state-legend-item"/g) || []).length;
     assert.equal(dots, legendItems, 'no inline node dot — dots live only in the legend');
+  });
+
+  test('the index badge is announceable, and carries BOTH the id and the status', () => {
+    // Two ARIA defects this locks the fix for (both silent, both caught by an
+    // aria-rules audit rather than by any test):
+    //   · the label used to sit on a BARE <span>, whose implicit role is `generic` —
+    //     and ARIA says a label on a generic role is IGNORED. The status reached no
+    //     assistive technology at all, while sighted users got it from hue alone
+    //     (WCAG 1.4.1). `role="img"` is what makes the label apply.
+    //   · a status-LESS badge was `aria-hidden="true"`, hiding the state's IDENTIFIER
+    //     — the number every transition routes by (`byFrom.get(s.index)`), not decoration.
+    assert.doesNotMatch(html, /class="state-index"[^>]*aria-hidden/, 'a state id is never hidden');
+    // Both facts in one name: a bare aria-label="on-track" would REPLACE the visible
+    // numeral rather than add to it, trading the id away for the status.
+    assert.match(html, /class="state-index"[^>]*role="img"[^>]*aria-label="State 1"/, 'status-less badge still names its id');
+    for (const [n, st] of [[2, 'on-track'], [4, 'done'], [5, 'live']]) {
+      assert.match(html, new RegExp(`aria-label="State ${n}, ${st}"`), `state ${n} names id + status`);
+    }
   });
 
   test('distinct statuses are decoded by a legend band below the chart', () => {

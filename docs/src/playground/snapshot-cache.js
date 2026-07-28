@@ -186,7 +186,14 @@ export function captureFirstSectionFromFrame(frame, meta) {
 		// on the filmstrip's `.lattice`). Strip the FIT agent's inline scale/margin — they
 		// scale the LIVE filmstrip to its container and are meaningless once detached; the
 		// shell CSS sizes the slide to the preview pane itself.
-		const wrap = doc.createElement('div');
+		// Mirror the LIVE container's element, don't hardcode one. The engine emits
+		// `<article class="lattice">` (it was a `<div>` until the semantic-HTML pass), and
+		// the CSS captured alongside this snapshot is scoped `article.lattice > section`.
+		// Synthesizing a `<div>` here would replay that stylesheet against a container it
+		// can never match — the full CSS retained, none of it applying, i.e. a first paint
+		// of raw unstyled Markdown. That is precisely the failure the same retag avoided in
+		// `share-export.ts`; this consumer was missed on the first pass.
+		const wrap = doc.createElement(lattice.tagName ? lattice.tagName.toLowerCase() : 'article');
 		wrap.className = lattice.className || 'lattice';
 		const sec = first.cloneNode(true);
 		sec.style.removeProperty('transform');

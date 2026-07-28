@@ -60,10 +60,10 @@ function profile(html) {
 }
 
 describe('lattice-engine: contract', () => {
-  test('splits slides on `---` into <section>s wrapped in div.lattice', () => {
+  test('splits slides on `---` into <section>s wrapped in article.lattice', () => {
     const { html } = makeEngine().render('# A\n\n---\n\n# B\n\n---\n\n# C\n', 'lattice');
     assert.equal((html.match(/<section\b/g) || []).length, 3);
-    assert.match(html, /<div class="lattice">/);
+    assert.match(html, /<article class="lattice">/);
   });
 
   test('applies `_class:` to the section and `class:` deck-wide (deckClassPropagate)', () => {
@@ -240,12 +240,12 @@ describe('lattice-engine: css emission (P1.1)', () => {
     assert.match(s, /@media print/);
   });
 
-  test('scaffold scopes the slide box to div.lattice > section (geometry specificity)', () => {
+  test('scaffold scopes the slide box to article.lattice > section (geometry specificity)', () => {
     const s = scaffold({ width: '1280px', height: '720px' });
     // Bare `section` (0,0,1) would lose @size to a preview frame's `.lattice >
-    // section { width }` (0,1,1); the scaffold's `div.lattice > section` (0,1,2)
+    // section { width }` (0,1,1); the scaffold's `article.lattice > section` (0,1,2)
     // wins, so the slide keeps its @size instead of collapsing to the frame's.
-    assert.match(s, /div\.lattice > section\s*\{[^}]*container-type:\s*size/);
+    assert.match(s, /article\.lattice > section\s*\{[^}]*container-type:\s*size/);
     assert.doesNotMatch(s, /^section\s*\{/m); // no UNscoped section box at a line start
   });
 
@@ -457,13 +457,13 @@ describe('lattice-engine: css emission (P1.1)', () => {
     const THEME =
       "/* @theme cuoio */\n@import 'lattice';\nsection.foo { color: red; }\n.bar { color: blue; }\nbody { counter-reset: n; }";
     const out = composeCss({ themeCss: THEME, baseLatticeCss: BASE });
-    // a section-leading selector → div.lattice > section.foo (the slide), not a descendant
-    assert.match(out, /div\.lattice > section\.foo\s*\{[^}]*color:\s*red/);
+    // a section-leading selector → article.lattice > section.foo (the slide), not a descendant
+    assert.match(out, /article\.lattice > section\.foo\s*\{[^}]*color:\s*red/);
     // a bare class → descendant of the slide (still matches in-slide content)
-    assert.match(out, /div\.lattice > section \.bar\s*\{[^}]*color:\s*blue/);
-    // `body` becomes the dead `div.lattice > section body` so counters fall back to
+    assert.match(out, /article\.lattice > section \.bar\s*\{[^}]*color:\s*blue/);
+    // `body` becomes the dead `article.lattice > section body` so counters fall back to
     // the implicit root reset — matching marp (the "dropped counters" fix).
-    assert.match(out, /div\.lattice > section body\s*\{[^}]*counter-reset:\s*n/);
+    assert.match(out, /article\.lattice > section body\s*\{[^}]*counter-reset:\s*n/);
   });
 
   test('comments out non-pagination ::after content (Marpit pagination plugin)', () => {

@@ -1,0 +1,59 @@
+---
+/**
+ * SkipLink — the "skip to main content" bypass every page owes a keyboard user
+ * (WCAG 2.4.1). ONE component for every surface, per HARD RULE #15: don't fork a
+ * widget per page.
+ *
+ * Three details are load-bearing, and each is the half-fix the ADR's §8-#7 calls
+ * out by name (`engineering/decisions/2026-07-03-semantic-html-accessibility.md`):
+ *
+ *   1. It must be the FIRST TABBABLE element on the surface — a bypass you have to
+ *      tab through the chrome to reach has bypassed nothing. Render it as the first
+ *      child of `<body>`.
+ *   2. The TARGET must carry `tabindex="-1"`, or the browser moves the viewport but
+ *      NOT focus: the next Tab resumes from the chrome the user just skipped. This
+ *      is the classic skip-link half-fix. Every `<main id="main-content">` in this
+ *      app sets it.
+ *   3. The visually-hidden CSS is INLINED here, not imported. If a stylesheet fails
+ *      to load, an external rule would leave this link rendering visibly at the top
+ *      of the page; an inline `<style>` ships with the markup and cannot desync.
+ *
+ * It is invisible until focused, then becomes a real, visible, high-contrast
+ * control — a sighted keyboard user has to SEE it to use it, so `sr-only` alone
+ * (never revealed) would be the wrong tool.
+ */
+interface Props {
+	/** The `id` of the `<main>` to jump to. Must carry `tabindex="-1"`. */
+	href?: string;
+	/** Link text. Override only if a surface needs a more specific destination. */
+	label?: string;
+}
+const { href = '#main-content', label = 'Skip to main content' } = Astro.props;
+---
+
+<a class="lat-skip-link" href={href}>{label}</a>
+
+<style is:inline>
+	/* Off-screen rather than `display:none` / `visibility:hidden` — both of those
+	   remove the link from the tab order, which would defeat the whole point. */
+	.lat-skip-link {
+		position: absolute;
+		left: -9999px;
+		top: 0;
+		z-index: 9999;
+		padding: 10px 16px;
+		border-radius: 0 0 6px 0;
+		background: var(--accent, #4338ca);
+		color: var(--on-accent, #fff);
+		font: 600 14px/1.2 system-ui, sans-serif;
+		text-decoration: none;
+	}
+	/* `:focus`, not `:focus-visible` — this is only ever reached BY keyboard, and
+	   `:focus-visible` heuristics vary enough that a missed reveal means an
+	   invisible focused control. */
+	.lat-skip-link:focus {
+		left: 0;
+		outline: 2px solid var(--on-accent, #fff);
+		outline-offset: -4px;
+	}
+</style>

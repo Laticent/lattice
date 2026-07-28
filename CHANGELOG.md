@@ -55,6 +55,185 @@ in patch versions.
 
 ## Unreleased
 
+### Fixed
+
+- **The `--fluid` viewer was completely broken by the export shell's new `main`
+  landmark — every slide rendered zero pixels wide.** The fluid viewer sizes each slide
+  `min(100%, 100dvh * --fill-max-aspect)`, and that percentage resolves against the
+  slide's *parent*; interposing `<main id="deck">` between `<body>` and the slides made
+  the body's `align-items:center` shrink-to-fit it, so the percentage resolved against a
+  content-derived width and collapsed everything. The viewer self-activates on load, so
+  a recipient opening the exported `.html` saw a blank page. `<main>` is now transparent
+  to the fluid flex column. Nothing caught this — the `--fluid` integration test
+  asserted type-floor rings but never geometry; it now measures slide width at three
+  viewports.
+
+- **Enabling MathML painted a spurious column rule on `math compare` slides.**
+  `.katex-mathml` is absolutely positioned, and inside a CSS multi-column container
+  Chrome still fragments it — the block gained an extra empty column and a stray 1px
+  hairline at the slide's right edge. Invisible everywhere that isn't a multicol, which
+  is why the first pixel check (on decks without a `math compare` slide) reported
+  identical pages. The MathML now leaves the multicol's fragmentation flow while
+  staying clipped, invisible and fully in the accessibility tree.
+
+- **The HTML player stripped the MathML it was meant to carry.** DOMPurify's default
+  profile allows neither `<semantics>` nor `<annotation>`, so the player shipped 125
+  `<math>` elements with **zero** annotations — and kept the annotation's text, leaving
+  raw LaTeX as a bare text node for a screen reader to read out. Both tags are now
+  allowed; `annotation-xml` remains blocked (a known mXSS vector, and KaTeX never emits
+  it).
+
+- **Mermaid diagrams with YAML front matter were labeled "Diagram" instead of their
+  type.** The type detector skipped the `---` fences but not the front-matter body, so
+  it read `title:` and gave up. 12 of the repo's 100 mermaid blocks use front matter.
+
+- **Charts announced their name and then presented nothing.** `role="img"` is
+  children-presentational — it removes the entire subtree from the accessibility tree —
+  so giving a chart SVG a `<title>` without a `<desc>` made it announce e.g. "Quadrant
+  chart, image" over 18 pruned text nodes (axis names, quadrant names, every item).
+  The quadrant now emits a `<desc>` carrying its axes, quadrant names and every item
+  with its position; the funnel's `<desc>` now includes the **conversion rates** it was
+  missing — the numbers a funnel exists to show, and unreachable by any other route
+  once the subtree is pruned.
+
+- **The Playground's returning-visitor first paint would have rendered unstyled.**
+  `snapshot-cache.js` synthesized a `<div class="lattice">` wrapper instead of
+  mirroring the live container, so the CSS captured alongside it — scoped
+  `article.lattice > section` — matched nothing on replay. Its test asserted the `<div>`
+  shape and passed, which is why the miss went unnoticed.
+
+- **Split-run chrome detection over-matched.** The class-based check tested a substring
+  of serialized outer HTML, so `tile-progress-legend` / `foo-tile-progress` /
+  `lat-split-rail-x` all counted as chrome (a `-` is a word boundary), and any block
+  merely *containing* a rail did too — which, since the rail docks inside
+  `.cell-footer`, silently reclassified every footer cell and moved trailing notes. Now
+  matches the element's own open tag on whole class tokens.
+
+- **A state chart's status never reached assistive technology, and its state IDs were
+  hidden outright.** The index badge put `aria-label="on-track"` on a bare `<span>` —
+  whose implicit role is `generic`, where ARIA says a label is **ignored**. So the
+  status was conveyed to sighted users by colour alone (WCAG 1.4.1) and to everyone
+  else not at all. Two more problems in the same three lines: a status-*less* badge was
+  `aria-hidden="true"`, hiding the state's identifier — the number every transition
+  routes by, not decoration — and had the label applied, it would have *replaced* the
+  visible numeral rather than added to it, trading the id away for the status. The
+  badge is now `role="img"` (which makes the label apply) with a name carrying both:
+  `aria-label="State 2, on-track"`.
+
+- **The HTML player's twelve decorative chrome icons are hidden from assistive
+  technology.** The tab-bar, nav-arrow and toggle SVGs carried no `aria-hidden`. Their
+  buttons already have labels so the icons never corrupted an accessible *name*, but an
+  un-hidden inline SVG can still surface in a screen-reader graphics rotor as noise.
+  Now `aria-hidden="true" focusable="false"`.
+
+- **Every formula in an exported deck was invisible to screen readers.** KaTeX renders
+  two halves — a visual one it marks `aria-hidden="true"`, and a MathML alternative
+  meant to be what assistive technology actually reads. The export created its engine
+  with `mathOutput:'html'`, which emits the visual half and drops the MathML, leaving
+  the hidden half hidden and *nothing* in its place. Display and inline math alike. The
+  code's stated reasons — that MathML "can't be read in a PDF" and that "its unclipped
+  layout trips the slide overflow watcher" — were re-tested on real renders and neither
+  reproduces: `katex.min.css` (linked into that same shell) clips `.katex-mathml` out of
+  the flow, so a dense four-formula slide flags **zero** overflow either way and the
+  rasterized PDF pages are **pixel-identical**. Worse, only the *export* had this — the
+  preview path never overrode the default — so the artifact people actually ship, and the
+  one we designate as the accessible route, was the only one that lost it. Now
+  `htmlAndMathml`.
+
+### Changed
+
+- **The deck container is an `<article class="lattice">`, not a `<div>`.** A deck is a
+  self-contained composition, which is what `<article>` means; the `<main>` landmark
+  stays the document shell's job, because `<main>` says *where* the primary content is
+  and `<article>` says *what it is*. `lib/engine/css.js` moves in lockstep — the
+  scaffold's geometry rules and `packSelector` both emit `article.lattice > section`,
+  preserving the `(0,1,2)` specificity that has to beat the preview frame's
+  `.lattice > section` sizing rule (`article` is a type selector exactly like `div`, so
+  the specificity is unchanged). Exported PDF pages are pixel-identical to before.
+  Four consumers outside the engine needed the same edit in lockstep, one of which
+  would have failed silently and expensively: the Studio's player export strips the
+  `div.lattice > ` prefix to un-scope deck CSS, and a missed edit there ships the full
+  stylesheet with **none** of it matching — a `.html` export of raw unstyled Markdown.
+
+### Fixed
+
+- **Funnel and quadrant charts were completely invisible to screen readers; word clouds
+  were unnamed.** Their root `<svg>` carried `aria-hidden="true"` with no accessible
+  name, and since every stage label, item name and conversion percentage is drawn as SVG
+  `<text>` *inside* that root — with `.funnel-figure` / `.quadrant-figure` wrapping
+  nothing else — an assistive-technology user reached one of those slides and found an
+  empty box. Not a name, not the data, not even "image". They now carry `role="img"`, a
+  `<title>` (per-variant for quadrant's four variants), and for funnel and word-cloud a
+  `<desc>` enumerating the data a sighted reader gets from the labels. These were **original
+  oversights present from the commits that introduced these charts** (funnel 2026-06-09,
+  quadrant 2026-05-15) — each shipped `aria-hidden` with its `<text>` labels already
+  inside. Unnamed chart-root SVGs: **3 → 0**. Visually identical (neither element paints), verified
+  on a real render. A unit test that asserted `aria-hidden="true"` — pinning the defect,
+  so that fixing it would have failed the suite — now asserts the opposite.
+
+### Added
+
+- **Mermaid diagrams get an accessible name.** mmdc emits its SVG root as
+  `role="graphics-document document"` with no name unless the author wrote `accTitle:` /
+  `accDescr:` in the diagram source, so an un-annotated diagram reached a screen reader
+  as an anonymous graphics document. When the SVG carries no name of its own, it is now
+  labeled with the diagram's type ("Flowchart", "Sequence diagram", …) read from the
+  source; an authored name is never overwritten. A type is a floor, not a description —
+  `accTitle:`/`accDescr:` remain the way to say what a diagram *means*. Verified on a real
+  mermaid render: `<svg aria-label="Flowchart" id="lattice-mmd-1" …>`.
+
+- **Every surface now has a `main` landmark, and two of them have a working skip link.**
+  A screen-reader or keyboard user had no way to jump past the chrome to the content on
+  any Lattice surface: the Studio had **zero** `<main>` since it was built, and an
+  exported deck was a flat pile of `<section>`s with no bypass. Now: the **Studio** puts
+  exactly one `<main id="main-content" tabindex="-1">` on each of its four view branches
+  (Fabricate, landscape-phone cinema, mobile, and the unified compose spine), with the
+  activity-bar `<nav>` deliberately left OUTSIDE it as a sibling — a `<nav>` keeps its
+  landmark role inside `<main>`, so the panel launcher belongs beside the work region.
+  The **HTML export shell** wraps its slides in `<main id="deck" tabindex="-1">`. The
+  **HTML player** promotes `#lp-app` to `<main>` — it discards the deck container, so the
+  deck's own landmark can't survive into it. A new shared `SkipLink.astro` (one
+  component, not a copy per page) is the first tabbable element on the Studio, and the
+  export shell carries the same bypass inline. Verified on the real running Studio at
+  1440/820/390px: one `<main>` at every width, the skip link first in the tab order, and
+  Enter actually **moves focus** to `<main>` rather than only scrolling to it — the
+  classic skip-link half-fix.
+- **The player's slide counter carries a spelled-out accessible name** ("Slide 2 of 7")
+  alongside its visible "2 / 7", and its table of contents is no longer a nameless
+  landmark (`<nav id="lp-toc">` gains
+  `aria-label="Slides"`). The visible counter text is unchanged.
+
+### Changed
+
+- **Both progress rails are `<div>`s, not `<nav>`s.** The section rail
+  (`.tile-progress`) and the k-of-N split rail (`.lat-split-rail`) were `<nav
+  aria-hidden="true">` — claiming the navigation role and then leaving the
+  accessibility tree in the same breath, which is the over-tagging the promotion rubric
+  forbids. They are decorative echoes of the pagination and now carry no role at all.
+  84 contradictory landmarks removed from a gallery render. **The retag was not a tag
+  swap**: `split-envelope.js` recognized chrome by tag name, so demoting the rails
+  silently stopped it finding them and pushed a split run's below-note *after* the
+  section's footer. Chrome detection is now role-based (tag **or** rail marker class),
+  so the next tag change can't reopen it.
+
+- **The semantic-HTML retag now has gates, and they landed before the retag.** Six
+  structural invariants over the rendered gallery
+  (`test/integration/invariants/semantic-structure.test.js`, per-PR tier, jsdom, ~2s,
+  no browser): every slide stays a `<section>`; no slide contains a nested
+  `<section>`; at most one `<header>` and one `<footer>` per slide; every `<article>`
+  carries a sanctioned class (with an anti-rot check on the sanction list); no
+  `aria-hidden` subtree contains authored prose; and no reachable landmark is
+  nameless. These are step 1 of the sequence in
+  `engineering/decisions/2026-07-03-semantic-html-accessibility.md` §13 — the design
+  states them as prose, and an invariant with no gate is a future regression
+  (HARD RULE #18). Nothing renders differently when a semantic contract breaks, so
+  without these the retag work would be unfalsifiable. Every gate was
+  mutation-tested: a synthetic violation of each was confirmed to fail it, with a
+  named-landmark control confirming no false positive. Two of them encode a
+  *predicted* break — the ≤1-`<footer>`-per-slide rule holds today only because the
+  Cells are still `<div>`s, so it is what fails when `.cell-footer` → `<footer>` nests
+  the absorbed running directive inside itself.
+
 ### Changed
 
 - **On a phone, every Studio drawer closes with a back chevron instead of an X — and the

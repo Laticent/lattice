@@ -80,10 +80,12 @@ const PKG_ROOT = (() => {
 })();
 
 // ── KaTeX CSS ────────────────────────────────────────────────────────────────
-// The engine (lib/engine, created with `mathOutput:'html'`) renders `$…$` /
+// The engine (lib/engine, created with `mathOutput:'htmlAndMathml'`) renders `$…$` /
 // `$$…$$` to KaTeX markup itself; the emulator only links KaTeX's stylesheet so
 // the glyph fonts resolve in the PDF. Resolved lazily — absent the optional dep,
 // no link is emitted and math degrades to plain text.
+// This stylesheet is also what makes the MathML free: it clips `.katex-mathml` out
+// of the flow, so the accessible alternative costs no layout and no pixels.
 let katexCssAbsPath = '';
 try { katexCssAbsPath = require.resolve('katex/dist/katex.min.css'); } catch (_e) { /* no css link emitted */ }
 
@@ -1045,6 +1047,50 @@ if (!CHROME_EXEC) {
   console.warn('  ⚠ No Chrome binary detected. Set PUPPETEER_EXECUTABLE_PATH or install puppeteer to download one.');
 }
 
+// A human name for a Mermaid diagram's TYPE, read from the first meaningful line of
+// its source (skipping `%%{init}%%` directives, front-matter and blank lines). Used
+// only as the accessible-name floor for a diagram whose author supplied no
+// `accTitle:` — see the call site. Unknown keywords fall back to the keyword itself
+// rather than a wrong guess.
+const MERMAID_KINDS = {
+  graph: 'Flowchart', flowchart: 'Flowchart', sequencediagram: 'Sequence diagram',
+  classdiagram: 'Class diagram', statediagram: 'State diagram', 'statediagram-v2': 'State diagram',
+  erdiagram: 'Entity relationship diagram', journey: 'User journey diagram', gantt: 'Gantt chart',
+  pie: 'Pie chart', quadrantchart: 'Quadrant chart', requirementdiagram: 'Requirement diagram',
+  gitgraph: 'Git graph', mindmap: 'Mind map', timeline: 'Timeline', sankey: 'Sankey diagram',
+  'sankey-beta': 'Sankey diagram', xychart: 'XY chart', 'xychart-beta': 'XY chart',
+  block: 'Block diagram', 'block-beta': 'Block diagram', packet: 'Packet diagram',
+  architecture: 'Architecture diagram', 'architecture-beta': 'Architecture diagram',
+};
+// Escaped LOCALLY rather than via the module's `escapeHtml`, which is declared far
+// below as a `const`: the mermaid pre-pass runs during module evaluation, so reaching
+// forward to it throws `Cannot access 'escapeHtml' before initialization`. That failure
+// was ALSO invisible — the surrounding retry loop deletes the temp dir before this
+// point, so attempts 2 and 3 failed with a misleading "Command failed: mmdc" (no input
+// file) and the real cause never surfaced.
+const escAttrLocal = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function mermaidKindLabel(definition) {
+  const lines = String(definition || '').split('\n');
+  let inFrontMatter = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    // Mermaid YAML FRONT MATTER is a `---` fenced block, and skipping only the fence
+    // lines left the loop reading `title: …` from INSIDE it — which is not a diagram
+    // keyword, so every front-mattered diagram fell through to the generic "Diagram".
+    // 12 of the repo's own 100 mermaid blocks use front matter, including the baseline
+    // gallery's first diagram, which is the artifact §17.12 originally cited as proof
+    // this worked. Track the block and skip its BODY, not just its fences.
+    if (line === '---') { inFrontMatter = !inFrontMatter; continue; }
+    if (inFrontMatter) continue;
+    if (!line || line.startsWith('%%')) continue;
+    const word = (line.split(/[\s:;{(]/)[0] || '').toLowerCase();
+    if (!word) continue;
+    return MERMAID_KINDS[word] || 'Diagram';
+  }
+  return 'Diagram';
+}
+
 function renderMermaidOne(definition, themeVars, extraClass) {
   // Prepend the Mermaid init block if not already present.
   // JetBrains Mono is bundled by the lattice.css font import and is the
@@ -1155,6 +1201,35 @@ function renderMermaidOne(definition, themeVars, extraClass) {
         });
       }
       fs.rmSync(tmpDir, { recursive: true, force: true });
+      // ── PAST THIS POINT mmdc HAS SUCCEEDED ────────────────────────────────────
+      // Everything below is post-processing on a string we already hold, and it must
+      // NOT be retried: the temp dir above is gone, so a re-run of mmdc would fail on
+      // a missing input file and report `Command failed: … mmdc …` — blaming the
+      // renderer for a bug in our own code. That is exactly what happened when the
+      // accessible-name injection first landed (ADR §17.13): a TDZ error here cost
+      // several minutes of misdiagnosis because the retry laundered it.
+      //
+      // §17.13 stated the lesson and did not apply it. This is the fix: post-processing
+      // gets its own try, so a throw here degrades to the UNPROCESSED-but-valid SVG and
+      // says so, instead of masquerading as a renderer failure.
+      try {
+      // ACCESSIBLE NAME. Mermaid emits its root as `role="graphics-document document"`
+      // with NO name unless the author wrote `accTitle:` / `accDescr:` in the diagram
+      // source — so an un-annotated diagram reaches a screen reader as an anonymous
+      // graphics document. We do not author this markup (mmdc does), so the fix is
+      // additive and conservative: only when the SVG carries no name of its own, label
+      // it with the diagram's TYPE, read from the first meaningful line of the source.
+      // That is a floor, not a description — `accTitle:`/`accDescr:` remain the right
+      // way to say what a diagram MEANS, and mermaid's own `<title>`/`aria-labelledby`
+      // is left untouched wherever it exists. Semantic-html ADR §17.12.
+      if (!/\saria-label(?:ledby)?=/.test(svg.slice(0, svg.indexOf('>') + 1)) && !/<title\b/.test(svg)) {
+        const kind = mermaidKindLabel(definition);
+        svg = svg.replace(/^(\s*<svg\b)/, `$1 aria-label="${escAttrLocal(kind)}"`);
+      }
+      } catch (postErr) {
+        // The diagram itself is fine — only our decoration failed. Ship the SVG.
+        console.warn(`  ⚠ Mermaid post-processing failed (diagram still rendered): ${postErr?.message}`);
+      }
       const cls = extraClass ? `mermaid-svg ${extraClass}` : 'mermaid-svg';
       return `<div class="${cls}">${svg}</div>`;
     } catch (e) {
@@ -1421,7 +1496,7 @@ const imageDimensions    = require('./lib/core/image-dimensions');
 // Depth-counted scan over <section>…</section> so nested split-panel sections
 // stay inside their parent. Produces the "one <section> string per slide" array
 // shape the emulator's downstream (highlight, deck-logo, page template) expects,
-// from the engine's assembled <div class="lattice"> document.
+// from the engine's assembled <article class="lattice"> document.
 function splitTopLevelSections(latticeHtml) {
   const out = [];
   const re = /<section\b[^>]*>|<\/section>/gi;
@@ -1452,10 +1527,25 @@ let DEFERRED_BY_COUNT = [];
 
 function engineSlides() {
   const latticeEngine = require('./lib/engine');
-  // mathOutput:'html' drops KaTeX's hidden MathML annotation — it can't be read
-  // in a PDF and its unclipped layout trips the slide overflow watcher (a stale
-  // ring), matching the emulator's own `output:'html'` KaTeX call.
-  const engine = latticeEngine.createEngine({ mathOutput: 'html' });
+  // `htmlAndMathml` — KaTeX's default, and the ONLY setting under which math is
+  // readable by a screen reader.
+  //
+  // This used to be `mathOutput:'html'`, on the reasoning that the MathML "can't be
+  // read in a PDF and its unclipped layout trips the slide overflow watcher (a stale
+  // ring)". BOTH halves were re-tested on a real render and neither reproduces:
+  // katex.min.css (linked into this very shell) clips `.katex-mathml` out of the flow,
+  // so a dense four-formula slide flags ZERO overflow either way and the rasterized PDF
+  // pages are pixel-identical. The PDF half is true but harmless — MathML costs nothing
+  // there.
+  //
+  // What the old setting DID cost: KaTeX marks `.katex-html` `aria-hidden="true"`
+  // because the MathML is meant to be the accessible alternative. Dropping the MathML
+  // left the visual half hidden and NOTHING in its place, so every formula — display
+  // and inline — was invisible to assistive technology. And it was invisible in exactly
+  // the wrong artifact: the engine/preview path never overrode the default, so the
+  // EXPORT (the file people actually ship, and the ADR's designated accessible route)
+  // was the only path that lost it. See the semantic-html ADR §17.11.
+  const engine = latticeEngine.createEngine({ mathOutput: 'htmlAndMathml' });
   engine.addThemes([readFileOrDie(cssFile, 'layout CSS'), fs.readFileSync(palettePath, 'utf8')]);
   // Rewrite `![bg side](url)` to the lattice-bg div (CSS background) BEFORE render
   // so the engine's basic-mode background ruler never collapses the split (lib/engine
@@ -1845,10 +1935,39 @@ ${css}
 section[data-lattice-slide] { width: ${slideW}px !important; height: ${slideH}px !important; }
 ${orientationStyle}
 ${marpSystemCss}
+/* Skip link — the keyboard bypass for a deck that is otherwise a flat pile of
+   slides (WCAG 2.4.1). Off-screen rather than hidden, so it stays in the tab
+   order; revealed on focus because a sighted keyboard user has to SEE it. The
+   rules live HERE, inline, so a missing stylesheet can never leave it rendering
+   visibly. Hidden in print: the exported PDF has no tab order, and an
+   off-screen absolute box must not influence pagination. */
+.lat-skip-link{position:absolute;left:-9999px;top:0;z-index:9999;padding:10px 16px;background:var(--accent,#4338ca);color:var(--on-accent,#fff);font:600 14px/1.2 system-ui,sans-serif;text-decoration:none}
+.lat-skip-link:focus{left:0}
+@media print{.lat-skip-link{display:none}}
+/* The deck landmark adds no box of its own — the slides keep their own geometry. */
+main#deck{margin:0;padding:0;display:block}
+/* …EXCEPT in the FLUID viewer, where interposing any element between <body> and the
+   slides is NOT layout-neutral. base.fluid-view.css makes <body> a centred flex column
+   and sizes each slide with min(100%, 100dvh * --fill-max-aspect). That percentage
+   resolves against the slide's PARENT — so once <main> sits in between, body's
+   align-items:center shrink-to-fits it, the percentage resolves against a
+   content-derived width, and every slide collapses to ZERO WIDTH. The viewer
+   self-activates on load, so a recipient double-clicking the exported .html saw a
+   blank page.
+   The ADR's §10-R4 argument for this being the one sanctioned wrap — "<main> has no UA
+   margin and the theme CSS is section-scoped" — is about MARGINS and SPECIFICITY. It
+   never considered CONTAINING BLOCKS, which is what "never wrap" (§2 reason 1)
+   actually protects. A wrapper adds no box and still changes layout.
+   Fix: make <main> transparent to the flex column — same axis, full width — so the
+   slides resolve their percentage against the same box they did before. */
+:root[data-lattice-view="fluid"] main#deck{display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;flex:1 0 auto}
 ${globalStyle ? `\n/* Front-matter style: directive */\n${globalStyle}\n` : ''}
 </style></head><body>
+<a class="lat-skip-link" href="#deck">Skip to the slides</a>
 ${a11yTextureDefs}
+<main id="deck" tabindex="-1">
 ${slidesWithMeta2}
+</main>
 ${functionPlotScript}
 ${stateChartScript}
 <script>

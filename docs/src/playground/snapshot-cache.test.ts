@@ -57,7 +57,7 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 	function fakeFrame() {
 		document.head.innerHTML = '<style>.title{color:red}section{color:blue}</style>';
 		document.body.innerHTML =
-			'<div class="lattice">' +
+			'<article class="lattice">' +
 			'<section class="title" style="transform:scale(0.3);transform-origin:top left;margin-bottom:12px"><h1>One</h1></section>' +
 			'<section class="title" style="transform:scale(0.3)"><h1>Two</h1></section>' +
 			'<section class="title" style="transform:scale(0.3)"><h1>Three</h1></section>' +
@@ -71,7 +71,12 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(snap?.html).toContain('One');
 		expect(snap?.html).not.toContain('Two');
 		expect(snap?.html).not.toContain('Three');
-		expect(snap?.html).toMatch(/^<div class="lattice">/);
+		// The captured wrapper must MIRROR the live container's element. The engine emits
+		// `<article class="lattice">` and the CSS captured with it is scoped
+		// `article.lattice > section`; a synthesized `<div>` would replay that stylesheet
+		// against a container none of it matches — a first paint of raw unstyled Markdown.
+		// This assertion used to pin `<div>`, which is why the miss went unnoticed.
+		expect(snap?.html).toMatch(/^<article class="lattice">/);
 	});
 
 	it('strips the FIT agent inline transform/margin from the captured slide', () => {
@@ -114,7 +119,7 @@ describe('Playground snapshot store is SEPARATE from the Studio store', () => {
 describe('extractCriticalFromDoc', () => {
 	it('keeps rules that match the slide and drops the rest', () => {
 		document.head.innerHTML = '<style>.title{color:red}.unused-zzz{color:blue}h1{font:1em/1 x}@font-face{font-family:F;src:url(f.woff2)}</style>';
-		document.body.innerHTML = '<div class="lattice"><section class="title"><h1>Hi</h1></section></div>';
+		document.body.innerHTML = '<article class="lattice"><section class="title"><h1>Hi</h1></section></article>';
 		const css = extractCriticalFromDoc(document);
 		expect(css).toContain('.title');
 		expect(css).toContain('h1');
@@ -124,7 +129,7 @@ describe('extractCriticalFromDoc', () => {
 
 	it('drops @import (would fetch an external sheet on the top origin, red-team finding)', () => {
 		document.head.innerHTML = '<style>@import url("https://evil.example/x.css");.title{color:red}</style>';
-		document.body.innerHTML = '<div class="lattice"><section class="title"></section></div>';
+		document.body.innerHTML = '<article class="lattice"><section class="title"></section></article>';
 		const css = extractCriticalFromDoc(document);
 		expect(css).toContain('.title');
 		expect(css).not.toContain('@import');
@@ -134,7 +139,7 @@ describe('extractCriticalFromDoc', () => {
 	it('scopes every rule under the shell selector, re-targeting root-ish page rules', () => {
 		document.head.innerHTML =
 			'<style>html,body{background:blue;padding:18px}:root{--bg:red}.lattice{visibility:hidden}.lattice>section{color:green}</style>';
-		document.body.innerHTML = '<div class="lattice"><section class="title"></section></div>';
+		document.body.innerHTML = '<article class="lattice"><section class="title"></section></article>';
 		const css = extractCriticalFromDoc(document, '.pg-ssr-shell');
 		// Page-level rules re-target ONTO the shell box (no bare html/body/:root leak into the top doc).
 		expect(css).toMatch(/\.pg-ssr-shell\s*\{[^}]*background/); // html,body{background} → .pg-ssr-shell{…}

@@ -25,7 +25,7 @@ function buildFrame(svgBox: { width: number; height: number }) {
   const doc = iframe.contentDocument;
   if (!doc) throw new Error('no contentDocument');
   doc.body.innerHTML = `
-    <div class="lattice"><section>
+    <article class="lattice"><section>
       <figure><svg class="funnel-svg">
         <rect data-mark="0" data-label="Visitors" data-value="12000"></rect>
         <rect data-mark="1" data-label="Signups" data-value="4800"></rect>
@@ -34,7 +34,7 @@ function buildFrame(svgBox: { width: number; height: number }) {
         <template class="chart-detail" data-mark="0"><li>top of funnel</li></template>
         <template class="chart-detail" data-mark="1"><li>landing test holds</li></template>
       </div>
-    </section></div>`;
+    </section></article>`;
   const svg = doc.querySelector('svg.funnel-svg') as SVGElement & { getBoundingClientRect(): DOMRect };
   // The chart's own box (drives the hit-surface size). Mutable so a later re-pin reads a NEW value.
   svg.getBoundingClientRect = () => rect({ left: 10, top: 10, width: svgBox.width, height: svgBox.height });
@@ -160,10 +160,10 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     // The srcdoc "finishes parsing": inject the chart, then fire the frame's load event.
     const doc = iframe.contentDocument as Document;
     doc.body.innerHTML = `
-      <div class="lattice"><section>
+      <article class="lattice"><section>
         <figure><svg class="funnel-svg"><rect data-mark="0" data-label="A" data-value="1"></rect></svg></figure>
         <div class="chart-details"><template class="chart-detail" data-mark="0"><li>x</li></template></div>
-      </section></div>`;
+      </section></article>`;
     (doc.querySelector('svg.funnel-svg') as SVGElement).getBoundingClientRect = () => rect({ left: 10, top: 10, width: 200, height: 150 });
     iframe.dispatchEvent(new Event('load'));
     await tick();
@@ -184,13 +184,13 @@ describe('createChartInteract — pinned re-pin on frame reveal', () => {
     document.body.appendChild(iframe);
     const doc = iframe.contentDocument as Document;
     doc.body.innerHTML = `
-      <div class="lattice"><section>
+      <article class="lattice"><section>
         <figure class="anima-live">
           <svg class="funnel-svg"><rect data-mark="0" data-label="Poster" data-value="1"></rect></svg>
           <div class="scene-live"><svg class="funnel-svg"><rect data-mark="0" data-label="Clone" data-value="1"></rect></svg></div>
         </figure>
         <div class="chart-details"><template class="chart-detail" data-mark="0"><li>clone detail</li></template></div>
-      </section></div>`;
+      </section></article>`;
     const posterSvg = doc.querySelector('figure > svg.funnel-svg') as SVGElement & { getBoundingClientRect(): DOMRect };
     const cloneSvg = doc.querySelector('.scene-live svg.funnel-svg') as SVGElement & { getBoundingClientRect(): DOMRect };
     posterSvg.getBoundingClientRect = () => rect({ left: 10, top: 10, width: 200, height: 150 }); // poster HAS a box

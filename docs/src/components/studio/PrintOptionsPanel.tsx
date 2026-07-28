@@ -225,7 +225,7 @@ export function PrintOptionsPanel({
 			const i = pageIdx * nup + k;
 			if (i >= sections.length) return '';
 			return buildSrcdoc({
-				html: `<div class="lattice">${sections[i]}</div>`, css: render.css, mode: render.mode, geom: render.geom,
+				html: `<article class="lattice">${sections[i]}</article>`, css: render.css, mode: render.mode, geom: render.geom,
 				runtimeUrl: render.runtimeUrl, fontCss: render.fontCss,
 				...(render.mermaidUrl ? { mermaidUrl: render.mermaidUrl } : {}),
 				// padding 0 + white ground so the slide fills its cell edge-to-edge (no dark
