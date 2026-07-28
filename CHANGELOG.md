@@ -57,6 +57,20 @@ in patch versions.
 
 ### Changed
 
+- **On a phone, every Studio drawer closes with a back chevron instead of an X — and the
+  iOS back gesture now agrees with it.** The header's dismissal moves from a trailing
+  `X` to a leading `‹ <destination>`, naming where it goes rather than asking you to
+  interpret a glyph. The destination is a property of the *launch path*, not the panel:
+  a drawer reached from the `···` overflow returns there (`‹ More`), the same drawer
+  reached from the Eight-Cell Bar returns to the editor (`‹ Studio`). This frees the
+  trailing slot for the panel's own actions — Reader views' add and the Library's
+  import no longer sit beside a close button as though the two were equals, and they
+  move up to the app's 44px touch floor now that they are the only target in the
+  corner. The `···` overflow itself is retitled **More** (matching its "More controls"
+  trigger); it borrowed the app's name, which stopped working once it grew a chevron
+  pointing at the Studio. Pointer surfaces — tablet and desktop side-sheets, docked
+  columns — keep the trailing `X` and are untouched.
+
 - **Studio mobile drawers: one height, one header, and the search field above the keyboard.**
   The two-tier phone panel height (`auto` / `full`) is retired for a single height — an inset of
   exactly the app header — so all twelve Studio drawers now open at the same size, with the same
@@ -194,6 +208,17 @@ in patch versions.
 
 ### Fixed
 
+- **The iOS back gesture no longer leaves the Studio from inside a drawer (#1226).** Edge-swipe
+  is the primary back affordance on iOS — there is no system back button to avoid — and with any
+  drawer open it navigated page history straight out of the app. Back now dismisses the top layer:
+  inside one of the overflow's doors it pops to the index, at the index it closes the drawer, from
+  any other panel it closes that panel, and only with nothing open does it actually leave.
+  Dismissing by the chevron or the scrim consumes the entry too, so a later back is not eaten by a
+  drawer that is no longer on screen. The mechanism owns **one** history entry for the whole
+  overlay stack and reconciles it after the commit rather than one entry per level from a
+  depth-keyed effect — the first attempt did the latter, and its per-level teardown raced a
+  sibling's push (`docs/src/lib/overlay-back.ts`). Verified in WebKit at `devices['iPhone 15 Pro']`;
+  desktop history is untouched.
 - **`compare-prose axis` and `matrix-grid` clipped their own content in every live preview.** At
   design size the axis stage overran by 39px and the matrix by 59px, cutting the axis lede's first
   line and the matrix's column-header row and `WIDER REACH` axis label. Both now fit with zero

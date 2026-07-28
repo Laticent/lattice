@@ -772,18 +772,18 @@ describe('StudioShell — topbar information architecture', () => {
 		// dialog, not a second stacked sheet.
 		await user.click(within(sheet).getByRole('button', { name: 'Show me' }));
 		expect(screen.queryAllByRole('dialog')).toHaveLength(1);
-		await within(sheet).findByRole('button', { name: 'Back to Studio' });
+		await within(sheet).findByRole('button', { name: 'Back to More' });
 		// The tour cards live here and ONLY here — the drawer is the phone's sole tour entry.
 		expect(sheet.querySelector('[data-tour]')).not.toBeNull();
 
 		// Pop: back to the index, and the door row is reachable again.
-		await user.click(within(sheet).getByRole('button', { name: 'Back to Studio' }));
+		await user.click(within(sheet).getByRole('button', { name: 'Back to More' }));
 		await within(sheet).findByRole('button', { name: 'Show me' });
 		expect(sheet.querySelector('[data-tour]')).toBeNull();
 
 		// Reopening always lands on the index — nobody returns to a screen they forgot.
 		await user.click(within(sheet).getByRole('button', { name: 'Show me' }));
-		await within(sheet).findByRole('button', { name: 'Back to Studio' });
+		await within(sheet).findByRole('button', { name: 'Back to More' });
 		await user.keyboard('{Escape}'); // in a door, Escape pops rather than closing
 		await within(sheet).findByRole('button', { name: 'Show me' });
 		await user.keyboard('{Escape}');

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
-import { PanelBody, PanelEmpty, PanelHeader, PanelSheet } from '@/components/ui/panel';
+import { PanelBackLabel, PanelBody, PanelEmpty, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Separator } from '@/components/ui/separator';
@@ -2997,6 +2997,14 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 	);
 
 	return (
+		// Where the phone's back chevron says it goes, published once for every panel
+		// below. The answer is a property of the LAUNCH PATH, not of the panel: the
+		// Library reached from the drawer returns to the drawer ("‹ More"), the same
+		// Library reached from the Eight-Cell Bar returns to the editor ("‹ Studio").
+		// `drawerPendingReturn` is already exactly that signal — it is the flag that
+		// decides whether the drawer re-opens when this panel closes — so the chevron
+		// and the actual destination cannot disagree.
+		<PanelBackLabel value={drawerPendingReturn ? 'More' : 'Studio'}>
 		<div ref={rootRef} data-studio-root="" className="lx-ui flex h-[100dvh] flex-col bg-background text-foreground">
 			{/* Announce a stop change to assistive tech — the surface can change from a
 			    keystroke (⌘.) or the "Edit this slide" reveal, which would otherwise be
@@ -3600,6 +3608,7 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			{/* The one toast surface — messages (notify) + the Undo action below. */}
 			<Toaster />
 		</div>
+		</PanelBackLabel>
 	);
 }
 
