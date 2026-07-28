@@ -30,6 +30,11 @@ const {
   checkTypographyTokens,
   nonCanonicalFsTokens,
   offendingMargins,
+  sectionBoxOffences,
+  targetsSectionElement,
+  SECTION_BOX_PROPS,
+  checkSectionBoxOwnership,
+  SANCTIONED_SECTION_BOXES,
   checkMarginDiscipline,
   LAYOUT_MARGIN_BUDGET,
   SANCTIONED_MARGINS,
@@ -240,6 +245,91 @@ describe('check-ownership', () => {
       assert.ok(SANCTIONED_MARGINS.length <= 3, 'sanctioned margins should stay a short, justified list');
       for (const s of SANCTIONED_MARGINS) {
         assert.ok(s.file && s.value && s.why, 'every sanction names a file, value, and reason');
+      }
+    });
+  });
+
+  describe('section-box ownership gate', () => {
+    // Regression lock for the shipped bug (#1207): `section.premise { height: 100% }`
+    // resolved against div.lattice — whose height the preview's fit() sets to the
+    // whole FILMSTRIP — so the slide grew to 2517px instead of clipping at 720 and
+    // the runtime mis-stamped data-orientation="portrait". The PDF was correct, so
+    // golden-diff could never see it.
+    test('flags a box dimension on the section element', () => {
+      assert.equal(sectionBoxOffences('section.premise { height: 100%; }').length, 1);
+      assert.equal(sectionBoxOffences('section { height: 100%; }').length, 1, 'bare section is the worst case, not an edge case');
+      assert.deepEqual(
+        sectionBoxOffences('section.a { max-width: 50cqi; }')[0].decl,
+        'max-width: 50cqi',
+      );
+    });
+
+    // The first cut of this gate used a regex anchored on `(^|\})` that CONSUMED
+    // the brace, so the rule immediately after any match was never inspected —
+    // it missed the very bug it was written for whenever another bare-section
+    // rule preceded it. That is the most common way the defect is written.
+    test('inspects EVERY bare-section rule, including adjacent ones', () => {
+      const css = 'section.a:hover { color: red; }\nsection.a { height: 100%; }';
+      assert.equal(sectionBoxOffences(css).length, 1, 'the second adjacent rule must still be seen');
+      const three = 'section.a { color: red }\nsection.b { width: 1px }\nsection.c { height: 2px }';
+      assert.equal(sectionBoxOffences(three).length, 2);
+    });
+
+    test('sees inside at-rules and is case-insensitive', () => {
+      assert.equal(sectionBoxOffences('@media print { section.a { height: 100%; } }').length, 1);
+      assert.equal(
+        sectionBoxOffences('@container lattice (min-width: 10px) { section.a { width: 50%; } }').length, 1,
+      );
+      assert.equal(sectionBoxOffences('SECTION.premise { HEIGHT: 100%; }').length, 1, 'CSS is case-insensitive');
+    });
+
+    test('covers logical-property synonyms and aspect-ratio', () => {
+      for (const prop of ['block-size', 'inline-size', 'min-block-size', 'max-inline-size']) {
+        assert.equal(sectionBoxOffences(`section.a { ${prop}: 100%; }`).length, 1, `${prop} is a synonym of height/width`);
+        assert.ok(SECTION_BOX_PROPS.includes(prop));
+      }
+      assert.equal(sectionBoxOffences('section.a { aspect-ratio: 16/9; }').length, 1);
+    });
+
+    test('a descendant, a pseudo-element, and a custom property are NOT the section box', () => {
+      assert.deepEqual(sectionBoxOffences('section.a .card { height: 100%; }'), []);
+      assert.deepEqual(sectionBoxOffences('section.a > .card { height: 100%; }'), []);
+      assert.deepEqual(sectionBoxOffences('section.a::before { height: 4px; }'), []);
+      assert.deepEqual(sectionBoxOffences('section.a { --card-height: 100%; }'), []);
+      assert.deepEqual(sectionBoxOffences('section.a { transition: width .2s; }'), []);
+      assert.deepEqual(sectionBoxOffences('section.a { padding-block: 2px; }'), []);
+    });
+
+    // A naive `:is(`/`:not(` → `,` flattening tore these open and read the leading
+    // `section.foo` fragment as a whole selector — 4 false positives on the real tree.
+    test('selector parsing respects nested parens in :not()/:has()/:is()', () => {
+      assert.deepEqual(
+        sectionBoxOffences('section.a:not(:has(.below-note)) > :is(ul, ol) + p::before { height: 1px; }'),
+        [],
+        'the subject is p::before, not the section',
+      );
+      assert.equal(sectionBoxOffences('section.a:not(:has(.x)) { height: 100%; }').length, 1);
+      assert.equal(sectionBoxOffences(':is(section.a, section.b) { height: 100%; }').length, 1);
+      assert.equal(sectionBoxOffences('.pane, section.a { height: 100%; }').length, 1, 'section need not be first');
+      assert.equal(sectionBoxOffences('section.a .card, section.b { height: 100%; }').length, 1);
+    });
+
+    test('targetsSectionElement judges the LAST compound', () => {
+      assert.equal(targetsSectionElement('section.a'), true);
+      assert.equal(targetsSectionElement('div.lattice > section'), true);
+      assert.equal(targetsSectionElement('section.a .card'), false);
+      assert.equal(targetsSectionElement('section.a::after'), false);
+      assert.equal(targetsSectionElement('.sectionish'), false, 'must not prefix-match a class');
+    });
+
+    test('the live tree is clean, and every sanction is justified and live', () => {
+      const errors = [];
+      checkSectionBoxOwnership(errors);
+      assert.deepEqual(errors, [], 'no unsanctioned section-box declaration in the tree');
+      // Each entry is the fluid VIEW MODE deliberately unpinning the deck box; it
+      // is gated on :root[data-lattice-view="fluid"], which no export ever sets.
+      for (const s of SANCTIONED_SECTION_BOXES) {
+        assert.ok(s.file && s.decl, 'every sanction names a file and the exact declaration');
       }
     });
   });

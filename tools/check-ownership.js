@@ -711,6 +711,206 @@ const SANCTIONED_MARGINS = [
   },
 ];
 
+// ─── Section-box ownership gate ───────────────────────────────────────────
+// The slide box belongs to the DECK, not to a component. The geometry has one
+// source: the `size:` front-matter directive resolves through resolveSize() to
+// a named `@size` (hd 1280x720, square 1080x1080, …), which every render path
+// then pins onto the section — the engine scaffold as `div.lattice > section`
+// (lib/engine/css.js), the PDF/HTML export as
+// `section[data-lattice-slide] { width/height !important }`
+// (lattice-emulator.js), the live preview via its own frame CSS. A component
+// that also sizes the section element is a second, competing source of truth
+// for a value the deck already decided, and the paths do NOT agree on who wins.
+//
+// That is not a theoretical hazard. `section.premise { height: 100% }` shipped
+// in #1207. The export was unharmed only because the emulator's rule carries
+// `!important`. In the live Playground it resolved against `div.lattice`, whose
+// inline height the preview's fit() routine sets to the height of the WHOLE
+// FILMSTRIP — so the section became as tall as every slide stacked together.
+// Measured on the real Playground at 390px: section 2517px === .lattice 2517px,
+// against ~667px of actual content. lib/runtime/index.js stampOrientation() then
+// read that 1280x2517 box (aspect 0.51) as portrait and applied the portrait
+// type scale (--fs-h1 9.05x vs landscape 5x) to a landscape slide. Every CI gate
+// stayed green: golden-diff compares PDFs, and the PDF was correct.
+//
+// Note the percentage did NOT degenerate to content height — it resolved
+// against a perfectly definite containing block that simply was not the slide.
+// That is why "it looked fine in the export" proves nothing here.
+//
+// Vertical placement inside the slide is `align-items` / `justify-content` /
+// `padding`, never a section-level box. A descendant may size itself freely
+// (`section.foo .card { height: 100% }` is fine) — this guards only the section
+// element itself.
+//
+// Logical properties are included because `block-size` IS `height`; omitting
+// them would leave a synonym-shaped hole. `aspect-ratio` is included because it
+// re-derives one axis from the other, which is the same defect by another name.
+const SECTION_BOX_PROPS = [
+  'height', 'min-height', 'max-height',
+  'width', 'min-width', 'max-width',
+  'block-size', 'min-block-size', 'max-block-size',
+  'inline-size', 'min-inline-size', 'max-inline-size',
+  'aspect-ratio', 'contain-intrinsic-size', 'zoom',
+];
+// Directories whose CSS can style a section. `lib/base/base.modifiers.css` is a
+// documented second home for component variants (see checkVariantDeclaration,
+// which scans it for the same reason), and a theme is `packTheme`-scoped to the
+// same cascade position — both could set a section box and neither is under
+// lib/components.
+const SECTION_BOX_ROOTS = [
+  path.join(LIB_DIR, 'components'),
+  path.join(LIB_DIR, 'base'),
+  path.join(LIB_DIR, 'forms'),
+  path.join(ROOT, 'themes'),
+];
+
+/**
+ * Every rule in `css` whose selector list targets the SECTION element itself.
+ *
+ * A brace-tracking scan, not a regex over the whole sheet: the first cut of this
+ * gate used `/(^|\})\s*(section…)\{([^{}]*)\}/g`, which CONSUMED the `}` it
+ * anchored on, so the rule immediately after any match was never inspected —
+ * two adjacent `section.foo { … }` rules meant the second was invisible, and
+ * that is the single most common way this defect is written. It also could not
+ * see inside `@media`/`@container`, could not handle nested braces, and was
+ * case-sensitive against a case-insensitive language. Exported for unit tests.
+ */
+function sectionBoxOffences(css) {
+  const src = stripComments(css);
+  const out = [];
+  let selStart = 0;
+  const stack = [];
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === '{') {
+      const prelude = src.slice(selStart, i).trim();
+      stack.push(prelude);
+      selStart = i + 1;
+      continue;
+    }
+    if (ch !== '}') continue;
+    const prelude = stack.pop() || '';
+    // Declarations of THIS block are everything since the last brace, minus any
+    // nested blocks — nested content was already consumed by its own `}`.
+    const body = src.slice(selStart, i);
+    selStart = i + 1;
+    if (prelude.startsWith('@')) continue; // at-rule prelude — its children were scanned
+    if (!targetsSectionElement(prelude)) continue;
+    for (const prop of SECTION_BOX_PROPS) {
+      // `(^|;)` so `max-height` never matches the `height` probe, and `-`
+      // excluded before the prop so `--card-height` / `padding-block` are safe.
+      const re = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;}]+)`, 'i');
+      const d = body.match(re);
+      if (d) out.push({ selector: prelude.replace(/\s+/g, ' '), decl: `${prop}: ${d[1].trim()}` });
+    }
+  }
+  return out;
+}
+
+/**
+ * True when a selector LIST contains at least one compound that ends at the
+ * `section` element — `section`, `section.foo`, `SECTION.foo:hover`,
+ * `:is(section.a, section.b)` — but not one that descends past it
+ * (`section.foo .card`, `section.foo > *`, `section.foo::before`).
+ *
+ * A bare `section` counts, and is the WORST case rather than an edge case: a
+ * theme is packTheme-scoped to `div.lattice > section`, exactly the scaffold's
+ * own specificity but emitted after it, so it would silently re-box every slide
+ * in every deck.
+ */
+// Split on `sep` only at paren depth 0, so the commas inside `:is(ul, ol)` or
+// `:not(.a, .b)` do not split the selector they qualify. Naive splitting is what
+// made the first cut of this gate report `section.foo:not(:has(.x)) > p::before`
+// as a section-box rule — it tore the `:not(` open and read the `section.foo`
+// fragment as a whole selector.
+function splitSelectorParts(str, sep) {
+  const out = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of str) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    if (depth === 0 && sep.includes(ch)) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim()).filter(Boolean);
+}
+
+function targetsSectionElement(selectorList) {
+  for (const sel of splitSelectorParts(selectorList, ',')) {
+    const compounds = splitSelectorParts(sel, ' \t\n>+~');
+    const last = compounds[compounds.length - 1];
+    if (!last) continue;
+    // A pseudo-ELEMENT is a generated box, not the section's own.
+    if (/::/.test(last.replace(/\([^)]*\)/g, ''))) continue;
+    if (/^section(?![\w-])/i.test(last)) return true;
+    // `:is(section.a, section.b)` standing alone as the compound — recurse so a
+    // section reached through :is()/:where() is not a free pass.
+    const grouped = last.match(/^:(?:is|where)\((.*)\)$/i);
+    if (grouped && targetsSectionElement(grouped[1])) return true;
+  }
+  return false;
+}
+
+// Budget is a hard zero outside this allowlist. A new exception is a reviewed
+// entry here with its justification — the way SANCTIONED_MARGINS / SANCTIONED_HEX
+// work — never an edit to the detector. The gate also fails on a STALE entry, so
+// the list cannot rot.
+const SANCTIONED_SECTION_BOXES = [
+  // The fluid viewer's whole mechanism is to UNPIN the section from the authored
+  // fixed px box so the runtime re-derives orientation from a viewport-filling
+  // box (engineering/decisions/2026-06-21-fluid-box-viewer-design.md). This is a
+  // VIEW MODE redefining the deck's own geometry, not a component competing with
+  // it — and it is inert by construction: every rule is gated on
+  // `:root[data-lattice-view="fluid"]`, which only the fluid viewer sets, so no
+  // normal deck, gallery, or export render ever matches it.
+  { file: 'lib/base/base.fluid-view.css', decl: 'height: 100dvh !important' },
+  { file: 'lib/base/base.fluid-view.css', decl: 'min-height: 100svh' },
+  {
+    file: 'lib/base/base.fluid-view.css',
+    decl: 'width: min(100%, 100dvh * var(--fill-max-aspect)) !important',
+  },
+];
+
+function checkSectionBoxOwnership(errors) {
+  const offences = [];
+  for (const root of SECTION_BOX_ROOTS) {
+    if (!fs.existsSync(root)) continue;
+    for (const file of listCssFiles(root)) {
+      const rel = path.relative(ROOT, file);
+      for (const o of sectionBoxOffences(fs.readFileSync(file, 'utf8'))) {
+        offences.push({ file: rel, ...o });
+      }
+    }
+  }
+  const remaining = [];
+  const staleSanctions = [...SANCTIONED_SECTION_BOXES];
+  for (const o of offences) {
+    const i = staleSanctions.findIndex((s) => s.file === o.file && s.decl === o.decl);
+    if (i === -1) remaining.push(o);
+    else staleSanctions.splice(i, 1);
+  }
+  for (const o of remaining) {
+    errors.push(
+      `${o.file}: \`${o.selector}\` sets \`${o.decl}\` on the SECTION element. The slide box belongs ` +
+      `to the deck — the \`size:\` directive resolves to a named \`@size\` and each render path pins ` +
+      `it onto the section itself. A component-level box is a competing source of truth, and the paths ` +
+      `disagree on who wins: the export survives only because lattice-emulator.js uses \`!important\`, ` +
+      `while in the live Playground a percentage resolves against \`div.lattice\` — whose height is the ` +
+      `whole FILMSTRIP — so the slide silently stops clipping and the runtime then mis-stamps ` +
+      `data-orientation from the wrong aspect (#1207). Invisible to golden-diff, which only compares ` +
+      `PDFs. Place content with align-items/justify-content/padding, or scope the size to a descendant.`,
+    );
+  }
+  for (const s of staleSanctions) {
+    errors.push(
+      `stale section-box sanction in tools/check-ownership.js — \`${s.decl}\` in ${s.file} is no ` +
+      `longer present. Remove the SANCTIONED_SECTION_BOXES entry so the allowlist stays honest.`,
+    );
+  }
+}
+
 // HARD RULE #20 gate — keep `margin` out of the engine's layout CSS; space with
 // `gap`/`padding`, which measure cleanly (engineering/gotchas.md). Layout budget 0 +
 // the SANCTIONED allowlist above.
@@ -2959,6 +3159,7 @@ function run() {
   checkRetiredTokenNames(errors);
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
+  checkSectionBoxOwnership(errors);
   checkCascadeLayers(errors);
   checkHexLiterals(errors);
   checkUsEnglish(errors);
@@ -3036,6 +3237,11 @@ module.exports = {
   checkTypographyTokens,
   nonCanonicalFsTokens,
   offendingMargins,
+  sectionBoxOffences,
+  targetsSectionElement,
+  SECTION_BOX_PROPS,
+  checkSectionBoxOwnership,
+  SANCTIONED_SECTION_BOXES,
   checkMarginDiscipline,
   LAYOUT_MARGIN_BUDGET,
   SANCTIONED_MARGINS,
