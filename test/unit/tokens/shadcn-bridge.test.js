@@ -44,6 +44,90 @@ describe('shadcn bridge: Tailwind Preflight is OFF', () => {
 			assert.match(sel, /\.lx-ui/, `reset selector must be scoped to .lx-ui (global leak): ${sel}`);
 		}
 	});
+
+	test('a long press on a CONTROL cannot select its label (#1216)', () => {
+		// Reported from a real iPhone: press-and-hold a Studio drawer row and iOS selects
+		// the word and raises the Copy / Look Up callout instead of the row reading as
+		// pressed. Nothing in the app set `user-select` on a control — NOT a Preflight
+		// gap (Preflight declares none), but a per-component convention (shadcn's
+		// `select-none` utility) that a hand-rolled <button> never opted into.
+		//
+		// Extraction is bounded to the @layer base BLOCK (same regex as the guard above),
+		// not sliced to EOF, so moving the rule out of the layer fails this guard: an
+		// unlayered copy would outrank the `utilities` layer, and with it any future
+		// `select-text` opt-in (none exists in source today — Tailwind only emits
+		// utilities it finds, so one has to be written before it can win).
+		const base = /@layer\s+base\s*\{([\s\S]*?)\n\}/.exec(css);
+		assert.ok(base, 'expected an @layer base block');
+		const body = base[1].replace(/\/\*[\s\S]*?\*\//g, '');
+		const rule = body.split('}').find((r) => r.includes("[role='button']"));
+		assert.ok(rule, 'expected a control-scoped selection rule inside @layer base');
+		// `.lx-ui button` is the arm that fixes the report: an attribute selector does not
+		// match an IMPLICIT role, so `[role='button']` could never reach those rows.
+		// Dropping it as "redundant" restores the bug.
+		assert.match(rule, /\.lx-ui button\b/, 'the bare element selector must stay — [role=button] does not match an implicit role');
+		assert.match(rule, /-webkit-user-select:\s*none/);
+		assert.match(rule, /[^-]user-select:\s*none/);
+		assert.match(rule, /-webkit-touch-callout:\s*none/);
+		for (const role of ['button', 'menuitem', 'tab', 'option']) {
+			assert.ok(rule.includes(`[role='${role}']`), `role=${role} must be covered`);
+		}
+	});
+
+	// The two guards below assert the rule's EFFECT, not its text. A red-team pass showed
+	// that asserting only the rule's presence is half a guard: a later `user-select: text`
+	// on `.lx-ui button` — inside this layer, or unlayered anywhere in the site's ~7k lines
+	// of hand-written CSS, which outranks it — restores the reported bug verbatim while a
+	// text-presence assertion stays green. The e2e that measures the computed value
+	// (docs/e2e/touch-chrome.spec.ts) is NIGHTLY, so on the PR path these are the guard.
+	const SITE_CSS_DIR = path.join(ROOT, 'docs/src/styles');
+	/** Every `selector { … }` rule that declares `user-select`, across the site's stylesheets. */
+	const selectionRules = fs
+		.readdirSync(SITE_CSS_DIR)
+		.filter((f) => f.endsWith('.css'))
+		.flatMap((f) => {
+			const text = fs.readFileSync(path.join(SITE_CSS_DIR, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+			return [...text.matchAll(/([^{}@]+)\{([^{}]*user-select[^{}]*)\}/g)].map((m) => ({
+				file: f,
+				selectors: m[1].split(',').map((s) => s.trim()).filter(Boolean),
+				body: m[2],
+			}));
+		});
+
+	test('nothing re-enables selection on an .lx-ui control (#1216 stays fixed)', () => {
+		const CONTROL = /\.lx-ui\s+(button|\[role=)/;
+		for (const rule of selectionRules) {
+			const value = /(?:^|[^-])user-select:\s*([a-z]+)/.exec(rule.body)?.[1];
+			if (!value || value === 'none') continue;
+			for (const sel of rule.selectors) {
+				assert.ok(
+					!CONTROL.test(sel) && sel.trim() !== '.lx-ui',
+					`${rule.file}: \`${sel}\` sets user-select:${value} on an .lx-ui control — that restores #1216 ` +
+						'(a long press selects the label instead of pressing). Scope the opt-in to the specific ' +
+						'element that needs it, never to the control baseline.',
+				);
+			}
+		}
+	});
+
+	test('selection is never disabled for PROSE', () => {
+		// Keyed on which selectors carry `user-select: none`, not on one wildcard shape:
+		// `.lx-ui { user-select: none }` or `.lx-ui p { … }` would make the editor, chat
+		// transcript, code blocks and panel bodies uncopyable by inheritance — worse than
+		// the bug being fixed — and the old wildcard-only matcher was green on exactly that.
+		const CONTROL_TOKEN = /(?:^|\s)(button|\[role=|\[data-slot='button'\])/;
+		for (const rule of selectionRules) {
+			if (!/(?:^|[^-])user-select:\s*none/.test(rule.body)) continue;
+			for (const sel of rule.selectors) {
+				if (!sel.includes('.lx-ui')) continue; // scoped elsewhere (e.g. a drag gutter) — not ours
+				assert.ok(
+					CONTROL_TOKEN.test(sel),
+					`${rule.file}: \`${sel}\` disables selection for something that is not a control. ` +
+						'Prose (the editor, chat transcript, code blocks, panel bodies) must stay selectable.',
+				);
+			}
+		}
+	});
 });
 
 describe('shadcn bridge: required semantic tokens are mapped', () => {

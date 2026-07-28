@@ -2396,6 +2396,30 @@ of how many rows are here.
   first. Full post-mortem: `engineering/decisions/2026-07-02-preview-scale-zoom.md`
   (REJECTED).
 
+### A long press on a button selects its label on iOS (Copy / Look Up callout)
+
+- **Symptom:** On a real iPhone/iPad, press-and-hold any app-chrome control — a Studio
+  drawer row is the reported case — and instead of the row reading as *pressed*, iOS
+  **selects the label text** ("Library") and raises the Copy / Look Up callout. The
+  control behaves like prose. Invisible in every headless test: Playwright's WebKit has
+  no long-press callout UI, and Chromium never shows it at all.
+- **Cause:** nothing set `user-select` on controls. It is **not** a Tailwind Preflight
+  gap — Preflight declares no `user-select` at all. shadcn's primitives each carry the
+  `select-none` *utility* per component, which covers only the components that opted in;
+  a **hand-rolled** `<button>` (the norm in this codebase) inherits `user-select: text`,
+  and iOS answers a long press on selectable text by selecting it.
+- **Fix:** the scoped `.lx-ui` baseline (`docs/src/styles/tailwind.css`, `@layer base`)
+  sets `user-select: none` + `-webkit-touch-callout: none` on controls — `button` plus
+  the ARIA control roles. Scoped to controls on purpose: the same property on `.lx-ui`
+  or a wildcard makes the editor, chat transcript and code blocks uncopyable, which is
+  worse than the bug. Guarded in `test/unit/tokens/shadcn-bridge.test.js` (including
+  against a later rule re-enabling selection — unlayered CSS outranks `@layer base`) and
+  measured in `docs/e2e/touch-chrome.spec.ts` on the `webkit-phone` project.
+- **Note the boundary:** this only reaches `.lx-ui` islands. A surface outside them —
+  the Drawing Board's tab bars, the site header menu, anchors styled as buttons — still
+  selects on long press. For an anchor that is usually *wanted* (iOS's link action sheet
+  offers Open / Copy Link); for a non-`.lx-ui` control it is the same bug, unfixed.
+
 ### Tapping an input zooms the page on iOS (sub-16px text controls)
 
 - **Symptom:** On an iPhone, tapping into a text field — a search box, a settings

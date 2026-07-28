@@ -436,6 +436,32 @@ in patch versions.
   margin was React's scheduling rather than anything the module enforced. Reconcile now
   defers and re-runs when the traversal lands.
 
+- **A long press on a Studio control selected its label instead of reading as a press (#1216).**
+  Reported from a real iPhone: press-and-hold a drawer row and iOS selects the word ("Library") and
+  raises the Copy / Look Up callout — the long press is answered by the text engine, not the button.
+  The site ships **without** Tailwind Preflight, so the scoped `.lx-ui` baseline is the only place
+  that can claim `user-select` on a control, and it never did. The baseline now sets
+  `user-select: none` + `-webkit-touch-callout: none` on controls: `button` plus the ARIA control
+  roles (`button`, `menuitem`, `tab`, `option`). **This was not a Preflight gap** — Preflight declares
+  no `user-select` at all. shadcn's primitives carry the `select-none` utility per component, which
+  covers only what opted in; the bug landed on a hand-rolled `<button>` that no per-component
+  convention reaches, which is why the baseline is the right altitude. `.lx-ui button` is the arm that
+  fixes the report (an attribute selector never matches an *implicit* role); the `[role]` arms do match
+  live nodes — 34 cmdk `<div role="option">` in the command palette, 20 `role="tab"` on the landing
+  page — but those already ship `select-none`, so the arms are defense-in-depth. **Scope, measured:**
+  controls inside an `.lx-ui` island, at every width and on every surface — ~205 nodes in the Studio on
+  a phone, plus the Workbench (37) and the Drawing Board's export menu (7), both frozen apps. Prose
+  stays selectable: editor, chat transcript, code blocks, panel bodies, inputs, and sheet *headings*.
+  One case is accepted deliberately: the Studio slide rail's buttons are labeled with the deck's own
+  slide titles, so that author prose is no longer selectable in the rail (it still is in the editor).
+  Surfaces outside `.lx-ui` are unchanged — the Drawing Board's tab bars, the landing CTAs (anchors,
+  where iOS's link action sheet is wanted), and the site header menu. Measured on WebKit at iPhone 15
+  Pro — before: a range over the row yields "Library" at `user-select: text`; after: empty at `none`.
+  Guarded on effect, not just rule text: the unit tier fails if any stylesheet re-enables selection on
+  an `.lx-ui` control (an unlayered override outranks `@layer base`) or disables it for prose, and the
+  `webkit-phone` e2e measures the computed value. `-webkit-touch-callout` is an iOS-only property this
+  WebKit build does not implement (`CSS.supports` → false), so that half is belt-and-braces and
+  **UNVERIFIED** outside a real device — as is the callout gesture itself.
 - **The iOS back gesture no longer leaves the Studio from inside a drawer (#1226).** Edge-swipe
   is the primary back affordance on iOS — there is no system back button to avoid — and with any
   drawer open it navigated page history straight out of the app. Back now dismisses the top layer:
@@ -1710,7 +1736,7 @@ in patch versions.
   scene carries ONE adaptive corner control — ⏸ to pause, ▶ to resume (seamless, it continues rather than
   restarts), ↻ to replay a finite scene that has ended — so motion is always the viewer's to stop and
   start. And when the reduced-motion floor alone holds a would-move scene to its poster, the host offers a
-  labelled **"Play the motion"** opt-in: the OS setting still governs the default (nothing autoplays), but
+  labeled **"Play the motion"** opt-in: the OS setting still governs the default (nothing autoplays), but
   a viewer who wants the motion can choose it, and the click plays the full author-intended scene. The
   floor still bounds what the *author* can force; it no longer strips the *viewer's* agency. In the
   surface-agnostic host, so Studio present + HTML export inherit it. (`docs/src/lib/anima/hydrate.ts`,
@@ -2714,7 +2740,7 @@ in patch versions.
 
 
 - **Three `list-steps` variants for a vertical staged-argument flow —
-  `chevron`, `converge`, `ghost`.** A labelled sequence that cascades *down* the
+  `chevron`, `converge`, `ghost`.** A labeled sequence that cascades *down* the
   frame (Problem → Vision → … → Plan), authored as a plain numbered list with a
   one-line body per stage. `chevron` gives an accent down-chevron tab keyed into
   a description card (a boardroom-clean take on the classic persuasion frame);
@@ -4076,7 +4102,7 @@ in patch versions.
 - **`compare-table` reshapes to cards on a phone — and is no longer landscape-locked.** A
   wide read-across comparison can't fit a portrait box by paginating rows (its overflow is
   across the columns), so on a portrait/mobile export `compare-table` now RESHAPES: each row
-  becomes a card and the column headers become its labelled fields, then the cards
+  becomes a card and the column headers become its labeled fields, then the cards
   cover-paginate behind an accent cover (carrying the table's `--spectrum` strip so a split
   reads as the same deck). Every cell survives the transpose; nothing shrinks. This retires
   compare-table's landscape-only lock — it supports **both** orientations now — the first
@@ -4982,7 +5008,7 @@ in patch versions.
 - **Progress island + island gap/clip contract (islands model, Phase 2b).** On
   `islands` slides, a footer-center dot-rail orients the audience: it derives
   sections from the deck's `divider` slides and stamps one dot per section
-  (current elongated + accented, labelled with the divider title) into every
+  (current elongated + accented, labeled with the divider title) into every
   islands slide within a section — across all three render paths; absent when
   the deck has no dividers; opt out with `no-progress`. Islands now also keep
   a **defined gap** to their neighbours (a footer safe-area reserve) and
@@ -5290,7 +5316,7 @@ in patch versions.
   unified across all four, and the spine reads on both canvases. Separately, `roadmap` now emits a
   **bottom-center status key** (✓ shipped · – in flight · ○ planned · ╱ out of
   scope) for the marker states actually present, so an emailed deck reader can
-  decode the symbols; it is omitted on the `status` variant (already labelled
+  decode the symbols; it is omitted on the `status` variant (already labeled
   per-cell) and `horizons` (its cards carry Now/Next/Later framing). And
   `journey` — a wide board — moves its actor + mood keys from the top-left to
   **bottom-center** and centres the diagram vertically (all five variants).
@@ -5452,7 +5478,7 @@ in patch versions.
   transform. Distinct from a reference FAQ (many terse look-ups) and from
   `list-criteria` (evaluation criteria + rationale) — q-and-a defends a
   recommendation.
-- **Drawing Board: each cloud Architect reply is labelled with the model that
+- **Drawing Board: each cloud Architect reply is labeled with the model that
   produced it** — the bubble heading reads "The Architect (DeepSeek V4 Pro)", using
   *our* record of the model we sent the turn to, not the model's self-report (which
   is unreliable — models routinely misname themselves, and a prior identity claim in
@@ -8776,7 +8802,7 @@ in patch versions.
   identically to plain `compare-prose`. Re-scoped to the live
   `> :is(ul,ol) > li` structure (the same DOM the working `transition` variant
   uses): `chosen` tints the winner card, `rejected` dims + strikes the dropped
-  card, `decision` does both plus a labelled **DECISION** chevron, `vertical`
+  card, `decision` does both plus a labeled **DECISION** chevron, `vertical`
   stacks the two cards. The cross-cutting `mirror` modifier on `compare-prose`
   was dead for the same reason and is fixed alongside. Surfaced by the
   manifest-vs-CSS audit (`engineering/decisions/2026-06-15-manifest-css-audit.md`).
@@ -8827,7 +8853,7 @@ in patch versions.
   canonical count (`dist/docs/components.json`).
 
 - **Overflow signalling split into authoring vs. delivery — and made
-  accessible.** The loud signal (the red ring + a new labelled **"OVERFLOWS"
+  accessible.** The loud signal (the red ring + a new labeled **"OVERFLOWS"
   corner tab** — text, not color alone, fixing WCAG 1.4.1) now appears **only in
   the live preview** (VS Code / Drawing Board / playground), where the author is
   fixing. **Exported PDFs no longer burn in the ring** — a red box in front of a
@@ -9703,7 +9729,7 @@ in patch versions.
   nine rows stay one tap. Escape pops a door before it closes the sheet; the level always resets to
   the index on reopen; focus moves to Back on the way in and returns to the door you came from on
   the way out; and a `role="status"` region announces the push and the pop, because retargeting an
-  open dialog's `aria-labelledby` does not re-speak in VoiceOver or NVDA. **The theme grid also
+  open dialog's `aria-labeledby` does not re-speak in VoiceOver or NVDA. **The theme grid also
   fixes a swatch that was literally invisible** — onyx's dot is `#000000` and the onyx-dark sheet is
   `#000000`, so with a transparent border it was byte-identical to its own background; every tile
   now carries a `--text-heading`-derived hairline and a real name, and the selected tile is marked
@@ -11771,7 +11797,7 @@ in patch versions.
   cards an inner title|badge + full-width-body grid) → flex-wrap whose wrapped rows stretch to
   share the stage (`align-content:stretch`), each card the actors two-cells-then-full-width
   pattern; `.three` / `.four` set the per-card width. Look-preserving in light + dark across
-  every variant. **The "hard tier" was largely mislabelled** — reassessed against the proven
+  every variant. **The "hard tier" was largely mislabeled** — reassessed against the proven
   flex patterns, these were nested-1D or fixed tilings; the equal-height-variable-rows case
   that flex supposedly couldn't do is just `align-content:stretch` + matrix `width`. (Still
   pending: `kpi`'s bespoke variants and `citation-card`'s `.margin` / `.triptych`, the only

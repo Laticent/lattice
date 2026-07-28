@@ -150,6 +150,55 @@
 		background: none;
 		cursor: pointer;
 	}
+	/* A control's LABEL is not prose. Reported from a real iPhone: press-and-hold a
+	 * Studio drawer row and iOS SELECTS the word ("Library") and raises the
+	 * Copy / Look Up callout instead of the row reading as pressed — the long press
+	 * is answered by the text engine, not the button.
+	 *
+	 * WHY IT WAS MISSING — and it is NOT "Preflight would have covered it": Tailwind's
+	 * Preflight sets no `user-select` at all (checked in v4.3.1). Nothing anywhere set
+	 * it. shadcn's own primitives each carry the `select-none` UTILITY per component
+	 * (ui/command.tsx, ui/dropdown-menu.tsx, ui/select.tsx), which covers exactly the
+	 * components that opted in — and the bug landed on a HAND-ROLLED <button>
+	 * (StudioDrawer.tsx:91, :128) that no per-component convention reaches. Hand-rolled
+	 * controls are the norm here, so the baseline is the right altitude: it catches
+	 * every future one for free.
+	 *
+	 * `.lx-ui button` is the arm that fixes the report — an attribute selector does not
+	 * match an IMPLICIT role, so `[role='button']` (which matches nothing authored in
+	 * this repo) could never have reached those rows. Do not "tidy away" the element
+	 * selector. The other `[role]` arms DO match live nodes — cmdk renders
+	 * `<div role="option">` (34 in the Studio command palette), and there are
+	 * `role="tab"` buttons on the landing page — but those already ship `select-none`
+	 * from shadcn, so the arms are cheap defense-in-depth, not today's coverage.
+	 * (Radix's DropdownMenu rows are `role="menuitem"` divs but sit OUTSIDE `.lx-ui`:
+	 * ui/dropdown-menu.tsx is the one portal wrapper that doesn't add the class, so
+	 * that arm cannot reach them at all — tracked separately.)
+	 *
+	 * SCOPE, measured: controls inside an `.lx-ui` island, on EVERY surface and at
+	 * every width — ~205 nodes in the Studio on a phone, and the Workbench (37) and
+	 * Drawing Board's export menu (7) too, both frozen apps. It is not touch-only and
+	 * not Studio-only. Prose stays selectable: the editor, chat transcript, code
+	 * blocks, panel bodies, inputs, and sheet headings (a drawer's <h2> still selects).
+	 * One case sits on the line and is accepted deliberately: the Studio slide rail's
+	 * buttons are labeled with the DECK's own slide titles, so that author prose is
+	 * now unselectable in the rail — it stays selectable in the editor, which is where
+	 * anyone would copy it from. Surfaces outside `.lx-ui` are untouched (the Drawing
+	 * Board's tab bars, the landing CTAs — anchors, where iOS's link action sheet is
+	 * wanted — and the site header menu).
+	 *
+	 * Kept OUT of the `.lx-ui button` rule above on purpose: that one also sets
+	 * `background: none`, so merging them would either strip the backgrounds of the
+	 * `[role]` arms or force dropping those arms entirely. */
+	.lx-ui button,
+	.lx-ui [role='button'],
+	.lx-ui [role='menuitem'],
+	.lx-ui [role='tab'],
+	.lx-ui [role='option'] {
+		-webkit-user-select: none;
+		user-select: none;
+		-webkit-touch-callout: none;
+	}
 	.lx-ui svg {
 		display: block;
 	}
