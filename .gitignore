@@ -79,4 +79,3 @@ themes/*.html
 # the nightly workflow writes .perf-out/ at the repo root)
 .perf/
 .perf-out/
-docs/src/components/site/
