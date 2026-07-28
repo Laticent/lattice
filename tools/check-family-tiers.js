@@ -141,10 +141,23 @@ function sweepDeck(size, comps) {
   const gallery = fs.readFileSync(path.join(ROOT, 'test', 'integration', 'baseline-decks', 'gallery.md'), 'utf8');
   const slides = gallery.split(/^---\s*$/m);
   const picked = [];
+  // Read the `_class:` directive's TOKENS and compare by value. An earlier cut
+  // built a RegExp per component from its name with only `-` hand-escaped, which
+  // CodeQL flagged (incomplete escaping) and which would misfire on any name
+  // carrying a regex metacharacter. Comparing tokens has no escaping problem to
+  // get wrong, and it is also more accurate: a substring match would let
+  // `list` claim a `list-tabular` slide.
+  const classTokens = (slide) => {
+    const out = new Set();
+    for (const m of slide.matchAll(/<!--\s*_?class:([^-]*(?:-(?!->)[^-]*)*)-->/g)) {
+      for (const t of m[1].trim().split(/\s+/)) if (t) out.add(t);
+    }
+    return out;
+  };
+  const tokenised = slides.map((s) => ({ s, tokens: classTokens(s) }));
   for (const c of comps) {
-    const re = new RegExp(`_class:[^\\n]*(?:^|\\s)${c.replace(/-/g, '\\-')}(?:\\s|-->)`);
-    const s = slides.find((x) => re.test(x));
-    if (s) picked.push({ comp: c, body: s.trim() });
+    const hit = tokenised.find((x) => x.tokens.has(c));
+    if (hit) picked.push({ comp: c, body: hit.s.trim() });
   }
   const src = `---\nmarp: true\ntheme: indaco\nsize: ${size}\npaginate: true\n---\n\n`
     + picked.map((p) => p.body).join('\n\n---\n\n') + '\n';
