@@ -218,6 +218,25 @@ test.describe('@webkit-phone back closes off-Studio sheets too', () => {
 		expect(page.url()).not.toBe(start);
 	});
 
+	test('the site SEARCH dialog closes on back too — same header, same rule', async ({ page }) => {
+		// The one the first pass missed. It sits in the same header as the nav sheet, so
+		// "tap Menu, back closes it; tap Search, back leaves the site" was a mixed rule in a
+		// single row of chrome. It is a `CommandDialog` rather than a `Sheet`, which is
+		// exactly why it did not look like the others.
+		await page.goto('/', { waitUntil: 'networkidle' });
+		await page.waitForTimeout(1200);
+		const start = page.url();
+
+		await page.getByRole('button', { name: /search/i }).first().click();
+		await page.waitForTimeout(800);
+		await expect(page.locator('[role=dialog]')).toHaveCount(1);
+
+		await page.goBack();
+		await page.waitForTimeout(800);
+		await expect(page.locator('[role=dialog]')).toHaveCount(0);
+		expect(page.url(), 'back left the site instead of closing search').toBe(start);
+	});
+
 	test("the Playground's Galleries sheet closes on back and stays on the page", async ({ page }) => {
 		await page.goto('/playground/', { waitUntil: 'networkidle' });
 		await page.waitForTimeout(2200);

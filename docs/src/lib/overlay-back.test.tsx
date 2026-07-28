@@ -26,15 +26,36 @@ let back: ReturnType<typeof vi.spyOn>;
 /** Let the controller's reconcile microtask run. */
 const settle = () => new Promise<void>((r) => setTimeout(r, 0));
 
-/** jsdom's `history.back()` does not reliably emit `popstate`, so drive it by hand. */
-const userBack = async () => {
+/**
+ * A history traversal, driven by hand — jsdom's `history.back()` does not reliably emit
+ * `popstate`, and its timing is jsdom's rather than ours.
+ *
+ * BOTH halves matter, and a first version only did the second. A traversal moves the
+ * current entry to the PREVIOUS one, which does not carry our marker; dispatching a bare
+ * `popstate` while `history.state` still says `__latticeOverlayBack` models a browser
+ * that does not exist, and it is what let a real defect hide — `adopt()` re-claiming an
+ * entry the traversal had already spent. Clearing the state first is the whole difference
+ * between a test that can tell the two orderings of `adopt()` apart and one that cannot.
+ */
+const traverse = async () => {
+	history.replaceState(null, '');
 	window.dispatchEvent(new PopStateEvent('popstate'));
 	await settle();
 };
+/** The user pressed back. */
+const userBack = traverse;
+/** A traversal WE started has landed. */
+const landTraversal = traverse;
 
 beforeEach(() => {
 	__resetOverlayBack();
-	push = vi.spyOn(window.history, 'pushState').mockImplementation(() => {});
+	history.replaceState(null, '');
+	// CALL THROUGH, deliberately. A first version mocked this to a no-op, which meant
+	// `history.state` was never marked — so `adopt()` could not fire in ANY test, and the
+	// one state transition that makes this module non-trivial was invisible to the whole
+	// suite. It hid a real defect (see "re-arms after a deferred traversal"). Counting the
+	// calls is the assertion; the marker has to be real for the assertion to mean anything.
+	push = vi.spyOn(window.history, 'pushState');
 	// Call-through is wrong here: a real jsdom `back()` would emit a popstate the
 	// controller must swallow, and the timing of that is jsdom's, not ours. Counting the
 	// call is the assertion; the swallow is exercised explicitly below.
@@ -112,8 +133,7 @@ describe('useOverlayBack', () => {
 		rerender(<Harness outer={true} inner={false} onOuter={after} onInner={noop} />);
 		await settle();
 		push.mockClear();
-		window.dispatchEvent(new PopStateEvent('popstate'));
-		await settle();
+		await landTraversal();
 		expect(after).not.toHaveBeenCalled();
 	});
 
@@ -206,9 +226,35 @@ describe('useOverlayBack', () => {
 
 		// The traversal lands. Now the deferred work runs and the entry is re-armed —
 		// deferring must not mean dropping.
-		window.dispatchEvent(new PopStateEvent('popstate'));
-		await settle();
+		await landTraversal();
 		expect(push).toHaveBeenCalledTimes(2);
+	});
+
+	it('re-arms after a deferred traversal — deferring must not mean DROPPING', async () => {
+		// The guard's whole claim, asserted against a REAL `pushState` so the entry is
+		// genuinely marked. With `adopt()` running before the in-flight check, it re-claimed
+		// the entry we had just given up (the browser has not traversed yet, so the marker is
+		// still on the current entry) — the deferred reconcile then saw `sentinel` already
+		// true and re-armed nothing, leaving the controller owning an entry it did not have.
+		// Found by the independent checker; the mocked `pushState` is why the suite missed it.
+		const noop = () => {};
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(push).toHaveBeenCalledTimes(1);
+		expect(history.state?.__latticeOverlayBack, 'the entry must really be marked').toBe(true);
+
+		rerender(<Harness outer={false} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(back).toHaveBeenCalledTimes(1);
+
+		// Re-opens inside the traversal window — deferred, no push yet.
+		rerender(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(push).toHaveBeenCalledTimes(1);
+
+		// The traversal lands: the current entry becomes the previous, unmarked one.
+		await landTraversal();
+		expect(push, 'the deferred work must actually run').toHaveBeenCalledTimes(2);
 	});
 
 	it('ignores a popstate when nothing is open', async () => {

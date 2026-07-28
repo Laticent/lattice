@@ -32,12 +32,17 @@
 // re-render never tears the registration down and rebuilds it — the other half of what
 // made the first attempt fragile.
 //
-// SCOPE: phones, and Studio drawers. `PanelSheet` registers itself when it is a bottom
-// sheet (`useIsPhone`), and `StudioDrawer` registers twice — once for the sheet, once
-// for an open door. Desktop and tablet never register, so history stays untouched
-// there, which is what the issue's acceptance check #5 requires. Present, the guided
-// tour, `MetricDetail` and the Playground sheets are deliberately NOT wired (decided
-// with the product owner, 2026-07-28) — they keep today's behavior.
+// SCOPE: phones. `PanelSheet` registers itself when it is a bottom sheet (`useIsPhone`),
+// `StudioDrawer` registers twice — once for the sheet, once for an open door — and the
+// off-Studio sheets register individually (site nav, the site search dialog, both
+// Playground sheets, `MetricDetail`). Desktop and tablet never register, so history stays
+// untouched there, which is what the issue's acceptance check #5 requires.
+//
+// This paragraph used to end "Present, the guided tour, `MetricDetail` and the Playground
+// sheets are deliberately NOT wired" — true for one commit, and left standing when they
+// WERE wired. Still genuinely unwired: Present, the guided tour, and dialogs NESTED inside
+// an already-registered sheet (WorkspaceSheet's confirm, SlidePicker) — where back closes
+// the sheet underneath rather than the dialog on top.
 import * as React from 'react';
 
 type Entry = { onBack: () => void };
@@ -90,7 +95,6 @@ function reconcile(): void {
 	// Cheap and idempotent, so it runs here rather than once at init: `listen()` fires
 	// only when something registers, and a reconcile is the first moment the answer to
 	// "do we already own an entry?" is actually consulted.
-	adopt();
 	// A traversal WE started has not landed yet. Touching history now is the latent
 	// re-entry of the bug that got the first implementation reverted: `history.back()` is
 	// asynchronous, so between firing it and its `popstate` the stack is un-owned, and a
@@ -106,6 +110,15 @@ function reconcile(): void {
 		deferred = true;
 		return;
 	}
+	// AFTER the guard above, and that order is load-bearing. Running it first re-claimed
+	// the very entry we had just given up: while our own `history.back()` is in flight the
+	// browser has not traversed yet, so `history.state` still carries the marker — `adopt`
+	// would set `sentinel = true` for an entry that is on its way out, and the deferred
+	// reconcile would then see `want && sentinel` and re-arm NOTHING. Deferring would have
+	// meant dropping, which is exactly what the guard claims not to do. The shipped test
+	// could not see it because it mocked `pushState` to a no-op, so `history.state` was
+	// never marked and `adopt` never fired. Found by the independent checker.
+	adopt();
 	const want = stack.length > 0;
 	if (want && !sentinel) {
 		// No URL argument: the address bar must not change. This only adds an entry.
@@ -146,10 +159,34 @@ function onPopState(): void {
 	schedule();
 }
 
+/**
+ * A cross-document traversal can leave `pendingPops` stuck above zero forever: this
+ * document unloads (or is bfcached) before its `popstate` arrives, and nothing ever
+ * decrements it. Before the deferral guard that only swallowed one stray `popstate`;
+ * with the guard it wedges `reconcile` PERMANENTLY — no sheet would ever push a
+ * sentinel again, and back would leave the site with a panel open.
+ *
+ * `pageshow` is the recovery point: it fires on a fresh load and on a bfcache restore
+ * (`persisted`), and in both cases any traversal we were waiting on is over — its result
+ * is whatever the current entry now is. Reset and let `adopt()` re-derive ownership from
+ * `history.state`, which is the one source that survives the round trip.
+ *
+ * Reasoned from the module's own measurement (traversing to the previous entry is a FULL
+ * document load) and flagged by the independent checker; a bfcache restore is not
+ * reachable from the sandbox, so this specific path is UNVERIFIED on a real browser.
+ */
+function onPageShow(): void {
+	pendingPops = 0;
+	deferred = false;
+	sentinel = false;
+	schedule();
+}
+
 function listen(): void {
 	if (listening || typeof window === 'undefined') return;
 	listening = true;
 	window.addEventListener('popstate', onPopState);
+	window.addEventListener('pageshow', onPageShow);
 }
 
 /**

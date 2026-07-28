@@ -1680,18 +1680,45 @@ function checkLintExclusions(errors) {
     return;
   }
   const lines = fs.readFileSync(file, 'utf8').split('\n');
-  const tracked = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+  let tracked;
+  try {
+    tracked = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+  } catch (err) {
+    // A raw Node stack here would be a mystery; name the gate that could not run.
+    errors.push(`checkLintExclusions could not list tracked files (\`git ls-files\` failed: ${err.message}). The staleness half of the ${rel} gate cannot run without it.`);
+    return;
+  }
 
   for (let i = 0; i < lines.length; i += 1) {
-    const m = lines[i].match(/^\s*"!([^"]+)",?\s*$/);
-    if (!m) continue;
-    const pattern = m[1];
+    // Deliberately NOT anchored to end-of-line. A first version matched
+    // `^\s*"!([^"]+)",?\s*$`, so ANY entry with a trailing `// …` comment — ordinary,
+    // idiomatic JSONC — was invisible: no reason required, no class, no staleness check.
+    // Re-adding `"!docs/src/components/ui", // shadcn` silently re-excluded 32 files and
+    // the gate said nothing, i.e. the one regression this gate is bought to prevent
+    // walked straight through it. Found by the independent checker.
+    const entries = [...lines[i].matchAll(/"!([^"]+)"/g)];
+    if (!entries.length) continue;
+    if (entries.length > 1) {
+      errors.push(
+        `biome.jsonc puts ${entries.length} exclusions on one line (${entries.map((e) => `"!${e[1]}"`).join(', ')}). ` +
+        `One per line — each needs its own reason, and a shared comment cannot say two different things (#1223).`,
+      );
+      continue;
+    }
+    const pattern = entries[0][1];
 
-    // The reason is the comment block immediately above; its FIRST line names the class.
-    let j = i - 1;
-    const block = [];
-    while (j >= 0 && /^\s*\/\//.test(lines[j])) { block.unshift(lines[j].replace(/^\s*\/\/\s?/, '')); j -= 1; }
-    const reason = block.join(' ').trim();
+    // The reason is a trailing comment on this line, or the comment block immediately
+    // above it. Either way its FIRST words name the class.
+    const trailing = lines[i].slice(lines[i].indexOf(`"!${pattern}"`)).match(/\/\/\s?(.*)$/);
+    let reason;
+    if (trailing) {
+      reason = trailing[1].trim();
+    } else {
+      let j = i - 1;
+      const block = [];
+      while (j >= 0 && /^\s*\/\//.test(lines[j])) { block.unshift(lines[j].replace(/^\s*\/\/\s?/, '')); j -= 1; }
+      reason = block.join(' ').trim();
+    }
     if (!reason) {
       errors.push(
         `biome.jsonc excludes "${pattern}" with no reason. Every exclusion states its class on the line ` +
@@ -1739,11 +1766,22 @@ function matchesLintPattern(file, pattern) {
   const rx = new RegExp(
     `^${pattern
       .split('/')
-      .map((seg) => (seg === '**' ? '.*' : seg.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')))
+      .map((seg) => (seg === '**' ? '.*' : seg.replace(/[.+^${}()|[\]\\?]/g, '\\$&').replace(/\*/g, '[^/]*')))
       .join('/')
       .replace(/\.\*\//g, '(?:.*/)?')}$`,
   );
-  return rx.test(file);
+  if (rx.test(file)) return true;
+  // A pattern can name a DIRECTORY, and `git ls-files` only ever lists files — so a
+  // starred directory pattern matches none of them directly and the staleness half would
+  // call it dead. `!docs/src/lib/*/dist` (a correct consolidation of the four explicit
+  // library-dist entries, and byte-identical to Biome) failed the build and the error
+  // told the author to delete a live exclusion. The star-free path above already had a
+  // prefix arm; this is the same arm for the starred one. Found by the checker.
+  const parts = file.split('/');
+  for (let i = 1; i < parts.length; i += 1) {
+    if (rx.test(parts.slice(0, i).join('/'))) return true;
+  }
+  return false;
 }
 
 function checkPreviewHtmlSinks(errors) {

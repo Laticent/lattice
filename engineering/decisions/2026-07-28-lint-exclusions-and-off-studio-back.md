@@ -34,9 +34,10 @@ noticed when an entry stopped matching anything.
 
 Two failed the rule and both are instructive:
 
-- **`docs/src/components/ui`** — 31 tracked files of *house source*. shadcn is
-  copy-in-and-own, not a dependency: six of those files carry in-tree
-  `DEVIATION from the vendored shadcn base` blocks citing real issues, and two
+- **`docs/src/components/ui`** — **32** tracked files of *house source*. shadcn is
+  copy-in-and-own, not a dependency: three of those files carried in-tree
+  `DEVIATION from the vendored shadcn base` blocks citing real issues before this change
+  (`command`, `dialog`, `sheet`; `breadcrumb` gained the fourth below), and two
   (`panel.tsx`, `pill-tabs.tsx`) are wholly house-authored. `panel.tsx` grew by **222
   lines** during the drawer work without once passing through `npm run lint`.
 - **`examples/**/*.json`** — matched **zero** tracked files. Dead, and silent by
@@ -71,7 +72,8 @@ issue for the staleness case.
 
 ### What linting the directory actually found
 
-18 diagnostics, 12 mechanical. The six manual ones were worth the exercise:
+**52 diagnostics** (27 errors, 25 warnings) — 46 auto-fixed, six by hand. The six were
+worth the exercise:
 
 | finding | fix |
 |---|---|
@@ -84,7 +86,8 @@ The a11y pair is the payoff: a keyboard-unreachable `role="link"` had been sitti
 shipped component, invisible because the folder was excluded.
 
 **Verified** by planting a violation in `panel.tsx` and watching `npm run lint` fail — it
-would have passed silently before. Coverage went 1216 → **1249** files.
+would have passed silently before. Coverage went 1217 → **1249** files (base measured by
+extracting `origin/main` and linting it with its own config, not inferred).
 
 ---
 
@@ -95,8 +98,11 @@ registered from day one. The raw `Sheet`s around it did not. The result was a **
 stack**: back closed the feedback sheet, and the next back left the site with the nav
 sheet still open underneath it.
 
-A mixed rule is worse than either rule applied evenly, so the site nav, the Playground's
-Deck-setup and Galleries sheets, and `MetricDetail` now register too. `MetricDetail`'s
+A mixed rule is worse than either rule applied evenly, so the site nav, **the site search
+dialog**, the Playground's Deck-setup and Galleries sheets, and `MetricDetail` now register
+too. The search dialog was missed on the first pass and sat in the *same header* as the one
+that was fixed — tap Menu, back closed the sheet; tap Search, back left the site. It is a
+`CommandDialog` rather than a `Sheet`, so it did not look like the others. `MetricDetail`'s
 phone branch had to become *controlled* first — it was an uncontrolled Radix sheet with
 only a `SheetTrigger`, and an uncontrolled sheet cannot tell the guard whether it is open.
 
@@ -118,8 +124,22 @@ commits rather than within one.
 Nothing in the UI reached it: the drawer's own close-and-open hand-off coalesces into a
 single reconcile, so the window never opened. Which means the safety margin was **React's
 scheduling**, not anything the module enforced. `reconcile` now defers while
-`pendingPops > 0` and `onPopState` re-schedules when the traversal lands — deferring must
-never mean dropping, and there is a test for exactly that.
+`pendingPops > 0` and `onPopState` re-schedules when the traversal lands.
+
+Two things had to be fixed before that was actually true, both found by the independent
+checker. **`adopt()` ran before the guard**, so while our own traversal was in flight — the
+browser has not moved yet, the marker is still on the current entry — it re-claimed the
+entry we had just given up, and the deferred reconcile then re-armed nothing. Deferring
+*did* mean dropping. And **the test could not have caught it**: it mocked `pushState` to a
+no-op, so `history.state` was never marked and `adopt()` could not fire in any case in the
+suite. `pushState` now calls through, a traversal helper clears the marker the way a real
+one does, and both deferral tests were confirmed to fail against the old ordering.
+
+A traversal whose `popstate` never arrives (a cross-document back, then a bfcache restore)
+would have left `pendingPops` stuck above zero and wedged `reconcile` **permanently** —
+strictly worse than the pre-guard behavior, which only swallowed one stray event. A
+`pageshow` handler resets the counters and lets `adopt()` re-derive ownership from
+`history.state`. That path is **UNVERIFIED** — bfcache is not reachable from this sandbox.
 
 ---
 
@@ -148,8 +168,8 @@ Filed as **#1231**, framed as URL-addressable panels rather than state restorati
 ## Verification
 
 `npm run lint` (1249 files) · engine unit **4446** · docs vitest **2101** ·
-`npm run build:check` · `webkit-phone` **11/11** in WebKit at `devices['iPhone 15 Pro']`,
-including two new off-Studio cases that fail against the mixed stack.
+`npm run build:check` · `webkit-phone` in WebKit at `devices['iPhone 15 Pro']`, including
+the off-Studio cases, which fail against the mixed stack.
 
 Each of the four `checkLintExclusions` failure modes was demonstrated to fire before
 being kept, and the deferral test was confirmed to fail without the guard.
