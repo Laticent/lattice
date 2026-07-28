@@ -40,6 +40,14 @@ bundle (`lib/core/marp-bundle.js` — the recipient's Marp owns that HTML shell)
 > number below §15 as approximate — re-verify at implementation time.** The
 > *structure* (which file, which element) is still correct; only the offsets moved.
 
+> **▶ IMPLEMENTATION STARTED (2026-07-28) — read §17 first.** This note is no longer
+> only a proposal: step 1 of the §13 sequence (the gates) has landed. **§17 is the
+> measured baseline** — every §4/§4A claim re-verified against `main` by rendering
+> the real gallery, not by grep. It supersedes the citation banner above for the
+> facts it covers, and it CORRECTS two things the design got wrong about the
+> codebase (the `aria-hidden` allowlist is unimplementable as specified; the chart
+> `<figure>` spec is incomplete and partly moot). Start there.
+
 ---
 
 ## 1. The problem, in plain language
@@ -1008,3 +1016,153 @@ conversion ships a co-located `margin:0` reset and goes through **export sign-of
 byte-neutral attribute additions. None of this closes **G5** (a caption + a `<title>`
 name the chart; they don't give a blind user its *data* — the data-table alternative
 stays tracked).
+
+---
+
+## 17. Implementation baseline — measured against `main`, 2026-07-28
+
+§15 refreshed this note by reading code. **This section refreshed it by rendering
+the deck** — `lib/engine.render()` over the full component gallery (117 slides),
+read as a DOM in jsdom. Where the two disagree, the render wins: it already caught
+one grep-derived claim of mine that was simply false (below, `map`). Everything in
+this section is a measurement against `origin/main` @ `70367ab`, reproducible by
+running `test/integration/invariants/semantic-structure.test.js`.
+
+The headline: **the foundation is clean and the map is still unbuilt.** Nothing in
+§4A has landed. But nothing has rotted either — every invariant the retag depends on
+holds today, which is exactly why the gates could land first.
+
+### 17.1 The measured baseline (gallery, 117 slides)
+
+| Invariant | Measured | Verdict |
+|---|---|---|
+| every slide is a `<section>` | 117 / 117 | ✅ clean |
+| nested `<section>` inside a slide | 0 | ✅ clean — no `section.<name>` collisions |
+| `<header>` per slide | max 1 (101 total) | ✅ holds **because the Cells are still `<div>`** — see 17.3 |
+| `<footer>` per slide | max 1 (116 total) | ✅ same caveat |
+| `<article>` anywhere | 0 | the deck container and leaf cards are both unbuilt |
+| `<figure>` anywhere | 0 (5 literals in `lib/**`, none on a gallery path) | unbuilt |
+| `aria-hidden` over authored prose | **0** | ✅ the §10-I1 regression is not present |
+| nameless reachable landmarks | **0** | ✅ clean zero — the budget starts at 0 |
+| `aria-hidden` `<nav>` | **84** | ⚠ a new over-tagging finding — 17.4 |
+
+### 17.2 Shipped since §15 (credit where due)
+
+- **G2 is closed.** The export shell emits `<html lang>` + `<title>`
+  (`lattice-emulator.js:1837-1838`).
+- **The player's icon-button debt is closed.** `player-core.mjs:961-963` now carries
+  real `aria-label`s (`Present` / `Read · Slides` / `Read · Article`), not the
+  `title`-only naming §15.1 flagged.
+
+### 17.3 Still unbuilt — the whole §4A map, with fresh citations
+
+| Target | Current state |
+|---|---|
+| deck container → `<article>` | still `<div class="lattice">` — `lib/engine/slides.js:229` |
+| `css.js` lockstep | still `div.lattice > section` — `lib/engine/css.js:104,117,125,144,149,150` |
+| masthead Cell → `<header>` | still `<div class="cell-masthead">` — `masthead.transform.js:325` |
+| carousel lockstep hazard | **real, unchanged** — `carousel.js:61,195` regex the literal `<div class="cell-masthead">` |
+| export shell `<main>` + skip link | absent |
+| player shell `<main>` | absent — `#lp-app` / `#lp-stage` are `<div>`s |
+| player TOC name | **still nameless** — `<nav id="lp-toc">`, `player-core.mjs:985` |
+| Studio `<main>` | **still zero**, as it has been since the original note |
+| axe gate (G10) | no `axe-core` in the dependency tree |
+
+The nested-`<footer>` collision §15.3 predicted is confirmed *by construction*: the
+≤1-per-slide invariant holds today only because the Cells are `<div>`s. The moment
+`.cell-footer` → `<footer>` lands, the absorbed running directive nests inside it.
+That is now a **failing test** rather than a prediction — which is the point of
+landing the gates first.
+
+### 17.4 Correction 1 — the `aria-hidden` allowlist (§8-#4) is unimplementable as written
+
+§8-#4 specified a gate keyed on `SANCTIONED_ARIA_HIDDEN = {.backdrop, .image-scrim,
+.lattice-bg}`. **Reality: `aria-hidden` appears at 65 source sites and 160 rendered
+nodes**, and the overwhelming majority are *correct* — SVG grid groups, legend
+swatches, decorative dots and rails. A three-class allowlist would fail on ~157
+legitimate nodes on day one, so it would have been widened until it meant nothing.
+
+**The gate is redesigned to key on the failure mode instead of the class list:** an
+`aria-hidden` subtree must not contain authored prose (`h1`–`h6`, `p`, `li`, `td`,
+`th` with text). That is the actual defect §10-I1 caught — `.image-text` hiding the
+author's `<h2>` — and it catches it regardless of which class carries it, which the
+allowlist could not. Measured baseline: **0 offenders.**
+
+### 17.5 Correction 2 — the `<figure>` conversion is blocked on a problem §16 doesn't name
+
+§7 lists three hazards for the chart `<figure>` work (UA margin, the
+`div.functionplot` JS selector, the CSS `:is(…figure…)` leak). There is a fourth, and
+it is the one that matters — **measured on the rendered gallery, not grepped:**
+
+| Root SVG | `aria-hidden` | `role` | named? |
+|---|---|---|---|
+| `funnel-svg` | **true** | `img` | **no** |
+| `quadrant-svg` | **true** | `img` | **no** |
+| `wc-svg` (word-cloud) | false | — | **no** |
+| `gantt` · `piechart` · `radar` · `map` · `state-chart` | false | `img` | bare child `<title>` |
+| `journey-face` · `journey-curve` | true | — | decorative, correct |
+
+**`funnel` and `quadrant` are entirely absent from the accessibility tree** — the
+root SVG is `role="img" aria-hidden="true"`, and every label lives inside it. Their
+`.funnel-figure` / `.quadrant-figure` wrappers contain *nothing else*. So retagging
+those wrappers to `<figure>` would announce **"figure"** and then present an empty
+region — measurably worse than today's silence, because it advertises content that
+isn't there.
+
+Two further corrections this measurement forces:
+
+- **A grep-derived claim of mine was wrong.** `map.transform.js:304` does emit an
+  `aria-hidden` SVG root, but the gallery's map does **not** render through that
+  branch — the shipped `map-svg` is not hidden and carries a `<title>`. Source greps
+  overstate this problem; only the render settles it. (§16 should be re-derived the
+  same way.)
+- **The seven `<title>`-named SVGs use exactly the pattern §14 already flagged as
+  unreliable** — a bare child `<title>`, which VoiceOver/Safari and older JAWS drop.
+  They need the `aria-labelledby`-referenced form. So "named" in the table above
+  means *named in the DOM*, not *reliably announced*.
+
+**Consequence for sequencing:** the `<figure>` commit (§13 step 4) now depends on
+first settling the SVG naming story — un-hide `funnel`/`quadrant` with a real
+accessible name, name `wc-svg`, and move the bare `<title>`s to the id-referenced
+form. That is a *prerequisite*, not a follow-up: `<figure>` over an unnamed or
+hidden graphic is not a semantic win. **§16's per-component table is also stale** —
+`matrix-grid-figure` and `scene-figure` are new wrappers it never listed, and the
+chart family went all-SVG on 2026-07-27 (`2026-07-27-chart-family-all-svg.md`).
+Re-derive it from a render before implementing.
+
+### 17.6 Correction 3 — a new over-tagging instance the rubric should have caught
+
+The progress rail emits **`<nav class="tile-progress" aria-hidden="true">`** — 84 of
+them in the gallery. That is self-contradictory: it claims the `navigation` role and
+then removes itself from the accessibility tree. It is not *harmful* (the hiding
+wins, so there is no landmark flood — the measured nameless-landmark count is 0), but
+it is the exact over-tagging §3 forbids, and it is the honest `<div>` case: a
+decorative duplicate of the pagination.
+
+The retag is class-keyed in CSS and byte-neutral, but **not a pure tag-swap** — a
+string-literal consumer matches the opening tag (`lib/core/split-envelope.js:129`),
+the same hazard shape as `carousel.js`. So it is landmark work, not gate work: the
+gate seeds an **exceed-only budget at 84** so it cannot grow, and the budget drops to
+0 when the rail retag lands with its lockstep edit.
+
+### 17.7 What landed, and what is next
+
+**Landed (step 1 of the §13 sequence — the gates):**
+`test/integration/invariants/semantic-structure.test.js` — six invariants over the
+rendered gallery (slide-stays-`<section>`, no nested `<section>`, ≤1
+`<header>`/`<footer>` per slide, `<article>` only on a sanctioned class with an
+anti-rot check, no `aria-hidden` prose, no nameless landmark + the hidden-`<nav>`
+ratchet). Each was **mutation-tested** — a synthetic violation of every one was
+confirmed to fail the gate, with a named control confirming no false positive. It
+runs in the per-PR tier, needs no browser, and takes ~2s.
+
+**Next, in order:** (2) the byte-neutral landmarks — export shell `<main>` + skip
+link, player shell `<main>` + TOC name, Studio `<main>`, the `nav.tile-progress`
+retag with its `split-envelope.js` lockstep; (3) the engine container + Cell retags
+with the `css.js` and `carousel.js` lockstep edits, pixel-diffed; (4) the SVG naming
+prerequisite, *then* `<figure>`; (5) the sign-off demo deck. Steps 3–5 change export
+bytes and merge only after human sign-off (QUALITY BAR).
+
+**Still unverified, and named as such** (HARD RULE #23): no screen reader has been
+run against any of this. jsdom proves DOM shape, nothing more. The G10 axe gate is
+still absent, and NVDA/JAWS/VoiceOver remain unreachable from this sandbox.

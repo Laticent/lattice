@@ -55,6 +55,26 @@ in patch versions.
 
 ## Unreleased
 
+### Added
+
+- **The semantic-HTML retag now has gates, and they landed before the retag.** Six
+  structural invariants over the rendered gallery
+  (`test/integration/invariants/semantic-structure.test.js`, per-PR tier, jsdom, ~2s,
+  no browser): every slide stays a `<section>`; no slide contains a nested
+  `<section>`; at most one `<header>` and one `<footer>` per slide; every `<article>`
+  carries a sanctioned class (with an anti-rot check on the sanction list); no
+  `aria-hidden` subtree contains authored prose; and no reachable landmark is
+  nameless. These are step 1 of the sequence in
+  `engineering/decisions/2026-07-03-semantic-html-accessibility.md` §13 — the design
+  states them as prose, and an invariant with no gate is a future regression
+  (HARD RULE #18). Nothing renders differently when a semantic contract breaks, so
+  without these the retag work would be unfalsifiable. Every gate was
+  mutation-tested: a synthetic violation of each was confirmed to fail it, with a
+  named-landmark control confirming no false positive. Two of them encode a
+  *predicted* break — the ≤1-`<footer>`-per-slide rule holds today only because the
+  Cells are still `<div>`s, so it is what fails when `.cell-footer` → `<footer>` nests
+  the absorbed running directive inside itself.
+
 ### Changed
 
 - **On a phone, every Studio drawer closes with a back chevron instead of an X — and the
