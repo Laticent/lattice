@@ -131,12 +131,26 @@ const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t pb-[env(s
  * content height. Caught only by measuring the built site (HARD RULE #23): twelve
  * drawers came back at twelve different heights, from 274px to 5133px.
  *
- * The inset YIELDS to the keyboard. `clamp(0px, 3.375rem - var(--kb), 3.375rem)` is
- * 3.375rem when `--kb` is 0 and 0 once the keyboard is taller than the inset. The inset
- * exists to keep the app header visible above the sheet — but with a keyboard up there
- * are only ~269px left on an iPhone 15 Pro, and spending a fifth of that on a header the
- * user is not looking at while they type is the wrong trade. Every drawer is still ONE
- * height in both states; it is one RULE, evaluated against what is actually on screen.
+ * The inset YIELDS WHILE YOU TYPE, and it keys off FOCUS rather than off `--kb`.
+ *
+ * The intent is: a typing surface gets the whole visible height, because with a keyboard
+ * up there is very little of it left and a header nobody is looking at is the wrong thing
+ * to spend it on. The first cut expressed that as
+ * `clamp(0px, 3.375rem - var(--kb), 3.375rem)` — arithmetic that collapses the inset once
+ * the keyboard is taller than it. It measured perfectly in a simulation where `--kb` is
+ * whatever the harness sets, and on a real iPhone 15 Pro it did nothing: a 54px band of
+ * deck stayed above the sheet with the keyboard up, which is exactly the amount the inset
+ * is worth. `--kb` is not reliably non-zero there — iOS reports `innerHeight` and
+ * `visualViewport.height` differently than the arithmetic assumes.
+ *
+ * `:has(input:focus, textarea:focus)` asks the question directly instead of inferring it
+ * from viewport numbers: is the user typing INTO this sheet? It needs no measurement, it
+ * cannot disagree with the device, and — unlike the `--kb` path — it is verifiable in a
+ * headless browser, because focus is real there even when a keyboard is not.
+ *
+ * Scoped to text fields on purpose. A bare `focus-within` would also fire when a tapped
+ * ROW keeps focus, and the sheet growing 54px because you touched a list item is worse
+ * than the band it removes.
  *
  * `var(--kb)` with NO fallback, matching `MOBILE_OFFSET` above and the rest of the
  * codebase. `--kb: 0px` is declared on `:root` in `styles/tailwind.css` precisely so
@@ -145,7 +159,8 @@ const MOBILE_BASE = `inset-x-0 ${MOBILE_OFFSET} rounded-t-2xl border-t pb-[env(s
  * to generate for a single surface (the command palette stayed pinned under the
  * keyboard while every other sheet lifted clear). See that declaration's comment.
  */
-export const MOBILE_HEIGHT = 'h-[calc(var(--vvh)-clamp(0px,3.375rem-var(--kb),3.375rem))]';
+export const MOBILE_HEIGHT =
+	'h-[calc(var(--vvh)-3.375rem)] [&:has(input:focus,textarea:focus)]:h-[var(--vvh)]';
 
 /**
  * Publishes the on-screen keyboard's height as `--kb` on <html>.

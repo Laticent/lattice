@@ -92,6 +92,10 @@ in patch versions.
   gains `viewport-fit=cover` (without it iOS reports every `env(safe-area-inset-*)` as 0, which
   made the home-indicator reservation inert on device), and a `theme-color` meta tracks the
   resolved `--bg` per palette and mode so Safari's chrome matches the app instead of framing it.
+  The app-header inset collapses WHILE YOU TYPE, keyed on `:has(input:focus, textarea:focus)`
+  rather than on keyboard arithmetic — the arithmetic measured perfectly in simulation and did
+  nothing on a real iPhone, where `--kb` is not reliably non-zero. Focus asks the question
+  directly, cannot disagree with the device, and is verifiable headlessly.
   See `engineering/decisions/2026-07-28-one-panel-height.md`.
 
 - **Breaking (`list-steps`, unreleased): `capsule` absorbs the `cat` variant and the masthead-rule
