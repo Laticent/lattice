@@ -57,6 +57,36 @@ in patch versions.
 
 ### Fixed
 
+- **The `--fluid` viewer was completely broken by the export shell's new `main`
+  landmark — every slide rendered zero pixels wide.** The fluid viewer sizes each slide
+  `min(100%, 100dvh * --fill-max-aspect)`, and that percentage resolves against the
+  slide's *parent*; interposing `<main id="deck">` between `<body>` and the slides made
+  the body's `align-items:center` shrink-to-fit it, so the percentage resolved against a
+  content-derived width and collapsed everything. The viewer self-activates on load, so
+  a recipient opening the exported `.html` saw a blank page. `<main>` is now transparent
+  to the fluid flex column. Nothing caught this — the `--fluid` integration test
+  asserted type-floor rings but never geometry; it now measures slide width at three
+  viewports.
+
+- **Enabling MathML painted a spurious column rule on `math compare` slides.**
+  `.katex-mathml` is absolutely positioned, and inside a CSS multi-column container
+  Chrome still fragments it — the block gained an extra empty column and a stray 1px
+  hairline at the slide's right edge. Invisible everywhere that isn't a multicol, which
+  is why the first pixel check (on decks without a `math compare` slide) reported
+  identical pages. The MathML now leaves the multicol's fragmentation flow while
+  staying clipped, invisible and fully in the accessibility tree.
+
+- **The HTML player stripped the MathML it was meant to carry.** DOMPurify's default
+  profile allows neither `<semantics>` nor `<annotation>`, so the player shipped 125
+  `<math>` elements with **zero** annotations — and kept the annotation's text, leaving
+  raw LaTeX as a bare text node for a screen reader to read out. Both tags are now
+  allowed; `annotation-xml` remains blocked (a known mXSS vector, and KaTeX never emits
+  it).
+
+- **Mermaid diagrams with YAML front matter were labeled "Diagram" instead of their
+  type.** The type detector skipped the `---` fences but not the front-matter body, so
+  it read `title:` and gave up. 12 of the repo's 100 mermaid blocks use front matter.
+
 - **Charts announced their name and then presented nothing.** `role="img"` is
   children-presentational — it removes the entire subtree from the accessibility tree —
   so giving a chart SVG a `<title>` without a `<desc>` made it announce e.g. "Quadrant
@@ -116,7 +146,7 @@ in patch versions.
   self-contained composition, which is what `<article>` means; the `<main>` landmark
   stays the document shell's job, because `<main>` says *where* the primary content is
   and `<article>` says *what it is*. `lib/engine/css.js` moves in lockstep — the
-  scaffold's 7 geometry rules and `packSelector` both emit `article.lattice > section`,
+  scaffold's geometry rules and `packSelector` both emit `article.lattice > section`,
   preserving the `(0,1,2)` specificity that has to beat the preview frame's
   `.lattice > section` sizing rule (`article` is a type selector exactly like `div`, so
   the specificity is unchanged). Exported PDF pages are pixel-identical to before.
@@ -134,12 +164,10 @@ in patch versions.
   nothing else — an assistive-technology user reached one of those slides and found an
   empty box. Not a name, not the data, not even "image". They now carry `role="img"`, a
   `<title>` (per-variant for quadrant's four variants), and for funnel and word-cloud a
-  `<desc>` enumerating the data a sighted reader gets from the labels. **This was a
-  regression, not an original oversight:** the roots were hidden back when their labels
-  lived in HTML alongside the SVG where AT could still read them, and the all-SVG
-  migration moved those labels *behind* the existing `aria-hidden` without anyone
-  noticing — no gate watched the accessibility tree. Reachable-but-unnamed chart SVGs
-  in a gallery render: **4 → 0**. Visually identical (neither element paints), verified
+  `<desc>` enumerating the data a sighted reader gets from the labels. These were **original
+  oversights present from the commits that introduced these charts** (funnel 2026-06-09,
+  quadrant 2026-05-15) — each shipped `aria-hidden` with its `<text>` labels already
+  inside. Unnamed chart-root SVGs: **3 → 0**. Visually identical (neither element paints), verified
   on a real render. A unit test that asserted `aria-hidden="true"` — pinning the defect,
   so that fixing it would have failed the suite — now asserts the opposite.
 
@@ -170,8 +198,9 @@ in patch versions.
   1440/820/390px: one `<main>` at every width, the skip link first in the tab order, and
   Enter actually **moves focus** to `<main>` rather than only scrolling to it — the
   classic skip-link half-fix.
-- **The player's slide counter announces "Slide 2 of 7" instead of a bare "2 / 7"**, and
-  its table of contents is no longer a nameless landmark (`<nav id="lp-toc">` gains
+- **The player's slide counter carries a spelled-out accessible name** ("Slide 2 of 7")
+  alongside its visible "2 / 7", and its table of contents is no longer a nameless
+  landmark (`<nav id="lp-toc">` gains
   `aria-label="Slides"`). The visible counter text is unchanged.
 
 ### Changed

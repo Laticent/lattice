@@ -164,13 +164,38 @@ describe('semantic structure — <article> only where it is earned (ADR §4A)', 
   test('the sanction list has no stale entries', () => {
     // An allowlist that outlives what it allows stops describing reality and starts
     // laundering it. Same anti-rot shape as the check-ownership sanctions.
-    // The gallery is the coverage surface, so only classes it exercises are checked.
-    const present = new Set([...doc.querySelectorAll('article')].flatMap((a) => [...a.classList]));
-    const rendered = new Set(slides.flatMap((s) => [...s.querySelectorAll('*')].flatMap((e) => [...e.classList])));
+    //
+    // The FIRST version of this check was vacuous, and worth recording as a lesson: it
+    // built its "does this class render at all" set from `slides.querySelectorAll('*')`
+    // — elements INSIDE a slide. The deck container is the slides' PARENT, so `lattice`
+    // could never appear; `ct-card` never renders in the gallery at all. So the filter
+    // was false for both entries and the check passed unconditionally. It protected
+    // zero of two. Mutation-confirmed: demoting `article.lattice` to a `div` left all
+    // ten assertions green.
+    //
+    // Now it searches the WHOLE document (container included) and reports its own
+    // coverage, so a class the gallery cannot exercise is named rather than silently
+    // counted as verified.
+    const asArticle = new Set([...doc.querySelectorAll('article')].flatMap((a) => [...a.classList]));
+    const anywhere = new Set([...doc.querySelectorAll('*')].flatMap((e) => [...e.classList]));
     const stale = SANCTIONED_ARTICLE_CLASSES
-      .filter((s) => rendered.has(s.cls) && !present.has(s.cls))
+      .filter((s) => anywhere.has(s.cls) && !asArticle.has(s.cls))
       .map((s) => s.cls);
-    assert.deepEqual(stale, [], 'a sanctioned article class still renders but is no longer an <article> — drop the entry');
+    assert.deepEqual(
+      stale, [],
+      'a sanctioned class still renders but is no longer an <article> — drop the entry or restore the element',
+    );
+    // Coverage is part of the result, not a footnote: an entry this deck never renders
+    // is UNVERIFIED by this gate, and saying so keeps the pass honest.
+    const uncovered = SANCTIONED_ARTICLE_CLASSES.filter((s) => !anywhere.has(s.cls)).map((s) => s.cls);
+    assert.ok(
+      asArticle.has('lattice'),
+      'the deck container must render as <article class="lattice"> — the entry this gate can actually see',
+    );
+    if (uncovered.length) {
+      // Not a failure: a legitimate entry (the carousel card) simply is not in this deck.
+      process.stdout.write(`# note: sanctioned article classes not exercised by the gallery: ${uncovered.join(', ')}\n`);
+    }
   });
 });
 

@@ -125,10 +125,26 @@ describe('type-floor watcher — the live runtime, on the real bundle', () => {
       const n = await page.evaluate(() => ({
         rings: document.querySelectorAll('section.illegible').length,
         tabs: document.querySelectorAll('.illegible-tab').length,
+        // The fluid viewer's LOAD-BEARING geometry: each slide sizes itself
+        // `width: min(100%, 100dvh * --fill-max-aspect)`, and that percentage resolves
+        // against the slide's PARENT. Anything interposed between <body> and the
+        // sections changes the containing block and collapses every slide to ZERO
+        // width — a blank page for the recipient.
+        slideW: [...document.querySelectorAll('section[data-lattice-slide]')]
+          .slice(0, 3).map((el) => Math.round(el.getBoundingClientRect().width)),
       }));
       await page.close();
       assert.equal(n.rings, 0, `a reader at ${w}x${h} must see no type-floor ring (saw ${n.rings})`);
       assert.equal(n.tabs, 0, `…and no type-floor tab at ${w}x${h} (saw ${n.tabs})`);
+      // Regression guard: the export shell's <main id="deck"> landmark shipped and made
+      // every fluid slide 0px wide — a 100%-broken shipped feature that `npm test`, the
+      // integration tier and CI were all green through, because nothing measured the
+      // fluid viewer's geometry. It does now.
+      assert.ok(
+        n.slideW.length > 0 && n.slideW.every((x) => x > 0),
+        `fluid slides must have non-zero width at ${w}x${h} — got [${n.slideW}]. ` +
+        'Something between <body> and the slides changed their containing block.',
+      );
     }
   });
 });

@@ -1071,9 +1071,19 @@ const MERMAID_KINDS = {
 const escAttrLocal = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function mermaidKindLabel(definition) {
-  for (const raw of String(definition || '').split('\n')) {
-    const line = raw.trim();
-    if (!line || line.startsWith('%%') || line.startsWith('---')) continue;
+  const lines = String(definition || '').split('\n');
+  let inFrontMatter = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    // Mermaid YAML FRONT MATTER is a `---` fenced block, and skipping only the fence
+    // lines left the loop reading `title: …` from INSIDE it — which is not a diagram
+    // keyword, so every front-mattered diagram fell through to the generic "Diagram".
+    // 12 of the repo's own 100 mermaid blocks use front matter, including the baseline
+    // gallery's first diagram, which is the artifact §17.12 originally cited as proof
+    // this worked. Track the block and skip its BODY, not just its fences.
+    if (line === '---') { inFrontMatter = !inFrontMatter; continue; }
+    if (inFrontMatter) continue;
+    if (!line || line.startsWith('%%')) continue;
     const word = (line.split(/[\s:;{(]/)[0] || '').toLowerCase();
     if (!word) continue;
     return MERMAID_KINDS[word] || 'Diagram';
@@ -1191,6 +1201,18 @@ function renderMermaidOne(definition, themeVars, extraClass) {
         });
       }
       fs.rmSync(tmpDir, { recursive: true, force: true });
+      // ── PAST THIS POINT mmdc HAS SUCCEEDED ────────────────────────────────────
+      // Everything below is post-processing on a string we already hold, and it must
+      // NOT be retried: the temp dir above is gone, so a re-run of mmdc would fail on
+      // a missing input file and report `Command failed: … mmdc …` — blaming the
+      // renderer for a bug in our own code. That is exactly what happened when the
+      // accessible-name injection first landed (ADR §17.13): a TDZ error here cost
+      // several minutes of misdiagnosis because the retry laundered it.
+      //
+      // §17.13 stated the lesson and did not apply it. This is the fix: post-processing
+      // gets its own try, so a throw here degrades to the UNPROCESSED-but-valid SVG and
+      // says so, instead of masquerading as a renderer failure.
+      try {
       // ACCESSIBLE NAME. Mermaid emits its root as `role="graphics-document document"`
       // with NO name unless the author wrote `accTitle:` / `accDescr:` in the diagram
       // source — so an un-annotated diagram reaches a screen reader as an anonymous
@@ -1203,6 +1225,10 @@ function renderMermaidOne(definition, themeVars, extraClass) {
       if (!/\saria-label(?:ledby)?=/.test(svg.slice(0, svg.indexOf('>') + 1)) && !/<title\b/.test(svg)) {
         const kind = mermaidKindLabel(definition);
         svg = svg.replace(/^(\s*<svg\b)/, `$1 aria-label="${escAttrLocal(kind)}"`);
+      }
+      } catch (postErr) {
+        // The diagram itself is fine — only our decoration failed. Ship the SVG.
+        console.warn(`  ⚠ Mermaid post-processing failed (diagram still rendered): ${postErr?.message}`);
       }
       const cls = extraClass ? `mermaid-svg ${extraClass}` : 'mermaid-svg';
       return `<div class="${cls}">${svg}</div>`;
@@ -1920,6 +1946,21 @@ ${marpSystemCss}
 @media print{.lat-skip-link{display:none}}
 /* The deck landmark adds no box of its own — the slides keep their own geometry. */
 main#deck{margin:0;padding:0;display:block}
+/* …EXCEPT in the FLUID viewer, where interposing any element between <body> and the
+   slides is NOT layout-neutral. base.fluid-view.css makes <body> a centred flex column
+   and sizes each slide with min(100%, 100dvh * --fill-max-aspect). That percentage
+   resolves against the slide's PARENT — so once <main> sits in between, body's
+   align-items:center shrink-to-fits it, the percentage resolves against a
+   content-derived width, and every slide collapses to ZERO WIDTH. The viewer
+   self-activates on load, so a recipient double-clicking the exported .html saw a
+   blank page.
+   The ADR's §10-R4 argument for this being the one sanctioned wrap — "<main> has no UA
+   margin and the theme CSS is section-scoped" — is about MARGINS and SPECIFICITY. It
+   never considered CONTAINING BLOCKS, which is what "never wrap" (§2 reason 1)
+   actually protects. A wrapper adds no box and still changes layout.
+   Fix: make <main> transparent to the flex column — same axis, full width — so the
+   slides resolve their percentage against the same box they did before. */
+:root[data-lattice-view="fluid"] main#deck{display:flex;flex-direction:column;align-items:center;width:100%;min-width:0;flex:1 0 auto}
 ${globalStyle ? `\n/* Front-matter style: directive */\n${globalStyle}\n` : ''}
 </style></head><body>
 <a class="lat-skip-link" href="#deck">Skip to the slides</a>

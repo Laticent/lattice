@@ -1223,17 +1223,36 @@ after:
 | `wc-svg` | no `role`, no name | `role="img"` + `<title>` + `<desc>` in weight order |
 | the other 7 | `role="img"` + `<title>` | unchanged |
 
-**Reachable-but-unnamed SVGs: 4 → 0.**
+**Unnamed chart-root SVGs: 3 → 0** (funnel, quadrant, word-cloud). *An earlier draft
+said "reachable-but-unnamed: 4 → 0", which the checker refuted: funnel and quadrant were
+`aria-hidden` on `main`, i.e. NOT reachable, so only `wc-svg` was reachable-and-unnamed.
+The honest numbers are **1 → 0** reachable-unnamed or **3 → 0** unnamed chart roots; the
+two framings were conflated to produce a bigger number.*
 
-**Root cause, worth recording.** These were not oversights that predate the design —
-`funnel` and `quadrant` got *worse* over time. Their roots were `aria-hidden` back when
-the labels lived in HTML beside the SVG, where AT could still read them. The all-SVG
-migration (`2026-07-27-chart-family-all-svg.md`) moved the last HTML labels into the
-viewBox for layout reasons, which silently moved them **behind the existing
-`aria-hidden`**. Nothing in that change was wrong on its own terms; the interaction was
-invisible because no gate watched the accessibility tree. That is the §18 "a shared
-change tips a latent fragility into failure" pattern, and it is the argument for the
-§17.7 gates existing at all.
+**Root cause — CORRECTED 2026-07-28 (the checker refuted my first account).** I wrote
+that these "got *worse* over time": that their roots were `aria-hidden` back when the
+labels lived in HTML beside the SVG, and that the all-SVG migration
+(`2026-07-27-chart-family-all-svg.md`) moved the labels behind the existing
+`aria-hidden`. **That story is false in both halves, and it blamed an innocent commit.**
+
+Checked against git history:
+
+- **The funnel was born this way.** `7884d6f1` (2026-06-09, #111 — the commit that
+  *introduces* the funnel) already emits `role="img" aria-hidden="true"` on the root
+  **and** `<text class="funnel-label">` / `funnel-value` / `funnel-conv` inside it.
+- **The quadrant was born this way.** `bd20b434` (2026-05-15) `openSvg` is already
+  `role="img" aria-hidden="true"` with `quadrant-label` / `quadrant-dot-label` already
+  `<text>` inside.
+- **The cited migration never touched either file.** `1d85d1d2` changes `svg-legend.js`,
+  `radar.*`, `chart-family.js` and a gallery — not `funnel`, not `quadrant`.
+
+So these were **original oversights, roughly two months old**, not regressions. The fix
+is unchanged and still right; the *story* was wrong, and a confident causal account is
+exactly what becomes institutional memory if left standing.
+
+Worth naming why I got it wrong: the regression story was more interesting, it fit a
+pattern I had just found elsewhere on this branch, and I never ran `git log` on the
+files. A causal claim needs history, not plausibility.
 
 **A test was pinning the defect.** `funnel.test.js` asserted
 `assert.match(html, /aria-hidden="true"/)` — the suite would have failed if anyone
@@ -1256,7 +1275,7 @@ therefore the PDF bytes do change. It rides the step-5 sign-off with the rest.
 ### 17.10 Step 3, part 1 — the container is an `<article>`; the Cell retags are NOT worth it
 
 **Done: `div.lattice` → `article.lattice`** (§4A "article #1", Fork D). `slides.js`
-emits the new tag and `css.js` moves in lockstep — `scaffold()` (7 rules) and
+emits the new tag and `css.js` moves in lockstep — `scaffold()` (5 rule blocks / 6 selector positions — an earlier draft said "7 rules", counting a comment occurrence) and
 `packSelector` step 3 both emit `article.lattice > section`, preserving the (0,1,2)
 specificity that has to beat the preview frame's `.lattice > section` sizing rule
 (`article` is a type selector exactly like `div`, so the specificity cost is nil).
@@ -1301,10 +1320,20 @@ technology can perceive.** The benefit is aesthetic: the DOM reads more honestly
   `<footer>`, but **six live CSS rules key on that element**:
   `section.form > .cell-footer > footer`,
   `section[data-split-role="cover"] > .cell-footer > footer` (×2, deliberately doubled
-  for weight), `section.silent > footer`, `section.no-footer > footer`, plus
-  component overrides in `scene`, `image` and `chart-family`. Demoting it breaks
-  **chrome suppression** — the `silent`/`no-footer` behavior that already shipped
-  broken once for a full release and now has a dedicated real-browser test.
+  for weight). Demoting it breaks **chrome suppression** — the `silent`/`no-footer`
+  behavior that already shipped broken once for a full release and now has a dedicated
+  real-browser test.
+
+  *(Enumeration CORRECTED 2026-07-28 — the checker found my original list named the
+  wrong rules. The count "six" is right, but I listed `section.silent > footer` and
+  `section.no-footer > footer` from `base.variants.css:38-39`, which are a direct
+  `> footer` child of the SECTION, not inside `.cell-footer` — and that file's own
+  comment says they never match the Form path. The actual six blocks containing
+  `.cell-footer > footer` are `stage.css:214`, `stage.css:260-261` (the `no-footer` /
+  `silent` pair), `stage.css:419` (`claim-hero`), `stage.css:455` (`claim-bleed`),
+  `base.modifiers.css:1405` and `base.modifiers.css:1581`. My list omitted precisely
+  the chrome-suppression rules the argument rests on, while citing rules that don't
+  apply. Conclusion unchanged; the citation was wrong.)*
 - `footer-dock.js` finds the cell's close via a depth-aware `</div>` matcher
   (`matchingDivClose`), which would need to become tag-aware.
 - `carousel.js:61,195` match `<div class="cell-masthead">…</div>\s*</div>` — regexes
@@ -1355,10 +1384,13 @@ preview was fine; only the **export** dropped MathML — the artifact people shi
 one G1/G6 designate as the accessible route for users the fixed canvas fails. Fixed: the
 emulator now uses `htmlAndMathml`.
 
-This is worth generalizing: two of the three worst accessibility holes found on this
-branch (funnel/quadrant, and this) were **regressions created by a reasonable-sounding
-local optimization**, invisible because nothing watched the accessibility tree. That is
-the argument for G10's axe gate, which still does not exist.
+I originally generalized this as "two of the three worst holes were **regressions**
+created by a reasonable-sounding local optimization". **That does not survive §17.9's
+correction** — funnel and quadrant were original oversights, present from the commits
+that introduced them, not regressions. What the three holes actually share is simpler
+and worse: **nothing ever watched the accessibility tree**, so a defect could ship on
+day one (funnel, quadrant) or be introduced later (this one) and no gate could tell the
+difference. Still the argument for G10's axe gate, which still does not exist.
 
 ### 17.12 Third-party renderers — the policy for `<figure>` and naming
 
@@ -1576,3 +1608,115 @@ Tracked, not fixed here.
 the HTML-AAM mapping: `<footer>` maps to `contentinfo` only when its nearest
 sectioning ancestor is `body`; inside `<section>` it is `generic`. No landmark, no
 role, nothing perceivable.
+
+### 17.16 The adversarial trio — red team + checker. Two criticals, and the gate that should have existed
+
+The red team and independent checker returned after §17.15. Between them they found
+**two critical/high defects this branch shipped**, plus a factual error in §17.9 that
+mattered more than either.
+
+#### CRITICAL — the sanctioned `<main>` wrapper broke the `--fluid` viewer completely
+
+`base.fluid-view.css` makes `<body>` a centred flex column and sizes each slide
+`width: min(100%, 100dvh * var(--fill-max-aspect))`. That percentage resolves against
+the slide's **parent**. Interposing `<main id="deck">` made body's `align-items:center`
+shrink-to-fit it, the percentage then resolved against a content-derived width, and
+**every slide collapsed to 0px**. The viewer self-activates on load, so a recipient
+double-clicking the exported `.html` saw a blank page. Verified in Chromium:
+`[{w:0,h:900},{w:0,h:900}]` on this branch vs `[{w:1440,h:900}]` on `main`; deleting
+only the `<main>` tags restored it.
+
+**§10-R4's safety argument was about the wrong thing.** It licensed this one wrap
+because "`<main>` has no UA margin; the theme CSS is `section`-scoped". Both true, and
+both irrelevant: the wrap adds no *box* and no *specificity*, but it adds a
+**containing block** — which is precisely what "never wrap" (§2, reason 1) protects.
+The rule was right and the exception's reasoning was incomplete.
+
+Fixed by making `<main>` transparent to the flex column in fluid view (same axis, full
+width) so slides resolve against the same box as before.
+
+**Nothing caught it.** `npm test` (4448), `test:integration:pr` (382), lint and CI were
+all green with a shipped, documented feature 100% non-functional — there is a `--fluid`
+integration test, but it asserted only type-floor rings, never geometry. **It does now**
+(`legibility-watcher.test.js`, three viewports), and the guard was confirmed to fail
+against the reverted fix.
+
+#### HIGH — MathML is NOT pixel-free on `math.compare`
+
+§17.11 claimed "PDF pages pixel-identical". True on the decks measured; **false on the
+one layout with CSS multi-columns**. `.katex-mathml` is `position:absolute`, and inside
+a multicol Chrome still counts it as fragmentable content: the block gained an extra
+EMPTY column, painting a spurious `column-rule` hairline at the right edge
+(`scrollWidth` 1280 → 1872). Confirmed by rasterizing `math.gallery.md` against `main`
+— page 6 differed, 224 pixels, a 1px vertical stripe — and isolated by deleting the
+`.katex-mathml` nodes, which restored 1280.
+
+**Why the original measurement missed it:** the baseline gallery has a `math` slide but
+**no `math compare`**, and the overflow probe recomputes from flowed child rects, so an
+*empty* column is invisible to it by construction. "0 overflow-flagged slides" was true
+and proved nothing.
+
+Fixed with `position: fixed` on `.katex-mathml` inside the compare variant — it leaves
+the multicol's fragmentation flow while staying clipped, invisible and fully in the
+accessibility tree. `contain` (strict/size/layout/paint), `overflow:hidden` and
+`column-fill:auto` were all tested and all failed. Both flagged decks are now
+pixel-identical to `main` with 90 MathML alternatives intact.
+
+#### MEDIUM — the player stripped the MathML it was supposed to carry
+
+DOMPurify's default MathML profile contains neither `<semantics>` nor `<annotation>`,
+so `sanitizeSlideHtml` removed both from the player — 125 `<math>` elements, **zero**
+annotations — and, worse, kept the annotation's TEXT, leaving raw LaTeX as a bare text
+node inside `<math>` for an AT to read aloud. So the accessibility win §17.11 counts was
+absent from the primary shared artifact. Both tags added to the allowlist;
+**`annotation-xml` deliberately excluded** (a known mXSS vector DOMPurify guards on
+purpose, and KaTeX never emits it). Verified the guard still strips `annotation-xml`,
+`<script>` and `on*`.
+
+#### The §17.9 root-cause story was false — see the correction there
+
+The checker refuted it against git history: funnel (`7884d6f1`, 2026-06-09) and quadrant
+(`bd20b434`, 2026-05-15) shipped `aria-hidden` **with** their `<text>` labels already
+inside, and the all-SVG commit I blamed never touched either file. They were original
+oversights, not regressions, and §17.11's generalization was corrected with them.
+
+#### Other findings folded in
+
+- **The stale-sanction gate was vacuous** — it searched only *inside* slides, where
+  neither sanctioned class can appear. Mutation-confirmed: demoting the container to a
+  `<div>` left all ten assertions green. Rewritten to search the whole document, assert
+  the container specifically, and **report its own coverage** so an unexercised entry is
+  named rather than silently counted as verified.
+- **Mermaid front matter** — `mermaidKindLabel` skipped the `---` fences but not the
+  YAML body, so every front-mattered diagram fell through to "Diagram". 12 of the repo's
+  100 mermaid blocks use front matter, **including the gallery diagram §17.12 cited as
+  proof this worked**. Fixed and re-verified on a real mmdc render.
+- **The retry-laundering trap §17.13 diagnosed was never actually fixed** — the cleanup
+  still preceded post-processing inside the retried `try`. Now post-processing has its
+  own `try`: a throw there degrades to the un-decorated SVG and says so, instead of
+  masquerading as an mmdc failure. Verified with a synthetic throw.
+- **The rail regex was non-greedy over a nestable tag** — safe today (the rail holds
+  only `<span>`s) but a `<div>` child would silently truncate it. Now reuses
+  `footer-dock`'s depth-aware matcher (HARD RULE #15) rather than a second weaker one.
+- **§17.10a's CSS enumeration named the wrong rules** (count right, list wrong — it
+  omitted the chrome-suppression rules its own argument rests on). Corrected in place.
+- **The "4 → 0" headline was inflated** — funnel and quadrant were `aria-hidden` on
+  `main`, so not *reachable*; only `wc-svg` was reachable-and-unnamed. Honest: **1 → 0**
+  reachable-unnamed, or **3 → 0** unnamed chart roots.
+
+#### What survived a serious attack
+
+The red team fuzzed 37 adversarial selector shapes through `packTheme` (leading `:is()`
+with 1–3 arms, `:root`, `:where()`, `:has()`, attribute-commas, near-misses like
+`sectionfoo`) with **zero structural divergence**; swept every consumer surface for
+missed `div.lattice` literals and found only comments and fixtures; pixel-diffed the
+full 117-slide gallery and the funnel/quadrant/word-cloud galleries at **0**; drove
+hostile author text (`</desc><script>`, `<scr<b>ipt>`, entity double-escapes) through
+the new `<title>`/`<desc>` emitters with no splice and no double-escape; and confirmed
+the player landmarks and Studio `<main>` uniqueness in a real browser.
+
+**The standing lesson from all three lenses is the same one, and it is not about any
+individual bug:** every gate on this branch measures DOM shape, and the two worst
+defects were a *layout* break and a *pixel* break that DOM-shape gates cannot see. An
+`axe-core` gate over the three shells (G10) plus real geometry assertions on the fluid
+viewer are worth more than the six structural invariants. One of those two now exists.

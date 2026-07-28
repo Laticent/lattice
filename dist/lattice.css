@@ -8502,6 +8502,29 @@ section.math.compare {
 section.math.compare:has(h3:nth-of-type(3)) {
   column-count: 3;
 }
+
+/* KaTeX's MathML half must not fragment into a column of its own.
+ *
+ * `.katex-mathml` is the accessible alternative KaTeX pairs with its `aria-hidden`
+ * visual rendering — clipped to 1px and painting nothing. It is `position:absolute`,
+ * and inside a MULTI-COLUMN container Chrome still counts an absolutely-positioned
+ * descendant as fragmentable content: with several formulas the block gains an extra,
+ * EMPTY column, which paints a spurious `column-rule` hairline at the slide's right
+ * edge and inflates `scrollWidth` (1280 → 1872 on the gallery's compare slide).
+ *
+ * This is the one place enabling MathML is NOT pixel-free — it is invisible everywhere
+ * that isn't a multicol, which is why the first measurement missed it (the baseline
+ * gallery has a `math` slide but no `math compare`). Found by the red team.
+ *
+ * `position:fixed` takes the node out of the multicol's fragmentation flow entirely
+ * while leaving it clipped, invisible and fully present in the accessibility tree.
+ * Nothing else worked: `contain` (strict / size / layout / paint), `overflow:hidden`
+ * and `column-fill:auto` all left the phantom column in place — verified in Chromium.
+ * Under the slide's fit-scale `transform` the transformed ancestor is the containing
+ * block, so this stays local rather than escaping to the viewport. */
+section.math.compare .katex .katex-mathml {
+  position: fixed;
+}
 section.math.compare > h2 {
   column-span: all;
   padding: 0 0 var(--sp-md) 0;
