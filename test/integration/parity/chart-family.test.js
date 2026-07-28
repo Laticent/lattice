@@ -118,7 +118,10 @@ describe('chart-family', () => {
     assert.match(firstProgress[0], /<p class="chart-eyebrow"><code>H1 2026 · Phase 1 readiness<\/code><\/p>\s*<h2>/);
     // Subtitle is the first paragraph after h2
     assert.match(firstProgress[0], /<p class="chart-subtitle">Snapshot taken at 14:00 UTC[^<]*<\/p>/);
-    // Body wraps the chart payload; caption trails it, stripped of the <em> wrapper
-    assert.match(firstProgress[0], /<div class="chart-body">[\s\S]*<\/div><p class="chart-caption">Source: Linear · refreshed 2026-05-07<\/p>/);
+    // Body wraps the chart payload; caption trails it as a <figcaption>, stripped of
+    // the <em> wrapper. This fixture pins `form: off`, so no stage cell is built and
+    // the <figcaption> has no <figure> around it — valid, and exactly the pre-retag
+    // association (none). With Form on, the stage cell IS that <figure>.
+    assert.match(firstProgress[0], /<div class="chart-body">[\s\S]*<\/div><figcaption class="chart-caption">Source: Linear · refreshed 2026-05-07<\/figcaption>/);
   });
 });

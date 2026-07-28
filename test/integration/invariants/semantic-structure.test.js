@@ -254,3 +254,60 @@ describe('semantic structure — no nameless landmarks (ADR §8-#3)', () => {
     );
   });
 });
+
+/**
+ * `<figure>`/`<figcaption>` — the caption/graphic ASSOCIATION (ADR §16, §18.3).
+ *
+ * The stage cell of a chart slide is retagged `div.cell-stage` → `figure.cell-stage`
+ * when — and only when — it holds a `<figcaption class="chart-caption">`. Two things
+ * can silently break, and neither shows up in a pixel diff:
+ *
+ *   · the two halves drift out of lockstep — a `<figcaption>` outside any `<figure>`
+ *     carries no association at all, which is exactly the state the retag replaced;
+ *   · the retag goes blanket — a `<figure>` around a caption-less graphic adds an
+ *     announced boundary and no information, the over-tagging §4A warns about.
+ *
+ * Both are asserted here rather than described in the ADR, per HARD RULE #18.
+ */
+describe('semantic structure — figure/figcaption association (ADR §18.3)', () => {
+  test('every <figcaption> is inside a <figure>', () => {
+    const orphans = [...doc.querySelectorAll('figcaption')]
+      .filter((f) => !f.closest('figure'))
+      .map((f) => `<figcaption class="${f.className}"> in .${f.parentElement?.className || '?'}`);
+    assert.deepEqual(
+      orphans, [],
+      'a <figcaption> outside a <figure> associates nothing — it is a styled <p> with a ' +
+      'misleading tag. The stage retag (masthead.transform.js stageTag) and the caption ' +
+      'emitter (chart-family.js liftChartCaption) must stay in lockstep.',
+    );
+  });
+
+  test('a stage becomes a <figure> exactly when it captions a graphic', () => {
+    const stages = [...doc.querySelectorAll('.cell-stage')];
+    assert.ok(stages.length > 20, `expected many stage cells, got ${stages.length}`);
+    const wrong = stages
+      .map((s) => ({
+        tag: s.tagName.toLowerCase(),
+        captioned: Boolean(s.querySelector(':scope > figcaption.chart-caption')),
+        cls: s.closest('section')?.getAttribute('data-class') || '?',
+      }))
+      .filter((s) => (s.tag === 'figure') !== s.captioned)
+      .map((s) => `<${s.tag} class="cell-stage"> captioned=${s.captioned} on ${s.cls}`);
+    assert.deepEqual(
+      wrong, [],
+      'The retag is conditional on the caption, in both directions: a captioned stage ' +
+      'MUST be a <figure> (that is the association), and an uncaptioned one must NOT be ' +
+      '(a boundary with nothing to bind is landmark noise — ADR §4A restraint).',
+    );
+  });
+
+  test('the gallery actually exercises both branches', () => {
+    // A conditional retag that never fires — or always fires — would pass the two
+    // assertions above vacuously. This pins that the deck contains both shapes, so
+    // those tests are testing something.
+    const stages = [...doc.querySelectorAll('.cell-stage')];
+    const figures = stages.filter((s) => s.tagName === 'FIGURE');
+    assert.ok(figures.length > 0, 'no stage was retagged — the caption branch never fired');
+    assert.ok(figures.length < stages.length, 'every stage was retagged — the condition is not conditional');
+  });
+});

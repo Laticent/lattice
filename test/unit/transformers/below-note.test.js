@@ -74,6 +74,36 @@ describe('below-note — applyToHtml (lib/engine: CLI/PDF + browser playground)'
     assert.ok(out.includes('<div class="cell-footer"><footer>f</footer></div>'), 'footer cell untouched');
   });
 
+  test('finds the cell by its CLASS, not its tag — a <figure> stage works identically', () => {
+    // The stage's ELEMENT is not fixed: masthead.transform.js builds it as a <figure>
+    // when it holds a captioned graphic. A matcher pinned to `<div class="cell-stage">`
+    // finds nothing on those slides and falls back to the flat section-level anchor —
+    // a wrong answer that still renders, so no pixel or DOM-shape gate would see it.
+    // `state-chart` is a live instance: it is NOT in EXCLUDED and its stage IS a figure.
+    const body = '<ul><li>a</li></ul><blockquote><p>q</p></blockquote><p>note</p>';
+    const asDiv = belowNote.applyToHtml(sec('cards-grid form', `<div class="cell-stage">${body}</div>`));
+    const asFigure = belowNote.applyToHtml(sec('cards-grid form', `<figure class="cell-stage">${body}</figure>`));
+    assert.equal(
+      asFigure.replace(/figure/g, 'div'), asDiv,
+      'the <figure> stage must be treated exactly as the <div> stage is',
+    );
+    assert.ok(asFigure.includes('<div class="below-note"><p>note</p></div></figure>'), asFigure);
+  });
+
+  test('balances the stage on the tag it actually opened with', () => {
+    // The close scan used to be hardcoded to `</div>`. On a <figure> stage that walks
+    // straight past the cell's own close and swallows following siblings.
+    const out = belowNote.applyToHtml(
+      sec(
+        'state-chart form',
+        '<figure class="cell-stage"><div class="chart-body"><div>x</div></div><p>note</p></figure>' +
+          '<div class="cell-footer"><footer>f</footer></div>',
+      ),
+    );
+    assert.ok(out.includes('<div class="below-note"><p>note</p></div></figure>'), out);
+    assert.ok(out.includes('<div class="cell-footer"><footer>f</footer></div>'), 'footer cell untouched');
+  });
+
   test('wraps the real trailing <p> when a <pre> sample merely mentions the literal cell-stage string', () => {
     // Regression: extractStage used to do a bare `indexOf('<div class="cell-
     // stage">')`, which matched this literal text INSIDE the <pre> sample —

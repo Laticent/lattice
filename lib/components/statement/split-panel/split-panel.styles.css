@@ -206,7 +206,14 @@ section.split-panel.watermark .panel-right :is(ol,ul) + ul > li { display:block;
 section.split-panel.watermark .panel-right :is(ol,ul) + ul > li::before { font-weight:700; color:var(--text-heading); padding-right:0.4em; }
 section.split-panel.watermark .panel-right :is(ol,ul) + ul > li:nth-child(1)::before { content:"Audience ·"; }
 section.split-panel.watermark .panel-right :is(ol,ul) + ul > li:nth-child(2)::before { content:"Intent ·"; }
-section.split-panel.watermark { --marp-slide-header-color: var(--on-accent-secondary); --marp-slide-footer-color: var(--on-accent-secondary); }
+/* The running header/footer are absolutely positioned to the slide's LEFT inset, which
+ * on `watermark` is over the accent panel — hence on-accent ink. `.mirror` row-reverses
+ * the panel to the RIGHT (base.modifiers.css) and the chrome does not move with it, so
+ * the same ink lands on the light content side and renders near-white on cream: 1.11:1,
+ * effectively invisible in the shipped PDF. Excluding `.mirror` restores the default
+ * `--text-muted`, which is what the content side wants. Surfaced by the G10 axe gate and
+ * confirmed by looking at the render (2026-07-03-semantic-html-accessibility.md §18.1). */
+section.split-panel.watermark:not(.mirror) { --marp-slide-header-color: var(--on-accent-secondary); --marp-slide-footer-color: var(--on-accent-secondary); }
 
 /* Hardening: element siblings of <strong> in a card li don't inherit
  * the parent's font-weight:700. See CARD_STYLE_LAYOUTS in lib/components/index.js. */

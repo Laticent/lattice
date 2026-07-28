@@ -634,9 +634,21 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// (`aria-labelledby`/`aria-describedby`) instead of relying on a bare child `<title>`,
 	// which VoiceOver/Safari and older JAWS drop. Tag + attribute only — `#lp-bar` is
 	// styled by id, so the retag costs no CSS, no layout and no script.
-	// A pure-attribute + tag change: no CSS, no layout, no script behaviour. Deliberate.
+	// Re-blessed for the adversarial-review round: `#lp-count` splits into a visible,
+	// aria-hidden numeral plus an sr-only live region carrying "Slide N of M". The prior
+	// shape put `aria-label` on a bare <span> (role `generic`), where ARIA prohibits it —
+	// and a live region announces its changed TEXT, not its name, so a screen reader got
+	// "2 / 7" regardless. Adds one <span> + one sr-only rule; the visible counter is
+	// unchanged. Re-hosted charts in the Read view also get suffixed ids so the clone
+	// stops duplicating the originals' ARIA-referenced ids (axe duplicate-id-aria).
+	// The sr-only rule uses `clip-path: inset(50%)` rather than the classic
+	// `clip` + `margin:-1px` pair: the box is already out of flow, so the negative margin
+	// buys nothing, and HARD RULE #20 keeps margins out of this engine's CSS on principle
+	// (this file is not in the gate's scan path, which is not a reason to write one).
+	// A pure-attribute + tag change plus that one hidden-utility rule: no layout, no
+	// script behaviour. Deliberate.
 	// (Prior bless: the `.lp-chart` width-container rules for flow-height chart re-hosts.)
-	assert.equal(sha, '51d8c9b6dc5041f7fb151f0b98a1608d783c7782eef240e94bdb2e5691fb2479', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, '7c05ca6413808f210cdbdc6e4ba13cecec5c50b663f62dcb8e157096392e9cc3', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

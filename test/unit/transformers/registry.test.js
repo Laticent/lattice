@@ -190,7 +190,10 @@ describe('chart-family transformer', () => {
       '<ul><li>API <code>72</code></li></ul>' +
       '<p>Refreshed weekly.</p>';
     const { html } = chartEngine.transformChartSection(inner, 'progress');
-    assert.match(html, /<p class="chart-caption">Refreshed weekly\.<\/p>/,
+    // A <figcaption>, not a <p>: the caption belongs to the graphic beside it, and
+    // the stage cell that later wraps the two becomes the matching <figure>
+    // (masthead.transform.js `stageTag`). The tag decision keys on this exact string.
+    assert.match(html, /<figcaption class="chart-caption">Refreshed weekly\.<\/figcaption>/,
       'trailing paragraph becomes the chart-caption');
     assert.doesNotMatch(html, /<\/div><p>Refreshed weekly\.<\/p>/,
       'no raw section-level caption left behind');
@@ -206,7 +209,7 @@ describe('chart-family transformer', () => {
       '<p>Refreshed weekly.</p>' +
       '<footer>src · progress</footer>';
     const { html } = chartEngine.transformChartSection(inner, 'progress');
-    assert.match(html, /<p class="chart-caption">Refreshed weekly\.<\/p>/,
+    assert.match(html, /<figcaption class="chart-caption">Refreshed weekly\.<\/figcaption>/,
       'caption is lifted despite the trailing footer');
     assert.match(html, /<footer>src · progress<\/footer>/,
       'the footer is preserved');

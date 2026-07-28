@@ -529,3 +529,60 @@ describe('chart .viz-frame hoist — engine↔web parity (HARD RULE #1)', () => 
     }
   });
 });
+
+/**
+ * THE STAGE'S TAG — `<div>` normally, `<figure>` when the cell holds a captioned
+ * graphic (semantic-HTML ADR §18.3). Two paths compute it: the string kernel's
+ * `stageTag` and the DOM mirror's direct-child scan. They must agree on every input,
+ * or the same deck gets a different element on the engine and the web preview — a
+ * HARD RULE #1 split that renders identically and so hides from every pixel gate.
+ */
+describe('masthead-lift — the stage tag (figure vs div), engine == web', () => {
+  const CAPTIONED =
+    '<h2>Rollout</h2>' +
+    '<div class="chart-body"><svg role="img"></svg></div>' +
+    '<figcaption class="chart-caption">Source: Linear.</figcaption>';
+  const UNCAPTIONED = '<h2>Rollout</h2><div class="chart-body"><svg role="img"></svg></div>';
+
+  test('a captioned graphic makes the stage a <figure> on BOTH paths', () => {
+    assert.match(kernel.transformMastheadSection(CAPTIONED, 'roadmap chart-frame form'),
+      /<figure class="cell-stage">/, 'engine path');
+    const doc = dom(`<section class="roadmap chart-frame form">${CAPTIONED}</section>`);
+    adapter.applyToDom(doc);
+    assert.ok(doc.querySelector('section > figure.cell-stage'), 'web path');
+  });
+
+  test('an UNcaptioned graphic keeps a <div> stage on BOTH paths', () => {
+    // Restraint is the point: a <figure> with nothing to associate is an announced
+    // boundary carrying no information (ADR §4A).
+    assert.match(kernel.transformMastheadSection(UNCAPTIONED, 'roadmap chart-frame form'),
+      /<div class="cell-stage">/, 'engine path');
+    const doc = dom(`<section class="roadmap chart-frame form">${UNCAPTIONED}</section>`);
+    adapter.applyToDom(doc);
+    assert.ok(doc.querySelector('section > div.cell-stage'), 'web path');
+    assert.equal(doc.querySelector('section > figure.cell-stage'), null, 'no figure');
+  });
+
+  test('a <figcaption> NESTED in content does not promote the stage — both paths', () => {
+    // The DOM mirror only ever looks at direct children; the string kernel is
+    // depth-aware for exactly this reason. A bare substring test would disagree here.
+    const nested =
+      '<h2>Rollout</h2>' +
+      '<div class="chart-body"><figure><figcaption class="chart-caption">inner</figcaption></figure></div>';
+    assert.match(kernel.transformMastheadSection(nested, 'roadmap chart-frame form'),
+      /<div class="cell-stage">/, 'engine path');
+    const doc = dom(`<section class="roadmap chart-frame form">${nested}</section>`);
+    adapter.applyToDom(doc);
+    assert.ok(doc.querySelector('section > div.cell-stage'), 'web path');
+  });
+
+  test('the stage retag survives a trailing running <footer>', () => {
+    // The footer is peeled into `.cell-footer` BEFORE the tag is chosen; a footer in
+    // the scanned body would sit at depth 0 and must not disturb the decision.
+    const out = kernel.transformMastheadSection(
+      `${CAPTIONED}<footer>src</footer>`, 'roadmap chart-frame form',
+    );
+    assert.match(out, /<figure class="cell-stage">/);
+    assert.match(out, /<\/figure><div class="cell-footer"><footer>src<\/footer>/);
+  });
+});

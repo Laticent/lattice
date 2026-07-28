@@ -12,7 +12,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { applyToHtml, associateCaptions } = require('../../../lib/core/svg-a11y-names');
+const { applyToHtml } = require('../../../lib/core/svg-a11y-names');
 
 /** Every `<svg` has exactly one matching close — the invariant a DOM test cannot see. */
 function balanced(html) {
@@ -86,10 +86,10 @@ describe('svg-a11y-names — applyToHtml', () => {
     assert.ok(balanced(out));
   });
 
-  test('a well-formed existing id IS reused, so the reference points at the real node', () => {
+  test('re-identifying a titled node leaves exactly one id attribute', () => {
     const out = applyToHtml('<svg role="img"><title id="radar-mini-3">Radar</title></svg>');
-    assert.match(out, /aria-labelledby="radar-mini-3"/);
-    assert.doesNotMatch(out, /<title id="radar-mini-3" id=/, 'no duplicate id attribute');
+    assert.equal((out.match(/<title[^>]*\sid=/g) || []).length, 1, 'no duplicate id attribute');
+    assert.match(out, /<title id="lat-svgt-1">Radar<\/title>/);
   });
 
   test('is idempotent — a second pass changes nothing', () => {
@@ -107,27 +107,38 @@ describe('svg-a11y-names — applyToHtml', () => {
     }
   });
 
+  test('an id already present in the document cannot steal a chart\'s name', () => {
+    // The critical defect this guard exists for. `aria-labelledby` resolves to whichever
+    // node owns the id, so an element declaring the id we were about to mint wins by
+    // being first — and the Studio renders UNTRUSTED shared/AI-generated markdown, whose
+    // `id` and `aria-*` the sanitizer preserves verbatim. Untrusted content could dictate
+    // what a screen reader says a chart is, with a pixel-identical render.
+    const out = applyToHtml('<span id="lat-svgt-1" hidden>PROFITS UP 400%</span><svg role="img"><title>Funnel chart</title></svg>');
+    const ref = out.match(/aria-labelledby="([^"]+)"/)[1];
+    assert.notEqual(ref, 'lat-svgt-1', 'must not reference the squatted id');
+    assert.match(out, new RegExp(`<title id="${ref}">Funnel chart</title>`), 'the reference resolves to OUR title');
+  });
+
+  test('an id in the SOURCE is never referenced — only ours is', () => {
+    // No engine kernel emits a `<title id=…>`, so the only reachable input to an
+    // id-reuse branch was author HTML: it existed solely to let authored content choose
+    // what we point at.
+    const out = applyToHtml('<svg role="img"><title id="author-chosen">Real name</title></svg>');
+    assert.doesNotMatch(out, /aria-labelledby="author-chosen"/);
+    assert.match(out, /aria-labelledby="lat-svgt-1"/);
+    assert.match(out, /<title id="lat-svgt-1">Real name<\/title>/, 'the node is re-identified, its text untouched');
+  });
+
+  test('a self-closing <svg/> is left alone — rewriting it re-parents its sibling', () => {
+    // Stripping the `/` turns it into an OPEN tag, and in HTML5 foreign content `<svg/>`
+    // legitimately self-closes — so the next sibling gets pulled INTO the graphic. That
+    // is a real DOM change, not a cosmetic one.
+    const src = '<svg role="img"/><p>sibling</p>';
+    assert.equal(applyToHtml(src), src);
+  });
+
   test('html with no <svg> is returned untouched', () => {
     const src = '<p>no graphics here</p>';
     assert.equal(applyToHtml(src), src);
-  });
-});
-
-describe('svg-a11y-names — associateCaptions', () => {
-  test('appends an authored caption to the graphic\'s description list', () => {
-    const named = applyToHtml('<div class="map-figure"><svg role="img"><title>Map</title><desc>Key</desc></svg></div>');
-    const out = associateCaptions(`${named}<p class="chart-caption">Where growth came from.</p>`);
-    assert.match(out, /aria-describedby="lat-svgd-1 lat-cap-1"/, 'the caption is APPENDED, not substituted');
-    assert.match(out, /<p class="chart-caption" id="lat-cap-1">/);
-  });
-
-  test('leaves a caption with no preceding named graphic alone', () => {
-    const src = '<p class="chart-caption">orphan</p>';
-    assert.equal(associateCaptions(src), src);
-  });
-
-  test('html with no caption is returned untouched', () => {
-    const src = '<svg role="img" aria-describedby="d"><desc id="d">x</desc></svg>';
-    assert.equal(associateCaptions(src), src);
   });
 });

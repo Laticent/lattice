@@ -549,6 +549,16 @@ via **flex, not grid**. (Mechanism B — Cells as pure in-flow bands with bodies
 direct children — survives for the deferred set; the two coexist by design, selected
 per-component by `wrapsStageBody`.)
 
+**The stage's element is `<div>` or `<figure>`, and the class is what matters.** When the
+cell holds a captioned graphic — a `<figcaption class="chart-caption">` among its children
+— it is built as a `<figure>`, so the chart and its caption are a real associated pair for
+assistive technology instead of two unrelated boxes that merely sit near each other
+(`masthead.transform.js` `stageTag`; the DOM mirror in `masthead-lift.js` matches it).
+This is a **retag, not a wrapper**: no element is added, every `.cell-stage` selector is
+class-keyed, and the rendered pixels are identical. It fires only where a caption exists —
+a `<figure>` around an uncaptioned graphic announces a boundary and conveys nothing.
+Background: `engineering/decisions/2026-07-03-semantic-html-accessibility.md` §18.3.
+
 Changes are still gated so an unintended visual change fails a gate, not a
 reviewer's eye: the per-component galleries (light + dark page counts asserted) and
 `tools/pixel-check.js` before/after on the baseline deck.

@@ -11,8 +11,9 @@
  *
  * `section.form` is the root chrome Frame: the masthead Cell is a content-height
  * band at the top, the stage Cell holds the body, and the footer Cell is reserved
- * via padding-bottom. The stage is now a REAL element — `<div class="cell-stage">`,
- * built by the masthead kernel — turning the frame into a flex column so the body
+ * via padding-bottom. The stage is now a REAL element — `<div class="cell-stage">` (or
+ * `<figure class="cell-stage">` when it holds a captioned graphic; masthead.transform.js
+ * `stageTag`), built by the masthead kernel — turning the frame into a flex column so the body
  * is a bounded clipping cell (flex:1; min-height:0; overflow:clip) and can't bleed
  * past the stage edge into the footer/rail band. This REVIVES the `.cell-stage`
  * wrapper that section-as-grid retired in 2026-06-16: that decision rejected a
@@ -146,6 +147,14 @@ section.form > .cell-stage {
   display: flex;
   flex-direction: column;
   gap: var(--sp-xs);
+  /* The stage is a `<figure>` when it holds a captioned graphic (masthead.transform.js
+   * `stageTag`) — the retag that gives chart + caption a real association. The UA
+   * stylesheet puts `margin: 1em 40px` on `figure`, which would inset the whole stage
+   * and corrupt every measurement taken against it. A BARE ZERO reset is the one form
+   * HARD RULE #20 permits, for exactly this reason: it adds no space, so it can't
+   * collapse and can't hide from `getBoundingClientRect()`. Declared unconditionally
+   * so the `<div>` and `<figure>` stages are byte-identical in layout. */
+  margin: 0;
 }
 
 /* ── FOOTER Cell — the frame's third chrome band (flex cell-tree §6) ──────────

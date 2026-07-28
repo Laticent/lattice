@@ -372,11 +372,42 @@ in patch versions.
   rather than in the eight chart kernels, because an id must be unique per *document*
   and a per-slide kernel cannot guarantee that.
 
-- **An authored chart caption is now announced as its graphic's description.** Where a
-  chart carries a caption, the caption is appended to the graphic's `aria-describedby`,
-  so a reader gets the data summary and then the author's point.
+- **The player's slide counter uses a real screen-reader live region.** The visible
+  "2 / 7" is now decoration and a separate visually-hidden region carries "Slide 2 of 7".
+  The previous shape put `aria-label` on a bare `<span>`, whose implicit role is
+  `generic` — where ARIA prohibits it — and a live region announces its changed *text*,
+  not its name, so a screen reader got "2 / 7" regardless.
+
+- **A chart and its caption are now a real `<figure>` / `<figcaption>` pair.** The caption
+  used to be a `<p>` following the graphic, so nothing tied the two together: a screen
+  reader got the chart, then — some distance later in the reading order — a paragraph. The
+  stage cell that already holds exactly the chart body and its caption is now emitted as a
+  `<figure>` when a caption is present, and the caption as its `<figcaption>`. It is a
+  RETAG, not a new wrapper: zero added elements, and the rendered slides are byte-identical
+  (verified by comparing screenshots of the two affected gallery slides before and after).
+  The tag follows the caption rather than the chart, deliberately — a `<figure>` around an
+  uncaptioned graphic announces a boundary and conveys nothing.
+
+- **Charts re-hosted into the player's reading view no longer duplicate their ARIA ids.**
+  The reading view clones each chart, which duplicated every id the naming pass mints —
+  14 in a gallery export. It resolved correctly only by luck (`getElementById` returns
+  the first match and both copies carried identical text).
 
 ### Fixed
+
+- **The below-note transform silently stopped finding the stage cell on captioned chart
+  slides.** It located the cell with the literal string `<div class="cell-stage">`, which no
+  longer matches now that a captioned stage is a `<figure>`; it then fell back to the
+  section-level anchor and produced a wrong answer that still rendered. It now matches on the
+  class and balances whichever tag it found — which fixes the split envelope for free, since
+  both read the same helper.
+
+- **`split-panel watermark mirror` rendered its running header and footer at 1.11:1 —
+  effectively invisible.** The `watermark` layout sets the chrome to on-accent ink because
+  the header and footer sit over its dark panel; `mirror` moves the panel to the other side
+  and the chrome, which is positioned against the slide, does not follow — so near-white ink
+  landed on the cream content side. Surfaced by the new axe gate and confirmed by looking at
+  the rendered slide. The un-mirrored variant is unchanged, byte for byte.
 
 - **The `--fluid` viewer was completely broken by the export shell's new `main`
   landmark — every slide rendered zero pixels wide.** The fluid viewer sizes each slide
