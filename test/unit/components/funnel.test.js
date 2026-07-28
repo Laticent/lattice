@@ -90,8 +90,11 @@ describe('funnel kernel', () => {
       assert.match(html, /<svg[^>]*role="img"[^>]*>/, 'it is a graphic, and says so');
       assert.match(html, /<title>Funnel chart<\/title>/, 'and it has an accessible name');
       // The <desc> carries the DATA a sighted reader gets from the labels — the
-      // title alone names the chart type without saying anything about it.
-      assert.match(html, /<desc>Stages — Visitors 10000, Signups 2300, Paid 410<\/desc>/);
+      // title alone names the chart type without saying anything about it. That has to
+      // include the CONVERSION RATES: `role="img"` prunes the subtree, so the visible
+      // percentages are unreachable by any other route, and drop-off is what a funnel
+      // is FOR. Joined with `;` because a stage label may contain a comma.
+      assert.match(html, /<desc>Stages — Visitors 10000; Signups 2300 \(23% of Visitors\); Paid 410 \(18% of Signups\)<\/desc>/);
     });
 
     test('emits one band per stage, each tagged with its palette index', () => {

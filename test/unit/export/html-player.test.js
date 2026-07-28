@@ -621,9 +621,15 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	//     bars: a screen reader could reach it but not say what it was.
 	//   · `#lp-count` gains `aria-live="polite"` and a spelled-out `aria-label` ("Slide 2 of
 	//     7") set alongside the visible "2 / 7" — gap G3. The visible text is unchanged.
+	// Re-blessed AGAIN for the ARIA best-practice pass: the player's 12 decorative chrome
+	// icons (the inline 24x24 viewBox SVGs in the tab bar, nav arrows and toggles) gained
+	// `aria-hidden="true" focusable="false"`. Their buttons already carry aria-labels, so
+	// the icons never corrupted an accessible NAME — but an un-hidden inline SVG can still
+	// surface in an AT graphics rotor as noise, and `focusable="false"` keeps legacy
+	// engines from tabbing into them. Attribute-only: no CSS, no layout, no script.
 	// A pure-attribute + tag change: no CSS, no layout, no script behaviour. Deliberate.
 	// (Prior bless: the `.lp-chart` width-container rules for flow-height chart re-hosts.)
-	assert.equal(sha, 'c669af1c76726387757265778150e6075080d42537ef6569d952df9671b27095', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	assert.equal(sha, 'dacf85b1f413b854646689aaca8bb588566a3481cd9b576b3566ef1861afe80e', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {

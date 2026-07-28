@@ -3,7 +3,7 @@ import { buildPresenterDoc, buildStageDoc, createPresenterController } from './p
 
 describe('presenter-window — buildStageDoc', () => {
 	it('wraps the deck HTML into a self-contained, postMessage-driven stage', () => {
-		const doc = buildStageDoc({ html: '<div class="lattice"><section>A</section></div>', width: 1280, height: 720, bg: '#111', css: '.k{color:red}', runtimeUrl: '/runtime.js', katexUrl: '/katex.css', mermaidUrl: '/mermaid.js', a11yDefs: '<svg id="a11y"></svg>' });
+		const doc = buildStageDoc({ html: '<article class="lattice"><section>A</section></article>', width: 1280, height: 720, bg: '#111', css: '.k{color:red}', runtimeUrl: '/runtime.js', katexUrl: '/katex.css', mermaidUrl: '/mermaid.js', a11yDefs: '<svg id="a11y"></svg>' });
 		expect(doc).toContain('<section>A</section>');
 		expect(doc).toContain('.k{color:red}');
 		expect(doc).toContain('/runtime.js');
@@ -26,7 +26,7 @@ describe('presenter-window — buildStageDoc', () => {
 		// never scaled (the long-standing presenter crop). The `var name = …` binding is what
 		// keeps the names alive — assert both the binding AND the call sites, so a revert to the
 		// bare form fails here instead of silently re-cropping every presenter.
-		const doc = buildStageDoc({ html: '<div class="lattice"><section>A</section></div>', width: 1280, height: 720, bg: '#000', css: '', runtimeUrl: '/r.js' });
+		const doc = buildStageDoc({ html: '<article class="lattice"><section>A</section></article>', width: 1280, height: 720, bg: '#000', css: '', runtimeUrl: '/r.js' });
 		expect(doc).toMatch(/var fitScale\s*=\s*function|var fitScale\s*=\s*\(/);
 		expect(doc).toMatch(/var padInset\s*=\s*function|var padInset\s*=\s*\(/);
 		expect(doc).toContain('padInset(');
@@ -35,7 +35,7 @@ describe('presenter-window — buildStageDoc', () => {
 	it('drives a private #latt-film filmstrip clipped to the current slide (never the engine sections)', () => {
 		// The stage scales + translates OUR OWN #latt-film wrapper and hides the non-current
 		// sections, rather than transforming the engine's <section>s (which the engine re-manages).
-		const doc = buildStageDoc({ html: '<div class="lattice"><section>A</section><section>B</section></div>', width: 1280, height: 720, bg: '#000', css: '', runtimeUrl: '/r.js' });
+		const doc = buildStageDoc({ html: '<article class="lattice"><section>A</section><section>B</section></article>', width: 1280, height: 720, bg: '#000', css: '', runtimeUrl: '/r.js' });
 		expect(doc).toContain('id="latt-film"');
 		expect(doc).toContain('scale(');
 		expect(doc).toContain('translateY(');

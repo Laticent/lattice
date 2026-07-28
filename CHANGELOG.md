@@ -57,6 +57,45 @@ in patch versions.
 
 ### Fixed
 
+- **Charts announced their name and then presented nothing.** `role="img"` is
+  children-presentational — it removes the entire subtree from the accessibility tree —
+  so giving a chart SVG a `<title>` without a `<desc>` made it announce e.g. "Quadrant
+  chart, image" over 18 pruned text nodes (axis names, quadrant names, every item).
+  The quadrant now emits a `<desc>` carrying its axes, quadrant names and every item
+  with its position; the funnel's `<desc>` now includes the **conversion rates** it was
+  missing — the numbers a funnel exists to show, and unreachable by any other route
+  once the subtree is pruned.
+
+- **The Playground's returning-visitor first paint would have rendered unstyled.**
+  `snapshot-cache.js` synthesized a `<div class="lattice">` wrapper instead of
+  mirroring the live container, so the CSS captured alongside it — scoped
+  `article.lattice > section` — matched nothing on replay. Its test asserted the `<div>`
+  shape and passed, which is why the miss went unnoticed.
+
+- **Split-run chrome detection over-matched.** The class-based check tested a substring
+  of serialized outer HTML, so `tile-progress-legend` / `foo-tile-progress` /
+  `lat-split-rail-x` all counted as chrome (a `-` is a word boundary), and any block
+  merely *containing* a rail did too — which, since the rail docks inside
+  `.cell-footer`, silently reclassified every footer cell and moved trailing notes. Now
+  matches the element's own open tag on whole class tokens.
+
+- **A state chart's status never reached assistive technology, and its state IDs were
+  hidden outright.** The index badge put `aria-label="on-track"` on a bare `<span>` —
+  whose implicit role is `generic`, where ARIA says a label is **ignored**. So the
+  status was conveyed to sighted users by colour alone (WCAG 1.4.1) and to everyone
+  else not at all. Two more problems in the same three lines: a status-*less* badge was
+  `aria-hidden="true"`, hiding the state's identifier — the number every transition
+  routes by, not decoration — and had the label applied, it would have *replaced* the
+  visible numeral rather than added to it, trading the id away for the status. The
+  badge is now `role="img"` (which makes the label apply) with a name carrying both:
+  `aria-label="State 2, on-track"`.
+
+- **The HTML player's twelve decorative chrome icons are hidden from assistive
+  technology.** The tab-bar, nav-arrow and toggle SVGs carried no `aria-hidden`. Their
+  buttons already have labels so the icons never corrupted an accessible *name*, but an
+  un-hidden inline SVG can still surface in a screen-reader graphics rotor as noise.
+  Now `aria-hidden="true" focusable="false"`.
+
 - **Every formula in an exported deck was invisible to screen readers.** KaTeX renders
   two halves — a visual one it marks `aria-hidden="true"`, and a MathML alternative
   meant to be what assistive technology actually reads. The export created its engine
@@ -112,9 +151,8 @@ in patch versions.
   as an anonymous graphics document. When the SVG carries no name of its own, it is now
   labeled with the diagram's type ("Flowchart", "Sequence diagram", …) read from the
   source; an authored name is never overwritten. A type is a floor, not a description —
-  `accTitle:`/`accDescr:` remain the way to say what a diagram *means*. **Unverified
-  end-to-end:** `mmdc` would not run in the sandbox at the time of writing, so the guard
-  and injection are verified on a real mermaid render.
+  `accTitle:`/`accDescr:` remain the way to say what a diagram *means*. Verified on a real
+  mermaid render: `<svg aria-label="Flowchart" id="lattice-mmd-1" …>`.
 
 - **Every surface now has a `main` landmark, and two of them have a working skip link.**
   A screen-reader or keyboard user had no way to jump past the chrome to the content on

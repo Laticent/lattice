@@ -1431,3 +1431,148 @@ The fix escapes locally instead of reaching forward, and the label table is ours
 fixed, so escaping is belt-and-braces rather than a security boundary. The `<svg
 aria-label="Flowchart" id="lattice-mmd-1" …>` output is now verified on a REAL mmdc
 render, which upgrades §17.12's UNVERIFIED note.
+
+### 17.14 ARIA best-practice audit — the rules, and what they found
+
+A rules-based sweep over the rendered gallery, the assembled player, and the LIVE
+Studio (real Chromium, 1440 + 390px). Eleven rules; three findings, all fixed.
+
+| Rule | Result |
+|---|---|
+| `aria-label` on a `role=generic` element (spec says IGNORED) | **3 found — fixed** |
+| `role` + `aria-hidden="true"` on the same node | 0 (the funnel/quadrant fix cleared them) |
+| focusable content inside an `aria-hidden` subtree | 0 |
+| redundant `role=` duplicating native semantics | 0 |
+| `aria-labelledby` / `aria-describedby` → missing id | 0 |
+| duplicate `id` | 0 |
+| `role="img"` with an empty accessible name | 0 |
+| heading-level jumps within a slide | 0 |
+| unknown `aria-*` attribute names | 0 |
+| `<svg>` with a `<title>` but no `role` | 0 |
+| unnamed interactive control (live Studio, both widths) | 0 |
+
+**Finding 1 — the state-chart index badge (fixed).** `<span class="state-index"
+aria-label="on-track">` put a label on a bare `<span>`, whose implicit role is
+`generic` — and ARIA says a label on a generic role is **ignored**. So the status
+reached no assistive technology at all, while sighted users got it from **hue alone**
+(WCAG 1.4.1). Two further problems in the same three lines:
+
+- a status-**less** badge was `aria-hidden="true"`, hiding the state's *identifier* —
+  the number every transition routes by (`byFrom.get(s.index)`), not decoration;
+- had the label applied, `aria-label="on-track"` would have **replaced** the visible
+  numeral rather than added to it, trading the id away for the status.
+
+Now `role="img"` (which makes the label apply) with a name carrying **both** facts:
+`aria-label="State 2, on-track"`. Locked by a new regression test.
+
+**Finding 2 — the player's decorative chrome icons (fixed).** Twelve inline 24×24
+icon SVGs in the tab bar, nav arrows and toggles carried no `aria-hidden`. Their
+buttons already have `aria-label`s, so the icons never corrupted a *name* — but an
+un-hidden inline SVG can still surface in an AT graphics rotor as noise. Now
+`aria-hidden="true" focusable="false"` (the latter keeps legacy engines from tabbing
+in). Player golden re-blessed.
+
+**Finding 3 — a gap in my own gate.** The §17.7 "no `aria-hidden` over authored prose"
+check looks for `h1`–`h6`/`p`/`li`/`td`/`th` descendants. The state-chart badge hid a
+*numeral held as the span's own text*, so the gate never saw it. Structural gates
+check the shapes you thought of; this one is a reminder that they are a floor.
+
+**Two things the audit deliberately did NOT flag:**
+
+- **Unnamed `<header>` and `<main>` in the Studio.** `banner`, `main` and `contentinfo`
+  do not need accessible names when there is exactly one of each — naming them adds
+  rotor noise for no navigational gain. The `<nav>` that *does* need a name has one
+  ("Slide navigator", "Studio panels", "Slides").
+- **`aria-label` duplicating visible text on the player's view tabs.** Normally
+  redundant, but `.lp-tab-text` is `sr-only` at narrow widths, so the label is
+  load-bearing there — and the two strings match exactly, so voice control still works.
+
+### 17.15 The adversarial trio — inversion pass, and the six defects it found
+
+Run against the shipped diff. The inversion lens found **six real defects**, four of
+them things this branch itself introduced. All fixed; each is recorded because the
+*pattern* matters more than the individual bug.
+
+**1. `role="img"` prunes the subtree — the naming work half-undid itself.** This is the
+big one. `role="img"` is children-presentational: the entire subtree leaves the
+accessibility tree. So `<title>Quadrant chart</title>` with no `<desc>` announced
+"Quadrant chart, image" over **18 pruned `<text>` nodes** — axis names, the four
+quadrant names, every item. §17.5 rejects `<figure>`-over-a-hidden-graphic on exactly
+this reasoning ("advertises content that isn't there") and then this section did the
+same thing with a different element. Fixed: quadrant emits a `<desc>` carrying axes,
+quadrant names and every item with its position.
+
+**2. The funnel `<desc>` dropped the conversion rates.** It listed stage values only —
+so the percentages, the thing a funnel EXISTS to show, were unreachable by any route
+once `role="img"` pruned the `<text>` nodes. CHANGELOG had explicitly named
+"conversion percentage" among the things being fixed. Now included, joined with `;`
+because a stage label may itself contain a comma ("Logged, with the decision").
+
+**3. A FIFTH container consumer, missed.** `docs/src/playground/snapshot-cache.js`
+synthesized `doc.createElement('div')` for the captured wrapper instead of mirroring
+the live element. The CSS captured with it is scoped `article.lattice > section`, so
+the Playground's returning-visitor first paint replayed a full stylesheet that matched
+nothing — raw unstyled Markdown. **This is verbatim the failure §17.10 congratulates
+itself for catching in `share-export.ts`.** Finding the pattern four times did not stop
+me missing the fifth. Its test asserted `/^<div class="lattice">/` and PASSED, because
+the source hardcoded the div — a test pinning a now-wrong contract, the same
+anti-pattern §17.9 celebrates removing from `funnel.test.js`, reintroduced in the same
+branch.
+
+**4. `isChrome` over-matched two ways.** §17.8's stated lesson was "key on the class,
+which is the stable identity". The implementation keyed on a *substring of serialized
+HTML*, which is weaker than what it replaced:
+- `\b` treats `-` as a word boundary, so `tile-progress-legend`, `foo-tile-progress`
+  and `lat-split-rail-x` all matched;
+- `el.outer` is outer HTML **including descendants**, so any block CONTAINING a rail
+  became chrome — and the rail docks inside `.cell-footer`, so every footer cell
+  silently changed classification and trailing notes moved.
+
+Fixed to match the element's OWN open tag on WHOLE class tokens. **The lesson needs
+restating: keying on the class beats keying on the tag only if the match is exact.**
+
+**5. A self-contradicting CHANGELOG sentence** ("would not run in the sandbox … so the
+guard and injection are verified on a real render") — the worst possible shape under
+HARD RULE #23, since a reader cannot tell what was verified. My edit welded a
+correction onto a stale draft instead of replacing it.
+
+**6. `engineering/gotchas.md` was never updated** — 8 live citations still taught
+`div.lattice > section`, including the specificity worked example the container retag
+invalidated. A CLAUDE.md rule 6 violation (docs in the same change), in the symptom
+index every agent is told to read first.
+
+#### The structural criticism, which I accept
+
+**Two of the six gates are vacuous.** The engine gallery renders zero
+`nav`/`aside`/`main`/`form`, so "every reachable landmark has an accessible name" and
+"no `<nav>` is aria-hidden" both assert over an EMPTY SET — the latter *because* this
+branch demoted the only two `<nav>`s in the deck. And **no gate covers the three shells
+where the landmarks actually landed** (export shell, player, Studio); the gate renders
+`lib/engine` only. The `SANCTIONED_ARTICLE_CLASSES` contract — "a new `<article>` is
+never a silent emission" — is therefore false for two of three surfaces: the player
+emits `<article id="lp-article">` ungated.
+
+Related: the aria-hidden-prose gate scans `h1-h6/p/li/td/th`, so it is **structurally
+incapable** of seeing the funnel/quadrant defect it was written alongside (SVG `<text>`
+inside a hidden `<svg>`), and blind to `role="img"` pruning — now the dominant hiding
+mechanism in this codebase, and ungated.
+
+**The honest conclusion: an `axe-core` gate over all three shells (G10) is worth more
+than the six hand-written jsdom gates, and would have caught the nameless TOC, the
+nameless SVGs, and the `aria-live`/`aria-label` conflict.** G10 should be the next
+thing built, not a backlog row.
+
+#### What survived the attack
+
+The MathML re-enable was attacked from four angles — PDF text layer (`pdftotext` on
+both: byte-identical), file size (+1,771 bytes HTML, +175 PDF), duplicate announcement
+(KaTeX hides its own visual half), and PPTX (raster, unaffected) — and **held on all
+four**. One residual worth noting: `katex.min.css` is resolved in a `try`, and on
+Chromium 109+ unclipped MathML renders natively — so if that stylesheet ever fails to
+resolve, the formula now renders TWICE where it previously rendered once unstyled.
+Tracked, not fixed here.
+
+§17.10a's recommendation to drop the Cell retags was independently confirmed against
+the HTML-AAM mapping: `<footer>` maps to `contentinfo` only when its nearest
+sectioning ancestor is `body`; inside `<section>` it is `generic`. No landmark, no
+role, nothing perceivable.
