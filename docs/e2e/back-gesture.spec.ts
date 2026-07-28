@@ -26,14 +26,14 @@ const title = (page: Page) => dialog(page).last().locator('h2,[data-slot=sheet-t
 
 async function openStudio(page: Page) {
 	await page.goto('/studio/', { waitUntil: 'networkidle' });
-	await expect(page.getByRole('button', { name: 'More controls' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
 	await page.waitForTimeout(1200);
 }
 
 test.describe('@webkit the back gesture never leaves the Studio (#1226)', () => {
 	test('pops one level at a time: door → index → closed → actually leaves', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'More controls' }).click();
+		await page.getByRole('button', { name: 'Menu' }).click();
 		await settle(page);
 		await expect(title(page)).toHaveText(MENU);
 
@@ -73,7 +73,7 @@ test.describe('@webkit the back gesture never leaves the Studio (#1226)', () => 
 
 	test('a panel launched from the menu returns to the menu, not to the deck', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'More controls' }).click();
+		await page.getByRole('button', { name: 'Menu' }).click();
 		await settle(page);
 		await page.getByRole('button', { name: 'Library', exact: true }).click();
 		await settle(page);
@@ -96,7 +96,7 @@ test.describe('@webkit the back gesture never leaves the Studio (#1226)', () => 
 
 	test('dismissing by the chevron leaves NO history residue', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'More controls' }).click();
+		await page.getByRole('button', { name: 'Menu' }).click();
 		await settle(page);
 		await page.getByRole('button', { name: `Back to ${HOST}` }).click();
 		await settle(page);
@@ -111,7 +111,7 @@ test.describe('@webkit the back gesture never leaves the Studio (#1226)', () => 
 
 	test('dismissing by the scrim leaves NO history residue', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'More controls' }).click();
+		await page.getByRole('button', { name: 'Menu' }).click();
 		await settle(page);
 		await page.locator('[data-slot=sheet-overlay], .sheet-overlay').first().click({ position: { x: 5, y: 5 }, force: true });
 		await settle(page);
@@ -127,7 +127,7 @@ test.describe('@webkit the back gesture never leaves the Studio (#1226)', () => 
 		// Before the module read that marker, the next panel to open pushed a SECOND entry
 		// on top of the orphan and every cycle after the reload left one more behind.
 		await openStudio(page);
-		await page.getByRole('button', { name: 'More controls' }).click();
+		await page.getByRole('button', { name: 'Menu' }).click();
 		await settle(page);
 		const len = await page.evaluate(() => history.length);
 
@@ -137,7 +137,7 @@ test.describe('@webkit the back gesture never leaves the Studio (#1226)', () => 
 
 		// Re-open, then close: the adopted entry is reused and then spent, so the depth
 		// comes back to where it started rather than growing.
-		await page.getByRole('button', { name: 'More controls' }).click();
+		await page.getByRole('button', { name: 'Menu' }).click();
 		await settle(page);
 		expect(await page.evaluate(() => history.length)).toBe(len);
 		await page.getByRole('button', { name: `Back to ${HOST}` }).click();
@@ -145,9 +145,39 @@ test.describe('@webkit the back gesture never leaves the Studio (#1226)', () => 
 		expect(await page.evaluate(() => history.length)).toBe(len);
 	});
 
+	test('tapping the DECK leaves — it does not step back to the menu', async ({ page }) => {
+		// Reported: open the menu, open Library from it, then tap the deck showing above
+		// the sheet to get out — and the MENU came back. The pending re-open did not care
+		// how the child closed, so a tap on the deck was served by the same path as
+		// "‹ Menu". Two different intents, one close.
+		//
+		// The distinction that fixes it: back (gesture or chevron) steps back ONE level;
+		// the scrim IS the deck, so tapping it lands on the deck.
+		await openStudio(page);
+		await page.getByRole('button', { name: 'Menu' }).click();
+		await settle(page);
+		await page.getByRole('button', { name: 'Library', exact: true }).click();
+		await settle(page);
+		await expect(title(page)).toHaveText('Library');
+
+		// The visible deck band above the sheet — where a thumb reaches for "get out".
+		await page.mouse.click(196, 25);
+		await page.waitForTimeout(1200);
+		await expect(dialog(page)).toHaveCount(0);
+
+		// …while back from the same panel still returns to the menu, unchanged.
+		await page.getByRole('button', { name: 'Menu' }).click();
+		await settle(page);
+		await page.getByRole('button', { name: 'Library', exact: true }).click();
+		await settle(page);
+		await page.goBack();
+		await settle(page);
+		await expect(title(page)).toHaveText(MENU);
+	});
+
 	test('the phone header has no Close, and its lone action holds the 44px floor', async ({ page }) => {
 		await openStudio(page);
-		await page.getByRole('button', { name: 'More controls' }).click();
+		await page.getByRole('button', { name: 'Menu' }).click();
 		await settle(page);
 		await page.getByRole('button', { name: 'Reader views', exact: true }).click();
 		await settle(page);

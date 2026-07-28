@@ -31,7 +31,7 @@
 // None of the six protected controls (Present, Share, Coach, Chat, Settings, the pane
 // toggle) are here — they stay one tap on the Eight-Cell Bar. Neither is Slide settings
 // (the toolbar's Settings cell owns it) nor Workspace settings (promoted to the header).
-import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, MonitorPlay, MoreHorizontal, Palette, Plus, Search } from 'lucide-react';
+import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Plus, Search } from 'lucide-react';
 import * as React from 'react';
 import { MOBILE_HEIGHT, MOBILE_OFFSET, PanelBack, useKeyboardInset } from '@/components/ui/panel';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -337,7 +337,7 @@ export function StudioDrawer({
 					    not match, on the surface every other drawer is launched from, so it was
 					    the one setting the expectation the rest then broke. */}
 					<span aria-hidden="true" className="grid size-[30px] shrink-0 place-items-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)] [&_svg]:size-[17px]">
-						{level === 'index' && <MoreHorizontal />}
+						{level === 'index' && <MenuIcon />}
 						{level === 'themes' && <Palette />}
 						{level === 'show-me' && <MonitorPlay />}
 					</span>

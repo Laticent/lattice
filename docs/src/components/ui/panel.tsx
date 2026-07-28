@@ -257,11 +257,29 @@ const PanelPhoneCtx = React.createContext(false);
 //
 // The default is "Back" — correct off the Studio, where FeedbackSheet is the sitewide
 // header's and there is no named place to return to.
-const PanelBackCtx = React.createContext('Back');
+type PanelNavValue = {
+	/** Where the back chevron says it goes. */
+	back: string;
+	/**
+	 * The user dismissed to the HOST rather than stepping back one level — they tapped
+	 * the scrim, which on a phone is the deck itself showing above the sheet.
+	 *
+	 * These are two different intents and the app was serving them with one close. A
+	 * panel opened from the ⋯ menu re-opens the menu when it closes, which is right for
+	 * `‹ Menu` and for the back gesture — that is what "back" means. It is wrong for a
+	 * tap on the deck: you touched the deck, so you should land on the deck, and instead
+	 * a drawer came back (reported). Whatever a call site needs to forget in order to
+	 * leave cleanly goes here.
+	 */
+	onLeave?: () => void;
+};
 
-/** Names the phone back chevron's destination for everything inside. */
-export function PanelBackLabel({ value, children }: { value: string; children: React.ReactNode }) {
-	return <PanelBackCtx.Provider value={value}>{children}</PanelBackCtx.Provider>;
+const PanelNavCtx = React.createContext<PanelNavValue>({ back: 'Back' });
+
+/** Declares, for every panel inside, where back goes and what "leave" means. */
+export function PanelNav({ back, onLeave, children }: PanelNavValue & { children: React.ReactNode }) {
+	const value = React.useMemo(() => ({ back, onLeave }), [back, onLeave]);
+	return <PanelNavCtx.Provider value={value}>{children}</PanelNavCtx.Provider>;
 }
 
 /**
@@ -338,6 +356,7 @@ export function PanelSheet({
 	children: React.ReactNode;
 }) {
 	const mobile = useIsPhone();
+	const nav = React.useContext(PanelNavCtx);
 	useKeyboardInset(mobile && open);
 	// The back gesture closes this sheet instead of leaving the page (#1226). Phone
 	// only — a pointer surface has no back gesture, and binding history there would be
@@ -353,6 +372,12 @@ export function PanelSheet({
 				side={mobile ? 'bottom' : side}
 				overlay={overlay}
 				showCloseButton={false}
+				// Tapping the scrim is "take me to what I can see", not "go back a level".
+				// On a phone the scrim IS the deck (the 54px band this sheet leaves above
+				// itself), so anything the host needs to forget in order to land there —
+				// notably the ⋯ menu's pending re-open — is dropped here. Radix fires this
+				// BEFORE the close, so the host's own state settles in the same commit.
+				onInteractOutside={() => nav.onLeave?.()}
 				className={cn(
 					'flex w-full flex-col gap-0 p-0',
 					mobile ? cn(MOBILE_BASE, MOBILE_HEIGHT) : PANEL_WIDTH[width],
@@ -441,7 +466,7 @@ export function PanelHeader({
 }) {
 	const inSheet = React.useContext(PanelSheetCtx);
 	const phone = React.useContext(PanelPhoneCtx);
-	const backLabel = React.useContext(PanelBackCtx);
+	const backLabel = React.useContext(PanelNavCtx).back;
 	const Title = inSheet ? SheetTitle : 'h2';
 	// On a phone the way out is a LEADING back chevron and there is no X; on a pointer
 	// surface it stays a trailing X. See the transport split at the top of this file.

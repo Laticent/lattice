@@ -631,7 +631,7 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.getByRole('button', { name: 'Theme' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Switch to dark mode' })).toBeInTheDocument();
 		// Desktop keeps the full bar — no ⋯ overflow, and Library/Workspace are primary.
-		expect(screen.queryByRole('button', { name: 'More controls' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Menu' })).not.toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Open Library' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Workspace settings' })).toBeInTheDocument();
 		// The ⌘K pill is a desktop affordance.
@@ -654,13 +654,13 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.queryByRole('button', { name: 'Workspace settings' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Search or run a command' })).not.toBeInTheDocument();
 		// …they live behind a single ⋯ overflow.
-		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument();
 	});
 
 	it('compact: ⋯ holds the theme picker (inline, not a side submenu), Library, Workspace, and a Search/commands row', async () => {
 		setViewport('tablet');
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		expect(screen.getByRole('menuitem', { name: 'Library' })).toBeInTheDocument();
 		expect(screen.getByRole('menuitem', { name: 'Workspace settings' })).toBeInTheDocument();
 		expect(screen.getByRole('menuitem', { name: /Search \/ commands/ })).toBeInTheDocument();
@@ -696,7 +696,7 @@ describe('StudioShell — topbar information architecture', () => {
 		expect(screen.getByRole('button', { name: 'Workspace launcher' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Q3 Board Review/ })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: /Switch to (dark|light) mode/ })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'More controls' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Menu' })).toBeInTheDocument();
 		// The pane toggles still work from the pane bar. On mobile the Inspector opens
 		// as a Sheet, but it hosts the SAME Slide-first scope switch + echo as the
 		// desktop/tablet column — opening from "Settings" lands on deck scope.
@@ -722,7 +722,7 @@ describe('StudioShell — topbar information architecture', () => {
 	it('compact: the ⋯ Search/commands row opens the command palette', async () => {
 		setViewport('tablet');
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		await user.click(await screen.findByRole('menuitem', { name: /Search \/ commands/ }));
 		// The cmdk palette surfaces — its search box is the proof the row is wired.
 		expect(await screen.findByPlaceholderText(/Search|command/i)).toBeInTheDocument();
@@ -744,7 +744,7 @@ describe('StudioShell — topbar information architecture', () => {
 		const user = setup();
 		// The Edit block (which hosts Fix all issues) renders only on the edit pane.
 		await user.click(screen.getByRole('button', { name: 'Markdown source' }));
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		const fixAll = await screen.findByRole('button', { name: 'Fix all issues' });
 		expect(fixAll).toBeEnabled(); // the seed did its job; otherwise this proves nothing
 		await user.click(fixAll);
@@ -765,7 +765,7 @@ describe('StudioShell — topbar information architecture', () => {
 		// only path to a guided tour silently broken in the e2e tier.
 		setViewport('mobile');
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		const sheet = await screen.findByRole('dialog');
 
 		// Push: the door's own row is replaced by the door's contents, IN PLACE — still one
@@ -788,7 +788,7 @@ describe('StudioShell — topbar information architecture', () => {
 		await within(sheet).findByRole('button', { name: 'Show me' });
 		await user.keyboard('{Escape}');
 		await waitFor(() => expect(screen.queryAllByRole('dialog')).toHaveLength(0), { timeout: 3000 });
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Show me' });
 	});
 
@@ -809,7 +809,7 @@ describe('StudioShell — topbar information architecture', () => {
 		// layout, so asserting it in this tier would be asserting nothing.
 		setViewport('mobile');
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		await user.click(await screen.findByRole('button', { name: row }));
 		await waitFor(async () => {
 			const dialogs = screen.queryAllByRole('dialog');
@@ -828,7 +828,7 @@ describe('StudioShell — topbar information architecture', () => {
 		// theorized: pre-fix this lands on the drawer dialog, post-fix on the Library.
 		setViewport('mobile');
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		await user.click(await screen.findByRole('button', { name: 'Search / commands' }));
 		// The palette's OWN placeholder, not /Search/ — the Library it launches has a search
 		// field too, so a loose match would still be satisfied by the wrong surface.
@@ -860,7 +860,7 @@ describe('StudioShell — topbar information architecture', () => {
 		// not a dismissal. "Present" stands in for the whole unlistable tail.
 		setViewport('mobile');
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		await user.click(await screen.findByRole('button', { name: 'Search / commands' }));
 		const PALETTE = 'Search or run a command…';
 		await user.type(await screen.findByPlaceholderText(PALETTE), 'Present');
@@ -903,15 +903,15 @@ describe('StudioShell — topbar information architecture', () => {
 			// overloads — go through `unknown` (as the compiler itself suggests for this cast).
 		}) as unknown as typeof window.matchMedia;
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		expect(await screen.findByRole('button', { name: 'Library' })).toBeInTheDocument();
 		// Resize to desktop → ⋯ unmounts; resize back to compact → ⋯ returns CLOSED
 		// (the breakpoint effect reset its open state, so it doesn't reopen stale).
 		const flip = (compact: boolean) => act(() => { isCompact = compact; for (const cb of listeners) cb({ type: 'change', matches: compact }); });
 		await flip(false);
-		await waitFor(() => expect(screen.queryByRole('button', { name: 'More controls' })).not.toBeInTheDocument());
+		await waitFor(() => expect(screen.queryByRole('button', { name: 'Menu' })).not.toBeInTheDocument());
 		await flip(true);
-		expect(await screen.findByRole('button', { name: 'More controls' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Menu' })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Library' })).not.toBeInTheDocument();
 	});
 
@@ -936,7 +936,7 @@ describe('StudioShell — topbar information architecture', () => {
 			};
 		}) as unknown as typeof window.matchMedia;
 		const user = setup();
-		await user.click(screen.getByRole('button', { name: 'More controls' }));
+		await user.click(screen.getByRole('button', { name: 'Menu' }));
 		expect(await screen.findByRole('menuitem', { name: 'Library' })).toBeInTheDocument();
 		// Flip straight to mobile (both `compact` AND `bp` change: tablet→mobile is exactly
 		// the transition `compact` alone can't see, since it's true on both sides of it) —
@@ -945,7 +945,7 @@ describe('StudioShell — topbar information architecture', () => {
 		flip('mobile');
 		await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Library' })).not.toBeInTheDocument());
 		flip('tablet');
-		expect(await screen.findByRole('button', { name: 'More controls' })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: 'Menu' })).toBeInTheDocument();
 		expect(screen.queryByRole('menuitem', { name: 'Library' })).not.toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Library' })).not.toBeInTheDocument();
 	});

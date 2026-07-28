@@ -78,6 +78,15 @@ in patch versions.
   surfaces — tablet and desktop side-sheets, docked columns — keep the trailing `X` and
   are untouched.
 
+  Three cleanups ride along. The `···` trigger is now a **hamburger** and answers to
+  **Menu** rather than "More controls", so the trigger, the panel's own title and its
+  destinations' chevrons finally say one word. **Workspace settings** takes the settings
+  **cog**; it wore the sliders glyph that the slide/deck inspector also wears, so two
+  different destinations were sharing an icon. And **tapping the deck above a sheet now
+  leaves** instead of stepping back a level — the scrim *is* the deck, so touching it
+  should land you there. A panel opened from the menu still returns to the menu on the
+  back gesture or the `‹ Menu` chevron; that is what back means, and it is unchanged.
+
 - **Studio mobile drawers: one height, one header, and the search field above the keyboard.**
   The two-tier phone panel height (`auto` / `full`) is retired for a single height — an inset of
   exactly the app header — so all twelve Studio drawers now open at the same size, with the same

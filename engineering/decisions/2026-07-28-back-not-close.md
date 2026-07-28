@@ -131,7 +131,30 @@ where it is the word users already have for this object. The app's three real dr
 from `···` routinely, and it does not pull toward "More" hard enough to justify churning the
 trigger's accessible name across ~15 assertions.
 
-### 4. Actions get the touch floor
+### 4. Back steps one level; tapping the deck LEAVES
+
+Reported after the first cut: open the menu, open the Library from it, then tap the deck
+showing above the sheet to get out — and the **menu came back**. The pending re-open did
+not care *how* the child closed, so a tap on the deck was served by the same path as
+`‹ Menu`. Two intents, one close.
+
+The distinction: **back** — the gesture or the chevron — steps back exactly one level,
+which is what the word means and what #1226's acceptance check 4 requires. **The scrim is
+the deck**, so tapping it lands on the deck. `PanelNav` carries an `onLeave` the host uses
+to forget whatever would otherwise pull the user backwards; `PanelSheet` fires it from
+`onInteractOutside`, which Radix runs before the close, so the host's state settles in the
+same commit.
+
+### 5. Three names and two icons now agree
+
+The `···` trigger became a **hamburger** and answers to **Menu** — it was still called
+"More controls" after the panel was renamed, which re-created in the trigger the exact
+mismatch the rename removed. **Workspace settings** takes the settings **cog**: it wore
+`Settings2`, the sliders glyph the slide/deck inspector also wears, so two destinations
+shared one icon. The inspector keeps the sliders — a cog for app-level configuration, a
+slider for tuning the object in front of you.
+
+### 6. Actions get the touch floor
 
 `size="icon-sm"` is 30px. That was survivable while an action sat **next to** a 44px close:
 the close set the row's touch expectation and the action borrowed it. Alone in the corner it
