@@ -1,7 +1,6 @@
 "use client"
 
-import * as React from "react"
-import { Group, Panel, Separator, type GroupProps, type PanelProps, type SeparatorProps } from "react-resizable-panels"
+import { Group, type GroupProps, Panel, type PanelProps, Separator, type SeparatorProps } from "react-resizable-panels"
 
 import { cn } from "@/lib/utils"
 
@@ -113,4 +112,4 @@ function ResizableHandle({
 	)
 }
 
-export { ResizablePanelGroup, ResizablePanel, ResizableHandle }
+export { ResizableHandle, ResizablePanel, ResizablePanelGroup }

@@ -202,8 +202,9 @@ high-effort work (the trio) lands on exactly one design.
 harness's async wrapper with injected globals (`agent`, `pipeline`,
 `parallel`, `log`, `phase`, `budget`, `args`) and a top-level `return` — they
 are not standard Node modules and cannot parse as such, so the directory is
-excluded from Biome in `biome.json`, like the other nonstandard/generated
-files. `parallel(thunks)` takes an array of `() => Promise` thunks and
+excluded from Biome in `biome.jsonc` under the `unparseable:` class — house source
+in a non-standard dialect, which is a different thing from vendor or generated and
+now says so (#1223). `parallel(thunks)` takes an array of `() => Promise` thunks and
 barriers on all of them; `budget.total` / `budget.remaining()` expose the
 run's token target — both are used by `design-competition.js` and are part of
 the harness contract, not extras.)*

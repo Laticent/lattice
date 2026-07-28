@@ -5,7 +5,7 @@ script, every hook in one place. For *workflow* (branching, feature decks,
 PR process, the two-renderer rule, the share-the-PDF rule), see
 `workflow.md`. This file is the *tooling* counterpart.
 
-Source-of-truth lives in the config files (`biome.json`, `lefthook.yml`,
+Source-of-truth lives in the config files (`biome.jsonc`, `lefthook.yml`,
 `.c8rc.json`, `.nvmrc`, `jsconfig.json`, `.github/workflows/ci.yml`,
 `tools/affected-tests.js`). This doc explains the *why* and the *when*.
 
@@ -129,7 +129,13 @@ adopted, the linter found 7 real correctness issues and 30+ style
 issues; the formatter would have rewritten ~43 of 49 files.)
 
 Run via `npm run lint` (read-only) or `npm run lint:fix` (`check --write`,
-includes the unsafe auto-fixes). Source of truth: `biome.json`.
+includes the unsafe auto-fixes). Source of truth: `biome.jsonc` — `.jsonc`
+because every exclusion carries a written reason naming its class (#1223). That
+is a **convention, not a gate**: an enforcing gate was written and removed before
+merge because it validated the spelling of `!` entries while lint coverage does
+not live there — deleting one *positive* include line drops coverage 1253 → 892
+files, and one `.gitignore` line un-lints tracked source with no config edit at
+all. See the header of `biome.jsonc` for the measurements.
 
 ## Hooks (lefthook)
 
@@ -255,7 +261,7 @@ that would require `/** @type {HTMLElement} */` casts throughout; the
 cast noise costs more readability than the type signal returns.
 
 Recommended VS Code extensions:
-- `biomejs.biome` — inline lint feedback from `biome.json`
+- `biomejs.biome` — inline lint feedback from `biome.jsonc`
 - `marp-team.marp-vscode` — preview `.md` decks
 
 ## Previewing the docs site (Astro) + screenshots

@@ -60,7 +60,7 @@ const FULL_SUITE_TRIGGER = new Set([
   'mermaid-v11.min.js',
   'package.json',
   'package-lock.json',
-  'biome.json',
+  'biome.jsonc',
   'jsconfig.json',
 ]);
 

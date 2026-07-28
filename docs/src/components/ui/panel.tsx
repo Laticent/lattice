@@ -8,7 +8,7 @@ import {
 	SheetTitle,
 } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
-import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
+import { useIsPhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 
 // panel.tsx — the shared drawer/panel grammar the Studio is migrating onto.
@@ -326,13 +326,6 @@ export const PanelBack = React.forwardRef<HTMLButtonElement, { label: string; on
 		</>
 	);
 });
-
-/** True on a phone — narrow, or a landscape phone (wide but ~400px tall). */
-function useIsPhone(): boolean {
-	const bp = useBreakpoint();
-	const landscape = useLandscapePhone();
-	return bp === 'mobile' || landscape;
-}
 
 export function PanelSheet({
 	open,

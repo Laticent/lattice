@@ -32,12 +32,52 @@
 // re-render never tears the registration down and rebuilds it — the other half of what
 // made the first attempt fragile.
 //
-// SCOPE: phones, and Studio drawers. `PanelSheet` registers itself when it is a bottom
-// sheet (`useIsPhone`), and `StudioDrawer` registers twice — once for the sheet, once
-// for an open door. Desktop and tablet never register, so history stays untouched
-// there, which is what the issue's acceptance check #5 requires. Present, the guided
-// tour, `MetricDetail` and the Playground sheets are deliberately NOT wired (decided
-// with the product owner, 2026-07-28) — they keep today's behavior.
+// SCOPE: phones. `PanelSheet` registers itself when it is a bottom sheet (`useIsPhone`),
+// `StudioDrawer` registers twice — once for the sheet, once for an open door — and the
+// off-Studio sheets register individually (site nav, the site search dialog, both
+// Playground sheets, `MetricDetail`). Desktop and tablet never register, so history stays
+// untouched there, which is what the issue's acceptance check #5 requires.
+//
+// Still genuinely unwired: Present, the guided tour, and dialogs NESTED inside an
+// already-registered sheet (WorkspaceSheet's confirm) — where back closes the sheet
+// underneath rather than the dialog on top.
+//
+// THIS PARAGRAPH HAS BEEN WRONG IN THREE CONSECUTIVE COMMITS. It said `MetricDetail` and
+// the Playground sheets were "deliberately NOT wired" in the commit that wired them, and
+// then listed `SlidePicker` as unwired when `SlidePicker` renders a `PanelSheet` and is
+// therefore registered by construction. That is not three comment bugs; it is what a
+// hand-maintained roster does when registration is one opt-in line and invisible from
+// here. Compare `SANCTIONED_PREVIEW_BUILDERS`, which fails on an unlisted builder AND on
+// a stale entry. Until this has that, treat the list as a hint and grep
+// `useOverlayBack` for the truth.
+//
+// ── AN INVARIANT THIS MODULE IMPOSES ON THE WHOLE DOCS CODEBASE ────────────────
+// `history.state` is where ownership is recorded (`STATE_KEY`), and it is the ONLY
+// record that survives a reload. Anything that calls `history.replaceState(null, …)`
+// wipes it. Nothing breaks immediately — the in-memory `sentinel` carries on — but
+// `adopt()` then fails after the next reload, and the module falls back to the
+// orphan-accumulating behavior described above.
+//
+// SIX call sites already do this — four pass `null`, two pass `{}`, and `{}` wipes the
+// marker just as thoroughly:
+//
+//   PlaygroundApp.tsx:1139,1141   null   effect keyed on [view, walk]
+//   StudioShell.tsx:1271          null   boot URL tidy
+//   architect.ts:1548             null   boot URL tidy
+//   playground/theme-studio.js:535  {}   URL tidy
+//   pages/drawing-board.astro:796   {}   URL tidy
+//
+// An earlier draft of this paragraph said the PlaygroundApp calls run "repeatedly during
+// normal use" AND, three lines later, that they "run before any sheet opens". Both cannot
+// be true, and the checker was right to call it. The accurate statement: they are all
+// URL-tidying calls that in practice run at boot, but the PlaygroundApp pair is in an
+// effect keyed on [view, walk], and the Playground's sheets are `modal={false}` with the
+// page behind live — so nothing structurally prevents a `walk` change while a registered
+// sheet is open. It has not been driven to happen; it is also not excluded.
+//
+// If you are adding a `replaceState`, PRESERVE the existing state object rather than
+// passing `null` or `{}`. Flagged by the Munger inversion, corrected by the checker;
+// ungated, so it rides on this comment.
 import * as React from 'react';
 
 type Entry = { onBack: () => void };
@@ -50,6 +90,8 @@ let sentinel = false;
 let pendingPops = 0;
 let listening = false;
 let dirty = false;
+/** A reconcile arrived while a traversal was in flight and must be re-run after it. */
+let deferred = false;
 
 /** Marks our entry so it can be attributed after a reload — see `adopt()`. */
 const STATE_KEY = '__latticeOverlayBack';
@@ -85,9 +127,29 @@ function adopt(): void {
 
 function reconcile(): void {
 	dirty = false;
-	// Cheap and idempotent, so it runs here rather than once at init: `listen()` fires
-	// only when something registers, and a reconcile is the first moment the answer to
-	// "do we already own an entry?" is actually consulted.
+	// A traversal WE started has not landed yet. Touching history now is the latent
+	// re-entry of the bug that got the first implementation reverted: `history.back()` is
+	// asynchronous, so between firing it and its `popstate` the stack is un-owned, and a
+	// push landing in that window creates an entry the in-flight traversal pops INSTEAD —
+	// leaving the controller believing it owns an entry it does not, i.e. the next back
+	// gesture leaves the app. Nothing in the UI reaches this today (the drawer's own
+	// close-and-open hand-off coalesces into ONE reconcile, so the window never opens),
+	// which meant the margin was React's scheduling rather than anything this module
+	// enforced. Flagged as latent by the independent checker; deferring makes it
+	// structural. `onPopState` re-schedules when the traversal lands — deferring must
+	// never mean dropping.
+	if (pendingPops > 0) {
+		deferred = true;
+		return;
+	}
+	// AFTER the guard above, and that order is load-bearing. Running it first re-claimed
+	// the very entry we had just given up: while our own `history.back()` is in flight the
+	// browser has not traversed yet, so `history.state` still carries the marker — `adopt`
+	// would set `sentinel = true` for an entry that is on its way out, and the deferred
+	// reconcile would then see `want && sentinel` and re-arm NOTHING. Deferring would have
+	// meant dropping, which is exactly what the guard claims not to do. The shipped test
+	// could not see it because it mocked `pushState` to a no-op, so `history.state` was
+	// never marked and `adopt` never fired. Found by the independent checker.
 	adopt();
 	const want = stack.length > 0;
 	if (want && !sentinel) {
@@ -95,7 +157,7 @@ function reconcile(): void {
 		history.pushState({ [STATE_KEY]: true }, '');
 		sentinel = true;
 	} else if (!want && sentinel) {
-		// Everything closed by X / scrim / Escape — consume the entry we own so a later
+		// Everything closed by chevron / scrim / Escape — consume the entry we own so a later
 		// back behaves as if the drawer had never opened (acceptance check #3).
 		sentinel = false;
 		pendingPops += 1;
@@ -113,6 +175,11 @@ function onPopState(): void {
 	// A pop we asked for. Swallow it — it is bookkeeping, not a user gesture.
 	if (pendingPops > 0) {
 		pendingPops -= 1;
+		// The window is closed; run whatever reconcile deferred while it was open.
+		if (pendingPops === 0 && deferred) {
+			deferred = false;
+			schedule();
+		}
 		return;
 	}
 	// Not our entry: a genuine page navigation. Let it happen.
@@ -124,6 +191,26 @@ function onPopState(): void {
 	schedule();
 }
 
+// NO `pageshow` HANDLER, and that is a decision, not an omission.
+//
+// One was added to recover from a traversal whose `popstate` never arrives — a
+// cross-document back, then a bfcache restore — on the reasoning that `pendingPops` would
+// stay stuck above zero and wedge `reconcile` PERMANENTLY. Both halves of that were wrong,
+// and the handler was strictly worse than the problem:
+//
+//   • THE WEDGE SELF-HEALS. `pendingPops` is decremented by ANY `popstate`, not only the
+//     one we were waiting for, so the next back gesture clears it. Measured: with a
+//     traversal stuck in flight, one later `popstate` re-arms the sentinel (`push` goes
+//     0 → 1). The real cost is a single dead gesture, not a permanent wedge.
+//   • THE HANDLER FIRED A SECOND `history.back()` FOR ONE OWNED ENTRY. It reset
+//     `pendingPops` to 0, which is the ONLY thing keeping `adopt()` off an entry that is
+//     already on its way out — so the deferred reconcile re-adopted the still-marked
+//     entry, saw nothing open, and traversed again. Measured: `back()` called twice for a
+//     single push. The second traversal consumes a real user history entry, i.e. back
+//     leaves the app — precisely the class of bug this module exists to prevent.
+//
+// Trading a self-healing dead gesture for a spurious navigation is a bad trade. Found by
+// the independent checker; both measurements reproduced before the handler was removed.
 function listen(): void {
 	if (listening || typeof window === 'undefined') return;
 	listening = true;
@@ -161,4 +248,5 @@ export function __resetOverlayBack(): void {
 	sentinel = false;
 	pendingPops = 0;
 	dirty = false;
+	deferred = false;
 }

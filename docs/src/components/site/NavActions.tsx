@@ -15,6 +15,8 @@ import {
 	SheetTrigger,
 } from '@/components/ui/sheet';
 import { Tip } from '@/components/ui/tooltip';
+import { useOverlayBack } from '@/lib/overlay-back';
+import { useIsPhone } from '@/lib/use-breakpoint';
 
 /**
  * The header's interactive right cluster — one island shared by every surface
@@ -55,6 +57,13 @@ export default function NavActions({
 	const [open, setOpen] = React.useState(false);
 	const [sheet, setSheet] = React.useState(false);
 	const [feedbackOpen, setFeedbackOpen] = React.useState(false);
+	// Back closes this sheet instead of leaving the page (#1226 follow-up). Phone only.
+	// Registering here is what makes the site's back behavior UNIFORM: `FeedbackSheet`
+	// is a `PanelSheet` and so registered from the day the guard landed, while the raw
+	// `Sheet`s around it did not — so back closed feedback but left the site from the
+	// nav sheet underneath it. A mixed stack is worse than either rule applied evenly.
+	const phone = useIsPhone();
+	useOverlayBack(phone && sheet, React.useCallback(() => setSheet(false), []));
 
 	React.useEffect(() => {
 		const onKey = (e: KeyboardEvent) => {

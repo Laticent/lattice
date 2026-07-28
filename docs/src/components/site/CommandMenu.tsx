@@ -12,7 +12,9 @@ import {
 	CommandSeparator,
 	CommandShortcut,
 } from '@/components/ui/command';
+import { useOverlayBack } from '@/lib/overlay-back';
 import { setPalette, toggleMode } from '@/lib/site-chrome';
+import { useIsPhone } from '@/lib/use-breakpoint';
 
 export type NavLink = { label: string; href: string; desc?: string; current?: boolean; badge?: string };
 
@@ -73,6 +75,17 @@ export function CommandMenu({
 	githubUrl: string;
 	pagefindUrl: string;
 }) {
+	// Back closes the search dialog instead of leaving the site (#1226 follow-up). Phone
+	// only. This is the one the first pass MISSED, and it sat in the same header as the
+	// one it fixed: tap Menu and back closed the sheet, tap Search and back left the site.
+	// Same chrome, two rules — exactly the mixed stack the follow-up set out to end. It
+	// was missed because it is a `CommandDialog` rather than a `Sheet`, so it did not look
+	// like the others; the Studio's own palette avoided this by becoming a `PanelSheet` on
+	// mobile. Found by the independent checker.
+	const phone = useIsPhone();
+	// The inline arrow is fine: `useOverlayBack` holds it in a ref and depends on `active`
+	// alone, precisely so a fresh closure per render never re-registers the level.
+	useOverlayBack(phone && open, () => onOpenChange(false));
 	const [query, setQuery] = React.useState('');
 	const [docs, setDocs] = React.useState<DocResult[]>([]);
 	const pf = React.useRef<PagefindModule | null | 'unavailable'>(null);

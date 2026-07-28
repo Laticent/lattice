@@ -216,7 +216,7 @@ palette. Reverted to the bare form, matching `MOBILE_OFFSET` and the house conve
 
 ## What is deliberately still open
 
-- **`panel.tsx` is not covered by `npm run lint`.** `biome.json` excludes
+- **~~`panel.tsx` is not covered by `npm run lint`~~ — CLOSED 2026-07-28 (#1223).** `biome.json` excluded
   `docs/src/components/ui` because the 30 vendored shadcn files there fail the house
   rules; Biome's `includes` cannot re-admit a single file from an excluded folder
   without tripping `useBiomeIgnoreFolder`, and dropping the exclusion surfaces findings

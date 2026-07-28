@@ -26,15 +26,36 @@ let back: ReturnType<typeof vi.spyOn>;
 /** Let the controller's reconcile microtask run. */
 const settle = () => new Promise<void>((r) => setTimeout(r, 0));
 
-/** jsdom's `history.back()` does not reliably emit `popstate`, so drive it by hand. */
-const userBack = async () => {
+/**
+ * A history traversal, driven by hand — jsdom's `history.back()` does not reliably emit
+ * `popstate`, and its timing is jsdom's rather than ours.
+ *
+ * BOTH halves matter, and a first version only did the second. A traversal moves the
+ * current entry to the PREVIOUS one, which does not carry our marker; dispatching a bare
+ * `popstate` while `history.state` still says `__latticeOverlayBack` models a browser
+ * that does not exist, and it is what let a real defect hide — `adopt()` re-claiming an
+ * entry the traversal had already spent. Clearing the state first is the whole difference
+ * between a test that can tell the two orderings of `adopt()` apart and one that cannot.
+ */
+const traverse = async () => {
+	history.replaceState(null, '');
 	window.dispatchEvent(new PopStateEvent('popstate'));
 	await settle();
 };
+/** The user pressed back. */
+const userBack = traverse;
+/** A traversal WE started has landed. */
+const landTraversal = traverse;
 
 beforeEach(() => {
 	__resetOverlayBack();
-	push = vi.spyOn(window.history, 'pushState').mockImplementation(() => {});
+	history.replaceState(null, '');
+	// CALL THROUGH, deliberately. A first version mocked this to a no-op, which meant
+	// `history.state` was never marked — so `adopt()` could not fire in ANY test, and the
+	// one state transition that makes this module non-trivial was invisible to the whole
+	// suite. It hid a real defect (see "re-arms after a deferred traversal"). Counting the
+	// calls is the assertion; the marker has to be real for the assertion to mean anything.
+	push = vi.spyOn(window.history, 'pushState');
 	// Call-through is wrong here: a real jsdom `back()` would emit a popstate the
 	// controller must swallow, and the timing of that is jsdom's, not ours. Counting the
 	// call is the assertion; the swallow is exercised explicitly below.
@@ -112,8 +133,7 @@ describe('useOverlayBack', () => {
 		rerender(<Harness outer={true} inner={false} onOuter={after} onInner={noop} />);
 		await settle();
 		push.mockClear();
-		window.dispatchEvent(new PopStateEvent('popstate'));
-		await settle();
+		await landTraversal();
 		expect(after).not.toHaveBeenCalled();
 	});
 
@@ -180,12 +200,100 @@ describe('useOverlayBack', () => {
 		history.replaceState(null, '');
 	});
 
-	it('ignores a popstate when nothing is open', async () => {
-		const onOuter = vi.fn();
-		render(<Harness outer={false} inner={false} onOuter={onOuter} onInner={() => {}} />);
+	it('DEFERS while a traversal we started is still in flight', async () => {
+		// The latent re-entry of the reverted bug. `history.back()` is asynchronous, so
+		// between firing it and its popstate the stack is un-owned. A push landing in
+		// that window creates an entry the in-flight traversal pops INSTEAD, leaving the
+		// controller believing it owns one it does not — the next back gesture then
+		// leaves the app. Nothing in the UI reaches this today (the drawer's own
+		// close-and-open hand-off coalesces into one reconcile), so before this the
+		// margin was React's scheduling, not the module. Flagged by the checker.
+		const noop = () => {};
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
 		await settle();
-		await userBack();
+		expect(push).toHaveBeenCalledTimes(1);
+
+		// Everything closes — a traversal is fired and has NOT landed (back is mocked, so
+		// no popstate follows on its own).
+		rerender(<Harness outer={false} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(back).toHaveBeenCalledTimes(1);
+
+		// Something re-opens inside the window. It must NOT push.
+		rerender(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(push).toHaveBeenCalledTimes(1);
+
+		// The traversal lands. Now the deferred work runs and the entry is re-armed —
+		// deferring must not mean dropping.
+		await landTraversal();
+		expect(push).toHaveBeenCalledTimes(2);
+	});
+
+	it('re-arms after a deferred traversal — deferring must not mean DROPPING', async () => {
+		// The guard's whole claim, asserted against a REAL `pushState` so the entry is
+		// genuinely marked. With `adopt()` running before the in-flight check, it re-claimed
+		// the entry we had just given up (the browser has not traversed yet, so the marker is
+		// still on the current entry) — the deferred reconcile then saw `sentinel` already
+		// true and re-armed nothing, leaving the controller owning an entry it did not have.
+		// Found by the independent checker; the mocked `pushState` is why the suite missed it.
+		const noop = () => {};
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(push).toHaveBeenCalledTimes(1);
+		expect(history.state?.__latticeOverlayBack, 'the entry must really be marked').toBe(true);
+
+		rerender(<Harness outer={false} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(back).toHaveBeenCalledTimes(1);
+
+		// Re-opens inside the traversal window — deferred, no push yet.
+		rerender(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(push).toHaveBeenCalledTimes(1);
+
+		// The traversal lands: the current entry becomes the previous, unmarked one.
+		await landTraversal();
+		expect(push, 'the deferred work must actually run').toHaveBeenCalledTimes(2);
+	});
+
+	it('ignores a popstate when nothing is open', async () => {
+		// Opens once FIRST so the module's listener is definitely attached. Without that
+		// this passed vacuously in isolation: `__resetOverlayBack` does not clear
+		// `listening`, and if nothing ever registers, `listen()` is never called — so the
+		// case asserted against a module with no `popstate` handler at all, and only meant
+		// anything because earlier cases in the file happened to attach one. Found by the
+		// independent checker.
+		const onOuter = vi.fn();
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={onOuter} onInner={() => {}} />);
+		await settle();
+		await userBack();                       // consumes our entry, fires onOuter once
+		rerender(<Harness outer={false} inner={false} onOuter={onOuter} onInner={() => {}} />);
+		await settle();
+		onOuter.mockClear();
+		push.mockClear();
+
+		await userBack();                       // nothing open — must be ignored entirely
 		expect(onOuter).not.toHaveBeenCalled();
 		expect(push).not.toHaveBeenCalled();
+	});
+
+	it('does NOT install a pageshow handler — it fired a second traversal for one entry', async () => {
+		// A `pageshow` handler was added to recover a traversal whose `popstate` never
+		// arrives, then removed: it reset `pendingPops` to 0, which is the only thing
+		// keeping `adopt()` off an entry already on its way out. The deferred reconcile
+		// re-adopted the still-marked entry, saw nothing open, and traversed AGAIN — two
+		// `back()` calls for one push, the second consuming a real user entry. Measured
+		// before removal; this pins it so the same reasoning cannot re-introduce it.
+		const noop = () => {};
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		rerender(<Harness outer={false} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(back).toHaveBeenCalledTimes(1);
+
+		window.dispatchEvent(new PageTransitionEvent('pageshow'));
+		await settle();
+		expect(back, 'a pageshow must not spend a second traversal').toHaveBeenCalledTimes(1);
 	});
 });

@@ -14,6 +14,7 @@
 import * as React from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { useOverlayBack } from '@/lib/overlay-back';
 import { cn } from '@/lib/utils';
 import type { RenderStats } from '@/playground/render-metrics';
 import { bandLabel, formatValue, type MetricMeta, type Rating, REGIME_WORD, type Regime } from './perf-metrics';
@@ -257,6 +258,13 @@ export function MetricDetail({ meta, datum }: { meta: MetricMeta; datum: MetricD
 	};
 	React.useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
+	// Back closes the sheet instead of leaving the page (#1226 follow-up). Gated on
+	// `!isWide` rather than `useIsPhone()` because THIS component's own phone branch is
+	// what `isWide` selects — asking a second, slightly different question here is how
+	// two conditions drift apart.
+	const sheetOpen = !isWide && open;
+	useOverlayBack(sheetOpen, React.useCallback(() => setOpen(false), []));
+
 	if (!isWide) {
 		// Phone: bottom sheet. No hover; tap opens. overlay off so the page behind
 		// stays live (matches the sheet.tsx iOS scroll-lock note).
@@ -264,7 +272,13 @@ export function MetricDetail({ meta, datum }: { meta: MetricMeta; datum: MetricD
 			// modal={false} + overlay={false} keeps the page behind live and NOT
 			// scroll-locked — a modal lock lingers on iOS Safari and freezes the
 			// surface behind (ui/sheet.tsx note; siblings DeckSetupSheet/GalleriesSheet).
-			<Sheet modal={false}>
+			//
+			// CONTROLLED, where it used to be uncontrolled with only a `SheetTrigger`.
+			// The back-gesture guard needs to know whether this is open in order to close
+			// it, and an uncontrolled Radix sheet cannot say. `open` is reused rather than
+			// adding a second flag — the wide branch below already owns it for the Popover
+			// and the two branches never render together.
+			<Sheet modal={false} open={sheetOpen} onOpenChange={setOpen}>
 				<SheetTrigger asChild>
 					<Row meta={meta} datum={datum} />
 				</SheetTrigger>
