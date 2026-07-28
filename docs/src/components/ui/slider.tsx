@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 // A lightweight range slider on the native <input type="range"> — no extra

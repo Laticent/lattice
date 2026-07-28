@@ -50,6 +50,8 @@ let sentinel = false;
 let pendingPops = 0;
 let listening = false;
 let dirty = false;
+/** A reconcile arrived while a traversal was in flight and must be re-run after it. */
+let deferred = false;
 
 /** Marks our entry so it can be attributed after a reload — see `adopt()`. */
 const STATE_KEY = '__latticeOverlayBack';
@@ -89,13 +91,28 @@ function reconcile(): void {
 	// only when something registers, and a reconcile is the first moment the answer to
 	// "do we already own an entry?" is actually consulted.
 	adopt();
+	// A traversal WE started has not landed yet. Touching history now is the latent
+	// re-entry of the bug that got the first implementation reverted: `history.back()` is
+	// asynchronous, so between firing it and its `popstate` the stack is un-owned, and a
+	// push landing in that window creates an entry the in-flight traversal pops INSTEAD —
+	// leaving the controller believing it owns an entry it does not, i.e. the next back
+	// gesture leaves the app. Nothing in the UI reaches this today (the drawer's own
+	// close-and-open hand-off coalesces into ONE reconcile, so the window never opens),
+	// which meant the margin was React's scheduling rather than anything this module
+	// enforced. Flagged as latent by the independent checker; deferring makes it
+	// structural. `onPopState` re-schedules when the traversal lands — deferring must
+	// never mean dropping.
+	if (pendingPops > 0) {
+		deferred = true;
+		return;
+	}
 	const want = stack.length > 0;
 	if (want && !sentinel) {
 		// No URL argument: the address bar must not change. This only adds an entry.
 		history.pushState({ [STATE_KEY]: true }, '');
 		sentinel = true;
 	} else if (!want && sentinel) {
-		// Everything closed by X / scrim / Escape — consume the entry we own so a later
+		// Everything closed by chevron / scrim / Escape — consume the entry we own so a later
 		// back behaves as if the drawer had never opened (acceptance check #3).
 		sentinel = false;
 		pendingPops += 1;
@@ -113,6 +130,11 @@ function onPopState(): void {
 	// A pop we asked for. Swallow it — it is bookkeeping, not a user gesture.
 	if (pendingPops > 0) {
 		pendingPops -= 1;
+		// The window is closed; run whatever reconcile deferred while it was open.
+		if (pendingPops === 0 && deferred) {
+			deferred = false;
+			schedule();
+		}
 		return;
 	}
 	// Not our entry: a genuine page navigation. Let it happen.
@@ -161,4 +183,5 @@ export function __resetOverlayBack(): void {
 	sentinel = false;
 	pendingPops = 0;
 	dirty = false;
+	deferred = false;
 }

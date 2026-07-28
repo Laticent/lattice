@@ -91,3 +91,17 @@ export function useNarrowDesktop(): boolean {
 
 	return narrow;
 }
+
+/**
+ * True on a PHONE — narrow, or a landscape phone (wide but ~400px tall).
+ *
+ * Lived privately in `components/ui/panel.tsx` while `PanelSheet` was its only
+ * consumer. It stopped being the only one when the off-Studio sheets adopted the
+ * back-gesture guard, and four copies of `bp === 'mobile' || landscape` is exactly
+ * how the app ended up with five ad-hoc height rules (#1211).
+ */
+export function useIsPhone(): boolean {
+	const bp = useBreakpoint();
+	const landscape = useLandscapePhone();
+	return bp === 'mobile' || landscape;
+}

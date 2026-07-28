@@ -1,6 +1,6 @@
-import * as React from "react"
 import { ChevronRight, MoreHorizontal } from "lucide-react"
 import { Slot } from "radix-ui"
+import type * as React from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -49,12 +49,17 @@ function BreadcrumbLink({
   )
 }
 
+// DEVIATION from the vendored shadcn base: the current page drops `role="link"` and
+// `aria-disabled="true"`. shadcn marks it as a disabled link; it is not a link at all —
+// it is the page you are on, and `aria-current="page"` is the whole of what AT needs
+// (WAI-ARIA breadcrumb pattern). The vendored shape also fails two Biome a11y rules at
+// once: `useFocusableInteractive` (a `role="link"` with no `tabIndex` is unreachable by
+// keyboard) and `useSemanticElements` (use an `<a>`, or do not claim the role). Both
+// were invisible while `docs/src/components/ui` was excluded from lint (#1223).
 function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="breadcrumb-page"
-      role="link"
-      aria-disabled="true"
       aria-current="page"
       className={cn("font-normal text-foreground", className)}
       {...props}
@@ -100,10 +105,10 @@ function BreadcrumbEllipsis({
 
 export {
   Breadcrumb,
-  BreadcrumbList,
+  BreadcrumbEllipsis,
   BreadcrumbItem,
   BreadcrumbLink,
+  BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-  BreadcrumbEllipsis,
 }

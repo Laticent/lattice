@@ -180,6 +180,37 @@ describe('useOverlayBack', () => {
 		history.replaceState(null, '');
 	});
 
+	it('DEFERS while a traversal we started is still in flight', async () => {
+		// The latent re-entry of the reverted bug. `history.back()` is asynchronous, so
+		// between firing it and its popstate the stack is un-owned. A push landing in
+		// that window creates an entry the in-flight traversal pops INSTEAD, leaving the
+		// controller believing it owns one it does not — the next back gesture then
+		// leaves the app. Nothing in the UI reaches this today (the drawer's own
+		// close-and-open hand-off coalesces into one reconcile), so before this the
+		// margin was React's scheduling, not the module. Flagged by the checker.
+		const noop = () => {};
+		const { rerender } = render(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(push).toHaveBeenCalledTimes(1);
+
+		// Everything closes — a traversal is fired and has NOT landed (back is mocked, so
+		// no popstate follows on its own).
+		rerender(<Harness outer={false} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(back).toHaveBeenCalledTimes(1);
+
+		// Something re-opens inside the window. It must NOT push.
+		rerender(<Harness outer={true} inner={false} onOuter={noop} onInner={noop} />);
+		await settle();
+		expect(push).toHaveBeenCalledTimes(1);
+
+		// The traversal lands. Now the deferred work runs and the entry is re-armed —
+		// deferring must not mean dropping.
+		window.dispatchEvent(new PopStateEvent('popstate'));
+		await settle();
+		expect(push).toHaveBeenCalledTimes(2);
+	});
+
 	it('ignores a popstate when nothing is open', async () => {
 		const onOuter = vi.fn();
 		render(<Harness outer={false} inner={false} onOuter={onOuter} onInner={() => {}} />);

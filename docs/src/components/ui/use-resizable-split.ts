@@ -178,6 +178,11 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	// transient expand/collapse as noise (no persist, no callbacks).
 	const configChangingRef = React.useRef(false)
 
+	// `configKey` is deliberately a RE-RUN TRIGGER, not a value this effect reads — see
+	// the header note, "`configKey` remains only the effect's re-run trigger". Dropping it
+	// is behavior loss: the effect must fire again when a panel is toggled, which is
+	// exactly when the library expands a collapsed pane and this puts it back.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-run trigger, see above.
 	React.useEffect(() => {
 		if (!ready || !active) return
 		// Cancel BOTH frames on cleanup: without capturing the inner handle a stale
@@ -218,6 +223,11 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	// on every config change (a panel toggle makes the library expand a collapsed
 	// pane; we put it back). `configChangingRef` suppresses the transient so
 	// pollCollapse doesn't clear the persisted collapse or fire spurious callbacks.
+	// `configKey` is deliberately a RE-RUN TRIGGER, not a value this effect reads — see
+	// the header note, "`configKey` remains only the effect's re-run trigger". Dropping it
+	// is behavior loss: the effect must fire again when a panel is toggled, which is
+	// exactly when the library expands a collapsed pane and this puts it back.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-run trigger, see above.
 	React.useEffect(() => {
 		if (!ready || !active) return
 		const side = readStoredCollapse(storageKey)

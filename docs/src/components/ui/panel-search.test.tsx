@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { PANEL_SEARCH_BOX } from './panel';
 
 // The command palette cannot USE `PanelSearch` — cmdk owns its own input element — so

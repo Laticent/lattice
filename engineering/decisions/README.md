@@ -233,6 +233,7 @@ it is load-bearing.
 ### Shipped — pending teardown (absorb into canon, then delete)
 
 - ☑ [2026-07-28-back-not-close.md](2026-07-28-back-not-close.md) — >
+- ☑ [2026-07-28-lint-exclusions-and-off-studio-back.md](2026-07-28-lint-exclusions-and-off-studio-back.md) — >
 - ☑ [2026-07-28-one-panel-height.md](2026-07-28-one-panel-height.md) — >
 - ☑ [2026-07-27-bloom-engineering-journey-components.md](2026-07-27-bloom-engineering-journey-components.md) — >
 - ☑ [2026-07-27-chart-family-all-svg.md](2026-07-27-chart-family-all-svg.md) — The last two HTML labels in the chart family moved into their viewBoxes — word-cloud's size key and radar's small-multiple captions — so every chart that draws SVG at all now draws all of it. Both flip from `render: hybrid` to `svg`, proven by the derivation rather than asserted. Also corrects a six-week-old false claim in the SVG-legend decision that the derivation is what surfaced.

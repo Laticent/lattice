@@ -2,6 +2,8 @@ import { Settings } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { useOverlayBack } from '@/lib/overlay-back';
+import { useIsPhone } from '@/lib/use-breakpoint';
 import { deckDebugOn } from '@/playground/debug-overlay.js';
 import { debugEffectiveOn, onDebugOverrideChange, setDebugOverride } from '@/playground/debug-prefs.js';
 import { CONFIG_PROFILES, createConfigPanel } from '@/playground/deck-config.js';
@@ -33,6 +35,13 @@ export function DeckSetupSheet({
 	configured: boolean;
 }) {
 	const [open, setOpen] = React.useState(false);
+	// Back closes this sheet instead of leaving the page (#1226 follow-up). Phone only.
+	// Registering here is what makes the site's back behavior UNIFORM: `FeedbackSheet`
+	// is a `PanelSheet` and so registered from the day the guard landed, while the raw
+	// `Sheet`s around it did not — so back closed feedback but left the site from the
+	// nav sheet underneath it. A mixed stack is worse than either rule applied evenly.
+	const phone = useIsPhone();
+	useOverlayBack(phone && open, React.useCallback(() => setOpen(false), []));
 
 	const getSourceRef = React.useRef(getSource);
 	const setSourceRef = React.useRef(setSource);

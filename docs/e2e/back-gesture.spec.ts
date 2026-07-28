@@ -189,3 +189,47 @@ test.describe('@webkit-phone the back gesture never leaves the Studio (#1226)', 
 		expect(box?.height, 'action height').toBeGreaterThanOrEqual(44);
 	});
 });
+
+// The same guard, OFF the Studio. Split into its own describe because the surfaces have
+// nothing in common with the Studio's drawers except the mechanism.
+//
+// WHY THESE EXIST: `FeedbackSheet` is a `PanelSheet`, so it registered from the day the
+// guard landed — while the raw `Sheet`s around it did not. Back therefore closed the
+// feedback sheet but LEFT THE SITE from the nav sheet underneath it: a mixed stack, which
+// is worse than either rule applied evenly. Found by the independent checker on #1229.
+test.describe('@webkit-phone back closes off-Studio sheets too', () => {
+	test('the site nav sheet closes on back and stays on the page', async ({ page }) => {
+		await page.goto('/', { waitUntil: 'networkidle' });
+		await page.waitForTimeout(1200);
+		const start = page.url();
+
+		await page.getByRole('button', { name: /menu/i }).first().click();
+		await page.waitForTimeout(700);
+		await expect(page.locator('[role=dialog]')).toHaveCount(1);
+
+		await page.goBack();
+		await page.waitForTimeout(800);
+		await expect(page.locator('[role=dialog]')).toHaveCount(0);
+		expect(page.url(), 'back left the site instead of closing the nav').toBe(start);
+
+		// And with it closed, back means what it always did.
+		await page.goBack();
+		await page.waitForTimeout(900);
+		expect(page.url()).not.toBe(start);
+	});
+
+	test("the Playground's Galleries sheet closes on back and stays on the page", async ({ page }) => {
+		await page.goto('/playground/', { waitUntil: 'networkidle' });
+		await page.waitForTimeout(2200);
+		const start = page.url();
+
+		await page.getByRole('button', { name: 'Galleries', exact: true }).first().click();
+		await page.waitForTimeout(1000);
+		await expect(page.locator('[role=dialog]')).toHaveCount(1);
+
+		await page.goBack();
+		await page.waitForTimeout(800);
+		await expect(page.locator('[role=dialog]')).toHaveCount(0);
+		expect(page.url()).toBe(start);
+	});
+});
