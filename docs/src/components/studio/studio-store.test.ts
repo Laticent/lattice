@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DECKS, deckSource } from './decks';
+import { writeFrontMatterLine } from './front-matter';
 import { addComment, listComments } from './slide-comments';
 import {
 	clearAllDecks,
@@ -327,13 +328,67 @@ describe('studio-store — the `title:` front-matter override (shelf name ≠ co
 			expect(retitleSource('# Cover\n', '#1 Priority')).toBe('# 1 Priority\n');
 		});
 
-		it('an indented `title:` is spliced where the READER found it — writer and reader agree', () => {
-			// parseFm matches the TRIMMED line, so an indented key under a non-bare parent IS a
-			// flat pair. Whatever the reader read, the writer must rewrite — the worst possible
-			// failure here is the two disagreeing and Rename editing a different line.
+		it('an INDENTED `title:` is not a directive — it names nothing and is never written to', () => {
+			// An earlier cut of this change accepted it, on the reasoning that `parseFm` matches the
+			// trimmed line so the writer must follow the reader. The red team showed where that
+			// leads: the continuation of a folded scalar becomes both the deck's name AND Rename's
+			// write target. A real top-level directive sits at column 0; both halves now require it.
 			const src = '---\ntheme: indaco\n  title: sneaky\n---\n\n# Cover\n';
-			expect(resolveTitle(src)).toEqual({ text: 'sneaky', from: 'front-matter' });
-			expect(rename(src)).toBe('---\ntheme: indaco\n  title: "New Name"\n---\n\n# Cover\n');
+			expect(resolveTitle(src)).toEqual({ text: 'Cover', from: 'heading' });
+			expect(rename(src)).toBe('---\ntheme: indaco\n  title: sneaky\n---\n\n# New Name\n');
+		});
+
+		it('writeFrontMatterLine CREATES the key losslessly — the path Rename never takes', () => {
+			// The trio's blocker: Rename never creates `title:`, so the FIRST write to it is always
+			// the Deck-name control. Routing that through `setFrontMatter` shredded the block, which
+			// meant the splice only ever protected decks already damaged once.
+			const rich = ['---', '# author note — keep me', 'theme: indaco', '_class: lead', 'style: |', '  section { color: red; }', 'tags: [alpha, beta]', '---', '', '# Q4', ''].join('\n');
+			const out = writeFrontMatterLine(rich, 'title', 'Board pack');
+			expect(out).toContain('# author note — keep me');
+			expect(out).toContain('_class: lead');
+			expect(out).toContain('style: |\n  section { color: red; }');
+			expect(out).toContain('tags: [alpha, beta]');
+			expect(out).toBe(rich.replace('\n---\n\n# Q4', '\ntitle: "Board pack"\n---\n\n# Q4'));
+			expect(resolveTitle(out)).toEqual({ text: 'Board pack', from: 'front-matter' });
+		});
+
+		it('CREATING a name on a deck whose leading `---` is a slide SEPARATOR does not eat slide 1', () => {
+			// FM_RE cannot tell a separator from front matter, so the whole-block rebuild deleted the
+			// swallowed slide outright — verified on the real Studio by two lenses.
+			const src = '---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n';
+			const out = writeFrontMatterLine(src, 'title', 'Board pack');
+			expect(out).toContain('# Cover slide');
+			expect(out).toContain('Revenue up 12 percent.');
+			expect(out).toContain('# Second slide');
+		});
+
+		it('CLEARING the name removes the line, keeps the block, and drops an empty block', () => {
+			const src = '---\n# keep me\ntitle: Board pack\ntheme: indaco\n---\n\n# Q4\n';
+			const cleared = writeFrontMatterLine(src, 'title', null);
+			expect(cleared).toBe('---\n# keep me\ntheme: indaco\n---\n\n# Q4\n');
+			// …and when the key was the only content, the block goes with it.
+			expect(writeFrontMatterLine('---\ntitle: Solo\n---\n\n# Q4\n', 'title', null)).toBe('# Q4\n');
+			// CRLF survives a create+clear round-trip.
+			const crlf = '---\r\ntheme: indaco\r\n---\r\n\r\n# Q4\r\n';
+			expect(writeFrontMatterLine(writeFrontMatterLine(crlf, 'title', 'X'), 'title', null)).toBe(crlf);
+		});
+
+		it('a `title:` inside a FOLDED SCALAR is not the deck name, and Rename will not write into it', () => {
+			// parseFm matches the trimmed line, so an indented `title:` reads as a flat pair — which
+			// made a continuation line both the deck's name and Rename's write target, rewriting the
+			// author's `header:` value. The heading path has always refused to write into content it
+			// doesn't own; the front-matter path now holds the same line (top-level only).
+			const src = '---\nheader: >\n  title: folded\ntheme: x\n---\n\n# Real Cover\n';
+			expect(resolveTitle(src)).toEqual({ text: 'Real Cover', from: 'heading' });
+			expect(retitleSource(src, 'ZZ')).toBe('---\nheader: >\n  title: folded\ntheme: x\n---\n\n# ZZ\n');
+		});
+
+		it('the 60-char display cap lands on a CODE POINT boundary — no lone surrogate', () => {
+			const src = `---\ntitle: ${'x'.repeat(59)}😀tail\n---\n\n# Cover\n`;
+			const out = titleFromSource(src);
+			expect([...out].length).toBeLessThanOrEqual(60); // 60 CHARACTERS, not UTF-16 units
+			expect(/[\uD800-\uDBFF]$/.test(out)).toBe(false); // no dangling high surrogate
+			expect([...out].every((ch) => ch.codePointAt(0) !== 0xfffd)).toBe(true);
 		});
 
 		it('AGREEMENT: for every deck shape, the spliced value is what the reader reads back', () => {
@@ -343,7 +398,6 @@ describe('studio-store — the `title:` front-matter override (shelf name ≠ co
 				'---\r\ntitle: A\r\nsize: wide\r\n---\r\n\r\n# H\r\n',
 				'---\n# note\ntitle: A\ntheme: indaco\n---\n\n# H\n',
 				'---\nfinish-override:\n  backdrop:\n    strength: 0.4\ntitle: A\n---\n\n# H\n',
-				'---\ntheme: indaco\n  title: A\n---\n\n# H\n',
 				'---\ntitle: A\nlexicon:\n  "α": alpha\n---\n\n# H\n',
 			];
 			for (const shape of shapes) {

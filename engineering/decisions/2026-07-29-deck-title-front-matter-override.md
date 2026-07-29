@@ -77,9 +77,26 @@ YAML)"*, and in Compose mode, where front matter is an invisible document attrib
 the key would not have been observable at all.
 
 So the drawer's **Look** tab (the deck's *identity* — name, language, palette, size)
-gains a **Deck name** row, following `setHeaderText` exactly: it shows the raw
-override, placeholders with the heading-derived name so blank reads as "follows the
-cover", and clearing it removes the key and resumes heading derivation.
+gains a **Deck name** row. It follows `setHeaderText`'s *shape* but deliberately NOT
+its writer: it goes through `writeFrontMatterLine`, not `setFrontMatter`.
+
+That distinction is the whole point, and the first cut got it wrong. Because Rename
+never creates the key, **the first write to `title:` on any deck is always this
+control** — so routing it through the whole-block rebuild meant the splice only ever
+protected decks that had already been shredded once. All three lenses found it
+independently; the checker demonstrated it on the real built Studio, where setting a
+Deck name on a deck whose leading `---` is a slide separator deleted the cover slide
+outright. `writeFrontMatterLine` splices when the key exists, inserts one line before
+the closing `---` when it does not, and only falls back to building a block when the
+deck has no front matter at all.
+
+The field's copy matters too. Blank means "follows the cover heading", and the
+placeholder says exactly that — an earlier cut used `e.g. ${derived}`, borrowed from
+the Header row where it is correct (the band is *off*, so the value really is a
+suggestion). Here the derived value is the name the deck already has, so offering it
+as an example invites the user to type it in — which writes a redundant override and
+freezes the name against the cover forever, regenerating the very bug #1248 fixed,
+through the door built to make its successor usable.
 
 ### Not a new key
 
@@ -99,7 +116,8 @@ rather than invent a second home for the name.
 said the cover heading. That is the intended resolution of a nearly-dead key, but it
 *is* a change in exported bytes for that population, so it was captured both ways
 (reverting to `origin/main`, rebuilding, and exporting the same deck) and put in
-front of the human for the QUALITY BAR's export sign-off rather than slipped in.
+front of the human. **That sign-off is outstanding at the time of writing** — the
+QUALITY BAR makes it a hard stop, and this note does not claim it was given.
 
 ### Why the LFM spec is not amended
 
@@ -127,7 +145,7 @@ deleted, and everything it did model was normalized.
 |---|---|---|
 | Rename converted a CRLF (Windows-authored) block to LF, leaving a mixed-EOL file | `emitFm` joins with `\n` | the `title:` line is **spliced**; `\r` is outside the span, so line endings are untouched — the same discipline `lineEnd` gave the heading path in #1248 |
 | Rename deleted YAML comments, `_class:` / `_paginate:` (the engine accepts a leading `_`; `parseFm`'s key grammar does not), `style: \|` block scalars and their indented lines, and stringified flow sequences (`tags: [a, b]`) | whole-block rebuild | nothing outside the one line is read, let alone rewritten |
-| Rename re-quoted *other* keys with escapes the engine's `stripQuotes` does not decode, so `header: The "Q4" pack` rendered with literal backslashes | whole-block rebuild | other keys are never re-emitted |
+| Rename re-quoted *other* keys, rewriting `header: The "Q4" pack` to `header: "The \"Q4\" pack"` | whole-block rebuild | other keys are never re-emitted. **Correction:** the first pass reported this as corrupting the *rendered* header; the second pass rendered both through the real engine and they are identical — markdown-it's backslash handling undoes the YAML escaping. The harm is to the author's source text, not to the slide |
 | Rename could delete an entire slide: on a deck whose leading `---` is a slide separator, `FM_RE` swallows slide 1, a body line shaped `title: x` resolves as the title, and the rebuild discarded the rest | whole-block rebuild | the splice replaces one line, so the worst case is a wrong line edited, not content destroyed |
 | a duplicate `title:` key silently vanished | rebuild emits one | the first is spliced (the same one the reader read); the second is left alone |
 | `#1 Priority` was stored as `1 Priority`, the toast claimed the un-stripped name, and the no-op guard never converged | the heading path's `^#+` strip applied to both | the strip is heading-only; `storedTitleFor` gives the toast and the guard the value actually written |
@@ -148,7 +166,7 @@ than the one the title was read from.
 | a title with `"` or `\` | round-trips losslessly through the shared quote/escape and back | without a real round-trip the backslashes compound on every rename (`front-matter.ts` documents this) |
 | a multi-line title | flattened to one line | in a heading a newline injects markdown (including a `---` slide break); in front matter it breaks out of the block entirely |
 | `title:` nested under a **bare** header (e.g. `finish-override:`) | not seen as the deck title | `parseFm` captures such blocks verbatim and never flattens their children into scalars |
-| `title:` **indented under a non-bare key** (malformed YAML) | *is* seen as the deck title, and the splice targets that same line | `parseFm` matches the trimmed line, so it is a flat pair to the reader; the writer must follow the reader rather than "fix" it independently — an earlier draft of this table claimed the stronger invariant, and the checker disproved it |
+| `title:` **indented** (under a non-bare key, or as the continuation of a `header: >` folded scalar) | not a directive: it names nothing and is never written to | the first pass accepted it, reasoning that the writer must follow `parseFm`'s trimmed-line match. The red team showed where that leads — the continuation of a folded scalar became both the deck's name AND Rename's write target, rewriting the author's `header:` value. A real top-level directive sits at column 0, and both halves now require it |
 | a duplicate `title:` | the first wins on read, and is the line rewritten; the second is left untouched | matching `getFrontMatter`'s `.find` |
 | a deck with neither override nor heading | Rename falls back to the stored label | unchanged from the heading rule |
 | the built-in decks | unaffected — none carries `title:` | the drift test pinning each built-in's declared title to its heading still holds |
@@ -175,19 +193,31 @@ in light and dark.
 Every assertion added here is **mutation-tested**; each of these kills tests, so
 none passes vacuously:
 
+Measured by running `npx vitest run src/components/studio/studio-store.test.ts
+src/components/studio/studio.controls.test.tsx` (112 tests) against each mutation in
+turn, restoring between:
+
 | Mutation | Tests killed |
 |---|---|
-| drop the precedence (ignore the override) | 6 |
+| drop the precedence (ignore the override) | 17 |
 | drop the empty-value guard | 1 |
 | apply the markdown strip to both paths | 1 |
-| delete the front-matter write branch | 3 |
-| revert the splice to a whole-block `setFrontMatter` | 6 |
-| revert the pre-paint mirror to `headingText` | 1 |
-| remove the Deck-name control | 1 |
+| delete the front-matter write branch | 10 |
+| revert the splice to a whole-block `setFrontMatter` | 10 |
+| revert the pre-paint mirror to `headingText` | 5 |
+| route the Deck-name control back through `setFrontMatter` | 2 |
+| accept an indented `title:` as a directive again | 2 |
+| revert the display cap to a raw `.slice` | 1 |
 
-The last two exist because the checker found the original mirror test **vacuous** —
-it hand-fed the resolver's output to the store, so reverting the production wiring
-killed nothing.
+An earlier draft of this table printed 6 / 1 / 1 / 3 for the first four rows. Those
+were the FIRST commit's numbers, carried into a note describing a later commit that
+had added nine more tests; the checker caught it. The error was conservative — more
+kills than claimed — so "none passes vacuously" held, but the printed numbers did
+not. The last three rows exist because the trio found the original mirror test
+**vacuous** (it hand-fed the resolver's output to the store, so reverting the
+production wiring killed nothing) and the original control test **vacuous in the same
+way** (it drove a deck with no front matter, the one input where a whole-block
+rebuild has nothing to destroy).
 
 **Known, pre-existing, NOT from this change:** at 820px the switcher pill is
 squeezed to zero width by the crowded header (#1249) — visible in the 820

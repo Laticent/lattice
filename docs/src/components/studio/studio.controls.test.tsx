@@ -155,6 +155,56 @@ describe('Studio — every top-bar control responds', () => {
 		expect(await screen.findByRole('button', { name: /Q4/ })).toBeInTheDocument();
 	});
 
+	it('the Deck name control preserves front matter it did not come to change', async () => {
+		// The gap that let the blocker through: the ORIGINAL version of this test drove a deck with
+		// NO front matter — the one input where a whole-block rebuild has nothing to destroy. All
+		// three trio lenses independently found that setting a Deck name shredded a real deck's
+		// block. Drive a deck that HAS front matter, or this test proves nothing.
+		const user = setup();
+		const rich = ['---', '# author note — keep me', 'theme: indaco', '_class: lead', 'style: |', '  section { color: red; }', 'tags: [alpha, beta]', '---', '', '<!-- _class: title -->', '', '# Q4', '', 'body'].join('\n');
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste(rich);
+
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Look' }));
+		const field = await screen.findByRole('textbox', { name: 'Deck name' });
+		await user.click(field);
+		await user.type(field, 'Board pack');
+		await user.tab();
+
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).toContain('title: "Board pack"'));
+		const src = screen.getByLabelText('Deck source').textContent ?? '';
+		expect(src).toContain('# author note — keep me'); // the comment survives
+		expect(src).toContain('_class: lead'); // the underscore key survives
+		expect(src).toContain('section { color: red; }'); // the block scalar's BODY survives
+		expect(src).toContain('tags: [alpha, beta]'); // the flow sequence is not stringified
+		expect(src).not.toContain('style: "|"'); // …and the scalar was not reduced to a literal
+		expect(await screen.findByRole('button', { name: /Board pack/ })).toBeInTheDocument();
+	});
+
+	it('the Deck name control does not eat slide 1 when the leading `---` is a separator', async () => {
+		// FM_RE cannot tell a slide separator from front matter, so the whole-block rebuild
+		// deleted the swallowed slide outright — demonstrated on the real built Studio.
+		const user = setup();
+		const editor = screen.getByLabelText('Deck source');
+		await user.click(editor);
+		await user.paste('---\n\n<!-- _class: title -->\n\n# Cover slide\n\nRevenue up 12 percent.\n\n---\n\n# Second slide\n');
+
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		await user.click(await screen.findByRole('tab', { name: 'Look' }));
+		const field = await screen.findByRole('textbox', { name: 'Deck name' });
+		await user.click(field);
+		await user.type(field, 'Board pack');
+		await user.tab();
+
+		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).toContain('Board pack'));
+		const src = screen.getByLabelText('Deck source').textContent ?? '';
+		expect(src).toContain('# Cover slide');
+		expect(src).toContain('Revenue up 12 percent.');
+		expect(src).toContain('# Second slide');
+	});
+
 	it('a `title:` override names the deck, and Rename aims at the override — not the cover slide', async () => {
 		// The whole point of the override is a shelf name the cover slide does not say. So the
 		// switcher must show the override, and Rename — which writes back — must target the

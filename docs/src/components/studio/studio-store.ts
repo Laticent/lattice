@@ -145,7 +145,16 @@ export type TitleOrigin = { text: string; from: 'front-matter' | 'heading' };
  * can't blank the deck's name; it falls through to the heading.
  */
 export function resolveTitle(source: string): TitleOrigin | null {
-	const override = getFrontMatter(source, 'title')?.trim();
+	// The override must be a REAL top-level directive — a `title:` line at column 0. `parseFm`
+	// matches the trimmed line, so an INDENTED `title:` is a flat pair to it, which means the
+	// continuation of a folded scalar (`header: >` / `  title: folded`) would otherwise both
+	// name the deck and become Rename's write target — rewriting the author's header value.
+	// The heading path has always refused to write into content it doesn't own (scanFirstHeading
+	// skips fences and HTML comments for exactly that reason); the front-matter path must hold
+	// the same line. Anchoring on the SPAN rather than on `parseFm` also keeps the reader and
+	// the writer looking at literally the same line.
+	const span = frontMatterKeySpan(source, 'title');
+	const override = span && !span.indent ? getFrontMatter(source, 'title')?.trim() : undefined;
 	if (override) return { text: override, from: 'front-matter' };
 	const h = scanFirstHeading(source);
 	return h ? { text: h.text, from: 'heading' } : null;
@@ -162,7 +171,12 @@ export function titleFromSource(source: string, fallback = 'Imported deck'): str
 	// plain YAML scalar — nothing renders it — so stripping there would eat the literal
 	// characters of a name the author typed, turning `Q4_final` into `Q4final`.
 	const display = t.from === 'heading' ? t.text.replace(/[`*_]/g, '') : t.text;
-	return display.trim().slice(0, 60) || fallback;
+	// Cap at a CODE POINT boundary, never a raw `.slice` — a plain cut at 60 UTF-16 units
+	// splits an astral character (emoji, some CJK) into a lone surrogate, which then renders
+	// as a replacement glyph in the switcher, the header, ⌘K and the Share title. The store
+	// already solved this for the instructions field; a front-matter title is arbitrary
+	// author-typed text, so it feeds the same hazard.
+	return truncateCodePoints(display.trim(), 60) || fallback;
 }
 
 /**

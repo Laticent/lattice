@@ -173,6 +173,64 @@ export function frontMatterValue(value: string): string {
 }
 
 /**
+ * Set (or, with `value === null`, remove) ONE flat directive **losslessly** — the
+ * non-destructive counterpart to `setFrontMatter`, for a key whose edits a user reads as
+ * editing their document rather than flipping a setting.
+ *
+ * `setFrontMatter` re-emits the entire block, which is an acceptable cost for a control
+ * that owns a key the drawer itself created (`size`, `paginate`), and an unacceptable one
+ * for a key an author hand-writes: it deletes YAML comments and `_`-prefixed keys, flattens
+ * `style: |` block scalars to the literal string `"|"` (dropping their body), stringifies
+ * flow sequences, reorders the survivors, and converts a CRLF block to LF. On a deck whose
+ * leading `---` is a slide separator — which `FM_RE` cannot distinguish from front matter —
+ * it deletes the swallowed slide outright.
+ *
+ * Three paths, in descending order of how much of the file they touch:
+ *   1. the key EXISTS → splice its line, leaving every other byte alone;
+ *   2. a block exists WITHOUT the key → insert one line before the closing `---`;
+ *   3. no block at all → prepend a new two-line block.
+ * Removal splices the line out (and drops the block entirely when nothing but blanks would
+ * remain). No path parses and re-emits what it did not come to change.
+ */
+export function writeFrontMatterLine(source: string, key: string, value: string | null): string {
+	const src = String(source ?? '');
+	const span = frontMatterKeySpan(src, key);
+	if (value === null) {
+		if (!span) return src; // nothing to remove
+		// Take the line's own terminator with it, so removal leaves no blank line behind.
+		let end = span.end;
+		if (src.startsWith('\r\n', end)) end += 2;
+		else if (src.startsWith('\n', end)) end += 1;
+		// Decide "is the block now empty?" against the ORIGINAL block's inner body, not by
+		// re-parsing the result: `FM_RE` does not match a degenerate `---\n---`, so the naive
+		// re-parse reports "no block" and leaves the empty delimiters stranded in the source.
+		const m = FM_RE.exec(src);
+		const open = m && /^---[ \t]*\r?\n/.exec(m[0]);
+		if (m && open) {
+			const innerStart = open[0].length;
+			const innerEnd = innerStart + m[1].length;
+			const remaining = src.slice(innerStart, span.start) + src.slice(end, innerEnd);
+			// Nothing but blanks left → drop the whole block, matching `setFrontMatter`'s
+			// behavior when its last key goes.
+			if (!remaining.trim()) return src.slice(m[0].length);
+		}
+		return `${src.slice(0, span.start)}${src.slice(end)}`;
+	}
+	if (span) return `${src.slice(0, span.start)}${span.indent}${key}: ${quoteIfNeeded(value)}${src.slice(span.end)}`;
+	const m = FM_RE.exec(src);
+	if (m) {
+		const open = /^---[ \t]*\r?\n/.exec(m[0]);
+		if (open) {
+			const eol = m[0].includes('\r\n') ? '\r\n' : '\n';
+			const at = open[0].length + m[1].length; // end of the inner body, before the closing `---`
+			return `${src.slice(0, at)}${eol}${key}: ${quoteIfNeeded(value)}${src.slice(at)}`;
+		}
+	}
+	const eol = src.includes('\r\n') ? '\r\n' : '\n';
+	return `---${eol}${key}: ${quoteIfNeeded(value)}${eol}---${eol}${eol}${src.replace(/^(?:[ \t]*\r?\n)+/, '')}`;
+}
+
+/**
  * Parse the deck's `finish-override:` block into a PARTIAL recipe — a map of layer →
  * `{ attr: rawStringValue }`, nested one level under each layer key to mirror the recipe
  * shape (`backdrop: { strength: 0.4, clearance: off }`, `wash: { intensity: 5 }`, …).

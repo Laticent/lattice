@@ -281,16 +281,20 @@ exactly as before. An empty `title:` is ignored rather than blanking the name.
 deck menu rewrites the `title:` line on a deck that has one (leaving the cover
 slide alone) and the first heading on a deck that doesn't — and it says which
 before you commit. It never silently adds front matter to a deck that had none:
-that's what the Deck name field is for. Renaming an override deck rewrites that
-one line and nothing else — your other directives, their order, and any comments
-you've left in the block all survive untouched.
+that's what the Deck name field is for.
+
+**Naming a deck touches one line.** Both the Deck name field and the menu Rename
+rewrite only the `title:` line itself — your other directives keep their order and
+their values, comments you've left in the block survive, and a Windows-authored deck
+keeps its line endings.
 
 ## Deck setup (front matter without the YAML)
 
 The Drawing Board's **Deck setup** drawer — the sliders button beside the
 settings chip — edits the deck's front matter through plain controls, so you
 never hand-write the `---` block and the Markdown body stays content-only. It
-covers the whole-deck settings: **theme**, slide **size** (landscape HD / 4K /
+covers the whole-deck settings: the **deck name** (see Naming the deck above),
+**theme**, slide **size** (landscape HD / 4K /
 Standard, plus social/mobile Square / Portrait / Story / Mobile),
 **page numbers**, running **header** / **footer**, **inline validation** on/off,
 and a few advanced ones

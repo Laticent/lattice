@@ -70,10 +70,11 @@ in patch versions.
   blanking the name. `title:` is not a new key — `share-export` already read it for the
   PNG/SVG image-set manifest and as a dead fallback for the exported HTML `<title>` — so
   this makes one existing directive authoritative instead of adding a second home for the
-  name. The engine does not consume it at all. **Renaming an override deck rewrites only
-  that one `title:` line**: the rest of the front matter — comments, `_`-prefixed keys,
-  block scalars, flow sequences, key order, and CRLF line endings — is preserved
-  byte-for-byte.
+  name. The engine does not consume it at all. **Both writers touch only the one `title:`
+  line** — the Deck name field and the menu Rename alike: the rest of the front matter
+  (comments, `_`-prefixed keys, `style: |` block scalars, flow sequences, key order, and
+  CRLF line endings) is preserved byte-for-byte, and a deck whose leading `---` is a slide
+  separator keeps that slide.
   **Rename now edits whichever source the title actually came from**: the `title:` line
   on an override deck (leaving the cover slide untouched), the first heading otherwise,
   and it names which in the prompt. It never adds front matter to a deck that had none.
