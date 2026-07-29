@@ -75,7 +75,7 @@ describe('lint-core: unknown-debug-facet', () => {
   });
 });
 
-describe('lint-core: capacity-overflow ↔ autosplit', () => {
+describe('lint-core: the capacity budget speaks, and autosplit is retired', () => {
   const capVocab = {
     names: new Set(['checklist']),
     modifiers: new Set(),
@@ -85,42 +85,72 @@ describe('lint-core: capacity-overflow ↔ autosplit', () => {
     `---\nmarp: true\ntheme: indaco\n${fmExtra}---\n\n<!-- _class: checklist -->\n\n## H\n\n` +
     `${Array.from({ length: 14 }, (_, i) => `- [ ] item ${i + 1}`).join('\n')}\n`;
 
-  test('a 14-item checklist over hard=9 warns capacity-overflow', () => {
-    const f = core.lintTextWith(overflowDeck(), capVocab).find((x) => x.rule === 'capacity-overflow');
-    assert.ok(f, 'expected a capacity-overflow finding');
+  // `capacity-overflow` is RETIRED (2026-07-29). Splitting is intrinsic, so a slide past
+  // `hard` is DIVIDED rather than left to overflow — the warning described an outcome the
+  // engine no longer produces. It is replaced everywhere by the `capacity-autosplit`
+  // advisory, which reports what will actually happen.
+  test('a 14-item checklist over hard=9 gets the SPLIT advisory, not an overflow warning', () => {
+    const out = core.lintTextWith(overflowDeck(), capVocab);
+    assert.equal(out.find((x) => x.rule === 'capacity-overflow'), undefined, 'capacity-overflow is retired');
+    const f = out.find((x) => x.rule === 'capacity-autosplit');
+    assert.ok(f, 'expected the capacity-autosplit advisory');
+    assert.equal(f.severity, 'info', 'advisory tier — a deliberate split must not red `lint:deck --strict`');
   });
 
-  test('autosplit: on at a PORTRAIT @size suppresses capacity-overflow (split divides it at export)', () => {
-    const f = core.lintTextWith(overflowDeck('autosplit: on\nsize: portrait\n'), capVocab).find((x) => x.rule === 'capacity-overflow');
-    assert.equal(f, undefined);
+  // The gate that used to exist here asserted the OPPOSITE: that a landscape deck still
+  // got a real overflow warning "because split never fires there". It fires there now —
+  // `size:` is a property of presentation, and a wide box is just another presentation.
+  test('the advisory fires at a LANDSCAPE @size too — the size gate is gone', () => {
+    const out = core.lintTextWith(overflowDeck('size: 16:9\n'), capVocab);
+    assert.ok(out.find((x) => x.rule === 'capacity-autosplit'), 'landscape splits like any other size');
+    assert.equal(out.find((x) => x.rule === 'capacity-overflow'), undefined);
   });
 
-  test('autosplit: on at a LANDSCAPE @size does NOT suppress capacity-overflow (split never fires there)', () => {
-    const out = core.lintTextWith(overflowDeck('autosplit: on\n'), capVocab);
-    assert.ok(out.find((x) => x.rule === 'capacity-overflow'), 'overflow is real in landscape');
-    assert.ok(out.find((x) => x.rule === 'autosplit-landscape-noop'), 'and the no-op flag is warned');
-  });
-
-  // The advisory `capacity-autosplit` fix text describes what the split will DO, so it
-  // must not promise a cover the run won't get: `splitEnvelope` needs an `<h2>` masthead
-  // to build one, and returns null without it (→ the bare partition). Caught in review
-  // on #1191 — the text asserted a cover unconditionally.
+  // The advisory's fix text describes what the split will DO, so it must not promise a
+  // cover the run won't get: `splitEnvelope` needs an `<h2>` masthead to build one and
+  // returns null without it (→ the bare partition). Caught in review on #1191.
   test('capacity-autosplit promises a cover only when the slide HAS a `## ` headline', () => {
-    const f = core
-      .lintTextWith(overflowDeck('autosplit: on\nsize: portrait\n'), capVocab)
+    const f = core.lintTextWith(overflowDeck('size: portrait\n'), capVocab)
       .find((x) => x.rule === 'capacity-autosplit');
-    assert.ok(f, 'expected a capacity-autosplit finding');
+    assert.ok(f);
     assert.match(f.fix, /leads with a cover/);
   });
 
   test('capacity-autosplit says NO cover on a title-less slide, and to add a headline', () => {
     const titleless =
-      '---\nmarp: true\ntheme: indaco\nautosplit: on\nsize: portrait\n---\n\n<!-- _class: checklist -->\n\n' +
+      '---\nmarp: true\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: checklist -->\n\n' +
       `${Array.from({ length: 14 }, (_, i) => `- [ ] item ${i + 1}`).join('\n')}\n`;
     const f = core.lintTextWith(titleless, capVocab).find((x) => x.rule === 'capacity-autosplit');
-    assert.ok(f, 'expected a capacity-autosplit finding on the title-less slide too');
+    assert.ok(f, 'the advisory still fires on a title-less slide');
     assert.doesNotMatch(f.fix, /leads with a cover/, 'must not promise a cover it will not get');
     assert.match(f.fix, /no `## ` headline/);
+  });
+
+  // A retired directive is FLAGGED, not ignored. Silence would read as "this still
+  // works", and a deck carrying `autosplit: off` would look opted-out while the engine
+  // paginated it anyway — which is why `off` is the error and `on` is only a suggestion.
+  test('autosplit: off is an ERROR — it asks for something the engine no longer offers', () => {
+    const f = core.lintTextWith(overflowDeck('autosplit: off\n'), capVocab)
+      .find((x) => x.rule === 'autosplit-retired');
+    assert.ok(f, 'expected autosplit-retired');
+    assert.equal(f.severity, 'error');
+    assert.match(f.message, /WILL paginate/);
+    assert.match(f.fix, /stress-slide/, 'points at the per-slide replacement');
+    assert.match(f.fix, /--no-split/, 'and at the tool flag for measurement rigs');
+  });
+
+  test('autosplit: on is a SUGGESTION — it asks for what already happens', () => {
+    const f = core.lintTextWith(overflowDeck('autosplit: on\n'), capVocab)
+      .find((x) => x.rule === 'autosplit-retired');
+    assert.ok(f);
+    assert.equal(f.severity, 'suggestion');
+  });
+
+  test('a deck that never mentions the directive is not flagged', () => {
+    assert.equal(
+      core.lintTextWith(overflowDeck('size: portrait\n'), capVocab).find((x) => x.rule === 'autosplit-retired'),
+      undefined,
+    );
   });
 });
 
@@ -405,20 +435,24 @@ describe('lint-core: capacity rule', () => {
     assert.match(f.message, /this slide has 5/);
     assert.match(f.fix, /list-tabular/);
   });
-  test('past hard → overflow warning carrying the note', () => {
-    const f = capRule(itemsSlide(8), 'capacity-overflow');
-    assert.ok(f, 'expected a capacity-overflow finding at 8 items');
-    assert.equal(f.severity, 'warning');
-    assert.match(f.message, /will overflow/);
-    assert.match(f.message, /scannability/);
-    // overflow and crowd are mutually exclusive per slide
+  test('past hard → the SPLIT advisory, not an overflow warning (capacity-overflow is retired)', () => {
+    // Splitting is intrinsic, so a slide past `hard` is DIVIDED rather than left to
+    // overflow: the old `capacity-overflow` warning described an outcome the engine no
+    // longer produces. The budget still has to speak — an author needs to know their
+    // slide is about to become several — which is what the advisory is for.
+    const f = capRule(itemsSlide(8), 'capacity-autosplit');
+    assert.ok(f, 'expected a capacity-autosplit finding at 8 items');
+    assert.equal(f.severity, 'info', 'advisory tier — a deliberate split must not red --strict');
+    assert.match(f.message, /auto-split will divide it/);
+    assert.equal(capRule(itemsSlide(8), 'capacity-overflow'), undefined, 'retired');
+    // advisory and crowd stay mutually exclusive per slide
     assert.equal(capRule(itemsSlide(8), 'capacity-crowd'), undefined);
   });
   test('table layout counts the row axis', () => {
     const rows = (n) => `${FM}<!-- _class: compare-table -->\n\n## H\n\n| A | B |\n|---|---|\n` + Array.from({ length: n }, (_, i) => `| ${i} | x |\n`).join('');
     assert.equal(capRule(rows(6), 'capacity-crowd'), undefined); // 6 == soft, not past
     assert.ok(capRule(rows(7), 'capacity-crowd'), 'expected crowd at 7 rows');
-    assert.ok(capRule(rows(9), 'capacity-overflow'), 'expected overflow at 9 rows');
+    assert.ok(capRule(rows(9), 'capacity-autosplit'), 'expected the split advisory at 9 rows');
   });
   test('no capacity data → rule is inert', () => {
     const out = core.lintTextWith(itemsSlide(20), { names: new Set(['cards-grid']), modifiers: new Set() });

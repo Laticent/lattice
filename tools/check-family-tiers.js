@@ -207,13 +207,13 @@ function sweepDeck(size, comps) {
       + 'coverage it does not have; give the component a gallery slide or remove it from the roster.',
     );
   }
-  // `autosplit: off` EXPLICITLY. This record measures the UN-SPLIT terminal of the Fit
-  // Ladder on purpose — "what clips when the author has not opted into splitting" — and
-  // it used to get that by relying on the flag being off by DEFAULT. #1234 flipped the
-  // default to on, so the reliance had to become a declaration: without it the sweep
-  // would paginate, the 1:1 page↔component mapping below would break, and the record
-  // would quietly start measuring something else entirely.
-  const src = `---\nmarp: true\ntheme: indaco\nsize: ${size}\nautosplit: off\npaginate: true\n---\n\n`
+  // The deck carries NO split directive — there is none to carry. This record measures
+  // the UN-SPLIT terminal of the Fit Ladder on purpose ("what clips when nothing
+  // paginates"), which is INSTRUMENTATION, so it is bought with the emulator's
+  // `--no-split` flag at the call site below rather than with a line in the deck. Without
+  // it the sweep would paginate, the 1:1 page↔component mapping would break, and the
+  // record would quietly start measuring something else entirely.
+  const src = `---\nmarp: true\ntheme: indaco\nsize: ${size}\npaginate: true\n---\n\n`
     + picked.map((p) => p.body).join('\n\n---\n\n') + '\n';
   return { src, comps: picked.map((p) => p.comp) };
 }
@@ -234,7 +234,7 @@ function clippedAt(size, comps) {
     // "no overflow" become the same string and the sentinel below has nothing to
     // check. The `HTML: N slides` tally is the proof the read worked.
     const r = spawnSync(process.execPath,
-      [path.join(ROOT, 'lattice-emulator.js'), file, path.join(os.tmpdir(), `fs-${size}-${process.pid}.pdf`), 'indaco'],
+      [path.join(ROOT, 'lattice-emulator.js'), file, path.join(os.tmpdir(), `fs-${size}-${process.pid}.pdf`), 'indaco', '--no-split'],
       { cwd: ROOT, encoding: 'utf8', timeout: 900000 });
     if (r.error) throw r.error;
     if (r.status !== 0) throw new Error(`emulator exited ${r.status} for ${size}:\n${r.stderr || r.stdout}`);
@@ -283,16 +283,16 @@ function overflowOracle() {
     // and `premise` was enrolled. `--ladder` computes it instead; the note says the
     // command, not the count.
     const note = [
-      'Components whose GALLERY SLIDE overflows at each @size, with NO `autosplit`.',
-      'A name here means "clips when the author has not opted into splitting" — NOT',
-      '"broken". Many of these are enrolled in test/oracle/split-oracle.json and fit',
-      'once `autosplit: on` is set. The two records measure different terminals of',
-      'the Fit Ladder and do not contradict each other — run',
-      '`node tools/check-family-tiers.js --ladder` for the overlap per @size, and for',
-      'which components still ring because no split is available to them at all.',
-      'One entry per registered @size, not per family: `portrait` and `story` are both',
-      '`tall`, but a clip is a function of the BOX — story is 570px taller at the same',
-      'width, and the two clip sets differ substantially.',
+      "Components whose GALLERY SLIDE overflows at each @size, rendered with the emulator's",
+      '`--no-split` flag. A name here means "overflows when nothing paginates" — NOT "broken".',
+      'Splitting is INTRINSIC (2026-07-29): an overflowing slide WITH A SEAM is divided at render at',
+      'every @size without being asked, so this is not the ordinary case — it is the un-split terminal',
+      'of the Fit Ladder, measured on purpose so the record has a stable baseline. Most of this set',
+      'paginates in a real export; at portrait, 21 components clip un-split and 5 with splitting on.',
+      'Run `node tools/check-family-tiers.js --ladder` for the overlap per @size, and for which',
+      'components still ring because they have no seam at all. One entry per registered @size, not per',
+      'family: `portrait` and `story` are both `tall`, but a clip is a function of the BOX — story is',
+      '570px taller at the same width, and the two clip sets differ substantially.',
     ].join(' ');
     fs.writeFileSync(ORACLE, `${JSON.stringify({ note, components: comps, clipped: fresh }, null, 2)}\n`);
     console.log(`\nblessed ${path.relative(ROOT, ORACLE)} — ${comps.length} components across ${SIZES.length} families.`);

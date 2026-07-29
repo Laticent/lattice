@@ -148,6 +148,10 @@ OPTIONS
                           timeline) plus per-slide <output>.NN.vtt. Timing is
                           Cadenza's estimate (no audio, no key); honors --strip-notes
                           and --strip-captions
+      --no-split          Do NOT paginate an overflowing slide — render it whole
+                          and let it ring. INSTRUMENTATION only: a measurement rig
+                          needs page N to stay slide N. A deck that means to show
+                          overflow marks the slide <!-- stress-slide --> instead
       --strip-notes       Scrub speaker notes from every output copy (the player
                           DOM, the PDF annotations, AND the embedded source) — a
                           shareable file with no speaker text
@@ -313,6 +317,7 @@ function parseArgs(argv) {
     if (a === '-q' || a === '--quiet') { flags.quiet = true; continue; }
     if (a === '--notes') { flags.notes = true; continue; }
     if (a === '--captions') { flags.captions = true; continue; }
+    if (a === '--no-split') { flags['no-split'] = true; continue; }
     if (a === '--strip-notes') { flags['strip-notes'] = true; continue; }
     if (a === '--strip-captions') { flags['strip-captions'] = true; continue; }
     if (a === '--notes-icon') { flags['notes-icon'] = true; continue; }
@@ -376,6 +381,9 @@ const CAPTIONS = !!flags.captions;
 // default (present-from-it), but this scrubs them from EVERY baked copy — the slide
 // DOM aside, the PDF text annotation, AND the envelope `source` (design doc §Notes
 // on export) — so a shared file leaks no speaker text.
+// Instrumentation, not authoring: hold the deck still so a rig can measure it (page N
+// must stay slide N). See the AUTOSPLIT comment below.
+const NO_SPLIT = !!flags['no-split'];
 const STRIP_NOTES = !!flags['strip-notes'];
 // `--strip-captions`: the SEPARATE privacy strip for the caption (read-as) channel —
 // orthogonal to `--strip-notes`. Notes (what you SAY) and captions (what a slide READS)
@@ -1383,7 +1391,18 @@ const ENGINE_BUILD = (() => {
 // One reader, shared with lint-core so the engine and the author's advisory cannot
 // disagree about what the directive means (HARD RULE #1). Rationale + the catalog
 // audit behind the default: lib/core/autosplit-flag.js.
-const AUTOSPLIT = require('./lib/core/autosplit-flag').autosplitEnabled(fm);
+// Splitting is INTRINSIC (2026-07-29). A deck is authored once and presented at many
+// sizes, so its page COUNT is a function of the content and the box, not an authoring
+// fact — which is why the retired `autosplit:` directive was never the right shape.
+// See engineering/decisions/2026-07-29-autosplit-is-not-a-toggle.md.
+//
+// `--no-split` is INSTRUMENTATION, not authoring: the measurement rigs need page N to
+// stay slide N so they can measure (tools/check-family-tiers.js's sweep records the
+// un-split terminal on purpose; tools/lib/calibrate-core.js grades one step per page).
+// A specimen slide that means to DEMONSTRATE overflow marks itself per-slide with
+// `<!-- stress-slide -->` instead — the marker lint-core already reads as "this slide
+// EXISTS to show the upper limit".
+const AUTOSPLIT = !NO_SPLIT;
 const SPLIT_CAP = (() => {
   if (!AUTOSPLIT) return {};
   const map = {};
@@ -1438,16 +1457,19 @@ const deckSizeName   = (fm.match(/^\s*size:\s*["']?([\w:/-]+)["']?\s*$/m) || [])
 const _geom          = resolveSize(deckSizeName, [paletteCSS, layoutCSS]);
 const slideW         = parseFloat(_geom.width);
 const slideH         = parseFloat(_geom.height);
-// Auto-split is a portrait/square-family behavior — the Fit Ladder's SPLIT move
-// (the-fit-spine.md §3). In a wide/landscape box, collapse + shed resolve overflow
-// before split is ever reached, so the move is scoped to NON-LANDSCAPE @sizes — the
-// universal rule mirrored by lint-core's PORTRAIT_SIZES and the manifest `orientation`
-// contract. A landscape deck with `autosplit: on` is therefore a no-op (lint:deck
-// warns; the HD/4K PDF stays byte-identical).
-const AUTOSPLIT_APPLIES = AUTOSPLIT && orientationFor(_geom).name !== 'landscape';
-if (AUTOSPLIT && !AUTOSPLIT_APPLIES) {
-  console.log(`  auto-split: skipped — '${deckSizeName}' is a landscape @size; autosplit applies only to portrait/square sizes (portrait · story · mobile · square).`);
-}
+// NO SIZE GATE. Split used to be skipped outright on landscape @sizes, on the stated
+// ground that "in a wide box, collapse + shed resolve overflow before split is ever
+// reached". That is an assumption, and measured it is false — four committed landscape
+// decks clip today with no recourse, and five component galleries carry a clipping
+// slide at landscape. If `size:` is a property of PRESENTATION, landscape is just
+// another presentation: the gate is "does it overflow, and is there a seam", a question
+// about the content in its box, never "which box shape is it".
+// (2026-07-29-autosplit-is-not-a-toggle.md.)
+//
+// Content that FITS is untouched at every size, so this changes only slides that were
+// already clipping. Content with no seam still rings — that is the honest terminal, and
+// it is not a toggle either.
+const AUTOSPLIT_APPLIES = AUTOSPLIT;
 // Orientation scaling/fill (social/mobile portrait + square @sizes). Empty for
 // landscape, so the HD/4K PDF is byte-identical. Same helper the engine
 // scaffold + runtime use, so every render path agrees.
@@ -3014,7 +3036,13 @@ async function renderBody(browser, g, closeBrowser) {
   // projection, but NOT the captions: a caption is public-facing narration the author opts into via
   // `--captions`, not a private note, so it composes with `--strip-notes` (ship captions, drop notes).
   if (CAPTIONS) {
-    await writeCaptionsSidecar(outFile, materializedNotes, cleanDocHtml, slideCaptions);
+    // PAGE-bound notes, not authored ones: `projectDeckSpeechFromHtml` projects the
+    // RENDERED sections, so feeding it the authored array made the two lengths disagree
+    // the moment a slide split — and `mergeNarration` then dropped the projection (and
+    // the front-matter captions with it) rather than misalign. One index space fixes all
+    // three channels at once.
+    const pageNotesForCaptions = notesPerRenderedPage(cleanDocHtml, materializedNotes);
+    await writeCaptionsSidecar(outFile, pageNotesForCaptions, cleanDocHtml, slideCaptions);
   }
 }
 
@@ -3671,10 +3699,32 @@ async function writeCaptionsSidecar(outPath, notes, docHtml, captions = []) {
   // index-aligned. (Present resolves the same map through the original source index; the export has
   // no such map here.) NOTE: captions are NOT stripped by `--strip-notes` — that flag removes the
   // private NOTE channel; a caption is public-facing narration the author opts into via `--captions`.
+  // Front-matter `captions:[n]` is keyed by AUTHORED slide, and splitting changes the
+  // page count — so the keys stop lining up the moment a slide paginates. This used to
+  // DROP the whole map on any split deck, which was survivable while splitting was
+  // opt-in and is not now that it is intrinsic: every deck with a split slide would
+  // silently lose its authored captions. Remap instead. `authoredIndexPerPage` recovers
+  // page → authored slide from the contiguous `data-split-run` groups, so a caption
+  // written for slide 4 reaches every page slide 4 became — the same treatment notes
+  // got, for the same reason (2026-07-29-autosplit-is-not-a-toggle.md).
   let fmForMerge = fmCaptions;
-  if (AUTOSPLIT_APPLIES && fmCaptions?.size) {
-    fmForMerge = null;
-    if (!QUIET) console.log('Captions: front-matter captions: keys are unsafe under autosplit (section count shifts) — using inline captions / notes for those slides');
+  if (fmCaptions?.size) {
+    const at = cleanDocHtml.search(/<section\b[^>]*\bdata-lattice-slide=/);
+    if (at >= 0) {
+      const pages = require('./lib/core/split-sections').splitSections(cleanDocHtml.slice(at))
+        .filter((x) => x.type === 'section');
+      const origin = require('./lib/core/auto-split').authoredIndexPerPage(pages);
+      // Only rebuild when the split actually moved something; an unsplit deck keeps the
+      // authored map byte-for-byte, so a deck that never paginates is unaffected.
+      if (origin.length && origin[origin.length - 1] !== origin.length) {
+        const remapped = new Map();
+        origin.forEach((authored, i) => {
+          if (fmCaptions.has(authored)) remapped.set(i + 1, fmCaptions.get(authored));
+        });
+        fmForMerge = remapped;
+        if (!QUIET) console.log(`Captions: front-matter captions remapped across the split — ${remapped.size} page(s) keyed from ${fmCaptions.size} authored slide(s)`);
+      }
+    }
   }
   // `--strip-captions` blanks the author's caption OVERRIDES (inline + front-matter) — a
   // channel separate from `--strip-notes`. Those slides fall back to note → projection, so

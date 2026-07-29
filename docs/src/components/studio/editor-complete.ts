@@ -21,7 +21,6 @@ const FRONT_MATTER_KEYS: { key: string; info: string }[] = [
 	{ key: 'finish', info: 'Finish backdrop — e.g. atrium, halo, gallery.' },
 	{ key: 'finish-override', info: 'Override the applied finish — a nested map (backdrop: { strength, clearance }, wash, …).' },
 	{ key: 'split', info: 'Slide-splitting strategy — e.g. headings.' },
-	{ key: 'autosplit', info: 'Auto-split overflowing slides — on by default at portrait/square/story/mobile; set off to opt out.' },
 	{ key: 'lift', info: 'Card lift — the "Struck" shadow on card surfaces. on / off.' },
 	{ key: 'class', info: 'Default _class applied to every slide.' },
 	{ key: 'lang', info: 'Document language — overrides the workspace default (e.g. en-US). Drives <html lang> + read-aloud.' },

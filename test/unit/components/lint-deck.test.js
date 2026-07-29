@@ -342,14 +342,21 @@ describe('deck linter', () => {
   });
 
 
-  test('stress-slide marker suppresses capacity-crowd but never capacity-overflow', () => {
-    // A slide in the crowd band (soft < n <= hard) with the marker: no warning.
+  test('the stress-slide marker is the SPECIMEN opt-out — quiet at every band', () => {
+    // `<!-- stress-slide -->` means "this slide EXISTS to show the upper limit". It has
+    // always suppressed capacity-crowd; since 2026-07-29 it also makes the SPLITTER leave
+    // the slide whole (lib/core/auto-split.js), because paginating a specimen paginates it
+    // out of showing the thing it exists to show.
     const crowd = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 6 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
     assert.equal(lintText(crowd('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 0, 'marker holds the crowd warning');
     assert.equal(lintText(crowd(''), { vocab }).filter((x) => x.rule === 'capacity-crowd').length, 1, 'no marker, crowd warns as before');
-    // Past hard, the marker does NOT save it — overflow still fires.
-    const over = `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: q-and-a -->\n<!-- stress-slide -->\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
-    assert.equal(lintText(over, { vocab }).filter((x) => x.rule === 'capacity-overflow').length, 1, 'overflow ignores the marker');
+    // Past hard, an ordinary slide is told it will be divided…
+    const over = (marker) => `---\nmarp: true\ntheme: indaco\n---\n\n<!-- _class: q-and-a -->\n${marker}\n\n## H.\n\n${Array.from({ length: 8 }, (_, i) => `- Q${i}?\n  - A${i}.`).join('\n')}\n`;
+    assert.equal(lintText(over(''), { vocab }).filter((x) => x.rule === 'capacity-autosplit').length, 1, 'the budget speaks');
+    // …but a SPECIMEN is not, because the splitter will not divide it. Promising a split
+    // that never happens is the same lie-to-the-author defect, pointed the other way.
+    assert.equal(lintText(over('<!-- stress-slide -->'), { vocab }).filter((x) => x.rule === 'capacity-autosplit').length, 0,
+      'a specimen is never promised a split it will not get');
   });
 
   test('narrationText strips front matter, fenced + inline code, keeps prose', () => {

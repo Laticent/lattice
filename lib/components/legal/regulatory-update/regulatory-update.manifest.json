@@ -29,7 +29,7 @@
     "soft": 5,
     "hard": 6,
     "escalateTo": [
-      "split across slides (auto with autosplit: on)",
+      "split across slides (automatic)",
       "list-tabular"
     ],
     "note": "past six changes the vertical list overflows a portrait box"

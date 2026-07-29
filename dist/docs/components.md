@@ -631,7 +631,7 @@ Use when a deck needs to introduce an ORDERED vocabulary — a maturity ladder, 
 
 #### Agent contract
 
-**Capacity** ~4 items (crowds past 6, overflows past 8) — past that, split across slides (auto with autosplit: on) / list-tabular.
+**Capacity** ~4 items (crowds past 6, overflows past 8) — past that, split across slides (automatic) / list-tabular.
 
 **Density** aim ~14 words per item; past ~18 it reads as a wall of text — the description clause plus the trailing question, combined — not a sentence each.
 
@@ -2718,7 +2718,7 @@ Use to pre-empt the room: line up the three or four hardest questions the audien
 
 #### Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on).
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic).
 
 **Density** aim ~12 words per item; past ~16 it reads as a wall of text — a one-line question and a short answer.
 
@@ -3143,7 +3143,7 @@ Use when you have 3+ options or 4+ rows of criteria. Wider data than compare-pro
 
 ##### Common mistakes
 
-- **Writing a vague or duplicate first column, assuming it's just another data column.** When the deck opts into `autosplit: on` and the table overflows a portrait/narrow box, the Fit Ladder reshapes it into row-cards (column headers become in-card labels) instead of clipping — the FIRST column becomes each card's title in that reshape, so it needs to be a genuinely identifying label per row. Without `autosplit: on`, an overflowing table is not automatically protected this way.
+- **Writing a vague or duplicate first column, assuming it's just another data column.** When the table overflows a narrow box, the Fit Ladder reshapes it into row-cards (column headers become in-card labels) instead of clipping — the FIRST column becomes each card's title in that reshape, so it needs to be a genuinely identifying label per row. This happens automatically and needs no opt-in.
 
 #### When to use
 
@@ -7876,7 +7876,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 #### Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on) / statute-stack.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic) / statute-stack.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per tier.
 
@@ -8577,7 +8577,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 #### Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on) / list-tabular.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic) / list-tabular.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per item.
 
@@ -8798,7 +8798,7 @@ Use when three or four parallel jurisdictions need to read at a glance: each row
 
 #### Agent contract
 
-**Capacity** ~3 items (crowds past 4, overflows past 5) — past that, split across slides (auto with autosplit: on) / list-tabular.
+**Capacity** ~3 items (crowds past 4, overflows past 5) — past that, split across slides (automatic) / list-tabular.
 
 **Density** aim ~16 words per item; past ~24 it reads as a wall of text — one obligation line per statute.
 

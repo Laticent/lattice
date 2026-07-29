@@ -10,7 +10,7 @@ Use when a quarter's regulatory motion needs a single-slide digest. Each row car
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on) / list-tabular.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic) / list-tabular.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per item.
 

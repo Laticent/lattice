@@ -3,7 +3,6 @@ size: portrait
 theme: indaco
 paginate: true
 form: standard
-autosplit: on
 header: "Lattice · Cover-paginate"
 footer: "Cover-paginate"
 ---

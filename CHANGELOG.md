@@ -78,6 +78,52 @@ in patch versions.
   test against a real Biome in a real git repo. What it deliberately does not catch is
   enumerated under RESIDUALS in the tool's header.
 
+### Removed
+
+- **`autosplit:` is retired as a deck directive — splitting is intrinsic.** A deck is
+  authored once and presented at many sizes, so its page COUNT is a function of the
+  content and the box, never an authoring switch. `autosplit: off` did not say
+  "paginate this differently"; it said "do not paginate, clip instead", which is not an
+  intent anyone holds about a deck they want read. The evidence was blunter than the
+  argument: across the whole repository, every deck that mentioned the directive set it
+  **on** — six examples, four fixtures — and **nothing ever set it off**.
+  Splitting now runs at **every** `@size`, gated only on "overflows AND has a seam". The
+  landscape skip is gone with it: its stated rationale ("in a wide box, collapse + shed
+  resolve overflow before split is reached") is an assumption, and measured it is false —
+  four committed landscape decks and five component galleries carry a clipping slide.
+  Content with no seam still rings; that is the honest terminal and it is not a toggle
+  either.
+  **What replaces it, at the right altitude.** A specimen that means to DEMONSTRATE
+  overflow marks itself per-slide with `<!-- stress-slide -->` — the marker `lint-core`
+  already read as "this slide EXISTS to show the upper limit", now honored by the
+  splitter too. Measurement rigs use the emulator's new `--no-split`, because what they
+  actually want is the deck held still so page N stays slide N, which is a tool concern.
+  **Breaking:** decks carrying `autosplit:` should drop the line. `lint:deck` names it —
+  `autosplit: off` is an **error** (it asks for something the engine no longer offers and
+  the deck will paginate anyway), `autosplit: on` a suggestion (it asks for what already
+  happens). The ten decks and fixtures in this repo are cleaned up here.
+  Catalog cost, measured before landing: one component golden moves (`inventory`, which
+  was shipping a clipped slide) — `kpi` and `policy-recommendation` are marked specimens,
+  `wifi` is atomic, and `roadmap`'s table form has no seam.
+
+- **`capacity-overflow` lint is retired.** An over-`hard` slide is now DIVIDED rather
+  than left to overflow, so the warning described an outcome the engine no longer
+  produces and its branch was unreachable. The `capacity-autosplit` advisory replaces it
+  everywhere and reports what will actually happen — and is itself suppressed on a
+  `stress-slide`, since promising a split the splitter deliberately will not perform is
+  the same lie-to-the-author defect pointed the other way.
+
+### Fixed
+
+- **Front-matter `captions:` survived the split instead of being dropped.** Keyed by
+  authored slide, they were discarded wholesale on any split deck ("keys are unsafe under
+  autosplit"). Survivable while splitting was opt-in; not once it is intrinsic. New
+  `authoredIndexPerPage` (`lib/core/auto-split.js`) recovers page → authored slide from
+  the contiguous `data-split-run` groups, so a caption written for slide 4 reaches every
+  page slide 4 became. The narration pipeline is fed page-bound notes for the same
+  reason, putting notes, projection and captions in one index space. An unsplit deck is
+  unaffected.
+
 ### Changed
 
 - **Auto-split is ON by default for every non-landscape deck.** `autosplit: on` was

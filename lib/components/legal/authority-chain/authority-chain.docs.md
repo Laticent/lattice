@@ -10,7 +10,7 @@ Use when the audience needs to see how a rule descends: what the statute says, h
 
 ## Agent contract
 
-**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (auto with autosplit: on) / statute-stack.
+**Capacity** ~4 items (crowds past 5, overflows past 6) — past that, split across slides (automatic) / statute-stack.
 
 **Density** aim ~14 words per item; past ~22 it reads as a wall of text — one clause per tier.
 

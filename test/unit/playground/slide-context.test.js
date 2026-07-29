@@ -493,7 +493,6 @@ describe('typeaheadContext — proactive popup entry classification', () => {
 		assert.equal(typeaheadContext(getter(lines), 5, 'split: '), 'split');
 		// `autosplit:` must not be mis-read as `split:` — the split detector is
 		// anchored at ^, so the `auto` prefix keeps the two distinct.
-		assert.equal(typeaheadContext(getter(lines), 6, 'autosplit: '), 'autosplit');
 	});
 
 	test('a `theme:` line OUTSIDE front matter is not a context (no false open in body)', async () => {

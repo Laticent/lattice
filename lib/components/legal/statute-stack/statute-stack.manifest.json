@@ -29,7 +29,7 @@
     "soft": 4,
     "hard": 5,
     "escalateTo": [
-      "split across slides (auto with autosplit: on)",
+      "split across slides (automatic)",
       "list-tabular"
     ],
     "note": "past four jurisdictions the three-column rail collapses"

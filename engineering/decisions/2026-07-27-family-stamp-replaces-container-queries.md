@@ -29,17 +29,17 @@ export rings the slide — the honest terminal.
 
 **Two things to carry across the boundary:**
 
-1. **A clip recorded here is a clip with `autosplit: off`.** The overflow oracle
-   (`test/oracle/family-overflow.json`) declares it explicitly, because it measures
-   the un-split terminal on purpose — so a name in it means "overflows when splitting
-   is disabled", *not* "broken". Since 2026-07-28 (#1234) splitting is the DEFAULT for
-   non-landscape decks, so that is no longer the ordinary case: most of this set
-   paginates under the sibling note's rung without anyone asking. At portrait, 21
-   components clip with split off and **5** with it on. The two records measure
-   different terminals of the
-   same ladder; they do not disagree. `node tools/check-family-tiers.js --ladder`
-   prints the overlap per @size, and the residue that still rings because no split is
-   available to it at all — which is the set actually worth shrinking.
+1. **A clip recorded here is a clip with splitting DISABLED.** The overflow oracle
+   (`test/oracle/family-overflow.json`) renders with the emulator's `--no-split` flag,
+   because it measures the un-split terminal on purpose — so a name in it means
+   "overflows when nothing paginates", *not* "broken". Splitting is INTRINSIC since
+   2026-07-29 (`2026-07-29-autosplit-is-not-a-toggle.md`), at every @size including
+   landscape, so that condition is now deliberately artificial rather than the default
+   one: most of this set paginates in a real export. At portrait, **21** components
+   clip un-split and **5** with splitting on — and those five are the ones with no seam
+   to cut, which is the honest terminal. `node tools/check-family-tiers.js --ladder`
+   prints the overlap per @size, and that residue, which is the set actually worth
+   shrinking.
 
 2. **The sibling's §0b talks about "portrait presets" as one bucket.** It is four
    families, and `square` is not `tall`. That section is corrected in place there and

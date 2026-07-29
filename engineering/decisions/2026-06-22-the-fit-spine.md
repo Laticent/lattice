@@ -148,12 +148,14 @@ Three properties make this the spine and not just a list:
   fluid box with zero churn, because they restyle, they don't re-paginate. This is
   what makes a live preview viable.
 - **Move 3 is discrete and build-time.** Splitting changes slide *count*, which
-  the engine has never owned. **It is scoped to portrait/square `@sizes`** (portrait,
-  story, mobile, square) — in a wide/landscape box, moves 1–2 (collapse + shed) resolve
-  overflow before split is reached, so the engine *skips* both auto-split passes at a
-  landscape `@size` (a no-op + notice; `lint:deck` flags `autosplit: on` there via
-  `autosplit-landscape-noop`). This is the universal rule, mirrored by `PORTRAIT_SIZES`
-  in `lib/authoring/lint-core.js` and the manifest `capacity.escalateTo` contract. It runs
+  the engine has never owned. ~~**It is scoped to portrait/square `@sizes`**~~ — **CORRECTED 2026-07-29: it applies
+  at EVERY `@size`.** The scoping rested on "in a wide/landscape box, moves 1–2
+  (collapse + shed) resolve overflow before split is reached", which is an assumption
+  and measured is false: four committed landscape decks and five component galleries
+  carry a clipping slide today. If `size:` is a property of PRESENTATION, landscape is
+  just another presentation, so the gate is "does it overflow, and is there a seam" —
+  a question about the content in its box, never about which box shape it is.
+  See `2026-07-29-autosplit-is-not-a-toggle.md`. It runs
   at render time against a known target
   geometry (the per-device export the emailed-link reader receives), in two passes
   over one kernel (`lib/core/auto-split.js`): a cheap **count-based** pre-cut splits
@@ -305,8 +307,17 @@ throughout. Ordered by the inversion: **unmask first, unify second, build third.
   (`col`/`cell`/`line`) so the caller escalates. *Slice 2 (the build-time wiring):*
   `lib/core/auto-split.js` drives the kernel from each component's `capacity.hard` at
   export (in `lattice-emulator.js`, before slide-index re-tagging, so copies renumber
-  for free). **OPT-IN** per deck (`autosplit: on`) so existing decks + galleries are
-  byte-unchanged; capacity-overflow lint is suppressed on those decks. Maker-checker
+  for free). ~~**OPT-IN** per deck (`autosplit: on`)~~ — **RETIRED 2026-07-29: splitting is
+  intrinsic.** The opt-in existed so existing decks and galleries stayed
+  byte-unchanged, and the note that added it said default-on was "a later decision,
+  once the catalog is audited". That audit ran, and then the directive went entirely:
+  a deck is authored once and presented at many sizes, so its page COUNT is a function
+  of the content and the box rather than an authoring switch. This matters to THIS
+  note's own thesis — with no shrink move, SPLIT and the honest ring are the only two
+  terminals, and leaving split opt-in made the ring the unasked-for one. The opt-outs
+  are per-SLIDE (`<!-- stress-slide -->`, a specimen) and the emulator's `--no-split`
+  (a measurement rig). `capacity-overflow` lint is retired with it — an over-`hard`
+  slide is divided rather than warned about. Maker-checker
   caught + fixed a front-matter-vs-body flag scope bug and a duplicate-`id` on copies.
   Demo: `examples/auto-split.md`. Member-level `keepTogether` is honoured by
   construction. *Follow-ups:* a `(cont.)` adornment; CSS-counter components (agenda)

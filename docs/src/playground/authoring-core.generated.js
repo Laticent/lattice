@@ -96,29 +96,10 @@ var require_slide_split = __commonJS({
   }
 });
 
-// lib/core/autosplit-flag.js
-var require_autosplit_flag = __commonJS({
-  "lib/core/autosplit-flag.js"(exports, module) {
-    var ON_RE = /^\s*autosplit:\s*(?:on|true|yes)\s*$/im;
-    var OFF_RE = /^\s*autosplit:\s*(?:off|false|no)\s*$/im;
-    function autosplitDirective(source) {
-      const s = String(source || "");
-      if (OFF_RE.test(s)) return false;
-      if (ON_RE.test(s)) return true;
-      return null;
-    }
-    function autosplitEnabled(source) {
-      return autosplitDirective(source) !== false;
-    }
-    module.exports = { autosplitDirective, autosplitEnabled, ON_RE, OFF_RE };
-  }
-});
-
 // lib/authoring/lint-core.js
 var require_lint_core = __commonJS({
   "lib/authoring/lint-core.js"(exports, module) {
     var { splitTopLevel, separatorLines } = require_slide_split();
-    var { autosplitEnabled, autosplitDirective, ON_RE } = require_autosplit_flag();
     var CLASS_DIRECTIVE = /<!--\s*_class:\s*([^>]+?)\s*-->/;
     var FOCUS_DIRECTIVE = /<!--\s*_focus:\s*([^>]+?)\s*-->/;
     var FOCUS_STYLE_DIRECTIVE = /<!--\s*_focusStyle:\s*([^>]+?)\s*-->/;
@@ -203,24 +184,21 @@ var require_lint_core = __commonJS({
       }
       return SIZE_FAMILY_FALLBACK[name] || "wide";
     }
-    function deckOrientation(source, vocab) {
-      return deckFamily(source, vocab) === "wide" ? "landscape" : "portrait";
-    }
-    function findAutosplitOrientationMismatch(source, vocab) {
+    var AUTOSPLIT_DIRECTIVE = /^\s*autosplit:\s*(\S+)\s*$/im;
+    function findRetiredAutosplitDirective(source) {
       const fmMatch = String(source || "").match(/^---\n[\s\S]*?\n---/);
       if (!fmMatch) return [];
-      const fm = fmMatch[0];
-      if (autosplitDirective(fm) !== true) return [];
-      if (deckOrientation(fm, vocab) !== "landscape") return [];
-      const flag = fm.match(ON_RE);
+      const hit = fmMatch[0].match(AUTOSPLIT_DIRECTIVE);
+      if (!hit) return [];
+      const off = /^(off|false|no)$/i.test(hit[1]);
       return [{
         slide: 1,
-        rule: "autosplit-landscape-noop",
-        severity: "warning",
+        rule: "autosplit-retired",
+        severity: off ? "error" : "suggestion",
         classToken: "autosplit",
-        line: flag[0].trim(),
-        message: "autosplit: on has no effect at a landscape @size \u2014 the split move is a portrait/square-family behavior (portrait \xB7 story \xB7 mobile \xB7 square).",
-        fix: "Use a portrait @size (size: portrait | story | mobile | square) to enable autosplit, or drop autosplit: on for a landscape deck."
+        line: hit[0].trim(),
+        message: off ? "autosplit: off is retired \u2014 splitting is intrinsic, so this deck WILL paginate an overflowing slide despite this line." : "autosplit: is retired \u2014 splitting is intrinsic, so this line no longer does anything.",
+        fix: off ? "Remove the line. To keep ONE slide whole on purpose, mark that slide `<!-- stress-slide -->` \u2014 it is a specimen, not a deck-wide setting. Measurement rigs use the emulator's --no-split flag." : "Remove the line \u2014 an overflowing slide is divided at every @size without asking."
       }];
     }
     function findInlineTitleBodyLine(sample) {
@@ -456,7 +434,6 @@ ${indent}   - ${body.trim()}`;
     }
     function lintTextWith(source, vocab) {
       const findings = [];
-      const autosplitOn = autosplitEnabled(source);
       const cardStyle = new Set(CARD_STYLE_LAYOUTS);
       const ledgerOl = new Set(LEDGER_OL_LAYOUTS);
       const statementOl = new Set(STATEMENT_OL_LAYOUTS);
@@ -465,7 +442,6 @@ ${indent}   - ${body.trim()}`;
       const isH2AnchoredSplit = (tokens) => tokens.includes("split-panel") && !tokens.includes("pullquote") || tokens.includes("split-compare");
       const slides = splitTopLevel(source);
       const fm = fmChunks(source);
-      const orientation = deckOrientation(source, vocab);
       const family = deckFamily(source, vocab);
       const fmClaimBlock = String(source || "").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
       const deckClaimRaw = fmClaimBlock && (fmClaimBlock[1].match(/^\s*claim:\s*["']?([A-Za-z0-9_-]+)["']?\s*$/m) || [])[1];
@@ -604,7 +580,8 @@ ${indent}   - ${body.trim()}`;
             if (!n) break;
             const comfort = cap.sweet != null ? cap.sweet : cap.soft;
             if (cap.hard != null && n > cap.hard) {
-              if (autosplitOn && orientation === "portrait") {
+              if (isStressSlide) continue;
+              {
                 const target = cap.perPage ?? cap.sweet ?? cap.soft ?? cap.hard;
                 const pages = Math.max(1, Math.ceil(n / target));
                 const base = Math.floor(n / pages);
@@ -624,15 +601,6 @@ ${indent}   - ${body.trim()}`;
                 });
                 continue;
               }
-              findings.push({
-                slide: idx - fm + 1,
-                rule: "capacity-overflow",
-                severity: "warning",
-                classToken: t,
-                line: m[0],
-                message: `'${t}' holds about ${comfort} ${axisNoun(cap.axis, comfort)} comfortably (max ~${cap.hard}); this slide has ${n} \u2014 it will overflow` + (cap.note ? ` (${cap.note})` : ""),
-                fix: capacityFix(cap)
-              });
             } else if (cap.soft != null && n > cap.soft && !isStressSlide) {
               findings.push({
                 slide: idx - fm + 1,
@@ -850,7 +818,7 @@ ${indent}   - ${body.trim()}`;
       if (vocab.splitNames) findings.push(...findUnknownSplit(source, vocab.splitNames));
       findings.push(...findBadDebugFacets(source));
       findings.push(...findGanttIssues(source));
-      findings.push(...findAutosplitOrientationMismatch(source, vocab));
+      findings.push(...findRetiredAutosplitDirective(source));
       return findings;
     }
     var GANTT_STATUS = Object.freeze(/* @__PURE__ */ new Set([
@@ -1489,7 +1457,6 @@ ${indent}   - ${body.trim()}`;
       STATEMENT_OL_LAYOUTS,
       SPLIT_SLOT_LAYOUTS,
       NUMBER_SLOT_LAYOUTS,
-      deckOrientation,
       findInlineTitleBodyLine,
       findOrderedInlineTitleBodyLine,
       findBoldOrderedStatement,
@@ -1499,7 +1466,7 @@ ${indent}   - ${body.trim()}`;
       axisNoun,
       capacityFix,
       findUnknownMapRegions,
-      findAutosplitOrientationMismatch,
+      findRetiredAutosplitDirective,
       findUnknownFinish,
       findUnknownMode,
       findUnknownColorMode,

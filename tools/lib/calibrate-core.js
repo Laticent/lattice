@@ -128,11 +128,10 @@ function findManifest(name) {
 /**
  * A graded deck: one slide per step, page N ↔ step N.
  *
- * Deliberately `autosplit: off` — the deck must not re-paginate, or page N would
- * stop mapping to step N. This used to rely on the flag being off by DEFAULT, which
- * stopped being true in #1234: split is now on unless a deck opts out, so the
- * measurement rig has to opt out explicitly or a graded step would silently become
- * several pages and every ceiling would read wrong. Front matter emits no
+ * Rendered with `--no-split` — the deck must not re-paginate, or page N would stop
+ * mapping to step N. That is INSTRUMENTATION, which is why it is a tool flag and not a
+ * deck directive: this rig needs the deck held still so it can measure, which is a
+ * different need from any an author has (2026-07-29-autosplit-is-not-a-toggle.md). Front matter emits no
  * `section[data-lattice-slide]`, so the emulator's `slide: i+1` aligns to
  * steps[i].
  */
@@ -141,7 +140,7 @@ function gradedDeck({ comp, size, steps, slideFor }) {
     const heading = `## Calibration step ${i + 1} — ${slideFor(step).label}.`;
     return `<!-- _class: ${comp} -->\n\n${heading}\n\n${slideFor(step).body}`;
   });
-  return `---\nsize: ${size}\nautosplit: off\n---\n\n${slides.join('\n\n---\n\n')}\n`;
+  return `---\nsize: ${size}\n---\n\n${slides.join('\n\n---\n\n')}\n`;
 }
 
 /**
@@ -155,7 +154,7 @@ function renderProbe(deck, label) {
   const out = path.join(tmpDir, `${label}.pdf`);
   fs.writeFileSync(src, deck);
   try {
-    const r = spawnSync('node', [EMULATOR, src, out, '-q'], { cwd: ROOT, encoding: 'utf8', timeout: 180000 });
+    const r = spawnSync('node', [EMULATOR, src, out, '--no-split', '-q'], { cwd: ROOT, encoding: 'utf8', timeout: 180000 });
     const log = `${r.stdout || ''}\n${r.stderr || ''}`;
     if (r.status !== 0 && !/OVERFLOW/.test(log)) {
       const tail = log.trim().split('\n').slice(-8).join('\n');

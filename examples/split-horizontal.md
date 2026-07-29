@@ -2,7 +2,6 @@
 marp: true
 theme: indaco
 size: portrait
-autosplit: on
 paginate: true
 footer: "Fit Ladder · reflow, then split"
 ---

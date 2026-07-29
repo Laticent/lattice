@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: shipped
 summary: Retire `autosplit:` as a deck directive. A deck is authored once and presented at many sizes, so the page COUNT is not an authoring fact — it is a function of the content and the box. A toggle that turns pagination off does not express an authoring intent; the evidence is that in the whole history of the repo no deck has ever set it off, while the only things that want it off are measurement rigs and specimen slides, which want it for a different reason (page N must equal slide N so they can measure). Splitting becomes intrinsic, gated only on "overflows AND has a seam"; the ring stays for content with no seam. The instrumentation need moves off the authoring surface to a `--no-split` tool flag and the existing per-slide `stress-slide` marker.
 builds-on: 2026-06-22-the-fit-spine.md, 2026-07-22-structure-derived-split-patterns.md, 2026-07-27-family-stamp-replaces-container-queries.md
 ---
 
 # Auto-split is not a toggle
 
-**Date:** 2026-07-29 · **Status:** Proposed · **Decision owner:** Sharmarke
+**Date:** 2026-07-29 · **Status:** Shipped · **Decision owner:** Sharmarke
 
 This supersedes a decision made two commits earlier on the same branch. #1234 flipped
 `autosplit` from opt-in to default-on for non-landscape decks, on the strength of a
@@ -115,11 +115,15 @@ autosplit ("keys are unsafe under autosplit (section count shifts)"). That one i
 
 ## Risks
 
-- **Committed artifacts move.** Measured: at portrait/square/story/mobile the flip to
-  default-on moved exactly one of thirteen example decks, and that one was shipping a
-  clipped slide. The landscape half is being measured the same way before it lands —
-  the number that matters is which component galleries overflow at landscape, since
-  those are the PDFs `golden-diff` watches.
+- **Committed artifacts move — measured, and the answer is small.** At
+  portrait/square/story/mobile, the earlier flip to default-on moved exactly one of
+  thirteen example decks, and that one was shipping a clipped slide. For the landscape
+  half, all 61 component galleries were swept: **5** carry a clipping slide, and
+  cross-referenced against seam + specimen status only **one** actually splits —
+  `kpi` and `policy-recommendation` are marked `stress-slide` (suppressed by design),
+  `wifi` is atomic with no seam, `roadmap`'s table form has none either, and
+  `inventory` splits, fixing a clip it has been shipping. So the change costs one
+  golden and buys back a defect.
 - **A deck author loses a lever they never used.** Retiring a directive is a breaking
   change to the authoring surface even when nothing used it. Decks carrying
   `autosplit:` should be cleaned up in the same change (HARD RULE #7 — no

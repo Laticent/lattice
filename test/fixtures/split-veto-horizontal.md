@@ -3,7 +3,6 @@ size: square
 theme: indaco
 paginate: true
 form: standard
-autosplit: on
 footer: "split veto — a horizontally overflowing collection"
 ---
 

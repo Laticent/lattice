@@ -3,7 +3,6 @@ size: portrait
 theme: indaco
 paginate: true
 form: standard
-autosplit: on
 footer: "illegible AND clipping — two axes, not one"
 ---
 
