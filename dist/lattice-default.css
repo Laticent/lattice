@@ -252,10 +252,15 @@
    * (Phase 0 of the islands model; see engineering/decisions/2026-06-11-islands.md).
    *   --frame-inset-x     horizontal inset of every edge berth
    *   --frame-inset-y     vertical inset of the top/bottom berths
-   *   --frame-page-reserve footer-right gap that reserves the pagination berth */
-  --frame-inset-x:      2.34375cqi;
-  --frame-inset-y:      1.875cqi;
-  --frame-page-reserve: 6.25cqi;
+   *   --frame-page-reserve footer-right gap that reserves the pagination berth
+   *
+   * MOVED to the `:root, section` block below (beside the spacing scale), for the
+   * same reason the spacing scale moved: `--footer-reserve` lands on the SECTION'S
+   * OWN `padding-bottom`, and a `container-type: size` element cannot query itself.
+   * A `:root`-ONLY declaration cannot be fixed by writing `var(--_sec-1cqi, 1cqi)`
+   * — the substitution happens on `html`, where the stamp does not exist, so the
+   * fallback is baked in and the value still resolves against the ICB. Only the
+   * `section` copy re-substitutes the stamp per slide. */
 
   /* ── Marp chrome mappings ── */
   --marp-slide-pagination-color:     var(--text-muted);
@@ -771,10 +776,19 @@
  * (`section.kpi` padding, `section.math` grid gap, `section.redline` gaps, …)
  * fell back to the ICB — the slide only on the canonical/print path, the editor
  * pane in a preview iframe. The runtime sets `--_sec-1cqi`; the `1cqi` fallback
- * keeps the canonical render identical. Child consumers (the vast majority —
- * inner gaps/padding) inherit the section's already-substituted value, so they
- * resolve exactly as a bare `cqi` against the section would. Declared on BOTH
- * :root and section so the section copy re-substitutes --_sec-1cqi per slide. */
+ * keeps the canonical render identical. Declared on BOTH :root and section so the
+ * section copy re-substitutes --_sec-1cqi per slide — that duplication is the load-
+ * bearing part, not decoration: `var()` is substituted on the element the
+ * declaration APPLIES to, so a `:root`-only copy bakes in the `1cqi` fallback and
+ * the stamp never gets a chance.
+ *
+ * Child consumers inherit the section's already-substituted value, so a descendant
+ * reading one of these gets the SLIDE's 1% (offsetWidth/100 = the border box).
+ * That is NOT identical to a bare `cqi` written on the descendant, which is 1% of
+ * the section's CONTENT box — 1280 vs 1152 at HD, an 11% difference. (This comment
+ * used to claim they resolve identically; measured in Chromium, they do not. Which
+ * is why a descendant's bare `cqi` must be left alone: it is already slide-relative
+ * and already agrees across paths.) */
 :root, section {
   --sp-3xs: calc(0.15625 * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-2xs: calc(0.3125  * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
@@ -784,6 +798,25 @@
   --sp-lg:  calc(2.5     * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-xl:  calc(3.75    * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-2xl: calc(5       * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
+
+  /* ── Island berth coordinate frame (moved here from the :root block above) ──
+   * The named insets for the slide's peripheral chrome berths — header, footer,
+   * pagination, logo. Same coefficients as the historical literals (2.34375cqi /
+   * 1.875cqi / 6.25cqi), now anchored, and in the `:root, section` block for the
+   * reason spelled out above: `--footer-reserve` (lib/forms/cell/stage/stage.css)
+   * lands on the SECTION'S OWN `padding-bottom`, and a section cannot query its own
+   * `cqi`. Left at `:root` these fell back to the ICB — the slide box on the export
+   * path (right by luck), the HOST VIEWPORT in a browser. One token then gave two
+   * answers on the same slide: 24px on the footer berth (a descendant, resolving
+   * against the section) and 14.4px on the reserve meant to hold it (the section's
+   * own padding, resolving against a 767px preview pane). The docs-site Playground
+   * sizes its iframe to the preview pane while the Studio pins its iframe to the
+   * slide box, so the two surfaces laid out different slides and disagreed about
+   * which ones overflow. See engineering/gotchas.md "The Playground and the Studio
+   * disagree about which slides overflow". */
+  --frame-inset-x:      calc(2.34375 * var(--_sec-1cqi, 1cqi));
+  --frame-inset-y:      calc(1.875   * var(--_sec-1cqi, 1cqi));
+  --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
 }
 
 /* ── The 12 typography tokens — GENERATED, not hand-written here ────────
@@ -4181,7 +4214,7 @@ section.diagram > .cell-stage > blockquote { align-self:stretch; }
 /* align-items + the h2 text-align read the headline seam (`headline:` register). The default
  * divider is LEFT (heading in the lower-left) — the fallbacks encode that, so `auto`/no register
  * is byte-identical; `head-left` re-anchors it left. */
-section.divider { background:var(--spectrum-vertical, var(--spectrum)) left / 0.46875cqi 100% no-repeat, var(--surface-inverse); padding-left:calc(var(--_sec-1cqi,1cqi)*9.375); justify-content:center; align-items:var(--headline-justify, flex-start); }
+section.divider { background:var(--spectrum-vertical, var(--spectrum)) left / calc(var(--_sec-1cqi,1cqi)*0.46875) 100% no-repeat, var(--surface-inverse); padding-left:calc(var(--_sec-1cqi,1cqi)*9.375); justify-content:center; align-items:var(--headline-justify, flex-start); }
 section.divider { border-top: none; }
 /* Section heading slot is h2 — a divider names a section of the deck, not
  * its document title; the lone h1 belongs to `title`. Rendered at --fs-h1
@@ -4694,8 +4727,8 @@ section.image[data-img-composition="clean"][data-orientation="square"] {
   grid-template-rows: auto auto;
   grid-template-areas: "card" "text";
   align-content: center;
-  gap: 5cqh;
-  padding: 7cqh 0;
+  gap: calc(var(--_sec-1cqh, 1cqh) * 5);
+  padding: calc(var(--_sec-1cqh, 1cqh) * 7) 0;
 }
 section.image[data-img-composition="clean"][data-orientation="portrait"] .lattice-bg,
 section.image[data-img-composition="clean"][data-orientation="square"] .lattice-bg {
@@ -4772,7 +4805,7 @@ section.image[data-img-composition="split"]:has(> .lattice-bg-left) .image-text:
 section.image[data-img-composition="split"][data-orientation="portrait"],
 section.image[data-img-composition="split"][data-orientation="square"] {
   grid-template-columns: 1fr;
-  grid-template-rows: 44cqh 1fr;
+  grid-template-rows: calc(var(--_sec-1cqh, 1cqh) * 44) 1fr;
   grid-template-areas: "photo" "text";
 }
 section.image[data-img-composition="split"][data-orientation="portrait"] .image-text,
@@ -4840,8 +4873,8 @@ section.image[data-img-composition="gallery"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3.6cqh;
-  padding: 6cqh 6cqi;
+  gap: calc(var(--_sec-1cqh, 1cqh) * 3.6);
+  padding: calc(var(--_sec-1cqh, 1cqh) * 6) calc(var(--_sec-1cqi, 1cqi) * 6);
   background: var(--img-matte);
 }
 /* The PHOTO box is the largest box of the image's EXACT aspect that fits the
@@ -13353,8 +13386,8 @@ section.scene[data-img-composition="clean"][data-orientation="square"] {
   grid-template-rows: auto auto;
   grid-template-areas: "figure" "text";
   align-content: center;
-  gap: 5cqh;
-  padding: 7cqh 0;
+  gap: calc(var(--_sec-1cqh, 1cqh) * 5);
+  padding: calc(var(--_sec-1cqh, 1cqh) * 7) 0;
 }
 section.scene[data-img-composition="clean"][data-orientation="portrait"] .scene-figure,
 section.scene[data-img-composition="clean"][data-orientation="square"] .scene-figure {
@@ -13416,7 +13449,7 @@ section.scene[data-img-composition="split"].mirror .scene-text::after { right: a
 section.scene[data-img-composition="split"][data-orientation="portrait"],
 section.scene[data-img-composition="split"][data-orientation="square"] {
   grid-template-columns: 1fr;
-  grid-template-rows: 46cqh 1fr;
+  grid-template-rows: calc(var(--_sec-1cqh, 1cqh) * 46) 1fr;
   grid-template-areas: "figure" "text";
 }
 section.scene[data-img-composition="split"][data-orientation="portrait"] .scene-text,
@@ -13475,8 +13508,8 @@ section.scene[data-img-composition="gallery"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3.6cqh;
-  padding: 6cqh 6cqi;
+  gap: calc(var(--_sec-1cqh, 1cqh) * 3.6);
+  padding: calc(var(--_sec-1cqh, 1cqh) * 6) calc(var(--_sec-1cqi, 1cqi) * 6);
   background: var(--scene-matte);
 }
 /* The frame HUGS the poster's aspect: the content box takes --scene-aspect, the mat
@@ -15765,7 +15798,7 @@ section.video.gallery {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5cqh;
+  gap: calc(var(--_sec-1cqh, 1cqh) * 5);
   text-align: center;
 }
 section.video.gallery .video-embed {
@@ -20275,8 +20308,8 @@ section.finish-gallery {
   --fin-edge: none;
   --fin-edge-opaque: none;
   --fin-frame:
-    inset 0 0 0 2.6cqi var(--bg),
-    inset 0 0 0 2.82cqi color-mix(in srgb, var(--accent) 40%, var(--bg));
+    inset 0 0 0 calc(2.6  * var(--_sec-1cqi, 1cqi)) var(--bg),
+    inset 0 0 0 calc(2.82 * var(--_sec-1cqi, 1cqi)) color-mix(in srgb, var(--accent) 40%, var(--bg));
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -21094,14 +21127,14 @@ section.sketch.agenda.rail > .cell-stage > ol > li::before {
  * Chrome reservation (top/bottom 88px) is intentionally preserved so header
  * and footer never collide with content. */
 section.compact {
-  --sp-3xs: 0.1171875cqi;
-  --sp-2xs: 0.234375cqi;
-  --sp-xs: 0.46875cqi;
-  --sp-sm: 0.9375cqi;
-  --sp-md: 1.40625cqi;
-  --sp-lg: 1.875cqi;
-  --sp-xl: 2.8125cqi;
-  --sp-2xl: 3.75cqi;
+  --sp-3xs: calc(0.1171875 * var(--_sec-1cqi, 1cqi));
+  --sp-2xs: calc(0.234375  * var(--_sec-1cqi, 1cqi));
+  --sp-xs:  calc(0.46875   * var(--_sec-1cqi, 1cqi));
+  --sp-sm:  calc(0.9375    * var(--_sec-1cqi, 1cqi));
+  --sp-md:  calc(1.40625   * var(--_sec-1cqi, 1cqi));
+  --sp-lg:  calc(1.875     * var(--_sec-1cqi, 1cqi));
+  --sp-xl:  calc(2.8125    * var(--_sec-1cqi, 1cqi));
+  --sp-2xl: calc(3.75      * var(--_sec-1cqi, 1cqi));
 }
 
 /* ── accent ─────────────────────────────────────────────────────────────
@@ -21233,13 +21266,13 @@ section.tone-skip { --tone-color: var(--text-muted); }
    `tone-<style>` token overrides --tone-rail's value. All box-shadow so it never
    collides with the state ::before or the pagination ::after, and prints in the PDF. */
 section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip) {
-  --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); /* rail (default) */
+  --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); /* rail (default) */
   box-shadow: var(--tone-rail);
 }
 /* `tone-rail` is the default shape; it is ALSO a first-class token so a per-slide (or
    drawer) pick of "rail" restores the left rail even over a deck-wide `tone: edge`. */
-section.tone-rail { --tone-rail: inset 0.55cqi 0 0 0 var(--tone-color); }  /* left rail (explicit) */
-section.tone-glow { --tone-rail: inset 0 0 0 0.35cqi var(--tone-color); }  /* full inset ring */
+section.tone-rail { --tone-rail: inset calc(0.55 * var(--_sec-1cqi, 1cqi)) 0 0 0 var(--tone-color); }  /* left rail (explicit) */
+section.tone-glow { --tone-rail: inset 0 0 0 calc(0.35 * var(--_sec-1cqi, 1cqi)) var(--tone-color); }  /* full inset ring */
 
 /* `tone: edge` RECOLORS the spectrum brand bar (the top border) with the tone color,
    rather than painting a SEPARATE top band that would fight it — the same move the

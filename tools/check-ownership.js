@@ -911,6 +911,312 @@ function checkSectionBoxOwnership(errors) {
   }
 }
 
+// ── The section's own `cq*` units must be ANCHORED to the slide ───────────────
+// A `container-type: size` element cannot query ITSELF, so a bare `cqi`/`cqh` in a
+// declaration that lands on the `<section>` falls back to the initial containing
+// block. In the export the ICB happens to BE the slide box (the emulator sets the
+// viewport to it), so the value is right by luck; in every browser host the ICB is
+// the HOST VIEWPORT, so the slide's own geometry silently tracks whatever iframe it
+// is previewed in. That is not a cosmetic drift: the docs-site Playground scales a
+// filmstrip iframe to the pane while the Studio pins its iframe to the slide box, so
+// the SAME deck laid out differently in the two surfaces and they disagreed about
+// which slides overflow (measured: a 17px swing in stage height between a 900px pane
+// and a phone's 355px one, and 2 of the 117 gallery slides changing verdict on pane
+// width alone). Descendants and pseudo-elements are fine — their `cq*` resolves
+// against the section — so this is exactly the section-subject case, which is what
+// `targetsSectionElement` already identifies for the section-box gate.
+//
+// The fix is always the same shape: `calc(var(--_sec-1cqi, 1cqi) * N)` (or
+// `--_sec-1cqh` on the height axis). Those stamps are written per-section by
+// lib/runtime/index.js `patchSectionGeometry` from the real slide box, and the bare
+// fallback keeps the export path byte-identical. Budget 0 + an allowlist, same shape
+// as the margin / hex / layer gates. See engineering/gotchas.md "A slide's own
+// padding changes when the preview pane is resized".
+const SECTION_CQ_BUDGET = 0;
+
+// Reviewed exceptions, each with its justification. A stale entry fails too, so the
+// list cannot rot.
+// EMPTY, and that is the achieved state, not an aspiration: every section-own
+// `cq*` in the engine is anchored. The fluid VIEW MODE, which legitimately
+// re-derives the slide box from the viewport, needs no entry — it does its work
+// with `dvh`/`svh` on the box itself, not with a section-own `cq*`.
+const SANCTIONED_SECTION_CQ = [];
+
+// `cq*` lengths in a declaration, ignoring the anchored form (`var(--_sec-1cq*, 1cq*)`,
+// whose bare fallback is the intended export path) and custom-property declarations
+// (a token is not itself applied to the section; its CONSUMER is, and that consumer is
+// what this gate sees).
+function sectionCqOffences(css) {
+  const src = stripComments(css);
+  const out = [];
+  let selStart = 0;
+  const stack = [];
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === '{') {
+      // With native nesting, the text before a nested block is `decls; selector` —
+      // everything up to the LAST `;` belongs to the ENCLOSING rule and would
+      // otherwise be swallowed with the prelude and never scanned.
+      const chunk = src.slice(selStart, i);
+      const cut = chunk.lastIndexOf(';');
+      const owner = sectionOwner(stack);
+      if (cut !== -1 && owner) scanDecls(chunk.slice(0, cut), owner, out);
+      stack.push((cut === -1 ? chunk : chunk.slice(cut + 1)).trim());
+      selStart = i + 1;
+      continue;
+    }
+    if (ch !== '}') continue;
+    const prelude = stack.pop() || '';
+    const body = src.slice(selStart, i);
+    selStart = i + 1;
+    // An at-rule NESTED INSIDE a section rule (`section.a { @media print { … } }`)
+    // still applies to the section — walk out to the nearest real selector rather
+    // than skipping, which is how `padding: 5cqi` hid inside an `@media` block.
+    const owner = prelude.startsWith('@') ? sectionOwner(stack) : (targetsSectionElement(prelude) ? prelude : null);
+    if (!owner) continue;
+    for (const o of scanDecls(body, owner)) out.push(o);
+  }
+  return out;
+}
+
+// The two stamps that exist (lib/runtime/index.js `patchSectionGeometry`). Anything
+// else — `cqb`, `cqw`, `cqmin`, `cqmax` — has no anchor to route through and is
+// always an offence; `var(--_sec-1cqb, 1cqb)` LOOKS anchored and silently is not.
+const ANCHORED_AXES = ['cqi', 'cqh'];
+
+/**
+ * Does this declaration VALUE carry a container-query length that will resolve against
+ * the ICB? Shared by both arms so they cannot drift.
+ *
+ * Case-insensitive, because CSS units are (`5CQI` is a valid leak, and the sibling
+ * section-box gate's header records case-sensitivity as a defect it already fixed
+ * once). Strings and `url()` are stripped first — `url("img-5cqi.png")` is not a
+ * length. The ANCHORED form is stripped too, with a fallback naming the SAME axis:
+ * `var(--_sec-1cqh, 1cqi)` would measure height in preview and width in export.
+ */
+function bareCqIn(value) {
+  let v = value
+    .replace(/url\([^)]*\)/gi, '')
+    .replace(/"[^"]*"|'[^']*'/g, '');
+  for (const unit of ANCHORED_AXES) {
+    v = v.replace(new RegExp(`var\\(\\s*--_sec-1${unit}\\s*,\\s*1${unit}\\s*\\)`, 'gi'), '');
+  }
+  // A reference with no fallback is a different (missing-fallback) bug, not a bare unit.
+  v = v.replace(/var\(\s*--_sec-1cq[a-z]+\s*\)/gi, '');
+  return /[\d.]cq[a-z]+\b/i.test(v);
+}
+
+// The nearest enclosing rule that targets the section itself, skipping at-rule
+// preludes (`@media`, `@container`, `@supports`) and native-nesting `&` levels —
+// declarations inside those still land on the section.
+function sectionOwner(stack) {
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const s = stack[i];
+    if (!s || s.startsWith('@') || /^&/.test(s)) continue;
+    return targetsSectionElement(s) ? s : null;
+  }
+  return null;
+}
+
+// Scan one rule body's declarations. Split out so both the plain path and the
+// nested-block path (declarations sitting BEFORE a nested `{`) use it — a nested
+// rule used to swallow everything declared above it in the same block.
+function scanDecls(body, prelude, out = []) {
+  for (const raw of body.split(';')) {
+    const decl = raw.trim();
+    // A custom property is not applied to anything by itself — its CONSUMER is, and
+    // that consumer is what this scan sees. (One exception matters and is checked
+    // separately below: a token declared ONLY at `:root` cannot be anchored at all,
+    // because `var()` substitutes on `html`, where the stamp does not exist.)
+    if (!decl || decl.startsWith('--')) continue;
+    if (bareCqIn(decl)) {
+      out.push({ selector: prelude.replace(/\s+/g, ' ').slice(0, 70), decl: decl.replace(/\s+/g, ' ') });
+    }
+  }
+  return out;
+}
+
+/**
+ * The other half, and the one that bit hardest: a custom property whose value routes
+ * through `var(--_sec-1cq*)` but which is declared ONLY in a rule that does not match
+ * the section. `var()` is substituted at computed-value time on the element the
+ * declaration APPLIES to — for a `:root` rule that is `html`, where the stamp does not
+ * exist — so the fallback is baked into the inherited value and the token still
+ * resolves against the ICB. It LOOKS anchored and is not.
+ *
+ * This is not hypothetical: this gate's own first version shipped exactly that, and it
+ * passed every other check. The `--sp-*` scale gets it right by declaring on
+ * `:root, section` so the section copy re-substitutes per slide; that duplication is
+ * load-bearing, not decoration. A token also declared in a section-subject rule
+ * anywhere in the same file is fine — that copy is the one that does the work.
+ */
+function rootOnlyAnchorOffences(css) {
+  const src = stripComments(css);
+  const decls = []; // { prop, sel, sectionSubject }
+  let selStart = 0;
+  const stack = [];
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === '{') { stack.push(src.slice(selStart, i).trim()); selStart = i + 1; continue; }
+    if (ch !== '}') continue;
+    const prelude = stack.pop() || '';
+    const body = src.slice(selStart, i);
+    selStart = i + 1;
+    if (prelude.startsWith('@')) continue;
+    for (const raw of body.split(';')) {
+      const m = /^\s*(--[a-z0-9-]+)\s*:\s*([\s\S]+)$/i.exec(raw);
+      if (!m || !/var\(\s*--_sec-1cq[a-z]+/.test(m[2])) continue;
+      decls.push({ prop: m[1], sel: prelude.replace(/\s+/g, ' ').slice(0, 70), onSection: targetsSectionElement(prelude) });
+    }
+  }
+  const anchoredSomewhere = new Set(decls.filter((d) => d.onSection).map((d) => d.prop));
+  return decls.filter((d) => !d.onSection && !anchoredSomewhere.has(d.prop));
+}
+
+/**
+ * The arm that actually covers the reported bug's SHAPE. A bare `cq*` reaches the
+ * section's own box through a TOKEN more often than it is written there directly:
+ *
+ *   :root { --frame-inset-y: 1.875cqi }
+ *   section.form { --footer-reserve: calc(var(--frame-inset-y) + …);
+ *                  padding-bottom: var(--footer-reserve) }
+ *
+ * Neither declaration trips a literal-unit scan — the consumer holds no `cq` token,
+ * and the declaration site is a custom property. That is #1243 itself, and it is also
+ * `section.compact`'s `--sp-*` overrides and `--tone-rail`, both of which survived the
+ * first version of this gate while it reported "budget 0, achieved".
+ *
+ * So: seed the set with every token a SECTION-SUBJECT rule uses in a real property,
+ * close it over token→token references (a length resolves where it is USED, so the
+ * whole chain lands on the section), and flag any declaration of a token in that set
+ * whose value carries a bare `cq*`. Tokens consumed only by descendants or pseudo-
+ * elements are NOT in the set — their `cq*` resolves against the section already, and
+ * "anchoring" one would move it 11% (border box vs content box).
+ */
+function sectionOwnTokenLeaks(files) {
+  const declsByToken = new Map(); // token → [{ file, value }]
+  const seed = new Set();
+  const refs = (v) => [...v.matchAll(/var\(\s*(--[a-z0-9-]+)/gi)].map((m) => m[1]);
+  for (const { file, css } of files) {
+    const src = stripComments(css);
+    let selStart = 0;
+    const stack = [];
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i];
+      if (ch === '{') { stack.push(src.slice(selStart, i).trim()); selStart = i + 1; continue; }
+      if (ch !== '}') continue;
+      const prelude = stack.pop() || '';
+      const body = src.slice(selStart, i);
+      selStart = i + 1;
+      if (prelude.startsWith('@')) continue;
+      const onSection = targetsSectionElement(prelude);
+      for (const raw of body.split(';')) {
+        const m = /^\s*(--[a-z0-9-]+)\s*:\s*([\s\S]+)$/.exec(raw);
+        if (m) {
+          if (!declsByToken.has(m[1])) declsByToken.set(m[1], []);
+          declsByToken.get(m[1]).push({ file, value: m[2].replace(/\s+/g, ' ').trim() });
+          continue;
+        }
+        if (onSection) for (const t of refs(raw)) seed.add(t);
+      }
+    }
+  }
+  // Transitive closure: a token used by a section-own property drags in whatever its
+  // own value references — the bare unit can sit any number of hops up the chain.
+  const queue = [...seed];
+  while (queue.length) {
+    for (const d of declsByToken.get(queue.pop()) || []) {
+      for (const t of refs(d.value)) if (!seed.has(t)) { seed.add(t); queue.push(t); }
+    }
+  }
+  const out = [];
+  for (const token of seed) {
+    for (const d of declsByToken.get(token) || []) {
+      if (bareCqIn(d.value)) out.push({ file: d.file, token, value: d.value.slice(0, 60) });
+    }
+  }
+  return out;
+}
+
+// Wider than SECTION_BOX_ROOTS on purpose: `section.compact`'s spacing overrides live
+// in lib/shared and the scaffold's berths in lib/integrations, both outside the
+// section-BOX gate's roots — and both leaked. This gate walks all engine CSS.
+const SECTION_CQ_ROOTS = [LIB_DIR, path.join(ROOT, 'themes')];
+
+function checkSectionCqAnchoring(errors) {
+  const offences = [];
+  for (const root of SECTION_CQ_ROOTS) {
+    if (!fs.existsSync(root)) continue;
+    for (const file of listCssFiles(root)) {
+      const rel = path.relative(ROOT, file);
+      for (const o of sectionCqOffences(fs.readFileSync(file, 'utf8'))) offences.push({ file: rel, ...o });
+    }
+  }
+  const remaining = [];
+  const staleSanctions = [...SANCTIONED_SECTION_CQ];
+  for (const o of offences) {
+    const i = staleSanctions.findIndex((s) => s.file === o.file && o.decl.startsWith(s.decl));
+    if (i === -1) remaining.push(o);
+    else staleSanctions.splice(i, 1);
+  }
+  if (remaining.length > SECTION_CQ_BUDGET) {
+    const top = remaining.slice(0, 6).map((o) => `${o.file} \`${o.selector}\` → ${o.decl}`).join('; ');
+    errors.push(
+      `${remaining.length} bare container-query unit(s) in declarations that land on the SECTION element ` +
+      `(budget ${SECTION_CQ_BUDGET}). A \`container-type: size\` element cannot query itself, so these resolve ` +
+      `against the ICB — the HOST VIEWPORT in a browser preview — and the slide's own geometry then tracks the ` +
+      `preview pane instead of the slide (the Playground/Studio overflow disagreement). Anchor to the slide: ` +
+      `\`calc(var(--_sec-1cqi, 1cqi) * N)\`, or \`--_sec-1cqh\` on the height axis. Offending: ${top}.`,
+    );
+  }
+  for (const s of staleSanctions) {
+    errors.push(
+      `stale section-cq sanction in tools/check-ownership.js — \`${s.decl}\` in ${s.file} is no longer ` +
+      `present. Remove the SANCTIONED_SECTION_CQ entry so the allowlist stays honest.`,
+    );
+  }
+  // …and the anchored form that cannot work: declared only where the stamp isn't.
+  const rootOnly = [];
+  for (const root of SECTION_CQ_ROOTS) {
+    if (!fs.existsSync(root)) continue;
+    for (const file of listCssFiles(root)) {
+      const rel = path.relative(ROOT, file);
+      for (const o of rootOnlyAnchorOffences(fs.readFileSync(file, 'utf8'))) rootOnly.push({ file: rel, ...o });
+    }
+  }
+  // …and the shape that reaches the section's own box through a TOKEN.
+  const cssFiles = [];
+  for (const root of SECTION_CQ_ROOTS) {
+    if (!fs.existsSync(root)) continue;
+    for (const file of listCssFiles(root)) {
+      cssFiles.push({ file: path.relative(ROOT, file), css: fs.readFileSync(file, 'utf8') });
+    }
+  }
+  const tokenLeaks = sectionOwnTokenLeaks(cssFiles);
+  if (tokenLeaks.length) {
+    const top = tokenLeaks.slice(0, 6).map((o) => `${o.file} ${o.token}: ${o.value}`).join('; ');
+    errors.push(
+      `${tokenLeaks.length} token(s) carrying a bare container-query unit reach the SECTION'S OWN box ` +
+      `through a var() chain. A length resolves where it is USED, so the whole chain lands on the section, ` +
+      `where \`container-type: size\` sends it to the ICB — the host viewport in a browser. This is the shape ` +
+      `#1243 was: \`:root{--frame-inset-y:1.875cqi}\` → \`--footer-reserve\` → \`section.form{padding-bottom}\`, ` +
+      `where neither declaration holds a literal unit next to a section selector. Anchor the token ` +
+      `(\`calc(N * var(--_sec-1cqi, 1cqi))\`) — note this is only correct because a SECTION-OWN consumer ` +
+      `exists; a token read only by descendants must stay bare. Offending: ${top}.`,
+    );
+  }
+  if (rootOnly.length) {
+    const top = rootOnly.slice(0, 6).map((o) => `${o.file} \`${o.sel}\` → ${o.prop}`).join('; ');
+    errors.push(
+      `${rootOnly.length} token(s) route through \`var(--_sec-1cq*)\` but are declared ONLY where the stamp ` +
+      `does not exist. \`var()\` is substituted on the element the declaration APPLIES to — for a \`:root\` rule ` +
+      `that is \`html\` — so the fallback is baked into the inherited value and the token still resolves against ` +
+      `the ICB. It reads as anchored and is not. Declare it on \`:root, section\` (like the --sp-* scale) so the ` +
+      `section copy re-substitutes the stamp per slide. Offending: ${top}.`,
+    );
+  }
+}
+
 // HARD RULE #20 gate — keep `margin` out of the engine's layout CSS; space with
 // `gap`/`padding`, which measure cleanly (engineering/gotchas.md). Layout budget 0 +
 // the SANCTIONED allowlist above.
@@ -3258,6 +3564,7 @@ function run() {
   checkTypographyTokens(errors);
   checkMarginDiscipline(errors);
   checkSectionBoxOwnership(errors);
+  checkSectionCqAnchoring(errors);
   checkCascadeLayers(errors);
   checkHexLiterals(errors);
   checkUsEnglish(errors);
@@ -3336,6 +3643,12 @@ module.exports = {
   nonCanonicalFsTokens,
   offendingMargins,
   sectionBoxOffences,
+  sectionCqOffences,
+  rootOnlyAnchorOffences,
+  sectionOwnTokenLeaks,
+  checkSectionCqAnchoring,
+  SECTION_CQ_BUDGET,
+  SANCTIONED_SECTION_CQ,
   targetsSectionElement,
   SECTION_BOX_PROPS,
   checkSectionBoxOwnership,

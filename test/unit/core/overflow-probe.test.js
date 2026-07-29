@@ -503,3 +503,97 @@ describe('overflow-probe: the SQUEEZED child (a flex cell that reports it fits)'
     assert.equal(visible.over, true, 'the same 43px with visible overflow paints past the cell and IS lost');
   });
 });
+
+// ── The measurement must not depend on how the HOST scales the slide ──────────
+// `getBoundingClientRect()` is the VISUAL box (a transform scales it) while
+// scrollHeight/clientHeight/offsetHeight are transform-blind LAYOUT px. The probe
+// mixes both, so on a scaled section the two arrive in different units. That is not
+// hypothetical: the docs-site filmstrip scales every `<section>` to the preview pane
+// (docs/src/playground/deck-preview.js) while the Studio scales the IFRAME instead,
+// so the SAME over-stuffed slide measured 30px over in one surface and 17px over in
+// the other — and with TOL at 12, that is a red ring versus silence. Each case below
+// asserts the SAME verdict and the SAME magnitude at scale 1 and at scale 0.543.
+describe('overflow-probe: scale invariance (the host may transform the slide)', () => {
+  const styled = () => ({ position: 'static', overflowY: 'visible', overflowX: 'visible' });
+  const withStyles = (fn) => {
+    const prev = global.getComputedStyle;
+    global.getComputedStyle = () => styled();
+    try { return fn(); } finally { global.getComputedStyle = prev; }
+  };
+  // Build the same slide twice: `k` scales every RECT (what a CSS transform does)
+  // and leaves every scroll/client/offset dim alone (what it does not). The crushed
+  // child has REAL SLACK below it (bottom 425, next sibling at 525): without slack the
+  // scaled terms cancel and the bug hides, which is exactly how the first version of
+  // this test passed against the unfixed probe.
+  const rectAt = (k) => (top, bottom) => () => ({ top: top * k, bottom: bottom * k, left: 0, right: 1280 * k, width: 1280 * k, height: (bottom - top) * k });
+  const scaled = (k) => {
+    const rect = rectAt(k);
+    const crushed = { scrollHeight: 375, clientHeight: 125, scrollWidth: 1280, clientWidth: 1280, getBoundingClientRect: rect(300, 425) };
+    const after = { scrollHeight: 300, clientHeight: 300, scrollWidth: 1280, clientWidth: 1280, getBoundingClientRect: rect(525, 825) };
+    const cell = {
+      scrollHeight: 1000, clientHeight: 1000, scrollWidth: 1280, clientWidth: 1280,
+      getBoundingClientRect: rect(0, 1000), children: [crushed, after],
+    };
+    return {
+      scrollHeight: 1000, clientHeight: 1000, scrollWidth: 1280, clientWidth: 1280,
+      offsetHeight: 1000, getBoundingClientRect: rect(0, 1000),
+      querySelectorAll: () => [cell], children: [cell],
+    };
+  };
+
+  test('a squeezed child measures the same at scale 1 and scale 0.543', () => {
+    const full = withStyles(() => probeSectionOverflow(scaled(1), CLIP_CELL_SELECTOR, TOL));
+    const small = withStyles(() => probeSectionOverflow(scaled(0.543), CLIP_CELL_SELECTOR, TOL));
+    assert.equal(full.over, true);
+    assert.equal(small.over, true, 'the filmstrip must not scale a real overflow away');
+    assert.ok(Math.abs(full.scrollH - small.scrollH) < 1, `scrollH ${full.scrollH} vs ${small.scrollH} — the verdict must not depend on the pane width`);
+    assert.ok(Math.abs(full.overCells[0].dy - small.overCells[0].dy) < 1, 'the per-cell cause measure travels in layout px too');
+  });
+
+  test('the SECTION-level fold measures the same at either scale', () => {
+    // The other half of the mix: a body whose BOX fits but whose content spills is
+    // folded onto its rect bottom (layout px onto visual px). Unfixed, the same
+    // fixture reports scrollH 1000 at scale 1 and 1037.1 at scale 0.543 — a slide
+    // that measures as fitting in one surface and 37px over in the other, purely
+    // from the pane's scale.
+    const secWith = (k) => {
+      const rect = rectAt(k);
+      const body = { scrollHeight: 900, clientHeight: 700, scrollWidth: 1280, clientWidth: 1280, getBoundingClientRect: rect(0, 700) };
+      return {
+        scrollHeight: 1000, clientHeight: 1000, scrollWidth: 1280, clientWidth: 1280,
+        offsetHeight: 1000, getBoundingClientRect: rect(0, 1000),
+        querySelectorAll: () => [], children: [body],
+      };
+    };
+    const full = withStyles(() => probeSectionOverflow(secWith(1), CLIP_CELL_SELECTOR, TOL));
+    const small = withStyles(() => probeSectionOverflow(secWith(0.543), CLIP_CELL_SELECTOR, TOL));
+    assert.ok(Math.abs(full.scrollH - small.scrollH) < 1, `scrollH ${full.scrollH} vs ${small.scrollH}`);
+  });
+
+  test('a figure’s legibility is measured in layout px, not in the pane’s scaled px', () => {
+    // Same figure, same slide, previewed at two scales. Before this, a 0.543-scaled
+    // section reported every glyph at 0.543× its real size — so a perfectly legible
+    // chart tripped the type-floor alarm purely for being previewed in a narrow pane.
+    const fig = (k) => ({
+      getBoundingClientRect: () => ({ width: 600 * k, height: 400 * k }),
+      viewBox: { baseVal: { width: 600, height: 400 } },
+      querySelectorAll: (sel) => (sel === 'text' ? [{ textContent: 'label' }] : []),
+    });
+    const section = (k) => ({
+      clientHeight: 720, offsetHeight: 720,
+      getBoundingClientRect: () => ({ height: 720 * k }),
+      querySelectorAll: () => [fig(k)],
+    });
+    const prev = global.getComputedStyle;
+    global.getComputedStyle = () => ({ fontSize: '12px' });
+    try {
+      const full = probeFigureLegibility(section(1), FIGURE_TEXT_FLOOR_RATIO);
+      const small = probeFigureLegibility(section(0.543), FIGURE_TEXT_FLOOR_RATIO);
+      assert.equal(full.under, false, '12px in a 1:1 viewBox clears a 7.2px floor');
+      assert.equal(small.under, false, 'and it still clears it when the host scales the slide down');
+      assert.ok(Math.abs(full.minPx - small.minPx) < 0.2, `minPx ${full.minPx} vs ${small.minPx}`);
+    } finally {
+      global.getComputedStyle = prev;
+    }
+  });
+});

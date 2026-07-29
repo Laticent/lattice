@@ -169,10 +169,15 @@
    * (Phase 0 of the islands model; see engineering/decisions/2026-06-11-islands.md).
    *   --frame-inset-x     horizontal inset of every edge berth
    *   --frame-inset-y     vertical inset of the top/bottom berths
-   *   --frame-page-reserve footer-right gap that reserves the pagination berth */
-  --frame-inset-x:      2.34375cqi;
-  --frame-inset-y:      1.875cqi;
-  --frame-page-reserve: 6.25cqi;
+   *   --frame-page-reserve footer-right gap that reserves the pagination berth
+   *
+   * MOVED to the `:root, section` block below (beside the spacing scale), for the
+   * same reason the spacing scale moved: `--footer-reserve` lands on the SECTION'S
+   * OWN `padding-bottom`, and a `container-type: size` element cannot query itself.
+   * A `:root`-ONLY declaration cannot be fixed by writing `var(--_sec-1cqi, 1cqi)`
+   * — the substitution happens on `html`, where the stamp does not exist, so the
+   * fallback is baked in and the value still resolves against the ICB. Only the
+   * `section` copy re-substitutes the stamp per slide. */
 
   /* ── Marp chrome mappings ── */
   --marp-slide-pagination-color:     var(--text-muted);
@@ -688,10 +693,19 @@
  * (`section.kpi` padding, `section.math` grid gap, `section.redline` gaps, …)
  * fell back to the ICB — the slide only on the canonical/print path, the editor
  * pane in a preview iframe. The runtime sets `--_sec-1cqi`; the `1cqi` fallback
- * keeps the canonical render identical. Child consumers (the vast majority —
- * inner gaps/padding) inherit the section's already-substituted value, so they
- * resolve exactly as a bare `cqi` against the section would. Declared on BOTH
- * :root and section so the section copy re-substitutes --_sec-1cqi per slide. */
+ * keeps the canonical render identical. Declared on BOTH :root and section so the
+ * section copy re-substitutes --_sec-1cqi per slide — that duplication is the load-
+ * bearing part, not decoration: `var()` is substituted on the element the
+ * declaration APPLIES to, so a `:root`-only copy bakes in the `1cqi` fallback and
+ * the stamp never gets a chance.
+ *
+ * Child consumers inherit the section's already-substituted value, so a descendant
+ * reading one of these gets the SLIDE's 1% (offsetWidth/100 = the border box).
+ * That is NOT identical to a bare `cqi` written on the descendant, which is 1% of
+ * the section's CONTENT box — 1280 vs 1152 at HD, an 11% difference. (This comment
+ * used to claim they resolve identically; measured in Chromium, they do not. Which
+ * is why a descendant's bare `cqi` must be left alone: it is already slide-relative
+ * and already agrees across paths.) */
 :root, section {
   --sp-3xs: calc(0.15625 * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-2xs: calc(0.3125  * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
@@ -701,6 +715,25 @@
   --sp-lg:  calc(2.5     * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-xl:  calc(3.75    * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
   --sp-2xl: calc(5       * var(--_sec-1cqi, 1cqi) * var(--canvas-scale, 1));
+
+  /* ── Island berth coordinate frame (moved here from the :root block above) ──
+   * The named insets for the slide's peripheral chrome berths — header, footer,
+   * pagination, logo. Same coefficients as the historical literals (2.34375cqi /
+   * 1.875cqi / 6.25cqi), now anchored, and in the `:root, section` block for the
+   * reason spelled out above: `--footer-reserve` (lib/forms/cell/stage/stage.css)
+   * lands on the SECTION'S OWN `padding-bottom`, and a section cannot query its own
+   * `cqi`. Left at `:root` these fell back to the ICB — the slide box on the export
+   * path (right by luck), the HOST VIEWPORT in a browser. One token then gave two
+   * answers on the same slide: 24px on the footer berth (a descendant, resolving
+   * against the section) and 14.4px on the reserve meant to hold it (the section's
+   * own padding, resolving against a 767px preview pane). The docs-site Playground
+   * sizes its iframe to the preview pane while the Studio pins its iframe to the
+   * slide box, so the two surfaces laid out different slides and disagreed about
+   * which ones overflow. See engineering/gotchas.md "The Playground and the Studio
+   * disagree about which slides overflow". */
+  --frame-inset-x:      calc(2.34375 * var(--_sec-1cqi, 1cqi));
+  --frame-inset-y:      calc(1.875   * var(--_sec-1cqi, 1cqi));
+  --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
 }
 
 /* ── The 12 typography tokens — GENERATED, not hand-written here ────────

@@ -227,8 +227,8 @@ section.scene[data-img-composition="clean"][data-orientation="square"] {
   grid-template-rows: auto auto;
   grid-template-areas: "figure" "text";
   align-content: center;
-  gap: 5cqh;
-  padding: 7cqh 0;
+  gap: calc(var(--_sec-1cqh, 1cqh) * 5);
+  padding: calc(var(--_sec-1cqh, 1cqh) * 7) 0;
 }
 section.scene[data-img-composition="clean"][data-orientation="portrait"] .scene-figure,
 section.scene[data-img-composition="clean"][data-orientation="square"] .scene-figure {
@@ -290,7 +290,7 @@ section.scene[data-img-composition="split"].mirror .scene-text::after { right: a
 section.scene[data-img-composition="split"][data-orientation="portrait"],
 section.scene[data-img-composition="split"][data-orientation="square"] {
   grid-template-columns: 1fr;
-  grid-template-rows: 46cqh 1fr;
+  grid-template-rows: calc(var(--_sec-1cqh, 1cqh) * 46) 1fr;
   grid-template-areas: "figure" "text";
 }
 section.scene[data-img-composition="split"][data-orientation="portrait"] .scene-text,
@@ -349,8 +349,8 @@ section.scene[data-img-composition="gallery"] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3.6cqh;
-  padding: 6cqh 6cqi;
+  gap: calc(var(--_sec-1cqh, 1cqh) * 3.6);
+  padding: calc(var(--_sec-1cqh, 1cqh) * 6) calc(var(--_sec-1cqi, 1cqi) * 6);
   background: var(--scene-matte);
 }
 /* The frame HUGS the poster's aspect: the content box takes --scene-aspect, the mat
