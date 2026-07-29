@@ -358,6 +358,26 @@ The honest limit of the pass: it proves a tier FIRES and CHANGES something. It c
 judge whether what it changed is *good* — that is the visual review's job, and no
 mechanical cell should be read as a claim about it.
 
+### One clip found off the roster, recorded because nothing else records it
+
+The clip oracle measures each component's FIRST gallery slide, so a clip on a later variant
+is outside it by construction. Scoring the roster to chase those was tried and reverted (see
+above), but one finding it surfaced is real and survives its removal:
+
+**`math`'s `.feature` slide clips horizontally at every non-landscape @size.** Measured at
+portrait: the hero equation's KaTeX `semantics` node runs **1444px past the right edge** of a
+1080px-wide frame — cut mid-formula. `math` is `{treatment: atomic, enrolled: false}` in
+`split-oracle.json`, so nothing paginates it; and pagination would not help anyway, because
+splitting divides a slide VERTICALLY and this overflow is on the other axis. The Fit Ladder
+has no rung for it: no reflow fits it, no split applies, so the export rings it.
+
+It is pre-existing, this branch neither caused nor worsened it, and the fix is a `math`
+layout change (scale or scroll the display equation at narrow families) that belongs to
+`math`, not to a change about instrumentation — #8 and #17 both point away from pulling it in
+here. So it is logged rather than fixed, and logged HERE rather than left to a roster the
+next person also reverts. **It is not in `family-overflow.json`**, and the record should not
+be read as saying `math` is clean at portrait.
+
 ## Square is a real family now — two layouts fixed, and one number that isn't
 
 Turning the tier on exposed layouts nobody had ever seen render. Two were wrong,
