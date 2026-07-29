@@ -2477,6 +2477,30 @@ of how many rows are here.
   first. Full post-mortem: `engineering/decisions/2026-07-02-preview-scale-zoom.md`
   (REJECTED).
 
+### The Studio says a feature "hit an unexpected error" on a tab that has been open a while
+
+- **Symptom:** a tab left open across a deploy — or any tab with a flaky connection — opens a
+  feature it has not used this session (Fabricate, an export, a `.lattice` import) and gets an
+  error card or a toast blaming the deck, the file, or "an unexpected error". Reproducible on
+  demand: 404 a not-yet-loaded `/_astro/*.js` chunk and click the feature.
+- **Cause:** the site serves only the CURRENT deployment (lattice.style is GitHub Pages;
+  Cloudflare Pages is PR previews only), so a previous deploy's hashed asset is gone. A page
+  that already loaded is fine — it runs the bundle it booted with — but a lazy `import()` for
+  something never fetched resolves to a 404. On iOS this is the ordinary case, not an edge one:
+  Safari restores tabs from memory without re-navigating, so a phone left on the Studio never
+  learns a deploy happened. A correctly-shipped fix (#1233) looked broken on a real device for
+  exactly this reason before anyone suspected the tab.
+- **What it is NOT:** a crash. And do not read the message as proof a deploy happened — a 404, a
+  403, a 500 and being OFFLINE all reject with byte-identical text in both engines (Chromium:
+  `Failed to fetch dynamically imported module`; WebKit: `Importing a module script failed.`).
+  `docs/src/lib/chunk-load.ts` recognizes the shape and says only what is observable; asserting a
+  cause here tells an offline user a falsehood.
+- **Recovery is a reload, and only a reload.** A retry cannot work for any cause: the browser's
+  module map caches the rejection for the document's lifetime (measured: zero further requests)
+  and `React.lazy` replays it. That is why the card offers one button.
+- **Testing an iOS fix on this site?** Use a Private tab or force a reload first — a restored tab
+  will happily keep serving you the pre-fix bundle while you conclude the fix failed.
+
 ### A long press on a button selects its label on iOS (Copy / Look Up callout)
 
 - **Symptom:** On a real iPhone/iPad, press-and-hold any app-chrome control — a Studio

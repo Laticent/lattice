@@ -432,6 +432,28 @@ in patch versions.
   gap this does NOT close (the preview flags 7 gallery slides the export flags 0, before
   and after).
 
+- **A feature that couldn't load told you the app had crashed, and offered a retry that could not
+  work (#1242).** The site serves only the current deployment (lattice.style is GitHub Pages;
+  Cloudflare Pages is PR previews), so a previous deploy's hashed asset is gone. A page that already
+  loaded is fine, but a tab left open — the ordinary case on iOS, where Safari restores tabs from
+  memory without re-navigating — hits a 404 the first time it lazy-loads something. `React.lazy`
+  rejected, the `ErrorBoundary` said *"Lattice Studio hit an unexpected error … Try again"*, and the
+  retry could not help: **measured, a retry issues zero further requests**, because the browser's
+  module map caches the rejection for the document's lifetime and `React.lazy` replays it. A failed
+  import is unretryable for every cause, which is why the card now offers exactly one action.
+  It says only what is observable — *"Lattice couldn't load part of the app. Reload to continue."* —
+  and **never claims a deploy happened**: a 404, a 403, a 500 and being OFFLINE reject with
+  byte-identical text in both engines, so asserting a cause tells a user in a tunnel a falsehood, on
+  a surface this PWA explicitly supports. When `navigator.onLine` is false it says so and asks for a
+  reconnect first. The same treatment reaches the paths that never touch an error boundary: Share's
+  twelve export rows funnel through one catch that used to echo the engine's raw text (leaking a
+  hashed asset URL into user-facing copy), the PDF build blamed the deck, and the `.lattice` import
+  blamed the user's file. Detection (`docs/src/lib/chunk-load.ts`) stays narrow — a module that loads
+  and then throws is a real bug and still gets the recoverable card. **No background version polling
+  and no proactive "new version" toast:** navigations are network-first so a reload always gets the
+  new build, a stale page is internally consistent, cross-page navigation fetches current assets, and
+  the service worker never caches a 404 — so the user is interrupted only where the alternative is a
+  stuck panel.
 - **The `--fluid` viewer was completely broken by the export shell's new `main`
   landmark — every slide rendered zero pixels wide.** The fluid viewer sizes each slide
   `min(100%, 100dvh * --fill-max-aspect)`, and that percentage resolves against the

@@ -95,4 +95,63 @@ describe('ErrorBoundary', () => {
 		expect(screen.getByText('custom: boom')).toBeInTheDocument();
 		spy.mockRestore();
 	});
+
+	// #1242 — a chunk that never loaded is not a crash, and the card must not claim a cause
+	// the error cannot establish.
+	describe('a lazy chunk that never loaded', () => {
+		function LoadFailure(): React.ReactElement {
+			// Verbatim iOS Safari wording — the tab-restore path this exists for is a phone.
+			throw new Error('Importing a module script failed.');
+		}
+
+		it('offers ONLY the action that can change the outcome, and that action reloads', () => {
+			const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const reload = vi.fn();
+			// jsdom's location.reload is not configurable-assignable; replace the accessor.
+			const original = window.location;
+			Object.defineProperty(window, 'location', { configurable: true, value: { ...original, reload } });
+
+			render(
+				<ErrorBoundary label="Lattice Studio">
+					<LoadFailure />
+				</ErrorBoundary>,
+			);
+			expect(screen.getByRole('alert')).toBeInTheDocument();
+			// "Try again" cannot work for ANY cause: the module map caches the rejection, so a
+			// retry issues zero requests and re-throws.
+			expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+			expect(screen.queryByText(/hit an unexpected error/i)).not.toBeInTheDocument();
+
+			// The BUTTON must actually reload — asserting only that a button labeled "Reload"
+			// exists let a swap to `reset` (which re-throws instantly) pass both tiers.
+			screen.getByRole('button', { name: 'Reload' }).click();
+			expect(reload).toHaveBeenCalledTimes(1);
+
+			Object.defineProperty(window, 'location', { configurable: true, value: original });
+			spy.mockRestore();
+		});
+
+		it('never tells the user a deploy happened — the error cannot establish that', () => {
+			const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(
+				<ErrorBoundary label="Lattice Studio">
+					<LoadFailure />
+				</ErrorBoundary>,
+			);
+			expect(screen.getByRole('alert').textContent ?? '').not.toMatch(/updated|newer version|shipped/i);
+			spy.mockRestore();
+		});
+
+		it('a genuine crash still gets the recoverable card, not the load-failure one', () => {
+			const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(
+				<ErrorBoundary label="The preview">
+					<Bomb armed={true} />
+				</ErrorBoundary>,
+			);
+			expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+			expect(screen.queryByText(/couldn't load part of the app/i)).not.toBeInTheDocument();
+			spy.mockRestore();
+		});
+	});
 });

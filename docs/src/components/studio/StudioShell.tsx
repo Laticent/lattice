@@ -21,6 +21,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
+import { messageForFailure } from '@/lib/chunk-load';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-captions';
@@ -1304,7 +1305,11 @@ export default function StudioShell({ options, components = [], lintVocab, slide
 			import('./lattice-file')
 				.then(({ readLatticeFile }) => readLatticeFile(file))
 				.then(({ source: src, title, comments }) => openImportedDeck(src, title, comments))
-				.catch((err) => notify(err?.message || 'Could not read that .lattice file.'));
+				// A stale tab fails HERE before it ever reads the file (#1242): the reader is a
+				// lazy chunk, and a superseded deploy's URL is gone. Blaming the .lattice file
+				// for that sends the user to re-export a perfectly good deck — name the real
+				// cause instead. This import is async, so it never reaches the ErrorBoundary.
+				.catch((err) => notify(messageForFailure(err, err?.message || 'Could not read that .lattice file.')));
 			return;
 		}
 		file.text().then(importDeckFromText).catch(() => notify('Could not read that file.'));
