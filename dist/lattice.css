@@ -5069,6 +5069,33 @@ section.inventory.editorial > .cell-stage > ul > li strong {
   font-weight: 700; color: var(--text-heading); padding-bottom: var(--sp-3xs);
 }
 
+/* A SPLIT body page has no sidebar, so it must not reserve a column for one.
+ *
+ * The stage above is `1fr 1.25fr`: column 1 is the accent-ruled insight, column 2 the
+ * items. The split envelope HOISTS a trailing key-insight to its own closing page (§0a),
+ * which is right — but it leaves the body pages holding an empty `1fr` where the
+ * blockquote used to be, so two-thirds of the slide renders blank beside a short column
+ * of rows. Seen on the real render the moment landscape splitting turned on: the
+ * `editorial` gallery slide went from one CLIPPED page to three pages with an empty left
+ * half, which is trading one defect for another.
+ *
+ * One column on a body page; the items take the width. `:not(:has(> blockquote))` would
+ * express it more directly, but the split role is the fact that actually changed and it
+ * is stamped on the section, so key on that — no support question, and it cannot
+ * misfire on an unsplit slide that happens to lack an insight.
+ *
+ * NOTE this is the third instance of the class the split note already named — "every
+ * DECORATION the shell implies has to be re-expressed per component-owned DOM, with
+ * nothing detecting a missed one" (#1193/#1194, the decorator-vocabulary follow-on). A
+ * generic rule cannot know a component's grid, so any component whose stage reserves a
+ * column for hoisted trailing material has this bug latent. */
+section.inventory.editorial.lat-split-native > .cell-stage {
+  grid-template-columns: 1fr;
+}
+section.inventory.editorial.lat-split-native > .cell-stage > ul {
+  grid-column: 1;
+}
+
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't
  * shear the shadow. Shadow has no horizontal extent, so no horizontal berth. */
