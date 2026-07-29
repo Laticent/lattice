@@ -688,7 +688,7 @@ describe('check-ownership', () => {
     test('a clean fixture roster + workflow raises nothing', () => {
       withFixture(
         {
-          'agents/scout.md': AGENT('sonnet'),
+          'agents/scout.md': AGENT('opus'),
           'workflows/w.js': "agent(p, { label: 'a', model: 'opus' })\n",
         },
         (errors) => assert.deepEqual(errors, [], errors.join('\n')),
@@ -704,12 +704,12 @@ describe('check-ownership', () => {
         assert.equal(only(e, 'has no YAML frontmatter').length, 1, 'missing frontmatter'));
       withFixture({ 'agents/a.md': '---\nname: a\n---\nbody\n' }, (e) =>
         assert.equal(only(e, 'declares no `model:`').length, 1, 'no model field'));
-      withFixture({ 'agents/a.md': AGENT('sonnet-5') }, (e) =>
-        assert.equal(only(e, 'which the harness does not accept').length, 1, 'bogus model name'));
+      withFixture({ 'agents/a.md': AGENT('opus-5') }, (e) =>
+        assert.equal(only(e, 'This repo runs every agent on `opus`').length, 1, 'bogus model name'));
     });
 
     test('roster: valid YAML shapes are accepted, and a README is not an agent', () => {
-      for (const form of ["'sonnet'", '"sonnet"', 'sonnet   ', 'sonnet # cheapest tier']) {
+      for (const form of ["'opus'", '"opus"', 'opus   ', 'opus # the only tier']) {
         withFixture({ 'agents/a.md': AGENT(form) }, (e) =>
           assert.deepEqual(e, [], `model: ${form} must be accepted, got: ${e.join('; ')}`));
       }
@@ -746,7 +746,7 @@ describe('check-ownership', () => {
       // missing field when the value is the real problem — found in review on #1187.
       const cases = [
         ["agent(p, { label: 'a' })", 'passes no `model:`'],
-        ["agent(p, { label: 'a', model: 'sonnet-5' })", "pins `model: 'sonnet-5'`, which the harness does not accept"],
+        ["agent(p, { label: 'a', model: 'opus-5' })", "pins `model: 'opus-5'` (HARD RULE #27)"],
         ["agent(p, { label: 'a', model: MODEL })", 'computes its `model:` rather than naming one'],
         ['agent(p, buildOpts())', 'cannot resolve statically'],
       ];
@@ -765,7 +765,7 @@ describe('check-ownership', () => {
       const bypasses = {
         'pin quoted inside the prompt text': "agent(`Return { label: 'x', model: 'opus' }`, { label: 'a' })",
         'pin in a nested object': "agent(p, { label: 'a', defaults: { label: 'b', model: 'opus' } })",
-        'pin belonging to an inner call': "agent(await agent(q, { label: 'in', model: 'sonnet' }), { label: 'out' })",
+        'pin belonging to an inner call': "agent(await agent(q, { label: 'in', model: 'opus' }), { label: 'out' })",
         'call through an alias': "const spawn = agent; spawn(p, { label: 'a' })",
         'optional call': "agent?.(p, { label: 'a' })",
         'meta.phases entry, not an options object': "const meta = { phases: [{ title: 'T', model: 'opus' }] }\nagent(p, { label: 'a' })",
@@ -795,12 +795,18 @@ describe('check-ownership', () => {
       }
     });
 
-    test('only three tiers exist — fable and anything above Opus are rejected', () => {
-      assert.deepEqual([...AGENT_MODELS].sort(), ['haiku', 'opus', 'sonnet'], 'the tier list is closed');
-      withFixture({ 'agents/a.md': AGENT('fable') }, (e) =>
-        assert.equal(only(e, 'which the harness does not accept').length, 1, 'roster must reject fable'));
-      withFixture({ 'agents/a.md': AGENT('opus'), 'workflows/w.js': "agent(p, { label: 'a', model: 'fable' })\n" }, (e) =>
-        assert.equal(only(e, "pins `model: 'fable'`").length, 1, 'workflow must reject fable'));
+    test('ONE tier exists — every model but opus is rejected by name', () => {
+      // Model tiering was tried and retired (2026-07-28). Re-widening this list is the
+      // exact regression the gate now exists to prevent, so it is asserted directly.
+      assert.deepEqual([...AGENT_MODELS], ['opus'], 'the tier list is closed at opus');
+      for (const retired of ['sonnet', 'haiku', 'fable']) {
+        withFixture({ 'agents/a.md': AGENT(retired) }, (e) =>
+          assert.equal(only(e, 'This repo runs every agent on `opus`').length, 1, `roster must reject ${retired}`));
+        withFixture(
+          { 'agents/a.md': AGENT('opus'), 'workflows/w.js': `agent(p, { label: 'a', model: '${retired}' })\n` },
+          (e) => assert.equal(only(e, `pins \`model: '${retired}'\``).length, 1, `workflow must reject ${retired}`),
+        );
+      }
     });
 
     test('option resolution accepts ONLY a module-level const, but aliases from any scope', () => {
@@ -827,17 +833,16 @@ describe('check-ownership', () => {
       }
     });
 
-    test('every shipped agent and workflow stage is pinned, and matches the routing doc', () => {
+    test('every shipped agent and workflow stage is pinned to opus, and listed in the policy doc', () => {
       const roster = fs.readdirSync(AGENTS_DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
-      assert.ok(roster.length > 0, '.claude/agents/ must not be empty — it IS the routing enforcement');
-      const doc = fs.readFileSync(path.join(ROOT, 'engineering', 'model-routing.md'), 'utf8');
+      assert.ok(roster.length > 0, '.claude/agents/ must not be empty — it IS the #27 enforcement surface');
+      const doc = fs.readFileSync(path.join(ROOT, 'engineering', 'model-policy.md'), 'utf8');
       for (const file of roster) {
         const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(path.join(AGENTS_DIR, file), 'utf8'));
         const model = declaredModel(fm[1]);
-        assert.ok(AGENT_MODELS.includes(model), `${file} pins unrecognized model "${model}"`);
+        assert.equal(model, 'opus', `${file} pins "${model}" — every agent runs on opus (HARD RULE #27)`);
         const name = file.replace(/\.md$/, '');
-        const row = new RegExp(`\\\\\`${name}\\\\\`[^|]*\\\\|\\\\s*${model}\\\\s*\\\\|`).test(doc);
-        assert.ok(row, `${name} (${model}) has no matching row in engineering/model-routing.md's roster table`);
+        assert.ok(doc.includes(`\`${name}\``), `${name} has no row in engineering/model-policy.md's roster table`);
       }
       for (const file of listWorkflowFiles(WORKFLOWS_DIR)) {
         const { error, calls } = agentCallPins(fs.readFileSync(file, 'utf8'));

@@ -89,10 +89,8 @@ body:
     id: model
     attributes:
       label: Model
-      description: "Recommended Claude model for this card (advisory — see engineering/workflow.md § Model recommendation). Leave blank if unsure. haiku = trivial/mechanical · sonnet = standard engineering · opus = complex/novel/high-blast-radius or prose craft."
+      description: "Every card is worked on Opus — the only tier this repo uses (engineering/model-policy.md). Advisory and optional; leave blank if you like."
       options:
-        - "model:haiku"
-        - "model:sonnet"
         - "model:opus"
     validations:
       required: false

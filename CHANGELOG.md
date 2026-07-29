@@ -165,6 +165,28 @@ in patch versions.
 
 ### Changed
 
+- **Model tiering is retired — every agent runs on Opus (HARD RULE #27 rewritten).**
+  The routing work from #1187 (nine agents pinned across Haiku/Sonnet/Opus, a
+  two-question "judgment or lookup" procedure, tier-split workflow stages) is reversed.
+  It did not survive contact with this codebase: what the procedure classified as cheap
+  *lookup* — where does X live, does this claim hold, why is this gate red — needs the
+  cascade, the token system, and a dozen HARD RULES in context to answer correctly
+  rather than plausibly, and a downshifted agent fails in the direction the machine
+  gates cannot catch (well-formed, confident, wrong). `engineering/model-routing.md` is
+  replaced by `engineering/model-policy.md`; all nine `.claude/agents/` and all five
+  `design-competition` stages pin `opus`; the visual sweep's maker/checker tier split is
+  gone. **The gate stays, narrowed**: `checkAgentModelPinning` keeps its acorn AST
+  parsing and mutation-tested soundness, with `AGENT_MODELS` cut to `['opus']`, so
+  `sonnet` / `haiku` / `fable` are now rejected *by name* — the pin is still required,
+  because a policy that relies on inheriting the session's model is an accident of the
+  current `/model` setting rather than a property of the repo. `effort` is untouched and
+  is now the only cost lever: spend less by spawning fewer agents at the right effort,
+  never by a cheaper model. Card labels collapse with it — `model:haiku` and
+  `model:sonnet` leave `.github/labels.json` and the work-item form, leaving `model:opus`
+  as a single-valued, advisory axis (`sync-labels` is add-only, so retired labels linger
+  on existing cards until cleared by hand). Rationale and what would have to be true to
+  revisit it: `engineering/decisions/2026-07-28-model-tiering-retirement.md`.
+
 - **The deck container is an `<article class="lattice">`, not a `<div>`.** A deck is a
   self-contained composition, which is what `<article>` means; the `<main>` landmark
   stays the document shell's job, because `<main>` says *where* the primary content is
